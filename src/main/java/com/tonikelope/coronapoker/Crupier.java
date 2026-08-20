@@ -1444,10 +1444,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final ConcurrentHashMap<String, Boolean> rabbit_players = new ConcurrentHashMap<>();
     // RABBIT requests are processed asynchronously and a malicious/retrying peer can resend a
     // valid frame with the same counter. The fee is money, so each exact counter is idempotent
-    // per nick for the lifetime of the current hand. We intentionally keep a set rather than
-    // only the greatest value: in mode 3, counters 2 and 3 are two different fees and their
-    // worker tasks may arrive in either order. The set is cleared with rabbit_players at reset.
-    private final ConcurrentHashMap<String, Set<Integer>> rabbit_applied_counts = new ConcurrentHashMap<>();
+    // Per-hand Rabbit sequence and idempotency state. Requests never carry count or fee;
+    // the host assigns the sequence and every peer verifies it against this reducer.
+    private volatile RabbitFeeLedger rabbit_fee_ledger = null;
 
     // ConcurrentHashMap (not HashMap): written under lock_contabilidad (auditorCuentas,
     // updateExitPlayers) but ITERATED outside that lock, under SQL_LOCK, in sqlNewHand/
@@ -1671,7 +1670,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // (readyForNextHand), before the HAND_READY barrier, so without this latch a rabbit request
     // arriving in that inter-hand gap would be rejected and the fee would diverge between peers (a
     // false DIVERGENT). Set when the finishing hand is captured (readyForNextHand) and closed once
-    // its bote_sobrante is consumed (NUEVA_MANO). See rabbitBelongsToCurrentHand.
+    // its bote_sobrante is consumed (NUEVA_MANO).
     private volatile byte[] rabbit_fee_window_hand_id = null;
     // HAND_ID whose showdown explicitly opened rabbit hunting. It stays latched
     // through the between-hands fee window and is cleared by NUEVA_MANO.
@@ -5595,16 +5594,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return shouldApplyAsyncSequence(incoming, applied);
     }
 
-    /**
-     * Returns whether a RABBIT counter may mutate the money state for a player.
-     * Counters are scoped to the current hand by rabbit_applied_counts.clear()
-     * at hand reset. The exact-value check is deliberately not monotonic: a
-     * count-3 task may run before count 2, but both fees still have to apply.
-     */
-    static boolean shouldAcceptRabbitCount(int incoming, Set<Integer> applied) {
-        return incoming > 0 && (applied == null || !applied.contains(incoming));
-    }
-
     static void clearImmediateRebuyOnDenied(Map<String, Integer> rebuyNow, String nick) {
         applyCanonicalRemoteRebuy(rebuyNow, nick, 0);
     }
@@ -6518,6 +6507,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             synchronized (getLock_contabilidad()) {
                 this.rabbit_open_hand_id = this.current_hand_id == null
                         ? null : this.current_hand_id.clone();
+                this.rabbit_fee_ledger = this.rabbit_open_hand_id == null ? null
+                        : new RabbitFeeLedger(this.rabbit_open_hand_id, GameFrame.RABBIT_HUNTING,
+                                settlementAmountToCents(this.ciega_pequeña),
+                                settlementAmountToCents(this.ciega_grande));
             }
         }
         synchronized (protocol_state_lock) {
@@ -8448,50 +8441,71 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    public void RABBIT_HANDLER(String nick, int conta_rabbit) {
-        RABBIT_HANDLER(nick, conta_rabbit,
-                rabbitRelayHandIdField(this.current_hand_id, this.rabbit_fee_window_hand_id));
-    }
-
-    public void RABBIT_HANDLER(String nick, int conta_rabbit, String handIdB64) {
-
-        final byte[] requestedHandId;
-        try {
-            requestedHandId = handIdB64 == null || "*".equals(handIdB64)
-                    ? null : Base64.getDecoder().decode(handIdB64);
-        } catch (IllegalArgumentException ex) {
-            LOGGER.log(Level.WARNING, "Dropping RABBIT with malformed hand id from {0}", nick);
+    public void REQUEST_RABBIT(String nick) {
+        byte[] hand;
+        synchronized (getLock_contabilidad()) {
+            hand = this.rabbit_open_hand_id == null ? null : this.rabbit_open_hand_id.clone();
+        }
+        if (hand == null || nick == null) {
             return;
         }
+        byte[] nonce = new byte[RabbitFeeLedger.NONCE_BYTES];
+        new java.security.SecureRandom().nextBytes(nonce);
+        RabbitFeeLedger.Request request = new RabbitFeeLedger.Request(hand, nick, nonce);
+        if (GameFrame.getInstance().isPartida_local()) {
+            RABBIT_REQUEST_HANDLER(request);
+        } else {
+            sendGAMECommandToServer("RABBIT_REQ#"
+                    + Base64.getEncoder().encodeToString(request.encode()));
+        }
+    }
 
+    public void RABBIT_REQUEST_HANDLER(RabbitFeeLedger.Request request) {
+        if (!GameFrame.getInstance().isPartida_local()) {
+            return;
+        }
         Helpers.threadRun(() -> {
-
+            RabbitFeeLedger.Result<RabbitFeeLedger.Authorization> result;
             synchronized (lock_rabbit) {
-
-                // RABBIT is an asynchronous money operation. A retransmitted or maliciously
-                // duplicated frame must not charge the same counter twice. Do not reject a
-                // merely older value: mode 3 charges count 2 (small blind) and count 3 (big
-                // blind), so cached-pool reordering must still apply both distinct counters.
-                Set<Integer> appliedCounts = nick == null ? null
-                        : rabbit_applied_counts.computeIfAbsent(nick, ignored -> new HashSet<>());
-                if (nick == null || !shouldAcceptRabbitCount(conta_rabbit, appliedCounts)) {
-                    LOGGER.log(Level.WARNING, "Dropping duplicate/invalid RABBIT for {0} (count {1})",
-                            new Object[]{nick, conta_rabbit});
+                if (rabbit_fee_ledger == null || !rabbitFeeMayApply(request.handId(),
+                        this.current_hand_id, this.rabbit_fee_window_hand_id, this.rabbit_open_hand_id)) {
+                    LOGGER.log(Level.WARNING, "Rejecting stale Rabbit request for {0}", request.playerId());
                     return;
+                }
+                result = rabbit_fee_ledger.authorize(request);
+                if (!result.isOk()) {
+                    LOGGER.log(Level.WARNING, "Rejecting Rabbit request: {0}", result.error());
+                    return;
+                }
+                RabbitFeeLedger.Authorization authorization = result.value();
+                RABBIT_AUTHORIZATION_HANDLER(authorization);
+                broadcastGAMECommandFromServer("RABBIT_AUTH#"
+                        + Base64.getEncoder().encodeToString(authorization.encode()), null);
+            }
+        });
+    }
+
+    public void RABBIT_AUTHORIZATION_HANDLER(RabbitFeeLedger.Authorization authorization) {
+
+        final byte[] requestedHandId = authorization.request().handId();
+        final String nick = authorization.request().playerId();
+        final int conta_rabbit = authorization.count();
+
+        synchronized (lock_rabbit) {
+
+                if (rabbit_fee_ledger == null) {
+                    throw new IllegalArgumentException("Rabbit authorization outside an open fee window");
                 }
                 rabbit_players.put(nick, true); // Marked PENDING so the server can track who's been processed.
                 try {
 
-                    // The fee is decided by the counter carried on the wire, chosen by the
-                    // requester. Having each peer keep its own counter (so a modified client
-                    // couldn't discount its own fee) was tried and was worse: a peer joining or
-                    // recovering mid-game starts its counter at zero, charges a different fee
-                    // than everyone else, and money/close-consensus diverge every hand from
-                    // there. The wire number is identical for everyone regardless, which is
-                    // what actually matters here.
+                    // The requester supplies only hand/player/nonce. Every peer verifies the
+                    // host-assigned exact sequence and independently derives this fee.
                     Player jugador = nick2player.get(nick);
 
-                    if (jugador != null) {
+                    if (jugador == null) {
+                        throw new IllegalArgumentException("Rabbit authorization for unknown player");
+                    }
                         double coste_rabbit = 0;
 
                         synchronized (getLock_contabilidad()) {
@@ -8502,45 +8516,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             if (!rabbitFeeMayApply(requestedHandId,
                                     this.current_hand_id, this.rabbit_fee_window_hand_id,
                                     this.rabbit_open_hand_id)) {
-                                LOGGER.log(Level.WARNING, "Dropping stale RABBIT for {0}", nick);
+                                throw new IllegalArgumentException("stale Rabbit authorization");
+                            }
+                            RabbitFeeLedger.Acceptance acceptance = rabbit_fee_ledger.accept(authorization);
+                            if (acceptance == RabbitFeeLedger.Acceptance.DUPLICATE) {
                                 return;
                             }
-                            // Only a request that still belongs to the open hand consumes its
-                            // deduplication slot. Otherwise a stale task could suppress a valid
-                            // request with the same counter in the next hand.
-                            appliedCounts.add(conta_rabbit);
+                            if (acceptance != RabbitFeeLedger.Acceptance.ACCEPTED) {
+                                throw new IllegalArgumentException("invalid Rabbit sequence or fee");
+                            }
                             // The stack is read INSIDE the lock, same pattern as the misdeal path:
                             // reading it outside and writing inside would open a window where the
                             // showdown pays out winnings and this subtraction overwrites the
                             // player's stack with the stale value, wiping out the pot they just won.
                             double stack = jugador.getStack();
 
-                            if (GameFrame.RABBIT_HUNTING == 2 && conta_rabbit > 1) {
-                                coste_rabbit = ciega_pequeña;
-                                if (Helpers.doubleSecureCompare(stack, coste_rabbit) >= 0) {
-                                    bote_sobrante += coste_rabbit;
-                                    jugador.setStack(stack - coste_rabbit);
-                                } else {
-                                    coste_rabbit = 0f;
-                                }
-                            } else if (GameFrame.RABBIT_HUNTING == 3) {
-                                if (conta_rabbit == 2) {
-                                    coste_rabbit = ciega_pequeña;
-                                    if (Helpers.doubleSecureCompare(stack, coste_rabbit) >= 0) {
-                                        bote_sobrante += coste_rabbit;
-                                        jugador.setStack(stack - coste_rabbit);
-                                    } else {
-                                        coste_rabbit = 0f;
-                                    }
-                                } else if (conta_rabbit > 2) {
-                                    coste_rabbit = ciega_grande;
-                                    if (Helpers.doubleSecureCompare(stack, coste_rabbit) >= 0) {
-                                        bote_sobrante += coste_rabbit;
-                                        jugador.setStack(stack - coste_rabbit);
-                                    } else {
-                                        coste_rabbit = 0f;
-                                    }
-                                }
+                            coste_rabbit = authorization.feeCents() / 100d;
+                            if (Helpers.doubleSecureCompare(stack, coste_rabbit) >= 0) {
+                                bote_sobrante += coste_rabbit;
+                                jugador.setStack(stack - coste_rabbit);
+                            } else {
+                                coste_rabbit = 0f;
                             }
                         }
 
@@ -8548,6 +8544,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // fee application have succeeded. This prevents a stale worker from
                         // uncovering the new hand's board after NUEVA_MANO wins the race.
                         if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
+                            GameFrame.getInstance().getLocalPlayer().setConta_rabbit(conta_rabbit);
                             destaparRabbitCards();
                         }
 
@@ -8621,33 +8618,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         }
 
-                        // Notify the server or the other players, as applicable.
-                        String comando;
-                        try {
-                            // Stamp the hand id recipients gate on: the current hand's, or the
-                            // just-finished hand's fee window in the between-hands gap. Relaying "*"
-                            // here (as the host does between hands, once current_hand_id is cleared)
-                            // would be REJECTED by the receiver and diverge stacks -> false
-                            // DIVERGENT next hand. See rabbitRelayHandIdField.
-                            String handIdField = Base64.getEncoder().encodeToString(requestedHandId);
-                            comando = "RABBIT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
-                                    + String.valueOf(conta_rabbit) + "#" + handIdField;
-
-                            if (GameFrame.getInstance().isPartida_local()) {
-                                // If we're the server, relay the command to everyone.
-                                broadcastGAMECommandFromServer(comando, nick);
-
-                            } else if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
-                                // If we're a client and it was us who requested the rabbit,
-                                // send the command to the server.
-                                sendGAMECommandToServer(comando);
-                            }
-
-                        } catch (Exception ex) {
-                            LOGGER.log(Level.SEVERE, null, ex);
-                        }
-                    }
-
+                } catch (IllegalArgumentException ex) {
+                    throw ex;
                 } catch (Exception ex) {
                     // The finally below always clears the PENDING mark: if a failure in between
                     // left the nick stuck, anyone waiting for requests to finish processing
@@ -8666,9 +8638,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         lock_pausa_barra.notifyAll();
                     }
                 }
-            }
-
-        });
+        }
 
     }
 
@@ -8990,7 +8960,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         rabbit_players.clear();
-        rabbit_applied_counts.clear();
         this.iwtsth = false;
         this.iwtsthing = false;
         this.iwtsthing_request = false;
@@ -9149,6 +9118,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // unbalance this hand's bote_sobrante).
             this.rabbit_fee_window_hand_id = null;
             this.rabbit_open_hand_id = null;
+            this.rabbit_fee_ledger = null;
         }
         this.bote = new HandPot(0f);
         this.beneficio_bote_principal = null;
@@ -20139,8 +20109,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return PauseTick.HOLD;
     }
 
-    // True if at least one rabbit-hunting request is being processed on THIS
-    // machine (rabbit_players marks PENDING=true while RABBIT_HANDLER runs). The
+    // True if at least one rabbit-hunting authorization is being processed on THIS
+    // machine (rabbit_players marks PENDING=true while its handler runs). The
     // pause bar freezes meanwhile so showdown doesn't close mid reveal/charge,
     // keeping every peer on the same hand.
     public boolean isRabbitProcessing() {
@@ -20206,48 +20176,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      */
     public static boolean shouldAbortRunItTwiceSideBDeal(boolean terminationPending, boolean finTransmision) {
         return terminationPending || finTransmision;
-    }
-
-    // True if a RABBIT command (with its base64 hand id, which may be missing on
-    // older-version peers) should apply on THIS peer. Replaces the isShow_time()
-    // guard on RABBIT reception: the charge/reveal applies the same on every
-    // machine even if one's bar already closed, so the fee doesn't diverge between
-    // peers (which used to trigger a false DIVERGENT on the next hand).
-    //
-    // Accepted only if showdown explicitly latched rabbit_open_hand_id and that id is:
-    //   - still the current hand's (current_hand_id), or
-    //   - the just-finished hand's, whose bote_sobrante hasn't YET been folded into
-    //     the next hand's pot (rabbit_fee_window_hand_id). current_hand_id is
-    //     cleared early (readyForNextHand :7759, before the HAND_READY barrier), so
-    //     this second term covers the between-hands gap where applying the fee is
-    //     still correct.
-    // A rabbit from a hand that's fully closed already (its bote_sobrante already
-    // consumed) is rejected — applying it would unbalance the pot.
-    public boolean rabbitBelongsToCurrentHand(String handIdB64) {
-        byte[] cmd = null;
-        if (handIdB64 != null && !handIdB64.isEmpty() && !"*".equals(handIdB64)) {
-            try {
-                cmd = Base64.getDecoder().decode(handIdB64);
-            } catch (Exception e) {
-                cmd = null;
-            }
-        }
-        return rabbitFeeMayApply(cmd, this.current_hand_id,
-                this.rabbit_fee_window_hand_id, this.rabbit_open_hand_id);
-    }
-
-    // The hand id to stamp on a RABBIT command we emit/relay: the current hand's, or --
-    // in the between-hands window where current_hand_id is already cleared
-    // (readyForNextHand) but the just-finished hand can still take the fee -- the
-    // rabbit_fee_window_hand_id, which peers accept via their own fee window. NEVER "*"
-    // while either id exists: the receiver's gate REJECTS "*" (rabbitBelongsToCurrentHand
-    // decodes it to null; it only falls back to show_time when the field is ABSENT), so
-    // relaying "*" between hands would leave the fee uncharged on the other clients and
-    // diverge their stacks -> false DIVERGENT next hand. "*" only when the hand is fully
-    // closed (both ids null), where recipients correctly reject it (the pot is consumed).
-    public static String rabbitRelayHandIdField(byte[] current_hand_id, byte[] rabbit_fee_window_hand_id) {
-        byte[] id = (current_hand_id != null) ? current_hand_id : rabbit_fee_window_hand_id;
-        return (id != null) ? Base64.getEncoder().encodeToString(id) : "*";
     }
 
     public void pausaConBarra(int tiempo) {

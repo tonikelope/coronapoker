@@ -313,12 +313,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
-    public void incrementContaRabbit() {
-        synchronized (rabbit_lock) {
-            conta_rabbit++;
-        }
-    }
-
     public void setActionBackground(Color color) {
 
         Helpers.GUIRun(() -> {

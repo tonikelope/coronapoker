@@ -1283,8 +1283,8 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
         if (rabbit == RABBIT_TAPADA && GameFrame.getInstance().getCrupier().isShow_time()) {
             Helpers.threadRun(() -> {
-                GameFrame.getInstance().getLocalPlayer().incrementContaRabbit();
-                GameFrame.getInstance().getCrupier().RABBIT_HANDLER(GameFrame.getInstance().getLocalPlayer().getNickname(), GameFrame.getInstance().getLocalPlayer().getConta_rabbit());
+                GameFrame.getInstance().getCrupier().REQUEST_RABBIT(
+                        GameFrame.getInstance().getLocalPlayer().getNickname());
             });
         } else if (SwingUtilities.isLeftMouseButton(evt) && isTapada() && iwtsth_candidate != null) {
 

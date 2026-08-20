@@ -3255,23 +3255,23 @@ public class WaitingRoomFrame extends JFrame {
                                                             case "RABBITRULE":
                                                                 GameFrame.RABBIT_HUNTING = Integer.parseInt(partes_comando[3]);
                                                                 break;
-                                                            case "RABBIT":
+                                                            case "RABBIT_AUTH":
                                                                 try {
-                                                                    // Gated by HAND_ID (not by show_time): we apply the rabbit if it
-                                                                    // belongs to the hand in progress, so the fee/reveal stays
-                                                                    // deterministic with the host and the rest of the peers (avoids a
-                                                                    // money divergence -> false DIVERGENT). Falls back to show_time if
-                                                                    // the peer doesn't send HAND_ID (older version).
-                                                                    String rabbitHid = partes_comando.length > 5 ? partes_comando[5] : null;
-                                                                    boolean acceptRabbit = (rabbitHid != null)
-                                                                            ? GameFrame.getInstance().getCrupier().rabbitBelongsToCurrentHand(rabbitHid)
-                                                                            : GameFrame.getInstance().getCrupier().isShow_time();
-                                                                    if (acceptRabbit) {
-                                                                        String rNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                        GameFrame.getInstance().getCrupier().RABBIT_HANDLER(
-                                                                                rNick, Integer.parseInt(partes_comando[4]), rabbitHid);
+                                                                    if (partes_comando.length != 4) {
+                                                                        throw new IllegalArgumentException("wrong Rabbit authorization arity");
                                                                     }
-                                                                } catch (Exception e) {
+                                                                    RabbitFeeLedger.Result<RabbitFeeLedger.Authorization> decoded
+                                                                            = RabbitFeeLedger.Authorization.decode(
+                                                                                    Base64.getDecoder().decode(partes_comando[3]));
+                                                                    if (!decoded.isOk()) {
+                                                                        throw new IllegalArgumentException(decoded.error());
+                                                                    }
+                                                                    GameFrame.getInstance().getCrupier()
+                                                                            .RABBIT_AUTHORIZATION_HANDLER(decoded.value());
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE, "Invalid critical Rabbit authorization; closing connection", ex);
+                                                                    exit = true;
+                                                                    closeClientSocket();
                                                                 }
                                                                 break;
                                                             case "MEGAPACKET":

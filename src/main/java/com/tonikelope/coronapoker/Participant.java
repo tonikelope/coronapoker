@@ -1861,23 +1861,20 @@ public class Participant implements Runnable {
                                                 GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(nick);
                                             }
                                             break;
-                                        case "RABBIT": {
-                                            // Gated by HAND_ID instead of show_time: apply the rabbit
-                                            // hunt (fee + reveal) if it belongs to the current hand, so
-                                            // it's deterministic across ALL peers and money doesn't
-                                            // diverge (which used to trigger a false DIVERGENT on the
-                                            // next hand). The host used to apply it ALWAYS (no guard),
-                                            // while a client whose show_time had already closed would
-                                            // discard it -> asymmetry. Falls back to show_time only if
-                                            // the peer doesn't send a HAND_ID (older client version).
-                                            // Also guards against a rabbit request from a past hand.
-                                            String rabbitHid = partes_comando.length > 5 ? partes_comando[5] : null;
-                                            boolean acceptRabbit = (rabbitHid != null)
-                                                    ? GameFrame.getInstance().getCrupier().rabbitBelongsToCurrentHand(rabbitHid)
-                                                    : GameFrame.getInstance().getCrupier().isShow_time();
-                                            if (acceptRabbit) {
-                                                GameFrame.getInstance().getCrupier().RABBIT_HANDLER(
-                                                        nick, Integer.parseInt(partes_comando[4]), rabbitHid);
+                                        case "RABBIT_REQ": {
+                                            try {
+                                                if (partes_comando.length != 4) {
+                                                    throw new IllegalArgumentException("wrong Rabbit request arity");
+                                                }
+                                                RabbitFeeLedger.Result<RabbitFeeLedger.Request> decoded
+                                                        = RabbitFeeLedger.Request.decode(Base64.getDecoder().decode(partes_comando[3]));
+                                                if (!decoded.isOk() || !nick.equals(decoded.value().playerId())) {
+                                                    throw new IllegalArgumentException("invalid Rabbit request identity or wire");
+                                                }
+                                                GameFrame.getInstance().getCrupier().RABBIT_REQUEST_HANDLER(decoded.value());
+                                            } catch (Exception ex) {
+                                                LOGGER.log(Level.SEVERE, "Invalid critical Rabbit request from " + nick + "; closing connection", ex);
+                                                exitAndCloseSocket();
                                             }
                                             break;
                                         }

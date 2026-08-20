@@ -36,13 +36,8 @@ import com.drew.imaging.ImageProcessingException;
 import static com.tonikelope.coronapoker.Card.BARAJAS;
 import static com.tonikelope.coronapoker.GameFrame.WAIT_QUEUES;
 import java.awt.Color;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.ObjectInputFilter;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
@@ -85,52 +80,6 @@ import javax.swing.JLabel;
 public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context.DealerView {
 
     private static final Logger LOGGER = Logger.getLogger(Crupier.class.getName());
-
-    /**
-     * Whitelist for deserializing the RECOVERDATA payload sent by the host.
-     * Without it, ObjectInputStream.readObject accepts any Serializable on the
-     * classpath, letting a hostile host send a gadget chain (jna, jaxb,
-     * sqlite-jdbc, soundlibs...) for RCE on any client that requests recovery.
-     *
-     * Only the map's legitimate shape is allowed: HashMap root, String keys,
-     * values of type String/Integer/Long/Float/Double/Boolean (see
-     * sqlRecoverGameInfo / sqlRecoverHand). Limits: 10 MB total, depth 20, 10k
-     * refs/array (the largest real payload seen is tens of KB). Anything else —
-     * java.io.File, java.lang.Runtime, Commons/jaxb gadgets, etc. — is
-     * rejected.
-     */
-    static final ObjectInputFilter RECOVERY_OBJECT_FILTER = ObjectInputFilter.Config.createFilter(
-            "maxbytes=" + (10 * 1024 * 1024) + ";"
-            + "maxdepth=20;maxrefs=10000;maxarray=10000;"
-            // HashMap root + its internal nested classes (Node, Set views, etc.)
-            + "java.util.HashMap$**;"
-            + "java.util.HashMap;"
-            // Map.Entry (and its array): HashMap.writeObject emits these internally as buckets.
-            + "java.util.Map$Entry;"
-            + "java.util.Map$**;"
-            // Numeric wrappers and String -- the only legitimate value types in the map.
-            + "java.lang.String;"
-            + "java.lang.Number;"
-            + "java.lang.Integer;"
-            + "java.lang.Long;"
-            + "java.lang.Float;"
-            + "java.lang.Double;"
-            + "java.lang.Boolean;"
-            // Primitive types (Java references these by name when deserializing the `int`
-            // etc. fields inside the wrappers).
-            + "int;long;float;double;boolean;byte;char;short;void;"
-            // DENY everything else (gadgets in jna, jaxb, sqlite-jdbc, soundlibs...).
-            + "!*"
-    );
-
-    /**
-     * Exposed for the AAA test that verifies the filter accepts legitimate
-     * RECOVERY payloads and rejects everything else
-     * (RecoveryObjectFilterSmoke).
-     */
-    public static ObjectInputFilter getRecoveryObjectFilter() {
-        return RECOVERY_OBJECT_FILTER;
-    }
 
     /**
      * Mutates action[] in place into a synthetic FOLD. Shared contract for the
@@ -7088,6 +7037,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return;
             }
 
+            RecoverySnapshotV1.Result localSnapshot = RecoverySnapshotV1.fromMap(map, GameFrame.UGI);
+            if (!localSnapshot.isOk()) {
+                LOGGER.log(Level.SEVERE, "Invalid local recovery snapshot: {0}", localSnapshot.error());
+                saltar_primera_mano = true;
+                return;
+            }
+            map = localSnapshot.value().toMap();
+
             if (map.get("start") != null) {
                 GameFrame.GAME_START_TIMESTAMP = (long) map.get("start");
             }
@@ -7331,6 +7288,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             enviarDatosClaveRecuperados(pendientes, map);
         } else {
             map = recibirDatosClaveRecuperados();
+            if (map == null) {
+                LOGGER.log(Level.SEVERE, "RECOVERDATA rejected; recovery state remains unapplied");
+                saltar_primera_mano = true;
+                return;
+            }
             if (map != null && map.get("hand_id") != null) {
                 this.sqlite_id_hand = (int) map.get("hand_id");
             }
@@ -11492,38 +11454,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     String comando = this.received_commands.poll();
                     try {
-                        String[] partes = comando.split("#");
+                        String[] partes = comando.split("#", -1);
 
-                        if (partes.length >= 4 && partes[2].equals("RECOVERDATA")) {
-
-                            ObjectInputStream in = null;
+                        if (partes.length == 4 && partes[2].equals("RECOVERDATA")) {
                             try {
                                 ok = true;
-                                ByteArrayInputStream byteIn = new ByteArrayInputStream(
-                                        Base64.getDecoder().decode(partes[3]));
-                                in = new ObjectInputStream(byteIn);
-                                // ANTI-RCE: install the whitelist BEFORE readObject — otherwise a
-                                // hostile host could send a gadget chain and run arbitrary code on
-                                // the recovering client.
-                                in.setObjectInputFilter(RECOVERY_OBJECT_FILTER);
-                                map = (HashMap<String, Object>) in.readObject();
-
-                                Integer hand_id = this.getHandIdFromUGI(GameFrame.UGI);
-
-                                map.put("hand_id", hand_id != null ? hand_id : -1);
-
-                            } catch (IOException ex) {
-                                LOGGER.log(Level.SEVERE, null, ex);
-                            } catch (ClassNotFoundException ex) {
-                                LOGGER.log(Level.SEVERE, null, ex);
-                            } finally {
-                                if (in != null) {
-                                    try {
-                                        in.close();
-                                    } catch (IOException ex) {
-                                        LOGGER.log(Level.SEVERE, null, ex);
-                                    }
+                                byte[] wire = Base64.getDecoder().decode(partes[3]);
+                                RecoverySnapshotV1.Result decoded = RecoverySnapshotV1.decode(wire, GameFrame.UGI);
+                                if (decoded.isOk()) {
+                                    map = decoded.value().toMap();
+                                } else {
+                                    LOGGER.log(Level.SEVERE, "RECOVERDATA rejected: {0}", decoded.error());
                                 }
+                            } catch (IllegalArgumentException ex) {
+                                ok = true;
+                                LOGGER.log(Level.SEVERE, "RECOVERDATA has invalid Base64", ex);
                             }
 
                         } else if (partes.length >= 3 && partes[2].equals("RECOVERDATA")) {
@@ -11707,6 +11652,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void enviarDatosClaveRecuperados(ArrayList<String> pendientes, HashMap<String, Object> datos) {
 
+        RecoverySnapshotV1.Result snapshot = RecoverySnapshotV1.fromMap(datos, GameFrame.UGI);
+        if (!snapshot.isOk()) {
+            LOGGER.log(Level.SEVERE, "Refusing to send invalid RECOVERDATA: {0}", snapshot.error());
+            return;
+        }
+        String payload = Base64.getEncoder().encodeToString(snapshot.value().encode());
+
         int id = Helpers.CSPRNG_GENERATOR.nextInt();
         byte[] iv = new byte[16];
         Helpers.CSPRNG_GENERATOR.nextBytes(iv);
@@ -11714,13 +11666,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         long recoverDeadlineMs = System.currentTimeMillis() + BROADCAST_PROGRESS_TIMEOUT_MS;
         long recoverHardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
         do {
-            ObjectOutputStream out = null;
             try {
-                ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
-                out = new ObjectOutputStream(byteOut);
-                out.writeObject(datos);
                 String command = "GAME#" + String.valueOf(id) + "#RECOVERDATA#"
-                        + Base64.getEncoder().encodeToString(byteOut.toByteArray());
+                        + payload;
 
                 for (Player jugador : GameFrame.getInstance().getJugadores()) {
                     if (pendientes.contains(jugador.getNickname())) {
@@ -11753,15 +11701,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     recoverDeadlineMs = recoverDl[0];
                     recoverHardCapMs = recoverDl[1];
                 }
-            } catch (IOException ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
-            } finally {
-                try {
-                    if (out != null) {
-                        out.close();
-                    }
-                } catch (IOException ex) {
-                }
+            } catch (RuntimeException ex) {
+                LOGGER.log(Level.SEVERE, "Failed to send RECOVERDATA", ex);
             }
 
         } while (!pendientes.isEmpty());

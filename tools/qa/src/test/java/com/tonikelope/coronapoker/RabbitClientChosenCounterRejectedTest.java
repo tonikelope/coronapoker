@@ -16,6 +16,6 @@ public class RabbitClientChosenCounterRejectedTest {
         assertFalse(RabbitFeeLedger.Request.decode(withClientCounter).isOk());
     }
 
-    static byte[] hand(int marker) { byte[] out = new byte[32]; out[0] = (byte) marker; return out; }
+    static byte[] hand(int marker) { byte[] out = new byte[RabbitFeeLedger.HAND_BYTES]; out[0] = (byte) marker; return out; }
     static byte[] nonce(int marker) { byte[] out = new byte[16]; out[0] = (byte) marker; return out; }
 }

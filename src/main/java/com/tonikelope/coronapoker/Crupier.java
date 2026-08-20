@@ -3634,8 +3634,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (revealPlayer == null) {
                 return "*";
             }
-            int firstCard = revealPlayer.getHoleCard1().getCartaComoEntero();
-            int secondCard = revealPlayer.getHoleCard2().getCartaComoEntero();
+            int firstCard = revealPlayer.getHoleCard1().getCardIndex();
+            int secondCard = revealPlayer.getHoleCard2().getCardIndex();
             if (firstCard < 0 || secondCard < 0 || firstCard == secondCard) {
                 return "*";
             }
@@ -20271,7 +20271,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         HashSet<Integer> occupied = new HashSet<>();
         for (Card boardCard : GameFrame.getInstance().getCartas_comunes()) {
             if (boardCard != null && !boardCard.isTapada()) {
-                int id = boardCard.getCartaComoEntero();
+                int id = boardCard.getCardIndex();
                 if (id >= 0 && id <= 51) {
                     occupied.add(id);
                 }

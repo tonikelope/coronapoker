@@ -965,6 +965,15 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     }
 
     /**
+     * @return this card encoded as the canonical 0-51 index used by the SRA
+     * protocol and wire proofs, or -1 if the card is unset
+     */
+    public int getCardIndex() {
+        int oneBased = getCartaComoEntero();
+        return oneBased >= 1 && oneBased <= 52 ? oneBased - 1 : -1;
+    }
+
+    /**
      * @return this card's rank (2-14, ace high), or -1 if unset
      */
     public int getValorNumerico() {

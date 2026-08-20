@@ -1013,15 +1013,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         ALLOW, WAIT, REJECT
     }
 
-    /**
-     * Pure, fail-closed policy used by the community-unlock gate.
-     */
+    /** Pure, fail-closed policy for every point at which a deck may affect play. */
     public static ShuffleProofGateDecision shuffleProofGateDecision(int phase, byte[] megapacket,
             byte[] expect, byte[] verified,
             byte[] failed) {
-        if (phase == UNLOCK_PHASE_POCKET) {
-            return ShuffleProofGateDecision.ALLOW;
-        }
         if (megapacket == null) {
             return ShuffleProofGateDecision.REJECT;
         }
@@ -1033,6 +1028,112 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return ShuffleProofGateDecision.REJECT;
         }
         return ShuffleProofGateDecision.WAIT;
+    }
+
+    public enum ShuffleProofStartDecision {
+        START_BETTING, MISDEAL
+    }
+
+    public static ShuffleProofStartDecision shuffleProofStartDecision(ShuffleProofGateDecision proof) {
+        return proof == ShuffleProofGateDecision.ALLOW
+                ? ShuffleProofStartDecision.START_BETTING
+                : ShuffleProofStartDecision.MISDEAL;
+    }
+
+    private static final byte[] SHUFFLE_CONTEXT_VERSION
+            = "CORONAPOKER_SHUFFLE_CONTEXT_V1".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+    /**
+     * Derives the proof's input deck from protocol version, session, hand and
+     * ordered crypto roster. The resulting bytes are still the standard 52 card
+     * points, only context-permuted, so normal card resolution is unchanged.
+     */
+    public static byte[] contextBoundShuffleGenesis(String sessionId, byte[] handId, String[] orderedRoster) {
+        if (sessionId == null || handId == null || handId.length != CanonicalActionRecord.HAND_ID_BYTES
+                || orderedRoster == null || orderedRoster.length < 2) {
+            throw new IllegalArgumentException("Incomplete shuffle-proof context");
+        }
+        try {
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            java.io.DataOutputStream context = new java.io.DataOutputStream(bytes);
+            context.writeInt(SHUFFLE_CONTEXT_VERSION.length);
+            context.write(SHUFFLE_CONTEXT_VERSION);
+            byte[] session = sessionId.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            context.writeInt(session.length);
+            context.write(session);
+            context.writeInt(handId.length);
+            context.write(handId);
+            context.writeInt(orderedRoster.length);
+            for (String nick : orderedRoster) {
+                if (nick == null) {
+                    throw new IllegalArgumentException("Null shuffle-proof participant");
+                }
+                byte[] encoded = nick.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                context.writeInt(encoded.length);
+                context.write(encoded);
+            }
+            context.flush();
+            final byte[] binding = bytes.toByteArray();
+            Integer[] order = new Integer[52];
+            final byte[][] ranks = new byte[52][];
+            for (int i = 0; i < order.length; i++) {
+                order[i] = i;
+                java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+                digest.update(binding);
+                digest.update(new byte[]{(byte) (i >>> 24), (byte) (i >>> 16), (byte) (i >>> 8), (byte) i});
+                ranks[i] = digest.digest();
+            }
+            java.util.Arrays.sort(order, (left, right) -> {
+                for (int i = 0; i < ranks[left].length; i++) {
+                    int cmp = Integer.compare(ranks[left][i] & 0xff, ranks[right][i] & 0xff);
+                    if (cmp != 0) {
+                        return cmp;
+                    }
+                }
+                return Integer.compare(left, right);
+            });
+            byte[] standard = RistrettoSRA.getGenesisDeck();
+            byte[] contextual = new byte[standard.length];
+            for (int i = 0; i < order.length; i++) {
+                System.arraycopy(standard, order[i] * 32, contextual, i * 32, 32);
+            }
+            return contextual;
+        } catch (java.io.IOException | java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("Cannot derive shuffle-proof context", ex);
+        }
+    }
+
+    /**
+     * The first gameplay barrier. Pocket unlock transport may complete while the
+     * proof is being built, but no player action may be requested until the exact
+     * live deck has verified. Recovery passes through the same barrier.
+     */
+    private boolean requireVerifiedShuffleBeforeBetting() {
+        if (!localParticipatesInCurrentCryptoHand()) {
+            return true;
+        }
+        ShuffleProofGateDecision proof = awaitShuffleProofGate(
+                UNLOCK_PHASE_POCKET, SHUFFLE_PROOF_GATE_TIMEOUT_MS);
+        if (shuffleProofStartDecision(proof) == ShuffleProofStartDecision.START_BETTING) {
+            return true;
+        }
+        LOGGER.log(Level.SEVERE,
+                "ZERO-TRUST: refusing to start betting without a verified honest-shuffle proof");
+        cancelarManoYDevolverApuestas("zero_trust.host_shuffle_proof_failed");
+        return false;
+    }
+
+    private boolean localParticipatesInCurrentCryptoHand() {
+        String localNick = GameFrame.getInstance().getNick_local();
+        if (localNick == null || this.active_crypto_ring == null) {
+            return false;
+        }
+        for (String participant : this.active_crypto_ring) {
+            if (localNick.equals(participant)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -2244,7 +2345,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Log the cascade chain (reset per attempt). cascadeGenesis is the public anchor everyone
             // derives from. Proofs are NOT generated here (would block the deal -> longer shuffle
             // animation); they're generated in background after the loop.
-            byte[] cascadeGenesis = RistrettoSRA.getGenesisDeck();
+            byte[] cascadeGenesis = contextBoundShuffleGenesis(
+                    GameFrame.UGI, this.current_hand_id, currentRing);
             java.util.List<byte[]> chainDecks = new java.util.ArrayList<>();
             java.util.List<int[]> chainStepPerm = new java.util.ArrayList<>();   // host/bot: perm; remote: null
             java.util.List<byte[]> chainStepK = new java.util.ArrayList<>();      // host/bot: k; remote: null
@@ -2486,6 +2588,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         workingDeck = dualLockDeck;
 
         this.local_mega_packet = workingDeck;
+        // The host must wait, just like every client, until the background
+        // full-chain verification authenticates this exact deck.
+        this.dual_lock_expect_bundle_for = workingDeck;
         String megaPacketB64 = Base64.getEncoder().encodeToString(this.local_mega_packet);
         String orderB64 = "";
         try {
@@ -2732,10 +2837,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // FULL genesis->MEGAPACKET chain (Bayer-Groth cascade + batch-DLEQ rotation) in the
         // background, during betting, without touching the animation. Once the self-check
         // passes, the bundle is broadcast so every peer verifies it independently (see
-        // WaitingRoomFrame's DUALLOCK_BUNDLE handler), which warns rather than hard-aborting on
-        // failure. Live per-hand peek protection is unaffected either way: it comes from the
-        // real-time DLEQ chain (self-strip + anchoring + gating in WaitingRoomFrame).
-        final byte[] bgGenesis = RistrettoSRA.getGenesisDeck();
+        // WaitingRoomFrame's DUALLOCK_BUNDLE handler). Failure is terminal before betting.
+        final byte[] bgGenesis = contextBoundShuffleGenesis(
+                GameFrame.UGI, this.current_hand_id, this.active_crypto_ring);
         final int bgHandOrdinal = getMano(); // ordinal de ESTA mano, para el "barajado verificado" del registro
         final java.util.List<byte[]> bgDecks = this.cascade_chain_decks;
         final java.util.List<int[]> bgPerm = this.cascade_step_perm;
@@ -7022,6 +7126,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         String[] sraFossilParts = fosil.split("#");
                         byte[] megaPacket = null;
                         boolean shuffleVerifiedInFossil = false;
+                        boolean shuffleContextV1InFossil = false;
 
                         for (String part : sraFossilParts) {
                             if (part.startsWith("ORDER@")) {
@@ -7030,6 +7135,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 megaPacket = Base64.getDecoder().decode(part.substring("FULLMEGAPACKET@".length()));
                             } else if (part.equals("SHUFFLE_VERIFIED@1")) {
                                 shuffleVerifiedInFossil = true;
+                            } else if (part.equals("SHUFFLE_CONTEXT@1")) {
+                                shuffleContextV1InFossil = true;
                             } else if (part.startsWith("SRAKEYS_COMMUNITY@")) {
                                 // Dual-lock: the community half was saved under SRAKEYS_COMMUNITY@ by
                                 // guardarFosilSRA. Restoring it is what lets cascadeAndDealCommunityPieces
@@ -7168,7 +7275,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         if (orderMap != null && megaPacket != null) {
                             this.local_mega_packet = megaPacket;
                             this.dual_lock_expect_bundle_for = megaPacket;
-                            if (shuffleVerifiedInFossil) {
+                            if (shuffleVerifiedInFossil && shuffleContextV1InFossil) {
                                 this.dual_lock_verified_megapacket = megaPacket;
                             } else {
                                 this.dual_lock_failed_megapacket = megaPacket;
@@ -7275,6 +7382,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     String[] sraFossilParts = fosil.split("#");
                     byte[] megaPacket = null;
                     boolean shuffleVerifiedInFossil = false;
+                    boolean shuffleContextV1InFossil = false;
 
                     for (String part : sraFossilParts) {
                         if (part.startsWith("ORDER@")) {
@@ -7283,6 +7391,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             megaPacket = Base64.getDecoder().decode(part.substring("FULLMEGAPACKET@".length()));
                         } else if (part.equals("SHUFFLE_VERIFIED@1")) {
                             shuffleVerifiedInFossil = true;
+                        } else if (part.equals("SHUFFLE_CONTEXT@1")) {
+                            shuffleContextV1InFossil = true;
                         } else if (part.startsWith("SRAKEYS_COMMUNITY@")) {
                             // Dual-lock: the community half persisted by guardarFosilSRA.
                             this.local_sra_unlock_community = Base64.getDecoder().decode(part.substring("SRAKEYS_COMMUNITY@".length()));
@@ -7415,7 +7525,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (orderMap != null && megaPacket != null) {
                         this.local_mega_packet = megaPacket;
                         this.dual_lock_expect_bundle_for = megaPacket;
-                        if (shuffleVerifiedInFossil) {
+                        if (shuffleVerifiedInFossil && shuffleContextV1InFossil) {
                             this.dual_lock_verified_megapacket = megaPacket;
                         } else {
                             this.dual_lock_failed_megapacket = megaPacket;
@@ -10665,7 +10775,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * commits the payout as well — the single-consensus design documented in
      * {@code docs/audit/settlement-digest-design.md}.
      */
-    private void awaitHandverifyBarrier() {
+    private boolean awaitHandverifyBarrier() {
+        if (localParticipatesInCurrentCryptoHand()
+                && shuffleProofGateDecision(UNLOCK_PHASE_POCKET, local_mega_packet,
+                dual_lock_expect_bundle_for, dual_lock_verified_megapacket,
+                dual_lock_failed_megapacket) != ShuffleProofGateDecision.ALLOW) {
+            LOGGER.log(Level.SEVERE,
+                    "ZERO-TRUST: settlement refused without this hand's verified shuffle proof");
+            cancelarManoYDevolverApuestas("zero_trust.host_shuffle_proof_failed");
+            return false;
+        }
         try {
             if (GameFrame.getInstance().isPartida_local()) {
                 // HOST: fire the trigger (sync, confirmed) so every connected client wakes
@@ -10677,8 +10796,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // we just return and the gated settlement-consensus never runs.
                 waitForHandverifyTrigger();
             }
+            return !this.mano_anulada;
         } catch (RuntimeException ex) {
             LOGGER.log(Level.SEVERE, "awaitHandverifyBarrier failed", ex);
+            cancelarManoYDevolverApuestas("zero_trust.host_shuffle_proof_failed");
+            return false;
         }
     }
 
@@ -10701,6 +10823,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * for recovery.
      */
     private boolean runSettlementConsensus() {
+        if (localParticipatesInCurrentCryptoHand()
+                && shuffleProofGateDecision(UNLOCK_PHASE_POCKET, local_mega_packet,
+                dual_lock_expect_bundle_for, dual_lock_verified_megapacket,
+                dual_lock_failed_megapacket) != ShuffleProofGateDecision.ALLOW) {
+            LOGGER.log(Level.SEVERE,
+                    "ZERO-TRUST: refusing final receipt without this hand's verified shuffle proof");
+            setFin_de_la_transmision(true);
+            return false;
+        }
         final java.util.List<SettlementRecord.Entry> entries;
         final long closingRemainderCents;
         try {
@@ -13701,7 +13832,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // final on-screen board) for the shared queue (actualizarCartasPerdedores).
     private void resolverRunItTwiceShowdown(ArrayList<Player> resisten) {
         // Cards already revealed at the all-in; mirrors the normal showdown (idempotent).
-        awaitHandverifyBarrier();
         procesarCartasResistencia(resisten, false);
 
         // conta_win: snapshot to correct showdown()'s double increment.
@@ -15498,6 +15628,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             fosil.append("#FULLMEGAPACKET@").append(java.util.Base64.getEncoder().encodeToString(this.local_mega_packet));
             if (java.util.Arrays.equals(this.local_mega_packet, this.dual_lock_verified_megapacket)) {
                 fosil.append("#SHUFFLE_VERIFIED@1");
+                fosil.append("#SHUFFLE_CONTEXT@1");
             }
 
             byte[] unlockToSave = this.local_sra_unlock;
@@ -20621,6 +20752,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             try {
                 if ((getJugadoresActivos() + getJugadoresCalentando()) > 1 && !GameFrame.getInstance().getLocalPlayer().isExit()) {
                     if (this.NUEVA_MANO()) {
+                        if (!requireVerifiedShuffleBeforeBetting()) {
+                            continue;
+                        }
                         // Blinds/dealer assignments already show in the balance table
                         // (role icons next to each nick), so the old "X is the BIG BLIND
                         // / ..." log line is redundant.
@@ -20703,6 +20837,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             badbeat = false;
                             double sql_bote_total = this.bote_total;
 
+                            // One fail-closed pre-payout barrier covers every terminal path:
+                            // all-fold, sole survivor, showdown and run-it-twice.
+                            if (!awaitHandverifyBarrier()) {
+                                continue;
+                            }
+
                             // Run-it-twice: if the hand agreed to run twice and there was a
                             // run-out (streets pending after the all-in) with 2+ players
                             // involved, dedicated path that settles both boards (each pot
@@ -20718,7 +20858,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 switch (resisten.size()) {
                                     case 0:
                                         // Math yes, GUI no.
-                                        awaitHandverifyBarrier();
                                         procesarCartasResistencia(new ArrayList<Player>(), false);
 
                                         GameFrame.getInstance().getRegistro().print("-----" + Translator.translate("game.gana_bote") + Helpers.money2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate("action.sin_tener_que_mostrar"));
@@ -20760,7 +20899,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         }
                                         break;
                                     case 1:
-                                        awaitHandverifyBarrier();
                                         procesarCartasResistencia(new ArrayList<Player>(), false);
 
                                         resisten.get(0).setWinner(resisten.contains(GameFrame.getInstance().getLocalPlayer()) ? Translator.translate("ui.ganas_3") : Translator.translate("ui.gana_3"));
@@ -20793,7 +20931,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         break;
                                     default:
                                         // Everyone shows their cards and GUI updates
-                                        awaitHandverifyBarrier();
                                         procesarCartasResistencia(resisten, false);
                                         if (!this.destapar_resistencia) {
                                             Helpers.pausar(Crupier.PAUSA_ANTES_DE_SHOWDOWN * 1000);

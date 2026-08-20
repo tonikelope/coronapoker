@@ -2823,7 +2823,9 @@ public class WaitingRoomFrame extends JFrame {
                                                                         // verification, and a slow team still finishes it even if the hand
                                                                         // has moved on (catching a past smuggle). The verdict comes back
                                                                         // through the Sink (see Crupier).
-                                                                        byte[] genesisB = com.tonikelope.coronapoker.crypto.RistrettoSRA.getGenesisDeck();
+                                                                        byte[] genesisB = Crupier.contextBoundShuffleGenesis(
+                                                                                GameFrame.UGI, cruB.current_hand_id,
+                                                                                cruB.active_crypto_ring);
                                                                         int pocketCount = cruB.active_crypto_ring.length * 2; // PEER-DERIVED
                                                                         ShuffleVerificationQueue.Job job = new ShuffleVerificationQueue.Job(
                                                                                 genesisB, csvToBytes(partes_bundle[3]), csvToBytes(partes_bundle[4]),
@@ -2916,7 +2918,12 @@ public class WaitingRoomFrame extends JFrame {
                                                                         // Fail closed at the smuggling read window. A proof still queued may
                                                                         // finish during the bounded wait; missing, malformed or dishonest proof
                                                                         // enters lockdown and this peer never contributes a community unlock.
-                                                                        if (crupier.awaitShuffleProofGate(phase,
+                                                                        // Pocket-chain transport is allowed to finish while the
+                                                                        // proof is built. Crupier's mandatory pre-betting barrier
+                                                                        // prevents those cards from influencing any action. Every
+                                                                        // community phase remains gated here as well.
+                                                                        if (phase != Crupier.UNLOCK_PHASE_POCKET
+                                                                                && crupier.awaitShuffleProofGate(phase,
                                                                                 Crupier.SHUFFLE_PROOF_GATE_TIMEOUT_MS)
                                                                                 != Crupier.ShuffleProofGateDecision.ALLOW) {
                                                                             crupier.markShuffleProofFailed(megapacket);

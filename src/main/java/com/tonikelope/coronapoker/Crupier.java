@@ -2186,7 +2186,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private byte[] requestRemoteCascade(String nick, byte[] currentDeck, Participant p) {
-        int id = Helpers.CSPRNG_GENERATOR.nextInt();
+        int id = GameCommandId.next();
         byte[] iv = new byte[16];
         Helpers.CSPRNG_GENERATOR.nextBytes(iv);
         String deckB64 = Base64.getEncoder().encodeToString(currentDeck);
@@ -2368,7 +2368,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private byte[] requestRemoteRotation(String nick, byte[] communityPieces, Participant p) {
-        int id = Helpers.CSPRNG_GENERATOR.nextInt();
+        int id = GameCommandId.next();
         byte[] iv = new byte[16];
         Helpers.CSPRNG_GENERATOR.nextBytes(iv);
         String piecesB64 = Base64.getEncoder().encodeToString(communityPieces);
@@ -2472,7 +2472,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      */
     private java.util.List<UnlockChainWire.RespItem> requestRemoteUnlockChain(
             String nick, Participant p, int phase, java.util.List<UnlockChainWire.ReqItem> items) {
-        int id = Helpers.CSPRNG_GENERATOR.nextInt();
+        int id = GameCommandId.next();
         byte[] iv = new byte[16];
         Helpers.CSPRNG_GENERATOR.nextBytes(iv);
         String payload = UnlockChainWire.serializeReq(items);
@@ -2556,7 +2556,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         ConfirmationTracker tracker = WaitingRoomFrame.getInstance().getReceived_confirmations();
         ConfirmationTracker.Request request = null;
         try {
-            int id = Helpers.CSPRNG_GENERATOR.nextInt();
+            int id = GameCommandId.next();
             byte[] iv = new byte[16];
             Helpers.CSPRNG_GENERATOR.nextBytes(iv);
             request = tracker.register(id + 1, pending);
@@ -12317,7 +12317,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         String payload = Base64.getEncoder().encodeToString(snapshot.value().encode());
 
-        int id = Helpers.CSPRNG_GENERATOR.nextInt();
+        int id = GameCommandId.next();
         byte[] iv = new byte[16];
         Helpers.CSPRNG_GENERATOR.nextBytes(iv);
         ConfirmationTracker tracker = WaitingRoomFrame.getInstance().getReceived_confirmations();
@@ -12378,7 +12378,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        int id = Helpers.CSPRNG_GENERATOR.nextInt();
+        int id = GameCommandId.next();
         byte[] iv = new byte[16];
         Helpers.CSPRNG_GENERATOR.nextBytes(iv);
         ConfirmationTracker tracker = WaitingRoomFrame.getInstance().getReceived_confirmations();
@@ -12448,7 +12448,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         pendientes.add(GameFrame.getInstance().getSala_espera().getServer_nick());
 
-        int id = Helpers.CSPRNG_GENERATOR.nextInt();
+        int id = GameCommandId.next();
 
         String full_command = "GAME#" + String.valueOf(id) + "#" + command;
         ConfirmationTracker tracker = WaitingRoomFrame.getInstance().getReceived_confirmations();
@@ -12960,7 +12960,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // sends RIT_VOTE_CLOSE on close.
     private void sendRitVoteReq(Participant p, int timeout, int totalVoters) {
         try {
-            int id = Helpers.CSPRNG_GENERATOR.nextInt();
+            int id = GameCommandId.next();
             byte[] iv = new byte[16];
             Helpers.CSPRNG_GENERATOR.nextBytes(iv);
             // The pot travels as a raw double: each client formats it with its own
@@ -16774,7 +16774,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (!pendientes.isEmpty()) {
-            int id = Helpers.CSPRNG_GENERATOR.nextInt();
+            int id = GameCommandId.next();
             byte[] iv = new byte[16];
             Helpers.CSPRNG_GENERATOR.nextBytes(iv);
             String reqCmd = "GAME#" + id + "#REQ_SHOWDOWN_KEY";
@@ -17853,7 +17853,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (!pendientes.isEmpty()) {
 
-            int id = Helpers.CSPRNG_GENERATOR.nextInt();
+            int id = GameCommandId.next();
             byte[] iv = new byte[16];
             Helpers.CSPRNG_GENERATOR.nextBytes(iv);
             ConfirmationTracker tracker = WaitingRoomFrame.getInstance().getReceived_confirmations();

@@ -991,7 +991,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 } catch (Throwable ex) {
                     testamento = "*"; // No valid testament: better a bare EXIT than nothing.
                 }
-                String body = "GAME#" + Helpers.CSPRNG_GENERATOR.nextInt() + "#EXIT#" + testamento;
+                String body = "GAME#" + GameCommandId.next() + "#EXIT#" + testamento;
                 javax.crypto.spec.SecretKeySpec aes = nc.getLocal_client_aes_key();
                 javax.crypto.spec.SecretKeySpec hmac = nc.getLocal_client_hmac_key();
                 if (aes == null || hmac == null) {

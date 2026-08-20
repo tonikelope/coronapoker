@@ -3,13 +3,9 @@ package com.tonikelope.coronapoker;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /** Bounded FIFO outbox whose entries belong to exactly one socket generation. */
 public final class SessionOutbox {
-
-    private static final AtomicInteger NEXT_WIRE_ID
-            = new AtomicInteger((int) System.nanoTime());
 
     public static final class Entry {
         private final String command;
@@ -50,7 +46,7 @@ public final class SessionOutbox {
             return false;
         }
         queue.addLast(new Entry(command, generation, bytes,
-                NEXT_WIRE_ID.getAndIncrement()));
+                GameCommandId.next()));
         queuedBytes += bytes;
         notifyAll();
         return true;

@@ -215,7 +215,7 @@ public class NetServer {
         }
 
         if (!targets.isEmpty()) {
-            int id = Helpers.CSPRNG_GENERATOR.nextInt();
+            int id = GameCommandId.next();
             byte[] iv = new byte[16];
             Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
@@ -245,7 +245,7 @@ public class NetServer {
      */
     public void sendASYNCGAMECommand(String command, Participant p, boolean confirmation) {
         if (!confirmation) {
-            int id = Helpers.CSPRNG_GENERATOR.nextInt();
+            int id = GameCommandId.next();
             String full_command = "GAME#" + String.valueOf(id) + "#" + command;
             p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), p.getHmac_key()));
         } else {

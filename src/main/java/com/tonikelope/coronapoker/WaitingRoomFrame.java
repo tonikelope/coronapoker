@@ -2597,10 +2597,10 @@ public class WaitingRoomFrame extends JFrame {
                                                     break;
                                                 }
                                                 GameCommandGate.Decision gateDecision
-                                                        = net_client.getGameCommandGate().accept(subcomando, id);
+                                                        = net_client.getGameCommandGate().accept(subcomando, id, recibido);
                                                 if (gateDecision.closeConnection()) {
                                                     LOGGER.log(Level.SEVERE,
-                                                            "Unknown GAME subcommand {0} from host; closing connection",
+                                                            "Unknown GAME subcommand or conflicting GAME id/frame {0} from host; closing connection",
                                                             subcomando);
                                                     exit = true;
                                                     closeClientSocket();
@@ -2723,7 +2723,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                         String b64Deck = Base64.getEncoder().encodeToString(shuffled);
                                                                         String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
 
-                                                                        int respId = Helpers.CSPRNG_GENERATOR.nextInt();
+                                                                        int respId = GameCommandId.next();
                                                                         // Send the K=k*B commitments (pocket and community) along with the
                                                                         // cascaded deck, so the host can aggregate them and anchor them in H_0.
                                                                         String kPocketB64 = Base64.getEncoder().encodeToString(RistrettoSRA.commitment(lockScalar));
@@ -2749,7 +2749,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                             }
                                                                             String deckHashB64 = Base64.getEncoder().encodeToString(
                                                                                     java.security.MessageDigest.getInstance("SHA-256").digest(shuffled));
-                                                                            int proofId = Helpers.CSPRNG_GENERATOR.nextInt();
+                                                                            int proofId = GameCommandId.next();
                                                                             writeCommandToServer(Helpers.encryptCommand("GAME#" + proofId + "#DECK_CASCADE_PROOF#" + myNickB64 + "#" + deckHashB64 + "#" + Base64.getEncoder().encodeToString(cascadeProof), net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                         } catch (Exception proofEx) {
                                                                             LOGGER.log(Level.SEVERE, "Failed to generate/send critical cascade proof; closing host channel", proofEx);
@@ -2856,7 +2856,7 @@ public class WaitingRoomFrame extends JFrame {
 
                                                                         String b64Rot = Base64.getEncoder().encodeToString(rotated);
                                                                         String myNickB64Rot = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
-                                                                        int respIdRot = Helpers.CSPRNG_GENERATOR.nextInt();
+                                                                        int respIdRot = GameCommandId.next();
                                                                         writeCommandToServer(Helpers.encryptCommand("GAME#" + respIdRot + "#DECK_ROTATION_RESP#" + myNickB64Rot + "#" + b64Rot + "#" + rotProofB64, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                     } catch (Exception e) {
                                                                         LOGGER.log(Level.SEVERE, "Failed to process critical DECK_ROTATION_REQ; closing host channel", e);
@@ -3189,7 +3189,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                             resp.add(new UnlockChainWire.RespItem(it.peerIdx, outChains));
                                                                         }
                                                                         String respPayload = UnlockChainWire.serializeResp(resp);
-                                                                        int respIdChain = Helpers.CSPRNG_GENERATOR.nextInt();
+                                                                        int respIdChain = GameCommandId.next();
                                                                         String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
                                                                         writeCommandToServer(Helpers.encryptCommand("GAME#" + respIdChain + "#RESP_SRA_UNLOCK_CHAIN#" + myNickB64 + "#" + respPayload, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                     } catch (Exception e) {

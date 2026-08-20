@@ -1907,10 +1907,10 @@ public class Participant implements Runnable {
                                     break;
                                 }
                                 GameCommandGate.Decision gateDecision
-                                        = game_command_gate.accept(subcomando, command_id);
+                                        = game_command_gate.accept(subcomando, command_id, recibido);
                                 if (gateDecision.closeConnection()) {
                                     LOGGER.log(Level.SEVERE,
-                                            "Unknown GAME subcommand {0} from {1}; closing connection",
+                                            "Unknown GAME subcommand or conflicting GAME id/frame {0} from {1}; closing connection",
                                             new Object[]{subcomando, nick});
                                     exitAndCloseSocket();
                                     break;

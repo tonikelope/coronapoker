@@ -10,10 +10,11 @@ public class GameCommandNonAdjacentReplayRejectedTest {
     public void replayRemainsRejectedAfterAnInterveningCommand() {
         GameCommandGate gate = new GameCommandGate(GameCommandType.Direction.CLIENT_TO_HOST);
 
-        assertTrue(gate.accept("ACTION", 1).enqueue());
-        assertTrue(gate.accept("ACTION", 2).enqueue());
+        assertTrue(gate.accept("ACTION", 1, "GAME#1#ACTION#a").enqueue());
+        assertTrue(gate.accept("ACTION", 2, "GAME#2#ACTION#b").enqueue());
 
-        GameCommandGate.Decision replay = gate.accept("ACTION", 1);
+        GameCommandGate.Decision replay = gate.accept(
+                "ACTION", 1, "GAME#1#ACTION#a");
         assertTrue(replay.acknowledge());
         assertFalse(replay.enqueue());
         assertFalse(replay.closeConnection());

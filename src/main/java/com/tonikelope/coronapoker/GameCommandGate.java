@@ -1,8 +1,11 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HashMap;
+import java.util.Map;
 
 /** Registry-first acknowledgement and replay gate for GAME commands. */
 public final class GameCommandGate {
@@ -27,7 +30,7 @@ public final class GameCommandGate {
 
     private final GameCommandType.Direction direction;
     private final int maxSeenCommands;
-    private final Set<Long> seenCommands = new HashSet<>();
+    private final Map<Long, byte[]> seenCommands = new HashMap<>();
 
     public GameCommandGate(GameCommandType.Direction direction) {
         this(direction, DEFAULT_MAX_SEEN_COMMANDS);
@@ -40,18 +43,37 @@ public final class GameCommandGate {
         this.maxSeenCommands = maxSeenCommands;
     }
 
-    public synchronized Decision accept(String wireName, int id) {
+    public synchronized Decision accept(String wireName, int id, String authenticatedFrame) {
         GameCommandType type = GameCommandType.from(direction, wireName);
-        if (type == null) return new Decision(false, false, true);
+        if (type == null || authenticatedFrame == null) {
+            return new Decision(false, false, true);
+        }
         long replayKey = (((long) type.ordinal()) << 32) | (id & 0xffff_ffffL);
-        if (seenCommands.contains(replayKey)) {
-            return new Decision(true, false, false);
+        byte[] frameFingerprint = fingerprint(authenticatedFrame);
+        byte[] previous = seenCommands.get(replayKey);
+        if (previous != null) {
+            // Retransmission of the exact authenticated frame is idempotent. Reusing an
+            // ID for different bytes is either a sender bug/collision or a replay attempt;
+            // silently treating it as the first command would lose critical traffic.
+            if (MessageDigest.isEqual(previous, frameFingerprint)) {
+                return new Decision(true, false, false);
+            }
+            return new Decision(false, false, true);
         }
         if (seenCommands.size() >= maxSeenCommands) {
             return new Decision(false, false, true);
         }
-        seenCommands.add(replayKey);
+        seenCommands.put(replayKey, frameFingerprint);
         return new Decision(true, true, false);
+    }
+
+    private static byte[] fingerprint(String authenticatedFrame) {
+        try {
+            return MessageDigest.getInstance("SHA-256")
+                    .digest(authenticatedFrame.getBytes(StandardCharsets.UTF_8));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 unavailable", ex);
+        }
     }
 
     /** Any rate-limited GAME frame is critical: close, never silently drop. */

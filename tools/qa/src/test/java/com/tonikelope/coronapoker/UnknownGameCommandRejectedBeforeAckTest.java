@@ -8,7 +8,8 @@ public class UnknownGameCommandRejectedBeforeAckTest {
     @Test
     public void unknownNameClosesWithoutAck() {
         GameCommandGate gate = new GameCommandGate(GameCommandType.Direction.CLIENT_TO_HOST);
-        GameCommandGate.Decision decision = gate.accept("ATTACK_" + System.nanoTime(), 7);
+        GameCommandGate.Decision decision = gate.accept(
+                "ATTACK_" + System.nanoTime(), 7, "GAME#7#ATTACK");
         assertTrue(decision.closeConnection());
         assertFalse(decision.acknowledge());
     }

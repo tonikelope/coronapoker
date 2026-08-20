@@ -1,0 +1,55 @@
+package com.tonikelope.coronapoker;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+
+public class CriticalCommunityDeliveryFailureTest {
+
+    @Test
+    public void malformedCurrentCardMessageIsRejectedInsteadOfRequeued() throws Exception {
+        String method = receiveCommunitySource();
+        assertTrue(method.contains("rejectCriticalCommunityMessage(comando"),
+                "malformed PIECE/COMM_REVEAL must close the authenticated host source");
+        assertFalse(method.contains("catch (Exception ex) {\n                        rejected.add(comando);"),
+                "a malformed critical card message must never be restored for a later retry");
+        assertFalse(method.contains("Dropping stale/foreign COMM_REVEAL"),
+                "a wrong-phase reveal must not be silently discarded");
+    }
+
+    @Test
+    public void missingPieceOrRevealHasABoundedFailClosedExit() throws Exception {
+        String method = receiveCommunitySource();
+        assertTrue(method.contains("COMMUNITY_DELIVERY_TIMEOUT_MS"),
+                "a live malicious host must not freeze the table forever by withholding cards");
+        assertTrue(method.contains("closeHostAfterCriticalCommunityTimeout();"),
+                "timeout must explicitly close the host channel and enter deterministic recovery");
+        assertTrue(method.contains("if (System.currentTimeMillis() >= deliveryDeadline)"),
+                "a continuous flood of other recipients' pieces must not bypass the deadline");
+        assertFalse(method.contains("No timeout:"),
+                "the old unbounded-wait policy must be removed");
+    }
+
+    private static String receiveCommunitySource() throws Exception {
+        Path root = locateRoot();
+        String source = Files.readString(root.resolve(
+                "src/main/java/com/tonikelope/coronapoker/Crupier.java"))
+                .replace("\r\n", "\n");
+        int start = source.indexOf("private boolean recibirCartasComunitarias()");
+        int end = source.indexOf("private ArrayList<Player> rondaApuestas", start);
+        assertTrue(start >= 0 && end > start, "recibirCartasComunitarias source not found");
+        return source.substring(start, end);
+    }
+
+    private static Path locateRoot() {
+        Path path = Path.of(System.getProperty("user.dir")).toAbsolutePath();
+        while (path != null) {
+            if (Files.isRegularFile(path.resolve("pom.xml"))
+                    && Files.isDirectory(path.resolve("src/main/java"))) return path;
+            path = path.getParent();
+        }
+        throw new IllegalStateException("repository root not found");
+    }
+}

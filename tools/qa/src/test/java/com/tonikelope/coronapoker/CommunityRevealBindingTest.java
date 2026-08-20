@@ -99,6 +99,24 @@ class CommunityRevealBindingTest {
                 CanonicalActionRecord.STREET_TURN, 1, current, hand, host));
     }
 
+    @Test
+    void rejectsDuplicateCardsInsideACommunityReveal() {
+        byte[] current = filled(32, (byte) 0x11);
+        byte[] hand = filled(16, (byte) 0x22);
+        byte[] host = CanonicalActionRecord.playerIdFromNick("host");
+        byte[] duplicateFlop = CanonicalActionRecord.encode(current, hand, host,
+                CanonicalActionRecord.STREET_FLOP,
+                CanonicalActionRecord.ACTION_COMMUNITY,
+                CanonicalActionRecord.packCommunityCards(new int[]{7, 7, 19}),
+                false, false);
+
+        assertFalse(Crupier.communityRevealRecordIsSafe(duplicateFlop,
+                CanonicalActionRecord.STREET_FLOP, 3, current, hand, host));
+        assertFalse(Crupier.communityCardsAreUnique(new int[]{19}, java.util.List.of(2, 19, 31)),
+                "turn/river cannot replay a card from an earlier board street");
+        assertTrue(Crupier.communityCardsAreUnique(new int[]{20}, java.util.List.of(2, 19, 31)));
+    }
+
     private static byte[] filled(int length, byte value) {
         byte[] result = new byte[length];
         Arrays.fill(result, value);

@@ -310,15 +310,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return false;
             }
             int[] cards = CanonicalActionRecord.unpackCommunityCards(packed, expectedNumCards);
-            for (int card : cards) {
-                if (card < 0 || card > 51) {
-                    return false;
-                }
-            }
-            return true;
+            return communityCardsAreUnique(cards, null);
         } catch (RuntimeException ex) {
             return false;
         }
+    }
+
+    static boolean communityCardsAreUnique(int[] cards, java.util.Collection<Integer> priorCards) {
+        if (cards == null || cards.length == 0 || cards.length > 3) {
+            return false;
+        }
+        java.util.HashSet<Integer> seen = new java.util.HashSet<>();
+        if (priorCards != null) {
+            for (Integer prior : priorCards) {
+                if (prior != null && prior >= 0 && prior <= 51) {
+                    seen.add(prior);
+                }
+            }
+        }
+        for (int card : cards) {
+            if (card < 0 || card > 51 || !seen.add(card)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -682,6 +697,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // retries can legitimately be very long, so this is deliberately 24h. Expiry
     // closes the host channel and never authorizes dealing without cards.
     public static final long RECEIVE_CARDS_HARD_TIMEOUT_MS = 24L * 60L * 60L * 1000L;
+    // A community cascade is sequential across remote humans. This bound covers the
+    // complete reconnection hard cap plus one final per-peer unlock window; expiry
+    // closes the host channel and preserves the open hand for recovery.
+    public static final long COMMUNITY_DELIVERY_TIMEOUT_MS
+            = RECON_CHURN_HARD_CAP_MS + REMOTE_SRA_PEER_TIMEOUT_MS;
     public static final int IWTSTH_ANTI_FLOOD_TIME = 15 * 60 * 1000; // 15 minutes BAN
     public static final int IWTSTH_TIMEOUT = 15000;
     public static final int RIT_VOTE_TIMEOUT = 15; // Seconds the run-it-twice vote lasts (timeout = NORMAL)
@@ -14838,9 +14858,57 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return hostIndices;
     }
 
+    private void rejectCriticalCommunityMessage(String command, String detail, Exception error) {
+        if (error == null) {
+            LOGGER.log(Level.SEVERE, detail);
+        } else {
+            LOGGER.log(Level.SEVERE, detail, error);
+        }
+        try {
+            triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+        } catch (RuntimeException lockdownFailure) {
+            LOGGER.log(Level.SEVERE, "Unable to display critical community lockdown", lockdownFailure);
+        } finally {
+            this.received_commands.reject(command);
+            closeHostAfterCriticalCommunityFailure();
+        }
+    }
+
+    private void closeHostAfterCriticalCommunityTimeout() {
+        closeHostAfterCriticalCommunityFailure();
+    }
+
+    private void closeHostAfterCriticalCommunityFailure() {
+        setFin_de_la_transmision(true);
+        WaitingRoomFrame waitingRoom = WaitingRoomFrame.getInstance();
+        if (waitingRoom != null) {
+            waitingRoom.closeClientSocket();
+        }
+    }
+
+    private java.util.List<Integer> priorCommunityCardsForCurrentStreet() {
+        java.util.ArrayList<Integer> prior = new java.util.ArrayList<>();
+        if (this.run_it_twice_side_b) {
+            prior.addAll(this.rit_side_a_runout_cards);
+        }
+        if (street > Crupier.FLOP) {
+            prior.add(GameFrame.getInstance().getFlop1().getCartaComoEntero());
+            prior.add(GameFrame.getInstance().getFlop2().getCartaComoEntero());
+            prior.add(GameFrame.getInstance().getFlop3().getCartaComoEntero());
+        }
+        if (street > Crupier.TURN) {
+            prior.add(GameFrame.getInstance().getTurn().getCartaComoEntero());
+        }
+        return prior;
+    }
+
     private boolean recibirCartasComunitarias() {
         if (this.hand_state_chain == null) {
-            triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+            try {
+                triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+            } finally {
+                closeHostAfterCriticalCommunityFailure();
+            }
             return false;
         }
         boolean piece_ok = false;
@@ -14890,58 +14958,79 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // means the host sent bytes that aren't genesis after my unlock — garbage or
         // cross-slot smuggling — and we trigger lockdown.
         //
-        // No timeout: the host's cascade can take minutes with a large ring and slow
-        // clients. The client waits indefinitely — TCP guarantees the piece arrives or
-        // the socket dies. A MISDEAL from the host is the only legitimate signal the
-        // hand is being cancelled.
+        // The host's cascade can take minutes with a large ring, so the deadline covers
+        // the full reconnection hard cap plus a final unlock window. A live host that
+        // withholds either critical message past it is closed; the open hand is left for
+        // deterministic recovery rather than waiting forever.
         int[] pieceIndices = null;
         byte[] revealRecord = null;
         byte[] revealSig = null;
+        String revealCommand = null;
         int expectedNumCards = (street == Crupier.FLOP) ? 3 : 1;
         // Run-it-twice SIDE-B: while dealing the second board we wait for the
         // RIT2_*_PIECE commands and a COMM_REVEAL with a SIDE-B street code
         // (STREET_RIT2_*), not the live board's.
         final boolean rit2 = this.run_it_twice_side_b;
         final int expectedWireStreet = rit2 ? mapJavaStreetToRit2Wire(street) : mapJavaStreetToWire(street);
+        final String expectedCmd = rit2
+                ? (street == Crupier.FLOP ? "RIT2_FLOP_PIECE"
+                        : street == Crupier.TURN ? "RIT2_TURN_PIECE" : "RIT2_RIVER_PIECE")
+                : (street == Crupier.FLOP ? "FLOP_PIECE"
+                        : street == Crupier.TURN ? "TURN_PIECE" : "RIVER_PIECE");
+        long deliveryDeadline = System.currentTimeMillis() + COMMUNITY_DELIVERY_TIMEOUT_MS;
         do {
             synchronized (this.getReceived_commands()) {
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
                 while ((!piece_ok || !reveal_ok) && !this.getReceived_commands().isEmpty()) {
+                    if (GameFrame.getInstance().isTimba_pausada()) {
+                        break;
+                    }
+                    if (System.currentTimeMillis() >= deliveryDeadline) {
+                        LOGGER.log(Level.SEVERE,
+                                "Critical community delivery timed out while draining messages for street {0}; closing host channel",
+                                street);
+                        closeHostAfterCriticalCommunityTimeout();
+                        return false;
+                    }
                     String comando = this.received_commands.poll();
-                    String[] partes = comando.split("#");
+                    String[] partes = comando.split("#", -1);
 
                     try {
-                        String expectedCmd;
-                        if (rit2) {
-                            expectedCmd = (street == Crupier.FLOP) ? "RIT2_FLOP_PIECE"
-                                    : (street == Crupier.TURN) ? "RIT2_TURN_PIECE"
-                                            : (street == Crupier.RIVER) ? "RIT2_RIVER_PIECE" : null;
-                        } else {
-                            expectedCmd = (street == Crupier.FLOP) ? "FLOP_PIECE"
-                                    : (street == Crupier.TURN) ? "TURN_PIECE"
-                                            : (street == Crupier.RIVER) ? "RIVER_PIECE" : null;
+                        String commandType = partes.length >= 3 ? partes[2] : "";
+                        boolean expectedPiece = expectedCmd.equals(commandType);
+                        if ((expectedPiece || "COMM_REVEAL".equals(commandType)) && partes.length != 5) {
+                            rejectCriticalCommunityMessage(comando,
+                                    "ZERO-TRUST: malformed critical community wire; closing host channel", null);
+                            return false;
                         }
-                        if (iAmObserver && expectedCmd != null && partes.length == 5
-                                && partes[2].equals(expectedCmd)) {
-                            // Observer isn't in the ring: no piece is meant for it.
-                            // Silent drop so we don't clutter the rejected queue with
-                            // useless pieces from other streets.
-                            continue;
+                        if ("MISDEAL".equals(commandType) && partes.length != 4) {
+                            rejectCriticalCommunityMessage(comando,
+                                    "ZERO-TRUST: malformed MISDEAL during community delivery; closing host channel", null);
+                            return false;
                         }
-                        if (expectedCmd != null && partes.length == 5 && partes[2].equals(expectedCmd) && !piece_ok) {
-                            String targetNick = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
-                            if (!targetNick.equals(localNick)) {
-                                // Piece for another recipient; I can't decrypt it
-                                // (everyone else's still has its lock). Silent drop.
-                                continue;
+                        if (expectedPiece) {
+                            String targetNick = decodeStrictUtf8(java.util.Base64.getDecoder().decode(partes[3]));
+                            if (targetNick.isEmpty()
+                                    || !targetNick.equals(java.text.Normalizer.normalize(
+                                            targetNick, java.text.Normalizer.Form.NFC))
+                                    || this.active_crypto_ring == null
+                                    || !java.util.Arrays.asList(this.active_crypto_ring).contains(targetNick)) {
+                                throw new IllegalArgumentException("community piece target outside active ring");
                             }
                             byte[] piece = java.util.Base64.getDecoder().decode(partes[4]);
                             int expectedLen = (street == Crupier.FLOP) ? 96 : 32;
-                            if (piece == null || piece.length != expectedLen) {
-                                LOGGER.log(Level.SEVERE,
-                                        "ZERO-TRUST: community piece for street {0} has bad length {1} — host sent garbage, lockdown",
-                                        new Object[]{street, (piece == null ? -1 : piece.length)});
-                                triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+                            if (piece.length != expectedLen || !RistrettoSRA.arePointsValid(piece)) {
+                                throw new IllegalArgumentException("community piece is not a canonical point block");
+                            }
+                            if (!targetNick.equals(localNick)) {
+                                // Piece for another recipient; I can't decrypt it
+                                // (everyone else's still has its lock). It has nevertheless
+                                // been fully consumed and shape-validated for this broadcast.
+                                continue;
+                            }
+                            if (iAmObserver || piece_ok) {
+                                rejectCriticalCommunityMessage(comando,
+                                        "ZERO-TRUST: unexpected or duplicate local community piece; closing host channel", null);
                                 return false;
                             }
                             // Dual-lock: after the rotation, community pieces are encrypted
@@ -14953,53 +15042,56 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 byte[] chunk = Arrays.copyOfRange(unlocked, k * 32, (k + 1) * 32);
                                 int idx = RistrettoSRA.resolveCardIndex(chunk);
                                 if (idx < 0) {
-                                    LOGGER.log(Level.SEVERE,
-                                            "ZERO-TRUST: community piece for street {0} chunk {1} does NOT resolve to genesis — host sent wrong-slot bytes, lockdown",
-                                            new Object[]{street, k});
-                                    triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
-                                    return false;
+                                    throw new IllegalArgumentException(
+                                            "community piece does not resolve at chunk " + k);
                                 }
                                 indices[k] = idx;
                             }
+                            if (!communityCardsAreUnique(indices, priorCommunityCardsForCurrentStreet())) {
+                                throw new IllegalArgumentException("community piece repeats a dealt board card");
+                            }
                             pieceIndices = indices;
                             piece_ok = true;
-                        } else if (partes.length == 5 && partes[2].equals("COMM_REVEAL") && !reveal_ok) {
+                        } else if ("COMM_REVEAL".equals(commandType)) {
+                            if (reveal_ok) {
+                                rejectCriticalCommunityMessage(comando,
+                                        "ZERO-TRUST: duplicate COMM_REVEAL; closing host channel", null);
+                                return false;
+                            }
                             try {
                                 byte[] candidateRecord = java.util.Base64.getDecoder().decode(partes[3]);
                                 byte[] candidateSig = java.util.Base64.getDecoder().decode(partes[4]);
-                                // Identity: reject silently if the
-                                // reveal is for a different street than the one we
-                                // are processing right now. Avoids lockdown on a
-                                // duplicate/stale COMM_REVEAL left over from the
-                                // previous street (TCP order should prevent this
-                                // in normal operation, but a buggy or malicious
-                                // host shouldn't be able to wedge us into lockdown
-                                // by sending the wrong reveal early).
                                 if (candidateRecord.length != CanonicalActionRecord.RECORD_BYTES
                                         || CanonicalActionRecord.readActionType(candidateRecord) != CanonicalActionRecord.ACTION_COMMUNITY
                                         || CanonicalActionRecord.readStreet(candidateRecord) != expectedWireStreet) {
-                                    LOGGER.log(Level.WARNING,
-                                            "Dropping stale/foreign COMM_REVEAL during street {0} drain", street);
-                                    continue;
+                                    throw new IllegalArgumentException("COMM_REVEAL does not match current street");
                                 }
                                 revealRecord = candidateRecord;
                                 revealSig = candidateSig;
+                                revealCommand = comando;
                                 reveal_ok = true;
                             } catch (Exception decodeEx) {
-                                LOGGER.log(Level.SEVERE,
-                                        "ZERO-TRUST: COMM_REVEAL wire malformed for street {0} — lockdown",
-                                        street);
-                                triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+                                rejectCriticalCommunityMessage(comando,
+                                        "ZERO-TRUST: malformed or wrong-phase COMM_REVEAL; closing host channel",
+                                        decodeEx);
                                 return false;
                             }
-                        } else if (partes.length >= 4 && partes[2].equals("MISDEAL")) {
-                            String motivo = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
+                        } else if ("MISDEAL".equals(commandType)) {
+                            String motivo = decodeStrictUtf8(java.util.Base64.getDecoder().decode(partes[3]));
                             cancelarManoYDevolverApuestas(motivo, false);
                             return false;
                         } else {
                             rejected.add(comando);
                         }
                     } catch (Exception ex) {
+                        String commandType = partes.length >= 3 ? partes[2] : "";
+                        if (expectedCmd.equals(commandType)
+                                || "COMM_REVEAL".equals(commandType)
+                                || "MISDEAL".equals(commandType)) {
+                            rejectCriticalCommunityMessage(comando,
+                                    "ZERO-TRUST: invalid critical community message; closing host channel", ex);
+                            return false;
+                        }
                         rejected.add(comando);
                     }
                 }
@@ -15009,10 +15101,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if ((!piece_ok || !reveal_ok) && !isFin_de_la_transmision() && !this.termination_pending) {
+                if (GameFrame.getInstance().checkPause()) {
+                    deliveryDeadline = System.currentTimeMillis() + COMMUNITY_DELIVERY_TIMEOUT_MS;
+                }
+                long remaining = deliveryDeadline - System.currentTimeMillis();
+                if (remaining <= 0L) {
+                    LOGGER.log(Level.SEVERE,
+                            "Critical community delivery timed out for street {0}; closing host channel",
+                            street);
+                    closeHostAfterCriticalCommunityTimeout();
+                    return false;
+                }
                 synchronized (this.getReceived_commands()) {
                     try {
-                        this.received_commands.wait(WAIT_QUEUES);
+                        this.received_commands.wait(Math.min(WAIT_QUEUES, remaining));
                     } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                        closeHostAfterCriticalCommunityFailure();
+                        return false;
                     }
                 }
             }
@@ -15023,7 +15129,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (revealRecord == null || revealSig == null) {
-            triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+            if (!isFin_de_la_transmision() && !this.termination_pending) {
+                rejectCriticalCommunityMessage(revealCommand,
+                        "Critical COMM_REVEAL missing; closing host channel", null);
+            }
             return false;
         }
 
@@ -15035,19 +15144,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (revealRecord.length != CanonicalActionRecord.RECORD_BYTES
                         || CanonicalActionRecord.readActionType(revealRecord) != CanonicalActionRecord.ACTION_COMMUNITY
                         || CanonicalActionRecord.readStreet(revealRecord) != expectedWireStreet) {
-                    LOGGER.log(Level.SEVERE,
-                            "Observer: COMM_REVEAL for street {0} malformed",
-                            street);
-                    triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+                    rejectCriticalCommunityMessage(revealCommand,
+                            "Observer: malformed COMM_REVEAL; closing host channel", null);
                     return false;
                 }
                 long packed = CanonicalActionRecord.readAmountCents(revealRecord);
                 pieceIndices = CanonicalActionRecord.unpackCommunityCards(packed, expectedNumCards);
+                if (!communityCardsAreUnique(pieceIndices, priorCommunityCardsForCurrentStreet())) {
+                    throw new IllegalArgumentException("observer reveal repeats a dealt board card");
+                }
             } catch (RuntimeException ex) {
-                LOGGER.log(Level.SEVERE,
-                        "Observer: COMM_REVEAL unpack failed for street " + street,
-                        ex);
-                triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+                rejectCriticalCommunityMessage(revealCommand,
+                        "Observer: invalid COMM_REVEAL; closing host channel", ex);
                 return false;
             }
         }
@@ -15056,24 +15164,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         {
             try {
                 if (revealRecord.length != CanonicalActionRecord.RECORD_BYTES) {
-                    LOGGER.log(Level.SEVERE,
-                            "ZERO-TRUST: COMM_REVEAL record wrong length ({0} != {1}) — lockdown",
-                            new Object[]{revealRecord.length, CanonicalActionRecord.RECORD_BYTES});
-                    triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+                    rejectCriticalCommunityMessage(revealCommand,
+                            "ZERO-TRUST: invalid COMM_REVEAL record length; closing host channel", null);
                     return false;
                 }
                 if (CanonicalActionRecord.readActionType(revealRecord) != CanonicalActionRecord.ACTION_COMMUNITY) {
-                    LOGGER.log(Level.SEVERE,
-                            "ZERO-TRUST: COMM_REVEAL record action_type != ACTION_COMMUNITY — lockdown");
-                    triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+                    rejectCriticalCommunityMessage(revealCommand,
+                            "ZERO-TRUST: invalid COMM_REVEAL action type; closing host channel", null);
                     return false;
                 }
                 int recordStreet = CanonicalActionRecord.readStreet(revealRecord);
                 if (recordStreet != expectedWireStreet) {
-                    LOGGER.log(Level.SEVERE,
-                            "ZERO-TRUST: COMM_REVEAL street {0} != current street {1} — lockdown",
-                            new Object[]{recordStreet, expectedWireStreet});
-                    triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+                    rejectCriticalCommunityMessage(revealCommand,
+                            "ZERO-TRUST: wrong-street COMM_REVEAL; closing host channel", null);
                     return false;
                 }
                 String hostNick = GameFrame.getInstance().getSala_espera() != null
@@ -15083,10 +15186,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (!communityRevealRecordIsSafe(revealRecord, expectedWireStreet, expectedNumCards,
                         this.hand_state_chain.getCurrentHash(), this.hand_state_chain.getHandId(),
                         expectedHostPlayerId)) {
-                    LOGGER.log(Level.SEVERE,
-                            "ZERO-TRUST: COMM_REVEAL context/replay/packing validation failed for street {0} — lockdown",
-                            street);
-                    triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+                    rejectCriticalCommunityMessage(revealCommand,
+                            "ZERO-TRUST: invalid COMM_REVEAL context; closing host channel", null);
                     return false;
                 }
                 byte[] hostPubkey = null;
@@ -15097,19 +15198,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 if (hostPubkey == null || !IdentityManager.verifyAction(hostPubkey, revealRecord, revealSig)) {
-                    LOGGER.log(Level.SEVERE,
-                            "ZERO-TRUST: COMM_REVEAL signature invalid for street {0} — lockdown",
-                            street);
-                    triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+                    rejectCriticalCommunityMessage(revealCommand,
+                            "ZERO-TRUST: invalid COMM_REVEAL signature; closing host channel", null);
                     return false;
                 }
                 long packed = CanonicalActionRecord.readAmountCents(revealRecord);
                 int[] announceIndices = CanonicalActionRecord.unpackCommunityCards(packed, expectedNumCards);
                 if (!Arrays.equals(pieceIndices, announceIndices)) {
-                    LOGGER.log(Level.SEVERE,
-                            "ZERO-TRUST: COMM_REVEAL announced cards differ from PIECE-decoded indices for street {0} (announce={1}, piece={2}) — cross-recipient fork, lockdown",
-                            new Object[]{street, java.util.Arrays.toString(announceIndices), java.util.Arrays.toString(pieceIndices)});
-                    triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+                    rejectCriticalCommunityMessage(revealCommand,
+                            "ZERO-TRUST: cross-recipient COMM_REVEAL fork; closing host channel", null);
                     return false;
                 }
                 // All checks passed: absorb into H_t with the host's nick as the
@@ -15119,9 +15216,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     absorbActionIntoChain(hostNick, revealRecord, revealSig);
                 }
             } catch (RuntimeException ex) {
-                LOGGER.log(Level.SEVERE,
-                        "ZERO-TRUST: COMM_REVEAL processing failed for street " + street + " — lockdown", ex);
-                triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+                rejectCriticalCommunityMessage(revealCommand,
+                        "ZERO-TRUST: failed COMM_REVEAL processing; closing host channel", ex);
                 return false;
             }
         }

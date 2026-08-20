@@ -1492,7 +1492,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile double ciega_pequeña = GameFrame.CIEGA_PEQUEÑA;
     private volatile double apuesta_actual = 0;
     private volatile double ultimo_raise = 0;
-    private volatile double partial_raise_cum = 0;
+    private volatile BettingRoundState betting_round_state;
     private volatile int conta_raise = 0;
     private volatile int conta_bet = 0;
     private volatile boolean straddle_posted = false; // true if the UTG chose to post a voluntary straddle this hand
@@ -9107,7 +9107,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // its counterpart.
         this.apuestas_devueltas = false;
         this.ultimo_raise = 0f;
-        this.partial_raise_cum = 0f;
+        this.betting_round_state = null;
         this.conta_raise = 0;
         this.conta_bet = 0;
         this.straddle_posted = false;
@@ -10766,6 +10766,45 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    /** The single entitlement gate consumed by UI, live remote and recovery paths. */
+    public boolean canPlayerRaise(String nick) {
+        BettingRoundState state = this.betting_round_state;
+        return state != null && state.legalActions(nick).canRaise();
+    }
+
+    private boolean applyBettingRoundAction(Player player, int decision) {
+        BettingRoundState state = this.betting_round_state;
+        if (state == null || player == null) {
+            return false;
+        }
+        BettingRoundState.Action action;
+        switch (decision) {
+            case Player.FOLD:
+                action = BettingRoundState.Action.FOLD;
+                break;
+            case Player.BET:
+                action = BettingRoundState.Action.RAISE;
+                break;
+            case Player.ALLIN:
+                action = BettingRoundState.Action.ALL_IN;
+                break;
+            case Player.CHECK:
+                action = BettingRoundState.Action.CHECK_CALL;
+                break;
+            default:
+                return false;
+        }
+        BettingRoundState.Transition transition = state.apply(player.getNickname(), action,
+                CanonicalActionRecord.amountToCents(player.getBet()));
+        if (!transition.isAccepted()) {
+            LOGGER.log(Level.SEVERE, "Betting reducer rejected applied action for {0}: {1}",
+                    new Object[]{player.getNickname(), transition.error()});
+            return false;
+        }
+        this.betting_round_state = transition.state();
+        return true;
+    }
+
     /**
      * Consensus — runs AFTER the payout, once per hand at hand close. Absorbs
      * this peer's independently-computed {@link SettlementRecord} table (who
@@ -11946,7 +11985,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         // legacy no-chain path used to have no such barrier).
                                         if (!isLegalRemoteAction((Integer) action[0], wireActionAmount,
                                                 jugador.getBet(), jugador.getStack(), this.apuesta_actual,
-                                                this.ultimo_raise, this.ciega_grande)) {
+                                                this.ultimo_raise, this.ciega_grande,
+                                                canPlayerRaise(jugador.getNickname()))) {
                                             throw new IllegalArgumentException(
                                                     "illegal remote ACTION payload (decision="
                                                     + action[0] + ", amount=" + wireActionAmount + ")");
@@ -14880,11 +14920,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.ultimo_raise = 0f;
                 this.conta_raise = 0;
                 this.conta_bet = 0;
-                // A partial raise (all-in short of a full raise) belongs to the street
-                // that just closed and dies with it, like apuesta_actual/ultimo_raise
-                // above. Carrying it over inflated the next street's count and made a
-                // partial look like a full raise, wrongly reopening action to others.
-                this.partial_raise_cum = 0f;
                 for (Player jugador : resisten) {
                     jugador.setBet(0f);
                 }
@@ -14939,6 +14974,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int decision = -1;
 
             resetBetPlayerDecisions(GameFrame.getInstance().getJugadores(), null, false);
+            LinkedHashMap<String, Long> committedBySeat = new LinkedHashMap<>();
+            for (Player jugador : resisten) {
+                if (jugador.isActivo() && jugador.getDecision() != Player.FOLD
+                        && jugador.getDecision() != Player.ALLIN) {
+                    committedBySeat.put(jugador.getNickname(),
+                            CanonicalActionRecord.amountToCents(jugador.getBet()));
+                }
+            }
+            this.betting_round_state = BettingRoundState.start(committedBySeat,
+                    CanonicalActionRecord.amountToCents(this.apuesta_actual),
+                    CanonicalActionRecord.amountToCents(
+                            BetRules.minRaiseIncrement(this.ultimo_raise, this.ciega_grande)));
             actualizarContadoresTapete();
 
             do {
@@ -15223,6 +15270,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 decision = (int) action[0];
 
+                // The reducer is authoritative for every producer, including host bots and
+                // the local UI. Remote and recovery inputs already pass this same gate before
+                // reaching here; this final check prevents any alternate producer from
+                // bypassing per-seat raise entitlement.
+                long effectiveAllInCents = CanonicalActionRecord.amountToCents(
+                        current_player.getBet() + current_player.getStack());
+                long currentBetCents = CanonicalActionRecord.amountToCents(this.apuesta_actual);
+                if ((decision == Player.BET && !canPlayerRaise(current_player.getNickname()))
+                        || (decision == Player.ALLIN && effectiveAllInCents > currentBetCents
+                        && !canPlayerRaise(current_player.getNickname()))) {
+                    LOGGER.log(Level.SEVERE, "Raise without entitlement rejected for {0}",
+                            current_player.getNickname());
+                    action = new Object[]{Player.FOLD, 0d, null, null, null, Boolean.FALSE, "UNVERIFIED"};
+                    decision = Player.FOLD;
+                }
+
                 if (decision == Player.ALLIN) {
                     if ((action[1] instanceof String) && !"".equals((String) action[1])) {
                         this.current_remote_cinematic_b64 = (String) action[1];
@@ -15359,6 +15422,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     absorbActionIntoChain(current_player.getNickname(), localRecord, localSig);
                 }
 
+                if (!applyBettingRoundAction(current_player, decision)) {
+                    LOGGER.log(Level.SEVERE, "Aborting betting round after reducer divergence");
+                    resisten.clear();
+                    return resisten;
+                }
+
                 Bot.OpponentTracker stats = Bot.TRACKER_MEMORY.computeIfAbsent(current_player.getNickname(), k -> new Bot.OpponentTracker());
 
                 if (this.street == Crupier.PREFLOP) {
@@ -15395,15 +15464,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (decision == Player.BET || (decision == Player.ALLIN && Helpers.doubleSecureCompare(this.apuesta_actual, current_player.getBet()) < 0)) {
                         boolean partial_raise = false;
                         double min_raise = BetRules.minRaiseIncrement(getUltimo_raise(), getCiega_grande());
-                        double current_raise = current_player.getBet() - this.apuesta_actual + this.partial_raise_cum;
+                        double current_raise = current_player.getBet() - this.apuesta_actual;
 
                         if (BetRules.isFullRaise(current_raise, min_raise)) {
                             this.ultimo_raise = current_raise;
-                            this.partial_raise_cum = 0f;
                             this.conta_raise++;
                         } else if (decision == Player.ALLIN) {
                             partial_raise = true;
-                            this.partial_raise_cum += current_player.getBet() - this.apuesta_actual;
                         }
 
                         this.conta_bet++;
@@ -16536,6 +16603,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     static boolean isLegalRemoteAction(int javaDecision, double wireAmount,
             double playerBet, double playerStack, double apuestaActual,
             double ultimoRaise, double ciegaGrande) {
+        return isLegalRemoteAction(javaDecision, wireAmount, playerBet, playerStack,
+                apuestaActual, ultimoRaise, ciegaGrande, true);
+    }
+
+    static boolean isLegalRemoteAction(int javaDecision, double wireAmount,
+            double playerBet, double playerStack, double apuestaActual,
+            double ultimoRaise, double ciegaGrande, boolean raiseEntitled) {
         if (!finiteMoney(wireAmount) || !finiteMoney(playerBet)
                 || !finiteMoney(playerStack) || !finiteMoney(apuestaActual)
                 || !finiteMoney(ultimoRaise) || !finiteMoney(ciegaGrande)
@@ -16560,7 +16634,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         && currentCents >= playerBetCents
                         && currentCents - playerBetCents < playerStackCents;
             case Player.ALLIN:
-                return declaredCents == 0L && playerStackCents > 0L;
+                return declaredCents == 0L && playerStackCents > 0L
+                        && (playerBetCents + playerStackCents <= currentCents || raiseEntitled);
             case Player.BET:
                 double effective = playerBet + playerStack;
                 if (!Double.isFinite(effective)) {
@@ -16573,7 +16648,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (!finiteMoney(minimumTarget)) {
                     return false;
                 }
-                return declaredCents > currentCents
+                return raiseEntitled
+                        && declaredCents > currentCents
                         && declaredCents < effectiveCents
                         && declaredCents >= CanonicalActionRecord.amountToCents(minimumTarget);
             default:
@@ -16595,8 +16671,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     static boolean recoveredActionIsSafe(byte[] record, int javaDecision, double wireAmount,
             double playerBet, double playerStack, double apuestaActual,
             double ultimoRaise, double ciegaGrande, byte[] expectedHash) {
+        return recoveredActionIsSafe(record, javaDecision, wireAmount, playerBet,
+                playerStack, apuestaActual, ultimoRaise, ciegaGrande, expectedHash, true);
+    }
+
+    static boolean recoveredActionIsSafe(byte[] record, int javaDecision, double wireAmount,
+            double playerBet, double playerStack, double apuestaActual,
+            double ultimoRaise, double ciegaGrande, byte[] expectedHash,
+            boolean raiseEntitled) {
         return isLegalRemoteAction(javaDecision, wireAmount, playerBet, playerStack,
-                apuestaActual, ultimoRaise, ciegaGrande)
+                apuestaActual, ultimoRaise, ciegaGrande, raiseEntitled)
                 && (expectedHash == null || recordStartsAtHash(record, expectedHash));
     }
 
@@ -17917,7 +18001,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             recoveredPlayer.getBet(), recoveredPlayer.getStack(),
                                             this.apuesta_actual, this.ultimo_raise, this.ciega_grande,
                                             this.hand_state_chain != null
-                                                    ? this.hand_state_chain.getCurrentHash() : null)) {
+                                                    ? this.hand_state_chain.getCurrentHash() : null,
+                                            canPlayerRaise(name))) {
                                 LOGGER.log(Level.SEVERE,
                                         "ZERO-TRUST RECOVER: recovered action for {0} failed the legality or chain-order gate — host/DB forgery/reorder",
                                         name);

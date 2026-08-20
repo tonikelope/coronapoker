@@ -250,7 +250,7 @@ GAME # <command_id> # ACTION # <nick_b64> # <decision> # <bet> # <cinematic_or_*
 
 The outer `GAME # <command_id> #` envelope is prepended by `broadcastGAMECommandFromServer` / `sendGAMECommandToServer`, where `command_id` is a random per-command int (`Helpers.CSPRNG_GENERATOR.nextInt()`) used only for CONF de-duplication, not a hand sequence number. The inner `ACTION` subcommand carries the Base64 nick, the numeric `decision` code (the Java `Player` action constant), the `bet` amount as a decimal string (`0` for non-bets), a `cinematic_or_*` slot (the all-in animation payload or `*`), and finally `record_or_*` / `sig_or_*` (each `*` when absent).
 
-The nick, decision, bet and cinematic fields are operational (logs, animations, parser compatibility). **Only `<record_b64>` and `<sig_b64>` are cryptographically meaningful**. They are the canonical values fed to the chain and verifier.
+The nick, decision, bet and cinematic fields are operational (logs, animations and parsing). **Only `<record_b64>` and `<sig_b64>` are cryptographically meaningful**. They are the canonical values fed to the chain and verifier.
 
 ---
 

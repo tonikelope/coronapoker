@@ -12471,9 +12471,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Identity: action[] grows to 7 slots so the wire's
         // record + sig and the voluntary flag survive the trip through Crupier:
         //   [0] decision        (Integer)
-        //   [1] bet             (Float; on ALLIN overloaded to cinematic String —
-        //                        kept for backward-compat with rondaApuestas)
-        //   [2] cinematic       (String|null — separate slot; [1] is overloaded)
+        //   [1] bet             (Double; numeric for every decision)
+        //   [2] cinematic       (String|null; used only for ALLIN)
         //   [3] record          (byte[92]|null — canonical record from the wire)
         //   [4] sig             (byte[64]|null — Ed25519 signature from the wire)
         //   [5] isVoluntary     (Boolean — FALSE marks a locally synthesized FOLD: no
@@ -12550,7 +12549,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                                         /* Cinematic extraction on ALLIN */
                                         if ((Integer) action[0] == Player.ALLIN && partes.length > 6 && !partes[6].isEmpty() && !partes[6].equals("*")) {
-                                            action[1] = partes[6];
                                             action[2] = partes[6];
                                         }
 
@@ -12671,7 +12669,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                                 byte[] expectedHid = (this.hand_state_chain != null)
                                                                         ? this.hand_state_chain.getHandId() : null;
                                                                 recordForged = !signedRecordBindsToAction(wireRecord,
-                                                                        (int) action[0], action[1],
+                                                                        (int) action[0], ((Number) action[1]).doubleValue(),
                                                                         jugador.getBet(), jugador.getStack(), this.apuesta_actual,
                                                                         expectedPid, expectedHid);
                                                                 if (recordForged) {
@@ -16006,16 +16004,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     break;
                                 case Player.CHECK:
                                     if (Helpers.doubleSecureCompare(current_player.getStack(), call_required) <= 0) {
-                                        action = new Object[]{Player.ALLIN, "", null};
+                                        action = new Object[]{Player.ALLIN, 0d, null};
                                     }
                                     break;
                                 case Player.BET:
                                     if (Helpers.doubleSecureCompare(current_player.getStack(), call_required) <= 0) {
-                                        action = new Object[]{Player.ALLIN, "", null};
+                                        action = new Object[]{Player.ALLIN, 0d, null};
                                     } else {
                                         double b = ((RemotePlayer) current_player).getBot().getBetSize();
                                         if (Helpers.doubleSecureCompare(current_player.getStack() * 0.75f, b - current_player.getBet()) <= 0) {
-                                            action = new Object[]{Player.ALLIN, "", null};
+                                            action = new Object[]{Player.ALLIN, 0d, null};
                                         } else if (puedenApostar(GameFrame.getInstance().getJugadores()) <= 1) {
                                             action = new Object[]{Player.CHECK, 0d, null};
                                         } else {
@@ -16026,7 +16024,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
 
                             if (Init.DEV_MODE && ALLIN_BOT_TEST) {
-                                action = new Object[]{Player.ALLIN, "", null};
+                                action = new Object[]{Player.ALLIN, 0d, null};
                             }
 
                             long bot_elapsed_time = System.currentTimeMillis() - start;
@@ -16070,8 +16068,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (decision == Player.ALLIN) {
-                    if ((action[1] instanceof String) && !"".equals((String) action[1])) {
-                        this.current_remote_cinematic_b64 = (String) action[1];
+                    if ((action[2] instanceof String) && !"".equals((String) action[2])) {
+                        this.current_remote_cinematic_b64 = (String) action[2];
                     } else {
                         // All-in with NO new cinematic (bot, or a player with all-in
                         // cinematics disabled: the wire carries the "*" sentinel): clear
@@ -17485,10 +17483,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * unmappable decision or an unrepresentable (NaN/Inf) bet amount: a
      * legitimate action never produces one, and the caller treats it as forgery
      * (synth-fold). {@code record} must already have RECORD_BYTES length
-     * (guaranteed by the caller). {@code betObj} is the plaintext wire bet (a
-     * Double for BET, ignored otherwise).
+     * (guaranteed by the caller). {@code wireAmount} is the numeric plaintext
+     * wire amount for the current protocol.
      */
-    static boolean signedRecordBindsToAction(byte[] record, int javaDecision, Object betObj,
+    static boolean signedRecordBindsToAction(byte[] record, int javaDecision, double wireAmount,
             double playerBet, double playerStack, double apuestaActual,
             byte[] expectedPlayerId, byte[] expectedHandId) {
         // Action TYPE (pure wire value).
@@ -17511,9 +17509,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return false;
         }
         // AMOUNT.
-        double betAbsoluteTarget = (betObj instanceof Number) ? ((Number) betObj).doubleValue() : 0;
         long signedCents = CanonicalActionRecord.readAmountCents(record);
-        long expectedCents = expectedActionAmountCents(javaDecision, betAbsoluteTarget,
+        long expectedCents = expectedActionAmountCents(javaDecision, wireAmount,
                 playerBet, playerStack, apuestaActual);
         return signedCents == expectedCents;
     }
@@ -18662,7 +18659,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * carry the actor's complete pre-action bet plus stack.
      */
     static boolean recoveredActionBindsToRecordWithState(byte[] record, int decision,
-            Object betObj, String nick, byte[] expectedHandId,
+            double wireAmount, String nick, byte[] expectedHandId,
             double playerBet, double playerStack, double apuestaActual) {
         try {
             if (expectedHandId == null) {
@@ -18678,9 +18675,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (!java.util.Arrays.equals(CanonicalActionRecord.readHandId(record), expectedHandId)) {
                 return false;
             }
-            double betAbsoluteTarget = (betObj instanceof Number)
-                    ? ((Number) betObj).doubleValue() : 0d;
-            long expectedCents = expectedActionAmountCents(decision, betAbsoluteTarget,
+            long expectedCents = expectedActionAmountCents(decision, wireAmount,
                     playerBet, playerStack, apuestaActual);
             return CanonicalActionRecord.readAmountCents(record) == expectedCents;
         } catch (RuntimeException ex) {
@@ -18730,14 +18725,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     // Recovery: return a full-width action so the
                     // rondaApuestas absorb path picks up the persisted record + sig
-                    // bytes and ratchets H_t exactly as before the crash. Shorter
-                    // recovery data (3 fields) falls back to "*" placeholders — those
-                    // leave record/sig null, the canBuild gate takes over (host
-                    // re-builds with its privkey for its own actions, client no-ops
-                    // for others), so the chain ends up null for the recovered hand
-                    // only when the shorter data is fed in. Same width as the live path
-                    // (readActionFromRemotePlayer), since a forged replay synthesizes
-                    // the SAME fold, which goes out on the wire.
+                    // bytes and ratchets H_t exactly as before the crash. The current
+                    // codec always supplies its fixed six-field wire; missing
+                    // evidence is represented only by the explicit paired "*" values.
+                    // Same tuple width as the live path (readActionFromRemotePlayer),
+                    // since a forged replay synthesizes the SAME fold that goes on wire.
                     res = new Object[7];
 
                     res[0] = recoveredWire.decision();
@@ -18802,7 +18794,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         name);
                                 recoverForged = true;
                             } else if (!recoverForged && !recoveredActionBindsToRecordWithState(recordBytes,
-                                    (int) res[0], res[1], name,
+                                    (int) res[0], ((Number) res[1]).doubleValue(), name,
                                     this.hand_state_chain != null ? this.hand_state_chain.getHandId() : null,
                                     recoveredPlayer.getBet(), recoveredPlayer.getStack(), this.apuesta_actual)) {
                                 LOGGER.log(Level.SEVERE,

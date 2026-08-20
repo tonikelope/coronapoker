@@ -78,13 +78,13 @@ class ActionReplayBindingTest {
                 CanonicalActionRecord.STREET_PREFLOP,
                 CanonicalActionRecord.ACTION_ALLIN, 11000L, true, true);
         assertTrue(Crupier.recoveredActionBindsToRecordWithState(
-                allIn, Player.ALLIN, "cinematic", "alice", hand, 10d, 100d, 20d));
+                allIn, Player.ALLIN, 0d, "alice", hand, 10d, 100d, 20d));
 
         byte[] wrongAllInAmount = CanonicalActionRecord.encode(previous, hand, player,
                 CanonicalActionRecord.STREET_PREFLOP,
                 CanonicalActionRecord.ACTION_ALLIN, 9999L, true, true);
         assertFalse(Crupier.recoveredActionBindsToRecordWithState(
-                wrongAllInAmount, Player.ALLIN, "cinematic", "alice", hand, 10d, 100d, 20d));
+                wrongAllInAmount, Player.ALLIN, 0d, "alice", hand, 10d, 100d, 20d));
     }
 
     private static byte[] filled(int length, byte value) {

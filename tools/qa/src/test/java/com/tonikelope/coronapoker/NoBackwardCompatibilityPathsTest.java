@@ -3,6 +3,7 @@ package com.tonikelope.coronapoker;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -49,8 +50,31 @@ class NoBackwardCompatibilityPathsTest {
     @Test
     void publicReadmeStatesTheSingleVersionAdmissionRule() throws IOException {
         String readme = Files.readString(projectRoot().resolve("README.md"));
-        assertEquals(true, readme.contains(
+        assertTrue(readme.contains(
                 "Every participant in a game must run the exact same CoronaPoker version"));
+    }
+
+    @Test
+    void actionAmountAndCinematicHaveOneCurrentShape() throws IOException {
+        assertTrue(hasMethod(Crupier.class, "signedRecordBindsToAction",
+                byte[].class, int.class, double.class, double.class, double.class,
+                double.class, byte[].class, byte[].class));
+        assertFalse(hasMethod(Crupier.class, "signedRecordBindsToAction",
+                byte[].class, int.class, Object.class, double.class, double.class,
+                double.class, byte[].class, byte[].class));
+        assertTrue(hasMethod(Crupier.class, "recoveredActionBindsToRecordWithState",
+                byte[].class, int.class, double.class, String.class, byte[].class,
+                double.class, double.class, double.class));
+        assertFalse(hasMethod(Crupier.class, "recoveredActionBindsToRecordWithState",
+                byte[].class, int.class, Object.class, String.class, byte[].class,
+                double.class, double.class, double.class));
+
+        String crupier = Files.readString(projectRoot().resolve(
+                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+        assertFalse(crupier.contains("action[1] = partes[6]"));
+        assertFalse(crupier.contains("new Object[]{Player.ALLIN, \"\", null}"));
+        assertTrue(crupier.contains("action[1] = wireActionAmount"));
+        assertTrue(crupier.contains("action[2] = partes[6]"));
     }
 
     private static boolean hasMethod(Class<?> type, String name, Class<?>... parameters) {

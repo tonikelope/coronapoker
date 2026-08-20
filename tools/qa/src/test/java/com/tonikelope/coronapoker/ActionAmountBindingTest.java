@@ -223,12 +223,12 @@ public class ActionAmountBindingTest {
     }
 
     @Test
-    public void allInBindingIgnoresTheCinematicStringInBetSlot() {
-        // On ALLIN the wire bet slot is overloaded with a cinematic String; the
-        // binding must ignore it and use bet+stack, never throw on the String.
+    public void allInBindingUsesNumericAmountSlot() {
+        // ALLIN derives its canonical total from bet+stack; the amount slot still
+        // has one numeric type while cinematic data lives in its separate slot.
         assertTrue(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_ALLIN, 6050L, true),
-                Player.ALLIN, "cinematic_b64_blob", 12.5, 48.0, 999.0, PID, HID));
+                Player.ALLIN, 0d, 12.5, 48.0, 999.0, PID, HID));
     }
 
     @Test

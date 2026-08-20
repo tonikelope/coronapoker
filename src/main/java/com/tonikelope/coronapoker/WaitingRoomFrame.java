@@ -2426,8 +2426,8 @@ public class WaitingRoomFrame extends JFrame {
                                 chat_text = new StringBuffer(new String(Base64.getDecoder().decode(recibido.replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8"));
                             }
 
-                            // Keep the later bounded avatar decoder, while restoring the
-                            // pre-23.46 non-blocking TOFU behavior below.
+                            // Keep the bounded avatar decoder and the deliberately
+                            // non-blocking TOFU policy below.
                             File server_avatar = decodeRemoteAvatar(
                                     server_avatar_encoded, server_nick, "server intro");
                             nuevoParticipanteRemoto(server_nick, server_avatar, null, null, null, false,
@@ -2894,7 +2894,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                         }
                                                                     } catch (Exception bundleEx) {
                                                                         // Malformation is not by itself proof of cheating, but there is no
-                                                                        // compatible alternate wire and the critical hand cannot continue.
+                                                                        // alternate current wire and the critical hand cannot continue.
                                                                         LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE unparseable — closing host channel", bundleEx);
                                                                         cruB.markShuffleProofFailed(cruB.local_mega_packet);
                                                                         cruB.triggerSecurityLockdown(Translator.translate("zero_trust.host_shuffle_proof_failed"));

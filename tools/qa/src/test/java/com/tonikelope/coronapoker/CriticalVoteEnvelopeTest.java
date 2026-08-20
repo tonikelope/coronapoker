@@ -20,7 +20,7 @@ class CriticalVoteEnvelopeTest {
         assertEquals("alice", parsed.nick());
         assertEquals(1, parsed.decision());
         assertThrows(IllegalArgumentException.class, () -> CriticalVoteEnvelope.parseRitResponse(
-                new String[]{"GAME", "7", "RIT_VOTE_RESP", ALICE, "1", "legacy"}));
+                new String[]{"GAME", "7", "RIT_VOTE_RESP", ALICE, "1", "extra"}));
         assertThrows(IllegalArgumentException.class, () -> CriticalVoteEnvelope.parseRitResponse(
                 new String[]{"GAME", "x", "RIT_VOTE_RESP", ALICE, "1"}));
         assertThrows(IllegalArgumentException.class, () -> CriticalVoteEnvelope.parseRitResponse(

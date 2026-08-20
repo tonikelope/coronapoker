@@ -1856,7 +1856,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean straddle_posted = false; // true if the UTG chose to post a voluntary straddle this hand
     private volatile String straddle_utg_nick = null; // with straddle, the REAL "under the gun" (first to act) = next active after the straddler; null without straddle
     private volatile boolean straddle_recovered_posted = false; // recovery (host): whether the replayed hand had the straddle posted (from the fossil); host rebroadcasts this decision instead of asking again
-    private volatile Boolean straddle_recover_fossil_posted = null; // recovery (client) zero-trust cross-check: whether OUR OWN fossil recorded the straddle as posted this hand; compared against the host's STRADDLE_RESULT to flag a hostile/buggy host WITHOUT changing the applied value. null = not read (fresh hand, or an old fossil without the field)
+    private volatile Boolean straddle_recover_fossil_posted = null; // recovery (client) zero-trust cross-check: whether OUR OWN current-format fossil recorded the straddle as posted this hand; compared against the host's STRADDLE_RESULT to flag a hostile/buggy host WITHOUT changing the applied value. null = no active local recovery datum
     private volatile VoluntaryStraddleDialog straddle_local_dialog = null; // voluntary-straddle dialog open on the UTG's peer (to close it externally)
 
     public VoluntaryStraddleDialog getStraddle_local_dialog() {
@@ -1936,7 +1936,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // before the vote, it stays false and the vote runs normally.
     private volatile boolean rit_vote_done = false;
     private volatile boolean rit_vote_close_received = false;
-    private volatile Boolean rit_recover_fossil_agreed = null; // recovery (client) zero-trust cross-check: our OWN fossil's run-it-twice vote result this hand (null = no vote / old fossil); compared against the host's rebroadcast RIT_VOTE_CLOSE to flag a hostile/buggy host WITHOUT changing the applied value
+    private volatile Boolean rit_recover_fossil_agreed = null; // recovery (client) zero-trust cross-check: our OWN current-format fossil's run-it-twice vote result this hand (null = no completed vote); compared against the host's rebroadcast RIT_VOTE_CLOSE to flag a hostile/buggy host WITHOUT changing the applied value
     // Street where the action closed (all-in run-out). Community cards on LATER streets are the ones
     // "run out" (rewound for SIDE-B); this street and earlier ones are shared. -1 = no all-in run-out.
     private volatile int rit_allin_street = -1;
@@ -2217,9 +2217,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     String cmd = this.received_commands.poll();
                     String[] partes = cmd.split("#");
                     if (partes.length == 7 && partes[2].equals("DECK_CASCADE_RESP")) {
+                        String senderNick;
                         try {
-                            String senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-                            if (senderNick.equals(nick)) {
+                            senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                        } catch (Exception e) {
+                            this.received_commands.reject(cmd);
+                            continue;
+                        }
+                        if (senderNick.equals(nick)) {
+                            try {
                                 byte[] candidate = Base64.getDecoder().decode(partes[4]);
                                 // ZERO-TRUST host-side: the peer responds with a deck we're about to propagate
                                 // to the next step in the cascade and, eventually, to EVERYONE via MEGAPACKET.
@@ -2273,10 +2279,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 candidate.length == 1664 ? RistrettoSRA.arePointsValid(candidate) : false});
                                     fatalError = true;
                                 }
-                            } else {
-                                rejected.add(cmd);
+                                if (fatalError) {
+                                    this.received_commands.reject(cmd);
+                                }
+                            } catch (Exception e) {
+                                this.received_commands.reject(cmd);
+                                fatalError = true;
                             }
-                        } catch (Exception e) {
+                        } else {
                             rejected.add(cmd);
                         }
                     } else {
@@ -2383,9 +2393,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     String cmd = this.received_commands.poll();
                     String[] partes = cmd.split("#");
                     if (partes.length == 6 && partes[2].equals("DECK_ROTATION_RESP")) {
+                        String senderNick;
                         try {
-                            String senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-                            if (senderNick.equals(nick)) {
+                            senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                        } catch (Exception e) {
+                            this.received_commands.reject(cmd);
+                            continue;
+                        }
+                        if (senderNick.equals(nick)) {
+                            try {
                                 byte[] candidate = Base64.getDecoder().decode(partes[4]);
                                 // The rotated block must keep exactly the same length (same N
                                 // positions) and remain valid curve points.
@@ -2400,10 +2416,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 candidate.length == expectedLength ? RistrettoSRA.arePointsValid(candidate) : false});
                                     fatalError = true;
                                 }
-                            } else {
-                                rejected.add(cmd);
+                                if (fatalError) {
+                                    this.received_commands.reject(cmd);
+                                }
+                            } catch (Exception e) {
+                                this.received_commands.reject(cmd);
+                                fatalError = true;
                             }
-                        } catch (Exception e) {
+                        } else {
                             rejected.add(cmd);
                         }
                     } else {
@@ -2472,20 +2492,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     String cmd = this.received_commands.poll();
                     String[] partes = cmd.split("#");
                     if (partes.length == 5 && partes[2].equals("RESP_SRA_UNLOCK_CHAIN")) {
+                        String senderNick;
                         try {
-                            String senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-                            if (senderNick.equals(nick)) {
+                            senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                        } catch (Exception e) {
+                            this.received_commands.reject(cmd);
+                            continue;
+                        }
+                        if (senderNick.equals(nick)) {
+                            try {
                                 java.util.List<UnlockChainWire.RespItem> parsed = UnlockChainWire.parseResp(partes[4]);
                                 if (parsed != null) {
                                     result = parsed;
                                     ok = true;
                                 } else {
-                                    rejected.add(cmd);
+                                    this.received_commands.reject(cmd);
                                 }
-                            } else {
-                                rejected.add(cmd);
+                            } catch (Exception e) {
+                                this.received_commands.reject(cmd);
                             }
-                        } catch (Exception e) {
+                        } else {
                             rejected.add(cmd);
                         }
                     } else {
@@ -2516,20 +2542,55 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return ok ? result : null;
     }
 
-    // Unicasts a GAME command to ONE specific participant (no broadcast, no ACK wait — like the
-    // cascade REQs). Used by the blind straddle for POCKET_DEFERRED (telling the straddler to go
-    // blind) and for the deferred delivery of its POCKET_CARDS after the cascade.
-    private void sendGAMECommandToParticipant(Participant p, String command) {
-        if (p == null) {
-            return;
+    // Unicasts a critical GAME command to ONE participant and requires its ACK.
+    // Used by the blind straddle for POCKET_DEFERRED and for the later delivery
+    // of its POCKET_CARDS. Missing delivery closes that peer and aborts safely.
+    private boolean sendGAMECommandToParticipant(Participant p, String command) {
+        if (p == null || p.isExit()) {
+            return false;
         }
+        ArrayList<String> pending = new ArrayList<>();
+        pending.add(p.getNick());
+        ConfirmationTracker tracker = WaitingRoomFrame.getInstance().getReceived_confirmations();
+        ConfirmationTracker.Request request = null;
         try {
             int id = Helpers.CSPRNG_GENERATOR.nextInt();
             byte[] iv = new byte[16];
             Helpers.CSPRNG_GENERATOR.nextBytes(iv);
-            p.writeCommandFromServer(Helpers.encryptCommand("GAME#" + id + "#" + command, p.getAes_key(), iv, p.getHmac_key()));
+            request = tracker.register(id + 1, pending);
+            boolean writeFailed = p.writeCommandFromServer(Helpers.encryptCommand(
+                    "GAME#" + id + "#" + command, p.getAes_key(), iv, p.getHmac_key()));
+            if (writeFailed) {
+                p.markExitAndNotify("critical unicast write failed");
+                try {
+                    p.socketClose();
+                } catch (Exception ignored) {
+                }
+                return false;
+            }
+            waitSyncConfirmations(pending, request);
+            if (pending.isEmpty()) {
+                return true;
+            }
+            LOGGER.log(Level.SEVERE, "Missing ACK for critical unicast from {0}; closing connection", p.getNick());
+            p.markExitAndNotify("withheld critical unicast ACK");
+            try {
+                p.socketClose();
+            } catch (Exception ignored) {
+            }
+            return false;
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Failed to unicast GAME command to a participant", e);
+            LOGGER.log(Level.SEVERE, "Failed to unicast critical GAME command to a participant", e);
+            p.markExitAndNotify("critical unicast delivery failed");
+            try {
+                p.socketClose();
+            } catch (Exception ignored) {
+            }
+            return false;
+        } finally {
+            if (request != null) {
+                tracker.close(request);
+            }
         }
     }
 
@@ -3118,8 +3179,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // recibirMisCartas) and resolves its cards locally after deciding.
                 if (!targetNick.equals(hostNick)) {
                     Participant sp = GameFrame.getInstance().getParticipantes().get(targetNick);
-                    sendGAMECommandToParticipant(sp, "POCKET_DEFERRED#"
-                            + Base64.getEncoder().encodeToString(targetNick.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                    if (!sendGAMECommandToParticipant(sp, "POCKET_DEFERRED#"
+                            + Base64.getEncoder().encodeToString(targetNick.getBytes(java.nio.charset.StandardCharsets.UTF_8)))) {
+                        LOGGER.log(Level.SEVERE, "Failed to deliver POCKET_DEFERRED to {0}", targetNick);
+                        cancelarManoYDevolverApuestas("peer.broadcast_failed");
+                        return false;
+                    }
                 } else {
                     // Host is the straddler: mark pending so its fossil snapshot (below) skips
                     // VISUAL@; its cards resolve in resolveVoluntaryStraddle after deciding.
@@ -3634,8 +3699,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (revealPlayer == null) {
                 return "*";
             }
-            int firstCard = revealPlayer.getHoleCard1().getCartaComoEntero();
-            int secondCard = revealPlayer.getHoleCard2().getCartaComoEntero();
+            int firstCard = revealPlayer.getHoleCard1().getCardIndex();
+            int secondCard = revealPlayer.getHoleCard2().getCardIndex();
             if (firstCard < 0 || secondCard < 0 || firstCard == secondCard) {
                 return "*";
             }
@@ -7445,6 +7510,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 try {
                     String fosil = Helpers.loadHandFossil(this.sqlite_id_game);
 
+                    if (!isCurrentRecoveryFossil(fosil)) {
+                        LOGGER.log(Level.SEVERE,
+                                "Recovery refused: local host fossil is not the current protocol format");
+                        saltar_primera_mano = true;
+                        setFin_de_la_transmision(true);
+                        return;
+                    }
+
                     if (fosil != null && fosil.contains("#")) {
                         String orderMap = null;
                         String[] sraFossilParts = fosil.split("#");
@@ -7754,6 +7827,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             try {
                 String fosil = shouldLoadFossil ? Helpers.loadHandFossil(this.sqlite_id_game) : null;
+                if (shouldLoadFossil) {
+                    if (!isCurrentRecoveryFossil(fosil)) {
+                        LOGGER.log(Level.SEVERE,
+                                "Recovery refused: local client fossil is not the current protocol format");
+                        saltar_primera_mano = true;
+                        setFin_de_la_transmision(true);
+                        WaitingRoomFrame.getInstance().closeClientSocket();
+                        return;
+                    }
+                }
                 if (fosil != null && fosil.contains("#")) {
                     String orderMap = null;
                     String[] sraFossilParts = fosil.split("#");
@@ -8851,7 +8934,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         byte[] nonce = new byte[RabbitFeeLedger.NONCE_BYTES];
         new java.security.SecureRandom().nextBytes(nonce);
-        RabbitFeeLedger.Request request = new RabbitFeeLedger.Request(hand, nick, nonce);
+        IdentityManager identity = IdentityManager.getInstance();
+        if (!identity.isReady()) {
+            LOGGER.log(Level.SEVERE, "Cannot sign Rabbit request: identity is not ready");
+            return;
+        }
+        byte[] requesterSignature = identity.signRabbitRequest(hand, nick, nonce);
+        RabbitFeeLedger.Request request = new RabbitFeeLedger.Request(
+                hand, nick, nonce, requesterSignature);
         if (GameFrame.getInstance().isPartida_local()) {
             RABBIT_REQUEST_HANDLER(request);
         } else {
@@ -8863,6 +8953,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void RABBIT_REQUEST_HANDLER(RabbitFeeLedger.Request request) {
         if (!GameFrame.getInstance().isPartida_local()) {
             return;
+        }
+        byte[] requesterPubkey = request == null
+                ? null : resolveReceiptSignerPubkey(request.playerId());
+        if (requesterPubkey == null || !IdentityManager.verifyRabbitRequest(
+                requesterPubkey, request.handId(), request.playerId(), request.nonce(),
+                request.requesterSignature())) {
+            throw new IllegalArgumentException("invalid Rabbit requester signature");
         }
         Helpers.threadRun(() -> {
             RabbitFeeLedger.Result<RabbitFeeLedger.Authorization> result;
@@ -8890,6 +8987,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final byte[] requestedHandId = authorization.request().handId();
         final String nick = authorization.request().playerId();
         final int conta_rabbit = authorization.count();
+        final byte[] requesterPubkey = resolveReceiptSignerPubkey(nick);
+        if (requesterPubkey == null || !IdentityManager.verifyRabbitRequest(
+                requesterPubkey, requestedHandId, nick, authorization.request().nonce(),
+                authorization.request().requesterSignature())) {
+            throw new IllegalArgumentException("invalid Rabbit requester signature");
+        }
 
         synchronized (lock_rabbit) {
 
@@ -12368,9 +12471,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Identity: action[] grows to 7 slots so the wire's
         // record + sig and the voluntary flag survive the trip through Crupier:
         //   [0] decision        (Integer)
-        //   [1] bet             (Float; on ALLIN overloaded to cinematic String —
-        //                        kept for backward-compat with rondaApuestas)
-        //   [2] cinematic       (String|null — separate slot; [1] is overloaded)
+        //   [1] bet             (Double; numeric for every decision)
+        //   [2] cinematic       (String|null; used only for ALLIN)
         //   [3] record          (byte[92]|null — canonical record from the wire)
         //   [4] sig             (byte[64]|null — Ed25519 signature from the wire)
         //   [5] isVoluntary     (Boolean — FALSE marks a locally synthesized FOLD: no
@@ -12447,7 +12549,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                                         /* Cinematic extraction on ALLIN */
                                         if ((Integer) action[0] == Player.ALLIN && partes.length > 6 && !partes[6].isEmpty() && !partes[6].equals("*")) {
-                                            action[1] = partes[6];
                                             action[2] = partes[6];
                                         }
 
@@ -12568,7 +12669,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                                 byte[] expectedHid = (this.hand_state_chain != null)
                                                                         ? this.hand_state_chain.getHandId() : null;
                                                                 recordForged = !signedRecordBindsToAction(wireRecord,
-                                                                        (int) action[0], action[1],
+                                                                        (int) action[0], ((Number) action[1]).doubleValue(),
                                                                         jugador.getBet(), jugador.getStack(), this.apuesta_actual,
                                                                         expectedPid, expectedHid);
                                                                 if (recordForged) {
@@ -13946,9 +14047,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.straddle_cards_pending = false;
         } else {
             Participant sp = GameFrame.getInstance().getParticipantes().get(straddlerNick);
-            sendGAMECommandToParticipant(sp, "POCKET_CARDS#"
+            if (!sendGAMECommandToParticipant(sp, "POCKET_CARDS#"
                     + Base64.getEncoder().encodeToString(straddlerNick.getBytes(java.nio.charset.StandardCharsets.UTF_8))
-                    + "#" + Base64.getEncoder().encodeToString(residue));
+                    + "#" + Base64.getEncoder().encodeToString(residue))) {
+                LOGGER.log(Level.SEVERE, "Failed to deliver deferred POCKET_CARDS to {0}", straddlerNick);
+                return false;
+            }
         }
         // Persists the fossil NOW that the straddler's residue is in
         // single_locked_pocket_cards (POCKETS@) and, if the host is the straddler, their
@@ -14844,23 +14948,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // COMM_REVEAL with a SIDE-B street code — identical pattern to the live board
         // (absorb ONLY if the broadcast succeeded, or host and clients diverge).
         Object[] recsig = buildCommunityRevealRecordAndSig(mapJavaStreetToRit2Wire(street), hostIndices);
-        if (recsig != null) {
-            byte[] record = (byte[]) recsig[0];
-            byte[] sig = (byte[]) recsig[1];
-            boolean broadcastOk = false;
-            try {
-                String comando = "COMM_REVEAL#"
-                        + Base64.getEncoder().encodeToString(record)
-                        + "#" + Base64.getEncoder().encodeToString(sig);
-                broadcastGAMECommandFromServer(comando, null);
-                broadcastOk = true;
-            } catch (RuntimeException ex) {
-                LOGGER.log(Level.SEVERE, "Failed to broadcast SIDE-B COMM_REVEAL for street " + street, ex);
-            }
-            if (broadcastOk) {
-                absorbActionIntoChain(GameFrame.getInstance().getNick_local(), record, sig);
-            }
+        if (recsig == null) {
+            LOGGER.log(Level.SEVERE, "Failed to build SIDE-B COMM_REVEAL for street {0}", street);
+            cancelarManoYDevolverApuestas("peer.state_inconsistent");
+            return false;
         }
+        byte[] record = (byte[]) recsig[0];
+        byte[] sig = (byte[]) recsig[1];
+        try {
+            String comando = "COMM_REVEAL#"
+                    + Base64.getEncoder().encodeToString(record)
+                    + "#" + Base64.getEncoder().encodeToString(sig);
+            broadcastGAMECommandFromServer(comando, null);
+        } catch (RuntimeException ex) {
+            LOGGER.log(Level.SEVERE, "Failed to broadcast SIDE-B COMM_REVEAL for street " + street, ex);
+            cancelarManoYDevolverApuestas("peer.state_inconsistent");
+            return false;
+        }
+        absorbActionIntoChain(GameFrame.getInstance().getNick_local(), record, sig);
 
         return true;
     }
@@ -15163,15 +15268,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private java.util.List<Integer> priorCommunityCardsForCurrentStreet() {
         java.util.ArrayList<Integer> prior = new java.util.ArrayList<>();
         if (this.run_it_twice_side_b) {
-            prior.addAll(this.rit_side_a_runout_cards);
+            for (Integer oneBased : this.rit_side_a_runout_cards) {
+                if (oneBased != null) {
+                    prior.add(Card.cardIndexFromOneBased(oneBased));
+                }
+            }
         }
         if (street > Crupier.FLOP) {
-            prior.add(GameFrame.getInstance().getFlop1().getCartaComoEntero());
-            prior.add(GameFrame.getInstance().getFlop2().getCartaComoEntero());
-            prior.add(GameFrame.getInstance().getFlop3().getCartaComoEntero());
+            prior.add(GameFrame.getInstance().getFlop1().getCardIndex());
+            prior.add(GameFrame.getInstance().getFlop2().getCardIndex());
+            prior.add(GameFrame.getInstance().getFlop3().getCardIndex());
         }
         if (street > Crupier.TURN) {
-            prior.add(GameFrame.getInstance().getTurn().getCartaComoEntero());
+            prior.add(GameFrame.getInstance().getTurn().getCardIndex());
         }
         return prior;
     }
@@ -15895,16 +16004,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     break;
                                 case Player.CHECK:
                                     if (Helpers.doubleSecureCompare(current_player.getStack(), call_required) <= 0) {
-                                        action = new Object[]{Player.ALLIN, "", null};
+                                        action = new Object[]{Player.ALLIN, 0d, null};
                                     }
                                     break;
                                 case Player.BET:
                                     if (Helpers.doubleSecureCompare(current_player.getStack(), call_required) <= 0) {
-                                        action = new Object[]{Player.ALLIN, "", null};
+                                        action = new Object[]{Player.ALLIN, 0d, null};
                                     } else {
                                         double b = ((RemotePlayer) current_player).getBot().getBetSize();
                                         if (Helpers.doubleSecureCompare(current_player.getStack() * 0.75f, b - current_player.getBet()) <= 0) {
-                                            action = new Object[]{Player.ALLIN, "", null};
+                                            action = new Object[]{Player.ALLIN, 0d, null};
                                         } else if (puedenApostar(GameFrame.getInstance().getJugadores()) <= 1) {
                                             action = new Object[]{Player.CHECK, 0d, null};
                                         } else {
@@ -15915,7 +16024,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
 
                             if (Init.DEV_MODE && ALLIN_BOT_TEST) {
-                                action = new Object[]{Player.ALLIN, "", null};
+                                action = new Object[]{Player.ALLIN, 0d, null};
                             }
 
                             long bot_elapsed_time = System.currentTimeMillis() - start;
@@ -15959,8 +16068,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (decision == Player.ALLIN) {
-                    if ((action[1] instanceof String) && !"".equals((String) action[1])) {
-                        this.current_remote_cinematic_b64 = (String) action[1];
+                    if ((action[2] instanceof String) && !"".equals((String) action[2])) {
+                        this.current_remote_cinematic_b64 = (String) action[2];
                     } else {
                         // All-in with NO new cinematic (bot, or a player with all-in
                         // cinematics disabled: the wire carries the "*" sentinel): clear
@@ -17374,10 +17483,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * unmappable decision or an unrepresentable (NaN/Inf) bet amount: a
      * legitimate action never produces one, and the caller treats it as forgery
      * (synth-fold). {@code record} must already have RECORD_BYTES length
-     * (guaranteed by the caller). {@code betObj} is the plaintext wire bet (a
-     * Double for BET, ignored otherwise).
+     * (guaranteed by the caller). {@code wireAmount} is the numeric plaintext
+     * wire amount for the current protocol.
      */
-    static boolean signedRecordBindsToAction(byte[] record, int javaDecision, Object betObj,
+    static boolean signedRecordBindsToAction(byte[] record, int javaDecision, double wireAmount,
             double playerBet, double playerStack, double apuestaActual,
             byte[] expectedPlayerId, byte[] expectedHandId) {
         // Action TYPE (pure wire value).
@@ -17400,9 +17509,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return false;
         }
         // AMOUNT.
-        double betAbsoluteTarget = (betObj instanceof Number) ? ((Number) betObj).doubleValue() : 0;
         long signedCents = CanonicalActionRecord.readAmountCents(record);
-        long expectedCents = expectedActionAmountCents(javaDecision, betAbsoluteTarget,
+        long expectedCents = expectedActionAmountCents(javaDecision, wireAmount,
                 playerBet, playerStack, apuestaActual);
         return signedCents == expectedCents;
     }
@@ -18551,7 +18659,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * carry the actor's complete pre-action bet plus stack.
      */
     static boolean recoveredActionBindsToRecordWithState(byte[] record, int decision,
-            Object betObj, String nick, byte[] expectedHandId,
+            double wireAmount, String nick, byte[] expectedHandId,
             double playerBet, double playerStack, double apuestaActual) {
         try {
             if (expectedHandId == null) {
@@ -18567,9 +18675,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (!java.util.Arrays.equals(CanonicalActionRecord.readHandId(record), expectedHandId)) {
                 return false;
             }
-            double betAbsoluteTarget = (betObj instanceof Number)
-                    ? ((Number) betObj).doubleValue() : 0d;
-            long expectedCents = expectedActionAmountCents(decision, betAbsoluteTarget,
+            long expectedCents = expectedActionAmountCents(decision, wireAmount,
                     playerBet, playerStack, apuestaActual);
             return CanonicalActionRecord.readAmountCents(record) == expectedCents;
         } catch (RuntimeException ex) {
@@ -18619,14 +18725,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     // Recovery: return a full-width action so the
                     // rondaApuestas absorb path picks up the persisted record + sig
-                    // bytes and ratchets H_t exactly as before the crash. Shorter
-                    // recovery data (3 fields) falls back to "*" placeholders — those
-                    // leave record/sig null, the canBuild gate takes over (host
-                    // re-builds with its privkey for its own actions, client no-ops
-                    // for others), so the chain ends up null for the recovered hand
-                    // only when the shorter data is fed in. Same width as the live path
-                    // (readActionFromRemotePlayer), since a forged replay synthesizes
-                    // the SAME fold, which goes out on the wire.
+                    // bytes and ratchets H_t exactly as before the crash. The current
+                    // codec always supplies its fixed six-field wire; missing
+                    // evidence is represented only by the explicit paired "*" values.
+                    // Same tuple width as the live path (readActionFromRemotePlayer),
+                    // since a forged replay synthesizes the SAME fold that goes on wire.
                     res = new Object[7];
 
                     res[0] = recoveredWire.decision();
@@ -18691,7 +18794,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         name);
                                 recoverForged = true;
                             } else if (!recoverForged && !recoveredActionBindsToRecordWithState(recordBytes,
-                                    (int) res[0], res[1], name,
+                                    (int) res[0], ((Number) res[1]).doubleValue(), name,
                                     this.hand_state_chain != null ? this.hand_state_chain.getHandId() : null,
                                     recoveredPlayer.getBet(), recoveredPlayer.getStack(), this.apuesta_actual)) {
                                 LOGGER.log(Level.SEVERE,
@@ -20271,7 +20374,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         HashSet<Integer> occupied = new HashSet<>();
         for (Card boardCard : GameFrame.getInstance().getCartas_comunes()) {
             if (boardCard != null && !boardCard.isTapada()) {
-                int id = boardCard.getCartaComoEntero();
+                int id = boardCard.getCardIndex();
                 if (id >= 0 && id <= 51) {
                     occupied.add(id);
                 }
@@ -20810,12 +20913,53 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     // True if a host-driven decision the host REPLAYS on recover (voluntary straddle posted, or
-    // run-it-twice vote result) contradicts our OWN fossil's record of it. A null fossil value
-    // (field not read: fresh hand, or an old fossil without the field) never mismatches, so a
-    // client lacking the datum never accuses an honest host. Pure so the client recover
+    // run-it-twice vote result) contradicts our OWN fossil's record of it. A null value means
+    // there is no applicable completed local decision (for example no RIT vote yet), so it does
+    // not mismatch. Active recoveries have already passed isCurrentRecoveryFossil. Pure so the client recover
     // cross-checks (straddle + RIT) can be pinned in a test.
     public static boolean recoverHostDecisionMismatch(Boolean fossilValue, boolean hostValue) {
         return fossilValue != null && fossilValue != hostValue;
+    }
+
+    /**
+     * Accepts only the one recovery-fossil decision shape written by this
+     * protocol version. Missing, duplicated or permissively parsed fields are
+     * rejected instead of being interpreted as an older/default state.
+     */
+    public static boolean isCurrentRecoveryFossil(String fossil) {
+        if (fossil == null || fossil.isEmpty()) {
+            return false;
+        }
+        int ritFields = 0;
+        int straddleFields = 0;
+        for (String part : fossil.split("#", -1)) {
+            if (part.startsWith("RIT@")) {
+                ritFields++;
+                String[] values = part.substring("RIT@".length()).split(",", -1);
+                if (values.length != 3 || !isStrictBoolean(values[0])
+                        || !isStrictBoolean(values[1])) {
+                    return false;
+                }
+                try {
+                    int street = Integer.parseInt(values[2]);
+                    if (street < -1 || street > RIVER) {
+                        return false;
+                    }
+                } catch (NumberFormatException ex) {
+                    return false;
+                }
+            } else if (part.startsWith("STRADDLE@")) {
+                straddleFields++;
+                if (!isStrictBoolean(part.substring("STRADDLE@".length()))) {
+                    return false;
+                }
+            }
+        }
+        return ritFields == 1 && straddleFields == 1;
+    }
+
+    private static boolean isStrictBoolean(String value) {
+        return "true".equals(value) || "false".equals(value);
     }
 
     // Pure decision for the run-it-twice SIDE-B abort path: when the second board's deal did NOT

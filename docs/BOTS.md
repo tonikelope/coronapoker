@@ -356,7 +356,7 @@ game jar) and is documented in
   production evaluator's PPot/NPot are identical to the Alberta reference to
   `1e-9` over edge cases and thousands of random spots, so a performance change to
   evaluation can never silently change a decision.
-- **Determinism, recovery compatibility and full-table invariants** have their own
+- **Determinism, recovery fidelity and full-table invariants** have their own
   smoke tests.
 
 The QA module runs in **tagged lanes** (JUnit 5 `@Tag`, selected by a Maven

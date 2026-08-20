@@ -14,7 +14,8 @@ public class RabbitFeeSequencePropertyTest {
         for (int i = 0; i < fees.length; i++) {
             RabbitFeeLedger.Request request = new RabbitFeeLedger.Request(
                     RabbitClientChosenCounterRejectedTest.hand(1), "alice",
-                    RabbitClientChosenCounterRejectedTest.nonce(i + 1));
+                    RabbitClientChosenCounterRejectedTest.nonce(i + 1),
+                    RabbitClientChosenCounterRejectedTest.signature(i + 1));
             RabbitFeeLedger.Authorization auth = host.authorize(request).value();
             assertEquals(i + 1, auth.count());
             assertEquals(fees[i], auth.feeCents());
@@ -28,7 +29,8 @@ public class RabbitFeeSequencePropertyTest {
         RabbitFeeLedger peer = new RabbitFeeLedger(RabbitClientChosenCounterRejectedTest.hand(3), 3, 10, 20);
         RabbitFeeLedger.Request first = new RabbitFeeLedger.Request(
                 RabbitClientChosenCounterRejectedTest.hand(3), "alice",
-                RabbitClientChosenCounterRejectedTest.nonce(1));
+                RabbitClientChosenCounterRejectedTest.nonce(1),
+                RabbitClientChosenCounterRejectedTest.signature(1));
         RabbitFeeLedger.Authorization authorization = host.authorize(first).value();
         byte[] altered = authorization.encode();
         altered[altered.length - 1] = 1; // count 1 must cost exactly zero.

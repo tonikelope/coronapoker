@@ -3,8 +3,12 @@ package com.tonikelope.coronapoker;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 class NoBackwardCompatibilityPathsTest {
@@ -34,6 +38,45 @@ class NoBackwardCompatibilityPathsTest {
                 () -> DeterministicShuffle.shufflePermutation(52, new byte[32]));
     }
 
+    @Test
+    void publicSecurityDocsDoNotClaimADeletedSettlementCompatibilityFormat() throws IOException {
+        Path root = projectRoot();
+        for (String document : new String[]{"docs/SECURITY.md", "docs/ec-identity-spec.md"}) {
+            String text = Files.readString(root.resolve(document));
+            assertFalse(text.contains("legacy three-argument encoder"), document);
+        }
+    }
+
+    @Test
+    void publicReadmeStatesTheSingleVersionAdmissionRule() throws IOException {
+        String readme = Files.readString(projectRoot().resolve("README.md"));
+        assertTrue(readme.contains(
+                "Every participant in a game must run the exact same CoronaPoker version"));
+    }
+
+    @Test
+    void actionAmountAndCinematicHaveOneCurrentShape() throws IOException {
+        assertTrue(hasMethod(Crupier.class, "signedRecordBindsToAction",
+                byte[].class, int.class, double.class, double.class, double.class,
+                double.class, byte[].class, byte[].class));
+        assertFalse(hasMethod(Crupier.class, "signedRecordBindsToAction",
+                byte[].class, int.class, Object.class, double.class, double.class,
+                double.class, byte[].class, byte[].class));
+        assertTrue(hasMethod(Crupier.class, "recoveredActionBindsToRecordWithState",
+                byte[].class, int.class, double.class, String.class, byte[].class,
+                double.class, double.class, double.class));
+        assertFalse(hasMethod(Crupier.class, "recoveredActionBindsToRecordWithState",
+                byte[].class, int.class, Object.class, String.class, byte[].class,
+                double.class, double.class, double.class));
+
+        String crupier = Files.readString(projectRoot().resolve(
+                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+        assertFalse(crupier.contains("action[1] = partes[6]"));
+        assertFalse(crupier.contains("new Object[]{Player.ALLIN, \"\", null}"));
+        assertTrue(crupier.contains("action[1] = wireActionAmount"));
+        assertTrue(crupier.contains("action[2] = partes[6]"));
+    }
+
     private static boolean hasMethod(Class<?> type, String name, Class<?>... parameters) {
         if (parameters.length > 0) {
             try {
@@ -49,5 +92,18 @@ class NoBackwardCompatibilityPathsTest {
             }
         }
         return false;
+    }
+
+    private static Path projectRoot() {
+        Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
+        while (current != null) {
+            if (Files.isRegularFile(current.resolve("pom.xml"))
+                    && Files.isDirectory(current.resolve("docs"))
+                    && Files.isDirectory(current.resolve("src/main/java"))) {
+                return current;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("CoronaPoker project root not found");
     }
 }

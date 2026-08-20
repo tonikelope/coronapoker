@@ -3,23 +3,30 @@ package com.tonikelope.coronapoker;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** Bounded FIFO outbox whose entries belong to exactly one socket generation. */
 public final class SessionOutbox {
+
+    private static final AtomicInteger NEXT_WIRE_ID
+            = new AtomicInteger((int) System.nanoTime());
 
     public static final class Entry {
         private final String command;
         private final long generation;
         private final int bytes;
+        private final int wireId;
 
-        private Entry(String command, long generation, int bytes) {
+        private Entry(String command, long generation, int bytes, int wireId) {
             this.command = command;
             this.generation = generation;
             this.bytes = bytes;
+            this.wireId = wireId;
         }
 
         public String command() { return command; }
         public long generation() { return generation; }
+        public int wireId() { return wireId; }
     }
 
     private final int maxElements;
@@ -42,7 +49,8 @@ public final class SessionOutbox {
         if (queue.size() >= maxElements || bytes > maxBytes - queuedBytes) {
             return false;
         }
-        queue.addLast(new Entry(command, generation, bytes));
+        queue.addLast(new Entry(command, generation, bytes,
+                NEXT_WIRE_ID.getAndIncrement()));
         queuedBytes += bytes;
         notifyAll();
         return true;
@@ -66,6 +74,23 @@ public final class SessionOutbox {
         generation++;
         queue.clear();
         queuedBytes = 0L;
+        notifyAll();
+        return generation;
+    }
+
+    /**
+     * Invalidates leases from the previous socket while retaining the pending
+     * plaintext commands in FIFO order for authenticated retransmission with
+     * the new socket keys.
+     */
+    public synchronized long advanceGenerationPreservingEntries() {
+        generation++;
+        ArrayDeque<Entry> rebound = new ArrayDeque<>(queue.size());
+        for (Entry entry : queue) {
+            rebound.addLast(new Entry(entry.command, generation, entry.bytes, entry.wireId));
+        }
+        queue.clear();
+        queue.addAll(rebound);
         notifyAll();
         return generation;
     }

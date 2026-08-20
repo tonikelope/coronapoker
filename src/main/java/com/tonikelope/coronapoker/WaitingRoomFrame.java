@@ -3734,6 +3734,27 @@ public class WaitingRoomFrame extends JFrame {
                                                                 // Shuffle end: hides the shuffle overlay on this peer.
                                                                 GameFrame.getInstance().onShuffleTurnEnd();
                                                                 break;
+                                                            case "HANDVERIFY":
+                                                                try {
+                                                                    Crupier handverifyCrupier = GameFrame.getInstance().getCrupier();
+                                                                    if (partes_comando.length == 3) {
+                                                                        handverifyCrupier.acceptHandverifyTriggerOnce();
+                                                                    } else {
+                                                                        HandverifyReceiptEnvelope receipt
+                                                                                = HandverifyReceiptEnvelope.parse(partes_comando);
+                                                                        handverifyCrupier.acceptHandverifyReceiptOnce(receipt.nick());
+                                                                    }
+                                                                    synchronized (handverifyCrupier.getReceived_commands()) {
+                                                                        handverifyCrupier.enqueueReceivedCommand(recibido,
+                                                                                () -> Helpers.threadRun(this::closeCriticalHostChannel));
+                                                                        handverifyCrupier.getReceived_commands().notifyAll();
+                                                                    }
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE,
+                                                                            "Invalid critical HANDVERIFY; closing host channel", ex);
+                                                                    closeCriticalHostChannel();
+                                                                }
+                                                                break;
                                                             case "MISDEAL":
                                                                 // The host aborts the hand. Cancel locally and forward to the
                                                                 // queue to wake up any consumer (receiveMyCards,

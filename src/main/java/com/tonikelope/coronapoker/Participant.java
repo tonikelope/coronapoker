@@ -2084,8 +2084,11 @@ public class Participant implements Runnable {
                                             // submit (and have the host relay) a receipt on behalf of
                                             // another player, forging a false DIVERGENT / framing them.
                                             try {
-                                                if (partes_comando.length >= 5
-                                                        && new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8").equals(this.nick)) {
+                                                HandverifyReceiptEnvelope receipt
+                                                        = HandverifyReceiptEnvelope.parse(partes_comando);
+                                                if (partes_comando.length == 5 && receipt.nick().equals(this.nick)) {
+                                                    GameFrame.getInstance().getCrupier()
+                                                            .acceptHandverifyReceiptOnce(receipt.nick());
                                                     synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
                                                         GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
                                                                 () -> Helpers.threadRun(this::exitAndCloseSocket));

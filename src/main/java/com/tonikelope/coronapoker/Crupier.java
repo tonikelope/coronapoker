@@ -693,6 +693,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // hand for recovery instead of ever settling blindly.
     public static final long HANDVERIFY_TRIGGER_PROGRESS_TIMEOUT_MS
             = RECON_CHURN_HARD_CAP_MS + BROADCAST_PROGRESS_TIMEOUT_MS;
+    private static final int CRITICAL_HANDVERIFY_DRAIN_BATCH = 256;
+
+    static int criticalHandverifyDrainBatchLimit() {
+        return CRITICAL_HANDVERIFY_DRAIN_BATCH;
+    }
     // Last-resort active-time bound for the initial client deal. Full-table cascade
     // retries can legitimately be very long, so this is deliberately 24h. Expiry
     // closes the host channel and never authorizes dealing without cards.
@@ -1695,6 +1700,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         acceptCriticalDealPhaseOnce(this.potcards_received, "POTCARDS");
     }
 
+    void acceptHandverifyTriggerOnce() {
+        acceptCriticalDealPhaseOnce(this.handverify_trigger_received, "HANDVERIFY trigger");
+    }
+
+    void acceptHandverifyReceiptOnce(String nick) {
+        if (nick == null || !this.handverify_receipts_received.add(nick)) {
+            throw new IllegalStateException("duplicate HANDVERIFY receipt for " + nick);
+        }
+    }
+
     void installPocketDeferredOnce() {
         acceptPocketDeferredOnce(this.pocket_deferred_received);
     }
@@ -1861,6 +1876,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final java.util.concurrent.atomic.AtomicBoolean pocket_deferred_received = new java.util.concurrent.atomic.AtomicBoolean();
     private final java.util.concurrent.atomic.AtomicBoolean showdown_key_request_received = new java.util.concurrent.atomic.AtomicBoolean();
     private final java.util.concurrent.atomic.AtomicBoolean potcards_received = new java.util.concurrent.atomic.AtomicBoolean();
+    private final java.util.concurrent.atomic.AtomicBoolean handverify_trigger_received = new java.util.concurrent.atomic.AtomicBoolean();
+    private final java.util.Set<String> handverify_receipts_received
+            = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private volatile String deferred_straddle_nick = null;   // host: nick of the straddler whose 2 slots were withheld during the deal (for the deferred cascade); null if none
     private volatile int deferred_straddle_slot = -1;        // ring index (active_crypto_ring) of the deferred straddler's slot; -1 if none
     private volatile String straddle_decision_verified_nick = null; // responder (each peer): nick of the straddler whose SIGNED decision verified this hand; the UNLOCK_PHASE_POCKET_STRADDLE gate requires the peeled slot to be theirs
@@ -9428,6 +9446,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.cartas_resistencia = false;
         this.showdown_key_request_received.set(false);
         this.potcards_received.set(false);
+        this.handverify_trigger_received.set(false);
+        this.handverify_receipts_received.clear();
         this.destapar_resistencia = false;
 
         // The run-out has ended: allow toggling RUN_IT_TWICE again (locked while the all-in
@@ -11014,7 +11034,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         do {
             synchronized (this.getReceived_commands()) {
                 ArrayList<String> rejected = new ArrayList<>();
-                while (!trigger_seen && !this.getReceived_commands().isEmpty()) {
+                int drainedHandverify = 0;
+                while (!trigger_seen && !this.getReceived_commands().isEmpty()
+                        && drainedHandverify < CRITICAL_HANDVERIFY_DRAIN_BATCH) {
+                    drainedHandverify++;
                     String comando = this.received_commands.poll();
                     String[] partes = comando.split("#", -1);
 
@@ -11308,25 +11331,53 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 String misdealMotivo = "";
                 synchronized (this.getReceived_commands()) {
                     ArrayList<String> rejected = new ArrayList<>();
-                    while (!this.getReceived_commands().isEmpty()) {
+                    int drainedHandverify = 0;
+                    while (!this.getReceived_commands().isEmpty()
+                            && drainedHandverify < CRITICAL_HANDVERIFY_DRAIN_BATCH
+                            && System.currentTimeMillis() < deadline) {
+                        drainedHandverify++;
                         String comando = this.received_commands.poll();
                         String[] partes = comando.split("#", -1);
                         if (partes.length == 5 && "HANDVERIFY".equals(partes[2])) {
                             try {
-                                String senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-                                byte[] receipt = Base64.getDecoder().decode(partes[4]);
-                                // First receipt per nick wins — a later frame cannot
-                                // overwrite (and thus cannot invalidate) an already
-                                // collected receipt, not even the local self-receipt.
-                                if (!receipts.containsKey(senderNick)) {
-                                    receipts.put(senderNick, receipt);
-                                    if (isHost) {
-                                        pendingRelays.add(new String[]{partes[3], partes[4], senderNick});
-                                    }
+                                HandverifyReceiptEnvelope envelope
+                                        = HandverifyReceiptEnvelope.parse(partes);
+                                String senderNick = envelope.nick();
+                                byte[] receipt = envelope.receipt();
+                                byte[] signerKey = resolveReceiptSignerPubkey(senderNick);
+                                boolean validIngress = expected.contains(senderNick)
+                                        && !receipts.containsKey(senderNick)
+                                        && signerKey != null
+                                        && java.util.Arrays.equals(envelope.handId(), handIdSnap)
+                                        && (envelope.flags() & ~0x07) == 0
+                                        && IdentityManager.verifyReceipt(signerKey,
+                                                envelope.handId(), envelope.finalHash(),
+                                                envelope.flags(), envelope.signature());
+                                if (!validIngress) {
+                                    LOGGER.log(Level.SEVERE,
+                                            "Invalid, duplicate or unexpected critical HANDVERIFY receipt from {0}; closing source",
+                                            senderNick);
+                                    this.received_commands.reject(comando);
+                                    setFin_de_la_transmision(true);
+                                    return false;
+                                }
+                                receipts.put(senderNick, receipt);
+                                if (isHost) {
+                                    pendingRelays.add(new String[]{partes[3], partes[4], senderNick});
                                 }
                             } catch (Exception ex) {
-                                LOGGER.log(Level.SEVERE, "Failed to parse HANDVERIFY receipt", ex);
+                                LOGGER.log(Level.SEVERE,
+                                        "Malformed critical HANDVERIFY receipt; closing source", ex);
+                                this.received_commands.reject(comando);
+                                setFin_de_la_transmision(true);
+                                return false;
                             }
+                        } else if (partes.length >= 3 && "HANDVERIFY".equals(partes[2])) {
+                            LOGGER.log(Level.SEVERE,
+                                    "Malformed critical HANDVERIFY receipt; closing source");
+                            this.received_commands.reject(comando);
+                            setFin_de_la_transmision(true);
+                            return false;
                         } else if (partes.length >= 4 && "MISDEAL".equals(partes[2])) {
                             misdealAbort = true;
                             try {

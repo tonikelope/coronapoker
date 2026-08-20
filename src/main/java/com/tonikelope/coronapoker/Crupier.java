@@ -13235,7 +13235,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 } else {
                     decision = this.straddle_recovered_posted ? VoluntaryStraddleDialog.POST_STRADDLE : VoluntaryStraddleDialog.NO_STRADDLE;
                 }
-                broadcastStraddleResult(decision);
+                if (!broadcastStraddleResult(decision)) {
+                    return;
+                }
             } else {
                 // CLIENT: on a fresh hand, if I'm the UTG I show the dialog, SIGN, and send my
                 // response; either way (and always on recover) I wait for the host's
@@ -13246,6 +13248,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     sendStraddleResp(myDecision, signLocalStraddleDecision(myDecision));
                 }
                 decision = waitStraddleResult();
+                if (decision < 0 || isFin_de_la_transmision()) {
+                    return;
+                }
                 // Zero-trust cross-check on recover: our OWN fossil recorded whether the straddle
                 // was posted this hand (straddle_recover_fossil_posted, read in
                 // recuperarDatosClavePartida). If the host's RESULT contradicts it, surface a
@@ -13508,17 +13513,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 Integer result = null;
                 while (!this.getReceived_commands().isEmpty()) {
                     String cmd = this.received_commands.poll();
-                    String[] partes = cmd.split("#");
-                    if (partes.length == 4 && partes[2].equals("STRADDLE_RESULT")) {
+                    String[] partes = cmd.split("#", -1);
+                    if (partes.length >= 3 && partes[2].equals("STRADDLE_RESULT")) {
                         try {
+                            if (partes.length != 4) {
+                                throw new IllegalArgumentException(
+                                        "STRADDLE_RESULT requires exactly four fields");
+                            }
                             int v = Integer.parseInt(partes[3]);
                             if (v == VoluntaryStraddleDialog.NO_STRADDLE || v == VoluntaryStraddleDialog.POST_STRADDLE) {
                                 result = v;
                             } else {
-                                rejected.add(cmd);
+                                throw new IllegalArgumentException("invalid STRADDLE_RESULT value");
                             }
                         } catch (Exception e) {
-                            // Malformed RESULT: ignored.
+                            rejectCriticalStraddleResult(cmd,
+                                    "Malformed critical STRADDLE_RESULT; closing host channel", e);
+                            return -1;
                         }
                     } else {
                         rejected.add(cmd);
@@ -13554,7 +13565,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 deadline = System.currentTimeMillis() + STRADDLE_RESULT_WAIT_TIMEOUT * 1000L;
             }
         }
-        return VoluntaryStraddleDialog.NO_STRADDLE;
+        LOGGER.log(Level.SEVERE, "STRADDLE_RESULT timeout; closing host channel");
+        setFin_de_la_transmision(true);
+        WaitingRoomFrame waitingRoom = WaitingRoomFrame.getInstance();
+        if (waitingRoom != null) {
+            waitingRoom.closeClientSocket();
+        }
+        return -1;
+    }
+
+    private void rejectCriticalStraddleResult(String cmd, String detail, Exception error) {
+        LOGGER.log(Level.SEVERE, detail, error);
+        setFin_de_la_transmision(true);
+        boolean sourceClosed = this.received_commands.reject(cmd);
+        if (!sourceClosed) {
+            WaitingRoomFrame waitingRoom = WaitingRoomFrame.getInstance();
+            if (waitingRoom != null) {
+                waitingRoom.closeClientSocket();
+            }
+        }
     }
 
     // Straddler client -> host: their decision + the SIGNATURE of that decision (STRADDLE
@@ -13571,15 +13600,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    private void broadcastStraddleResult(int v) {
-        // confirmation=false (fire-and-forget): TCP already guarantees delivery and the
-        // client drains it in waitStraddleResult; avoids the confirmation handshake
-        // swallowing pending commands. (The run-it-twice vote close DOES use confirmation,
-        // because there what's at stake is how the pot gets split.)
+    private boolean broadcastStraddleResult(int v) {
+        // The result changes a stack, the current bet and the pot. It is therefore a
+        // confirmed critical broadcast, just like the final Run It Twice result.
         try {
-            broadcastGAMECommandFromServer("STRADDLE_RESULT#" + v, null, false);
+            broadcastGAMECommandFromServer("STRADDLE_RESULT#" + v, null, true);
+            return true;
         } catch (RuntimeException e) {
-            LOGGER.log(Level.WARNING, "Failed to broadcast STRADDLE_RESULT", e);
+            LOGGER.log(Level.SEVERE, "STRADDLE_RESULT delivery failed; aborting hand", e);
+            cancelarManoYDevolverApuestas("peer.broadcast_failed");
+            return false;
         }
     }
 

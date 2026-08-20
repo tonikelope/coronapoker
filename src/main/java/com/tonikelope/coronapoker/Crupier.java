@@ -2558,7 +2558,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             byte[] iv = new byte[16];
             Helpers.CSPRNG_GENERATOR.nextBytes(iv);
             request = tracker.register(id + 1, pending);
-            p.writeCommandFromServer(Helpers.encryptCommand("GAME#" + id + "#" + command, p.getAes_key(), iv, p.getHmac_key()));
+            boolean writeFailed = p.writeCommandFromServer(Helpers.encryptCommand(
+                    "GAME#" + id + "#" + command, p.getAes_key(), iv, p.getHmac_key()));
+            if (writeFailed) {
+                p.markExitAndNotify("critical unicast write failed");
+                try {
+                    p.socketClose();
+                } catch (Exception ignored) {
+                }
+                return false;
+            }
             waitSyncConfirmations(pending, request);
             if (pending.isEmpty()) {
                 return true;

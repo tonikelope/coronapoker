@@ -70,6 +70,9 @@ public class CriticalCommunityDeliveryFailureTest {
                         && send.contains("waitSyncConfirmations")
                         && send.contains("p.socketClose()"),
                 "critical unicast must require an ACK or explicitly close its recipient");
+        assertTrue(send.contains("boolean writeFailed = p.writeCommandFromServer")
+                        && send.contains("if (writeFailed"),
+                "Participant reports socket write failure as a boolean and it must not be mistaken for delivery");
 
         int releaseStart = source.indexOf("private boolean releaseDeferredStraddlerCardsHost");
         int releaseEnd = source.indexOf("private boolean awaitDeferredStraddlerCardsClient", releaseStart);

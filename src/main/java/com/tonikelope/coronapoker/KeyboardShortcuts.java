@@ -67,7 +67,6 @@ public final class KeyboardShortcuts {
     public static final String LATENCY = "LATENCY_STATS";
     public static final String CLOCK = "RELOJ";
     public static final String LOG_REGISTRO = "REGISTRO";
-    public static final String CHAT = "CHAT";
     public static final String BUYIN = "BUYIN";
     public static final String SCREENSHOT = "SCREENSHOT";
     public static final String QUIT = "QUIT";
@@ -145,7 +144,6 @@ public final class KeyboardShortcuts {
         DEFS.add(new Def(LATENCY, "shortcuts.sec_game", "shortcuts.act_latency", ks(KeyEvent.VK_F7, 0)));
         DEFS.add(new Def(CLOCK, "shortcuts.sec_game", "shortcuts.act_clock", ks(KeyEvent.VK_W, InputEvent.ALT_DOWN_MASK)));
         DEFS.add(new Def(LOG_REGISTRO, "shortcuts.sec_game", "shortcuts.act_log", ks(KeyEvent.VK_R, InputEvent.ALT_DOWN_MASK)));
-        DEFS.add(new Def(CHAT, "shortcuts.sec_game", "shortcuts.act_chat", ks(KeyEvent.VK_C, InputEvent.ALT_DOWN_MASK)));
         DEFS.add(new Def(BUYIN, "shortcuts.sec_game", "shortcuts.act_buyin", ks(KeyEvent.VK_S, 0)));
         DEFS.add(new Def(SCREENSHOT, "shortcuts.sec_game", "shortcuts.act_screenshot", ks(KeyEvent.VK_P, InputEvent.CTRL_DOWN_MASK)));
         DEFS.add(new Def(QUIT, "shortcuts.sec_game", "shortcuts.act_quit", ks(KeyEvent.VK_Q, InputEvent.CTRL_DOWN_MASK)));

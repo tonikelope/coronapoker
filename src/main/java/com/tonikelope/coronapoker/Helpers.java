@@ -6277,13 +6277,6 @@ public class Helpers {
                     }
                 };
 
-                Action chatAction = new AbstractAction(Translator.translate("menu.ver_chat")) {
-                    @Override
-                    public void actionPerformed(ActionEvent ae) {
-                        GameFrame.getInstance().getChat_menu().doClick();
-                    }
-                };
-
                 Action registroAction = new AbstractAction(Translator.translate("menu.ver_registro")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
@@ -6583,10 +6576,6 @@ public class Helpers {
                 popup.add(AJUSTES_PARTIDA_MENU);
 
                 popup.addSeparator();
-
-                JMenuItem chat = new LeftClickMenuItem(chatAction);
-                chat.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/chat.png")));
-                popup.add(chat);
 
                 JMenuItem log = new LeftClickMenuItem(registroAction);
                 log.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/log.png")));

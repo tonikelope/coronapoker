@@ -1918,10 +1918,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return auto_action_menu;
     }
 
-    public JMenuItem getChat_menu() {
-        return chat_menu;
-    }
-
     public JMenuItem getRegistro_menu() {
         return registro_menu;
     }
@@ -2673,15 +2669,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 zoom_menu_resetActionPerformed(e);
 
-            }
-        }
-        );
-
-        gameActions.put(KeyboardShortcuts.CHAT, new AbstractAction("CHAT") {
-            @Override
-            public void actionPerformed(ActionEvent e
-            ) {
-                chat_menuActionPerformed(e);
             }
         }
         );
@@ -5159,7 +5146,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         menu_bar = new javax.swing.JMenuBar();
         file_menu = new javax.swing.JMenu();
-        chat_menu = new javax.swing.JMenuItem();
         registro_menu = new javax.swing.JMenuItem();
         jugadas_menu = new javax.swing.JMenuItem();
         server_separator_menu = new javax.swing.JPopupMenu.Separator();
@@ -5223,17 +5209,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         file_menu.putClientProperty("i18n.key", "menu.archivo");
         file_menu.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         file_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-
-        chat_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        chat_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/chat.png"))); // NOI18N
-        chat_menu.setText("Ver chat (ALT+C)");
-        chat_menu.putClientProperty("i18n.key", "menu.ver_chat");
-        chat_menu.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                chat_menuActionPerformed(evt);
-            }
-        });
-        file_menu.add(chat_menu);
 
         registro_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         registro_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/log.png"))); // NOI18N
@@ -5832,23 +5807,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
 
     }//GEN-LAST:event_registro_menuActionPerformed
-
-    private void chat_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chat_menuActionPerformed
-        // TODO add your handling code here:
-
-        if (fastchat_dialog != null && fastchat_dialog.isVisible()) {
-            fastchat_dialog.setVisible(false);
-        }
-
-        if (!this.sala_espera.isActive()) {
-            this.sala_espera.setVisible(false);
-        }
-
-        this.sala_espera.setLocationRelativeTo(this);
-        this.sala_espera.setExtendedState(JFrame.NORMAL);
-        this.sala_espera.setVisible(true);
-
-    }//GEN-LAST:event_chat_menuActionPerformed
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         // TODO add your handling code here:
@@ -7085,7 +7043,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private javax.swing.JCheckBoxMenuItem auto_fit_zoom_menu;
     private javax.swing.JCheckBoxMenuItem auto_fullscreen_menu;
     private javax.swing.JCheckBoxMenuItem chat_image_menu;
-    private javax.swing.JMenuItem chat_menu;
     private javax.swing.JCheckBoxMenuItem compact_menu;
     private javax.swing.JCheckBoxMenuItem confirmar_menu;
     private javax.swing.JPopupMenu.Separator decks_separator;

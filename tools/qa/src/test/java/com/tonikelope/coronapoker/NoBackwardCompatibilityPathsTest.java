@@ -46,6 +46,13 @@ class NoBackwardCompatibilityPathsTest {
         }
     }
 
+    @Test
+    void publicReadmeStatesTheSingleVersionAdmissionRule() throws IOException {
+        String readme = Files.readString(projectRoot().resolve("README.md"));
+        assertEquals(true, readme.contains(
+                "Every participant in a game must run the exact same CoronaPoker version"));
+    }
+
     private static boolean hasMethod(Class<?> type, String name, Class<?>... parameters) {
         if (parameters.length > 0) {
             try {

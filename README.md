@@ -214,6 +214,7 @@ Every visual and audio asset is replaceable through redistributable MOD packs:
 ## 🧱 Stack
 
 - **Java 17+** for both building and running
+- **Single-version protocol**: Every participant in a game must run the exact same CoronaPoker version; the host refuses mismatched versions instead of enabling compatibility modes.
 - **Swing** UI with NetBeans Matisse forms
 - **Maven** build, single self-contained shaded jar
 - **Alberta** poker hand evaluator for true equity computation

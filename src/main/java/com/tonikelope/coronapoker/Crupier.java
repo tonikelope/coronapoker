@@ -14870,23 +14870,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // COMM_REVEAL with a SIDE-B street code — identical pattern to the live board
         // (absorb ONLY if the broadcast succeeded, or host and clients diverge).
         Object[] recsig = buildCommunityRevealRecordAndSig(mapJavaStreetToRit2Wire(street), hostIndices);
-        if (recsig != null) {
-            byte[] record = (byte[]) recsig[0];
-            byte[] sig = (byte[]) recsig[1];
-            boolean broadcastOk = false;
-            try {
-                String comando = "COMM_REVEAL#"
-                        + Base64.getEncoder().encodeToString(record)
-                        + "#" + Base64.getEncoder().encodeToString(sig);
-                broadcastGAMECommandFromServer(comando, null);
-                broadcastOk = true;
-            } catch (RuntimeException ex) {
-                LOGGER.log(Level.SEVERE, "Failed to broadcast SIDE-B COMM_REVEAL for street " + street, ex);
-            }
-            if (broadcastOk) {
-                absorbActionIntoChain(GameFrame.getInstance().getNick_local(), record, sig);
-            }
+        if (recsig == null) {
+            LOGGER.log(Level.SEVERE, "Failed to build SIDE-B COMM_REVEAL for street {0}", street);
+            cancelarManoYDevolverApuestas("peer.state_inconsistent");
+            return false;
         }
+        byte[] record = (byte[]) recsig[0];
+        byte[] sig = (byte[]) recsig[1];
+        try {
+            String comando = "COMM_REVEAL#"
+                    + Base64.getEncoder().encodeToString(record)
+                    + "#" + Base64.getEncoder().encodeToString(sig);
+            broadcastGAMECommandFromServer(comando, null);
+        } catch (RuntimeException ex) {
+            LOGGER.log(Level.SEVERE, "Failed to broadcast SIDE-B COMM_REVEAL for street " + street, ex);
+            cancelarManoYDevolverApuestas("peer.state_inconsistent");
+            return false;
+        }
+        absorbActionIntoChain(GameFrame.getInstance().getNick_local(), record, sig);
 
         return true;
     }

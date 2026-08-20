@@ -32,6 +32,28 @@ public class CriticalCommunityDeliveryFailureTest {
                 "the old unbounded-wait policy must be removed");
     }
 
+    @Test
+    public void ritSideBDoesNotReportSuccessWithoutItsSignedReveal() throws Exception {
+        String method = ritSideBSource();
+        int missingReveal = method.indexOf("if (recsig == null)");
+        int broadcastFailure = method.indexOf("catch (RuntimeException ex)", missingReveal);
+        int absorb = method.indexOf("absorbActionIntoChain", broadcastFailure);
+        assertTrue(missingReveal >= 0,
+                "SIDE-B must handle an unavailable signed COMM_REVEAL explicitly");
+        String missingRevealPath = method.substring(missingReveal, broadcastFailure);
+        assertTrue(missingRevealPath.contains("Failed to build SIDE-B COMM_REVEAL")
+                        && missingRevealPath.contains("cancelarManoYDevolverApuestas")
+                        && missingRevealPath.contains("return false;"),
+                "the local signing failure must remain diagnosable");
+        assertTrue(broadcastFailure >= 0 && absorb > broadcastFailure,
+                "SIDE-B broadcast failure and successful absorb paths must be explicit");
+        String broadcastFailurePath = method.substring(broadcastFailure, absorb);
+        assertTrue(broadcastFailurePath.contains("Failed to broadcast SIDE-B COMM_REVEAL")
+                        && broadcastFailurePath.contains("cancelarManoYDevolverApuestas")
+                        && broadcastFailurePath.contains("return false;"),
+                "the transport failure must remain diagnosable");
+    }
+
     private static String receiveCommunitySource() throws Exception {
         Path root = locateRoot();
         String source = Files.readString(root.resolve(
@@ -40,6 +62,17 @@ public class CriticalCommunityDeliveryFailureTest {
         int start = source.indexOf("private boolean recibirCartasComunitarias()");
         int end = source.indexOf("private ArrayList<Player> rondaApuestas", start);
         assertTrue(start >= 0 && end > start, "recibirCartasComunitarias source not found");
+        return source.substring(start, end);
+    }
+
+    private static String ritSideBSource() throws Exception {
+        Path root = locateRoot();
+        String source = Files.readString(root.resolve(
+                "src/main/java/com/tonikelope/coronapoker/Crupier.java"))
+                .replace("\r\n", "\n");
+        int start = source.indexOf("private boolean enviarRit2Comunitarias");
+        int end = source.indexOf("private int[] cascadeAndDealCommunityPieces", start);
+        assertTrue(start >= 0 && end > start, "enviarRit2Comunitarias source not found");
         return source.substring(start, end);
     }
 

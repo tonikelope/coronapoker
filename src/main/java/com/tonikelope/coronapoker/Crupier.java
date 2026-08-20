@@ -6113,9 +6113,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             synchronized (this.getReceived_commands()) {
                 this.getReceived_commands().notifyAll();
             }
-            synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
-                WaitingRoomFrame.getInstance().getReceived_confirmations().notifyAll();
-            }
+            WaitingRoomFrame.getInstance().getReceived_confirmations().wakeAll();
         }
     }
 
@@ -11700,6 +11698,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void enviarDatosClaveRecuperados(ArrayList<String> pendientes, HashMap<String, Object> datos) {
 
+        if (pendientes == null || pendientes.isEmpty()) {
+            return;
+        }
+
         RecoverySnapshotV1.Result snapshot = RecoverySnapshotV1.fromMap(datos, GameFrame.UGI);
         if (!snapshot.isOk()) {
             LOGGER.log(Level.SEVERE, "Refusing to send invalid RECOVERDATA: {0}", snapshot.error());
@@ -11710,9 +11712,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         int id = Helpers.CSPRNG_GENERATOR.nextInt();
         byte[] iv = new byte[16];
         Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+        ConfirmationTracker tracker = WaitingRoomFrame.getInstance().getReceived_confirmations();
+        ConfirmationTracker.Request request = tracker.register(id + 1, pendientes);
 
         long recoverDeadlineMs = System.currentTimeMillis() + BROADCAST_PROGRESS_TIMEOUT_MS;
         long recoverHardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
+        try {
         do {
             try {
                 String command = "GAME#" + String.valueOf(id) + "#RECOVERDATA#"
@@ -11727,7 +11732,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
 
-                this.waitSyncConfirmations(id, pendientes);
+                this.waitSyncConfirmations(pendientes, request);
 
                 // PAUSE/TIMEOUT-aware progress deadline (same as broadcastGAMECommandFromServer).
                 // Without it, a peer answering PING but never confirming recovery would block
@@ -11754,16 +11759,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
         } while (!pendientes.isEmpty());
+        } finally {
+            tracker.close(request);
+        }
     }
 
     public void enviarAccionesRecuperadas(ArrayList<String> pendientes, String datos) {
 
+        if (pendientes == null || pendientes.isEmpty()) {
+            return;
+        }
+
         int id = Helpers.CSPRNG_GENERATOR.nextInt();
         byte[] iv = new byte[16];
         Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+        ConfirmationTracker tracker = WaitingRoomFrame.getInstance().getReceived_confirmations();
+        ConfirmationTracker.Request request = tracker.register(id + 1, pendientes);
 
         long recoverDeadlineMs = System.currentTimeMillis() + BROADCAST_PROGRESS_TIMEOUT_MS;
         long recoverHardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
+        try {
         do {
             try {
                 String command = "GAME#" + String.valueOf(id) + "#ACTIONDATA#"
@@ -11779,7 +11794,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
 
-                this.waitSyncConfirmations(id, pendientes);
+                this.waitSyncConfirmations(pendientes, request);
 
                 // PAUSE/TIMEOUT-aware progress deadline: see enviarDatosClaveRecuperados and the
                 // expelStalledRecoveryPeers helper. Without it a non-confirming peer would freeze
@@ -11803,6 +11818,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
         } while (!pendientes.isEmpty());
+        } finally {
+            tracker.close(request);
+        }
     }
 
     private double[] calcularBoteParaGanador(double cantidad, int tot_ganadores) {
@@ -11825,7 +11843,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         int id = Helpers.CSPRNG_GENERATOR.nextInt();
 
         String full_command = "GAME#" + String.valueOf(id) + "#" + command;
+        ConfirmationTracker tracker = WaitingRoomFrame.getInstance().getReceived_confirmations();
+        ConfirmationTracker.Request request = confirmation
+                ? tracker.register(id + 1, pendientes) : null;
 
+        try {
         do {
 
             GameFrame.getInstance().getSala_espera()
@@ -11834,7 +11856,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             GameFrame.getInstance().getSala_espera().getLocal_client_hmac_key()));
 
             if (confirmation) {
-                this.waitSyncConfirmations(id, pendientes);
+                this.waitSyncConfirmations(pendientes, request);
             }
 
             if (confirmation) {
@@ -11846,6 +11868,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
         } while (!pendientes.isEmpty() && confirmation);
+        } finally {
+            if (request != null) {
+                tracker.close(request);
+            }
+        }
     }
 
     public void sendGAMECommandToServer(String command) {
@@ -11854,43 +11881,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     }
 
-    private boolean waitSyncConfirmations(int id, ArrayList<String> pending) {
+    private boolean waitSyncConfirmations(ArrayList<String> pending,
+            ConfirmationTracker.Request request) {
 
         long start_time = System.currentTimeMillis();
 
         boolean timeout = false;
 
-        ArrayList<Object[]> rejected = new ArrayList<>();
+        ConfirmationTracker tracker = WaitingRoomFrame.getInstance().getReceived_confirmations();
 
         while (!pending.isEmpty() && !timeout) {
 
-            Object[] confirmation;
-
-            synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
-
-                while (!WaitingRoomFrame.getInstance().getReceived_confirmations().isEmpty()) {
-
-                    confirmation = WaitingRoomFrame.getInstance().getReceived_confirmations().poll();
-
-                    if (confirmation != null && confirmation[0] != null && confirmation[1] != null
-                            && (int) confirmation[1] == id + 1) {
-
-                        pending.remove((String) confirmation[0]);
-
-                        if (nick2player.containsKey((String) confirmation[0])) {
-
-                            nick2player.get((String) confirmation[0]).setTimeout(false);
-
+            synchronized (tracker) {
+                java.util.List<String> remaining = tracker.remaining(request);
+                for (String nick : new ArrayList<>(pending)) {
+                    if (!remaining.contains(nick)) {
+                        pending.remove(nick);
+                        if (nick2player.containsKey(nick)) {
+                            nick2player.get(nick).setTimeout(false);
                         }
-
-                    } else if (confirmation != null && confirmation[0] != null && confirmation[1] != null) {
-                        rejected.add(confirmation);
                     }
-                }
-
-                if (!rejected.isEmpty()) {
-                    WaitingRoomFrame.getInstance().getReceived_confirmations().addAll(rejected);
-                    rejected.clear();
                 }
 
                 if (System.currentTimeMillis() - start_time > GameFrame.CONFIRMATION_TIMEOUT) {
@@ -11898,13 +11908,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 } else if (!pending.isEmpty()) {
 
                     try {
-                        WaitingRoomFrame.getInstance().getReceived_confirmations().wait(WAIT_QUEUES);
+                        tracker.wait(WAIT_QUEUES);
 
                         for (Player jugador : GameFrame.getInstance().getJugadores()) {
 
                             if (jugador.isExit() && pending.contains(jugador.getNickname())) {
 
                                 pending.remove(jugador.getNickname());
+                                tracker.cancelPeer(request, jugador.getNickname());
                             }
                         }
 
@@ -16985,6 +16996,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int id = Helpers.CSPRNG_GENERATOR.nextInt();
             byte[] iv = new byte[16];
             Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+            ConfirmationTracker tracker = WaitingRoomFrame.getInstance().getReceived_confirmations();
+            ConfirmationTracker.Request request = confirmation
+                    ? tracker.register(id + 1, pendientes) : null;
 
             // No artificial timeout: if a client takes long to confirm (slow network,
             // saturated CPU, a large SRA deck), we keep waiting indefinitely. TCP
@@ -17004,6 +17018,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             long broadcastDeadlineMs = broadcastStartMs + BROADCAST_PROGRESS_TIMEOUT_MS;
             long broadcastHardCapMs = broadcastStartMs + RECON_CHURN_HARD_CAP_MS;
             int slowIterCount = 0;
+            try {
             do {
                 String full_command = "GAME#" + String.valueOf(id) + "#" + command;
 
@@ -17014,7 +17029,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (confirmation) {
-                    this.waitSyncConfirmations(id, pendientes);
+                    this.waitSyncConfirmations(pendientes, request);
 
                     for (Participant p : targets) {
                         if (!p.getNick().equals(skip_nick) && p.isExit()) {
@@ -17119,6 +17134,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
             } while (confirmation && !pendientes.isEmpty());
+            } finally {
+                if (request != null) {
+                    tracker.close(request);
+                }
+            }
         }
     }
 

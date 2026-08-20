@@ -794,13 +794,16 @@ public class Participant implements Runnable {
                     // retransmission arrives after it already processed the first copy.
                     int id = Helpers.CSPRNG_GENERATOR.nextInt();
                     String full_command = "GAME#" + String.valueOf(id) + "#" + command;
+                    ConfirmationTracker tracker = WaitingRoomFrame.getInstance().getReceived_confirmations();
+                    ConfirmationTracker.Request request = tracker.register(id + 1, pendientes);
 
+                    try {
                     do {
                         Boolean writeFailed = writePreGameCommandIfCurrent(entry, full_command);
                         if (writeFailed == null) {
                             break;
                         } else if (!writeFailed) {
-                            waitPreGameCommandConfirmations(id, pendientes, entry);
+                            waitPreGameCommandConfirmations(pendientes, entry, request);
                         } else {
                             // The write failed, typically because the socket is closed while
                             // the peer is getting its window to return. The loop's only wait
@@ -815,6 +818,9 @@ public class Participant implements Runnable {
                     } while (getPre_game_socket_writer_queue().isCurrent(entry)
                             && !pendientes.isEmpty() && !exit && !WaitingRoomFrame.getInstance().isExit()
                             && !WaitingRoomFrame.getInstance().isPartida_empezada());
+                    } finally {
+                        tracker.close(request);
+                    }
 
                     getPre_game_socket_writer_queue().removeIfHead(entry);
                 }
@@ -1677,39 +1683,22 @@ public class Participant implements Runnable {
      * @return {@code true} if the confirmation deadline expired with peers
      * still pending
      */
-    public boolean waitPreGameCommandConfirmations(int id, ArrayList<String> pending,
-            SessionOutbox.Entry entry) {
+    public boolean waitPreGameCommandConfirmations(ArrayList<String> pending,
+            SessionOutbox.Entry entry, ConfirmationTracker.Request request) {
         long start_time = System.currentTimeMillis();
         boolean plazo_vencido = false;
-        ArrayList<Object[]> rejected = new ArrayList<>();
+        ConfirmationTracker tracker = WaitingRoomFrame.getInstance().getReceived_confirmations();
 
         while (!exit && pre_game_socket_writer_queue.isCurrent(entry)
                 && !pending.isEmpty() && !plazo_vencido) {
-            Object[] confirmation;
-            synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
-                while (!exit && pre_game_socket_writer_queue.isCurrent(entry)
-                        && !WaitingRoomFrame.getInstance().getReceived_confirmations().isEmpty()) {
-                    confirmation = WaitingRoomFrame.getInstance().getReceived_confirmations().poll();
-                    if (confirmation != null && confirmation[0] != null && confirmation[1] != null) {
-                        if ((int) confirmation[1] == id + 1) {
-                            pending.remove((String) confirmation[0]);
-                        } else {
-                            rejected.add(confirmation);
-                        }
-                    }
-                }
-
+            synchronized (tracker) {
+                pending.retainAll(tracker.remaining(request));
                 if (!exit && pre_game_socket_writer_queue.isCurrent(entry)) {
-                    if (!rejected.isEmpty()) {
-                        WaitingRoomFrame.getInstance().getReceived_confirmations().addAll(rejected);
-                        rejected.clear();
-                    }
-
                     if (System.currentTimeMillis() - start_time > GameFrame.CONFIRMATION_TIMEOUT) {
                         plazo_vencido = true;
                     } else if (!pending.isEmpty()) {
                         try {
-                            WaitingRoomFrame.getInstance().getReceived_confirmations().wait(WAIT_QUEUES);
+                            tracker.wait(WAIT_QUEUES);
                         } catch (Exception ex) {
                         }
                     }
@@ -1851,10 +1840,8 @@ public class Participant implements Runnable {
                                 sala_espera.recibirMensajeChat(nick, mensaje);
                                 break;
                             case "CONF":
-                                WaitingRoomFrame.getInstance().getReceived_confirmations().add(new Object[]{nick, Integer.valueOf(partes_comando[1])});
-                                synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
-                                    WaitingRoomFrame.getInstance().getReceived_confirmations().notifyAll();
-                                }
+                                WaitingRoomFrame.getInstance().getReceived_confirmations()
+                                        .confirm(nick, Integer.parseInt(partes_comando[1]));
                                 break;
                             case "GAME":
                                 if (partes_comando.length < 3) {

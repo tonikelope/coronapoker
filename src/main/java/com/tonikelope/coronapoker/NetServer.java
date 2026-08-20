@@ -58,7 +58,7 @@ public class NetServer {
 
     private final WaitingRoomFrame waiting_room;
 
-    private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
+    private final ConfirmationTracker received_confirmations = new ConfirmationTracker();
     private final ConcurrentLinkedQueue<Long> client_threads = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> late_clients_warning = new ConcurrentLinkedQueue<>();
     private final Object lock_client_pre_game_commands_wait = new Object();
@@ -72,7 +72,7 @@ public class NetServer {
         return waiting_room;
     }
 
-    public ConcurrentLinkedQueue<Object[]> getReceived_confirmations() {
+    public ConfirmationTracker getReceived_confirmations() {
         return received_confirmations;
     }
 

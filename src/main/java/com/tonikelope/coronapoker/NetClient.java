@@ -53,7 +53,7 @@ public class NetClient {
 
     private final WaitingRoomFrame waiting_room;
 
-    private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
+    private final ConfirmationTracker received_confirmations = new ConfirmationTracker();
     private final ConcurrentLinkedQueue<String> late_clients_warning = new ConcurrentLinkedQueue<>();
     // Client-side twin of Participant.SOCKET_READER_QUEUE_CAPACITY: without it, a hostile host
     // flooding commands faster than the client can process them would OOM it. Once full, the
@@ -105,7 +105,7 @@ public class NetClient {
     }
 
     // --- Queues and maps ---
-    public ConcurrentLinkedQueue<Object[]> getReceived_confirmations() {
+    public ConfirmationTracker getReceived_confirmations() {
         return received_confirmations;
     }
 

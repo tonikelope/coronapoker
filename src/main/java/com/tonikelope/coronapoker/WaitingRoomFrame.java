@@ -510,7 +510,7 @@ public class WaitingRoomFrame extends JFrame {
 
     }
 
-    public ConcurrentLinkedQueue<Object[]> getReceived_confirmations() {
+    public ConfirmationTracker getReceived_confirmations() {
         return server ? net_server.getReceived_confirmations() : net_client.getReceived_confirmations();
     }
 
@@ -3892,10 +3892,8 @@ public class WaitingRoomFrame extends JFrame {
                                                 break;
                                             case "CONF":
                                                 if (WaitingRoomFrame.getInstance() != null) {
-                                                    WaitingRoomFrame.getInstance().getReceived_confirmations().add(new Object[]{server_nick, Integer.parseInt(partes_comando[1])});
-                                                    synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
-                                                        WaitingRoomFrame.getInstance().getReceived_confirmations().notifyAll();
-                                                    }
+                                                    WaitingRoomFrame.getInstance().getReceived_confirmations()
+                                                            .confirm(server_nick, Integer.parseInt(partes_comando[1]));
                                                 }
                                                 break;
                                             default:

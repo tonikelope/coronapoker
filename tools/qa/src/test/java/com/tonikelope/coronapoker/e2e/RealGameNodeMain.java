@@ -60,6 +60,7 @@ public final class RealGameNodeMain {
             = java.util.Collections.newSetFromMap(new WeakHashMap<>());
     private static final CountDownLatch PARENT_CLOSED = new CountDownLatch(1);
     private static volatile int CONFIGURED_BOTS;
+    private static volatile int ALL_IN_OBSERVED_HAND = -1;
 
     private RealGameNodeMain() {
     }
@@ -209,7 +210,7 @@ public final class RealGameNodeMain {
         GameFrame.THINK_TIME = 10;
         GameFrame.THINK_TIME_ENABLED = true;
         GameFrame.SHOWDOWN_TIME = 5;
-        GameFrame.RUN_IT_TWICE = SCENARIO.equals("allin-rit");
+        GameFrame.RUN_IT_TWICE = isRitScenario();
         GameFrame.RECOVER = false;
     }
 
@@ -252,10 +253,21 @@ public final class RealGameNodeMain {
                 EventQueue.invokeAndWait(() -> {
                     GameFrame frame = GameFrame.getInstance();
                     LocalPlayer local = localPlayerIfMounted();
-                    if (frame == null || local == null || !local.isTurno()) {
+                    if (frame == null || local == null) {
                         return;
                     }
-                    if (SCENARIO.equals("allin-rit")
+                    if (isAllInScenario() && local.getDecision() == LocalPlayer.ALLIN) {
+                        int hand = frame.getCrupier().getMano();
+                        if (ALL_IN_OBSERVED_HAND != hand) {
+                            ALL_IN_OBSERVED_HAND = hand;
+                            marker("ALLIN_ACTION_CLICKED", "nick="
+                                    + frame.getNick_local() + " hand=" + hand);
+                        }
+                    }
+                    if (!local.isTurno()) {
+                        return;
+                    }
+                    if (isAllInScenario()
                             && local.getPlayer_allin().isEnabled()) {
                         local.getPlayer_allin().doClick();
                     } else if (local.getPlayer_check().isEnabled()
@@ -448,7 +460,7 @@ public final class RealGameNodeMain {
     }
 
     private static void applyScenarioWindowAction(Window window) {
-        if (SCENARIO.equals("allin-rit") && window instanceof RunItTwiceDialog dialog
+        if (isRitScenario() && window instanceof RunItTwiceDialog dialog
                 && RIT_DIALOGS_VOTED.add(dialog)) {
             voteRunItTwice(dialog);
             return;
@@ -461,6 +473,14 @@ public final class RealGameNodeMain {
 
     private static boolean isForceRecoverScenario() {
         return SCENARIO.equals("force-recover") || SCENARIO.equals("double-force-recover");
+    }
+
+    private static boolean isAllInScenario() {
+        return SCENARIO.equals("allin-rit") || SCENARIO.equals("allin-controlled-exit");
+    }
+
+    private static boolean isRitScenario() {
+        return SCENARIO.equals("allin-rit");
     }
 
     private static void voteRunItTwice(RunItTwiceDialog dialog) {

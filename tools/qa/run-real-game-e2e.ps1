@@ -10,7 +10,7 @@ param(
 
     [long]$Seed = 23059,
 
-    [ValidateSet('normal', 'abrupt-exit', 'controlled-exit', 'allin-rit', 'force-recover', 'double-force-recover')]
+    [ValidateSet('normal', 'abrupt-exit', 'controlled-exit', 'allin-rit', 'allin-controlled-exit', 'force-recover', 'double-force-recover')]
     [string]$Scenario = 'normal',
 
     [ValidateSet('hidden', 'minimized', 'visible')]
@@ -53,6 +53,7 @@ Constraints:
   the processes stop. Error dialogs are converted into failing log evidence.
   allin-rit requires -Bots 0 and -Hands 1. force-recover requires at least
   -Hands 2: the recovered hand plus a completely new following hand.
+  allin-controlled-exit requires -Clients 1, -Bots 0 and -Hands 1.
   double-force-recover requires exactly -Hands 4.
 
 Scenarios:
@@ -64,6 +65,8 @@ Scenarios:
                           requires normal settlement without MISDEAL.
   allin-rit               Forces every human seat all-in, accepts RIT, unlocks
                           and settles both boards with conserved money.
+  allin-controlled-exit   Makes both human seats all-in, then the client sends
+                          EXIT with mandatory pocket proof and community keys.
   force-recover           Stops hand 1 through SERVEREXITRECOVER, rebuilds the
                           lobby/table/sockets, recovers it and settles hand 2.
   double-force-recover    Repeats that full cycle on hands 1 and 3, and also
@@ -75,6 +78,7 @@ Examples:
   .\tools\qa\run-real-game-e2e.ps1 -Scenario abrupt-exit
   .\tools\qa\run-real-game-e2e.ps1 -Scenario controlled-exit
   .\tools\qa\run-real-game-e2e.ps1 -Scenario allin-rit -Bots 0
+  .\tools\qa\run-real-game-e2e.ps1 -Scenario allin-controlled-exit -Clients 1 -Bots 0
   .\tools\qa\run-real-game-e2e.ps1 -Scenario force-recover -Hands 2
   .\tools\qa\run-real-game-e2e.ps1 -Scenario double-force-recover -Hands 4
   .\tools\qa\run-real-game-e2e.ps1 -WindowMode visible -Screen 2 -Animations
@@ -94,6 +98,9 @@ if (($Scenario -eq 'allin-rit') -and ($Bots -ne 0)) {
 }
 if (($Scenario -eq 'allin-rit') -and ($Hands -ne 1)) {
     throw 'Scenario allin-rit requires -Hands 1 because a forced full-stack heads-up hand may eliminate a seat.'
+}
+if (($Scenario -eq 'allin-controlled-exit') -and (($Clients -ne 1) -or ($Bots -ne 0) -or ($Hands -ne 1))) {
+    throw 'Scenario allin-controlled-exit requires exactly -Clients 1 -Bots 0 -Hands 1.'
 }
 if (($Scenario -eq 'force-recover') -and ($Hands -lt 2)) {
     throw 'Scenario force-recover requires at least -Hands 2: recover/finish the interrupted hand and complete a fresh following hand.'

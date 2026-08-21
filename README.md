@@ -349,6 +349,9 @@ Typical runs:
 # This deterministic scenario requires zero bots and exactly one hand.
 .\tools\qa\run-real-game-e2e.ps1 -Scenario allin-rit -Clients 1 -Bots 0
 
+# Both humans go all-in; the client then exits with its production testament.
+.\tools\qa\run-real-game-e2e.ps1 -Scenario allin-controlled-exit -Clients 1 -Bots 0
+
 # Stop a live hand, recover/replay it, then deal and settle a fresh next hand.
 .\tools\qa\run-real-game-e2e.ps1 -Scenario force-recover -Clients 1 -Bots 2 -Hands 2
 
@@ -365,6 +368,7 @@ Scenario contracts:
 | `abrupt-exit` | Client process dies during preflop without an EXIT testament | MISDEAL, full refund, zero pot and host remains alive |
 | `controlled-exit` | Client sends the production EXIT testament during preflop | Hand settles without MISDEAL and money is conserved |
 | `allin-rit` | Human seats go all-in and unanimously choose run it twice | Both boards unlock and settle without divergence |
+| `allin-controlled-exit` | Heads-up players go all-in, then the client sends controlled EXIT | Pocket proof/testament suffice to settle without MISDEAL or blocked host |
 | `force-recover` | Hand 1 is stopped; lobby, sockets and table are rebuilt | Interrupted hand recovers and a fresh hand 2 settles |
 | `double-force-recover` | The same session is force-recovered during hands 1 and 3 | Both recoveries succeed and fresh hands 2 and 4 settle |
 

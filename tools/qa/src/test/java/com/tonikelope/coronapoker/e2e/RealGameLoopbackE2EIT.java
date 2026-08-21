@@ -36,6 +36,7 @@ final class RealGameLoopbackE2EIT {
         String scenario = System.getProperty("qa.e2e.scenario", "normal");
         assertTrue(scenario.equals("normal") || scenario.equals("abrupt-exit")
                 || scenario.equals("controlled-exit") || scenario.equals("allin-rit")
+                || scenario.equals("allin-controlled-exit")
                 || scenario.equals("force-recover")
                 || scenario.equals("double-force-recover"),
                 "unsupported qa.e2e.scenario: " + scenario);
@@ -44,6 +45,9 @@ final class RealGameLoopbackE2EIT {
                 "allin-rit requires zero bots so every survivor uses the forced action policy");
         assertTrue(!scenario.equals("allin-rit") || hands == 1,
                 "allin-rit requires one hand because a full-stack all-in may eliminate a seat");
+        assertTrue(!scenario.equals("allin-controlled-exit")
+                || (clients == 1 && bots == 0 && hands == 1),
+                "allin-controlled-exit requires one client, zero bots and one hand");
         assertTrue(!scenario.equals("force-recover") || hands >= 2,
                 "force-recover requires the recovered hand and a fresh following hand");
         assertTrue(!scenario.equals("double-force-recover") || hands == 4,
@@ -77,6 +81,10 @@ final class RealGameLoopbackE2EIT {
             }
             if (scenario.equals("allin-rit")) {
                 runAllInRitScenario(nodes, host, clients + bots + 1);
+                return;
+            }
+            if (scenario.equals("allin-controlled-exit")) {
+                runAllInControlledExitScenario(nodes, host);
                 return;
             }
             if (scenario.equals("force-recover")) {
@@ -145,6 +153,10 @@ final class RealGameLoopbackE2EIT {
         departingClient.send("CONTROLLED_EXIT");
         assertTrue(departingClient.await("CP_E2E_CONTROLLED_EXIT_SENT", Duration.ofSeconds(30)),
                 departingClient.diagnostic());
+        assertFalse(departingClient.contains(
+                "Cannot build mandatory all-in showdown proof"),
+                departingClient.diagnostic());
+        assertFalse(departingClient.contains("CP_E2E_FAIL"), departingClient.diagnostic());
         assertTrue(host.await("CP_E2E_HANDS_COMPLETE", Duration.ofMinutes(3)), host.diagnostic());
         assertTrue(host.await("CP_E2E_LEDGER", Duration.ofSeconds(30)), host.diagnostic());
 
@@ -182,6 +194,31 @@ final class RealGameLoopbackE2EIT {
             assertEquals(hostBalances, node.canonicalBalanceSnapshots(),
                     "RIT balance divergence\n" + node.diagnostic());
         }
+    }
+
+    private static void runAllInControlledExitScenario(List<NodeProcess> nodes,
+            NodeProcess host) throws Exception {
+        NodeProcess departingClient = nodes.get(1);
+        assertTrue(departingClient.await("CP_E2E_ALLIN_ACTION_CLICKED", Duration.ofMinutes(2)),
+                departingClient.diagnostic());
+        departingClient.send("CONTROLLED_EXIT");
+        assertTrue(departingClient.await("CP_E2E_CONTROLLED_EXIT_SENT", Duration.ofSeconds(30)),
+                departingClient.diagnostic());
+        assertTrue(host.await("CP_E2E_HANDS_COMPLETE", Duration.ofMinutes(4)),
+                host.diagnostic());
+        assertTrue(host.contains("CP_E2E_LEDGER"), host.diagnostic());
+        assertTrue(host.contains("balanceRows=2"), host.diagnostic());
+        assertTrue(host.contains("stackCents=2000"), host.diagnostic());
+        assertTrue(host.contains("verified: 1 receipts unanimous"), host.diagnostic());
+        assertTrue(host.isAlive(), "host died after all-in EXIT\n" + host.diagnostic());
+        assertFalse(host.contains("MISDEAL triggered:"), host.diagnostic());
+        assertFalse(host.contains("Cannot build mandatory all-in showdown proof"),
+                host.diagnostic());
+        assertFalse(host.contains("invalid atomic POTCARDS"), host.diagnostic());
+        assertFalse(host.contains("missing mandatory"), host.diagnostic());
+        assertFalse(host.contains("TABLE_FAILURE_V1"), host.diagnostic());
+        assertFalse(host.contains("CP_E2E_FAIL"), host.diagnostic());
+        assertFalse(host.contains("QA dialog suppressed [Error"), host.diagnostic());
     }
 
     private static void runForceRecoverScenario(List<NodeProcess> nodes, NodeProcess host,

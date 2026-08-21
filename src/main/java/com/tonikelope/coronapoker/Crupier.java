@@ -21405,9 +21405,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public boolean badbeat(Player perdedor, Player ganador) {
 
-        if (ganador != null) {
+        Card[] community = GameFrame.getInstance().getCartas_comunes();
+        Card[] loserPocket = perdedor == null ? null
+                : new Card[]{perdedor.getHoleCard1(), perdedor.getHoleCard2()};
+        Card[] winnerPocket = ganador == null ? null
+                : new Card[]{ganador.getHoleCard1(), ganador.getHoleCard2()};
 
-            ArrayList<Card> cartas = new ArrayList<>(Arrays.asList(GameFrame.getInstance().getCartas_comunes()));
+        // Bad-beat detection only selects a cosmetic sound. A controlled EXIT
+        // may tear down/reset that player's Swing cards after settlement has
+        // already computed the immutable Hand values. Never let the optional
+        // re-evaluation of those live UI cards abort an otherwise valid close.
+        if (hasCompleteBadBeatCards(community, loserPocket, winnerPocket)) {
+
+            ArrayList<Card> cartas = new ArrayList<>(Arrays.asList(community));
 
             cartas.add(perdedor.getHoleCard1());
 
@@ -21433,6 +21443,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return false;
         }
 
+    }
+
+    static boolean hasCompleteBadBeatCards(Card[] community, Card[] loserPocket,
+            Card[] winnerPocket) {
+        if (community == null || community.length != 5
+                || loserPocket == null || loserPocket.length != 2
+                || winnerPocket == null || winnerPocket.length != 2) {
+            return false;
+        }
+        HashSet<Integer> seen = new HashSet<>();
+        for (Card[] group : new Card[][]{community, loserPocket, winnerPocket}) {
+            for (Card card : group) {
+                if (card == null || card.getCardIndex() < 0
+                        || !seen.add(card.getCardIndex())) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     // Action for one tick (1s) of the showdown countdown.

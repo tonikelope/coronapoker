@@ -40,11 +40,16 @@ one hand, with a concise trace, using:
   reconciliation and signed action replay to the uninterrupted `H_t`.
 - Cross-session snapshot and post-signature mutation rejection before chain
   mutation.
+- Dual-lock SRA deck, deterministic shuffle, pocket/community unlock, disjoint
+  normal/RIT boards and exact 52-card recovery.
+- Atomic `POTCARDS` roster with real showdown signatures and binding to each
+  encrypted pocket, including the canonical upper boundary (card index 51).
+- Community EXIT testament cannot unlock the exiting player's pocket.
 
 ## Not yet covered; do not infer it from a green campaign
 
 - Actual `Crupier` orchestration and production bot decision generation.
-- SRA cascade/proofs and pocket unlock/POTCARDS lifecycle.
+- Full `Crupier` SRA request/response orchestration and proof-chain scheduling.
 - Side-pot construction and complete multi-street betting state.
 - Rabbit authorization/ledger.
 - Full `Crupier` EXIT/MISDEAL/refund orchestration and SQLite recovery replay.

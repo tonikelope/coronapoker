@@ -16745,7 +16745,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         HashMap<String, String> nick2sig = new HashMap<>();
 
         for (Player p : resisten) {
-            if (p.isExit()) {
+            if (!requiresShowdownProof(p.isExit(), p.getDecision())) {
                 continue;
             }
             String nick = p.getNickname();
@@ -16768,10 +16768,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Request sraKey + sig from remote humans.
         ArrayList<String> pendientes = new ArrayList<>();
         for (Player p : resisten) {
-            if (!p.getNickname().equals(hostNick) && !p.isExit()) {
+            if (!p.getNickname().equals(hostNick)
+                    && requiresShowdownProof(p.isExit(), p.getDecision())) {
                 Participant part = GameFrame.getInstance().getParticipantes().get(p.getNickname());
                 if (part != null && !part.isCpu()) {
+                    if (part.isExit()) {
+                        containTableFailure(new IllegalStateException(
+                                "mandatory showdown contender disconnected before reveal: "
+                                + p.getNickname()));
+                        return;
+                    }
                     pendientes.add(p.getNickname());
+                } else if (part == null) {
+                    containTableFailure(new IllegalStateException(
+                            "missing mandatory showdown participant: " + p.getNickname()));
+                    return;
                 }
             }
         }
@@ -16832,10 +16843,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     return;
                 }
 
-                pendientes.removeIf(nick -> {
+                for (String nick : pendientes) {
                     Participant participant = GameFrame.getInstance().getParticipantes().get(nick);
-                    return participant == null || participant.isExit();
-                });
+                    if (participant == null || participant.isExit()) {
+                        containTableFailure(new IllegalStateException(
+                                "mandatory showdown contender disconnected before reveal: " + nick));
+                        return;
+                    }
+                }
 
                 if (!pendientes.isEmpty()) {
                     // Time spent PAUSED doesn't count against the timeout, same as every
@@ -16875,7 +16890,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             StringBuilder potcards = new StringBuilder("POTCARDS");
             boolean anyCard = false;
             for (Player jugador : resisten) {
-                if (jugador.isExit()) {
+                if (!requiresShowdownProof(jugador.isExit(), jugador.getDecision())) {
                     continue;
                 }
                 String nick = jugador.getNickname();
@@ -20638,7 +20653,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 try {
                                     LinkedHashSet<String> eligible = new LinkedHashSet<>();
                                     for (Player contender : resistencia) {
-                                        if (contender != null && !contender.isExit()) {
+                                        if (contender != null && requiresShowdownProof(
+                                                contender.isExit(), contender.getDecision())) {
                                             eligible.add(contender.getNickname());
                                         }
                                     }
@@ -20694,7 +20710,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             boolean hasRemoteToWaitFor = false;
             for (Player jugador : resistencia) {
-                if (!jugador.getNickname().equals(localNick) && !jugador.isExit()) {
+                if (!jugador.getNickname().equals(localNick)
+                        && requiresShowdownProof(jugador.isExit(), jugador.getDecision())) {
                     hasRemoteToWaitFor = true;
                     break;
                 }
@@ -22275,6 +22292,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     static boolean shouldRemoveExitedPlayerFromShowdown(boolean exited, int decision) {
         return exited && decision != Player.ALLIN;
+    }
+
+    static boolean requiresShowdownProof(boolean exited, int decision) {
+        return !shouldRemoveExitedPlayerFromShowdown(exited, decision);
     }
 
     static boolean shouldRemoveInactivePlayerFromBettingRound(boolean activo, int decision) {

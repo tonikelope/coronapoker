@@ -7,6 +7,7 @@ import com.tonikelope.coronapoker.Helpers;
 import com.tonikelope.coronapoker.IdentityManager;
 import com.tonikelope.coronapoker.Init;
 import com.tonikelope.coronapoker.LocalPlayer;
+import com.tonikelope.coronapoker.RunItTwiceDialog;
 import com.tonikelope.coronapoker.WaitingRoomFrame;
 import java.awt.EventQueue;
 import java.awt.Frame;
@@ -48,8 +49,12 @@ public final class RealGameNodeMain {
             System.getProperty("coronapoker.qa.windowMode", "hidden"));
     private static final int SCREEN_NUMBER = Integer.getInteger("coronapoker.qa.screen", 2);
     private static final boolean ANIMATIONS = Boolean.getBoolean("coronapoker.qa.animations");
+    private static final String SCENARIO = System.getProperty(
+            "coronapoker.qa.scenario", "normal");
     private static final Set<Window> POSITIONED_WINDOWS = java.util.Collections.newSetFromMap(
             new WeakHashMap<>());
+    private static final Set<RunItTwiceDialog> RIT_DIALOGS_VOTED
+            = java.util.Collections.newSetFromMap(new WeakHashMap<>());
     private static final CountDownLatch PARENT_CLOSED = new CountDownLatch(1);
 
     private RealGameNodeMain() {
@@ -179,7 +184,7 @@ public final class RealGameNodeMain {
         GameFrame.THINK_TIME = 10;
         GameFrame.THINK_TIME_ENABLED = true;
         GameFrame.SHOWDOWN_TIME = 5;
-        GameFrame.RUN_IT_TWICE = false;
+        GameFrame.RUN_IT_TWICE = SCENARIO.equals("allin-rit");
         GameFrame.RECOVER = false;
     }
 
@@ -227,7 +232,10 @@ public final class RealGameNodeMain {
                             if (!local.isTurno()) {
                                 return;
                             }
-                            if (local.getPlayer_check().isEnabled()
+                            if (SCENARIO.equals("allin-rit")
+                                    && local.getPlayer_allin().isEnabled()) {
+                                local.getPlayer_allin().doClick();
+                            } else if (local.getPlayer_check().isEnabled()
                                     && (!local.getPlayer_fold().isEnabled() || random.nextInt(5) != 0)) {
                                 local.getPlayer_check().doClick();
                             } else if (local.getPlayer_fold().isEnabled()) {
@@ -299,6 +307,9 @@ public final class RealGameNodeMain {
                     && (windowEvent.getID() == WindowEvent.WINDOW_OPENED
                     || windowEvent.getID() == WindowEvent.WINDOW_ACTIVATED)) {
                 applyWindowPolicy(windowEvent.getWindow());
+                if (windowEvent.getID() == WindowEvent.WINDOW_OPENED) {
+                    applyScenarioWindowAction(windowEvent.getWindow());
+                }
             }
         }, java.awt.AWTEvent.WINDOW_EVENT_MASK);
 
@@ -350,6 +361,23 @@ public final class RealGameNodeMain {
             case VISIBLE -> {
                 // Positioning above is the whole policy for visible diagnostics.
             }
+        }
+    }
+
+    private static void applyScenarioWindowAction(Window window) {
+        if (!SCENARIO.equals("allin-rit") || !(window instanceof RunItTwiceDialog dialog)
+                || !RIT_DIALOGS_VOTED.add(dialog)) {
+            return;
+        }
+        try {
+            java.lang.reflect.Field buttonField
+                    = RunItTwiceDialog.class.getDeclaredField("rit_button");
+            buttonField.setAccessible(true);
+            javax.swing.JButton button = (javax.swing.JButton) buttonField.get(dialog);
+            button.doClick();
+            marker("RIT_VOTE", "decision=run-it-twice");
+        } catch (ReflectiveOperationException ex) {
+            throw new IllegalStateException("cannot drive production RIT vote button", ex);
         }
     }
 

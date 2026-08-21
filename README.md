@@ -344,6 +344,10 @@ Typical runs:
 
 # Exercise the real voluntary EXIT testament path; the host must finish normally.
 .\tools\qa\run-real-game-e2e.ps1 -Scenario controlled-exit
+
+# Force every human seat all-in, vote RIT unanimously and settle both boards.
+# This deterministic scenario requires zero bots and exactly one hand.
+.\tools\qa\run-real-game-e2e.ps1 -Scenario allin-rit -Clients 1 -Bots 0
 ```
 
 The real-game runner defaults to hidden windows, disabled sound/animations and

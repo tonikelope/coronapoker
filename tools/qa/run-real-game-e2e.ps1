@@ -10,7 +10,7 @@ param(
 
     [long]$Seed = 23059,
 
-    [ValidateSet('normal', 'abrupt-exit', 'controlled-exit')]
+    [ValidateSet('normal', 'abrupt-exit', 'controlled-exit', 'allin-rit')]
     [string]$Scenario = 'normal',
 
     [ValidateSet('hidden', 'minimized', 'visible')]
@@ -40,7 +40,7 @@ Options:
   -Bots <0..7>             Production bots hosted by the server (default: 2)
   -Hands <1..100>          Complete hands to play (default: 1)
   -Seed <long>             Reproducible action-driver seed (default: 23059)
-  -Scenario <name>         normal, abrupt-exit or controlled-exit (default: normal)
+  -Scenario <name>         normal, abrupt-exit, controlled-exit or allin-rit
   -WindowMode <mode>       hidden, minimized or visible (default: hidden)
   -Screen <1..16>          Target monitor for every mode (default: 2)
   -Animations              Enable production animations; disabled by default
@@ -51,12 +51,14 @@ Constraints:
   Host + clients + bots cannot exceed 8 seats. Every JVM gets an isolated
   temporary user.home, identity and SQLite database; JUnit removes them after
   the processes stop. Error dialogs are converted into failing log evidence.
+  allin-rit requires -Bots 0 and -Hands 1.
 
 Examples:
   .\tools\qa\run-real-game-e2e.ps1
   .\tools\qa\run-real-game-e2e.ps1 -Clients 2 -Bots 1 -Hands 3 -Seed 42
   .\tools\qa\run-real-game-e2e.ps1 -Scenario abrupt-exit
   .\tools\qa\run-real-game-e2e.ps1 -Scenario controlled-exit
+  .\tools\qa\run-real-game-e2e.ps1 -Scenario allin-rit -Bots 0
   .\tools\qa\run-real-game-e2e.ps1 -WindowMode visible -Screen 2 -Animations
   .\tools\qa\run-real-game-e2e.ps1 -ProductionTiming -WindowMode minimized
 
@@ -68,6 +70,12 @@ encrypted sockets, Crupier, rondaApuestas, bots, consensus and SQLite close.
 
 if (($Clients + $Bots + 1) -gt 8) {
     throw 'Host + clients + bots cannot exceed 8 seats.'
+}
+if (($Scenario -eq 'allin-rit') -and ($Bots -ne 0)) {
+    throw 'Scenario allin-rit requires -Bots 0 so every surviving seat follows the forced all-in policy.'
+}
+if (($Scenario -eq 'allin-rit') -and ($Hands -ne 1)) {
+    throw 'Scenario allin-rit requires -Hands 1 because a forced full-stack heads-up hand may eliminate a seat.'
 }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path

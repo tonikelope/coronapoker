@@ -35,9 +35,13 @@ final class RealGameLoopbackE2EIT {
         long seed = Long.getLong("qa.e2e.seed", 23059L);
         String scenario = System.getProperty("qa.e2e.scenario", "normal");
         assertTrue(scenario.equals("normal") || scenario.equals("abrupt-exit")
-                || scenario.equals("controlled-exit"),
+                || scenario.equals("controlled-exit") || scenario.equals("allin-rit"),
                 "unsupported qa.e2e.scenario: " + scenario);
         assertTrue(clients + bots + 1 <= 8, "host + clients + bots must fit the table");
+        assertTrue(!scenario.equals("allin-rit") || bots == 0,
+                "allin-rit requires zero bots so every survivor uses the forced action policy");
+        assertTrue(!scenario.equals("allin-rit") || hands == 1,
+                "allin-rit requires one hand because a full-stack all-in may eliminate a seat");
 
         int port;
         try (ServerSocket reservation = new ServerSocket(0)) {
@@ -63,6 +67,10 @@ final class RealGameLoopbackE2EIT {
             }
             if (scenario.equals("controlled-exit")) {
                 runControlledExitScenario(nodes, host, clients + bots + 1);
+                return;
+            }
+            if (scenario.equals("allin-rit")) {
+                runAllInRitScenario(nodes, host, clients + bots + 1);
                 return;
             }
 
@@ -135,6 +143,33 @@ final class RealGameLoopbackE2EIT {
         assertFalse(host.contains("CP_E2E_FAIL"), host.diagnostic());
     }
 
+    private static void runAllInRitScenario(List<NodeProcess> nodes, NodeProcess host,
+            int seats) throws Exception {
+        for (NodeProcess node : nodes) {
+            assertTrue(node.await("CP_E2E_HANDS_COMPLETE", Duration.ofMinutes(4)),
+                    node.diagnostic());
+            assertTrue(node.contains("CP_E2E_RIT_VOTE decision=run-it-twice"),
+                    node.diagnostic());
+            assertFalse(node.contains("TABLE_FAILURE_V1"), node.diagnostic());
+            assertFalse(node.contains("CP_E2E_FAIL"), node.diagnostic());
+            assertFalse(node.contains("QA dialog suppressed [Error"), node.diagnostic());
+        }
+        assertTrue(host.contains("RUN-IT-TWICE vote result: true"), host.diagnostic());
+        assertEquals(3, host.countContaining("Initiating SRA SIDE-B street unlock:"),
+                host.diagnostic());
+        assertTrue(host.contains("balanceRows=" + seats), host.diagnostic());
+        assertTrue(host.contains("stackCents=" + (seats * 1000L)), host.diagnostic());
+
+        List<String> hostConsensus = host.linesContaining(" verified: ");
+        List<String> hostBalances = host.canonicalBalanceSnapshots();
+        for (NodeProcess node : nodes.subList(1, nodes.size())) {
+            assertEquals(hostConsensus, node.linesContaining(" verified: "),
+                    "RIT consensus divergence\n" + node.diagnostic());
+            assertEquals(hostBalances, node.canonicalBalanceSnapshots(),
+                    "RIT balance divergence\n" + node.diagnostic());
+        }
+    }
+
     private static NodeProcess startNode(Path home, String role, String nick, int port,
             int clients, int bots, int hands, long seed) throws IOException {
         Files.createDirectories(home);
@@ -151,6 +186,8 @@ final class RealGameLoopbackE2EIT {
                         + Integer.getInteger("qa.e2e.screen", 2),
                 "-Dcoronapoker.qa.animations="
                         + Boolean.getBoolean("qa.e2e.animations"),
+                "-Dcoronapoker.qa.scenario="
+                        + System.getProperty("qa.e2e.scenario", "normal"),
                 "-Dcoronapoker.testMode="
                         + System.getProperty("qa.e2e.testMode", "true"),
                 "-Duser.home=" + home.toAbsolutePath(),
@@ -228,6 +265,12 @@ final class RealGameLoopbackE2EIT {
                         .filter(line -> line.contains(token))
                         .map(line -> line.substring(line.indexOf("Hand ")))
                         .toList();
+            }
+        }
+
+        private long countContaining(String token) {
+            synchronized (output) {
+                return output.stream().filter(line -> line.contains(token)).count();
             }
         }
 

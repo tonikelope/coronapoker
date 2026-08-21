@@ -6,17 +6,19 @@ production betting reducer, deterministic shuffle, canonical action/community
 records, Ed25519 signatures, RIT pot division, settlement record and
 `HANDVERIFY` receipt parser.
 
-Run from `tools/qa` after installing the current root artifact:
+Run from the repository root. The script uses the Maven reactor, so it always
+compiles and tests the current checkout rather than a possibly stale installed
+JAR:
 
 ```powershell
-& 'C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd' '-Dmaven.repo.local=C:/Users/Antonio/.m2/repository' '-Duser.home=C:/some/isolated/home' '-Dqa.sim.hands=2000' '-Dqa.sim.faults=2000' '-Dqa.sim.bot.hands=1000' '-Dqa.sim.seed=3231711270' test '-Pqa-protocol-sim'
+& .\tools\qa\run-headless-sim.ps1 -Hands 5000 -Faults 5000 -BotHands 100 -Seed 3231711270
 ```
 
 The seed and zero-based hand number identify a failing scenario. Re-run exactly
 one hand, with a concise trace, using:
 
 ```powershell
-& 'C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd' '-Dmaven.repo.local=C:/Users/Antonio/.m2/repository' '-Duser.home=C:/some/isolated/home' '-Dqa.sim.seed=3231711270' '-Dqa.sim.hand=48731' '-Dqa.sim.trace=true' test '-Pqa-protocol-sim'
+& 'C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd' '-f' '.\tools\reactor\pom.xml' '-Duser.home=C:/some/isolated/home' '-Dqa.sim.seed=3231711270' '-Dqa.sim.hand=48731' '-Dqa.sim.trace=true' test '-Pqa-protocol-sim'
 ```
 
 Replay one zero-based fault case by replacing `qa.sim.hand` with
@@ -28,7 +30,7 @@ The umbrella lane for every automated non-visual QA check (including the
 protocol campaigns, crypto/SRA and production-bot simulations) is:
 
 ```powershell
-& 'C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd' '-Dmaven.repo.local=C:/Users/Antonio/.m2/repository' '-Duser.home=C:/some/isolated/home' '-Dqa.sim.hands=2000' '-Dqa.sim.faults=2000' '-Dqa.sim.bot.hands=1000' test '-Pqa-headless-all'
+& .\tools\qa\run-headless-sim.ps1 -Hands 2000 -Faults 2000 -BotHands 100 -AllNonVisual
 ```
 
 It forces `java.awt.headless=true`; a display/window dependency therefore fails

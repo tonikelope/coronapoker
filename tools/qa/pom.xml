@@ -111,6 +111,8 @@
                         <qa.sim.trace>${qa.sim.trace}</qa.sim.trace>
                         <qa.sim.faults>${qa.sim.faults}</qa.sim.faults>
                         <qa.sim.fault.case>${qa.sim.fault.case}</qa.sim.fault.case>
+                        <qa.sim.bot.hands>${qa.sim.bot.hands}</qa.sim.bot.hands>
+                        <qa.sim.bot.hand>${qa.sim.bot.hand}</qa.sim.bot.hand>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
@@ -308,6 +310,50 @@
                                 <include>**/protocolsim/*Test.java</include>
                                 <include>**/ProtocolExitRecoverySimulationTest.java</include>
                             </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Single umbrella lane for every automated non-visual game check.
+        Running with java.awt.headless=true makes accidental JFrame/display
+        dependencies fail instead of silently turning this into a GUI smoke.
+        The owner-only ACL shape smoke is environment-specific and remains in
+        its dedicated lane; all identity/signature behavior still runs here. -->
+        <profile>
+            <id>qa-headless-all</id>
+            <properties>
+                <qa.groups></qa.groups>
+                <qa.excludedGroups></qa.excludedGroups>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <groups></groups>
+                            <excludedGroups></excludedGroups>
+                            <systemPropertyVariables combine.children="append">
+                                <java.awt.headless>true</java.awt.headless>
+                            </systemPropertyVariables>
+                            <includes combine.self="override">
+                                <include>**/Test*.java</include>
+                                <include>**/*Test.java</include>
+                                <include>**/*Tests.java</include>
+                                <include>**/*TestCase.java</include>
+                                <include>**/*Smoke.java</include>
+                            </includes>
+                            <excludes combine.self="override">
+                                <exclude>**/IdentityKeypairAclSmoke.java</exclude>
+                                <!-- These assert statistical playing strength, not
+                                game integrity. qa-protocol-sim supplies a scalable
+                                per-hand invariant campaign using the same real bots. -->
+                                <exclude>**/bot/harness/*Test.java</exclude>
+                                <exclude>**/bot/eval/MemoizedHandPotentialTest.java</exclude>
+                                <exclude>**/smoke/GameFlowSmoke.java</exclude>
+                            </excludes>
                         </configuration>
                     </plugin>
                 </plugins>

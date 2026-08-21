@@ -9,7 +9,7 @@ records, Ed25519 signatures, RIT pot division, settlement record and
 Run from `tools/qa` after installing the current root artifact:
 
 ```powershell
-& 'C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd' '-Dmaven.repo.local=C:/Users/Antonio/.m2/repository' '-Duser.home=C:/some/isolated/home' '-Dqa.sim.hands=2000' '-Dqa.sim.faults=2000' '-Dqa.sim.seed=3231711270' test '-Pqa-protocol-sim'
+& 'C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd' '-Dmaven.repo.local=C:/Users/Antonio/.m2/repository' '-Duser.home=C:/some/isolated/home' '-Dqa.sim.hands=2000' '-Dqa.sim.faults=2000' '-Dqa.sim.bot.hands=1000' '-Dqa.sim.seed=3231711270' test '-Pqa-protocol-sim'
 ```
 
 The seed and zero-based hand number identify a failing scenario. Re-run exactly
@@ -21,7 +21,21 @@ one hand, with a concise trace, using:
 
 Replay one zero-based fault case by replacing `qa.sim.hand` with
 `-Dqa.sim.fault.case=48731`. Every assertion reports the seed, case, fault type
-and injection position.
+and injection position. A production-bot hand can likewise be isolated with
+`-Dqa.sim.bot.hand=48731` (and a sufficiently large `qa.sim.bot.hands`).
+
+The umbrella lane for every automated non-visual QA check (including the
+protocol campaigns, crypto/SRA and production-bot simulations) is:
+
+```powershell
+& 'C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd' '-Dmaven.repo.local=C:/Users/Antonio/.m2/repository' '-Duser.home=C:/some/isolated/home' '-Dqa.sim.hands=2000' '-Dqa.sim.faults=2000' '-Dqa.sim.bot.hands=1000' test '-Pqa-headless-all'
+```
+
+It forces `java.awt.headless=true`; a display/window dependency therefore fails
+the lane. `IdentityKeypairAclSmoke` remains separate because its exact Windows
+ACL shape is environment-specific, not game behavior. Statistical bot-strength
+tests remain in `qa-bots`; the umbrella lane replaces their noisy win-rate
+thresholds with hard per-hand conservation, liveness and validity invariants.
 
 ## Current production coverage
 
@@ -58,7 +72,8 @@ and injection position.
 
 ## Not yet covered; do not infer it from a green campaign
 
-- Actual `Crupier` orchestration and production bot decision generation.
+- Actual `Crupier` orchestration. Production bot decisions are exercised by a
+  scalable 3-to-9-seat campaign, but its game harness is not `Crupier`.
 - Full `Crupier` SRA request/response orchestration and proof-chain scheduling.
 - Side-pot construction and complete multi-street betting state.
 - Rabbit authorization/ledger.

@@ -3836,12 +3836,17 @@ public class WaitingRoomFrame extends JFrame {
                                                                 // The host aborts the hand. Cancel locally and forward to the
                                                                 // queue to wake up any consumer (receiveMyCards,
                                                                 // recibirConsensoFinal, etc.) waiting on a timeout.
+                                                                final String motivoMisdeal;
                                                                 try {
-                                                                    String motivoMisdeal = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                    GameFrame.getInstance().getCrupier().cancelarManoYDevolverApuestas(motivoMisdeal, false);
+                                                                    motivoMisdeal = MisdealWire.parse(partes_comando);
                                                                 } catch (Exception ex) {
-                                                                    LOGGER.log(Level.SEVERE, "Error processing MISDEAL", ex);
+                                                                    LOGGER.log(Level.SEVERE,
+                                                                            "Invalid MISDEAL; closing host channel", ex);
+                                                                    closeCriticalHostChannel();
+                                                                    break;
                                                                 }
+                                                                GameFrame.getInstance().getCrupier()
+                                                                        .cancelarManoYDevolverApuestas(motivoMisdeal, false);
                                                                 synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
                                                                     GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
                                                                             () -> Helpers.threadRun(() -> {

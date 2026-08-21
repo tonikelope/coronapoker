@@ -362,6 +362,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 && !"*".equals(partes[7]) && !"*".equals(partes[8]);
     }
 
+    static boolean actionWireHasCurrentShape(String[] partes) {
+        return partes != null && partes.length == 9 && "ACTION".equals(partes[2]);
+    }
+
     /**
      * Identity §4.9 (pure, testable): builds the ACTION subcommand sent on the
      * wire.
@@ -12655,7 +12659,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                  * Every ACTION carries the record + sig as the last two fields; the
                                  * chain absorbs them and the receiver verifies the signature.
                                  */
-                                if (partes.length >= 6 && partes[2].equals("ACTION")) {
+                                if (partes.length >= 3 && partes[2].equals("ACTION")) {
+                                    if (!actionWireHasCurrentShape(partes)) {
+                                        LOGGER.log(Level.SEVERE,
+                                                "Malformed critical ACTION; closing its authenticated source");
+                                        boolean sourceClosed = this.received_commands.reject(comando);
+                                        if (!GameFrame.getInstance().isPartida_local()) {
+                                            setFin_de_la_transmision(true);
+                                            WaitingRoomFrame.getInstance().closeClientSocket();
+                                            return null;
+                                        } else if (!sourceClosed) {
+                                            containTableFailure(new IllegalStateException(
+                                                    "malformed ACTION without authenticated source metadata"));
+                                            return null;
+                                        }
+                                        continue;
+                                    }
                                     String senderNick = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
 
                                     if (senderNick.equals(jugador.getNickname())) {

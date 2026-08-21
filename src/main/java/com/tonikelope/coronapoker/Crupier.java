@@ -366,6 +366,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return partes != null && partes.length == 9 && "ACTION".equals(partes[2]);
     }
 
+    static boolean startCascadeSignalHasCurrentShape(String[] partes) {
+        return partes != null
+                && partes.length == 3
+                && "START_SRA_CASCADE".equals(partes[2]);
+    }
+
     /**
      * Identity §4.9 (pure, testable): builds the ACTION subcommand sent on the
      * wire.
@@ -9021,8 +9027,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
                     while (!serverCommitted && !this.getReceived_commands().isEmpty()) {
                         String comando = this.received_commands.poll();
-                        String[] partes = comando.split("#");
-                        if (partes.length == 3 && partes[2].equals("START_SRA_CASCADE")) {
+                        String[] partes = comando.split("#", -1);
+                        if (partes.length >= 3 && partes[2].equals("START_SRA_CASCADE")) {
+                            if (!startCascadeSignalHasCurrentShape(partes)) {
+                                LOGGER.log(Level.SEVERE,
+                                        "Malformed critical START_SRA_CASCADE; closing host channel");
+                                this.received_commands.reject(comando);
+                                setFin_de_la_transmision(true);
+                                WaitingRoomFrame.getInstance().closeClientSocket();
+                                return;
+                            }
                             serverCommitted = true;
                         } else {
                             rejected.add(comando);
@@ -9568,6 +9582,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         readyForNextHand();
+
+        if (isFin_de_la_transmision()) {
+            return false;
+        }
 
         if (this.ciegas_update != null || this.ante_straddle_update) {
             synchronized (lock_ciegas) {

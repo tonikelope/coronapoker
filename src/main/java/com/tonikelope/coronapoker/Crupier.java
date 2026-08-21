@@ -3887,17 +3887,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (!im.isReady()) {
                 return "*";
             }
-            Player revealPlayer = this.nick2player.get(revealNick);
-            if (revealPlayer == null) {
-                return "*";
-            }
-            int firstCard = revealPlayer.getHoleCard1().getCardIndex();
-            int secondCard = revealPlayer.getHoleCard2().getCardIndex();
-            if (firstCard < 0 || secondCard < 0 || firstCard == secondCard) {
+            int[] cards = resolvePocketCardIndices(revealNick, pocketKey);
+            if (cards == null) {
                 return "*";
             }
             byte[] sig = im.signShowdownReveal(this.current_hand_id, revealNick, pocketKey,
-                    firstCard, secondCard);
+                    cards[0], cards[1]);
             if (sig == null) {
                 return "*";
             }
@@ -15554,11 +15549,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private int[] resolvePocketCardIndices(String nick, byte[] pocketKey) {
+        return resolvePocketCardIndices(this.single_locked_pocket_cards.get(nick), pocketKey);
+    }
+
+    static int[] resolvePocketCardIndices(byte[] pocketCards, byte[] pocketKey) {
         try {
             if (!RistrettoSRA.isValidScalar(pocketKey)) {
                 return null;
             }
-            byte[] pocketCards = this.single_locked_pocket_cards.get(nick);
             if (pocketCards == null || pocketCards.length != 64) {
                 return null;
             }
@@ -17138,8 +17136,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     return;
                 }
                 try {
-                    String c1 = jugador.getHoleCard1().toShortString();
-                    String c2 = jugador.getHoleCard2().toShortString();
+                    byte[] key = Base64.getDecoder().decode(keyB64);
+                    int[] cards = resolvePocketCardIndices(nick, key);
+                    if (cards == null) {
+                        throw new IllegalStateException(
+                                "mandatory POTCARDS pocket does not resolve for " + nick);
+                    }
+                    String c1 = Card.shortStringFromIndex(cards[0]);
+                    String c2 = Card.shortStringFromIndex(cards[1]);
                     if (c1 == null || c1.isEmpty() || c2 == null || c2.isEmpty()) {
                         throw new IllegalStateException("missing mandatory POTCARDS cards for " + nick);
                     }
@@ -20850,7 +20854,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (resolved == null
                         || !sameUnorderedCards(resolved[0], resolved[1],
                                 entry.firstCard(), entry.secondCard())) {
-                    throw new IllegalArgumentException("POTCARDS plaintext disagrees with encrypted pocket");
+                    throw new IllegalArgumentException(
+                            "POTCARDS plaintext for " + entry.nick()
+                            + " disagrees with encrypted pocket");
                 }
             }
             if (!occupied.add(resolved[0]) || !occupied.add(resolved[1])) {

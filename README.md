@@ -310,6 +310,47 @@ mvn -f tools/reactor/pom.xml test -P qa-release
 mvn -f tools/reactor/pom.xml test -Dtest=PotMathTest -Dsurefire.failIfNoSpecifiedTests=false
 ```
 
+### Game simulation tools (Windows / PowerShell)
+
+Two complementary runners test the current source tree through the QA reactor:
+
+| Runner | Purpose | Production coverage |
+|---|---|---|
+| `tools/qa/run-headless-sim.ps1` | Fast seeded campaigns and fault injection | Protocol/domain components, SRA, signed actions, pots, Rabbit/RIT, EXIT/MISDEAL/recovery models, SQLite replay and production bots |
+| `tools/qa/run-real-game-e2e.ps1` | Complete local games in separate JVMs | Real encrypted sockets, `WaitingRoomFrame`, `Crupier.run()`, `rondaApuestas()`, bots, consensus and per-peer SQLite |
+
+Ask either runner for its current options and examples:
+
+```powershell
+.\tools\qa\run-headless-sim.ps1 -Help
+.\tools\qa\run-real-game-e2e.ps1 -Help
+```
+
+Typical runs:
+
+```powershell
+# Fast reproducible protocol campaign.
+.\tools\qa\run-headless-sim.ps1 -Hands 5000 -Faults 5000 -BotHands 100 -Seed 3231711270
+
+# One host, two human-client JVMs and one host bot, three complete hands.
+# Windows stay hidden; any native creation is assigned to monitor 2 first.
+.\tools\qa\run-real-game-e2e.ps1 -Clients 2 -Bots 1 -Hands 3 -WindowMode hidden -Screen 2
+
+# Visual diagnosis on monitor 2, optionally with animations and production timing.
+.\tools\qa\run-real-game-e2e.ps1 -WindowMode visible -Screen 2 -Animations -ProductionTiming
+```
+
+The real-game runner defaults to hidden windows, disabled sound/animations and
+presentation-only test timing. `-ProductionTiming` restores normal pauses; it
+does not change protocol timeouts. Each peer gets a temporary isolated home,
+identity and SQLite database, removed after the run. A run is green only when
+all peers finish with matching consensus hashes and canonical balances and no
+fatal/error dialog. Host + clients + bots cannot exceed eight seats.
+
+The headless runner is the high-volume layer; the real-game runner is the
+integration layer. Neither replaces the other, and visual painting/layout still
+requires manual inspection.
+
 ### Lane order and ownership
 
 Run the lanes in this order when auditing or preparing a release. A failure in

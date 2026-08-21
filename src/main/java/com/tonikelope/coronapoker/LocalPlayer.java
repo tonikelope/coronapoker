@@ -747,9 +747,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             player_allin_button.setBackground(new Color(51, 153, 255));
             player_allin_button.setEnabled(true);
 
-            if (GameFrame.TEST_MODE) {
-                player_allin_button.doClick();
-            }
         });
 
     }
@@ -1725,32 +1722,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 Helpers.setSpinnerColors(bet_spinner, player_bet_button.getBackground(), player_bet_button.getForeground());
 
-                if (GameFrame.TEST_MODE) {
-
-                    Helpers.threadRun(() -> {
-
-                        Helpers.pausar(GameFrame.TEST_MODE_PAUSE);
-
-                        ArrayList<JButton> botones = new ArrayList<>(Arrays.asList(new JButton[]{player_check_button, player_bet_button, player_allin_button, player_fold_button}));
-
-                        Iterator<JButton> iterator = botones.iterator();
-
-                        Helpers.GUIRun(() -> {
-                            while (iterator.hasNext()) {
-                                JButton boton = iterator.next();
-
-                                if (!boton.isEnabled()) {
-                                    iterator.remove();
-                                }
-                            }
-
-                            int eleccion = Helpers.CSPRNG_GENERATOR.nextInt(botones.size());
-
-                            botones.get(eleccion).doClick();
-                        });
-                    });
-
-                } else {
+                if (!GameFrame.TEST_MODE) {
 
                     //Maximum time to think
                     response_counter = GameFrame.THINK_TIME;

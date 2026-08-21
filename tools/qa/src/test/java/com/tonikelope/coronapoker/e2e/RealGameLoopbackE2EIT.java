@@ -1,0 +1,217 @@
+package com.tonikelope.coronapoker.e2e;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.ServerSocket;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.io.TempDir;
+
+/** Runs complete production host/client Crupiers over real loopback sockets. */
+@Tag("real-game-e2e")
+final class RealGameLoopbackE2EIT {
+
+    @Test
+    @Timeout(value = 90, unit = TimeUnit.MINUTES)
+    void completesConfiguredLocalGameWithRealCrupiersAndSockets(@TempDir Path root) throws Exception {
+        int clients = intProperty("qa.e2e.clients", 1, 1, 7);
+        int bots = intProperty("qa.e2e.bots", 2, 0, 7);
+        int hands = intProperty("qa.e2e.hands", 1, 1, 100);
+        long seed = Long.getLong("qa.e2e.seed", 23059L);
+        assertTrue(clients + bots + 1 <= 8, "host + clients + bots must fit the table");
+
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+
+        List<NodeProcess> nodes = new ArrayList<>();
+        try {
+            NodeProcess host = startNode(root.resolve("host"), "host", "server", port,
+                    clients, bots, hands, seed);
+            nodes.add(host);
+            assertTrue(host.await("CP_E2E_READY", Duration.ofSeconds(60)), host.diagnostic());
+
+            for (int i = 1; i <= clients; i++) {
+                NodeProcess client = startNode(root.resolve("client-" + i), "client", "client" + i,
+                        port, clients, bots, hands, seed + i);
+                nodes.add(client);
+            }
+
+            for (NodeProcess node : nodes) {
+                Duration completionTimeout = Duration.ofSeconds(Math.max(240L, hands * 60L));
+                assertTrue(node.await("CP_E2E_HANDS_COMPLETE", completionTimeout), node.diagnostic());
+                assertFalse(node.contains("CP_E2E_FAIL"), node.diagnostic());
+                assertFalse(node.contains("TABLE_FAILURE_V1"), node.diagnostic());
+                assertFalse(node.contains("QA dialog suppressed [Error"), node.diagnostic());
+            }
+
+            List<String> hostConsensus = host.linesContaining(" verified: ");
+            List<String> hostBalances = host.canonicalBalanceSnapshots();
+            assertEquals(hands, hostConsensus.size(), host.diagnostic());
+            assertEquals(hands, hostBalances.size(), host.diagnostic());
+            for (NodeProcess node : nodes.subList(1, nodes.size())) {
+                assertEquals(hostConsensus, node.linesContaining(" verified: "),
+                        "consensus divergence\n" + node.diagnostic());
+                assertEquals(hostBalances, node.canonicalBalanceSnapshots(),
+                        "balance divergence\n" + node.diagnostic());
+            }
+        } finally {
+            // Clients first, host last: avoids manufacturing a reconnect error
+            // by killing the server while clients still own live channels.
+            for (int i = nodes.size() - 1; i >= 0; i--) {
+                nodes.get(i).close();
+            }
+        }
+    }
+
+    private static NodeProcess startNode(Path home, String role, String nick, int port,
+            int clients, int bots, int hands, long seed) throws IOException {
+        Files.createDirectories(home);
+        String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
+        String classpath = System.getProperty("surefire.test.class.path",
+                System.getProperty("java.class.path"));
+        ProcessBuilder builder = new ProcessBuilder(
+                java,
+                "-Djava.awt.headless=false",
+                "-Dcoronapoker.qa.suppressDialogs=true",
+                "-Dcoronapoker.qa.windowMode="
+                        + System.getProperty("qa.e2e.windowMode", "hidden"),
+                "-Dcoronapoker.qa.screen="
+                        + Integer.getInteger("qa.e2e.screen", 2),
+                "-Dcoronapoker.qa.animations="
+                        + Boolean.getBoolean("qa.e2e.animations"),
+                "-Dcoronapoker.testMode="
+                        + System.getProperty("qa.e2e.testMode", "true"),
+                "-Duser.home=" + home.toAbsolutePath(),
+                "-cp", classpath,
+                RealGameNodeMain.class.getName(),
+                role, nick, Integer.toString(port), Integer.toString(clients),
+                Integer.toString(bots), Integer.toString(hands), Long.toString(seed));
+        builder.redirectErrorStream(true);
+        return new NodeProcess(role + ":" + nick, builder.start());
+    }
+
+    private static int intProperty(String name, int fallback, int min, int max) {
+        int value = Integer.getInteger(name, fallback);
+        if (value < min || value > max) {
+            throw new IllegalArgumentException(name + " must be in [" + min + "," + max + "]");
+        }
+        return value;
+    }
+
+    private static final class NodeProcess implements AutoCloseable {
+
+        private final String name;
+        private final Process process;
+        private final List<String> output = Collections.synchronizedList(new ArrayList<>());
+        private final CountDownLatch readerDone = new CountDownLatch(1);
+
+        private NodeProcess(String name, Process process) {
+            this.name = name;
+            this.process = process;
+            Thread reader = new Thread(() -> {
+                try (BufferedReader lines = new BufferedReader(new InputStreamReader(
+                        process.getInputStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = lines.readLine()) != null) {
+                        output.add(line);
+                        // Keep the real peer trace visible while the watchdog is
+                        // running. Otherwise a hang hides the decisive last line
+                        // until the full JUnit timeout expires.
+                        System.out.println("[" + name + "] " + line);
+                    }
+                } catch (IOException ex) {
+                    output.add("reader failure: " + ex);
+                } finally {
+                    readerDone.countDown();
+                }
+            }, "e2e-output-" + name);
+            reader.setDaemon(true);
+            reader.start();
+        }
+
+        private boolean await(String marker, Duration timeout) throws InterruptedException {
+            long deadline = System.nanoTime() + timeout.toNanos();
+            while (System.nanoTime() < deadline) {
+                if (contains(marker)) {
+                    return true;
+                }
+                if (!process.isAlive()) {
+                    readerDone.await(2, TimeUnit.SECONDS);
+                    return contains(marker);
+                }
+                Thread.sleep(25L);
+            }
+            return contains(marker);
+        }
+
+        private boolean contains(String text) {
+            synchronized (output) {
+                return output.stream().anyMatch(line -> line.contains(text));
+            }
+        }
+
+        private List<String> linesContaining(String token) {
+            synchronized (output) {
+                return output.stream()
+                        .filter(line -> line.contains(token))
+                        .map(line -> line.substring(line.indexOf("Hand ")))
+                        .toList();
+            }
+        }
+
+        private List<String> canonicalBalanceSnapshots() {
+            synchronized (output) {
+                return output.stream()
+                        .filter(line -> line.contains("Balance after hand "))
+                        .map(line -> line.substring(line.indexOf("Balance after hand ")))
+                        .map(line -> {
+                            int arrow = line.indexOf(" -> ");
+                            String prefix = line.substring(0, arrow + 4);
+                            String[] balances = line.substring(arrow + 4).split("@");
+                            java.util.Arrays.sort(balances);
+                            return prefix + String.join("@", balances);
+                        })
+                        .toList();
+            }
+        }
+
+        private String diagnostic() {
+            synchronized (output) {
+                int start = Math.max(0, output.size() - 120);
+                return "Node " + name + " (alive=" + process.isAlive() + ") output:\n"
+                        + String.join("\n", output.subList(start, output.size()));
+            }
+        }
+
+        @Override
+        public void close() {
+            process.destroy();
+            try {
+                if (!process.waitFor(3, TimeUnit.SECONDS)) {
+                    process.destroyForcibly();
+                    process.waitFor(3, TimeUnit.SECONDS);
+                }
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                process.destroyForcibly();
+            }
+        }
+    }
+}

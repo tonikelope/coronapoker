@@ -322,6 +322,38 @@
             </build>
         </profile>
 
+        <!-- Opt-in local-machine lane: launches one production host JVM and a
+        configurable number of production client JVMs over real loopback
+        sockets. Swing objects are mounted because Crupier still owns UI state;
+        hidden is the default, with explicit minimized/visible diagnostic modes.
+        Actions use LocalPlayer's real buttons. This is intentionally separate
+        from CI/headless campaigns. -->
+        <profile>
+            <id>qa-real-game-e2e</id>
+            <properties>
+                <qa.groups>real-game-e2e</qa.groups>
+                <qa.excludedGroups></qa.excludedGroups>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <groups>real-game-e2e</groups>
+                            <excludedGroups></excludedGroups>
+                            <systemPropertyVariables combine.children="append">
+                                <java.awt.headless>false</java.awt.headless>
+                            </systemPropertyVariables>
+                            <includes combine.self="override">
+                                <include>**/RealGameLoopbackE2EIT.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
         <!-- Single umbrella lane for every automated non-visual game check.
         Running with java.awt.headless=true makes accidental JFrame/display
         dependencies fail instead of silently turning this into a GUI smoke.

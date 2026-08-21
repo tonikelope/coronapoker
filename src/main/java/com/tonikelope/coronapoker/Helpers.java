@@ -4577,6 +4577,11 @@ public class Helpers {
 
         final String mensaje = Translator.translate(msg);
 
+        if (Boolean.getBoolean("coronapoker.qa.suppressDialogs")) {
+            LOGGER.log(Level.INFO, "QA dialog suppressed [Info]: {0}", mensaje);
+            return;
+        }
+
         if (GameFrame.avisoSonidoOn()) {
             Audio.playWavResource("misc/warning.wav");
         }
@@ -4611,6 +4616,11 @@ public class Helpers {
     public static int mostrarMensajeInformativoSINO(Container container, String msg, String align, Integer width, ImageIcon icon) {
 
         final String mensaje = Translator.translate(msg);
+
+        if (Boolean.getBoolean("coronapoker.qa.suppressDialogs")) {
+            LOGGER.log(Level.INFO, "QA dialog suppressed [Info/yes-no]: {0}", mensaje);
+            return 1;
+        }
 
         if (GameFrame.avisoSonidoOn()) {
             Audio.playWavResource("misc/warning.wav");
@@ -4661,6 +4671,11 @@ public class Helpers {
 
         final String mensaje = Translator.translate(msg);
 
+        if (Boolean.getBoolean("coronapoker.qa.suppressDialogs")) {
+            LOGGER.log(Level.SEVERE, "QA dialog suppressed [Error]: {0}", mensaje);
+            return;
+        }
+
         if (GameFrame.avisoSonidoOn()) {
             Audio.playWavResource("misc/warning.wav");
         }
@@ -4693,6 +4708,11 @@ public class Helpers {
     public static int mostrarMensajeErrorSINO(Container container, String msg, String align, Integer width) {
 
         final String mensaje = Translator.translate(msg);
+
+        if (Boolean.getBoolean("coronapoker.qa.suppressDialogs")) {
+            LOGGER.log(Level.SEVERE, "QA dialog suppressed [Error/yes-no]: {0}", mensaje);
+            return 1;
+        }
 
         if (GameFrame.avisoSonidoOn()) {
             Audio.playWavResource("misc/warning.wav");

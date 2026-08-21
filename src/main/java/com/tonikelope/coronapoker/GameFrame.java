@@ -97,7 +97,6 @@ import java.util.Base64;
 // this class by hand and do NOT restore the .form (the original is kept in git history).
 public final class GameFrame extends javax.swing.JFrame implements ZoomableInterface, MouseWheelListener {
 
-    public static final int TEST_MODE_PAUSE = 250;
     // Factory zoom level: 0 = 100%, the size the board is designed for; also the
     // target of the zoom reset (Ctrl+0).
     public static final int DEFAULT_ZOOM_LEVEL = 0;
@@ -122,7 +121,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int PAUSE_COUNTER_MAX = 3;
     public static final int AUTO_ZOOM_TIMEOUT = 3000;
     public static final int GUI_RENDER_WAIT = 125;
-    public static final boolean TEST_MODE = false;
+    // Deliberately opt-in per JVM. Production launchers do not set this property,
+    // so normal gameplay remains on the exact production timing/interaction path.
+    // The real-game E2E harness enables it in isolated child JVMs to reuse only
+    // presentation/audio shortcuts. Test actions come from the harness driver;
+    // TEST_MODE itself must never choose a poker action.
+    public static final boolean TEST_MODE = Boolean.getBoolean("coronapoker.testMode");
     public static final int TTS_NO_SOUND_TIMEOUT = 3000;
     public static final int NOTIFY_INGAME_GIF_REPEAT = 2;
     public static final int HALT_PAUSE = 5000;

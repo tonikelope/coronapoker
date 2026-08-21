@@ -3418,8 +3418,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     try {
                         String[] partes = comando.split("#");
                         if (partes.length < 3) {
-                            LOGGER.log(Level.WARNING, "Malformed command dropped (receiveMyCards): {0}", comando);
-                            continue;
+                            LOGGER.log(Level.SEVERE,
+                                    "Malformed critical GAME command during initial deal; closing host channel: {0}",
+                                    comando);
+                            this.received_commands.reject(comando);
+                            setFin_de_la_transmision(true);
+                            WaitingRoomFrame.getInstance().closeClientSocket();
+                            return null;
+                        }
+                        if (isInitialCardCommand(partes[2])
+                                && !initialCardCommandHasCurrentShape(partes)) {
+                            LOGGER.log(Level.SEVERE,
+                                    "Malformed critical {0} during initial deal; closing host channel",
+                                    partes[2]);
+                            this.received_commands.reject(comando);
+                            setFin_de_la_transmision(true);
+                            WaitingRoomFrame.getInstance().closeClientSocket();
+                            return null;
                         }
 
                         if (partes[2].equals("MEGAPACKET") && partes.length == 7) {
@@ -3499,7 +3514,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 WaitingRoomFrame.getInstance().closeClientSocket();
                                 return null;
                             }
-                        } else if (partes[2].equals("MISDEAL") && partes.length >= 4) {
+                        } else if (partes[2].equals("MISDEAL") && partes.length == 4) {
                             // The host aborts the hand: exit the consumer without cards. The actual
                             // cancellation is handled by the top-level case in WaitingRoomFrame.
                             return null;
@@ -3559,6 +3574,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.guardarFosilSRA();
 
         return new ArrayList<>(java.util.Arrays.asList(cartas));
+    }
+
+    static boolean isInitialCardCommand(String type) {
+        return "MEGAPACKET".equals(type) || "POCKET_CARDS".equals(type)
+                || "POCKET_DEFERRED".equals(type) || "MISDEAL".equals(type);
+    }
+
+    static boolean initialCardCommandHasCurrentShape(String[] parts) {
+        if (parts == null || parts.length < 3 || !isInitialCardCommand(parts[2])) {
+            return parts != null && parts.length >= 3;
+        }
+        switch (parts[2]) {
+            case "MEGAPACKET":
+                return parts.length == 7;
+            case "POCKET_CARDS":
+                return parts.length == 5;
+            case "POCKET_DEFERRED":
+            case "MISDEAL":
+                return parts.length == 4;
+            default:
+                return false;
+        }
     }
 
     static boolean receiveCardsWaitExpired(long activeWaitMs) {

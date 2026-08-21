@@ -6226,89 +6226,94 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         long barra_start = start_time;
         boolean barra_indeterminada = false;
         boolean timeout = false;
+        String pendingLocalRelay = skip_countdown && !GameFrame.getInstance().isPartida_local()
+                ? GameFrame.getInstance().getNick_local() : null;
 
-        while (!pending.isEmpty() && !timeout && !tableWaitCancelled()) {
+        while ((!pending.isEmpty() || pendingLocalRelay != null)
+                && !timeout && !tableWaitCancelled()) {
 
             synchronized (this.getReceived_commands()) {
                 ArrayList<String> rejected = new ArrayList<>();
                 while (!this.getReceived_commands().isEmpty()) {
                     String comando = this.received_commands.poll();
-                    try {
-                        String[] partes = comando.split("#");
-                        if (partes.length < 3) {
-                            LOGGER.log(Level.WARNING, "Malformed command dropped (REBUY wait): {0}", comando);
+                    String[] partes = comando.split("#", -1);
+                    if (partes.length >= 3 && partes[2].equals("REBUY")) {
+                        java.util.HashSet<String> allowed = new java.util.HashSet<>(pending);
+                        if (pendingLocalRelay != null) {
+                            allowed.add(pendingLocalRelay);
+                        }
+                        final EndOfHandRebuyWire parsed;
+                        try {
+                            parsed = EndOfHandRebuyWire.parse(partes, allowed);
+                        } catch (Exception ex) {
+                            LOGGER.log(Level.SEVERE,
+                                    "Invalid critical REBUY; closing authenticated source", ex);
+                            this.received_commands.reject(comando);
                             continue;
                         }
-
-                        if (partes[2].equals("REBUY") && partes.length == 5) {
-                            String nick = null;
-                            try {
-                                nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-                            } catch (UnsupportedEncodingException ex) {
-                                LOGGER.log(Level.WARNING, "Badly-encoded nick in REBUY", ex);
-                                continue;
-                            }
-                            pending.remove(nick);
-                            Player jugador = nick2player.get(nick);
-                            if (jugador == null) {
-                                LOGGER.log(Level.WARNING, "REBUY from unknown nick: {0}", nick);
-                                continue;
-                            }
-                            jugador.setTimeout(false);
-                            // Decision received: pull the countdown/GIF and show the outcome —
-                            // "REBUY!" if they rebought (with only one busted player the wait
-                            // ends instantly, so without this there'd be no time to see the
-                            // result); otherwise restore, and setSpectator below repaints over it.
-                            int headroom = GameFrame.rebuyHeadroom(jugador.getStack());
-                            boolean deniedByLimit = hostDeniedByRebuyLimit(
-                                    GameFrame.getInstance().isPartida_local(), atRebuyLimit(nick));
-                            String canonicalRebuy = canonicalRemoteRebuyAmount(
-                                    partes[4], headroom, deniedByLimit);
-                            int safeRebuy = Integer.parseInt(canonicalRebuy);
-                            boolean recompra = safeRebuy > 0 && !deniedByLimit;
-                            if (jugador instanceof RemotePlayer) {
-                                if (skip_countdown) {
-                                    // No remote countdown was started (local player also
-                                    // busted): just reflect the outcome.
-                                    ((RemotePlayer) jugador).showRebuyOutcome(recompra);
-                                } else {
-                                    ((RemotePlayer) jugador).setRebuying(false, recompra);
-                                }
-                            }
-
-                            if (GameFrame.getInstance().isPartida_local()) {
-                                // Relay to every peer, including the originator. A client
-                                // optimistically stores its spinner value before sending;
-                                // excluding it would leave a denied/clamped request alive
-                                // locally and diverge on the next hand.
-                                broadcastGAMECommandFromServer("REBUY#" + partes[3]
-                                        + "#" + canonicalRebuy, null);
-                            }
-
-                            if (safeRebuy <= 0) {
-                                    // Pressed SPECTATOR on their game over: explicit feedback
-                                    // in the spectator visual.
-                                    applyCanonicalRemoteRebuy(rebuy_now, nick, 0);
-                                    jugador.setSpectator(Translator.translate("rebuy.no_recompra"));
-                                } else if (deniedByLimit) {
-                                    jugador.setSpectator(null);
-                                } else {
-                                    // Same defense as rebuyNow: the host clamps the amount to
-                                    // headroom (table ceiling - stack) so a tampered client
-                                    // can't fabricate chips or exceed the ceiling via
-                                    // REBUY#...#<arbitrary int>.
-                                    int raw_rebuy = parseRequestedRebuy(partes[4]);
-                                    if (safeRebuy != raw_rebuy) {
-                                        LOGGER.log(Level.WARNING, "Rebuy amount {0} from {1} exceeds headroom {2} — clamped to {3}",
-                                                new Object[]{raw_rebuy, nick, headroom, safeRebuy});
-                                    }
-                                    applyCanonicalRemoteRebuy(rebuy_now, nick, safeRebuy);
-                            }
-                        } else {
-                            rejected.add(comando);
+                        String nick = parsed.nick();
+                        Player jugador = nick2player.get(nick);
+                        if (jugador == null) {
+                            containTableFailure(new IllegalStateException(
+                                    "expected REBUY player missing from table: " + nick));
+                            return;
                         }
-                    } catch (Exception ex) {
-                        LOGGER.log(Level.WARNING, "Exception while processing command in REBUY wait: " + comando, ex);
+                        jugador.setTimeout(false);
+                        // Decision received: pull the countdown/GIF and show the outcome —
+                        // "REBUY!" if they rebought (with only one busted player the wait
+                        // ends instantly, so without this there'd be no time to see the
+                        // result); otherwise restore, and setSpectator below repaints over it.
+                        int headroom = GameFrame.rebuyHeadroom(jugador.getStack());
+                        boolean deniedByLimit = hostDeniedByRebuyLimit(
+                                GameFrame.getInstance().isPartida_local(), atRebuyLimit(nick));
+                        String canonicalRebuy = canonicalRemoteRebuyAmount(
+                                String.valueOf(parsed.requestedAmount()), headroom, deniedByLimit);
+                        int safeRebuy = Integer.parseInt(canonicalRebuy);
+                        boolean recompra = safeRebuy > 0 && !deniedByLimit;
+                        if (jugador instanceof RemotePlayer) {
+                            if (skip_countdown) {
+                                // No remote countdown was started (local player also
+                                // busted): just reflect the outcome.
+                                ((RemotePlayer) jugador).showRebuyOutcome(recompra);
+                            } else {
+                                ((RemotePlayer) jugador).setRebuying(false, recompra);
+                            }
+                        }
+
+                        if (GameFrame.getInstance().isPartida_local()) {
+                            // Relay to every peer, including the originator. A client
+                            // optimistically stores its spinner value before sending;
+                            // excluding it would leave a denied/clamped request alive
+                            // locally and diverge on the next hand.
+                            broadcastGAMECommandFromServer("REBUY#" + partes[3]
+                                    + "#" + canonicalRebuy, null);
+                        }
+
+                        if (safeRebuy <= 0) {
+                            // Pressed SPECTATOR on their game over: explicit feedback
+                            // in the spectator visual.
+                            applyCanonicalRemoteRebuy(rebuy_now, nick, 0);
+                            jugador.setSpectator(Translator.translate("rebuy.no_recompra"));
+                        } else if (deniedByLimit) {
+                            jugador.setSpectator(null);
+                        } else {
+                            // Same defense as rebuyNow: the host clamps the amount to
+                            // headroom (table ceiling - stack) so a tampered client
+                            // can't fabricate chips or exceed the ceiling via
+                            // REBUY#...#<arbitrary int>.
+                            int raw_rebuy = parsed.requestedAmount();
+                            if (safeRebuy != raw_rebuy) {
+                                LOGGER.log(Level.WARNING, "Rebuy amount {0} from {1} exceeds headroom {2} — clamped to {3}",
+                                        new Object[]{raw_rebuy, nick, headroom, safeRebuy});
+                            }
+                            applyCanonicalRemoteRebuy(rebuy_now, nick, safeRebuy);
+                        }
+                        pending.remove(nick);
+                        if (nick.equals(pendingLocalRelay)) {
+                            pendingLocalRelay = null;
+                        }
+                    } else {
+                        rejected.add(comando);
                     }
                 }
                 if (!rejected.isEmpty()) {
@@ -6317,7 +6322,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            if (!pending.isEmpty()) {
+            if (!pending.isEmpty() || pendingLocalRelay != null) {
                 // Only in smooth-bar mode (cinematics off): once the decision time (the
                 // smoothCountdown seconds above) is up, flip to indeterminate until the
                 // remaining REBUYs arrive or the safety timeout fires. If they arrive first,
@@ -22661,7 +22666,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         }
 
-        if (!rebuy_players.isEmpty()) {
+        if (!rebuy_players.isEmpty()
+                || (local_ruined && !GameFrame.getInstance().isPartida_local())) {
 
             // Send bots' REBUYs
             if (GameFrame.getInstance().isPartida_local()) {

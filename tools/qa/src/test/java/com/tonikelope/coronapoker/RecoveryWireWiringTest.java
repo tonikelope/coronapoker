@@ -72,6 +72,27 @@ public class RecoveryWireWiringTest {
         assertFalse(source.contains("recovery dialog closes via the empty-queue branch"));
     }
 
+    @Test
+    public void missingOrInvalidRecoverDataTerminatesBeforeFreshHandFallback() throws IOException {
+        String source = Files.readString(locateRoot().resolve(
+                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+        int receiver = source.indexOf("private HashMap<String, Object> recibirDatosClaveRecuperados()");
+        int failed = source.indexOf("RecoveryReceiveState.Status.FAILED", receiver);
+        int force = source.indexOf("setForce_recover(true)", failed);
+        int pending = source.indexOf("setTerminationPending()", force);
+        int finish = source.indexOf("setFin_de_la_transmision(true)", pending);
+        int close = source.indexOf("closeClientSocket()", finish);
+        int result = source.indexOf("receiveState.isSuccess() ? receiveState.snapshot().toMap() : null", close);
+        int caller = source.indexOf("map = recibirDatosClaveRecuperados()");
+        int nullBranch = source.indexOf("if (map == null)", caller);
+        int callerFinish = source.indexOf("setFin_de_la_transmision(true)", nullBranch);
+        int callerReturn = source.indexOf("return;", callerFinish);
+
+        assertTrue(receiver >= 0 && receiver < failed && failed < force);
+        assertTrue(force < pending && pending < finish && finish < close && close < result);
+        assertTrue(caller < nullBranch && nullBranch < callerFinish && callerFinish < callerReturn);
+    }
+
     private static Path locateRoot() {
         Path start = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
         for (Path path = start; path != null; path = path.getParent()) {

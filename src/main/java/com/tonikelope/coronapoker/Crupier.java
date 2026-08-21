@@ -7803,6 +7803,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             map = recibirDatosClaveRecuperados();
             if (map == null) {
                 LOGGER.log(Level.SEVERE, "RECOVERDATA rejected; recovery state remains unapplied");
+                if (!isFin_de_la_transmision()) {
+                    setForce_recover(true);
+                    setTerminationPending();
+                    setFin_de_la_transmision(true);
+                    WaitingRoomFrame.getInstance().closeClientSocket();
+                }
                 saltar_primera_mano = true;
                 return;
             }
@@ -12187,6 +12193,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         if (receiveState.status() == RecoveryReceiveState.Status.FAILED
                 && !isFin_de_la_transmision()) {
+            setForce_recover(true);
+            setTerminationPending();
+            setFin_de_la_transmision(true);
             WaitingRoomFrame.getInstance().closeClientSocket();
         }
 

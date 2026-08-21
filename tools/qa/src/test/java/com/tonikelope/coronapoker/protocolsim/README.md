@@ -74,6 +74,10 @@ thresholds with hard per-hand conservation, liveness and validity invariants.
   selection, durable hand ordinal, atomic production row conversion, strict
   current snapshot round-trip and corrupt/missing cryptographic hand-ID
   rejection.
+- Real in-memory SQLite action replay over thousands of hands: physical row
+  disorder versus durable counter order, exact-cent action fields, Ed25519
+  signatures, `PREV_H` continuity, final `H_t` convergence and atomic rejection
+  of a corrupt persisted action before any replay mutation.
 - Seeded lifecycle transitions: normal drain, final exit, force-recover,
   abrupt disconnect/MISDEAL, socket reconnect with pending critical-command
   preservation, RIT side-B interruption and malformed termination. Old-session
@@ -93,8 +97,9 @@ thresholds with hard per-hand conservation, liveness and validity invariants.
   production side-pot constructor itself is randomized above.
 - Full `Crupier` Rabbit request/pause/showdown orchestration; the production
   signed ledger and all fee modes are randomized above.
-- Full `Crupier` EXIT/MISDEAL/refund orchestration and action-by-action SQLite
-  replay; current snapshot query/row conversion is covered above.
+- Full `Crupier` EXIT/MISDEAL/refund orchestration; current SQLite snapshot and
+  action query/row conversion are covered above, but the complete UI-coupled
+  Crupier recovery loop is not yet a single headless scenario.
 - A single live-`Crupier` campaign that interrupts an active hand, reconnects
   its real sockets and resumes through SQLite. Transport and lifecycle faults
   are currently seeded campaigns over the production gates/state machines,

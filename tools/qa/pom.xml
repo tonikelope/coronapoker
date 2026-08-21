@@ -313,6 +313,7 @@
                                 <include>**/ProtocolPotRabbitCampaignTest.java</include>
                                 <include>**/ProtocolLifecycleCampaignTest.java</include>
                                 <include>**/ProtocolSqlRecoveryCampaignTest.java</include>
+                                <include>**/ProtocolSqlActionReplayCampaignTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>

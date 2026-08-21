@@ -7304,9 +7304,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // that drives the table and log ordinal after recovery.
     static final String RECOVERY_GAME_KEY_DATA_SQL = "select hand.id as hand_id, hand.end as hand_end, hand.preflop_players as preflop_players, hand.hand_id_b64 as hand_id_b64, server, game.start, buyin, rebuy, play_time, hand.counter as conta_mano, round(hand.sbval,2) as sbval, round((hand.sbval*2),2) as bbval, blinds_time, blinds_time_type, hand.blinds_double as blinds_double, hand.dealer as dealer, hand.sb as sb, hand.bb as bb from game,hand where hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) and game.id=hand.id_game and hand.id_game=?";
 
+    static final String RECOVERY_HAND_ACTIONS_SQL = "SELECT player, action, round(bet,2) as bet, record_b64, sig_b64 FROM action WHERE action.id_hand=? ORDER BY counter ASC";
+
     static void bindRecoveryGameKeyDataQuery(PreparedStatement statement, int gameId) throws SQLException {
         statement.setInt(1, gameId);
         statement.setInt(2, gameId);
+    }
+
+    static void bindRecoveryHandActionsQuery(PreparedStatement statement, int handId) throws SQLException {
+        statement.setInt(1, handId);
     }
 
     /**
@@ -18965,26 +18971,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // that were absorbed into H_t pre-crash. Both columns are nullable;
             // missing values map to "*" on the wire so the receiver falls back to
             // a no-op absorb for that step (chain stays at the previous H_t).
-            String sql = "SELECT player, action, round(bet,2) as bet, record_b64, sig_b64 FROM action WHERE action.id_hand=? ORDER BY counter ASC";
             String actions = null;
-            try (java.sql.PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (java.sql.PreparedStatement statement = Helpers.getSQLITE().prepareStatement(RECOVERY_HAND_ACTIONS_SQL)) {
                 statement.setQueryTimeout(30);
-                statement.setInt(1, this.sqlite_id_hand);
-                java.sql.ResultSet rs = statement.executeQuery();
-                actions = "";
-                while (rs.next()) {
-                    String recordB64 = rs.getString("record_b64");
-                    String sigB64 = rs.getString("sig_b64");
-                    try {
-                        actions += RecoveredActionCodec.encodeV1(rs.getString("player"),
-                                rs.getInt("action"), rs.getDouble("bet"), recordB64, sigB64) + "@";
-                    } catch (RuntimeException corruptRow) {
-                        // Preserve the row position with an intentionally invalid token.
-                        // Every receiver's total codec rejects the whole ACTIONDATA
-                        // atomically instead of silently omitting a critical action.
-                        LOGGER.log(Level.SEVERE, "Corrupt recovery action row encoded as rejection marker", corruptRow);
-                        actions += "INVALID_RECOVERY_ACTION@";
-                    }
+                bindRecoveryHandActionsQuery(statement, this.sqlite_id_hand);
+                try (java.sql.ResultSet rs = statement.executeQuery()) {
+                    actions = RecoveredActionSqlReader.readAll(rs, corruptRow ->
+                            LOGGER.log(Level.SEVERE,
+                                    "Corrupt recovery action row encoded as rejection marker",
+                                    corruptRow));
                 }
                 ret = actions;
             } catch (java.sql.SQLException ex) {

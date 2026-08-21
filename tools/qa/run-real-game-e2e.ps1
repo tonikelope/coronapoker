@@ -10,7 +10,7 @@ param(
 
     [long]$Seed = 23059,
 
-    [ValidateSet('normal', 'abrupt-exit', 'controlled-exit', 'allin-rit')]
+    [ValidateSet('normal', 'abrupt-exit', 'controlled-exit', 'allin-rit', 'force-recover', 'double-force-recover')]
     [string]$Scenario = 'normal',
 
     [ValidateSet('hidden', 'minimized', 'visible')]
@@ -40,7 +40,7 @@ Options:
   -Bots <0..7>             Production bots hosted by the server (default: 2)
   -Hands <1..100>          Complete hands to play (default: 1)
   -Seed <long>             Reproducible action-driver seed (default: 23059)
-  -Scenario <name>         normal, abrupt-exit, controlled-exit or allin-rit
+  -Scenario <name>         Select one scenario listed below (default: normal)
   -WindowMode <mode>       hidden, minimized or visible (default: hidden)
   -Screen <1..16>          Target monitor for every mode (default: 2)
   -Animations              Enable production animations; disabled by default
@@ -51,7 +51,23 @@ Constraints:
   Host + clients + bots cannot exceed 8 seats. Every JVM gets an isolated
   temporary user.home, identity and SQLite database; JUnit removes them after
   the processes stop. Error dialogs are converted into failing log evidence.
-  allin-rit requires -Bots 0 and -Hands 1.
+  allin-rit requires -Bots 0 and -Hands 1. force-recover requires at least
+  -Hands 2: the recovered hand plus a completely new following hand.
+  double-force-recover requires exactly -Hands 4.
+
+Scenarios:
+  normal                  Plays complete hands and requires identical consensus
+                          hashes and canonical balances on every JVM.
+  abrupt-exit             Kills one client during preflop; requires MISDEAL,
+                          full refund and a live host.
+  controlled-exit         Sends the production EXIT testament during preflop;
+                          requires normal settlement without MISDEAL.
+  allin-rit               Forces every human seat all-in, accepts RIT, unlocks
+                          and settles both boards with conserved money.
+  force-recover           Stops hand 1 through SERVEREXITRECOVER, rebuilds the
+                          lobby/table/sockets, recovers it and settles hand 2.
+  double-force-recover    Repeats that full cycle on hands 1 and 3, and also
+                          settles fresh hands 2 and 4 without divergence.
 
 Examples:
   .\tools\qa\run-real-game-e2e.ps1
@@ -59,6 +75,8 @@ Examples:
   .\tools\qa\run-real-game-e2e.ps1 -Scenario abrupt-exit
   .\tools\qa\run-real-game-e2e.ps1 -Scenario controlled-exit
   .\tools\qa\run-real-game-e2e.ps1 -Scenario allin-rit -Bots 0
+  .\tools\qa\run-real-game-e2e.ps1 -Scenario force-recover -Hands 2
+  .\tools\qa\run-real-game-e2e.ps1 -Scenario double-force-recover -Hands 4
   .\tools\qa\run-real-game-e2e.ps1 -WindowMode visible -Screen 2 -Animations
   .\tools\qa\run-real-game-e2e.ps1 -ProductionTiming -WindowMode minimized
 
@@ -76,6 +94,12 @@ if (($Scenario -eq 'allin-rit') -and ($Bots -ne 0)) {
 }
 if (($Scenario -eq 'allin-rit') -and ($Hands -ne 1)) {
     throw 'Scenario allin-rit requires -Hands 1 because a forced full-stack heads-up hand may eliminate a seat.'
+}
+if (($Scenario -eq 'force-recover') -and ($Hands -lt 2)) {
+    throw 'Scenario force-recover requires at least -Hands 2: recover/finish the interrupted hand and complete a fresh following hand.'
+}
+if (($Scenario -eq 'double-force-recover') -and ($Hands -ne 4)) {
+    throw 'Scenario double-force-recover requires exactly -Hands 4: recover hands 1 and 3 and settle fresh hands 2 and 4.'
 }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path

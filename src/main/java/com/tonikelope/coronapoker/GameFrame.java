@@ -5600,19 +5600,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     if (exit_dialog.getProgramar_parada_checkbox().isSelected()) {
                         GameFrame.getInstance().getLast_hand_menu().doClick();
                     } else {
-
-                        getLocalPlayer().setExit();
-
-                        Helpers.threadRun(() -> {
-                            try {
-                                //Clients need to be told the game has ended
-                                crupier.broadcastGAMECommandFromServer(getCrupier().isForce_recover() ? "SERVEREXITRECOVER" + (WaitingRoomFrame.getInstance().getPassword() != null ? "#" + Base64.getEncoder().encodeToString(WaitingRoomFrame.getInstance().getPassword().getBytes("UTF-8")) : "") : "SERVEREXIT", null, false);
-                            } catch (UnsupportedEncodingException ex) {
-                                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-                            }
-
-                            finTransmision(true);
-                        });
+                        performImmediateHostExit();
                     }
 
                 } else {
@@ -5641,6 +5629,26 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
 
     }//GEN-LAST:event_exit_menuActionPerformed
+
+    /**
+     * Executes the post-confirmation host stop/exit path. Keeping this exact
+     * production sequence behind one boundary lets the real-game E2E lane
+     * exercise force-recover without automating only the modal confirmation.
+     */
+    private void performImmediateHostExit() {
+        getLocalPlayer().setExit();
+
+        Helpers.threadRun(() -> {
+            try {
+                // Clients need to be told whether the game ended or must recover.
+                crupier.broadcastGAMECommandFromServer(getCrupier().isForce_recover() ? "SERVEREXITRECOVER" + (WaitingRoomFrame.getInstance().getPassword() != null ? "#" + Base64.getEncoder().encodeToString(WaitingRoomFrame.getInstance().getPassword().getBytes("UTF-8")) : "") : "SERVEREXIT", null, false);
+            } catch (UnsupportedEncodingException ex) {
+                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+            finTransmision(true);
+        });
+    }
 
     /**
      * Executes the post-confirmation client EXIT path. Kept separate from the

@@ -348,7 +348,25 @@ Typical runs:
 # Force every human seat all-in, vote RIT unanimously and settle both boards.
 # This deterministic scenario requires zero bots and exactly one hand.
 .\tools\qa\run-real-game-e2e.ps1 -Scenario allin-rit -Clients 1 -Bots 0
+
+# Stop a live hand, recover/replay it, then deal and settle a fresh next hand.
+.\tools\qa\run-real-game-e2e.ps1 -Scenario force-recover -Clients 1 -Bots 2 -Hands 2
+
+# Repeat the full stop/rebuild/recover cycle on hands 1 and 3; hands 2 and 4
+# must be newly dealt and settled with every peer still in agreement.
+.\tools\qa\run-real-game-e2e.ps1 -Scenario double-force-recover -Clients 1 -Bots 2 -Hands 4
 ```
+
+Scenario contracts:
+
+| Scenario | What it tests | Green result |
+|---|---|---|
+| `normal` | Ordinary multi-JVM hands through production sockets and Crupiers | Every hand settles with identical consensus hashes and balances |
+| `abrupt-exit` | Client process dies during preflop without an EXIT testament | MISDEAL, full refund, zero pot and host remains alive |
+| `controlled-exit` | Client sends the production EXIT testament during preflop | Hand settles without MISDEAL and money is conserved |
+| `allin-rit` | Human seats go all-in and unanimously choose run it twice | Both boards unlock and settle without divergence |
+| `force-recover` | Hand 1 is stopped; lobby, sockets and table are rebuilt | Interrupted hand recovers and a fresh hand 2 settles |
+| `double-force-recover` | The same session is force-recovered during hands 1 and 3 | Both recoveries succeed and fresh hands 2 and 4 settle |
 
 The real-game runner defaults to hidden windows, disabled sound/animations and
 presentation-only test timing. `-ProductionTiming` restores normal pauses; it

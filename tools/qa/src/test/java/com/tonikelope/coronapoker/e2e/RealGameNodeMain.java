@@ -7,6 +7,7 @@ import com.tonikelope.coronapoker.Helpers;
 import com.tonikelope.coronapoker.IdentityManager;
 import com.tonikelope.coronapoker.Init;
 import com.tonikelope.coronapoker.LocalPlayer;
+import com.tonikelope.coronapoker.NewGameDialog;
 import com.tonikelope.coronapoker.RunItTwiceDialog;
 import com.tonikelope.coronapoker.WaitingRoomFrame;
 import java.awt.EventQueue;
@@ -55,7 +56,10 @@ public final class RealGameNodeMain {
             new WeakHashMap<>());
     private static final Set<RunItTwiceDialog> RIT_DIALOGS_VOTED
             = java.util.Collections.newSetFromMap(new WeakHashMap<>());
+    private static final Set<NewGameDialog> RECOVERY_DIALOGS_SUBMITTED
+            = java.util.Collections.newSetFromMap(new WeakHashMap<>());
     private static final CountDownLatch PARENT_CLOSED = new CountDownLatch(1);
+    private static volatile int CONFIGURED_BOTS;
 
     private RealGameNodeMain() {
     }
@@ -67,7 +71,20 @@ public final class RealGameNodeMain {
         });
 
         NodeConfig config = NodeConfig.parse(args);
+        CONFIGURED_BOTS = config.bots;
         configureRuntime(config);
+
+        // Force-recover returns through the real launcher. Ordinary E2E startup
+        // bypasses it only to configure the waiting room deterministically, so
+        // mount a production Init now and keep it hidden by the window policy.
+        if (isForceRecoverScenario()) {
+            AtomicReference<Init> launcherRef = new AtomicReference<>();
+            EventQueue.invokeAndWait(() -> {
+                launcherRef.set(new Init());
+                Init.VENTANA_INICIO = launcherRef.get();
+                applyWindowPolicy(launcherRef.get());
+            });
+        }
 
         // The production launcher publishes WaitingRoomFrame immediately after
         // its constructor returns. Its constructor also schedules servidor()/
@@ -148,6 +165,14 @@ public final class RealGameNodeMain {
         Helpers.PROPERTIES.setProperty("musica_sala_espera", "false");
         Helpers.PROPERTIES.setProperty("animaciones", Boolean.toString(ANIMATIONS));
         Helpers.PROPERTIES.setProperty("auto_fullscreen", "false");
+        // Direct initial startup bypasses NewGameDialog, but force-recover
+        // returns through it. Persist the same connection fields a real user
+        // entered so that recovery validates and reconnects to this E2E table.
+        Helpers.PROPERTIES.setProperty("nick", config.nick);
+        Helpers.PROPERTIES.setProperty("local_ip", "127.0.0.1");
+        Helpers.PROPERTIES.setProperty("server_ip", "127.0.0.1");
+        Helpers.PROPERTIES.setProperty("local_port", Integer.toString(config.port));
+        Helpers.PROPERTIES.setProperty("server_port", Integer.toString(config.port));
         Helpers.CSPRNG_GENERATOR = SecureRandom.getInstanceStrong();
         Helpers.setCoronaLocale();
         for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
@@ -224,28 +249,24 @@ public final class RealGameNodeMain {
         java.util.Random random = new java.util.Random(seed);
         while (!Thread.currentThread().isInterrupted()) {
             try {
-                GameFrame frame = GameFrame.getInstance();
-                LocalPlayer local = localPlayerIfMounted();
-                if (frame != null && local != null) {
-                    if (local.isTurno()) {
-                        EventQueue.invokeAndWait(() -> {
-                            if (!local.isTurno()) {
-                                return;
-                            }
-                            if (SCENARIO.equals("allin-rit")
-                                    && local.getPlayer_allin().isEnabled()) {
-                                local.getPlayer_allin().doClick();
-                            } else if (local.getPlayer_check().isEnabled()
-                                    && (!local.getPlayer_fold().isEnabled() || random.nextInt(5) != 0)) {
-                                local.getPlayer_check().doClick();
-                            } else if (local.getPlayer_fold().isEnabled()) {
-                                local.getPlayer_fold().doClick();
-                            } else if (local.getPlayer_allin().isEnabled()) {
-                                local.getPlayer_allin().doClick();
-                            }
-                        });
+                EventQueue.invokeAndWait(() -> {
+                    GameFrame frame = GameFrame.getInstance();
+                    LocalPlayer local = localPlayerIfMounted();
+                    if (frame == null || local == null || !local.isTurno()) {
+                        return;
                     }
-                }
+                    if (SCENARIO.equals("allin-rit")
+                            && local.getPlayer_allin().isEnabled()) {
+                        local.getPlayer_allin().doClick();
+                    } else if (local.getPlayer_check().isEnabled()
+                            && (!local.getPlayer_fold().isEnabled() || random.nextInt(5) != 0)) {
+                        local.getPlayer_check().doClick();
+                    } else if (local.getPlayer_fold().isEnabled()) {
+                        local.getPlayer_fold().doClick();
+                    } else if (local.getPlayer_allin().isEnabled()) {
+                        local.getPlayer_allin().doClick();
+                    }
+                });
                 Thread.sleep(20L);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
@@ -266,6 +287,12 @@ public final class RealGameNodeMain {
                     if (command.equals("CONTROLLED_EXIT")) {
                         invokeControlledClientExit();
                         marker("CONTROLLED_EXIT_SENT", "role=client");
+                    } else if (command.equals("FORCE_RECOVER")) {
+                        invokeForceRecover();
+                        marker("FORCE_RECOVER_REQUESTED", "role=host");
+                    } else if (command.equals("START_RECOVERED_GAME")) {
+                        invokeRecoveredGameStart();
+                        marker("RECOVERED_GAME_START_REQUESTED", "role=host");
                     } else if (!command.isBlank()) {
                         throw new IllegalArgumentException("unknown parent control: " + command);
                     }
@@ -298,6 +325,62 @@ public final class RealGameNodeMain {
         });
         if (failure.get() != null) {
             throw new IllegalStateException("cannot invoke production controlled EXIT", failure.get());
+        }
+    }
+
+    private static void invokeForceRecover() throws Exception {
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        EventQueue.invokeAndWait(() -> {
+            try {
+                GameFrame frame = GameFrame.getInstance();
+                if (frame == null || !frame.isPartida_local()) {
+                    throw new IllegalStateException("force recover requires a mounted host table");
+                }
+                frame.getCrupier().setForce_recover(true);
+                Method exit = GameFrame.class.getDeclaredMethod("performImmediateHostExit");
+                exit.setAccessible(true);
+                exit.invoke(frame);
+            } catch (Throwable error) {
+                failure.set(error);
+            }
+        });
+        if (failure.get() != null) {
+            throw new IllegalStateException("cannot invoke production force recover", failure.get());
+        }
+    }
+
+    private static void invokeRecoveredGameStart() throws Exception {
+        WaitingRoomFrame room = WaitingRoomFrame.getInstance();
+        if (room == null || !room.isServer() || !GameFrame.isRECOVER()) {
+            throw new IllegalStateException(
+                    "recovered start requires the mounted host recovery lobby");
+        }
+        long existingBots;
+        synchronized (room.getParticipantes()) {
+            existingBots = room.getParticipantes().values().stream()
+                    .filter(participant -> participant != null && participant.isCpu())
+                    .count();
+        }
+        int missingBots = CONFIGURED_BOTS - Math.toIntExact(existingBots);
+        if (missingBots < 0) {
+            throw new IllegalStateException("recovery lobby has unexpected extra bots");
+        }
+        addBots(room, missingBots);
+
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        EventQueue.invokeAndWait(() -> {
+            try {
+                Method start = WaitingRoomFrame.class.getDeclaredMethod(
+                        "continueStartGame", String.class);
+                start.setAccessible(true);
+                start.invoke(room, "");
+            } catch (Throwable error) {
+                failure.set(error);
+            }
+        });
+        if (failure.get() != null) {
+            throw new IllegalStateException(
+                    "cannot invoke production recovered-game start", failure.get());
         }
     }
 
@@ -365,10 +448,22 @@ public final class RealGameNodeMain {
     }
 
     private static void applyScenarioWindowAction(Window window) {
-        if (!SCENARIO.equals("allin-rit") || !(window instanceof RunItTwiceDialog dialog)
-                || !RIT_DIALOGS_VOTED.add(dialog)) {
+        if (SCENARIO.equals("allin-rit") && window instanceof RunItTwiceDialog dialog
+                && RIT_DIALOGS_VOTED.add(dialog)) {
+            voteRunItTwice(dialog);
             return;
         }
+        if (isForceRecoverScenario() && window instanceof NewGameDialog dialog
+                && RECOVERY_DIALOGS_SUBMITTED.add(dialog)) {
+            submitRecoveryDialog(dialog);
+        }
+    }
+
+    private static boolean isForceRecoverScenario() {
+        return SCENARIO.equals("force-recover") || SCENARIO.equals("double-force-recover");
+    }
+
+    private static void voteRunItTwice(RunItTwiceDialog dialog) {
         try {
             java.lang.reflect.Field buttonField
                     = RunItTwiceDialog.class.getDeclaredField("rit_button");
@@ -378,6 +473,18 @@ public final class RealGameNodeMain {
             marker("RIT_VOTE", "decision=run-it-twice");
         } catch (ReflectiveOperationException ex) {
             throw new IllegalStateException("cannot drive production RIT vote button", ex);
+        }
+    }
+
+    private static void submitRecoveryDialog(NewGameDialog dialog) {
+        try {
+            Method submit = NewGameDialog.class.getDeclaredMethod(
+                    "vamosActionPerformed", java.awt.event.ActionEvent.class);
+            submit.setAccessible(true);
+            submit.invoke(dialog, new Object[]{null});
+            marker("RECOVERY_DIALOG_SUBMITTED", "role=production-dialog");
+        } catch (ReflectiveOperationException ex) {
+            throw new IllegalStateException("cannot submit production recovery dialog", ex);
         }
     }
 

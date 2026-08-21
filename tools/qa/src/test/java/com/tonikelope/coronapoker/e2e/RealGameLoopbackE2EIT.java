@@ -35,13 +35,19 @@ final class RealGameLoopbackE2EIT {
         long seed = Long.getLong("qa.e2e.seed", 23059L);
         String scenario = System.getProperty("qa.e2e.scenario", "normal");
         assertTrue(scenario.equals("normal") || scenario.equals("abrupt-exit")
-                || scenario.equals("controlled-exit") || scenario.equals("allin-rit"),
+                || scenario.equals("controlled-exit") || scenario.equals("allin-rit")
+                || scenario.equals("force-recover")
+                || scenario.equals("double-force-recover"),
                 "unsupported qa.e2e.scenario: " + scenario);
         assertTrue(clients + bots + 1 <= 8, "host + clients + bots must fit the table");
         assertTrue(!scenario.equals("allin-rit") || bots == 0,
                 "allin-rit requires zero bots so every survivor uses the forced action policy");
         assertTrue(!scenario.equals("allin-rit") || hands == 1,
                 "allin-rit requires one hand because a full-stack all-in may eliminate a seat");
+        assertTrue(!scenario.equals("force-recover") || hands >= 2,
+                "force-recover requires the recovered hand and a fresh following hand");
+        assertTrue(!scenario.equals("double-force-recover") || hands == 4,
+                "double-force-recover requires exactly four hands");
 
         int port;
         try (ServerSocket reservation = new ServerSocket(0)) {
@@ -71,6 +77,14 @@ final class RealGameLoopbackE2EIT {
             }
             if (scenario.equals("allin-rit")) {
                 runAllInRitScenario(nodes, host, clients + bots + 1);
+                return;
+            }
+            if (scenario.equals("force-recover")) {
+                runForceRecoverScenario(nodes, host, clients + bots + 1, hands);
+                return;
+            }
+            if (scenario.equals("double-force-recover")) {
+                runDoubleForceRecoverScenario(nodes, host, clients + bots + 1);
                 return;
             }
 
@@ -170,6 +184,86 @@ final class RealGameLoopbackE2EIT {
         }
     }
 
+    private static void runForceRecoverScenario(List<NodeProcess> nodes, NodeProcess host,
+            int seats, int expectedHands)
+            throws Exception {
+        performForceRecoveryCycle(nodes, host, 1, 1);
+        assertRecoveredSession(nodes, host, seats, expectedHands, List.of(2));
+    }
+
+    private static void runDoubleForceRecoverScenario(List<NodeProcess> nodes,
+            NodeProcess host, int seats) throws Exception {
+        performForceRecoveryCycle(nodes, host, 1, 1);
+        performForceRecoveryCycle(nodes, host, 3, 2);
+        assertRecoveredSession(nodes, host, seats, 4, List.of(2, 4));
+    }
+
+    private static void performForceRecoveryCycle(List<NodeProcess> nodes,
+            NodeProcess host, int interruptedHand, long cycle) throws Exception {
+        String preflop = "HAND " + interruptedHand + ": betting round Preflop";
+        assertTrue(host.await(preflop, Duration.ofMinutes(3)), host.diagnostic());
+        host.send("FORCE_RECOVER");
+        assertTrue(host.awaitCount("CP_E2E_FORCE_RECOVER_REQUESTED", cycle,
+                Duration.ofSeconds(30)), host.diagnostic());
+
+        for (NodeProcess node : nodes) {
+            assertTrue(node.awaitCount("CP_E2E_RECOVERY_DIALOG_SUBMITTED", cycle,
+                    Duration.ofMinutes(2)), node.diagnostic());
+        }
+        long requiredClientConnections = (nodes.size() - 1L) * (cycle + 1L);
+        assertTrue(host.awaitCount(" connected", requiredClientConnections,
+                Duration.ofMinutes(2)), host.diagnostic());
+        host.send("START_RECOVERED_GAME");
+        assertTrue(host.awaitCount("CP_E2E_RECOVERED_GAME_START_REQUESTED", cycle,
+                Duration.ofSeconds(30)), host.diagnostic());
+
+        for (NodeProcess node : nodes) {
+            assertTrue(node.awaitCount("ZERO-TRUST: starting recuperarDatosClavePartida", cycle,
+                    Duration.ofMinutes(3)), node.diagnostic());
+        }
+    }
+
+    private static void assertRecoveredSession(List<NodeProcess> nodes, NodeProcess host,
+            int seats, int expectedHands, List<Integer> freshHands) throws Exception {
+        Duration completionTimeout = Duration.ofSeconds(Math.max(240L, expectedHands * 60L));
+        for (NodeProcess node : nodes) {
+            assertTrue(node.await("CP_E2E_HANDS_COMPLETE", completionTimeout),
+                    node.diagnostic());
+            for (int hand : freshHands) {
+                assertTrue(node.contains("HAND " + hand + ": betting round Preflop"),
+                        node.diagnostic());
+            }
+            assertFalse(node.contains("TABLE_FAILURE_V1"), node.diagnostic());
+            assertFalse(node.contains("CP_E2E_FAIL"), node.diagnostic());
+            assertFalse(node.contains("QA dialog suppressed [Error"), node.diagnostic());
+            assertFalse(node.contains("Recover action MISMATCH"), node.diagnostic());
+            assertFalse(node.contains("FAILED signature verify"), node.diagnostic());
+            assertFalse(node.contains("host forging"), node.diagnostic());
+            assertFalse(node.contains("invalid-sig flag"), node.diagnostic());
+            assertFalse(node.contains("disputed_hands row inserted"), node.diagnostic());
+        }
+
+        assertTrue(host.contains("balanceRows=" + seats), host.diagnostic());
+        assertTrue(host.contains("stackCents=" + (seats * 1000L)), host.diagnostic());
+        assertTrue(host.isAlive(), "host died after force-recover\n" + host.diagnostic());
+        for (NodeProcess client : nodes.subList(1, nodes.size())) {
+            for (int hand : freshHands) {
+                assertTrue(client.contains("SHUFFLE-VERIFY: deck verified OK (hand "
+                        + hand + ")"), client.diagnostic());
+            }
+        }
+        List<String> hostConsensus = host.linesContaining(" verified: ");
+        List<String> hostBalances = host.canonicalBalanceSnapshots();
+        assertEquals(expectedHands, hostConsensus.size(), host.diagnostic());
+        assertEquals(expectedHands, hostBalances.size(), host.diagnostic());
+        for (NodeProcess node : nodes.subList(1, nodes.size())) {
+            assertEquals(hostConsensus, node.linesContaining(" verified: "),
+                    "recovery consensus divergence\n" + node.diagnostic());
+            assertEquals(hostBalances, node.canonicalBalanceSnapshots(),
+                    "recovery balance divergence\n" + node.diagnostic());
+        }
+    }
+
     private static NodeProcess startNode(Path home, String role, String nick, int port,
             int clients, int bots, int hands, long seed) throws IOException {
         Files.createDirectories(home);
@@ -251,6 +345,22 @@ final class RealGameLoopbackE2EIT {
                 Thread.sleep(25L);
             }
             return contains(marker);
+        }
+
+        private boolean awaitCount(String marker, long expected, Duration timeout)
+                throws InterruptedException {
+            long deadline = System.nanoTime() + timeout.toNanos();
+            while (System.nanoTime() < deadline) {
+                if (countContaining(marker) >= expected) {
+                    return true;
+                }
+                if (!process.isAlive()) {
+                    readerDone.await(2, TimeUnit.SECONDS);
+                    return countContaining(marker) >= expected;
+                }
+                Thread.sleep(25L);
+            }
+            return countContaining(marker) >= expected;
         }
 
         private boolean contains(String text) {

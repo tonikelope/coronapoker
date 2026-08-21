@@ -488,10 +488,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      */
     static String buildActionWireCommand(String nick, int decision, Object bet,
             String cinematicField, byte[] record, byte[] sig) {
+        String wireBet = "0";
+        if (decision == Player.BET) {
+            if (!(bet instanceof Number)) {
+                throw new IllegalArgumentException("BET amount must be numeric");
+            }
+            // Bot sizing still enters this path through float-backed values. Once
+            // promoted to double, 0.7f becomes 0.699999988079071; emitting that raw
+            // approximation makes the strict receiver reject an honest cent amount
+            // before it can verify the signed record. Quantize at the trusted engine
+            // boundary using the same cent rule as expectedActionAmountCents, then
+            // serialize one canonical decimal value.
+            wireBet = MoneyCents.fromDouble(
+                    Helpers.doubleClean(((Number) bet).doubleValue())).toString();
+        }
         return "ACTION#"
                 + Base64.getEncoder().encodeToString(nick.getBytes(java.nio.charset.StandardCharsets.UTF_8))
                 + "#" + decision
-                + "#" + (decision == Player.BET ? String.valueOf((double) bet) : "0")
+                + "#" + wireBet
                 + "#" + cinematicField
                 + "#" + (record != null ? Base64.getEncoder().encodeToString(record) : "*")
                 + "#" + (sig != null ? Base64.getEncoder().encodeToString(sig) : "*");

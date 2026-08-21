@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -17,6 +18,42 @@ public class ActionWireShapeTest {
         assertFalse(Crupier.actionWireHasCurrentShape(parts(6)));
         assertFalse(Crupier.actionWireHasCurrentShape(parts(8)));
         assertFalse(Crupier.actionWireHasCurrentShape(parts(10)));
+    }
+
+    @Test
+    void betFromFloatBackedEngineValueIsSerializedAtCanonicalCentPrecision() {
+        double promotedFloat = (double) 0.7f;
+
+        String wire = Crupier.buildActionWireCommand(
+                "bot", Player.BET, promotedFloat, "*", new byte[]{1}, new byte[]{2});
+
+        String[] fields = ("GAME#1#" + wire).split("#", -1);
+        assertEquals("0.70", fields[5],
+                "honest float-backed bets must not leak binary noise onto the strict money wire");
+        assertEquals(70L, MoneyCents.parse(fields[5]).cents());
+    }
+
+    @Test
+    void wireBetAndSignedRecordFormulaStayIdenticalAcrossEngineMoneyShapes() {
+        double[] engineValues = {
+            (double) 0.1f,
+            (double) (0.1f + 0.2f),
+            (double) 10.05f,
+            12.34d,
+            200000.07d
+        };
+
+        for (double engineValue : engineValues) {
+            String wire = Crupier.buildActionWireCommand(
+                    "bot", Player.BET, engineValue, "*", new byte[]{1}, new byte[]{2});
+            String wireAmount = ("GAME#1#" + wire).split("#", -1)[5];
+
+            assertEquals(
+                    Crupier.expectedActionAmountCents(
+                            Player.BET, engineValue, 0d, 1_000_000d, 0d),
+                    MoneyCents.parse(wireAmount).cents(),
+                    "plaintext and signed amount must use the same cent value for " + engineValue);
+        }
     }
 
     @Test

@@ -257,7 +257,8 @@ class UnverifiedActionSynthTest {
 
         String[] partes = asReceived(comando);
         assertTrue(Crupier.wireCarriesRecordAndSig(partes));
-        assertEquals("50.0", partes[5], "the BET amount travels in the plaintext slot");
+        assertEquals("50.00", partes[5],
+                "the BET amount travels in the plaintext slot at canonical cent precision");
         assertArrayEqualsB64(record, partes[7]);
         assertArrayEqualsB64(sig, partes[8]);
     }

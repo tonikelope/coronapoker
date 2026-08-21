@@ -26,7 +26,9 @@ and injection position.
 ## Current production coverage
 
 - Three independent peers: host, human client and host-authored bot.
-- Exact preflop reducer: raise, call/check, folds, full all-in and short all-in.
+- Exact preflop reducer with randomized cent values: raise, call/check, folds,
+  full all-in and short all-in; deterministic boundary hands include 1, 2, 99
+  and 100-cent big blinds.
 - Canonical signed action records and stale-`PREV_H` rejection.
 - Deterministic 52-card permutation and signed community records.
 - Normal board and RIT side-B street domains.

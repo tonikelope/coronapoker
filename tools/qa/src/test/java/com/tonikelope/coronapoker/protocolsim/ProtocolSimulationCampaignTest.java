@@ -111,13 +111,22 @@ final class ProtocolSimulationCampaignTest {
         }
         assertPeerHashes(peers, context + " genesis");
 
+        int pattern = handNumber < 4 ? handNumber : random.nextInt(4);
+        long bigBlindCents = switch (handNumber) {
+            case 0 -> 1L;
+            case 1 -> 2L;
+            case 2 -> 99L;
+            case 3 -> 100L;
+            default -> 2L + random.nextInt(9_999);
+        };
         LinkedHashMap<String, Long> committed = new LinkedHashMap<>();
         committed.put(HOST, 0L);
-        committed.put(CLIENT, 10L);
-        committed.put(BOT, 20L);
-        BettingRoundState betting = BettingRoundState.start(committed, 20L, 20L);
+        committed.put(CLIENT, bigBlindCents / 2L);
+        committed.put(BOT, bigBlindCents);
+        BettingRoundState betting = BettingRoundState.start(
+                committed, bigBlindCents, bigBlindCents);
 
-        List<ActionSpec> actions = actionPattern(handNumber);
+        List<ActionSpec> actions = actionPattern(pattern, bigBlindCents, random);
         for (ActionSpec action : actions) {
             BettingRoundState.Transition transition = betting.apply(action.actor().nick(),
                     action.reducerAction(), action.committedTotalCents());
@@ -134,7 +143,7 @@ final class ProtocolSimulationCampaignTest {
         broadcastCommunity(peers, handId, CanonicalActionRecord.STREET_RIVER,
                 new int[]{deck[4]}, context);
 
-        boolean runItTwice = handNumber % 4 == 2;
+        boolean runItTwice = pattern == 2 && (handNumber < 4 || random.nextBoolean());
         if (runItTwice) {
             broadcastCommunity(peers, handId, CanonicalActionRecord.STREET_RIT2_FLOP,
                     new int[]{deck[5], deck[6], deck[7]}, context);
@@ -145,7 +154,7 @@ final class ProtocolSimulationCampaignTest {
         }
 
         long potCents = committed.values().stream().mapToLong(Long::longValue).sum();
-        List<SettlementRecord.Entry> settlement = settle(handNumber, committed, potCents,
+        List<SettlementRecord.Entry> settlement = settle(handNumber, pattern, committed, potCents,
                 runItTwice);
         long paid = settlement.stream().mapToLong(SettlementRecord.Entry::getPagarCents).sum();
         long closingRemainder = potCents - paid;
@@ -162,7 +171,8 @@ final class ProtocolSimulationCampaignTest {
         probeTamperAndStalePreviousHash(peers.get(0), handId, context);
         if (Boolean.parseBoolean(System.getProperty("qa.sim.trace", "false"))) {
             System.out.println("PROTOCOL_SIM PASS " + context
-                    + " pattern=" + (handNumber & 3)
+                    + " pattern=" + pattern
+                    + " bb_cents=" + bigBlindCents
                     + " rit=" + runItTwice
                     + " pot_cents=" + potCents
                     + " h_final=" + Base64.getEncoder().encodeToString(
@@ -170,35 +180,39 @@ final class ProtocolSimulationCampaignTest {
         }
     }
 
-    private static List<ActionSpec> actionPattern(int handNumber) {
-        return switch (handNumber & 3) {
+    private static List<ActionSpec> actionPattern(int pattern, long bigBlindCents,
+            Random random) {
+        long fullRaiseTarget = bigBlindCents * (2L + random.nextInt(4));
+        long shortAllInTarget = fullRaiseTarget + Math.max(1L, bigBlindCents / 2L);
+        long fullAllInTarget = bigBlindCents * (3L + random.nextInt(10));
+        return switch (pattern) {
             case 0 -> List.of(
-                    action(host, BettingRoundState.Action.RAISE, 40L,
+                    action(host, BettingRoundState.Action.RAISE, fullRaiseTarget,
                             CanonicalActionRecord.ACTION_BET, false),
-                    action(client, BettingRoundState.Action.CHECK_CALL, 40L,
+                    action(client, BettingRoundState.Action.CHECK_CALL, fullRaiseTarget,
                             CanonicalActionRecord.ACTION_CHECK, false),
-                    action(bot, BettingRoundState.Action.CHECK_CALL, 40L,
+                    action(bot, BettingRoundState.Action.CHECK_CALL, fullRaiseTarget,
                             CanonicalActionRecord.ACTION_CHECK, false));
             case 1 -> List.of(
-                    action(host, BettingRoundState.Action.RAISE, 40L,
+                    action(host, BettingRoundState.Action.RAISE, fullRaiseTarget,
                             CanonicalActionRecord.ACTION_BET, false),
-                    action(client, BettingRoundState.Action.ALL_IN, 50L,
+                    action(client, BettingRoundState.Action.ALL_IN, shortAllInTarget,
                             CanonicalActionRecord.ACTION_ALLIN, true),
-                    action(bot, BettingRoundState.Action.CHECK_CALL, 50L,
+                    action(bot, BettingRoundState.Action.CHECK_CALL, shortAllInTarget,
                             CanonicalActionRecord.ACTION_CHECK, false),
-                    action(host, BettingRoundState.Action.CHECK_CALL, 50L,
+                    action(host, BettingRoundState.Action.CHECK_CALL, shortAllInTarget,
                             CanonicalActionRecord.ACTION_CHECK, false));
             case 2 -> List.of(
-                    action(host, BettingRoundState.Action.ALL_IN, 100L,
+                    action(host, BettingRoundState.Action.ALL_IN, fullAllInTarget,
                             CanonicalActionRecord.ACTION_ALLIN, true),
-                    action(client, BettingRoundState.Action.FOLD, 10L,
+                    action(client, BettingRoundState.Action.FOLD, bigBlindCents / 2L,
                             CanonicalActionRecord.ACTION_FOLD, false),
-                    action(bot, BettingRoundState.Action.CHECK_CALL, 100L,
+                    action(bot, BettingRoundState.Action.CHECK_CALL, fullAllInTarget,
                             CanonicalActionRecord.ACTION_CHECK, false));
             default -> List.of(
                     action(host, BettingRoundState.Action.FOLD, 0L,
                             CanonicalActionRecord.ACTION_FOLD, false),
-                    action(client, BettingRoundState.Action.FOLD, 10L,
+                    action(client, BettingRoundState.Action.FOLD, bigBlindCents / 2L,
                             CanonicalActionRecord.ACTION_FOLD, false));
         };
     }
@@ -239,7 +253,7 @@ final class ProtocolSimulationCampaignTest {
         assertPeerHashes(peers, context + " community street=" + street);
     }
 
-    private static List<SettlementRecord.Entry> settle(int handNumber,
+    private static List<SettlementRecord.Entry> settle(int handNumber, int pattern,
             Map<String, Long> committed, long potCents, boolean runItTwice) {
         Map<String, Long> paid = new LinkedHashMap<>();
         actors.forEach(a -> paid.put(a.nick(), 0L));
@@ -248,13 +262,13 @@ final class ProtocolSimulationCampaignTest {
             long sideCents = MoneyCents.fromDouble(split[0]).cents();
             paid.put(HOST, sideCents);
             paid.put(BOT, sideCents);
-        } else if (handNumber % 5 == 0 && handNumber % 4 != 3) {
+        } else if (handNumber % 5 == 0 && pattern != 3) {
             double[] split = PotMath.splitAmongWinners(potCents / 100.0d, 2);
             long share = MoneyCents.fromDouble(split[0]).cents();
             paid.put(HOST, share);
             paid.put(BOT, share);
         } else {
-            String winner = handNumber % 4 == 3 ? BOT : actors.get(handNumber % actors.size()).nick();
+            String winner = pattern == 3 ? BOT : actors.get(handNumber % actors.size()).nick();
             paid.put(winner, potCents);
         }
         List<SettlementRecord.Entry> result = new ArrayList<>();

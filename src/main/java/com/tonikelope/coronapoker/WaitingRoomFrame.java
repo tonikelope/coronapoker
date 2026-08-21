@@ -3916,10 +3916,14 @@ public class WaitingRoomFrame extends JFrame {
                                                                             exitingParticipant.setSra_unlock_community(
                                                                                     playerExit.testament());
                                                                             GameFrame.getInstance().getCrupier().remotePlayerQuit(
-                                                                                    playerExit.nick(), playerExit.testamentWire());
+                                                                                    playerExit.nick(), playerExit.testamentWire(),
+                                                                                    playerExit.pocketKeyWire(),
+                                                                                    playerExit.pocketSignatureWire());
                                                                         } else {
-                                                                            GameFrame.getInstance().getCrupier()
-                                                                                    .remotePlayerQuit(playerExit.nick());
+                                                                            GameFrame.getInstance().getCrupier().remotePlayerQuit(
+                                                                                    playerExit.nick(), null,
+                                                                                    playerExit.pocketKeyWire(),
+                                                                                    playerExit.pocketSignatureWire());
                                                                         }
                                                                     }
                                                                 } catch (Exception ex) {

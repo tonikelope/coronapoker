@@ -17,28 +17,43 @@ public class PlayerExitWireTest {
         byte[] scalar = scalarOne();
         String testament = Base64.getEncoder().encodeToString(scalar);
         PlayerExitWire.Command parsed = PlayerExitWire.parseClientRequest(
-                new String[]{"GAME", "4", "EXIT", testament}, "alice");
+                new String[]{"GAME", "4", "EXIT", testament, "*", "*"}, "alice");
         assertEquals("alice", parsed.nick());
         assertTrue(parsed.hasTestament());
         assertArrayEquals(scalar, parsed.testament());
 
         PlayerExitWire.Command absent = PlayerExitWire.parseClientRequest(
-                new String[]{"GAME", "5", "EXIT", "*"}, "alice");
+                new String[]{"GAME", "5", "EXIT", "*", "*", "*"}, "alice");
         assertFalse(absent.hasTestament());
+        assertFalse(absent.hasPocketReveal());
+
+        byte[] signature = new byte[64];
+        signature[0] = 7;
+        PlayerExitWire.Command allIn = PlayerExitWire.parseClientRequest(
+                new String[]{"GAME", "6", "EXIT", testament, testament,
+                    Base64.getEncoder().encodeToString(signature)}, "alice");
+        assertTrue(allIn.hasPocketReveal());
+        assertArrayEquals(scalar, allIn.pocketKey());
+        assertArrayEquals(signature, allIn.pocketSignature());
     }
 
     @Test
     public void hostRelayUsesTheSingleCurrentNickAndOptionalTestamentShape() {
         String nick = Base64.getEncoder().encodeToString("alice".getBytes(StandardCharsets.UTF_8));
         PlayerExitWire.Command absent = PlayerExitWire.parseHostRelay(
-                new String[]{"GAME", "6", "EXIT", nick});
+                new String[]{"GAME", "6", "EXIT", nick, "*", "*", "*"});
         assertEquals("alice", absent.nick());
         assertFalse(absent.hasTestament());
 
         byte[] scalar = scalarOne();
+        byte[] signature = new byte[64];
         PlayerExitWire.Command present = PlayerExitWire.parseHostRelay(
-                new String[]{"GAME", "7", "EXIT", nick, Base64.getEncoder().encodeToString(scalar)});
+                new String[]{"GAME", "7", "EXIT", nick,
+                    Base64.getEncoder().encodeToString(scalar),
+                    Base64.getEncoder().encodeToString(scalar),
+                    Base64.getEncoder().encodeToString(signature)});
         assertArrayEquals(scalar, present.testament());
+        assertTrue(present.hasPocketReveal());
     }
 
     @Test
@@ -50,13 +65,16 @@ public class PlayerExitWireTest {
         assertThrows(IllegalArgumentException.class, () -> PlayerExitWire.parseClientRequest(
                 new String[]{"GAME", "4", "EXIT", "*", "ignored"}, "alice"));
         assertThrows(IllegalArgumentException.class, () -> PlayerExitWire.parseClientRequest(
-                new String[]{"GAME", "4", "EXIT", zeros}, "alice"));
+                new String[]{"GAME", "4", "EXIT", zeros, "*", "*"}, "alice"));
         assertThrows(IllegalArgumentException.class, () -> PlayerExitWire.parseHostRelay(
                 new String[]{"GAME", "6", "EXIT", nick, "*"}));
         assertThrows(IllegalArgumentException.class, () -> PlayerExitWire.parseHostRelay(
-                new String[]{"GAME", "6", "EXIT", "%%%"}));
+                new String[]{"GAME", "6", "EXIT", "%%%", "*", "*", "*"}));
         assertThrows(IllegalArgumentException.class, () -> PlayerExitWire.parseHostRelay(
-                new String[]{"GAME", "6", "EXIT", nick, zeros}));
+                new String[]{"GAME", "6", "EXIT", nick, zeros, "*", "*"}));
+        assertThrows(IllegalArgumentException.class, () -> PlayerExitWire.parseClientRequest(
+                new String[]{"GAME", "8", "EXIT", "*",
+                    Base64.getEncoder().encodeToString(scalarOne()), "*"}, "alice"));
     }
 
     private static byte[] scalarOne() {

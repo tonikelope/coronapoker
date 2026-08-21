@@ -2157,6 +2157,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // readyForNextHand.
     public volatile byte[] current_hand_id = null;
     public volatile HandStateChain hand_state_chain = null;
+    // Card-bound Ed25519 proofs already verified during this hand (for example,
+    // an all-in human who leaves voluntarily before the board finishes). The
+    // Participant retains the corresponding pocket key; this map retains the
+    // signature needed to build the later atomic POTCARDS without asking a dead
+    // socket or letting the host forge on the player's behalf.
+    private final ConcurrentHashMap<String, String> verified_showdown_signatures
+            = new ConcurrentHashMap<>();
 
     // Rabbit-fee acceptance window: id of the just-finished hand whose bote_sobrante (including
     // rabbit fees) hasn't been folded into the next pot YET. current_hand_id is cleared early
@@ -3805,6 +3812,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.SEVERE, "Error generating the SRA exit testament for " + nick, e);
         }
         return "*";
+    }
+
+    /**
+     * Builds the one current client EXIT body. A normal/folding player exposes
+     * only the community testament. An all-in player has no remaining private
+     * decision and must eventually show down, so EXIT atomically carries the
+     * already card-bound pocket key and Ed25519 signature as well. This lets an
+     * honest table finish after a voluntary departure without revealing the
+     * pocket of a player who can still fold.
+     */
+    public String buildLocalExitCommand() {
+        String community = getTestamentoCriptografico();
+        String pocketKey = "*";
+        String pocketSignature = "*";
+        Player local = GameFrame.getInstance().getLocalPlayer();
+        if (local != null && local.getDecision() == Player.ALLIN) {
+            String nick = GameFrame.getInstance().getNick_local();
+            pocketKey = getShowdownPocketKey(nick);
+            pocketSignature = signShowdownRevealForBroadcast(nick, pocketKey);
+            if ("*".equals(pocketKey) || "*".equals(pocketSignature)) {
+                LOGGER.log(Level.SEVERE,
+                        "Cannot build mandatory all-in showdown proof for voluntary EXIT");
+                pocketKey = "*";
+                pocketSignature = "*";
+            }
+        }
+        return "EXIT#" + community + "#" + pocketKey + "#" + pocketSignature;
     }
 
     /**
@@ -6731,7 +6765,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Two waits remain inside the write path, unrelated to this: the reconnecting peer's
     // (bounded by the forced-reconnect watchdog) and the socket's outbound-queue wait
     // (bounded by the heartbeat stall detector) — unchanged from before.
-    public void remotePlayerQuit(String nick, String testamento) {
+    public void remotePlayerQuit(String nick, String testamento,
+            String pocketKey, String pocketSignature) {
         Player jugador = nick2player.get(nick);
         if (jugador != null && quit_anunciado.add(nick)) {
             if (!jugador.isExit()) {
@@ -6743,11 +6778,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     participante.exitAndCloseSocket();
                 }
                 try {
-                    String cmd = "EXIT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8"));
-                    // Propagate the departing player's testament (if any) inline.
-                    if (testamento != null && !testamento.isEmpty() && !testamento.equals("*")) {
-                        cmd += "#" + testamento;
-                    }
+                    String cmd = "EXIT#"
+                            + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8"))
+                            + "#" + ((testamento == null || testamento.isEmpty()) ? "*" : testamento)
+                            + "#" + ((pocketKey == null || pocketKey.isEmpty()) ? "*" : pocketKey)
+                            + "#" + ((pocketSignature == null || pocketSignature.isEmpty())
+                            ? "*" : pocketSignature);
                     // The departing player contributes no action to their upcoming turn; each
                     // receiver marks the exit on receipt and synthesizes a fold when the round
                     // reaches that seat. The confirmed barrier makes that omission converge.
@@ -6781,9 +6817,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    public void remotePlayerQuit(String nick, String testamento) {
+        remotePlayerQuit(nick, testamento, null, null);
+    }
+
     // Convenience overload for callers without a pre-resolved participant.
     public void remotePlayerQuit(String nick) {
-        remotePlayerQuit(nick, null);
+        remotePlayerQuit(nick, null, null, null);
     }
 
     public Object getLock_apuestas() {
@@ -7509,6 +7549,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         if (p != null) {
                                             p.setSra_unlock(sraKey);
                                         }
+                                        verified_showdown_signatures.put(nick, sigB64);
                                         jugador.getHoleCard1().iniciarConValorNumerico(revealedCards[0] + 1);
                                         jugador.getHoleCard2().iniciarConValorNumerico(revealedCards[1] + 1);
                                         decrypted = true;
@@ -9015,6 +9056,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // otherwise this could throw ConcurrentModificationException or leave next-hand
         // messages in an inconsistent state.
         single_locked_pocket_cards.clear();
+        verified_showdown_signatures.clear();
         pocket_deferred_received.set(false);
         accepted_mega_packet.set(null);
         cascade_request_received.set(false);
@@ -12662,7 +12704,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         // If the menu tries to send a bare EXIT through another path, attach the keys.
         if (command != null && command.equals("EXIT")) {
-            command = "EXIT#" + getTestamentoCriptografico();
+            command = buildLocalExitCommand();
         }
 
         ArrayList<String> pendientes = new ArrayList<>();
@@ -17007,10 +17049,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 Participant part = GameFrame.getInstance().getParticipantes().get(p.getNickname());
                 if (part != null && !part.isCpu()) {
                     if (part.isExit()) {
-                        containTableFailure(new IllegalStateException(
-                                "mandatory showdown contender disconnected before reveal: "
-                                + p.getNickname()));
-                        return;
+                        if (!reuseExitedShowdownProof(p.getNickname(), part,
+                                nick2key, nick2sig)) {
+                            containTableFailure(new IllegalStateException(
+                                    "mandatory showdown contender disconnected before reveal: "
+                                    + p.getNickname()));
+                            return;
+                        }
+                        continue;
                     }
                     pendientes.add(p.getNickname());
                 } else if (part == null) {
@@ -17237,6 +17283,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (p != null) {
                 p.setSra_unlock(key);
             }
+            verified_showdown_signatures.put(nick, sigB64);
             Player jugador = nick2player.get(nick);
             if (jugador != null) {
                 jugador.getHoleCard1().iniciarConValorNumerico(cards[0] + 1);
@@ -17247,6 +17294,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.SEVERE, "Error verifying showdown key for " + nick, e);
             return false;
         }
+    }
+
+    private boolean reuseExitedShowdownProof(String nick, Participant participant,
+            HashMap<String, String> nick2key, HashMap<String, String> nick2sig) {
+        if (participant == null || participant.getSra_unlock() == null) {
+            return false;
+        }
+        String signature = verified_showdown_signatures.get(nick);
+        if (signature == null) {
+            return false;
+        }
+        String key = Base64.getEncoder().encodeToString(participant.getSra_unlock());
+        if (!verifyAndStoreShowdownKey(nick, key, signature)) {
+            return false;
+        }
+        nick2key.put(nick, key);
+        nick2sig.put(nick, signature);
+        return true;
+    }
+
+    public boolean requiresExitPocketProof(String nick) {
+        Player player = nick2player.get(nick);
+        return player != null && player.getDecision() == Player.ALLIN;
+    }
+
+    public boolean acceptExitShowdownProof(String nick, String keyB64, String sigB64) {
+        return verifyAndStoreShowdownKey(nick, keyB64, sigB64);
     }
 
     private void checkJugadasParciales(ArrayList<Player> resisten) {
@@ -22591,7 +22665,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (!GameFrame.getInstance().isPartida_local()) {
-            String exitCmd = "EXIT#" + getTestamentoCriptografico();
+            String exitCmd = buildLocalExitCommand();
             sendGAMECommandToServer(exitCmd, false);
         }
 

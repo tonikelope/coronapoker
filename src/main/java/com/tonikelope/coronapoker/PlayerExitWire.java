@@ -15,11 +15,21 @@ final class PlayerExitWire {
         private final String nick;
         private final String testamentWire;
         private final byte[] testament;
+        private final String pocketKeyWire;
+        private final byte[] pocketKey;
+        private final String pocketSignatureWire;
+        private final byte[] pocketSignature;
 
-        Command(String nick, String testamentWire, byte[] testament) {
+        Command(String nick, String testamentWire, byte[] testament,
+                String pocketKeyWire, byte[] pocketKey,
+                String pocketSignatureWire, byte[] pocketSignature) {
             this.nick = nick;
             this.testamentWire = testamentWire;
             this.testament = testament == null ? null : testament.clone();
+            this.pocketKeyWire = pocketKeyWire;
+            this.pocketKey = pocketKey == null ? null : pocketKey.clone();
+            this.pocketSignatureWire = pocketSignatureWire;
+            this.pocketSignature = pocketSignature == null ? null : pocketSignature.clone();
         }
 
         String nick() {
@@ -37,6 +47,26 @@ final class PlayerExitWire {
         byte[] testament() {
             return testament == null ? null : testament.clone();
         }
+
+        boolean hasPocketReveal() {
+            return pocketKey != null;
+        }
+
+        String pocketKeyWire() {
+            return pocketKeyWire;
+        }
+
+        byte[] pocketKey() {
+            return pocketKey == null ? null : pocketKey.clone();
+        }
+
+        String pocketSignatureWire() {
+            return pocketSignatureWire;
+        }
+
+        byte[] pocketSignature() {
+            return pocketSignature == null ? null : pocketSignature.clone();
+        }
     }
 
     private PlayerExitWire() {
@@ -44,27 +74,41 @@ final class PlayerExitWire {
 
     static Command parseClientRequest(String[] parts, String authenticatedNick) {
         requireBase(parts);
-        if (parts.length != 4 || authenticatedNick == null || authenticatedNick.isEmpty()) {
-            throw new IllegalArgumentException("client EXIT requires one authenticated testament field");
+        if (parts.length != 6 || authenticatedNick == null || authenticatedNick.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "client EXIT requires community, pocket-key and pocket-signature fields");
         }
-        if ("*".equals(parts[3])) {
-            return new Command(authenticatedNick, null, null);
-        }
-        byte[] testament = decodeTestament(parts[3]);
-        return new Command(authenticatedNick, parts[3], testament);
+        return decode(authenticatedNick, parts[3], parts[4], parts[5]);
     }
 
     static Command parseHostRelay(String[] parts) {
         requireBase(parts);
-        if (parts.length != 4 && parts.length != 5) {
-            throw new IllegalArgumentException("host EXIT relay requires nick and optional testament");
+        if (parts.length != 7) {
+            throw new IllegalArgumentException(
+                    "host EXIT relay requires nick, community, pocket-key and pocket-signature fields");
         }
         String nick = decodeCanonicalNick(parts[3]);
-        if (parts.length == 4) {
-            return new Command(nick, null, null);
+        return decode(nick, parts[4], parts[5], parts[6]);
+    }
+
+    private static Command decode(String nick, String testamentWire,
+            String pocketKeyWire, String pocketSignatureWire) {
+        byte[] testament = "*".equals(testamentWire) ? null : decodeTestament(testamentWire);
+        boolean noPocketKey = "*".equals(pocketKeyWire);
+        boolean noPocketSignature = "*".equals(pocketSignatureWire);
+        if (noPocketKey != noPocketSignature) {
+            throw new IllegalArgumentException("EXIT pocket key and signature must be present together");
         }
-        byte[] testament = decodeTestament(parts[4]);
-        return new Command(nick, parts[4], testament);
+        byte[] pocketKey = noPocketKey ? null : decodeTestament(pocketKeyWire);
+        byte[] pocketSignature = noPocketSignature ? null
+                : decodeCanonicalBase64(pocketSignatureWire);
+        if (pocketSignature != null && pocketSignature.length != 64) {
+            throw new IllegalArgumentException("EXIT pocket signature must be 64 bytes");
+        }
+        return new Command(nick,
+                testament == null ? null : testamentWire, testament,
+                pocketKey == null ? null : pocketKeyWire, pocketKey,
+                pocketSignature == null ? null : pocketSignatureWire, pocketSignature);
     }
 
     private static void requireBase(String[] parts) {

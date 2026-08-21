@@ -2095,13 +2095,31 @@ public class Participant implements Runnable {
                                                         = PlayerExitWire.parseClientRequest(partes_comando, this.nick);
                                                 if (GameFrame.getInstance() != null
                                                         && GameFrame.getInstance().getCrupier() != null) {
+                                                    Crupier crupier = GameFrame.getInstance().getCrupier();
+                                                    if (crupier.requiresExitPocketProof(playerExit.nick())
+                                                            && !playerExit.hasPocketReveal()) {
+                                                        throw new IllegalArgumentException(
+                                                                "all-in EXIT requires a signed pocket reveal");
+                                                    }
+                                                    if (playerExit.hasPocketReveal()
+                                                            && !crupier.acceptExitShowdownProof(
+                                                                    playerExit.nick(),
+                                                                    playerExit.pocketKeyWire(),
+                                                                    playerExit.pocketSignatureWire())) {
+                                                        throw new IllegalArgumentException(
+                                                                "EXIT carries an invalid showdown proof");
+                                                    }
                                                     if (playerExit.hasTestament()) {
                                                         setSra_unlock_community(playerExit.testament());
-                                                        GameFrame.getInstance().getCrupier().remotePlayerQuit(
-                                                                playerExit.nick(), playerExit.testamentWire());
+                                                        crupier.remotePlayerQuit(
+                                                                playerExit.nick(), playerExit.testamentWire(),
+                                                                playerExit.pocketKeyWire(),
+                                                                playerExit.pocketSignatureWire());
                                                     } else {
-                                                        GameFrame.getInstance().getCrupier()
-                                                                .remotePlayerQuit(playerExit.nick());
+                                                        crupier.remotePlayerQuit(
+                                                                playerExit.nick(), null,
+                                                                playerExit.pocketKeyWire(),
+                                                                playerExit.pocketSignatureWire());
                                                     }
                                                 }
                                                 exit = true;

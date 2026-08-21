@@ -985,13 +985,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 // Builds the command directly to avoid re-entering sendGAMECommandToServer
                 // (a do-while with waits that during shutdown could hang us past the 5s
                 // timeout Windows gives on console close).
-                String testamento;
+                String exitCommand;
                 try {
-                    testamento = c.getTestamentoCriptografico();
+                    exitCommand = c.buildLocalExitCommand();
                 } catch (Throwable ex) {
-                    testamento = "*"; // No valid testament: better a bare EXIT than nothing.
+                    exitCommand = "EXIT#*#*#*";
                 }
-                String body = "GAME#" + GameCommandId.next() + "#EXIT#" + testamento;
+                String body = "GAME#" + GameCommandId.next() + "#" + exitCommand;
                 javax.crypto.spec.SecretKeySpec aes = nc.getLocal_client_aes_key();
                 javax.crypto.spec.SecretKeySpec hmac = nc.getLocal_client_hmac_key();
                 if (aes == null || hmac == null) {
@@ -5633,11 +5633,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             // 0=yes, 1=no, 2=cancel
             if (exit_dialog.isExit()) {
 
+                final String exitCommand = crupier.buildLocalExitCommand();
                 getLocalPlayer().setExit();
 
                 Helpers.threadRun(() -> {
                     if (!getSala_espera().isReconnecting()) {
-                        crupier.sendGAMECommandToServer("EXIT", false);
+                        crupier.sendGAMECommandToServer(exitCommand, false);
                     }
 
                     finTransmision(false);

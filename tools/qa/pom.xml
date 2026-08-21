@@ -309,6 +309,7 @@
                             <includes combine.self="override">
                                 <include>**/protocolsim/*Test.java</include>
                                 <include>**/ProtocolExitRecoverySimulationTest.java</include>
+                                <include>**/ProtocolPotRabbitCampaignTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>

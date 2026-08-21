@@ -47,6 +47,10 @@ thresholds with hard per-hand conservation, liveness and validity invariants.
 - Deterministic 52-card permutation and signed community records.
 - Normal board and RIT side-B street domains.
 - Exact-cent normal/tied/RIT payouts and settlement conservation.
+- Random 2-to-9-seat production `HandPot` layers with zero, one-cent, equal,
+  folded, disconnected-all-in and large-stack commitments.
+- Signed production Rabbit request/authorization sequences in every mode,
+  including exact duplicates, mutation and cross-hand replay rejection.
 - Independent `H_final` convergence and signed strict `HANDVERIFY` receipts.
 - Per-hand probes proving signed mutation and stale-chain rejection.
 - Direct single-hand replay with seed, hand index and concise trace output.

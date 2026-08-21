@@ -77,7 +77,9 @@ thresholds with hard per-hand conservation, liveness and validity invariants.
 - Real in-memory SQLite action replay over thousands of hands: physical row
   disorder versus durable counter order, exact-cent action fields, Ed25519
   signatures, `PREV_H` continuity, final `H_t` convergence and atomic rejection
-  of a corrupt persisted action before any replay mutation.
+  of a corrupt persisted action before any replay mutation. A failed SQL read
+  is explicitly distinct from a valid empty history and aborts safely before
+  the host broadcasts `ACTIONDATA`.
 - Seeded lifecycle transitions: normal drain, final exit, force-recover,
   abrupt disconnect/MISDEAL, socket reconnect with pending critical-command
   preservation, RIT side-B interruption and malformed termination. Old-session

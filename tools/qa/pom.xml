@@ -314,6 +314,7 @@
                                 <include>**/ProtocolLifecycleCampaignTest.java</include>
                                 <include>**/ProtocolSqlRecoveryCampaignTest.java</include>
                                 <include>**/ProtocolSqlActionReplayCampaignTest.java</include>
+                                <include>**/RecoveredActionBatchTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>

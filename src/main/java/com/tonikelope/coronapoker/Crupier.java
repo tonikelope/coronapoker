@@ -19401,8 +19401,37 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.recover_action_order = new java.util.ArrayList<>();
             this.acciones_locales_recuperadas.clear();
 
-            if (GameFrame.getInstance().isPartida_local()) {
+            boolean localGame = GameFrame.getInstance().isPartida_local();
+            if (localGame) {
                 datos = sqlRecoverHandActions();
+            } else {
+                datos = this.recibirAccionesRecuperadas();
+            }
+
+            this.tot_acciones_recuperadas = 0;
+            RecoveredActionBatch.Result decodedBatch = RecoveredActionBatch.decode(datos);
+            if (!decodedBatch.isOk()) {
+                LOGGER.log(Level.SEVERE,
+                        "ZERO-TRUST RECOVER: ACTIONDATA rejected atomically ({0}/{1})",
+                        new Object[]{decodedBatch.error(), decodedBatch.actionError()});
+                // A failed client receive already closed its transport above. A
+                // local SQL read failure did not: it must abort/refund instead of
+                // being silently reinterpreted as an empty action history.
+                if (!isFin_de_la_transmision()) {
+                    String reason = decodedBatch.error() == RecoveredActionBatch.Error.MISSING
+                            ? "peer.recovery_action_data_unavailable"
+                            : "zero_trust.host_recover_action_forged";
+                    cancelarManoYDevolverApuestas(
+                            reason,
+                            localGame);
+                }
+                return;
+            }
+
+            // Do not broadcast a missing/corrupt local history as an empty or
+            // malformed ACTIONDATA frame. Validate the whole batch first, then
+            // publish exactly that validated sequence to every live client.
+            if (localGame) {
                 ArrayList<String> pendientes = new ArrayList<>();
                 for (Player jugador : GameFrame.getInstance().getJugadores()) {
                     if (jugador != GameFrame.getInstance().getLocalPlayer() && jugador.isActivo()
@@ -19411,51 +19440,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 enviarAccionesRecuperadas(pendientes, datos);
-            } else {
-                datos = this.recibirAccionesRecuperadas();
             }
 
-            this.tot_acciones_recuperadas = 0;
-            if (datos != null && !datos.isEmpty() && !datos.equals("*")) {
-                String[] rec = datos.split("@", -1);
-                java.util.List<RecoveredActionCodec.Wire> decodedActions = new java.util.ArrayList<>();
-                java.util.List<String> encodedActions = new java.util.ArrayList<>();
-                for (String r : rec) {
-                    if (!r.isEmpty()) {
-                        RecoveredActionCodec.Result decoded = RecoveredActionCodec.decode(r);
-                        if (!decoded.isOk()) {
-                            LOGGER.log(Level.SEVERE,
-                                    "ZERO-TRUST RECOVER: ACTIONDATA rejected atomically ({0})",
-                                    decoded.error());
-                            cancelarManoYDevolverApuestas(
-                                    "zero_trust.host_recover_action_forged",
-                                    GameFrame.getInstance().isPartida_local());
-                            return;
-                        }
-                        decodedActions.add(decoded.value());
-                        encodedActions.add(r);
-                    }
-                }
-                for (int actionIndex = 0; actionIndex < decodedActions.size(); actionIndex++) {
-                    RecoveredActionCodec.Wire decoded = decodedActions.get(actionIndex);
-                    String r = encodedActions.get(actionIndex);
-                    String nick = decoded.actor();
+            for (RecoveredActionBatch.Action recoveredAction : decodedBatch.actions()) {
+                RecoveredActionCodec.Wire decoded = recoveredAction.wire();
+                String r = recoveredAction.encoded();
+                String nick = decoded.actor();
 
-                        // Ordered sequence (by counter, as served by sqlRecoverHandActions) of
-                        // ALL nicks: the reference used to detect seats skipped by mutual
-                        // omission. Counter and list are incremented TOGETHER, AFTER the decode,
-                        // so tot_acciones_recuperadas == recover_action_order.size() ALWAYS (a
-                        // malformed entry that blows up the decode doesn't inflate the counter
-                        // relative to the list).
-                    this.recover_action_order.add(nick);
-                    this.tot_acciones_recuperadas++;
+                // Ordered sequence (by counter, as served by sqlRecoverHandActions) of
+                // ALL nicks: the reference used to detect seats skipped by mutual
+                // omission. Counter and list are incremented TOGETHER, AFTER the decode,
+                // so tot_acciones_recuperadas == recover_action_order.size() ALWAYS (a
+                // malformed entry that blows up the decode doesn't inflate the counter
+                // relative to the list).
+                this.recover_action_order.add(nick);
+                this.tot_acciones_recuperadas++;
 
-                    if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick)
-                            || (GameFrame.getInstance().isPartida_local()
-                            && GameFrame.getInstance().getParticipantes().containsKey(nick)
-                            && GameFrame.getInstance().getParticipantes().get(nick).isCpu())) {
-                        acciones_locales_recuperadas.add(r);
-                    }
+                if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick)
+                        || (localGame
+                        && GameFrame.getInstance().getParticipantes().containsKey(nick)
+                        && GameFrame.getInstance().getParticipantes().get(nick).isCpu())) {
+                    acciones_locales_recuperadas.add(r);
                 }
             }
         } catch (Exception ex) {

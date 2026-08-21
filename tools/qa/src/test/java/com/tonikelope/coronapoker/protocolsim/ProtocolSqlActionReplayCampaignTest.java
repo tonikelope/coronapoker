@@ -99,17 +99,18 @@ class ProtocolSqlActionReplayCampaignTest {
                                 batch.getBytes(StandardCharsets.UTF_8)));
                         assertTrue(receive.isSuccess(), context + " " + receive.error());
 
-                        DecodeResult decoded = decodeAtomically(receive.actions());
+                        RecoveredActionBatch.Result decoded = RecoveredActionBatch.decode(
+                                receive.actions());
                         if (corrupt) {
-                            assertFalse(decoded.ok, context + " accepted corrupt SQL row");
+                            assertFalse(decoded.isOk(), context + " accepted corrupt SQL row");
                             assertArrayEquals(before, recovered.getCurrentHash(), context);
                             assertEquals(0, recovered.getAbsorbedActions(), context);
                             continue;
                         }
-                        assertTrue(decoded.ok, context);
-                        assertEquals(actionCount, decoded.actions.size(), context);
-                        for (int i = 0; i < decoded.actions.size(); i++) {
-                            RecoveredActionCodec.Wire action = decoded.actions.get(i);
+                        assertTrue(decoded.isOk(), context);
+                        assertEquals(actionCount, decoded.actions().size(), context);
+                        for (int i = 0; i < decoded.actions().size(); i++) {
+                            RecoveredActionCodec.Wire action = decoded.actions().get(i).wire();
                             Row expected = expectedRows.get(i);
                             assertEquals(expected.actor, action.actor(), context);
                             assertEquals(expected.decision, action.decision(), context);
@@ -137,21 +138,6 @@ class ProtocolSqlActionReplayCampaignTest {
                 }
             }
         }
-    }
-
-    private static DecodeResult decodeAtomically(String batch) {
-        List<RecoveredActionCodec.Wire> decoded = new ArrayList<>();
-        for (String token : batch.split("@", -1)) {
-            if (token.isEmpty()) {
-                continue;
-            }
-            RecoveredActionCodec.Result result = RecoveredActionCodec.decode(token);
-            if (!result.isOk()) {
-                return new DecodeResult(false, List.of());
-            }
-            decoded.add(result.value());
-        }
-        return new DecodeResult(true, List.copyOf(decoded));
     }
 
     private static void createSchema(Connection connection) throws Exception {
@@ -244,9 +230,6 @@ class ProtocolSqlActionReplayCampaignTest {
 
     private record Row(int counter, String actor, int decision, long cents,
             String recordB64, String signatureB64) {
-    }
-
-    private record DecodeResult(boolean ok, List<RecoveredActionCodec.Wire> actions) {
     }
 
     private record Genesis(byte[] handId, List<byte[]> playerIds,

@@ -62,12 +62,23 @@ public class RecoveryWireWiringTest {
         int handAbortComment = source.indexOf("Any fail-closed recovery path must stop NUEVA_MANO here");
         int handAbort = source.indexOf("if (isFin_de_la_transmision())", handAbortComment);
         int handAbortReturn = source.indexOf("return false;", handAbort);
+        int localReplay = source.indexOf("private void recuperarAccionesLocales()");
+        int batchDecode = source.indexOf("RecoveredActionBatch.decode(datos)", localReplay);
+        int batchFailure = source.indexOf("if (!decodedBatch.isOk())", batchDecode);
+        int missingReason = source.indexOf("peer.recovery_action_data_unavailable", batchFailure);
+        int cancel = source.indexOf("cancelarManoYDevolverApuestas(", missingReason);
+        int sendActions = source.indexOf("enviarAccionesRecuperadas(pendientes, datos)", cancel);
 
         assertTrue(method >= 0 && method < state);
         assertTrue(state < failed && failed < recover && recover < pending);
         assertTrue(pending < finished && finished < close && close < result);
         assertTrue(receive >= 0 && receive < recoverAbort);
         assertTrue(handAbortComment >= 0 && handAbortComment < handAbort && handAbort < handAbortReturn);
+        assertTrue(localReplay >= 0 && localReplay < batchDecode);
+        assertTrue(batchDecode < batchFailure && batchFailure < missingReason && missingReason < cancel);
+        assertTrue(cancel < sendActions, "host must validate the complete SQL batch before broadcast");
+        assertFalse(source.substring(localReplay, cancel).contains(
+                "datos != null && !datos.isEmpty()"));
         assertFalse(source.contains("ACTIONDATA malformed dropped"));
         assertFalse(source.contains("recovery dialog closes via the empty-queue branch"));
     }

@@ -8296,6 +8296,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             } else {
                 setPositions();
+                if (isFin_de_la_transmision()) {
+                    return;
+                }
                 // Positions are already rotated and repainted here: NUEVA_MANO's finally must
                 // not call setPositions again (would double-rotate).
                 this.recovery_positions_set = true;
@@ -8636,6 +8639,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Without this guard the client would hang forever waiting for a command that will
         // never arrive.
         boolean ok;
+        boolean failed = false;
 
         long start_time = System.currentTimeMillis();
 
@@ -8647,43 +8651,35 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 ArrayList<String> rejected = new ArrayList<>();
 
-                while (!ok && !this.getReceived_commands().isEmpty()) {
+                while (!ok && !failed && !this.getReceived_commands().isEmpty()) {
 
                     String comando = this.received_commands.poll();
                     try {
-                        String[] partes = comando.split("#");
+                        String[] partes = comando.split("#", -1);
 
-                        if (partes.length == 9 && partes[2].equals("POSITIONS")) {
-
-                            ok = true;
-
-                            try {
-                                this.utg_nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-
-                                this.big_blind_nick = new String(Base64.getDecoder().decode(partes[4]), "UTF-8");
-
-                                this.small_blind_nick = new String(Base64.getDecoder().decode(partes[5]), "UTF-8");
-
-                                this.dealer_nick = new String(Base64.getDecoder().decode(partes[6]), "UTF-8");
-
-                            } catch (UnsupportedEncodingException ex) {
-                                LOGGER.log(Level.SEVERE, null, ex);
+                        if (partes.length >= 3 && partes[2].equals("POSITIONS")) {
+                            PositionWireV1.Result decoded = PositionWireV1.parse(comando);
+                            if (!decoded.isOk()) {
+                                failed = true;
+                                LOGGER.log(Level.SEVERE, "POSITIONS rejected: {0}", decoded.error());
+                            } else {
+                                PositionWireV1.Value positions = decoded.value();
+                                this.utg_nick = positions.utg();
+                                this.big_blind_nick = positions.bigBlind();
+                                this.small_blind_nick = positions.smallBlind();
+                                this.dealer_nick = positions.dealer();
+                                GameFrame.getInstance().setConta_tiempo_juego(positions.playTime());
+                                if (positions.doubleBlinds()) {
+                                    this.doblarCiegas();
+                                }
+                                ok = true;
                             }
-
-                            GameFrame.getInstance().setConta_tiempo_juego(Long.parseLong(partes[7]));
-
-                            if (partes[8].equals("1")) {
-
-                                this.doblarCiegas();
-                            }
-
-                        } else if (partes.length >= 3 && partes[2].equals("POSITIONS")) {
-                            LOGGER.log(Level.WARNING, "POSITIONS malformed dropped: {0}", comando);
                         } else {
                             rejected.add(comando);
                         }
                     } catch (Exception ex) {
-                        LOGGER.log(Level.WARNING, "Exception while processing command in receivePositions: " + comando, ex);
+                        failed = true;
+                        LOGGER.log(Level.SEVERE, "Exception while processing POSITIONS: " + comando, ex);
                     }
 
                 }
@@ -8695,13 +8691,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             }
 
+            if (failed) {
+                break;
+            }
+
             if (!ok) {
 
                 if (GameFrame.getInstance().checkPause()) {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
 
-                    LOGGER.log(Level.WARNING, "recibirPosiciones timeout — POSITIONS never arrived from host. Breaking wait to avoid indefinite block.");
+                    LOGGER.log(Level.SEVERE, "recibirPosiciones timeout; the client connection will close");
+                    failed = true;
                     break;
                 } else {
 
@@ -8711,13 +8712,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             this.received_commands.wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
                             Helpers.logCooperativeCancellation(LOGGER, "received commands wait", ex);
+                            failed = true;
                             break;
                         }
                     }
                 }
             }
 
-        } while (!ok && !isFin_de_la_transmision());
+        } while (!ok && !failed && !isFin_de_la_transmision());
+
+        if (!ok && !isFin_de_la_transmision()) {
+            setForce_recover(true);
+            setTerminationPending();
+            setFin_de_la_transmision(true);
+            WaitingRoomFrame.getInstance().closeClientSocket();
+        }
 
     }
 
@@ -9603,6 +9612,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (!GameFrame.RECOVER) {
             this.setPositions();
+            if (isFin_de_la_transmision()) {
+                return false;
+            }
         }
 
         if (GameFrame.isRECOVER() && GameFrame.getInstance().isPartida_local()) {

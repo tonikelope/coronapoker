@@ -105,6 +105,8 @@
                     <systemPropertyVariables>
                         <qa.sessions>${qa.sessions}</qa.sessions>
                         <qa.hands>${qa.hands}</qa.hands>
+                        <qa.sim.hands>${qa.sim.hands}</qa.sim.hands>
+                        <qa.sim.seed>${qa.sim.seed}</qa.sim.seed>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
@@ -273,6 +275,33 @@
                             <excludedGroups></excludedGroups>
                             <includes combine.self="override">
                                 <include>**/net/SocketStallIntegrationTest.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Deterministic headless protocol campaign. Unlike qa-bots, this lane
+        composes the production consensus primitives and gives every simulated
+        peer an independent HandStateChain. Volume and replay seed are
+        controlled with -Dqa.sim.hands and -Dqa.sim.seed. -->
+        <profile>
+            <id>qa-protocol-sim</id>
+            <properties>
+                <qa.groups>protocol-sim</qa.groups>
+                <qa.excludedGroups></qa.excludedGroups>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <groups>protocol-sim</groups>
+                            <excludedGroups></excludedGroups>
+                            <includes combine.self="override">
+                                <include>**/protocolsim/*Test.java</include>
                             </includes>
                         </configuration>
                     </plugin>

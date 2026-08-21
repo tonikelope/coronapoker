@@ -3316,24 +3316,54 @@ public class WaitingRoomFrame extends JFrame {
                                                             case "IWTSTHRULE":
                                                                 // Global host rule. The "Game settings" dialog reflects the flag
                                                                 // when it opens; there's no menu/popup control left to sync.
-                                                                GameFrame.IWTSTH_RULE = "1".equals(partes_comando[3]);
+                                                                try {
+                                                                    GameFrame.IWTSTH_RULE = LiveRuleWire.parseBoolean(
+                                                                            partes_comando, "IWTSTHRULE");
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE, "Invalid IWTSTHRULE; closing host channel", ex);
+                                                                    closeCriticalHostChannel();
+                                                                }
                                                                 break;
                                                             case "RUNITWICERULE":
-                                                                GameFrame.RUN_IT_TWICE = "1".equals(partes_comando[3]);
+                                                                try {
+                                                                    GameFrame.RUN_IT_TWICE = LiveRuleWire.parseBoolean(
+                                                                            partes_comando, "RUNITWICERULE");
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE, "Invalid RUNITWICERULE; closing host channel", ex);
+                                                                    closeCriticalHostChannel();
+                                                                }
                                                                 break;
                                                             case "BOTBALRULE":
                                                                 // Whether bots' balance is split among humans (editable mid-game by
                                                                 // the host). The "Game settings" dialog reflects the flag on open.
-                                                                GameFrame.BOT_BALANCE_TO_HUMANS = "1".equals(partes_comando[3]);
+                                                                try {
+                                                                    GameFrame.BOT_BALANCE_TO_HUMANS = LiveRuleWire.parseBoolean(
+                                                                            partes_comando, "BOTBALRULE");
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE, "Invalid BOTBALRULE; closing host channel", ex);
+                                                                    closeCriticalHostChannel();
+                                                                }
                                                                 break;
                                                             case "BOTREBUYRULE":
                                                                 // Whether bots rebuy (editable mid-game by the host).
-                                                                GameFrame.BOT_REBUY = "1".equals(partes_comando[3]);
+                                                                try {
+                                                                    GameFrame.BOT_REBUY = LiveRuleWire.parseBoolean(
+                                                                            partes_comando, "BOTREBUYRULE");
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE, "Invalid BOTREBUYRULE; closing host channel", ex);
+                                                                    closeCriticalHostChannel();
+                                                                }
                                                                 break;
                                                             case "VOICEMSGRULE":
                                                                 // Global host rule. The audio settings dialog reflects the flag
                                                                 // when it opens; there's no menu/popup control left to sync.
-                                                                GameFrame.VOICE_MESSAGES = "1".equals(partes_comando[3]);
+                                                                try {
+                                                                    GameFrame.VOICE_MESSAGES = LiveRuleWire.parseBoolean(
+                                                                            partes_comando, "VOICEMSGRULE");
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE, "Invalid VOICEMSGRULE; closing host channel", ex);
+                                                                    closeCriticalHostChannel();
+                                                                }
                                                                 break;
                                                             case "RIT_VOTE_REQ":
                                                                 Helpers.threadRun(() -> {
@@ -3368,7 +3398,12 @@ public class WaitingRoomFrame extends JFrame {
                                                                 }
                                                                 break;
                                                             case "RABBITRULE":
-                                                                GameFrame.RABBIT_HUNTING = Integer.parseInt(partes_comando[3]);
+                                                                try {
+                                                                    GameFrame.RABBIT_HUNTING = LiveRuleWire.parseRabbit(partes_comando);
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE, "Invalid RABBITRULE; closing host channel", ex);
+                                                                    closeCriticalHostChannel();
+                                                                }
                                                                 break;
                                                             case "RABBIT_AUTH":
                                                                 try {
@@ -3691,8 +3726,13 @@ public class WaitingRoomFrame extends JFrame {
                                                                 }
                                                                 break;
                                                             case "MAXHANDS":
-                                                                GameFrame.MANOS = Integer.parseInt(partes_comando[3]);
-                                                                GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
+                                                                try {
+                                                                    GameFrame.MANOS = LiveRuleWire.parseMaxHands(partes_comando);
+                                                                    GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE, "Invalid MAXHANDS; closing host channel", ex);
+                                                                    closeCriticalHostChannel();
+                                                                }
                                                                 break;
                                                             case "UPDATEBLINDS":
                                                                 GameConfigWireV1.Result updateConfig = partes_comando.length == 4

@@ -18,6 +18,8 @@ public class SraPeerResponseShapeTest {
                 new String[]{"GAME", "2", "DECK_ROTATION_RESP", "nick", "pieces", "proof"}));
         assertTrue(Crupier.sraPeerResponseHasCurrentShape(
                 new String[]{"GAME", "3", "RESP_SRA_UNLOCK_CHAIN", "nick", "payload"}));
+        assertTrue(Crupier.sraPeerResponseHasCurrentShape(
+                new String[]{"GAME", "4", "DECK_CASCADE_PROOF", "nick", "hash", "proof"}));
 
         assertFalse(Crupier.sraPeerResponseHasCurrentShape(
                 new String[]{"GAME", "1", "DECK_CASCADE_RESP", "nick", "deck", "kp"}));
@@ -25,6 +27,8 @@ public class SraPeerResponseShapeTest {
                 new String[]{"GAME", "2", "DECK_ROTATION_RESP", "nick", "pieces", "proof", ""}));
         assertFalse(Crupier.sraPeerResponseHasCurrentShape(
                 new String[]{"GAME", "3", "RESP_SRA_UNLOCK_CHAIN", "nick"}));
+        assertFalse(Crupier.sraPeerResponseHasCurrentShape(
+                new String[]{"GAME", "4", "DECK_CASCADE_PROOF", "nick", "hash"}));
         assertFalse(Crupier.sraPeerResponseHasCurrentShape(
                 new String[]{"GAME", "4", "UNRELATED", "nick", "payload"}));
     }
@@ -40,6 +44,16 @@ public class SraPeerResponseShapeTest {
                 "DECK_ROTATION_RESP", "private java.util.List<UnlockChainWire.RespItem> requestRemoteUnlockChain(");
         assertFailClosedConsumer(source, "private java.util.List<UnlockChainWire.RespItem> requestRemoteUnlockChain(",
                 "RESP_SRA_UNLOCK_CHAIN", "private boolean sendGAMECommandToParticipant(");
+
+        int proofStart = source.indexOf("private java.util.Map<String, byte[]> collectAsyncCascadeProofs(");
+        int proofEnd = source.indexOf("private byte[] requestRemoteCascade(", proofStart);
+        String proofCollector = source.substring(proofStart, proofEnd);
+        int split = proofCollector.indexOf("cmd.split(\"#\", -1)");
+        int known = proofCollector.indexOf("\"DECK_CASCADE_PROOF\".equals(partes[2])");
+        int shape = proofCollector.indexOf("!sraPeerResponseHasCurrentShape(partes)", known);
+        int reject = proofCollector.indexOf("this.received_commands.reject(cmd)", shape);
+        assertTrue(split >= 0 && split < known && known < shape && shape < reject,
+                "DECK_CASCADE_PROOF must reject malformed authenticated occurrences");
     }
 
     private static void assertFailClosedConsumer(String source, String startMarker,

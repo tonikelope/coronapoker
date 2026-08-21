@@ -383,6 +383,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return partes.length == 6;
             case "RESP_SRA_UNLOCK_CHAIN":
                 return partes.length == 5;
+            case "DECK_CASCADE_PROOF":
+                return partes.length == 6;
             default:
                 return false;
         }
@@ -2148,10 +2150,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
                 while (!this.getReceived_commands().isEmpty()) {
                     String cmd = this.received_commands.poll();
-                    String[] partes = cmd.split("#");
-                    if (partes.length == 6 && "DECK_CASCADE_PROOF".equals(partes[2])
-                            && hashToStep.containsKey(partes[4]) && !collected.containsKey(partes[4])) {
-                        candidates.add(new String[]{partes[3], partes[4], partes[5], cmd});
+                    String[] partes = cmd.split("#", -1);
+                    if (partes.length >= 3 && "DECK_CASCADE_PROOF".equals(partes[2])) {
+                        if (!sraPeerResponseHasCurrentShape(partes)) {
+                            LOGGER.log(Level.SEVERE,
+                                    "Malformed critical DECK_CASCADE_PROOF; closing authenticated source");
+                            this.received_commands.reject(cmd);
+                        } else if (hashToStep.containsKey(partes[4])
+                                && !collected.containsKey(partes[4])) {
+                            candidates.add(new String[]{partes[3], partes[4], partes[5], cmd});
+                        } else {
+                            rejected.add(cmd);
+                        }
                     } else {
                         rejected.add(cmd); // not OUR proof -> re-queue (another builder / another command)
                     }

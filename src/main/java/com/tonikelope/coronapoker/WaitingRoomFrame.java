@@ -3670,19 +3670,23 @@ public class WaitingRoomFrame extends JFrame {
                                                                 if (inst_lasthand == null) {
                                                                     break;
                                                                 }
-                                                                if (partes_comando[3].equals("0")) {
-                                                                    inst_lasthand.getCrupier().setForce_recover(false);
+                                                                final LastHandWire.Command lastHandCommand;
+                                                                try {
+                                                                    lastHandCommand = LastHandWire.parse(partes_comando);
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE,
+                                                                            "Invalid LASTHAND; closing host channel", ex);
+                                                                    closeCriticalHostChannel();
+                                                                    break;
+                                                                }
+                                                                inst_lasthand.getCrupier()
+                                                                        .setForce_recover(lastHandCommand.recover());
+                                                                if (lastHandCommand.recover()) {
+                                                                    password = lastHandCommand.password();
+                                                                }
+                                                                if (!lastHandCommand.enabled()) {
                                                                     inst_lasthand.getTapete().getCommunityCards().last_hand_off();
                                                                 } else {
-                                                                    if (partes_comando[3].equals("2")) {
-                                                                        inst_lasthand.getCrupier().setForce_recover(true);
-                                                                        if (partes_comando.length > 4) {
-                                                                            try {
-                                                                                password = new String(Base64.getDecoder().decode(partes_comando[4]), "UTF-8");
-                                                                            } catch (Exception e) {
-                                                                            }
-                                                                        }
-                                                                    }
                                                                     inst_lasthand.getTapete().getCommunityCards().last_hand_on();
                                                                 }
                                                                 break;

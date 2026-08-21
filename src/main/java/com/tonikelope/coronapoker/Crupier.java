@@ -1964,6 +1964,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // whether the announcement was actually emitted. Never cleared: the Crupier lives as long as
     // the game and is never reused.
     private final java.util.Set<String> quit_anunciado = ConcurrentHashMap.newKeySet();
+    // Only a syntactically and cryptographically validated EXIT command waives
+    // the sender's future settlement receipt. Transport loss/automatic expulsion
+    // also announces an exit, but must remain distinguishable from a voluntary
+    // departure so a host cannot shrink the receipt set with a mutable flag.
+    private final java.util.Set<String> accepted_voluntary_exits = ConcurrentHashMap.newKeySet();
     private final ConcurrentHashMap<Player, Hand> perdedores = new ConcurrentHashMap<>();
     private final ConcurrentLinkedQueue<Player> flop_players = new ConcurrentLinkedQueue<>();
 
@@ -2163,6 +2168,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // signature needed to build the later atomic POTCARDS without asking a dead
     // socket or letting the host forge on the player's behalf.
     private final ConcurrentHashMap<String, String> verified_showdown_signatures
+            = new ConcurrentHashMap<>();
+    // A valid EXIT community testament is cryptographic state of the current
+    // hand, not connection state. Keep an independent copy so closing/removing
+    // the Participant cannot make the host forget a key it already accepted.
+    private final ConcurrentHashMap<String, byte[]> exit_community_testaments
             = new ConcurrentHashMap<>();
 
     // Rabbit-fee acceptance window: id of the just-finished hand whose bote_sobrante (including
@@ -3783,10 +3793,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // that's the security property this refactor exists for. With only the
             // community half, the host can still reveal community cards but can't
             // decrypt the leaving peer's pocket.
-            byte[] testament = null;
+            byte[] testament = exitCommunityTestament(nick, null);
             if (nick.equals(GameFrame.getInstance().getNick_local())) {
                 testament = this.local_sra_unlock_community;
-            } else {
+            } else if (testament == null) {
                 Participant p = GameFrame.getInstance().getParticipantes().get(nick);
                 if (p != null) {
                     // For both bots and humans, the community unlock lives in
@@ -3812,6 +3822,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.SEVERE, "Error generating the SRA exit testament for " + nick, e);
         }
         return "*";
+    }
+
+    private void rememberExitCommunityTestament(String nick, String testamentWire) {
+        if (nick == null || nick.isEmpty() || testamentWire == null
+                || testamentWire.isEmpty() || "*".equals(testamentWire)) {
+            return;
+        }
+        byte[] decoded = Base64.getDecoder().decode(testamentWire);
+        if (!Base64.getEncoder().encodeToString(decoded).equals(testamentWire)
+                || !RistrettoSRA.isValidScalar(decoded)) {
+            throw new IllegalArgumentException("invalid EXIT community testament");
+        }
+        exit_community_testaments.put(nick, decoded.clone());
+    }
+
+    private byte[] exitCommunityTestament(String nick, Participant participant) {
+        byte[] retained = nick == null ? null : exit_community_testaments.get(nick);
+        if (retained != null) {
+            return retained.clone();
+        }
+        byte[] connected = participant == null ? null : participant.getSra_unlock_community();
+        return connected == null ? null : connected.clone();
     }
 
     /**
@@ -6767,6 +6799,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // (bounded by the heartbeat stall detector) — unchanged from before.
     public void remotePlayerQuit(String nick, String testamento,
             String pocketKey, String pocketSignature) {
+        remotePlayerQuit(nick, testamento, pocketKey, pocketSignature, true);
+    }
+
+    private void remotePlayerQuit(String nick, String testamento,
+            String pocketKey, String pocketSignature, boolean acceptedVoluntaryExit) {
+        // Retain accepted hand evidence before any exit flag/socket teardown.
+        // The EXIT handler has already validated the wire; this validation also
+        // protects the convenience overloads from storing malformed material.
+        rememberExitCommunityTestament(nick, testamento);
+        if (acceptedVoluntaryExit && nick != null) {
+            accepted_voluntary_exits.add(nick);
+        }
         Player jugador = nick2player.get(nick);
         if (jugador != null && quit_anunciado.add(nick)) {
             if (!jugador.isExit()) {
@@ -6800,8 +6844,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             } else {
                 // On clients the Participant for an exiting peer is only a local
-                // shell, so keep its runtime/UI state synchronized. Consensus remains
-                // anchored to active_crypto_ring and does not erase a required receipt.
+                // shell, so keep its runtime/UI state synchronized. Receipt eligibility
+                // is decided separately from the validated voluntary-EXIT set.
                 Participant participante = GameFrame.getInstance().getParticipantes().get(nick);
                 if (participante != null) {
                     participante.setExit(true);
@@ -6823,7 +6867,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     // Convenience overload for callers without a pre-resolved participant.
     public void remotePlayerQuit(String nick) {
-        remotePlayerQuit(nick, null, null, null);
+        remotePlayerQuit(nick, null, null, null, false);
     }
 
     public Object getLock_apuestas() {
@@ -9057,6 +9101,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // messages in an inconsistent state.
         single_locked_pocket_cards.clear();
         verified_showdown_signatures.clear();
+        exit_community_testaments.clear();
         pocket_deferred_received.set(false);
         accepted_mega_packet.set(null);
         cascade_request_received.set(false);
@@ -9736,6 +9781,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.local_sra_lock_community = null;
         this.local_sra_unlock_community = null;
         this.local_mega_packet = null;
+        this.exit_community_testaments.clear();
 
         this.active_crypto_ring = null;
         this.game_recovered = 0;
@@ -12027,9 +12073,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * </ul>
      *
      * <p>
-     * EXIT and mutable player-state flags are deliberately ignored: after a human
-     * entered the ring, absence of their receipt must fail closed instead of
-     * shrinking the expected set.
+     * Mutable player-state flags are deliberately ignored. Only a validated
+     * voluntary EXIT waives the sender's future receipt; an abrupt disconnect or
+     * automatic expulsion remains required and is reported as MISSING.
      */
     private Set<String> computeExpectedConsensusSigners() {
         Set<String> botNicks = new HashSet<>();
@@ -12042,17 +12088,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
         }
-        return expectedConsensusSignersForRing(this.active_crypto_ring, botNicks);
+        return expectedConsensusSignersForRing(this.active_crypto_ring, botNicks,
+                this.accepted_voluntary_exits);
     }
 
-    static Set<String> expectedConsensusSignersForRing(String[] activeRing, Set<String> botNicks) {
+    static Set<String> expectedConsensusSignersForRing(String[] activeRing,
+            Set<String> botNicks, Set<String> acceptedVoluntaryExits) {
         Set<String> out = new LinkedHashSet<>();
         if (activeRing == null) {
             return out;
         }
         Set<String> bots = botNicks == null ? Collections.emptySet() : botNicks;
+        Set<String> voluntaryExits = acceptedVoluntaryExits == null
+                ? Collections.emptySet() : acceptedVoluntaryExits;
         for (String nick : activeRing) {
-            if (nick != null && !bots.contains(nick)) {
+            if (nick != null && !bots.contains(nick) && !voluntaryExits.contains(nick)) {
                 out.add(nick);
             }
         }
@@ -15351,8 +15401,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 continue;
             }
             Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-            if (p != null && !p.isCpu()) {
+            if ((p != null && !p.isCpu())
+                    || (p == null && exit_community_testaments.containsKey(nick))) {
                 remoteHumans.add(nick);
+            } else if (p == null) {
+                // A ring signer cannot disappear from the cascade silently: its
+                // lock is still present. Only a previously accepted EXIT
+                // testament lets us continue without the Participant object.
+                if (abortOnFail) {
+                    cancelarManoYDevolverApuestas("peer.community_unlock_no_testament");
+                }
+                return null;
             }
         }
 
@@ -15414,6 +15473,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (String h : remoteHumans) {
             Participant ph = GameFrame.getInstance().getParticipantes().get(h);
             if (ph == null) {
+                byte[] retainedTestament = exitCommunityTestament(h, null);
+                if (retainedTestament != null) {
+                    byte[] hCommunityLock = RistrettoSRA.getUnlockScalar(retainedTestament);
+                    if (!extendCommunityChainsForSigner(commChains, offset, numCards,
+                            h, h, hCommunityLock)) {
+                        if (abortOnFail) {
+                            cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+                        }
+                        return null;
+                    }
+                    continue;
+                }
                 if (abortOnFail) {
                     cancelarManoYDevolverApuestas("peer.community_unlock_no_testament");
                 }
@@ -15467,9 +15538,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                         return null;
                     }
-                } else if (ph.getSra_unlock_community() != null) {
+                } else if (exitCommunityTestament(h, ph) != null) {
                     // Testament: delivers ONLY the community half; the host extends it locally.
-                    byte[] hCommunityLock = RistrettoSRA.getUnlockScalar(ph.getSra_unlock_community());
+                    byte[] hCommunityLock = RistrettoSRA.getUnlockScalar(
+                            exitCommunityTestament(h, ph));
                     if (!extendCommunityChainsForSigner(commChains, offset, numCards, h, h, hCommunityLock)) {
                         if (abortOnFail) {
                             cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
@@ -15493,8 +15565,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                     return null;
                 }
-            } else if (ph.getSra_unlock_community() != null) {
-                byte[] hCommunityLock = RistrettoSRA.getUnlockScalar(ph.getSra_unlock_community());
+            } else if (exitCommunityTestament(h, ph) != null) {
+                byte[] hCommunityLock = RistrettoSRA.getUnlockScalar(
+                        exitCommunityTestament(h, ph));
                 if (!extendCommunityChainsForSigner(commChains, offset, numCards, h, h, hCommunityLock)) {
                     if (abortOnFail) {
                         cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");

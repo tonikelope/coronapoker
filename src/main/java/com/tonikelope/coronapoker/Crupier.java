@@ -19424,13 +19424,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Helpers.CSPRNG_GENERATOR.nextBytes(localReveal);
             byte[] localCommit = SeatDraw.commit(nonce, localNick, localReveal);
             byte[] localSig = signSeatCommitLocal(nonce, localNick, localCommit);
+            if (localSig == null) {
+                LOGGER.log(Level.SEVERE, "Host cannot sign its seat commitment; aborting seat draw");
+                setFin_de_la_transmision(true);
+                return null;
+            }
 
             final LinkedHashMap<String, byte[]> commits = new LinkedHashMap<>();
             final HashMap<String, byte[]> sigs = new HashMap<>();
             commits.put(localNick, localCommit);
-            if (localSig != null) {
-                sigs.put(localNick, localSig);
-            }
+            sigs.put(localNick, localSig);
 
             // ---- BEGIN: announce nonce + roster ----
             broadcastGAMECommandFromServer(buildSeatBeginCmd(nonceB64, roster), null, true);
@@ -19462,14 +19465,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
                 byte[] sig = decodeSeatSig(p[6]);
                 byte[] pub = seatContributorPubkey(nick);
-                if (pub != null && sig != null && !IdentityManager.verifySeatCommit(pub, nonce, nick, commit, sig)) {
+                if (pub == null || sig == null
+                        || !IdentityManager.verifySeatCommit(pub, nonce, nick, commit, sig)) {
                     LOGGER.log(Level.SEVERE, "ZERO-TRUST: invalid seat-commit signature from {0} — dropping", nick);
                     return "";
                 }
                 commits.put(nick, commit);
-                if (sig != null) {
-                    sigs.put(nick, sig);
-                }
+                sigs.put(nick, sig);
                 return nick;
             });
             if (rc == SEAT_COLLECT_ABORT) {
@@ -19809,6 +19811,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 commitTable = null;
                             }
                             byte[] mySig = signSeatCommitLocal(nonce, myNick, myCommit);
+                            if (mySig == null) {
+                                rejectCriticalSeatDrawHostCommand(null,
+                                        "Cannot sign local seat commitment; closing host channel", null);
+                                return null;
+                            }
                             sendGAMECommandToServer("SEAT_COMMIT#"
                                     + Base64.getEncoder().encodeToString(myNick.getBytes("UTF-8"))
                                     + "#" + nonceB64
@@ -19848,20 +19855,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     ok = false;
                                     break;
                                 }
-                                if (!nick.equals(myNick)) {
-                                    byte[] pub = seatContributorPubkey(nick);
-                                    if (pub != null && sig != null
-                                            && !IdentityManager.verifySeatCommit(pub, nonce, nick, commit, sig)) {
-                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: host relayed an invalid seat-commit signature for {0}", nick);
-                                        ok = false;
-                                        break;
-                                    }
+                                byte[] pub = seatContributorPubkey(nick);
+                                if (pub == null || sig == null
+                                        || !IdentityManager.verifySeatCommit(pub, nonce, nick, commit, sig)) {
+                                    LOGGER.log(Level.SEVERE, "ZERO-TRUST: host relayed an invalid seat-commit signature for {0}", nick);
+                                    ok = false;
+                                    break;
                                 }
-                                table.put(nick, commit);
+                                if (table.put(nick, commit) != null) {
+                                    ok = false;
+                                    break;
+                                }
                             }
                             if (!ok) {
                                 rejectCriticalSeatDrawHostCommand(null,
                                         "Invalid SEAT_COMMITS payload; closing host channel", null);
+                                return null;
+                            }
+                            if (!seatCommitContributorsMatchRoster(table.keySet(), roster)) {
+                                rejectCriticalSeatDrawHostCommand(null,
+                                        "Seat commit contributors differ from human roster; closing host channel", null);
                                 return null;
                             }
                             byte[] mineInTable = table.get(myNick);
@@ -19972,10 +19985,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return out;
     }
 
+    private boolean seatCommitContributorsMatchRoster(Set<String> contributors, java.util.List<String> roster) {
+        if (contributors == null || roster == null) {
+            return false;
+        }
+        HashSet<String> expected = new HashSet<>();
+        String localNick = GameFrame.getInstance().getNick_local();
+        Map<String, Participant> participants = GameFrame.getInstance().getParticipantes();
+        synchronized (participants) {
+            for (String nick : roster) {
+                Participant participant = participants.get(nick);
+                if (nick.equals(localNick) || (participant != null && !participant.isCpu())) {
+                    expected.add(nick);
+                }
+            }
+        }
+        return contributors.equals(expected);
+    }
+
     // Ed25519 pubkey to verify a seat contributor's commit signature. Local player -> our own
-    // identity; remote peer -> the pubkey pinned when it joined (TOFU). null if unavailable, in which
-    // case the signature check is skipped and the commit stands on its hash binding + each peer's
-    // self-check (the load-bearing guarantees), mirroring the codebase's graceful-degradation rule.
+    // identity; remote peer -> the pubkey presented when it joined (TOFU). verified_oob is not
+    // required: this binds the commitment to that session identity. A missing key is fatal because
+    // unsigned human commitments permit host equivocation.
     private byte[] seatContributorPubkey(String nick) {
         if (nick != null && nick.equals(GameFrame.getInstance().getNick_local())) {
             IdentityManager im = IdentityManager.getInstance();
@@ -19985,8 +20016,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return pp != null ? pp.getIdentity_pubkey() : null;
     }
 
-    // Signs the local player's seat commitment, or null when identity is not ready (the commit still
-    // stands on its hash binding + each peer's self-check; the signature is defense in depth).
+    // Signs the local player's seat commitment. A null result aborts the draw at the caller.
     private byte[] signSeatCommitLocal(byte[] nonce, String nick, byte[] commit) {
         try {
             IdentityManager im = IdentityManager.getInstance();
@@ -19997,18 +20027,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // A missing signature travels as "-" (Base64 never emits '-'), so a trailing empty field can't be
-    // swallowed by String.split and mistaken for a shorter command.
     private static String encodeSeatSig(byte[] sig) {
-        return (sig == null || sig.length == 0) ? "-" : Base64.getEncoder().encodeToString(sig);
+        if (sig == null || sig.length != 64) {
+            throw new IllegalArgumentException("seat commitment signature must be 64 bytes");
+        }
+        return Base64.getEncoder().encodeToString(sig);
     }
 
     private static byte[] decodeSeatSig(String field) {
-        if (field == null || field.equals("-") || field.isEmpty()) {
+        if (field == null || field.isEmpty()) {
             return null;
         }
         try {
-            return Base64.getDecoder().decode(field);
+            byte[] decoded = Base64.getDecoder().decode(field);
+            return decoded.length == 64 ? decoded : null;
         } catch (Exception ex) {
             return null;
         }

@@ -16846,26 +16846,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         start_time = System.currentTimeMillis();
                     } else if (System.currentTimeMillis() - start_time > SHOWDOWN_DELIVERY_TIMEOUT_MS) {
                         LOGGER.log(Level.SEVERE,
-                                "REQ_SHOWDOWN_KEY timeout — expelling non-responders before deterministic showdown: {0}",
+                                "REQ_SHOWDOWN_KEY timeout — preserving open hand for recovery; missing mandatory contenders: {0}",
                                 pendientes);
-                        for (String nick : new ArrayList<>(pendientes)) {
-                            Participant participant = GameFrame.getInstance().getParticipantes().get(nick);
-                            if (participant != null && !participant.isExit()) {
-                                participant.markExitAndNotify("withheld showdown key");
-                                try {
-                                    participant.socketClose();
-                                } catch (Exception ignored) {
-                                }
-                            }
-                        }
-                        pendientes.clear();
-                        break;
+                        containTableFailure(new IllegalStateException(
+                                "missing mandatory showdown proof from " + pendientes));
+                        return;
                     }
                     synchronized (this.getReceived_commands()) {
                         try {
                             this.received_commands.wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
+                            boolean tableClosing = isFin_de_la_transmision() || this.termination_pending;
                             Thread.currentThread().interrupt();
+                            failShowdownWaitIfUnexpected(tableClosing, ex);
                             return;
                         }
                     }
@@ -16915,6 +16908,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (anyCard) {
                 broadcastGAMECommandFromServer(potcards.toString(), null);
             }
+        }
+    }
+
+    private void failShowdownWaitIfUnexpected(boolean tableClosing, InterruptedException cause) {
+        if (!tableClosing) {
+            containTableFailure(new IllegalStateException("showdown proof wait interrupted", cause));
         }
     }
 

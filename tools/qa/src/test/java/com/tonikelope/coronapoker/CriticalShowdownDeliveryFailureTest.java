@@ -40,6 +40,16 @@ class CriticalShowdownDeliveryFailureTest {
         assertTrue(hostBuild.contains("missing mandatory POTCARDS proof"));
         assertTrue(hostBuild.contains("containTableFailure("),
                 "the host must preserve the open hand if it cannot build the full envelope");
+
+        String missingRevealTimeout = slice(hostBuild,
+                "System.currentTimeMillis() - start_time > SHOWDOWN_DELIVERY_TIMEOUT_MS",
+                "synchronized (this.getReceived_commands())", 0);
+        assertTrue(missingRevealTimeout.contains("containTableFailure("),
+                "a missing contender reveal must preserve the hand for recovery");
+        assertFalse(missingRevealTimeout.contains("markExitAndNotify("),
+                "a timeout cannot remove a contender and then settle without that hand");
+        assertFalse(missingRevealTimeout.contains("pendientes.clear()"),
+                "a timeout cannot manufacture completion of the mandatory reveal set");
     }
 
     private static String slice(String source, String startToken, String endToken, int from) {

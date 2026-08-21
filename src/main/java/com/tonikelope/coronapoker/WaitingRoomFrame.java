@@ -1968,7 +1968,7 @@ public class WaitingRoomFrame extends JFrame {
 
                 if (mensaje_recibido != null) {
 
-                    String[] partes_comando = mensaje_recibido.split("#");
+                    String[] partes_comando = mensaje_recibido.split("#", -1);
 
                     // CLEAN exit started by the host: game over or "stop game" with force_recover
                     // arrive as GAME#<id>#SERVEREXIT[RECOVER]; cancelling the game (EXIT) and
@@ -1977,8 +1977,8 @@ public class WaitingRoomFrame extends JFrame {
                     // BEFORE the null-read so it doesn't mistake it for a network drop and
                     // reconnect: the consumer already has the frame queued and will do the
                     // ordered shutdown.
-                    if (("GAME".equals(partes_comando[0]) && partes_comando.length > 2
-                            && ("SERVEREXIT".equals(partes_comando[2]) || "SERVEREXITRECOVER".equals(partes_comando[2])))
+                    if (("GAME".equals(partes_comando[0])
+                            && TableTerminationWire.isValidTerminationFrame(mensaje_recibido))
                             || "KICKED".equals(partes_comando[0]) || "EXIT".equals(partes_comando[0])) {
                         server_graceful_exit = true;
                     }
@@ -3710,16 +3710,33 @@ public class WaitingRoomFrame extends JFrame {
                                                                         updateConfig.value().blindsDouble(), updateConfig.value().blindsDoubleType());
                                                                 break;
                                                             case "SERVEREXIT":
-                                                                exit = true;
+                                                                try {
+                                                                    TableTerminationWire.ExitCommand termination
+                                                                            = TableTerminationWire.parse(partes_comando);
+                                                                    if (termination.recover()) {
+                                                                        throw new IllegalArgumentException("SERVEREXIT parsed as recover");
+                                                                    }
+                                                                    exit = true;
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE,
+                                                                            "Invalid SERVEREXIT; closing host channel", ex);
+                                                                    closeCriticalHostChannel();
+                                                                }
                                                                 break;
                                                             case "SERVEREXITRECOVER":
-                                                                exit = true;
-                                                                GameFrame.getInstance().getCrupier().setForce_recover(true);
-                                                                if (partes_comando.length > 3) {
-                                                                    try {
-                                                                        password = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                    } catch (Exception e) {
+                                                                try {
+                                                                    TableTerminationWire.ExitCommand termination
+                                                                            = TableTerminationWire.parse(partes_comando);
+                                                                    if (!termination.recover()) {
+                                                                        throw new IllegalArgumentException("SERVEREXITRECOVER parsed as final exit");
                                                                     }
+                                                                    password = termination.password();
+                                                                    GameFrame.getInstance().getCrupier().setForce_recover(true);
+                                                                    exit = true;
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE,
+                                                                            "Invalid SERVEREXITRECOVER; closing host channel", ex);
+                                                                    closeCriticalHostChannel();
                                                                 }
                                                                 break;
                                                             case "TTS":

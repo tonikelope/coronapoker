@@ -89,6 +89,10 @@ public final class HandStateChain {
      */
     public static final byte[] DOMAIN_SETTLE = "SETTLE\0".getBytes(StandardCharsets.UTF_8);
 
+    /** Domain separator for the canonical opening balance table. */
+    public static final byte[] DOMAIN_OPENING_BALANCES
+            = "BALANCE\0".getBytes(StandardCharsets.UTF_8);
+
     /**
      * Length in bytes of {@code H_t}.
      */
@@ -97,12 +101,14 @@ public final class HandStateChain {
     private final byte[] handId;
     private byte[] currentHash;
     private int absorbedActions;
+    private boolean openingBalancesAbsorbed;
     private boolean settlementAbsorbed;
 
     private HandStateChain(byte[] handId, byte[] h0) {
         this.handId = handId.clone();
         this.currentHash = h0;
         this.absorbedActions = 0;
+        this.openingBalancesAbsorbed = false;
         this.settlementAbsorbed = false;
     }
 
@@ -219,6 +225,35 @@ public final class HandStateChain {
      */
     public int getAbsorbedActions() {
         return absorbedActions;
+    }
+
+    /**
+     * Binds the canonical opening stacks to this hand before its first action.
+     * This makes a host-supplied balance fork visible in every later action and
+     * in the final receipt while keeping recovery deterministic from the
+     * persisted opening balance rows.
+     */
+    public byte[] absorbOpeningBalances(byte[] canonicalBalances) {
+        if (canonicalBalances == null || canonicalBalances.length == 0) {
+            throw new IllegalArgumentException("canonicalBalances required");
+        }
+        if (openingBalancesAbsorbed || absorbedActions != 0 || settlementAbsorbed) {
+            throw new IllegalStateException(
+                    "opening balances must be absorbed exactly once before actions");
+        }
+        byte[] preimage = new byte[DOMAIN_OPENING_BALANCES.length
+                + HASH_BYTES + canonicalBalances.length];
+        int p = 0;
+        System.arraycopy(DOMAIN_OPENING_BALANCES, 0, preimage, p,
+                DOMAIN_OPENING_BALANCES.length);
+        p += DOMAIN_OPENING_BALANCES.length;
+        System.arraycopy(currentHash, 0, preimage, p, HASH_BYTES);
+        p += HASH_BYTES;
+        System.arraycopy(canonicalBalances, 0, preimage, p,
+                canonicalBalances.length);
+        this.currentHash = sha256(preimage);
+        this.openingBalancesAbsorbed = true;
+        return getCurrentHash();
     }
 
     /**

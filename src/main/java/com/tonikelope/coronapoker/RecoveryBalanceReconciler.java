@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 /** Parses a recovery balance once and reconciles protected rows before apply. */
 public final class RecoveryBalanceReconciler {
@@ -91,6 +92,43 @@ public final class RecoveryBalanceReconciler {
             }
         }
         return host;
+    }
+
+    /**
+     * Encodes local balance rows into the single canonical wire representation
+     * used by recovery and by the between-hands balance barrier. Natural nick
+     * ordering makes the bytes independent of map/player iteration order.
+     */
+    public static String encodeLocal(Map<String, double[]> rows) {
+        Result parsed = parseLocal(rows);
+        if (!parsed.isOk() || parsed.balances.isEmpty()) {
+            throw new IllegalArgumentException("invalid or empty balance snapshot");
+        }
+        return encode(parsed.balances);
+    }
+
+    /** Returns canonical bytes for an already validated recovery result. */
+    public static String encode(Result result) {
+        if (result == null || !result.isOk() || result.balances.isEmpty()) {
+            throw new IllegalArgumentException("validated non-empty balance snapshot required");
+        }
+        return encode(result.balances);
+    }
+
+    private static String encode(Map<String, Balance> balances) {
+        StringBuilder wire = new StringBuilder();
+        for (Map.Entry<String, Balance> entry : new TreeMap<>(balances).entrySet()) {
+            if (wire.length() > 0) {
+                wire.append('@');
+            }
+            Balance balance = entry.getValue();
+            wire.append(Base64.getEncoder().encodeToString(
+                    entry.getKey().getBytes(StandardCharsets.UTF_8)))
+                    .append('|').append(balance.stack.toDecimal().toPlainString())
+                    .append('|').append(balance.buyin)
+                    .append('|').append(balance.rebuyCount.value());
+        }
+        return wire.toString();
     }
 
     public static Set<String> decodeRoster(String encodedRoster) {

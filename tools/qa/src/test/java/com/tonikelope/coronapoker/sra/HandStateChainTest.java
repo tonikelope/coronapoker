@@ -90,6 +90,23 @@ public class HandStateChainTest {
     }
 
     @Test
+    public void openingBalancesAreBoundBeforeTheFirstAction() {
+        HandStateChain a = startFor(handId(0x42), deck(0x01, 1664), "alice", "bob");
+        HandStateChain b = startFor(handId(0x42), deck(0x01, 1664), "alice", "bob");
+        HandStateChain c = startFor(handId(0x42), deck(0x01, 1664), "alice", "bob");
+
+        byte[] same = "YWxpY2U=|10.00|10|0@Ym9i|10.00|10|0"
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] fork = "YWxpY2U=|9.00|10|0@Ym9i|11.00|10|0"
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+        assertArrayEquals(a.absorbOpeningBalances(same), b.absorbOpeningBalances(same));
+        assertNotEquals(Arrays.toString(a.getCurrentHash()),
+                Arrays.toString(c.absorbOpeningBalances(fork)));
+        assertThrows(IllegalStateException.class, () -> a.absorbOpeningBalances(same));
+    }
+
+    @Test
     public void isDeterministicAnd32Bytes() {
         byte[] hid = handId(0x10);
         byte[] dck = deck(0x01, 1664);

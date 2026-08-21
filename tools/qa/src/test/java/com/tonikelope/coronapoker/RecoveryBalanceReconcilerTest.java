@@ -121,6 +121,22 @@ public class RecoveryBalanceReconcilerTest {
                 123L, Set.of("alice", "bob"), "alice"));
     }
 
+    @Test
+    public void boundarySnapshotEncodingIsCanonicalAndRoundTripsExactly() {
+        Map<String, double[]> forward = localRows(
+                row("bob", 124.75, 100, 0),
+                row("alice", 75.25, 100, 1));
+        Map<String, double[]> reverse = localRows(
+                row("alice", 75.25, 100, 1),
+                row("bob", 124.75, 100, 0));
+
+        String encoded = RecoveryBalanceReconciler.encodeLocal(forward);
+
+        assertEquals(encoded, RecoveryBalanceReconciler.encodeLocal(reverse));
+        assertTrue(RecoveryBalanceReconciler.reconcileExact(encoded, forward).isOk());
+        assertEquals("YWxpY2U=|75.25|100|1@Ym9i|124.75|100|0", encoded);
+    }
+
     private static Object[] row(String nick, double stack, int buyin, int rebuy) {
         return new Object[]{nick, stack, buyin, rebuy};
     }

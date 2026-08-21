@@ -10,7 +10,7 @@ param(
 
     [long]$Seed = 23059,
 
-    [ValidateSet('normal', 'abrupt-exit', 'controlled-exit', 'allin-rit', 'allin-controlled-exit', 'force-recover', 'double-force-recover', 'crash-rejoin-recover')]
+    [ValidateSet('normal', 'abrupt-exit', 'controlled-exit', 'allin-rit', 'allin-controlled-exit', 'force-recover', 'double-force-recover', 'crash-rejoin-recover', 'force-recover-add-client')]
     [string]$Scenario = 'normal',
 
     [ValidateSet('hidden', 'minimized', 'visible')]
@@ -56,6 +56,7 @@ Constraints:
   allin-controlled-exit requires -Clients 1, -Bots 0 and -Hands 1.
   double-force-recover requires exactly -Hands 4.
   crash-rejoin-recover requires exactly -Clients 1 and -Hands 2.
+  force-recover-add-client requires exactly -Clients 2 and -Hands 2.
 
 Scenarios:
   normal                  Plays complete hands and requires identical consensus
@@ -74,6 +75,8 @@ Scenarios:
                           settles fresh hands 2 and 4 without divergence.
   crash-rejoin-recover    Kills the client JVM, relaunches its same home and
                           identity, rejoins recovery and completes a new hand.
+  force-recover-add-client Recovers hand 1 with a brand-new passive observer;
+                          that peer then joins and settles fresh hand 2.
 
 Examples:
   .\tools\qa\run-real-game-e2e.ps1
@@ -85,6 +88,7 @@ Examples:
   .\tools\qa\run-real-game-e2e.ps1 -Scenario force-recover -Hands 2
   .\tools\qa\run-real-game-e2e.ps1 -Scenario double-force-recover -Hands 4
   .\tools\qa\run-real-game-e2e.ps1 -Scenario crash-rejoin-recover -Clients 1 -Hands 2
+  .\tools\qa\run-real-game-e2e.ps1 -Scenario force-recover-add-client -Clients 2 -Hands 2
   .\tools\qa\run-real-game-e2e.ps1 -WindowMode visible -Screen 2 -Animations
   .\tools\qa\run-real-game-e2e.ps1 -ProductionTiming -WindowMode minimized
 
@@ -114,6 +118,9 @@ if (($Scenario -eq 'double-force-recover') -and ($Hands -ne 4)) {
 }
 if (($Scenario -eq 'crash-rejoin-recover') -and (($Clients -ne 1) -or ($Hands -ne 2))) {
     throw 'Scenario crash-rejoin-recover requires exactly -Clients 1 -Hands 2.'
+}
+if (($Scenario -eq 'force-recover-add-client') -and (($Clients -ne 2) -or ($Hands -ne 2))) {
+    throw 'Scenario force-recover-add-client requires exactly -Clients 2 -Hands 2.'
 }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path

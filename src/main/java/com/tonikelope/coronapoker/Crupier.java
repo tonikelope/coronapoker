@@ -368,8 +368,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     static boolean startCascadeSignalHasCurrentShape(String[] partes) {
         return partes != null
-                && partes.length == 3
-                && "START_SRA_CASCADE".equals(partes[2]);
+                && partes.length == 4
+                && "START_SRA_CASCADE".equals(partes[2])
+                && partes[3] != null
+                && !partes[3].isEmpty();
     }
 
     static boolean sraPeerResponseHasCurrentShape(String[] partes) {
@@ -1943,6 +1945,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // weakly-consistent, exception-free iteration, exactly what a best-effort balance dump during
     // shutdown needs.
     private final ConcurrentHashMap<String, Double[]> auditor = new ConcurrentHashMap<>();
+    // Immutable balance roster of the hand currently being played/replayed.
+    // The live table roster may grow in a recovery lobby, but those newcomers
+    // are observers until the next hand and must not enter this hand's ledger.
+    private volatile java.util.Set<String> current_hand_balance_roster
+            = java.util.Collections.emptySet();
+    // True only for a client that joined a recovery lobby while the host is
+    // replaying an open hand in which this identity never participated. Such a
+    // client has no fossil, HAND_ID or crypto ring for that hand, so it must not
+    // manufacture a local hand or enter betting/settlement. It advances directly
+    // to the existing HAND_READY barrier for the following hand.
+    private volatile boolean passive_recovery_observer = false;
+    // Canonical opening balance wire committed into H_0. Live hands derive it
+    // from their atomic SQL opening rows; recovery derives the exact same bytes
+    // from the persisted recovery snapshot.
+    private volatile String current_hand_opening_balance_wire = null;
+    // Balance barrier received/sent before the next fresh hand. Null means the
+    // first hand or the pre-recovery bootstrap where no completed predecessor
+    // exists yet; it is never accepted for a departing passive observer.
+    private volatile String next_hand_balance_wire = null;
     private final Object lock_ciegas = new Object();
     private final Object lock_apuestas = new Object();
     private final Object lock_contabilidad = new Object();
@@ -5998,6 +6019,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         synchronized (this.getLock_contabilidad()) {
 
+            java.util.Set<String> handRoster = this.current_hand_balance_roster;
+
             for (Player jugador : GameFrame.getInstance().getJugadores()) {
                 this.auditor.put(jugador.getNickname(),
                         new Double[]{jugador.getStack()
@@ -6023,6 +6046,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int nick_w = 1, stack_w = 1, buyin_w = 1;
 
             for (Player jugador : GameFrame.getInstance().getJugadores()) {
+
+                if (!handRoster.isEmpty() && !handRoster.contains(jugador.getNickname())) {
+                    continue;
+                }
 
                 String nick = jugador.getNickname();
 
@@ -7834,6 +7861,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 setFin_de_la_transmision(true);
                 return;
             }
+            this.current_hand_opening_balance_wire
+                    = RecoveryBalanceReconciler.encode(recoveredBalances);
 
             if (map.get("start") != null) {
                 GameFrame.GAME_START_TIMESTAMP = (long) map.get("start");
@@ -8152,6 +8181,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 saltar_primera_mano = true;
                 return;
             }
+            this.current_hand_opening_balance_wire
+                    = RecoveryBalanceReconciler.encode(recoveredBalances);
             if (map != null && map.get("hand_id") != null) {
                 this.sqlite_id_hand = (int) map.get("hand_id");
             }
@@ -8439,6 +8470,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 saltar_primera_mano = true;
                 if (hostReplayingHand) {
                     this.game_recovered = 1;
+                    this.passive_recovery_observer = true;
                     // The local client is a passive observer of the in-progress hand (no fossil
                     // of its own since it wasn't part of it — e.g. it left cleanly on a
                     // previous hand and the host invites it to rejoin mid-hand of the next one
@@ -8506,6 +8538,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (recoveredBalances != null && recoveredBalances.isOk()) {
                 java.util.Set<String> nicksRec = recoveredBalances.balances().keySet();
+                this.current_hand_balance_roster = HandBalanceRoster.bind(nicksRec);
                 // The complete immutable snapshot was parsed and reconciled before any
                 // player, auditor or rebuy state is mutated.
                 for (java.util.Map.Entry<String, RecoveryBalanceReconciler.Balance> entry
@@ -9124,7 +9157,99 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return bote_total;
     }
 
-    private void readyForNextHand() {
+    /**
+     * Effective stacks at the hand boundary. Payouts still live in pagar until
+     * Player.nuevaMano(), so stack+pagar is the opening stack of the next hand.
+     * Auditor-only rows retain players no longer rendered on the table, while
+     * current Player objects overlay them and add recovery-lobby newcomers.
+     */
+    private Map<String, double[]> collectNextHandBalanceRows() {
+        Map<String, double[]> rows = new LinkedHashMap<>();
+        for (Map.Entry<String, Double[]> entry : this.auditor.entrySet()) {
+            Double[] value = entry.getValue();
+            if (value != null && value.length >= 2
+                    && value[0] != null && value[1] != null) {
+                rows.put(entry.getKey(), new double[]{
+                    Helpers.doubleClean(value[0]), value[1],
+                    getRebuyCount(entry.getKey())
+                });
+            }
+        }
+        for (Player player : GameFrame.getInstance().getJugadores()) {
+            if (player != null) {
+                rows.put(player.getNickname(), new double[]{
+                    Helpers.doubleClean(player.getStack() + player.getPagar()),
+                    player.getBuyin(), getRebuyCount(player.getNickname())
+                });
+            }
+        }
+        return rows;
+    }
+
+    /** Validates (normal peer) or atomically applies (passive newcomer) a boundary snapshot. */
+    private boolean acceptNextHandBalanceSnapshot(String wire,
+            boolean passiveObserver) {
+        if ("*".equals(wire)) {
+            if (passiveObserver) {
+                LOGGER.log(Level.SEVERE,
+                        "RECOVER: passive observer received no mandatory next-hand balance snapshot");
+                return false;
+            }
+            this.next_hand_balance_wire = null;
+            return true;
+        }
+
+        Map<String, double[]> localRows = collectNextHandBalanceRows();
+        RecoveryBalanceReconciler.Result verified = passiveObserver
+                ? RecoveryBalanceReconciler.parseObserver(wire, localRows.keySet())
+                : RecoveryBalanceReconciler.reconcileExact(wire, localRows);
+        if (!verified.isOk()
+                || !verified.balances().keySet().equals(localRows.keySet())) {
+            LOGGER.log(Level.SEVERE,
+                    "ZERO-TRUST: next-hand balance barrier rejected: {0}",
+                    verified.isOk() ? "ROSTER_MISMATCH" : verified.error());
+            return false;
+        }
+
+        String canonical = RecoveryBalanceReconciler.encode(verified);
+        if (!canonical.equals(wire)) {
+            LOGGER.log(Level.SEVERE,
+                    "ZERO-TRUST: non-canonical next-hand balance snapshot");
+            return false;
+        }
+
+        if (passiveObserver) {
+            Map<String, Double[]> replacementAuditor = new LinkedHashMap<>();
+            for (Map.Entry<String, RecoveryBalanceReconciler.Balance> entry
+                    : verified.balances().entrySet()) {
+                String nick = entry.getKey();
+                RecoveryBalanceReconciler.Balance balance = entry.getValue();
+                double stack = balance.stack().toDecimal().doubleValue();
+                replacementAuditor.put(nick,
+                        new Double[]{stack, (double) balance.buyin()});
+                Player player = this.nick2player.get(nick);
+                if (player != null) {
+                    player.setStack(stack);
+                    player.setBet(0f);
+                    player.setPagar(0f);
+                    player.setBuyin(balance.buyin());
+                }
+                if (balance.rebuyCount().value() == 0) {
+                    this.rebuy_counts.remove(nick);
+                } else {
+                    this.rebuy_counts.put(nick, balance.rebuyCount().value());
+                }
+            }
+            this.auditor.clear();
+            this.auditor.putAll(replacementAuditor);
+            LOGGER.log(Level.INFO,
+                    "RECOVER: applied verified closing balances before observer admission");
+        }
+        this.next_hand_balance_wire = canonical;
+        return true;
+    }
+
+    private void readyForNextHand(boolean discardObservedHandCommands) {
         // Between-hands cleanup of the pocket-card cache and the pending command queue. The
         // queue must be cleared under its own monitor because the Participant thread may be
         // polling it concurrently (received_commands is synchronized on every access);
@@ -9140,7 +9265,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         rotation_request_received.set(false);
         dual_lock_bundle_received.set(false);
 
+        int discardedObservedCommands = 0;
         synchronized (received_commands) {
+            if (discardObservedHandCommands) {
+                discardedObservedCommands = received_commands.size();
+            }
             received_commands.clear();
         }
 
@@ -9165,6 +9294,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Identity: the per-hand chain belongs to the hand that just ended. The
         // new hand seeds a fresh chain after its MEGAPACKET arrives.
         this.hand_state_chain = null;
+        this.current_hand_opening_balance_wire = null;
+        this.next_hand_balance_wire = null;
 
         // Identity: reset the invalid-sig flag for the new hand.
         this.saw_invalid_action_sig = false;
@@ -9269,8 +9400,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            // Host tells everyone they can start processing the SRA cascade.
-            broadcastGAMECommandFromServer("START_SRA_CASCADE", null, true);
+            // Host tells everyone they can start processing the SRA cascade. Once a
+            // completed/recovered hand exists, the same ordered barrier also carries
+            // the exact effective stacks for the next hand. Existing clients verify;
+            // a passive recovery observer applies it before becoming active.
+            String boundaryWire = "*";
+            if (!this.current_hand_balance_roster.isEmpty()) {
+                try {
+                    boundaryWire = RecoveryBalanceReconciler.encodeLocal(
+                            collectNextHandBalanceRows());
+                    this.next_hand_balance_wire = boundaryWire;
+                } catch (IllegalArgumentException ex) {
+                    LOGGER.log(Level.SEVERE,
+                            "Cannot produce mandatory next-hand balance snapshot", ex);
+                    setFin_de_la_transmision(true);
+                    return;
+                }
+            }
+            broadcastGAMECommandFromServer(
+                    "START_SRA_CASCADE#" + boundaryWire, null, true);
 
         } else {
             // Client announces it's ready for the current hand and waits for the host's signal
@@ -9296,7 +9444,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 WaitingRoomFrame.getInstance().closeClientSocket();
                                 return;
                             }
+                            if (!acceptNextHandBalanceSnapshot(partes[3],
+                                    discardObservedHandCommands)) {
+                                this.received_commands.reject(comando);
+                                setFin_de_la_transmision(true);
+                                WaitingRoomFrame.getInstance().closeClientSocket();
+                                return;
+                            }
                             serverCommitted = true;
+                        } else if (discardObservedHandCommands) {
+                            // The socket is ordered: before START_SRA_CASCADE every
+                            // queued command belongs to the recovered hand this peer
+                            // explicitly did not participate in. Consume it exactly
+                            // once instead of restoring it into the next hand, where
+                            // its ACTION/POTCARDS/HANDVERIFY context would be stale.
+                            discardedObservedCommands++;
                         } else {
                             rejected.add(comando);
                         }
@@ -9323,6 +9485,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
             } while (!serverCommitted && !isFin_de_la_transmision());
+
+            if (discardObservedHandCommands && discardedObservedCommands > 0) {
+                LOGGER.log(Level.INFO,
+                        "RECOVER: consumed {0} queued command(s) from passively observed hand",
+                        discardedObservedCommands);
+            }
         }
     }
 
@@ -9804,6 +9972,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private boolean NUEVA_MANO() {
 
+        final boolean leavingPassiveObservedHand = this.passive_recovery_observer;
+        // Cleared on every attempt. recuperarDatosClavePartida sets it again only
+        // for the narrowly-defined newcomer-observing-an-open-recovered-hand case.
+        this.passive_recovery_observer = false;
+
         // Community cards for this hand haven't been dealt yet: the call-cost overlay stays
         // hidden until repartir() places them.
         this.community_cards_dealt = false;
@@ -9842,7 +10015,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Helpers.cleanHandCrupierTempFiles(this.sqlite_id_game);
         }
 
-        readyForNextHand();
+        readyForNextHand(leavingPassiveObservedHand);
 
         if (isFin_de_la_transmision()) {
             return false;
@@ -10190,9 +10363,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // again.  An open hand replays at its durable counter; a closed/showdown hand starts the
         // following one.  A recovery with no durable hand naturally starts at one.
         if (recoveryRequestedForThisHand) {
-            setContaManoLocal(handCounterForRecovery(this.conta_mano, !saltar_primera_mano));
+            // A passive newcomer skips the body of the recovered hand, but it is
+            // still synchronized *at that hand's ordinal*. Treating saltar=true as
+            // a fresh hand here would increment twice: the next loop would send a
+            // HAND_READY ordinal beyond the host's immediate next hand and be
+            // correctly disconnected as malformed.
+            boolean replayingRecoveredOrdinal = !saltar_primera_mano
+                    || this.passive_recovery_observer;
+            setContaManoLocal(handCounterForRecovery(this.conta_mano,
+                    replayingRecoveredOrdinal));
         } else {
             setContaManoLocal(this.conta_mano + 1);
+        }
+
+        if (this.passive_recovery_observer) {
+            // This peer was not a member of the recovered hand and therefore has
+            // no evidence with which to verify or replay it. Returning success lets
+            // run() perform an explicit observer transition; the next NUEVA_MANO
+            // sends HAND_READY for conta_mano + 1 and waits until the real members
+            // have closed this hand. No old-hand SQL row, action, receipt or payout
+            // is created locally.
+            LOGGER.log(Level.INFO,
+                    "RECOVER: passive newcomer waiting for the next hand after recovered hand {0}",
+                    this.conta_mano);
+            return true;
         }
 
         if (GameFrame.MANOS == conta_mano && GameFrame.getInstance().isPartida_local()) {
@@ -10513,12 +10707,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // (spectator && stack>0 && !exit) still get no row — they should
             // not contribute to balance until they enter a hand for real.
             ArrayList<HandCreateTransaction.BalanceRow> balances = new ArrayList<>();
+            Map<String, double[]> openingBalanceRows = new LinkedHashMap<>();
             for (HandCloseTransaction.BalanceUpdate row : collectHandBalanceSnapshot(true)) {
+                double stack = row.stack.toDecimal().doubleValue();
+                int buyin = Math.toIntExact(row.buyin.cents() / 100L);
+                int rebuy = row.rebuyCount.value();
                 balances.add(new HandCreateTransaction.BalanceRow(
-                        row.nick, row.stack.toDecimal().doubleValue(),
-                        Math.toIntExact(row.buyin.cents() / 100L), row.rebuyCount.value()));
+                        row.nick, stack, buyin, rebuy));
+                openingBalanceRows.put(row.nick,
+                        new double[]{stack, buyin, rebuy});
             }
             try {
+                String openingWire = RecoveryBalanceReconciler.encodeLocal(
+                        openingBalanceRows);
+                if (this.next_hand_balance_wire != null
+                        && !this.next_hand_balance_wire.equals(openingWire)) {
+                    LOGGER.log(Level.SEVERE,
+                            "Next-hand balance barrier disagrees with atomic opening rows");
+                    return false;
+                }
                 HandCreateTransaction.HandRow hand = new HandCreateTransaction.HandRow(
                         this.sqlite_id_game, this.conta_mano, this.ciega_pequeña,
                         this.ciegas_double, this.dealer_nick, this.small_blind_nick,
@@ -10529,9 +10736,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // Publish only after HandCreateTransaction has committed the hand and
                 // its complete balance roster.
                 this.sqlite_id_hand = committedHandId;
+                java.util.HashSet<String> committedRoster = new java.util.HashSet<>();
+                for (HandCreateTransaction.BalanceRow row : balances) {
+                    committedRoster.add(row.nick);
+                }
+                this.current_hand_balance_roster = HandBalanceRoster.bind(committedRoster);
+                this.current_hand_opening_balance_wire = openingWire;
                 return true;
             } catch (Exception ex) {
                 this.sqlite_id_hand = -1;
+                this.current_hand_opening_balance_wire = null;
                 LOGGER.log(Level.SEVERE,
                         "Failed to atomically create hand and balances", ex);
                 return false;
@@ -10865,6 +11079,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // assumption.
             ArrayList<String> balance_float = new ArrayList<>();
             ArrayList<HandCloseTransaction.BalanceUpdate> balance_updates = new ArrayList<>();
+            java.util.Set<String> handRoster = this.current_hand_balance_roster;
+            if (handRoster.isEmpty()) {
+                LOGGER.log(Level.SEVERE,
+                        "Refusing hand close without an immutable balance roster");
+                return false;
+            }
+            Map<String, Double[]> closingAuditor;
+            try {
+                closingAuditor = HandBalanceRoster.selectExact(handRoster, auditor);
+            } catch (IllegalArgumentException ex) {
+                LOGGER.log(Level.SEVERE,
+                        "Refusing hand close with incomplete immutable balance roster", ex);
+                return false;
+            }
 
             // UPDATE hand + this hand's balances in ONE transaction: with per-statement
             // autocommit, a crash between the hand UPDATE and the balance UPDATEs would leave
@@ -10883,7 +11111,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 con.setAutoCommit(false);
                 tx = true;
 
-                for (Map.Entry<String, Double[]> entry : auditor.entrySet()) {
+                for (Map.Entry<String, Double[]> entry : closingAuditor.entrySet()) {
 
                     Player jugador = nick2player.get(entry.getKey());
 
@@ -17665,8 +17893,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (this.current_hand_id == null
                 || this.local_mega_packet == null
                 || this.active_crypto_ring == null
-                || this.active_crypto_ring.length == 0) {
+                || this.active_crypto_ring.length == 0
+                || this.current_hand_opening_balance_wire == null
+                || this.current_hand_opening_balance_wire.isEmpty()) {
             this.hand_state_chain = null;
+            if (this.current_hand_id != null && this.local_mega_packet != null
+                    && this.active_crypto_ring != null
+                    && this.active_crypto_ring.length > 0) {
+                LOGGER.log(Level.SEVERE,
+                        "Missing canonical opening balances - hand state chain not initialized");
+            }
             return;
         }
         java.util.List<byte[]> playerIds = new java.util.ArrayList<>();
@@ -17699,6 +17935,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         try {
             this.hand_state_chain = HandStateChain.start(
                     this.current_hand_id, playerIds, kPockets, kCommunities, this.local_mega_packet);
+            this.hand_state_chain.absorbOpeningBalances(
+                    this.current_hand_opening_balance_wire.getBytes(
+                            java.nio.charset.StandardCharsets.UTF_8));
             LOGGER.log(Level.INFO, "Hand state chain initialized: H_0={0}",
                     Base64.getEncoder().encodeToString(this.hand_state_chain.getCurrentHash()));
             // Recovery: persist HAND_ID on the SQL hand row so
@@ -22206,6 +22445,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             try {
                 if ((getJugadoresActivos() + getJugadoresCalentando()) > 1 && !GameFrame.getInstance().getLocalPlayer().isExit()) {
                     if (this.NUEVA_MANO()) {
+                        if (this.passive_recovery_observer) {
+                            // Deterministic state transition for a newcomer that was
+                            // never part of the recovered hand. Do not weaken the
+                            // hand_state_chain guard or pretend to verify old state;
+                            // loop directly into the normal HAND_READY barrier for
+                            // the first hand this peer can actually participate in.
+                            continue;
+                        }
                         if (!requireVerifiedShuffleBeforeBetting()) {
                             continue;
                         }

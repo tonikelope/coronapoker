@@ -11,11 +11,13 @@ import org.junit.jupiter.api.Test;
 public class StartCascadeSignalShapeTest {
 
     @Test
-    void currentStartSignalHasExactlyThreeFields() {
+    void currentStartSignalHasExactlyOneBalanceSnapshotField() {
         assertTrue(Crupier.startCascadeSignalHasCurrentShape(
-                new String[]{"GAME", "7", "START_SRA_CASCADE"}));
+                new String[]{"GAME", "7", "START_SRA_CASCADE", "*"}));
+        assertTrue(Crupier.startCascadeSignalHasCurrentShape(
+                new String[]{"GAME", "7", "START_SRA_CASCADE", "YWxpY2U=|10.00|10|0"}));
         assertFalse(Crupier.startCascadeSignalHasCurrentShape(
-                new String[]{"GAME", "7", "START_SRA_CASCADE", "extra"}));
+                new String[]{"GAME", "7", "START_SRA_CASCADE"}));
         assertFalse(Crupier.startCascadeSignalHasCurrentShape(
                 new String[]{"GAME", "7", "START_SRA_CASCADE", ""}));
         assertFalse(Crupier.startCascadeSignalHasCurrentShape(
@@ -26,7 +28,7 @@ public class StartCascadeSignalShapeTest {
     void malformedKnownStartSignalClosesHostChannel() throws Exception {
         String source = Files.readString(locateRoot().resolve(
                 "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
-        int wait = source.indexOf("private void readyForNextHand()");
+        int wait = source.indexOf("private void readyForNextHand(boolean discardObservedHandCommands)");
         int split = source.indexOf("comando.split(\"#\", -1)", wait);
         int known = source.indexOf("partes[2].equals(\"START_SRA_CASCADE\")", wait);
         int shape = source.indexOf("!startCascadeSignalHasCurrentShape(partes)", known);
@@ -38,7 +40,7 @@ public class StartCascadeSignalShapeTest {
         assertTrue(shape < reject && reject < finish && finish < close);
 
         String normalized = source.replace("\r\n", "\n");
-        assertTrue(normalized.contains("readyForNextHand();\n\n"
+        assertTrue(normalized.contains("readyForNextHand(leavingPassiveObservedHand);\n\n"
                 + "        if (isFin_de_la_transmision()) {\n"
                 + "            return false;\n"
                 + "        }"));

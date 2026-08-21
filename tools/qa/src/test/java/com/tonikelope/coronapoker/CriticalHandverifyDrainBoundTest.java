@@ -4,15 +4,21 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 public class CriticalHandverifyDrainBoundTest {
 
     @Test
-    public void queueDrainHasAFiniteBatchBeforeRecheckingDeadlines() {
-        assertTrue(Crupier.criticalHandverifyDrainBatchLimit() > 0);
-        assertTrue(Crupier.criticalHandverifyDrainBatchLimit() <= 1024);
+    public void queueDrainIsBoundedByAcceptedSnapshotNotAnArbitraryPrefix() {
+        GameCommandMailbox mailbox = new GameCommandMailbox(4096);
+        for (int i = 0; i < 256; i++) {
+            mailbox.add("GAME#" + i + "#ACTION#deferred");
+        }
+        mailbox.add("GAME#257#HANDVERIFY");
+
+        assertEquals(257, Crupier.criticalHandverifySnapshotSize(mailbox));
     }
 
     @Test
@@ -25,7 +31,8 @@ public class CriticalHandverifyDrainBoundTest {
         String waiting = Files.readString(root.resolve(
                 "src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java"));
 
-        assertTrue(count(crupier, "drainedHandverify < CRITICAL_HANDVERIFY_DRAIN_BATCH") >= 2);
+        assertTrue(count(crupier, "criticalHandverifySnapshotSize(this.getReceived_commands())") >= 2);
+        assertTrue(count(crupier, "drainedHandverify < scanLimit") >= 2);
         assertTrue(participant.contains("partes_comando.length == 5"));
         assertTrue(participant.contains("HandverifyReceiptEnvelope.parse(partes_comando)"));
         assertTrue(waiting.contains("case \"HANDVERIFY\":"));

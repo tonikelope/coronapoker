@@ -694,10 +694,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // hand for recovery instead of ever settling blindly.
     public static final long HANDVERIFY_TRIGGER_PROGRESS_TIMEOUT_MS
             = RECON_CHURN_HARD_CAP_MS + BROADCAST_PROGRESS_TIMEOUT_MS;
-    private static final int CRITICAL_HANDVERIFY_DRAIN_BATCH = 256;
-
-    static int criticalHandverifyDrainBatchLimit() {
-        return CRITICAL_HANDVERIFY_DRAIN_BATCH;
+    static int criticalHandverifySnapshotSize(GameCommandMailbox mailbox) {
+        if (mailbox == null) {
+            throw new IllegalArgumentException("mailbox is required");
+        }
+        return mailbox.size();
     }
     // Last-resort active-time bound for the initial client deal. Full-table cascade
     // retries can legitimately be very long, so this is deliberately 24h. Expiry
@@ -11205,9 +11206,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         do {
             synchronized (this.getReceived_commands()) {
                 ArrayList<String> rejected = new ArrayList<>();
+                int scanLimit = criticalHandverifySnapshotSize(this.getReceived_commands());
                 int drainedHandverify = 0;
                 while (!trigger_seen && !this.getReceived_commands().isEmpty()
-                        && drainedHandverify < CRITICAL_HANDVERIFY_DRAIN_BATCH) {
+                        && drainedHandverify < scanLimit) {
                     drainedHandverify++;
                     String comando = this.received_commands.poll();
                     String[] partes = comando.split("#", -1);
@@ -11509,9 +11511,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 String misdealMotivo = "";
                 synchronized (this.getReceived_commands()) {
                     ArrayList<String> rejected = new ArrayList<>();
+                    int scanLimit = criticalHandverifySnapshotSize(this.getReceived_commands());
                     int drainedHandverify = 0;
                     while (!this.getReceived_commands().isEmpty()
-                            && drainedHandverify < CRITICAL_HANDVERIFY_DRAIN_BATCH
+                            && drainedHandverify < scanLimit
                             && System.currentTimeMillis() < deadline) {
                         drainedHandverify++;
                         String comando = this.received_commands.poll();

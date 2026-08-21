@@ -2070,7 +2070,13 @@ public class Participant implements Runnable {
                                             break;
                                         case "HAND_READY": // SRA LIGHTWEIGHT START COMMAND
                                             try {
-                                                this.new_hand_ready = Integer.parseInt(partes_comando[3]);
+                                                Crupier crupier = GameFrame.getInstance().getCrupier();
+                                                int currentHand = crupier.getMano();
+                                                if (!Crupier.handReadyMatchesNextHand(partes_comando, currentHand)) {
+                                                    throw new IllegalArgumentException(
+                                                            "HAND_READY does not name the immediate next hand");
+                                                }
+                                                this.new_hand_ready = currentHand + 1;
                                             } catch (Exception e) {
                                                 LOGGER.log(Level.SEVERE, "Malformed critical HAND_READY from " + nick + "; closing connection", e);
                                                 if (game_command_gate.rejectCriticalViolation().closeConnection()) {

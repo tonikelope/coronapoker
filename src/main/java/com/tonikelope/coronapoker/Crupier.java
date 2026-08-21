@@ -456,6 +456,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return rosterSet.equals(knownSet);
     }
 
+    static boolean handReadyMatchesNextHand(String[] fields, int currentHand) {
+        if (fields == null || fields.length != 4 || currentHand < 0
+                || currentHand == Integer.MAX_VALUE
+                || !"GAME".equals(fields[0]) || !"HAND_READY".equals(fields[2])) {
+            return false;
+        }
+        try {
+            int gameId = Integer.parseInt(fields[1]);
+            int readyHand = Integer.parseInt(fields[3]);
+            return gameId >= 0
+                    && Integer.toString(gameId).equals(fields[1])
+                    && readyHand == currentHand + 1
+                    && Integer.toString(readyHand).equals(fields[3]);
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
     /**
      * Identity §4.9 (pure, testable): builds the ACTION subcommand sent on the
      * wire.

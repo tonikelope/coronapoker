@@ -1964,12 +1964,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // whether the announcement was actually emitted. Never cleared: the Crupier lives as long as
     // the game and is never reused.
     private final java.util.Set<String> quit_anunciado = ConcurrentHashMap.newKeySet();
-    // Only a syntactically and cryptographically validated EXIT command carrying
-    // a usable community testament waives the sender's future settlement receipt.
-    // Transport loss/automatic expulsion (and EXIT without a testament) must remain
-    // distinguishable so the next street takes the MISDEAL/refund path instead of
-    // silently shrinking the receipt set.
-    private final java.util.Set<String> accepted_voluntary_exits = ConcurrentHashMap.newKeySet();
+    // Every departure observed during this hand stops requiring future settlement
+    // receipts from that player, matching the original EXIT contract. Whether play
+    // can continue is a separate card-unlock decision: a valid community testament
+    // permits later streets; without it, the next required unlock is MISDEAL/refund.
+    private final java.util.Set<String> exited_consensus_participants = ConcurrentHashMap.newKeySet();
     private final ConcurrentHashMap<Player, Hand> perdedores = new ConcurrentHashMap<>();
     private final ConcurrentLinkedQueue<Player> flop_players = new ConcurrentLinkedQueue<>();
 
@@ -6800,18 +6799,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // (bounded by the heartbeat stall detector) — unchanged from before.
     public void remotePlayerQuit(String nick, String testamento,
             String pocketKey, String pocketSignature) {
-        remotePlayerQuit(nick, testamento, pocketKey, pocketSignature, true);
-    }
-
-    private void remotePlayerQuit(String nick, String testamento,
-            String pocketKey, String pocketSignature, boolean acceptedVoluntaryExit) {
         // Retain accepted hand evidence before any exit flag/socket teardown.
         // The EXIT handler has already validated the wire; this validation also
         // protects the convenience overloads from storing malformed material.
         rememberExitCommunityTestament(nick, testamento);
-        if (acceptedVoluntaryExit && testamento != null
-                && !testamento.isEmpty() && !"*".equals(testamento) && nick != null) {
-            accepted_voluntary_exits.add(nick);
+        if (nick != null) {
+            exited_consensus_participants.add(nick);
         }
         Player jugador = nick2player.get(nick);
         if (jugador != null && quit_anunciado.add(nick)) {
@@ -6869,7 +6862,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     // Convenience overload for callers without a pre-resolved participant.
     public void remotePlayerQuit(String nick) {
-        remotePlayerQuit(nick, null, null, null, false);
+        remotePlayerQuit(nick, null, null, null);
     }
 
     public Object getLock_apuestas() {
@@ -9104,6 +9097,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         single_locked_pocket_cards.clear();
         verified_showdown_signatures.clear();
         exit_community_testaments.clear();
+        exited_consensus_participants.clear();
         pocket_deferred_received.set(false);
         accepted_mega_packet.set(null);
         cascade_request_received.set(false);
@@ -9784,6 +9778,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.local_sra_unlock_community = null;
         this.local_mega_packet = null;
         this.exit_community_testaments.clear();
+        this.exited_consensus_participants.clear();
 
         this.active_crypto_ring = null;
         this.game_recovered = 0;
@@ -12075,10 +12070,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * </ul>
      *
      * <p>
-     * Mutable player-state flags are deliberately ignored. Only a validated
-     * voluntary EXIT carrying a validated community testament waives the sender's
-     * future receipt; an abrupt disconnect, automatic expulsion, or EXIT without a
-     * testament remains required and cannot masquerade as a clean departure.
+     * Every observed departure is excluded, as in the original contract: a player
+     * who has gone cannot produce a future receipt. This does not authorize later
+     * streets. Their community testament is checked separately by the unlock path,
+     * which aborts and refunds the hand when it is unavailable.
      */
     private Set<String> computeExpectedConsensusSigners() {
         Set<String> botNicks = new HashSet<>();
@@ -12092,20 +12087,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
         return expectedConsensusSignersForRing(this.active_crypto_ring, botNicks,
-                this.accepted_voluntary_exits);
+                this.exited_consensus_participants);
     }
 
     static Set<String> expectedConsensusSignersForRing(String[] activeRing,
-            Set<String> botNicks, Set<String> acceptedVoluntaryExits) {
+            Set<String> botNicks, Set<String> exitedParticipants) {
         Set<String> out = new LinkedHashSet<>();
         if (activeRing == null) {
             return out;
         }
         Set<String> bots = botNicks == null ? Collections.emptySet() : botNicks;
-        Set<String> voluntaryExits = acceptedVoluntaryExits == null
-                ? Collections.emptySet() : acceptedVoluntaryExits;
+        Set<String> exits = exitedParticipants == null
+                ? Collections.emptySet() : exitedParticipants;
         for (String nick : activeRing) {
-            if (nick != null && !bots.contains(nick) && !voluntaryExits.contains(nick)) {
+            if (nick != null && !bots.contains(nick) && !exits.contains(nick)) {
                 out.add(nick);
             }
         }

@@ -6,12 +6,12 @@ import java.util.LinkedHashSet;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.Test;
 
-public class ExitedRingParticipantStillRequiredForConsensusTest {
+public class ExitedRingParticipantExcludedFromConsensusTest {
 
     @Test
-    public void acceptedVoluntaryExitWaivesOnlyThatPlayersFutureReceipt() {
+    public void everyObservedExitWaivesThatPlayersFutureReceipt() {
         String[] handRing = {"host", "alice", "bot-1"};
-        LinkedHashSet<String> expected = new LinkedHashSet<>(Arrays.asList("host"));
+        LinkedHashSet<String> expected = new LinkedHashSet<>(Collections.singletonList("host"));
 
         assertEquals(expected,
                 Crupier.expectedConsensusSignersForRing(handRing,
@@ -19,7 +19,7 @@ public class ExitedRingParticipantStillRequiredForConsensusTest {
     }
 
     @Test
-    public void abruptDisconnectWithoutAcceptedExitStillRequiresReceipt() {
+    public void humanWithoutObservedExitRemainsRequired() {
         String[] handRing = {"host", "alice", "bot-1"};
         LinkedHashSet<String> expected = new LinkedHashSet<>(Arrays.asList("host", "alice"));
 

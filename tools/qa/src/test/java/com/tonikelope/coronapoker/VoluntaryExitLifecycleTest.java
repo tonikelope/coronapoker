@@ -13,8 +13,7 @@ class VoluntaryExitLifecycleTest {
         String acceptedExit = methodBody(source,
                 "public void remotePlayerQuit(String nick, String testamento,");
         String abruptExit = methodBody(source, "public void remotePlayerQuit(String nick)");
-        String quit = methodBody(source,
-                "remotePlayerQuit(String nick, String testamento,\n            String pocketKey, String pocketSignature, boolean acceptedVoluntaryExit)");
+        String quit = acceptedExit;
         String testament = methodBody(source, "getTestamentoCriptografico(String nick)");
         String newHand = methodBody(source, "private boolean NUEVA_MANO()");
 
@@ -22,15 +21,12 @@ class VoluntaryExitLifecycleTest {
                 "an accepted EXIT testament must belong to hand state, not only to the socket Participant");
         assertTrue(quit.indexOf("rememberExitCommunityTestament") >= 0,
                 "remotePlayerQuit must retain the validated community testament");
-        assertTrue(quit.contains("acceptedVoluntaryExit && testamento != null")
-                        && quit.contains("!testamento.isEmpty()")
-                        && quit.contains("!\"*\".equals(testamento)")
-                        && quit.contains("accepted_voluntary_exits.add(nick)"),
-                "null, empty and absent-marker testaments must not waive the future receipt");
-        assertTrue(acceptedExit.contains("pocketSignature, true)"),
-                "the strict EXIT handler path must register a voluntary departure");
-        assertTrue(abruptExit.contains("null, null, null, false)"),
-                "socket loss and automatic expulsion must not waive the missing receipt");
+        assertTrue(quit.contains("exited_consensus_participants.add(nick)"),
+                "every observed departure must stop requiring impossible future receipts");
+        assertTrue(acceptedExit.contains("pocketSignature)"),
+                "the strict EXIT handler path must register the departure");
+        assertTrue(abruptExit.contains("null, null, null)"),
+                "socket loss and automatic expulsion must register a departure without inventing a testament");
         assertTrue(quit.indexOf("rememberExitCommunityTestament")
                 < quit.indexOf("exitAndCloseSocket"),
                 "the testament must be retained before the source socket is closed");
@@ -38,6 +34,8 @@ class VoluntaryExitLifecycleTest {
                 "community-card recovery must fall back to the retained EXIT testament");
         assertTrue(newHand.contains("exit_community_testaments.clear()"),
                 "a per-hand testament must not leak into the next hand");
+        assertTrue(newHand.contains("exited_consensus_participants.clear()"),
+                "an exit from an earlier hand must not waive a future participant's receipt");
     }
 
     private static String methodBody(String source, String signature) {

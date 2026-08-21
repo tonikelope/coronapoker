@@ -3536,7 +3536,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 while (!ok && !this.getReceived_commands().isEmpty()) {
                     String comando = this.received_commands.poll();
                     try {
-                        String[] partes = comando.split("#");
+                        String[] partes = comando.split("#", -1);
                         if (partes.length < 3) {
                             LOGGER.log(Level.SEVERE,
                                     "Malformed critical GAME command during initial deal; closing host channel: {0}",
@@ -12781,7 +12781,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
                     while (!ok && !this.getReceived_commands().isEmpty()) {
                         String comando = this.received_commands.poll();
-                        String[] partes = comando.split("#");
+                        String[] partes = comando.split("#", -1);
 
                         {
                             try {
@@ -13278,7 +13278,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 ArrayList<String> rejected = new ArrayList<>();
                 while (!this.getReceived_commands().isEmpty()) {
                     String cmd = this.received_commands.poll();
-                    String[] partes = cmd.split("#");
+                    String[] partes = cmd.split("#", -1);
                     if (partes.length >= 3 && partes[2].equals("RIT_VOTE_RESP")) {
                         try {
                             CriticalVoteEnvelope vote = CriticalVoteEnvelope.parseRitResponse(partes);
@@ -13846,7 +13846,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 Integer answer = null;
                 while (!this.getReceived_commands().isEmpty()) {
                     String cmd = this.received_commands.poll();
-                    String[] partes = cmd.split("#");
+                    String[] partes = cmd.split("#", -1);
                     if (partes.length >= 3 && partes[2].equals("STRADDLE_RESP")) {
                         try {
                             CriticalVoteEnvelope response
@@ -14366,7 +14366,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 byte[] residue = null;
                 while (!this.getReceived_commands().isEmpty()) {
                     String comando = this.received_commands.poll();
-                    String[] partes = comando.split("#");
+                    String[] partes = comando.split("#", -1);
                     if (partes.length >= 3 && partes[2].equals("POCKET_CARDS")) {
                         try {
                             ParsedPocketCards parsed = parsePocketCardsWire(partes, this.active_crypto_ring);

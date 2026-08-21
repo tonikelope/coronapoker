@@ -34,7 +34,8 @@ final class RealGameLoopbackE2EIT {
         int hands = intProperty("qa.e2e.hands", 1, 1, 100);
         long seed = Long.getLong("qa.e2e.seed", 23059L);
         String scenario = System.getProperty("qa.e2e.scenario", "normal");
-        assertTrue(scenario.equals("normal") || scenario.equals("abrupt-exit"),
+        assertTrue(scenario.equals("normal") || scenario.equals("abrupt-exit")
+                || scenario.equals("controlled-exit"),
                 "unsupported qa.e2e.scenario: " + scenario);
         assertTrue(clients + bots + 1 <= 8, "host + clients + bots must fit the table");
 
@@ -58,6 +59,10 @@ final class RealGameLoopbackE2EIT {
 
             if (scenario.equals("abrupt-exit")) {
                 runAbruptExitScenario(nodes, host, clients + bots + 1);
+                return;
+            }
+            if (scenario.equals("controlled-exit")) {
+                runControlledExitScenario(nodes, host, clients + bots + 1);
                 return;
             }
 
@@ -103,6 +108,29 @@ final class RealGameLoopbackE2EIT {
         assertTrue(host.contains("balanceRows=" + seats), host.diagnostic());
         assertTrue(host.contains("stackCents=" + (seats * 1000L)), host.diagnostic());
         assertTrue(host.isAlive(), "host died after peer MISDEAL\n" + host.diagnostic());
+        assertFalse(host.contains("TABLE_FAILURE_V1"), host.diagnostic());
+        assertFalse(host.contains("CP_E2E_FAIL"), host.diagnostic());
+    }
+
+    private static void runControlledExitScenario(List<NodeProcess> nodes, NodeProcess host,
+            int seats) throws Exception {
+        NodeProcess departingClient = nodes.get(1);
+        assertTrue(host.await("HAND 1: betting round Preflop", Duration.ofSeconds(90)),
+                host.diagnostic());
+        assertTrue(departingClient.await("HAND 1: betting round Preflop", Duration.ofSeconds(30)),
+                departingClient.diagnostic());
+
+        departingClient.send("CONTROLLED_EXIT");
+        assertTrue(departingClient.await("CP_E2E_CONTROLLED_EXIT_SENT", Duration.ofSeconds(30)),
+                departingClient.diagnostic());
+        assertTrue(host.await("CP_E2E_HANDS_COMPLETE", Duration.ofMinutes(3)), host.diagnostic());
+        assertTrue(host.await("CP_E2E_LEDGER", Duration.ofSeconds(30)), host.diagnostic());
+
+        assertTrue(host.contains("balanceRows=" + seats), host.diagnostic());
+        assertTrue(host.contains("stackCents=" + (seats * 1000L)), host.diagnostic());
+        assertTrue(host.contains("verified: 1 receipts unanimous"), host.diagnostic());
+        assertTrue(host.isAlive(), "host died after controlled EXIT\n" + host.diagnostic());
+        assertFalse(host.contains("MISDEAL triggered:"), host.diagnostic());
         assertFalse(host.contains("TABLE_FAILURE_V1"), host.diagnostic());
         assertFalse(host.contains("CP_E2E_FAIL"), host.diagnostic());
     }
@@ -229,6 +257,11 @@ final class RealGameLoopbackE2EIT {
 
         private boolean isAlive() {
             return process.isAlive();
+        }
+
+        private void send(String command) throws IOException {
+            process.getOutputStream().write((command + "\n").getBytes(StandardCharsets.UTF_8));
+            process.getOutputStream().flush();
         }
 
         private void killForcibly() throws InterruptedException {

@@ -10,7 +10,7 @@ param(
 
     [long]$Seed = 23059,
 
-    [ValidateSet('normal', 'abrupt-exit')]
+    [ValidateSet('normal', 'abrupt-exit', 'controlled-exit')]
     [string]$Scenario = 'normal',
 
     [ValidateSet('hidden', 'minimized', 'visible')]
@@ -40,7 +40,7 @@ Options:
   -Bots <0..7>             Production bots hosted by the server (default: 2)
   -Hands <1..100>          Complete hands to play (default: 1)
   -Seed <long>             Reproducible action-driver seed (default: 23059)
-  -Scenario <name>         normal or abrupt-exit (default: normal)
+  -Scenario <name>         normal, abrupt-exit or controlled-exit (default: normal)
   -WindowMode <mode>       hidden, minimized or visible (default: hidden)
   -Screen <1..16>          Target monitor for every mode (default: 2)
   -Animations              Enable production animations; disabled by default
@@ -56,6 +56,7 @@ Examples:
   .\tools\qa\run-real-game-e2e.ps1
   .\tools\qa\run-real-game-e2e.ps1 -Clients 2 -Bots 1 -Hands 3 -Seed 42
   .\tools\qa\run-real-game-e2e.ps1 -Scenario abrupt-exit
+  .\tools\qa\run-real-game-e2e.ps1 -Scenario controlled-exit
   .\tools\qa\run-real-game-e2e.ps1 -WindowMode visible -Screen 2 -Animations
   .\tools\qa\run-real-game-e2e.ps1 -ProductionTiming -WindowMode minimized
 

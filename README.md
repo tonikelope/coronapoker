@@ -341,6 +341,9 @@ Typical runs:
 
 # Kill one client JVM during preflop and require MISDEAL + full refund + live host.
 .\tools\qa\run-real-game-e2e.ps1 -Scenario abrupt-exit
+
+# Exercise the real voluntary EXIT testament path; the host must finish normally.
+.\tools\qa\run-real-game-e2e.ps1 -Scenario controlled-exit
 ```
 
 The real-game runner defaults to hidden windows, disabled sound/animations and

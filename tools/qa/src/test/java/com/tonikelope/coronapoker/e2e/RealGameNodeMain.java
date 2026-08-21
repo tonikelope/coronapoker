@@ -16,7 +16,10 @@ import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.event.WindowEvent;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
@@ -27,6 +30,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * One real CoronaPoker peer for the opt-in loopback E2E lane.
@@ -46,6 +50,7 @@ public final class RealGameNodeMain {
     private static final boolean ANIMATIONS = Boolean.getBoolean("coronapoker.qa.animations");
     private static final Set<Window> POSITIONED_WINDOWS = java.util.Collections.newSetFromMap(
             new WeakHashMap<>());
+    private static final CountDownLatch PARENT_CLOSED = new CountDownLatch(1);
 
     private RealGameNodeMain() {
     }
@@ -105,6 +110,7 @@ public final class RealGameNodeMain {
         }
 
         await("mounted GameFrame", START_TIMEOUT, () -> localPlayerIfMounted() != null);
+        startControlThread();
 
         Thread actionDriver = new Thread(() -> driveLocalActions(config.seed), "qa-real-game-action-driver");
         actionDriver.setDaemon(true);
@@ -123,9 +129,7 @@ public final class RealGameNodeMain {
 
         // The parent owns the lifetime of all peers and stops them together once
         // every independent SQLite ledger has observed the completed hand(s).
-        while (System.in.read() != -1) {
-            // Wait for the parent to close stdin.
-        }
+        PARENT_CLOSED.await();
     }
 
     private static void configureRuntime(NodeConfig config) throws Exception {
@@ -242,6 +246,50 @@ public final class RealGameNodeMain {
                 marker("FAIL", "actionDriver=" + error.getClass().getName());
                 return;
             }
+        }
+    }
+
+    private static void startControlThread() {
+        Thread controls = new Thread(() -> {
+            try (BufferedReader input = new BufferedReader(new InputStreamReader(
+                    System.in, StandardCharsets.UTF_8))) {
+                String command;
+                while ((command = input.readLine()) != null) {
+                    if (command.equals("CONTROLLED_EXIT")) {
+                        invokeControlledClientExit();
+                        marker("CONTROLLED_EXIT_SENT", "role=client");
+                    } else if (!command.isBlank()) {
+                        throw new IllegalArgumentException("unknown parent control: " + command);
+                    }
+                }
+            } catch (Throwable error) {
+                error.printStackTrace(System.err);
+                marker("FAIL", "control=" + error.getClass().getName());
+            } finally {
+                PARENT_CLOSED.countDown();
+            }
+        }, "qa-real-game-parent-controls");
+        controls.setDaemon(true);
+        controls.start();
+    }
+
+    private static void invokeControlledClientExit() throws Exception {
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        EventQueue.invokeAndWait(() -> {
+            try {
+                GameFrame frame = GameFrame.getInstance();
+                if (frame == null || frame.isPartida_local()) {
+                    throw new IllegalStateException("controlled EXIT requires a mounted client table");
+                }
+                Method exit = GameFrame.class.getDeclaredMethod("performControlledClientExit");
+                exit.setAccessible(true);
+                exit.invoke(frame);
+            } catch (Throwable error) {
+                failure.set(error);
+            }
+        });
+        if (failure.get() != null) {
+            throw new IllegalStateException("cannot invoke production controlled EXIT", failure.get());
         }
     }
 

@@ -5636,22 +5636,29 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             // 0=yes, 1=no, 2=cancel
             if (exit_dialog.isExit()) {
-
-                final String exitCommand = crupier.buildLocalExitCommand();
-                getLocalPlayer().setExit();
-
-                Helpers.threadRun(() -> {
-                    if (!getSala_espera().isReconnecting()) {
-                        crupier.sendGAMECommandToServer(exitCommand, false);
-                    }
-
-                    finTransmision(false);
-                });
-
+                performControlledClientExit();
             }
         }
 
     }//GEN-LAST:event_exit_menuActionPerformed
+
+    /**
+     * Executes the post-confirmation client EXIT path. Kept separate from the
+     * modal dialog so the real-game E2E lane can exercise the exact production
+     * testament/send/teardown sequence without automating Swing prompts.
+     */
+    private void performControlledClientExit() {
+        final String exitCommand = crupier.buildLocalExitCommand();
+        getLocalPlayer().setExit();
+
+        Helpers.threadRun(() -> {
+            if (!getSala_espera().isReconnecting()) {
+                crupier.sendGAMECommandToServer(exitCommand, false);
+            }
+
+            finTransmision(false);
+        });
+    }
 
     private void acerca_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_acerca_menuActionPerformed
         // TODO add your handling code here:

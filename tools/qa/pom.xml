@@ -312,6 +312,7 @@
                                 <include>**/ProtocolExitRecoverySimulationTest.java</include>
                                 <include>**/ProtocolPotRabbitCampaignTest.java</include>
                                 <include>**/ProtocolLifecycleCampaignTest.java</include>
+                                <include>**/ProtocolSqlRecoveryCampaignTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>

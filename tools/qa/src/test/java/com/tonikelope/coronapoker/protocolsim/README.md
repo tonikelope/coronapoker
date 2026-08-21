@@ -70,6 +70,10 @@ thresholds with hard per-hand conservation, liveness and validity invariants.
   reconciliation and signed action replay to the uninterrupted `H_t`.
 - Cross-session snapshot and post-signature mutation rejection before chain
   mutation.
+- Real in-memory SQLite recovery queries over thousands of games: latest-hand
+  selection, durable hand ordinal, atomic production row conversion, strict
+  current snapshot round-trip and corrupt/missing cryptographic hand-ID
+  rejection.
 - Seeded lifecycle transitions: normal drain, final exit, force-recover,
   abrupt disconnect/MISDEAL, socket reconnect with pending critical-command
   preservation, RIT side-B interruption and malformed termination. Old-session
@@ -89,7 +93,8 @@ thresholds with hard per-hand conservation, liveness and validity invariants.
   production side-pot constructor itself is randomized above.
 - Full `Crupier` Rabbit request/pause/showdown orchestration; the production
   signed ledger and all fee modes are randomized above.
-- Full `Crupier` EXIT/MISDEAL/refund orchestration and SQLite recovery replay.
+- Full `Crupier` EXIT/MISDEAL/refund orchestration and action-by-action SQLite
+  replay; current snapshot query/row conversion is covered above.
 - A single live-`Crupier` campaign that interrupts an active hand, reconnects
   its real sockets and resumes through SQLite. Transport and lifecycle faults
   are currently seeded campaigns over the production gates/state machines,

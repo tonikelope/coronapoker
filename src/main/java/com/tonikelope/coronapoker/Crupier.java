@@ -19026,33 +19026,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // recovery against, a partially-filled map with null dealer/sb/bb. This
                         // matches the original single-try behavior (a mid-read SQLException skipped
                         // the balance block) while also hardening the downstream recovery.
-                        HashMap<String, Object> built = new HashMap<>();
-                        built.put("start", rs.getLong("start"));
-                        built.put("hand_id", rs.getInt("hand_id"));
-                        built.put("hand_end", rs.getLong("hand_end"));
-                        built.put("server", rs.getString("server"));
-                        built.put("preflop_players", rs.getString("preflop_players"));
-                        // Recovery: cryptographic HAND_ID (16 bytes,
-                        // base64) needed to re-seed HandStateChain.start with the same
-                        // value the original hand used. The snapshot validator rejects
-                        // the recovery if this current-version field is missing.
-                        String handIdB64 = rs.getString("hand_id_b64");
-                        if (handIdB64 != null) {
-                            built.put("hand_id_b64", handIdB64);
-                        }
-                        built.put("buyin", rs.getInt("buyin"));
-                        built.put("rebuy", rs.getBoolean("rebuy"));
-                        built.put("play_time", rs.getLong("play_time"));
-                        built.put("conta_mano", rs.getInt("conta_mano"));
-                        built.put("sbval", rs.getDouble("sbval"));
-                        built.put("bbval", rs.getDouble("bbval"));
-                        built.put("blinds_time", rs.getInt("blinds_time"));
-                        built.put("blinds_time_type", rs.getInt("blinds_time_type"));
-                        built.put("blinds_double", rs.getInt("blinds_double"));
-                        built.put("dealer", rs.getString("dealer"));
-                        built.put("sb", rs.getString("sb"));
-                        built.put("bb", rs.getString("bb"));
-                        map = built;
+                        map = RecoveryGameKeyDataReader.read(rs);
                     }
                 }
 

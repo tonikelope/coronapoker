@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
@@ -22,6 +23,7 @@ import java.util.zip.GZIPOutputStream;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.sqlite.Function;
 
 /**
  * Data-layer tests for {@link StatsSync}: serialization round-trip, primary-key
@@ -219,6 +221,55 @@ public class StatsSyncTest {
             assertEquals(g, count(dst, "game"));
             assertEquals(h, count(dst, "hand"));
             assertEquals(a, count(dst, "action"));
+            assertNoOrphans(dst);
+        }
+    }
+
+    @Test
+    void interruptedStatsWorkCancelsBeforeHoldingTheOldTableSession() throws Exception {
+        try (Connection dst = mem()) {
+            Thread.currentThread().interrupt();
+            try {
+                assertThrows(Helpers.CooperativeCancellationException.class,
+                        () -> StatsSync.importGames(dst, gzip(new byte[]{1, 2, 3})));
+            } finally {
+                // Do not leak this test's cancellation into Surefire/JUnit.
+                Thread.interrupted();
+            }
+            assertTrue(dst.getAutoCommit());
+            assertEquals(0, count(dst, "game"));
+        }
+    }
+
+    @Test
+    void interruptionDuringImportRollsBackThePartialGameAndRestoresAutoCommit() throws Exception {
+        try (Connection src = mem(); Connection dst = mem()) {
+            seedRichGame(src, "UGI_INTERRUPTED");
+            byte[] blob = StatsSync.exportGames(src, List.of("UGI_INTERRUPTED"));
+
+            // Interrupt deterministically from SQLite immediately after the root
+            // game INSERT. The next cancellation checkpoint must roll that open
+            // transaction back; no partially imported game may survive teardown.
+            Function.create(dst, "interrupt_import_thread", new Function() {
+                @Override
+                protected void xFunc() {
+                    Thread.currentThread().interrupt();
+                }
+            });
+            try (Statement st = dst.createStatement()) {
+                st.execute("CREATE TRIGGER interrupt_stats_import AFTER INSERT ON game "
+                        + "BEGIN SELECT interrupt_import_thread(); END");
+            }
+
+            try {
+                assertThrows(Helpers.CooperativeCancellationException.class,
+                        () -> StatsSync.importGames(dst, blob));
+            } finally {
+                Thread.interrupted();
+            }
+
+            assertTrue(dst.getAutoCommit());
+            assertEquals(0, count(dst, "game"));
             assertNoOrphans(dst);
         }
     }

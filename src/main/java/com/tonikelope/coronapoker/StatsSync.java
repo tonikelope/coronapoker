@@ -187,7 +187,9 @@ public final class StatsSync {
     /**
      * Merges a received blob into the local database and returns the number of
      * games newly inserted (already-known and malformed games are skipped).
-     * Never throws.
+     * Data/SQL failures are logged and converted to zero. A table teardown's
+     * cooperative-cancellation signal deliberately propagates so an obsolete
+     * session cannot retain the shared database lock.
      */
     public static int importGames(byte[] blob) {
         return importGames(blob, null);
@@ -225,9 +227,11 @@ public final class StatsSync {
      * mine)} is what I lack (and would receive if I sync). O(|a| + |b|).
      */
     public static List<String> difference(Collection<String> a, Collection<String> b) {
+        checkCooperativeCancellation();
         java.util.HashSet<String> exclude = new java.util.HashSet<>(b);
         List<String> out = new ArrayList<>();
         for (String x : a) {
+            checkCooperativeCancellation();
             if (x != null && !exclude.contains(x)) {
                 out.add(x);
             }
@@ -278,6 +282,7 @@ public final class StatsSync {
         List<String> out = new ArrayList<>();
         try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql.toString())) {
             while (rs.next()) {
+                checkCooperativeCancellation();
                 if (nickFilter && gameInvolvesAny(rs.getString("players"), excludeNicks)) {
                     continue;
                 }
@@ -332,12 +337,14 @@ public final class StatsSync {
     }
 
     public static byte[] exportGames(Connection conn, Collection<String> ugis) throws Exception {
+        checkCooperativeCancellation();
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         int serialized = 0;
         try (DataOutputStream out = new DataOutputStream(new GZIPOutputStream(baos))) {
             out.writeInt(MAGIC);
             out.writeInt(FORMAT_VERSION);
             for (String ugi : ugis) {
+                checkCooperativeCancellation();
                 if (ugi == null) {
                     continue;
                 }
@@ -371,6 +378,7 @@ public final class StatsSync {
      * decoded so far).
      */
     private static List<GameData> decodeGames(byte[] blob) {
+        checkCooperativeCancellation();
         List<GameData> games = new ArrayList<>();
         byte[] inflated;
         try {
@@ -395,6 +403,7 @@ public final class StatsSync {
             return games;
         }
         while (true) {
+            checkCooperativeCancellation();
             try {
                 if (!in.readBoolean()) {
                     break;
@@ -417,10 +426,12 @@ public final class StatsSync {
      * skipped.
      */
     private static int insertGames(Connection conn, List<GameData> games, String fromNick) {
+        checkCooperativeCancellation();
         int imported = 0;
         int skipped = 0;
         int failed = 0;
         for (GameData game : games) {
+            checkCooperativeCancellation();
             try {
                 if (insertGameIfNew(conn, game, fromNick)) {
                     imported++;
@@ -450,6 +461,7 @@ public final class StatsSync {
         // in practice but id can never tie.
         List<Long> handIds = selectIds(conn, "SELECT id FROM hand WHERE id_game = ? ORDER BY id", gameId);
         for (Long hid : handIds) {
+            checkCooperativeCancellation();
             out.writeBoolean(true);
             writeRowById(conn, out, "hand", HAND, hid);
             serializeChildren(conn, out, "action", ACTION, hid);
@@ -466,6 +478,7 @@ public final class StatsSync {
             ps.setLong(1, handId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
+                    checkCooperativeCancellation();
                     out.writeBoolean(true);
                     writeRow(out, rs, cols);
                 }
@@ -533,6 +546,7 @@ public final class StatsSync {
         GameData g = new GameData();
         g.game = readRow(in, GAME);
         while (in.readBoolean()) {
+            checkCooperativeCancellation();
             if (g.hands.size() >= MAX_HANDS_PER_GAME) {
                 throw new IOException("hand count out of bounds: more than " + MAX_HANDS_PER_GAME);
             }
@@ -550,6 +564,7 @@ public final class StatsSync {
     private static List<Object[]> readRowList(DataInputStream in, Cols cols) throws IOException {
         List<Object[]> rows = new ArrayList<>();
         while (in.readBoolean()) {
+            checkCooperativeCancellation();
             if (rows.size() >= MAX_ROWS_PER_LIST) {
                 throw new IOException("row count out of bounds: more than " + MAX_ROWS_PER_LIST);
             }
@@ -618,6 +633,7 @@ public final class StatsSync {
         boolean previousAutoCommit = conn.getAutoCommit();
         conn.setAutoCommit(false);
         try {
+            checkCooperativeCancellation();
             long gameId = insert(conn, "game", GAME, null, 0L, g.game, true);
             // Stamp the received game as imported (received via sync). Like local=0 above, this is
             // a receiver-side concept and is deliberately NOT carried on the wire, so it is set here
@@ -632,24 +648,37 @@ public final class StatsSync {
                 mark.executeUpdate();
             }
             for (HandData h : g.hands) {
+                checkCooperativeCancellation();
                 long handId = insert(conn, "hand", HAND, "id_game", gameId, h.hand, true);
                 for (Object[] a : h.actions) {
+                    checkCooperativeCancellation();
                     insert(conn, "action", ACTION, "id_hand", handId, a, false);
                 }
                 for (Object[] s : h.showdowns) {
+                    checkCooperativeCancellation();
                     insert(conn, "showdown", SHOWDOWN, "id_hand", handId, s, false);
                 }
                 for (Object[] b : h.balances) {
+                    checkCooperativeCancellation();
                     insert(conn, "balance", BALANCE, "id_hand", handId, b, false);
                 }
                 for (Object[] c : h.showcards) {
+                    checkCooperativeCancellation();
                     insert(conn, "showcards", SHOWCARDS, "id_hand", handId, c, false);
                 }
             }
+            checkCooperativeCancellation();
             conn.commit();
             LOGGER.log(Level.FINE, "StatsSync: imported game ugi={0} ({1} hands)",
                     new Object[]{ugi, g.hands.size()});
             return true;
+        } catch (Helpers.CooperativeCancellationException cancel) {
+            try {
+                conn.rollback();
+            } catch (Exception rollbackFailure) {
+                cancel.addSuppressed(rollbackFailure);
+            }
+            throw cancel;
         } catch (Exception ex) {
             conn.rollback();
             throw ex;
@@ -750,6 +779,7 @@ public final class StatsSync {
         try (GZIPInputStream gz = new GZIPInputStream(new ByteArrayInputStream(blob))) {
             int n;
             while ((n = gz.read(buf)) != -1) {
+                checkCooperativeCancellation();
                 total += n;
                 if (total > MAX_INFLATED_BYTES) {
                     throw new IOException("inflated blob exceeds " + MAX_INFLATED_BYTES + " bytes");
@@ -775,11 +805,18 @@ public final class StatsSync {
             ps.setLong(1, arg);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
+                    checkCooperativeCancellation();
                     out.add(rs.getLong(1));
                 }
             }
         }
         return out;
+    }
+
+    private static void checkCooperativeCancellation() {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new Helpers.CooperativeCancellationException();
+        }
     }
 
     // =========================================================================

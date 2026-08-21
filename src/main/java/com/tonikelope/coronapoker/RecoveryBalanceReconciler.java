@@ -112,10 +112,9 @@ public final class RecoveryBalanceReconciler {
         return Collections.unmodifiableSet(roster);
     }
 
-    public static boolean sameOpenHand(String localHandIdB64, Set<String> localRoster,
-            long hostHandEnd, String hostHandIdB64, Set<String> hostRoster) {
-        return hostHandEnd == 0L && localHandIdB64 != null
-                && localHandIdB64.equals(hostHandIdB64)
+    public static boolean sameHandIdentityAndRoster(String localHandIdB64,
+            Set<String> localRoster, String hostHandIdB64, Set<String> hostRoster) {
+        return localHandIdB64 != null && localHandIdB64.equals(hostHandIdB64)
                 && localRoster != null && localRoster.equals(hostRoster);
     }
 

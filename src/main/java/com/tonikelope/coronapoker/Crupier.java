@@ -7710,9 +7710,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    private void sqlSyncRecoveryShells(java.util.HashMap<String, Object> map) {
+    private boolean sqlSyncRecoveryShells(java.util.HashMap<String, Object> map) {
         if (map == null) {
-            return;
+            return false;
         }
 
         synchronized (GameFrame.SQL_LOCK) {
@@ -7750,9 +7750,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     stH.executeUpdate();
                 }
 
+                // A peer that died before receiving MISDEAL retains the same
+                // hand as open locally. At this point HAND_ID, roster and every
+                // opening balance have already matched exactly, so a non-zero
+                // host end can only be applied as the verified full-refund
+                // closure (zero pot). This makes the next fresh hand observable
+                // as the next completed hand on both databases.
+                long recoveredEnd = (Long) map.get("hand_end");
+                if (recoveredEnd != 0L) {
+                    try (PreparedStatement close = Helpers.getSQLITE().prepareStatement(
+                            "UPDATE hand SET end=?, pot=0 WHERE id=? AND end IS NULL")) {
+                        close.setQueryTimeout(30);
+                        close.setLong(1, recoveredEnd);
+                        close.setInt(2, this.sqlite_id_hand);
+                        close.executeUpdate();
+                    }
+                }
+
                 LOGGER.log(Level.INFO, "Local database shells synchronized with server IDs.");
+                return true;
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, "Failed to sync local SQL shell records", ex);
+                return false;
             }
         }
     }
@@ -8089,10 +8108,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 java.util.Set<String> hostRoster = RecoveryBalanceReconciler.decodeRoster(
                         (String) map.get("preflop_players"));
                 if (localEvidence.hasOpenHand()) {
-                    boolean sameOpenHand = RecoveryBalanceReconciler.sameOpenHand(
+                    boolean sameHand = RecoveryBalanceReconciler.sameHandIdentityAndRoster(
                             localEvidence.handIdB64, localEvidence.roster,
-                            (Long) map.get("hand_end"), (String) map.get("hand_id_b64"), hostRoster);
-                    if (!sameOpenHand) {
+                            (String) map.get("hand_id_b64"), hostRoster);
+                    if (!sameHand) {
                         LOGGER.log(Level.SEVERE,
                                 "ZERO-TRUST RECOVER: host changed the locally open hand identity or roster");
                         setFin_de_la_transmision(true);
@@ -8100,6 +8119,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         saltar_primera_mano = true;
                         return;
                     }
+                    // A peer killed before receiving MISDEAL still has this row
+                    // open while the host has atomically closed and refunded it.
+                    // That closure is safe only when the immutable HAND_ID and
+                    // roster above match and every host balance exactly equals
+                    // this client's opening snapshot. A changed cent, buy-in,
+                    // rebuy count, player or hand remains fail-closed.
                     recoveredBalances = RecoveryBalanceReconciler.reconcileExact(
                             (String) map.get("balance"), localEvidence.balances);
                 } else {
@@ -8130,7 +8155,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (map != null && map.get("hand_id") != null) {
                 this.sqlite_id_hand = (int) map.get("hand_id");
             }
-            sqlSyncRecoveryShells(map);
+            if (!sqlSyncRecoveryShells(map)) {
+                setFin_de_la_transmision(true);
+                WaitingRoomFrame.getInstance().closeClientSocket();
+                saltar_primera_mano = true;
+                return;
+            }
             // Only load the fossil if the hand was genuinely in progress (hand_end == 0L). If
             // the hand is closed (post-MISDEAL marks it end!=0 via rollbackAbortedHand), don't
             // load local_mega_packet/ring from the stale fossil — otherwise the host's FRESH

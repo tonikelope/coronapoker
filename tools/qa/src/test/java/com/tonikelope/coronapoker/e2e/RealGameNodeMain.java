@@ -472,7 +472,8 @@ public final class RealGameNodeMain {
     }
 
     private static boolean isForceRecoverScenario() {
-        return SCENARIO.equals("force-recover") || SCENARIO.equals("double-force-recover");
+        return SCENARIO.equals("force-recover") || SCENARIO.equals("double-force-recover")
+                || SCENARIO.equals("crash-rejoin-recover");
     }
 
     private static boolean isAllInScenario() {

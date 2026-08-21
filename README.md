@@ -358,6 +358,9 @@ Typical runs:
 # Repeat the full stop/rebuild/recover cycle on hands 1 and 3; hands 2 and 4
 # must be newly dealt and settled with every peer still in agreement.
 .\tools\qa\run-real-game-e2e.ps1 -Scenario double-force-recover -Clients 1 -Bots 2 -Hands 4
+
+# Kill and relaunch the same client identity, recover, then complete a new hand.
+.\tools\qa\run-real-game-e2e.ps1 -Scenario crash-rejoin-recover -Clients 1 -Bots 2 -Hands 2
 ```
 
 Scenario contracts:
@@ -371,6 +374,7 @@ Scenario contracts:
 | `allin-controlled-exit` | Heads-up players go all-in, then the client sends controlled EXIT | Pocket proof/testament suffice to settle without MISDEAL or blocked host |
 | `force-recover` | Hand 1 is stopped; lobby, sockets and table are rebuilt | Interrupted hand recovers and a fresh hand 2 settles |
 | `double-force-recover` | The same session is force-recovered during hands 1 and 3 | Both recoveries succeed and fresh hands 2 and 4 settle |
+| `crash-rejoin-recover` | Client JVM dies, then restarts with the same home/nick/key | MISDEAL refunds safely; the peer rejoins recovery and completes hand 2 |
 
 The real-game runner defaults to hidden windows, disabled sound/animations and
 presentation-only test timing. `-ProductionTiming` restores normal pauses; it

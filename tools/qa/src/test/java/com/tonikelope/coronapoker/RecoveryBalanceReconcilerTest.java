@@ -89,16 +89,26 @@ public class RecoveryBalanceReconcilerTest {
     }
 
     @Test
-    public void locallyOpenHandRejectsHostIdentityRosterOrClosureChanges() {
+    public void locallyOpenHandBindsIdentityAndRosterIndependentlyOfSafeRefundClosure() {
         Set<String> localRoster = Set.of("alice", "bob");
-        assertTrue(RecoveryBalanceReconciler.sameOpenHand(
-                "hand-a", localRoster, 0L, "hand-a", Set.of("bob", "alice")));
-        assertFalse(RecoveryBalanceReconciler.sameOpenHand(
-                "hand-a", localRoster, 0L, "hand-b", localRoster));
-        assertFalse(RecoveryBalanceReconciler.sameOpenHand(
-                "hand-a", localRoster, 1L, "hand-a", localRoster));
-        assertFalse(RecoveryBalanceReconciler.sameOpenHand(
-                "hand-a", localRoster, 0L, "hand-a", Set.of("alice")));
+        assertTrue(RecoveryBalanceReconciler.sameHandIdentityAndRoster(
+                "hand-a", localRoster, "hand-a", Set.of("bob", "alice")));
+        assertFalse(RecoveryBalanceReconciler.sameHandIdentityAndRoster(
+                "hand-a", localRoster, "hand-b", localRoster));
+        assertFalse(RecoveryBalanceReconciler.sameHandIdentityAndRoster(
+                "hand-a", localRoster, "hand-a", Set.of("alice")));
+
+        // A crashed peer still sees its row as open after the host has safely
+        // closed/refunded the hand. Closure is accepted only after the caller's
+        // exact opening-balance reconciliation; identity and roster stay bound.
+        assertTrue(RecoveryBalanceReconciler.reconcileExact(
+                wire(row("alice", 75.25, 100, 1), row("bob", 124.75, 100, 0)),
+                localRows(row("alice", 75.25, 100, 1),
+                        row("bob", 124.75, 100, 0))).isOk());
+        assertFalse(RecoveryBalanceReconciler.reconcileExact(
+                wire(row("alice", 75.24, 100, 1), row("bob", 124.76, 100, 0)),
+                localRows(row("alice", 75.25, 100, 1),
+                        row("bob", 124.75, 100, 0))).isOk());
     }
 
     @Test

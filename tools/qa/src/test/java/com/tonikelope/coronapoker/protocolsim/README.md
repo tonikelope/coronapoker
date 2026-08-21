@@ -9,7 +9,7 @@ records, Ed25519 signatures, RIT pot division, settlement record and
 Run from `tools/qa` after installing the current root artifact:
 
 ```powershell
-& 'C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd' '-Dmaven.repo.local=C:/Users/Antonio/.m2/repository' '-Duser.home=C:/some/isolated/home' '-Dqa.sim.hands=2000' '-Dqa.sim.seed=3231711270' test '-Pqa-protocol-sim'
+& 'C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd' '-Dmaven.repo.local=C:/Users/Antonio/.m2/repository' '-Duser.home=C:/some/isolated/home' '-Dqa.sim.hands=2000' '-Dqa.sim.faults=2000' '-Dqa.sim.seed=3231711270' test '-Pqa-protocol-sim'
 ```
 
 The seed and zero-based hand number identify a failing scenario. Re-run exactly
@@ -18,6 +18,10 @@ one hand, with a concise trace, using:
 ```powershell
 & 'C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd' '-Dmaven.repo.local=C:/Users/Antonio/.m2/repository' '-Duser.home=C:/some/isolated/home' '-Dqa.sim.seed=3231711270' '-Dqa.sim.hand=48731' '-Dqa.sim.trace=true' test '-Pqa-protocol-sim'
 ```
+
+Replay one zero-based fault case by replacing `qa.sim.hand` with
+`-Dqa.sim.fault.case=48731`. Every assertion reports the seed, case, fault type
+and injection position.
 
 ## Current production coverage
 
@@ -32,6 +36,10 @@ one hand, with a concise trace, using:
 - Direct single-hand replay with seed, hand index and concise trace output.
 - Production `GameCommandGate` fault probes: exact retransmission, conflicting
   command ID, signed-record mutation and valid-but-reordered action.
+- Seeded random fault campaigns over authenticated critical streams: honest
+  delivery, exact duplicate, ID collision, signed mutation, reorder,
+  disconnect, rate-limit refusal and unknown critical command. Every case
+  either converges or closes explicitly without post-fault processing.
 - Current-version controlled `EXIT` request/relay with authenticated identity
   and mandatory unlock material pairing.
 - Abrupt transport closure as an explicit terminal state and strict canonical

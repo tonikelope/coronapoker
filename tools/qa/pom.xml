@@ -109,6 +109,8 @@
                         <qa.sim.seed>${qa.sim.seed}</qa.sim.seed>
                         <qa.sim.hand>${qa.sim.hand}</qa.sim.hand>
                         <qa.sim.trace>${qa.sim.trace}</qa.sim.trace>
+                        <qa.sim.faults>${qa.sim.faults}</qa.sim.faults>
+                        <qa.sim.fault.case>${qa.sim.fault.case}</qa.sim.fault.case>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>

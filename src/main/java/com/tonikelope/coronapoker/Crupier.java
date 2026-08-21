@@ -11038,13 +11038,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    private void sqlNewGame() {
+    private boolean sqlNewGame() {
+
+        boolean created = false;
 
         synchronized (GameFrame.SQL_LOCK) {
 
             String sql = "INSERT INTO game(start, players, buyin, sb, blinds_time, rebuy, server, blinds_time_type, ugi, local) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(
+                    sql, java.sql.Statement.RETURN_GENERATED_KEYS)) {
                 statement.setQueryTimeout(30);
 
                 GameFrame.GAME_START_TIMESTAMP = System.currentTimeMillis();
@@ -11078,18 +11081,35 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 statement.setInt(10, GameFrame.getInstance().isPartida_local() ? 1 : 0);
 
-                statement.executeUpdate();
+                if (statement.executeUpdate() != 1) {
+                    throw new SQLException("game insert affected an unexpected number of rows");
+                }
 
-                sqlite_id_game = statement.getGeneratedKeys().getInt(1);
+                try (ResultSet keys = statement.getGeneratedKeys()) {
+                    if (!keys.next()) {
+                        throw new SQLException("game insert returned no generated key");
+                    }
+                    int generatedId = keys.getInt(1);
+                    if (generatedId <= 0 || keys.next()) {
+                        throw new SQLException("game insert returned an invalid generated key: " + generatedId);
+                    }
+                    sqlite_id_game = generatedId;
+                    created = true;
+                }
             } catch (SQLException ex) {
+                sqlite_id_game = -1;
                 LOGGER.log(Level.SEVERE, null, ex);
             } catch (UnsupportedEncodingException ex) {
+                sqlite_id_game = -1;
                 LOGGER.log(Level.SEVERE, null, ex);
             }
 
         }
 
-        GameFrame.persistRecoverSettings(sqlite_id_game);
+        if (created) {
+            GameFrame.persistRecoverSettings(sqlite_id_game);
+        }
+        return created;
     }
 
     private void repartir() {
@@ -21920,29 +21940,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public Integer sqlUGI2GID(String ugi) {
         synchronized (GameFrame.SQL_LOCK) {
-
-            Integer ret = null;
-
-            String sql = "SELECT id from game WHERE ugi=?";
-
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
-                statement.setQueryTimeout(30);
-
-                statement.setString(1, ugi);
-
-                ResultSet rs = statement.executeQuery();
-
-                rs.next();
-
-                ret = rs.getInt("id");
+            try {
+                return findGameIdByUgi(Helpers.getSQLITE(), ugi);
             } catch (SQLException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
+                return null;
             }
-
-            return ret;
-
         }
+    }
 
+    static Integer findGameIdByUgi(Connection connection, String ugi) throws SQLException {
+        String sql = "SELECT id FROM game WHERE ugi=? AND id>0 ORDER BY id DESC LIMIT 1";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setQueryTimeout(30);
+            statement.setString(1, ugi);
+            try (ResultSet rs = statement.executeQuery()) {
+                if (!rs.next()) {
+                    return null;
+                }
+                int gameId = rs.getInt("id");
+                return gameId > 0 ? gameId : null;
+            }
+        }
     }
 
     public Integer getHandIdFromUGI(String ugi) {
@@ -22053,6 +22072,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void run() {
         Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
 
+        boolean create_client_recovery_game = false;
+
         if (GameFrame.getInstance().isPartida_local()) {
             GameFrame.UGI = this.getUGI();
             GameConfigWireV1.Result config = GameConfigWireV1.fromGlobals();
@@ -22071,7 +22092,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else {
                 Integer gid = sqlUGI2GID(GameFrame.UGI);
                 if (gid == null) {
-                    this.sqlNewGame();
+                    // A newly restarted client may not have this UGI locally. Defer the
+                    // insert until sentarParticipantes has populated nicks_permutados and
+                    // nick2player; sqlNewGame needs both to build the durable roster.
+                    create_client_recovery_game = true;
                 } else {
                     this.sqlite_id_game = gid;
                 }
@@ -22089,8 +22113,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             nick2player.put(jugador.getNickname(), jugador);
         }
 
+        if (create_client_recovery_game && !sqlNewGame()) {
+            LOGGER.log(Level.SEVERE, "Client recovery could not create a valid local game row");
+            setFin_de_la_transmision(true);
+            WaitingRoomFrame.getInstance().closeClientSocket();
+            return;
+        }
+
         if (!GameFrame.RECOVER) {
-            sqlNewGame();
+            if (!sqlNewGame()) {
+                LOGGER.log(Level.SEVERE, "Could not create a valid local game row");
+                setFin_de_la_transmision(true);
+                if (!GameFrame.getInstance().isPartida_local()) {
+                    WaitingRoomFrame.getInstance().closeClientSocket();
+                }
+                return;
+            }
         }
 
         Helpers.GUIRunAndWait(() -> {

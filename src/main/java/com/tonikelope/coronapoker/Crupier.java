@@ -2572,7 +2572,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return false;
             }
             waitSyncConfirmations(pending, request);
-            if (pending.isEmpty()) {
+            if (pending.isEmpty() && !p.isExit()) {
                 return true;
             }
             LOGGER.log(Level.SEVERE, "Missing ACK for critical unicast from {0}; closing connection", p.getNick());

@@ -73,6 +73,8 @@ public class CriticalCommunityDeliveryFailureTest {
         assertTrue(send.contains("boolean writeFailed = p.writeCommandFromServer")
                         && send.contains("if (writeFailed"),
                 "Participant reports socket write failure as a boolean and it must not be mistaken for delivery");
+        assertTrue(send.contains("if (pending.isEmpty() && !p.isExit())"),
+                "disconnecting before the ACK cannot be reported as successful critical delivery");
 
         int releaseStart = source.indexOf("private boolean releaseDeferredStraddlerCardsHost");
         int releaseEnd = source.indexOf("private boolean awaitDeferredStraddlerCardsClient", releaseStart);

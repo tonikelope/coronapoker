@@ -12,9 +12,12 @@ Run from `tools/qa` after installing the current root artifact:
 & 'C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd' '-Dmaven.repo.local=C:/Users/Antonio/.m2/repository' '-Duser.home=C:/some/isolated/home' '-Dqa.sim.hands=2000' '-Dqa.sim.seed=3231711270' test '-Pqa-protocol-sim'
 ```
 
-The seed and zero-based hand number identify a failing scenario. Re-run one
-hand by keeping the seed and temporarily setting the volume to include that
-hand; single-hand replay selection is the next harness milestone.
+The seed and zero-based hand number identify a failing scenario. Re-run exactly
+one hand, with a concise trace, using:
+
+```powershell
+& 'C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd' '-Dmaven.repo.local=C:/Users/Antonio/.m2/repository' '-Duser.home=C:/some/isolated/home' '-Dqa.sim.seed=3231711270' '-Dqa.sim.hand=48731' '-Dqa.sim.trace=true' test '-Pqa-protocol-sim'
+```
 
 ## Current production coverage
 
@@ -26,6 +29,9 @@ hand; single-hand replay selection is the next harness milestone.
 - Exact-cent normal/tied/RIT payouts and settlement conservation.
 - Independent `H_final` convergence and signed strict `HANDVERIFY` receipts.
 - Per-hand probes proving signed mutation and stale-chain rejection.
+- Direct single-hand replay with seed, hand index and concise trace output.
+- Production `GameCommandGate` fault probes: exact retransmission, conflicting
+  command ID, signed-record mutation and valid-but-reordered action.
 
 ## Not yet covered; do not infer it from a green campaign
 
@@ -34,7 +40,9 @@ hand; single-hand replay selection is the next harness milestone.
 - Side-pot construction and complete multi-street betting state.
 - Rabbit authorization/ledger.
 - EXIT/testaments, MISDEAL/refund and recovery snapshots/SQLite replay.
-- Fault-scheduled transport, reconnect and duplicate delivery.
+- Campaign-integrated fault scheduling, disconnect and reconnect. The current
+  focused transport probes already cover duplicate/conflicting delivery,
+  mutation and reordering at the production replay/chain gates.
 - Real sockets, executors, Swing/EDT and lobby lifecycle.
 
 Those items are added incrementally by composing or extracting production

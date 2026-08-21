@@ -77,10 +77,14 @@ final class ProtocolSimulationCampaignTest {
     void seededCampaignKeepsHonestPeersAndMoneyConvergent() {
         int hands = positiveIntProperty("qa.sim.hands", 2_000, 100_000);
         long seed = longProperty("qa.sim.seed", 0xC0A0_2026L);
-        Random random = new Random(seed);
+        Integer replayHand = optionalNonNegativeIntProperty("qa.sim.hand", 100_000 - 1);
 
+        if (replayHand != null) {
+            playHand(new Random(seedForHand(seed, replayHand)), seed, replayHand);
+            return;
+        }
         for (int hand = 0; hand < hands; hand++) {
-            playHand(random, seed, hand);
+            playHand(new Random(seedForHand(seed, hand)), seed, hand);
         }
     }
 
@@ -156,6 +160,14 @@ final class ProtocolSimulationCampaignTest {
         assertPeerHashes(peers, context + " settlement");
         verifyReceipts(peers.get(0).getCurrentHash(), handId, context);
         probeTamperAndStalePreviousHash(peers.get(0), handId, context);
+        if (Boolean.parseBoolean(System.getProperty("qa.sim.trace", "false"))) {
+            System.out.println("PROTOCOL_SIM PASS " + context
+                    + " pattern=" + (handNumber & 3)
+                    + " rit=" + runItTwice
+                    + " pot_cents=" + potCents
+                    + " h_final=" + Base64.getEncoder().encodeToString(
+                            peers.get(0).getCurrentHash()));
+        }
     }
 
     private static List<ActionSpec> actionPattern(int handNumber) {
@@ -336,5 +348,24 @@ final class ProtocolSimulationCampaignTest {
         String value = System.getProperty(name);
         return value == null || value.isBlank() || value.startsWith("${")
                 ? defaultValue : Long.parseLong(value);
+    }
+
+    private static Integer optionalNonNegativeIntProperty(String name, int maximum) {
+        String value = System.getProperty(name);
+        if (value == null || value.isBlank() || value.startsWith("${")) {
+            return null;
+        }
+        int parsed = Integer.parseInt(value);
+        if (parsed < 0 || parsed > maximum) {
+            throw new IllegalArgumentException(name + " must be in 0.." + maximum);
+        }
+        return parsed;
+    }
+
+    private static long seedForHand(long campaignSeed, int handNumber) {
+        long value = campaignSeed + 0x9E3779B97F4A7C15L * (handNumber + 1L);
+        value = (value ^ (value >>> 30)) * 0xBF58476D1CE4E5B9L;
+        value = (value ^ (value >>> 27)) * 0x94D049BB133111EBL;
+        return value ^ (value >>> 31);
     }
 }

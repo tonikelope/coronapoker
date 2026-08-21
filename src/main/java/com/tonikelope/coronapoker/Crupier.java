@@ -1964,10 +1964,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // whether the announcement was actually emitted. Never cleared: the Crupier lives as long as
     // the game and is never reused.
     private final java.util.Set<String> quit_anunciado = ConcurrentHashMap.newKeySet();
-    // Only a syntactically and cryptographically validated EXIT command waives
-    // the sender's future settlement receipt. Transport loss/automatic expulsion
-    // also announces an exit, but must remain distinguishable from a voluntary
-    // departure so a host cannot shrink the receipt set with a mutable flag.
+    // Only a syntactically and cryptographically validated EXIT command carrying
+    // a usable community testament waives the sender's future settlement receipt.
+    // Transport loss/automatic expulsion (and EXIT without a testament) must remain
+    // distinguishable so the next street takes the MISDEAL/refund path instead of
+    // silently shrinking the receipt set.
     private final java.util.Set<String> accepted_voluntary_exits = ConcurrentHashMap.newKeySet();
     private final ConcurrentHashMap<Player, Hand> perdedores = new ConcurrentHashMap<>();
     private final ConcurrentLinkedQueue<Player> flop_players = new ConcurrentLinkedQueue<>();
@@ -6808,7 +6809,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // The EXIT handler has already validated the wire; this validation also
         // protects the convenience overloads from storing malformed material.
         rememberExitCommunityTestament(nick, testamento);
-        if (acceptedVoluntaryExit && nick != null) {
+        if (acceptedVoluntaryExit && testamento != null
+                && !testamento.isEmpty() && !"*".equals(testamento) && nick != null) {
             accepted_voluntary_exits.add(nick);
         }
         Player jugador = nick2player.get(nick);
@@ -12074,8 +12076,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      *
      * <p>
      * Mutable player-state flags are deliberately ignored. Only a validated
-     * voluntary EXIT waives the sender's future receipt; an abrupt disconnect or
-     * automatic expulsion remains required and is reported as MISSING.
+     * voluntary EXIT carrying a validated community testament waives the sender's
+     * future receipt; an abrupt disconnect, automatic expulsion, or EXIT without a
+     * testament remains required and cannot masquerade as a clean departure.
      */
     private Set<String> computeExpectedConsensusSigners() {
         Set<String> botNicks = new HashSet<>();

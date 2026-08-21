@@ -22,8 +22,11 @@ class VoluntaryExitLifecycleTest {
                 "an accepted EXIT testament must belong to hand state, not only to the socket Participant");
         assertTrue(quit.indexOf("rememberExitCommunityTestament") >= 0,
                 "remotePlayerQuit must retain the validated community testament");
-        assertTrue(quit.contains("accepted_voluntary_exits.add(nick)"),
-                "only an accepted voluntary EXIT may waive the future receipt");
+        assertTrue(quit.contains("acceptedVoluntaryExit && testamento != null")
+                        && quit.contains("!testamento.isEmpty()")
+                        && quit.contains("!\"*\".equals(testamento)")
+                        && quit.contains("accepted_voluntary_exits.add(nick)"),
+                "null, empty and absent-marker testaments must not waive the future receipt");
         assertTrue(acceptedExit.contains("pocketSignature, true)"),
                 "the strict EXIT handler path must register a voluntary departure");
         assertTrue(abruptExit.contains("null, null, null, false)"),

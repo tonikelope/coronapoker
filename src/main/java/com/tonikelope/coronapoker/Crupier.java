@@ -16287,8 +16287,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (!applyBettingRoundAction(current_player, decision)) {
-                    LOGGER.log(Level.SEVERE, "Aborting betting round after reducer divergence");
-                    resisten.clear();
+                    containTableFailure(new IllegalStateException(
+                            "betting reducer diverged for " + current_player.getNickname()));
                     return resisten;
                 }
 

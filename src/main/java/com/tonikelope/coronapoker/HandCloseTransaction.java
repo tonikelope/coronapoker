@@ -36,19 +36,13 @@ public final class HandCloseTransaction {
     public static final class BalanceUpdate {
 
         final String nick;
-        final MoneyCents stack;
-        final MoneyCents buyin;
-        final BuyinCount rebuyCount;
+        final double stack;
+        final int buyin;
+        final int rebuyCount;
 
-        public BalanceUpdate(String nick, MoneyCents stack, MoneyCents buyin,
-                BuyinCount rebuyCount) {
+        public BalanceUpdate(String nick, double stack, int buyin, int rebuyCount) {
             if (nick == null || nick.isEmpty()) {
                 throw new IllegalArgumentException("nick is required");
-            }
-            if (stack == null || buyin == null || rebuyCount == null
-                    || buyin.cents() % 100L != 0L
-                    || buyin.cents() / 100L > Integer.MAX_VALUE) {
-                throw new IllegalArgumentException("invalid typed balance values");
             }
             this.nick = nick;
             this.stack = stack;
@@ -57,16 +51,16 @@ public final class HandCloseTransaction {
         }
     }
 
-    public static void close(Connection con, int handId, long end, HandPotCents pot,
+    public static void close(Connection con, int handId, long end, double pot,
             List<BalanceUpdate> balances) throws SQLException {
-        validate(con, handId, pot, balances);
+        validate(con, handId, balances);
         inTransaction(con, () -> {
             requireExactRoster(con, handId, balances);
             try (PreparedStatement hand = con.prepareStatement(
                     "UPDATE hand SET end=?, pot=? WHERE id=?")) {
                 hand.setQueryTimeout(30);
                 hand.setLong(1, end);
-                hand.setDouble(2, pot.toDouble());
+                hand.setDouble(2, Helpers.doubleClean(pot));
                 hand.setInt(3, handId);
                 requireOne(hand.executeUpdate(), "hand close", String.valueOf(handId));
             }
@@ -84,7 +78,7 @@ public final class HandCloseTransaction {
 
     public static void closeAborted(Connection con, int handId, long end,
             List<BalanceUpdate> balances) throws SQLException {
-        validate(con, handId, HandPotCents.of(MoneyCents.ofCents(0L)), balances);
+        validate(con, handId, balances);
         inTransaction(con, () -> {
             try (PreparedStatement hand = con.prepareStatement(
                     "UPDATE hand SET end=?, pot=0 WHERE id=?")) {
@@ -104,9 +98,9 @@ public final class HandCloseTransaction {
                     if (affected == 0) {
                         insert.setInt(1, handId);
                         insert.setString(2, row.nick);
-                        insert.setDouble(3, row.stack.toDecimal().doubleValue());
-                        insert.setInt(4, Math.toIntExact(row.buyin.cents() / 100L));
-                        insert.setInt(5, row.rebuyCount.value());
+                        insert.setDouble(3, Helpers.doubleClean(row.stack));
+                        insert.setInt(4, row.buyin);
+                        insert.setInt(5, row.rebuyCount);
                         requireOne(insert.executeUpdate(), "balance insert", row.nick);
                     } else {
                         requireOne(affected, "balance update", row.nick);
@@ -119,41 +113,22 @@ public final class HandCloseTransaction {
 
     private static void bindBalance(PreparedStatement statement, BalanceUpdate row,
             int handId) throws SQLException {
-        statement.setDouble(1, row.stack.toDecimal().doubleValue());
-        statement.setInt(2, Math.toIntExact(row.buyin.cents() / 100L));
-        statement.setInt(3, row.rebuyCount.value());
+        statement.setDouble(1, Helpers.doubleClean(row.stack));
+        statement.setInt(2, row.buyin);
+        statement.setInt(3, row.rebuyCount);
         statement.setInt(4, handId);
         statement.setString(5, row.nick);
     }
 
-    private static void validate(Connection con, int handId, HandPotCents pot,
-            List<BalanceUpdate> balances) {
-        if (con == null || handId <= 0 || pot == null || balances == null || balances.isEmpty()) {
+    private static void validate(Connection con, int handId, List<BalanceUpdate> balances) {
+        if (con == null || handId <= 0 || balances == null || balances.isEmpty()) {
             throw new IllegalArgumentException("connection, positive hand id and balances are required");
         }
         Set<String> nicks = new HashSet<>();
-        long totalStackCents = 0L;
-        long totalFundingCents = 0L;
         for (BalanceUpdate row : balances) {
             if (row == null || !nicks.add(row.nick)) {
                 throw new IllegalArgumentException("null or duplicate balance row");
             }
-            try {
-                totalStackCents = Math.addExact(totalStackCents, row.stack.cents());
-                totalFundingCents = Math.addExact(totalFundingCents, row.buyin.cents());
-            } catch (ArithmeticException ex) {
-                throw new IllegalArgumentException("balance totals overflow", ex);
-            }
-            if (totalStackCents > MoneyCents.MAX_CENTS
-                    || totalFundingCents > MoneyCents.MAX_CENTS) {
-                throw new IllegalArgumentException("balance totals outside table domain");
-            }
-        }
-        if (totalStackCents > totalFundingCents) {
-            throw new IllegalArgumentException("closing stacks exceed confirmed funding");
-        }
-        if (pot.cents() > totalFundingCents) {
-            throw new IllegalArgumentException("hand pot exceeds confirmed funding");
         }
     }
 

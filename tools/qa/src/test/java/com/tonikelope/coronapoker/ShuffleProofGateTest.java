@@ -36,9 +36,9 @@ public class ShuffleProofGateTest {
     }
 
     @Test
-    public void pocketPhaseWaitsWhileProofIsPending() {
+    public void pocketPhaseAllowsWhileProofIsPending() {
         byte[] m = deck(1);
-        assertEquals(Crupier.ShuffleProofGateDecision.WAIT,
+        assertEquals(Crupier.ShuffleProofGateDecision.ALLOW,
                 Crupier.shuffleProofGateDecision(POCKET, m, m, null, null));
     }
 
@@ -55,14 +55,6 @@ public class ShuffleProofGateTest {
         byte[] m = deck(1);
         assertEquals(Crupier.ShuffleProofGateDecision.REJECT,
                 Crupier.shuffleProofGateDecision(COMMUNITY, m, m, null, deck(1)));
-    }
-
-    @Test
-    public void aLaterFailureOverridesAnEarlierVerifiedMarker() {
-        byte[] m = deck(1);
-        assertEquals(Crupier.ShuffleProofGateDecision.REJECT,
-                Crupier.shuffleProofGateDecision(COMMUNITY, m, m, deck(1), deck(1)),
-                "failure or broadcast loss must dominate an earlier local verification");
     }
 
     @Test

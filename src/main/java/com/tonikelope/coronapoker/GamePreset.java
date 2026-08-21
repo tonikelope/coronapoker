@@ -240,7 +240,9 @@ public final class GamePreset {
                             s.showdownTime = Integer.parseInt(val);
                             break;
                         case "DIFF":
-                            s.difficulty = Bot.Difficulty.valueOf(val);
+                            // "EXPERT" is a legacy value from the old 4-level scheme -> HARD.
+                            s.difficulty = "EXPERT".equals(val)
+                                    ? Bot.Difficulty.HARD : Bot.Difficulty.valueOf(val);
                             break;
                         default:
                             break;

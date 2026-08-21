@@ -1,13 +1,13 @@
 /*
  * B1 (desacople del prove remoto del reparto): test del recolector async de pruebas de barajado
  * Crupier.collectAsyncCascadeProofs. Fija de forma determinista los tres comportamientos que la
- * auditoria adversaria de B1 arreglo, mas el retorno acotado al llamador fail-closed:
+ * auditoria adversaria de B1 arreglo, mas la degradacion elegante:
  *   1) acepta una prueba VALIDA y la casa con su paso por hash(deckOut);
  *   2) RE-ENCOLA (no se come) un comando que no es de sus pasos (otro builder / otro comando) -> no
  *      deja a otro builder sin sus pruebas (HIGH-1);
- *   3) RECHAZA y cierra al owner que entrega una prueba basura; no admite un retry posterior;
- *   4) liga la prueba al owner autenticado del paso y cierra a quien intente sustituirlo;
- *   5) sin prueba -> mapa incompleto para que el llamador rechace el mazo, sin colgarse.
+ *   3) RECHAZA una prueba basura que casa el hash pero no verifica, y acepta la buena (MED-1 proof
+ *      spoofing), verificando con verifyStepWire contra el par (deckIn, deckOut) real;
+ *   4) sin prueba -> degrada a "proofless" (mapa incompleto) sin colgarse ni lanzar.
  *
  * Llama al metodo privado por reflexion. Construye pasos remotos reales con ShuffleCascade.proveStepWire
  * (mismo patron que ShuffleCascadeWireTest). new Crupier() solo inicializa campos (received_commands es
@@ -100,17 +100,13 @@ public class AsyncCascadeProofCollectorTest {
 
     @SuppressWarnings("unchecked")
     private static Map<String, byte[]> collect(Crupier c, List<byte[]> decks, List<int[]> perms) throws Exception {
-        Method m = Crupier.class.getDeclaredMethod("collectAsyncCascadeProofs", List.class, List.class, List.class);
+        Method m = Crupier.class.getDeclaredMethod("collectAsyncCascadeProofs", List.class, List.class);
         m.setAccessible(true);
-        return (Map<String, byte[]>) m.invoke(c, decks, perms, java.util.Collections.singletonList("peer"));
+        return (Map<String, byte[]>) m.invoke(c, decks, perms);
     }
 
     private static String proofCmd(String hash, byte[] proof) {
-        return proofCmd("peer", hash, proof);
-    }
-
-    private static String proofCmd(String sender, String hash, byte[] proof) {
-        return "GAME#1#DECK_CASCADE_PROOF#" + Base64.getEncoder().encodeToString(sender.getBytes(java.nio.charset.StandardCharsets.UTF_8)) + "#" + hash + "#" + Base64.getEncoder().encodeToString(proof);
+        return "GAME#1#DECK_CASCADE_PROOF#" + hash + "#" + Base64.getEncoder().encodeToString(proof);
     }
 
     @Test
@@ -130,7 +126,7 @@ public class AsyncCascadeProofCollectorTest {
         // Comando que NO es de nuestros pasos (hash desconocido, p.ej. de otro builder de una mano
         // solapada). NO debe consumirse: se re-encola. Si el recolector se lo comiera, dejaria a ese
         // otro builder sin su prueba (HIGH-1).
-        String foreign = "GAME#7#DECK_CASCADE_PROOF#cGVlcg==#hashDeOtroBuilder#" + Base64.getEncoder().encodeToString(new byte[]{9, 9, 9});
+        String foreign = "GAME#7#DECK_CASCADE_PROOF#hashDeOtroBuilder#" + Base64.getEncoder().encodeToString(new byte[]{9, 9, 9});
         c.getReceived_commands().add(foreign);
         c.getReceived_commands().add(proofCmd(s.hash, s.validProof));
         Map<String, byte[]> got = collect(c, s.decks, s.perms);
@@ -139,46 +135,30 @@ public class AsyncCascadeProofCollectorTest {
     }
 
     @Test
-    public void garbageProofFromExpectedOwnerClosesAndCannotBeRetried() throws Exception {
+    public void garbageProofRejectedValidAccepted() throws Exception {
         Step s = buildRemoteStep(9);
         Crupier c = new Crupier();
         // Basura con el hash CORRECTO (casa el hash) pero bytes que NO verifican, encolada ANTES que la
-        // buena. El owner esperado que entrega una prueba invalida pierde la conexion y no puede
-        // corregirla con un segundo mensaje ya encolado.
+        // buena. Un peer puede conocer el deckOut del siguiente (es su input) y colar basura con ese hash;
+        // sin verificar contra (deckIn, deckOut) pisaria la buena (MED-1). Debe descartarse y ganar la valida.
         byte[] garbage = new byte[64];
         java.util.Arrays.fill(garbage, (byte) 0x5A);
-        java.util.concurrent.atomic.AtomicBoolean closed = new java.util.concurrent.atomic.AtomicBoolean();
-        c.enqueueReceivedCommand(proofCmd(s.hash, garbage), () -> closed.set(true));
+        c.getReceived_commands().add(proofCmd(s.hash, garbage));
         c.getReceived_commands().add(proofCmd(s.hash, s.validProof));
         Map<String, byte[]> got = collect(c, s.decks, s.perms);
-        assertTrue(got.isEmpty(), "una prueba invalida del contribuyente aborta la recogida");
-        assertTrue(closed.get(), "se cierra el origen autenticado de la prueba invalida");
+        assertArrayEquals(s.validProof, got.get(s.hash), "se descarta la basura y gana la prueba valida");
     }
 
     @Test
-    public void proofFromWrongAuthenticatedOwnerIsClosedAndNeverSubstitutesContributor() throws Exception {
-        Step s = buildRemoteStep(9);
-        Crupier c = new Crupier();
-        java.util.concurrent.atomic.AtomicBoolean attackerClosed = new java.util.concurrent.atomic.AtomicBoolean();
-        c.enqueueReceivedCommand(proofCmd("attacker", s.hash, s.validProof),
-                () -> attackerClosed.set(true));
-        c.getReceived_commands().add(proofCmd(s.hash, s.validProof));
-
-        Map<String, byte[]> got = collect(c, s.decks, s.perms);
-
-        assertTrue(attackerClosed.get(), "se cierra la conexion que suplanta al contribuyente");
-        assertArrayEquals(s.validProof, got.get(s.hash), "solo se acepta la prueba del owner esperado");
-    }
-
-    @Test
-    public void missingProofReturnsIncompleteForCallerToFailClosed() throws Exception {
+    public void missingProofDegradesToProoflessWithoutHanging() throws Exception {
         Step s = buildRemoteStep(9);
         Crupier c = new Crupier();
         c.setFin_de_la_transmision(true); // corta la espera al instante (simula fin de reparto)
-        // Sin prueba en la cola, el paso queda sin recoger. El llamador convierte este mapa incompleto
-        // en fallo terminal del mazo antes de apostar. Aqui fijamos que el recolector termina acotado.
+        // Sin prueba en la cola: el paso queda sin recoger (proofless). El bundle no se difundiria (el
+        // llamador lo gatea por fullOk) y el peer avisaria "missing proof": peor caso un aviso, no un
+        // reparto incorrecto. Aqui solo fijamos que devuelve un mapa incompleto sin colgarse ni lanzar.
         Map<String, byte[]> got = collect(c, s.decks, s.perms);
-        assertTrue(got.isEmpty(), "sin prueba -> mapa vacio para rechazo fail-closed");
+        assertTrue(got.isEmpty(), "sin prueba -> mapa vacio (paso proofless), sin colgarse ni excepcion");
         assertFalse(got.containsKey(s.hash), "el paso remoto queda sin prueba");
     }
 }

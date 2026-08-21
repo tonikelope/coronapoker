@@ -28,7 +28,8 @@ import java.util.List;
  * every equation's points and scalars, and checks the random linear combination
  * {@code Σ_j rho_j·(lhs_j − expected_j) == O} in a SINGLE multi-scalar
  * multiplication (one shared ladder). Verify-side only: it never touches a
- * proof or the current wire format; the prover is unchanged.
+ * proof or the wire format, so it is fully backward compatible — the prover is
+ * unchanged.
  *
  * <p>
  * <b>Soundness.</b> If some equation j has

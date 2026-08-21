@@ -1,7 +1,6 @@
 /*
- * Modelo criptografico que demuestra por que el bundle genesis->MEGAPACKET y
- * su gate previo a cada unlock comunitario son obligatorios. Sin ese binding,
- * las primitivas por si solas permitirian el siguiente smuggle:
+ * ¿ES FACTIBLE EL ATAQUE? Ejecuta el smuggle COMPLETO de extremo a extremo con las primitivas
+ * reales (RistrettoSRA) y el check EXACTO de GATE 6, para responder sin suposiciones:
  *
  *  - El host cuela la pocket de un jugador ACTIVO (X) en una posición comunitaria NO USADA.
  *  - La rotación (cada peer: strip k_pocket + add k_community) la lleva a community-space.
@@ -10,9 +9,7 @@
  *  - El BOARD REAL queda intacto (otras posiciones comunitarias) y la carta robada NO aparece en
  *    el board ni colisiona con nada -> nadie se entera, el flujo no se rompe.
  *
- * En produccion el bundle liga la entrada de rotacion a la salida de cascade;
- * un smuggle hace fallar el proof gate y cierra el canal antes de entregar los
- * unlocks necesarios para leer la carta.
+ * Si los asserts pasan, el ataque es factible tal cual está master hoy.
  */
 package com.tonikelope.coronapoker.crypto;
 
@@ -96,7 +93,7 @@ public class RotationSmuggleEndToEndTest {
     }
 
     @Test
-    public void smuggleWouldReadHoleCardWithoutMandatoryBundleGate() {
+    public void hostSilentlyReadsActivePlayerHoleCardWithBoardIntact() {
         freshRing();
         byte[] genesis = RistrettoSRA.getGenesisDeck();
 
@@ -141,5 +138,9 @@ public class RotationSmuggleEndToEndTest {
         }
         assertFalse(onBoard, "la carta robada no aparece en el board -> ningun check de colision la caza");
 
+        // --- Resumen del veredicto ---
+        System.out.println("[ATAQUE] FACTIBLE: host leyo la hole card " + stolen
+                + " de un jugador activo; board real intacto " + Arrays.toString(boardCards)
+                + "; sin colision, sin -1, sin GATE 6, sin romper el flujo.");
     }
 }

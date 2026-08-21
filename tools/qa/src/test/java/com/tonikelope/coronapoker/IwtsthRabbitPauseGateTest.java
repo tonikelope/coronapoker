@@ -12,12 +12,18 @@
  *
  * The per-tick decision was extracted into the pure, side-effect-free
  * Crupier.decidePauseTick so it can be pinned here without a GUI, a socket, or real
- * timing. handIdMatches backs the RABBIT hand-id gate used by the authoritative
- * per-hand fee ledger.
+ * timing. handIdMatches backs the RABBIT hand-id gate that makes the rabbit fee
+ * deterministic across peers (replacing the transient show_time guard that caused a
+ * one-small-blind stack divergence -> false DIVERGENT "host manipulation" alarm on
+ * the next hand).
+ *
+ * These cover the pure logic only; the actual cross-machine network timing is not
+ * unit-testable without the host-authoritative redesign.
  */
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.Crupier.PauseTick;
+import java.util.Base64;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -141,4 +147,39 @@ public class IwtsthRabbitPauseGateTest {
                 "the latched showdown remains open between hands");
     }
 
+    // ---- rabbitRelayHandIdField (lado EMISOR del gate de RABBIT) ----
+    // El bug que esto fija: entre manos (current_hand_id ya limpiado por readyForNextHand,
+    // pero rabbit_fee_window_hand_id aun vivo) el host relayaba "*", y el receptor lo RECHAZA
+    // (rabbitBelongsToCurrentHand decodifica "*" a null -> handIdMatches(null,..)=false), asi
+    // que la tarifa del rabbit no se cobraba en los demas clientes -> divergencia de stack ->
+    // falso DIVERGENT en la mano siguiente. El fix relaya el fee_window, que el receptor SI
+    // acepta por su propio latch.
+    @Test
+    public void relaysCurrentHandIdWhenPresent() {
+        byte[] h = {9, 8, 7};
+        assertEquals(Base64.getEncoder().encodeToString(h),
+                Crupier.rabbitRelayHandIdField(h, new byte[]{1, 1}),
+                "con current_hand_id vivo, relaya ese id");
+    }
+
+    @Test
+    public void relaysFeeWindowIdBetweenHandsInsteadOfStar() {
+        // current_hand_id == null (entre manos) pero fee_window vivo: DEBE relayar el
+        // fee_window, NO "*", o el receptor lo rechazaria y la tarifa divergiria.
+        byte[] finished = {5, 5, 5, 5};
+        String field = Crupier.rabbitRelayHandIdField(null, finished);
+        assertEquals(Base64.getEncoder().encodeToString(finished), field,
+                "entre manos relaya el fee_window, no '*'");
+        // Y el receptor lo aceptaria: decodificado casa con su fee_window (lo que ANTES fallaba).
+        byte[] decoded = Base64.getDecoder().decode(field);
+        assertTrue(Crupier.handIdMatches(decoded, finished),
+                "el fee_window relayado casa con el latch del receptor");
+    }
+
+    @Test
+    public void emitsStarOnlyWhenHandFullyClosed() {
+        // Ambos ids null = mano totalmente cerrada: "*" y el receptor lo rechaza (pot consumido).
+        assertEquals("*", Crupier.rabbitRelayHandIdField(null, null),
+                "sin ninguna mano viva, '*'");
+    }
 }

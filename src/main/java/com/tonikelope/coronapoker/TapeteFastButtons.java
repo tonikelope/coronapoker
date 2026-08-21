@@ -635,7 +635,7 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
 
         if (notifier != null) {
 
-            notifier.add(Thread.currentThread().getId());
+            notifier.add(Thread.currentThread().threadId());
 
             synchronized (notifier) {
 

@@ -485,7 +485,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     synchronized (getChat_notify_label()) {
 
-                        chat_notify_thread = Thread.currentThread().getId(); // Claim ownership of the notify icon and wake up any thread that was manipulating it
+                        chat_notify_thread = Thread.currentThread().threadId(); // Claim ownership of the notify icon and wake up any thread that was manipulating it
 
                         getChat_notify_label().notifyAll();
 
@@ -592,7 +592,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         }
                     } else {
                         synchronized (getChat_notify_label()) {
-                            if (Thread.currentThread().getId() == chat_notify_thread) {
+                            if (Thread.currentThread().threadId() == chat_notify_thread) {
                                 try {
                                     getChat_notify_label().wait(TTS_NO_SOUND_TIMEOUT);
                                 } catch (InterruptedException ex) {
@@ -605,7 +605,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         }
                     }
                     synchronized (getChat_notify_label()) {
-                        if (Thread.currentThread().getId() == chat_notify_thread) {
+                        if (Thread.currentThread().threadId() == chat_notify_thread) {
                             Helpers.GUIRun(() -> {
                                 getChat_notify_label().setVisible(false);
                             });
@@ -2376,7 +2376,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         if (notifier != null) {
 
-            notifier.add(Thread.currentThread().getId());
+            notifier.add(Thread.currentThread().threadId());
 
             synchronized (notifier) {
 

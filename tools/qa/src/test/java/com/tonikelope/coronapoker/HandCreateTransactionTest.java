@@ -84,22 +84,26 @@ class HandCreateTransactionTest {
     }
 
     @Test
-    void uniquenessGateRejectsDuplicateBalancesWithoutDeletingRows() throws Exception {
+    void uniquenessMigrationKeepsLatestLegacyBalanceAndEnforcesConstraint() throws Exception {
         try (Connection con = database()) {
             try (Statement st = con.createStatement()) {
                 st.execute("INSERT INTO hand(id,id_game,counter) VALUES(7,1,7)");
                 st.execute("INSERT INTO balance(id,id_hand,player,stack,buyin,rebuy_count) VALUES(1,7,'alice',90,100,0)");
                 st.execute("INSERT INTO balance(id,id_hand,player,stack,buyin,rebuy_count) VALUES(2,7,'alice',95,100,0)");
             }
-            assertThrows(SQLException.class,
-                    () -> HandCreateTransaction.ensureUniqueBalanceRows(con));
-            assertEquals(2, scalarInt(con, "SELECT COUNT(*) FROM balance WHERE id_hand=7 AND player='alice'"));
-            assertTrue(con.getAutoCommit());
+            HandCreateTransaction.ensureUniqueBalanceRows(con);
+            assertEquals(1, scalarInt(con, "SELECT COUNT(*) FROM balance WHERE id_hand=7 AND player='alice'"));
+            assertEquals(95d, scalarDouble(con, "SELECT stack FROM balance WHERE id=2"));
+            assertThrows(SQLException.class, () -> {
+                try (Statement st = con.createStatement()) {
+                    st.execute("INSERT INTO balance(id_hand,player,stack,buyin,rebuy_count) VALUES(7,'alice',1,1,0)");
+                }
+            });
         }
     }
 
     @Test
-    void uniquenessGateRejectsNullIdentityWithoutDeletingRows() throws Exception {
+    void uniquenessMigrationRejectsNullIdentityWithoutDeletingRows() throws Exception {
         try (Connection con = database()) {
             try (Statement st = con.createStatement()) {
                 st.execute("INSERT INTO hand(id,id_game,counter) VALUES(7,1,7)");

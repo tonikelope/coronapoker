@@ -44,7 +44,7 @@ public class SettlementRecordTest {
         byte[] hid = handId(0x10);
         List<Entry> e1 = Arrays.asList(entry("alice", 100L, 0L), entry("bob", 100L, 200L));
         List<Entry> e2 = Arrays.asList(entry("alice", 100L, 0L), entry("bob", 100L, 200L));
-        assertArrayEquals(SettlementRecord.encode(hid, e1, 0L, 0L), SettlementRecord.encode(hid, e2, 0L, 0L));
+        assertArrayEquals(SettlementRecord.encode(hid, e1, 0L), SettlementRecord.encode(hid, e2, 0L));
     }
 
     @Test
@@ -55,8 +55,8 @@ public class SettlementRecordTest {
         List<Entry> shuffled = Arrays.asList(
                 entry("charlie", 50L, 100L), entry("alice", 100L, 0L), entry("bob", 100L, 150L));
         assertArrayEquals(
-                SettlementRecord.encode(hid, forward, 0L, 0L),
-                SettlementRecord.encode(hid, shuffled, 0L, 0L));
+                SettlementRecord.encode(hid, forward, 0L),
+                SettlementRecord.encode(hid, shuffled, 0L));
     }
 
     @Test
@@ -65,16 +65,16 @@ public class SettlementRecordTest {
         List<Entry> base = Arrays.asList(entry("alice", 100L, 0L), entry("bob", 100L, 200L));
         List<Entry> off = Arrays.asList(entry("alice", 100L, 0L), entry("bob", 100L, 201L));
         assertNotEquals(
-                Arrays.toString(SettlementRecord.encode(hid, base, 0L, 0L)),
-                Arrays.toString(SettlementRecord.encode(hid, off, 0L, 0L)));
+                Arrays.toString(SettlementRecord.encode(hid, base, 0L)),
+                Arrays.toString(SettlementRecord.encode(hid, off, 0L)));
     }
 
     @Test
     public void differentHandIdChangesBytes() {
         List<Entry> e = Arrays.asList(entry("alice", 100L, 0L), entry("bob", 100L, 200L));
         assertNotEquals(
-                Arrays.toString(SettlementRecord.encode(handId(0x01), e, 0L, 0L)),
-                Arrays.toString(SettlementRecord.encode(handId(0x02), e, 0L, 0L)));
+                Arrays.toString(SettlementRecord.encode(handId(0x01), e, 0L)),
+                Arrays.toString(SettlementRecord.encode(handId(0x02), e, 0L)));
     }
 
     @Test
@@ -82,8 +82,8 @@ public class SettlementRecordTest {
         byte[] hid = handId(0x44);
         List<Entry> e = Arrays.asList(entry("alice", 100L, 95L), entry("bob", 100L, 100L));
         assertNotEquals(
-                Arrays.toString(SettlementRecord.encode(hid, e, 0L, 0L)),
-                Arrays.toString(SettlementRecord.encode(hid, e, 0L, 5L)));
+                Arrays.toString(SettlementRecord.encode(hid, e, 0L)),
+                Arrays.toString(SettlementRecord.encode(hid, e, 5L)));
     }
 
     @Test
@@ -104,9 +104,9 @@ public class SettlementRecordTest {
         byte[] hid = handId(0x55);
         List<Entry> e = Arrays.asList(
                 entry("alice", 100L, 0L), entry("bob", 100L, 150L), entry("charlie", 50L, 100L));
-        byte[] table = SettlementRecord.encode(hid, e, 0L, 0L);
-        // HAND_ID(16) + VERSION(1) + N(1) + N*48 + two remainders(16)
-        assertEquals(16 + 2 + 3 * SettlementRecord.ENTRY_BYTES + 16, table.length);
+        byte[] table = SettlementRecord.encode(hid, e, 0L);
+        // HAND_ID(16) + N(1) + N*48 + SOBRANTE(8)
+        assertEquals(16 + 1 + 3 * SettlementRecord.ENTRY_BYTES + 8, table.length);
         assertEquals(3, SettlementRecord.readParticipantCount(table));
     }
 
@@ -114,20 +114,20 @@ public class SettlementRecordTest {
     public void rejectsDuplicatePlayerId() {
         byte[] hid = handId(0x66);
         List<Entry> dup = Arrays.asList(entry("alice", 100L, 0L), entry("alice", 50L, 200L));
-        assertThrows(IllegalArgumentException.class, () -> SettlementRecord.encode(hid, dup, 0L, 0L));
+        assertThrows(IllegalArgumentException.class, () -> SettlementRecord.encode(hid, dup, 0L));
     }
 
     @Test
     public void rejectsMalformedInputs() {
         List<Entry> ok = Arrays.asList(entry("alice", 100L, 0L));
         assertThrows(IllegalArgumentException.class,
-                () -> SettlementRecord.encode(null, ok, 0L, 0L));
+                () -> SettlementRecord.encode(null, ok, 0L));
         assertThrows(IllegalArgumentException.class,
-                () -> SettlementRecord.encode(new byte[15], ok, 0L, 0L));
+                () -> SettlementRecord.encode(new byte[15], ok, 0L));
         assertThrows(IllegalArgumentException.class,
-                () -> SettlementRecord.encode(handId(0), Collections.emptyList(), 0L, 0L));
+                () -> SettlementRecord.encode(handId(0), Collections.emptyList(), 0L));
         assertThrows(IllegalArgumentException.class,
-                () -> SettlementRecord.encode(handId(0), ok, -1L, 0L));
+                () -> SettlementRecord.encode(handId(0), ok, -1L));
         assertThrows(IllegalArgumentException.class,
                 () -> SettlementRecord.encode(handId(0), ok, -1L, 0L));
         assertThrows(IllegalArgumentException.class,
@@ -147,7 +147,7 @@ public class SettlementRecordTest {
     public void amountsBalanceHoldsForConservedChips() {
         // alice + bob each put 100; bob wins the 200 pot, no remainder.
         List<Entry> e = Arrays.asList(entry("alice", 100L, 0L), entry("bob", 100L, 200L));
-        assertTrue(SettlementRecord.amountsBalance(e, 0L, 0L));
+        assertTrue(SettlementRecord.amountsBalance(e, 0L));
     }
 
     @Test
@@ -155,21 +155,21 @@ public class SettlementRecordTest {
         // Three-way split of a 100 pot: 33 + 33 + 33 paid, 1 cent remainder.
         List<Entry> e = Arrays.asList(
                 entry("alice", 34L, 33L), entry("bob", 33L, 33L), entry("charlie", 33L, 33L));
-        assertTrue(SettlementRecord.amountsBalance(e, 0L, 1L));
+        assertTrue(SettlementRecord.amountsBalance(e, 1L));
     }
 
     @Test
     public void amountsBalanceFailsOnImbalance() {
         // bob is over-paid by 50 with no remainder to explain it -> bug.
         List<Entry> e = Arrays.asList(entry("alice", 100L, 0L), entry("bob", 100L, 250L));
-        assertFalse(SettlementRecord.amountsBalance(e, 0L, 0L));
+        assertFalse(SettlementRecord.amountsBalance(e, 0L));
     }
 
     @Test
     public void amountsBalanceIncludesOpeningRemainder() {
         List<Entry> e = Arrays.asList(entry("alice", 50L, 0L), entry("bob", 50L, 101L));
         assertTrue(SettlementRecord.amountsBalance(e, 1L, 0L));
-        assertFalse(SettlementRecord.amountsBalance(e, 0L, 0L));
+        assertFalse(SettlementRecord.amountsBalance(e, 0L));
     }
 
     @Test

@@ -1932,6 +1932,11 @@ public class Init extends JFrame {
             GameFrame.BARAJA = GameFrame.BARAJA_DEFAULT;
         }
 
+        // Persists (once) the shuffle/reveal preferences derived from the old "Cartas" setting,
+        // to break their link with animacion_reparto (prevents turning off dealing later from
+        // dragging shuffle/reveal along with it on the next startup).
+        GameFrame.migrateSplitAnimationPrefs();
+
         // Pre-decodes the current deck's shuffle.gif in the background at startup,
         // so the first hand doesn't pay the decode cost.
         Crupier.warmShuffleAnimCache();

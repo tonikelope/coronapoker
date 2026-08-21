@@ -313,6 +313,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
+    public void incrementContaRabbit() {
+        synchronized (rabbit_lock) {
+            conta_rabbit++;
+        }
+    }
+
     public void setActionBackground(Color color) {
 
         Helpers.GUIRun(() -> {
@@ -421,7 +427,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 synchronized (getChat_notify_label()) {
 
-                    chat_notify_thread = Thread.currentThread().getId();
+                    chat_notify_thread = Thread.currentThread().threadId();
 
                     getChat_notify_label().notifyAll();
 
@@ -489,7 +495,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     }
                 } else {
                     synchronized (getChat_notify_label()) {
-                        if (Thread.currentThread().getId() == chat_notify_thread) {
+                        if (Thread.currentThread().threadId() == chat_notify_thread) {
                             try {
                                 getChat_notify_label().wait(TTS_NO_SOUND_TIMEOUT);
                             } catch (InterruptedException ex) {
@@ -504,7 +510,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 synchronized (getChat_notify_label()) {
 
-                    if (Thread.currentThread().getId() == chat_notify_thread) {
+                    if (Thread.currentThread().threadId() == chat_notify_thread) {
                         Helpers.GUIRunAndWait(() -> {
                             getChat_notify_label().setVisible(false);
                         });
@@ -1568,7 +1574,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_check_button.putClientProperty("i18n.key", null);
                 }
 
-                if (GameFrame.getInstance().getCrupier().canPlayerRaise(nickname) && GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) > 1 && ((Helpers.doubleSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0 && Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0)
+                if ((GameFrame.getInstance().getCrupier().getLast_aggressor() == null || !nickname.equals(GameFrame.getInstance().getCrupier().getLast_aggressor().getNickname())) && GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) > 1 && ((Helpers.doubleSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0 && Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0)
                         || (Helpers.doubleSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0 && Helpers.doubleSecureCompare(call_required + min_raise, stack) < 0))) {
 
                     // Spinner step and range aligned to the Crupier's CURRENT sb (not the
@@ -1694,9 +1700,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 guardarColoresBotonesAccion();
 
-                if ((GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) == 1
-                        || !GameFrame.getInstance().getCrupier().canPlayerRaise(nickname))
-                        && Helpers.doubleSecureCompare(call_required, stack) < 0) {
+                if ((GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) == 1 || ((GameFrame.getInstance().getCrupier().getLast_aggressor() != null && nickname.equals(GameFrame.getInstance().getCrupier().getLast_aggressor().getNickname())))) && Helpers.doubleSecureCompare(call_required, stack) < 0) {
                     player_allin_button.setText(" ");
                     player_allin_button.putClientProperty("i18n.key", null);
                     player_allin_button.setEnabled(false);
@@ -2650,7 +2654,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (notifier != null) {
 
-            notifier.add(Thread.currentThread().getId());
+            notifier.add(Thread.currentThread().threadId());
 
             synchronized (notifier) {
 

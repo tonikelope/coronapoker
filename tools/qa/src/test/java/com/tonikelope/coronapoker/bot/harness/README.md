@@ -424,7 +424,7 @@ mvn -f tools/reactor/pom.xml test -P qa-bots \
 mvn -f tools/reactor/pom.xml test -P qa-bots \
     -Dtest='MultiwayBaseline*Test' -Dsurefire.failIfNoSpecifiedTests=false
 
-# HU tests (historical reference)
+# HU tests (legacy reference)
 mvn -f tools/reactor/pom.xml test -P qa-bots \
     -Dtest='MixedMatchup_*Test,Baseline*Test' -Dsurefire.failIfNoSpecifiedTests=false
 ```

@@ -297,7 +297,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
      * caller until the animation and {@code delay_end} pause finish.
      */
     public void showCentralImage(ImageIcon icon, int frames, int delay_end, boolean center, String audio, int audio_frame_start, int audio_frame_end) {
-        central_label_thread = Thread.currentThread().getId();
+        central_label_thread = Thread.currentThread().threadId();
 
         try {
             central_label_barrier.reset();
@@ -324,7 +324,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 getCentral_label().repaint();
             }
         });
-        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && Thread.currentThread().getId() == central_label_thread) {
+        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && Thread.currentThread().threadId() == central_label_thread) {
             try {
                 central_label_barrier.await();
             } catch (InterruptedException | java.util.concurrent.BrokenBarrierException ex) {
@@ -336,7 +336,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             if (delay_end > 0) {
                 Helpers.parkThreadMillis(delay_end);
             }
-            if (Thread.currentThread().getId() == central_label_thread) {
+            if (Thread.currentThread().threadId() == central_label_thread) {
 
                 Helpers.GUIRunAndWait(() -> {
                     getCentral_label().setVisible(false);
@@ -372,7 +372,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
      */
     public void showCentralFrames(PreRenderedGif anim, int display_w, int display_h, int delay_end, String audio, Runnable on_show, Runnable before_hide) {
 
-        central_label_thread = Thread.currentThread().getId();
+        central_label_thread = Thread.currentThread().threadId();
 
         final CountDownLatch finished = new CountDownLatch(1);
 
@@ -428,7 +428,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             }
         });
 
-        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && Thread.currentThread().getId() == central_label_thread) {
+        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && Thread.currentThread().threadId() == central_label_thread) {
 
             try {
                 finished.await(GifLabel.GIF_BARRIER_TIMEOUT, TimeUnit.SECONDS);
@@ -441,7 +441,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             // the static card) is covered by the last frame during delay_end and doesn't
             // extend the animation. Guarded so a hook failure can never leave the label
             // stuck visible forever.
-            if (before_hide != null && Thread.currentThread().getId() == central_label_thread) {
+            if (before_hide != null && Thread.currentThread().threadId() == central_label_thread) {
                 try {
                     before_hide.run();
                 } catch (Exception ex) {
@@ -453,7 +453,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 Helpers.parkThreadMillis(delay_end);
             }
 
-            if (Thread.currentThread().getId() == central_label_thread) {
+            if (Thread.currentThread().threadId() == central_label_thread) {
 
                 Helpers.GUIRunAndWait(() -> {
                     getCentral_label().setFrameOverride(null);
@@ -2266,7 +2266,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
      */
     public void showCentralFramesLoop(PreRenderedGif anim, int display_w, int display_h, String audio, int audio_stop_frame, java.util.function.BooleanSupplier keep_looping) {
 
-        central_label_thread = Thread.currentThread().getId();
+        central_label_thread = Thread.currentThread().threadId();
 
         final CountDownLatch finished = new CountDownLatch(1);
 
@@ -2367,7 +2367,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             }
         });
 
-        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && Thread.currentThread().getId() == central_label_thread) {
+        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && Thread.currentThread().threadId() == central_label_thread) {
 
             try {
                 // The loop lasts as long as the predicate holds (the SRA cascade can run
@@ -2394,7 +2394,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                         "central label pre-rendered loop playback", ex);
             }
 
-            if (Thread.currentThread().getId() == central_label_thread) {
+            if (Thread.currentThread().threadId() == central_label_thread) {
 
                 Helpers.GUIRunAndWait(() -> {
                     getCentral_label().setFrameOverride(null);
@@ -2712,7 +2712,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
         if (notifier != null) {
 
-            notifier.add(Thread.currentThread().getId());
+            notifier.add(Thread.currentThread().threadId());
 
             synchronized (notifier) {
 

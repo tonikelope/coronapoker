@@ -178,7 +178,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_cinematicas_allin = prefBool("cinematicas_allin", true);
         snap_cinematicas_gameover = prefBool("cinematicas_gameover", true);
         // Shuffle and reveal have no menu item: their preference is the GameFrame flag
-        // (using the current split animation preferences),
+        // (already migrated from the legacy "animacion_reparto" key if not yet saved),
         // not raw PROPERTIES, which might not have the key yet.
         snap_anim_barajado = GameFrame.ANIMACION_BARAJADO_PREF;
         snap_anim_reparto = prefBool("animacion_reparto");

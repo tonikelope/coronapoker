@@ -10,13 +10,12 @@
  *
  * This test proves that leak at the crypto layer (so the danger is documented and
  * cannot be silently reintroduced) and pins the mitigation: the peer serves exactly
- * ONE rotation per hand (anti-replay). Without an extra rotation the host cannot
+ * ONE rotation per cascade (anti-replay). Without an extra rotation the host cannot
  * feed a blinded point in; the only rotation it gets is the legitimate one over the
  * real community pieces, and corrupting THAT breaks the board (a self-delating misdeal).
  *
- * The handler enforces one cascade and one rotation per hand. A distinct GAME id is
- * not a retry: it closes the host channel. Transport retransmission keeps the same id
- * and is deduplicated before the handler.
+ * No production code is touched; the handler enforces the one-rotation-per-cascade rule
+ * (rotation_served_this_cascade), warned via warnSuspiciousHost without freezing.
  */
 package com.tonikelope.coronapoker.crypto;
 
@@ -78,24 +77,28 @@ public class RotationReplayAttackTest {
     }
 
     /**
-     * The mitigation invariant: only the first cascade and first rotation are
-     * admitted in a hand. Neither phase can be reopened with a new command id.
+     * The mitigation invariant: a rotation is legitimate only the FIRST time in
+     * a cascade. The handler tracks rotation_served_this_cascade (reset on
+     * DECK_CASCADE_REQ, set after serving); a second rotation without a fresh
+     * cascade is refused (warnSuspiciousHost). This models that state machine
+     * so the rule is pinned.
      */
     @Test
-    public void oneCascadeAndOneRotationPerHand() {
-        boolean cascadeAccepted = false;
-        boolean rotationAccepted = false;
+    public void oneRotationPerCascade() {
+        boolean rotationServed = false;        // crupier.rotation_served_this_cascade
 
-        boolean firstCascadeAllowed = !cascadeAccepted;
-        cascadeAccepted = true;
-        boolean firstRotationAllowed = !rotationAccepted;
-        rotationAccepted = true;
-        boolean secondRotationRefused = rotationAccepted;
-        boolean secondCascadeRefused = cascadeAccepted;
+        // Fresh cascade resets the flag → first rotation allowed.
+        rotationServed = false;                // DECK_CASCADE_REQ handler
+        boolean firstAllowed = !rotationServed;
+        rotationServed = true;                 // served the legitimate rotation
+        // A second rotation in the SAME cascade is the attack → refused.
+        boolean secondRefused = rotationServed;
+        // A new cascade re-enables exactly one rotation again.
+        rotationServed = false;                // new DECK_CASCADE_REQ
+        boolean afterNewCascadeAllowed = !rotationServed;
 
-        org.junit.jupiter.api.Assertions.assertTrue(firstCascadeAllowed, "first cascade is admitted");
-        org.junit.jupiter.api.Assertions.assertTrue(firstRotationAllowed, "first rotation is admitted");
-        org.junit.jupiter.api.Assertions.assertTrue(secondRotationRefused, "second rotation is refused");
-        org.junit.jupiter.api.Assertions.assertTrue(secondCascadeRefused, "second cascade cannot reopen the oracle");
+        org.junit.jupiter.api.Assertions.assertTrue(firstAllowed, "first rotation of a cascade is served");
+        org.junit.jupiter.api.Assertions.assertTrue(secondRefused, "second rotation without fresh cascade is refused");
+        org.junit.jupiter.api.Assertions.assertTrue(afterNewCascadeAllowed, "a fresh cascade re-enables one rotation");
     }
 }

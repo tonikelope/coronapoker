@@ -84,7 +84,7 @@ public class HandStateChainSettlementTest {
         byte[] before = chain.getCurrentHash();
 
         byte[] table = SettlementRecord.encode(chain.getHandId(),
-                Arrays.asList(entry("alice", 100L, 0L), entry("bob", 100L, 200L)), 0L, 0L);
+                Arrays.asList(entry("alice", 100L, 0L), entry("bob", 100L, 200L)), 0L);
         byte[] hFinal = chain.absorbSettlement(table);
 
         assertTrue(chain.isSettlementAbsorbed());
@@ -116,7 +116,7 @@ public class HandStateChainSettlementTest {
         absorbOneAction(b, "alice", CanonicalActionRecord.ACTION_BET, 200L); // divergent history
 
         byte[] table = SettlementRecord.encode(hid,
-                Arrays.asList(entry("alice", 100L, 0L), entry("bob", 100L, 200L)), 0L, 0L);
+                Arrays.asList(entry("alice", 100L, 0L), entry("bob", 100L, 200L)), 0L);
         byte[] hfA = a.absorbSettlement(table);
         byte[] hfB = b.absorbSettlement(table);
 
@@ -134,9 +134,9 @@ public class HandStateChainSettlementTest {
         absorbOneAction(b, "alice", CanonicalActionRecord.ACTION_BET, 100L);
 
         byte[] tableA = SettlementRecord.encode(hid,
-                Arrays.asList(entry("alice", 100L, 200L), entry("bob", 100L, 0L)), 0L, 0L);
+                Arrays.asList(entry("alice", 100L, 200L), entry("bob", 100L, 0L)), 0L);
         byte[] tableB = SettlementRecord.encode(hid,
-                Arrays.asList(entry("bob", 100L, 0L), entry("alice", 100L, 200L)), 0L, 0L);
+                Arrays.asList(entry("bob", 100L, 0L), entry("alice", 100L, 200L)), 0L);
 
         assertArrayEquals(a.absorbSettlement(tableA), b.absorbSettlement(tableB));
     }
@@ -153,9 +153,9 @@ public class HandStateChainSettlementTest {
         absorbOneAction(b, "alice", CanonicalActionRecord.ACTION_CHECK, 0L);
 
         byte[] tableA = SettlementRecord.encode(hid,
-                Arrays.asList(entry("alice", 100L, 200L), entry("bob", 100L, 0L)), 0L, 0L);
+                Arrays.asList(entry("alice", 100L, 200L), entry("bob", 100L, 0L)), 0L);
         byte[] tableB = SettlementRecord.encode(hid,
-                Arrays.asList(entry("alice", 100L, 0L), entry("bob", 100L, 200L)), 0L, 0L);
+                Arrays.asList(entry("alice", 100L, 0L), entry("bob", 100L, 200L)), 0L);
 
         assertNotEquals(
                 Arrays.toString(a.absorbSettlement(tableA)),

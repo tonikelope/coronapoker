@@ -40,6 +40,7 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
@@ -80,10 +81,10 @@ public class Participant implements Runnable {
     // HANDVERIFY and STRADDLE_RESP already had this guard inline; it's generalized here.
     private static final java.util.Set<String> NICK_BOUND_SUBCOMMANDS = java.util.Set.of(
             "ACTION", "REBUY", "BUYIN", "RESP_SHOWDOWN_KEY",
-            "DECK_CASCADE_RESP", "DECK_CASCADE_PROOF", "DECK_ROTATION_RESP", "RESP_SRA_UNLOCK_CHAIN",
+            "DECK_CASCADE_RESP", "DECK_ROTATION_RESP", "RESP_SRA_UNLOCK_CHAIN", "RIT_VOTE_RESP",
             "SEAT_COMMIT", "SEAT_REVEAL");
 
-    // F2 ANTI-DoS: per-peer size cap + frequency token-bucket for non-critical text commands. Thresholds
+    // F2 ANTI-DoS: per-peer size cap + frequency token-bucket for text commands. Thresholds
     // are huge relative to legit traffic (a real game command is < 10 KB, a few per second),
     // so they never trigger in normal play — only under flood/OOM. Over the limit -> SILENT-
     // REFUSE (drop) + strike; accumulated strikes -> AUTO-EXPEL (only this peer is kicked, the
@@ -114,12 +115,12 @@ public class Participant implements Runnable {
 
     private final Object ping_pong_lock = new Object();
     private final Object participant_socket_lock = new Object();
-    private final GameCommandGate game_command_gate
-            = new GameCommandGate(GameCommandType.Direction.CLIENT_TO_HOST);
-    public static final int PRE_GAME_OUTBOX_MAX_ELEMENTS = 4096;
-    public static final long PRE_GAME_OUTBOX_MAX_BYTES = 64L * 1024L * 1024L;
-    private final SessionOutbox pre_game_socket_writer_queue
-            = new SessionOutbox(PRE_GAME_OUTBOX_MAX_ELEMENTS, PRE_GAME_OUTBOX_MAX_BYTES);
+    // Cap on distinct subcommand names in the de-dup table below. Real subcommands number a
+    // few dozen; only someone making up names to grow the table unboundedly hits this.
+    public static final int MAX_DEDUP_SUBCOMMANDS = 256;
+
+    private final HashMap<String, Integer> last_received = new HashMap<>();
+    private final ConcurrentLinkedQueue<String> pre_game_socket_writer_queue = new ConcurrentLinkedQueue<>();
     // BOUNDED queue. Unbounded, it would grow until memory ran out, and the abuse guard that
     // should throttle a flood runs at CONSUME time — i.e. behind it: a peer spamming commands
     // faster than they're processed would OOM the process before anything stops it. Once full,
@@ -782,28 +783,18 @@ public class Participant implements Runnable {
             while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
                 while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada() && !getPre_game_socket_writer_queue().isEmpty()) {
-                    SessionOutbox.Entry entry = getPre_game_socket_writer_queue().peek();
-                    if (entry == null) {
-                        break;
-                    }
-                    String command = entry.command();
+                    String command = getPre_game_socket_writer_queue().peek();
                     ArrayList<String> pendientes = new ArrayList<>();
                     pendientes.add(getNick());
 
                     // The id is kept across retries so the client can dedupe by (subcommand, id) if a
                     // retransmission arrives after it already processed the first copy.
-                    int id = entry.wireId();
+                    int id = Helpers.CSPRNG_GENERATOR.nextInt();
                     String full_command = "GAME#" + String.valueOf(id) + "#" + command;
-                    ConfirmationTracker tracker = WaitingRoomFrame.getInstance().getReceived_confirmations();
-                    ConfirmationTracker.Request request = tracker.register(id + 1, pendientes);
 
-                    try {
                     do {
-                        Boolean writeFailed = writePreGameCommandIfCurrent(entry, full_command);
-                        if (writeFailed == null) {
-                            break;
-                        } else if (!writeFailed) {
-                            waitPreGameCommandConfirmations(pendientes, entry, request);
+                        if (!writeCommandFromServer(Helpers.encryptCommand(full_command, getAes_key(), getHmac_key()))) {
+                            waitPreGameCommandConfirmations(id, pendientes);
                         } else {
                             // The write failed, typically because the socket is closed while
                             // the peer is getting its window to return. The loop's only wait
@@ -815,14 +806,9 @@ public class Participant implements Runnable {
                             // delivered.
                             Helpers.pausar(PRE_GAME_WRITE_RETRY_MS);
                         }
-                    } while (getPre_game_socket_writer_queue().isCurrent(entry)
-                            && !pendientes.isEmpty() && !exit && !WaitingRoomFrame.getInstance().isExit()
-                            && !WaitingRoomFrame.getInstance().isPartida_empezada());
-                    } finally {
-                        tracker.close(request);
-                    }
+                    } while (!pendientes.isEmpty() && !exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada());
 
-                    getPre_game_socket_writer_queue().removeIfHead(entry);
+                    getPre_game_socket_writer_queue().poll();
                 }
 
                 synchronized (WaitingRoomFrame.getInstance().getLock_client_pre_game_commands_wait()) {
@@ -869,48 +855,8 @@ public class Participant implements Runnable {
         return participant_socket_lock;
     }
 
-    public SessionOutbox getPre_game_socket_writer_queue() {
+    public ConcurrentLinkedQueue<String> getPre_game_socket_writer_queue() {
         return pre_game_socket_writer_queue;
-    }
-
-    public boolean enqueuePreGameCommand(String command) {
-        if (pre_game_socket_writer_queue.offer(command)) {
-            return true;
-        }
-        LOGGER.log(Level.SEVERE,
-                "Pre-game critical outbox overflow for {0}; closing connection", nick);
-        pre_game_socket_writer_queue.advanceGeneration();
-        markExitAndNotify("pre-game critical outbox overflow");
-        socketClose();
-        return false;
-    }
-
-    /**
-     * Returns null when the leased entry became stale, false on success and true on I/O failure.
-     * Holding participant_socket_lock makes the generation check, encryption and socket write
-     * atomic against resetSocket.
-     */
-    private Boolean writePreGameCommandIfCurrent(SessionOutbox.Entry entry, String fullCommand) {
-        boolean failed = false;
-        synchronized (getParticipant_socket_lock()) {
-            if (!pre_game_socket_writer_queue.isCurrent(entry)) {
-                return null;
-            }
-            try {
-                String encrypted = Helpers.encryptCommand(fullCommand, aes_key, hmac_key);
-                synchronized (socket.getOutputStream()) {
-                    socket.getOutputStream().write((encrypted + "\n").getBytes("UTF-8"));
-                    socket.getOutputStream().flush();
-                }
-            } catch (IOException ex) {
-                failed = true;
-            }
-        }
-        if (failed && !exit && pre_game_socket_writer_queue.isCurrent(entry)
-                && !isStallClose() && !timeout && !resetting_socket && !force_reset_socket) {
-            markExitAndNotify("pre-game outbox write failed (socket closed)");
-        }
-        return failed;
     }
 
     public SecretKeySpec getHmac_key_orig() {
@@ -1618,11 +1564,6 @@ public class Participant implements Runnable {
                 this.input_stream_reader = nuevo_stream;
                 this.aes_key = aes_k;
                 this.hmac_key = hmac_k;
-                // A reconnect installs a new authenticated socket generation. Invalidate any
-                // lease held by the old writer, but preserve pending critical pre-game commands:
-                // they are plaintext in the outbox and must be re-encrypted/retransmitted through
-                // the new authenticated socket rather than silently treated as delivered.
-                this.pre_game_socket_writer_queue.advanceGenerationPreservingEntries();
                 if (!isForce_reset_socket() && GameFrame.conexionSonidoOn()) {
                     Audio.playWavResource("misc/yahoo.wav");
                 }
@@ -1681,26 +1622,39 @@ public class Participant implements Runnable {
      * @param id command id (confirmations carry id+1, see the "CONF" case in
      * {@link #run()})
      * @param pending nicks still awaiting confirmation; mutated in place
-     * @param entry outbox lease whose socket generation must remain current
      * @return {@code true} if the confirmation deadline expired with peers
      * still pending
      */
-    public boolean waitPreGameCommandConfirmations(ArrayList<String> pending,
-            SessionOutbox.Entry entry, ConfirmationTracker.Request request) {
+    public boolean waitPreGameCommandConfirmations(int id, ArrayList<String> pending) {
         long start_time = System.currentTimeMillis();
         boolean plazo_vencido = false;
-        ConfirmationTracker tracker = WaitingRoomFrame.getInstance().getReceived_confirmations();
+        ArrayList<Object[]> rejected = new ArrayList<>();
 
-        while (!exit && pre_game_socket_writer_queue.isCurrent(entry)
-                && !pending.isEmpty() && !plazo_vencido) {
-            synchronized (tracker) {
-                pending.retainAll(tracker.remaining(request));
-                if (!exit && pre_game_socket_writer_queue.isCurrent(entry)) {
+        while (!exit && !pending.isEmpty() && !plazo_vencido) {
+            Object[] confirmation;
+            synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
+                while (!exit && !WaitingRoomFrame.getInstance().getReceived_confirmations().isEmpty()) {
+                    confirmation = WaitingRoomFrame.getInstance().getReceived_confirmations().poll();
+                    if (confirmation != null && confirmation[0] != null && confirmation[1] != null) {
+                        if ((int) confirmation[1] == id + 1) {
+                            pending.remove((String) confirmation[0]);
+                        } else {
+                            rejected.add(confirmation);
+                        }
+                    }
+                }
+
+                if (!exit) {
+                    if (!rejected.isEmpty()) {
+                        WaitingRoomFrame.getInstance().getReceived_confirmations().addAll(rejected);
+                        rejected.clear();
+                    }
+
                     if (System.currentTimeMillis() - start_time > GameFrame.CONFIRMATION_TIMEOUT) {
                         plazo_vencido = true;
                     } else if (!pending.isEmpty()) {
                         try {
-                            tracker.wait(WAIT_QUEUES);
+                            WaitingRoomFrame.getInstance().getReceived_confirmations().wait(WAIT_QUEUES);
                         } catch (Exception ex) {
                         }
                     }
@@ -1798,17 +1752,10 @@ public class Participant implements Runnable {
                     recibido = socket_reader_queue.take();
                     if (!POISON_PILL.equals(recibido)) {
                         // F2 ANTI-DoS: size cap + per-peer rate limit BEFORE processing
-                        // anything. A critical GAME frame is never silently discarded: close
-                        // its authenticated connection. Expendable non-game traffic is dropped
-                        // with strikes and repeated abuse AUTO-EXPELS the peer.
+                        // anything. Over the limit -> discard the frame (SILENT-REFUSE) +
+                        // strike; accumulated strikes -> AUTO-EXPEL (kick THIS peer, the table
+                        // continues). Thresholds are huge -> never affects an honest client.
                         if (inboundAbuse(recibido)) {
-                            if (recibido.startsWith("GAME#")) {
-                                LOGGER.log(Level.SEVERE,
-                                        "Rate-limited critical GAME command from {0}; closing connection", nick);
-                                game_command_gate.rejectForRateLimit(null);
-                                exitAndCloseSocket();
-                                break;
-                            }
                             if (registerAbuseStrike("inbound flood/oversize")) {
                                 autoExpel("inbound flood/oversize");
                                 break;
@@ -1842,33 +1789,14 @@ public class Participant implements Runnable {
                                 sala_espera.recibirMensajeChat(nick, mensaje);
                                 break;
                             case "CONF":
-                                WaitingRoomFrame.getInstance().getReceived_confirmations()
-                                        .confirm(nick, Integer.parseInt(partes_comando[1]));
+                                WaitingRoomFrame.getInstance().getReceived_confirmations().add(new Object[]{nick, Integer.valueOf(partes_comando[1])});
+                                synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
+                                    WaitingRoomFrame.getInstance().getReceived_confirmations().notifyAll();
+                                }
                                 break;
                             case "GAME":
-                                if (partes_comando.length < 3) {
-                                    LOGGER.log(Level.SEVERE, "Malformed GAME frame from {0}; closing connection", nick);
-                                    exitAndCloseSocket();
-                                    break;
-                                }
                                 String subcomando = partes_comando[2];
-                                final int command_id;
-                                try {
-                                    command_id = Integer.parseInt(partes_comando[1]);
-                                } catch (NumberFormatException ex) {
-                                    LOGGER.log(Level.SEVERE, "Invalid GAME id from " + nick + "; closing connection", ex);
-                                    exitAndCloseSocket();
-                                    break;
-                                }
-                                GameCommandGate.Decision gateDecision
-                                        = game_command_gate.accept(subcomando, command_id);
-                                if (gateDecision.closeConnection()) {
-                                    LOGGER.log(Level.SEVERE,
-                                            "Unknown GAME subcommand {0} from {1}; closing connection",
-                                            new Object[]{subcomando, nick});
-                                    exitAndCloseSocket();
-                                    break;
-                                }
+                                int command_id = Integer.parseInt(partes_comando[1]);
 
                                 // The CONF packet must be encrypted: the client always expects encrypted
                                 // commands, and a plaintext CONF causes a decrypt failure and deadlocks its
@@ -1880,7 +1808,21 @@ public class Participant implements Runnable {
                                     LOGGER.log(Level.SEVERE, "Failed to encrypt CONF message", e);
                                 }
 
-                                if (gateDecision.enqueue()) {
+                                if (!last_received.containsKey(subcomando) || !last_received.get(subcomando).equals(command_id)) {
+                                    // The key is the subcommand NAME, chosen by the sender: making up
+                                    // distinct names grows this table without bound, since it's never
+                                    // otherwise cleared. The cap sits well above the subcommands that
+                                    // actually exist, so only someone inventing names can reach it; on
+                                    // hitting it the table is cleared, since it only exists to avoid
+                                    // repeating what just arrived.
+                                    if (last_received.size() >= MAX_DEDUP_SUBCOMMANDS) {
+                                        LOGGER.log(Level.WARNING,
+                                                "De-dup table for {0} hit {1} distinct subcommands — clearing it (peer sending made-up names?)",
+                                                new Object[]{nick, MAX_DEDUP_SUBCOMMANDS});
+                                        last_received.clear();
+                                    }
+                                    last_received.put(subcomando, command_id);
+
                                     switch (subcomando) {
 
                                         case "PAUSE":
@@ -1919,20 +1861,23 @@ public class Participant implements Runnable {
                                                 GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(nick);
                                             }
                                             break;
-                                        case "RABBIT_REQ": {
-                                            try {
-                                                if (partes_comando.length != 4) {
-                                                    throw new IllegalArgumentException("wrong Rabbit request arity");
-                                                }
-                                                RabbitFeeLedger.Result<RabbitFeeLedger.Request> decoded
-                                                        = RabbitFeeLedger.Request.decode(Base64.getDecoder().decode(partes_comando[3]));
-                                                if (!decoded.isOk() || !nick.equals(decoded.value().playerId())) {
-                                                    throw new IllegalArgumentException("invalid Rabbit request identity or wire");
-                                                }
-                                                GameFrame.getInstance().getCrupier().RABBIT_REQUEST_HANDLER(decoded.value());
-                                            } catch (Exception ex) {
-                                                LOGGER.log(Level.SEVERE, "Invalid critical Rabbit request from " + nick + "; closing connection", ex);
-                                                exitAndCloseSocket();
+                                        case "RABBIT": {
+                                            // Gated by HAND_ID instead of show_time: apply the rabbit
+                                            // hunt (fee + reveal) if it belongs to the current hand, so
+                                            // it's deterministic across ALL peers and money doesn't
+                                            // diverge (which used to trigger a false DIVERGENT on the
+                                            // next hand). The host used to apply it ALWAYS (no guard),
+                                            // while a client whose show_time had already closed would
+                                            // discard it -> asymmetry. Falls back to show_time only if
+                                            // the peer doesn't send a HAND_ID (older client version).
+                                            // Also guards against a rabbit request from a past hand.
+                                            String rabbitHid = partes_comando.length > 5 ? partes_comando[5] : null;
+                                            boolean acceptRabbit = (rabbitHid != null)
+                                                    ? GameFrame.getInstance().getCrupier().rabbitBelongsToCurrentHand(rabbitHid)
+                                                    : GameFrame.getInstance().getCrupier().isShow_time();
+                                            if (acceptRabbit) {
+                                                GameFrame.getInstance().getCrupier().RABBIT_HANDLER(
+                                                        nick, Integer.parseInt(partes_comando[4]), rabbitHid);
                                             }
                                             break;
                                         }
@@ -1948,10 +1893,7 @@ public class Participant implements Runnable {
                                             // that hangs the table (same class of bug as the pause one). Taking it
                                             // off the reader thread closes this.
                                             if (partes_comando.length < 4) {
-                                                LOGGER.log(Level.SEVERE, "Malformed critical REBUYNOW from {0}; closing connection", nick);
-                                                if (game_command_gate.rejectCriticalViolation().closeConnection()) {
-                                                    exitAndCloseSocket();
-                                                }
+                                                LOGGER.log(Level.WARNING, "Dropping malformed REBUYNOW from {0}", nick);
                                                 break;
                                             }
                                             try {
@@ -1961,67 +1903,47 @@ public class Participant implements Runnable {
                                                 Helpers.threadRun(() -> GameFrame.getInstance().getCrupier()
                                                         .rebuyNowFromClient(nick, rebuy_buyin, rebuy_source, rebuy_sequence));
                                             } catch (NumberFormatException ex) {
-                                                LOGGER.log(Level.SEVERE, "Malformed critical REBUYNOW amount from " + nick + "; closing connection", ex);
-                                                if (game_command_gate.rejectCriticalViolation().closeConnection()) {
-                                                    exitAndCloseSocket();
-                                                }
+                                                LOGGER.log(Level.WARNING, "Dropping malformed REBUYNOW amount from {0}", nick);
                                             }
                                             break;
                                         case "SHOWCARDS":
                                             Helpers.threadRun(() -> {
                                                 try {
-                                                    if (partes_comando.length != 6) {
-                                                        throw new IllegalArgumentException("SHOWCARDS requires exactly 6 fields");
-                                                    }
                                                     String shNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                     // ZERO-TRUST: a SHOWCARDS can only reveal the cards of the nick
                                                     // owning THIS authenticated connection (parity with
                                                     // HANDVERIFY/STRADDLE_RESP). Otherwise a peer could name another
                                                     // player and, via showPlayerCards, trigger the host's LOCKDOWN
-                                                    // with a missing/invalid signature. A critical sender mismatch
-                                                    // closes this authenticated connection explicitly.
+                                                    // with a missing/invalid signature -> kill the table with a
+                                                    // single message. Discarded.
                                                     if (!shNick.equals(this.nick)) {
                                                         LOGGER.log(Level.SEVERE,
-                                                                "ZERO-TRUST: SHOWCARDS nick mismatch on connection {0} (claimed {1}); closing",
+                                                                "ZERO-TRUST: dropping SHOWCARDS with nick mismatch on connection {0} (claimed {1})",
                                                                 new Object[]{this.nick, shNick});
-                                                        if (game_command_gate.rejectCriticalViolation().closeConnection()) {
-                                                            exitAndCloseSocket();
-                                                        }
                                                         return;
                                                     }
                                                     String sraKeyB64 = partes_comando[4];
                                                     // PHASE A.1: the Ed25519 signature travels alongside the SRA
                                                     // key. The host CANNOT tamper with it — it's the proof that it
                                                     // came from that nick's private key.
-                                                    String sigB64 = partes_comando[5];
+                                                    String sigB64 = (partes_comando.length >= 6) ? partes_comando[5] : null;
 
                                                     // 1. The server verifies the signature + decrypts locally. On
                                                     // the HOST, a SHOWCARDS from a peer with a missing/invalid
-                                                    // signature returns false, is not relayed, and closes the
-                                                    // offending authenticated connection below.
+                                                    // signature does NOT trigger lockdown (SILENT-REFUSE): it
+                                                    // returns false and is NOT relayed.
                                                     boolean revealed = GameFrame.getInstance().getCrupier().showPlayerCards(shNick, sraKeyB64, sigB64);
 
                                                     // 2. Mirror effect: only a VERIFIED SHOWCARDS is relayed to the
                                                     // rest, signature intact (receivers re-verify it). An
                                                     // unverified one is never relayed: clients would read that as a
                                                     // hostile host and lock down (an amplified kill).
-                                                    if (!revealed) {
-                                                        LOGGER.log(Level.SEVERE,
-                                                                "Invalid critical SHOWCARDS proof from {0}; closing connection", this.nick);
-                                                        if (game_command_gate.rejectCriticalViolation().closeConnection()) {
-                                                            exitAndCloseSocket();
-                                                        }
-                                                        return;
-                                                    }
-                                                    if (GameFrame.getInstance().isPartida_local()) {
+                                                    if (revealed && GameFrame.getInstance().isPartida_local()) {
                                                         String rebroadcastCmd = "SHOWCARDS#" + partes_comando[3] + "#" + sraKeyB64 + "#" + sigB64;
                                                         GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer(rebroadcastCmd, shNick);
                                                     }
                                                 } catch (Exception e) {
                                                     LOGGER.log(Level.SEVERE, "Error processing/forwarding SHOWCARDS on server", e);
-                                                    if (game_command_gate.rejectCriticalViolation().closeConnection()) {
-                                                        exitAndCloseSocket();
-                                                    }
                                                 }
                                             });
                                             break;
@@ -2029,11 +1951,6 @@ public class Participant implements Runnable {
                                             try {
                                                 this.new_hand_ready = Integer.parseInt(partes_comando[3]);
                                             } catch (Exception e) {
-                                                LOGGER.log(Level.SEVERE, "Malformed critical HAND_READY from " + nick + "; closing connection", e);
-                                                if (game_command_gate.rejectCriticalViolation().closeConnection()) {
-                                                    exitAndCloseSocket();
-                                                }
-                                                break;
                                             }
 
                                             synchronized (GameFrame.getInstance().getCrupier().getLock_nueva_mano()) {
@@ -2086,49 +2003,18 @@ public class Participant implements Runnable {
                                             // submit (and have the host relay) a receipt on behalf of
                                             // another player, forging a false DIVERGENT / framing them.
                                             try {
-                                                HandverifyReceiptEnvelope receipt
-                                                        = HandverifyReceiptEnvelope.parse(partes_comando);
-                                                if (partes_comando.length == 5 && receipt.nick().equals(this.nick)) {
-                                                    GameFrame.getInstance().getCrupier()
-                                                            .acceptHandverifyReceiptOnce(receipt.nick());
+                                                if (partes_comando.length >= 5
+                                                        && new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8").equals(this.nick)) {
                                                     synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                        GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
-                                                                () -> Helpers.threadRun(this::exitAndCloseSocket));
+                                                        GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
                                                         GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                                     }
                                                 } else {
                                                     LOGGER.log(Level.SEVERE,
-                                                            "ZERO-TRUST: HANDVERIFY receipt nick mismatch on connection {0}; closing", this.nick);
-                                                    if (game_command_gate.rejectCriticalViolation().closeConnection()) {
-                                                        exitAndCloseSocket();
-                                                    }
+                                                            "ZERO-TRUST: dropping HANDVERIFY receipt with nick mismatch on connection {0}", this.nick);
                                                 }
                                             } catch (Exception ex) {
-                                                LOGGER.log(Level.SEVERE, "Malformed critical HANDVERIFY receipt; closing connection", ex);
-                                                if (game_command_gate.rejectCriticalViolation().closeConnection()) {
-                                                    exitAndCloseSocket();
-                                                }
-                                            }
-                                            break;
-                                        case "RIT_VOTE_RESP":
-                                            try {
-                                                CriticalVoteEnvelope vote
-                                                        = CriticalVoteEnvelope.parseRitResponse(partes_comando);
-                                                if (!vote.nick().equals(this.nick)) {
-                                                    throw new IllegalArgumentException(
-                                                            "RIT_VOTE_RESP nick does not match authenticated connection");
-                                                }
-                                                synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                    GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
-                                                            () -> Helpers.threadRun(this::exitAndCloseSocket));
-                                                    GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
-                                                }
-                                            } catch (Exception ex) {
-                                                LOGGER.log(Level.SEVERE,
-                                                        "Malformed critical RIT_VOTE_RESP; closing connection", ex);
-                                                if (game_command_gate.rejectCriticalViolation().closeConnection()) {
-                                                    exitAndCloseSocket();
-                                                }
+                                                LOGGER.log(Level.SEVERE, "Dropping malformed HANDVERIFY receipt", ex);
                                             }
                                             break;
                                         case "STRADDLE_RESP":
@@ -2137,26 +2023,18 @@ public class Participant implements Runnable {
                                             // the UTG's RESP and force them to post a straddle (2x the big blind,
                                             // out of THEIR stack) they never accepted. Same guard as HANDVERIFY.
                                             try {
-                                                CriticalVoteEnvelope response
-                                                        = CriticalVoteEnvelope.parseStraddleResponse(partes_comando);
-                                                if (response.nick().equals(this.nick)) {
+                                                if (partes_comando.length >= 5
+                                                        && new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8").equals(this.nick)) {
                                                     synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                        GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
-                                                                () -> Helpers.threadRun(this::exitAndCloseSocket));
+                                                        GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
                                                         GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                                     }
                                                 } else {
                                                     LOGGER.log(Level.SEVERE,
-                                                            "ZERO-TRUST: STRADDLE_RESP nick mismatch on connection {0}; closing", this.nick);
-                                                    if (game_command_gate.rejectCriticalViolation().closeConnection()) {
-                                                        exitAndCloseSocket();
-                                                    }
+                                                            "ZERO-TRUST: dropping STRADDLE_RESP with nick mismatch on connection {0}", this.nick);
                                                 }
                                             } catch (Exception ex) {
-                                                LOGGER.log(Level.SEVERE, "Malformed critical STRADDLE_RESP; closing connection", ex);
-                                                if (game_command_gate.rejectCriticalViolation().closeConnection()) {
-                                                    exitAndCloseSocket();
-                                                }
+                                                LOGGER.log(Level.SEVERE, "Dropping malformed STRADDLE_RESP", ex);
                                             }
                                             break;
                                         default:
@@ -2174,17 +2052,17 @@ public class Participant implements Runnable {
                                                 }
                                                 if (!nickOk) {
                                                     LOGGER.log(Level.SEVERE,
-                                                            "ZERO-TRUST: {0} nick mismatch on connection {1}; closing",
+                                                            "ZERO-TRUST: dropping {0} with nick mismatch on connection {1}",
                                                             new Object[]{partes_comando[2], this.nick});
-                                                    if (game_command_gate.rejectCriticalViolation().closeConnection()) {
-                                                        exitAndCloseSocket();
+                                                    // Speaking for someone else is deliberate abuse -> strike (and expulsion on repeat).
+                                                    if (registerAbuseStrike("nick spoof " + partes_comando[2])) {
+                                                        autoExpel("repeated nick spoofing");
                                                     }
                                                     break;
                                                 }
                                             }
                                             synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
-                                                        () -> Helpers.threadRun(this::exitAndCloseSocket));
+                                                GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
                                                 GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                             }
                                             break;

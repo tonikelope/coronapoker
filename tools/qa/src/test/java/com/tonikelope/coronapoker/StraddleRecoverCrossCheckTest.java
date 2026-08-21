@@ -5,8 +5,8 @@
  * live and is restored from the trusted fossil). To keep zero-trust, the client ALSO reads its
  * OWN fossil's STRADDLE@ record and, if the host's result contradicts it, warns WITHOUT changing
  * the applied value. recoverHostDecisionMismatch is the pure decision behind that warning: a
- * null local value (no applicable completed decision) must NEVER mismatch, so a client without
- * a decision to compare never accuses an honest host -- the false-positive this guards.
+ * null fossil value (fresh hand, or an old fossil without the field) must NEVER mismatch, so a
+ * client that lacks the datum never accuses an honest host -- the false-positive this guards.
  */
 package com.tonikelope.coronapoker;
 
@@ -18,7 +18,7 @@ public class StraddleRecoverCrossCheckTest {
 
     @Test
     public void nullFossilNeverMismatches() {
-        // No applicable completed decision -> never accuse the host.
+        // No datum in our fossil (fresh hand / old fossil) -> never accuse the host.
         assertFalse(Crupier.recoverHostDecisionMismatch(null, true));
         assertFalse(Crupier.recoverHostDecisionMismatch(null, false));
     }

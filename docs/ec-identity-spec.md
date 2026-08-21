@@ -40,7 +40,7 @@ Source: [`IdentityManager.java`](../src/main/java/com/tonikelope/coronapoker/Ide
 
 An Ed25519 keypair is generated on first use of a given nick on a given machine.
 
-- **Algorithm**: `Ed25519` (RFC 8032), via `KeyPairGenerator.getInstance("Ed25519")` (provided by the supported JDK 17+ runtime).
+- **Algorithm**: `Ed25519` (RFC 8032), via `KeyPairGenerator.getInstance("Ed25519")` (native in JDK 15+).
 - **Binding**: **per-nick**, not per-install. The keypair is bound to the canonicalized nick (`IdentityManager.canonicalNick`: surrounding whitespace trimmed, then NFC-normalized). A `playerIdHex` slug = the first 16 hex chars (8 bytes / 64 bits) of `SHA-256(NFC(trim(nick)) UTF-8)`.
 - **Storage** under `<user.home>/.coronapoker/`:
   - Private key: `identity_<player_id_hex>.ed25519`, PKCS#8 encoded.
@@ -250,7 +250,7 @@ GAME # <command_id> # ACTION # <nick_b64> # <decision> # <bet> # <cinematic_or_*
 
 The outer `GAME # <command_id> #` envelope is prepended by `broadcastGAMECommandFromServer` / `sendGAMECommandToServer`, where `command_id` is a random per-command int (`Helpers.CSPRNG_GENERATOR.nextInt()`) used only for CONF de-duplication, not a hand sequence number. The inner `ACTION` subcommand carries the Base64 nick, the numeric `decision` code (the Java `Player` action constant), the `bet` amount as a decimal string (`0` for non-bets), a `cinematic_or_*` slot (the all-in animation payload or `*`), and finally `record_or_*` / `sig_or_*` (each `*` when absent).
 
-The nick, decision, bet and cinematic fields are operational (logs, animations and parsing). **Only `<record_b64>` and `<sig_b64>` are cryptographically meaningful**. They are the canonical values fed to the chain and verifier.
+The nick, decision, bet and cinematic fields are operational (logs, animations, parser compatibility). **Only `<record_b64>` and `<sig_b64>` are cryptographically meaningful**. They are the canonical values fed to the chain and verifier.
 
 ---
 
@@ -299,7 +299,7 @@ HAND_ID(16) || VERSION(0x02) || N(uint8)
   || closing_remainder_cents(int64)
 ```
 
-`bote_cents` is the player's total contribution and `pagar_cents` the amount paid. The two remainder fields distinguish carry entering and leaving the hand. `Crupier.settlementAmountToCents` rejects non-finite, negative or out-of-range floating-point inputs. A recovered negative carry separately latches `settlement_accounting_invalid`. Once values are integer cents, `SettlementRecord.amountsBalance` enforces with overflow-safe arithmetic: `Σ pagar + closing_remainder = Σ bote + opening_remainder`. Participants are sorted by `PLAYER_ID`; duplicate ids are rejected. Settlement v2 is the only supported settlement encoding.
+`bote_cents` is the player's total contribution and `pagar_cents` the amount paid. The two remainder fields distinguish carry entering and leaving the hand. `Crupier.settlementAmountToCents` rejects non-finite, negative or out-of-range floating-point inputs. A recovered negative carry separately latches `settlement_accounting_invalid`. Once values are integer cents, `SettlementRecord.amountsBalance` enforces with overflow-safe arithmetic: `Σ pagar + closing_remainder = Σ bote + opening_remainder`. Participants are sorted by `PLAYER_ID`; duplicate ids are rejected. The legacy three-argument encoder with only a closing remainder remains solely for historical fixtures/records; production consensus must use v2.
 
 Absorb (a distinct domain separator keeps a settlement table from ever being parsed as an action record):
 
@@ -409,8 +409,6 @@ The `receipts` blob is stored **as collected** (the receipts are already signed,
 | `GAME # ... # <record_b64> # <sig_b64>` | Player → host → all | Signed canonical action |
 | `<PIECE> # <nick_b64> # <payload_b64>` | Host → each recipient | Per-recipient encrypted community piece (`FLOP/TURN/RIVER_PIECE`, `RABBIT_*_PIECE`) |
 | `COMM_REVEAL # <record_b64> # <sig_b64>` | Host → all | Signed community-card announcement, absorbed into `H_t` |
-| `RABBIT_REQ # <request_b64>` | Requester → host | Hand-bound request carrying the requester's Ed25519 proof (`"RABBIT\0"`) |
-| `RABBIT_AUTH # <authorization_b64>` | Host → all | Canonical count/fee plus the unchanged signed request; every peer verifies requester authorship before charging |
 | `HANDVERIFY` (no payload) | Host → all | Consensus trigger |
 | `HANDVERIFY # <nick_b64> # <receipt_b64>` | Each peer → all | Signed end-of-hand receipt |
 

@@ -21,7 +21,6 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -199,7 +198,7 @@ class I18nBundleIntegritySmoke {
         TreeSet<String> missing = new TreeSet<>();
 
         try (Stream<Path> tree = Files.walk(sources)) {
-            List<Path> files = tree.filter(p -> p.toString().endsWith(".java")).collect(Collectors.toList());
+            List<Path> files = tree.filter(p -> p.toString().endsWith(".java")).toList();
 
             for (Path file : files) {
                 for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {

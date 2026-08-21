@@ -80,6 +80,25 @@ public class PotMathTest {
         }
     }
 
+    // ----- double money overload: float -> double migration safety net --------
+    @Test
+    void doubleSplitMatchesFloatCentForCentBelowCeiling() {
+        // The double overload must divide pots to the same cents as the float
+        // overload for every value a normal game produces, so migrated games are
+        // numerically unchanged.
+        for (long amountC = 0; amountC <= 5000; amountC += 7) {
+            double amount = amountC / 100.0;
+            for (int n = 1; n <= 9; n++) {
+                float[] f = PotMath.splitAmongWinners((float) amount, n);
+                double[] d = PotMath.splitAmongWinners(amount, n);
+                assertEquals(cents(f[0]), cents(d[0]),
+                        "per-winner cents must agree amount=" + amount + " n=" + n);
+                assertEquals(cents(f[1]), cents(d[1]),
+                        "remainder cents must agree amount=" + amount + " n=" + n);
+            }
+        }
+    }
+
     @Test
     void doubleSplitConservesMoneyAcrossASweep() {
         for (long amountC = 0; amountC <= 5000; amountC += 7) {
@@ -98,7 +117,8 @@ public class PotMathTest {
 
     @Test
     void doubleSplitIsExactAboveTheFloatCeiling() {
-        // A deep-stack pot above ~131072 chips still splits to exact cents.
+        // The migration payoff: a deep-stack pot above ~131072 chips splits to exact
+        // cents in double; the float overload can no longer represent every cent.
         double pot = 400001.37; // 40000137 cents, 3 winners -> 13333379 each, 0 left
         double[] d = PotMath.splitAmongWinners(pot, 3);
         long per = cents(d[0]);

@@ -58,7 +58,7 @@ public class NetServer {
 
     private final WaitingRoomFrame waiting_room;
 
-    private final ConfirmationTracker received_confirmations = new ConfirmationTracker();
+    private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<Long> client_threads = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> late_clients_warning = new ConcurrentLinkedQueue<>();
     private final Object lock_client_pre_game_commands_wait = new Object();
@@ -72,7 +72,7 @@ public class NetServer {
         return waiting_room;
     }
 
-    public ConfirmationTracker getReceived_confirmations() {
+    public ConcurrentLinkedQueue<Object[]> getReceived_confirmations() {
         return received_confirmations;
     }
 
@@ -183,7 +183,10 @@ public class NetServer {
                     String full_command = "GAME#" + String.valueOf(id) + "#" + command;
                     p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), iv, p.getHmac_key()));
                 } else {
-                    p.enqueuePreGameCommand(command);
+                    synchronized (p.getPre_game_socket_writer_queue()) {
+                        p.getPre_game_socket_writer_queue().add(command);
+                        p.getPre_game_socket_writer_queue().notifyAll();
+                    }
                 }
             }
         }
@@ -208,7 +211,10 @@ public class NetServer {
             String full_command = "GAME#" + String.valueOf(id) + "#" + command;
             p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), p.getHmac_key()));
         } else {
-            p.enqueuePreGameCommand(command);
+            synchronized (p.getPre_game_socket_writer_queue()) {
+                p.getPre_game_socket_writer_queue().add(command);
+                p.getPre_game_socket_writer_queue().notifyAll();
+            }
         }
     }
 

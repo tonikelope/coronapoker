@@ -16,8 +16,6 @@
  */
 package com.tonikelope.coronapoker;
 
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.SpinnerNumberModel;
 
 /**
@@ -31,8 +29,6 @@ import javax.swing.SpinnerNumberModel;
  * @author tonikelope
  */
 public class GameSettingsPanel extends javax.swing.JPanel {
-
-    private static final Logger LOGGER = Logger.getLogger(GameSettingsPanel.class.getName());
 
     private volatile boolean init = false;
 
@@ -1166,6 +1162,18 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         boolean rit = rit_checkbox.isSelected();
         int rabbit = rabbit_combo.getSelectedIndex();
 
+        final int ciegas_double_f = ciegas_double, ciegas_double_type_f = ciegas_double_type;
+        final double blind_cap_f = blind_cap;
+        final String sb = valores_ciegas[0].trim(), bb = valores_ciegas[1].trim();
+
+        Helpers.threadRun(() -> {
+            GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("UPDATEBLINDS#" + String.valueOf(ciegas_double_f) + "#" + String.valueOf(ciegas_double_type_f) + "#" + sb + "#" + bb + "#" + String.valueOf(blind_cap_f) + "#" + String.valueOf(GameFrame.ANTE) + "#" + String.valueOf(GameFrame.STRADDLE) + "#" + structure_str, null);
+            if (manos_changed) {
+                GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("MAXHANDS#" + String.valueOf(GameFrame.MANOS), null);
+            }
+            GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
+        });
+
         if (iwtsth != GameFrame.IWTSTH_RULE) {
             GameFrame.setIwtsthRule(iwtsth);
         }
@@ -1190,24 +1198,6 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         if (bot_balance_checkbox.isSelected() != GameFrame.BOT_BALANCE_TO_HUMANS) {
             GameFrame.setBotBalanceToHumans(bot_balance_checkbox.isSelected());
         }
-
-        // Capture immutable bytes before entering the worker. UPDATEBLINDS applies
-        // only its validated blind subset; independently editable rules retain
-        // their existing ordered commands and cannot be reverted by this snapshot.
-        GameConfigWireV1.Result config = GameConfigWireV1.fromGlobals();
-        if (!config.isOk()) {
-            LOGGER.log(Level.SEVERE, "Refusing to broadcast invalid table configuration: {0}", config.error());
-            return;
-        }
-        final String encodedConfig = config.value().encodeBase64();
-        Helpers.threadRun(() -> {
-            GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer(
-                    "UPDATEBLINDS#" + encodedConfig, null);
-            if (manos_changed) {
-                GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("MAXHANDS#" + String.valueOf(GameFrame.MANOS), null);
-            }
-            GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
-        });
         // Recover fossil: everything serializeRecoverSettings includes must be persisted so it
         // survives a stop+recover cycle. Four rules (blind cap, ante, straddle, hand limit)
         // used to be editable in-game but reverted to their old value on recover, while their

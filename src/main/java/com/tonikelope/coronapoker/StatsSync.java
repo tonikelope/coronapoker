@@ -96,7 +96,7 @@ public final class StatsSync {
     // Payload columns per table, in a fixed order. Structural columns (the
     // auto-increment id and the parent FK) are intentionally NOT listed: ids are
     // regenerated on import and FKs are wired from the freshly inserted parent.
-    // Verified one-to-one against the current CREATE TABLE statements in
+    // Verified one-to-one against the CREATE TABLE + ALTER TABLE statements in
     // Helpers.initSQLITE().
     private static final Cols GAME = new Cols(new String[]{
         "start:I", "end:I", "play_time:I", "server:T", "players:T", "buyin:I",
@@ -257,7 +257,8 @@ public final class StatsSync {
      * <p>
      * {@code game.local} is intentionally absent from the filter — it flags "I
      * was the host" (see the no-arg wrapper's javadoc), not "offline", so it
-     * must not gate sharing.
+     * must not gate sharing. The {@code private} NULL guard covers
+     * pre-migration rows (before the column existed).
      *
      * @param conn the stats database
      * @param excludePrivate drop games flagged {@code private = 1}
@@ -273,7 +274,7 @@ public final class StatsSync {
         }
         sql.append(" FROM game WHERE ugi IS NOT NULL AND ugi <> '' AND end IS NOT NULL");
         if (excludePrivate) {
-            sql.append(" AND private = 0");
+            sql.append(" AND (private IS NULL OR private = 0)");
         }
         List<String> out = new ArrayList<>();
         try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql.toString())) {

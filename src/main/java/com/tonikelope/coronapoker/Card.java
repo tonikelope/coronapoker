@@ -711,7 +711,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
                 } else {
                     Helpers.GUIRunAndWait(guiUpdate);
                     synchronized (notifier) {
-                        notifier.add(Thread.currentThread().getId());
+                        notifier.add(Thread.currentThread().threadId());
                         notifier.notifyAll();
                     }
                 }
@@ -965,22 +965,6 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     }
 
     /**
-     * @return this card encoded as the canonical 0-51 index used by the SRA
-     * protocol and wire proofs, or -1 if the card is unset
-     */
-    public int getCardIndex() {
-        return cardIndexFromOneBased(getCartaComoEntero());
-    }
-
-    /**
-     * Converts the UI/bot/Monte-Carlo 1-52 card domain to the canonical SRA
-     * 0-51 domain, or returns -1 outside the source domain.
-     */
-    public static int cardIndexFromOneBased(int oneBased) {
-        return oneBased >= 1 && oneBased <= 52 ? oneBased - 1 : -1;
-    }
-
-    /**
      * @return this card's rank (2-14, ace high), or -1 if unset
      */
     public int getValorNumerico() {
@@ -1187,7 +1171,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
             if (notifier != null) {
 
-                notifier.add(Thread.currentThread().getId());
+                notifier.add(Thread.currentThread().threadId());
 
                 synchronized (notifier) {
 
@@ -1299,8 +1283,8 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
         if (rabbit == RABBIT_TAPADA && GameFrame.getInstance().getCrupier().isShow_time()) {
             Helpers.threadRun(() -> {
-                GameFrame.getInstance().getCrupier().REQUEST_RABBIT(
-                        GameFrame.getInstance().getLocalPlayer().getNickname());
+                GameFrame.getInstance().getLocalPlayer().incrementContaRabbit();
+                GameFrame.getInstance().getCrupier().RABBIT_HANDLER(GameFrame.getInstance().getLocalPlayer().getNickname(), GameFrame.getInstance().getLocalPlayer().getConta_rabbit());
             });
         } else if (SwingUtilities.isLeftMouseButton(evt) && isTapada() && iwtsth_candidate != null) {
 

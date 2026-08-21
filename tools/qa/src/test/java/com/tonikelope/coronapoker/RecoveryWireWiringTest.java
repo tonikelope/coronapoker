@@ -45,6 +45,33 @@ public class RecoveryWireWiringTest {
         assertFalse(source.contains("falling back to host"));
     }
 
+    @Test
+    public void missingOrInvalidActionDataTerminatesRecoveryInsteadOfBecomingEmpty() throws IOException {
+        String source = Files.readString(locateRoot().resolve(
+                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+        int method = source.indexOf("private String recibirAccionesRecuperadas()");
+        int state = source.indexOf("new RecoveryActionReceiveState()", method);
+        int failed = source.indexOf("RecoveryActionReceiveState.Status.FAILED", state);
+        int recover = source.indexOf("setForce_recover(true)", failed);
+        int pending = source.indexOf("setTerminationPending()", recover);
+        int finished = source.indexOf("setFin_de_la_transmision(true)", pending);
+        int close = source.indexOf("closeClientSocket()", finished);
+        int result = source.indexOf("receiveState.isSuccess() ? receiveState.actions() : null", close);
+        int receive = source.indexOf("recuperarAccionesLocales();");
+        int recoverAbort = source.indexOf("if (isFin_de_la_transmision())", receive);
+        int handAbortComment = source.indexOf("Any fail-closed recovery path must stop NUEVA_MANO here");
+        int handAbort = source.indexOf("if (isFin_de_la_transmision())", handAbortComment);
+        int handAbortReturn = source.indexOf("return false;", handAbort);
+
+        assertTrue(method >= 0 && method < state);
+        assertTrue(state < failed && failed < recover && recover < pending);
+        assertTrue(pending < finished && finished < close && close < result);
+        assertTrue(receive >= 0 && receive < recoverAbort);
+        assertTrue(handAbortComment >= 0 && handAbortComment < handAbort && handAbort < handAbortReturn);
+        assertFalse(source.contains("ACTIONDATA malformed dropped"));
+        assertFalse(source.contains("recovery dialog closes via the empty-queue branch"));
+    }
+
     private static Path locateRoot() {
         Path start = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
         for (Path path = start; path != null; path = path.getParent()) {

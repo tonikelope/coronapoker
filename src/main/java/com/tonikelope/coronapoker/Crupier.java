@@ -8335,6 +8335,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (GameFrame.getInstance().isPartida_local() || GameFrame.getInstance().getLocalPlayer().isActivo()) {
                 recuperarAccionesLocales();
+                if (isFin_de_la_transmision()) {
+                    return;
+                }
             }
 
             // sincronizando_mano must only activate when there are LOCAL actions (mine or a
@@ -9834,6 +9837,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
             }
+        }
+
+        // Any fail-closed recovery path must stop NUEVA_MANO here.  Continuing would
+        // manufacture a partially recovered hand after the socket/snapshot/action
+        // validation had already terminated the transmission.
+        if (isFin_de_la_transmision()) {
+            return false;
         }
 
         // Do this only AFTER recovery has classified the latest persisted hand.  Previously the
@@ -12173,44 +12183,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private String recibirAccionesRecuperadas() {
 
-        // Exit guard (see the note in recibirPosiciones). Without it, if the
-        // transmission dies during the wait the client hangs forever waiting for
-        // ACTIONDATA; returning null here is fine since the caller is already in
-        // the termination flow.
-        String actions = null;
-
-        boolean ok;
+        RecoveryActionReceiveState receiveState = new RecoveryActionReceiveState();
 
         long start_time = System.currentTimeMillis();
 
         do {
-
-            ok = false;
-
             synchronized (this.getReceived_commands()) {
-
                 ArrayList<String> rejected = new ArrayList<>();
-
-                while (!ok && !this.getReceived_commands().isEmpty()) {
-
+                while (!receiveState.isTerminal() && !this.getReceived_commands().isEmpty()) {
                     String comando = this.received_commands.poll();
                     try {
-                        String[] partes = comando.split("#");
-
-                        if (partes.length == 4 && partes[2].equals("ACTIONDATA")) {
-
-                            ok = true;
-
-                            try {
-                                actions = !"*".equals(partes[3])
-                                        ? new String(Base64.getDecoder().decode(partes[3]), "UTF-8")
-                                        : "";
-                            } catch (UnsupportedEncodingException ex) {
-                                LOGGER.log(Level.SEVERE, null, ex);
+                        String[] partes = comando.split("#", -1);
+                        if (partes.length >= 3 && partes[2].equals("ACTIONDATA")) {
+                            receiveState.acceptFrame(comando);
+                            if (!receiveState.isSuccess()) {
+                                LOGGER.log(Level.SEVERE, "ACTIONDATA rejected: {0}", receiveState.error());
                             }
-
-                        } else if (partes.length >= 3 && partes[2].equals("ACTIONDATA")) {
-                            LOGGER.log(Level.WARNING, "ACTIONDATA malformed dropped: {0}", comando);
                         } else {
                             rejected.add(comando);
                         }
@@ -12221,18 +12209,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (!rejected.isEmpty()) {
                     restoreRejectedCommands(rejected);
-                    rejected.clear();
                 }
-
             }
 
-            if (!ok) {
-
+            if (receiveState.status() == RecoveryActionReceiveState.Status.FAILED) {
+                break;
+            }
+            if (!receiveState.isTerminal()) {
                 if (GameFrame.getInstance().checkPause()) {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-
-                    LOGGER.log(Level.WARNING, "recibirAccionesRecuperadas timeout — ACTIONDATA never arrived from host. Breaking wait so the recovery dialog closes via the empty-queue branch in recuperarDatosClavePartida.");
+                    LOGGER.log(Level.SEVERE, "ACTIONDATA timeout; recovery failed and the client connection will close");
+                    receiveState.rejectTimeout();
                     break;
                 } else {
                     synchronized (this.getReceived_commands()) {
@@ -12240,15 +12228,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             this.received_commands.wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
                             Helpers.logCooperativeCancellation(LOGGER, "received commands wait", ex);
+                            receiveState.rejectInterrupted();
                             break;
                         }
                     }
                 }
             }
+        } while (!receiveState.isTerminal() && !isFin_de_la_transmision());
 
-        } while (!ok && !isFin_de_la_transmision());
-
-        return actions;
+        if (!receiveState.isTerminal()) {
+            receiveState.rejectTransportClosed();
+        }
+        if (receiveState.status() == RecoveryActionReceiveState.Status.FAILED
+                && !isFin_de_la_transmision()) {
+            setForce_recover(true);
+            setTerminationPending();
+            setFin_de_la_transmision(true);
+            WaitingRoomFrame.getInstance().closeClientSocket();
+        }
+        return receiveState.isSuccess() ? receiveState.actions() : null;
     }
 
     // Progress deadline shared by the two synchronous recovery broadcasts

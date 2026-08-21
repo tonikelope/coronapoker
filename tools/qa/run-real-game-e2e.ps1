@@ -10,6 +10,9 @@ param(
 
     [long]$Seed = 23059,
 
+    [ValidateSet('normal', 'abrupt-exit')]
+    [string]$Scenario = 'normal',
+
     [ValidateSet('hidden', 'minimized', 'visible')]
     [string]$WindowMode = 'hidden',
 
@@ -37,6 +40,7 @@ Options:
   -Bots <0..7>             Production bots hosted by the server (default: 2)
   -Hands <1..100>          Complete hands to play (default: 1)
   -Seed <long>             Reproducible action-driver seed (default: 23059)
+  -Scenario <name>         normal or abrupt-exit (default: normal)
   -WindowMode <mode>       hidden, minimized or visible (default: hidden)
   -Screen <1..16>          Target monitor for every mode (default: 2)
   -Animations              Enable production animations; disabled by default
@@ -51,6 +55,7 @@ Constraints:
 Examples:
   .\tools\qa\run-real-game-e2e.ps1
   .\tools\qa\run-real-game-e2e.ps1 -Clients 2 -Bots 1 -Hands 3 -Seed 42
+  .\tools\qa\run-real-game-e2e.ps1 -Scenario abrupt-exit
   .\tools\qa\run-real-game-e2e.ps1 -WindowMode visible -Screen 2 -Animations
   .\tools\qa\run-real-game-e2e.ps1 -ProductionTiming -WindowMode minimized
 
@@ -94,6 +99,7 @@ $testModeEnabled = if ($ProductionTiming) { 'false' } else { 'true' }
     "-Dqa.e2e.bots=$Bots" `
     "-Dqa.e2e.hands=$Hands" `
     "-Dqa.e2e.seed=$Seed" `
+    "-Dqa.e2e.scenario=$Scenario" `
     "-Dqa.e2e.windowMode=$WindowMode" `
     "-Dqa.e2e.screen=$Screen" `
     "-Dqa.e2e.animations=$animationsEnabled" `

@@ -119,6 +119,7 @@ public final class RealGameNodeMain {
                 + " requested=" + config.hands
                 + " crupierHand=" + crupier.getMano()
                 + " sqlCompleted=" + completedHands());
+        marker("LEDGER", latestLedgerSummary());
 
         // The parent owns the lifetime of all peers and stops them together once
         // every independent SQLite ledger has observed the completed hand(s).
@@ -337,6 +338,28 @@ public final class RealGameNodeMain {
                 return rs.next() ? rs.getInt(1) : 0;
             } catch (Exception ex) {
                 return 0;
+            }
+        }
+    }
+
+    private static String latestLedgerSummary() {
+        synchronized (GameFrame.SQL_LOCK) {
+            String sql = "SELECT h.id,h.end,h.pot,COUNT(b.id),COALESCE(SUM(b.stack),0) "
+                    + "FROM hand h LEFT JOIN balance b ON b.id_hand=h.id "
+                    + "GROUP BY h.id ORDER BY h.id DESC LIMIT 1";
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
+                    ResultSet rs = statement.executeQuery()) {
+                if (!rs.next()) {
+                    return "missing=true";
+                }
+                return "handId=" + rs.getLong(1)
+                        + " end=" + rs.getLong(2)
+                        + " potCents=" + Math.round(rs.getDouble(3) * 100.0d)
+                        + " balanceRows=" + rs.getInt(4)
+                        + " stackCents=" + Math.round(rs.getDouble(5) * 100.0d);
+            } catch (Exception ex) {
+                marker("FAIL", "ledger=" + ex.getClass().getName());
+                return "error=true";
             }
         }
     }

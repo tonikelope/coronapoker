@@ -338,6 +338,9 @@ Typical runs:
 
 # Visual diagnosis on monitor 2, optionally with animations and production timing.
 .\tools\qa\run-real-game-e2e.ps1 -WindowMode visible -Screen 2 -Animations -ProductionTiming
+
+# Kill one client JVM during preflop and require MISDEAL + full refund + live host.
+.\tools\qa\run-real-game-e2e.ps1 -Scenario abrupt-exit
 ```
 
 The real-game runner defaults to hidden windows, disabled sound/animations and
@@ -346,6 +349,7 @@ does not change protocol timeouts. Each peer gets a temporary isolated home,
 identity and SQLite database, removed after the run. A run is green only when
 all peers finish with matching consensus hashes and canonical balances and no
 fatal/error dialog. Host + clients + bots cannot exceed eight seats.
+Run `-Help` for the current scenario list and every option.
 
 The headless runner is the high-volume layer; the real-game runner is the
 integration layer. Neither replaces the other, and visual painting/layout still

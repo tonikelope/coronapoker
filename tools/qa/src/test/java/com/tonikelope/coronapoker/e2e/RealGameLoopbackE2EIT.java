@@ -33,6 +33,9 @@ final class RealGameLoopbackE2EIT {
         int bots = intProperty("qa.e2e.bots", 2, 0, 7);
         int hands = intProperty("qa.e2e.hands", 1, 1, 100);
         long seed = Long.getLong("qa.e2e.seed", 23059L);
+        String scenario = System.getProperty("qa.e2e.scenario", "normal");
+        assertTrue(scenario.equals("normal") || scenario.equals("abrupt-exit"),
+                "unsupported qa.e2e.scenario: " + scenario);
         assertTrue(clients + bots + 1 <= 8, "host + clients + bots must fit the table");
 
         int port;
@@ -51,6 +54,11 @@ final class RealGameLoopbackE2EIT {
                 NodeProcess client = startNode(root.resolve("client-" + i), "client", "client" + i,
                         port, clients, bots, hands, seed + i);
                 nodes.add(client);
+            }
+
+            if (scenario.equals("abrupt-exit")) {
+                runAbruptExitScenario(nodes, host, clients + bots + 1);
+                return;
             }
 
             for (NodeProcess node : nodes) {
@@ -78,6 +86,25 @@ final class RealGameLoopbackE2EIT {
                 nodes.get(i).close();
             }
         }
+    }
+
+    private static void runAbruptExitScenario(List<NodeProcess> nodes, NodeProcess host,
+            int seats) throws Exception {
+        NodeProcess victim = nodes.get(1);
+        assertTrue(host.await("HAND 1: betting round Preflop", Duration.ofSeconds(90)),
+                host.diagnostic());
+        victim.killForcibly();
+
+        assertTrue(host.await("MISDEAL triggered:", Duration.ofMinutes(3)), host.diagnostic());
+        assertTrue(host.await("RECOVERY: abortAndRecover engaged", Duration.ofSeconds(30)),
+                host.diagnostic());
+        assertTrue(host.await("CP_E2E_LEDGER", Duration.ofSeconds(30)), host.diagnostic());
+        assertTrue(host.contains("potCents=0"), host.diagnostic());
+        assertTrue(host.contains("balanceRows=" + seats), host.diagnostic());
+        assertTrue(host.contains("stackCents=" + (seats * 1000L)), host.diagnostic());
+        assertTrue(host.isAlive(), "host died after peer MISDEAL\n" + host.diagnostic());
+        assertFalse(host.contains("TABLE_FAILURE_V1"), host.diagnostic());
+        assertFalse(host.contains("CP_E2E_FAIL"), host.diagnostic());
     }
 
     private static NodeProcess startNode(Path home, String role, String nick, int port,
@@ -198,6 +225,16 @@ final class RealGameLoopbackE2EIT {
                 return "Node " + name + " (alive=" + process.isAlive() + ") output:\n"
                         + String.join("\n", output.subList(start, output.size()));
             }
+        }
+
+        private boolean isAlive() {
+            return process.isAlive();
+        }
+
+        private void killForcibly() throws InterruptedException {
+            process.destroyForcibly();
+            process.waitFor(10, TimeUnit.SECONDS);
+            readerDone.await(2, TimeUnit.SECONDS);
         }
 
         @Override

@@ -3744,14 +3744,13 @@ public class WaitingRoomFrame extends JFrame {
                                                                 // consumer to read the CONF. The check-then-act runs under
                                                                 // lock_pause, same as the host.
                                                                 try {
-                                                                    if (partes_comando.length < 4
-                                                                            || (!"0".equals(partes_comando[3]) && !"1".equals(partes_comando[3]))) {
-                                                                        throw new IllegalArgumentException("invalid PAUSE value");
+                                                                    PauseWire.Relay relay = PauseWire.parseHostRelay(partes_comando);
+                                                                    final String pause_value = relay.paused() ? "1" : "0";
+                                                                    final String pauser = relay.owner();
+                                                                    if (!GameFrame.getInstance().getCrupier().getNick2player()
+                                                                            .containsKey(pauser)) {
+                                                                        throw new IllegalArgumentException("unknown PAUSE owner");
                                                                     }
-                                                                    final String pause_value = partes_comando[3];
-                                                                    final String pauser = (partes_comando.length >= 5)
-                                                                            ? new String(Base64.getDecoder().decode(partes_comando[4]), "UTF-8")
-                                                                            : server_nick;
                                                                     final long pause_sequence = nextPauseRelaySequence();
                                                                     Helpers.threadRun(() -> {
                                                                         // Keep this asynchronous to avoid the CONF self-deadlock, but
@@ -3771,7 +3770,9 @@ public class WaitingRoomFrame extends JFrame {
                                                                         }
                                                                     });
                                                                 } catch (Exception ex) {
-                                                                    LOGGER.log(Level.SEVERE, "Error processing PAUSE", ex);
+                                                                    LOGGER.log(Level.SEVERE,
+                                                                            "Invalid critical PAUSE relay; closing host channel", ex);
+                                                                    closeCriticalHostChannel();
                                                                 }
                                                                 break;
                                                             case "SHUFFLE_TURN":

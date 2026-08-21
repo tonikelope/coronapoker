@@ -1930,12 +1930,17 @@ public class Participant implements Runnable {
                                     switch (subcomando) {
 
                                         case "PAUSE":
-                                            if (partes_comando.length < 4
-                                                    || (!"0".equals(partes_comando[3]) && !"1".equals(partes_comando[3]))) {
-                                                LOGGER.log(Level.WARNING, "Dropping malformed PAUSE from {0}", nick);
+                                            final String pause_value;
+                                            try {
+                                                pause_value = PauseWire.parseClientRequest(partes_comando) ? "1" : "0";
+                                            } catch (RuntimeException invalidPause) {
+                                                LOGGER.log(Level.SEVERE,
+                                                        "Malformed critical PAUSE from " + nick + "; closing connection",
+                                                        invalidPause);
+                                                game_command_gate.rejectCriticalViolation();
+                                                exitAndCloseSocket();
                                                 break;
                                             }
-                                            final String pause_value = partes_comando[3];
                                             final long pause_sequence = nextPauseInboundSequence();
                                             Helpers.threadRun(() -> {
                                                 // The reader must stay free to consume CONF, but the

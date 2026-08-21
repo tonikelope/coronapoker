@@ -113,6 +113,7 @@
                         <qa.sim.fault.case>${qa.sim.fault.case}</qa.sim.fault.case>
                         <qa.sim.bot.hands>${qa.sim.bot.hands}</qa.sim.bot.hands>
                         <qa.sim.bot.hand>${qa.sim.bot.hand}</qa.sim.bot.hand>
+                        <qa.sim.lifecycle.case>${qa.sim.lifecycle.case}</qa.sim.lifecycle.case>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
@@ -310,6 +311,7 @@
                                 <include>**/protocolsim/*Test.java</include>
                                 <include>**/ProtocolExitRecoverySimulationTest.java</include>
                                 <include>**/ProtocolPotRabbitCampaignTest.java</include>
+                                <include>**/ProtocolLifecycleCampaignTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>

@@ -70,6 +70,10 @@ thresholds with hard per-hand conservation, liveness and validity invariants.
   reconciliation and signed action replay to the uninterrupted `H_t`.
 - Cross-session snapshot and post-signature mutation rejection before chain
   mutation.
+- Seeded lifecycle transitions: normal drain, final exit, force-recover,
+  abrupt disconnect/MISDEAL, socket reconnect with pending critical-command
+  preservation, RIT side-B interruption and malformed termination. Old-session
+  callbacks are rejected before the next table can mutate.
 - Dual-lock SRA deck, deterministic shuffle, pocket/community unlock, disjoint
   normal/RIT boards and exact 52-card recovery.
 - Atomic `POTCARDS` roster with real showdown signatures and binding to each
@@ -81,13 +85,18 @@ thresholds with hard per-hand conservation, liveness and validity invariants.
 - Actual `Crupier` orchestration. Production bot decisions are exercised by a
   scalable 3-to-9-seat campaign, but its game harness is not `Crupier`.
 - Full `Crupier` SRA request/response orchestration and proof-chain scheduling.
-- Side-pot construction and complete multi-street betting state.
-- Rabbit authorization/ledger.
+- Complete multi-street betting plus `Crupier` side-pot/settlement wiring; the
+  production side-pot constructor itself is randomized above.
+- Full `Crupier` Rabbit request/pause/showdown orchestration; the production
+  signed ledger and all fee modes are randomized above.
 - Full `Crupier` EXIT/MISDEAL/refund orchestration and SQLite recovery replay.
-- Campaign-integrated fault scheduling, disconnect and reconnect. The current
-  focused transport probes already cover duplicate/conflicting delivery,
-  mutation and reordering at the production replay/chain gates.
-- Real sockets, executors, Swing/EDT and lobby lifecycle.
+- A single live-`Crupier` campaign that interrupts an active hand, reconnects
+  its real sockets and resumes through SQLite. Transport and lifecycle faults
+  are currently seeded campaigns over the production gates/state machines,
+  but not yet one GUI-free `Crupier.run()` execution.
+- Real sockets/executors are covered by focused headless tests, but are not yet
+  driven inside the same seeded hand campaign. Swing/EDT and lobby lifecycle
+  remain outside the simulator.
 
 Those items are added incrementally by composing or extracting production
 components; protocol logic must not be copied into a parallel implementation.

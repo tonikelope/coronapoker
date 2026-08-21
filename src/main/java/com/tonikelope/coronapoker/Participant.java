@@ -1861,7 +1861,7 @@ public class Participant implements Runnable {
                             }
                             continue;
                         }
-                        String[] partes_comando = recibido.split("#");
+                        String[] partes_comando = recibido.split("#", -1);
 
                         switch (partes_comando[0]) {
                             case "PING":
@@ -1993,24 +1993,16 @@ public class Participant implements Runnable {
                                             // is blocked on lock_rebuynow and never reads that CONF -> a deadlock
                                             // that hangs the table (same class of bug as the pause one). Taking it
                                             // off the reader thread closes this.
-                                            if (partes_comando.length < 4) {
-                                                LOGGER.log(Level.SEVERE, "Malformed critical REBUYNOW from {0}; closing connection", nick);
-                                                if (game_command_gate.rejectCriticalViolation().closeConnection()) {
-                                                    exitAndCloseSocket();
-                                                }
-                                                break;
-                                            }
                                             try {
-                                                final int rebuy_buyin = Integer.parseInt(partes_comando[3]);
+                                                final int rebuy_buyin = ImmediateRebuyWire.parseClientRequest(partes_comando);
                                                 final long rebuy_sequence = nextRebuyInboundSequence();
                                                 final long rebuy_source = getRebuySourceId();
                                                 Helpers.threadRun(() -> GameFrame.getInstance().getCrupier()
                                                         .rebuyNowFromClient(nick, rebuy_buyin, rebuy_source, rebuy_sequence));
-                                            } catch (NumberFormatException ex) {
+                                            } catch (RuntimeException ex) {
                                                 LOGGER.log(Level.SEVERE, "Malformed critical REBUYNOW amount from " + nick + "; closing connection", ex);
-                                                if (game_command_gate.rejectCriticalViolation().closeConnection()) {
-                                                    exitAndCloseSocket();
-                                                }
+                                                game_command_gate.rejectCriticalViolation();
+                                                exitAndCloseSocket();
                                             }
                                             break;
                                         case "SHOWCARDS":

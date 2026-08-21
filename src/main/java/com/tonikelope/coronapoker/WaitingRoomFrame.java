@@ -2524,7 +2524,7 @@ public class WaitingRoomFrame extends JFrame {
                                 recibido = net_client.getLocal_client_socket_reader_queue().take();
 
                                 if (!POISON_PILL.equals(recibido)) {
-                                    String[] partes_comando = recibido.split("#");
+                                    String[] partes_comando = recibido.split("#", -1);
 
                                     // A single malformed/unprocessable frame (missing segment,
                                     // bad number, etc.) must NOT tear down the whole game session
@@ -3497,18 +3497,33 @@ public class WaitingRoomFrame extends JFrame {
                                                                 // lock_rebuynow and never read our own rebuy's CONF -> self-deadlock
                                                                 // (same class of bug as the pause).
                                                                 try {
-                                                                    final String rbNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                    final int rbBuyin = Integer.parseInt(partes_comando[4]);
+                                                                    ImmediateRebuyWire.Relay relay
+                                                                            = ImmediateRebuyWire.parseHostRelay(partes_comando);
+                                                                    final String rbNick = relay.nick();
+                                                                    final int rbBuyin = relay.amount();
+                                                                    if (relay.denied() || !GameFrame.getInstance().getCrupier()
+                                                                            .getNick2player().containsKey(rbNick)) {
+                                                                        throw new IllegalArgumentException("invalid REBUYNOW relay target");
+                                                                    }
                                                                     final long rbSequence = nextRebuyRelaySequence();
                                                                     Helpers.threadRun(() -> GameFrame.getInstance().getCrupier()
                                                                             .applyRemoteRebuyNow(rbNick, rbBuyin, rbSequence));
                                                                 } catch (Exception e) {
+                                                                    LOGGER.log(Level.SEVERE,
+                                                                            "Invalid critical REBUYNOW relay; closing host channel", e);
+                                                                    closeCriticalHostChannel();
                                                                 }
                                                                 break;
                                                             case "REBUYDENIED":
                                                                 try {
-                                                                    final String dnNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                    final int dnLimit = Integer.parseInt(partes_comando[4]);
+                                                                    ImmediateRebuyWire.Relay relay
+                                                                            = ImmediateRebuyWire.parseHostRelay(partes_comando);
+                                                                    final String dnNick = relay.nick();
+                                                                    final int dnLimit = relay.amount();
+                                                                    if (!relay.denied() || !GameFrame.getInstance().getCrupier()
+                                                                            .getNick2player().containsKey(dnNick)) {
+                                                                        throw new IllegalArgumentException("invalid REBUYDENIED relay target");
+                                                                    }
                                                                     final long dnSequence = nextRebuyRelaySequence();
                                                                     Helpers.threadRun(() -> {
                                                                         // A denial is an ordered zero relay. Applying it through the same
@@ -3530,6 +3545,9 @@ public class WaitingRoomFrame extends JFrame {
                                                                         }
                                                                     });
                                                                 } catch (Exception e) {
+                                                                    LOGGER.log(Level.SEVERE,
+                                                                            "Invalid critical REBUYDENIED relay; closing host channel", e);
+                                                                    closeCriticalHostChannel();
                                                                 }
                                                                 break;
                                                             case "SHOWCARDS":

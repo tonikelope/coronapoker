@@ -2571,7 +2571,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
                 return false;
             }
-            waitSyncConfirmations(pending, request);
+            waitSyncConfirmations(pending, tracker, request);
             if (pending.isEmpty() && !p.isExit()) {
                 return true;
             }
@@ -12343,7 +12343,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
 
-                this.waitSyncConfirmations(pendientes, request);
+                this.waitSyncConfirmations(pendientes, tracker, request);
 
                 // PAUSE/TIMEOUT-aware progress deadline (same as broadcastGAMECommandFromServer).
                 // Without it, a peer answering PING but never confirming recovery would block
@@ -12405,7 +12405,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
 
-                this.waitSyncConfirmations(pendientes, request);
+                this.waitSyncConfirmations(pendientes, tracker, request);
 
                 // PAUSE/TIMEOUT-aware progress deadline: see enviarDatosClaveRecuperados and the
                 // expelStalledRecoveryPeers helper. Without it a non-confirming peer would freeze
@@ -12467,7 +12467,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             GameFrame.getInstance().getSala_espera().getLocal_client_hmac_key()));
 
             if (confirmation) {
-                this.waitSyncConfirmations(pendientes, request);
+                this.waitSyncConfirmations(pendientes, tracker, request);
             }
 
             if (confirmation) {
@@ -12493,13 +12493,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private boolean waitSyncConfirmations(ArrayList<String> pending,
-            ConfirmationTracker.Request request) {
+            ConfirmationTracker tracker, ConfirmationTracker.Request request) {
 
         long start_time = System.currentTimeMillis();
 
         boolean timeout = false;
-
-        ConfirmationTracker tracker = WaitingRoomFrame.getInstance().getReceived_confirmations();
 
         while (!pending.isEmpty() && !timeout) {
 
@@ -17906,7 +17904,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (confirmation) {
-                    this.waitSyncConfirmations(pendientes, request);
+                    this.waitSyncConfirmations(pendientes, tracker, request);
 
                     for (Participant p : targets) {
                         if (!p.getNick().equals(skip_nick) && p.isExit()) {

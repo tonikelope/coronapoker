@@ -63,7 +63,10 @@ public final class ConfirmationTracker {
 
     public synchronized List<String> remaining(Request request) {
         Pending state = state(request);
-        return state == null ? new ArrayList<>() : new ArrayList<>(state.remaining);
+        if (state == null) {
+            throw new IllegalStateException("confirmation request does not belong to this tracker or is closed");
+        }
+        return new ArrayList<>(state.remaining);
     }
 
     public synchronized void cancelPeer(Request request, String peer) {

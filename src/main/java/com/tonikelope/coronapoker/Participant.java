@@ -807,7 +807,7 @@ public class Participant implements Runnable {
                         if (writeFailed == null) {
                             break;
                         } else if (!writeFailed) {
-                            waitPreGameCommandConfirmations(pendientes, entry, request);
+                            waitPreGameCommandConfirmations(pendientes, entry, tracker, request);
                         } else {
                             // The write failed, typically because the socket is closed while
                             // the peer is getting its window to return. The loop's only wait
@@ -1730,10 +1730,10 @@ public class Participant implements Runnable {
      * still pending
      */
     public boolean waitPreGameCommandConfirmations(ArrayList<String> pending,
-            SessionOutbox.Entry entry, ConfirmationTracker.Request request) {
+            SessionOutbox.Entry entry, ConfirmationTracker tracker,
+            ConfirmationTracker.Request request) {
         long start_time = System.currentTimeMillis();
         boolean plazo_vencido = false;
-        ConfirmationTracker tracker = WaitingRoomFrame.getInstance().getReceived_confirmations();
 
         while (!exit && pre_game_socket_writer_queue.isCurrent(entry)
                 && !pending.isEmpty() && !plazo_vencido) {

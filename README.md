@@ -317,7 +317,7 @@ runners remain available for focused diagnosis:
 
 | Runner | Purpose | Production coverage |
 |---|---|---|
-| `tools/qa/run-certification.ps1` | Fail-fast full certification after a code change | `qa-release`, bot-quality tests, mass headless campaigns and every real-game scenario below |
+| `tools/qa/run-certification.ps1` | Fail-fast full game certification after a code change | `qa-release`, mass headless campaigns and every real-game scenario below; bot-quality statistics are opt-in |
 | `tools/qa/run-headless-sim.ps1` | Fast seeded campaigns and fault injection | Protocol/domain components, SRA, signed actions, pots, Rabbit/RIT, EXIT/MISDEAL/recovery models, SQLite replay and production bots |
 | `tools/qa/run-real-game-e2e.ps1` | Complete local games in separate JVMs | Real encrypted sockets, `WaitingRoomFrame`, `Crupier.run()`, `rondaApuestas()`, bots, consensus and per-peer SQLite |
 
@@ -376,9 +376,9 @@ Typical runs:
 The complete runner executes one wiring case for each protocol campaign inside
 `qa-release`, then applies the requested mass volume once in its dedicated
 headless phase. This avoids running the same 5,000-case campaign twice without
-dropping any test class. Use `-SkipBotQuality` only when the statistical bot lane
-is deliberately out of scope; every deterministic, protocol and real-game phase
-still runs.
+dropping any game-integrity test class. Statistical bot-quality tests are excluded
+by default because they measure playing strength rather than protocol integrity;
+use `-IncludeBotQuality` after changing bot AI or evaluation code.
 
 Scenario contracts:
 

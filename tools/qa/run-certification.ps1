@@ -21,7 +21,7 @@ param(
 
     [switch]$ProductionTiming,
 
-    [switch]$SkipBotQuality,
+    [switch]$IncludeBotQuality,
 
     [switch]$Help
 )
@@ -37,9 +37,8 @@ Usage:
 
 Default phases (fail-fast and sequential):
   1. qa-release: deterministic tests plus every non-bot slow lane
-  2. qa-bots: statistical bot-quality tests
-  3. Seeded headless protocol/fault campaigns
-  4. Every real-game loopback scenario in separate production JVMs
+  2. Seeded headless protocol/fault campaigns
+  3. Every real-game loopback scenario in separate production JVMs
 
 Options:
   -Hands <1..100000>       Headless protocol campaign hands (default: 5000)
@@ -50,13 +49,14 @@ Options:
   -Screen <1..16>          Monitor assigned to real-game JVMs (default: 2)
   -Animations              Enable animations in real-game scenarios
   -ProductionTiming        Use production pauses instead of test acceleration
-  -SkipBotQuality          Skip only statistical bot-quality tests
+  -IncludeBotQuality       Also run statistical bot-quality tests (bot changes only)
   -Help                    Show this help and exit
 
 Examples:
   .\tools\qa\run-certification.ps1
   .\tools\qa\run-certification.ps1 -Seed 42 -WindowMode hidden -Screen 2
-  .\tools\qa\run-certification.ps1 -Hands 500 -Faults 500 -SkipBotQuality
+  .\tools\qa\run-certification.ps1 -Hands 500 -Faults 500
+  .\tools\qa\run-certification.ps1 -IncludeBotQuality
 
 Reports and full phase logs are written under target\certification\<timestamp>.
 The command exits non-zero at the first failed phase and prints its log path.
@@ -173,7 +173,7 @@ try {
                 '-Dqa.sim.bot.hands=1'
             ))
 
-    if (-not $SkipBotQuality) {
+    if ($IncludeBotQuality) {
         Invoke-CertificationPhase `
             -Name 'Bot quality suite' `
             -Command $maven `

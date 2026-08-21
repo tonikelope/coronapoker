@@ -32,6 +32,14 @@ one hand, with a concise trace, using:
 - Direct single-hand replay with seed, hand index and concise trace output.
 - Production `GameCommandGate` fault probes: exact retransmission, conflicting
   command ID, signed-record mutation and valid-but-reordered action.
+- Current-version controlled `EXIT` request/relay with authenticated identity
+  and mandatory unlock material pairing.
+- Abrupt transport closure as an explicit terminal state and strict canonical
+  `MISDEAL` reason parsing.
+- Session-bound recovery snapshot validation, exact local-balance
+  reconciliation and signed action replay to the uninterrupted `H_t`.
+- Cross-session snapshot and post-signature mutation rejection before chain
+  mutation.
 
 ## Not yet covered; do not infer it from a green campaign
 
@@ -39,7 +47,7 @@ one hand, with a concise trace, using:
 - SRA cascade/proofs and pocket unlock/POTCARDS lifecycle.
 - Side-pot construction and complete multi-street betting state.
 - Rabbit authorization/ledger.
-- EXIT/testaments, MISDEAL/refund and recovery snapshots/SQLite replay.
+- Full `Crupier` EXIT/MISDEAL/refund orchestration and SQLite recovery replay.
 - Campaign-integrated fault scheduling, disconnect and reconnect. The current
   focused transport probes already cover duplicate/conflicting delivery,
   mutation and reordering at the production replay/chain gates.

@@ -372,6 +372,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 && "START_SRA_CASCADE".equals(partes[2]);
     }
 
+    static boolean sraPeerResponseHasCurrentShape(String[] partes) {
+        if (partes == null || partes.length < 3) {
+            return false;
+        }
+        switch (partes[2]) {
+            case "DECK_CASCADE_RESP":
+                return partes.length == 7;
+            case "DECK_ROTATION_RESP":
+                return partes.length == 6;
+            case "RESP_SRA_UNLOCK_CHAIN":
+                return partes.length == 5;
+            default:
+                return false;
+        }
+    }
+
     /**
      * Identity §4.9 (pure, testable): builds the ACTION subcommand sent on the
      * wire.
@@ -2225,8 +2241,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
                 while (!ok && !fatalError && !this.getReceived_commands().isEmpty()) {
                     String cmd = this.received_commands.poll();
-                    String[] partes = cmd.split("#");
-                    if (partes.length == 7 && partes[2].equals("DECK_CASCADE_RESP")) {
+                    String[] partes = cmd.split("#", -1);
+                    if (partes.length >= 3 && partes[2].equals("DECK_CASCADE_RESP")) {
+                        if (!sraPeerResponseHasCurrentShape(partes)) {
+                            LOGGER.log(Level.SEVERE,
+                                    "Malformed critical DECK_CASCADE_RESP; closing authenticated source");
+                            this.received_commands.reject(cmd);
+                            continue;
+                        }
                         String senderNick;
                         try {
                             senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
@@ -2402,8 +2424,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
                 while (!ok && !fatalError && !this.getReceived_commands().isEmpty()) {
                     String cmd = this.received_commands.poll();
-                    String[] partes = cmd.split("#");
-                    if (partes.length == 6 && partes[2].equals("DECK_ROTATION_RESP")) {
+                    String[] partes = cmd.split("#", -1);
+                    if (partes.length >= 3 && partes[2].equals("DECK_ROTATION_RESP")) {
+                        if (!sraPeerResponseHasCurrentShape(partes)) {
+                            LOGGER.log(Level.SEVERE,
+                                    "Malformed critical DECK_ROTATION_RESP; closing authenticated source");
+                            this.received_commands.reject(cmd);
+                            continue;
+                        }
                         String senderNick;
                         try {
                             senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
@@ -2502,8 +2530,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
                 while (!ok && !this.getReceived_commands().isEmpty()) {
                     String cmd = this.received_commands.poll();
-                    String[] partes = cmd.split("#");
-                    if (partes.length == 5 && partes[2].equals("RESP_SRA_UNLOCK_CHAIN")) {
+                    String[] partes = cmd.split("#", -1);
+                    if (partes.length >= 3 && partes[2].equals("RESP_SRA_UNLOCK_CHAIN")) {
+                        if (!sraPeerResponseHasCurrentShape(partes)) {
+                            LOGGER.log(Level.SEVERE,
+                                    "Malformed critical RESP_SRA_UNLOCK_CHAIN; closing authenticated source");
+                            this.received_commands.reject(cmd);
+                            continue;
+                        }
                         String senderNick;
                         try {
                             senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");

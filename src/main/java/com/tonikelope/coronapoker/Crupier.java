@@ -390,6 +390,51 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    static boolean seatDrawHostFrameHasCurrentShape(String[] parts) {
+        if (parts == null || parts.length < 4) {
+            return false;
+        }
+        final int countIndex;
+        final int fixedFields;
+        final int fieldsPerEntry;
+        switch (parts[2]) {
+            case "SEATS":
+                countIndex = 3;
+                fixedFields = 4;
+                fieldsPerEntry = 1;
+                break;
+            case "SEAT_DRAW_BEGIN":
+                countIndex = 4;
+                fixedFields = 5;
+                fieldsPerEntry = 1;
+                break;
+            case "SEAT_COMMITS":
+                countIndex = 4;
+                fixedFields = 5;
+                fieldsPerEntry = 3;
+                break;
+            case "SEAT_REVEALS":
+                countIndex = 4;
+                fixedFields = 5;
+                fieldsPerEntry = 2;
+                break;
+            default:
+                return false;
+        }
+        if (parts.length <= countIndex) {
+            return false;
+        }
+        final int count;
+        try {
+            count = Integer.parseInt(parts[countIndex]);
+        } catch (RuntimeException ex) {
+            return false;
+        }
+        return count >= 0
+                && Integer.toString(count).equals(parts[countIndex])
+                && (long) parts.length == fixedFields + (long) fieldsPerEntry * count;
+    }
+
     /**
      * Identity §4.9 (pure, testable): builds the ACTION subcommand sent on the
      * wire.
@@ -19373,7 +19418,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             final HashSet<String> pendingCommits = new HashSet<>(remoteHumans);
             int rc = collectSeatResponses("SEAT_COMMIT", pendingCommits, (p) -> {
                 // p = [GAME, id, SEAT_COMMIT, nickB64, nonceB64, commitB64, sigB64]
-                if (p.length < 7) {
+                if (p.length != 7) {
                     return "";
                 }
                 String nick;
@@ -19426,7 +19471,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             final HashSet<String> pendingReveals = new HashSet<>(remoteHumans);
             int rr = collectSeatResponses("SEAT_REVEAL", pendingReveals, (p) -> {
                 // p = [GAME, id, SEAT_REVEAL, nickB64, nonceB64, revealB64]
-                if (p.length < 6) {
+                if (p.length != 6) {
                     return "";
                 }
                 String nick;
@@ -19507,12 +19552,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             boolean progressed = false;
+            boolean protocolViolation = false;
 
             synchronized (this.getReceived_commands()) {
                 ArrayList<String> rejected = new ArrayList<>();
                 while (!this.getReceived_commands().isEmpty()) {
                     String comando = this.received_commands.poll();
-                    String[] p = comando.split("#");
+                    String[] p = comando.split("#", -1);
                     if (p.length >= 3 && p[2].equals(cmdName)) {
                         String consumed;
                         try {
@@ -19523,8 +19569,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                         if (consumed != null && !consumed.isEmpty() && pending.remove(consumed)) {
                             progressed = true;
+                        } else {
+                            LOGGER.log(Level.SEVERE,
+                                    "Invalid, duplicate or unexpected {0}; closing authenticated source",
+                                    cmdName);
+                            this.received_commands.reject(comando);
+                            protocolViolation = true;
+                            break;
                         }
-                        // consumed=="" (or a non-pending nick) -> dropped, never re-queued.
                     } else {
                         rejected.add(comando);
                     }
@@ -19532,6 +19584,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (!rejected.isEmpty()) {
                     restoreRejectedCommands(rejected);
                 }
+            }
+
+            if (protocolViolation) {
+                return SEAT_COLLECT_ABORT;
             }
 
             if (pending.isEmpty()) {
@@ -19587,6 +19643,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return SEAT_COLLECT_DONE;
     }
 
+    private void rejectCriticalSeatDrawHostCommand(String command, String detail, Exception error) {
+        LOGGER.log(Level.SEVERE, detail, error);
+        setFin_de_la_transmision(true);
+        boolean sourceClosed = command != null && this.received_commands.reject(command);
+        if (!sourceClosed) {
+            WaitingRoomFrame waitingRoom = WaitingRoomFrame.getInstance();
+            if (waitingRoom != null) {
+                waitingRoom.closeClientSocket();
+            }
+        }
+    }
+
     /**
      * CLIENT side of the seat draw. Waits for either the verifiable
      * commit-reveal round (SEAT_DRAW_BEGIN -> SEAT_COMMITS -> SEAT_REVEALS) or,
@@ -19617,9 +19685,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 ArrayList<String> rejected = new ArrayList<>();
                 while (!this.getReceived_commands().isEmpty()) {
                     String comando = this.received_commands.poll();
-                    String[] p = comando.split("#");
+                    String[] p = comando.split("#", -1);
                     if (p.length >= 3 && (p[2].equals("SEAT_DRAW_BEGIN") || p[2].equals("SEAT_COMMITS")
                             || p[2].equals("SEAT_REVEALS") || p[2].equals("SEATS"))) {
+                        if (!seatDrawHostFrameHasCurrentShape(p)) {
+                            rejectCriticalSeatDrawHostCommand(comando,
+                                    "Malformed critical host seat-draw frame; closing host channel", null);
+                            return null;
+                        }
                         mine.add(p);
                     } else {
                         rejected.add(comando);
@@ -19640,6 +19713,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // dictate the seating (verifyRecoveredSeatsAgainstLocal is a no-op on a
                             // brand-new client with no persisted ring), so refuse it there and fail fast.
                             if (!GameFrame.isRECOVER()) {
+                                rejectCriticalSeatDrawHostCommand(null,
+                                        "Bare SEATS on a fresh game; closing host channel", null);
                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: received a bare SEATS on a fresh (non-recover) game — a legitimate draw uses SEAT_DRAW_BEGIN; refusing the seating (possible commit-reveal bypass by the host). The game will fail to start rather than accept an unverified seating.");
                                 return null;
                             }
@@ -19711,7 +19786,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         case "SEAT_COMMITS": {
                             // p = [GAME, id, SEAT_COMMITS, nonceB64, k, (nickB64, commitB64, sigB64)...]
                             if (nonceB64 == null || p.length < 5 || !p[3].equals(nonceB64)) {
-                                break;
+                                rejectCriticalSeatDrawHostCommand(null,
+                                        "Out-of-phase SEAT_COMMITS; closing host channel", null);
+                                return null;
                             }
                             // ONE-SHOT per nonce. Once the commit table is pinned (and we have revealed),
                             // any further SEAT_COMMITS for the SAME nonce is refused: otherwise the host
@@ -19720,7 +19797,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // The host is now locked to the first table; any reveal not matching it makes
                             // the SEAT_REVEALS check below abort. commitTable resets only on a new nonce.
                             if (commitTable != null) {
-                                break;
+                                rejectCriticalSeatDrawHostCommand(null,
+                                        "Duplicate SEAT_COMMITS; closing host channel", null);
+                                return null;
                             }
                             int k = Integer.valueOf(p[4]);
                             if (k < 0 || (long) p.length < 5L + 3L * k) {
@@ -19748,10 +19827,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 table.put(nick, commit);
                             }
                             if (!ok) {
+                                rejectCriticalSeatDrawHostCommand(null,
+                                        "Invalid SEAT_COMMITS payload; closing host channel", null);
                                 return null;
                             }
                             byte[] mineInTable = table.get(myNick);
                             if (mineInTable == null || !Arrays.equals(mineInTable, myCommit)) {
+                                rejectCriticalSeatDrawHostCommand(null,
+                                        "Local commitment missing or altered; closing host channel", null);
                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: my seat commitment is missing/altered in the host's commit table — aborting draw");
                                 return null;
                             }
@@ -19765,7 +19848,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         case "SEAT_REVEALS": {
                             // p = [GAME, id, SEAT_REVEALS, nonceB64, k, (nickB64, revealB64)...]
                             if (nonceB64 == null || commitTable == null || p.length < 5 || !p[3].equals(nonceB64)) {
-                                break;
+                                rejectCriticalSeatDrawHostCommand(null,
+                                        "Out-of-phase SEAT_REVEALS; closing host channel", null);
+                                return null;
                             }
                             int k = Integer.valueOf(p[4]);
                             if (k < 0 || (long) p.length < 5L + 2L * k) {
@@ -19785,16 +19870,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 reveals.put(nick, reveal);
                             }
                             if (!ok) {
+                                rejectCriticalSeatDrawHostCommand(null,
+                                        "Invalid SEAT_REVEALS payload; closing host channel", null);
                                 return null;
                             }
                             // Reveals must cover EXACTLY the committed set — a dropped reveal would
                             // silently shrink the entropy pool that seeds the seating.
                             if (reveals.size() != commitTable.size() || !reveals.keySet().containsAll(commitTable.keySet())) {
+                                rejectCriticalSeatDrawHostCommand(null,
+                                        "Seat reveal set differs from commit set; closing host channel", null);
                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: seat reveal set does not match the commit set — aborting draw");
                                 return null;
                             }
                             byte[] mineReveal = reveals.get(myNick);
                             if (mineReveal == null || !Arrays.equals(mineReveal, myReveal)) {
+                                rejectCriticalSeatDrawHostCommand(null,
+                                        "Local seat reveal missing or altered; closing host channel", null);
                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: my seat reveal is missing/altered in the host's reveal set — aborting draw");
                                 return null;
                             }
@@ -19805,7 +19896,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             break;
                     }
                 } catch (Exception ex) {
-                    LOGGER.log(Level.WARNING, "Exception processing seat-draw command " + (p.length > 2 ? p[2] : "?"), ex);
+                    rejectCriticalSeatDrawHostCommand(null,
+                            "Invalid critical host seat-draw payload; closing host channel", ex);
+                    return null;
                 }
             }
 

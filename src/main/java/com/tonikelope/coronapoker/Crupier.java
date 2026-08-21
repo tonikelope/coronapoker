@@ -6529,32 +6529,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 ArrayList<String> rejected = new ArrayList<>();
                 while (!this.getReceived_commands().isEmpty()) {
                     String comando = this.received_commands.poll();
-                    try {
-                        String[] partes = comando.split("#");
-                        if (partes.length == 5 && partes[2].equals("BUYIN")) {
-                            String nick;
-                            try {
-                                nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-                            } catch (UnsupportedEncodingException ex) {
-                                LOGGER.log(Level.WARNING, "Badly-encoded nick in BUYIN", ex);
-                                continue;
-                            }
-                            int raw_buyin = Integer.parseInt(partes[4]);
-                            int safe_buyin = GameFrame.getBuyinRange().clampWireAmount(raw_buyin);
-                            if (safe_buyin != raw_buyin) {
-                                LOGGER.log(Level.WARNING, "Initial buy-in {0} from {1} out of range [{2},{3}] — clamped to {4}",
-                                        new Object[]{raw_buyin, nick, GameFrame.getBuyinMin(), GameFrame.getBuyinMax(), safe_buyin});
-                            }
-                            aplicarBuyinInicial(nick, safe_buyin);
-                            if (GameFrame.getInstance().isPartida_local()) {
-                                broadcastGAMECommandFromServer("BUYIN#" + partes[3] + "#" + safe_buyin, nick);
-                            }
-                            pending.remove(nick);
-                        } else {
-                            rejected.add(comando);
+                    String[] partes = comando.split("#", -1);
+                    if (partes.length >= 3 && partes[2].equals("BUYIN")) {
+                        final InitialBuyinWire parsed;
+                        try {
+                            parsed = InitialBuyinWire.parse(partes, pending);
+                        } catch (Exception ex) {
+                            LOGGER.log(Level.SEVERE,
+                                    "Invalid critical BUYIN; closing authenticated source", ex);
+                            this.received_commands.reject(comando);
+                            continue;
                         }
-                    } catch (Exception ex) {
-                        LOGGER.log(Level.WARNING, "Exception while processing command in BUYIN wait: " + comando, ex);
+                        int raw_buyin = parsed.requestedAmount();
+                        int safe_buyin = GameFrame.getBuyinRange().clampWireAmount(raw_buyin);
+                        if (safe_buyin != raw_buyin) {
+                            LOGGER.log(Level.WARNING, "Initial buy-in {0} from {1} out of range [{2},{3}] — clamped to {4}",
+                                    new Object[]{raw_buyin, parsed.nick(), GameFrame.getBuyinMin(), GameFrame.getBuyinMax(), safe_buyin});
+                        }
+                        aplicarBuyinInicial(parsed.nick(), safe_buyin);
+                        if (GameFrame.getInstance().isPartida_local()) {
+                            broadcastGAMECommandFromServer("BUYIN#" + partes[3] + "#" + safe_buyin, parsed.nick());
+                        }
+                        pending.remove(parsed.nick());
+                    } else {
+                        rejected.add(comando);
                     }
                 }
                 if (!rejected.isEmpty()) {

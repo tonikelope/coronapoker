@@ -312,16 +312,19 @@ mvn -f tools/reactor/pom.xml test -Dtest=PotMathTest -Dsurefire.failIfNoSpecifie
 
 ### Game simulation tools (Windows / PowerShell)
 
-Two complementary runners test the current source tree through the QA reactor:
+One certification command composes the complete local battery. The two lower-level
+runners remain available for focused diagnosis:
 
 | Runner | Purpose | Production coverage |
 |---|---|---|
+| `tools/qa/run-certification.ps1` | Fail-fast full certification after a code change | `qa-release`, bot-quality tests, mass headless campaigns and every real-game scenario below |
 | `tools/qa/run-headless-sim.ps1` | Fast seeded campaigns and fault injection | Protocol/domain components, SRA, signed actions, pots, Rabbit/RIT, EXIT/MISDEAL/recovery models, SQLite replay and production bots |
 | `tools/qa/run-real-game-e2e.ps1` | Complete local games in separate JVMs | Real encrypted sockets, `WaitingRoomFrame`, `Crupier.run()`, `rondaApuestas()`, bots, consensus and per-peer SQLite |
 
 Ask either runner for its current options and examples:
 
 ```powershell
+.\tools\qa\run-certification.ps1 -Help
 .\tools\qa\run-headless-sim.ps1 -Help
 .\tools\qa\run-real-game-e2e.ps1 -Help
 ```
@@ -329,6 +332,10 @@ Ask either runner for its current options and examples:
 Typical runs:
 
 ```powershell
+# Complete certification after updating the code. This runs every lane and all
+# real scenarios sequentially, hidden on monitor 2, and saves logs under target.
+.\tools\qa\run-certification.ps1
+
 # Fast reproducible protocol campaign.
 .\tools\qa\run-headless-sim.ps1 -Hands 5000 -Faults 5000 -BotHands 100 -Seed 3231711270
 
@@ -361,7 +368,17 @@ Typical runs:
 
 # Kill and relaunch the same client identity, recover, then complete a new hand.
 .\tools\qa\run-real-game-e2e.ps1 -Scenario crash-rejoin-recover -Clients 1 -Bots 2 -Hands 2
+
+# Add a brand-new client during recovery; it observes the replay, then joins hand 2.
+.\tools\qa\run-real-game-e2e.ps1 -Scenario force-recover-add-client -Clients 2 -Bots 2 -Hands 2
 ```
+
+The complete runner executes one wiring case for each protocol campaign inside
+`qa-release`, then applies the requested mass volume once in its dedicated
+headless phase. This avoids running the same 5,000-case campaign twice without
+dropping any test class. Use `-SkipBotQuality` only when the statistical bot lane
+is deliberately out of scope; every deterministic, protocol and real-game phase
+still runs.
 
 Scenario contracts:
 
@@ -375,6 +392,7 @@ Scenario contracts:
 | `force-recover` | Hand 1 is stopped; lobby, sockets and table are rebuilt | Interrupted hand recovers and a fresh hand 2 settles |
 | `double-force-recover` | The same session is force-recovered during hands 1 and 3 | Both recoveries succeed and fresh hands 2 and 4 settle |
 | `crash-rejoin-recover` | Client JVM dies, then restarts with the same home/nick/key | MISDEAL refunds safely; the peer rejoins recovery and completes hand 2 |
+| `force-recover-add-client` | A brand-new client joins the rebuilt recovery lobby | It passively observes the old hand, then participates in fresh hand 2 |
 
 The real-game runner defaults to hidden windows, disabled sound/animations and
 presentation-only test timing. `-ProductionTiming` restores normal pauses; it

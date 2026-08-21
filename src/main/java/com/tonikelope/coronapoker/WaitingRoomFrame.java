@@ -3861,37 +3861,31 @@ public class WaitingRoomFrame extends JFrame {
                                                                 }
                                                                 break;
                                                             case "EXIT":
-                                                                String exitingNick = local_nick;
-                                                                if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
-                                                                    int offset = 3;
-                                                                    if (!GameFrame.getInstance().isPartida_local() && partes_comando.length >= 4) {
-                                                                        try {
-                                                                            exitingNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                        } catch (Exception e) {
+                                                                try {
+                                                                    PlayerExitWire.Command playerExit
+                                                                            = PlayerExitWire.parseHostRelay(partes_comando);
+                                                                    if (GameFrame.getInstance() != null
+                                                                            && GameFrame.getInstance().getCrupier() != null) {
+                                                                        Participant exitingParticipant = GameFrame.getInstance()
+                                                                                .getParticipantes().get(playerExit.nick());
+                                                                        if (exitingParticipant == null) {
+                                                                            throw new IllegalArgumentException(
+                                                                                    "EXIT target is not a current participant");
                                                                         }
-                                                                        offset = 4;
-                                                                    }
-
-                                                                    if (partes_comando.length > offset) {
-                                                                        Participant p = GameFrame.getInstance().getParticipantes().get(exitingNick);
-                                                                        if (p != null && !partes_comando[offset].equals("*")) {
-                                                                            try {
-                                                                                byte[] testament = Base64.getDecoder().decode(partes_comando[offset]);
-                                                                                // Dual-lock: the testament is the community half of the departing
-                                                                                // peer. The pocket half is never shared via EXIT. A USABLE
-                                                                                // scalar is required, not just one of the right size: 32 zero
-                                                                                // bytes passed the size check and blew up the Crupier thread when
-                                                                                // inverted, taking the process down with it.
-                                                                                if (RistrettoSRA.isValidScalar(testament)) {
-                                                                                    p.setSra_unlock_community(testament);
-                                                                                }
-                                                                            } catch (Exception e) {
-                                                                            }
+                                                                        if (playerExit.hasTestament()) {
+                                                                            exitingParticipant.setSra_unlock_community(
+                                                                                    playerExit.testament());
+                                                                            GameFrame.getInstance().getCrupier().remotePlayerQuit(
+                                                                                    playerExit.nick(), playerExit.testamentWire());
+                                                                        } else {
+                                                                            GameFrame.getInstance().getCrupier()
+                                                                                    .remotePlayerQuit(playerExit.nick());
                                                                         }
-                                                                        GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick, partes_comando[offset]);
-                                                                    } else {
-                                                                        GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick);
                                                                     }
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE,
+                                                                            "Invalid critical EXIT relay; closing host channel", ex);
+                                                                    closeCriticalHostChannel();
                                                                 }
                                                                 break;
                                                             case "STRADDLE_DECISION":

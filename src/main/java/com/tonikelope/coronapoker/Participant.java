@@ -2090,43 +2090,26 @@ public class Participant implements Runnable {
                                             }
                                             break;
                                         case "EXIT":
-                                            String exitingNick = this.nick;
-
-                                            if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
-                                                int offset = 3;
-
-                                                if (!GameFrame.getInstance().isPartida_local() && partes_comando.length >= 4) {
-                                                    try {
-                                                        exitingNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                    } catch (Exception e) {
+                                            try {
+                                                PlayerExitWire.Command playerExit
+                                                        = PlayerExitWire.parseClientRequest(partes_comando, this.nick);
+                                                if (GameFrame.getInstance() != null
+                                                        && GameFrame.getInstance().getCrupier() != null) {
+                                                    if (playerExit.hasTestament()) {
+                                                        setSra_unlock_community(playerExit.testament());
+                                                        GameFrame.getInstance().getCrupier().remotePlayerQuit(
+                                                                playerExit.nick(), playerExit.testamentWire());
+                                                    } else {
+                                                        GameFrame.getInstance().getCrupier()
+                                                                .remotePlayerQuit(playerExit.nick());
                                                     }
-                                                    offset = 4;
                                                 }
-
-                                                if (partes_comando.length > offset) {
-                                                    Participant p = GameFrame.getInstance().getParticipantes().get(exitingNick);
-                                                    if (p != null && !partes_comando[offset].equals("*")) {
-                                                        try {
-                                                            byte[] testament = Base64.getDecoder().decode(partes_comando[offset]);
-                                                            // Dual-lock: the testament hands over ONLY the community
-                                                            // half. The leaving peer's pocket half stays secret. A
-                                                            // USABLE scalar is required, not just one of the right
-                                                            // size: 32 zero bytes passed the size check and inverting
-                                                            // them crashed the Crupier's thread, taking the whole
-                                                            // process down with it.
-                                                            if (RistrettoSRA.isValidScalar(testament)) {
-                                                                p.setSra_unlock_community(testament);
-                                                            }
-                                                        } catch (Exception e) {
-                                                        }
-                                                    }
-                                                    GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick, partes_comando[offset]);
-                                                } else {
-                                                    GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick);
-                                                }
-                                            }
-                                            if (this.nick.equals(exitingNick)) {
                                                 exit = true;
+                                            } catch (Exception ex) {
+                                                LOGGER.log(Level.SEVERE,
+                                                        "Invalid critical EXIT from " + nick + "; closing connection", ex);
+                                                game_command_gate.rejectCriticalViolation();
+                                                exitAndCloseSocket();
                                             }
                                             break;
                                         case "HANDVERIFY":

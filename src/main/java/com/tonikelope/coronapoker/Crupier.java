@@ -435,6 +435,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 && (long) parts.length == fixedFields + (long) fieldsPerEntry * count;
     }
 
+    static boolean seatDrawRosterMatchesKnownParticipants(
+            java.util.Collection<String> roster, java.util.Collection<String> knownParticipants) {
+        if (roster == null || knownParticipants == null || roster.isEmpty()
+                || roster.size() != knownParticipants.size()) {
+            return false;
+        }
+        HashSet<String> rosterSet = new HashSet<>();
+        for (String nick : roster) {
+            if (nick == null || nick.isEmpty() || !rosterSet.add(nick)) {
+                return false;
+            }
+        }
+        HashSet<String> knownSet = new HashSet<>();
+        for (String nick : knownParticipants) {
+            if (nick == null || nick.isEmpty() || !knownSet.add(nick)) {
+                return false;
+            }
+        }
+        return rosterSet.equals(knownSet);
+    }
+
     /**
      * Identity §4.9 (pure, testable): builds the ACTION subcommand sent on the
      * wire.
@@ -19750,6 +19771,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             ArrayList<String> newRoster = new ArrayList<>();
                             for (int i = 0; i < n; i++) {
                                 newRoster.add(new String(Base64.getDecoder().decode(p[i + 5]), "UTF-8"));
+                            }
+                            if (nonceB64 == null) {
+                                ArrayList<String> knownParticipants;
+                                Map<String, Participant> participants = GameFrame.getInstance().getParticipantes();
+                                synchronized (participants) {
+                                    knownParticipants = new ArrayList<>(participants.keySet());
+                                }
+                                if (!seatDrawRosterMatchesKnownParticipants(newRoster, knownParticipants)) {
+                                    rejectCriticalSeatDrawHostCommand(null,
+                                            "Initial seat roster differs from known participants; closing host channel", null);
+                                    return null;
+                                }
                             }
                             if (nonceB64 != null && !newNonceB64.equals(nonceB64)) {
                                 // A NEW round after one was already in flight. A restart because a

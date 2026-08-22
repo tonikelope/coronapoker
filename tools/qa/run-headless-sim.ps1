@@ -13,6 +13,8 @@ param(
 
     [switch] $AllNonVisual,
 
+    [switch] $SkipGameBuild,
+
     [switch] $Help
 )
 
@@ -31,6 +33,7 @@ Options:
   -BotHands <1..1000000>   Production-bot hands (default: 100)
   -Seed <long>             Reproducible campaign seed (default: 3231711270)
   -AllNonVisual            Run every automated non-visual QA test, not only protocol simulation
+  -SkipGameBuild           Reuse the exact checkout already installed by run-certification.ps1
   -Help                    Show this help and exit
 
 Examples:
@@ -39,46 +42,69 @@ Examples:
 
 This fast layer exercises production protocol/domain components without full
 Swing/Crupier orchestration. Use run-real-game-e2e.ps1 for complete local games.
+The exact checkout is built into the ignored local .m2/repository cache.
 '@ | Write-Host
     exit 0
 }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $reactorPom = Join-Path $repoRoot 'tools\reactor\pom.xml'
-$isolatedHome = Join-Path ([System.IO.Path]::GetTempPath()) 'coronapoker-headless-sim'
-$userProfile = [Environment]::GetFolderPath('UserProfile')
-if ([string]::IsNullOrWhiteSpace($userProfile)) {
-    $userProfile = $env:USERPROFILE
-}
-if ([string]::IsNullOrWhiteSpace($userProfile)) {
-    throw 'Cannot resolve the Windows user profile for the local Maven repository.'
-}
-$mavenRepo = Join-Path $userProfile '.m2\repository'
-New-Item -ItemType Directory -Path $isolatedHome -Force | Out-Null
+$qaPom = Join-Path $repoRoot 'tools\qa\pom.xml'
+$mavenRepo = Join-Path $repoRoot '.m2\repository'
 
-$mavenCommand = Get-Command 'mvn.cmd' -ErrorAction SilentlyContinue
-if ($null -ne $mavenCommand) {
-    $maven = $mavenCommand.Source
-} else {
-    $maven = 'C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd'
-    if (-not (Test-Path -LiteralPath $maven)) {
-        throw 'Maven was not found in PATH or in the NetBeans installation.'
+$maven = $null
+$wrapper = Join-Path $repoRoot 'mvnw.cmd'
+if (Test-Path -LiteralPath $wrapper) {
+    $maven = $wrapper
+}
+foreach ($candidate in @('mvn.cmd', 'mvn')) {
+    if ($null -eq $maven) {
+        $mavenCommand = Get-Command $candidate -ErrorAction SilentlyContinue
+        if ($null -ne $mavenCommand) {
+            $maven = $mavenCommand.Source
+        }
+    }
+}
+if ($null -eq $maven) {
+    $netBeansMaven = 'C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd'
+    if (Test-Path -LiteralPath $netBeansMaven) {
+        $maven = $netBeansMaven
+    } else {
+        throw 'Maven was not found (checked mvnw.cmd, PATH and Apache NetBeans).'
     }
 }
 
 $profile = if ($AllNonVisual) { 'qa-headless-all' } else { 'qa-protocol-sim' }
+$pom = if ($SkipGameBuild) { $qaPom } else { $reactorPom }
+$goal = if ($SkipGameBuild) { 'test' } else { 'install' }
+$qaRunId = '{0}-{1}' -f (Get-Date -Format 'yyyyMMdd-HHmmss-fff'), $PID
+$qaUserHome = Join-Path $repoRoot "tools\qa\target\qa-home\run-$qaRunId"
 $arguments = @(
-    '-f', $reactorPom,
+    '-f', $pom,
     "-Dmaven.repo.local=$($mavenRepo.Replace('\', '/'))",
-    "-Duser.home=$($isolatedHome.Replace('\', '/'))",
+    "-Dqa.user.home=$($qaUserHome.Replace('\', '/'))",
     "-Dqa.sim.hands=$Hands",
     "-Dqa.sim.faults=$Faults",
     "-Dqa.sim.bot.hands=$BotHands",
     "-Dqa.sim.seed=$Seed",
-    'test',
+    $goal,
     "-P$profile"
 )
 
 Write-Host "CoronaPoker headless simulation: profile=$profile hands=$Hands faults=$Faults botHands=$BotHands seed=$Seed"
-& $maven @arguments
-exit $LASTEXITCODE
+$qaHomeRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot 'tools\qa\target\qa-home'))
+$qaHomePath = [IO.Path]::GetFullPath($qaUserHome)
+if (-not $qaHomePath.StartsWith($qaHomeRoot + [IO.Path]::DirectorySeparatorChar,
+        [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Refusing unsafe QA home path: $qaHomePath"
+}
+$exitCode = 1
+try {
+    & $maven @arguments
+    $exitCode = $LASTEXITCODE
+} finally {
+    if (Test-Path -LiteralPath $qaHomePath) {
+        Remove-Item -LiteralPath $qaHomePath -Recurse -Force
+    }
+}
+exit $exitCode

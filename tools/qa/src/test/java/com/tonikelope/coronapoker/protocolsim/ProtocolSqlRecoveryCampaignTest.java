@@ -42,6 +42,8 @@ class ProtocolSqlRecoveryCampaignTest {
                 insertCase(connection, random, caseNumber);
             }
 
+            int rejectedOpenHandsWithoutCryptoId = 0;
+            int acceptedClosedHandsWithoutCryptoId = 0;
             try (PreparedStatement query = connection.prepareStatement(
                     Crupier.RECOVERY_GAME_KEY_DATA_SQL)) {
                 for (int caseNumber = 0; caseNumber < cases; caseNumber++) {
@@ -55,25 +57,35 @@ class ProtocolSqlRecoveryCampaignTest {
                         assertEquals(caseNumber * 10 + 7, map.get("conta_mano"), context);
                         assertEquals(caseNumber * 2 + 2, map.get("hand_id"), context);
 
-                        boolean deliberatelyCorrupt = caseNumber % 17 == 0;
+                        boolean missingCryptoHandId = caseNumber % 17 == 0;
+                        boolean open = ((Long) map.get("hand_end")) == 0L;
                         RecoverySnapshotV1.Result snapshot = RecoverySnapshotV1.fromMap(
                                 map, "sql-session-" + caseNumber);
-                        if (deliberatelyCorrupt) {
+                        if (missingCryptoHandId && open) {
                             assertFalse(snapshot.isOk(),
-                                    context + " accepted missing cryptographic hand id");
+                                    context + " accepted open hand without cryptographic hand id");
+                            rejectedOpenHandsWithoutCryptoId++;
                         } else {
                             assertTrue(snapshot.isOk(), context + " " + snapshot.error());
+                            if (missingCryptoHandId) {
+                                acceptedClosedHandsWithoutCryptoId++;
+                            }
                             byte[] wire = snapshot.value().encode();
                             RecoverySnapshotV1.Result decoded = RecoverySnapshotV1.decode(
                                     wire, "sql-session-" + caseNumber);
                             assertTrue(decoded.isOk(), context + " " + decoded.error());
-                            boolean open = ((Long) map.get("hand_end")) == 0L;
                             assertEquals(open ? caseNumber * 10 + 7 : caseNumber * 10 + 8,
                                     Crupier.handCounterForRecovery(
                                             (Integer) map.get("conta_mano"), open), context);
                         }
                     }
                 }
+            }
+            if (cases >= 18) {
+                assertTrue(rejectedOpenHandsWithoutCryptoId > 0,
+                        "campaign did not exercise an open hand without cryptographic hand id");
+                assertTrue(acceptedClosedHandsWithoutCryptoId > 0,
+                        "campaign did not exercise a closed aborted hand without cryptographic hand id");
             }
         }
     }
@@ -109,11 +121,14 @@ class ProtocolSqlRecoveryCampaignTest {
             insertHand(hand, caseNumber * 2 + 1, gameId, caseNumber * 10 + 1,
                     1L, roster, validHandId(caseNumber - 1), 0.01d,
                     dealer, smallBlind, bigBlind);
-            boolean corrupt = caseNumber % 17 == 0;
-            long end = random.nextBoolean() ? 0L : 1_700_000_100_000L + caseNumber;
+            boolean missingCryptoHandId = caseNumber % 17 == 0;
+            boolean open = missingCryptoHandId
+                    ? (caseNumber / 17) % 2 == 0
+                    : random.nextBoolean();
+            long end = open ? 0L : 1_700_000_100_000L + caseNumber;
             double smallBlindValue = (1 + random.nextInt(100_000)) / 100.0d;
             insertHand(hand, caseNumber * 2 + 2, gameId, caseNumber * 10 + 7,
-                    end, roster, corrupt ? null : validHandId(caseNumber), smallBlindValue,
+                    end, roster, missingCryptoHandId ? null : validHandId(caseNumber), smallBlindValue,
                     dealer, smallBlind, bigBlind);
         }
     }

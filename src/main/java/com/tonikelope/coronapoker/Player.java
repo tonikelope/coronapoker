@@ -42,6 +42,24 @@ import javax.swing.JLabel;
  */
 public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayerView {
 
+    /**
+     * Formats the secondary-pot indexes without taking a separate size
+     * snapshot. The player implementations store them in a weakly-consistent
+     * concurrent queue which may be cleared while the EDT renders a payout;
+     * allocating an array from {@code size()} and then iterating can therefore
+     * overflow that array.
+     */
+    static String formatSecondaryPotIndexes(Iterable<Integer> secondaryPots) {
+        StringBuilder text = new StringBuilder();
+        for (Integer pot : secondaryPots) {
+            if (text.length() > 0) {
+                text.append('+');
+            }
+            text.append('#').append(pot);
+        }
+        return text.toString();
+    }
+
     public static final int NODEC = -1;
     public static final int FOLD = 1;
     public static final int CHECK = 2;

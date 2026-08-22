@@ -3875,15 +3875,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 sec_pot_win_label.setLocation(pos_x, pos_y);
 
-                String[] botes = new String[botes_secundarios.size()];
+                String botes = Player.formatSecondaryPotIndexes(botes_secundarios);
 
-                int i = 0;
-
-                for (Integer b : botes_secundarios) {
-                    botes[i++] = "#" + String.valueOf(b);
-                }
-
-                sec_pot_win_label.setText(String.join("+", botes) + " = " + Helpers.money2String(dinero) + " (" + Helpers.money2String(dinero - mibote) + ")");
+                sec_pot_win_label.setText(botes + " = " + Helpers.money2String(dinero) + " (" + Helpers.money2String(dinero - mibote) + ")");
 
                 sec_pot_win_label.setVisible(true);
             });

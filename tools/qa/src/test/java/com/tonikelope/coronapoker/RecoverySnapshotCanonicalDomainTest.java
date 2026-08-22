@@ -11,6 +11,18 @@ import org.junit.jupiter.api.Test;
 public class RecoverySnapshotCanonicalDomainTest {
 
     @Test
+    public void closedAbortedHandMayHaveNoCryptographicHandId() {
+        HashMap<String, Object> map = RecoverySnapshotFixtures.validMap();
+        map.put("hand_end", 1234L);
+        map.put("hand_id_b64", "");
+
+        RecoverySnapshotV1.Result built = RecoverySnapshotV1.fromMap(map, "session-a");
+
+        assertTrue(built.isOk());
+        assertTrue(RecoverySnapshotV1.decode(built.value().encode(), "session-a").isOk());
+    }
+
+    @Test
     public void balanceAboveCanonicalTableDomainIsRejected() {
         HashMap<String, Object> map = RecoverySnapshotFixtures.validMap();
         String alice = b64("alice");

@@ -9,6 +9,7 @@ import com.tonikelope.coronapoker.Init;
 import com.tonikelope.coronapoker.LocalPlayer;
 import com.tonikelope.coronapoker.NewGameDialog;
 import com.tonikelope.coronapoker.RunItTwiceDialog;
+import com.tonikelope.coronapoker.VoluntaryStraddleDialog;
 import com.tonikelope.coronapoker.WaitingRoomFrame;
 import java.awt.EventQueue;
 import java.awt.Frame;
@@ -46,6 +47,8 @@ import java.util.concurrent.CountDownLatch;
 public final class RealGameNodeMain {
 
     private static final Duration START_TIMEOUT = Duration.ofSeconds(45);
+    private static final Duration ACCELERATED_STALL_TIMEOUT = Duration.ofSeconds(
+            Long.getLong("coronapoker.qa.stallSeconds", 120L));
     private static final WindowMode WINDOW_MODE = WindowMode.parse(
             System.getProperty("coronapoker.qa.windowMode", "hidden"));
     private static final int SCREEN_NUMBER = Integer.getInteger("coronapoker.qa.screen", 2);
@@ -56,11 +59,14 @@ public final class RealGameNodeMain {
             new WeakHashMap<>());
     private static final Set<RunItTwiceDialog> RIT_DIALOGS_VOTED
             = java.util.Collections.newSetFromMap(new WeakHashMap<>());
+    private static final Set<VoluntaryStraddleDialog> STRADDLE_DIALOGS_ACCEPTED
+            = java.util.Collections.newSetFromMap(new WeakHashMap<>());
     private static final Set<NewGameDialog> RECOVERY_DIALOGS_SUBMITTED
             = java.util.Collections.newSetFromMap(new WeakHashMap<>());
     private static final CountDownLatch PARENT_CLOSED = new CountDownLatch(1);
     private static volatile int CONFIGURED_BOTS;
     private static volatile int ALL_IN_OBSERVED_HAND = -1;
+    private static volatile Boolean LAST_PAUSE_STATE;
 
     private RealGameNodeMain() {
     }
@@ -140,7 +146,14 @@ public final class RealGameNodeMain {
         actionDriver.start();
 
         Duration gameTimeout = Duration.ofSeconds(Math.max(180L, config.hands * 45L));
-        await("completed hands", gameTimeout, () -> completedHands() >= config.hands);
+        boolean handsComplete = awaitCompletedHands(config.hands, gameTimeout,
+                expectsPermanentLocalExit(config));
+        if (!handsComplete) {
+            marker("EXPECTED_EXIT_COMPLETE", "role=client nick=" + config.nick
+                    + " sqlCompleted=" + completedHands());
+            PARENT_CLOSED.await();
+            return;
+        }
 
         Crupier crupier = GameFrame.getInstance().getCrupier();
         marker("HANDS_COMPLETE", "role=" + (config.host ? "host" : "client")
@@ -174,7 +187,15 @@ public final class RealGameNodeMain {
         Helpers.PROPERTIES.setProperty("server_ip", "127.0.0.1");
         Helpers.PROPERTIES.setProperty("local_port", Integer.toString(config.port));
         Helpers.PROPERTIES.setProperty("server_port", Integer.toString(config.port));
-        Helpers.CSPRNG_GENERATOR = SecureRandom.getInstanceStrong();
+        if (Boolean.getBoolean("coronapoker.qa.deterministicCrypto")) {
+            // Explicit diagnostic mode only. Production and normal certification
+            // keep the platform CSPRNG and have no dependency on this test class.
+            Helpers.CSPRNG_GENERATOR = new SeededSecureRandom(config.seed);
+            marker("CRYPTO_SEED", "mode=deterministic seed=" + config.seed);
+        } else {
+            Helpers.CSPRNG_GENERATOR = SecureRandom.getInstanceStrong();
+            marker("CRYPTO_SEED", "mode=platform");
+        }
         Helpers.setCoronaLocale();
         for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
             if ("Nimbus".equals(info.getName())) {
@@ -211,6 +232,8 @@ public final class RealGameNodeMain {
         GameFrame.THINK_TIME_ENABLED = true;
         GameFrame.SHOWDOWN_TIME = 5;
         GameFrame.RUN_IT_TWICE = isRitScenario();
+        GameFrame.STRADDLE = SCENARIO.equals("straddle-post")
+                || SCENARIO.equals("straddle-network-cut");
         GameFrame.RECOVER = false;
     }
 
@@ -256,20 +279,41 @@ public final class RealGameNodeMain {
                     if (frame == null || local == null) {
                         return;
                     }
-                    if (isAllInScenario() && local.getDecision() == LocalPlayer.ALLIN) {
-                        int hand = frame.getCrupier().getMano();
-                        if (ALL_IN_OBSERVED_HAND != hand) {
-                            ALL_IN_OBSERVED_HAND = hand;
-                            marker("ALLIN_ACTION_CLICKED", "nick="
-                                    + frame.getNick_local() + " hand=" + hand);
-                        }
+                    boolean paused = frame.isTimba_pausada();
+                    if (LAST_PAUSE_STATE == null) {
+                        LAST_PAUSE_STATE = paused;
+                    } else if (LAST_PAUSE_STATE != paused) {
+                        LAST_PAUSE_STATE = paused;
+                        marker("PAUSE_STATE", "paused=" + paused);
                     }
                     if (!local.isTurno()) {
                         return;
                     }
                     if (isAllInScenario()
                             && local.getPlayer_allin().isEnabled()) {
+                        int hand = frame.getCrupier().getMano();
                         local.getPlayer_allin().doClick();
+                        if (ALL_IN_OBSERVED_HAND != hand) {
+                            ALL_IN_OBSERVED_HAND = hand;
+                            marker("ALLIN_ACTION_CLICKED", "nick="
+                                    + frame.getNick_local() + " hand=" + hand);
+                        }
+                    } else if (requiresLiveStreetAfterPeerLoss()
+                            && local.getPlayer_check().isEnabled()) {
+                        // Destructive-exit scenarios must reach a street that needs the
+                        // departed peer's crypto testament. Random preflop folds can end
+                        // the hand normally and turn the promised MISDEAL into a no-op.
+                        local.getPlayer_check().doClick();
+                        marker("KEEPALIVE_ACTION_CLICKED", "nick="
+                                + frame.getNick_local() + " hand="
+                                + frame.getCrupier().getMano());
+                    } else if (SCENARIO.equals("raise-mix")
+                            && local.getPlayer_bet_button().isEnabled()
+                            && random.nextInt(3) != 0) {
+                        local.getPlayer_bet_button().doClick();
+                        marker("BET_ACTION_CLICKED", "nick="
+                                + frame.getNick_local() + " hand="
+                                + frame.getCrupier().getMano());
                     } else if (local.getPlayer_check().isEnabled()
                             && (!local.getPlayer_fold().isEnabled() || random.nextInt(5) != 0)) {
                         local.getPlayer_check().doClick();
@@ -305,6 +349,14 @@ public final class RealGameNodeMain {
                     } else if (command.equals("START_RECOVERED_GAME")) {
                         invokeRecoveredGameStart();
                         marker("RECOVERED_GAME_START_REQUESTED", "role=host");
+                    } else if (command.equals("PAUSE_TOGGLE")) {
+                        invokePauseToggle();
+                    } else if (command.equals("DROP_SOCKET")) {
+                        invokeSocketDrop();
+                        marker("SOCKET_DROP_REQUESTED", "role=client");
+                    } else if (command.equals("STOP")) {
+                        marker("STOPPING", "role=test-harness");
+                        Runtime.getRuntime().halt(0);
                     } else if (!command.isBlank()) {
                         throw new IllegalArgumentException("unknown parent control: " + command);
                     }
@@ -361,6 +413,32 @@ public final class RealGameNodeMain {
         }
     }
 
+    private static void invokePauseToggle() throws Exception {
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        EventQueue.invokeAndWait(() -> {
+            try {
+                GameFrame frame = GameFrame.getInstance();
+                if (frame == null || !frame.isPartida_local()) {
+                    throw new IllegalStateException("pause toggle requires a mounted host table");
+                }
+                frame.pauseTimba(null);
+            } catch (Throwable error) {
+                failure.set(error);
+            }
+        });
+        if (failure.get() != null) {
+            throw new IllegalStateException("cannot toggle production pause", failure.get());
+        }
+    }
+
+    private static void invokeSocketDrop() {
+        WaitingRoomFrame room = WaitingRoomFrame.getInstance();
+        if (room == null || room.isServer()) {
+            throw new IllegalStateException("socket drop requires a mounted client");
+        }
+        room.closeClientSocket();
+    }
+
     private static void invokeRecoveredGameStart() throws Exception {
         WaitingRoomFrame room = WaitingRoomFrame.getInstance();
         if (room == null || !room.isServer() || !GameFrame.isRECOVER()) {
@@ -412,6 +490,7 @@ public final class RealGameNodeMain {
             while (!Thread.currentThread().isInterrupted()) {
                 try {
                     applyWindowPolicyToAll();
+                    acceptPendingStraddle();
                     Thread.sleep(25L);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
@@ -423,6 +502,23 @@ public final class RealGameNodeMain {
         }, "qa-window-policy");
         keeper.setDaemon(true);
         keeper.start();
+    }
+
+    private static void acceptPendingStraddle() {
+        if (!(SCENARIO.equals("straddle-post")
+                || SCENARIO.equals("straddle-network-cut"))) {
+            return;
+        }
+        GameFrame frame = GameFrame.getInstance();
+        if (frame == null || frame.getCrupier() == null) {
+            return;
+        }
+        VoluntaryStraddleDialog dialog = frame.getCrupier().getStraddle_local_dialog();
+        if (dialog != null && STRADDLE_DIALOGS_ACCEPTED.add(dialog)) {
+            dialog.accept();
+            marker("STRADDLE_ACCEPTED", "nick=" + frame.getNick_local()
+                    + " hand=" + frame.getCrupier().getMano());
+        }
     }
 
     private static void applyWindowPolicyToAll() throws Exception {
@@ -474,15 +570,36 @@ public final class RealGameNodeMain {
     private static boolean isForceRecoverScenario() {
         return SCENARIO.equals("force-recover") || SCENARIO.equals("double-force-recover")
                 || SCENARIO.equals("crash-rejoin-recover")
-                || SCENARIO.equals("force-recover-add-client");
+                || SCENARIO.equals("force-recover-add-client")
+                || SCENARIO.equals("force-recover-add-two")
+                || SCENARIO.equals("force-recover-swap-client")
+                || SCENARIO.equals("lifecycle-chaos")
+                || SCENARIO.equals("transport-chaos")
+                || SCENARIO.equals("reconnect-force-recover")
+                || SCENARIO.equals("abrupt-exit")
+                || SCENARIO.equals("dual-abrupt-exit")
+                || SCENARIO.equals("mixed-exit-crash")
+                || SCENARIO.equals("allin-abrupt-exit");
     }
 
     private static boolean isAllInScenario() {
-        return SCENARIO.equals("allin-rit") || SCENARIO.equals("allin-controlled-exit");
+        return SCENARIO.equals("allin-rit") || SCENARIO.equals("rit-network-cut")
+                || SCENARIO.equals("allin-controlled-exit")
+                || SCENARIO.equals("allin-single-board")
+                || SCENARIO.equals("allin-rebuy")
+                || SCENARIO.equals("allin-reconnect")
+                || SCENARIO.equals("allin-abrupt-exit");
     }
 
     private static boolean isRitScenario() {
-        return SCENARIO.equals("allin-rit");
+        return SCENARIO.equals("allin-rit") || SCENARIO.equals("rit-network-cut");
+    }
+
+    private static boolean requiresLiveStreetAfterPeerLoss() {
+        return SCENARIO.equals("abrupt-exit")
+                || SCENARIO.equals("dual-abrupt-exit")
+                || SCENARIO.equals("mixed-exit-crash")
+                || SCENARIO.equals("reconnect-every-street");
     }
 
     private static void voteRunItTwice(RunItTwiceDialog dialog) {
@@ -545,6 +662,75 @@ public final class RealGameNodeMain {
                 return 0;
             }
         }
+    }
+
+    private static boolean awaitCompletedHands(int requested, Duration timeout,
+            boolean permanentExitExpected) throws Exception {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        long lastProgressAt = System.nanoTime();
+        int lastCompleted = -1;
+        GameFrame lastFrame = GameFrame.getInstance();
+        while (System.nanoTime() < deadline) {
+            int completed = completedHands();
+            if (completed != lastCompleted) {
+                lastCompleted = completed;
+                lastProgressAt = System.nanoTime();
+                marker("PROGRESS", "completed=" + completed + " requested=" + requested);
+            }
+            if (completed >= requested) {
+                return true;
+            }
+            GameFrame frame = GameFrame.getInstance();
+            if (permanentExitExpected && lastFrame != null && frame == null) {
+                return false;
+            }
+            if (isForceRecoverScenario() && frame != null && frame != lastFrame) {
+                lastFrame = frame;
+                lastProgressAt = System.nanoTime();
+                marker("TABLE_INSTANCE_CHANGED", "completed=" + completed
+                        + " requested=" + requested);
+            }
+            Crupier crupier = frame == null ? null : frame.getCrupier();
+            if (permanentExitExpected && crupier != null
+                    && crupier.isFin_de_la_transmision()) {
+                return false;
+            }
+            String failure = progressFailure(completed, requested,
+                    crupier != null && crupier.isFin_de_la_transmision(),
+                    crupier == null ? -1 : crupier.getMano(),
+                    isForceRecoverScenario(),
+                    GameFrame.TEST_MODE,
+                    System.nanoTime() - lastProgressAt,
+                    ACCELERATED_STALL_TIMEOUT.toNanos());
+            if (failure != null) {
+                throw new IllegalStateException(failure);
+            }
+            Thread.sleep(25L);
+        }
+        throw new IllegalStateException("stalled game: completed=" + lastCompleted
+                + " requested=" + requested);
+    }
+
+    static boolean expectsPermanentLocalExit(NodeConfig config) {
+        return !config.host && "client1".equals(config.nick)
+                && (SCENARIO.equals("controlled-exit")
+                || SCENARIO.equals("allin-controlled-exit"));
+    }
+
+    static String progressFailure(int completed, int requested, boolean tableFinished,
+            int crupierHand, boolean tableReplacementExpected, boolean accelerated,
+            long idleNanos, long stallNanos) {
+        if (tableFinished && !tableReplacementExpected) {
+            return "premature table end: completed=" + completed
+                    + " requested=" + requested + " crupierHand=" + crupierHand;
+        }
+        if (accelerated && idleNanos >= stallNanos) {
+            return "accelerated game made no completed-hand progress for "
+                    + Duration.ofNanos(idleNanos).toSeconds() + "s: completed="
+                    + completed + " requested=" + requested
+                    + " crupierHand=" + crupierHand;
+        }
+        return null;
     }
 
     private static String latestLedgerSummary() {

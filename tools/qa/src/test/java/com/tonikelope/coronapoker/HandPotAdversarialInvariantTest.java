@@ -46,7 +46,7 @@ class HandPotAdversarialInvariantTest {
         int generated = 2000;
 
         for (int hand = 0; hand < generated; hand++) {
-            int playerCount = 2 + random.nextInt(7);
+            int playerCount = hand == 0 ? 10 : 2 + random.nextInt(9);
             FakePotPlayer[] players = new FakePotPlayer[playerCount];
             for (int seat = 0; seat < playerCount; seat++) {
                 // Integer cents avoid introducing input-side floating point noise while

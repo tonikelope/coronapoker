@@ -733,22 +733,42 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
     public void updateImagePreloadCache() {
         Helpers.threadRun(() -> {
+            // EXIT/recovery tears down GameFrame and interrupts the old executor.
+            // A queued image preload must not keep decoding Swing images after
+            // that boundary: ImageIcon's interrupted MediaTracker can expose an
+            // image with width/height -1 and manufacture a scary SEVERE during
+            // an otherwise clean, fully-settled departure.
+            if (Thread.currentThread().isInterrupted() || GameFrame.getInstance() == null) {
+                return;
+            }
             synchronized (image_precache_lock) {
                 try {
                     if (isIniciadaConValor()) {
                         String key = valor + "_" + palo;
                         if (image == null) {
+                            if (Thread.currentThread().isInterrupted()
+                                    || GameFrame.getInstance() == null) {
+                                return;
+                            }
                             image = GLOBAL_FRONT_CACHE.computeIfAbsent(key, k
                                     -> createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + k + ".jpg")
                             );
                         }
                         if (image_b == null) {
+                            if (Thread.currentThread().isInterrupted()
+                                    || GameFrame.getInstance() == null) {
+                                return;
+                            }
                             image_b = GLOBAL_DISABLED_CACHE.computeIfAbsent(key, k
                                     -> createDisabledCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + k + ".jpg")
                             );
                         }
                     }
                 } catch (Exception ex) {
+                    if (Thread.currentThread().isInterrupted()
+                            || GameFrame.getInstance() == null) {
+                        return;
+                    }
                     Logger.getLogger(Card.class.getName()).log(Level.SEVERE, null, ex);
                     Logger.getLogger(Card.class.getName()).log(Level.WARNING, "ERROR UPDATING CARD IMAGE PRECACHE");
                 }

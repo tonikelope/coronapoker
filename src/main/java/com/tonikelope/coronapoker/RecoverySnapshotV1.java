@@ -125,7 +125,9 @@ public final class RecoverySnapshotV1 {
             } catch (IllegalArgumentException ex) {
                 return error(Error.BAD_VALUE);
             }
-            if (cryptoHandId.length != CanonicalActionRecord.HAND_ID_BYTES) {
+            boolean closedWithoutCryptoContext = handEnd != 0L && cryptoHandId.length == 0;
+            if (cryptoHandId.length != CanonicalActionRecord.HAND_ID_BYTES
+                    && !closedWithoutCryptoContext) {
                 return error(Error.BAD_VALUE);
             }
             Long sbCents = cents((Double) input.get("sbval"));

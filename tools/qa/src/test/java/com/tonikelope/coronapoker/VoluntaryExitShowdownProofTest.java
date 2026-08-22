@@ -45,6 +45,21 @@ class VoluntaryExitShowdownProofTest {
                 "an exited all-in must reuse its already verified proof instead of being rejected");
     }
 
+    @Test
+    void abruptAllInDisconnectWithoutProofCancelsForRecovery() throws Exception {
+        String source = Files.readString(locateRoot().resolve(
+                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+        String hostShowdown = slice(source,
+                "private void solicitarYRecibirCartasVisuales(",
+                "private void failShowdownWaitIfUnexpected(");
+
+        assertTrue(hostShowdown.contains(
+                "cancelarManoYDevolverApuestas(\"peer.unlock_no_testament\")"),
+                "an abrupt all-in disconnect without retained proof must MISDEAL/refund");
+        assertTrue(hostShowdown.contains("participant == null || participant.isExit()"),
+                "the pending-proof wait must re-check the live participant state");
+    }
+
     private static String slice(String source, String start, String end) {
         int from = source.indexOf(start);
         int to = source.indexOf(end, from + start.length());

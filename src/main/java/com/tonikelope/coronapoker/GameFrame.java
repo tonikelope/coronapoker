@@ -123,8 +123,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int GUI_RENDER_WAIT = 125;
     // Deliberately opt-in per JVM. Production launchers do not set this property,
     // so normal gameplay remains on the exact production timing/interaction path.
-    // The real-game E2E harness enables it in isolated child JVMs to reuse only
-    // presentation/audio shortcuts. Test actions come from the harness driver;
+    // The real-game E2E harness enables it in isolated child JVMs to shorten
+    // presentation/audio work and disable Swing action clocks owned by the test
+    // driver. Poker rules, protocol, accounting and lifecycle must stay intact;
     // TEST_MODE itself must never choose a poker action.
     public static final boolean TEST_MODE = Boolean.getBoolean("coronapoker.testMode");
     public static final int TTS_NO_SOUND_TIMEOUT = 3000;

@@ -18,7 +18,7 @@ The seed and zero-based hand number identify a failing scenario. Re-run exactly
 one hand, with a concise trace, using:
 
 ```powershell
-& 'C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd' '-f' '.\tools\reactor\pom.xml' '-Duser.home=C:/some/isolated/home' '-Dqa.sim.seed=3231711270' '-Dqa.sim.hand=48731' '-Dqa.sim.trace=true' test '-Pqa-protocol-sim'
+mvn -f .\tools\reactor\pom.xml -Dmaven.repo.local=.m2/repository -Dqa.sim.seed=3231711270 -Dqa.sim.hand=48731 -Dqa.sim.trace=true install -Pqa-protocol-sim
 ```
 
 Replay one zero-based fault case by replacing `qa.sim.hand` with
@@ -49,7 +49,8 @@ thresholds with hard per-hand conservation, liveness and validity invariants.
 - Deterministic 52-card permutation and signed community records.
 - Normal board and RIT side-B street domains.
 - Exact-cent normal/tied/RIT payouts and settlement conservation.
-- Random 2-to-9-seat production `HandPot` layers with zero, one-cent, equal,
+- Random 2-to-10-seat production `HandPot` layers with a deterministic ten-seat
+  boundary plus zero, one-cent, equal,
   folded, disconnected-all-in and large-stack commitments.
 - Signed production Rabbit request/authorization sequences in every mode,
   including exact duplicates, mutation and cross-hand replay rejection.
@@ -90,25 +91,28 @@ thresholds with hard per-hand conservation, liveness and validity invariants.
   encrypted pocket, including the canonical upper boundary (card index 51).
 - Community EXIT testament cannot unlock the exiting player's pocket.
 
-## Not yet covered; do not infer it from a green campaign
+## Not covered by this headless campaign alone
+
+The repository also provides `tools/qa/run-real-game-e2e.ps1`. That separate
+layer launches production Swing peers in isolated JVMs and drives real encrypted
+sockets, `WaitingRoomFrame`, `Crupier.run()`, `rondaApuestas()`, SRA, consensus
+and SQLite. It covers normal/raise/all-in/RIT/straddle games, EXIT/MISDEAL,
+pause/reconnect and multiple recovery/roster transitions. Do not infer those
+integration guarantees from this headless campaign by itself.
 
 - Actual `Crupier` orchestration. Production bot decisions are exercised by a
-  scalable 3-to-9-seat campaign, but its game harness is not `Crupier`.
-- Full `Crupier` SRA request/response orchestration and proof-chain scheduling.
+  scalable 3-to-10-seat campaign with a deterministic ten-seat boundary, but
+  its game harness is not `Crupier`.
+- Full `Crupier` SRA request/response orchestration and proof-chain scheduling
+  are covered by the separate real-game scenarios, not this campaign.
 - Complete multi-street betting plus `Crupier` side-pot/settlement wiring; the
   production side-pot constructor itself is randomized above.
 - Full `Crupier` Rabbit request/pause/showdown orchestration; the production
   signed ledger and all fee modes are randomized above.
-- Full `Crupier` EXIT/MISDEAL/refund orchestration; current SQLite snapshot and
-  action query/row conversion are covered above, but the complete UI-coupled
-  Crupier recovery loop is not yet a single headless scenario.
-- A single live-`Crupier` campaign that interrupts an active hand, reconnects
-  its real sockets and resumes through SQLite. Transport and lifecycle faults
-  are currently seeded campaigns over the production gates/state machines,
-  but not yet one GUI-free `Crupier.run()` execution.
-- Real sockets/executors are covered by focused headless tests, but are not yet
-  driven inside the same seeded hand campaign. Swing/EDT and lobby lifecycle
-  remain outside the simulator.
+- Full `Crupier` EXIT/MISDEAL/refund and recovery orchestration is covered by
+  separate real-game scenarios; it is intentionally not duplicated here.
+- Real sockets, executors, Swing/EDT and lobby lifecycle are outside this
+  simulator and belong to the real-game E2E layer.
 
 Those items are added incrementally by composing or extracting production
 components; protocol logic must not be copied into a parallel implementation.

@@ -233,6 +233,8 @@ The cryptographic subsystem, covering verifiable **SRA / Ristretto255** dealing 
 
 The **bot AI**, covering its architecture, hand-evaluation maths, personality model and per-turn decision pipeline, is documented in depth, with its own two diagrams (a component architecture and a decision-flow chart), in **[`docs/BOTS.md`](docs/BOTS.md)**.
 
+The complete QA model, test lanes, real-game simulator, certification profiles and scenario catalogue are documented in **[`docs/TESTING.md`](docs/TESTING.md)**.
+
 ---
 
 ## Build from source
@@ -253,231 +255,19 @@ java -jar target/CoronaPoker-<version>-jar-with-dependencies.jar
 
 ---
 
-## 🧪 Testing
+## 🧪 Testing & certification
 
-The test suite lives in its own Maven module, **`tools/qa`**, kept deliberately separate from the game: `mvn package` at the repo root builds and ships the game **without** compiling or running a single test. The tests are maintainer tooling, not part of the distributed jar.
-
-They are **JUnit 5**. Deterministic game-code tests are kept in the fast lane;
-the expensive tests carry `@Tag("slow")` and are split by purpose. The normal
-QA command never runs bot-quality simulations: every bot-quality class,
-including the headless bot smoke, is tagged slow and only selected by the
-explicit `qa-bots` profile.
-
-- **Fast lane (the default)** — domain, money, parsers, protocol and deterministic
-  smoke tests; ~700 tests in about a minute.
-- **`qa-bots`** — bot-quality statistics, matchups, Monte-Carlo hand potential
-  and the headless bot game-flow smoke. Its result is quality evidence for bots,
-  not a substitute for a game-code regression test.
-- **`qa-crypto`** — cryptographic performance, differential and cascade tests.
-- **`qa-network`** — slow real-socket/stall integration checks.
-- **`qa-heavy`** — aggregate of the non-bot slow lanes; statistical bot quality
-  remains separate. **`qa-release`** runs fast plus the non-bot slow lanes.
-  The slow lanes are never part of the normal/default run.
-
-Each slow profile explicitly enables the `slow` tag and clears the default
-exclusion, so a successful slow-lane run must report at least one executed
-test. A `BUILD SUCCESS` with `Tests run: 0` is an invalid QA result and should
-be treated as a profile/classpath problem.
-
-### Running the tests
-
-The easiest way is the **opt-in QA reactor** (`tools/reactor/pom.xml`). It builds the game and runs the tests against it in one reactor, so you don't have to `install` the game jar first or keep a version in sync:
-
-```bash
-# Fast lane — the default. Game + all deterministic code tests (~1 min).
-# Bot-quality simulations are excluded by the slow tag.
-mvn -f tools/reactor/pom.xml test
-# Explicit equivalent for CI/NetBeans scripts:
-mvn -f tools/reactor/pom.xml test -P qa-fast
-
-# Bot-quality lane only (statistical; does not replace fast game tests).
-mvn -f tools/reactor/pom.xml test -P qa-bots
-
-# Heavy crypto lane only.
-mvn -f tools/reactor/pom.xml test -P qa-crypto
-
-# Slow real-socket integration lane only.
-mvn -f tools/reactor/pom.xml test -P qa-network
-
-# Aggregate non-bot slow lanes.
-mvn -f tools/reactor/pom.xml test -P qa-heavy
-
-# Everything except statistical bot quality: fast + non-bot slow lanes.
-# Run before a release; use -P qa-bots only when bot quality is explicitly in scope.
-mvn -f tools/reactor/pom.xml test -P qa-release
-
-# A single test class (the flag skips the test-less game module).
-mvn -f tools/reactor/pom.xml test -Dtest=PotMathTest -Dsurefire.failIfNoSpecifiedTests=false
-```
-
-### Game simulation tools (Windows / PowerShell)
-
-One certification command composes the complete local battery. The two lower-level
-runners remain available for focused diagnosis:
-
-| Runner | Purpose | Production coverage |
-|---|---|---|
-| `tools/qa/run-certification.ps1` | Fail-fast full game certification after a code change | `qa-release`, mass headless campaigns and every real-game scenario below; bot-quality statistics are opt-in |
-| `tools/qa/run-headless-sim.ps1` | Fast seeded campaigns and fault injection | Protocol/domain components, SRA, signed actions, pots, Rabbit/RIT, EXIT/MISDEAL/recovery models, SQLite replay and production bots |
-| `tools/qa/run-real-game-e2e.ps1` | Complete local games in separate JVMs | Real encrypted sockets, `WaitingRoomFrame`, `Crupier.run()`, `rondaApuestas()`, bots, consensus and per-peer SQLite |
-
-Ask either runner for its current options and examples:
+QA lives in the separate `tools/qa` module and is never packaged in the game
+JAR. The recommended production gate runs deterministic tests, non-bot slow
+lanes, seeded protocol campaigns and real host/client JVM scenarios:
 
 ```powershell
-.\tools\qa\run-certification.ps1 -Help
-.\tools\qa\run-headless-sim.ps1 -Help
-.\tools\qa\run-real-game-e2e.ps1 -Help
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\qa\run-certification.ps1
 ```
 
-Typical runs:
-
-```powershell
-# Complete certification after updating the code. This runs every lane and all
-# real scenarios sequentially, hidden on monitor 2, and saves logs under target.
-.\tools\qa\run-certification.ps1
-
-# Fast reproducible protocol campaign.
-.\tools\qa\run-headless-sim.ps1 -Hands 5000 -Faults 5000 -BotHands 100 -Seed 3231711270
-
-# One host, two human-client JVMs and one host bot, three complete hands.
-# Windows stay hidden; any native creation is assigned to monitor 2 first.
-.\tools\qa\run-real-game-e2e.ps1 -Clients 2 -Bots 1 -Hands 3 -WindowMode hidden -Screen 2
-
-# Visual diagnosis on monitor 2, optionally with animations and production timing.
-.\tools\qa\run-real-game-e2e.ps1 -WindowMode visible -Screen 2 -Animations -ProductionTiming
-
-# Kill one client JVM during preflop and require MISDEAL + full refund + live host.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario abrupt-exit
-
-# Exercise the real voluntary EXIT testament path; the host must finish normally.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario controlled-exit
-
-# Force every human seat all-in, vote RIT unanimously and settle both boards.
-# This deterministic scenario requires zero bots and exactly one hand.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario allin-rit -Clients 1 -Bots 0
-
-# Both humans go all-in; the client then exits with its production testament.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario allin-controlled-exit -Clients 1 -Bots 0
-
-# Stop a live hand, recover/replay it, then deal and settle a fresh next hand.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario force-recover -Clients 1 -Bots 2 -Hands 2
-
-# Repeat the full stop/rebuild/recover cycle on hands 1 and 3; hands 2 and 4
-# must be newly dealt and settled with every peer still in agreement.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario double-force-recover -Clients 1 -Bots 2 -Hands 4
-
-# Kill and relaunch the same client identity, recover, then complete a new hand.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario crash-rejoin-recover -Clients 1 -Bots 2 -Hands 2
-
-# Add a brand-new client during recovery; it observes the replay, then joins hand 2.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario force-recover-add-client -Clients 2 -Bots 2 -Hands 2
-```
-
-The complete runner executes one wiring case for each protocol campaign inside
-`qa-release`, then applies the requested mass volume once in its dedicated
-headless phase. This avoids running the same 5,000-case campaign twice without
-dropping any game-integrity test class. Statistical bot-quality tests are excluded
-by default because they measure playing strength rather than protocol integrity;
-use `-IncludeBotQuality` after changing bot AI or evaluation code.
-
-Scenario contracts:
-
-| Scenario | What it tests | Green result |
-|---|---|---|
-| `normal` | Ordinary multi-JVM hands through production sockets and Crupiers | Every hand settles with identical consensus hashes and balances |
-| `abrupt-exit` | Client process dies during preflop without an EXIT testament | MISDEAL, full refund, zero pot and host remains alive |
-| `controlled-exit` | Client sends the production EXIT testament during preflop | Hand settles without MISDEAL and money is conserved |
-| `allin-rit` | Human seats go all-in and unanimously choose run it twice | Both boards unlock and settle without divergence |
-| `allin-controlled-exit` | Heads-up players go all-in, then the client sends controlled EXIT | Pocket proof/testament suffice to settle without MISDEAL or blocked host |
-| `force-recover` | Hand 1 is stopped; lobby, sockets and table are rebuilt | Interrupted hand recovers and a fresh hand 2 settles |
-| `double-force-recover` | The same session is force-recovered during hands 1 and 3 | Both recoveries succeed and fresh hands 2 and 4 settle |
-| `crash-rejoin-recover` | Client JVM dies, then restarts with the same home/nick/key | MISDEAL refunds safely; the peer rejoins recovery and completes hand 2 |
-| `force-recover-add-client` | A brand-new client joins the rebuilt recovery lobby | It passively observes the old hand, then participates in fresh hand 2 |
-
-The real-game runner defaults to hidden windows, disabled sound/animations and
-presentation-only test timing. `-ProductionTiming` restores normal pauses; it
-does not change protocol timeouts. Each peer gets a temporary isolated home,
-identity and SQLite database, removed after the run. A run is green only when
-all peers finish with matching consensus hashes and canonical balances and no
-fatal/error dialog. Host + clients + bots cannot exceed eight seats.
-Run `-Help` for the current scenario list and every option.
-
-The headless runner is the high-volume layer; the real-game runner is the
-integration layer. Neither replaces the other, and visual painting/layout still
-requires manual inspection.
-
-### Lane order and ownership
-
-Run the lanes in this order when auditing or preparing a release. A failure in
-one lane is recorded against that lane; it is not hidden by a later aggregate
-run.
-
-| Order | Lane | Contents | Normal run? |
-|---:|---|---|---|
-| 1 | qa-fast | Rules, money, pots, recovery, parsers, framing, deterministic smoke and TDD regressions | Yes |
-| 2 | qa-crypto | Heavy crypto/SRA differential, cascade and performance checks | No |
-| 3 | qa-network | Real socket framing/stall checks | No |
-| 4 | qa-heavy | Aggregate non-bot slow lanes | No, explicit only |
-| 5 | qa-bots | Statistical bot quality, matchups, Monte-Carlo and bot-flow smoke | No, explicit only |
-| 6 | qa-release | Fast plus non-bot slow lanes; bot quality remains separate | No, explicit only |
-
-The bot lane is deliberately last and separate: its statistical `FAIL` signal
-means that a quality threshold was not met for that sample, not that a
-deterministic game-code assertion failed. It must not gate ordinary code tests
-or be silently folded into the default lane.
-
-Add `-o` (offline) once your local Maven cache is warm to skip dependency checks. The bot simulations honour two volume knobs for fast local iteration, e.g. `-Dqa.sessions=40 -Dqa.hands=25`.
-
-If the opt-in reactor reports that game classes such as `Helpers` or `Crupier`
-are missing while compiling `tools/qa`, treat that as a Maven/Windows
-classpath or permissions problem, not as a game-test result. Run the standalone
-fallback from NetBeans instead: first `mvn -DskipTests install` at the root,
-then the `tools/qa` command below with the same root version. Record the
-environmental failure in the audit index and do not turn it into a production
-change.
-
-<details><summary><b>Running the <code>tools/qa</code> module on its own (without the reactor)</b></summary>
-
-You can run the module standalone, but then you must publish the game jar first and match its version:
-
-```bash
-mvn -DskipTests install                                       # publish CoronaPoker to your local ~/.m2
-mvn -f tools/qa/pom.xml test -Dcoronapoker.version=<root pom version>       # fast, no bot quality
-mvn -f tools/qa/pom.xml test -P qa-bots -Dcoronapoker.version=<root pom version>  # bot quality only
-```
-
-The standalone module also accepts `-P qa-crypto`, `-P qa-network`,
-`-P qa-heavy` (non-bot slow lanes) and `-P qa-release` (fast plus non-bot slow
-lanes). These are always explicit; the bare command above never runs bot-quality
-simulations. Only `-P qa-bots` selects the statistical bot lane.
-</details>
-
-### Which tests to run for what you touch
-
-| If you change… | Run |
-|---|---|
-| Game logic, pot / side-pot / blind / bet math, hand-integrity chains | **Fast lane** — it already guards these |
-| The **bot AI** (`bot/`, `org/alberta/`, `Bot.java`) | **`-P qa-bots`** — statistical matchups + Monte-Carlo potential |
-| The **crypto** stack (`crypto/`, the SRA cascade) | **`-P qa-crypto`** — perf / differential / cascade suite |
-| **Networking** (`Net*`, `WireFrame`, `Participant`) | Fast lane covers wire & framing; add **`-P qa-network`** for socket-stall checks |
-| Anything, **before committing or opening a PR** | **`-P qa-release`** |
-| Before a **release** | **`-P qa-release`** plus the adversarial automated audit; manual-only residuals are reported separately |
-
-Rule of thumb: **fast lane on every change**, the relevant slow lane when you
-edited that subsystem or before merging, and **`-P qa-release` before a release**.
-Manual play is only a short complement for flows that genuinely require Swing,
-two live clients or human timing; it never replaces an automatable regression
-test. Record those steps and the environment in the audit report.
-
-### Adding a test
-
-Put it in the matching package under `tools/qa/src/test/java`. If it is slow — a
-bot simulation, a crypto perf/fuzz test, or a real-socket stall check — annotate
-it with `@Tag("slow")` and keep it in the matching `qa-bots`, `qa-crypto` or
-`qa-network` package so its lane remains explicit. Fast unit/domain tests
-must not be hidden in a slow lane. Add a deterministic red test before changing
-production, then keep the regression in the fast lane unless it genuinely
-requires a slow harness.
+Statistical bot-quality tests remain opt-in. See **[Testing and certification](docs/TESTING.md)**
+for every lane, simulator scenario, option, example, report format and
+troubleshooting rule.
 
 ---
 

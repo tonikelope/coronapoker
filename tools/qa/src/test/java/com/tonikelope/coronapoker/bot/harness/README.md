@@ -67,7 +67,7 @@ harness/
 │
 ├── Simulators (the offline engines)
 │   ├── HeadsUpSimulator.java              ← 2-seat HU simulator
-│   ├── MultiwaySimulator.java             ← 3-9 seat multi-way simulator
+│   ├── MultiwaySimulator.java             ← 3-10 seat multi-way simulator
 │   ├── TestDealer.java                    ← in-memory DealerView for tests
 │   └── TestBotPlayer.java                 ← in-memory BotPlayerView for tests
 │
@@ -140,7 +140,7 @@ instances through complete hands. Implements:
 
 ### 3.2 `MultiwaySimulator`
 
-The full 3-9 seat generalisation. Same fidelity guarantees as
+The full 3-10 seat generalisation. Same fidelity guarantees as
 `HeadsUpSimulator` plus:
 
 - Button rotation per hand.
@@ -152,7 +152,7 @@ The full 3-9 seat generalisation. Same fidelity guarantees as
   set, ties handled with even pot split.
 
 This is the **target environment** for AAA validation. CoronaPoker is
-played 3-9 handed in real games, not heads-up. Heads-up dynamics
+played 3-10 handed in real games, not heads-up. Heads-up dynamics
 (SB opens 80%+, tightness = blind donation, bluffs vs callers always
 losing) do **not** translate to multi-way play, and chasing HU metrics
 sent the project down a six-iteration blind alley before this directory

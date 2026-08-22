@@ -38,7 +38,11 @@ jobs:
           mvn --version
 
       - name: Build current game and run release QA in one reactor
-        run: mvn -B -ntp -f tools/reactor/pom.xml -P qa-release verify
+        run: >-
+          mvn -B -ntp -f tools/reactor/pom.xml -P qa-release verify
+          -Dqa.sim.hands=1
+          -Dqa.sim.faults=1
+          -Dqa.sim.bot.hands=1
 
       - name: Preserve QA reports
         if: always()

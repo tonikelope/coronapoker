@@ -57,7 +57,14 @@ class QaBaselineWiringTest {
         assertTrue(identitySpec.contains("supported JDK 17+ runtime"),
                 "The public identity specification must match the supported runtime");
         assertTrue(workflow.contains("tools/reactor/pom.xml"), "CI must build game and QA in one reactor");
-        assertTrue(workflow.contains("qa-fast"), "CI must execute the fast QA lane");
+        assertTrue(workflow.contains("qa-release"),
+                "CI must execute fast plus every non-bot release lane");
+        assertTrue(!workflow.contains("qa-bots"),
+                "CI must keep statistical bot quality explicitly separate");
+        assertTrue(workflow.contains("-Dqa.sim.hands=1")
+                && workflow.contains("-Dqa.sim.faults=1")
+                && workflow.contains("-Dqa.sim.bot.hands=1"),
+                "CI must run one wiring case instead of duplicating mass campaigns");
         assertTrue(qaPom.contains("<failIfNoTests>true</failIfNoTests>"),
                 "Surefire must fail when no tests are discovered");
     }

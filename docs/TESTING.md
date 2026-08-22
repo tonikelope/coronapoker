@@ -65,6 +65,8 @@ pull request targeting `master`, on the documented Java 17 baseline. It uploads
 the Surefire reports and built JARs even on failure. The Windows-only
 multi-JVM/Swing scenario matrix remains the local certification gate below;
 the Linux CI job complements it and does not claim to replace it.
+CI limits each embedded protocol campaign to one wiring case; the local
+certifier owns the seeded mass volume and avoids running it twice.
 
 ## Game simulation tools (Windows / PowerShell)
 

@@ -11,9 +11,9 @@ permissions:
   contents: read
 
 jobs:
-  build-and-fast-qa:
+  build-and-release-qa:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 35
 
     steps:
       - name: Check out triggering commit
@@ -37,14 +37,14 @@ jobs:
           java -version
           mvn --version
 
-      - name: Build current game and run fast QA in one reactor
-        run: mvn -B -ntp -f tools/reactor/pom.xml -P qa-fast verify
+      - name: Build current game and run release QA in one reactor
+        run: mvn -B -ntp -f tools/reactor/pom.xml -P qa-release verify
 
       - name: Preserve QA reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: fast-qa-${{ github.sha }}
+          name: release-qa-${{ github.sha }}
           path: |
             tools/qa/target/surefire-reports/
             target/*.jar

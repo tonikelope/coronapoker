@@ -60,6 +60,12 @@ mvn -f tools/reactor/pom.xml test -P qa-release
 mvn -f tools/reactor/pom.xml test -Dtest=PotMathTest -Dsurefire.failIfNoSpecifiedTests=false
 ```
 
+GitHub Actions applies that same `qa-release` reactor gate to every push and
+pull request targeting `master`, on the documented Java 17 baseline. It uploads
+the Surefire reports and built JARs even on failure. The Windows-only
+multi-JVM/Swing scenario matrix remains the local certification gate below;
+the Linux CI job complements it and does not claim to replace it.
+
 ## Game simulation tools (Windows / PowerShell)
 
 One certification command composes the complete local battery. The two lower-level

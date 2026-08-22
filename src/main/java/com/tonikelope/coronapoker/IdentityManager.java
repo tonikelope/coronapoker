@@ -777,10 +777,21 @@ public final class IdentityManager {
      * POSIX equivalent is 0600 via setPosixFilePermissions.
      */
     private static void applyWindowsAclOwnerOnly(Path path) {
-        String username = System.getProperty("user.name");
-        if (username == null || username.trim().isEmpty()) {
+        final String owner;
+        try {
+            // user.name may identify the interactive profile while the JVM token belongs to
+            // another account (CI, service or sandbox). The owner recorded by Windows comes
+            // from the actual creating token and is the authoritative ACL principal.
+            owner = Files.getOwner(path).getName();
+        } catch (Exception ex) {
             LOGGER.log(Level.WARNING,
-                    "applyWindowsAclOwnerOnly: user.name is empty — leaving default ACL on {0}", path);
+                    "Could not resolve Windows file owner on {0}: {1} — leaving default ACL",
+                    new Object[]{path, ex.getMessage()});
+            return;
+        }
+        if (owner == null || owner.trim().isEmpty()) {
+            LOGGER.log(Level.WARNING,
+                    "Windows file owner is empty — leaving default ACL on {0}", path);
             return;
         }
         try {
@@ -788,7 +799,7 @@ public final class IdentityManager {
                     "icacls",
                     path.toAbsolutePath().toString(),
                     "/inheritance:r",
-                    "/grant:r", username + ":(F)"
+                    "/grant:r", owner + ":(F)"
             );
             pb.redirectErrorStream(true);
             Process p = pb.start();
@@ -808,7 +819,7 @@ public final class IdentityManager {
             } else {
                 LOGGER.log(Level.INFO,
                         "Windows ACL restricted to user \"{0}\" on {1}",
-                        new Object[]{username, path});
+                        new Object[]{owner, path});
             }
         } catch (Exception ex) {
             LOGGER.log(Level.WARNING, "Could not apply Windows ACL on {0}: {1}",

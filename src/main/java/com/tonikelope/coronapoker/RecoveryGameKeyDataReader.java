@@ -25,12 +25,19 @@ final class RecoveryGameKeyDataReader {
         HashMap<String, Object> built = new HashMap<>();
         built.put("start", row.getLong("start"));
         built.put("hand_id", row.getInt("hand_id"));
-        built.put("hand_end", row.getLong("hand_end"));
+        long handEnd = row.getLong("hand_end");
+        built.put("hand_end", handEnd);
         built.put("server", row.getString("server"));
         built.put("preflop_players", row.getString("preflop_players"));
         String handIdB64 = row.getString("hand_id_b64");
         if (handIdB64 != null) {
             built.put("hand_id_b64", handIdB64);
+        } else if (handEnd != 0L) {
+            // A hand aborted before its cryptographic context was initialized
+            // is nevertheless a valid, already-closed recovery boundary. Keep
+            // the field explicit on the one current wire schema; an open hand
+            // with no id remains invalid and fails closed.
+            built.put("hand_id_b64", "");
         }
         built.put("buyin", row.getInt("buyin"));
         built.put("rebuy", row.getBoolean("rebuy"));

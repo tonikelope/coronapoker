@@ -179,13 +179,12 @@ public class Participant implements Runnable {
     // runPreGameSocketWriterQueueThread.
     private static final int PRE_GAME_WRITE_RETRY_MS = 1000;
 
-    // Timestamp when WE closed the socket ourselves over a stalled write. That close is not
-    // grounds to kick anyone: a peer that isn't reading doesn't block the others, and one that
-    // does is already caught by the progress deadlines (hand start, deal), which kick whoever
-    // is actually holding up the table. Closing only wakes the reader, which is what opens the
-    // grace period. Without this marker, the stalled write wakes up with an error on close and
-    // its catch block would give up on the peer before the reader had a chance to open any
-    // grace window, so the reconnect window would never exist.
+    // Timestamp when WE closed the socket so its reader can open the reconnect grace. This is
+    // used both after a stalled write and when an ordinary write is the first thread to notice
+    // a remote close. Neither event is grounds to kick anyone immediately: the reader owns the
+    // reconnect deadline and only marks the peer exited when that deadline really expires.
+    // Without this marker, another writer awakened by our close could win the race and give up
+    // on the peer before the reader had a chance to open any grace window.
     //
     // It's a timestamp rather than a boolean ON PURPOSE: it expires on its own. The reader
     // clears it as soon as it takes over, but if that thread ever died, a boolean would stay
@@ -653,13 +652,6 @@ public class Participant implements Runnable {
                                 break;
                         }
                     }
-                } else {
-                    try {
-                        if (!socket_reader_queue.contains(POISON_PILL)) {
-                            encolarSenalCierre();
-                        }
-                    } catch (Exception ex) {
-                    }
                 }
 
                 // One-shot reset_socket: if this null is the OLD socket closing because of a
@@ -775,6 +767,19 @@ public class Participant implements Runnable {
                         }
                     } else {
                         markExitAndNotify("TIMEOUT expired without reconnect");
+                    }
+                } else if (mensaje_recibido == null) {
+                    // A null read is terminal only when this connection is not eligible for
+                    // the in-game reconnect grace handled above (table teardown, room exit,
+                    // or transmission end). Enqueueing POISON_PILL before that grace let the
+                    // consumer race ahead, set exit=true and reject an authenticated reconnect
+                    // with RESET_FAIL. This is especially visible when several peers drop at
+                    // once. markExitAndNotify() already signals the queue when grace expires.
+                    try {
+                        if (!socket_reader_queue.contains(POISON_PILL)) {
+                            encolarSenalCierre();
+                        }
+                    } catch (Exception ex) {
                     }
                 }
             } // END WHILE
@@ -1124,6 +1129,36 @@ public class Participant implements Runnable {
     }
 
     /**
+     * Hands an in-game transport write failure to the socket reader. A remote
+     * close can be observed by a writer before the blocking reader sees EOF;
+     * declaring {@code exit} here would therefore destroy the reconnect window
+     * purely because of thread scheduling. Closing the descriptor wakes the
+     * reader, which opens the normal bounded grace and remains responsible for
+     * the final exit transition.
+     *
+     * @return true when the failure was handed to the in-game reader
+     */
+    private boolean handOffInGameWriteFailureToReader() {
+        WaitingRoomFrame room = WaitingRoomFrame.getInstance();
+        if (room == null || room.isExit() || !room.isPartida_empezada()) {
+            return false;
+        }
+
+        synchronized (getParticipant_socket_lock()) {
+            if (exit || timeout || resetting_socket || force_reset_socket || isStallClose()) {
+                return true;
+            }
+            stall_close_ns = System.nanoTime();
+            socketClose();
+            getParticipant_socket_lock().notifyAll();
+        }
+        LOGGER.log(Level.INFO,
+                "PEER: Participant {0} write failure handed to reader for reconnect grace",
+                nick);
+        return true;
+    }
+
+    /**
      * Queues the close signal no matter what.
      *
      * <p>
@@ -1201,7 +1236,8 @@ public class Participant implements Runnable {
             // this order, either we see the marker still set, or if it's already clear the
             // reader has already been through there and timeout is already true. Checking the
             // other way round could catch both in the single moment when neither protects.
-            if (!exit && !isStallClose() && !timeout && !resetting_socket && !force_reset_socket) {
+            if (!exit && !isStallClose() && !timeout && !resetting_socket && !force_reset_socket
+                    && !handOffInGameWriteFailureToReader()) {
                 markExitAndNotify("write failed (socket closed)");
             }
         }
@@ -1241,7 +1277,8 @@ public class Participant implements Runnable {
             // is exactly what exhausts the heartbeat deadline. If this catch block didn't
             // check our own close marker, the very close meant to open the peer's reconnect
             // window would end up kicking it through this door instead.
-            if (!exit && !isStallClose() && !timeout && !resetting_socket && !force_reset_socket) {
+            if (!exit && !isStallClose() && !timeout && !resetting_socket && !force_reset_socket
+                    && !handOffInGameWriteFailureToReader()) {
                 markExitAndNotify("binary write failed (socket closed)");
             }
         }

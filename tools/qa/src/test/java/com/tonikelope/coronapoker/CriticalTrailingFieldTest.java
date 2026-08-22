@@ -22,7 +22,7 @@ public class CriticalTrailingFieldTest {
                 "public void showRitClientVoteDialog(");
         assertPreservesTrailingFields(source, "private int waitStraddleRespFromRemote(String nick)",
                 "private int waitStraddleResult()");
-        assertPreservesTrailingFields(source, "private boolean awaitDeferredStraddlerCardsClient()",
+        assertPreservesTrailingFields(source, "private boolean awaitDeferredStraddlerCardsClient(",
                 "private void destaparCartaComunitaria(");
     }
 

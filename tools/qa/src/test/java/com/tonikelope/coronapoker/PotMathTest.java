@@ -57,7 +57,7 @@ public class PotMathTest {
     void splitAmongWinnersConservesMoneyAcrossASweep() {
         for (long amountC = 0; amountC <= 5000; amountC += 7) {
             float amount = (float) (amountC / 100.0);
-            for (int n = 1; n <= 9; n++) {
+            for (int n = 1; n <= 10; n++) {
                 float[] r = PotMath.splitAmongWinners(amount, n);
                 long sum = cents(r[0]) * n + cents(r[1]);
                 assertEquals(amountC, sum, "conservation amount=" + amount + " winners=" + n);
@@ -84,7 +84,7 @@ public class PotMathTest {
     void doubleSplitConservesMoneyAcrossASweep() {
         for (long amountC = 0; amountC <= 5000; amountC += 7) {
             double amount = amountC / 100.0;
-            for (int n = 1; n <= 9; n++) {
+            for (int n = 1; n <= 10; n++) {
                 double[] r = PotMath.splitAmongWinners(amount, n);
                 long sum = cents(r[0]) * n + cents(r[1]);
                 assertEquals(amountC, sum, "conservation amount=" + amount + " winners=" + n);

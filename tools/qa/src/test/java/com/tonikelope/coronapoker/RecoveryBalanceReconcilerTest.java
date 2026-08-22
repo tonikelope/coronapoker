@@ -137,6 +137,38 @@ public class RecoveryBalanceReconcilerTest {
         assertEquals("YWxpY2U=|75.25|100|1@Ym9i|124.75|100|0", encoded);
     }
 
+    @Test
+    public void nextHandBoundaryProjectsAnAcceptedPendingRebuyExactlyAsNuevaMano() {
+        boolean oldFixed = GameFrame.FIXED_BUYIN;
+        int oldBuyin = GameFrame.BUYIN;
+        try {
+            GameFrame.FIXED_BUYIN = true;
+            GameFrame.BUYIN = 10;
+
+            double[] row = Crupier.projectNextHandBalanceRow(
+                    0.0, 0.70, 10, 0, 10);
+
+            assertEquals(10.70, row[0], 0.000001);
+            assertEquals(20.0, row[1], 0.000001);
+            assertEquals(1.0, row[2], 0.000001);
+
+            double[] unchanged = Crupier.projectNextHandBalanceRow(
+                    8.50, 1.25, 10, 2, null);
+            assertEquals(9.75, unchanged[0], 0.000001);
+            assertEquals(10.0, unchanged[1], 0.000001);
+            assertEquals(2.0, unchanged[2], 0.000001);
+
+            double[] capped = Crupier.projectNextHandBalanceRow(
+                    7.25, 0.0, 10, 2, 10);
+            assertEquals(9.25, capped[0], 0.000001);
+            assertEquals(12.0, capped[1], 0.000001);
+            assertEquals(3.0, capped[2], 0.000001);
+        } finally {
+            GameFrame.FIXED_BUYIN = oldFixed;
+            GameFrame.BUYIN = oldBuyin;
+        }
+    }
+
     private static Object[] row(String nick, double stack, int buyin, int rebuy) {
         return new Object[]{nick, stack, buyin, rebuy};
     }

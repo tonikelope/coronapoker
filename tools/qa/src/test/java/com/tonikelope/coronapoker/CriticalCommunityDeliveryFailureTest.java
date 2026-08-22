@@ -81,8 +81,10 @@ public class CriticalCommunityDeliveryFailureTest {
         assertTrue(releaseStart >= 0 && releaseEnd > releaseStart,
                 "deferred straddler release source not found");
         String release = source.substring(releaseStart, releaseEnd);
-        assertTrue(release.contains("if (!sendGAMECommandToParticipant"),
-                "the host must not clear deferred state after a failed POCKET_CARDS delivery");
+        assertTrue(release.contains("broadcastGAMECommandFromServer(\"POCKET_CARDS#"),
+                "every crypto-ring peer needs the deferred straddler residue for POTCARDS verification");
+        assertFalse(release.contains("sendGAMECommandToParticipant(sp, \"POCKET_CARDS#"),
+                "unicast leaves the other clients unable to verify the straddler at showdown");
 
         int dealStart = source.indexOf("private boolean enviarCartasJugadoresRemotos");
         int dealEnd = source.indexOf("private ArrayList<String> recibirMisCartas", dealStart);

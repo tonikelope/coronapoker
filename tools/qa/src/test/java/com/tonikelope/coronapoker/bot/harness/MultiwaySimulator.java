@@ -30,7 +30,7 @@ import java.util.Set;
  *
  * <p>
  * This is the target environment for AAA validation — CoronaPoker is played
- * multi-way (3-9 seats), not heads-up. The button rotates every hand and
+ * multi-way (3-10 seats), not heads-up. The button rotates every hand and
  * per-street action order follows standard rules:</p>
  *
  * <ul>
@@ -84,8 +84,8 @@ public final class MultiwaySimulator {
 
     public MultiwaySimulator(int numSeats, long seed, double startingStack,
             double bigBlind, BotEvaluator evaluator) {
-        if (numSeats < 3 || numSeats > 9) {
-            throw new IllegalArgumentException("numSeats must be 3..9, got " + numSeats);
+        if (numSeats < 3 || numSeats > 10) {
+            throw new IllegalArgumentException("numSeats must be 3..10, got " + numSeats);
         }
         this.numSeats = numSeats;
         this.deckRng = new Random(seed);

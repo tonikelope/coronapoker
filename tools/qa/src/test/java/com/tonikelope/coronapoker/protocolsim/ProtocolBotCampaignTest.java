@@ -61,7 +61,8 @@ class ProtocolBotCampaignTest {
     private static void runOne(long campaignSeed, int hand, BotEvaluator evaluator) {
         long handSeed = mix64(campaignSeed + hand);
         SplittableRandom random = new SplittableRandom(handSeed);
-        int seats = 3 + random.nextInt(7);
+        // Hand zero is the production table-size boundary; later hands vary 3..10.
+        int seats = hand == 0 ? 10 : 3 + random.nextInt(8);
         MultiwaySimulator sim = new MultiwaySimulator(
                 seats, handSeed, STARTING_STACK, BIG_BLIND, evaluator);
         Bot.Difficulty[] difficulties = new Bot.Difficulty[seats];

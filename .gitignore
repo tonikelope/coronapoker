@@ -142,6 +142,9 @@ $RECYCLE.BIN/
 # maven-surefire fork/state temp files (never version these)
 .surefire-*
 
+# Repository-local Maven cache used by the self-contained QA runners
+/.m2/
+
 # draw.io desktop backup files (created when a .drawio is opened)
 .$*.bkp
 

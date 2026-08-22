@@ -57,12 +57,13 @@ class ProtocolPotRabbitCampaignTest {
         random.nextBytes(handId);
         String context = "seed=" + campaignSeed + " hand=" + hand
                 + " handSeed=" + handSeed;
-        exerciseSidePots(random, context);
+        exerciseSidePots(random, context, hand);
         exerciseRabbit(random, handId, context);
     }
 
-    private static void exerciseSidePots(Random random, String context) {
-        int playerCount = 2 + random.nextInt(8);
+    private static void exerciseSidePots(Random random, String context, int hand) {
+        // Hand zero always exercises the ten-seat boundary; later hands vary 2..10.
+        int playerCount = hand == 0 ? 10 : 2 + random.nextInt(9);
         List<FakePotPlayer> players = new ArrayList<>(playerCount);
         long committedCents = 0L;
         for (int seat = 0; seat < playerCount; seat++) {

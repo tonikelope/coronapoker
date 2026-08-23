@@ -15,7 +15,7 @@ class TestModeSemanticParityTest {
             throws Exception {
         Map<String, Integer> reviewedOccurrences = Map.of(
                 "Audio.java", 8,
-                "Crupier.java", 12,
+                "Crupier.java", 15,
                 "GameFrame.java", 5,
                 "Init.java", 1,
                 "LocalPlayer.java", 3,
@@ -32,6 +32,14 @@ class TestModeSemanticParityTest {
                     "A TEST_MODE shortcut was added, removed or moved; review its semantic "
                     + "effect before updating this inventory");
         }
+    }
+
+    @Test
+    void protocolTestModeMarkersAreObservabilityOnly() throws Exception {
+        String source = Files.readString(sourceRoot().resolve("Crupier.java"));
+        assertObservabilityOnly(source, "QA EXIT_TESTAMENT_ACCEPTED");
+        assertObservabilityOnly(source, "QA RIT_VOTE_ACCEPTED");
+        assertObservabilityOnly(source, "QA STRADDLE_RESP_ACCEPTED");
     }
 
     @Test
@@ -85,6 +93,19 @@ class TestModeSemanticParityTest {
         } catch (java.io.IOException ex) {
             throw new java.io.UncheckedIOException(ex);
         }
+    }
+
+    private static void assertObservabilityOnly(String source, String marker) {
+        int markerOffset = source.indexOf(marker);
+        assertTrue(markerOffset >= 0, "missing reviewed QA marker " + marker);
+        int branchStart = source.lastIndexOf("if (GameFrame.TEST_MODE", markerOffset);
+        int branchEnd = source.indexOf('}', markerOffset);
+        assertTrue(branchStart >= 0 && branchEnd > markerOffset,
+                "QA marker is not guarded by TEST_MODE: " + marker);
+        String body = source.substring(branchStart, branchEnd + 1);
+        assertTrue(body.contains("LOGGER.log("), "QA marker must only log: " + marker);
+        assertFalse(body.contains("return"), "QA marker must not change control flow: " + marker);
+        assertFalse(body.contains("throw"), "QA marker must not change control flow: " + marker);
     }
 
     private static int occurrences(String text, String token) {

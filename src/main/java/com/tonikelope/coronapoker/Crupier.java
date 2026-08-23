@@ -174,6 +174,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return action != null && action.length >= 7 && Boolean.TRUE.equals(action[6]);
     }
 
+    static Object[] rejectedRaiseFallback(boolean locallyControlledProducer) {
+        if (locallyControlledProducer) {
+            // The local UI and host bots have a legitimate signer. Convert the
+            // impossible raise into a normal fold so the ordinary signing path
+            // emits one canonical action to every peer.
+            return new Object[]{Player.FOLD, 0d, null};
+        }
+        // A remote peer supplied an impossible action. Nobody may replace that
+        // peer's signature, so converge by explicit unverified-fold omission.
+        Object[] action = new Object[7];
+        synthesizeUnverifiedFoldAction(action);
+        return action;
+    }
+
     /**
      * Recover / anti-forgery (pure, testable): when replaying one of MY OWN
      * actions that the host serves without a verifiable record (stripped), is
@@ -6830,6 +6844,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // The EXIT handler has already validated the wire; this validation also
         // protects the convenience overloads from storing malformed material.
         rememberExitCommunityTestament(nick, testamento);
+        if (GameFrame.TEST_MODE && testamento != null && !testamento.isEmpty()
+                && !"*".equals(testamento)) {
+            LOGGER.log(Level.INFO, "QA EXIT_TESTAMENT_ACCEPTED nick={0}", nick);
+        }
         if (nick != null) {
             exited_consensus_participants.add(nick);
         }
@@ -8985,7 +9003,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     passSuffix = "#" + Base64.getEncoder().encodeToString(
                             WaitingRoomFrame.getInstance().getPassword().getBytes("UTF-8"));
                 }
-                broadcastGAMECommandFromServer("SERVEREXITRECOVER" + passSuffix, null, false);
+                broadcastTerminationFromServer("SERVEREXITRECOVER" + passSuffix);
             } catch (UnsupportedEncodingException ex) {
                 LOGGER.log(Level.SEVERE, "Failed to broadcast SERVEREXITRECOVER from MISDEAL", ex);
             }
@@ -9022,7 +9040,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // force_recover=false to take the BalanceScreen branch.
         Helpers.threadRun(() -> {
             try {
-                broadcastGAMECommandFromServer("SERVEREXIT", null, false);
+                broadcastTerminationFromServer("SERVEREXIT");
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, "Failed to broadcast SERVEREXIT from zero-trust MISDEAL", ex);
             }
@@ -13764,6 +13782,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 throw new IllegalArgumentException("unexpected or duplicate RIT voter");
                             }
                             votes.put(vote.nick(), vote.decision());
+                            if (GameFrame.TEST_MODE) {
+                                LOGGER.log(Level.INFO,
+                                        "QA RIT_VOTE_ACCEPTED nick={0} decision={1}",
+                                        new Object[]{vote.nick(), vote.decision()});
+                            }
                             changed = true;
                         } catch (Exception e) {
                             rejectCriticalVoteCommand(cmd,
@@ -14338,6 +14361,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                             answer = response.decision();
                             this.pending_remote_straddle_sig = response.signature();
+                            if (GameFrame.TEST_MODE) {
+                                LOGGER.log(Level.INFO,
+                                        "QA STRADDLE_RESP_ACCEPTED nick={0} decision={1}",
+                                        new Object[]{response.nick(), response.decision()});
+                            }
                         } catch (Exception e) {
                             rejectCriticalVoteCommand(cmd,
                                     "Invalid critical STRADDLE_RESP; closing source connection", e);
@@ -16883,7 +16911,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         && !canPlayerRaise(current_player.getNickname()))) {
                     LOGGER.log(Level.SEVERE, "Raise without entitlement rejected for {0}",
                             current_player.getNickname());
-                    action = new Object[]{Player.FOLD, 0d, null, null, null, Boolean.FALSE, "UNVERIFIED"};
+                    Participant currentParticipant = GameFrame.getInstance()
+                            .getParticipantes().get(current_player.getNickname());
+                    boolean locallyControlledProducer
+                            = current_player == GameFrame.getInstance().getLocalPlayer()
+                            || (GameFrame.getInstance().isPartida_local()
+                            && currentParticipant != null && currentParticipant.isCpu());
+                    action = rejectedRaiseFallback(locallyControlledProducer);
                     decision = Player.FOLD;
                 }
 
@@ -18804,6 +18838,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
         }
+    }
+
+    /**
+     * Delivers an authoritative table-termination frame before the host tears
+     * down its sockets. GAME confirmations are emitted when a client accepts
+     * and enqueues the frame, so waiting here prevents close-vs-delivery races
+     * without waiting for Swing teardown or recovery UI work.
+     */
+    public void broadcastTerminationFromServer(String command) {
+        // Reuse the production parser as the boundary: this helper must never
+        // become a generic confirmed broadcast or accept a malformed terminal
+        // shape assembled by a caller.
+        TableTerminationWire.parse(("GAME#0#" + command).split("#", -1));
+        broadcastGAMECommandFromServer(command, null, true);
     }
 
     public void broadcastGAMECommandFromServer(String command, String skip_nick) {
@@ -23168,18 +23216,37 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
+        GameFrame endingFrame = GameFrame.getInstance();
+        if (endingFrame == null) {
+            // The socket consumer already completed an authoritative teardown.
+            return;
+        }
+        boolean localHost = endingFrame.isPartida_local();
+
+        // MISDEAL teardown has exactly one owner. On the host, abortAndRecover/
+        // abortAndExit delivers the authoritative terminal frame before tearing
+        // down. On clients, the socket consumer tears down after accepting that
+        // frame. Letting this normal run() tail race either owner can interrupt
+        // the confirmed broadcast, send a bogus voluntary EXIT, or route with a
+        // stale force_recover value.
+        if (shouldDeferMisdealTeardown(mano_anulada)) {
+            return;
+        }
+
         // SERVEREXITRECOVER is a host-directed teardown: its frame already
         // carries the authoritative transition and the socket reader retires
-        // that connection before this old Crupier reaches its tail. Sending a
-        // voluntary EXIT here races the closed socket and can trigger a bogus
-        // reconnect while the replacement lobby/session is already starting.
-        // Normal voluntary/final client exits still send their testament.
-        if (!GameFrame.getInstance().isPartida_local() && !force_recover) {
+        // that connection before this old Crupier reaches its tail. Normal
+        // voluntary/final client exits still send their testament.
+        if (!localHost && !force_recover) {
             String exitCmd = buildLocalExitCommand();
             sendGAMECommandToServer(exitCmd, false);
         }
 
-        GameFrame.getInstance().finTransmision(fin_de_la_transmision);
+        endingFrame.finTransmision(fin_de_la_transmision);
+    }
+
+    static boolean shouldDeferMisdealTeardown(boolean handVoided) {
+        return handVoided;
     }
 
     private void containTableFailure(Exception cause) {
@@ -23198,7 +23265,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     passSuffix = "#" + Base64.getEncoder().encodeToString(
                             waitingRoom.getPassword().getBytes("UTF-8"));
                 }
-                broadcastGAMECommandFromServer("SERVEREXITRECOVER" + passSuffix, null, false);
+                broadcastTerminationFromServer("SERVEREXITRECOVER" + passSuffix);
             } catch (Exception broadcastFailure) {
                 LOGGER.log(Level.WARNING,
                         "Unable to broadcast SERVEREXITRECOVER after table failure", broadcastFailure);

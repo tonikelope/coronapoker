@@ -33,6 +33,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.CountDownLatch;
 
 /**
@@ -63,7 +64,18 @@ public final class RealGameNodeMain {
             = java.util.Collections.newSetFromMap(new WeakHashMap<>());
     private static final Set<NewGameDialog> RECOVERY_DIALOGS_SUBMITTED
             = java.util.Collections.newSetFromMap(new WeakHashMap<>());
+    private static final AtomicReference<RunItTwiceDialog> GATED_RIT_DIALOG
+            = new AtomicReference<>();
     private static final CountDownLatch PARENT_CLOSED = new CountDownLatch(1);
+    private static final CountDownLatch LOBBY_CHECK_REQUESTED = new CountDownLatch(1);
+    private static final CountDownLatch GAME_START_REQUESTED = new CountDownLatch(1);
+    private static final Set<String> ARMED_ACTION_GATES
+            = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private static final Set<String> REACHED_ACTION_GATES
+            = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private static final Object ACTION_GATE_LOCK = new Object();
+    private static final AtomicBoolean LOBBY_READY_REPORTED = new AtomicBoolean();
+    private static volatile int CONFIGURED_CLIENTS;
     private static volatile int CONFIGURED_BOTS;
     private static volatile int ALL_IN_OBSERVED_HAND = -1;
     private static volatile Boolean LAST_PAUSE_STATE;
@@ -78,6 +90,7 @@ public final class RealGameNodeMain {
         });
 
         NodeConfig config = NodeConfig.parse(args);
+        CONFIGURED_CLIENTS = config.clients;
         CONFIGURED_BOTS = config.bots;
         configureRuntime(config);
 
@@ -118,28 +131,53 @@ public final class RealGameNodeMain {
         WaitingRoomFrame.setInstance(room);
         Helpers.CREATE_THREAD_POOL();
         invokeNetworkStart(room, config.host);
+        startControlThread();
 
         if (config.host) {
             await("server socket", START_TIMEOUT,
                     () -> room.getNet_server().getServer_socket() != null
                     && !room.getNet_server().getServer_socket().isClosed());
-            marker("READY", "role=host port=" + config.port
+            int boundPort = room.getNet_server().getServer_socket().getLocalPort();
+            // Port zero removes the parent-side reserve/close/bind race. Persist
+            // the actual port so production force-recovery reopens the same
+            // endpoint and existing clients reconnect to it normally.
+            Helpers.PROPERTIES.setProperty("local_port", Integer.toString(boundPort));
+            marker("READY", "role=host port=" + boundPort
                     + " testMode=" + GameFrame.TEST_MODE
                     + " windowMode=" + WINDOW_MODE.name().toLowerCase(Locale.ROOT));
+            awaitParentBarrier(LOBBY_CHECK_REQUESTED, "initial lobby check");
             await("human clients", START_TIMEOUT,
-                    () -> room.getParticipantes().size() >= config.clients + 1);
+                    () -> participantCounts(room).humans() == config.clients + 1);
             addBots(room, config.bots);
             await("bots", START_TIMEOUT,
-                    () -> room.getParticipantes().size() >= config.clients + config.bots + 1);
+                    () -> participantCounts(room).total()
+                    == config.clients + config.bots + 1);
+            LOBBY_READY_REPORTED.set(true);
+            marker("LOBBY_READY", "clients=" + config.clients + " bots=" + config.bots);
+            if (!GAME_START_REQUESTED.await(START_TIMEOUT.toMillis(),
+                    java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                throw new IllegalStateException("parent did not authorize game start");
+            }
             invokeStartGame(room);
         } else {
             marker("READY", "role=client nick=" + config.nick
                     + " testMode=" + GameFrame.TEST_MODE
                     + " windowMode=" + WINDOW_MODE.name().toLowerCase(Locale.ROOT));
+            if (config.lateRecoveryJoiner) {
+                await("complete recovery human roster", Duration.ofMinutes(2), () -> {
+                    ParticipantCounts counts = participantCounts(room);
+                    return lobbyTopologyComplete(counts.humans(), config.clients + 1,
+                            counts.total(), config.clients + config.bots + 1, true);
+                });
+                reportLobbyReady(room);
+            } else {
+                awaitParentBarrier(LOBBY_CHECK_REQUESTED, "initial lobby check");
+            }
         }
 
-        await("mounted GameFrame", START_TIMEOUT, () -> localPlayerIfMounted() != null);
-        startControlThread();
+        await("mounted GameFrame",
+                config.lateRecoveryJoiner ? Duration.ofMinutes(2) : START_TIMEOUT,
+                () -> localPlayerIfMounted() != null);
 
         Thread actionDriver = new Thread(() -> driveLocalActions(config.seed), "qa-real-game-action-driver");
         actionDriver.setDaemon(true);
@@ -155,11 +193,19 @@ public final class RealGameNodeMain {
             return;
         }
 
-        Crupier crupier = GameFrame.getInstance().getCrupier();
+        GameFrame completedFrame = GameFrame.getInstance();
+        Crupier crupier = completedFrame == null ? null : completedFrame.getCrupier();
+        if (crupier == null
+                && !RealGameScenarioContract.expectsTerminalMisdeal(SCENARIO)) {
+            throw new IllegalStateException(
+                    "game table disappeared after SQL completion outside a terminal MISDEAL");
+        }
         marker("HANDS_COMPLETE", "role=" + (config.host ? "host" : "client")
                 + " nick=" + config.nick
                 + " requested=" + config.hands
-                + " crupierHand=" + crupier.getMano()
+                + " crupierHand=" + (crupier == null ? "unmounted" : crupier.getMano())
+                + " tableState=" + (completedFrame == null
+                        ? "closed-after-misdeal" : "mounted")
                 + " sqlCompleted=" + completedHands());
         marker("LEDGER", latestLedgerSummary());
 
@@ -273,20 +319,22 @@ public final class RealGameNodeMain {
         java.util.Random random = new java.util.Random(seed);
         while (!Thread.currentThread().isInterrupted()) {
             try {
+                awaitArmedActionGate();
                 EventQueue.invokeAndWait(() -> {
                     GameFrame frame = GameFrame.getInstance();
                     LocalPlayer local = localPlayerIfMounted();
                     if (frame == null || local == null) {
                         return;
                     }
-                    boolean paused = frame.isTimba_pausada();
-                    if (LAST_PAUSE_STATE == null) {
-                        LAST_PAUSE_STATE = paused;
-                    } else if (LAST_PAUSE_STATE != paused) {
-                        LAST_PAUSE_STATE = paused;
-                        marker("PAUSE_STATE", "paused=" + paused);
-                    }
                     if (!local.isTurno()) {
+                        return;
+                    }
+                    // Gate inspection and action selection must be atomic with
+                    // respect to the EDT. Otherwise the turn can become
+                    // actionable between two snapshots and the automatic driver
+                    // can steal an action owned by a causal scenario command.
+                    if (automatedActionBlocked(ARMED_ACTION_GATES,
+                            frame.getCrupier().getMano(), frame.getCrupier().getStreet())) {
                         return;
                     }
                     if (isAllInScenario()
@@ -298,7 +346,7 @@ public final class RealGameNodeMain {
                             marker("ALLIN_ACTION_CLICKED", "nick="
                                     + frame.getNick_local() + " hand=" + hand);
                         }
-                    } else if (requiresLiveStreetAfterPeerLoss()
+                    } else if ((requiresLiveStreetAfterPeerLoss() || isActionGateScenario())
                             && local.getPlayer_check().isEnabled()) {
                         // Destructive-exit scenarios must reach a street that needs the
                         // departed peer's crypto testament. Random preflop folds can end
@@ -343,6 +391,14 @@ public final class RealGameNodeMain {
                     if (command.equals("CONTROLLED_EXIT")) {
                         invokeControlledClientExit();
                         marker("CONTROLLED_EXIT_SENT", "role=client");
+                    } else if (command.equals("ALLIN_THEN_CONTROLLED_EXIT")) {
+                        invokeAllInThen(PostAction.CONTROLLED_EXIT);
+                    } else if (command.equals("ALLIN_THEN_DROP_SOCKET")) {
+                        invokeAllInThen(PostAction.DROP_SOCKET);
+                    } else if (command.equals("ALLIN_THEN_CRASH")) {
+                        invokeAllInThen(PostAction.CRASH_PROCESS);
+                    } else if (command.equals("RELEASE_RIT_VOTE")) {
+                        releaseRitVoteGate();
                     } else if (command.equals("FORCE_RECOVER")) {
                         invokeForceRecover();
                         marker("FORCE_RECOVER_REQUESTED", "role=host");
@@ -352,8 +408,26 @@ public final class RealGameNodeMain {
                     } else if (command.equals("PAUSE_TOGGLE")) {
                         invokePauseToggle();
                     } else if (command.equals("DROP_SOCKET")) {
+                        marker("SOCKET_DROP_ARMED", "role=client");
                         invokeSocketDrop();
                         marker("SOCKET_DROP_REQUESTED", "role=client");
+                    } else if (command.startsWith("ARM_ACTION_GATE#")) {
+                        String gate = parseActionGateCommand(command, "ARM_ACTION_GATE");
+                        ARMED_ACTION_GATES.add(gate);
+                        marker("ACTION_GATE_ARMED", "gate=" + gate);
+                    } else if (command.startsWith("RELEASE_ACTION_GATE#")) {
+                        String gate = parseActionGateCommand(command, "RELEASE_ACTION_GATE");
+                        synchronized (ACTION_GATE_LOCK) {
+                            ARMED_ACTION_GATES.remove(gate);
+                            ACTION_GATE_LOCK.notifyAll();
+                        }
+                        marker("ACTION_GATE_RELEASED", "gate=" + gate);
+                    } else if (command.equals("CHECK_LOBBY")) {
+                        LOBBY_CHECK_REQUESTED.countDown();
+                        marker("LOBBY_CHECK_RELEASED", "role=parent");
+                    } else if (command.equals("START_GAME")) {
+                        GAME_START_REQUESTED.countDown();
+                        marker("GAME_START_REQUESTED", "role=host");
                     } else if (command.equals("STOP")) {
                         marker("STOPPING", "role=test-harness");
                         Runtime.getRuntime().halt(0);
@@ -372,17 +446,83 @@ public final class RealGameNodeMain {
         controls.start();
     }
 
+    private static String parseActionGateCommand(String command, String verb) {
+        String[] parts = command.split("#", -1);
+        if (parts.length != 3 || !verb.equals(parts[0])) {
+            throw new IllegalArgumentException("invalid " + verb + " command");
+        }
+        int hand = Integer.parseInt(parts[1]);
+        int street = Integer.parseInt(parts[2]);
+        if (hand < 1 || street < Crupier.PREFLOP || street > Crupier.RIVER) {
+            throw new IllegalArgumentException("invalid action gate hand/street");
+        }
+        return hand + "#" + street;
+    }
+
+    private static void awaitArmedActionGate() throws InterruptedException {
+        ActionGateSnapshot snapshot = currentActionGateSnapshot();
+        if (snapshot == null || !snapshot.inputReady()) {
+            return;
+        }
+        String gate = snapshot.hand() + "#" + snapshot.street();
+        if (!ARMED_ACTION_GATES.contains(gate)) {
+            return;
+        }
+        if (REACHED_ACTION_GATES.add(gate)) {
+            marker("ACTION_GATE_REACHED", "gate=" + gate
+                    + " nick=" + snapshot.nick());
+        }
+        synchronized (ACTION_GATE_LOCK) {
+            while (ARMED_ACTION_GATES.contains(gate)) {
+                ACTION_GATE_LOCK.wait(100L);
+            }
+        }
+    }
+
+    private static ActionGateSnapshot currentActionGateSnapshot()
+            throws InterruptedException {
+        AtomicReference<ActionGateSnapshot> snapshot = new AtomicReference<>();
+        try {
+            EventQueue.invokeAndWait(() -> {
+                GameFrame frame = GameFrame.getInstance();
+                LocalPlayer local = localPlayerIfMounted();
+                if (frame == null || local == null || !local.isTurno()) {
+                    return;
+                }
+                Crupier crupier = frame.getCrupier();
+                boolean inputReady = actionInputReady(isOrderedAllInScenario(),
+                        local.getPlayer_check().isEnabled(),
+                        local.getPlayer_fold().isEnabled(),
+                        local.getPlayer_allin().isEnabled(),
+                        local.getPlayer_bet_button().isEnabled());
+                snapshot.set(new ActionGateSnapshot(crupier.getMano(),
+                        crupier.getStreet(), frame.getNick_local(), inputReady));
+            });
+        } catch (java.lang.reflect.InvocationTargetException ex) {
+            throw new IllegalStateException("cannot inspect action gate on EDT", ex.getCause());
+        }
+        return snapshot.get();
+    }
+
+    private static boolean isOrderedAllInScenario() {
+        return RealGameScenarioContract.isOrderedAllIn(SCENARIO);
+    }
+
+    static boolean actionInputReady(boolean orderedAllIn, boolean checkEnabled,
+            boolean foldEnabled, boolean allInEnabled, boolean betEnabled) {
+        return orderedAllIn ? allInEnabled
+                : checkEnabled || foldEnabled || allInEnabled || betEnabled;
+    }
+
+    static boolean automatedActionBlocked(Set<String> armedGates, int hand, int street) {
+        return armedGates.contains(hand + "#" + street);
+    }
+
     private static void invokeControlledClientExit() throws Exception {
         AtomicReference<Throwable> failure = new AtomicReference<>();
         EventQueue.invokeAndWait(() -> {
             try {
-                GameFrame frame = GameFrame.getInstance();
-                if (frame == null || frame.isPartida_local()) {
-                    throw new IllegalStateException("controlled EXIT requires a mounted client table");
-                }
-                Method exit = GameFrame.class.getDeclaredMethod("performControlledClientExit");
-                exit.setAccessible(true);
-                exit.invoke(frame);
+                performControlledClientExitOnEdt();
             } catch (Throwable error) {
                 failure.set(error);
             }
@@ -390,6 +530,69 @@ public final class RealGameNodeMain {
         if (failure.get() != null) {
             throw new IllegalStateException("cannot invoke production controlled EXIT", failure.get());
         }
+    }
+
+    private static void invokeAllInThen(PostAction postAction) throws Exception {
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        EventQueue.invokeAndWait(() -> {
+            try {
+                GameFrame frame = GameFrame.getInstance();
+                LocalPlayer local = localPlayerIfMounted();
+                if (frame == null || local == null || frame.isPartida_local()) {
+                    throw new IllegalStateException(
+                            "ordered all-in disruption requires a mounted client table");
+                }
+                if (!local.isTurno() || !local.getPlayer_allin().isEnabled()) {
+                    throw new IllegalStateException(
+                            "ordered all-in disruption requires the client's enabled all-in turn");
+                }
+                int hand = frame.getCrupier().getMano();
+                local.getPlayer_allin().doClick();
+                ALL_IN_OBSERVED_HAND = hand;
+                marker("ORDERED_ALLIN_ACTION_CLICKED", "nick="
+                        + frame.getNick_local() + " hand=" + hand);
+
+                switch (postAction) {
+                    case CONTROLLED_EXIT -> {
+                        performControlledClientExitOnEdt();
+                        marker("CONTROLLED_EXIT_SENT", "role=client after=all-in");
+                    }
+                    case DROP_SOCKET -> {
+                        marker("SOCKET_DROP_ARMED", "role=client after=all-in");
+                        invokeSocketDrop();
+                        marker("SOCKET_DROP_REQUESTED", "role=client after=all-in");
+                    }
+                    case CRASH_PROCESS -> {
+                        marker("PROCESS_CRASH_REQUESTED", "role=client after=all-in");
+                    }
+                }
+            } catch (Throwable error) {
+                failure.set(error);
+            }
+        });
+        if (failure.get() != null) {
+            throw new IllegalStateException(
+                    "cannot execute ordered all-in disruption", failure.get());
+        }
+        if (postAction == PostAction.CRASH_PROCESS) {
+            // The marker above is flushed before halting. Runtime.halt models a
+            // power/process loss without running cleanup hooks that would turn
+            // this into a controlled EXIT.
+            Runtime.getRuntime().halt(0);
+        }
+    }
+
+    private static void performControlledClientExitOnEdt() throws Exception {
+        if (!EventQueue.isDispatchThread()) {
+            throw new IllegalStateException("controlled EXIT must run on the EDT");
+        }
+        GameFrame frame = GameFrame.getInstance();
+        if (frame == null || frame.isPartida_local()) {
+            throw new IllegalStateException("controlled EXIT requires a mounted client table");
+        }
+        Method exit = GameFrame.class.getDeclaredMethod("performControlledClientExit");
+        exit.setAccessible(true);
+        exit.invoke(frame);
     }
 
     private static void invokeForceRecover() throws Exception {
@@ -490,7 +693,6 @@ public final class RealGameNodeMain {
             while (!Thread.currentThread().isInterrupted()) {
                 try {
                     applyWindowPolicyToAll();
-                    acceptPendingStraddle();
                     Thread.sleep(25L);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
@@ -526,13 +728,86 @@ public final class RealGameNodeMain {
             for (Window window : Window.getWindows()) {
                 applyWindowPolicy(window);
             }
+            observeScenarioStateOnEdt();
             return;
         }
         EventQueue.invokeAndWait(() -> {
             for (Window window : Window.getWindows()) {
                 applyWindowPolicy(window);
             }
+            observeScenarioStateOnEdt();
         });
+    }
+
+    private static void observeScenarioStateOnEdt() {
+        if (!EventQueue.isDispatchThread()) {
+            throw new IllegalStateException("scenario state must be observed on the EDT");
+        }
+        acceptPendingStraddle();
+        observeLobbyTopology();
+        GameFrame frame = GameFrame.getInstance();
+        if (frame == null) {
+            return;
+        }
+        boolean paused = frame.isTimba_pausada();
+        if (LAST_PAUSE_STATE == null) {
+            LAST_PAUSE_STATE = paused;
+        } else if (LAST_PAUSE_STATE != paused) {
+            LAST_PAUSE_STATE = paused;
+            marker("PAUSE_STATE", "paused=" + paused);
+        }
+    }
+
+    private static void observeLobbyTopology() {
+        WaitingRoomFrame room = WaitingRoomFrame.getInstance();
+        if (room == null || room.isServer() || LOBBY_READY_REPORTED.get()
+                || LOBBY_CHECK_REQUESTED.getCount() != 0) {
+            return;
+        }
+        ParticipantCounts counts = participantCounts(room);
+        int expectedHumans = CONFIGURED_CLIENTS + 1;
+        int expectedSeats = expectedHumans + CONFIGURED_BOTS;
+        if (lobbyTopologyComplete(counts.humans(), expectedHumans,
+                counts.total(), expectedSeats, GameFrame.isRECOVER())
+                && LOBBY_READY_REPORTED.compareAndSet(false, true)) {
+            markerLobbyReady(counts);
+        }
+    }
+
+    private static void reportLobbyReady(WaitingRoomFrame room) {
+        ParticipantCounts counts = participantCounts(room);
+        if (LOBBY_READY_REPORTED.compareAndSet(false, true)) {
+            markerLobbyReady(counts);
+        }
+    }
+
+    private static void markerLobbyReady(ParticipantCounts counts) {
+        marker("LOBBY_READY", "clients=" + CONFIGURED_CLIENTS
+                + " bots=" + CONFIGURED_BOTS + " humans=" + counts.humans()
+                + " seats=" + counts.total());
+    }
+
+    private static ParticipantCounts participantCounts(WaitingRoomFrame room) {
+        synchronized (room.getParticipantes()) {
+            int total = room.getParticipantes().size();
+            int humans = (int) room.getParticipantes().values().stream()
+                    // The local seat is represented by a null Participant in
+                    // this production map. It is still a human seat; only an
+                    // explicit CPU Participant is a bot.
+                    .filter(participant -> participant == null || !participant.isCpu())
+                    .count();
+            return new ParticipantCounts(humans, total);
+        }
+    }
+
+    static boolean lobbyTopologyComplete(int actualHumans, int expectedHumans,
+            int actualSeats, int expectedSeats, boolean recoveryLobby) {
+        if (expectedHumans < 2 || actualHumans != expectedHumans) {
+            return false;
+        }
+        return recoveryLobby
+                ? actualSeats >= expectedHumans && actualSeats <= expectedSeats
+                : actualSeats == expectedSeats;
     }
 
     private static void applyWindowPolicy(Window window) {
@@ -558,6 +833,16 @@ public final class RealGameNodeMain {
     private static void applyScenarioWindowAction(Window window) {
         if (isRitScenario() && window instanceof RunItTwiceDialog dialog
                 && RIT_DIALOGS_VOTED.add(dialog)) {
+            GameFrame frame = GameFrame.getInstance();
+            if (shouldGateRitVote(SCENARIO,
+                    frame == null ? null : frame.getNick_local(),
+                    frame != null && frame.isPartida_local())) {
+                if (!GATED_RIT_DIALOG.compareAndSet(null, dialog)) {
+                    throw new IllegalStateException("more than one RIT dialog reached the gate");
+                }
+                marker("RIT_VOTE_GATE_REACHED", "nick=client2");
+                return;
+            }
             voteRunItTwice(dialog);
             return;
         }
@@ -595,11 +880,28 @@ public final class RealGameNodeMain {
         return SCENARIO.equals("allin-rit") || SCENARIO.equals("rit-network-cut");
     }
 
+    static boolean shouldGateRitVote(String scenario, String nick, boolean host) {
+        return "rit-network-cut".equals(scenario) && !host && "client2".equals(nick);
+    }
+
+    private static void releaseRitVoteGate() throws Exception {
+        RunItTwiceDialog dialog = GATED_RIT_DIALOG.getAndSet(null);
+        if (dialog == null) {
+            throw new IllegalStateException("RIT vote gate was not reached");
+        }
+        EventQueue.invokeAndWait(() -> voteRunItTwice(dialog));
+        marker("RIT_VOTE_GATE_RELEASED", "nick=client2");
+    }
+
     private static boolean requiresLiveStreetAfterPeerLoss() {
         return SCENARIO.equals("abrupt-exit")
                 || SCENARIO.equals("dual-abrupt-exit")
                 || SCENARIO.equals("mixed-exit-crash")
                 || SCENARIO.equals("reconnect-every-street");
+    }
+
+    private static boolean isActionGateScenario() {
+        return RealGameScenarioContract.isActionGated(SCENARIO);
     }
 
     private static void voteRunItTwice(RunItTwiceDialog dialog) {
@@ -659,7 +961,7 @@ public final class RealGameNodeMain {
                     ResultSet rs = statement.executeQuery()) {
                 return rs.next() ? rs.getInt(1) : 0;
             } catch (Exception ex) {
-                return 0;
+                throw new IllegalStateException("cannot read completed-hand progress", ex);
             }
         }
     }
@@ -766,6 +1068,16 @@ public final class RealGameNodeMain {
         throw new IllegalStateException("timeout waiting for " + description);
     }
 
+    private static void awaitParentBarrier(CountDownLatch barrier, String description)
+            throws Exception {
+        while (!barrier.await(1, java.util.concurrent.TimeUnit.SECONDS)) {
+            if (PARENT_CLOSED.getCount() == 0) {
+                throw new IllegalStateException(
+                        "parent closed before releasing " + description);
+            }
+        }
+    }
+
     private static synchronized void marker(String type, String detail) {
         System.out.println("CP_E2E_" + type + " " + detail);
         System.out.flush();
@@ -777,12 +1089,26 @@ public final class RealGameNodeMain {
         boolean getAsBoolean() throws Exception;
     }
 
-    private record NodeConfig(boolean host, String nick, int port, int clients, int bots, int hands, long seed) {
+    private enum PostAction {
+        CONTROLLED_EXIT,
+        DROP_SOCKET,
+        CRASH_PROCESS
+    }
+
+    private record ActionGateSnapshot(int hand, int street, String nick,
+            boolean inputReady) {
+    }
+
+    private record ParticipantCounts(int humans, int total) {
+    }
+
+    private record NodeConfig(boolean host, String nick, int port, int clients,
+            int bots, int hands, long seed, boolean lateRecoveryJoiner) {
 
         private static NodeConfig parse(String[] args) {
-            if (args.length != 7) {
+            if (args.length != 8) {
                 throw new IllegalArgumentException(
-                        "usage: <host|client> <nick> <port> <clients> <bots> <hands> <seed>");
+                        "usage: <host|client> <nick> <port> <clients> <bots> <hands> <seed> <lateRecoveryJoiner>");
             }
             boolean host = switch (args[0].toLowerCase(Locale.ROOT)) {
                 case "host" -> true;
@@ -794,11 +1120,15 @@ public final class RealGameNodeMain {
             int bots = Integer.parseInt(args[4]);
             int hands = Integer.parseInt(args[5]);
             long seed = Long.parseLong(args[6]);
-            if (port < 1 || port > 65535 || clients < 1 || bots < 0 || hands < 1
-                    || clients + bots + 1 > WaitingRoomFrame.MAX_PARTICIPANTES) {
+            boolean lateRecoveryJoiner = Boolean.parseBoolean(args[7]);
+            if (port < 0 || port > 65535 || (!host && port == 0)
+                    || clients < 1 || bots < 0 || hands < 1
+                    || clients + bots + 1 > WaitingRoomFrame.MAX_PARTICIPANTES
+                    || (host && lateRecoveryJoiner)) {
                 throw new IllegalArgumentException("invalid E2E topology");
             }
-            return new NodeConfig(host, args[1], port, clients, bots, hands, seed);
+            return new NodeConfig(host, args[1], port, clients, bots, hands, seed,
+                    lateRecoveryJoiner);
         }
     }
 

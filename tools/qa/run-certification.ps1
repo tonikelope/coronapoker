@@ -15,8 +15,8 @@ param(
     [ValidateRange(5, 1000)]
     [int]$SoakHands,
 
-    [ValidateRange(1, 5)]
-    [int]$EdgeRepeats,
+    [ValidateRange(1, 10)]
+    [int]$ScenarioRepeats,
 
     [long]$Seed = 3231711270,
 
@@ -49,7 +49,7 @@ Usage:
   powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\qa\run-certification.ps1 [options]
 
 Default mode is balanced: the recommended production gate with every scenario
-once and bounded campaign sizes. Phases are fail-fast and sequential:
+twice and bounded campaign sizes. Phases are fail-fast and sequential:
   1. qa-release: deterministic tests plus every non-bot slow lane
   2. Seeded headless protocol/fault campaigns
   3. Every real-game loopback scenario in separate production JVMs
@@ -60,7 +60,7 @@ Options:
   -Faults <1..100000>      Override headless critical-stream fault cases
   -BotHands <1..1000000>   Override headless production-bot hands
   -SoakHands <5..1000>     Override hands in the real-socket soak game
-  -EdgeRepeats <1..5>      Override seeds per destructive/racy scenario
+  -ScenarioRepeats <1..10> Override serial runs with distinct seeds per scenario
   -Seed <long>             Reproducible base seed (default: 3231711270)
   -WindowMode <mode>       hidden, minimized or visible (default: hidden)
   -Screen <1..16>          Monitor assigned to real-game JVMs (default: 2)
@@ -76,14 +76,14 @@ Examples:
   .\tools\qa\run-certification.ps1
   .\tools\qa\run-certification.ps1 -Mode quick
   .\tools\qa\run-certification.ps1 -Mode stress -Seed 42
-  .\tools\qa\run-certification.ps1 -Hands 750 -Faults 750 -EdgeRepeats 2
+  .\tools\qa\run-certification.ps1 -Hands 750 -Faults 750 -ScenarioRepeats 3
   .\tools\qa\run-certification.ps1 -IncludeBotQuality
   .\tools\qa\run-certification.ps1 -StartAtScenario reconnect-every-street
 
 Mode defaults (explicit numeric options always win):
-  quick     50 hands/faults, 20 bot hands, 5-hand soak, critical scenario subset
-  balanced  500 hands/faults, 100 bot hands, 20-hand soak, every scenario once
-  stress    5000 hands/faults, 500 bot hands, 50-hand soak, race scenarios x3
+  quick     50 hands/faults, 20 bot hands, 5-hand soak, critical subset once
+  balanced  500 hands/faults, 100 bot hands, 20-hand soak, every scenario x2
+  stress    5000 hands/faults, 500 bot hands, 50-hand soak, every scenario x5
 
 Compact progress is printed by default. Full phase logs plus summary.csv and
 summary.json are written under target\certification\<timestamp>. The command
@@ -93,15 +93,15 @@ exits non-zero at the first failed phase and prints the log tail/path.
 }
 
 $modeDefaults = @{
-    quick = @{ Hands = 50; Faults = 50; BotHands = 20; SoakHands = 5; EdgeRepeats = 1 }
-    balanced = @{ Hands = 500; Faults = 500; BotHands = 100; SoakHands = 20; EdgeRepeats = 1 }
-    stress = @{ Hands = 5000; Faults = 5000; BotHands = 500; SoakHands = 50; EdgeRepeats = 3 }
+    quick = @{ Hands = 50; Faults = 50; BotHands = 20; SoakHands = 5; ScenarioRepeats = 1 }
+    balanced = @{ Hands = 500; Faults = 500; BotHands = 100; SoakHands = 20; ScenarioRepeats = 2 }
+    stress = @{ Hands = 5000; Faults = 5000; BotHands = 500; SoakHands = 50; ScenarioRepeats = 5 }
 }[$Mode]
 if (-not $PSBoundParameters.ContainsKey('Hands')) { $Hands = $modeDefaults.Hands }
 if (-not $PSBoundParameters.ContainsKey('Faults')) { $Faults = $modeDefaults.Faults }
 if (-not $PSBoundParameters.ContainsKey('BotHands')) { $BotHands = $modeDefaults.BotHands }
 if (-not $PSBoundParameters.ContainsKey('SoakHands')) { $SoakHands = $modeDefaults.SoakHands }
-if (-not $PSBoundParameters.ContainsKey('EdgeRepeats')) { $EdgeRepeats = $modeDefaults.EdgeRepeats }
+if (-not $PSBoundParameters.ContainsKey('ScenarioRepeats')) { $ScenarioRepeats = $modeDefaults.ScenarioRepeats }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $reactorPom = Join-Path $repoRoot 'tools\reactor\pom.xml'
@@ -205,6 +205,12 @@ function Invoke-CertificationPhase {
                     Write-Host ("    hands {0}" -f $progress) -ForegroundColor DarkGray
                     $lastProgress = $progress
                 }
+            } elseif ($line -match 'CP_HEADLESS_PROGRESS campaign=([^ ]+) completed=(\d+) requested=(\d+)') {
+                $progress = "{0} {1}/{2}" -f $Matches[1], $Matches[2], $Matches[3]
+                if ($progress -ne $lastProgress) {
+                    Write-Host ("    {0}" -f $progress) -ForegroundColor DarkGray
+                    $lastProgress = $progress
+                }
             } elseif ($line -match 'CP_E2E_FAIL') {
                 Write-Host ("    {0}" -f $line) -ForegroundColor Red
             }
@@ -254,8 +260,8 @@ $commonMavenArgs = @(
 )
 
 Write-Host 'CoronaPoker local certification' -ForegroundColor Cyan
-Write-Host ("Mode={0} seed={1} campaigns={2}/{3}/{4} soak={5} edgeRepeats={6}" -f `
-        $Mode, $Seed, $Hands, $Faults, $BotHands, $SoakHands, $EdgeRepeats)
+Write-Host ("Mode={0} seed={1} campaigns={2}/{3}/{4} soak={5} scenarioRepeats={6}" -f `
+        $Mode, $Seed, $Hands, $Faults, $BotHands, $SoakHands, $ScenarioRepeats)
 Write-Host ("Windows={0} screen={1} animations={2} productionTiming={3}" -f `
         $WindowMode, $Screen, [bool]$Animations, [bool]$ProductionTiming)
 Write-Host ("Reports: {0}" -f $reportDir)
@@ -288,48 +294,52 @@ try {
                 '-SkipGameBuild'
             )
     } else {
-        Write-Host ("Continuation mode: skipping QA/headless; starting at {0}" -f `
+        Write-Host ("Continuation mode: rebuilding current sources, skipping QA/headless; starting at {0}" -f `
                 $StartAtScenario) -ForegroundColor Yellow
+        Invoke-CertificationPhase `
+            -Name 'Current-source build for continuation' `
+            -Command $maven `
+            -Arguments ($commonMavenArgs + @('-DskipTests'))
     }
 
     $fullMixedHands = if ($Mode -eq 'stress') { 10 } elseif ($Mode -eq 'quick') { 1 } else { 3 }
     $fullHumanHands = if ($Mode -eq 'stress') { 3 } else { 1 }
     $headsUpHands = if ($Mode -eq 'quick') { 5 } else { 20 }
     $scenarioProfiles = @(
-        @{ Label = 'normal-soak'; Name = 'normal'; Clients = 2; Bots = 2; Hands = $SoakHands; Repeat = $false },
-        @{ Label = 'normal-heads-up'; Name = 'normal'; Clients = 1; Bots = 0; Hands = $headsUpHands; Repeat = $true },
-        @{ Label = 'normal-full-mixed'; Name = 'normal'; Clients = 4; Bots = 5; Hands = $fullMixedHands; Repeat = $false },
-        @{ Label = 'normal-full-human'; Name = 'normal'; Clients = 9; Bots = 0; Hands = $fullHumanHands; Repeat = $false },
-        @{ Label = 'raise-mix'; Name = 'raise-mix'; Clients = 2; Bots = 2; Hands = 10; Repeat = $true },
-        @{ Label = 'allin-single-board'; Name = 'allin-single-board'; Clients = 1; Bots = 0; Hands = 1; Repeat = $true },
-        @{ Label = 'allin-rebuy'; Name = 'allin-rebuy'; Clients = 1; Bots = 0; Hands = 5; Repeat = $true },
-        @{ Label = 'allin-rit'; Name = 'allin-rit'; Clients = 1; Bots = 0; Hands = 1; Repeat = $true },
-        @{ Label = 'allin-controlled-exit'; Name = 'allin-controlled-exit'; Clients = 1; Bots = 0; Hands = 1; Repeat = $true },
-        @{ Label = 'straddle-post'; Name = 'straddle-post'; Clients = 2; Bots = 0; Hands = 3; Repeat = $true },
-        @{ Label = 'pause-resume'; Name = 'pause-resume'; Clients = 2; Bots = 1; Hands = 2; Repeat = $true },
-        @{ Label = 'reconnect-midhand'; Name = 'reconnect-midhand'; Clients = 2; Bots = 1; Hands = 2; Repeat = $true },
-        @{ Label = 'reconnect-twice'; Name = 'reconnect-twice'; Clients = 2; Bots = 1; Hands = 3; Repeat = $true },
-        @{ Label = 'reconnect-storm'; Name = 'reconnect-storm'; Clients = 2; Bots = 1; Hands = 4; Repeat = $true },
-        @{ Label = 'dual-reconnect'; Name = 'dual-reconnect'; Clients = 3; Bots = 1; Hands = 3; Repeat = $true },
-        @{ Label = 'host-channel-flap'; Name = 'host-channel-flap'; Clients = 3; Bots = 1; Hands = 2; Repeat = $true },
-        @{ Label = 'reconnect-every-street'; Name = 'reconnect-every-street'; Clients = 2; Bots = 1; Hands = 4; Repeat = $true },
-        @{ Label = 'allin-reconnect'; Name = 'allin-reconnect'; Clients = 2; Bots = 0; Hands = 1; Repeat = $true },
-        @{ Label = 'rit-network-cut'; Name = 'rit-network-cut'; Clients = 2; Bots = 0; Hands = 1; Repeat = $true },
-        @{ Label = 'straddle-network-cut'; Name = 'straddle-network-cut'; Clients = 2; Bots = 0; Hands = 3; Repeat = $true },
-        @{ Label = 'reconnect-force-recover'; Name = 'reconnect-force-recover'; Clients = 2; Bots = 1; Hands = 3; Repeat = $true },
-        @{ Label = 'transport-chaos'; Name = 'transport-chaos'; Clients = 3; Bots = 1; Hands = 5; Repeat = $true },
-        @{ Label = 'lifecycle-chaos'; Name = 'lifecycle-chaos'; Clients = 2; Bots = 1; Hands = 7; Repeat = $true },
-        @{ Label = 'abrupt-exit-survivor'; Name = 'abrupt-exit'; Clients = 2; Bots = 1; Hands = 1; Repeat = $true },
-        @{ Label = 'controlled-exit-survivor'; Name = 'controlled-exit'; Clients = 2; Bots = 1; Hands = 1; Repeat = $true },
-        @{ Label = 'dual-abrupt-exit'; Name = 'dual-abrupt-exit'; Clients = 3; Bots = 1; Hands = 1; Repeat = $true },
-        @{ Label = 'mixed-exit-crash'; Name = 'mixed-exit-crash'; Clients = 3; Bots = 1; Hands = 1; Repeat = $true },
-        @{ Label = 'allin-abrupt-exit'; Name = 'allin-abrupt-exit'; Clients = 2; Bots = 0; Hands = 1; Repeat = $true },
-        @{ Label = 'force-recover'; Name = 'force-recover'; Clients = 1; Bots = 2; Hands = 2; Repeat = $true },
-        @{ Label = 'double-force-recover'; Name = 'double-force-recover'; Clients = 1; Bots = 2; Hands = 4; Repeat = $false },
-        @{ Label = 'crash-rejoin-recover'; Name = 'crash-rejoin-recover'; Clients = 1; Bots = 2; Hands = 2; Repeat = $true },
-        @{ Label = 'force-recover-add-client'; Name = 'force-recover-add-client'; Clients = 2; Bots = 2; Hands = 2; Repeat = $true },
-        @{ Label = 'force-recover-add-two'; Name = 'force-recover-add-two'; Clients = 3; Bots = 1; Hands = 2; Repeat = $true },
-        @{ Label = 'force-recover-swap-client'; Name = 'force-recover-swap-client'; Clients = 2; Bots = 1; Hands = 2; Repeat = $true }
+        @{ Label = 'normal-soak'; Name = 'normal'; Clients = 2; Bots = 2; Hands = $SoakHands },
+        @{ Label = 'normal-heads-up'; Name = 'normal'; Clients = 1; Bots = 0; Hands = $headsUpHands },
+        @{ Label = 'normal-full-mixed'; Name = 'normal'; Clients = 4; Bots = 5; Hands = $fullMixedHands },
+        @{ Label = 'normal-full-human'; Name = 'normal'; Clients = 9; Bots = 0; Hands = $fullHumanHands },
+        @{ Label = 'raise-mix'; Name = 'raise-mix'; Clients = 2; Bots = 2; Hands = 10 },
+        @{ Label = 'allin-single-board'; Name = 'allin-single-board'; Clients = 1; Bots = 0; Hands = 1 },
+        @{ Label = 'allin-rebuy'; Name = 'allin-rebuy'; Clients = 1; Bots = 0; Hands = 5 },
+        @{ Label = 'allin-rit'; Name = 'allin-rit'; Clients = 1; Bots = 0; Hands = 1 },
+        @{ Label = 'allin-controlled-exit'; Name = 'allin-controlled-exit'; Clients = 1; Bots = 0; Hands = 1 },
+        @{ Label = 'straddle-post'; Name = 'straddle-post'; Clients = 2; Bots = 0; Hands = 3 },
+        @{ Label = 'pause-resume'; Name = 'pause-resume'; Clients = 2; Bots = 1; Hands = 2 },
+        @{ Label = 'reconnect-midhand'; Name = 'reconnect-midhand'; Clients = 2; Bots = 1; Hands = 2 },
+        @{ Label = 'reconnect-twice'; Name = 'reconnect-twice'; Clients = 2; Bots = 1; Hands = 3 },
+        @{ Label = 'reconnect-storm'; Name = 'reconnect-storm'; Clients = 2; Bots = 1; Hands = 4 },
+        @{ Label = 'dual-reconnect'; Name = 'dual-reconnect'; Clients = 3; Bots = 1; Hands = 3 },
+        @{ Label = 'host-channel-flap'; Name = 'host-channel-flap'; Clients = 3; Bots = 1; Hands = 2 },
+        @{ Label = 'reconnect-every-street'; Name = 'reconnect-every-street'; Clients = 2; Bots = 1; Hands = 4 },
+        @{ Label = 'allin-reconnect'; Name = 'allin-reconnect'; Clients = 2; Bots = 0; Hands = 1 },
+        @{ Label = 'rit-network-cut'; Name = 'rit-network-cut'; Clients = 2; Bots = 0; Hands = 1 },
+        @{ Label = 'straddle-network-cut'; Name = 'straddle-network-cut'; Clients = 2; Bots = 0; Hands = 3 },
+        @{ Label = 'reconnect-force-recover'; Name = 'reconnect-force-recover'; Clients = 2; Bots = 1; Hands = 3 },
+        @{ Label = 'transport-chaos'; Name = 'transport-chaos'; Clients = 3; Bots = 1; Hands = 5 },
+        @{ Label = 'lifecycle-chaos'; Name = 'lifecycle-chaos'; Clients = 2; Bots = 1; Hands = 7 },
+        @{ Label = 'abrupt-exit-survivor'; Name = 'abrupt-exit'; Clients = 2; Bots = 1; Hands = 1 },
+        @{ Label = 'controlled-exit-survivor'; Name = 'controlled-exit'; Clients = 2; Bots = 1; Hands = 1 },
+        @{ Label = 'dual-abrupt-exit'; Name = 'dual-abrupt-exit'; Clients = 3; Bots = 1; Hands = 1 },
+        @{ Label = 'mixed-exit-crash'; Name = 'mixed-exit-crash'; Clients = 3; Bots = 1; Hands = 1 },
+        @{ Label = 'allin-abrupt-exit'; Name = 'allin-abrupt-exit'; Clients = 2; Bots = 0; Hands = 1 },
+        @{ Label = 'force-recover'; Name = 'force-recover'; Clients = 1; Bots = 2; Hands = 2 },
+        @{ Label = 'double-force-recover'; Name = 'double-force-recover'; Clients = 1; Bots = 2; Hands = 4 },
+        @{ Label = 'crash-rejoin-recover'; Name = 'crash-rejoin-recover'; Clients = 1; Bots = 2; Hands = 2 },
+        @{ Label = 'force-recover-add-client'; Name = 'force-recover-add-client'; Clients = 2; Bots = 2; Hands = 2 },
+        @{ Label = 'force-recover-add-two'; Name = 'force-recover-add-two'; Clients = 3; Bots = 1; Hands = 2 },
+        @{ Label = 'force-recover-swap-client'; Name = 'force-recover-swap-client'; Clients = 2; Bots = 1; Hands = 2 }
     )
 
     if ($Mode -eq 'quick') {
@@ -351,8 +361,7 @@ try {
 
     $scenarios = [System.Collections.Generic.List[object]]::new()
     foreach ($profile in $scenarioProfiles) {
-        $repetitions = if ($profile.Repeat) { $EdgeRepeats } else { 1 }
-        for ($repeat = 1; $repeat -le $repetitions; $repeat++) {
+        for ($repeat = 1; $repeat -le $ScenarioRepeats; $repeat++) {
             $scenarios.Add([pscustomobject]@{
                     Label = $profile.Label
                     Name = $profile.Name

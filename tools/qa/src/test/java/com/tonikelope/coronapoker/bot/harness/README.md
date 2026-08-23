@@ -386,10 +386,10 @@ suite against it in one pass — no `mvn install` of the jar, no
 
 ```sh
 # only the bot-quality lane (statistical bot sims + GameFlowSmoke)
-mvn -f tools/reactor/pom.xml test -P qa-bots
+mvn -f tools/reactor/pom.xml install -P qa-bots
 
 # deterministic suite plus non-bot slow checks
-mvn -f tools/reactor/pom.xml test -P qa-release
+mvn -f tools/reactor/pom.xml install -P qa-release
 ```
 
 The `qa-heavy` and `qa-release` profiles are declared in `tools/qa/pom.xml`;
@@ -417,22 +417,22 @@ module (or any module) that has none of the matching classes:
 
 ```sh
 # 6-max gradient tests
-mvn -f tools/reactor/pom.xml test -P qa-bots \
+mvn -f tools/reactor/pom.xml install -P qa-bots \
     -Dtest='Multiway_*Test' -Dsurefire.failIfNoSpecifiedTests=false
 
 # 6-max baseline tests
-mvn -f tools/reactor/pom.xml test -P qa-bots \
+mvn -f tools/reactor/pom.xml install -P qa-bots \
     -Dtest='MultiwayBaseline*Test' -Dsurefire.failIfNoSpecifiedTests=false
 
 # HU tests (historical reference)
-mvn -f tools/reactor/pom.xml test -P qa-bots \
+mvn -f tools/reactor/pom.xml install -P qa-bots \
     -Dtest='MixedMatchup_*Test,Baseline*Test' -Dsurefire.failIfNoSpecifiedTests=false
 ```
 
 ### 9.4 One specific matchup
 
 ```sh
-mvn -f tools/reactor/pom.xml test -P qa-bots \
+mvn -f tools/reactor/pom.xml install -P qa-bots \
     -Dtest=Multiway_HardVs5EasyTest -Dsurefire.failIfNoSpecifiedTests=false
 ```
 
@@ -446,7 +446,7 @@ Volume is controlled at runtime (no source edits needed) via two system
 properties read by `QaConfig` and forwarded into the surefire forks:
 
 ```sh
-mvn -f tools/reactor/pom.xml -o test -P qa-bots \
+mvn -f tools/reactor/pom.xml -o install -P qa-bots \
     -Dtest='Multiway_*Test' -Dsurefire.failIfNoSpecifiedTests=false \
     -Dqa.sessions=40 -Dqa.hands=25
 ```

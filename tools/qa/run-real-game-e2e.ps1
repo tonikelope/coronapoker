@@ -122,8 +122,8 @@ Scenarios:
                           both authenticated reconnects before play continues.
   host-channel-flap       Drops every client channel together while the host stays
                           alive; all peers must reauthenticate and converge.
-  reconnect-force-recover Cuts a client channel after force-recovery has started;
-                          forbids spurious auto-reconnect and completes recovery.
+  reconnect-force-recover Starts an ordinary authenticated reconnect, then overlaps
+                          force-recovery; either ordering must converge safely.
   transport-chaos         Dual reconnect, immediate relapse, distributed pause,
                           force-recover, fresh hand and a post-recovery reconnect.
   lifecycle-chaos         In one table: reconnect, pause/resume, force-recover,

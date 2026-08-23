@@ -83,8 +83,10 @@ final class ProtocolSimulationCampaignTest {
             playHand(new Random(seedForHand(seed, replayHand)), seed, replayHand);
             return;
         }
+        CampaignProgress.report("protocol", 0, hands);
         for (int hand = 0; hand < hands; hand++) {
             playHand(new Random(seedForHand(seed, hand)), seed, hand);
+            CampaignProgress.report("protocol", hand + 1, hands);
         }
     }
 

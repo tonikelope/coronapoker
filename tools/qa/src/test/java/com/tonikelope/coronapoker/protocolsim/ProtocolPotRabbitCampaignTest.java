@@ -8,6 +8,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.protocolsim.CampaignProgress;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -45,8 +46,11 @@ class ProtocolPotRabbitCampaignTest {
         Integer replay = optionalIntProperty("qa.sim.hand", 0, hands - 1);
         int first = replay == null ? 0 : replay;
         int end = replay == null ? hands : replay + 1;
+        int requested = end - first;
+        CampaignProgress.report("pot-rabbit", 0, requested);
         for (int hand = first; hand < end; hand++) {
             runOne(seed, hand);
+            CampaignProgress.report("pot-rabbit", hand - first + 1, requested);
         }
     }
 

@@ -8,6 +8,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.protocolsim.CampaignProgress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -42,8 +43,11 @@ class ProtocolLifecycleCampaignTest {
         Integer replay = optionalIntProperty("qa.sim.lifecycle.case", 0, 99_999);
         int first = replay == null ? 0 : replay;
         int end = replay == null ? cases : replay + 1;
+        int requested = end - first;
+        CampaignProgress.report("lifecycle", 0, requested);
         for (int caseNumber = first; caseNumber < end; caseNumber++) {
             runOne(seed, caseNumber);
+            CampaignProgress.report("lifecycle", caseNumber - first + 1, requested);
         }
     }
 

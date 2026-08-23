@@ -8,6 +8,7 @@ import com.tonikelope.coronapoker.IdentityManager;
 import com.tonikelope.coronapoker.Init;
 import com.tonikelope.coronapoker.LocalPlayer;
 import com.tonikelope.coronapoker.NewGameDialog;
+import com.tonikelope.coronapoker.Player;
 import com.tonikelope.coronapoker.RunItTwiceDialog;
 import com.tonikelope.coronapoker.VoluntaryStraddleDialog;
 import com.tonikelope.coronapoker.WaitingRoomFrame;
@@ -75,6 +76,8 @@ public final class RealGameNodeMain {
             = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private static final Object ACTION_GATE_LOCK = new Object();
     private static final AtomicBoolean LOBBY_READY_REPORTED = new AtomicBoolean();
+    private static final AtomicBoolean SPECTATOR_SETUP_ACTIVE = new AtomicBoolean(true);
+    private static final AtomicBoolean EXPECTED_LOCAL_EXIT = new AtomicBoolean();
     private static volatile int CONFIGURED_CLIENTS;
     private static volatile int CONFIGURED_BOTS;
     private static volatile int ALL_IN_OBSERVED_HAND = -1;
@@ -175,17 +178,32 @@ public final class RealGameNodeMain {
             }
         }
 
+        // Capture imported history while a recovery newcomer is still in the
+        // lobby. Doing this before the recovered table is mounted keeps actual
+        // hand progress out of the baseline. Ordinary nodes always start from
+        // a fresh QA game and retain the absolute zero baseline.
+        int completedAtSessionStart = config.lateRecoveryJoiner
+                ? completedHands() : 0;
+
         await("mounted GameFrame",
                 config.lateRecoveryJoiner ? Duration.ofMinutes(2) : START_TIMEOUT,
                 () -> localPlayerIfMounted() != null);
+
+        // A recovery newcomer imports the already completed history before its
+        // table is mounted. Its requested hands are additional local progress,
+        // not an absolute COUNT(*) threshold; otherwise imported history can
+        // satisfy the monitor before the recovered GameFrame has even started.
+        int completedTarget = completedHandTarget(
+                completedAtSessionStart, config.hands);
+        marker("PROGRESS_BASELINE", "completed=" + completedAtSessionStart
+                + " additional=" + config.hands + " target=" + completedTarget);
 
         Thread actionDriver = new Thread(() -> driveLocalActions(config.seed), "qa-real-game-action-driver");
         actionDriver.setDaemon(true);
         actionDriver.start();
 
         Duration gameTimeout = Duration.ofSeconds(Math.max(180L, config.hands * 45L));
-        boolean handsComplete = awaitCompletedHands(config.hands, gameTimeout,
-                expectsPermanentLocalExit(config));
+        boolean handsComplete = awaitCompletedHands(completedTarget, gameTimeout, config);
         if (!handsComplete) {
             marker("EXPECTED_EXIT_COMPLETE", "role=client nick=" + config.nick
                     + " sqlCompleted=" + completedHands());
@@ -202,7 +220,8 @@ public final class RealGameNodeMain {
         }
         marker("HANDS_COMPLETE", "role=" + (config.host ? "host" : "client")
                 + " nick=" + config.nick
-                + " requested=" + config.hands
+                + " requestedAdditional=" + config.hands
+                + " target=" + completedTarget
                 + " crupierHand=" + (crupier == null ? "unmounted" : crupier.getMano())
                 + " tableState=" + (completedFrame == null
                         ? "closed-after-misdeal" : "mounted")
@@ -281,6 +300,17 @@ public final class RealGameNodeMain {
         GameFrame.STRADDLE = SCENARIO.equals("straddle-post")
                 || SCENARIO.equals("straddle-network-cut");
         GameFrame.RECOVER = false;
+        GameFrame.REBUY = true;
+        GameFrame.BOT_REBUY = !(SCENARIO.equals("bot-bust-recover-regrow")
+                || SCENARIO.equals("bot-bust-recover-drop"));
+        SPECTATOR_SETUP_ACTIVE.set(
+                spectatorSetupActiveAtLaunch(config.lateRecoveryJoiner));
+        System.setProperty("coronapoker.qa.spectatorOnBrokeNicks",
+                spectatorOnBrokeNicks(SCENARIO));
+        System.setProperty("coronapoker.qa.forceBotAllInNicks",
+                (SCENARIO.equals("bot-bust-recover-regrow")
+                || SCENARIO.equals("bot-bust-recover-drop"))
+                        ? "CoronaBot$1,CoronaBot$2" : "");
     }
 
     private static void addBots(WaitingRoomFrame room, int count) throws Exception {
@@ -337,7 +367,21 @@ public final class RealGameNodeMain {
                             frame.getCrupier().getMano(), frame.getCrupier().getStreet())) {
                         return;
                     }
-                    if (isAllInScenario()
+                    String localNick = frame.getNick_local();
+                    if (SPECTATOR_SETUP_ACTIVE.get()
+                            && shouldForceSpectatorSetupAllIn(SCENARIO, localNick)
+                            && local.getPlayer_allin().isEnabled()) {
+                        int hand = frame.getCrupier().getMano();
+                        local.getPlayer_allin().doClick();
+                        marker("SPECTATOR_SETUP_ALLIN", "nick=" + localNick
+                                + " hand=" + hand);
+                    } else if (SPECTATOR_SETUP_ACTIVE.get()
+                            && shouldFoldDuringSpectatorSetup(SCENARIO, localNick)
+                            && local.getPlayer_fold().isEnabled()) {
+                        local.getPlayer_fold().doClick();
+                        marker("SPECTATOR_SETUP_FOLD", "nick=" + localNick
+                                + " hand=" + frame.getCrupier().getMano());
+                    } else if (isAllInScenario()
                             && local.getPlayer_allin().isEnabled()) {
                         int hand = frame.getCrupier().getMano();
                         local.getPlayer_allin().doClick();
@@ -389,9 +433,11 @@ public final class RealGameNodeMain {
                 String command;
                 while ((command = input.readLine()) != null) {
                     if (command.equals("CONTROLLED_EXIT")) {
+                        EXPECTED_LOCAL_EXIT.set(true);
                         invokeControlledClientExit();
                         marker("CONTROLLED_EXIT_SENT", "role=client");
                     } else if (command.equals("ALLIN_THEN_CONTROLLED_EXIT")) {
+                        EXPECTED_LOCAL_EXIT.set(true);
                         invokeAllInThen(PostAction.CONTROLLED_EXIT);
                     } else if (command.equals("ALLIN_THEN_DROP_SOCKET")) {
                         invokeAllInThen(PostAction.DROP_SOCKET);
@@ -405,6 +451,37 @@ public final class RealGameNodeMain {
                     } else if (command.equals("START_RECOVERED_GAME")) {
                         invokeRecoveredGameStart();
                         marker("RECOVERED_GAME_START_REQUESTED", "role=host");
+                    } else if (command.equals("DISABLE_SPECTATOR_SETUP")) {
+                        SPECTATOR_SETUP_ACTIVE.set(false);
+                        System.clearProperty("coronapoker.qa.forceBotAllInNicks");
+                        marker("SPECTATOR_SETUP_DISABLED", "role=node");
+                    } else if (command.equals("ENABLE_BOT_REBUY")) {
+                        GameFrame.BOT_REBUY = true;
+                        marker("BOT_REBUY_ENABLED", "role=node");
+                    } else if (command.equals("REBUY_LOCAL")) {
+                        invokeLocalSpectatorRebuy();
+                    } else if (command.startsWith("REBUY_PLAYER#")) {
+                        invokeSpectatorRebuy(command.substring("REBUY_PLAYER#".length()));
+                    } else if (command.startsWith("WAIT_SPECTATOR#")) {
+                        String nick = command.substring("WAIT_SPECTATOR#".length());
+                        awaitRecoveredSpectator(nick);
+                        marker("SPECTATOR_RECOVERY_READY", "nick=" + nick);
+                    } else if (command.equals("ADD_BOT")) {
+                        WaitingRoomFrame room = WaitingRoomFrame.getInstance();
+                        if (room == null || !room.isServer()) {
+                            throw new IllegalStateException("ADD_BOT requires the host lobby");
+                        }
+                        Set<String> before = Set.copyOf(room.getParticipantes().keySet());
+                        addBots(room, 1);
+                        String addedNick = room.getParticipantes().keySet().stream()
+                                .filter(nick -> !before.contains(nick))
+                                .findFirst()
+                                .orElseThrow(() -> new IllegalStateException(
+                                "ADD_BOT did not create a distinct participant"));
+                        marker("BOT_ADDED", "nick=" + addedNick
+                                + " participants=" + room.getParticipantes().size());
+                    } else if (command.equals("REPORT_STATE")) {
+                        reportPlayerState();
                     } else if (command.equals("PAUSE_TOGGLE")) {
                         invokePauseToggle();
                     } else if (command.equals("DROP_SOCKET")) {
@@ -413,7 +490,11 @@ public final class RealGameNodeMain {
                         marker("SOCKET_DROP_REQUESTED", "role=client");
                     } else if (command.startsWith("ARM_ACTION_GATE#")) {
                         String gate = parseActionGateCommand(command, "ARM_ACTION_GATE");
-                        ARMED_ACTION_GATES.add(gate);
+                        // A recovery can replay the same hand/street in a new
+                        // table instance. Re-arming is a new causal occurrence,
+                        // not the already-observed gate from the dismantled table.
+                        armActionGateState(ARMED_ACTION_GATES,
+                                REACHED_ACTION_GATES, gate);
                         marker("ACTION_GATE_ARMED", "gate=" + gate);
                     } else if (command.startsWith("RELEASE_ACTION_GATE#")) {
                         String gate = parseActionGateCommand(command, "RELEASE_ACTION_GATE");
@@ -516,6 +597,12 @@ public final class RealGameNodeMain {
 
     static boolean automatedActionBlocked(Set<String> armedGates, int hand, int street) {
         return armedGates.contains(hand + "#" + street);
+    }
+
+    static void armActionGateState(Set<String> armedGates,
+            Set<String> reachedGates, String gate) {
+        reachedGates.remove(gate);
+        armedGates.add(gate);
     }
 
     private static void invokeControlledClientExit() throws Exception {
@@ -858,6 +945,11 @@ public final class RealGameNodeMain {
                 || SCENARIO.equals("force-recover-add-client")
                 || SCENARIO.equals("force-recover-add-two")
                 || SCENARIO.equals("force-recover-swap-client")
+                || SCENARIO.equals("spectator-recovery-mix")
+                || SCENARIO.equals("bot-bust-recover-regrow")
+                || SCENARIO.equals("bot-bust-recover-drop")
+                || SCENARIO.equals("human-bust-exit-rejoin-rebuy")
+                || SCENARIO.equals("spectator-double-recovery-crash-mix")
                 || SCENARIO.equals("lifecycle-chaos")
                 || SCENARIO.equals("transport-chaos")
                 || SCENARIO.equals("reconnect-force-recover")
@@ -874,6 +966,113 @@ public final class RealGameNodeMain {
                 || SCENARIO.equals("allin-rebuy")
                 || SCENARIO.equals("allin-reconnect")
                 || SCENARIO.equals("allin-abrupt-exit");
+    }
+
+    static String spectatorOnBrokeNicks(String scenario) {
+        return switch (scenario) {
+            case "spectator-rebuy-cycle" -> "client1,client2";
+            case "spectator-recovery-mix" -> "client1,client2,client3,client4";
+            case "human-bust-exit-rejoin-rebuy" -> "client1,client2";
+            case "spectator-double-recovery-crash-mix" -> "client1,client2";
+            default -> "";
+        };
+    }
+
+    static boolean shouldForceSpectatorSetupAllIn(String scenario, String nick) {
+        if (nick == null) {
+            return false;
+        }
+        return switch (scenario) {
+            case "spectator-rebuy-cycle" -> nick.equals("client1")
+                    || nick.equals("client2");
+            case "spectator-recovery-mix" -> nick.equals("client1")
+                    || nick.equals("client2") || nick.equals("client3")
+                    || nick.equals("client4");
+            case "human-bust-exit-rejoin-rebuy" -> nick.equals("client1")
+                    || nick.equals("client2");
+            case "spectator-double-recovery-crash-mix" -> nick.equals("client1")
+                    || nick.equals("client2");
+            default -> false;
+        };
+    }
+
+    static boolean spectatorSetupActiveAtLaunch(boolean lateRecoveryJoiner) {
+        return !lateRecoveryJoiner;
+    }
+
+    static boolean shouldFoldDuringSpectatorSetup(String scenario, String nick) {
+        return (scenario.equals("bot-bust-recover-regrow")
+                || scenario.equals("bot-bust-recover-drop"))
+                || ((scenario.equals("spectator-rebuy-cycle")
+                || scenario.equals("spectator-recovery-mix")
+                || scenario.equals("human-bust-exit-rejoin-rebuy")
+                || scenario.equals("spectator-double-recovery-crash-mix"))
+                && !shouldForceSpectatorSetupAllIn(scenario, nick));
+    }
+
+    private static void invokeLocalSpectatorRebuy() {
+        GameFrame frame = GameFrame.getInstance();
+        LocalPlayer local = localPlayerIfMounted();
+        if (frame == null || local == null || !local.isSpectator()) {
+            throw new IllegalStateException("REBUY_LOCAL requires a mounted local spectator");
+        }
+        int amount = GameFrame.FIXED_BUYIN
+                ? GameFrame.BUYIN : GameFrame.getBuyinDefault();
+        frame.getCrupier().rebuyNow(local.getNickname(), amount);
+        marker("SPECTATOR_REBUY_REQUESTED", "nick=" + local.getNickname()
+                + " amount=" + amount + " hand=" + frame.getCrupier().getMano());
+    }
+
+    private static void invokeSpectatorRebuy(String nick) throws Exception {
+        awaitRecoveredSpectator(nick);
+        GameFrame frame = GameFrame.getInstance();
+        int amount = GameFrame.FIXED_BUYIN
+                ? GameFrame.BUYIN : GameFrame.getBuyinDefault();
+        Integer before = frame.getCrupier().getRebuy_now().get(nick);
+        frame.getCrupier().rebuyNow(nick, amount);
+        Integer after = frame.getCrupier().getRebuy_now().get(nick);
+        marker("SPECTATOR_REBUY_REQUESTED", "nick=" + nick
+                + " amount=" + amount + " pendingBefore=" + before
+                + " pendingAfter=" + after
+                + " hand=" + frame.getCrupier().getMano());
+        if (after == null || after <= 0) {
+            throw new IllegalStateException("spectator rebuy did not remain pending for " + nick);
+        }
+    }
+
+    private static void awaitRecoveredSpectator(String nick) throws Exception {
+        if (nick == null || nick.isBlank() || nick.contains("#")) {
+            throw new IllegalArgumentException("spectator command requires one exact nick");
+        }
+        await("spectator rebuy target " + nick, START_TIMEOUT, () -> {
+            GameFrame frame = GameFrame.getInstance();
+            if (frame == null || frame.getCrupier() == null) {
+                return false;
+            }
+            return frame.getJugadores().stream().anyMatch(player ->
+                nick.equals(player.getNickname()) && player.isSpectator()
+                && Helpers.doubleSecureCompare(0f, player.getStack()) == 0);
+        });
+    }
+
+    private static void reportPlayerState() {
+        GameFrame frame = GameFrame.getInstance();
+        if (frame == null || frame.getCrupier() == null) {
+            marker("PLAYER_STATE", "table=unmounted");
+            return;
+        }
+        Crupier crupier = frame.getCrupier();
+        Set<String> ring = crupier.active_crypto_ring == null
+                ? Set.of() : Set.of(crupier.active_crypto_ring);
+        for (Player player : frame.getJugadores()) {
+            marker("PLAYER_STATE", "hand=" + crupier.getMano()
+                    + " nick=" + player.getNickname()
+                    + " spectator=" + player.isSpectator()
+                    + " exit=" + player.isExit()
+                    + " active=" + player.isActivo()
+                    + " inRing=" + ring.contains(player.getNickname())
+                    + " stack=" + player.getStack());
+        }
     }
 
     private static boolean isRitScenario() {
@@ -966,8 +1165,16 @@ public final class RealGameNodeMain {
         }
     }
 
+    static int completedHandTarget(int completedAtSessionStart,
+            int requestedAdditional) {
+        if (completedAtSessionStart < 0 || requestedAdditional < 0) {
+            throw new IllegalArgumentException("completed-hand counts cannot be negative");
+        }
+        return Math.addExact(completedAtSessionStart, requestedAdditional);
+    }
+
     private static boolean awaitCompletedHands(int requested, Duration timeout,
-            boolean permanentExitExpected) throws Exception {
+            NodeConfig config) throws Exception {
         long deadline = System.nanoTime() + timeout.toNanos();
         long lastProgressAt = System.nanoTime();
         int lastCompleted = -1;
@@ -983,6 +1190,7 @@ public final class RealGameNodeMain {
                 return true;
             }
             GameFrame frame = GameFrame.getInstance();
+            boolean permanentExitExpected = expectsPermanentLocalExit(config);
             if (permanentExitExpected && lastFrame != null && frame == null) {
                 return false;
             }
@@ -1014,9 +1222,11 @@ public final class RealGameNodeMain {
     }
 
     static boolean expectsPermanentLocalExit(NodeConfig config) {
-        return !config.host && "client1".equals(config.nick)
+        return (!config.host && "client1".equals(config.nick)
                 && (SCENARIO.equals("controlled-exit")
-                || SCENARIO.equals("allin-controlled-exit"));
+                || SCENARIO.equals("allin-controlled-exit")))
+                || (!config.host && SCENARIO.equals("human-bust-exit-rejoin-rebuy")
+                && EXPECTED_LOCAL_EXIT.get());
     }
 
     static String progressFailure(int completed, int requested, boolean tableFinished,

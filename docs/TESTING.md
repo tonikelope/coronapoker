@@ -284,6 +284,12 @@ part of the oracle.
 | `force-recover-add-client` | - | 2/2/2 | 2/2/2 | 2/2/2 | One new observer joins recovery and plays the fresh hand |
 | `force-recover-add-two` | - | 3/1/2 | 3/1/2 | 3/1/2 | Two new observers join together and play the fresh hand |
 | `force-recover-swap-client` | - | 2/1/2 | 2/1/2 | 2/1/2 | One original disappears, replacement observes recovery and plays next |
+| `spectator-rebuy-cycle` | - | 3/0/7 | 3/0/7 | 3/0/7 | Multiple human busts, several spectator hands, rebuy and resumed play |
+| `spectator-recovery-mix` | - | 6/1/7 | 6/1/7 | 6/1/7 | Busted incumbents and two new observers share recovery, then incumbents rebuy |
+| `bot-bust-recover-regrow` | - | 2/2/7 | 2/2/7 | 2/2/7 | Bot busts shrink the table; correlated bot IDs are re-added with bot rebuy enabled |
+| `bot-bust-recover-drop` | - | 2/2/7 | 2/2/7 | 2/2/7 | Correlated ruined bot is re-added with bot rebuy disabled, observes recovery and is removed cleanly |
+| `human-bust-exit-rejoin-rebuy` | - | 3/1/7 | 3/1/7 | 3/1/7 | Ruined human observes, exits, relaunches the same identity, recovers, rebuys and resumes play |
+| `spectator-double-recovery-crash-mix` | - | 6/1/8 | 6/1/8 | 6/1/8 | Historical ruined spectators and new observers survive a recovered-table crash; the observers join the fresh hand after the second recovery |
 
 Each row runs once in `fast`, twice in `balanced` and five times in `stress`.
 Rows included in `quick` also run once there. Repetitions always use distinct
@@ -371,6 +377,12 @@ Scenario contracts:
 | `force-recover-add-client` | A brand-new client joins the rebuilt recovery lobby | It passively observes the old hand, then participates in fresh hand 2 |
 | `force-recover-add-two` | Two brand-new clients join the rebuilt recovery lobby together | Both observe recovery safely and verify fresh hand 2 |
 | `force-recover-swap-client` | One original peer disappears in recovery and a new peer replaces it | Missing history is handled safely and the replacement verifies fresh hand 2 |
+| `spectator-rebuy-cycle` | Human seats bust, remain spectators for several hands, then request normal rebuys | Connected spectators leave betting while retaining their SRA contribution, rejoin play after rebuy and verify later hands |
+| `spectator-recovery-mix` | Several busted incumbents and two newly joined observers coexist through force-recovery | Existing spectators retain their SRA role, newcomers replay passively, rebuys restore active seats and all peers converge |
+| `bot-bust-recover-regrow` | Forced bot busts shrink the active table before force-recovery; the rebuilt lobby preserves correlated bot numbering and enables bot rebuy | Whichever bot actually has recovered stack zero observes the interrupted hand, receives its configured rebuy at the next boundary, becomes active and later hands settle identically |
+| `bot-bust-recover-drop` | Same forced bot bust and correlated recovery-lobby re-add, with bot rebuy disabled | The zero-stack bot observes the interrupted hand, receives no money, exits before the following active ring and the reduced table continues consistently |
+| `human-bust-exit-rejoin-rebuy` | A human is forced broke, observes several hands without rebuy, exits cleanly, then relaunches the same home, SQLite state, nick and Ed25519 identity into force-recovery | The restored zero-stack identity observes the recovered hand, requests the ordinary rebuy, returns to the next active ring and converges with every survivor |
+| `spectator-double-recovery-crash-mix` | Ruined incumbent spectators and two new passive recovery observers coexist when an active client JVM dies inside the recovered hand | The interrupted recovered hand MISDEALs safely; the same client identity restarts; the second recovery keeps ruined incumbents spectating, admits the solvent observers to the fresh hand and several hands converge |
 
 The real-game runner defaults to hidden windows, disabled sound/animations and
 accelerated test timing. It preserves poker rules, signed protocol, accounting,

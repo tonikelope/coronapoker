@@ -169,6 +169,20 @@ public class RecoveryBalanceReconcilerTest {
         }
     }
 
+    @Test
+    public void passiveObserverConsumesRebuysAlreadyIncludedInAppliedBoundary() {
+        Map<String, Integer> pending = new LinkedHashMap<>();
+        pending.put("alice", 10);
+        pending.put("bob", 5);
+        pending.put("future-player", 7);
+
+        Crupier.consumeRebuysIncludedInObserverBoundary(
+                pending, Set.of("alice", "bob"));
+
+        assertEquals(Map.of("future-player", 7), pending,
+                "the atomic boundary owns represented rebuys exactly once");
+    }
+
     private static Object[] row(String nick, double stack, int buyin, int rebuy) {
         return new Object[]{nick, stack, buyin, rebuy};
     }

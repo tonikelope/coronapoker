@@ -28,7 +28,7 @@ public class RecoveryWireWiringTest {
                 "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         int recoveryMethod = source.indexOf("void recuperarDatosClavePartida()");
         int evidence = source.indexOf(
-                "LocalRecoveryBalanceEvidence localEvidence = readLocalRecoverBalanceEvidence()",
+                "localEvidence = readLocalRecoverBalanceEvidence()",
                 recoveryMethod);
         int receive = source.indexOf("map = recibirDatosClaveRecuperados()", evidence);
         int reconcile = source.indexOf("RecoveryBalanceReconciler.reconcileExact(", receive);

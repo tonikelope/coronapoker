@@ -30,6 +30,12 @@ final class RealGameScenarioContract {
             "force-recover-add-client",
             "force-recover-add-two",
             "force-recover-swap-client",
+            "spectator-rebuy-cycle",
+            "spectator-recovery-mix",
+            "bot-bust-recover-regrow",
+            "bot-bust-recover-drop",
+            "human-bust-exit-rejoin-rebuy",
+            "spectator-double-recovery-crash-mix",
             "transport-chaos",
             "lifecycle-chaos");
 

@@ -19,6 +19,18 @@ import org.junit.jupiter.api.Test;
 final class RealGameScenarioContractTest {
 
     @Test
+    void lateJoinerProgressAddsRequestedHandsToImportedHistory() {
+        assertEquals(6, RealGameNodeMain.completedHandTarget(3, 3));
+        assertEquals(7, RealGameNodeMain.completedHandTarget(0, 7));
+    }
+
+    @Test
+    void recoveryNewcomerCannotRepeatThePreRecoverySpectatorSetup() {
+        assertTrue(RealGameNodeMain.spectatorSetupActiveAtLaunch(false));
+        assertFalse(RealGameNodeMain.spectatorSetupActiveAtLaunch(true));
+    }
+
+    @Test
     void everyScenarioHasExactlyOneTimingContract() {
         Set<String> union = new HashSet<>();
         assertTrue(union.addAll(RealGameScenarioContract.AUTONOMOUS));
@@ -200,6 +212,17 @@ final class RealGameScenarioContractTest {
     }
 
     @Test
+    void recoveryCanRearmTheSameCausalHandAndStreet() {
+        Set<String> armed = new HashSet<>();
+        Set<String> reached = new HashSet<>(Set.of("4#1", "3#4"));
+
+        RealGameNodeMain.armActionGateState(armed, reached, "4#1");
+
+        assertEquals(Set.of("4#1"), armed);
+        assertEquals(Set.of("3#4"), reached);
+    }
+
+    @Test
     void ritCutDelaysOnlyTheSecondRemoteVote() {
         assertTrue(RealGameNodeMain.shouldGateRitVote(
                 "rit-network-cut", "client2", false));
@@ -209,6 +232,53 @@ final class RealGameScenarioContractTest {
                 "rit-network-cut", "client2", true));
         assertFalse(RealGameNodeMain.shouldGateRitVote(
                 "allin-rit", "client2", false));
+    }
+
+    @Test
+    void spectatorSetupTargetsOnlyTheIntendedSeats() {
+        assertEquals("client1,client2",
+                RealGameNodeMain.spectatorOnBrokeNicks("spectator-rebuy-cycle"));
+        assertEquals("client1,client2,client3,client4",
+                RealGameNodeMain.spectatorOnBrokeNicks("spectator-recovery-mix"));
+        assertEquals("client1,client2",
+                RealGameNodeMain.spectatorOnBrokeNicks("human-bust-exit-rejoin-rebuy"));
+        assertEquals("client1,client2", RealGameNodeMain.spectatorOnBrokeNicks(
+                "spectator-double-recovery-crash-mix"));
+        assertEquals("", RealGameNodeMain.spectatorOnBrokeNicks("normal"));
+
+        assertTrue(RealGameNodeMain.shouldForceSpectatorSetupAllIn(
+                "spectator-rebuy-cycle", "client1"));
+        assertTrue(RealGameNodeMain.shouldForceSpectatorSetupAllIn(
+                "spectator-recovery-mix", "client4"));
+        assertFalse(RealGameNodeMain.shouldForceSpectatorSetupAllIn(
+                "spectator-rebuy-cycle", "server"));
+        assertTrue(RealGameNodeMain.shouldFoldDuringSpectatorSetup(
+                "spectator-rebuy-cycle", "server"));
+        assertTrue(RealGameNodeMain.shouldFoldDuringSpectatorSetup(
+                "bot-bust-recover-regrow", "client1"));
+        assertTrue(RealGameNodeMain.shouldFoldDuringSpectatorSetup(
+                "bot-bust-recover-drop", "client1"));
+        assertTrue(RealGameNodeMain.shouldForceSpectatorSetupAllIn(
+                "human-bust-exit-rejoin-rebuy", "client2"));
+        assertTrue(RealGameNodeMain.shouldForceSpectatorSetupAllIn(
+                "spectator-double-recovery-crash-mix", "client1"));
+        assertTrue(RealGameNodeMain.shouldFoldDuringSpectatorSetup(
+                "spectator-double-recovery-crash-mix", "client3"));
+        assertFalse(RealGameNodeMain.shouldFoldDuringSpectatorSetup(
+                "normal", "client1"));
+    }
+
+    @Test
+    void shrunkenRingMatchesBotNicksExactly() {
+        String snapshot = "[RING-DEBUG] HOST (broadcast order): n=4 hash=abc123 "
+                + "order=[server|client1|CoronaBot$1|client2]";
+
+        assertTrue(RealGameLoopbackE2EIT.ringSnapshotContainsNick(
+                snapshot, "CoronaBot$1"));
+        assertFalse(RealGameLoopbackE2EIT.ringSnapshotContainsNick(
+                snapshot, "CoronaBot$2"));
+        assertFalse(RealGameLoopbackE2EIT.ringSnapshotContainsNick(
+                snapshot, "CoronaBot$10"));
     }
 
     @Test

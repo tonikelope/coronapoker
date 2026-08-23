@@ -380,7 +380,13 @@ try {
         @{ Label = 'crash-rejoin-recover'; Name = 'crash-rejoin-recover'; Clients = 1; Bots = 2; Hands = 2 },
         @{ Label = 'force-recover-add-client'; Name = 'force-recover-add-client'; Clients = 2; Bots = 2; Hands = 2 },
         @{ Label = 'force-recover-add-two'; Name = 'force-recover-add-two'; Clients = 3; Bots = 1; Hands = 2 },
-        @{ Label = 'force-recover-swap-client'; Name = 'force-recover-swap-client'; Clients = 2; Bots = 1; Hands = 2 }
+        @{ Label = 'force-recover-swap-client'; Name = 'force-recover-swap-client'; Clients = 2; Bots = 1; Hands = 2 },
+        @{ Label = 'spectator-rebuy-cycle'; Name = 'spectator-rebuy-cycle'; Clients = 3; Bots = 0; Hands = 7 },
+        @{ Label = 'spectator-recovery-mix'; Name = 'spectator-recovery-mix'; Clients = 6; Bots = 1; Hands = 7 },
+        @{ Label = 'bot-bust-recover-regrow'; Name = 'bot-bust-recover-regrow'; Clients = 2; Bots = 2; Hands = 7 }
+        @{ Label = 'bot-bust-recover-drop'; Name = 'bot-bust-recover-drop'; Clients = 2; Bots = 2; Hands = 7 }
+        @{ Label = 'human-bust-exit-rejoin-rebuy'; Name = 'human-bust-exit-rejoin-rebuy'; Clients = 3; Bots = 1; Hands = 7 }
+        @{ Label = 'spectator-double-recovery-crash-mix'; Name = 'spectator-double-recovery-crash-mix'; Clients = 6; Bots = 1; Hands = 8 }
     )
 
     if ($Mode -eq 'quick') {

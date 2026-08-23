@@ -62,6 +62,20 @@ final class RealGameScenarioContractTest {
         }
         assertEquals(RealGameScenarioContract.ALL, certified,
                 "certification omits or invents real-game scenarios");
+
+        String testingManual = Files.readString(root.resolve("docs/TESTING.md"));
+        int tableStart = testingManual.indexOf("Scenario contracts:");
+        int tableEnd = testingManual.indexOf("The real-game runner defaults", tableStart);
+        assertTrue(tableStart >= 0 && tableEnd > tableStart,
+                "public scenario table boundaries not found");
+        Matcher documentedRows = Pattern.compile("(?m)^\\| `([^`]+)` \\|")
+                .matcher(testingManual.substring(tableStart, tableEnd));
+        Set<String> documented = new HashSet<>();
+        while (documentedRows.find()) {
+            documented.add(documentedRows.group(1));
+        }
+        assertEquals(RealGameScenarioContract.ALL, documented,
+                "docs/TESTING.md scenario catalog diverged");
     }
 
     @Test

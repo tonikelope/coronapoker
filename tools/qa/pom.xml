@@ -11,8 +11,7 @@
 
   To run the suite:
 
-      cd tools/qa
-      mvn -o test                    # deterministic fast lane; bot quality is opt-in
+      mvn -f tools/qa/pom.xml -o test  # from repo root; bot quality is opt-in
 
   See ./src/test/java/com/tonikelope/coronapoker/bot/harness/README.md
   for the full description of what these tests measure and how to
@@ -20,14 +19,12 @@
 
   First-time setup:
 
-      cd ../..                       # repo root
-      mvn install -DskipTests        # publishes CoronaPoker to ~/.m2 with the version set in the root pom
+      mvn '-DskipTests' install      # publishes CoronaPoker to the checkout-local .m2
 
   Then any time you want to run the bot QA suite:
 
-      cd tools/qa
-      mvn -o test                    # fast code/regression tests (no bot quality)
-      mvn -o test -P qa-bots         # explicit bot-quality lane only
+      mvn -f tools/qa/pom.xml -o test             # fast code/regression tests (no bot quality)
+      mvn -f tools/qa/pom.xml -o test -P qa-bots  # explicit bot-quality lane only
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -76,7 +73,10 @@
                     five concurrent forks on an 8-core machine. -->
                     <forkCount>0.6C</forkCount>
                     <reuseForks>false</reuseForks>
-                    <runOrder>balanced</runOrder>
+                    <!-- Deterministic and stateless. Surefire's "balanced" order
+                    persists one .surefire-<hash> timing file per filter set in
+                    tools/qa/, which polluted long-lived checkouts. -->
+                    <runOrder>alphabetical</runOrder>
                     <failIfNoTests>true</failIfNoTests>
                     <!-- JUnit 5 tag lanes. Empty qa.groups = no positive
                     filter; qa.excludedGroups=slow (the default) skips the
@@ -86,7 +86,7 @@
                     <excludedGroups>${qa.excludedGroups}</excludedGroups>
                     <!-- Los ficheros *Smoke NO los recoge el patron por defecto, que solo
                     mira *Test/*Tests/*TestCase, asi que un `mvn test` a secas se
-                    saltaba los diecisiete que hay: no corrian NUNCA salvo que se
+                    saltaba todos estos tests: no corrian NUNCA salvo que se
                     invocaran a mano con -Dtest. Se anaden aqui junto a los patrones
                     de siempre, que hay que repetir porque declarar includes los
                     sustituye en vez de sumarse. -->
@@ -102,7 +102,7 @@
                     literal "${qa.sessions}", which QaConfig parses as
                     "absent" and falls back to the per-test default. Lower
                     the volume for fast local iteration, e.g.
-                    mvn -o test -Dqa.sessions=40 -Dqa.hands=25 -->
+                    mvn -o test '-Dqa.sessions=40' '-Dqa.hands=25' -->
                     <systemPropertyVariables>
                         <!-- Concurrent forks must never share persistent identities.
                         The fork suffix prevents Ed25519 key creation/ACL races and
@@ -126,8 +126,8 @@
     </build>
 
     <dependencies>
-        <!-- Main CoronaPoker game artifact. Run `mvn install -DskipTests`
-        from the repo root once so this resolves from ~/.m2. -->
+        <!-- Main CoronaPoker game artifact. Run `mvn '-DskipTests' install`
+        from the repo root once so this resolves from the checkout-local .m2. -->
         <dependency>
             <groupId>com.tonikelope</groupId>
             <artifactId>CoronaPoker</artifactId>
@@ -146,11 +146,6 @@
             <groupId>com.googlecode.soundlibs</groupId>
             <artifactId>mp3spi</artifactId>
             <version>1.9.5.4</version>
-        </dependency>
-        <dependency>
-            <groupId>commons-codec</groupId>
-            <artifactId>commons-codec</artifactId>
-            <version>1.14</version>
         </dependency>
         <dependency>
             <groupId>org.xerial</groupId>

@@ -11365,29 +11365,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return sqlite_id_hand;
     }
 
-    private void sqlNewHandBalance(String nick, double stack, int buyin) {
-
-        synchronized (GameFrame.SQL_LOCK) {
-
-            try (PreparedStatement statement = Helpers.getSQLITE()
-                    .prepareStatement("INSERT INTO balance(id_hand, player, stack, buyin, rebuy_count) VALUES (?,?,?,?,?) "
-                            + "ON CONFLICT(id_hand, player) DO UPDATE SET "
-                            + "stack=excluded.stack, buyin=excluded.buyin, rebuy_count=excluded.rebuy_count")) {
-                statement.setQueryTimeout(30);
-                statement.setInt(1, this.sqlite_id_hand);
-                statement.setString(2, nick);
-                statement.setDouble(3, Helpers.doubleClean(stack));
-                statement.setInt(4, buyin);
-                statement.setInt(5, getRebuyCount(nick));
-                statement.executeUpdate();
-
-            } catch (SQLException ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
-            }
-
-        }
-    }
-
     private boolean sqlNewGame() {
 
         boolean created = false;

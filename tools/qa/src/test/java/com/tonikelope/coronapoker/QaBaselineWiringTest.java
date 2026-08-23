@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,7 @@ class QaBaselineWiringTest {
         String updaterPom = Files.readString(root.resolve("coronaupdater/pom.xml"));
         String readme = Files.readString(root.resolve("README.md"));
         String identitySpec = Files.readString(root.resolve("docs/ec-identity-spec.md"));
+        String mavenConfig = Files.readString(root.resolve(".mvn/maven.config"));
 
         assertTrue(workflow.contains("actions/checkout@"), "CI must checkout the repository");
         assertTrue(workflow.contains("ref: ${{ github.sha }}"), "CI must test the triggering commit");
@@ -67,6 +69,37 @@ class QaBaselineWiringTest {
                 "CI must run one wiring case instead of duplicating mass campaigns");
         assertTrue(qaPom.contains("<failIfNoTests>true</failIfNoTests>"),
                 "Surefire must fail when no tests are discovered");
+        assertTrue(qaPom.contains("<runOrder>alphabetical</runOrder>"),
+                "Surefire must use a deterministic order without persistent timing files");
+        assertTrue(mavenConfig.contains("--no-transfer-progress"),
+                "The checkout must be a Maven project root with quiet, reproducible output");
+        assertTrue(mavenConfig.contains("-Dmaven.repo.local=.m2/repository"),
+                "Maven must use the ignored checkout-local cache on every machine");
+    }
+
+    @Test
+    void publicReactorCommandsReachThePackagedGameLifecycle() throws IOException {
+        Path root = locateRoot();
+        List<Path> publicInstructions = List.of(
+                root.resolve("docs/TESTING.md"),
+                root.resolve("docs/BOTS.md"),
+                root.resolve("tools/reactor/pom.xml"),
+                root.resolve("tools/qa/src/test/java/com/tonikelope/coronapoker/bot/harness/README.md"),
+                root.resolve("tools/qa/src/test/java/com/tonikelope/coronapoker/protocolsim/README.md"),
+                root.resolve("tools/qa/src/test/java/com/tonikelope/coronapoker/smoke/README.md"));
+
+        for (Path instruction : publicInstructions) {
+            for (String line : Files.readAllLines(instruction)) {
+                String command = line.trim();
+                if (command.startsWith("mvn ") && command.contains("tools/reactor/pom.xml")) {
+                    assertTrue(command.matches(".*\\b(?:verify|install)\\b.*"),
+                            "reactor command stops before the game JAR exists in "
+                            + instruction + ": " + command);
+                    assertTrue(!command.matches(".*\\b(?:test|test-compile|dependency:analyze)\\b.*"),
+                            "invalid early reactor lifecycle in " + instruction + ": " + command);
+                }
+            }
+        }
     }
 
     private static String projectVersion(Path pom) throws IOException {

@@ -13,7 +13,6 @@ package com.tonikelope.coronapoker.sra;
 import com.tonikelope.coronapoker.CanonicalActionRecord;
 import com.tonikelope.coronapoker.SettlementRecord;
 import com.tonikelope.coronapoker.SettlementRecord.Entry;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;

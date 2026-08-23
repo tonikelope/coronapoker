@@ -27,25 +27,25 @@ I hope you enjoy playing it as much as I have enjoyed building it.
 
 ## 🔐 Security & cryptography
 
-CoronaPoker was built with one non-negotiable principle: **nobody should ever be able to cheat, spy or tamper, not even the host.**
+CoronaPoker is built around one security goal: **detect or prevent cheating, spying and tampering even when the host is not trusted**, within the explicit limits documented in the security specification.
 
 ### Zero-trust deck protocol
-Every card is shuffled and locked collectively by **every player at the table** through a commutative Mental Poker (SRA) protocol, with a zero-knowledge **verifiable shuffle** that every player re-checks independently, so a malicious host cannot peek, duplicate or relocate a card. Pocket cards stay sealed end-to-end until showdown. Community cards unlock per street. **No single participant, not even the host, can see another player's hole cards or peek at the board before it is legitimately revealed**, and each hand is re-shuffled collectively, so distribution is verifiable and unbiasable. *(Built from scratch over Ristretto255, with DLEQ-chained dealing and a Bayer-Groth shuffle. Full details in the spec linked below.)*
+Every card is shuffled and locked collectively by **every human member of the hand's cryptographic ring** through a commutative Mental Poker (SRA) protocol, with a zero-knowledge **verifiable shuffle** that every ring member re-checks independently, so a malicious host cannot silently peek, duplicate or relocate a card in a completed deal. Pocket cards stay sealed end-to-end until showdown. Community cards unlock per street. **No single participant, not even the host, can learn another player's hole cards or the board before its legitimate reveal**. A participant can still deny service by aborting; the exact abort-bias and collusion limits are documented in the security spec. *(Built from scratch over Ristretto255, with DLEQ-chained dealing and a Bayer-Groth shuffle.)*
 
 ### Per-nick cryptographic identity & signed actions
-Every player carries a persistent **Ed25519 keypair** stored locally with restricted ACLs (POSIX 0600 / Windows ICACLS-locked). Every betting action, every community-card reveal and every showdown reveal is signed under a domain-separated context. A **hash chain** ratchets over each hand (`H_{t+1} = SHA-256(record || sig)`), committing every peer to the exact action history, and its closing state folds in the hand's **settlement** (who put in how much and who was paid how much), committing the pot payout alongside the actions. Before durable close, every peer enforces exact-cent conservation (`paid + closing carry = contributed + opening carry`) and exchanges signed receipts. A conservation error, divergent or missing receipt, or invalid-signature flag stops SQLite close and hand advancement, preserving the open state for recovery. TOFU records the first key seen for a nick; a later different key is accepted as `CHANGED`, replaces the stored key, increments the session count and clears the out-of-band verification flag. This transition is non-blocking and has no modal, so compare the identity identicon/fingerprint out-of-band whenever key continuity matters. A first-contact identicon dialog lets two players verify each other's pubkey out-of-band.
+Every human player carries a persistent **Ed25519 keypair** stored locally with restricted ACLs (POSIX 0600 / Windows owner-only ACL). Betting actions, community and showdown reveals, straddle decisions, Rabbit requests, seat-draw commitments and closing receipts use distinct signed domains. A **hash chain** ratchets over each hand (`H_{t+1} = SHA-256(record || sig)`), committing every peer to the exact action history, and its closing state folds in the hand's **settlement** (who put in how much and who was paid how much). Before durable close, every peer enforces exact-cent conservation (`paid + closing carry = contributed + opening carry`) and exchanges signed receipts with the currently expected human ring members; controlled departures are excluded because they cannot sign a future close. A conservation error, divergent or missing expected receipt, or invalid-signature flag stops SQLite close and hand advancement, preserving the open state for recovery. TOFU records the first key seen for a nick; a later different key is accepted as `CHANGED`, replaces the stored key, increments the session count and clears the out-of-band verification flag. This transition is non-blocking and has no modal, so compare the identity identicon/fingerprint out-of-band whenever key continuity matters.
 
 ### End-to-end encrypted channels
-All traffic between players is encrypted with **AES-256-CBC + HMAC-SHA256** over keys negotiated via **ECDH key exchange**. Anyone on the network path sees only opaque blocks. Game state, chat messages and player actions are unreadable. The recovery payload reader installs a strict **`ObjectInputFilter` whitelist** (HashMap / String / numeric boxes only, 10 MB cap, 20-deep) so a malicious host cannot exploit Java deserialization gadgets.
+Post-handshake application traffic between a client and the host is encrypted with **AES-256-CBC + HMAC-SHA256** over keys negotiated via **ECDH key exchange**. A network observer sees opaque authenticated frames rather than game state, chat or actions. The recovery payload reader installs a strict **`ObjectInputFilter` whitelist** (HashMap / String / numeric boxes only, 10 MB cap, 20-deep) so a malicious host cannot supply arbitrary Java deserialization types.
 
 ### Password-bound keys
-In password-protected games the symmetric channel keys are derived from the password with **HMAC-SHA512** over the raw ECDH shared secret. A passive MITM cannot complete the handshake without the password.
+In password-protected games the symmetric channel keys are derived from the password with **HMAC-SHA512** over the raw ECDH shared secret. An active network attacker that does not know the password cannot derive a channel key accepted by both endpoints. This construction is not a PAKE; use a strong table password and compare the session/identity fingerprints out-of-band when authentication matters.
 
 ### Context-aware security response
 Structural SRA failures, forged community reveals and unsafe early-cascade requests trigger immediate lockdown or MISDEAL. An invalid signed betting `ACTION` is neutralised as a deterministic synthetic fold, recorded in the hand flags and causes receipt consensus to reject the durable close. Each response is logged with its precise reason.
 
 ### Fully decentralised
-Pure P2P, no central servers, no accounts and no third party logs. Your game exists only between the machines at the table.
+Peer-hosted, with no external central game server, accounts or third-party hand log. Clients connect to the table host, which relays table traffic between the machines in the game.
 
 > Full cryptographic spec (cascade flow, key schedule, HandStateChain seed, receipt format, recovery fossil layout) lives in **[`docs/SECURITY.md`](docs/SECURITY.md)**.
 
@@ -140,7 +140,7 @@ These aren't the fold-everything-and-wait kind. CoronaPoker bots play like real 
 - **Per-bot opponent tracking** (VPIP / PFR / AF, calling-station & maniac reads): they remember your tendencies and *stop bluffing the player who never folds*
 - **Heads-up vs multi-way awareness**: ranges and bluff frequencies are gated to the table size
 - **Calibrated mistake injection** scaled by difficulty: Hard is razor-sharp, Easy makes human-shaped errors in the right spots
-- **Validated through AAA QA**: every release is benchmarked against fixed-strategy opponents over tens of thousands of hands before shipping
+- **Dedicated QA**: deterministic bot integration runs with normal game QA; statistical strength benchmarks against fixed-strategy opponents are a separate opt-in lane when bot behaviour changes
 
 > Full bot AI write-up, covering architecture, the hand-evaluation maths, the personality model and the per-turn decision pipeline (with two diagrams), lives in **[`docs/BOTS.md`](docs/BOTS.md)**.
 
@@ -216,7 +216,7 @@ Every visual and audio asset is replaceable through redistributable MOD packs:
 - **Java 17+** for both building and running
 - **Single-version protocol**: Every participant in a game must run the exact same CoronaPoker version; the host refuses mismatched versions instead of enabling compatibility modes.
 - **Swing** UI with NetBeans Matisse forms
-- **Maven** build, single self-contained shaded jar
+- **Maven** build, single self-contained assembly fat JAR
 - **Alberta** poker hand evaluator for true equity computation
 - **SQLite** (via `sqlite-jdbc`) for local hand history
 - Pure-Java **SRA / Ristretto255** implementation (RFC 9496) with DLEQ-proof verifiable dealing and a zero-knowledge **Bayer-Groth verifiable shuffle**, no native crypto dependencies
@@ -262,7 +262,7 @@ JAR. The recommended production gate runs deterministic tests, non-bot slow
 lanes, seeded protocol campaigns and real host/client JVM scenarios:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\qa\run-certification.ps1
+.\tools\qa\certify.cmd
 ```
 
 Statistical bot-quality tests remain opt-in. See **[Testing and certification](docs/TESTING.md)**

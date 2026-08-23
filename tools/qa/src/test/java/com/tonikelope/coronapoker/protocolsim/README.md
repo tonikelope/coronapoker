@@ -11,14 +11,14 @@ compiles and tests the current checkout rather than a possibly stale installed
 JAR:
 
 ```powershell
-& .\tools\qa\run-headless-sim.ps1 -Hands 5000 -Faults 5000 -BotHands 100 -Seed 3231711270
+.\tools\qa\headless-sim.cmd -Hands 5000 -Faults 5000 -BotHands 100 -Seed 3231711270
 ```
 
 The seed and zero-based hand number identify a failing scenario. Re-run exactly
 one hand, with a concise trace, using:
 
 ```powershell
-mvn -f .\tools\reactor\pom.xml -Dmaven.repo.local=.m2/repository -Dqa.sim.seed=3231711270 -Dqa.sim.hand=48731 -Dqa.sim.trace=true install -Pqa-protocol-sim
+mvn -f .\tools\reactor\pom.xml verify -P qa-protocol-sim '-Dmaven.repo.local=.m2/repository' '-Dqa.sim.seed=3231711270' '-Dqa.sim.hand=48731' '-Dqa.sim.trace=true'
 ```
 
 Replay one zero-based fault case by replacing `qa.sim.hand` with
@@ -30,7 +30,7 @@ The umbrella lane for every automated non-visual QA check (including the
 protocol campaigns, crypto/SRA and production-bot simulations) is:
 
 ```powershell
-& .\tools\qa\run-headless-sim.ps1 -Hands 2000 -Faults 2000 -BotHands 100 -AllNonVisual
+.\tools\qa\headless-sim.cmd -Hands 2000 -Faults 2000 -BotHands 100 -AllNonVisual
 ```
 
 It forces `java.awt.headless=true`; a display/window dependency therefore fails
@@ -93,7 +93,7 @@ thresholds with hard per-hand conservation, liveness and validity invariants.
 
 ## Not covered by this headless campaign alone
 
-The repository also provides `tools/qa/run-real-game-e2e.ps1`. That separate
+The repository also provides `tools/qa/real-game-e2e.cmd`. That separate
 layer launches production Swing peers in isolated JVMs and drives real encrypted
 sockets, `WaitingRoomFrame`, `Crupier.run()`, `rondaApuestas()`, SRA, consensus
 and SQLite. It covers normal/raise/all-in/RIT/straddle games, EXIT/MISDEAL,

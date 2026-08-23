@@ -102,6 +102,45 @@ class QaBaselineWiringTest {
         }
     }
 
+    @Test
+    void publicWindowsLaunchersBypassOnlyProcessPolicyAndPreserveExitCodes() throws IOException {
+        Path root = locateRoot();
+        assertLauncher(root, "certify.cmd", "run-certification.ps1");
+        assertLauncher(root, "headless-sim.cmd", "run-headless-sim.ps1");
+        assertLauncher(root, "real-game-e2e.cmd", "run-real-game-e2e.ps1");
+
+        String testing = Files.readString(root.resolve("docs/TESTING.md"));
+        assertTrue(testing.contains(".\\tools\\qa\\certify.cmd"));
+        assertTrue(testing.contains(".\\tools\\qa\\headless-sim.cmd"));
+        assertTrue(testing.contains(".\\tools\\qa\\real-game-e2e.cmd"));
+    }
+
+    @Test
+    void publicTestingManualAndEditableDiagramStayDiscoverableAndPaired() throws IOException {
+        Path root = locateRoot();
+        String readme = Files.readString(root.resolve("README.md"));
+        String testing = Files.readString(root.resolve("docs/TESTING.md"));
+        assertTrue(readme.contains("docs/TESTING.md"),
+                "README must link the canonical testing manual");
+        assertTrue(testing.contains("diagrams/testing-certification-flow.png"),
+                "testing manual must render its certification diagram");
+        assertTrue(Files.isRegularFile(root.resolve(
+                "docs/diagrams/testing-certification-flow.drawio")),
+                "editable Draw.io source is required");
+        assertTrue(Files.size(root.resolve(
+                "docs/diagrams/testing-certification-flow.png")) > 100_000,
+                "exported 2x testing diagram is missing or unexpectedly small");
+    }
+
+    private static void assertLauncher(Path root, String launcher, String script) throws IOException {
+        Path launcherPath = root.resolve("tools/qa").resolve(launcher);
+        String command = Files.readString(launcherPath).replace("\r\n", "\n");
+        assertTrue(command.contains("powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File \"%~dp0"
+                + script + "\" %*"), "launcher must invoke its colocated script with every argument: " + launcher);
+        assertTrue(command.contains("exit /b %ERRORLEVEL%"),
+                "launcher must propagate the certification result: " + launcher);
+    }
+
     private static String projectVersion(Path pom) throws IOException {
         Matcher matcher = PROJECT_VERSION.matcher(Files.readString(pom));
         assertTrue(matcher.find(), "project version not found in " + pom);

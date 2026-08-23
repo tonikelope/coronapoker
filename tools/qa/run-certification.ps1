@@ -46,7 +46,7 @@ if ($Help) {
 CoronaPoker complete local certification
 
 Usage:
-  powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\qa\run-certification.ps1 [options]
+  .\tools\qa\certify.cmd [options]
 
 Default mode is balanced: the recommended production gate with every scenario
 twice and bounded campaign sizes. Phases are fail-fast and sequential:
@@ -73,12 +73,12 @@ Options:
   -Help                    Show this help and exit
 
 Examples:
-  .\tools\qa\run-certification.ps1
-  .\tools\qa\run-certification.ps1 -Mode quick
-  .\tools\qa\run-certification.ps1 -Mode stress -Seed 42
-  .\tools\qa\run-certification.ps1 -Hands 750 -Faults 750 -ScenarioRepeats 3
-  .\tools\qa\run-certification.ps1 -IncludeBotQuality
-  .\tools\qa\run-certification.ps1 -StartAtScenario reconnect-every-street
+  .\tools\qa\certify.cmd
+  .\tools\qa\certify.cmd -Mode quick
+  .\tools\qa\certify.cmd -Mode stress -Seed 42
+  .\tools\qa\certify.cmd -Hands 750 -Faults 750 -ScenarioRepeats 3
+  .\tools\qa\certify.cmd -IncludeBotQuality
+  .\tools\qa\certify.cmd -StartAtScenario reconnect-every-street
 
 Mode defaults (explicit numeric options always win):
   quick     50 hands/faults, 20 bot hands, 5-hand soak, critical subset once

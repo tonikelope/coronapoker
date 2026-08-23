@@ -5,7 +5,29 @@ manual is the canonical reference for test lanes, deterministic protocol
 campaigns, real multi-JVM game simulation, certification profiles and adding
 regressions.
 
+![Testing and certification flow](diagrams/testing-certification-flow.png)
+
 The test suite lives in its own Maven module, **`tools/qa`**, kept deliberately separate from the game: `mvn package` at the repo root builds and ships the game **without** compiling or running a single test. The tests are maintainer tooling, not part of the distributed jar.
+
+## Returning to the project
+
+From a clean clone, install JDK 17 or newer and Maven, open a terminal at the
+repository root and run:
+
+```powershell
+.\tools\qa\certify.cmd -Help
+.\tools\qa\certify.cmd -Mode quick
+.\tools\qa\certify.cmd
+```
+
+The first command is the current executable reference. `quick` is iteration
+feedback; the unmodified third command is the `balanced` production gate. A
+valid certificate ends with `CORONAPOKER CERTIFICATION PASS`, exits with code
+zero and writes `summary.csv`, `summary.json` and full phase logs under the
+printed `target/certification/<timestamp>` directory. Do not infer success from
+a live JVM, CPU use, Maven `BUILD SUCCESS`, or an incomplete continuation run.
+Bot statistical quality is deliberately absent unless explicitly requested
+with `-IncludeBotQuality` after bot AI/evaluation changes.
 
 They are **JUnit 5**. Deterministic game-code tests are kept in the fast lane;
 the expensive tests carry `@Tag("slow")` and are split by purpose. The normal
@@ -14,7 +36,8 @@ including the headless bot smoke, is tagged slow and only selected by the
 explicit `qa-bots` profile.
 
 - **Fast lane (the default)** — domain, money, parsers, protocol and deterministic
-  smoke tests; ~700 tests in about a minute.
+  smoke tests; more than 1,000 assertions/tests on the current tree. Exact counts
+  are reported by Surefire and intentionally not frozen in this manual.
 - **`qa-bots`** — bot-quality statistics, matchups, Monte-Carlo hand potential
   and the headless bot game-flow smoke. Its result is quality evidence for bots,
   not a substitute for a game-code regression test.
@@ -31,48 +54,49 @@ be treated as a profile/classpath problem.
 
 ## Running the tests
 
-The easiest and most isolated entry point is `tools/qa/run-certification.ps1`,
-documented below. For direct Maven runs, use the **opt-in QA reactor**
-(`tools/reactor/pom.xml`) with the `install` lifecycle. The QA module consumes
+The easiest and most isolated entry point on Windows is
+`tools/qa/certify.cmd`, documented below. For direct Maven runs on any
+supported development platform, use the **opt-in QA reactor**
+(`tools/reactor/pom.xml`) with at least the `verify` lifecycle. The QA module consumes
 the packaged game JAR, so stopping the reactor at `test` is invalid: the game
-classes have been compiled but its JAR is not yet available to QA. `install`
+classes have been compiled but its JAR is not yet available to QA. `verify`
 builds the game and tests the same checkout without any manual pre-install or
 version override:
 
 ```bash
 # Fast lane — the default. Game + all deterministic code tests (~1 min).
 # Bot-quality simulations are excluded by the slow tag.
-mvn -f tools/reactor/pom.xml install
+mvn -f tools/reactor/pom.xml verify
 # Explicit equivalent for CI/NetBeans scripts:
-mvn -f tools/reactor/pom.xml install -P qa-fast
+mvn -f tools/reactor/pom.xml verify -P qa-fast
 
 # Bot-quality lane only (statistical; does not replace fast game tests).
-mvn -f tools/reactor/pom.xml install -P qa-bots
+mvn -f tools/reactor/pom.xml verify -P qa-bots
 
 # Heavy crypto lane only.
-mvn -f tools/reactor/pom.xml install -P qa-crypto
+mvn -f tools/reactor/pom.xml verify -P qa-crypto
 
 # Slow real-socket integration lane only.
-mvn -f tools/reactor/pom.xml install -P qa-network
+mvn -f tools/reactor/pom.xml verify -P qa-network
 
 # Aggregate non-bot slow lanes.
-mvn -f tools/reactor/pom.xml install -P qa-heavy
+mvn -f tools/reactor/pom.xml verify -P qa-heavy
 
 # Everything except statistical bot quality: fast + non-bot slow lanes.
 # Run before a release; use -P qa-bots only when bot quality is explicitly in scope.
-mvn -f tools/reactor/pom.xml install -P qa-release
+mvn -f tools/reactor/pom.xml verify -P qa-release
 
 # A single test class (the flag skips the test-less game module).
-mvn -f tools/reactor/pom.xml install -Dtest=PotMathTest -Dsurefire.failIfNoSpecifiedTests=false
+mvn -f tools/reactor/pom.xml verify '-Dtest=PotMathTest' '-Dsurefire.failIfNoSpecifiedTests=false'
 ```
 
-GitHub Actions applies that same `qa-release` reactor gate to every push and
-pull request targeting `master`, on the documented Java 17 baseline. It uploads
+GitHub Actions runs `mvn -B -ntp -f tools/reactor/pom.xml -P qa-release verify`
+on every push and pull request targeting `master`, using Temurin Java 17 on
+Ubuntu 24.04. CI bounds each embedded mass campaign to one wiring case; the
+local certifier owns the high-volume seeded campaigns. It uploads
 the Surefire reports and built JARs even on failure. The Windows-only
 multi-JVM/Swing scenario matrix remains the local certification gate below;
 the Linux CI job complements it and does not claim to replace it.
-CI limits each embedded protocol campaign to one wiring case; the local
-certifier owns the seeded mass volume and avoids running it twice.
 
 ## Game simulation tools (Windows / PowerShell)
 
@@ -81,99 +105,103 @@ runners remain available for focused diagnosis:
 
 | Runner | Purpose | Production coverage |
 |---|---|---|
-| `tools/qa/run-certification.ps1` | Fail-fast full game certification after a code change | `qa-release`, mass headless campaigns and every real-game scenario below; bot-quality statistics are opt-in |
-| `tools/qa/run-headless-sim.ps1` | Fast seeded campaigns and fault injection | Protocol/domain components, SRA, signed actions, pots, Rabbit/RIT, EXIT/MISDEAL/recovery models, SQLite replay and production bots |
-| `tools/qa/run-real-game-e2e.ps1` | Complete local games in separate JVMs | Real encrypted sockets, `WaitingRoomFrame`, `Crupier.run()`, `rondaApuestas()`, bots, consensus and per-peer SQLite |
+| `tools/qa/certify.cmd` | Fail-fast full game certification after a code change | `qa-release`, mass headless campaigns and every real-game scenario below; bot-quality statistics are opt-in |
+| `tools/qa/headless-sim.cmd` | Fast seeded campaigns and fault injection | Protocol/domain components, SRA, signed actions, pots, Rabbit/RIT, EXIT/MISDEAL/recovery models, SQLite replay and production bots |
+| `tools/qa/real-game-e2e.cmd` | Complete local games in separate JVMs | Real encrypted sockets, `WaitingRoomFrame`, `Crupier.run()`, `rondaApuestas()`, bots, consensus and per-peer SQLite |
 
-Ask either runner for its current options and examples:
+The tracked `.cmd` launchers are the public Windows entry points. They apply a
+process-local PowerShell execution-policy bypass (without changing the machine)
+and preserve the backing `.ps1` runner's exit code. Ask each runner for its
+current options:
 
 ```powershell
-.\tools\qa\run-certification.ps1 -Help
-.\tools\qa\run-headless-sim.ps1 -Help
-.\tools\qa\run-real-game-e2e.ps1 -Help
+.\tools\qa\certify.cmd -Help
+.\tools\qa\headless-sim.cmd -Help
+.\tools\qa\real-game-e2e.cmd -Help
 ```
 
 Typical runs:
 
 ```powershell
 # Recommended production gate: every deterministic/non-bot lane, bounded mass
-# campaigns and every real-game scenario once.
-.\tools\qa\run-certification.ps1
+# campaigns and every real-game scenario twice.
+.\tools\qa\certify.cmd
 
 # Short preflight while iterating, or the deep release stress gate.
-.\tools\qa\run-certification.ps1 -Mode quick
-.\tools\qa\run-certification.ps1 -Mode stress
+.\tools\qa\certify.cmd -Mode quick
+.\tools\qa\certify.cmd -Mode stress
 
 # Fast reproducible protocol campaign.
-.\tools\qa\run-headless-sim.ps1 -Hands 5000 -Faults 5000 -BotHands 100 -Seed 3231711270
+.\tools\qa\headless-sim.cmd -Hands 5000 -Faults 5000 -BotHands 100 -Seed 3231711270
 
 # One host, two human-client JVMs and one host bot, three complete hands.
-# Windows stay hidden; any native creation is assigned to monitor 2 first.
-.\tools\qa\run-real-game-e2e.ps1 -Clients 2 -Bots 1 -Hands 3 -WindowMode hidden -Screen 2
+# Windows stay hidden; native creation is assigned to monitor 2 first. On a
+# single-monitor machine, the runner deterministically uses the highest available monitor.
+.\tools\qa\real-game-e2e.cmd -Clients 2 -Bots 1 -Hands 3 -WindowMode hidden -Screen 2
 
 # Long real-socket soak (the supported range is 1..1000 hands).
-.\tools\qa\run-real-game-e2e.ps1 -Scenario normal -Clients 2 -Bots 2 -Hands 250
+.\tools\qa\real-game-e2e.cmd -Scenario normal -Clients 2 -Bots 2 -Hands 250
 
 # Production table-size boundaries: ten fully simulated humans, or a full
 # mixed table. The host counts as one seat.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario normal -Clients 9 -Bots 0 -Hands 1
-.\tools\qa\run-real-game-e2e.ps1 -Scenario normal -Clients 4 -Bots 5 -Hands 3
+.\tools\qa\real-game-e2e.cmd -Scenario normal -Clients 9 -Bots 0 -Hands 1
+.\tools\qa\real-game-e2e.cmd -Scenario normal -Clients 4 -Bots 5 -Hands 3
 
 # Visual diagnosis on monitor 2, optionally with animations and production timing.
-.\tools\qa\run-real-game-e2e.ps1 -WindowMode visible -Screen 2 -Animations -ProductionTiming
+.\tools\qa\real-game-e2e.cmd -WindowMode visible -Screen 2 -Animations -ProductionTiming
 
 # Kill one client JVM during preflop and require MISDEAL + full refund + live host.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario abrupt-exit
+.\tools\qa\real-game-e2e.cmd -Scenario abrupt-exit
 
 # Exercise the real voluntary EXIT testament path; the host must finish normally.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario controlled-exit
+.\tools\qa\real-game-e2e.cmd -Scenario controlled-exit
 
 # Exercise human bet/raise controls and exact signed monetary values.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario raise-mix -Clients 2 -Bots 2 -Hands 5
+.\tools\qa\real-game-e2e.cmd -Scenario raise-mix -Clients 2 -Bots 2 -Hands 5
 
 # Force a normal single-board all-in showdown (no RIT).
-.\tools\qa\run-real-game-e2e.ps1 -Scenario allin-single-board -Clients 1 -Bots 0
+.\tools\qa\real-game-e2e.cmd -Scenario allin-single-board -Clients 1 -Bots 0
 
 # Force two all-ins and verify that the busted seat's rebuy reaches hand 2.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario allin-rebuy -Clients 1 -Bots 0 -Hands 5
+.\tools\qa\real-game-e2e.cmd -Scenario allin-rebuy -Clients 1 -Bots 0 -Hands 5
 
 # Force every human seat all-in, vote RIT unanimously and settle both boards.
 # This deterministic scenario requires zero bots and exactly one hand.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario allin-rit -Clients 1 -Bots 0
+.\tools\qa\real-game-e2e.cmd -Scenario allin-rit -Clients 1 -Bots 0
 
 # Both humans go all-in; the client then exits with its production testament.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario allin-controlled-exit -Clients 1 -Bots 0
+.\tools\qa\real-game-e2e.cmd -Scenario allin-controlled-exit -Clients 1 -Bots 0
 
 # Post a signed voluntary straddle in every hand at a three-human table.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario straddle-post -Clients 2 -Bots 0 -Hands 3
+.\tools\qa\real-game-e2e.cmd -Scenario straddle-post -Clients 2 -Bots 0 -Hands 3
 
 # Distributed pause/resume and a deliberate live socket drop/reconnect.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario pause-resume -Clients 2 -Bots 1 -Hands 2
-.\tools\qa\run-real-game-e2e.ps1 -Scenario reconnect-midhand -Clients 2 -Bots 1 -Hands 2
+.\tools\qa\real-game-e2e.cmd -Scenario pause-resume -Clients 2 -Bots 1 -Hands 2
+.\tools\qa\real-game-e2e.cmd -Scenario reconnect-midhand -Clients 2 -Bots 1 -Hands 2
 
 # Cut/reconnect at every street boundary, and combine transport faults with recovery.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario reconnect-every-street -Clients 2 -Bots 1 -Hands 4
-.\tools\qa\run-real-game-e2e.ps1 -Scenario transport-chaos -Clients 3 -Bots 1 -Hands 5
-.\tools\qa\run-real-game-e2e.ps1 -Scenario lifecycle-chaos -Clients 2 -Bots 1 -Hands 7
+.\tools\qa\real-game-e2e.cmd -Scenario reconnect-every-street -Clients 2 -Bots 1 -Hands 4
+.\tools\qa\real-game-e2e.cmd -Scenario transport-chaos -Clients 3 -Bots 1 -Hands 5
+.\tools\qa\real-game-e2e.cmd -Scenario lifecycle-chaos -Clients 2 -Bots 1 -Hands 7
 
 # Compound faults: two simultaneous JVM deaths, mixed clean/unclean exits, or
 # an all-in peer dying before its mandatory showdown proof.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario dual-abrupt-exit -Clients 3 -Bots 1
-.\tools\qa\run-real-game-e2e.ps1 -Scenario mixed-exit-crash -Clients 3 -Bots 1
-.\tools\qa\run-real-game-e2e.ps1 -Scenario allin-abrupt-exit -Clients 2 -Bots 0
+.\tools\qa\real-game-e2e.cmd -Scenario dual-abrupt-exit -Clients 3 -Bots 1
+.\tools\qa\real-game-e2e.cmd -Scenario mixed-exit-crash -Clients 3 -Bots 1
+.\tools\qa\real-game-e2e.cmd -Scenario allin-abrupt-exit -Clients 2 -Bots 0
 
 # Stop a live hand, recover/replay it, then deal and settle a fresh next hand.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario force-recover -Clients 1 -Bots 2 -Hands 2
+.\tools\qa\real-game-e2e.cmd -Scenario force-recover -Clients 1 -Bots 2 -Hands 2
 
 # Repeat the full stop/rebuild/recover cycle on hands 1 and 3; hands 2 and 4
 # must be newly dealt and settled with every peer still in agreement.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario double-force-recover -Clients 1 -Bots 2 -Hands 4
+.\tools\qa\real-game-e2e.cmd -Scenario double-force-recover -Clients 1 -Bots 2 -Hands 4
 
 # Kill and relaunch the same client identity, recover, then complete a new hand.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario crash-rejoin-recover -Clients 1 -Bots 2 -Hands 2
+.\tools\qa\real-game-e2e.cmd -Scenario crash-rejoin-recover -Clients 1 -Bots 2 -Hands 2
 
 # Add a brand-new client during recovery; it observes the replay, then joins hand 2.
-.\tools\qa\run-real-game-e2e.ps1 -Scenario force-recover-add-client -Clients 2 -Bots 2 -Hands 2
+.\tools\qa\real-game-e2e.cmd -Scenario force-recover-add-client -Clients 2 -Bots 2 -Hands 2
 ```
 
 The complete runner executes one wiring case for each protocol campaign inside
@@ -192,6 +220,58 @@ overrides the selected mode:
 | `balanced` | Default production gate | 500 / 500 | Every scenario twice, 20-hand soak |
 | `stress` | Deep release/adversarial gate | 5,000 / 5,000 | Every race-sensitive scenario, including heads-up, with five seeds; 50-hand soak |
 
+The default certification matrix below is not selected heuristically at run
+time. It is a versioned contract in `tools/qa/run-certification.ps1`. `C/B/H`
+means client JVMs, host-owned production bots and complete hands. The host is an
+additional human seat, so `9/0/1` exercises the ten-seat limit. A dash means the
+profile is intentionally absent from `quick`; `balanced` and `stress` include
+every row. Counts are the minimum complete sequence that exposes the stated
+transition, plus a following hand whenever liveness after that transition is
+part of the oracle.
+
+| Certification profile | `quick` C/B/H | `balanced` C/B/H | `stress` C/B/H | Why this topology and length |
+|---|---:|---:|---:|---|
+| `normal-soak` | 2/2/5 | 2/2/20 | 2/2/50 | Mixed-table sustained play and repeated settlement |
+| `normal-heads-up` | 1/0/5 | 1/0/20 | 1/0/20 | Heads-up blind/order boundary over repeated hands |
+| `normal-full-mixed` | 4/5/1 | 4/5/3 | 4/5/10 | Ten-seat mixed human/bot limit |
+| `normal-full-human` | - | 9/0/1 | 9/0/3 | Ten real Crupiers/sockets with no bot shortcut |
+| `raise-mix` | - | 2/2/10 | 2/2/10 | Multiple signed raise/fold/call opportunities |
+| `allin-single-board` | 1/0/1 | 1/0/1 | 1/0/1 | Exact heads-up single-board proof path |
+| `allin-rebuy` | 1/0/5 | 1/0/5 | 1/0/5 | Enough forced all-ins to require a later rebuy without tie flakiness |
+| `allin-rit` | 1/0/1 | 1/0/1 | 1/0/1 | All voters are deterministic humans; elimination makes later hands invalid |
+| `allin-controlled-exit` | - | 1/0/1 | 1/0/1 | Exact two-human EXIT testament/showdown path |
+| `straddle-post` | - | 2/0/3 | 2/0/3 | Three humans rotate UTG and post signed straddles |
+| `pause-resume` | - | 2/1/2 | 2/1/2 | Paused hand plus a fresh liveness hand |
+| `reconnect-midhand` | - | 2/1/2 | 2/1/2 | Reconnected hand plus a fresh liveness hand |
+| `reconnect-twice` | - | 2/1/3 | 2/1/3 | Two distinct clients fail in consecutive hands, then one clean hand |
+| `reconnect-storm` | - | 2/1/4 | 2/1/4 | Repeated same-channel failure, second peer failure and clean continuation |
+| `dual-reconnect` | - | 3/1/3 | 3/1/3 | Two simultaneous reconnects with an unaffected human witness and continuation |
+| `host-channel-flap` | 3/1/2 | 3/1/2 | 3/1/2 | Every remote channel fails while host and a later hand remain live |
+| `reconnect-every-street` | - | 2/1/4 | 2/1/4 | One reconnect at preflop, flop, turn and river |
+| `allin-reconnect` | - | 2/0/1 | 2/0/1 | All-in peer and independent human witness, no bot proof substitution |
+| `rit-network-cut` | - | 2/0/1 | 2/0/1 | Voter, witness and host complete one exact two-board hand |
+| `straddle-network-cut` | - | 2/0/3 | 2/0/3 | Signed post, reconnect/deferred delivery and later clean hand |
+| `reconnect-force-recover` | 2/1/3 | 2/1/3 | 2/1/3 | Overlap, recovered hand and two fresh convergence hands |
+| `transport-chaos` | - | 3/1/5 | 3/1/5 | Dual cut, relapse, pause, recovery and post-recovery reconnect |
+| `lifecycle-chaos` | - | 2/1/7 | 2/1/7 | Two recoveries plus intervening/following fresh hands |
+| `abrupt-exit-survivor` | - | 2/1/1 | 2/1/1 | Dead client plus surviving human witness and bot |
+| `controlled-exit-survivor` | - | 2/1/1 | 2/1/1 | Testament sender plus surviving human witness and bot |
+| `dual-abrupt-exit` | - | 3/1/1 | 3/1/1 | Two dead clients and one independent surviving human witness |
+| `mixed-exit-crash` | 3/1/1 | 3/1/1 | 3/1/1 | Clean leaver, crashed peer and independent surviving witness |
+| `allin-abrupt-exit` | - | 2/0/1 | 2/0/1 | Missing all-in proof with independent witness and no bot substitution |
+| `force-recover` | 1/2/2 | 1/2/2 | 1/2/2 | Recovered hand followed by a newly dealt hand |
+| `double-force-recover` | - | 1/2/4 | 1/2/4 | Recover hands 1/3 and settle fresh hands 2/4 |
+| `crash-rejoin-recover` | 1/2/2 | 1/2/2 | 1/2/2 | Relaunched identity rejoins recovery and then completes a new hand |
+| `force-recover-add-client` | - | 2/2/2 | 2/2/2 | One new observer joins recovery and plays the fresh hand |
+| `force-recover-add-two` | - | 3/1/2 | 3/1/2 | Two new observers join together and play the fresh hand |
+| `force-recover-swap-client` | - | 2/1/2 | 2/1/2 | One original disappears, replacement observes recovery and plays next |
+
+Each row runs once in `quick`, twice with distinct seeds in `balanced`, or five
+times with distinct seeds in `stress`, subject to the dash exclusions above.
+`-ScenarioRepeats`, `-SoakHands`, `-Hands`, `-Faults` and `-BotHands` are explicit
+operator overrides printed in the report header; using them produces useful
+evidence but is not the unmodified default profile named in the table.
+
 By default the console shows compact colored phase progress. Full Maven and JVM
 output is retained under `target/certification/<timestamp>/`; `summary.csv` and
 `summary.json` are machine-readable. Use `-VerboseOutput` only when live raw
@@ -200,6 +280,10 @@ at bounded intervals; real-game phases report completed hands. These are
 semantic counters, not JVM/CPU liveness indicators. All three scripts
 build/install the exact checkout into the
 ignored repository-local `.m2/repository`, preventing stale user-cache jars.
+The certifier deliberately uses Maven `install` once because its later focused
+runners use `-SkipGameBuild` and must resolve that exact just-built game JAR
+from the checkout-local repository. A one-shot direct reactor command has no
+later consumer and therefore uses the documented `verify` lifecycle instead.
 After diagnosing a failed real-game phase, `-StartAtScenario <label>` continues
 from that stable scenario label. It skips QA/headless and is evidence to combine
 with the preceding checkpoint, not a standalone release certificate; the final
@@ -257,7 +341,8 @@ Scenario contracts:
 The real-game runner defaults to hidden windows, disabled sound/animations and
 accelerated test timing. It preserves poker rules, signed protocol, accounting,
 settlement, recovery and player lifecycle, while the harness action driver owns
-turn input and therefore disables the Swing action clocks. `-ProductionTiming`
+turn input and therefore disables Swing action clocks and modal action
+confirmations. `-ProductionTiming`
 restores both normal pauses and real action clocks. Each peer gets a temporary isolated home,
 identity and SQLite database, removed after the run. A run is green only when
 all peers finish with matching consensus hashes and canonical balances and no
@@ -277,8 +362,8 @@ sandbox account; failure to read a key created in the current run remains fatal.
 The exact per-run home is deleted in a guarded `finally` block on success or
 failure, while certification logs and machine-readable reports are retained.
 Accelerated `TEST_MODE` still executes end-of-hand rebuys, exits, Rabbit
-completion, consensus and settlement; apart from driver-owned action clocks, it
-only shortens presentation work. Busted
+completion, consensus and settlement; apart from driver-owned clocks and
+confirmation dialogs, it only shortens presentation/audio work. Busted
 seats are deterministically rebought or made spectators according to the table
 configuration, so long soaks cannot continue with fake zero-stack active seats.
 Run `-Help` for the current scenario list and every option.
@@ -316,11 +401,12 @@ is the production-orchestration layer. Neither replaces the other. Pure visual
 painting/layout and behavior across two physical machines still require manual
 inspection.
 
-## Lane order and ownership
+## Maven profile ownership
 
-Run the lanes in this order when auditing or preparing a release. A failure in
-one lane is recorded against that lane; it is not hidden by a later aggregate
-run.
+These profiles partition the Maven/JUnit suite. They are building blocks, not
+the complete release sequence: the public certifier runs `qa-release`, then the
+headless campaigns, then the real-game matrix shown above. A profile failure is
+recorded against that phase and is never hidden by a later aggregate run.
 
 | Order | Lane | Contents | Normal run? |
 |---:|---|---|---|
@@ -336,24 +422,38 @@ means that a quality threshold was not met for that sample, not that a
 deterministic game-code assertion failed. It must not gate ordinary code tests
 or be silently folded into the default lane.
 
-Add `-o` (offline) once your local Maven cache is warm to skip dependency checks. The bot simulations honour two volume knobs for fast local iteration, e.g. `-Dqa.sessions=40 -Dqa.hands=25`.
+Add `-o` (offline) once your local Maven cache is warm to skip dependency checks. The bot simulations honour two volume knobs for fast local iteration, e.g. `'-Dqa.sessions=40' '-Dqa.hands=25'`. Quote every complete `-D...` argument in PowerShell; otherwise its native-command parser can split or reinterpret dotted property names.
 
 If the opt-in reactor reports that game classes such as `Helpers` or `Crupier`
-are missing while compiling `tools/qa`, treat that as a Maven/Windows
-classpath or permissions problem, not as a game-test result. Run the standalone
-fallback from NetBeans instead: first `mvn -DskipTests install` at the root,
-then the `tools/qa` command below with the same root version. Record the
-environmental failure in the audit index and do not turn it into a production
-change.
+are missing while compiling `tools/qa`, first check the lifecycle: `test`,
+`test-compile` and `dependency:analyze` stop before the root game JAR exists and
+are invalid reactor entry points. Use the documented `verify` command. Only if
+that exact command still fails should it be treated as an environment/classpath
+problem rather than a game-test result; the standalone fallback below can then
+isolate the environment. The tracked `.mvn/maven.config` makes this checkout the
+Maven root, suppresses transfer-progress noise and directs Maven to the ignored
+checkout-local `.m2/repository`. This avoids stale user-cache artifacts and
+unwritable or account-dependent global homes; no user-global Maven settings are
+required. Delete `.m2/` whenever you deliberately want a cold dependency cache.
+
+Generated state is contained and ignored: Maven outputs and certification
+reports are under `target/` or `tools/qa/target/`, and reusable dependencies are
+under `.m2/repository/`. Per-run identity/database homes are deleted by guarded
+`finally` blocks on success and failure; a leftover `qa-home` indicates an
+externally killed runner and can be removed after confirming no certification
+JVM is active. `mvn -f tools/reactor/pom.xml clean` removes Maven build outputs.
+Removing the exact `.m2` directory creates a cold-cache run; removing the exact
+`target/certification` directory discards retained evidence. Neither cleanup is
+required between normal runs, and neither path is part of the shipped JAR.
 
 <details><summary><b>Running the <code>tools/qa</code> module on its own (without the reactor)</b></summary>
 
 You can run the module standalone, but then you must publish the game jar first and match its version:
 
 ```bash
-mvn -DskipTests install                                       # publish CoronaPoker to your local ~/.m2
-mvn -f tools/qa/pom.xml test -Dcoronapoker.version=<root pom version>       # fast, no bot quality
-mvn -f tools/qa/pom.xml test -P qa-bots -Dcoronapoker.version=<root pom version>  # bot quality only
+mvn '-DskipTests' install                                       # publish into the checkout-local .m2
+mvn -f tools/qa/pom.xml test '-Dcoronapoker.version=<root pom version>'       # fast, no bot quality
+mvn -f tools/qa/pom.xml test -P qa-bots '-Dcoronapoker.version=<root pom version>'  # bot quality only
 ```
 
 The standalone module also accepts `-P qa-crypto`, `-P qa-network`,
@@ -370,14 +470,15 @@ simulations. Only `-P qa-bots` selects the statistical bot lane.
 | The **bot AI** (`bot/`, `org/alberta/`, `Bot.java`) | **`-P qa-bots`** — statistical matchups + Monte-Carlo potential |
 | The **crypto** stack (`crypto/`, the SRA cascade) | **`-P qa-crypto`** — perf / differential / cascade suite |
 | **Networking** (`Net*`, `WireFrame`, `Participant`) | Fast lane covers wire & framing; add **`-P qa-network`** for socket-stall checks |
-| Anything, **before committing or opening a PR** | **`-P qa-release`** |
-| Before a **release** | **`-P qa-release`** plus the adversarial automated audit; manual-only residuals are reported separately |
+| Anything, **before committing or opening a PR** | **`certify.cmd -Mode quick`** |
+| Before a **release** | Unmodified **`certify.cmd`** (`balanced`); add a targeted slow lane when the changed subsystem requires it |
 
-Rule of thumb: **fast lane on every change**, the relevant slow lane when you
-edited that subsystem or before merging, and **`-P qa-release` before a release**.
-Manual play is only a short complement for flows that genuinely require Swing,
-two live clients or human timing; it never replaces an automatable regression
-test. Record those steps and the environment in the audit report.
+Rule of thumb: use `quick` while iterating, the relevant targeted slow lane when
+you edit that subsystem, and the unmodified `balanced` certifier before a
+release. Manual play is only a complement for genuinely visual, physical-audio,
+accessibility or real-human timing behaviour; multi-JVM Swing clients and real
+encrypted sockets are already automated. Manual play never replaces an
+automatable regression test.
 
 ## Adding a test
 
@@ -388,6 +489,52 @@ it with `@Tag("slow")` and keep it in the matching `qa-bots`, `qa-crypto` or
 must not be hidden in a slow lane. Add a deterministic red test before changing
 production, then keep the regression in the fast lane unless it genuinely
 requires a slow harness.
+
+### Adding a complete real-game certification scenario
+
+A new scenario is complete only after every item below is implemented. There
+is no discovery by filename or naming convention:
+
+1. Choose the smallest topology and hand count that can prove both the fault
+   transition and required post-fault liveness. Record that reasoning in the
+   certification-matrix row; do not add padding hands or timing sleeps.
+2. Add the name to `-Scenario`'s `ValidateSet` in
+   `tools/qa/run-real-game-e2e.ps1`. Add exact CLI validation for every required
+   `Clients`, `Bots` and `Hands` constraint, and repeat those constraints in
+   `-Help` so an invalid invocation fails before Maven starts.
+3. Add the name to exactly one timing class in
+   `RealGameScenarioContract`: `AUTONOMOUS`, `ACTION_GATED`, or
+   `DIALOG_ORDERED`. Add it to `MISDEAL_TERMINAL` only if successful production
+   behavior deliberately dismantles the table after a safe MISDEAL.
+4. Implement the parent orchestration and assertions in
+   `RealGameLoopbackE2EIT`. Action-gated scenarios must arm every gate before
+   `START_GAME`, wait for a semantic `CP_E2E_*` event, perform the fault once,
+   release the gate and prove the terminal state. Never coordinate with an
+   arbitrary sleep.
+5. Implement only the necessary node-side action/dialog policy in
+   `RealGameNodeMain`. The node must continue to use production
+   `WaitingRoomFrame`, sockets, `Crupier`, crypto, settlement and SQLite; a
+   scenario must not duplicate game logic in the harness.
+6. Define explicit green and red oracles: matching hashes/balances for settled
+   hands, or exact MISDEAL/refund/recovery state for aborted hands; require a
+   fresh following hand whenever the claim includes continued liveness. Emit
+   semantic progress/terminal markers so premature exit and no-progress guards
+   can distinguish success, failure and a hang.
+7. Add one exact profile (`Label`, `Name`, `Clients`, `Bots`, `Hands`) to
+   `scenarioProfiles` in `run-certification.ps1`; add it to `quickLabels` only
+   if it belongs in the short critical preflight. The default production gate
+   is `balanced`, so every supported scenario must be in the full matrix.
+8. Add its CLI description/example to `real-game-e2e.cmd -Help`, its exact
+   certification topology and rationale to the matrix above, and its behavior
+   and green oracle to “Scenario contracts”.
+9. Extend focused unit tests for its gates, terminal classification, parser or
+   watchdog behavior. `RealGameScenarioContractTest` must remain green: it
+   rejects overlap between timing classes and any mismatch among the Java
+   catalog, CLI `ValidateSet`, certification profiles and this document.
+10. Run the scenario directly through the public launcher with at least two
+    seeds, then `certify.cmd -Mode quick` if included there, and finally an
+    unmodified `certify.cmd` before treating the change as releasable. Keep bot
+    statistical quality separate unless bot AI/evaluation changed.
 
 ## Scope boundary
 

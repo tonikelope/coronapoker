@@ -369,19 +369,19 @@ profile in `tools/qa/pom.xml`): `qa-fast` runs deterministic tests,
 
 - **Reactor (no install).** The opt-in aggregator at `tools/reactor/pom.xml`
   builds the game and the QA module together, so nothing has to be published to
-  `~/.m2` first:
+  the checkout-local `.m2/repository` first:
 
   ```
-  mvn -f tools/reactor/pom.xml install -P qa-bots    # bot sims only
-  mvn -f tools/reactor/pom.xml install -P qa-release # fast + non-bot slow
+  mvn -f tools/reactor/pom.xml verify -P qa-bots    # bot sims only
+  mvn -f tools/reactor/pom.xml verify -P qa-release # fast + non-bot slow
   ```
 
 - **Standalone.** Publish the game jar once, then run the QA module against it
   (its `coronapoker.version` must match the installed jar):
 
   ```
-  mvn -DskipTests install                                            # repo root
-  mvn -f tools/qa/pom.xml test -P qa-bots -Dcoronapoker.version=23.41
+  mvn '-DskipTests' install                                            # repo root
+  mvn -f tools/qa/pom.xml test -P qa-bots '-Dcoronapoker.version=<root pom version>'
   ```
 
 Scale the iteration volume with `-Dqa.sessions=N -Dqa.hands=N`; the default

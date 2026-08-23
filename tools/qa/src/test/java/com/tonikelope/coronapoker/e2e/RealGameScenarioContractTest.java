@@ -7,8 +7,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -63,6 +65,14 @@ final class RealGameScenarioContractTest {
         assertEquals(RealGameScenarioContract.ALL, certified,
                 "certification omits or invents real-game scenarios");
 
+        Matcher profileLabels = Pattern.compile("Label\\s*=\\s*'([^']+)'")
+                .matcher(certification);
+        Set<String> certifiedProfiles = new HashSet<>();
+        while (profileLabels.find()) {
+            assertTrue(certifiedProfiles.add(profileLabels.group(1)),
+                    "duplicate certification profile label: " + profileLabels.group(1));
+        }
+
         String testingManual = Files.readString(root.resolve("docs/TESTING.md"));
         int tableStart = testingManual.indexOf("Scenario contracts:");
         int tableEnd = testingManual.indexOf("The real-game runner defaults", tableStart);
@@ -76,6 +86,93 @@ final class RealGameScenarioContractTest {
         }
         assertEquals(RealGameScenarioContract.ALL, documented,
                 "docs/TESTING.md scenario catalog diverged");
+
+        int matrixStart = testingManual.indexOf("| Certification profile |");
+        int matrixEnd = testingManual.indexOf("Each row runs once", matrixStart);
+        assertTrue(matrixStart >= 0 && matrixEnd > matrixStart,
+                "public certification matrix boundaries not found");
+        Matcher matrixRows = Pattern.compile("(?m)^\\| `([^`]+)` \\|")
+                .matcher(testingManual.substring(matrixStart, matrixEnd));
+        Set<String> documentedProfiles = new HashSet<>();
+        while (matrixRows.find()) {
+            assertTrue(documentedProfiles.add(matrixRows.group(1)),
+                    "duplicate documented certification profile: " + matrixRows.group(1));
+        }
+        assertEquals(certifiedProfiles, documentedProfiles,
+                "docs/TESTING.md certification matrix diverged");
+
+        Matcher quickBlock = Pattern.compile(
+                "\\$quickLabels\\s*=\\s*@\\((.*?)\\)\\s*\\$scenarioProfiles",
+                Pattern.DOTALL).matcher(certification);
+        assertTrue(quickBlock.find(), "quick certification profile block not found");
+        Set<String> quickProfiles = quotedValues(quickBlock.group(1));
+
+        Matcher profileRows = Pattern.compile(
+                "@\\{\\s*Label\\s*=\\s*'([^']+)';\\s*Name\\s*=\\s*'([^']+)';"
+                + "\\s*Clients\\s*=\\s*(\\d+);\\s*Bots\\s*=\\s*(\\d+);"
+                + "\\s*Hands\\s*=\\s*([^\\s}]+)\\s*}")
+                .matcher(certification);
+        Map<String, CertificationProfile> profiles = new HashMap<>();
+        while (profileRows.find()) {
+            CertificationProfile profile = new CertificationProfile(
+                    Integer.parseInt(profileRows.group(3)),
+                    Integer.parseInt(profileRows.group(4)),
+                    profileRows.group(5));
+            assertTrue(profiles.put(profileRows.group(1), profile) == null,
+                    "duplicate parsed certification profile: " + profileRows.group(1));
+        }
+        assertEquals(certifiedProfiles, profiles.keySet(),
+                "unable to parse every certification profile topology");
+
+        Matcher topologyRows = Pattern.compile(
+                "(?m)^\\| `([^`]+)` \\| ([^|]+) \\| ([^|]+) \\| ([^|]+) \\|")
+                .matcher(testingManual.substring(matrixStart, matrixEnd));
+        Map<String, List<String>> documentedTopologies = new HashMap<>();
+        while (topologyRows.find()) {
+            documentedTopologies.put(topologyRows.group(1), List.of(
+                    topologyRows.group(2).trim(),
+                    topologyRows.group(3).trim(),
+                    topologyRows.group(4).trim()));
+        }
+        for (Map.Entry<String, CertificationProfile> entry : profiles.entrySet()) {
+            List<String> actual = documentedTopologies.get(entry.getKey());
+            assertTrue(actual != null, "missing documented topology for " + entry.getKey());
+            assertEquals(expectedTopology(entry.getValue(), "quick",
+                    quickProfiles.contains(entry.getKey())), actual.get(0),
+                    "quick topology diverged for " + entry.getKey());
+            assertEquals(expectedTopology(entry.getValue(), "balanced", true), actual.get(1),
+                    "balanced topology diverged for " + entry.getKey());
+            assertEquals(expectedTopology(entry.getValue(), "stress", true), actual.get(2),
+                    "stress topology diverged for " + entry.getKey());
+        }
+    }
+
+    private static String expectedTopology(CertificationProfile profile,
+            String mode, boolean included) {
+        if (!included) {
+            return "-";
+        }
+        int hands = switch (profile.handsExpression()) {
+            case "$SoakHands" -> switch (mode) {
+                case "quick" -> 5;
+                case "balanced" -> 20;
+                case "stress" -> 50;
+                default -> throw new IllegalArgumentException(mode);
+            };
+            case "$headsUpHands" -> mode.equals("quick") ? 5 : 20;
+            case "$fullMixedHands" -> switch (mode) {
+                case "quick" -> 1;
+                case "balanced" -> 3;
+                case "stress" -> 10;
+                default -> throw new IllegalArgumentException(mode);
+            };
+            case "$fullHumanHands" -> mode.equals("stress") ? 3 : 1;
+            default -> Integer.parseInt(profile.handsExpression());
+        };
+        return profile.clients() + "/" + profile.bots() + "/" + hands;
+    }
+
+    private record CertificationProfile(int clients, int bots, String handsExpression) {
     }
 
     @Test

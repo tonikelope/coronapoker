@@ -25,7 +25,7 @@ if ($Help) {
 CoronaPoker headless protocol simulator
 
 Usage:
-  powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\qa\run-headless-sim.ps1 [options]
+  .\tools\qa\headless-sim.cmd [options]
 
 Options:
   -Hands <1..100000>       Protocol, side-pot, Rabbit, lifecycle and SQL cases (default: 5000)
@@ -37,11 +37,11 @@ Options:
   -Help                    Show this help and exit
 
 Examples:
-  .\tools\qa\run-headless-sim.ps1 -Hands 200 -Faults 200 -BotHands 10 -Seed 42
-  .\tools\qa\run-headless-sim.ps1 -AllNonVisual
+  .\tools\qa\headless-sim.cmd -Hands 200 -Faults 200 -BotHands 10 -Seed 42
+  .\tools\qa\headless-sim.cmd -AllNonVisual
 
 This fast layer exercises production protocol/domain components without full
-Swing/Crupier orchestration. Use run-real-game-e2e.ps1 for complete local games.
+Swing/Crupier orchestration. Use real-game-e2e.cmd for complete local games.
 The exact checkout is built into the ignored local .m2/repository cache.
 '@ | Write-Host
     exit 0

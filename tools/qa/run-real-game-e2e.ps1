@@ -37,7 +37,7 @@ if ($Help) {
 CoronaPoker real-game loopback E2E simulator
 
 Usage:
-  powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\qa\run-real-game-e2e.ps1 [options]
+  .\tools\qa\real-game-e2e.cmd [options]
 
 Options:
   -Clients <1..9>          Human client JVMs in addition to the host (default: 1)
@@ -148,42 +148,42 @@ Scenarios:
                           and a new peer joins before fresh hand 2.
 
 Examples:
-  .\tools\qa\run-real-game-e2e.ps1
-  .\tools\qa\run-real-game-e2e.ps1 -Clients 2 -Bots 1 -Hands 3 -Seed 42
-  .\tools\qa\run-real-game-e2e.ps1 -Clients 9 -Bots 0 -Hands 1
-  .\tools\qa\run-real-game-e2e.ps1 -Clients 4 -Bots 5 -Hands 3
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario abrupt-exit
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario controlled-exit
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario raise-mix -Hands 5
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario allin-single-board -Clients 1 -Bots 0
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario allin-rebuy -Clients 1 -Bots 0 -Hands 5
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario allin-reconnect -Clients 2 -Bots 0 -Hands 1
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario allin-rit -Bots 0
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario rit-network-cut -Clients 2 -Bots 0 -Hands 1
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario allin-controlled-exit -Clients 1 -Bots 0
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario straddle-post -Clients 2 -Bots 0 -Hands 3
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario straddle-network-cut -Clients 2 -Bots 0 -Hands 3
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario pause-resume -Hands 2
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario reconnect-midhand -Hands 2
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario reconnect-twice -Clients 2 -Hands 3
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario reconnect-every-street -Clients 2 -Bots 1 -Hands 4
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario reconnect-storm -Clients 2 -Hands 3
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario dual-reconnect -Clients 3 -Hands 2
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario host-channel-flap -Clients 3 -Hands 2
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario reconnect-force-recover -Clients 2 -Bots 1 -Hands 3
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario transport-chaos -Clients 3 -Bots 1 -Hands 5
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario lifecycle-chaos -Clients 2 -Bots 1 -Hands 7
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario dual-abrupt-exit -Clients 3
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario mixed-exit-crash -Clients 3
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario allin-abrupt-exit -Clients 2 -Bots 0
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario force-recover -Hands 2
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario double-force-recover -Hands 4
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario crash-rejoin-recover -Clients 1 -Hands 2
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario force-recover-add-client -Clients 2 -Hands 2
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario force-recover-add-two -Clients 3 -Hands 2
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario force-recover-swap-client -Clients 2 -Hands 2
-  .\tools\qa\run-real-game-e2e.ps1 -WindowMode visible -Screen 2 -Animations
-  .\tools\qa\run-real-game-e2e.ps1 -ProductionTiming -WindowMode minimized
+  .\tools\qa\real-game-e2e.cmd
+  .\tools\qa\real-game-e2e.cmd -Clients 2 -Bots 1 -Hands 3 -Seed 42
+  .\tools\qa\real-game-e2e.cmd -Clients 9 -Bots 0 -Hands 1
+  .\tools\qa\real-game-e2e.cmd -Clients 4 -Bots 5 -Hands 3
+  .\tools\qa\real-game-e2e.cmd -Scenario abrupt-exit
+  .\tools\qa\real-game-e2e.cmd -Scenario controlled-exit
+  .\tools\qa\real-game-e2e.cmd -Scenario raise-mix -Hands 5
+  .\tools\qa\real-game-e2e.cmd -Scenario allin-single-board -Clients 1 -Bots 0
+  .\tools\qa\real-game-e2e.cmd -Scenario allin-rebuy -Clients 1 -Bots 0 -Hands 5
+  .\tools\qa\real-game-e2e.cmd -Scenario allin-reconnect -Clients 2 -Bots 0 -Hands 1
+  .\tools\qa\real-game-e2e.cmd -Scenario allin-rit -Bots 0
+  .\tools\qa\real-game-e2e.cmd -Scenario rit-network-cut -Clients 2 -Bots 0 -Hands 1
+  .\tools\qa\real-game-e2e.cmd -Scenario allin-controlled-exit -Clients 1 -Bots 0
+  .\tools\qa\real-game-e2e.cmd -Scenario straddle-post -Clients 2 -Bots 0 -Hands 3
+  .\tools\qa\real-game-e2e.cmd -Scenario straddle-network-cut -Clients 2 -Bots 0 -Hands 3
+  .\tools\qa\real-game-e2e.cmd -Scenario pause-resume -Hands 2
+  .\tools\qa\real-game-e2e.cmd -Scenario reconnect-midhand -Hands 2
+  .\tools\qa\real-game-e2e.cmd -Scenario reconnect-twice -Clients 2 -Hands 3
+  .\tools\qa\real-game-e2e.cmd -Scenario reconnect-every-street -Clients 2 -Bots 1 -Hands 4
+  .\tools\qa\real-game-e2e.cmd -Scenario reconnect-storm -Clients 2 -Hands 3
+  .\tools\qa\real-game-e2e.cmd -Scenario dual-reconnect -Clients 3 -Hands 2
+  .\tools\qa\real-game-e2e.cmd -Scenario host-channel-flap -Clients 3 -Hands 2
+  .\tools\qa\real-game-e2e.cmd -Scenario reconnect-force-recover -Clients 2 -Bots 1 -Hands 3
+  .\tools\qa\real-game-e2e.cmd -Scenario transport-chaos -Clients 3 -Bots 1 -Hands 5
+  .\tools\qa\real-game-e2e.cmd -Scenario lifecycle-chaos -Clients 2 -Bots 1 -Hands 7
+  .\tools\qa\real-game-e2e.cmd -Scenario dual-abrupt-exit -Clients 3
+  .\tools\qa\real-game-e2e.cmd -Scenario mixed-exit-crash -Clients 3
+  .\tools\qa\real-game-e2e.cmd -Scenario allin-abrupt-exit -Clients 2 -Bots 0
+  .\tools\qa\real-game-e2e.cmd -Scenario force-recover -Hands 2
+  .\tools\qa\real-game-e2e.cmd -Scenario double-force-recover -Hands 4
+  .\tools\qa\real-game-e2e.cmd -Scenario crash-rejoin-recover -Clients 1 -Hands 2
+  .\tools\qa\real-game-e2e.cmd -Scenario force-recover-add-client -Clients 2 -Hands 2
+  .\tools\qa\real-game-e2e.cmd -Scenario force-recover-add-two -Clients 3 -Hands 2
+  .\tools\qa\real-game-e2e.cmd -Scenario force-recover-swap-client -Clients 2 -Hands 2
+  .\tools\qa\real-game-e2e.cmd -WindowMode visible -Screen 2 -Animations
+  .\tools\qa\real-game-e2e.cmd -ProductionTiming -WindowMode minimized
 
 This layer launches separate JVMs and runs the production WaitingRoomFrame,
 encrypted sockets, Crupier, rondaApuestas, bots, consensus and SQLite close.

@@ -1,3 +1,5 @@
+<div align="justify">
+
 # Testing and certification
 
 CoronaPoker keeps its QA tooling outside the distributed game artifact. This

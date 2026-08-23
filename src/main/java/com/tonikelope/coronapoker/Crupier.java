@@ -7374,10 +7374,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * key only once its own local round has closed the previous street — the
      * client is the source of truth for "we've played pre-flop".
      *
-     * Returns a discrete code so the caller can tell apart the three outcomes
-     * (READY, STALE_HAND, TIMEOUT) and apply different security policy — a
-     * leftover command from an already-closed hand is not cheating (silent
-     * drop), but a genuine timeout is.
+     * A host can enter hand N+1 a few milliseconds before a client finishes N.
+     * That one-hand lead is an honest boundary race, so it waits on the same
+     * state lock until setContaManoLocal publishes the client's transition.
+     * Older hands and jumps beyond N+1 are rejected immediately.
      */
     public UnlockWaitResult awaitStreetForUnlockPhase(int phase, int hand_id, long timeoutMs) {
         synchronized (protocol_state_lock) {
@@ -7389,13 +7389,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (isFin_de_la_transmision()) {
                     return UnlockWaitResult.STALE_HAND;
                 }
-                if (hand_id != this.conta_mano) {
-                    // Request's hand doesn't match the current one: either it's from an
-                    // already-closed hand (silent drop, not an attack) or the host is getting
-                    // ahead of us (rare and useless either way; treated the same).
+                if (hand_id < this.conta_mano) {
                     return UnlockWaitResult.STALE_HAND;
                 }
-                if (isUnlockPhaseStateSafe(phase)) {
+                if ((long) hand_id > (long) this.conta_mano + 1L) {
+                    return UnlockWaitResult.INVALID_HAND;
+                }
+                if (hand_id == this.conta_mano && isUnlockPhaseStateSafe(phase)) {
                     return UnlockWaitResult.READY;
                 }
                 long remaining = deadline - System.currentTimeMillis();
@@ -7414,7 +7414,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public enum UnlockWaitResult {
         READY, // safe to serve; later gates decide
-        STALE_HAND, // hand_id doesn't match the current hand, or it was cancelled: silent drop
+        STALE_HAND, // request belongs to an already-closed hand, or this hand was cancelled
+        INVALID_HAND, // host jumped beyond the only valid hand-boundary lead (N+1)
         TIMEOUT, // deadline expired waiting for the street: treated as an attack
         LOCKDOWN      // lockdown already active, serve nothing else
     }

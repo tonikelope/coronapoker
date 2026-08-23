@@ -8,6 +8,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.protocolsim.CampaignSeed;
 import com.tonikelope.coronapoker.protocolsim.CampaignProgress;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag("protocol-sim")
 class ProtocolPotRabbitCampaignTest {
 
-    private static final long DEFAULT_SEED = 3231711270L;
     private static final double EPSILON = 1.0e-7;
     private static IdentityManager hostIdentity;
     private static IdentityManager clientIdentity;
@@ -42,7 +42,7 @@ class ProtocolPotRabbitCampaignTest {
     @Test
     void randomizedSidePotsAndRabbitStayConvergent() {
         int hands = intProperty("qa.sim.hands", 2_000, 1, 100_000);
-        long seed = longProperty("qa.sim.seed", DEFAULT_SEED);
+        long seed = CampaignSeed.resolve("qa.sim.seed", "pot-rabbit");
         Integer replay = optionalIntProperty("qa.sim.hand", 0, hands - 1);
         int first = replay == null ? 0 : replay;
         int end = replay == null ? hands : replay + 1;
@@ -216,18 +216,6 @@ class ProtocolPotRabbitCampaignTest {
             return value;
         } catch (NumberFormatException ex) {
             throw new IllegalArgumentException(name + " must be an integer: " + text, ex);
-        }
-    }
-
-    private static long longProperty(String name, long fallback) {
-        String text = System.getProperty(name);
-        if (text == null || text.isBlank() || text.startsWith("${")) {
-            return fallback;
-        }
-        try {
-            return Long.parseLong(text);
-        } catch (NumberFormatException ex) {
-            throw new IllegalArgumentException(name + " must be a long: " + text, ex);
         }
     }
 

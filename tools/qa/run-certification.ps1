@@ -18,7 +18,7 @@ param(
     [ValidateRange(1, 10)]
     [int]$ScenarioRepeats,
 
-    [long]$Seed = 3231711270,
+    [long]$Seed,
 
     [ValidateSet('hidden', 'minimized', 'visible')]
     [string]$WindowMode = 'hidden',
@@ -50,7 +50,7 @@ Usage:
 
 Default mode is balanced: the recommended production gate with every scenario
 twice and bounded campaign sizes. Phases are fail-fast and sequential:
-  1. qa-release: deterministic tests plus every non-bot slow lane
+  1. qa-release: fast tests plus every non-bot slow lane
   2. Seeded headless protocol/fault campaigns
   3. Every real-game loopback scenario in separate production JVMs
 
@@ -61,14 +61,15 @@ Options:
   -BotHands <1..1000000>   Override headless production-bot hands
   -SoakHands <5..1000>     Override hands in the real-socket soak game
   -ScenarioRepeats <1..10> Override serial runs with distinct seeds per scenario
-  -Seed <long>             Reproducible base seed (default: 3231711270)
+  -Seed <long>             Replay an exact base seed (omitted: fresh random seed)
   -WindowMode <mode>       hidden, minimized or visible (default: hidden)
   -Screen <1..16>          Monitor assigned to real-game JVMs (default: 2)
   -Animations              Enable animations in real-game scenarios
   -ProductionTiming        Use production pauses and real Swing action clocks
   -IncludeBotQuality       Also run statistical bot-quality tests (bot changes only)
   -StartAtScenario <label> Continue at a real-game label after a diagnosed failure;
-                           skips QA/headless and is not a standalone certificate
+                           requires the original -Seed, skips QA/headless and is
+                           not a standalone certificate
   -VerboseOutput           Stream raw Maven/game logs to the console as well as files
   -Help                    Show this help and exit
 
@@ -78,7 +79,7 @@ Examples:
   .\tools\qa\certify.cmd -Mode stress -Seed 42
   .\tools\qa\certify.cmd -Hands 750 -Faults 750 -ScenarioRepeats 3
   .\tools\qa\certify.cmd -IncludeBotQuality
-  .\tools\qa\certify.cmd -StartAtScenario reconnect-every-street
+  .\tools\qa\certify.cmd -StartAtScenario reconnect-every-street -Seed 42
 
 Mode defaults (explicit numeric options always win):
   quick     50 hands/faults, 20 bot hands, 5-hand soak, critical subset once
@@ -87,9 +88,21 @@ Mode defaults (explicit numeric options always win):
 
 Compact progress is printed by default. Full phase logs plus summary.csv and
 summary.json are written under target\certification\<timestamp>. The command
-exits non-zero at the first failed phase and prints the log tail/path.
+exits non-zero at the first failed phase and prints the log tail/path. An
+omitted seed is generated before work starts; both summaries retain BaseSeed.
+After fixing a replayed failure, certify from the beginning without -Seed so
+the release also passes a new schedule. First rerun the affected scenario with
+a fresh seed; restart the full gate whenever shared code may be affected.
 '@ | Write-Host
     exit 0
+}
+
+. (Join-Path $PSScriptRoot 'qa-seed.ps1')
+if ($StartAtScenario -and (-not $PSBoundParameters.ContainsKey('Seed'))) {
+    throw '-StartAtScenario requires the BaseSeed reported by the original run.'
+}
+if (-not $PSBoundParameters.ContainsKey('Seed')) {
+    $Seed = New-CoronaPokerQaSeed
 }
 
 $modeDefaults = @{
@@ -233,6 +246,8 @@ function Invoke-CertificationPhase {
                 Result = 'FAIL'
                 Seconds = [math]::Round($timer.Elapsed.TotalSeconds, 1)
                 Log = $logPath
+                Mode = $script:Mode
+                BaseSeed = $script:Seed
             })
         Write-Host ("[{0}] FAIL {1} ({2:n1}s, exit {3})" -f $script:phaseNumber, $Name,
                 $timer.Elapsed.TotalSeconds, $exitCode) -ForegroundColor Red
@@ -247,6 +262,8 @@ function Invoke-CertificationPhase {
             Result = 'PASS'
             Seconds = [math]::Round($timer.Elapsed.TotalSeconds, 1)
             Log = $logPath
+            Mode = $script:Mode
+            BaseSeed = $script:Seed
         })
     Write-Host ("[{0}] PASS {1} ({2:n1}s)" -f $script:phaseNumber, $Name,
             $timer.Elapsed.TotalSeconds) -ForegroundColor Green
@@ -273,6 +290,7 @@ try {
             -Command $maven `
             -Arguments ($commonMavenArgs + @(
                     '-Pqa-release',
+                    "-Dqa.sim.seed=$Seed",
                     '-Dqa.sim.hands=1',
                     '-Dqa.sim.faults=1',
                     '-Dqa.sim.bot.hands=1'

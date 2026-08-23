@@ -116,6 +116,40 @@ class QaBaselineWiringTest {
     }
 
     @Test
+    void qaRunnersGenerateFreshDefaultsAndPersistReplaySeed() throws IOException {
+        Path root = locateRoot();
+        String seedHelper = Files.readString(root.resolve("tools/qa/qa-seed.ps1"));
+        assertTrue(seedHelper.contains("RandomNumberGenerator]::Create()"),
+                "QA default seeds must come from fresh OS entropy");
+        assertTrue(seedHelper.contains("ToUInt32"),
+                "QA seeds must stay in the safe range used for derived scenario seeds");
+
+        for (String runner : List.of("run-certification.ps1", "run-headless-sim.ps1",
+                "run-real-game-e2e.ps1")) {
+            String script = Files.readString(root.resolve("tools/qa").resolve(runner));
+            assertTrue(script.contains(". (Join-Path $PSScriptRoot 'qa-seed.ps1')"),
+                    runner + " must use the shared seed generator");
+            assertTrue(script.contains("$PSBoundParameters.ContainsKey('Seed')"),
+                    runner + " must preserve an explicit replay seed");
+            assertTrue(script.contains("omitted: fresh random seed"),
+                    runner + " help must explain its random default");
+        }
+
+        String certification = Files.readString(root.resolve("tools/qa/run-certification.ps1"));
+        assertTrue(certification.contains("BaseSeed = $script:Seed"),
+                "machine-readable certification summaries must persist the replay seed");
+        assertTrue(certification.contains("-StartAtScenario requires the BaseSeed"),
+                "continuation must not silently switch to a fresh schedule seed");
+        assertTrue(certification.contains("\"-Dqa.sim.seed=$Seed\""),
+                "the release suite must share the certification's fresh base seed");
+
+        String workflow = Files.readString(root.resolve(".github/workflows/main.yml"));
+        assertTrue(workflow.contains("/dev/urandom"));
+        assertTrue(workflow.contains("CoronaPoker CI base seed:"));
+        assertTrue(workflow.contains("-Dqa.sim.seed=$QA_SEED"));
+    }
+
+    @Test
     void publicTestingManualAndEditableDiagramStayDiscoverableAndPaired() throws IOException {
         Path root = locateRoot();
         String readme = Files.readString(root.resolve("README.md"));

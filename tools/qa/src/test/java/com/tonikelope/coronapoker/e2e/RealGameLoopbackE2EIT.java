@@ -1,6 +1,7 @@
 package com.tonikelope.coronapoker.e2e;
 
 import com.tonikelope.coronapoker.Crupier;
+import com.tonikelope.coronapoker.protocolsim.CampaignSeed;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -32,7 +33,8 @@ final class RealGameLoopbackE2EIT {
         int clients = intProperty("qa.e2e.clients", 1, 1, 9);
         int bots = intProperty("qa.e2e.bots", 2, 0, 9);
         int hands = intProperty("qa.e2e.hands", 1, 1, 1000);
-        long seed = Long.getLong("qa.e2e.seed", 23059L);
+        long seed = CampaignSeed.resolve("qa.e2e.seed", "real-game-" +
+                System.getProperty("qa.e2e.scenario", "normal"));
         String scenario = System.getProperty("qa.e2e.scenario", "normal");
         assertTrue(RealGameScenarioContract.isSupported(scenario),
                 "unsupported qa.e2e.scenario: " + scenario);

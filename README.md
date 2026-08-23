@@ -237,9 +237,11 @@ The complete QA model, test lanes, real-game simulator, certification profiles a
 
 ---
 
-## Build from source
+## Build and certify from source
 
 Requirements: JDK 17 or newer for both building and running, and Apache Maven 3.x. Maven compiles against the Java 17 API baseline, and CI builds and tests on JDK 17.
+
+For an ordinary build from a clean clone:
 
 ```bash
 git clone https://github.com/tonikelope/coronapoker.git
@@ -253,13 +255,33 @@ The runnable jar is generated at `target/CoronaPoker-<version>-jar-with-dependen
 java -jar target/CoronaPoker-<version>-jar-with-dependencies.jar
 ```
 
+For a release-certified build on Windows, clone the repository and run the
+public certifier from its root. It builds the current checkout, runs the normal
+non-bot QA lanes, mass protocol campaigns and real host/client JVM scenarios,
+then leaves the same fat JAR under `target/`:
+
+```powershell
+git clone https://github.com/tonikelope/coronapoker.git
+Set-Location coronapoker
+.\tools\qa\certify.cmd
+```
+
+A valid result exits with code `0`, ends with `CORONAPOKER CERTIFICATION PASS`
+and writes `summary.csv`, `summary.json` and phase logs below the printed
+`target/certification/<timestamp>` directory. Each new run chooses and records
+a fresh seed; replay a failure with its reported `-Seed`, but certify a release
+with a new complete run. On a single-monitor machine add `-Screen 1`.
+Statistical bot-quality tests are intentionally outside this normal release
+gate. No private directory or pre-existing user cache is required.
+
 ---
 
 ## 🧪 Testing & certification
 
 QA lives in the separate `tools/qa` module and is never packaged in the game
-JAR. The recommended production gate runs deterministic tests, non-bot slow
-lanes, seeded protocol campaigns and real host/client JVM scenarios:
+JAR. The recommended production gate runs replayable tests, non-bot slow
+lanes, seeded protocol campaigns and real host/client JVM scenarios. Each run
+generates and records a fresh replayable seed unless `-Seed` is supplied:
 
 ```powershell
 .\tools\qa\certify.cmd

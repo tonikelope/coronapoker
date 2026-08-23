@@ -11,14 +11,14 @@ compiles and tests the current checkout rather than a possibly stale installed
 JAR:
 
 ```powershell
-.\tools\qa\headless-sim.cmd -Hands 5000 -Faults 5000 -BotHands 100 -Seed 3231711270
+.\tools\qa\headless-sim.cmd -Hands 5000 -Faults 5000 -BotHands 100 -Seed 42
 ```
 
 The seed and zero-based hand number identify a failing scenario. Re-run exactly
 one hand, with a concise trace, using:
 
 ```powershell
-mvn -f .\tools\reactor\pom.xml verify -P qa-protocol-sim '-Dmaven.repo.local=.m2/repository' '-Dqa.sim.seed=3231711270' '-Dqa.sim.hand=48731' '-Dqa.sim.trace=true'
+mvn -f .\tools\reactor\pom.xml verify -P qa-protocol-sim '-Dmaven.repo.local=.m2/repository' '-Dqa.sim.seed=42' '-Dqa.sim.hand=48731' '-Dqa.sim.trace=true'
 ```
 
 Replay one zero-based fault case by replacing `qa.sim.hand` with

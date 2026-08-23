@@ -32,7 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag("protocol-sim")
 class ProtocolBotCampaignTest {
 
-    private static final long DEFAULT_SEED = 3231711270L;
     private static final int DEFAULT_HANDS = 1000;
     private static final double STARTING_STACK = 200.0;
     private static final double BIG_BLIND = 2.0;
@@ -45,7 +44,7 @@ class ProtocolBotCampaignTest {
 
     @Test
     void randomizedProductionBotsPreserveHardInvariants() {
-        long seed = longProperty("qa.sim.seed", DEFAULT_SEED);
+        long seed = CampaignSeed.resolve("qa.sim.seed", "production-bot");
         int configuredHands = intProperty("qa.sim.bot.hands", DEFAULT_HANDS, 1, 1_000_000);
         String replayText = System.getProperty("qa.sim.bot.hand");
         int first = replayText == null || replayText.isBlank()
@@ -121,18 +120,6 @@ class ProtocolBotCampaignTest {
             return value;
         } catch (NumberFormatException ex) {
             throw new IllegalArgumentException(name + " must be an integer: " + text, ex);
-        }
-    }
-
-    private static long longProperty(String name, long fallback) {
-        String text = System.getProperty(name);
-        if (text == null || text.isBlank()) {
-            return fallback;
-        }
-        try {
-            return Long.parseLong(text);
-        } catch (NumberFormatException ex) {
-            throw new IllegalArgumentException(name + " must be a long: " + text, ex);
         }
     }
 

@@ -8,7 +8,7 @@ param(
     [ValidateRange(1, 1000)]
     [int]$Hands = 1,
 
-    [long]$Seed = 23059,
+    [long]$Seed,
 
     [ValidateSet('normal', 'raise-mix', 'allin-single-board', 'allin-rebuy', 'allin-reconnect', 'abrupt-exit', 'controlled-exit', 'allin-rit', 'rit-network-cut', 'allin-controlled-exit', 'straddle-post', 'straddle-network-cut', 'pause-resume', 'reconnect-midhand', 'reconnect-twice', 'reconnect-every-street', 'reconnect-storm', 'dual-reconnect', 'host-channel-flap', 'reconnect-force-recover', 'transport-chaos', 'lifecycle-chaos', 'dual-abrupt-exit', 'mixed-exit-crash', 'allin-abrupt-exit', 'force-recover', 'double-force-recover', 'crash-rejoin-recover', 'force-recover-add-client', 'force-recover-add-two', 'force-recover-swap-client')]
     [string]$Scenario = 'normal',
@@ -43,7 +43,7 @@ Options:
   -Clients <1..9>          Human client JVMs in addition to the host (default: 1)
   -Bots <0..9>             Production bots hosted by the server (default: 2)
   -Hands <1..1000>         Complete hands to play (default: 1)
-  -Seed <long>             Reproducible action/scenario seed (default: 23059)
+  -Seed <long>             Replay an exact action/scenario seed (omitted: fresh random seed)
   -Scenario <name>         Select one scenario listed below (default: normal)
   -WindowMode <mode>       hidden, minimized or visible (default: hidden)
   -Screen <1..16>          Target monitor for every mode (default: 2)
@@ -186,9 +186,16 @@ Examples:
   .\tools\qa\real-game-e2e.cmd -ProductionTiming -WindowMode minimized
 
 This layer launches separate JVMs and runs the production WaitingRoomFrame,
-encrypted sockets, Crupier, rondaApuestas, bots, consensus and SQLite close.
+encrypted sockets, Crupier, rondaApuestas, bots, consensus and SQLite close. An
+omitted seed is generated and printed before Maven starts; pass it back with
+-Seed to replay a failure.
 '@ | Write-Host
     exit 0
+}
+
+. (Join-Path $PSScriptRoot 'qa-seed.ps1')
+if (-not $PSBoundParameters.ContainsKey('Seed')) {
+    $Seed = New-CoronaPokerQaSeed
 }
 
 if (($Clients + $Bots + 1) -gt 10) {
@@ -318,6 +325,8 @@ if (-not $qaHomePath.StartsWith($qaHomeRoot + [IO.Path]::DirectorySeparatorChar,
     throw "Refusing unsafe QA home path: $qaHomePath"
 }
 $exitCode = 1
+Write-Host ("CoronaPoker real-game E2E: scenario={0} clients={1} bots={2} hands={3} seed={4}" -f `
+        $Scenario, $Clients, $Bots, $Hands, $Seed)
 try {
     & $maven `
         -f $mavenPom `

@@ -398,7 +398,7 @@
             </build>
         </profile>
 
-        <!-- Whole deterministic suite plus non-bot slow lanes. Statistical bot
+        <!-- Whole replayable suite plus non-bot slow lanes. Statistical bot
         quality is deliberately excluded and requires -P qa-bots. -->
         <profile>
             <id>qa-release</id>

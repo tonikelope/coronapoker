@@ -26,6 +26,16 @@ valid certificate ends with `CORONAPOKER CERTIFICATION PASS`, exits with code
 zero and writes `summary.csv`, `summary.json` and full phase logs under the
 printed `target/certification/<timestamp>` directory. Do not infer success from
 a live JVM, CPU use, Maven `BUILD SUCCESS`, or an incomplete continuation run.
+Every invocation without `-Seed` generates and prints a fresh base seed, which
+is also stored in both summaries. Replay a failure with the reported
+`-Seed <value>`; do not replace the failing seed until the defect is fixed.
+Fresh entropy varies both harness schedules and the production-code paths they
+exercise, so it can expose defects on either side of that boundary.
+After that replay is green, rerun the affected scenario with a fresh seed. If
+the fix touches shared code or can affect other phases, restart the complete
+certification with another fresh seed. A release certificate always comes from
+a complete run from the beginning without `-Seed`; continuation evidence alone
+cannot certify a release.
 Bot statistical quality is deliberately absent unless explicitly requested
 with `-IncludeBotQuality` after bot AI/evaluation changes.
 
@@ -90,9 +100,10 @@ mvn -f tools/reactor/pom.xml verify -P qa-release
 mvn -f tools/reactor/pom.xml verify '-Dtest=PotMathTest' '-Dsurefire.failIfNoSpecifiedTests=false'
 ```
 
-GitHub Actions runs `mvn -B -ntp -f tools/reactor/pom.xml -P qa-release verify`
-on every push and pull request targeting `master`, using Temurin Java 17 on
-Ubuntu 24.04. CI bounds each embedded mass campaign to one wiring case; the
+GitHub Actions generates and prints a fresh OS-random `QA_SEED`, then runs
+`mvn -B -ntp -f tools/reactor/pom.xml -P qa-release verify
+"-Dqa.sim.seed=$QA_SEED"` on every push and pull request targeting `master`,
+using Temurin Java 17 on Ubuntu 24.04. CI bounds each embedded mass campaign to one wiring case; the
 local certifier owns the high-volume seeded campaigns. It uploads
 the Surefire reports and built JARs even on failure. The Windows-only
 multi-JVM/Swing scenario matrix remains the local certification gate below;
@@ -132,7 +143,7 @@ Typical runs:
 .\tools\qa\certify.cmd -Mode stress
 
 # Fast reproducible protocol campaign.
-.\tools\qa\headless-sim.cmd -Hands 5000 -Faults 5000 -BotHands 100 -Seed 3231711270
+.\tools\qa\headless-sim.cmd -Hands 5000 -Faults 5000 -BotHands 100 -Seed 42
 
 # One host, two human-client JVMs and one host bot, three complete hands.
 # Windows stay hidden; native creation is assigned to monitor 2 first. On a
@@ -285,9 +296,11 @@ runners use `-SkipGameBuild` and must resolve that exact just-built game JAR
 from the checkout-local repository. A one-shot direct reactor command has no
 later consumer and therefore uses the documented `verify` lifecycle instead.
 After diagnosing a failed real-game phase, `-StartAtScenario <label>` continues
-from that stable scenario label. It skips QA/headless and is evidence to combine
-with the preceding checkpoint, not a standalone release certificate; the final
-release gate must still run normally from the beginning.
+from that stable scenario label. It requires `-Seed <BaseSeed>` from the failed
+summary so every derived scenario seed remains identical. It skips QA/headless
+and is evidence to combine with the preceding checkpoint, not a standalone
+release certificate; the final release gate must still run normally from the
+beginning.
 Real-game phases report completed hands as `hands N/M`. A premature table end
 fails immediately; accelerated runs also fail after 120 seconds without a newly
 completed hand. Production-timing runs keep the wider scenario timeout so a
@@ -347,7 +360,12 @@ restores both normal pauses and real action clocks. Each peer gets a temporary i
 identity and SQLite database, removed after the run. A run is green only when
 all peers finish with matching consensus hashes and canonical balances and no
 fatal/error dialog. Host + clients + bots cannot exceed ten seats.
-`-Seed` fixes the action driver and scenario schedule. Normal certification uses
+Without `-Seed`, every runner obtains a fresh positive 32-bit base seed from OS
+entropy, prints it before work starts and records the certifier's base seed in
+every `summary.csv` / `summary.json` phase row. This explores different schedules
+across certifications while preserving exact replay: rerun a failure with the
+reported `-Seed <value>` until it is green. An explicit `-Seed` fixes the action
+driver and scenario schedule. Normal certification uses
 the same platform CSPRNG as production. The optional `-DeterministicCrypto`
 diagnostic also seeds each isolated node's QA-only entropy stream, but it is not
 a release gate and runs are not promised to be byte-for-byte identical: thread
@@ -380,6 +398,7 @@ scenario five times with distinct schedule seeds. Use `-ScenarioRepeats` or
 `-StartAtScenario` is a checkpoint continuation, not a stale-artifact shortcut:
 it rebuilds and installs the current game and QA sources once, skips the already
 completed QA/headless phases, and then starts at the requested real-game profile.
+It refuses to run without the failed run's explicit `-Seed <BaseSeed>`.
 The lower-level runner's explicit `-SkipGameBuild` is only for callers that have
 already built the exact current source tree themselves.
 

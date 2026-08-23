@@ -372,8 +372,8 @@ profile in `tools/qa/pom.xml`): `qa-fast` runs deterministic tests,
   `~/.m2` first:
 
   ```
-  mvn -f tools/reactor/pom.xml test -P qa-bots    # bot sims only
-  mvn -f tools/reactor/pom.xml test -P qa-release # fast + non-bot slow
+  mvn -f tools/reactor/pom.xml install -P qa-bots    # bot sims only
+  mvn -f tools/reactor/pom.xml install -P qa-release # fast + non-bot slow
   ```
 
 - **Standalone.** Publish the game jar once, then run the QA module against it

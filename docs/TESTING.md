@@ -31,33 +31,39 @@ be treated as a profile/classpath problem.
 
 ## Running the tests
 
-The easiest way is the **opt-in QA reactor** (`tools/reactor/pom.xml`). It builds the game and runs the tests against it in one reactor, so you don't have to `install` the game jar first or keep a version in sync:
+The easiest and most isolated entry point is `tools/qa/run-certification.ps1`,
+documented below. For direct Maven runs, use the **opt-in QA reactor**
+(`tools/reactor/pom.xml`) with the `install` lifecycle. The QA module consumes
+the packaged game JAR, so stopping the reactor at `test` is invalid: the game
+classes have been compiled but its JAR is not yet available to QA. `install`
+builds the game and tests the same checkout without any manual pre-install or
+version override:
 
 ```bash
 # Fast lane — the default. Game + all deterministic code tests (~1 min).
 # Bot-quality simulations are excluded by the slow tag.
-mvn -f tools/reactor/pom.xml test
+mvn -f tools/reactor/pom.xml install
 # Explicit equivalent for CI/NetBeans scripts:
-mvn -f tools/reactor/pom.xml test -P qa-fast
+mvn -f tools/reactor/pom.xml install -P qa-fast
 
 # Bot-quality lane only (statistical; does not replace fast game tests).
-mvn -f tools/reactor/pom.xml test -P qa-bots
+mvn -f tools/reactor/pom.xml install -P qa-bots
 
 # Heavy crypto lane only.
-mvn -f tools/reactor/pom.xml test -P qa-crypto
+mvn -f tools/reactor/pom.xml install -P qa-crypto
 
 # Slow real-socket integration lane only.
-mvn -f tools/reactor/pom.xml test -P qa-network
+mvn -f tools/reactor/pom.xml install -P qa-network
 
 # Aggregate non-bot slow lanes.
-mvn -f tools/reactor/pom.xml test -P qa-heavy
+mvn -f tools/reactor/pom.xml install -P qa-heavy
 
 # Everything except statistical bot quality: fast + non-bot slow lanes.
 # Run before a release; use -P qa-bots only when bot quality is explicitly in scope.
-mvn -f tools/reactor/pom.xml test -P qa-release
+mvn -f tools/reactor/pom.xml install -P qa-release
 
 # A single test class (the flag skips the test-less game module).
-mvn -f tools/reactor/pom.xml test -Dtest=PotMathTest -Dsurefire.failIfNoSpecifiedTests=false
+mvn -f tools/reactor/pom.xml install -Dtest=PotMathTest -Dsurefire.failIfNoSpecifiedTests=false
 ```
 
 GitHub Actions applies that same `qa-release` reactor gate to every push and

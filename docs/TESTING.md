@@ -183,13 +183,16 @@ overrides the selected mode:
 | Mode | Intended use | Headless hands/faults | Real-game matrix |
 |---|---|---:|---|
 | `quick` | Iteration preflight | 50 / 50 | Critical subset, one seed, 5-hand soak |
-| `balanced` | Default production gate | 500 / 500 | Every scenario once, 20-hand soak |
-| `stress` | Deep release/adversarial gate | 5,000 / 5,000 | Every race-sensitive scenario, including heads-up, with three seeds; 50-hand soak |
+| `balanced` | Default production gate | 500 / 500 | Every scenario twice, 20-hand soak |
+| `stress` | Deep release/adversarial gate | 5,000 / 5,000 | Every race-sensitive scenario, including heads-up, with five seeds; 50-hand soak |
 
 By default the console shows compact colored phase progress. Full Maven and JVM
 output is retained under `target/certification/<timestamp>/`; `summary.csv` and
 `summary.json` are machine-readable. Use `-VerboseOutput` only when live raw
-output is useful. All three scripts build/install the exact checkout into the
+output is useful. Long headless campaigns report validated cases per campaign
+at bounded intervals; real-game phases report completed hands. These are
+semantic counters, not JVM/CPU liveness indicators. All three scripts
+build/install the exact checkout into the
 ignored repository-local `.m2/repository`, preventing stale user-cache jars.
 After diagnosing a failed real-game phase, `-StartAtScenario <label>` continues
 from that stable scenario label. It skips QA/headless and is evidence to combine
@@ -232,7 +235,7 @@ Scenario contracts:
 | `reconnect-storm` | A freshly reconnected socket fails again, followed by another peer | Repeated ownership changes do not duplicate, lose or reorder game commands |
 | `dual-reconnect` | Two clients disconnect together during one hand | Both authenticate again and play continues with unanimous state |
 | `host-channel-flap` | Every client channel drops while the host process remains alive | All clients reconnect and the table completes subsequent play without divergence |
-| `reconnect-force-recover` | A client channel is cut after force-recovery starts | No ordinary reconnect loop is spawned; recovery and two fresh hands complete |
+| `reconnect-force-recover` | An ordinary client reconnect starts just before force-recovery | Either legitimate ordering converges; recovery and two fresh hands complete |
 | `transport-chaos` | Dual reconnect, immediate relapse, pause, force-recover and later reconnect | All transport/lifecycle transitions converge across five hands |
 | `lifecycle-chaos` | Reconnect, pause and two force-recovery cycles share one seven-hand table | Both recovered and fresh hands remain live, unanimous and money-conserving |
 | `dual-abrupt-exit` | Two client JVMs die together while another human remains | One MISDEAL, exact refund and recovery-ready survivors |
@@ -279,9 +282,15 @@ path: a 20-hand mixed-table soak, heads-up and ten-seat mixed/all-human games, h
 single-board and RIT all-ins, straddle, disconnects at every street boundary,
 simultaneous and repeated reconnects, transport/lifecycle chaos, concurrent and
 mixed departures, all-in proof loss, repeated recovery, client restart and
-dynamic recovery rosters. Balanced runs every scenario once; stress uses three
-distinct deterministic seeds for race-sensitive cases. Use `-EdgeRepeats` or
+dynamic recovery rosters. Balanced runs every scenario twice; stress runs every
+scenario five times with distinct schedule seeds. Use `-ScenarioRepeats` or
 `-SoakHands` for an explicit custom bar.
+
+`-StartAtScenario` is a checkpoint continuation, not a stale-artifact shortcut:
+it rebuilds and installs the current game and QA sources once, skips the already
+completed QA/headless phases, and then starts at the requested real-game profile.
+The lower-level runner's explicit `-SkipGameBuild` is only for callers that have
+already built the exact current source tree themselves.
 
 Coverage is layered rather than claimed from one harness:
 

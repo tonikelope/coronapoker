@@ -52,9 +52,12 @@ class ProtocolBotCampaignTest {
                 ? 0 : parseBoundedInt("qa.sim.bot.hand", replayText, 0, configuredHands - 1);
         int end = replayText == null || replayText.isBlank() ? configuredHands : first + 1;
         BotEvaluator evaluator = new AlbertaEvaluatorAdapter();
+        int requested = end - first;
 
+        CampaignProgress.report("production-bot", 0, requested);
         for (int hand = first; hand < end; hand++) {
             runOne(seed, hand, evaluator);
+            CampaignProgress.report("production-bot", hand - first + 1, requested);
         }
     }
 

@@ -8,6 +8,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.protocolsim.CampaignProgress;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -56,6 +57,7 @@ class ProtocolSqlActionReplayCampaignTest {
 
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite::memory:")) {
             createSchema(connection);
+            CampaignProgress.report("sql-action-replay", 0, cases);
             for (int caseNumber = 0; caseNumber < cases; caseNumber++) {
                 String context = "seed=" + seed + " sql_action_case=" + caseNumber;
                 Genesis genesis = genesis(random, caseNumber);
@@ -105,6 +107,7 @@ class ProtocolSqlActionReplayCampaignTest {
                             assertFalse(decoded.isOk(), context + " accepted corrupt SQL row");
                             assertArrayEquals(before, recovered.getCurrentHash(), context);
                             assertEquals(0, recovered.getAbsorbedActions(), context);
+                            CampaignProgress.report("sql-action-replay", caseNumber + 1, cases);
                             continue;
                         }
                         assertTrue(decoded.isOk(), context);
@@ -134,10 +137,11 @@ class ProtocolSqlActionReplayCampaignTest {
                         }
                         assertArrayEquals(live.getCurrentHash(), recovered.getCurrentHash(), context);
                         assertEquals(live.getAbsorbedActions(), recovered.getAbsorbedActions(), context);
+                        }
                     }
+                    CampaignProgress.report("sql-action-replay", caseNumber + 1, cases);
                 }
             }
-        }
     }
 
     private static void createSchema(Connection connection) throws Exception {

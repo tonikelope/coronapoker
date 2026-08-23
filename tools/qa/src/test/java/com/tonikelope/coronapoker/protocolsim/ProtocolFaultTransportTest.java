@@ -172,8 +172,10 @@ final class ProtocolFaultTransportTest {
             runFaultCase(seed, replayCase);
             return;
         }
+        CampaignProgress.report("fault-transport", 0, cases);
         for (int caseNumber = 0; caseNumber < cases; caseNumber++) {
             runFaultCase(seed, caseNumber);
+            CampaignProgress.report("fault-transport", caseNumber + 1, cases);
         }
     }
 

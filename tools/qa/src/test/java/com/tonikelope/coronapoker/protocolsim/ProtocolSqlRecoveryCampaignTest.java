@@ -8,6 +8,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.protocolsim.CampaignProgress;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -38,12 +39,15 @@ class ProtocolSqlRecoveryCampaignTest {
 
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite::memory:")) {
             createSchema(connection);
+            CampaignProgress.report("sql-recovery-load", 0, cases);
             for (int caseNumber = 0; caseNumber < cases; caseNumber++) {
                 insertCase(connection, random, caseNumber);
+                CampaignProgress.report("sql-recovery-load", caseNumber + 1, cases);
             }
 
             int rejectedOpenHandsWithoutCryptoId = 0;
             int acceptedClosedHandsWithoutCryptoId = 0;
+            CampaignProgress.report("sql-recovery-verify", 0, cases);
             try (PreparedStatement query = connection.prepareStatement(
                     Crupier.RECOVERY_GAME_KEY_DATA_SQL)) {
                 for (int caseNumber = 0; caseNumber < cases; caseNumber++) {
@@ -79,6 +83,7 @@ class ProtocolSqlRecoveryCampaignTest {
                                             (Integer) map.get("conta_mano"), open), context);
                         }
                     }
+                    CampaignProgress.report("sql-recovery-verify", caseNumber + 1, cases);
                 }
             }
             if (cases >= 18) {

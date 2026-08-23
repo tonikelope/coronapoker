@@ -1037,7 +1037,8 @@ public final class RealGameNodeMain {
 
     private static String latestLedgerSummary() {
         synchronized (GameFrame.SQL_LOCK) {
-            String sql = "SELECT h.id,h.end,h.pot,COUNT(b.id),COALESCE(SUM(b.stack),0) "
+            String sql = "SELECT h.id,h.end,h.pot,COUNT(b.id),COALESCE(SUM(b.stack),0),"
+                    + "COALESCE(SUM(b.buyin),0) "
                     + "FROM hand h LEFT JOIN balance b ON b.id_hand=h.id "
                     + "GROUP BY h.id ORDER BY h.id DESC LIMIT 1";
             try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
@@ -1049,7 +1050,8 @@ public final class RealGameNodeMain {
                         + " end=" + rs.getLong(2)
                         + " potCents=" + Math.round(rs.getDouble(3) * 100.0d)
                         + " balanceRows=" + rs.getInt(4)
-                        + " stackCents=" + Math.round(rs.getDouble(5) * 100.0d);
+                        + " stackCents=" + Math.round(rs.getDouble(5) * 100.0d)
+                        + " buyinCents=" + Math.round(rs.getDouble(6) * 100.0d);
             } catch (Exception ex) {
                 marker("FAIL", "ledger=" + ex.getClass().getName());
                 return "error=true";

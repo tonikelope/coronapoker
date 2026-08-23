@@ -359,7 +359,9 @@ confirmations. `-ProductionTiming`
 restores both normal pauses and real action clocks. Each peer gets a temporary isolated home,
 identity and SQLite database, removed after the run. A run is green only when
 all peers finish with matching consensus hashes and canonical balances and no
-fatal/error dialog. Host + clients + bots cannot exceed ten seats.
+fatal/error dialog. The final SQL ledger must also contain the expected seats
+and conserve money exactly: summed stacks must equal cumulative buy-ins,
+including every legitimate rebuy. Host + clients + bots cannot exceed ten seats.
 Without `-Seed`, every runner obtains a fresh positive 32-bit base seed from OS
 entropy, prints it before work starts and records the certifier's base seed in
 every `summary.csv` / `summary.json` phase row. This explores different schedules

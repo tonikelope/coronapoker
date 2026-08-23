@@ -261,7 +261,7 @@ final class RealGameLoopbackE2EIT {
                 runStraddleNetworkCutScenario(nodes, host);
             }
 
-            assertNormalSession(nodes, host, hands);
+            assertNormalSession(nodes, host, hands, clients + bots + 1);
             if (scenario.equals("raise-mix")) {
                 long raises = nodes.stream()
                         .mapToLong(node -> node.countContaining("CP_E2E_BET_ACTION_CLICKED"))
@@ -468,8 +468,7 @@ final class RealGameLoopbackE2EIT {
         assertTrue(host.awaitExpectedMisdeal("CP_E2E_LEDGER", Duration.ofSeconds(30)),
                 host.diagnostic());
         assertTrue(host.contains("potCents=0"), host.diagnostic());
-        assertTrue(host.contains("balanceRows=" + seats), host.diagnostic());
-        assertTrue(host.contains("stackCents=" + (seats * 1000L)), host.diagnostic());
+        assertFinalLedgerConservation(host, seats);
         assertTrue(host.isAlive(), "host died after peer MISDEAL\n" + host.diagnostic());
         assertFalse(host.contains("TABLE_FAILURE_V1"), host.diagnostic());
         assertFalse(host.contains("CP_E2E_FAIL"), host.diagnostic());
@@ -503,8 +502,7 @@ final class RealGameLoopbackE2EIT {
         assertTrue(host.await("CP_E2E_HANDS_COMPLETE", Duration.ofMinutes(3)), host.diagnostic());
         assertTrue(host.await("CP_E2E_LEDGER", Duration.ofSeconds(30)), host.diagnostic());
 
-        assertTrue(host.contains("balanceRows=" + seats), host.diagnostic());
-        assertTrue(host.contains("stackCents=" + (seats * 1000L)), host.diagnostic());
+        assertFinalLedgerConservation(host, seats);
         assertTrue(host.contains("verified: " + (nodes.size() - 1)
                 + " receipts unanimous"), host.diagnostic());
         assertTrue(host.isAlive(), "host died after controlled EXIT\n" + host.diagnostic());
@@ -779,7 +777,7 @@ final class RealGameLoopbackE2EIT {
     }
 
     private static void assertNormalSession(List<NodeProcess> nodes, NodeProcess host,
-            int hands) throws Exception {
+            int hands, int seats) throws Exception {
         for (NodeProcess node : nodes) {
             Duration completionTimeout = Duration.ofSeconds(Math.max(240L, hands * 60L));
             assertTrue(node.await("CP_E2E_HANDS_COMPLETE", completionTimeout), node.diagnostic());
@@ -811,6 +809,7 @@ final class RealGameLoopbackE2EIT {
             assertEquals(hostBalances, node.canonicalBalanceSnapshots(),
                     "balance divergence\n" + node.diagnostic());
         }
+        assertFinalLedgerConservation(host, seats);
     }
 
     private static void runAllInRitScenario(List<NodeProcess> nodes, NodeProcess host,
@@ -827,8 +826,7 @@ final class RealGameLoopbackE2EIT {
         assertTrue(host.contains("RUN-IT-TWICE vote result: true"), host.diagnostic());
         assertEquals(3, host.countContaining("Initiating SRA SIDE-B street unlock:"),
                 host.diagnostic());
-        assertTrue(host.contains("balanceRows=" + seats), host.diagnostic());
-        assertTrue(host.contains("stackCents=" + (seats * 1000L)), host.diagnostic());
+        assertFinalLedgerConservation(host, seats);
 
         List<String> hostConsensus = host.linesContaining(" verified: ");
         List<String> hostBalances = host.canonicalBalanceSnapshots();
@@ -872,9 +870,7 @@ final class RealGameLoopbackE2EIT {
                 allInPeer.diagnostic());
         awaitReconnectAfterDropRequested(allInPeer, host, "client1", 1);
         releaseActionGate(allInPeer, 1, Crupier.PREFLOP);
-        assertNormalSession(nodes, host, 1);
-        assertTrue(host.contains("balanceRows=" + seats), host.diagnostic());
-        assertTrue(host.contains("stackCents=" + (seats * 1000L)), host.diagnostic());
+        assertNormalSession(nodes, host, 1, seats);
         for (NodeProcess node : nodes) {
             assertFalse(node.contains("invalid atomic POTCARDS"), node.diagnostic());
             assertFalse(node.contains("missing mandatory"), node.diagnostic());
@@ -901,8 +897,7 @@ final class RealGameLoopbackE2EIT {
         // of racing the collector after observing only the first one.
         assertTrue(host.await("CP_E2E_LEDGER", Duration.ofSeconds(30)),
                 host.diagnostic());
-        assertTrue(host.contains("balanceRows=2"), host.diagnostic());
-        assertTrue(host.contains("stackCents=2000"), host.diagnostic());
+        assertFinalLedgerConservation(host, 2);
         assertTrue(host.contains("verified: 1 receipts unanimous"), host.diagnostic());
         assertTrue(host.isAlive(), "host died after all-in EXIT\n" + host.diagnostic());
         assertFalse(host.contains("MISDEAL triggered:"), host.diagnostic());
@@ -985,8 +980,7 @@ final class RealGameLoopbackE2EIT {
         }
         assertTrue(restarted.contains("SHUFFLE-VERIFY: deck verified OK (hand 2)"),
                 restarted.diagnostic());
-        assertTrue(host.contains("balanceRows=" + seats), host.diagnostic());
-        assertTrue(host.contains("stackCents=" + (seats * 1000L)), host.diagnostic());
+        assertFinalLedgerConservation(host, seats);
         assertEquals(host.linesContaining(" verified: "),
                 restarted.linesContaining(" verified: "),
                 "post-crash consensus divergence\n" + restarted.diagnostic());
@@ -1055,10 +1049,7 @@ final class RealGameLoopbackE2EIT {
             assertTrue(newcomer.contains("SHUFFLE-VERIFY: deck verified OK (hand 2)"),
                     newcomer.diagnostic());
         }
-        assertTrue(host.contains("balanceRows=" + (totalClients + bots + 1)),
-                host.diagnostic());
-        assertTrue(host.contains("stackCents=" + ((totalClients + bots + 1) * 1000L)),
-                host.diagnostic());
+        assertFinalLedgerConservation(host, totalClients + bots + 1);
         List<String> hostBalances = host.canonicalBalanceSnapshots();
         List<String> hostConsensus = host.linesContaining(" verified: ");
         assertFalse(hostConsensus.isEmpty(), host.diagnostic());
@@ -1139,10 +1130,7 @@ final class RealGameLoopbackE2EIT {
                 + host.diagnostic());
         assertTrue(newcomer.contains("SHUFFLE-VERIFY: deck verified OK (hand 2)"),
                 newcomer.diagnostic());
-        assertTrue(host.contains("balanceRows=" + (clients + bots + 2)),
-                host.diagnostic());
-        assertTrue(host.contains("stackCents=" + ((clients + bots + 2) * 1000L)),
-                host.diagnostic());
+        assertFinalLedgerConservation(host, clients + bots + 2);
         List<String> hostBalances = host.canonicalBalanceSnapshots();
         List<String> hostConsensus = host.linesContaining(" verified: ");
         assertFalse(hostConsensus.isEmpty(), host.diagnostic());
@@ -1208,8 +1196,7 @@ final class RealGameLoopbackE2EIT {
                     + node.diagnostic());
         }
 
-        assertTrue(host.contains("balanceRows=" + seats), host.diagnostic());
-        assertTrue(host.contains("stackCents=" + (seats * 1000L)), host.diagnostic());
+        assertFinalLedgerConservation(host, seats);
         assertTrue(host.isAlive(), "host died after force-recover\n" + host.diagnostic());
         for (NodeProcess client : nodes.subList(1, nodes.size())) {
             for (int hand : freshHands) {
@@ -1235,6 +1222,34 @@ final class RealGameLoopbackE2EIT {
                     "dynamic recovery newcomer requires a post-recovery hand");
         }
         return globalTargetHands - 1;
+    }
+
+    private static void assertFinalLedgerConservation(NodeProcess node,
+            int expectedBalanceRows) throws Exception {
+        assertTrue(node.await("CP_E2E_LEDGER", Duration.ofSeconds(30)), node.diagnostic());
+        String ledger = node.lastLineContaining("CP_E2E_LEDGER");
+        assertEquals(expectedBalanceRows, ledgerMetric(ledger, "balanceRows"),
+                node.diagnostic());
+        assertEquals(0L, ledgerCapitalDeltaCents(ledger),
+                "final stacks must equal cumulative buy-ins\n" + node.diagnostic());
+    }
+
+    static long ledgerCapitalDeltaCents(String ledger) {
+        return ledgerMetric(ledger, "stackCents")
+                - ledgerMetric(ledger, "buyinCents");
+    }
+
+    static long ledgerMetric(String ledger, String metric) {
+        if (ledger == null || metric == null || metric.isBlank()) {
+            throw new IllegalArgumentException("ledger metric is missing");
+        }
+        String prefix = metric + "=";
+        for (String field : ledger.split("\\s+")) {
+            if (field.startsWith(prefix)) {
+                return Long.parseLong(field.substring(prefix.length()));
+            }
+        }
+        throw new IllegalArgumentException("missing ledger metric: " + metric);
     }
 
     static long expectedMisdealDialogAllowance(long previousAllowance,
@@ -1418,6 +1433,17 @@ final class RealGameLoopbackE2EIT {
         private boolean contains(String text) {
             synchronized (output) {
                 return output.stream().anyMatch(line -> line.contains(text));
+            }
+        }
+
+        private String lastLineContaining(String text) {
+            synchronized (output) {
+                for (int i = output.size() - 1; i >= 0; i--) {
+                    if (output.get(i).contains(text)) {
+                        return output.get(i);
+                    }
+                }
+                return null;
             }
         }
 

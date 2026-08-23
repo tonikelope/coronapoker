@@ -2519,12 +2519,20 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     private void utgIconZoom() {
 
-        ImageIcon icon = new ImageIcon(IMAGEN_UTG.getImage().getScaledInstance((int) Math.round(player_name.getHeight() * (480f / 360f)), player_name.getHeight(), Image.SCALE_SMOOTH));
+        int iconHeight = Helpers.resolveScaledIconSize(
+                player_name.getHeight(), player_name.getPreferredSize().height,
+                player_name.getMinimumSize().height, 1f);
+        if (iconHeight <= 0) {
+            return;
+        }
+        int iconWidth = Math.max(1, Math.round(iconHeight * (480f / 360f)));
+        ImageIcon icon = new ImageIcon(IMAGEN_UTG.getImage().getScaledInstance(
+                iconWidth, iconHeight, Image.SCALE_SMOOTH));
 
         Helpers.GUIRun(() -> {
             utg_icon.setIcon(icon);
 
-            utg_icon.setPreferredSize(new Dimension((int) Math.round(player_name.getHeight() * (480f / 360f)), player_name.getHeight()));
+            utg_icon.setPreferredSize(new Dimension(iconWidth, iconHeight));
 
             utg_icon.setVisible(utg);
         });
@@ -4449,7 +4457,19 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
 
             Helpers.GUIRun(() -> {
-                player_action.setIcon(icon != null ? new ImageIcon(new ImageIcon(getClass().getResource("/images/" + icon)).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)) : null);
+                if (icon == null) {
+                    player_action.setIcon(null);
+                } else {
+                    int iconSize = Helpers.resolveScaledIconSize(
+                            player_action.getHeight(),
+                            player_action.getPreferredSize().height,
+                            player_action.getMinimumSize().height, 0.7f);
+                    if (iconSize > 0) {
+                        player_action.setIcon(new ImageIcon(new ImageIcon(
+                                getClass().getResource("/images/" + icon)).getImage()
+                                .getScaledInstance(iconSize, iconSize, Image.SCALE_SMOOTH)));
+                    }
+                }
 
                 // setWinner/setLoser fit the text before installing their icon. Refit
                 // after the icon changes so its width is included in the measurement.

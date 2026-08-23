@@ -1192,6 +1192,16 @@ public class Helpers {
         });
     }
 
+    static int resolveScaledIconSize(int actualHeight, int preferredHeight,
+            int minimumHeight, float scale) {
+        int baseHeight = actualHeight > 0 ? actualHeight
+                : preferredHeight > 0 ? preferredHeight : minimumHeight;
+        if (baseHeight <= 0 || !(scale > 0f) || !Float.isFinite(scale)) {
+            return 0;
+        }
+        return Math.max(1, Math.round(baseHeight * scale));
+    }
+
     public static ImageIcon scaleIcon(String path, int width, int height) throws MalformedURLException {
 
         return new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(new File(path).toURL()) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));

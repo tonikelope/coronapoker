@@ -5642,7 +5642,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.threadRun(() -> {
             try {
                 // Clients need to be told whether the game ended or must recover.
-                crupier.broadcastGAMECommandFromServer(getCrupier().isForce_recover() ? "SERVEREXITRECOVER" + (WaitingRoomFrame.getInstance().getPassword() != null ? "#" + Base64.getEncoder().encodeToString(WaitingRoomFrame.getInstance().getPassword().getBytes("UTF-8")) : "") : "SERVEREXIT", null, false);
+                crupier.broadcastTerminationFromServer(getCrupier().isForce_recover()
+                        ? "SERVEREXITRECOVER" + (WaitingRoomFrame.getInstance().getPassword() != null
+                                ? "#" + Base64.getEncoder().encodeToString(
+                                        WaitingRoomFrame.getInstance().getPassword().getBytes("UTF-8"))
+                                : "")
+                        : "SERVEREXIT");
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
             }

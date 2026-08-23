@@ -125,14 +125,15 @@ final class RealGameScenarioContractTest {
                 "unable to parse every certification profile topology");
 
         Matcher topologyRows = Pattern.compile(
-                "(?m)^\\| `([^`]+)` \\| ([^|]+) \\| ([^|]+) \\| ([^|]+) \\|")
+                "(?m)^\\| `([^`]+)` \\| ([^|]+) \\| ([^|]+) \\| ([^|]+) \\| ([^|]+) \\|")
                 .matcher(testingManual.substring(matrixStart, matrixEnd));
         Map<String, List<String>> documentedTopologies = new HashMap<>();
         while (topologyRows.find()) {
             documentedTopologies.put(topologyRows.group(1), List.of(
                     topologyRows.group(2).trim(),
                     topologyRows.group(3).trim(),
-                    topologyRows.group(4).trim()));
+                    topologyRows.group(4).trim(),
+                    topologyRows.group(5).trim()));
         }
         for (Map.Entry<String, CertificationProfile> entry : profiles.entrySet()) {
             List<String> actual = documentedTopologies.get(entry.getKey());
@@ -140,9 +141,11 @@ final class RealGameScenarioContractTest {
             assertEquals(expectedTopology(entry.getValue(), "quick",
                     quickProfiles.contains(entry.getKey())), actual.get(0),
                     "quick topology diverged for " + entry.getKey());
-            assertEquals(expectedTopology(entry.getValue(), "balanced", true), actual.get(1),
+            assertEquals(expectedTopology(entry.getValue(), "fast", true), actual.get(1),
+                    "fast topology diverged for " + entry.getKey());
+            assertEquals(expectedTopology(entry.getValue(), "balanced", true), actual.get(2),
                     "balanced topology diverged for " + entry.getKey());
-            assertEquals(expectedTopology(entry.getValue(), "stress", true), actual.get(2),
+            assertEquals(expectedTopology(entry.getValue(), "stress", true), actual.get(3),
                     "stress topology diverged for " + entry.getKey());
         }
     }
@@ -155,13 +158,15 @@ final class RealGameScenarioContractTest {
         int hands = switch (profile.handsExpression()) {
             case "$SoakHands" -> switch (mode) {
                 case "quick" -> 5;
+                case "fast" -> 5;
                 case "balanced" -> 20;
                 case "stress" -> 50;
                 default -> throw new IllegalArgumentException(mode);
             };
-            case "$headsUpHands" -> mode.equals("quick") ? 5 : 20;
+            case "$headsUpHands" -> Set.of("quick", "fast").contains(mode) ? 5 : 20;
             case "$fullMixedHands" -> switch (mode) {
                 case "quick" -> 1;
+                case "fast" -> 1;
                 case "balanced" -> 3;
                 case "stress" -> 10;
                 default -> throw new IllegalArgumentException(mode);

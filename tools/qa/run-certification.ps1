@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('quick', 'balanced', 'stress')]
+    [ValidateSet('quick', 'fast', 'balanced', 'stress')]
     [string]$Mode = 'balanced',
 
     [ValidateRange(1, 100000)]
@@ -34,6 +34,9 @@ param(
 
     [string]$StartAtScenario,
 
+    [ValidateRange(1, 10)]
+    [int]$StartAtRepeat = 1,
+
     [switch]$VerboseOutput,
 
     [switch]$Help
@@ -48,14 +51,15 @@ CoronaPoker complete local certification
 Usage:
   .\tools\qa\certify.cmd [options]
 
-Default mode is balanced: the recommended production gate with every scenario
-twice and bounded campaign sizes. Phases are fail-fast and sequential:
+Default mode is balanced: every scenario twice with bounded campaign sizes.
+For a deep release gate, run fast first and stress only after it passes. Phases
+are fail-fast and sequential:
   1. qa-release: fast tests plus every non-bot slow lane
   2. Seeded headless protocol/fault campaigns
   3. Every real-game loopback scenario in separate production JVMs
 
 Options:
-  -Mode <mode>             quick, balanced or stress (default: balanced)
+  -Mode <mode>             quick, fast, balanced or stress (default: balanced)
   -Hands <1..100000>       Override headless protocol campaign hands
   -Faults <1..100000>      Override headless critical-stream fault cases
   -BotHands <1..1000000>   Override headless production-bot hands
@@ -70,19 +74,23 @@ Options:
   -StartAtScenario <label> Continue at a real-game label after a diagnosed failure;
                            requires the original -Seed, skips QA/headless and is
                            not a standalone certificate
+  -StartAtRepeat <1..10>   With -StartAtScenario, continue at its exact repetition
+                           (default: 1; use the original mode/overrides)
   -VerboseOutput           Stream raw Maven/game logs to the console as well as files
   -Help                    Show this help and exit
 
 Examples:
   .\tools\qa\certify.cmd
   .\tools\qa\certify.cmd -Mode quick
+  .\tools\qa\certify.cmd -Mode fast
   .\tools\qa\certify.cmd -Mode stress -Seed 42
   .\tools\qa\certify.cmd -Hands 750 -Faults 750 -ScenarioRepeats 3
   .\tools\qa\certify.cmd -IncludeBotQuality
-  .\tools\qa\certify.cmd -StartAtScenario reconnect-every-street -Seed 42
+  .\tools\qa\certify.cmd -Mode stress -StartAtScenario reconnect-every-street -StartAtRepeat 3 -Seed 42
 
 Mode defaults (explicit numeric options always win):
   quick     50 hands/faults, 20 bot hands, 5-hand soak, critical subset once
+  fast      50 hands/faults, 20 bot hands, 5-hand soak, every scenario once
   balanced  500 hands/faults, 100 bot hands, 20-hand soak, every scenario x2
   stress    5000 hands/faults, 500 bot hands, 50-hand soak, every scenario x5
 
@@ -90,9 +98,10 @@ Compact progress is printed by default. Full phase logs plus summary.csv and
 summary.json are written under target\certification\<timestamp>. The command
 exits non-zero at the first failed phase and prints the log tail/path. An
 omitted seed is generated before work starts; both summaries retain BaseSeed.
-After fixing a replayed failure, certify from the beginning without -Seed so
-the release also passes a new schedule. First rerun the affected scenario with
-a fresh seed; restart the full gate whenever shared code may be affected.
+After a failure, replay it with the same seed, then rerun the affected scenario
+with a fresh seed and resume from its exact checkpoint. The final tree must pass
+fast completely. Restart stress only if shared game/protocol or common harness
+semantics may invalidate phases that already passed.
 '@ | Write-Host
     exit 0
 }
@@ -101,12 +110,16 @@ a fresh seed; restart the full gate whenever shared code may be affected.
 if ($StartAtScenario -and (-not $PSBoundParameters.ContainsKey('Seed'))) {
     throw '-StartAtScenario requires the BaseSeed reported by the original run.'
 }
+if ($PSBoundParameters.ContainsKey('StartAtRepeat') -and (-not $StartAtScenario)) {
+    throw '-StartAtRepeat requires -StartAtScenario.'
+}
 if (-not $PSBoundParameters.ContainsKey('Seed')) {
     $Seed = New-CoronaPokerQaSeed
 }
 
 $modeDefaults = @{
     quick = @{ Hands = 50; Faults = 50; BotHands = 20; SoakHands = 5; ScenarioRepeats = 1 }
+    fast = @{ Hands = 50; Faults = 50; BotHands = 20; SoakHands = 5; ScenarioRepeats = 1 }
     balanced = @{ Hands = 500; Faults = 500; BotHands = 100; SoakHands = 20; ScenarioRepeats = 2 }
     stress = @{ Hands = 5000; Faults = 5000; BotHands = 500; SoakHands = 50; ScenarioRepeats = 5 }
 }[$Mode]
@@ -248,6 +261,11 @@ function Invoke-CertificationPhase {
                 Log = $logPath
                 Mode = $script:Mode
                 BaseSeed = $script:Seed
+                Hands = $script:Hands
+                Faults = $script:Faults
+                BotHands = $script:BotHands
+                SoakHands = $script:SoakHands
+                ScenarioRepeats = $script:ScenarioRepeats
             })
         Write-Host ("[{0}] FAIL {1} ({2:n1}s, exit {3})" -f $script:phaseNumber, $Name,
                 $timer.Elapsed.TotalSeconds, $exitCode) -ForegroundColor Red
@@ -264,6 +282,11 @@ function Invoke-CertificationPhase {
             Log = $logPath
             Mode = $script:Mode
             BaseSeed = $script:Seed
+            Hands = $script:Hands
+            Faults = $script:Faults
+            BotHands = $script:BotHands
+            SoakHands = $script:SoakHands
+            ScenarioRepeats = $script:ScenarioRepeats
         })
     Write-Host ("[{0}] PASS {1} ({2:n1}s)" -f $script:phaseNumber, $Name,
             $timer.Elapsed.TotalSeconds) -ForegroundColor Green
@@ -312,17 +335,17 @@ try {
                 '-SkipGameBuild'
             )
     } else {
-        Write-Host ("Continuation mode: rebuilding current sources, skipping QA/headless; starting at {0}" -f `
-                $StartAtScenario) -ForegroundColor Yellow
+        Write-Host ("Continuation mode: rebuilding current sources, skipping QA/headless; starting at {0} repeat {1}" -f `
+                $StartAtScenario, $StartAtRepeat) -ForegroundColor Yellow
         Invoke-CertificationPhase `
             -Name 'Current-source build for continuation' `
             -Command $maven `
             -Arguments ($commonMavenArgs + @('-DskipTests'))
     }
 
-    $fullMixedHands = if ($Mode -eq 'stress') { 10 } elseif ($Mode -eq 'quick') { 1 } else { 3 }
+    $fullMixedHands = if ($Mode -eq 'stress') { 10 } elseif ($Mode -in @('quick', 'fast')) { 1 } else { 3 }
     $fullHumanHands = if ($Mode -eq 'stress') { 3 } else { 1 }
-    $headsUpHands = if ($Mode -eq 'quick') { 5 } else { 20 }
+    $headsUpHands = if ($Mode -in @('quick', 'fast')) { 5 } else { 20 }
     $scenarioProfiles = @(
         @{ Label = 'normal-soak'; Name = 'normal'; Clients = 2; Bots = 2; Hands = $SoakHands },
         @{ Label = 'normal-heads-up'; Name = 'normal'; Clients = 1; Bots = 0; Hands = $headsUpHands },
@@ -393,9 +416,11 @@ try {
 
     $firstScenarioIndex = 0
     if ($StartAtScenario) {
-        $matchingScenario = @($scenarios | Where-Object { $_.Label -eq $StartAtScenario })
+        $matchingScenario = @($scenarios | Where-Object {
+                $_.Label -eq $StartAtScenario -and $_.Repeat -eq $StartAtRepeat
+            })
         if ($matchingScenario.Count -eq 0) {
-            throw "Unknown or unavailable StartAtScenario label: $StartAtScenario"
+            throw "Unknown or unavailable continuation point: $StartAtScenario repeat $StartAtRepeat"
         }
         $firstScenarioIndex = $scenarios.IndexOf($matchingScenario[0])
     }
@@ -422,7 +447,7 @@ try {
         }
 
         Invoke-CertificationPhase `
-            -Name "Real game: $($scenario.Label) seed $scenarioSeed" `
+            -Name "Real game: $($scenario.Label) repeat $($scenario.Repeat)/$ScenarioRepeats seed $scenarioSeed" `
             -Command 'powershell.exe' `
             -Arguments $scenarioArgs
     }

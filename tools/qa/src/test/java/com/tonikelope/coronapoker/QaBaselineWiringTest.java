@@ -140,6 +140,12 @@ class QaBaselineWiringTest {
                 "machine-readable certification summaries must persist the replay seed");
         assertTrue(certification.contains("-StartAtScenario requires the BaseSeed"),
                 "continuation must not silently switch to a fresh schedule seed");
+        assertTrue(certification.contains("'quick', 'fast', 'balanced', 'stress'"),
+                "certifier must expose the full-matrix fast preflight explicitly");
+        assertTrue(certification.contains("-StartAtRepeat requires -StartAtScenario"),
+                "an exact-repeat checkpoint must not be accepted without a scenario");
+        assertTrue(certification.contains("ScenarioRepeats = $script:ScenarioRepeats"),
+                "summaries must persist the schedule needed to resume exactly");
         assertTrue(certification.contains("\"-Dqa.sim.seed=$Seed\""),
                 "the release suite must share the certification's fresh base seed");
 

@@ -17,11 +17,14 @@ repository root and run:
 ```powershell
 .\tools\qa\certify.cmd -Help
 .\tools\qa\certify.cmd -Mode quick
-.\tools\qa\certify.cmd
+.\tools\qa\certify.cmd -Mode fast
+.\tools\qa\certify.cmd -Mode stress
 ```
 
-The first command is the current executable reference. `quick` is iteration
-feedback; the unmodified third command is the `balanced` production gate. A
+The first command is the current executable reference. `quick` is a critical
+iteration subset; `fast` traverses every real-game scenario once with short
+campaigns; `stress` is the deep release gate after `fast` passes. `balanced`
+remains the default single-command gate when a stress run is not planned. A
 valid certificate ends with `CORONAPOKER CERTIFICATION PASS`, exits with code
 zero and writes `summary.csv`, `summary.json` and full phase logs under the
 printed `target/certification/<timestamp>` directory. Do not infer success from
@@ -31,11 +34,12 @@ is also stored in both summaries. Replay a failure with the reported
 `-Seed <value>`; do not replace the failing seed until the defect is fixed.
 Fresh entropy varies both harness schedules and the production-code paths they
 exercise, so it can expose defects on either side of that boundary.
-After that replay is green, rerun the affected scenario with a fresh seed. If
-the fix touches shared code or can affect other phases, restart the complete
-certification with another fresh seed. A release certificate always comes from
-a complete run from the beginning without `-Seed`; continuation evidence alone
-cannot certify a release.
+After that replay is green, rerun the affected scenario with a fresh seed. A
+narrow fix then resumes at the failed scenario/repetition and the final code
+must pass the complete `fast` matrix again. Restart `stress` only when the fix
+touches shared protocol/game paths, common harness semantics, entropy/scheduling
+or another surface capable of invalidating earlier phases. Continuation evidence
+alone never certifies a release.
 Bot statistical quality is deliberately absent unless explicitly requested
 with `-IncludeBotQuality` after bot AI/evaluation changes.
 
@@ -134,12 +138,13 @@ current options:
 Typical runs:
 
 ```powershell
-# Recommended production gate: every deterministic/non-bot lane, bounded mass
+# Default single-command gate: every deterministic/non-bot lane, bounded mass
 # campaigns and every real-game scenario twice.
 .\tools\qa\certify.cmd
 
-# Short preflight while iterating, or the deep release stress gate.
+# Critical iteration subset, full-matrix fast preflight, or deep release gate.
 .\tools\qa\certify.cmd -Mode quick
+.\tools\qa\certify.cmd -Mode fast
 .\tools\qa\certify.cmd -Mode stress
 
 # Fast reproducible protocol campaign.
@@ -228,57 +233,59 @@ overrides the selected mode:
 | Mode | Intended use | Headless hands/faults | Real-game matrix |
 |---|---|---:|---|
 | `quick` | Iteration preflight | 50 / 50 | Critical subset, one seed, 5-hand soak |
-| `balanced` | Default production gate | 500 / 500 | Every scenario twice, 20-hand soak |
+| `fast` | Full-matrix preflight before stress | 50 / 50 | Every scenario once, 5-hand soak |
+| `balanced` | Standalone production gate when stress is not planned | 500 / 500 | Every scenario twice, 20-hand soak |
 | `stress` | Deep release/adversarial gate | 5,000 / 5,000 | Every race-sensitive scenario, including heads-up, with five seeds; 50-hand soak |
 
 The default certification matrix below is not selected heuristically at run
 time. It is a versioned contract in `tools/qa/run-certification.ps1`. `C/B/H`
 means client JVMs, host-owned production bots and complete hands. The host is an
 additional human seat, so `9/0/1` exercises the ten-seat limit. A dash means the
-profile is intentionally absent from `quick`; `balanced` and `stress` include
-every row. Counts are the minimum complete sequence that exposes the stated
+profile is intentionally absent from `quick`; `fast`, `balanced` and `stress`
+include every row. Counts are the minimum complete sequence that exposes the stated
 transition, plus a following hand whenever liveness after that transition is
 part of the oracle.
 
-| Certification profile | `quick` C/B/H | `balanced` C/B/H | `stress` C/B/H | Why this topology and length |
-|---|---:|---:|---:|---|
-| `normal-soak` | 2/2/5 | 2/2/20 | 2/2/50 | Mixed-table sustained play and repeated settlement |
-| `normal-heads-up` | 1/0/5 | 1/0/20 | 1/0/20 | Heads-up blind/order boundary over repeated hands |
-| `normal-full-mixed` | 4/5/1 | 4/5/3 | 4/5/10 | Ten-seat mixed human/bot limit |
-| `normal-full-human` | - | 9/0/1 | 9/0/3 | Ten real Crupiers/sockets with no bot shortcut |
-| `raise-mix` | - | 2/2/10 | 2/2/10 | Multiple signed raise/fold/call opportunities |
-| `allin-single-board` | 1/0/1 | 1/0/1 | 1/0/1 | Exact heads-up single-board proof path |
-| `allin-rebuy` | 1/0/5 | 1/0/5 | 1/0/5 | Enough forced all-ins to require a later rebuy without tie flakiness |
-| `allin-rit` | 1/0/1 | 1/0/1 | 1/0/1 | All voters are deterministic humans; elimination makes later hands invalid |
-| `allin-controlled-exit` | - | 1/0/1 | 1/0/1 | Exact two-human EXIT testament/showdown path |
-| `straddle-post` | - | 2/0/3 | 2/0/3 | Three humans rotate UTG and post signed straddles |
-| `pause-resume` | - | 2/1/2 | 2/1/2 | Paused hand plus a fresh liveness hand |
-| `reconnect-midhand` | - | 2/1/2 | 2/1/2 | Reconnected hand plus a fresh liveness hand |
-| `reconnect-twice` | - | 2/1/3 | 2/1/3 | Two distinct clients fail in consecutive hands, then one clean hand |
-| `reconnect-storm` | - | 2/1/4 | 2/1/4 | Repeated same-channel failure, second peer failure and clean continuation |
-| `dual-reconnect` | - | 3/1/3 | 3/1/3 | Two simultaneous reconnects with an unaffected human witness and continuation |
-| `host-channel-flap` | 3/1/2 | 3/1/2 | 3/1/2 | Every remote channel fails while host and a later hand remain live |
-| `reconnect-every-street` | - | 2/1/4 | 2/1/4 | One reconnect at preflop, flop, turn and river |
-| `allin-reconnect` | - | 2/0/1 | 2/0/1 | All-in peer and independent human witness, no bot proof substitution |
-| `rit-network-cut` | - | 2/0/1 | 2/0/1 | Voter, witness and host complete one exact two-board hand |
-| `straddle-network-cut` | - | 2/0/3 | 2/0/3 | Signed post, reconnect/deferred delivery and later clean hand |
-| `reconnect-force-recover` | 2/1/3 | 2/1/3 | 2/1/3 | Overlap, recovered hand and two fresh convergence hands |
-| `transport-chaos` | - | 3/1/5 | 3/1/5 | Dual cut, relapse, pause, recovery and post-recovery reconnect |
-| `lifecycle-chaos` | - | 2/1/7 | 2/1/7 | Two recoveries plus intervening/following fresh hands |
-| `abrupt-exit-survivor` | - | 2/1/1 | 2/1/1 | Dead client plus surviving human witness and bot |
-| `controlled-exit-survivor` | - | 2/1/1 | 2/1/1 | Testament sender plus surviving human witness and bot |
-| `dual-abrupt-exit` | - | 3/1/1 | 3/1/1 | Two dead clients and one independent surviving human witness |
-| `mixed-exit-crash` | 3/1/1 | 3/1/1 | 3/1/1 | Clean leaver, crashed peer and independent surviving witness |
-| `allin-abrupt-exit` | - | 2/0/1 | 2/0/1 | Missing all-in proof with independent witness and no bot substitution |
-| `force-recover` | 1/2/2 | 1/2/2 | 1/2/2 | Recovered hand followed by a newly dealt hand |
-| `double-force-recover` | - | 1/2/4 | 1/2/4 | Recover hands 1/3 and settle fresh hands 2/4 |
-| `crash-rejoin-recover` | 1/2/2 | 1/2/2 | 1/2/2 | Relaunched identity rejoins recovery and then completes a new hand |
-| `force-recover-add-client` | - | 2/2/2 | 2/2/2 | One new observer joins recovery and plays the fresh hand |
-| `force-recover-add-two` | - | 3/1/2 | 3/1/2 | Two new observers join together and play the fresh hand |
-| `force-recover-swap-client` | - | 2/1/2 | 2/1/2 | One original disappears, replacement observes recovery and plays next |
+| Certification profile | `quick` C/B/H | `fast` C/B/H | `balanced` C/B/H | `stress` C/B/H | Why this topology and length |
+|---|---:|---:|---:|---:|---|
+| `normal-soak` | 2/2/5 | 2/2/5 | 2/2/20 | 2/2/50 | Mixed-table sustained play and repeated settlement |
+| `normal-heads-up` | 1/0/5 | 1/0/5 | 1/0/20 | 1/0/20 | Heads-up blind/order boundary over repeated hands |
+| `normal-full-mixed` | 4/5/1 | 4/5/1 | 4/5/3 | 4/5/10 | Ten-seat mixed human/bot limit |
+| `normal-full-human` | - | 9/0/1 | 9/0/1 | 9/0/3 | Ten real Crupiers/sockets with no bot shortcut |
+| `raise-mix` | - | 2/2/10 | 2/2/10 | 2/2/10 | Multiple signed raise/fold/call opportunities |
+| `allin-single-board` | 1/0/1 | 1/0/1 | 1/0/1 | 1/0/1 | Exact heads-up single-board proof path |
+| `allin-rebuy` | 1/0/5 | 1/0/5 | 1/0/5 | 1/0/5 | Enough forced all-ins to require a later rebuy without tie flakiness |
+| `allin-rit` | 1/0/1 | 1/0/1 | 1/0/1 | 1/0/1 | All voters are deterministic humans; elimination makes later hands invalid |
+| `allin-controlled-exit` | - | 1/0/1 | 1/0/1 | 1/0/1 | Exact two-human EXIT testament/showdown path |
+| `straddle-post` | - | 2/0/3 | 2/0/3 | 2/0/3 | Three humans rotate UTG and post signed straddles |
+| `pause-resume` | - | 2/1/2 | 2/1/2 | 2/1/2 | Paused hand plus a fresh liveness hand |
+| `reconnect-midhand` | - | 2/1/2 | 2/1/2 | 2/1/2 | Reconnected hand plus a fresh liveness hand |
+| `reconnect-twice` | - | 2/1/3 | 2/1/3 | 2/1/3 | Two distinct clients fail in consecutive hands, then one clean hand |
+| `reconnect-storm` | - | 2/1/4 | 2/1/4 | 2/1/4 | Repeated same-channel failure, second peer failure and clean continuation |
+| `dual-reconnect` | - | 3/1/3 | 3/1/3 | 3/1/3 | Two simultaneous reconnects with an unaffected human witness and continuation |
+| `host-channel-flap` | 3/1/2 | 3/1/2 | 3/1/2 | 3/1/2 | Every remote channel fails while host and a later hand remain live |
+| `reconnect-every-street` | - | 2/1/4 | 2/1/4 | 2/1/4 | One reconnect at preflop, flop, turn and river |
+| `allin-reconnect` | - | 2/0/1 | 2/0/1 | 2/0/1 | All-in peer and independent human witness, no bot proof substitution |
+| `rit-network-cut` | - | 2/0/1 | 2/0/1 | 2/0/1 | Voter, witness and host complete one exact two-board hand |
+| `straddle-network-cut` | - | 2/0/3 | 2/0/3 | 2/0/3 | Signed post, reconnect/deferred delivery and later clean hand |
+| `reconnect-force-recover` | 2/1/3 | 2/1/3 | 2/1/3 | 2/1/3 | Overlap, recovered hand and two fresh convergence hands |
+| `transport-chaos` | - | 3/1/5 | 3/1/5 | 3/1/5 | Dual cut, relapse, pause, recovery and post-recovery reconnect |
+| `lifecycle-chaos` | - | 2/1/7 | 2/1/7 | 2/1/7 | Two recoveries plus intervening/following fresh hands |
+| `abrupt-exit-survivor` | - | 2/1/1 | 2/1/1 | 2/1/1 | Dead client plus surviving human witness and bot |
+| `controlled-exit-survivor` | - | 2/1/1 | 2/1/1 | 2/1/1 | Testament sender plus surviving human witness and bot |
+| `dual-abrupt-exit` | - | 3/1/1 | 3/1/1 | 3/1/1 | Two dead clients and one independent surviving human witness |
+| `mixed-exit-crash` | 3/1/1 | 3/1/1 | 3/1/1 | 3/1/1 | Clean leaver, crashed peer and independent surviving witness |
+| `allin-abrupt-exit` | - | 2/0/1 | 2/0/1 | 2/0/1 | Missing all-in proof with independent witness and no bot substitution |
+| `force-recover` | 1/2/2 | 1/2/2 | 1/2/2 | 1/2/2 | Recovered hand followed by a newly dealt hand |
+| `double-force-recover` | - | 1/2/4 | 1/2/4 | 1/2/4 | Recover hands 1/3 and settle fresh hands 2/4 |
+| `crash-rejoin-recover` | 1/2/2 | 1/2/2 | 1/2/2 | 1/2/2 | Relaunched identity rejoins recovery and then completes a new hand |
+| `force-recover-add-client` | - | 2/2/2 | 2/2/2 | 2/2/2 | One new observer joins recovery and plays the fresh hand |
+| `force-recover-add-two` | - | 3/1/2 | 3/1/2 | 3/1/2 | Two new observers join together and play the fresh hand |
+| `force-recover-swap-client` | - | 2/1/2 | 2/1/2 | 2/1/2 | One original disappears, replacement observes recovery and plays next |
 
-Each row runs once in `quick`, twice with distinct seeds in `balanced`, or five
-times with distinct seeds in `stress`, subject to the dash exclusions above.
+Each row runs once in `fast`, twice in `balanced` and five times in `stress`.
+Rows included in `quick` also run once there. Repetitions always use distinct
+derived seeds and only `quick` is subject to the dash exclusions above.
 `-ScenarioRepeats`, `-SoakHands`, `-Hands`, `-Faults` and `-BotHands` are explicit
 operator overrides printed in the report header; using them produces useful
 evidence but is not the unmodified default profile named in the table.
@@ -295,12 +302,24 @@ The certifier deliberately uses Maven `install` once because its later focused
 runners use `-SkipGameBuild` and must resolve that exact just-built game JAR
 from the checkout-local repository. A one-shot direct reactor command has no
 later consumer and therefore uses the documented `verify` lifecycle instead.
-After diagnosing a failed real-game phase, `-StartAtScenario <label>` continues
-from that stable scenario label. It requires `-Seed <BaseSeed>` from the failed
-summary so every derived scenario seed remains identical. It skips QA/headless
-and is evidence to combine with the preceding checkpoint, not a standalone
-release certificate; the final release gate must still run normally from the
-beginning.
+After diagnosing a failed real-game phase, `-StartAtScenario <label>` together
+with `-StartAtRepeat <n>` continues from that exact checkpoint. It requires
+`-Seed <BaseSeed>` and the same `-Mode` and explicit numeric overrides as the
+failed run, so every derived scenario seed remains identical. Summaries persist
+all of those values. The continuation skips QA/headless and is evidence to
+combine with the preceding checkpoint, never a standalone release certificate.
+After the last narrow fix, run the complete `fast` matrix with a fresh seed over
+the final tree; restart the full stress campaign only under the invalidation
+rules above.
+
+```powershell
+# Example: resume the third stress repetition of the failed profile.
+.\tools\qa\certify.cmd -Mode stress -StartAtScenario reconnect-every-street -StartAtRepeat 3 -Seed 42
+```
+
+If the original run used `-Hands`, `-Faults`, `-BotHands`, `-SoakHands` or
+`-ScenarioRepeats`, repeat those exact overrides. They are persisted beside
+`Mode` and `BaseSeed` in both machine-readable summaries.
 Real-game phases report completed hands as `hands N/M`. A premature table end
 fails immediately; accelerated runs also fail after 120 seconds without a newly
 completed hand. Production-timing runs keep the wider scenario timeout so a
@@ -388,19 +407,21 @@ seats are deterministically rebought or made spectators according to the table
 configuration, so long soaks cannot continue with fake zero-stack active seats.
 Run `-Help` for the current scenario list and every option.
 
-The balanced certification matrix is deliberately broader than a single happy
-path: a 20-hand mixed-table soak, heads-up and ten-seat mixed/all-human games, human raises,
+The full certification matrix is deliberately broader than a single happy
+path: sustained mixed-table play, heads-up and ten-seat mixed/all-human games, human raises,
 single-board and RIT all-ins, straddle, disconnects at every street boundary,
 simultaneous and repeated reconnects, transport/lifecycle chaos, concurrent and
 mixed departures, all-in proof loss, repeated recovery, client restart and
-dynamic recovery rosters. Balanced runs every scenario twice; stress runs every
-scenario five times with distinct schedule seeds. Use `-ScenarioRepeats` or
-`-SoakHands` for an explicit custom bar.
+dynamic recovery rosters. `fast` traverses every scenario once with short
+campaigns, `balanced` runs every scenario twice and `stress` runs every scenario
+five times with distinct schedule seeds. Use `-ScenarioRepeats` or `-SoakHands`
+for an explicit custom bar.
 
-`-StartAtScenario` is a checkpoint continuation, not a stale-artifact shortcut:
-it rebuilds and installs the current game and QA sources once, skips the already
-completed QA/headless phases, and then starts at the requested real-game profile.
-It refuses to run without the failed run's explicit `-Seed <BaseSeed>`.
+`-StartAtScenario` plus `-StartAtRepeat` is a checkpoint continuation, not a
+stale-artifact shortcut: it rebuilds and installs the current game and QA
+sources once, skips the already completed QA/headless phases, and then starts at
+the requested real-game repetition. It refuses to run without the failed run's
+explicit `-Seed <BaseSeed>`; use the same mode and overrides as the original run.
 The lower-level runner's explicit `-SkipGameBuild` is only for callers that have
 already built the exact current source tree themselves.
 
@@ -492,11 +513,12 @@ simulations. Only `-P qa-bots` selects the statistical bot lane.
 | The **crypto** stack (`crypto/`, the SRA cascade) | **`-P qa-crypto`** — perf / differential / cascade suite |
 | **Networking** (`Net*`, `WireFrame`, `Participant`) | Fast lane covers wire & framing; add **`-P qa-network`** for socket-stall checks |
 | Anything, **before committing or opening a PR** | **`certify.cmd -Mode quick`** |
-| Before a **release** | Unmodified **`certify.cmd`** (`balanced`); add a targeted slow lane when the changed subsystem requires it |
+| Before a **release** | **`certify.cmd -Mode fast`**, then **`certify.cmd -Mode stress`**; bot quality remains separate |
 
 Rule of thumb: use `quick` while iterating, the relevant targeted slow lane when
-you edit that subsystem, and the unmodified `balanced` certifier before a
-release. Manual play is only a complement for genuinely visual, physical-audio,
+you edit that subsystem, `fast` for full breadth and `stress` for release depth.
+Use the default `balanced` gate when a stress campaign is not planned. Manual
+play is only a complement for genuinely visual, physical-audio,
 accessibility or real-human timing behaviour; multi-JVM Swing clients and real
 encrypted sockets are already automated. Manual play never replaces an
 automatable regression test.
@@ -543,8 +565,9 @@ is no discovery by filename or naming convention:
    can distinguish success, failure and a hang.
 7. Add one exact profile (`Label`, `Name`, `Clients`, `Bots`, `Hands`) to
    `scenarioProfiles` in `run-certification.ps1`; add it to `quickLabels` only
-   if it belongs in the short critical preflight. The default production gate
-   is `balanced`, so every supported scenario must be in the full matrix.
+   if it belongs in the short critical preflight. `fast`, `balanced` and
+   `stress` consume the complete profile list, so every supported scenario is
+   automatically part of all three full-matrix gates.
 8. Add its CLI description/example to `real-game-e2e.cmd -Help`, its exact
    certification topology and rationale to the matrix above, and its behavior
    and green oracle to “Scenario contracts”.
@@ -553,9 +576,9 @@ is no discovery by filename or naming convention:
    rejects overlap between timing classes and any mismatch among the Java
    catalog, CLI `ValidateSet`, certification profiles and this document.
 10. Run the scenario directly through the public launcher with at least two
-    seeds, then `certify.cmd -Mode quick` if included there, and finally an
-    unmodified `certify.cmd` before treating the change as releasable. Keep bot
-    statistical quality separate unless bot AI/evaluation changed.
+    seeds, then `certify.cmd -Mode quick` if included there, `certify.cmd -Mode fast`
+    for complete breadth and `certify.cmd -Mode stress` for a release.
+    Keep bot statistical quality separate unless bot AI/evaluation changed.
 
 ## Scope boundary
 

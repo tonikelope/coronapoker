@@ -263,14 +263,18 @@ then leaves the same fat JAR under `target/`:
 ```powershell
 git clone https://github.com/tonikelope/coronapoker.git
 Set-Location coronapoker
-.\tools\qa\certify.cmd
+.\tools\qa\certify.cmd -Mode fast
+.\tools\qa\certify.cmd -Mode stress
 ```
 
-A valid result exits with code `0`, ends with `CORONAPOKER CERTIFICATION PASS`
+A release first traverses every scenario once with short campaigns (`fast`),
+then applies the five-seed deep gate (`stress`). A valid result exits with code
+`0`, ends with `CORONAPOKER CERTIFICATION PASS`
 and writes `summary.csv`, `summary.json` and phase logs below the printed
 `target/certification/<timestamp>` directory. Each new run chooses and records
-a fresh seed; replay a failure with its reported `-Seed`, but certify a release
-with a new complete run. On a single-monitor machine add `-Screen 1`.
+a fresh seed; replay a failure with its reported `-Seed`. On a single-monitor
+machine add `-Screen 1`. The default `balanced` mode remains the medium-cost
+standalone gate when a stress campaign is not planned.
 Statistical bot-quality tests are intentionally outside this normal release
 gate. No private directory or pre-existing user cache is required.
 
@@ -279,12 +283,14 @@ gate. No private directory or pre-existing user cache is required.
 ## 🧪 Testing & certification
 
 QA lives in the separate `tools/qa` module and is never packaged in the game
-JAR. The recommended production gate runs replayable tests, non-bot slow
-lanes, seeded protocol campaigns and real host/client JVM scenarios. Each run
-generates and records a fresh replayable seed unless `-Seed` is supplied:
+JAR. The release workflow runs replayable tests, non-bot slow lanes, seeded
+protocol campaigns and real host/client JVM scenarios first across the whole
+matrix and then under deep stress. Each run generates and records a fresh
+replayable seed unless `-Seed` is supplied:
 
 ```powershell
-.\tools\qa\certify.cmd
+.\tools\qa\certify.cmd -Mode fast
+.\tools\qa\certify.cmd -Mode stress
 ```
 
 Statistical bot-quality tests remain opt-in. See **[Testing and certification](docs/TESTING.md)**

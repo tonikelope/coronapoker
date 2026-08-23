@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker.e2e;
 
+import com.tonikelope.coronapoker.Crupier;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -7,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,35 +34,7 @@ final class RealGameLoopbackE2EIT {
         int hands = intProperty("qa.e2e.hands", 1, 1, 1000);
         long seed = Long.getLong("qa.e2e.seed", 23059L);
         String scenario = System.getProperty("qa.e2e.scenario", "normal");
-        assertTrue(scenario.equals("normal") || scenario.equals("abrupt-exit")
-                || scenario.equals("controlled-exit") || scenario.equals("allin-rit")
-                || scenario.equals("rit-network-cut")
-                || scenario.equals("allin-controlled-exit")
-                || scenario.equals("force-recover")
-                || scenario.equals("double-force-recover")
-                || scenario.equals("crash-rejoin-recover")
-                || scenario.equals("force-recover-add-client")
-                || scenario.equals("force-recover-add-two")
-                || scenario.equals("force-recover-swap-client")
-                || scenario.equals("allin-single-board")
-                || scenario.equals("allin-rebuy")
-                || scenario.equals("allin-reconnect")
-                || scenario.equals("raise-mix")
-                || scenario.equals("straddle-post")
-                || scenario.equals("straddle-network-cut")
-                || scenario.equals("pause-resume")
-                || scenario.equals("reconnect-midhand")
-                || scenario.equals("reconnect-twice")
-                || scenario.equals("reconnect-every-street")
-                || scenario.equals("reconnect-storm")
-                || scenario.equals("dual-reconnect")
-                || scenario.equals("host-channel-flap")
-                || scenario.equals("reconnect-force-recover")
-                || scenario.equals("transport-chaos")
-                || scenario.equals("lifecycle-chaos")
-                || scenario.equals("dual-abrupt-exit")
-                || scenario.equals("mixed-exit-crash")
-                || scenario.equals("allin-abrupt-exit"),
+        assertTrue(RealGameScenarioContract.isSupported(scenario),
                 "unsupported qa.e2e.scenario: " + scenario);
         assertTrue(clients + bots + 1 <= 10, "host + clients + bots must fit the table");
         assertTrue(!scenario.equals("allin-rit") || bots == 0,
@@ -142,26 +114,56 @@ final class RealGameLoopbackE2EIT {
                 || (clients == 2 && bots == 0 && hands == 1),
                 "allin-abrupt-exit requires two clients, zero bots and one hand");
 
-        int port;
-        try (ServerSocket reservation = new ServerSocket(0)) {
-            port = reservation.getLocalPort();
-        }
-
         List<NodeProcess> nodes = new ArrayList<>();
         try {
             int initialClients = scenario.equals("force-recover-add-client")
                     ? clients - 1 : scenario.equals("force-recover-add-two")
                             ? clients - 2 : clients;
-            NodeProcess host = startNode(root.resolve("host"), "host", "server", port,
+            NodeProcess host = startNode(root.resolve("host"), "host", "server", 0,
                     initialClients, bots, hands, seed);
             nodes.add(host);
             assertTrue(host.await("CP_E2E_READY", Duration.ofSeconds(60)), host.diagnostic());
+            int port = host.intValueAfter("CP_E2E_READY", "port=");
+            assertTrue(port >= 1 && port <= 65535,
+                    "host did not publish a valid bound loopback port\n" + host.diagnostic());
 
             for (int i = 1; i <= initialClients; i++) {
                 NodeProcess client = startNode(root.resolve("client-" + i), "client", "client" + i,
-                        port, clients, bots, hands, seed + i);
+                        port, initialClients, bots, hands, seed + i);
                 nodes.add(client);
+                assertTrue(client.await("CP_E2E_READY", Duration.ofSeconds(60)),
+                        client.diagnostic());
             }
+
+            // Process/identity startup is intentionally outside each node's
+            // topology timeout. A ten-human table creates nine isolated JVMs
+            // serially and may legitimately take longer than the steady-state
+            // lobby budget. Start the bounded topology checks only after every
+            // peer has published READY.
+            for (NodeProcess node : nodes) {
+                node.send("CHECK_LOBBY");
+            }
+            for (NodeProcess node : nodes) {
+                assertTrue(node.await("CP_E2E_LOBBY_CHECK_RELEASED",
+                        Duration.ofSeconds(30)), node.diagnostic());
+            }
+
+            // The host used to start as soon as the last socket connected. The
+            // parent could therefore still be preparing a destructive scenario
+            // while real action drivers were already advancing hand 1. Authorize
+            // startup only after every node is observable and the lobby topology
+            // is complete; no scenario may depend on process-launch timing.
+            assertTrue(host.await("CP_E2E_LOBBY_READY", Duration.ofSeconds(60)),
+                    host.diagnostic());
+            for (NodeProcess client : nodes.subList(1, nodes.size())) {
+                assertTrue(client.await("CP_E2E_LOBBY_READY", Duration.ofSeconds(60)),
+                        "client did not observe the complete lobby topology before start\n"
+                        + client.diagnostic());
+            }
+            armScenarioActionGates(scenario, nodes, host);
+            host.send("START_GAME");
+            assertTrue(host.await("CP_E2E_GAME_START_REQUESTED", Duration.ofSeconds(30)),
+                    host.diagnostic());
 
             if (scenario.equals("abrupt-exit")) {
                 runAbruptExitScenario(nodes, host, clients + bots + 1);
@@ -301,19 +303,128 @@ final class RealGameLoopbackE2EIT {
                         + host.diagnostic());
             }
         } finally {
-            // Clients first, host last: avoids manufacturing a reconnect error
-            // by killing the server while clients still own live channels.
+            stopAllNodes(nodes);
+        }
+    }
+
+    private static void stopAllNodes(List<NodeProcess> nodes) throws Exception {
+        // Stopping peers one by one is itself a network fault: the surviving
+        // clients legitimately reconnect while the parent spends seconds
+        // waiting for each earlier JVM. Broadcast the harness stop first, then
+        // reap every process. The timeout is only a stuck-process fuse; it does
+        // not stand in for a game/lobby transition.
+        Exception sendFailure = null;
+        for (NodeProcess node : nodes) {
+            if (node.isAlive()) {
+                try {
+                    node.send("STOP");
+                } catch (IOException ex) {
+                    if (sendFailure == null) {
+                        sendFailure = ex;
+                    } else {
+                        sendFailure.addSuppressed(ex);
+                    }
+                }
+            }
+        }
+        try {
+            for (NodeProcess node : nodes) {
+                if (node.isAlive()) {
+                    node.awaitExit(Duration.ofSeconds(10));
+                }
+            }
+            if (sendFailure != null) {
+                throw sendFailure;
+            }
+        } finally {
             for (int i = nodes.size() - 1; i >= 0; i--) {
                 nodes.get(i).close();
             }
         }
     }
 
+    private static void armScenarioActionGates(String scenario, List<NodeProcess> nodes,
+            NodeProcess host) throws Exception {
+        switch (scenario) {
+            case "abrupt-exit", "controlled-exit", "dual-abrupt-exit",
+                    "mixed-exit-crash", "crash-rejoin-recover" ->
+                armActionGate(nodes.get(1), 1, Crupier.PREFLOP);
+            case "allin-controlled-exit", "allin-reconnect", "allin-abrupt-exit" ->
+                armActionGate(nodes.get(1), 1, Crupier.PREFLOP);
+            case "pause-resume" -> armActionGate(host, 1, Crupier.PREFLOP);
+            case "reconnect-midhand" -> armActionGate(nodes.get(1), 1, Crupier.PREFLOP);
+            case "reconnect-twice" -> {
+                armActionGate(nodes.get(1), 1, Crupier.PREFLOP);
+                armActionGate(nodes.get(2), 2, Crupier.PREFLOP);
+            }
+            case "reconnect-storm" -> {
+                armActionGate(nodes.get(1), 1, Crupier.PREFLOP);
+                armActionGate(nodes.get(2), 2, Crupier.PREFLOP);
+            }
+            case "dual-reconnect", "host-channel-flap" ->
+                armActionGate(nodes.get(1), 1, Crupier.PREFLOP);
+            case "reconnect-every-street" -> {
+                armActionGate(nodes.get(1), 1, Crupier.PREFLOP);
+                armActionGate(nodes.get(1), 2, Crupier.FLOP);
+                armActionGate(nodes.get(1), 3, Crupier.TURN);
+                armActionGate(nodes.get(1), 4, Crupier.RIVER);
+            }
+            case "reconnect-force-recover", "force-recover",
+                    "force-recover-add-client", "force-recover-add-two",
+                    "force-recover-swap-client" ->
+                armActionGate(host, 1, Crupier.PREFLOP);
+            case "double-force-recover" -> {
+                armActionGate(host, 1, Crupier.PREFLOP);
+                armActionGate(host, 3, Crupier.PREFLOP);
+            }
+            case "transport-chaos" -> {
+                armActionGate(nodes.get(1), 1, Crupier.PREFLOP);
+                armActionGate(host, 2, Crupier.PREFLOP);
+                armActionGate(nodes.get(3), 4, Crupier.PREFLOP);
+            }
+            case "lifecycle-chaos" -> {
+                armActionGate(nodes.get(1), 1, Crupier.PREFLOP);
+                armActionGate(host, 2, Crupier.PREFLOP);
+                armActionGate(host, 3, Crupier.PREFLOP);
+                armActionGate(nodes.get(2), 5, Crupier.PREFLOP);
+                armActionGate(host, 6, Crupier.PREFLOP);
+            }
+            default -> {
+                if (RealGameScenarioContract.isActionGated(scenario)) {
+                    throw new IllegalStateException(
+                            "action-gated scenario has no concrete gate plan: " + scenario);
+                }
+            }
+        }
+    }
+
+    private static void armActionGate(NodeProcess node, int hand, int street)
+            throws Exception {
+        String gate = hand + "#" + street;
+        node.send("ARM_ACTION_GATE#" + gate);
+        assertTrue(node.await("CP_E2E_ACTION_GATE_ARMED gate=" + gate,
+                Duration.ofSeconds(30)), node.diagnostic());
+    }
+
+    private static void awaitActionGate(NodeProcess node, int hand, int street)
+            throws Exception {
+        String gate = hand + "#" + street;
+        assertTrue(node.await("CP_E2E_ACTION_GATE_REACHED gate=" + gate,
+                Duration.ofMinutes(2)), node.diagnostic());
+    }
+
+    private static void releaseActionGate(NodeProcess node, int hand, int street)
+            throws Exception {
+        String gate = hand + "#" + street;
+        node.send("RELEASE_ACTION_GATE#" + gate);
+        assertTrue(node.await("CP_E2E_ACTION_GATE_RELEASED gate=" + gate,
+                Duration.ofSeconds(30)), node.diagnostic());
+    }
+
     private static void runAbruptExitScenario(List<NodeProcess> nodes, NodeProcess host,
             int seats) throws Exception {
         NodeProcess victim = nodes.get(1);
-        assertTrue(host.await("HAND 1: betting round Preflop", Duration.ofSeconds(90)),
-                host.diagnostic());
+        awaitActionGate(victim, 1, Crupier.PREFLOP);
         victim.killForcibly();
 
         assertMisdealRecovery(nodes, host, seats, 2);
@@ -321,8 +432,7 @@ final class RealGameLoopbackE2EIT {
 
     private static void runDualAbruptExitScenario(List<NodeProcess> nodes, NodeProcess host,
             int seats) throws Exception {
-        assertTrue(host.await("HAND 1: betting round Preflop", Duration.ofSeconds(90)),
-                host.diagnostic());
+        awaitActionGate(nodes.get(1), 1, Crupier.PREFLOP);
         nodes.get(1).killForcibly();
         nodes.get(2).killForcibly();
         assertMisdealRecovery(nodes, host, seats, 3);
@@ -331,13 +441,12 @@ final class RealGameLoopbackE2EIT {
     private static void runMixedExitCrashScenario(List<NodeProcess> nodes, NodeProcess host,
             int seats) throws Exception {
         NodeProcess testament = nodes.get(1);
-        assertTrue(host.await("HAND 1: betting round Preflop", Duration.ofSeconds(90)),
-                host.diagnostic());
-        assertTrue(testament.await("HAND 1: betting round Preflop", Duration.ofSeconds(30)),
-                testament.diagnostic());
+        awaitActionGate(testament, 1, Crupier.PREFLOP);
         testament.send("CONTROLLED_EXIT");
         assertTrue(testament.await("CP_E2E_CONTROLLED_EXIT_SENT", Duration.ofSeconds(30)),
                 testament.diagnostic());
+        assertTrue(host.await("QA EXIT_TESTAMENT_ACCEPTED nick=client1",
+                Duration.ofSeconds(30)), host.diagnostic());
         nodes.get(2).killForcibly();
         assertMisdealRecovery(nodes, host, seats, 3);
         assertFalse(testament.contains(
@@ -351,9 +460,11 @@ final class RealGameLoopbackE2EIT {
     private static void assertMisdealRecovery(List<NodeProcess> nodes, NodeProcess host,
             int seats, int firstSurvivor) throws Exception {
         assertTrue(host.await("MISDEAL triggered:", Duration.ofMinutes(3)), host.diagnostic());
-        assertTrue(host.await("RECOVERY: abortAndRecover engaged", Duration.ofSeconds(30)),
+        assertTrue(host.awaitExpectedMisdeal("RECOVERY: abortAndRecover engaged",
+                Duration.ofSeconds(30)),
                 host.diagnostic());
-        assertTrue(host.await("CP_E2E_LEDGER", Duration.ofSeconds(30)), host.diagnostic());
+        assertTrue(host.awaitExpectedMisdeal("CP_E2E_LEDGER", Duration.ofSeconds(30)),
+                host.diagnostic());
         assertTrue(host.contains("potCents=0"), host.diagnostic());
         assertTrue(host.contains("balanceRows=" + seats), host.diagnostic());
         assertTrue(host.contains("stackCents=" + (seats * 1000L)), host.diagnostic());
@@ -361,7 +472,7 @@ final class RealGameLoopbackE2EIT {
         assertFalse(host.contains("TABLE_FAILURE_V1"), host.diagnostic());
         assertFalse(host.contains("CP_E2E_FAIL"), host.diagnostic());
         for (NodeProcess survivor : nodes.subList(firstSurvivor, nodes.size())) {
-            assertTrue(survivor.await("CP_E2E_RECOVERY_DIALOG_SUBMITTED",
+            assertTrue(survivor.awaitExpectedMisdeal("CP_E2E_RECOVERY_DIALOG_SUBMITTED",
                     Duration.ofMinutes(2)), survivor.diagnostic());
             assertFalse(survivor.contains("TABLE_FAILURE_V1"), survivor.diagnostic());
             assertFalse(survivor.contains("CP_E2E_FAIL"), survivor.diagnostic());
@@ -371,14 +482,13 @@ final class RealGameLoopbackE2EIT {
     private static void runControlledExitScenario(List<NodeProcess> nodes, NodeProcess host,
             int seats) throws Exception {
         NodeProcess departingClient = nodes.get(1);
-        assertTrue(host.await("HAND 1: betting round Preflop", Duration.ofSeconds(90)),
-                host.diagnostic());
-        assertTrue(departingClient.await("HAND 1: betting round Preflop", Duration.ofSeconds(30)),
-                departingClient.diagnostic());
+        awaitActionGate(departingClient, 1, Crupier.PREFLOP);
 
         departingClient.send("CONTROLLED_EXIT");
         assertTrue(departingClient.await("CP_E2E_CONTROLLED_EXIT_SENT", Duration.ofSeconds(30)),
                 departingClient.diagnostic());
+        assertTrue(host.await("QA EXIT_TESTAMENT_ACCEPTED nick=client1",
+                Duration.ofSeconds(30)), host.diagnostic());
         assertTrue(departingClient.await("CP_E2E_EXPECTED_EXIT_COMPLETE",
                 Duration.ofSeconds(30)), departingClient.diagnostic());
         assertFalse(departingClient.contains(
@@ -415,8 +525,7 @@ final class RealGameLoopbackE2EIT {
 
     private static void runPauseResumeScenario(List<NodeProcess> nodes,
             NodeProcess host) throws Exception {
-        assertTrue(host.await("HAND 1: betting round Preflop", Duration.ofSeconds(90)),
-                host.diagnostic());
+        awaitActionGate(host, 1, Crupier.PREFLOP);
         host.send("PAUSE_TOGGLE");
         for (NodeProcess node : nodes) {
             assertTrue(node.await("CP_E2E_PAUSE_STATE paused=true", Duration.ofSeconds(30)),
@@ -427,6 +536,7 @@ final class RealGameLoopbackE2EIT {
             assertTrue(node.await("CP_E2E_PAUSE_STATE paused=false", Duration.ofSeconds(30)),
                     node.diagnostic());
         }
+        releaseActionGate(host, 1, Crupier.PREFLOP);
     }
 
     private static void runReconnectScenario(List<NodeProcess> nodes,
@@ -441,46 +551,31 @@ final class RealGameLoopbackE2EIT {
     private static void runReconnectEveryStreetScenario(List<NodeProcess> nodes,
             NodeProcess host) throws Exception {
         NodeProcess client = nodes.get(1);
-        String[] streets = {"Preflop", "Flop", "Turn", "River"};
+        int[] streets = {Crupier.PREFLOP, Crupier.FLOP, Crupier.TURN, Crupier.RIVER};
         for (int i = 0; i < streets.length; i++) {
             int hand = i + 1;
-            String marker = "HAND " + hand + ": betting round " + streets[i];
-            assertTrue(host.await(marker, Duration.ofMinutes(3)), host.diagnostic());
-            assertTrue(client.await(marker, Duration.ofSeconds(30)), client.diagnostic());
-            if (i > 0) {
-                // rondaApuestas logs the street before requesting its critical
-                // SRA unlock. Dropping on that log races the unlock itself, for
-                // which the correct production result is a fail-closed MISDEAL.
-                // This scenario promises a successful reconnect on each street,
-                // so wait until that street's cards have actually been unlocked.
-                long revealsThroughThisStreet = (3L * (hand - 1L)) + i;
-                assertTrue(host.awaitCount("Uncovering community cards",
-                        revealsThroughThisStreet, Duration.ofSeconds(30)),
-                        host.diagnostic());
-                assertTrue(client.awaitCount("Uncovering community cards",
-                        revealsThroughThisStreet, Duration.ofSeconds(30)),
-                        client.diagnostic());
-            }
+            awaitActionGate(client, hand, streets[i]);
             dropAndAwaitReconnect(client, host, "client1", hand);
+            releaseActionGate(client, hand, streets[i]);
         }
     }
 
     private static void reconnectAtHand(NodeProcess client, NodeProcess host,
             String nick, int hand, long occurrence) throws Exception {
-        assertTrue(host.await("HAND " + hand + ": betting round Preflop",
-                Duration.ofMinutes(2)), host.diagnostic());
-        assertTrue(client.await("HAND " + hand + ": betting round Preflop",
-                Duration.ofSeconds(30)), client.diagnostic());
+        awaitActionGate(client, hand, Crupier.PREFLOP);
         dropAndAwaitReconnect(client, host, nick, occurrence);
+        releaseActionGate(client, hand, Crupier.PREFLOP);
     }
 
     private static void dropAndAwaitReconnect(NodeProcess client, NodeProcess host,
             String nick, long occurrence) throws Exception {
         client.send("DROP_SOCKET");
-        assertTrue(client.awaitCount("CP_E2E_SOCKET_DROP_REQUESTED", occurrence,
-                Duration.ofSeconds(30)), client.diagnostic());
-        assertTrue(client.awaitCount("Attempting to reconnect to server", occurrence,
-                Duration.ofMinutes(2)), client.diagnostic());
+        awaitReconnectAfterDropRequested(client, host, nick, occurrence);
+    }
+
+    private static void awaitReconnectAfterDropRequested(NodeProcess client, NodeProcess host,
+            String nick, long occurrence) throws Exception {
+        awaitReconnectAttemptAfterDropRequested(client, occurrence);
         assertTrue(client.awaitCount("Connected to server! Exchanging keys", occurrence,
                 Duration.ofMinutes(2)), client.diagnostic());
         assertTrue(host.awaitCount("Participant " + nick + " resetSocket OK", occurrence,
@@ -488,53 +583,51 @@ final class RealGameLoopbackE2EIT {
         assertFalse(client.contains("RECONNECT_DENIED"), client.diagnostic());
     }
 
+    private static void awaitReconnectAttemptAfterDropRequested(NodeProcess client,
+            long occurrence) throws Exception {
+        assertTrue(client.awaitCount("CP_E2E_SOCKET_DROP_REQUESTED", occurrence,
+                Duration.ofSeconds(30)), client.diagnostic());
+        assertTrue(client.awaitCount("Attempting to reconnect to server", occurrence,
+                Duration.ofMinutes(2)), client.diagnostic());
+    }
+
     private static void runReconnectStormScenario(List<NodeProcess> nodes,
             NodeProcess host) throws Exception {
         NodeProcess first = nodes.get(1);
-        assertTrue(host.await("HAND 1: betting round Preflop", Duration.ofMinutes(2)),
-                host.diagnostic());
-        assertTrue(first.await("HAND 1: betting round Preflop", Duration.ofSeconds(30)),
-                first.diagnostic());
+        awaitActionGate(first, 1, Crupier.PREFLOP);
         dropAndAwaitReconnect(first, host, "client1", 1);
         // Re-drop the freshly installed socket before the hand changes. This catches
         // stale reader ownership, duplicate reconnect admission and one-shot guards.
         dropAndAwaitReconnect(first, host, "client1", 2);
+        releaseActionGate(first, 1, Crupier.PREFLOP);
         reconnectAtHand(nodes.get(2), host, "client2", 2, 1);
     }
 
     private static void runDualReconnectScenario(List<NodeProcess> nodes,
             NodeProcess host) throws Exception {
-        assertTrue(host.await("HAND 1: betting round Preflop", Duration.ofMinutes(2)),
-                host.diagnostic());
+        runDualReconnectScenario(nodes, host, true);
+    }
+
+    private static void runDualReconnectScenario(List<NodeProcess> nodes,
+            NodeProcess host, boolean releaseGate) throws Exception {
         NodeProcess first = nodes.get(1);
         NodeProcess second = nodes.get(2);
-        assertTrue(first.await("HAND 1: betting round Preflop", Duration.ofSeconds(30)),
-                first.diagnostic());
-        assertTrue(second.await("HAND 1: betting round Preflop", Duration.ofSeconds(30)),
-                second.diagnostic());
+        awaitActionGate(first, 1, Crupier.PREFLOP);
         first.send("DROP_SOCKET");
         second.send("DROP_SOCKET");
-        assertTrue(first.await("CP_E2E_SOCKET_DROP_REQUESTED", Duration.ofSeconds(30)),
-                first.diagnostic());
-        assertTrue(second.await("CP_E2E_SOCKET_DROP_REQUESTED", Duration.ofSeconds(30)),
-                second.diagnostic());
-        assertTrue(host.await("Participant client1 resetSocket OK", Duration.ofMinutes(2)),
-                host.diagnostic());
-        assertTrue(host.await("Participant client2 resetSocket OK", Duration.ofMinutes(2)),
-                host.diagnostic());
+        awaitReconnectAfterDropRequested(first, host, "client1", 1);
+        awaitReconnectAfterDropRequested(second, host, "client2", 1);
+        if (releaseGate) {
+            releaseActionGate(first, 1, Crupier.PREFLOP);
+        }
         assertFalse(first.contains("RECONNECT_DENIED"), first.diagnostic());
         assertFalse(second.contains("RECONNECT_DENIED"), second.diagnostic());
     }
 
     private static void runHostChannelFlapScenario(List<NodeProcess> nodes,
             NodeProcess host) throws Exception {
-        assertTrue(host.await("HAND 1: betting round Preflop", Duration.ofMinutes(2)),
-                host.diagnostic());
         List<NodeProcess> clients = nodes.subList(1, nodes.size());
-        for (NodeProcess client : clients) {
-            assertTrue(client.await("HAND 1: betting round Preflop", Duration.ofSeconds(30)),
-                    client.diagnostic());
-        }
+        awaitActionGate(clients.get(0), 1, Crupier.PREFLOP);
         // A short host/network outage as observed by every client while the
         // server JVM remains alive: all old channels die together and every
         // peer must independently authenticate and install a fresh socket.
@@ -544,12 +637,9 @@ final class RealGameLoopbackE2EIT {
         for (int i = 0; i < clients.size(); i++) {
             NodeProcess client = clients.get(i);
             String nick = "client" + (i + 1);
-            assertTrue(client.await("CP_E2E_SOCKET_DROP_REQUESTED", Duration.ofSeconds(30)),
-                    client.diagnostic());
-            assertTrue(host.await("Participant " + nick + " resetSocket OK",
-                    Duration.ofMinutes(2)), host.diagnostic());
-            assertFalse(client.contains("RECONNECT_DENIED"), client.diagnostic());
+            awaitReconnectAfterDropRequested(client, host, nick, 1);
         }
+        releaseActionGate(clients.get(0), 1, Crupier.PREFLOP);
     }
 
     private static void runStraddleNetworkCutScenario(List<NodeProcess> nodes,
@@ -573,18 +663,21 @@ final class RealGameLoopbackE2EIT {
         }
         assertTrue(straddler != null,
                 "no remote human became the production straddler\n" + host.diagnostic());
-        // The marker is emitted after the real dialog accepted and sent its
-        // signed STRADDLE_RESP. Cut that peer before deferred pocket delivery.
-        dropAndAwaitReconnect(straddler, host, "client" + clientNumber, 1);
+        String nick = "client" + clientNumber;
+        assertTrue(host.await("QA STRADDLE_RESP_ACCEPTED nick=" + nick,
+                Duration.ofSeconds(30)), host.diagnostic());
+        straddler.send("DROP_SOCKET");
+        awaitReconnectAfterDropRequested(straddler, host,
+                nick, 1);
     }
 
     private static void runTransportChaosScenario(List<NodeProcess> nodes,
             NodeProcess host, int seats) throws Exception {
-        runDualReconnectScenario(nodes, host);
+        runDualReconnectScenario(nodes, host, false);
         dropAndAwaitReconnect(nodes.get(1), host, "client1", 2);
+        releaseActionGate(nodes.get(1), 1, Crupier.PREFLOP);
 
-        assertTrue(host.await("HAND 2: betting round Preflop", Duration.ofMinutes(2)),
-                host.diagnostic());
+        awaitActionGate(host, 2, Crupier.PREFLOP);
         host.send("PAUSE_TOGGLE");
         for (NodeProcess node : nodes) {
             assertTrue(node.await("CP_E2E_PAUSE_STATE paused=true", Duration.ofSeconds(30)),
@@ -608,22 +701,22 @@ final class RealGameLoopbackE2EIT {
     private static void runReconnectForceRecoverScenario(List<NodeProcess> nodes,
             NodeProcess host, int seats) throws Exception {
         NodeProcess client = nodes.get(1);
-        assertTrue(host.await("HAND 1: betting round Preflop", Duration.ofMinutes(2)),
-                host.diagnostic());
-        // Enter the production force-recovery transition first, then cut a
-        // client channel while teardown is active. This deterministically
-        // covers the ordering opposite to reconnect-then-recover without a
-        // synthetic delay or a production-only test hook.
+        awaitActionGate(host, 1, Crupier.PREFLOP);
+        // Prove that ordinary reconnect has actually started before asking the
+        // host to force-recover. The reconnect may win or teardown may win;
+        // both are legitimate scheduler interleavings. The invariant is that
+        // every peer reaches the recovery lobby and the recovered game remains
+        // cryptographically and financially identical.
+        client.send("DROP_SOCKET");
+        awaitReconnectAttemptAfterDropRequested(client, 1);
         host.send("FORCE_RECOVER");
         assertTrue(host.await("CP_E2E_FORCE_RECOVER_REQUESTED", Duration.ofSeconds(30)),
                 host.diagnostic());
-        client.send("DROP_SOCKET");
-        assertTrue(client.await("CP_E2E_SOCKET_DROP_REQUESTED", Duration.ofSeconds(30)),
-                client.diagnostic());
         for (NodeProcess node : nodes) {
             assertTrue(node.await("CP_E2E_RECOVERY_DIALOG_SUBMITTED", Duration.ofMinutes(2)),
                     node.diagnostic());
         }
+        releaseActionGate(host, 1, Crupier.PREFLOP);
         long requiredClientConnections = (nodes.size() - 1L) * 2L;
         assertTrue(host.awaitCount(" connected", requiredClientConnections,
                 Duration.ofMinutes(2)), host.diagnostic());
@@ -639,17 +732,14 @@ final class RealGameLoopbackE2EIT {
             assertFalse(node.contains("RECOVERDATA rejected"), node.diagnostic());
             assertFalse(node.contains("stale PREV_H"), node.diagnostic());
         }
-        assertFalse(client.contains("Attempting to reconnect to server"),
-                "force-recover channel closure incorrectly entered ordinary auto-reconnect\n"
-                + client.diagnostic());
+        assertFalse(client.contains("RECONNECT_DENIED"), client.diagnostic());
     }
 
     private static void runLifecycleChaosScenario(List<NodeProcess> nodes,
             NodeProcess host, int seats) throws Exception {
         reconnectAtHand(nodes.get(1), host, "client1", 1, 1);
 
-        assertTrue(host.await("HAND 2: betting round Preflop", Duration.ofMinutes(2)),
-                host.diagnostic());
+        awaitActionGate(host, 2, Crupier.PREFLOP);
         host.send("PAUSE_TOGGLE");
         for (NodeProcess node : nodes) {
             assertTrue(node.await("CP_E2E_PAUSE_STATE paused=true", Duration.ofSeconds(30)),
@@ -660,6 +750,7 @@ final class RealGameLoopbackE2EIT {
             assertTrue(node.await("CP_E2E_PAUSE_STATE paused=false", Duration.ofSeconds(30)),
                     node.diagnostic());
         }
+        releaseActionGate(host, 2, Crupier.PREFLOP);
 
         performForceRecoveryCycle(nodes, host, 3, 1);
         reconnectAtHand(nodes.get(2), host, "client2", 5, 1);
@@ -676,9 +767,12 @@ final class RealGameLoopbackE2EIT {
     private static void runAllInAbruptExitScenario(List<NodeProcess> nodes,
             NodeProcess host, int seats) throws Exception {
         NodeProcess victim = nodes.get(1);
-        assertTrue(victim.await("CP_E2E_ALLIN_ACTION_CLICKED", Duration.ofMinutes(2)),
+        awaitActionGate(victim, 1, Crupier.PREFLOP);
+        victim.send("ALLIN_THEN_CRASH");
+        assertTrue(victim.await("CP_E2E_ORDERED_ALLIN_ACTION_CLICKED",
+                Duration.ofSeconds(30)),
                 victim.diagnostic());
-        victim.killForcibly();
+        victim.awaitExit(Duration.ofSeconds(30));
         assertMisdealRecovery(nodes, host, seats, 2);
     }
 
@@ -690,10 +784,18 @@ final class RealGameLoopbackE2EIT {
             assertFalse(node.contains("CP_E2E_FAIL"), node.diagnostic());
             assertFalse(node.contains("TABLE_FAILURE_V1"), node.diagnostic());
             assertFalse(node.contains("QA dialog suppressed [Error"), node.diagnostic());
+            assertFalse(node.contains("MISDEAL triggered:"), node.diagnostic());
             assertFalse(node.contains("invalid-sig flag"), node.diagnostic());
             assertFalse(node.contains("disputed_hands row inserted"), node.diagnostic());
-            assertFalse(node.contains("Client write failed"),
-                    "session emitted a late client write on a retired socket\n"
+            assertFalse(node.contains("Error parsing remote action"), node.diagnostic());
+            assertFalse(node.contains("SYNTHESIZING FOLD"), node.diagnostic());
+            assertFalse(node.contains("invalid atomic POTCARDS"), node.diagnostic());
+            assertFalse(node.contains("missing mandatory"), node.diagnostic());
+            assertFalse(node.contains("FAILED signature verify"), node.diagnostic());
+            assertFalse(node.contains("host forging"), node.diagnostic());
+            assertFalse(node.contains("Recover action MISMATCH"), node.diagnostic());
+            assertFalse(node.hasUnexpectedClientWriteFailure(),
+                    "session emitted an unarmed, repeated or late client write failure\n"
                     + node.diagnostic());
         }
 
@@ -728,6 +830,8 @@ final class RealGameLoopbackE2EIT {
 
         List<String> hostConsensus = host.linesContaining(" verified: ");
         List<String> hostBalances = host.canonicalBalanceSnapshots();
+        assertEquals(1, hostConsensus.size(), host.diagnostic());
+        assertEquals(1, hostBalances.size(), host.diagnostic());
         for (NodeProcess node : nodes.subList(1, nodes.size())) {
             assertEquals(hostConsensus, node.linesContaining(" verified: "),
                     "RIT consensus divergence\n" + node.diagnostic());
@@ -739,11 +843,18 @@ final class RealGameLoopbackE2EIT {
     private static void runRitNetworkCutScenario(List<NodeProcess> nodes,
             NodeProcess host, int seats) throws Exception {
         NodeProcess voter = nodes.get(1);
+        NodeProcess delayedVoter = nodes.get(2);
         assertTrue(voter.await("CP_E2E_RIT_VOTE decision=run-it-twice",
                 Duration.ofMinutes(3)), voter.diagnostic());
-        // voteRunItTwice emits its marker after driving the production button,
-        // so this cuts between the real vote and SIDE-B processing.
-        dropAndAwaitReconnect(voter, host, "client1", 1);
+        assertTrue(delayedVoter.await("CP_E2E_RIT_VOTE_GATE_REACHED",
+                Duration.ofSeconds(30)), delayedVoter.diagnostic());
+        assertTrue(host.await("QA RIT_VOTE_ACCEPTED nick=client1",
+                Duration.ofSeconds(30)), host.diagnostic());
+        voter.send("DROP_SOCKET");
+        awaitReconnectAfterDropRequested(voter, host, "client1", 1);
+        delayedVoter.send("RELEASE_RIT_VOTE");
+        assertTrue(delayedVoter.await("CP_E2E_RIT_VOTE_GATE_RELEASED",
+                Duration.ofSeconds(30)), delayedVoter.diagnostic());
         runAllInRitScenario(nodes, host, seats);
         assertFalse(voter.contains("RIT_VOTE_CLOSE overrides"), voter.diagnostic());
         assertFalse(voter.contains("invalid atomic POTCARDS"), voter.diagnostic());
@@ -752,9 +863,13 @@ final class RealGameLoopbackE2EIT {
     private static void runAllInReconnectScenario(List<NodeProcess> nodes,
             NodeProcess host, int seats) throws Exception {
         NodeProcess allInPeer = nodes.get(1);
-        assertTrue(allInPeer.await("CP_E2E_ALLIN_ACTION_CLICKED", Duration.ofMinutes(2)),
+        awaitActionGate(allInPeer, 1, Crupier.PREFLOP);
+        allInPeer.send("ALLIN_THEN_DROP_SOCKET");
+        assertTrue(allInPeer.await("CP_E2E_ORDERED_ALLIN_ACTION_CLICKED",
+                Duration.ofSeconds(30)),
                 allInPeer.diagnostic());
-        dropAndAwaitReconnect(allInPeer, host, "client1", 1);
+        awaitReconnectAfterDropRequested(allInPeer, host, "client1", 1);
+        releaseActionGate(allInPeer, 1, Crupier.PREFLOP);
         assertNormalSession(nodes, host, 1);
         assertTrue(host.contains("balanceRows=" + seats), host.diagnostic());
         assertTrue(host.contains("stackCents=" + (seats * 1000L)), host.diagnostic());
@@ -767,11 +882,14 @@ final class RealGameLoopbackE2EIT {
     private static void runAllInControlledExitScenario(List<NodeProcess> nodes,
             NodeProcess host) throws Exception {
         NodeProcess departingClient = nodes.get(1);
-        assertTrue(departingClient.await("CP_E2E_ALLIN_ACTION_CLICKED", Duration.ofMinutes(2)),
-                departingClient.diagnostic());
-        departingClient.send("CONTROLLED_EXIT");
+        awaitActionGate(departingClient, 1, Crupier.PREFLOP);
+        departingClient.send("ALLIN_THEN_CONTROLLED_EXIT");
+        assertTrue(departingClient.await("CP_E2E_ORDERED_ALLIN_ACTION_CLICKED",
+                Duration.ofSeconds(30)), departingClient.diagnostic());
         assertTrue(departingClient.await("CP_E2E_CONTROLLED_EXIT_SENT", Duration.ofSeconds(30)),
                 departingClient.diagnostic());
+        assertTrue(host.await("QA EXIT_TESTAMENT_ACCEPTED nick=client1",
+                Duration.ofSeconds(30)), host.diagnostic());
         assertTrue(departingClient.await("CP_E2E_EXPECTED_EXIT_COMPLETE",
                 Duration.ofSeconds(30)), departingClient.diagnostic());
         assertTrue(host.await("CP_E2E_HANDS_COMPLETE", Duration.ofMinutes(4)),
@@ -817,21 +935,22 @@ final class RealGameLoopbackE2EIT {
             List<NodeProcess> nodes, NodeProcess host, int port, int clients,
             int bots, int hands, long seed, int seats) throws Exception {
         NodeProcess crashed = nodes.get(1);
-        assertTrue(host.await("HAND 1: betting round Preflop", Duration.ofSeconds(90)),
-                host.diagnostic());
+        awaitActionGate(crashed, 1, Crupier.PREFLOP);
         crashed.killForcibly();
 
         assertTrue(host.await("MISDEAL triggered:", Duration.ofMinutes(3)),
                 host.diagnostic());
-        assertTrue(host.await("RECOVERY: abortAndRecover engaged", Duration.ofSeconds(30)),
+        assertTrue(host.awaitExpectedMisdeal("RECOVERY: abortAndRecover engaged",
+                Duration.ofSeconds(30)),
                 host.diagnostic());
-        assertTrue(host.await("CP_E2E_RECOVERY_DIALOG_SUBMITTED", Duration.ofMinutes(2)),
+        assertTrue(host.awaitExpectedMisdeal("CP_E2E_RECOVERY_DIALOG_SUBMITTED",
+                Duration.ofMinutes(2)),
                 host.diagnostic());
 
         // Relaunch the exact same peer home: same SQLite game, nick and Ed25519
         // identity, like restarting CoronaPoker after a power cut.
         NodeProcess restarted = startNode(root.resolve("client-1"), "client", "client1",
-                port, clients, bots, hands, seed + 1);
+                port, clients, bots, hands, seed + 1, true);
         nodes.set(1, restarted);
         assertTrue(restarted.await("CP_E2E_READY", Duration.ofSeconds(60)),
                 restarted.diagnostic());
@@ -839,6 +958,9 @@ final class RealGameLoopbackE2EIT {
                 Duration.ofSeconds(30)), restarted.diagnostic());
         assertTrue(host.awaitCount("client1 connected", 2, Duration.ofMinutes(2)),
                 host.diagnostic());
+        assertTrue(restarted.await("CP_E2E_LOBBY_READY", Duration.ofMinutes(2)),
+                "restarted peer did not receive the complete human recovery roster\n"
+                + restarted.diagnostic());
 
         host.send("START_RECOVERED_GAME");
         assertTrue(host.await("CP_E2E_RECOVERED_GAME_START_REQUESTED",
@@ -874,8 +996,7 @@ final class RealGameLoopbackE2EIT {
     private static void runForceRecoverAddClientScenario(Path root,
             List<NodeProcess> nodes, NodeProcess host, int port, int initialClients,
             int totalClients, int bots, int hands, long seed) throws Exception {
-        assertTrue(host.await("HAND 1: betting round Preflop", Duration.ofMinutes(2)),
-                host.diagnostic());
+        awaitActionGate(host, 1, Crupier.PREFLOP);
         host.send("FORCE_RECOVER");
         assertTrue(host.await("CP_E2E_FORCE_RECOVER_REQUESTED", Duration.ofSeconds(30)),
                 host.diagnostic());
@@ -883,6 +1004,7 @@ final class RealGameLoopbackE2EIT {
             assertTrue(node.await("CP_E2E_RECOVERY_DIALOG_SUBMITTED", Duration.ofMinutes(2)),
                     node.diagnostic());
         }
+        releaseActionGate(host, 1, Crupier.PREFLOP);
 
         List<NodeProcess> newcomers = new ArrayList<>();
         for (int i = initialClients + 1; i <= totalClients; i++) {
@@ -891,13 +1013,19 @@ final class RealGameLoopbackE2EIT {
                     // A fresh newcomer passively observes recovered hand 1 but does not
                     // persist it as a completed local hand. Its local target therefore
                     // starts with the first new hand it can actually play.
-                    port, totalClients, bots, freshNewcomerTargetHands(hands), seed + i);
+                    port, totalClients, bots, freshNewcomerTargetHands(hands), seed + i,
+                    true);
             nodes.add(newcomer);
             newcomers.add(newcomer);
             assertTrue(newcomer.await("CP_E2E_READY", Duration.ofSeconds(60)),
                     newcomer.diagnostic());
             assertTrue(host.await("client" + i + " connected", Duration.ofMinutes(2)),
                     host.diagnostic());
+        }
+        for (NodeProcess newcomer : newcomers) {
+            assertTrue(newcomer.await("CP_E2E_LOBBY_READY", Duration.ofMinutes(2)),
+                    "newcomer did not receive the complete human recovery roster\n"
+                    + newcomer.diagnostic());
         }
 
         host.send("START_RECOVERED_GAME");
@@ -930,20 +1058,26 @@ final class RealGameLoopbackE2EIT {
         assertTrue(host.contains("stackCents=" + ((totalClients + bots + 1) * 1000L)),
                 host.diagnostic());
         List<String> hostBalances = host.canonicalBalanceSnapshots();
+        List<String> hostConsensus = host.linesContaining(" verified: ");
+        assertFalse(hostConsensus.isEmpty(), host.diagnostic());
         for (NodeProcess client : nodes.subList(1, nodes.size())) {
             List<String> clientBalances = client.canonicalBalanceSnapshots();
+            List<String> clientConsensus = client.linesContaining(" verified: ");
             assertFalse(clientBalances.isEmpty(), client.diagnostic());
+            assertFalse(clientConsensus.isEmpty(), client.diagnostic());
             assertEquals(hostBalances.get(hostBalances.size() - 1),
                     clientBalances.get(clientBalances.size() - 1),
                     "dynamic-roster balance divergence\n" + client.diagnostic());
+            assertEquals(hostConsensus.get(hostConsensus.size() - 1),
+                    clientConsensus.get(clientConsensus.size() - 1),
+                    "dynamic-roster consensus divergence\n" + client.diagnostic());
         }
     }
 
     private static void runForceRecoverSwapClientScenario(Path root,
             List<NodeProcess> nodes, NodeProcess host, int port, int clients,
             int bots, int hands, long seed) throws Exception {
-        assertTrue(host.await("HAND 1: betting round Preflop", Duration.ofMinutes(2)),
-                host.diagnostic());
+        awaitActionGate(host, 1, Crupier.PREFLOP);
         host.send("FORCE_RECOVER");
         assertTrue(host.await("CP_E2E_FORCE_RECOVER_REQUESTED", Duration.ofSeconds(30)),
                 host.diagnostic());
@@ -951,6 +1085,7 @@ final class RealGameLoopbackE2EIT {
             assertTrue(node.await("CP_E2E_RECOVERY_DIALOG_SUBMITTED", Duration.ofMinutes(2)),
                     node.diagnostic());
         }
+        releaseActionGate(host, 1, Crupier.PREFLOP);
 
         NodeProcess missing = nodes.remove(1);
         missing.killForcibly();
@@ -958,12 +1093,15 @@ final class RealGameLoopbackE2EIT {
                 host.diagnostic());
 
         NodeProcess newcomer = startNode(root.resolve("client-3"), "client", "client3",
-                port, clients, bots, freshNewcomerTargetHands(hands), seed + 3);
+                port, clients, bots, freshNewcomerTargetHands(hands), seed + 3, true);
         nodes.add(newcomer);
         assertTrue(newcomer.await("CP_E2E_READY", Duration.ofSeconds(60)),
                 newcomer.diagnostic());
         assertTrue(host.await("client3 connected", Duration.ofMinutes(2)),
                 host.diagnostic());
+        assertTrue(newcomer.await("CP_E2E_LOBBY_READY", Duration.ofMinutes(2)),
+                "replacement peer did not receive the complete human recovery roster\n"
+                + newcomer.diagnostic());
 
         host.send("START_RECOVERED_GAME");
         assertTrue(host.await("CP_E2E_RECOVERED_GAME_START_REQUESTED",
@@ -993,8 +1131,8 @@ final class RealGameLoopbackE2EIT {
                     + node.diagnostic());
         }
         assertTrue(host.contains("Recovery closed unreplayable hand"), host.diagnostic());
-        assertFalse(host.contains("CP_E2E_RECOVERY_DIALOG_SUBMITTED role=production-dialog\n"
-                + "CP_E2E_RECOVERY_DIALOG_SUBMITTED role=production-dialog"),
+        assertEquals(1L, host.countContaining(
+                "CP_E2E_RECOVERY_DIALOG_SUBMITTED role=production-dialog"),
                 "swap recovery unexpectedly required another full recovery cycle\n"
                 + host.diagnostic());
         assertTrue(newcomer.contains("SHUFFLE-VERIFY: deck verified OK (hand 2)"),
@@ -1004,18 +1142,25 @@ final class RealGameLoopbackE2EIT {
         assertTrue(host.contains("stackCents=" + ((clients + bots + 2) * 1000L)),
                 host.diagnostic());
         List<String> hostBalances = host.canonicalBalanceSnapshots();
+        List<String> hostConsensus = host.linesContaining(" verified: ");
+        assertFalse(hostConsensus.isEmpty(), host.diagnostic());
         String hostFinal = hostBalances.get(hostBalances.size() - 1);
+        String hostFinalConsensus = hostConsensus.get(hostConsensus.size() - 1);
         for (NodeProcess client : nodes.subList(1, nodes.size())) {
             List<String> clientBalances = client.canonicalBalanceSnapshots();
+            List<String> clientConsensus = client.linesContaining(" verified: ");
+            assertFalse(clientConsensus.isEmpty(), client.diagnostic());
             assertEquals(hostFinal, clientBalances.get(clientBalances.size() - 1),
                     "replacement-roster balance divergence\n" + client.diagnostic());
+            assertEquals(hostFinalConsensus,
+                    clientConsensus.get(clientConsensus.size() - 1),
+                    "replacement-roster consensus divergence\n" + client.diagnostic());
         }
     }
 
     private static void performForceRecoveryCycle(List<NodeProcess> nodes,
             NodeProcess host, int interruptedHand, long cycle) throws Exception {
-        String preflop = "HAND " + interruptedHand + ": betting round Preflop";
-        assertTrue(host.await(preflop, Duration.ofMinutes(3)), host.diagnostic());
+        awaitActionGate(host, interruptedHand, Crupier.PREFLOP);
         host.send("FORCE_RECOVER");
         assertTrue(host.awaitCount("CP_E2E_FORCE_RECOVER_REQUESTED", cycle,
                 Duration.ofSeconds(30)), host.diagnostic());
@@ -1024,6 +1169,7 @@ final class RealGameLoopbackE2EIT {
             assertTrue(node.awaitCount("CP_E2E_RECOVERY_DIALOG_SUBMITTED", cycle,
                     Duration.ofMinutes(2)), node.diagnostic());
         }
+        releaseActionGate(host, interruptedHand, Crupier.PREFLOP);
         long requiredClientConnections = (nodes.size() - 1L) * (cycle + 1L);
         assertTrue(host.awaitCount(" connected", requiredClientConnections,
                 Duration.ofMinutes(2)), host.diagnostic());
@@ -1089,8 +1235,20 @@ final class RealGameLoopbackE2EIT {
         return globalTargetHands - 1;
     }
 
+    static long expectedMisdealDialogAllowance(long previousAllowance,
+            long observedMisdeals, long observedMisdealDialogs) {
+        return Math.max(previousAllowance,
+                Math.max(observedMisdeals, observedMisdealDialogs));
+    }
+
     private static NodeProcess startNode(Path home, String role, String nick, int port,
             int clients, int bots, int hands, long seed) throws IOException {
+        return startNode(home, role, nick, port, clients, bots, hands, seed, false);
+    }
+
+    private static NodeProcess startNode(Path home, String role, String nick, int port,
+            int clients, int bots, int hands, long seed,
+            boolean lateRecoveryJoiner) throws IOException {
         Files.createDirectories(home);
         String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
         String classpath = System.getProperty("surefire.test.class.path",
@@ -1115,7 +1273,8 @@ final class RealGameLoopbackE2EIT {
                 "-cp", classpath,
                 RealGameNodeMain.class.getName(),
                 role, nick, Integer.toString(port), Integer.toString(clients),
-                Integer.toString(bots), Integer.toString(hands), Long.toString(seed));
+                Integer.toString(bots), Integer.toString(hands), Long.toString(seed),
+                Boolean.toString(lateRecoveryJoiner));
         builder.redirectErrorStream(true);
         return new NodeProcess(role + ":" + nick, builder.start());
     }
@@ -1134,6 +1293,7 @@ final class RealGameLoopbackE2EIT {
         private final Process process;
         private final List<String> output = Collections.synchronizedList(new ArrayList<>());
         private final CountDownLatch readerDone = new CountDownLatch(1);
+        private volatile long allowedExpectedMisdealDialogs;
 
         private NodeProcess(String name, Process process) {
             this.name = name;
@@ -1196,11 +1356,61 @@ final class RealGameLoopbackE2EIT {
             return countContaining(marker) >= expected;
         }
 
+        /**
+         * Waits through the one error dialog that is the expected public outcome
+         * of an abrupt peer loss without a testament. All other terminal signals
+         * remain fail-fast. This is deliberately not a generic "ignore errors"
+         * switch: callers must first have observed the production MISDEAL path.
+         */
+        private boolean awaitExpectedMisdeal(String marker, Duration timeout)
+                throws InterruptedException {
+            if (!contains("MISDEAL triggered:")
+                    && !contains("MANO ANULADA")) {
+                throw new IllegalStateException(
+                        "expected-MISDEAL wait used before observing the MISDEAL path");
+            }
+            // Scope the exception to exactly one suppressed error dialog per
+            // MISDEAL already observed. It remains active for the rest of this
+            // node's recovery flow, while any additional error dialog still
+            // fails immediately.
+            allowedExpectedMisdealDialogs = expectedMisdealDialogAllowance(
+                    allowedExpectedMisdealDialogs,
+                    countContaining("MISDEAL triggered:"),
+                    countContaining("QA dialog suppressed [Error]: MANO ANULADA"));
+            return await(marker, timeout);
+        }
+
         private boolean hasTerminalFailure() {
+            return hasTerminalFailureExceptExpectedMisdeal()
+                    || countContaining("QA dialog suppressed [Error")
+                    > allowedExpectedMisdealDialogs;
+        }
+
+        private boolean hasTerminalFailureExceptExpectedMisdeal() {
             return contains("CP_E2E_FAIL")
                     || contains("TABLE_FAILURE_V1")
                     || contains("Empty settlement table; refusing receipt and SQL close")
-                    || contains("Next-hand balance barrier disagrees with atomic opening rows");
+                    || contains("Next-hand balance barrier disagrees with atomic opening rows")
+                    || contains("Error parsing remote action")
+                    || contains("SYNTHESIZING FOLD")
+                    || contains("invalid atomic POTCARDS")
+                    || contains("Cannot build mandatory all-in showdown proof")
+                    || contains("missing mandatory")
+                    || contains("FAILED signature verify")
+                    || contains("host forging")
+                    || contains("invalid-sig flag")
+                    || contains("disputed_hands row inserted")
+                    || contains("Recover action MISMATCH")
+                    || contains("RECOVERDATA rejected")
+                    || contains("DECK_CASCADE_REQ received mid-hand")
+                    || hasUnexpectedClientWriteFailure()
+                    || contains("RECONNECT_DENIED");
+        }
+
+        private boolean hasUnexpectedClientWriteFailure() {
+            synchronized (output) {
+                return RealGameScenarioContract.hasUnexpectedClientWriteFailure(output);
+            }
         }
 
         private boolean contains(String text) {
@@ -1283,7 +1493,36 @@ final class RealGameLoopbackE2EIT {
 
         private void killForcibly() throws InterruptedException {
             process.destroyForcibly();
-            process.waitFor(10, TimeUnit.SECONDS);
+            assertTrue(process.waitFor(10, TimeUnit.SECONDS),
+                    "node did not terminate after forced crash\n" + diagnostic());
+            readerDone.await(2, TimeUnit.SECONDS);
+            assertFalse(process.isAlive(),
+                    "node remained alive after forced crash\n" + diagnostic());
+        }
+
+        private int intValueAfter(String marker, String field) {
+            synchronized (output) {
+                for (String line : output) {
+                    int markerAt = line.indexOf(marker);
+                    int fieldAt = markerAt < 0 ? -1 : line.indexOf(field, markerAt);
+                    if (fieldAt >= 0) {
+                        int start = fieldAt + field.length();
+                        int end = start;
+                        while (end < line.length() && Character.isDigit(line.charAt(end))) {
+                            end++;
+                        }
+                        if (end > start) {
+                            return Integer.parseInt(line.substring(start, end));
+                        }
+                    }
+                }
+            }
+            return -1;
+        }
+
+        private void awaitExit(Duration timeout) throws InterruptedException {
+            assertTrue(process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS),
+                    "node did not exit within " + timeout + "\n" + diagnostic());
             readerDone.await(2, TimeUnit.SECONDS);
         }
 

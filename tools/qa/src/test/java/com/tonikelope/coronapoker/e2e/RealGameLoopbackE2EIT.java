@@ -115,11 +115,29 @@ final class RealGameLoopbackE2EIT {
         assertTrue(!scenario.equals("allin-abrupt-exit")
                 || (clients == 2 && bots == 0 && hands == 1),
                 "allin-abrupt-exit requires two clients, zero bots and one hand");
+        assertTrue(!scenario.equals("spectator-rebuy-cycle")
+                || (clients == 3 && bots == 0 && hands == 7),
+                "spectator-rebuy-cycle requires three clients, zero bots and seven hands");
+        assertTrue(!scenario.equals("spectator-recovery-mix")
+                || (clients == 6 && bots == 1 && hands == 7),
+                "spectator-recovery-mix requires six clients, one bot and seven hands");
+        assertTrue(!(scenario.equals("bot-bust-recover-regrow")
+                || scenario.equals("bot-bust-recover-drop"))
+                || (clients == 2 && bots == 2 && hands == 7),
+                "bot recovery scenarios require two clients, two bots and seven hands");
+        assertTrue(!scenario.equals("human-bust-exit-rejoin-rebuy")
+                || (clients == 3 && bots == 1 && hands == 7),
+                "human-bust-exit-rejoin-rebuy requires three clients, one bot and seven hands");
+        assertTrue(!scenario.equals("spectator-double-recovery-crash-mix")
+                || (clients == 6 && bots == 1 && hands == 8),
+                "spectator-double-recovery-crash-mix requires six clients, one bot and eight hands");
 
         List<NodeProcess> nodes = new ArrayList<>();
         try {
             int initialClients = scenario.equals("force-recover-add-client")
                     ? clients - 1 : scenario.equals("force-recover-add-two")
+                            || scenario.equals("spectator-recovery-mix")
+                            || scenario.equals("spectator-double-recovery-crash-mix")
                             ? clients - 2 : clients;
             NodeProcess host = startNode(root.resolve("host"), "host", "server", 0,
                     initialClients, bots, hands, seed);
@@ -229,6 +247,31 @@ final class RealGameLoopbackE2EIT {
             if (scenario.equals("force-recover-swap-client")) {
                 runForceRecoverSwapClientScenario(root, nodes, host, port,
                         clients, bots, hands, seed);
+                return;
+            }
+            if (scenario.equals("spectator-rebuy-cycle")) {
+                runSpectatorRebuyCycle(nodes, host, clients, hands);
+                return;
+            }
+            if (scenario.equals("spectator-recovery-mix")) {
+                runSpectatorRecoveryMix(root, nodes, host, port, initialClients,
+                        clients, bots, hands, seed);
+                return;
+            }
+            if (scenario.equals("bot-bust-recover-regrow")
+                    || scenario.equals("bot-bust-recover-drop")) {
+                runBotBustRecoverRegrow(nodes, host, clients, bots, hands,
+                        scenario.equals("bot-bust-recover-regrow"));
+                return;
+            }
+            if (scenario.equals("human-bust-exit-rejoin-rebuy")) {
+                runHumanBustExitRejoinRebuy(root, nodes, host, port,
+                        clients, bots, hands, seed);
+                return;
+            }
+            if (scenario.equals("spectator-double-recovery-crash-mix")) {
+                runSpectatorDoubleRecoveryCrashMix(root, nodes, host, port,
+                        initialClients, clients, bots, hands, seed);
                 return;
             }
             if (scenario.equals("lifecycle-chaos")) {
@@ -375,6 +418,18 @@ final class RealGameLoopbackE2EIT {
                     "force-recover-add-client", "force-recover-add-two",
                     "force-recover-swap-client" ->
                 armActionGate(host, 1, Crupier.PREFLOP);
+            case "spectator-rebuy-cycle", "spectator-recovery-mix" ->
+                armActionGate(host, 4, Crupier.PREFLOP);
+            case "bot-bust-recover-regrow", "bot-bust-recover-drop" -> {
+                armActionGate(host, 4, Crupier.PREFLOP);
+                armActionGate(host, 5, Crupier.PREFLOP);
+            }
+            case "human-bust-exit-rejoin-rebuy" -> {
+                armActionGate(host, 4, Crupier.PREFLOP);
+                armActionGate(host, 5, Crupier.PREFLOP);
+            }
+            case "spectator-double-recovery-crash-mix" ->
+                armActionGate(nodes.get(3), 4, Crupier.PREFLOP);
             case "double-force-recover" -> {
                 armActionGate(host, 1, Crupier.PREFLOP);
                 armActionGate(host, 3, Crupier.PREFLOP);
@@ -989,6 +1044,560 @@ final class RealGameLoopbackE2EIT {
                 "post-crash balance divergence\n" + restarted.diagnostic());
     }
 
+    private static void runSpectatorRebuyCycle(List<NodeProcess> nodes,
+            NodeProcess host, int clients, int hands) throws Exception {
+        List<String> spectators = awaitSpectatorNicks(host, 1, false);
+        disableSpectatorSetup(nodes);
+
+        awaitActionGate(host, 4, Crupier.PREFLOP);
+        assertSpectatorSnapshot(host, 4, spectators, false);
+        for (String nick : spectators) {
+            NodeProcess spectator = nodeForNick(nodes, nick);
+            spectator.send("REBUY_LOCAL");
+            assertTrue(spectator.await("CP_E2E_SPECTATOR_REBUY_REQUESTED nick=" + nick,
+                    Duration.ofSeconds(30)), spectator.diagnostic());
+        }
+        releaseActionGate(host, 4, Crupier.PREFLOP);
+
+        assertNormalSession(nodes, host, hands, clients + 1);
+        assertNoDisconnectedMuckFor(nodes, spectators);
+        host.send("REPORT_STATE");
+        for (String nick : spectators) {
+            assertActiveRingSnapshot(host, nick);
+            NodeProcess spectator = nodeForNick(nodes, nick);
+            assertTrue(spectator.contains("SHUFFLE-VERIFY: deck verified OK (hand 5)"),
+                    "rebought spectator did not verify its first returning hand\n"
+                    + spectator.diagnostic());
+        }
+    }
+
+    private static void runSpectatorRecoveryMix(Path root,
+            List<NodeProcess> nodes, NodeProcess host, int port,
+            int initialClients, int totalClients, int bots, int hands,
+            long seed) throws Exception {
+        List<String> spectators = awaitSpectatorNicks(host, 2, false);
+        disableSpectatorSetup(nodes);
+        awaitActionGate(host, 4, Crupier.PREFLOP);
+        assertSpectatorSnapshot(host, 4, spectators, false);
+
+        host.send("FORCE_RECOVER");
+        assertTrue(host.await("CP_E2E_FORCE_RECOVER_REQUESTED", Duration.ofSeconds(30)),
+                host.diagnostic());
+        for (NodeProcess node : nodes) {
+            assertTrue(node.await("CP_E2E_RECOVERY_DIALOG_SUBMITTED",
+                    Duration.ofMinutes(2)), node.diagnostic());
+        }
+        releaseActionGate(host, 4, Crupier.PREFLOP);
+
+        List<NodeProcess> newcomers = new ArrayList<>();
+        int newcomerHands = hands - 4;
+        for (int i = initialClients + 1; i <= totalClients; i++) {
+            NodeProcess newcomer = startNode(root.resolve("client-" + i), "client",
+                    "client" + i, port, totalClients, bots, newcomerHands,
+                    seed + i, true);
+            nodes.add(newcomer);
+            newcomers.add(newcomer);
+            assertTrue(newcomer.await("CP_E2E_READY", Duration.ofSeconds(60)),
+                    newcomer.diagnostic());
+            assertTrue(host.await("client" + i + " connected", Duration.ofMinutes(2)),
+                    host.diagnostic());
+        }
+        // Start every newcomer before waiting for the full-roster marker. Each
+        // node correctly withholds CP_E2E_LOBBY_READY until all configured human
+        // clients are present; awaiting inside the launch loop deadlocks on the
+        // first newcomer when two or more are being added.
+        for (NodeProcess newcomer : newcomers) {
+            assertTrue(newcomer.await("CP_E2E_LOBBY_READY", Duration.ofMinutes(2)),
+                    newcomer.diagnostic());
+        }
+
+        host.send("START_RECOVERED_GAME");
+        assertTrue(host.await("CP_E2E_RECOVERED_GAME_START_REQUESTED",
+                Duration.ofSeconds(30)), host.diagnostic());
+        for (NodeProcess node : nodes) {
+            assertTrue(node.await("ZERO-TRUST: starting recuperarDatosClavePartida",
+                    Duration.ofMinutes(3)), node.diagnostic());
+        }
+        for (String nick : spectators) {
+            NodeProcess spectator = nodeForNick(nodes, nick);
+            spectator.send("REBUY_LOCAL");
+            assertTrue(spectator.await("CP_E2E_SPECTATOR_REBUY_REQUESTED nick=" + nick,
+                    Duration.ofSeconds(30)), spectator.diagnostic());
+        }
+
+        assertMixedRecoveryCompletion(nodes, host, newcomers, hands,
+                newcomerHands, totalClients + bots + 1);
+        assertNoDisconnectedMuckFor(nodes, spectators);
+        host.send("REPORT_STATE");
+        for (String nick : spectators) {
+            assertActiveRingSnapshot(host, nick);
+        }
+        for (NodeProcess newcomer : newcomers) {
+            assertTrue(newcomer.contains("SHUFFLE-VERIFY: deck verified OK (hand 5)"),
+                    newcomer.diagnostic());
+        }
+    }
+
+    private static void runBotBustRecoverRegrow(List<NodeProcess> nodes,
+            NodeProcess host, int clients, int bots, int hands,
+            boolean enableBotRebuy) throws Exception {
+        List<String> bustedBots = awaitSpectatorNicks(host, 1, true);
+        disableSpectatorSetup(nodes);
+        awaitActionGate(host, 4, Crupier.PREFLOP);
+        assertAbsentFromCurrentActiveRing(host, bustedBots);
+
+        host.send("FORCE_RECOVER");
+        assertTrue(host.await("CP_E2E_FORCE_RECOVER_REQUESTED", Duration.ofSeconds(30)),
+                host.diagnostic());
+        for (NodeProcess node : nodes) {
+            assertTrue(node.await("CP_E2E_RECOVERY_DIALOG_SUBMITTED",
+                    Duration.ofMinutes(2)), node.diagnostic());
+        }
+        releaseActionGate(host, 4, Crupier.PREFLOP);
+
+        // Grow the roster through the production lobby operation, while the
+        // recovered game is still stopped. Adding a participant after START
+        // would be an impossible UI sequence and could race a live POSITIONS
+        // broadcast instead of testing the actual recovery contract.
+        host.send("ADD_BOT");
+        assertTrue(host.await("CP_E2E_BOT_ADDED", Duration.ofSeconds(30)),
+                host.diagnostic());
+        List<String> addedBots = host.distinctFieldValues(
+                "CP_E2E_BOT_ADDED", "nick=", " participants=");
+        assertEquals(1, addedBots.size(), host.diagnostic());
+        assertEquals(List.of("CoronaBot$1"), addedBots,
+                "recovery lobby must preserve correlated bot numbering");
+
+        // Select the production policy before recovery data is applied. A
+        // re-added busted bot is funded for the following hand only when both
+        // table rebuy and bot rebuy are enabled.
+        if (enableBotRebuy) {
+            for (NodeProcess node : nodes) {
+                node.send("ENABLE_BOT_REBUY");
+            }
+            for (NodeProcess node : nodes) {
+                assertTrue(node.await("CP_E2E_BOT_REBUY_ENABLED",
+                        Duration.ofSeconds(30)), node.diagnostic());
+            }
+        }
+
+        host.send("START_RECOVERED_GAME");
+        assertTrue(host.await("CP_E2E_RECOVERED_GAME_START_REQUESTED",
+                Duration.ofSeconds(30)), host.diagnostic());
+        for (NodeProcess node : nodes) {
+            assertTrue(node.await("ZERO-TRUST: starting recuperarDatosClavePartida",
+                    Duration.ofMinutes(3)), node.diagnostic());
+        }
+        for (String nick : bustedBots) {
+            for (NodeProcess node : nodes) {
+                node.send("WAIT_SPECTATOR#" + nick);
+            }
+            for (NodeProcess node : nodes) {
+                assertTrue(node.awaitLineContainingAll(List.of(
+                        "CP_E2E_SPECTATOR_RECOVERY_READY", "nick=" + nick),
+                        Duration.ofMinutes(2)), node.diagnostic());
+            }
+        }
+
+        awaitActionGate(host, 5, Crupier.PREFLOP);
+        host.send("REPORT_STATE");
+        if (enableBotRebuy) {
+            for (String nick : bustedBots) {
+                assertActiveRingSnapshot(host, nick);
+            }
+        } else {
+            assertAbsentFromCurrentActiveRing(host, bustedBots);
+            for (String nick : bustedBots) {
+                assertTrue(host.contains("QA SPECTATOR_ENTERED nick=" + nick)
+                        || host.contains("CP_E2E_SPECTATOR_RECOVERY_READY nick=" + nick),
+                        "zero-stack bot was not observed before removal\n"
+                        + host.diagnostic());
+            }
+        }
+        releaseActionGate(host, 5, Crupier.PREFLOP);
+
+        assertNormalSession(nodes, host, hands, clients + bots + 1);
+    }
+
+    private static void runHumanBustExitRejoinRebuy(Path root,
+            List<NodeProcess> nodes, NodeProcess host, int port, int clients,
+            int bots, int hands, long seed) throws Exception {
+        List<String> bustedHumans = awaitSpectatorNicks(host, 1, false);
+        disableSpectatorSetup(nodes);
+        // More than one forced all-in participant may legitimately lose to a
+        // third seat. Exercise one real ruined identity through exit/rejoin
+        // while every other ruined human remains a connected spectator.
+        String nick = bustedHumans.get(0);
+        NodeProcess departing = nodeForNick(nodes, nick);
+        int departingIndex = nodes.indexOf(departing);
+        assertTrue(departingIndex > 0, "busted human client process not found");
+
+        // Let the ruined human remain a connected observer for several hands,
+        // then leave cleanly while hand 4 is held at a deterministic input gate.
+        awaitActionGate(host, 4, Crupier.PREFLOP);
+        assertSpectatorSnapshot(host, 4, bustedHumans, false);
+        departing.send("CONTROLLED_EXIT");
+        assertTrue(departing.await("CP_E2E_CONTROLLED_EXIT_SENT",
+                Duration.ofSeconds(30)), departing.diagnostic());
+        assertTrue(host.await("QA EXIT_TESTAMENT_ACCEPTED nick=" + nick,
+                Duration.ofSeconds(30)), host.diagnostic());
+        assertTrue(departing.await("CP_E2E_EXPECTED_EXIT_COMPLETE",
+                Duration.ofSeconds(30)), departing.diagnostic());
+        departing.killForcibly();
+        departing.awaitExit(Duration.ofSeconds(30));
+        nodes.remove(departingIndex);
+
+        host.send("FORCE_RECOVER");
+        assertTrue(host.await("CP_E2E_FORCE_RECOVER_REQUESTED",
+                Duration.ofSeconds(30)), host.diagnostic());
+        releaseActionGate(host, 4, Crupier.PREFLOP);
+        for (NodeProcess node : nodes) {
+            assertTrue(node.await("CP_E2E_RECOVERY_DIALOG_SUBMITTED",
+                    Duration.ofMinutes(2)), node.diagnostic());
+        }
+
+        int clientOrdinal = Integer.parseInt(nick.substring("client".length()));
+        int resumedHands = hands - 3;
+        NodeProcess restarted = startNode(root.resolve("client-" + clientOrdinal),
+                "client", nick, port, clients, bots, resumedHands,
+                seed + clientOrdinal, true);
+        nodes.add(departingIndex, restarted);
+        assertTrue(restarted.await("CP_E2E_READY", Duration.ofSeconds(60)),
+                restarted.diagnostic());
+        assertTrue(restarted.await("identity loaded for nick=\"" + nick + "\"",
+                Duration.ofSeconds(30)), restarted.diagnostic());
+        assertTrue(host.awaitCount(nick + " connected", 2,
+                Duration.ofMinutes(2)), host.diagnostic());
+        assertTrue(restarted.await("CP_E2E_LOBBY_READY", Duration.ofMinutes(2)),
+                restarted.diagnostic());
+
+        host.send("START_RECOVERED_GAME");
+        assertTrue(host.await("CP_E2E_RECOVERED_GAME_START_REQUESTED",
+                Duration.ofSeconds(30)), host.diagnostic());
+        for (NodeProcess node : nodes) {
+            assertTrue(node.await("ZERO-TRUST: starting recuperarDatosClavePartida",
+                    Duration.ofMinutes(3)), node.diagnostic());
+        }
+        restarted.send("WAIT_SPECTATOR#" + nick);
+        assertTrue(restarted.awaitLineContainingAll(List.of(
+                "CP_E2E_SPECTATOR_RECOVERY_READY", "nick=" + nick),
+                Duration.ofMinutes(2)), restarted.diagnostic());
+        restarted.send("REBUY_LOCAL");
+        assertTrue(restarted.await("CP_E2E_SPECTATOR_REBUY_REQUESTED nick=" + nick,
+                Duration.ofSeconds(30)), restarted.diagnostic());
+
+        awaitActionGate(host, 5, Crupier.PREFLOP);
+        host.send("REPORT_STATE");
+        assertActiveRingSnapshot(host, nick);
+        releaseActionGate(host, 5, Crupier.PREFLOP);
+
+        assertMixedRecoveryCompletion(nodes, host, List.of(restarted), hands,
+                resumedHands, clients + bots + 1);
+    }
+
+    private static void runSpectatorDoubleRecoveryCrashMix(Path root,
+            List<NodeProcess> nodes, NodeProcess host, int port,
+            int initialClients, int totalClients, int bots, int hands,
+            long seed) throws Exception {
+        List<String> ruinedSpectators = awaitSpectatorNicks(host, 1, false);
+        disableSpectatorSetup(nodes);
+
+        // client3 was deliberately excluded from the all-in setup. Its real
+        // preflop input is the causal boundary for both the first recovery and
+        // the subsequent simulated power cut in the recovered table.
+        NodeProcess crashTarget = nodeForNick(nodes, "client3");
+        int crashIndex = nodes.indexOf(crashTarget);
+        awaitActionGate(crashTarget, 4, Crupier.PREFLOP);
+        assertSpectatorSnapshot(host, 4, ruinedSpectators, false);
+
+        host.send("FORCE_RECOVER");
+        assertTrue(host.await("CP_E2E_FORCE_RECOVER_REQUESTED",
+                Duration.ofSeconds(30)), host.diagnostic());
+        for (NodeProcess node : nodes) {
+            assertTrue(node.await("CP_E2E_RECOVERY_DIALOG_SUBMITTED",
+                    Duration.ofMinutes(2)), node.diagnostic());
+        }
+        releaseActionGate(crashTarget, 4, Crupier.PREFLOP);
+
+        List<NodeProcess> newcomers = new ArrayList<>();
+        int newcomerHands = hands - 4;
+        for (int i = initialClients + 1; i <= totalClients; i++) {
+            NodeProcess newcomer = startNode(root.resolve("client-" + i),
+                    "client", "client" + i, port, totalClients, bots,
+                    newcomerHands, seed + i, true);
+            nodes.add(newcomer);
+            newcomers.add(newcomer);
+            assertTrue(newcomer.await("CP_E2E_READY", Duration.ofSeconds(60)),
+                    newcomer.diagnostic());
+            assertTrue(host.await("client" + i + " connected",
+                    Duration.ofMinutes(2)), host.diagnostic());
+        }
+        for (NodeProcess newcomer : newcomers) {
+            assertTrue(newcomer.await("CP_E2E_LOBBY_READY", Duration.ofMinutes(2)),
+                    newcomer.diagnostic());
+        }
+
+        // Re-arm the same real input after the table replacement. ARM clears
+        // only the harness occurrence marker; production hand state is untouched.
+        armActionGate(crashTarget, 4, Crupier.PREFLOP);
+        host.send("START_RECOVERED_GAME");
+        assertTrue(host.await("CP_E2E_RECOVERED_GAME_START_REQUESTED",
+                Duration.ofSeconds(30)), host.diagnostic());
+        for (NodeProcess node : nodes) {
+            assertTrue(node.await("ZERO-TRUST: starting recuperarDatosClavePartida",
+                    Duration.ofMinutes(3)), node.diagnostic());
+        }
+        awaitActionGate(crashTarget, 4, Crupier.PREFLOP);
+        assertSpectatorSnapshot(host, 4, ruinedSpectators, false);
+        assertPassiveRecoverySpectatorSnapshot(host, 4,
+                List.of("client5", "client6"));
+        assertActiveRingSnapshot(host, "client3");
+        crashTarget.killForcibly();
+        crashTarget.awaitExit(Duration.ofSeconds(30));
+
+        assertTrue(host.await("MISDEAL triggered:", Duration.ofMinutes(3)),
+                host.diagnostic());
+        assertTrue(host.awaitExpectedMisdeal("RECOVERY: abortAndRecover engaged",
+                Duration.ofSeconds(30)), host.diagnostic());
+        assertTrue(host.awaitCount("CP_E2E_RECOVERY_DIALOG_SUBMITTED", 2,
+                Duration.ofMinutes(2)), host.diagnostic());
+        for (NodeProcess survivor : nodes) {
+            if (survivor == crashTarget || survivor == host) {
+                continue;
+            }
+            int expectedDialogs = newcomers.contains(survivor) ? 1 : 2;
+            assertTrue(survivor.await("MISDEAL triggered:",
+                    Duration.ofSeconds(30)), survivor.diagnostic());
+            assertTrue(survivor.awaitExpectedMisdealCount(
+                    "CP_E2E_RECOVERY_DIALOG_SUBMITTED", expectedDialogs,
+                    Duration.ofMinutes(2)), survivor.diagnostic());
+        }
+
+        // Hand 4 is closed/refunded by MISDEAL and has no normal settlement
+        // snapshot. The restarted client participates only in fresh hands 5..N.
+        int restartedHands = hands - 4;
+        NodeProcess restarted = startNode(root.resolve("client-3"), "client",
+                "client3", port, totalClients, bots, restartedHands,
+                seed + 3, true);
+        nodes.set(crashIndex, restarted);
+        assertTrue(restarted.await("CP_E2E_READY", Duration.ofSeconds(60)),
+                restarted.diagnostic());
+        assertTrue(restarted.await("identity loaded for nick=\"client3\"",
+                Duration.ofSeconds(30)), restarted.diagnostic());
+        assertTrue(host.awaitCount("client3 connected", 2, Duration.ofMinutes(2)),
+                host.diagnostic());
+        assertTrue(restarted.await("CP_E2E_LOBBY_READY", Duration.ofMinutes(2)),
+                restarted.diagnostic());
+
+        // The recovered hand 4 was atomically closed by MISDEAL. The second
+        // recovery therefore starts a fresh hand 5: gate a known solvent,
+        // restored client there instead of waiting for an impossible second
+        // action in the already-closed hand 4.
+        armActionGate(restarted, 5, Crupier.PREFLOP);
+        host.send("START_RECOVERED_GAME");
+        assertTrue(host.awaitCount("CP_E2E_RECOVERED_GAME_START_REQUESTED", 2,
+                Duration.ofSeconds(30)), host.diagnostic());
+        for (NodeProcess node : nodes) {
+            int expectedRecoveries = node == restarted ? 1 : 2;
+            assertTrue(node.awaitCount("ZERO-TRUST: starting recuperarDatosClavePartida",
+                    expectedRecoveries, Duration.ofMinutes(3)), node.diagnostic());
+        }
+
+        awaitActionGate(restarted, 5, Crupier.PREFLOP);
+        assertSpectatorSnapshot(host, 5, ruinedSpectators, false);
+        host.send("REPORT_STATE");
+        assertActiveRingSnapshot(host, "client3");
+        assertActiveRingSnapshot(host, "client5");
+        assertActiveRingSnapshot(host, "client6");
+        releaseActionGate(restarted, 5, Crupier.PREFLOP);
+
+        for (NodeProcess node : nodes) {
+            assertTrue(node.await("CP_E2E_HANDS_COMPLETE", Duration.ofMinutes(10)),
+                    node.diagnostic());
+            assertFalse(node.contains("TABLE_FAILURE_V1"), node.diagnostic());
+            assertFalse(node.contains("CP_E2E_FAIL"), node.diagnostic());
+            assertFalse(node.contains("Recover action MISMATCH"), node.diagnostic());
+            assertFalse(node.contains("FAILED signature verify"), node.diagnostic());
+            assertFalse(node.contains("host forging"), node.diagnostic());
+            assertFalse(node.contains("RECONNECT_DENIED"), node.diagnostic());
+        }
+        int settledHands = hands - 1;
+        assertEquals(settledHands, host.canonicalBalanceSnapshots().size(),
+                host.diagnostic());
+        assertEquals(restartedHands, restarted.canonicalBalanceSnapshots().size(),
+                restarted.diagnostic());
+        for (NodeProcess newcomer : newcomers) {
+            assertEquals(newcomerHands, newcomer.canonicalBalanceSnapshots().size(),
+                    newcomer.diagnostic());
+        }
+        String finalBalance = host.canonicalBalanceSnapshots().get(settledHands - 1);
+        String finalConsensus = host.linesContaining(" verified: ").get(
+                host.linesContaining(" verified: ").size() - 1);
+        for (NodeProcess node : nodes.subList(1, nodes.size())) {
+            List<String> balances = node.canonicalBalanceSnapshots();
+            List<String> consensus = node.linesContaining(" verified: ");
+            assertEquals(finalBalance, balances.get(balances.size() - 1),
+                    "double-recovery balance divergence\n" + node.diagnostic());
+            assertEquals(finalConsensus, consensus.get(consensus.size() - 1),
+                    "double-recovery consensus divergence\n" + node.diagnostic());
+        }
+        assertFinalLedgerConservation(host, totalClients + bots + 1);
+        assertNoDisconnectedMuckFor(nodes, ruinedSpectators);
+    }
+
+    private static List<String> awaitSpectatorNicks(NodeProcess host,
+            int minimum, boolean cpu) throws Exception {
+        String token = "QA SPECTATOR_ENTERED";
+        long deadline = System.nanoTime() + Duration.ofMinutes(3).toNanos();
+        List<String> result = List.of();
+        while (System.nanoTime() < deadline) {
+            result = host.distinctFieldValues(token, "nick=", " cpu=" + cpu);
+            if (result.size() >= minimum) {
+                return result;
+            }
+            if (host.hasTerminalFailure()) {
+                break;
+            }
+            Thread.sleep(25L);
+        }
+        assertTrue(result.size() >= minimum,
+                "expected at least " + minimum + " busted spectator(s), got "
+                + result + "\n" + host.diagnostic());
+        return result;
+    }
+
+    private static void disableSpectatorSetup(List<NodeProcess> nodes)
+            throws Exception {
+        for (NodeProcess node : nodes) {
+            node.send("DISABLE_SPECTATOR_SETUP");
+        }
+        for (NodeProcess node : nodes) {
+            assertTrue(node.await("CP_E2E_SPECTATOR_SETUP_DISABLED",
+                    Duration.ofSeconds(30)), node.diagnostic());
+        }
+    }
+
+    private static NodeProcess nodeForNick(List<NodeProcess> nodes, String nick) {
+        return nodes.stream()
+                .filter(node -> node.name.endsWith(":" + nick))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("node not found for " + nick));
+    }
+
+    private static void assertSpectatorSnapshot(NodeProcess host, int hand,
+            List<String> nicks, boolean exited) throws Exception {
+        host.send("REPORT_STATE");
+        for (String nick : nicks) {
+            String prefix = "CP_E2E_PLAYER_STATE hand=" + hand + " nick=" + nick;
+            assertTrue(host.await(prefix, Duration.ofSeconds(30)), host.diagnostic());
+            String state = host.lastLineContaining(prefix);
+            if (exited) {
+                assertTrue(state.contains("inRing=false"), state);
+                assertTrue(state.contains("exit=true"), state);
+            } else {
+                assertTrue(state.contains("spectator=true"), state);
+                assertTrue(state.contains("exit=false"), state);
+                assertTrue(state.contains("active=false"), state);
+                assertTrue(state.contains("inRing=true"),
+                        "connected spectator must retain its SRA contribution: " + state);
+            }
+        }
+    }
+
+    private static void assertPassiveRecoverySpectatorSnapshot(NodeProcess host,
+            int hand, List<String> nicks) throws Exception {
+        host.send("REPORT_STATE");
+        for (String nick : nicks) {
+            String prefix = "CP_E2E_PLAYER_STATE hand=" + hand + " nick=" + nick;
+            assertTrue(host.await(prefix, Duration.ofSeconds(30)), host.diagnostic());
+            String state = host.lastLineContaining(prefix);
+            assertTrue(state.contains("spectator=true"), state);
+            assertTrue(state.contains("exit=false"), state);
+            assertTrue(state.contains("active=false"), state);
+            assertTrue(state.contains("inRing=false"),
+                    "new recovery observer must not enter the historical ring: " + state);
+        }
+    }
+
+    private static void assertActiveRingSnapshot(NodeProcess host, String nick)
+            throws Exception {
+        String prefix = "CP_E2E_PLAYER_STATE";
+        assertTrue(host.awaitLineContainingAll(List.of(prefix, "nick=" + nick,
+                "spectator=false", "exit=false", "inRing=true"),
+                Duration.ofSeconds(30)), host.diagnostic());
+        String state = host.lastLineContainingBoth(prefix, "nick=" + nick);
+        assertTrue(state != null && state.contains("spectator=false")
+                && state.contains("exit=false") && state.contains("inRing=true"),
+                "seat did not rejoin the active ring: " + state + "\n"
+                + host.diagnostic());
+    }
+
+    private static void assertAbsentFromCurrentActiveRing(NodeProcess host,
+            List<String> nicks) {
+        String snapshot = host.lastLineContaining("[RING-DEBUG] HOST");
+        assertTrue(snapshot != null,
+                "missing host active-ring snapshot\n" + host.diagnostic());
+        for (String nick : nicks) {
+            assertFalse(ringSnapshotContainsNick(snapshot, nick),
+                    "busted bot remained in active ring: " + snapshot);
+        }
+    }
+
+    static boolean ringSnapshotContainsNick(String snapshot, String nick) {
+        if (snapshot == null || nick == null) {
+            return false;
+        }
+        int orderStart = snapshot.indexOf("order=[");
+        int orderEnd = snapshot.indexOf(']', orderStart);
+        if (orderStart < 0 || orderEnd < 0) {
+            return false;
+        }
+        String order = snapshot.substring(orderStart + "order=[".length(), orderEnd);
+        return java.util.Arrays.stream(order.split("\\|", -1))
+                .anyMatch(nick::equals);
+    }
+
+    private static void assertNoDisconnectedMuckFor(List<NodeProcess> nodes,
+            List<String> spectatorNicks) {
+        for (NodeProcess node : nodes) {
+            for (String nick : spectatorNicks) {
+                assertFalse(node.contains("MUCK: " + nick
+                        + " could not reveal cards due to disconnection"),
+                        "spectator retained a stale all-in decision\n"
+                        + node.diagnostic());
+            }
+        }
+    }
+
+    private static void assertMixedRecoveryCompletion(List<NodeProcess> nodes,
+            NodeProcess host, List<NodeProcess> newcomers, int originalHands,
+            int newcomerHands, int seats) throws Exception {
+        for (NodeProcess node : nodes) {
+            assertTrue(node.await("CP_E2E_HANDS_COMPLETE", Duration.ofMinutes(8)),
+                    node.diagnostic());
+            assertFalse(node.hasTerminalFailure(), node.diagnostic());
+        }
+        assertEquals(originalHands, host.canonicalBalanceSnapshots().size(),
+                host.diagnostic());
+        for (NodeProcess newcomer : newcomers) {
+            assertEquals(newcomerHands, newcomer.canonicalBalanceSnapshots().size(),
+                    newcomer.diagnostic());
+        }
+        String finalBalance = host.canonicalBalanceSnapshots().get(
+                host.canonicalBalanceSnapshots().size() - 1);
+        String finalConsensus = host.linesContaining(" verified: ").get(
+                host.linesContaining(" verified: ").size() - 1);
+        for (NodeProcess node : nodes.subList(1, nodes.size())) {
+            List<String> balances = node.canonicalBalanceSnapshots();
+            List<String> consensus = node.linesContaining(" verified: ");
+            assertEquals(finalBalance, balances.get(balances.size() - 1),
+                    "mixed spectator recovery balance divergence\n" + node.diagnostic());
+            assertEquals(finalConsensus, consensus.get(consensus.size() - 1),
+                    "mixed spectator recovery consensus divergence\n" + node.diagnostic());
+        }
+        assertFinalLedgerConservation(host, seats);
+    }
+
     private static void runForceRecoverAddClientScenario(Path root,
             List<NodeProcess> nodes, NodeProcess host, int port, int initialClients,
             int totalClients, int bots, int hands, long seed) throws Exception {
@@ -1397,6 +2006,20 @@ final class RealGameLoopbackE2EIT {
             return await(marker, timeout);
         }
 
+        private boolean awaitExpectedMisdealCount(String marker, long expected,
+                Duration timeout) throws InterruptedException {
+            if (!contains("MISDEAL triggered:")
+                    && !contains("MANO ANULADA")) {
+                throw new IllegalStateException(
+                        "expected-MISDEAL count wait used before observing the MISDEAL path");
+            }
+            allowedExpectedMisdealDialogs = expectedMisdealDialogAllowance(
+                    allowedExpectedMisdealDialogs,
+                    countContaining("MISDEAL triggered:"),
+                    countContaining("QA dialog suppressed [Error]: MANO ANULADA"));
+            return awaitCount(marker, expected, timeout);
+        }
+
         private boolean hasTerminalFailure() {
             return hasTerminalFailureExceptExpectedMisdeal()
                     || countContaining("QA dialog suppressed [Error")
@@ -1445,6 +2068,59 @@ final class RealGameLoopbackE2EIT {
                 }
                 return null;
             }
+        }
+
+        private String lastLineContainingBoth(String first, String second) {
+            synchronized (output) {
+                for (int i = output.size() - 1; i >= 0; i--) {
+                    String line = output.get(i);
+                    if (line.contains(first) && line.contains(second)) {
+                        return line;
+                    }
+                }
+                return null;
+            }
+        }
+
+        private boolean awaitLineContainingAll(List<String> tokens, Duration timeout)
+                throws InterruptedException {
+            long deadline = System.nanoTime() + timeout.toNanos();
+            while (System.nanoTime() < deadline) {
+                synchronized (output) {
+                    if (output.stream().anyMatch(line
+                            -> tokens.stream().allMatch(line::contains))) {
+                        return true;
+                    }
+                }
+                if (hasTerminalFailure() || !process.isAlive()) {
+                    return false;
+                }
+                Thread.sleep(25L);
+            }
+            synchronized (output) {
+                return output.stream().anyMatch(line
+                        -> tokens.stream().allMatch(line::contains));
+            }
+        }
+
+        private List<String> distinctFieldValues(String lineToken,
+                String fieldPrefix, String requiredSuffix) {
+            java.util.LinkedHashSet<String> values = new java.util.LinkedHashSet<>();
+            synchronized (output) {
+                for (String line : output) {
+                    if (!line.contains(lineToken) || !line.contains(requiredSuffix)) {
+                        continue;
+                    }
+                    int start = line.indexOf(fieldPrefix);
+                    if (start < 0) {
+                        continue;
+                    }
+                    start += fieldPrefix.length();
+                    int end = line.indexOf(' ', start);
+                    values.add(line.substring(start, end < 0 ? line.length() : end));
+                }
+            }
+            return List.copyOf(values);
         }
 
         private List<String> linesContaining(String token) {

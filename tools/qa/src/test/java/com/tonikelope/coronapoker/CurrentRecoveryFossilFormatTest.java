@@ -9,12 +9,15 @@ import org.junit.jupiter.api.Test;
 
 class CurrentRecoveryFossilFormatTest {
 
+    private static final String HAND_ID = java.util.Base64.getEncoder()
+            .encodeToString(new byte[CanonicalActionRecord.HAND_ID_BYTES]);
+
     @Test
     void onlyTheSingleCurrentDecisionShapeIsAccepted() {
         assertTrue(Crupier.isCurrentRecoveryFossil(
-                "ORDER@ring#RIT@false,false,-1#STRADDLE@false"));
+                "ORDER@ring#HAND_ID@" + HAND_ID + "#RIT@false,false,-1#STRADDLE@false"));
         assertTrue(Crupier.isCurrentRecoveryFossil(
-                "ORDER@ring#RIT@true,true,2#STRADDLE@true"));
+                "ORDER@ring#HAND_ID@" + HAND_ID + "#RIT@true,true,2#STRADDLE@true"));
 
         assertFalse(Crupier.isCurrentRecoveryFossil("ORDER@ring"));
         assertFalse(Crupier.isCurrentRecoveryFossil(
@@ -27,6 +30,11 @@ class CurrentRecoveryFossilFormatTest {
                 "ORDER@ring#RIT@false,false,-1#STRADDLE@maybe"));
         assertFalse(Crupier.isCurrentRecoveryFossil(
                 "RIT@false,false,-1#RIT@false,false,-1#STRADDLE@false"));
+        assertFalse(Crupier.isCurrentRecoveryFossil(
+                "ORDER@ring#HAND_ID@bad#RIT@false,false,-1#STRADDLE@false"));
+        assertFalse(Crupier.isCurrentRecoveryFossil(
+                "ORDER@ring#HAND_ID@" + HAND_ID + "#HAND_ID@" + HAND_ID
+                + "#RIT@false,false,-1#STRADDLE@false"));
     }
 
     @Test

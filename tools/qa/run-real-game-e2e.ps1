@@ -10,7 +10,7 @@ param(
 
     [long]$Seed,
 
-    [ValidateSet('normal', 'raise-mix', 'allin-single-board', 'allin-rebuy', 'allin-reconnect', 'abrupt-exit', 'controlled-exit', 'allin-rit', 'rit-network-cut', 'allin-controlled-exit', 'straddle-post', 'straddle-network-cut', 'pause-resume', 'reconnect-midhand', 'reconnect-twice', 'reconnect-every-street', 'reconnect-storm', 'dual-reconnect', 'host-channel-flap', 'reconnect-force-recover', 'transport-chaos', 'lifecycle-chaos', 'dual-abrupt-exit', 'mixed-exit-crash', 'allin-abrupt-exit', 'force-recover', 'double-force-recover', 'crash-rejoin-recover', 'force-recover-add-client', 'force-recover-add-two', 'force-recover-swap-client')]
+    [ValidateSet('normal', 'raise-mix', 'allin-single-board', 'allin-rebuy', 'allin-reconnect', 'abrupt-exit', 'controlled-exit', 'allin-rit', 'rit-network-cut', 'allin-controlled-exit', 'straddle-post', 'straddle-network-cut', 'pause-resume', 'reconnect-midhand', 'reconnect-twice', 'reconnect-every-street', 'reconnect-storm', 'dual-reconnect', 'host-channel-flap', 'reconnect-force-recover', 'transport-chaos', 'lifecycle-chaos', 'dual-abrupt-exit', 'mixed-exit-crash', 'allin-abrupt-exit', 'force-recover', 'double-force-recover', 'crash-rejoin-recover', 'force-recover-add-client', 'force-recover-add-two', 'force-recover-swap-client', 'spectator-rebuy-cycle', 'spectator-recovery-mix', 'bot-bust-recover-regrow', 'bot-bust-recover-drop', 'human-bust-exit-rejoin-rebuy', 'spectator-double-recovery-crash-mix')]
     [string]$Scenario = 'normal',
 
     [ValidateSet('hidden', 'minimized', 'visible')]
@@ -66,6 +66,12 @@ Constraints:
   force-recover-add-client requires exactly -Clients 2 and -Hands 2.
   force-recover-add-two requires exactly -Clients 3 and -Hands 2.
   force-recover-swap-client requires exactly -Clients 2 and -Hands 2.
+  spectator-rebuy-cycle requires exactly -Clients 3 -Bots 0 -Hands 7.
+  spectator-recovery-mix requires exactly -Clients 6 -Bots 1 -Hands 7.
+  bot-bust-recover-regrow requires exactly -Clients 2 -Bots 2 -Hands 7.
+  bot-bust-recover-drop requires exactly -Clients 2 -Bots 2 -Hands 7.
+  human-bust-exit-rejoin-rebuy requires exactly -Clients 3 -Bots 1 -Hands 7.
+  spectator-double-recovery-crash-mix requires exactly -Clients 6 -Bots 1 -Hands 8.
   allin-single-board requires exactly -Clients 1 -Bots 0 -Hands 1.
   allin-rebuy requires exactly -Clients 1 -Bots 0 and at least -Hands 5.
   allin-reconnect requires exactly -Clients 2 -Bots 0 -Hands 1.
@@ -146,6 +152,21 @@ Scenarios:
                           both participate in and verify fresh hand 2.
   force-recover-swap-client An original peer disappears in the recovery lobby
                           and a new peer joins before fresh hand 2.
+  spectator-rebuy-cycle   Busts human seats, keeps them observing several hands,
+                          then rebuys them and proves later active participation.
+  spectator-recovery-mix Busts several humans, force-recovers while they observe,
+                          adds two new recovery observers, then rebuys the originals.
+  bot-bust-recover-regrow Busts a bot, rebuilds correlated bot IDs in recovery and
+                           reactivates the actual ruined identity via bot rebuy.
+  bot-bust-recover-drop  Rebuilds the same roster with bot rebuy disabled and proves
+                          the actual ruined identity is removed after recovery.
+  human-bust-exit-rejoin-rebuy Keeps a ruined human observing, exits cleanly,
+                          relaunches the same identity for recovery, rebuys and plays.
+  spectator-double-recovery-crash-mix Keeps ruined historical spectators and two
+                          new recovery observers together, crashes an active peer
+                          in recovered play, then verifies that a second recovery
+                          retains the ruined spectators and admits the solvent
+                          observers to the next fresh hand.
 
 Examples:
   .\tools\qa\real-game-e2e.cmd
@@ -182,6 +203,12 @@ Examples:
   .\tools\qa\real-game-e2e.cmd -Scenario force-recover-add-client -Clients 2 -Hands 2
   .\tools\qa\real-game-e2e.cmd -Scenario force-recover-add-two -Clients 3 -Hands 2
   .\tools\qa\real-game-e2e.cmd -Scenario force-recover-swap-client -Clients 2 -Hands 2
+  .\tools\qa\real-game-e2e.cmd -Scenario spectator-rebuy-cycle -Clients 3 -Bots 0 -Hands 7
+  .\tools\qa\real-game-e2e.cmd -Scenario spectator-recovery-mix -Clients 6 -Bots 1 -Hands 7
+  .\tools\qa\real-game-e2e.cmd -Scenario bot-bust-recover-regrow -Clients 2 -Bots 2 -Hands 7
+  .\tools\qa\real-game-e2e.cmd -Scenario bot-bust-recover-drop -Clients 2 -Bots 2 -Hands 7
+  .\tools\qa\real-game-e2e.cmd -Scenario human-bust-exit-rejoin-rebuy -Clients 3 -Bots 1 -Hands 7
+  .\tools\qa\real-game-e2e.cmd -Scenario spectator-double-recovery-crash-mix -Clients 6 -Bots 1 -Hands 8
   .\tools\qa\real-game-e2e.cmd -WindowMode visible -Screen 2 -Animations
   .\tools\qa\real-game-e2e.cmd -ProductionTiming -WindowMode minimized
 
@@ -230,6 +257,24 @@ if (($Scenario -eq 'force-recover-add-two') -and (($Clients -ne 3) -or ($Hands -
 }
 if (($Scenario -eq 'force-recover-swap-client') -and (($Clients -ne 2) -or ($Hands -ne 2))) {
     throw 'Scenario force-recover-swap-client requires exactly -Clients 2 -Hands 2.'
+}
+if (($Scenario -eq 'spectator-rebuy-cycle') -and (($Clients -ne 3) -or ($Bots -ne 0) -or ($Hands -ne 7))) {
+    throw 'Scenario spectator-rebuy-cycle requires exactly -Clients 3 -Bots 0 -Hands 7.'
+}
+if (($Scenario -eq 'spectator-recovery-mix') -and (($Clients -ne 6) -or ($Bots -ne 1) -or ($Hands -ne 7))) {
+    throw 'Scenario spectator-recovery-mix requires exactly -Clients 6 -Bots 1 -Hands 7.'
+}
+if (($Scenario -eq 'bot-bust-recover-regrow') -and (($Clients -ne 2) -or ($Bots -ne 2) -or ($Hands -ne 7))) {
+    throw 'Scenario bot-bust-recover-regrow requires exactly -Clients 2 -Bots 2 -Hands 7.'
+}
+if (($Scenario -eq 'bot-bust-recover-drop') -and (($Clients -ne 2) -or ($Bots -ne 2) -or ($Hands -ne 7))) {
+    throw 'Scenario bot-bust-recover-drop requires exactly -Clients 2 -Bots 2 -Hands 7.'
+}
+if (($Scenario -eq 'human-bust-exit-rejoin-rebuy') -and (($Clients -ne 3) -or ($Bots -ne 1) -or ($Hands -ne 7))) {
+    throw 'Scenario human-bust-exit-rejoin-rebuy requires exactly -Clients 3 -Bots 1 -Hands 7.'
+}
+if (($Scenario -eq 'spectator-double-recovery-crash-mix') -and (($Clients -ne 6) -or ($Bots -ne 1) -or ($Hands -ne 8))) {
+    throw 'Scenario spectator-double-recovery-crash-mix requires exactly -Clients 6 -Bots 1 -Hands 8.'
 }
 if (($Scenario -eq 'allin-single-board') -and (($Clients -ne 1) -or ($Bots -ne 0) -or ($Hands -ne 1))) {
     throw 'Scenario allin-single-board requires exactly -Clients 1 -Bots 0 -Hands 1.'

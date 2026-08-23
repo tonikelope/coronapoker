@@ -15,7 +15,7 @@ class TestModeSemanticParityTest {
             throws Exception {
         Map<String, Integer> reviewedOccurrences = Map.of(
                 "Audio.java", 8,
-                "Crupier.java", 15,
+                "Crupier.java", 23,
                 "GameFrame.java", 5,
                 "Init.java", 1,
                 "LocalPlayer.java", 3,
@@ -73,6 +73,17 @@ class TestModeSemanticParityTest {
         assertTrue(testPath.contains("jugador.setSpectator(null)"));
         assertFalse(testPath.contains("setStack("));
         assertFalse(testPath.contains("pagar("));
+    }
+
+    @Test
+    void qaNickSelectorsUseExactWholeNickMatching() {
+        String configured = "client1, client10, CoronaBot$2";
+        assertTrue(Crupier.configuredNickSelected(configured, "client1"));
+        assertTrue(Crupier.configuredNickSelected(configured, "client10"));
+        assertTrue(Crupier.configuredNickSelected(configured, "CoronaBot$2"));
+        assertFalse(Crupier.configuredNickSelected(configured, "client"));
+        assertFalse(Crupier.configuredNickSelected(configured, "CoronaBot$1"));
+        assertFalse(Crupier.configuredNickSelected(null, "client1"));
     }
 
     private static Path sourceRoot() {

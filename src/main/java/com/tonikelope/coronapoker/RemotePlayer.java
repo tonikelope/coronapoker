@@ -2797,11 +2797,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         resetGUI();
 
-        if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(nickname)) {
+        Integer committedRebuy = GameFrame.getInstance().getCrupier()
+                .consumeCommittedRebuy(nickname);
+        if (committedRebuy != null) {
 
-            int rebuy = GameFrame.getInstance().getCrupier().getRebuy_now().get(nickname);
-
-            GameFrame.getInstance().getCrupier().getRebuy_now().remove(nickname);
+            int rebuy = committedRebuy;
 
             // If the rebuy was animated by the fill (animateRebuyStacks already rolled the stack
             // to its final value and played the cash-register sound), reComprar doesn't repeat
@@ -2999,6 +2999,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public void setSpectator(String msg) {
         if (!this.exit) {
             this.spectator = true;
+            // setSpectator is entered only after the completed hand (rebuy
+            // decision/warm-up). Do not carry an ALLIN decision into later
+            // betting/showdown filters, where it means a current-hand all-in.
+            this.decision = Player.FOLD;
             this.bote = 0f;
 
             // The hand reset (nuevaMano) only runs for active players, so the highlightable hand

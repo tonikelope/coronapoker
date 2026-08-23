@@ -141,6 +141,7 @@ public class WaitingRoomFrame extends JFrame {
     static boolean hasReservedBotNickCharacter(String nick) {
         return nick != null && nick.indexOf('$') >= 0;
     }
+
     public static final String MAGIC_BYTES = "5c1f158dd9855cc9";
     public static final String POISON_PILL = "___SOCKET_BYE___";
     public static final int PING_PONG_TIMEOUT = 10000;
@@ -3539,9 +3540,14 @@ public class WaitingRoomFrame extends JFrame {
                                                                             .getNick2player().containsKey(rbNick)) {
                                                                         throw new IllegalArgumentException("invalid REBUYNOW relay target");
                                                                     }
+                                                                    final Crupier rbCrupier = GameFrame.getInstance().getCrupier();
                                                                     final long rbSequence = nextRebuyRelaySequence();
-                                                                    Helpers.threadRun(() -> GameFrame.getInstance().getCrupier()
-                                                                            .applyRemoteRebuyNow(rbNick, rbBuyin, rbSequence));
+                                                                    rbCrupier.registerRemoteRebuyRelay(rbSequence);
+                                                                    if (Helpers.threadRun(() -> rbCrupier
+                                                                            .applyRemoteRebuyNow(rbNick, rbBuyin, rbSequence)) == null) {
+                                                                        rbCrupier.cancelRemoteRebuyRelay(rbSequence);
+                                                                        throw new IllegalStateException("REBUYNOW worker rejected");
+                                                                    }
                                                                 } catch (Exception e) {
                                                                     LOGGER.log(Level.SEVERE,
                                                                             "Invalid critical REBUYNOW relay; closing host channel", e);
@@ -3558,14 +3564,17 @@ public class WaitingRoomFrame extends JFrame {
                                                                             .getNick2player().containsKey(dnNick)) {
                                                                         throw new IllegalArgumentException("invalid REBUYDENIED relay target");
                                                                     }
+                                                                    final Crupier dnCrupier = GameFrame.getInstance().getCrupier();
                                                                     final long dnSequence = nextRebuyRelaySequence();
-                                                                    Helpers.threadRun(() -> {
+                                                                    dnCrupier.registerRemoteRebuyRelay(dnSequence);
+                                                                    if (Helpers.threadRun(() -> {
                                                                         // A denial is an ordered zero relay. Applying it through the same
                                                                         // sequence gate prevents an older positive task from restoring the
                                                                         // optimistic entry after the host has rejected it.
-                                                                        GameFrame.getInstance().getCrupier()
-                                                                                .applyRemoteRebuyNow(dnNick, 0, dnSequence);
-                                                                        if (GameFrame.getInstance().getLocalPlayer() != null
+                                                                        dnCrupier.applyRemoteRebuyNow(dnNick, 0, dnSequence);
+                                                                        if (GameFrame.getInstance() != null
+                                                                                && GameFrame.getInstance().getCrupier() == dnCrupier
+                                                                                && GameFrame.getInstance().getLocalPlayer() != null
                                                                                 && dnNick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
                                                                             Helpers.GUIRun(() -> {
                                                                                 if (GameFrame.getInstance().getRebuy_now_menu() != null) {
@@ -3577,7 +3586,10 @@ public class WaitingRoomFrame extends JFrame {
                                                                                 Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("rebuy.limite_alcanzado", String.valueOf(dnLimit)));
                                                                             });
                                                                         }
-                                                                    });
+                                                                    }) == null) {
+                                                                        dnCrupier.cancelRemoteRebuyRelay(dnSequence);
+                                                                        throw new IllegalStateException("REBUYDENIED worker rejected");
+                                                                    }
                                                                 } catch (Exception e) {
                                                                     LOGGER.log(Level.SEVERE,
                                                                             "Invalid critical REBUYDENIED relay; closing host channel", e);
@@ -3939,6 +3951,22 @@ public class WaitingRoomFrame extends JFrame {
                                                                 // already be waiting on the flag in awaitStreetForUnlockPhase.
                                                                 if (GameFrame.getInstance().getCrupier() != null) {
                                                                     GameFrame.getInstance().getCrupier().onStraddleDecisionCommand(partes_comando);
+                                                                }
+                                                                break;
+                                                            case "START_SRA_CASCADE":
+                                                                // REBUYNOW/REBUYDENIED are applied off this reader to avoid a
+                                                                // CONF self-deadlock. Preserve the socket's causal order by
+                                                                // placing a local boundary immediately before START: the dealer
+                                                                // cannot validate the next-hand stacks until every relay already
+                                                                // received by this point has finished applying.
+                                                                Crupier startCrupier = GameFrame.getInstance().getCrupier();
+                                                                long rebuyBoundary = rebuy_relay_sequence.get();
+                                                                synchronized (startCrupier.getReceived_commands()) {
+                                                                    Runnable closeSource = () -> Helpers.threadRun(this::closeCriticalHostChannel);
+                                                                    if (startCrupier.enqueueRemoteRebuyBarrier(rebuyBoundary, closeSource)) {
+                                                                        startCrupier.enqueueReceivedCommand(recibido, closeSource);
+                                                                    }
+                                                                    startCrupier.getReceived_commands().notifyAll();
                                                                 }
                                                                 break;
                                                             default:
@@ -6627,6 +6655,7 @@ public class WaitingRoomFrame extends JFrame {
         }
 
     }//GEN-LAST:event_new_bot_buttonActionPerformed
+
 
     private void pass_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_pass_iconMouseClicked
 

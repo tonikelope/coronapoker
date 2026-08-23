@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -36,5 +37,15 @@ class StoredSeatRingTest {
         assertNull(Crupier.storedRingNeighbor("", "ana", Set.of("bea"), true));
         assertNull(Crupier.storedRingNeighbor("%%%", "ana", Set.of("bea"), true));
         assertNull(Crupier.storedRingNeighbor(ring("ana") + "#", "ana", Set.of("bea"), true));
+    }
+
+    @Test
+    void recoveryKeepsEveryConnectedIncumbentInStoredCyclicOrder() {
+        String stored = ring("server", "active", "bot", "spectator1", "spectator2");
+
+        assertEquals(List.of("server", "active", "bot", "spectator1", "spectator2"),
+                Crupier.recoverStoredSeatIncumbents(stored,
+                        List.of("new1", "spectator2", "active", "server",
+                                "new2", "spectator1", "bot")));
     }
 }

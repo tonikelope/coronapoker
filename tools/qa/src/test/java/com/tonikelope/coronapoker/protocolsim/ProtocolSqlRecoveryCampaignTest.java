@@ -8,6 +8,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.protocolsim.CampaignSeed;
 import com.tonikelope.coronapoker.protocolsim.CampaignProgress;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
@@ -33,7 +34,7 @@ class ProtocolSqlRecoveryCampaignTest {
     @Test
     void latestDurableHandBecomesAnAtomicCurrentVersionSnapshot() throws Exception {
         int cases = intProperty("qa.sim.hands", 2_000, 1, 100_000);
-        long seed = longProperty("qa.sim.seed", 3231711270L);
+        long seed = CampaignSeed.resolve("qa.sim.seed", "sql-recovery");
         Random random = new Random(seed ^ 0x51A17E5L);
         Class.forName("org.sqlite.JDBC");
 
@@ -177,9 +178,4 @@ class ProtocolSqlRecoveryCampaignTest {
         return value;
     }
 
-    private static long longProperty(String name, long fallback) {
-        String text = System.getProperty(name);
-        return text == null || text.isBlank() || text.startsWith("${")
-                ? fallback : Long.parseLong(text);
-    }
 }

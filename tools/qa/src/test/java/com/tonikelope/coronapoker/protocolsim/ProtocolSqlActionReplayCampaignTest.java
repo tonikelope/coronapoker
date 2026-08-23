@@ -8,6 +8,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.protocolsim.CampaignSeed;
 import com.tonikelope.coronapoker.protocolsim.CampaignProgress;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
@@ -51,7 +52,7 @@ class ProtocolSqlActionReplayCampaignTest {
     @Test
     void persistedRowsReplayInCounterOrderOrRejectAtomically() throws Exception {
         int cases = intProperty("qa.sim.hands", 2_000, 1, 100_000);
-        long seed = longProperty("qa.sim.seed", 3231711270L);
+        long seed = CampaignSeed.resolve("qa.sim.seed", "sql-action-replay");
         Random random = new Random(seed ^ 0xAC710A5L);
         Class.forName("org.sqlite.JDBC");
 
@@ -224,12 +225,6 @@ class ProtocolSqlActionReplayCampaignTest {
             throw new IllegalArgumentException(name + " must be " + min + ".." + max);
         }
         return value;
-    }
-
-    private static long longProperty(String name, long fallback) {
-        String text = System.getProperty(name);
-        return text == null || text.isBlank() || text.startsWith("${")
-                ? fallback : Long.parseLong(text);
     }
 
     private record Row(int counter, String actor, int decision, long cents,

@@ -8,7 +8,7 @@ param(
     [ValidateRange(1, 1000)]
     [int]$Hands = 1,
 
-    [long]$Seed = 23059,
+    [long]$Seed,
 
     [ValidateSet('normal', 'raise-mix', 'allin-single-board', 'allin-rebuy', 'allin-reconnect', 'abrupt-exit', 'controlled-exit', 'allin-rit', 'rit-network-cut', 'allin-controlled-exit', 'straddle-post', 'straddle-network-cut', 'pause-resume', 'reconnect-midhand', 'reconnect-twice', 'reconnect-every-street', 'reconnect-storm', 'dual-reconnect', 'host-channel-flap', 'reconnect-force-recover', 'transport-chaos', 'lifecycle-chaos', 'dual-abrupt-exit', 'mixed-exit-crash', 'allin-abrupt-exit', 'force-recover', 'double-force-recover', 'crash-rejoin-recover', 'force-recover-add-client', 'force-recover-add-two', 'force-recover-swap-client')]
     [string]$Scenario = 'normal',
@@ -37,13 +37,13 @@ if ($Help) {
 CoronaPoker real-game loopback E2E simulator
 
 Usage:
-  powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\qa\run-real-game-e2e.ps1 [options]
+  .\tools\qa\real-game-e2e.cmd [options]
 
 Options:
   -Clients <1..9>          Human client JVMs in addition to the host (default: 1)
   -Bots <0..9>             Production bots hosted by the server (default: 2)
   -Hands <1..1000>         Complete hands to play (default: 1)
-  -Seed <long>             Reproducible action/scenario seed (default: 23059)
+  -Seed <long>             Replay an exact action/scenario seed (omitted: fresh random seed)
   -Scenario <name>         Select one scenario listed below (default: normal)
   -WindowMode <mode>       hidden, minimized or visible (default: hidden)
   -Screen <1..16>          Target monitor for every mode (default: 2)
@@ -148,47 +148,54 @@ Scenarios:
                           and a new peer joins before fresh hand 2.
 
 Examples:
-  .\tools\qa\run-real-game-e2e.ps1
-  .\tools\qa\run-real-game-e2e.ps1 -Clients 2 -Bots 1 -Hands 3 -Seed 42
-  .\tools\qa\run-real-game-e2e.ps1 -Clients 9 -Bots 0 -Hands 1
-  .\tools\qa\run-real-game-e2e.ps1 -Clients 4 -Bots 5 -Hands 3
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario abrupt-exit
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario controlled-exit
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario raise-mix -Hands 5
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario allin-single-board -Clients 1 -Bots 0
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario allin-rebuy -Clients 1 -Bots 0 -Hands 5
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario allin-reconnect -Clients 2 -Bots 0 -Hands 1
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario allin-rit -Bots 0
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario rit-network-cut -Clients 2 -Bots 0 -Hands 1
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario allin-controlled-exit -Clients 1 -Bots 0
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario straddle-post -Clients 2 -Bots 0 -Hands 3
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario straddle-network-cut -Clients 2 -Bots 0 -Hands 3
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario pause-resume -Hands 2
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario reconnect-midhand -Hands 2
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario reconnect-twice -Clients 2 -Hands 3
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario reconnect-every-street -Clients 2 -Bots 1 -Hands 4
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario reconnect-storm -Clients 2 -Hands 3
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario dual-reconnect -Clients 3 -Hands 2
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario host-channel-flap -Clients 3 -Hands 2
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario reconnect-force-recover -Clients 2 -Bots 1 -Hands 3
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario transport-chaos -Clients 3 -Bots 1 -Hands 5
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario lifecycle-chaos -Clients 2 -Bots 1 -Hands 7
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario dual-abrupt-exit -Clients 3
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario mixed-exit-crash -Clients 3
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario allin-abrupt-exit -Clients 2 -Bots 0
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario force-recover -Hands 2
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario double-force-recover -Hands 4
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario crash-rejoin-recover -Clients 1 -Hands 2
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario force-recover-add-client -Clients 2 -Hands 2
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario force-recover-add-two -Clients 3 -Hands 2
-  .\tools\qa\run-real-game-e2e.ps1 -Scenario force-recover-swap-client -Clients 2 -Hands 2
-  .\tools\qa\run-real-game-e2e.ps1 -WindowMode visible -Screen 2 -Animations
-  .\tools\qa\run-real-game-e2e.ps1 -ProductionTiming -WindowMode minimized
+  .\tools\qa\real-game-e2e.cmd
+  .\tools\qa\real-game-e2e.cmd -Clients 2 -Bots 1 -Hands 3 -Seed 42
+  .\tools\qa\real-game-e2e.cmd -Clients 9 -Bots 0 -Hands 1
+  .\tools\qa\real-game-e2e.cmd -Clients 4 -Bots 5 -Hands 3
+  .\tools\qa\real-game-e2e.cmd -Scenario abrupt-exit
+  .\tools\qa\real-game-e2e.cmd -Scenario controlled-exit
+  .\tools\qa\real-game-e2e.cmd -Scenario raise-mix -Hands 5
+  .\tools\qa\real-game-e2e.cmd -Scenario allin-single-board -Clients 1 -Bots 0
+  .\tools\qa\real-game-e2e.cmd -Scenario allin-rebuy -Clients 1 -Bots 0 -Hands 5
+  .\tools\qa\real-game-e2e.cmd -Scenario allin-reconnect -Clients 2 -Bots 0 -Hands 1
+  .\tools\qa\real-game-e2e.cmd -Scenario allin-rit -Bots 0
+  .\tools\qa\real-game-e2e.cmd -Scenario rit-network-cut -Clients 2 -Bots 0 -Hands 1
+  .\tools\qa\real-game-e2e.cmd -Scenario allin-controlled-exit -Clients 1 -Bots 0
+  .\tools\qa\real-game-e2e.cmd -Scenario straddle-post -Clients 2 -Bots 0 -Hands 3
+  .\tools\qa\real-game-e2e.cmd -Scenario straddle-network-cut -Clients 2 -Bots 0 -Hands 3
+  .\tools\qa\real-game-e2e.cmd -Scenario pause-resume -Hands 2
+  .\tools\qa\real-game-e2e.cmd -Scenario reconnect-midhand -Hands 2
+  .\tools\qa\real-game-e2e.cmd -Scenario reconnect-twice -Clients 2 -Hands 3
+  .\tools\qa\real-game-e2e.cmd -Scenario reconnect-every-street -Clients 2 -Bots 1 -Hands 4
+  .\tools\qa\real-game-e2e.cmd -Scenario reconnect-storm -Clients 2 -Hands 3
+  .\tools\qa\real-game-e2e.cmd -Scenario dual-reconnect -Clients 3 -Hands 2
+  .\tools\qa\real-game-e2e.cmd -Scenario host-channel-flap -Clients 3 -Hands 2
+  .\tools\qa\real-game-e2e.cmd -Scenario reconnect-force-recover -Clients 2 -Bots 1 -Hands 3
+  .\tools\qa\real-game-e2e.cmd -Scenario transport-chaos -Clients 3 -Bots 1 -Hands 5
+  .\tools\qa\real-game-e2e.cmd -Scenario lifecycle-chaos -Clients 2 -Bots 1 -Hands 7
+  .\tools\qa\real-game-e2e.cmd -Scenario dual-abrupt-exit -Clients 3
+  .\tools\qa\real-game-e2e.cmd -Scenario mixed-exit-crash -Clients 3
+  .\tools\qa\real-game-e2e.cmd -Scenario allin-abrupt-exit -Clients 2 -Bots 0
+  .\tools\qa\real-game-e2e.cmd -Scenario force-recover -Hands 2
+  .\tools\qa\real-game-e2e.cmd -Scenario double-force-recover -Hands 4
+  .\tools\qa\real-game-e2e.cmd -Scenario crash-rejoin-recover -Clients 1 -Hands 2
+  .\tools\qa\real-game-e2e.cmd -Scenario force-recover-add-client -Clients 2 -Hands 2
+  .\tools\qa\real-game-e2e.cmd -Scenario force-recover-add-two -Clients 3 -Hands 2
+  .\tools\qa\real-game-e2e.cmd -Scenario force-recover-swap-client -Clients 2 -Hands 2
+  .\tools\qa\real-game-e2e.cmd -WindowMode visible -Screen 2 -Animations
+  .\tools\qa\real-game-e2e.cmd -ProductionTiming -WindowMode minimized
 
 This layer launches separate JVMs and runs the production WaitingRoomFrame,
-encrypted sockets, Crupier, rondaApuestas, bots, consensus and SQLite close.
+encrypted sockets, Crupier, rondaApuestas, bots, consensus and SQLite close. An
+omitted seed is generated and printed before Maven starts; pass it back with
+-Seed to replay a failure.
 '@ | Write-Host
     exit 0
+}
+
+. (Join-Path $PSScriptRoot 'qa-seed.ps1')
+if (-not $PSBoundParameters.ContainsKey('Seed')) {
+    $Seed = New-CoronaPokerQaSeed
 }
 
 if (($Clients + $Bots + 1) -gt 10) {
@@ -318,6 +325,8 @@ if (-not $qaHomePath.StartsWith($qaHomeRoot + [IO.Path]::DirectorySeparatorChar,
     throw "Refusing unsafe QA home path: $qaHomePath"
 }
 $exitCode = 1
+Write-Host ("CoronaPoker real-game E2E: scenario={0} clients={1} bots={2} hands={3} seed={4}" -f `
+        $Scenario, $Clients, $Bots, $Hands, $Seed)
 try {
     & $maven `
         -f $mavenPom `

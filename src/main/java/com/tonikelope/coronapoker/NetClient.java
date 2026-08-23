@@ -31,8 +31,6 @@ package com.tonikelope.coronapoker;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.net.Socket;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;

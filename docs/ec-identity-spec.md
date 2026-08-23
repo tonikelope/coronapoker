@@ -28,7 +28,7 @@ This layer addresses vectors that the raw mental-poker cascade alone cannot dete
 - **Collusion of N-1 peers against 1 victim.** Inherent to any consensus without a trusted third party. Divergent/missing receipts automatically block durable close, but colluders can still deny service or present one consistent dishonest view.
 - **Cross-device identity portability.** Each install generates its own keypair per nick. A player using the same nick on two machines will present a different pubkey on each. That is the natural and correct behavior.
 - **Identification by pubkey for stats/recover.** Nick remains the logical identity for SQLite stats and recovery. The balance table is migrated to exactly one row per `(id_hand, player)`.
-- **Chain recovery on mid-hand reconnection.** A peer that drops mid-hand and reconnects cannot rejoin the in-progress hand. An absent receipt is classified `MISSING` and prevents durable close/advance.
+- **Live state recovery after a full process loss.** A transient socket reconnect can resume the same running process and in-progress hand. If the JVM exits, the table follows the persisted MISDEAL/recovery flow instead of treating a new process as the same live hand participant; the returning player can rejoin that recovered game through the recovery protocol.
 
 ---
 
@@ -162,11 +162,11 @@ All defensive against honest cross-platform bugs, none against malicious source-
    ```
    Defends against precomposed vs decomposed Unicode (macOS vs Windows). Identity for ASCII nicks.
 
-2. **Float-to-cents conversion**:
+2. **Float/double-to-cents conversion**:
    ```java
-   amount_cents = Math.round((double) amount_float * 100.0);
+   amount_cents = MoneyCents.fromFloat(amount_float).cents();
    ```
-   Widening to double before multiplication kills `0.1f + 0.2f` jitter. Single canonical implementation. Reproducing the layout elsewhere is an integrity bug.
+   `fromFloat` canonicalises through the float's decimal string. `fromDouble` requires an exact cent value, except for an insignificant tolerance bounded by four ULPs (and `1e-12`) around the nearest cent. Non-finite, negative, out-of-domain and genuinely sub-cent values are rejected. `MoneyCents` is the single implementation; reproducing conversion elsewhere is an integrity bug.
 
 3. **Locale-independent parsing**: `Float.parseFloat` / `Long.parseLong` are already locale-independent. Any `NumberFormat` for amounts must use `Locale.ROOT`.
 
@@ -216,7 +216,7 @@ Honest player timeouts are resolved client-side: each peer's local `auto_action`
 
 ### 4.7 Host-signed community card reveals
 
-Community cards are never sent in the clear. After the SRA cascade and the community rotation pass (see [`SECURITY.md`](SECURITY.md) §2.2), each community slot is locked **only** under each peer's `k_community`. Per street, the host:
+The board is never trusted from a host plaintext announcement alone. After the SRA cascade and the community rotation pass (see [`SECURITY.md`](SECURITY.md) §2.2), each community slot is locked **only** under each peer's `k_community`. Per street, the host:
 
 1. Sends every ring member its **own per-recipient encrypted piece**, `FLOP_PIECE` / `TURN_PIECE` / `RIVER_PIECE` (and `RABBIT_*_PIECE` for rabbit hunting), wire-shaped as `<PIECE>#<recipient_nick_b64>#<payload_b64>`. The recipient applies its `local_sra_unlock_community` to decode the piece **locally** and maps each 32-byte chunk to a card index via `RistrettoSRA.resolveCardIndex`.
 2. Broadcasts a single signed announcement to everyone:
@@ -239,7 +239,7 @@ A peer also drops any `COMM_REVEAL` whose `STREET` doesn't match the street it i
 | Event | Handling |
 |---|---|
 | Showdown card reveal | Transported outside the 92-byte record. Remote keys are gathered by `REQ_SHOWDOWN_KEY` / `RESP_SHOWDOWN_KEY` (unicast to the host), then the host re-broadcasts every revealer's key in one atomic `POTCARDS` message. The same signature also rides the voluntary mid-hand `SHOWCARDS`. It **is** individually signed under the `"SHOWDOWN\0"` domain (payload `HAND_ID \|\| nick \|\| k_pocket`) and cross-checked, but lives outside `H_t`. `HAND_ID` is bound inside the signature, not carried as a wire field. |
-| EXIT | Session-level event on the regular encrypted/HMAC'd channel (no per-event Ed25519 signature). A forged EXIT desyncs the spoofed peer's chain against a missing slot, still detectable post-hand. OOB identity verification is the actual defence against host impersonation. |
+| EXIT | Session-level event on the regular encrypted/HMAC'd channel (no separate Ed25519 signature over the event). Its current wire body atomically carries the departing peer's community testament and, only when that peer is already all-in, its `SHOWDOWN`-signed pocket key. A controlled departure is removed from future receipt expectations because it cannot sign a future close. Without the required testament or all-in proof, the table cannot unlock safely and deterministically MISDEALS/refunds. A hostile host can falsely report a departure and thereby deny service; without the missing peer secret it cannot make an unsafe hand complete, but this event alone does not provide cryptographic attribution. |
 | REBUY | Between hands, doesn't affect the current `H_t`. |
 
 ### 4.9 Wire encoding of a signed action
@@ -250,7 +250,7 @@ GAME # <command_id> # ACTION # <nick_b64> # <decision> # <bet> # <cinematic_or_*
 
 The outer `GAME # <command_id> #` envelope is prepended by `broadcastGAMECommandFromServer` / `sendGAMECommandToServer`, where `command_id` is a random per-command int (`Helpers.CSPRNG_GENERATOR.nextInt()`) used only for CONF de-duplication, not a hand sequence number. The inner `ACTION` subcommand carries the Base64 nick, the numeric `decision` code (the Java `Player` action constant), the `bet` amount as a decimal string (`0` for non-bets), a `cinematic_or_*` slot (the all-in animation payload or `*`), and finally `record_or_*` / `sig_or_*` (each `*` when absent).
 
-The nick, decision, bet and cinematic fields are operational (logs, animations and parsing). **Only `<record_b64>` and `<sig_b64>` are cryptographically meaningful**. They are the canonical values fed to the chain and verifier.
+The outer nick, decision and bet fields are operational **and security-relevant**: the receiver derives their expected canonical action and rejects a signed record that does not bind to them and to its own replicated pre-action state. `<record_b64>` and `<sig_b64>` are the canonical values fed to the chain and signature verifier. The cinematic field is presentation-only.
 
 ---
 
@@ -313,7 +313,7 @@ The record carries no per-actor signature: it rides the closing receipt, whose `
 
 ## 6. Receipt and consensus
 
-At hand close every peer publishes a signed receipt over the `HANDVERIFY` command (dual-form payload: a trigger from the host, then one signed receipt per peer). Source: [`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java), [`IdentityManager.java`](../src/main/java/com/tonikelope/coronapoker/IdentityManager.java).
+At hand close every currently expected human ring member publishes a signed receipt over the `HANDVERIFY` command (dual-form payload: a trigger from the host, then one signed receipt per expected signer). Bots and observed departures are excluded from this signer set. Source: [`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java), [`IdentityManager.java`](../src/main/java/com/tonikelope/coronapoker/IdentityManager.java).
 
 ### 6.1 Wire form
 
@@ -349,7 +349,7 @@ The outcomes, in descending priority (only the strongest is surfaced):
 
 | Outcome | Meaning | Severity | `disputed_hands` |
 |---|---|---|---|
-| `DIVERGENT` | a receipt's sig fails or its `H_final` differs | SEVERE (interpreted as host manipulation) | `reason='DIVERGENT'` |
+| `DIVERGENT` | a receipt's sig fails or its `H_final` differs | SEVERE (inconsistent relay/state; intent not inferred) | `reason='DIVERGENT'` |
 | `MISSING` | a peer's receipt is absent / wrong length / stale `HAND_ID` / pubkey unavailable | WARNING (ambiguous: network or crash) | `reason='MISSING'` |
 | `INVALID_SIG_SEEN` | all sigs valid and `H_final`s match, but some peer flagged an invalid action sig (bit0) | WARNING (popup to the table) | `reason='INVALID_SIG_SEEN'` |
 | `DECK_NO_PROOF` | otherwise clean, but some peer never received the shuffle proof (bit1+bit2), host may be withholding it | WARNING (popup to the table) | `reason='DECK_NO_PROOF'` |
@@ -358,9 +358,9 @@ The outcomes, in descending priority (only the strongest is surfaced):
 
 Consensus gates durable close for `DIVERGENT`, `MISSING` and `INVALID_SIG_SEEN`. The engine ends transmission and skips SQL close, reset and advancement. It does not reverse the already-computed payout; the open SQL hand and in-memory accounting remain available for recovery. `DECK_NO_PROOF` and `DECK_UNVERIFIED` remain forensic receipt outcomes because the separate shuffle-proof gate already blocked any unverified community unlock before reveal.
 
-#### Why divergence is essentially proof of a malicious host
+#### What divergence proves
 
-Every action is individually Ed25519-signed by its emitter and the `H_t` chain is computed locally by each peer from the actions received over TCP. For two peers to reach byte-different `H_final`, the host must have sent different/omitted/reordered actions to different peers (or a serious relay bug did). TCP guarantees in-order delivery or breaks the connection, so packet loss manifests as a **missing** receipt, never a silently **divergent** one. Hence `DIVERGENT` is smoking-gun evidence of host manipulation. `MISSING` is ambiguous and treated more mildly.
+Every action is individually Ed25519-signed by its emitter and the `H_t` chain is computed locally by each peer from the actions received over TCP. Byte-different `H_final` values therefore prove that the peers did not receive or apply one identical ordered history. Host manipulation is one explanation; a serious relay or state-machine defect is another. The evidence is sufficient to stop durable close, but it does not by itself distinguish malicious intent from a software fault. `MISSING` remains ambiguous and is classified separately.
 
 #### Why preserve rather than refund
 
@@ -452,7 +452,7 @@ No special "host pubkey" exists in the protocol: host == player + extra responsi
 
 - **TOFU**: Trust On First Use. Accept a key the first time, pin it. SSH-style.
 - **PAKE**: Password-Authenticated Key Exchange. Authenticate with a shared password without revealing it.
-- **Domain separator**: Unique NUL-terminated string prefix in every signature (and in the chain absorb) so a value for one purpose cannot be replayed in another: `ACTION\0`, `RECEIPT\0`, `SHOWDOWN\0`, `JOIN\0` for the signed contexts, plus `HAND\0` for the `H_0` seed and `SETTLE\0` for the terminal settlement absorb (§5.1, §5.3).
+- **Domain separator**: Unique NUL-terminated string prefix in every signature (and in the chain absorb) so a value for one purpose cannot be replayed in another: `ACTION\0`, `RECEIPT\0`, `SHOWDOWN\0`, `STRADDLE\0`, `RABBIT\0`, `SEATDRAW\0` and `JOIN\0` for signed contexts, plus `HAND\0`, `OPENING_BALANCES\0` and `SETTLE\0` for chain state (§5.1, §5.3).
 - **Ratchet**: One-way state update where each step depends on the previous. Reordering is impossible without breaking the chain.
 - **Receipt**: Signed commitment by a peer to a final chain state, archivable as evidence.
 - **OOB (Out-of-Band)**: A channel separate from the system being secured (e.g. a phone call to compare a fingerprint shown in the UI).

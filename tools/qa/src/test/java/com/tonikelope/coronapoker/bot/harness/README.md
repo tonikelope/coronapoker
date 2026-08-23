@@ -386,10 +386,10 @@ suite against it in one pass — no `mvn install` of the jar, no
 
 ```sh
 # only the bot-quality lane (statistical bot sims + GameFlowSmoke)
-mvn -f tools/reactor/pom.xml install -P qa-bots
+mvn -f tools/reactor/pom.xml verify -P qa-bots
 
 # deterministic suite plus non-bot slow checks
-mvn -f tools/reactor/pom.xml install -P qa-release
+mvn -f tools/reactor/pom.xml verify -P qa-release
 ```
 
 The `qa-heavy` and `qa-release` profiles are declared in `tools/qa/pom.xml`;
@@ -403,11 +403,12 @@ To run the qa module on its own, first publish the game jar, then point Maven
 at the qa pom:
 
 ```sh
-mvn -DskipTests install                                   # from the repo root
-mvn -f tools/qa/pom.xml test -P qa-bots -Dcoronapoker.version=23.52
+mvn '-DskipTests' install                                 # from the repo root
+mvn -f tools/qa/pom.xml test -P qa-bots '-Dcoronapoker.version=<root pom version>'
 ```
 
-Keep `-Dcoronapoker.version` in sync with the root pom (currently 23.52).
+Keep `-Dcoronapoker.version` in sync with the root pom. Quote the complete
+property argument in PowerShell as shown above.
 
 ### 9.3 A subset by name pattern
 
@@ -417,23 +418,23 @@ module (or any module) that has none of the matching classes:
 
 ```sh
 # 6-max gradient tests
-mvn -f tools/reactor/pom.xml install -P qa-bots \
-    -Dtest='Multiway_*Test' -Dsurefire.failIfNoSpecifiedTests=false
+mvn -f tools/reactor/pom.xml verify -P qa-bots \
+    '-Dtest=Multiway_*Test' '-Dsurefire.failIfNoSpecifiedTests=false'
 
 # 6-max baseline tests
-mvn -f tools/reactor/pom.xml install -P qa-bots \
-    -Dtest='MultiwayBaseline*Test' -Dsurefire.failIfNoSpecifiedTests=false
+mvn -f tools/reactor/pom.xml verify -P qa-bots \
+    '-Dtest=MultiwayBaseline*Test' '-Dsurefire.failIfNoSpecifiedTests=false'
 
 # HU tests (historical reference)
-mvn -f tools/reactor/pom.xml install -P qa-bots \
-    -Dtest='MixedMatchup_*Test,Baseline*Test' -Dsurefire.failIfNoSpecifiedTests=false
+mvn -f tools/reactor/pom.xml verify -P qa-bots \
+    '-Dtest=MixedMatchup_*Test,Baseline*Test' '-Dsurefire.failIfNoSpecifiedTests=false'
 ```
 
 ### 9.4 One specific matchup
 
 ```sh
-mvn -f tools/reactor/pom.xml install -P qa-bots \
-    -Dtest=Multiway_HardVs5EasyTest -Dsurefire.failIfNoSpecifiedTests=false
+mvn -f tools/reactor/pom.xml verify -P qa-bots \
+    '-Dtest=Multiway_HardVs5EasyTest' '-Dsurefire.failIfNoSpecifiedTests=false'
 ```
 
 Any real harness class works, e.g. `MixedMatchup_HardVsMediumTest`,
@@ -446,9 +447,9 @@ Volume is controlled at runtime (no source edits needed) via two system
 properties read by `QaConfig` and forwarded into the surefire forks:
 
 ```sh
-mvn -f tools/reactor/pom.xml -o install -P qa-bots \
-    -Dtest='Multiway_*Test' -Dsurefire.failIfNoSpecifiedTests=false \
-    -Dqa.sessions=40 -Dqa.hands=25
+mvn -f tools/reactor/pom.xml -o verify -P qa-bots \
+    '-Dtest=Multiway_*Test' '-Dsurefire.failIfNoSpecifiedTests=false' \
+    '-Dqa.sessions=40' '-Dqa.hands=25'
 ```
 
 `-Dqa.sessions` overrides `SESSIONS`/`SESSIONS_PER_MATCHUP` and `-Dqa.hands`

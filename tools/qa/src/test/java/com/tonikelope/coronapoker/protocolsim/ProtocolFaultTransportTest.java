@@ -165,7 +165,7 @@ final class ProtocolFaultTransportTest {
     @Test
     void seededRandomFaultCampaignNeverSilentlyContinuesACriticalStream() {
         int cases = positiveIntProperty("qa.sim.faults", 2_000, 100_000);
-        long seed = longProperty("qa.sim.seed", 0xC0A0_2026L);
+        long seed = CampaignSeed.resolve("qa.sim.seed", "fault-transport");
         Integer replayCase = optionalNonNegativeIntProperty(
                 "qa.sim.fault.case", 100_000 - 1);
         if (replayCase != null) {
@@ -314,12 +314,6 @@ final class ProtocolFaultTransportTest {
             throw new IllegalArgumentException(name + " must be in 1.." + maximum);
         }
         return parsed;
-    }
-
-    private static long longProperty(String name, long defaultValue) {
-        String value = System.getProperty(name);
-        return value == null || value.isBlank() || value.startsWith("${")
-                ? defaultValue : Long.parseLong(value);
     }
 
     private static Integer optionalNonNegativeIntProperty(String name, int maximum) {

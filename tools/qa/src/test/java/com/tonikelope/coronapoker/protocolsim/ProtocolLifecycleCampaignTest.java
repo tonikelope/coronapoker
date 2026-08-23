@@ -9,6 +9,7 @@
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.protocolsim.CampaignProgress;
+import com.tonikelope.coronapoker.protocolsim.CampaignSeed;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -39,7 +40,7 @@ class ProtocolLifecycleCampaignTest {
     @Test
     void randomizedLifecycleNeverLetsAnOldSessionMutateTheNextOne() {
         int cases = intProperty("qa.sim.faults", 2_000, 1, 100_000);
-        long seed = longProperty("qa.sim.seed", 3231711270L);
+        long seed = CampaignSeed.resolve("qa.sim.seed", "lifecycle");
         Integer replay = optionalIntProperty("qa.sim.lifecycle.case", 0, 99_999);
         int first = replay == null ? 0 : replay;
         int end = replay == null ? cases : replay + 1;
@@ -211,18 +212,6 @@ class ProtocolLifecycleCampaignTest {
             return value;
         } catch (NumberFormatException ex) {
             throw new IllegalArgumentException(name + " must be an integer: " + text, ex);
-        }
-    }
-
-    private static long longProperty(String name, long fallback) {
-        String text = System.getProperty(name);
-        if (text == null || text.isBlank() || text.startsWith("${")) {
-            return fallback;
-        }
-        try {
-            return Long.parseLong(text);
-        } catch (NumberFormatException ex) {
-            throw new IllegalArgumentException(name + " must be a long: " + text, ex);
         }
     }
 

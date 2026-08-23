@@ -9,7 +9,7 @@ param(
     [ValidateRange(1, 1000000)]
     [int] $BotHands = 100,
 
-    [long] $Seed = 3231711270,
+    [long] $Seed,
 
     [switch] $AllNonVisual,
 
@@ -25,26 +25,33 @@ if ($Help) {
 CoronaPoker headless protocol simulator
 
 Usage:
-  powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\qa\run-headless-sim.ps1 [options]
+  .\tools\qa\headless-sim.cmd [options]
 
 Options:
   -Hands <1..100000>       Protocol, side-pot, Rabbit, lifecycle and SQL cases (default: 5000)
   -Faults <1..100000>      Random critical-stream fault cases (default: 5000)
   -BotHands <1..1000000>   Production-bot hands (default: 100)
-  -Seed <long>             Reproducible campaign seed (default: 3231711270)
+  -Seed <long>             Replay an exact campaign seed (omitted: fresh random seed)
   -AllNonVisual            Run every automated non-visual QA test, not only protocol simulation
   -SkipGameBuild           Reuse the exact checkout already installed by run-certification.ps1
   -Help                    Show this help and exit
 
 Examples:
-  .\tools\qa\run-headless-sim.ps1 -Hands 200 -Faults 200 -BotHands 10 -Seed 42
-  .\tools\qa\run-headless-sim.ps1 -AllNonVisual
+  .\tools\qa\headless-sim.cmd -Hands 200 -Faults 200 -BotHands 10 -Seed 42
+  .\tools\qa\headless-sim.cmd -AllNonVisual
 
 This fast layer exercises production protocol/domain components without full
-Swing/Crupier orchestration. Use run-real-game-e2e.ps1 for complete local games.
-The exact checkout is built into the ignored local .m2/repository cache.
+Swing/Crupier orchestration. Use real-game-e2e.cmd for complete local games.
+The exact checkout is built into the ignored local .m2/repository cache. An
+omitted seed is generated and printed before Maven starts; pass it back with
+-Seed to replay a failure.
 '@ | Write-Host
     exit 0
+}
+
+. (Join-Path $PSScriptRoot 'qa-seed.ps1')
+if (-not $PSBoundParameters.ContainsKey('Seed')) {
+    $Seed = New-CoronaPokerQaSeed
 }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path

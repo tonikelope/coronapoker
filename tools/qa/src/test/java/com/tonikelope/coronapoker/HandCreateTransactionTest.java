@@ -137,10 +137,4 @@ class HandCreateTransactionTest {
         }
     }
 
-    private static double scalarDouble(Connection con, String sql) throws Exception {
-        try (Statement st = con.createStatement(); ResultSet rs = st.executeQuery(sql)) {
-            assertTrue(rs.next());
-            return rs.getDouble(1);
-        }
-    }
 }

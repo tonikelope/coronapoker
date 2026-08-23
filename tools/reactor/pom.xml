@@ -16,17 +16,17 @@
 
       # fast feedback for a refactor — game + all tests EXCEPT the slow bot sims
       # (the fast lane is the DEFAULT; no profile needed)
-      mvn -f tools/reactor/pom.xml -o install
+      mvn -f tools/reactor/pom.xml -o verify
 
       # full deterministic suite plus crypto and socket-stall checks;
       # statistical bot/harness quality is excluded from this aggregate
-      mvn -f tools/reactor/pom.xml -o install -P qa-release
+      mvn -f tools/reactor/pom.xml -o verify -P qa-release
 
       # non-bot slow lanes aggregate (bot quality remains explicit)
-      mvn -f tools/reactor/pom.xml -o install -P qa-heavy
+      mvn -f tools/reactor/pom.xml -o verify -P qa-heavy
 
       # a single test class
-      mvn -f tools/reactor/pom.xml -o install -Dtest=BetRulesTest
+      mvn -f tools/reactor/pom.xml -o verify '-Dtest=BetRulesTest' '-Dsurefire.failIfNoSpecifiedTests=false'
 
   The fast lane is the DEFAULT (no profile). The `qa-heavy` and `qa-release`
   profiles are declared in tools/qa/pom.xml and select the non-bot slow tests
@@ -39,7 +39,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>coronapoker-qa-reactor</artifactId>
-        <version>24.01</version>
+        <version>24.02</version>
     <packaging>pom</packaging>
     <name>CoronaPoker QA reactor (opt-in aggregator)</name>
 

@@ -16,7 +16,7 @@
           <mxGeometry x="60" y="104" width="620" height="28" as="geometry" />
         </mxCell>
 
-        <mxCell id="f1" value="&lt;b&gt;F1. Identity binding at the choke point&lt;/b&gt;&lt;br&gt;&lt;br&gt;Every response subcommand that carries a nick (ACTION, REBUY, BUYIN, RESP_SHOWDOWN_KEY, DECK_CASCADE_RESP, DECK_ROTATION_RESP, RESP_SRA_UNLOCK_CHAIN, RIT_VOTE_RESP, SHOWCARDS) is bound to the connection's authenticated nick before it is queued. No peer can act, vote, override an economy value or poison the deal in another peer's name. A mismatch adds a strike." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;spacing=10;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="f1" value="&lt;b&gt;F1. Identity binding at the choke point&lt;/b&gt;&lt;br&gt;&lt;br&gt;Queued nick-bearing responses (ACTION, REBUY, BUYIN, RESP_SHOWDOWN_KEY, DECK_CASCADE_RESP, DECK_ROTATION_RESP, RESP_SRA_UNLOCK_CHAIN, RIT_VOTE_RESP, SEAT_COMMIT, SEAT_REVEAL) are bound to the authenticated connection before enqueue. SHOWCARDS, HANDVERIFY and STRADDLE_RESP apply the same check in dedicated handlers. A peer cannot act, vote, override an economy value or poison the deal in another peer's name. A mismatch adds a strike." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;spacing=10;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="60" y="138" width="620" height="150" as="geometry" />
         </mxCell>
 
@@ -24,7 +24,7 @@
           <mxGeometry x="60" y="300" width="620" height="210" as="geometry" />
         </mxCell>
 
-        <mxCell id="f3" value="&lt;b&gt;F3. Progress deadlines (liveness is not progress)&lt;/b&gt;&lt;br&gt;&lt;br&gt;A peer that answers PING but withholds a message the table is blocked on used to freeze it forever. Every host-side wait now carries a generous, pause-aware progress deadline. On expiry the withholding peer is AUTO-EXPELLED, or the hand MISDEALS for the very first crypto step, and the table moves on through the same path a real disconnect already uses.&lt;br&gt;&lt;br&gt;Four waits were unbounded and are now bounded: the SRA cascade response, HAND_READY between hands, the remote betting ACTION (only when the think-time limit is on), and the synchronous broadcast ACK. The deadlines never count paused time and sit far above any slow client." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;spacing=10;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="f3" value="&lt;b&gt;F3. Progress deadlines (liveness is not progress)&lt;/b&gt;&lt;br&gt;&lt;br&gt;A peer that answers PING but withholds a security-critical message can freeze the table. Five host-side deadline families bound these waits: SRA cascade, SRA unlock/rotation, HAND_READY, remote betting ACTION (only with the think-time limit), and synchronous broadcast ACK (including recovery broadcasts). Expiry triggers explicit AUTO-EXPEL or MISDEAL; no critical frame is silently dropped. Deadlines pause during table pause/reconnection and sit far above legitimate slow clients. Clients separately bound the HANDVERIFY-trigger wait." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;spacing=10;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="60" y="522" width="620" height="220" as="geometry" />
         </mxCell>
 
@@ -69,7 +69,7 @@
         <mxCell id="b1" value="Peer answers PING (looks alive)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="40" y="788" width="200" height="44" as="geometry" />
         </mxCell>
-        <mxCell id="b2" value="but withholds cascade RESP / HAND_READY / ACTION / broadcast ACK" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="b2" value="but withholds cascade / unlock / HAND_READY / ACTION / broadcast ACK" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="268" y="788" width="212" height="44" as="geometry" />
         </mxCell>
         <mxCell id="b3" value="Progress deadline expires (pause-aware, far above any slow client)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">

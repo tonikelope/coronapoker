@@ -19,8 +19,12 @@ public final class CampaignProgress {
             throw new IllegalArgumentException("invalid campaign name");
         }
         if (shouldReport(completed, requested)) {
-            System.out.printf("CP_HEADLESS_PROGRESS campaign=%s completed=%d requested=%d%n",
-                    campaign, completed, requested);
+            System.out.println(formatMarker(campaign, completed, requested));
         }
+    }
+
+    static String formatMarker(String campaign, int completed, int requested) {
+        return "CP_HEADLESS_PROGRESS campaign=" + campaign
+                + " completed=" + completed + " requested=" + requested;
     }
 }

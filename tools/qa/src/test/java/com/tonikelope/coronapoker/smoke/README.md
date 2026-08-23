@@ -14,30 +14,28 @@ Diseñados para responder UNA pregunta: *después de mi cambio, ¿el flujo bási
 
 - **Después de cualquier cambio en `Crupier.java`, `Bot.java`, `bot/*` o cualquier código que afecte al flujo de mano.**
 - Antes de mergear cualquier rama `sprint-*` a master.
-- Los 16 smoke rápidos SÍ se ejecutan automáticamente con `mvn test`: el `pom.xml` de la suite añade `**/*Smoke.java` a los `includes`, así que entran en el lane rápido por defecto. El único que NO es `GameFlowSmoke`, marcado `@Tag("slow")`: queda fuera del lane por defecto y sólo corre con `-P qa-bots` (y nunca con los agregados `qa-heavy`/`qa-release`).
+- Los smoke rápidos SÍ se ejecutan automáticamente con el lane rápido: el `pom.xml` de la suite añade `**/*Smoke.java` a los `includes`. `GameFlowSmoke` está marcado `@Tag("slow")`: queda fuera del lane por defecto y sólo corre con `-P qa-bots` (nunca con los agregados `qa-heavy`/`qa-release`).
 
 ## Cómo ejecutar (solo los smoke, sin pisar la máquina)
 
 ```powershell
-$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-25.0.1.8-hotspot"
-cd tools\qa
-& "C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd" -o test -Dtest='*Smoke' -P qa-fast
+mvn -f tools/reactor/pom.xml -o verify -P qa-fast '-Dtest=*Smoke' '-Dsurefire.failIfNoSpecifiedTests=false'
 ```
 
-`-Dtest='*Smoke'` a secas corre los 16 smoke rápidos pero **SALTA `GameFlowSmoke`**: su `@Tag("slow")` lo excluye del lane por defecto. Añade `-P qa-bots` para incluir únicamente `GameFlowSmoke`; `qa-heavy` y `qa-release` lo excluyen deliberadamente.
+El filtro anterior corre los smoke rápidos pero **SALTA `GameFlowSmoke`**: su `@Tag("slow")` lo excluye del lane por defecto. Para ejecutar sólo ese smoke opt-in usa `-P qa-bots '-Dtest=GameFlowSmoke' '-Dsurefire.failIfNoSpecifiedTests=false'`; `qa-heavy` y `qa-release` lo excluyen deliberadamente.
 
-**Tiempo estimado:** los 16 smoke rápidos, unos segundos; con `-P qa-bots`, `GameFlowSmoke` añade hasta ~30 s (su objetivo declarado en el Javadoc de la clase).
+**Tiempo estimado:** los smoke rápidos, unos segundos; `GameFlowSmoke` añade hasta ~30 s (su objetivo declarado en el Javadoc de la clase).
 
 ## Qué NO está aquí (intencionalmente)
 
 - Tests de calidad/equity del bot → `bot/harness/`.
 - Tests de cripto SRA → `sra/`.
-- Tests de protocolo de red real (sockets) → SÍ existen, en el paquete `net/`: framing, stall/back-pressure y cola de envío (`SocketFramingIntegrationTest`, `SocketStallIntegrationTest`, `NetClientQueueTest`, `WireFrameTest`, …). La partida multijugador completa extremo a extremo sigue siendo smoke manual por checklist en `docs/smoke-checklist/`.
-- Tests UI (Swing) → no automatizables sin Robot framework / AWT headless. Smoke manual.
+- Tests de protocolo de red real (sockets) → existen en el paquete `net/`: framing, stall/back-pressure y cola de envío (`SocketFramingIntegrationTest`, `SocketStallIntegrationTest`, `NetClientQueueTest`, `WireFrameTest`, …). Las partidas multijugador completas se ejecutan en JVM separadas mediante `tools/qa/real-game-e2e.cmd`; consulta `docs/TESTING.md`.
+- Comprobaciones puramente visuales de pintura/layout Swing → inspección manual; las transiciones funcionales de Swing, sockets y `Crupier` sí están automatizadas por el simulador real.
 
 ## Estructura
 
-Los 17 smoke actuales. El lane `qa-fast` corre por defecto con `mvn test`; `GameFlowSmoke` pertenece a `qa-bots` y sólo corre con ese perfil.
+El lane `qa-fast` ejecuta por defecto todos los smoke de la tabla mediante el reactor, salvo `GameFlowSmoke`, que pertenece a `qa-bots` y sólo corre con ese perfil.
 
 | Clase | Qué valida | Lane |
 |---|---|---|

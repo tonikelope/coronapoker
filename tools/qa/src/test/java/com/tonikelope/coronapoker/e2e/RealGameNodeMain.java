@@ -509,6 +509,8 @@ public final class RealGameNodeMain {
                     } else if (command.equals("START_GAME")) {
                         GAME_START_REQUESTED.countDown();
                         marker("GAME_START_REQUESTED", "role=host");
+                    } else if (command.equals("DUMP_THREADS")) {
+                        dumpThreads();
                     } else if (command.equals("STOP")) {
                         marker("STOPPING", "role=test-harness");
                         Runtime.getRuntime().halt(0);
@@ -525,6 +527,21 @@ public final class RealGameNodeMain {
         }, "qa-real-game-parent-controls");
         controls.setDaemon(true);
         controls.start();
+    }
+
+    private static void dumpThreads() {
+        marker("THREAD_DUMP_BEGIN", "role=node");
+        Thread.getAllStackTraces().entrySet().stream()
+                .sorted(java.util.Comparator.comparing(entry -> entry.getKey().getName()))
+                .forEach(entry -> {
+                    Thread thread = entry.getKey();
+                    System.out.println("CP_E2E_THREAD name=" + thread.getName()
+                            + " state=" + thread.getState());
+                    for (StackTraceElement frame : entry.getValue()) {
+                        System.out.println("CP_E2E_THREAD_AT " + frame);
+                    }
+                });
+        marker("THREAD_DUMP_END", "role=node");
     }
 
     private static String parseActionGateCommand(String command, String verb) {

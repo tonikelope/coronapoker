@@ -4408,6 +4408,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void finTransmision(boolean partida_terminada) {
 
+        qaTeardownStage("START");
+
         // Tell the crupier's community-card network waits to bail NOW -- BEFORE we grab
         // lock_contabilidad for the auditor snapshot below. A run-it-twice SIDE-B deal in flight
         // holds that lock while blocking on the peers' unlock chains; those waits only watch
@@ -4438,7 +4440,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         HashMap<String, Double[]> auditor_snapshot_adapted = null;
         boolean bot_balance_applied = false;
         if (partida_terminada && crupier != null) {
+            qaTeardownStage("AUDITOR_LOCK_WAIT");
             synchronized (crupier.getLock_contabilidad()) {
+                qaTeardownStage("AUDITOR_LOCK_ACQUIRED");
                 // print=false: refresh the auditor map for the snapshot WITHOUT dumping the
                 // stacks table (NICK/STACK/BUYIN) to the log. That table is only printed when
                 // each hand starts; the close is already summarized by the final NICK/RESULT
@@ -4457,13 +4461,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     }
                 }
             }
+            qaTeardownStage("AUDITOR_LOCK_RELEASED");
         }
 
         java.util.concurrent.CountDownLatch balance_latch = null;
         BalanceScreen[] balance_ref = new BalanceScreen[1];
         boolean run_cleanup = false;
 
+        qaTeardownStage("PRIMARY_SQL_LOCK_WAIT");
         synchronized (GameFrame.SQL_LOCK) {
+            qaTeardownStage("PRIMARY_SQL_LOCK_ACQUIRED");
             if (!fin) {
 
                 run_cleanup = true;
@@ -4710,7 +4717,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                             dialog.setVisible(true);
                         });
 
-                        Helpers.pausar(HALT_PAUSE);
+                        qaTeardownStage("RECOVERY_NOTICE_PAUSE_BEGIN");
+                        pauseBeforeRecoveryTeardown(HALT_PAUSE);
+                        qaTeardownStage("RECOVERY_NOTICE_PAUSE_END");
                     }
                 }
 
@@ -4719,8 +4728,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
 
         if (!run_cleanup) {
+            qaTeardownStage("ALREADY_OWNED");
             return;
         }
+
+        qaTeardownStage("PRIMARY_SQL_LOCK_RELEASED");
 
         // Do not wait while holding SQL_LOCK. The final-screen button signals this latch
         // directly on the EDT, and other database users remain free while the player reads
@@ -4740,7 +4752,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             awaitLatch(hide_latch);
         }
 
+        qaTeardownStage("FINAL_SQL_LOCK_WAIT");
         synchronized (GameFrame.SQL_LOCK) {
+            qaTeardownStage("FINAL_SQL_LOCK_ACQUIRED");
             Helpers.SQLITEVAC();
 
             Helpers.closeSQLITE();
@@ -4753,8 +4767,36 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         }
 
-        RESET_GAME(recover);
+        qaTeardownStage("FINAL_SQL_LOCK_RELEASED");
 
+        qaTeardownStage("RESET_GAME_BEGIN");
+        RESET_GAME(recover);
+        qaTeardownStage("RESET_GAME_SCHEDULED");
+
+    }
+
+    /**
+     * Keeps the client-side halt notice best-effort while preserving the
+     * mandatory teardown. The socket reader may already be interrupted by
+     * session retirement when it reaches this presentation-only pause;
+     * propagating cooperative cancellation here would abandon SQL cleanup and
+     * RESET_GAME, leaving the table disabled forever.
+     */
+    static void pauseBeforeRecoveryTeardown(long millis) {
+        try {
+            Helpers.pausar(millis);
+        } catch (Helpers.CooperativeCancellationException cancelled) {
+            // This thread owns the remaining deterministic teardown. Consume
+            // the executor's cancellation signal so later blocking GUI/SQL
+            // boundaries can finish before RESET_GAME creates the fresh pool.
+            Thread.interrupted();
+        }
+    }
+
+    private static void qaTeardownStage(String stage) {
+        if (TEST_MODE) {
+            System.out.println("CP_QA_TEARDOWN_STAGE " + stage);
+        }
     }
 
     // Mounts the final screen (BalanceScreen) as an overlay on this frame's glassPane, OVER

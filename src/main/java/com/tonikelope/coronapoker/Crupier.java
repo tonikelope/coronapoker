@@ -4329,6 +4329,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     // Duration (ms) of the chip's shrink-and-fade when it lands in the pot.
     private static final int POT_CHIP_SHRINK_MS = 320;
+    // Brief visual beat after the payout chip has fully shrunk into the winner's stack.
+    static final int SHOWDOWN_PAYOUT_POST_ANIMATION_PAUSE_MS = 125;
 
     // Chips currently flying to the pot. While any are in flight,
     // actualizarContadoresTapete does NOT refresh the pot_label value — that refresh
@@ -4568,7 +4570,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        Helpers.parkThreadMillis(POT_CHIP_SHRINK_MS + 250L);
+        Helpers.parkThreadMillis(POT_CHIP_SHRINK_MS + SHOWDOWN_PAYOUT_POST_ANIMATION_PAUSE_MS);
 
         /*
         * Defensive exact landing values. Normally these are already identical

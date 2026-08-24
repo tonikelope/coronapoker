@@ -16,7 +16,10 @@ public class BalanceScreenResultAmountTest {
     }
 
     @Test
-    public void winAmountKeepsItsPositiveSign() {
-        assertTrue(BalanceScreen.resultAmountText(10d).startsWith("+"));
+    public void winAmountDoesNotRepeatPositiveMeaning() {
+        String amount = BalanceScreen.resultAmountText(10d);
+
+        assertFalse(amount.startsWith("+"));
+        assertTrue(amount.contains("10"));
     }
 }

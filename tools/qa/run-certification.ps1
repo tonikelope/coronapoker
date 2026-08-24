@@ -51,9 +51,10 @@ CoronaPoker complete local certification
 Usage:
   .\tools\qa\certify.cmd [options]
 
-Default mode is balanced: every scenario twice with bounded campaign sizes.
-For a deep release gate, run fast first and stress only after it passes. Phases
-are fail-fast and sequential:
+Default mode is balanced: the normal production-release gate, with every
+scenario twice and bounded campaign sizes. For a major audit, broad
+security/protocol change, new baseline or suspected race family, run fast first
+and stress only after it passes. Phases are fail-fast and sequential:
   1. qa-release: fast tests plus every non-bot slow lane
   2. Seeded headless protocol/fault campaigns
   3. Every real-game loopback scenario in separate production JVMs

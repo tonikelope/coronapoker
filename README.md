@@ -263,18 +263,19 @@ then leaves the same fat JAR under `target/`:
 ```powershell
 git clone https://github.com/tonikelope/coronapoker.git
 Set-Location coronapoker
-.\tools\qa\certify.cmd -Mode fast
-.\tools\qa\certify.cmd -Mode stress
+.\tools\qa\certify.cmd -Mode balanced
 ```
 
-A release first traverses every scenario once with short campaigns (`fast`),
-then applies the five-seed deep gate (`stress`). A valid result exits with code
-`0`, ends with `CORONAPOKER CERTIFICATION PASS`
+A normal release uses `balanced`, which runs `qa-release`, mass headless
+campaigns and every real-game scenario twice. Major audits, broad protocol or
+security changes, new certification baselines and suspected race families use
+`fast` as a full-matrix preflight followed by the five-seed `stress` gate. A
+valid result exits with code `0`, ends with `CORONAPOKER CERTIFICATION PASS`
 and writes `summary.csv`, `summary.json` and phase logs below the printed
 `target/certification/<timestamp>` directory. Each new run chooses and records
 a fresh seed; replay a failure with its reported `-Seed`. On a single-monitor
-machine add `-Screen 1`. The default `balanced` mode remains the medium-cost
-standalone gate when a stress campaign is not planned.
+machine add `-Screen 1`. The detailed proportional policy for localized fixes,
+subsystems and release milestones is in [Testing and certification](docs/TESTING.md).
 Statistical bot-quality tests are intentionally outside this normal release
 gate. No private directory or pre-existing user cache is required.
 

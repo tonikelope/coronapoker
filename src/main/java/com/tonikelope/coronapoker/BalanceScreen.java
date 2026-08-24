@@ -647,7 +647,7 @@ public class BalanceScreen extends JPanel {
         final String reveal_text = resultAmountText(anim_ganancia);
 
         // The end-of-session count animation is optional (Animation settings, on by default). If
-        // it's off, skip straight to the +/- reveal - no roll, no blink, no SFX (the sound is
+        // it's off, skip straight to the net reveal - no roll, no blink, no SFX (the sound is
         // tied to the roll, see below) - and take the screenshot exactly as if the normal count
         // had finished.
         if (!GameFrame.contadorFinalAnimOn()) {
@@ -699,9 +699,7 @@ public class BalanceScreen extends JPanel {
     }
 
     static String resultAmountText(double ganancia) {
-        return ganancia > 0
-                ? "+" + Helpers.money2String(ganancia)
-                : Helpers.money2String(ganancia * -1);
+        return Helpers.money2String(Math.abs(ganancia));
     }
 
     // Blinks only the amount on reveal: toggles a "don't paint" flag (repaints just this label,

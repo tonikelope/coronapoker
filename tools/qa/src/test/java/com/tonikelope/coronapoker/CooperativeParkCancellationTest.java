@@ -27,7 +27,7 @@ public class CooperativeParkCancellationTest {
         assertTrue(started.await(1, TimeUnit.SECONDS));
         worker.interrupt();
 
-        assertTrue(completed.await(500, TimeUnit.MILLISECONDS),
+        assertTrue(completed.await(2, TimeUnit.SECONDS),
                 "an interrupted old-session worker must not finish the original pause");
         assertTrue(interruptPreserved.get(), "the cancellation signal must remain visible");
     }

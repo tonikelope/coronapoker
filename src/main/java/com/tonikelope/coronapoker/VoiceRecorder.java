@@ -321,6 +321,10 @@ public class VoiceRecorder {
 
         stop_requested = true;
 
+        if (teardown_aborted) {
+            return null;
+        }
+
         // Tail grace: keep capturing briefly so the last word survives the
         // key release. The recording dialog is already gone at this point.
         Helpers.parkThreadMillis(TAIL_MILLIS);

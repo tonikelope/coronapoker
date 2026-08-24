@@ -1,8 +1,10 @@
 # Smoke harness: invariantes rápidas para refactor
 
 Este paquete contiene los **smoke tests de invariantes** que se ejecutan antes de
-mergear cambios de código (ver la sección **Testing** del `README.md` para las
-lanes y el orden de ejecución).
+mergear cambios de código. La referencia canónica de lanes y orden de ejecución
+es [`docs/TESTING.md`](../../../../../../../../../docs/TESTING.md); la guía para
+elegir capa y añadir regresiones está en
+[`docs/ADDING_TEST_SCENARIOS.md`](../../../../../../../../../docs/ADDING_TEST_SCENARIOS.md).
 
 ## Filosofía
 
@@ -65,3 +67,8 @@ Cuando un Sprint introduce un cambio que el smoke actual NO cubre:
 3. Mantener tiempo por método **< 30 s**.
 4. Asserts deben ser **observables y específicos** (no "no crashea", sino "después del flop la apuesta es < pot").
 5. Añadirlo a la tabla de arriba.
+
+Antes de crear un smoke, aplica el selector de capa de la [guía de tests y
+escenarios](../../../../../../../../../docs/ADDING_TEST_SCENARIOS.md): una prueba
+de dominio normal suele encajar mejor junto a su paquete y un flujo que depende
+de sockets/`Crupier` reales pertenece al simulador multi-JVM.

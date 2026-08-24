@@ -11,6 +11,37 @@ regressions.
 
 The test suite lives in its own Maven module, **`tools/qa`**, kept deliberately separate from the game: `mvn package` at the repo root builds and ships the game **without** compiling or running a single test. The tests are maintainer tooling, not part of the distributed jar.
 
+## Find what you need
+
+- **Return to the project or certify a change:** start with [Returning to the
+  project](#returning-to-the-project), then use [Which tests to run for what you
+  touch](#which-tests-to-run-for-what-you-touch).
+- **Run one lane or one test:** use [Running the tests](#running-the-tests) and
+  [Maven profile ownership](#maven-profile-ownership).
+- **Add a regression or a complete simulator scenario:** follow [Adding tests
+  and real-game scenarios](ADDING_TEST_SCENARIOS.md). That contributor guide
+  includes the layer-selection decision, architecture, file-by-file workflow,
+  gate/event template, worked example, validation commands and definition of
+  done.
+- **Diagnose or replay a simulator failure:** use [Game simulation tools
+  (Windows / PowerShell)](#game-simulation-tools-windows--powershell), including
+  the seed and checkpoint rules.
+
+## Adding tests or scenarios
+
+Do not begin by copying an E2E scenario. First choose the smallest layer that
+can prove the production contract: fast JUnit, smoke, mass headless protocol,
+slow network/crypto/bot quality, or a complete multi-JVM real-game scenario.
+The step-by-step contributor manual is [Adding tests and real-game
+scenarios](ADDING_TEST_SCENARIOS.md).
+
+For real-game work, the short rule is: define topology and green/red oracles,
+register both CLI and Java catalogs, mirror topology validation at both entry
+points, coordinate through semantic `CP_E2E_*` markers, add the certification
+profile and public table rows, then pass focused contracts plus two live seeds.
+The detailed guide identifies every current extension point and explains what
+the automated catalog test does and does not verify.
+
 ## Returning to the project
 
 From a clean clone, install JDK 17 or newer and Maven, open a terminal at the
@@ -546,67 +577,11 @@ accessibility or real-human timing behaviour; multi-JVM Swing clients and real
 encrypted sockets are already automated. Manual play never replaces an
 automatable regression test.
 
-## Adding a test
-
-Put it in the matching package under `tools/qa/src/test/java`. If it is slow — a
-bot simulation, a crypto perf/fuzz test, or a real-socket stall check — annotate
-it with `@Tag("slow")` and keep it in the matching `qa-bots`, `qa-crypto` or
-`qa-network` package so its lane remains explicit. Fast unit/domain tests
-must not be hidden in a slow lane. Add a deterministic red test before changing
-production, then keep the regression in the fast lane unless it genuinely
-requires a slow harness.
-
-### Adding a complete real-game certification scenario
-
-A new scenario is complete only after every item below is implemented. There
-is no discovery by filename or naming convention:
-
-1. Choose the smallest topology and hand count that can prove both the fault
-   transition and required post-fault liveness. Record that reasoning in the
-   certification-matrix row; do not add padding hands or timing sleeps.
-2. Add the name to `-Scenario`'s `ValidateSet` in
-   `tools/qa/run-real-game-e2e.ps1`. Add exact CLI validation for every required
-   `Clients`, `Bots` and `Hands` constraint, and repeat those constraints in
-   `-Help` so an invalid invocation fails before Maven starts.
-3. Add the name to exactly one timing class in
-   `RealGameScenarioContract`: `AUTONOMOUS`, `ACTION_GATED`, or
-   `DIALOG_ORDERED`. Add it to `MISDEAL_TERMINAL` only if successful production
-   behavior deliberately dismantles the table after a safe MISDEAL.
-4. Implement the parent orchestration and assertions in
-   `RealGameLoopbackE2EIT`. Action-gated scenarios must arm every gate before
-   `START_GAME`, wait for a semantic `CP_E2E_*` event, perform the fault once,
-   release the gate and prove the terminal state. Never coordinate with an
-   arbitrary sleep.
-5. Implement only the necessary node-side action/dialog policy in
-   `RealGameNodeMain`. The node must continue to use production
-   `WaitingRoomFrame`, sockets, `Crupier`, crypto, settlement and SQLite; a
-   scenario must not duplicate game logic in the harness.
-6. Define explicit green and red oracles: matching hashes/balances for settled
-   hands, or exact MISDEAL/refund/recovery state for aborted hands; require a
-   fresh following hand whenever the claim includes continued liveness. Emit
-   semantic progress/terminal markers so premature exit and no-progress guards
-   can distinguish success, failure and a hang.
-7. Add one exact profile (`Label`, `Name`, `Clients`, `Bots`, `Hands`) to
-   `scenarioProfiles` in `run-certification.ps1`; add it to `quickLabels` only
-   if it belongs in the short critical preflight. `fast`, `balanced` and
-   `stress` consume the complete profile list, so every supported scenario is
-   automatically part of all three full-matrix gates.
-8. Add its CLI description/example to `real-game-e2e.cmd -Help`, its exact
-   certification topology and rationale to the matrix above, and its behavior
-   and green oracle to “Scenario contracts”.
-9. Extend focused unit tests for its gates, terminal classification, parser or
-   watchdog behavior. `RealGameScenarioContractTest` must remain green: it
-   rejects overlap between timing classes and any mismatch among the Java
-   catalog, CLI `ValidateSet`, certification profiles and this document.
-10. Run the scenario directly through the public launcher with at least two
-    seeds, then `certify.cmd -Mode quick` if included there and
-    `certify.cmd -Mode fast` for complete breadth. Use `balanced` for a normal
-    release and `stress` only for the major/adversarial conditions in the policy
-    above. Keep bot statistical quality separate unless bot AI/evaluation changed.
-
 ## Scope boundary
 
 The automated simulator exercises production sockets, `Crupier`, betting,
 cryptographic messages, consensus, settlement, SQLite and lifecycle transitions.
 It does not certify subjective rendering quality, physical audio devices or
 real Internet/NAT behavior; use focused manual checks for those surfaces.
+
+</div>

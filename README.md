@@ -293,7 +293,9 @@ replayable seed unless `-Seed` is supplied:
 
 Statistical bot-quality tests remain opt-in. See **[Testing and certification](docs/TESTING.md)**
 for every lane, simulator scenario, option, example, report format and
-troubleshooting rule.
+troubleshooting rule. Contributors adding a regression or a complete multi-JVM
+scenario should use the file-by-file **[test and scenario contributor
+guide](docs/ADDING_TEST_SCENARIOS.md)**.
 
 ---
 

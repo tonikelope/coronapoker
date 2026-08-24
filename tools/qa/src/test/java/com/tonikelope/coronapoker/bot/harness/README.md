@@ -378,6 +378,12 @@ Surefire lane sets `qa.excludedGroups=slow` (see `tools/qa/pom.xml`), so a bare
 `mvn test` runs **zero** of these harness tests. You must select `qa-bots`
 explicitly, with one of the flows below.
 
+Only statistical playing-strength regressions belong in this package. Use the
+layer selector in [Adding tests and real-game
+scenarios](../../../../../../../../../../docs/ADDING_TEST_SCENARIOS.md) before
+adding a harness class; deterministic game-integrity behavior belongs in the
+fast, protocol-simulation or real-game E2E layer.
+
 ### 9.1 Reactor (preferred)
 
 The opt-in reactor at `tools/reactor/pom.xml` builds the game and runs the QA

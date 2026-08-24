@@ -6,6 +6,12 @@ production betting reducer, deterministic shuffle, canonical action/community
 records, Ed25519 signatures, RIT pot division, settlement record and
 `HANDVERIFY` receipt parser.
 
+For a new regression, first use the layer selector in [Adding tests and
+real-game scenarios](../../../../../../../../../docs/ADDING_TEST_SCENARIOS.md).
+Add a case here when high-volume deterministic protocol/domain coverage is the
+claim; use the real-game E2E path when the defect depends on production
+`Crupier`, Swing, sockets or recovery orchestration.
+
 Run from the repository root. The script uses the Maven reactor, so it always
 compiles and tests the current checkout rather than a possibly stale installed
 JAR:

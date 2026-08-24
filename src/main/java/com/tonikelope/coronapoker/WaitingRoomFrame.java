@@ -1446,6 +1446,10 @@ public class WaitingRoomFrame extends JFrame {
     public boolean reconectarCliente() {
 
         net_client.setReconnecting(true);
+        // Fence the heartbeat that owned the socket being replaced. It may still
+        // wake from a PONG wait after the new channel is installed; from this point
+        // on it must be unable to close or retire that replacement.
+        net_client.invalidatePingPongGeneration();
 
         LOGGER.log(Level.WARNING, "Attempting to reconnect to server...");
 
@@ -1820,15 +1824,12 @@ public class WaitingRoomFrame extends JFrame {
                     // Participant.reconnection_count on the server side.
                     net_client.incrementReconnectionCount();
 
-                    // If the client's defensive ping died from the missed-PONG threshold
-                    // (closeClientSocket+break), reconnecting does NOT restart it on its own:
-                    // without this the reconnected client is left with no active keepalive (a
-                    // new socket that goes mute would only be caught by a write failure, or
-                    // never). We resurrect it after a successful reconnect if it died; !exit so
-                    // it isn't started during teardown. (Analogous to the host's resurrection in
-                    // resetSocket.)
-                    if (!exit && !net_client.isPingPongThreadAlive()) {
-                        LOGGER.log(Level.INFO, "Client runPingPongThreadCliente was dead after reconnect — resurrecting");
+                    // Every successful reconnect owns a new authenticated socket generation.
+                    // Start a fresh watchdog unconditionally: startPingPongGeneration fences any
+                    // delayed worker from the old channel, whose timeout/finally must not touch
+                    // this socket or this worker's alive state.
+                    if (!exit) {
+                        LOGGER.log(Level.INFO, "Client heartbeat restarted for reconnected socket generation");
                         runPingPongThreadCliente();
                     }
 
@@ -2074,14 +2075,15 @@ public class WaitingRoomFrame extends JFrame {
     private void runPingPongThreadCliente() {
 
         // --- PING/PONG KEEPALIVE THREAD ---
-        net_client.setPingPongThreadAlive(true);
+        final long heartbeat_generation = net_client.startPingPongGeneration();
         Helpers.threadRun(() -> {
 
             int consecutive_ping_failures = 0;
             int ping_write_stall_counter = 0;
 
             try {
-                while (!exit && WaitingRoomFrame.getInstance() != null) {
+                while (!exit && WaitingRoomFrame.getInstance() != null
+                        && net_client.isCurrentPingPongGeneration(heartbeat_generation)) {
 
                     // If reconectarCliente completed a reconnect during the last cycle, the
                     // counters accumulated against the old socket no longer apply. Reset before
@@ -2112,26 +2114,31 @@ public class WaitingRoomFrame extends JFrame {
                     // write is holding; it's only closed if it's still the live socket, in case a
                     // reconnect swapped it out meanwhile.
                     java.net.Socket ping_socket = net_client.getLocal_client_socket();
-                    java.util.concurrent.Future<?> ping_write;
+                    java.util.concurrent.Future<Boolean> ping_write;
                     try {
-                        ping_write = Helpers.THREAD_POOL.submit(() -> writeCommandToServer("PING#" + ping));
+                        ping_write = Helpers.THREAD_POOL.submit(()
+                                -> net_client.writeHeartbeatCommand("PING#" + ping, ping_socket));
                     } catch (Exception ex) {
                         LOGGER.log(Level.SEVERE,
                                 "Error dispatching PING", ex);
                         break;
                     }
                     try {
-                        ping_write.get(WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT, java.util.concurrent.TimeUnit.MILLISECONDS);
+                        if (!ping_write.get(WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT,
+                                java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                            break;
+                        }
                         ping_write_stall_counter = 0;
                     } catch (java.util.concurrent.TimeoutException ex) {
-                        if (!exit && !net_client.isReconnecting()
+                        if (!exit && net_client.isCurrentPingPongGeneration(heartbeat_generation)
+                                && !net_client.isReconnecting()
                                 && ping_socket != null && ping_socket == net_client.getLocal_client_socket()
                                 && ++ping_write_stall_counter >= MAX_CONSECUTIVE_PING_FAILURES) {
                             LOGGER.log(Level.SEVERE,
                                     "PING write to server stalled {0} times in a row ({1} ms each) — server not reading; closing socket to force reconnect",
                                     new Object[]{ping_write_stall_counter, WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT});
-                            net_client.setPingPongThreadAlive(false);
-                            net_client.closeStalledSocket(ping_socket);
+                            net_client.retirePingPongGeneration(heartbeat_generation);
+                            net_client.closeHeartbeatSocket(ping_socket);
                             break;
                         }
                     } catch (Exception ex) {
@@ -2142,7 +2149,9 @@ public class WaitingRoomFrame extends JFrame {
 
                     long end = System.currentTimeMillis() + WaitingRoomFrame.PING_PONG_TIMEOUT;
 
-                    while (!exit && (net_client.getRemote_server_pong() == null || net_client.getRemote_server_pong2() == null)
+                    while (!exit && net_client.isCurrentPingPongGeneration(heartbeat_generation)
+                            && ping_socket == net_client.getLocal_client_socket()
+                            && (net_client.getRemote_server_pong() == null || net_client.getRemote_server_pong2() == null)
                             && System.currentTimeMillis() < end) {
                         synchronized (ping_pong_lock) {
                             // Re-check inside the monitor (same as the Participant's
@@ -2174,6 +2183,14 @@ public class WaitingRoomFrame extends JFrame {
                             net_client.setRemote_server_latency2(Math
                                     .round((System.nanoTime() - pingStartNs) / 1_000_000));
                         }
+                    }
+
+                    // A reconnect swapped the channel and will start a new heartbeat after its
+                    // authenticated ACK. Never interpret shared PONG state from that socket as
+                    // the result of this stale round, and never close the replacement.
+                    if (!net_client.isCurrentPingPongGeneration(heartbeat_generation)
+                            || ping_socket != net_client.getLocal_client_socket()) {
+                        break;
                     }
 
                     if (net_client.getRemote_server_latency() != -1) {
@@ -2222,11 +2239,10 @@ public class WaitingRoomFrame extends JFrame {
                                 LOGGER.log(Level.WARNING,
                                         "Client lost {0} consecutive PONGs — closing socket to force reconnect",
                                         consecutive_ping_failures);
-                                // alive=false BEFORE closing: this way reconectarCliente sees the
-                                // thread as dead and resurrects it. Without this, in the break->finally
-                                // window the resurrection check saw alive=true and never relaunched it.
-                                net_client.setPingPongThreadAlive(false);
-                                closeClientSocket();
+                                // Retire this exact worker before closing its exact socket. A
+                                // successful reconnect starts a different generation.
+                                net_client.retirePingPongGeneration(heartbeat_generation);
+                                net_client.closeHeartbeatSocket(ping_socket);
                                 break;
                             }
                         }
@@ -2252,7 +2268,7 @@ public class WaitingRoomFrame extends JFrame {
 
                 }
             } finally {
-                net_client.setPingPongThreadAlive(false);
+                net_client.retirePingPongGeneration(heartbeat_generation);
             }
         });
     }
@@ -4499,8 +4515,20 @@ public class WaitingRoomFrame extends JFrame {
                                         // pause — a busy-loop doing ECDH every iteration that froze the
                                         // UI and spiked CPU to 100%.
                                         try {
-                                            participantes.get(client_nick).writeCommandFromServer(
-                                                    Helpers.encryptCommand("RECONNECT_OK", aes_key, hmac_key));
+                                            boolean ack_failed = participantes.get(client_nick)
+                                                    .writeCommandFromServer(Helpers.encryptCommand(
+                                                            "RECONNECT_OK", aes_key, hmac_key));
+                                            // resetSocket fenced the heartbeat that owned the old
+                                            // channel. Start the replacement only after the ACK so a
+                                            // PING can never overtake the handshake's terminal frame.
+                                            if (!ack_failed) {
+                                                participantes.get(client_nick)
+                                                        .restartHeartbeatAfterReconnectAck();
+                                            } else {
+                                                LOGGER.log(Level.WARNING,
+                                                        "Failed to send RECONNECT_OK ack to {0}",
+                                                        client_nick);
+                                            }
                                         } catch (Exception ackEx) {
                                             LOGGER.log(Level.WARNING, "Failed to send RECONNECT_OK ack to " + client_nick, ackEx);
                                         }

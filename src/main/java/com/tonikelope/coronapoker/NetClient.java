@@ -88,10 +88,11 @@ public class NetClient {
     // failure against the new one (possibly legitimate post-reconnect jitter) must not reach
     // the threshold and close the freshly installed socket.
     private volatile boolean reset_ping_counters = false;
-    // Client-side: whether runPingPongThreadCliente is alive. If it died from the missed-PONG
-    // threshold (closeClientSocket+break), reconectarCliente revives it after a successful
-    // reconnect. Mirrors the host's ping_pong_thread_alive.
-    private volatile boolean ping_pong_thread_alive = false;
+    // A reconnect replaces the authenticated socket while the previous heartbeat may still
+    // be waking from its PONG timeout. A boolean cannot distinguish that stale worker from
+    // the replacement: its delayed close/finally used to kill the new socket/worker. The
+    // generation fence gives each worker single-generation ownership.
+    private final HeartbeatGeneration ping_pong_generation = new HeartbeatGeneration();
     // Telemetry: count of SUCCESSFUL client reconnections to the server since startup. Mirrors
     // the per-peer counter in Participant (which counts, server-side, the reconnections
     // received from each peer). The client can compare its own value against the server's
@@ -299,12 +300,20 @@ public class NetClient {
         this.reset_ping_counters = v;
     }
 
-    public boolean isPingPongThreadAlive() {
-        return ping_pong_thread_alive;
+    public long startPingPongGeneration() {
+        return ping_pong_generation.start();
     }
 
-    public void setPingPongThreadAlive(boolean v) {
-        this.ping_pong_thread_alive = v;
+    public void invalidatePingPongGeneration() {
+        ping_pong_generation.invalidate();
+    }
+
+    public boolean isCurrentPingPongGeneration(long generation) {
+        return ping_pong_generation.isCurrent(generation);
+    }
+
+    public boolean retirePingPongGeneration(long generation) {
+        return ping_pong_generation.retire(generation);
     }
 
     /**
@@ -380,6 +389,43 @@ public class NetClient {
             } catch (Exception ex) {
                 LOGGER.log(Level.WARNING, "closeStalledSocket failed", ex);
             }
+        }
+    }
+
+    /**
+     * Closes a heartbeat's socket only if it is still the installed channel.
+     * It deliberately does not take local_client_socket_lock: another stalled
+     * writer may own it, and closing this exact captured reference is what
+     * releases that writer. A concurrent reconnect can only publish a different
+     * Socket object, which this method never touches.
+     */
+    public boolean closeHeartbeatSocket(Socket expected) {
+        if (expected == null || local_client_socket != expected) {
+            return false;
+        }
+        closeStalledSocket(expected);
+        return true;
+    }
+
+    /**
+     * Writes a heartbeat only through the socket generation that created it.
+     * Unlike the general writer, this method never waits for reconnection and
+     * then falls through to the replacement channel: a delayed PING from the
+     * old worker must not contaminate the new generation's PONG state.
+     */
+    public boolean writeHeartbeatCommand(String command, Socket expected) {
+        if (expected == null || expected != local_client_socket || expected.isClosed()) {
+            return false;
+        }
+        try {
+            synchronized (expected.getOutputStream()) {
+                expected.getOutputStream().write((command + "\n").getBytes("UTF-8"));
+                expected.getOutputStream().flush();
+                return true;
+            }
+        } catch (IOException ex) {
+            closeHeartbeatSocket(expected);
+            return false;
         }
     }
 

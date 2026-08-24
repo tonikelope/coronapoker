@@ -217,13 +217,11 @@ public class Participant implements Runnable {
     // client to finish the handshake over a slow network. Monotonic — only grows.
     private volatile long grace_deadline_floor = 0L;
 
-    // Whether runPingPongThread is currently running. The thread deliberately dies via break
-    // after socketClose() once the peer misses MAX_CONSECUTIVE_PING_FAILURES PONGs; if the
-    // peer later reconnects and resetSocket restores the channel, the counters reset but the
-    // thread stays dead -> the peer loses active PING supervision until its socket next fails
-    // on write (or never, if nobody writes). resetSocket checks this flag and relaunches the
-    // thread when needed.
-    private volatile boolean ping_pong_thread_alive = false;
+    // A socket reset can complete while the previous heartbeat is still waking from its
+    // timeout. A boolean cannot tell that stale worker from its replacement: the stale
+    // close/finally used to kill the new socket/worker. Each heartbeat therefore owns one
+    // explicit generation.
+    private final HeartbeatGeneration ping_pong_generation = new HeartbeatGeneration();
 
     // --- SRA ZERO-TRUST VARIABLES ---
     // sra_unlock: scalar for POCKET pieces. Used to be the peer's only key; after the dual-
@@ -406,10 +404,11 @@ public class Participant implements Runnable {
     }
 
     private void runPingPongThread() {
-        ping_pong_thread_alive = true;
+        final long heartbeat_generation = ping_pong_generation.start();
         Helpers.threadRun(() -> {
             try {
-                while (!exit && WaitingRoomFrame.getInstance() != null) {
+                while (!exit && WaitingRoomFrame.getInstance() != null
+                        && ping_pong_generation.isCurrent(heartbeat_generation)) {
                     final int ping = Helpers.CSPRNG_GENERATOR.nextInt();
                     pong = null;
                     pong2 = null;
@@ -432,20 +431,26 @@ public class Participant implements Runnable {
                     // reconnect so stalls on the old socket aren't inherited by the new one. And
                     // hitting the limit doesn't kick anyone: it just closes the socket so the
                     // reader can open the grace period.
-                    java.util.concurrent.Future<?> ping_write;
+                    final Socket ping_socket = this.socket;
+                    java.util.concurrent.Future<Boolean> ping_write;
 
                     try {
                         ping_write = Helpers.THREAD_POOL.submit(
-                                () -> writeCommandFromServer("PING#" + String.valueOf(ping)));
+                                () -> writeHeartbeatCommand("PING#" + String.valueOf(ping), ping_socket));
                     } catch (Exception ex) {
                         break;
                     }
 
                     try {
-                        ping_write.get(WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT, java.util.concurrent.TimeUnit.MILLISECONDS);
+                        if (!ping_write.get(WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT,
+                                java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                            break;
+                        }
                         ping_write_stall_counter = 0;
                     } catch (java.util.concurrent.TimeoutException ex) {
-                        if (!exit && !resetting_socket && !force_reset_socket
+                        if (!exit && ping_pong_generation.isCurrent(heartbeat_generation)
+                                && ping_socket == this.socket
+                                && !resetting_socket && !force_reset_socket
                                 && ++ping_write_stall_counter >= WaitingRoomFrame.MAX_CONSECUTIVE_PING_FAILURES) {
                             LOGGER.log(Level.SEVERE,
                                     "PING write to {0} stalled {1} times in a row ({2} ms each) — peer is not reading; closing its socket",
@@ -462,12 +467,9 @@ public class Participant implements Runnable {
                             // stuck on this socket, and closing it wakes it with an IOException
                             // whose catch block would give up on the peer before the reader got a
                             // chance to open the grace period.
-                            ping_pong_thread_alive = false;
+                            ping_pong_generation.retire(heartbeat_generation);
                             stall_close_ns = System.nanoTime();
-                            try {
-                                socketClose();
-                            } catch (Exception ignored) {
-                            }
+                            closeHeartbeatSocket(ping_socket);
                             break;
                         }
 
@@ -484,7 +486,9 @@ public class Participant implements Runnable {
 
                     long end = System.currentTimeMillis() + WaitingRoomFrame.PING_PONG_TIMEOUT;
 
-                    while (!exit && (pong == null || pong2 == null) && System.currentTimeMillis() < end) {
+                    while (!exit && ping_pong_generation.isCurrent(heartbeat_generation)
+                            && ping_socket == this.socket
+                            && (pong == null || pong2 == null) && System.currentTimeMillis() < end) {
                         synchronized (ping_pong_lock) {
                             // Re-check inside the monitor before sleeping: a PONG arriving between
                             // the while condition and acquiring the lock would lose its notify and
@@ -510,6 +514,13 @@ public class Participant implements Runnable {
                         }
                     }
 
+                    // resetSocket installed a different authenticated channel. Shared PONG
+                    // fields now belong to its replacement heartbeat, never to this stale round.
+                    if (!ping_pong_generation.isCurrent(heartbeat_generation)
+                            || ping_socket != this.socket) {
+                        break;
+                    }
+
                     if (latency == -1) {
                         pong_timeout_counter++;
                     } else {
@@ -532,23 +543,23 @@ public class Participant implements Runnable {
                     // Anti-race guard: mid-resetSocket/forceSocketReconnect the counters may still
                     // be accumulated against the old socket. Closing now would wrongly close the
                     // newly installed socket instead.
-                    if (!exit && !resetting_socket && !force_reset_socket
+                    if (!exit && ping_pong_generation.isCurrent(heartbeat_generation)
+                            && ping_socket == this.socket
+                            && !resetting_socket && !force_reset_socket
                             && (pong_timeout_counter >= WaitingRoomFrame.MAX_CONSECUTIVE_PING_FAILURES
                             || pong2_timeout_counter >= WaitingRoomFrame.MAX_CONSECUTIVE_PING_FAILURES)) {
                         LOGGER.log(Level.WARNING,
                                 "PEER: Participant {0} lost {1}/{2} consecutive PONGs — closing socket",
                                 new Object[]{nick, pong_timeout_counter, pong2_timeout_counter});
-                        // alive=false BEFORE closing: so resetSocket's resurrection check sees the
-                        // thread dead and relaunches it. Without this, in the break->finally
-                        // window the check would see alive=true and skip the resurrection. The
-                        // finally block sets it false again (idempotent).
+                        // Retire this exact worker before closing its exact socket. A reconnect
+                        // starts a different generation after its authenticated ACK.
                         // This close is deliberately NOT marked as our own stall close, unlike the
                         // stalled-write one above, even though that looks inconsistent: marking it
                         // was tried and reverted, because the window it opens interacts badly with
                         // how the Crupier's progress deadlines freeze and resume. Don't change
                         // this without understanding why.
-                        ping_pong_thread_alive = false;
-                        socketClose();
+                        ping_pong_generation.retire(heartbeat_generation);
+                        closeHeartbeatSocket(ping_socket);
                         break;
                     }
 
@@ -572,7 +583,7 @@ public class Participant implements Runnable {
                     }
                 }
             } finally {
-                ping_pong_thread_alive = false;
+                ping_pong_generation.retire(heartbeat_generation);
             }
         });
     }
@@ -1243,6 +1254,27 @@ public class Participant implements Runnable {
     }
 
     /**
+     * Writes a PING only to the socket captured by its heartbeat generation.
+     * A generic write can wait through {@link #resetSocket} and then target the
+     * replacement channel, allowing a stale PING to overtake RECONNECT_OK.
+     */
+    private boolean writeHeartbeatCommand(String command, Socket expected) {
+        if (expected == null || expected != this.socket || expected.isClosed()) {
+            return false;
+        }
+        try {
+            synchronized (expected.getOutputStream()) {
+                expected.getOutputStream().write((command + "\n").getBytes("UTF-8"));
+                expected.getOutputStream().flush();
+                return true;
+            }
+        } catch (IOException ex) {
+            closeHeartbeatSocket(expected);
+            return false;
+        }
+    }
+
+    /**
      * Binary sibling of {@link #writeCommandFromServer(String)}: writes a
      * binary {@link WireFrame} (a voice/avatar blob) to this peer. Synchronizes
      * on the same OutputStream monitor as the text writers, so a binary frame
@@ -1480,6 +1512,21 @@ public class Participant implements Runnable {
     }
 
     /**
+     * Closes a heartbeat's socket only while it is still this participant's
+     * installed channel. It deliberately does not take participant_socket_lock:
+     * another stalled writer may own it, and closing this exact captured
+     * reference is what releases that writer. resetSocket can only publish a
+     * different Socket object, which this method never touches.
+     */
+    private boolean closeHeartbeatSocket(Socket expected) {
+        if (expected == null || this.socket != expected) {
+            return false;
+        }
+        closeSocketQuietly(expected);
+        return true;
+    }
+
+    /**
      * Definitive table-teardown close. It deliberately does not acquire
      * {@code participant_socket_lock}: a stalled pre-game/reconnect transport
      * may own that lock while blocked in native socket I/O, and closing the
@@ -1697,6 +1744,11 @@ public class Participant implements Runnable {
                 this.input_stream_reader = nuevo_stream;
                 this.aes_key = aes_k;
                 this.hmac_key = hmac_k;
+                // The old heartbeat may still be inside its PONG wait. Fence it before
+                // publishing any post-reset traffic so it cannot close this socket or retire
+                // the replacement worker. The handler starts the new heartbeat only after
+                // RECONNECT_OK has been written, preserving handshake frame ordering.
+                this.ping_pong_generation.invalidate();
                 // A reconnect installs a new authenticated socket generation. Invalidate any
                 // lease held by the old writer, but preserve pending critical pre-game commands:
                 // they are plaintext in the outbox and must be re-encrypted/retransmitted through
@@ -1739,17 +1791,22 @@ public class Participant implements Runnable {
                 this.resetting_socket = false;
             }
             getParticipant_socket_lock().notifyAll();
-            // If the ping watchdog died via socketClose+break (threshold exceeded against the
-            // old socket), resurrect it after a successful reset: without this, the
-            // reconnected peer loses active PING supervision (if the new socket goes mute,
-            // nobody detects it until a write fails, which with an active grace might not
-            // mark exit). reset_socket=true: don't relaunch if the reset failed; !exit: don't
-            // resurrect already-expelled peers.
-            if (ok && !this.exit && !this.ping_pong_thread_alive) {
-                LOGGER.log(Level.INFO, "PEER: Participant {0} runPingPongThread was dead after reset — resurrecting", nick);
-                runPingPongThread();
-            }
             return ok;
+        }
+    }
+
+    /**
+     * Starts supervision for a successfully reset socket after the reconnect
+     * acknowledgement has been written. Calling it for every accepted reset is
+     * intentional: {@link HeartbeatGeneration#start()} invalidates any delayed
+     * predecessor without allowing its finally block to retire this worker.
+     */
+    public void restartHeartbeatAfterReconnectAck() {
+        if (!this.exit) {
+            LOGGER.log(Level.INFO,
+                    "PEER: Participant {0} heartbeat restarted for reconnected socket generation",
+                    nick);
+            runPingPongThread();
         }
     }
 

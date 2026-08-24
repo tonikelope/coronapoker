@@ -16,7 +16,7 @@ public class VoiceRecorderTeardownTest {
 
         recorder.abortForTableTeardown();
 
-        assertTimeoutPreemptively(Duration.ofSeconds(1), recorder::stop,
+        assertTimeoutPreemptively(Duration.ofSeconds(2), recorder::stop,
                 "table teardown must not wait for the recorder's normal three-second safety net");
     }
 

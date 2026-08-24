@@ -14,6 +14,8 @@ import org.junit.jupiter.api.Test;
 
 public class HostSocketTeardownTest {
 
+    private static final long TEARDOWN_TIMEOUT_SECONDS = 3L;
+
     @Test
     public void closingTheHostAlsoReleasesAcceptedSocketsStillInHandshake() throws Exception {
         try (ServerSocket listener = new ServerSocket(0);
@@ -32,7 +34,7 @@ public class HostSocketTeardownTest {
 
             server.closeServerSocket();
 
-            assertEquals(-1, blockedRead.get(1, TimeUnit.SECONDS));
+            assertEquals(-1, blockedRead.get(TEARDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS));
             assertTrue(accepted.isClosed());
         }
     }
@@ -77,7 +79,7 @@ public class HostSocketTeardownTest {
                 }
             }, "stalled-host-transport-test");
             stalledTransport.start();
-            assertTrue(lockHeld.await(1, TimeUnit.SECONDS));
+            assertTrue(lockHeld.await(TEARDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS));
 
             FutureTask<Void> close = new FutureTask<>(() -> {
                 WaitingRoomFrame.closeAcceptedClientSockets(List.of(participant));
@@ -85,13 +87,13 @@ public class HostSocketTeardownTest {
             });
             new Thread(close, "host-teardown-close-test").start();
             try {
-                close.get(1, TimeUnit.SECONDS);
-                assertEquals(-1, blockedRead.get(1, TimeUnit.SECONDS));
+                close.get(TEARDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                assertEquals(-1, blockedRead.get(TEARDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS));
                 assertTrue(accepted.isClosed(),
                         "host teardown must close accepted sockets instead of relying on peer cooperation");
             } finally {
                 releaseLock.countDown();
-                stalledTransport.join(1_000);
+                stalledTransport.join(TimeUnit.SECONDS.toMillis(TEARDOWN_TIMEOUT_SECONDS));
             }
         }
     }

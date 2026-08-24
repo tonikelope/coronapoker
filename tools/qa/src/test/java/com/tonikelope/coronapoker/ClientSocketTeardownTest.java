@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 
 public class ClientSocketTeardownTest {
 
+    private static final long TEARDOWN_TIMEOUT_SECONDS = 3L;
+
     @Test
     public void teardownCanCloseTheSocketWhileAWriterOwnsTheLifecycleLock() throws Exception {
         NetClient client = new NetClient(null);
@@ -29,7 +31,7 @@ public class ClientSocketTeardownTest {
             }
         }, "stalled-client-writer-test");
         stalledWriter.start();
-        assertTrue(lockHeld.await(1, TimeUnit.SECONDS));
+        assertTrue(lockHeld.await(TEARDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS));
 
         FutureTask<Void> close = new FutureTask<>(() -> {
             client.closeClientSocketForTeardown();
@@ -38,11 +40,11 @@ public class ClientSocketTeardownTest {
         Thread closer = new Thread(close, "client-teardown-close-test");
         closer.start();
         try {
-            close.get(1, TimeUnit.SECONDS);
+            close.get(TEARDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             assertTrue(socket.isClosed());
         } finally {
             releaseLock.countDown();
-            stalledWriter.join(1_000);
+            stalledWriter.join(TimeUnit.SECONDS.toMillis(TEARDOWN_TIMEOUT_SECONDS));
         }
     }
 

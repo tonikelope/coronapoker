@@ -528,8 +528,12 @@ final class RealGameLoopbackE2EIT {
         assertFalse(host.contains("TABLE_FAILURE_V1"), host.diagnostic());
         assertFalse(host.contains("CP_E2E_FAIL"), host.diagnostic());
         for (NodeProcess survivor : nodes.subList(firstSurvivor, nodes.size())) {
-            assertTrue(survivor.awaitExpectedMisdeal("CP_E2E_RECOVERY_DIALOG_SUBMITTED",
-                    Duration.ofMinutes(2)), survivor.diagnostic());
+            boolean recovered = survivor.awaitExpectedMisdeal(
+                    "CP_E2E_RECOVERY_DIALOG_SUBMITTED", Duration.ofMinutes(2));
+            if (!recovered) {
+                survivor.captureThreadDump();
+            }
+            assertTrue(recovered, survivor.diagnostic());
             assertFalse(survivor.contains("TABLE_FAILURE_V1"), survivor.diagnostic());
             assertFalse(survivor.contains("CP_E2E_FAIL"), survivor.diagnostic());
         }
@@ -2018,6 +2022,24 @@ final class RealGameLoopbackE2EIT {
                     countContaining("MISDEAL triggered:"),
                     countContaining("QA dialog suppressed [Error]: MANO ANULADA"));
             return awaitCount(marker, expected, timeout);
+        }
+
+        private void captureThreadDump() {
+            if (!process.isAlive()) {
+                output.add("thread dump unavailable: process already exited");
+                return;
+            }
+            try {
+                send("DUMP_THREADS");
+                if (!await("CP_E2E_THREAD_DUMP_END", Duration.ofSeconds(10))) {
+                    output.add("thread dump incomplete: node did not emit end marker");
+                }
+            } catch (Exception ex) {
+                // Diagnostics must never replace the assertion that exposed the
+                // production failure. Preserve the capture problem alongside
+                // the node output and let the original assertion fail below.
+                output.add("thread dump unavailable: " + ex);
+            }
         }
 
         private boolean hasTerminalFailure() {

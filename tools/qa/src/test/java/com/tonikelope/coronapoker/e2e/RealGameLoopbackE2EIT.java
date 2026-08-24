@@ -420,14 +420,9 @@ final class RealGameLoopbackE2EIT {
                 armActionGate(host, 1, Crupier.PREFLOP);
             case "spectator-rebuy-cycle", "spectator-recovery-mix" ->
                 armActionGate(host, 4, Crupier.PREFLOP);
-            case "bot-bust-recover-regrow", "bot-bust-recover-drop" -> {
+            case "bot-bust-recover-regrow", "bot-bust-recover-drop",
+                    "human-bust-exit-rejoin-rebuy" ->
                 armActionGate(host, 4, Crupier.PREFLOP);
-                armActionGate(host, 5, Crupier.PREFLOP);
-            }
-            case "human-bust-exit-rejoin-rebuy" -> {
-                armActionGate(host, 4, Crupier.PREFLOP);
-                armActionGate(host, 5, Crupier.PREFLOP);
-            }
             case "spectator-double-recovery-crash-mix" ->
                 armActionGate(nodes.get(3), 4, Crupier.PREFLOP);
             case "double-force-recover" -> {
@@ -1203,13 +1198,25 @@ final class RealGameLoopbackE2EIT {
             }
         }
 
-        awaitActionGate(host, 5, Crupier.PREFLOP);
-        host.send("REPORT_STATE");
         if (enableBotRebuy) {
             for (String nick : bustedBots) {
-                assertActiveRingSnapshot(host, nick);
+                for (NodeProcess node : nodes) {
+                    assertTrue(node.awaitLineContainingAll(List.of(
+                            "QA REBUY_SPECTATOR_REACTIVATED", "hand=4",
+                            "nick=" + nick), Duration.ofMinutes(2)),
+                            "rebought bot was not reactivated at the recovered hand boundary\n"
+                            + node.diagnostic());
+                }
             }
         } else {
+            // A nearly busted host can be all-in from a blind and never get a
+            // local action in hand 5. The next-hand marker is guaranteed;
+            // a host input gate is not.
+            for (NodeProcess node : nodes) {
+                assertTrue(node.await("HAND 5: betting round Preflop",
+                        Duration.ofMinutes(2)), node.diagnostic());
+            }
+            host.send("REPORT_STATE");
             assertAbsentFromCurrentActiveRing(host, bustedBots);
             for (String nick : bustedBots) {
                 assertTrue(host.contains("QA SPECTATOR_ENTERED nick=" + nick)
@@ -1218,8 +1225,6 @@ final class RealGameLoopbackE2EIT {
                         + host.diagnostic());
             }
         }
-        releaseActionGate(host, 5, Crupier.PREFLOP);
-
         assertNormalSession(nodes, host, hands, clients + bots + 1);
     }
 
@@ -1290,13 +1295,19 @@ final class RealGameLoopbackE2EIT {
         assertTrue(restarted.await("CP_E2E_SPECTATOR_REBUY_REQUESTED nick=" + nick,
                 Duration.ofSeconds(30)), restarted.diagnostic());
 
-        awaitActionGate(host, 5, Crupier.PREFLOP);
-        host.send("REPORT_STATE");
-        assertActiveRingSnapshot(host, nick);
-        releaseActionGate(host, 5, Crupier.PREFLOP);
+        for (NodeProcess node : nodes) {
+            assertTrue(node.awaitLineContainingAll(List.of(
+                    "QA REBUY_SPECTATOR_REACTIVATED", "hand=4",
+                    "nick=" + nick), Duration.ofMinutes(2)),
+                    "rejoined human was not reactivated at the recovered hand boundary\n"
+                    + node.diagnostic());
+        }
 
         assertMixedRecoveryCompletion(nodes, host, List.of(restarted), hands,
                 resumedHands, clients + bots + 1);
+        assertTrue(restarted.contains("SHUFFLE-VERIFY: deck verified OK (hand 5)"),
+                "rejoined human did not verify its first rebought hand\n"
+                + restarted.diagnostic());
     }
 
     private static void runSpectatorDoubleRecoveryCrashMix(Path root,

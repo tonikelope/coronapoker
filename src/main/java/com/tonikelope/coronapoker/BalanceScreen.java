@@ -576,7 +576,7 @@ public class BalanceScreen extends JPanel {
     }
 
     // Local player's amount. Starts showing the total buyin and animates (startAmountAnimation)
-    // to the final stack; on landing it reveals as +/- net, same giant font and win/loss color.
+    // to the final stack; on landing it reveals the net, same giant font and win/loss color.
     // Empty on a tie.
     private JComponent buildAmount() {
         double[] bs = localBuyinStack();
@@ -624,7 +624,8 @@ public class BalanceScreen extends JPanel {
     }
 
     // Animated local-amount count: rolls from buyin to stack with a cubic ease-out, holds the
-    // stack briefly, then reveals the +/- net.
+    // stack briefly, then reveals the net. The loss amount is unsigned because the hero message
+    // already says PIERDES; displaying PIERDES -10 would duplicate the negative meaning.
     private void startAmountAnimation() {
         if (amount_label == null) {
             return;
@@ -643,9 +644,7 @@ public class BalanceScreen extends JPanel {
         // (doubleClean rounds to 2 decimals), so this never drops a visible frame.
         final double[] last_roll_shown = {Double.NaN};
 
-        final String reveal_text = anim_ganancia > 0
-                ? "+" + Helpers.money2String(anim_ganancia)
-                : "-" + Helpers.money2String(anim_ganancia * -1);
+        final String reveal_text = resultAmountText(anim_ganancia);
 
         // The end-of-session count animation is optional (Animation settings, on by default). If
         // it's off, skip straight to the +/- reveal - no roll, no blink, no SFX (the sound is
@@ -697,6 +696,12 @@ public class BalanceScreen extends JPanel {
         }
 
         roll.start();
+    }
+
+    static String resultAmountText(double ganancia) {
+        return ganancia > 0
+                ? "+" + Helpers.money2String(ganancia)
+                : Helpers.money2String(ganancia * -1);
     }
 
     // Blinks only the amount on reveal: toggles a "don't paint" flag (repaints just this label,

@@ -25,8 +25,9 @@ repository root and run:
 
 The first command is the current executable reference. `quick` is a critical
 iteration subset; `fast` traverses every real-game scenario once with short
-campaigns; `stress` is the deep release gate after `fast` passes. `balanced`
-remains the default single-command gate when a stress run is not planned. A
+campaigns; `balanced` is the normal single-command production-release gate;
+`stress` is reserved for major milestones, broad security/protocol changes or
+suspected races after `fast` passes. A
 valid certificate ends with `CORONAPOKER CERTIFICATION PASS`, exits with code
 zero and writes `summary.csv`, `summary.json` and full phase logs under the
 printed `target/certification/<timestamp>` directory. Do not infer success from
@@ -37,10 +38,10 @@ is also stored in both summaries. Replay a failure with the reported
 Fresh entropy varies both harness schedules and the production-code paths they
 exercise, so it can expose defects on either side of that boundary.
 After that replay is green, rerun the affected scenario with a fresh seed. A
-narrow fix then resumes at the failed scenario/repetition and the final code
-must pass the complete `fast` matrix again. Restart `stress` only when the fix
-touches shared protocol/game paths, common harness semantics, entropy/scheduling
-or another surface capable of invalidating earlier phases. Continuation evidence
+narrow fix then resumes at the failed scenario/repetition and follows the
+proportional validation matrix below. Restart `stress` only when the fix touches
+shared protocol/game paths, common harness semantics, entropy/scheduling or
+another surface capable of invalidating earlier phases. Continuation evidence
 alone never certifies a release.
 Bot statistical quality is deliberately absent unless explicitly requested
 with `-IncludeBotQuality` after bot AI/evaluation changes.
@@ -235,9 +236,9 @@ overrides the selected mode:
 | Mode | Intended use | Headless hands/faults | Real-game matrix |
 |---|---|---:|---|
 | `quick` | Iteration preflight | 50 / 50 | Critical subset, one seed, 5-hand soak |
-| `fast` | Full-matrix preflight before stress | 50 / 50 | Every scenario once, 5-hand soak |
-| `balanced` | Standalone production gate when stress is not planned | 500 / 500 | Every scenario twice, 20-hand soak |
-| `stress` | Deep release/adversarial gate | 5,000 / 5,000 | Every race-sensitive scenario, including heads-up, with five seeds; 50-hand soak |
+| `fast` | Full-matrix preflight | 50 / 50 | Every scenario once, 5-hand soak |
+| `balanced` | Normal production-release gate | 500 / 500 | Every scenario twice, 20-hand soak |
+| `stress` | Major milestone / adversarial gate | 5,000 / 5,000 | Every race-sensitive scenario, including heads-up, with five seeds; 50-hand soak |
 
 The default certification matrix below is not selected heuristically at run
 time. It is a versioned contract in `tools/qa/run-certification.ps1`. `C/B/H`
@@ -520,18 +521,26 @@ simulations. Only `-P qa-bots` selects the statistical bot lane.
 
 ## Which tests to run for what you touch
 
-| If you change… | Run |
-|---|---|
-| Game logic, pot / side-pot / blind / bet math, hand-integrity chains | **Fast lane** — it already guards these |
-| The **bot AI** (`bot/`, `org/alberta/`, `Bot.java`) | **`-P qa-bots`** — statistical matchups + Monte-Carlo potential |
-| The **crypto** stack (`crypto/`, the SRA cascade) | **`-P qa-crypto`** — perf / differential / cascade suite |
-| **Networking** (`Net*`, `WireFrame`, `Participant`) | Fast lane covers wire & framing; add **`-P qa-network`** for socket-stall checks |
-| Anything, **before committing or opening a PR** | **`certify.cmd -Mode quick`** |
-| Before a **release** | **`certify.cmd -Mode fast`**, then **`certify.cmd -Mode stress`**; bot quality remains separate |
+Validation is proportional to the blast radius. Do not rerun the most expensive
+campaign merely because a file changed, and do not use a narrow test for a shared
+protocol or accounting change.
 
-Rule of thumb: use `quick` while iterating, the relevant targeted slow lane when
-you edit that subsystem, `fast` for full breadth and `stress` for release depth.
-Use the default `balanced` gate when a stress campaign is not planned. Manual
+| Change or milestone | Required validation |
+|---|---|
+| Localized production fix | First reproduce it with a red regression; run that test, the affected package/classes, then `mvn -f tools/reactor/pom.xml verify -P qa-fast` |
+| Protocol, recovery, settlement, consensus or lifecycle change | The localized row above plus every directly affected `real-game-e2e.cmd` scenario; use at least the failing seed and one fresh seed |
+| Shared protocol/game primitive or common harness semantics | `certify.cmd -Mode fast`; use `balanced` or `stress` as required by the release/milestone rows below |
+| Crypto/SRA change | `qa-fast`, `-P qa-crypto`, and the affected real-game shuffle/unlock scenarios |
+| Networking/framing change | `qa-fast`, `-P qa-network`, and the affected reconnect/cut/transport scenarios |
+| Test or simulator-only change | The changed test/harness contracts and affected scenarios; rerun broader game lanes only if production semantics, common scheduling or certification selection changed |
+| Documentation-only change | Documentation/link/command consistency checks; no game campaign unless executable commands, scenario catalog or build wiring changed |
+| Normal production release after localized work | `certify.cmd -Mode balanced` (it already includes `qa-release`); bot quality remains separate |
+| Major audit, broad security/protocol rewrite, suspected race family, or new certification baseline | `certify.cmd -Mode fast`, then `certify.cmd -Mode stress` with a fresh root seed |
+| Bot AI/evaluation change | Add explicit `-P qa-bots` or `-IncludeBotQuality`; never infer protocol integrity from statistical bot quality |
+
+Use `quick` while iterating, targeted lanes while diagnosing, `fast` for complete
+breadth, `balanced` for an ordinary release and `stress` only when its additional
+depth is justified. Manual
 play is only a complement for genuinely visual, physical-audio,
 accessibility or real-human timing behaviour; multi-JVM Swing clients and real
 encrypted sockets are already automated. Manual play never replaces an
@@ -590,9 +599,10 @@ is no discovery by filename or naming convention:
    rejects overlap between timing classes and any mismatch among the Java
    catalog, CLI `ValidateSet`, certification profiles and this document.
 10. Run the scenario directly through the public launcher with at least two
-    seeds, then `certify.cmd -Mode quick` if included there, `certify.cmd -Mode fast`
-    for complete breadth and `certify.cmd -Mode stress` for a release.
-    Keep bot statistical quality separate unless bot AI/evaluation changed.
+    seeds, then `certify.cmd -Mode quick` if included there and
+    `certify.cmd -Mode fast` for complete breadth. Use `balanced` for a normal
+    release and `stress` only for the major/adversarial conditions in the policy
+    above. Keep bot statistical quality separate unless bot AI/evaluation changed.
 
 ## Scope boundary
 

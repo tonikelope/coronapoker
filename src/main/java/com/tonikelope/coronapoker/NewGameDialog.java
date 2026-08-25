@@ -188,6 +188,7 @@ public class NewGameDialog extends JDialog {
         super(parent, modal);
 
         initComponents();
+        pairStandaloneToggleLabels();
 
         // Thin grouping boxes (blind escalation/cap and rebuy) get ROUNDED corners instead
         // of square. Applied here (after initComponents) to avoid depending on the generated
@@ -463,6 +464,15 @@ public class NewGameDialog extends JDialog {
 
         init = true;
 
+    }
+
+    private void pairStandaloneToggleLabels() {
+        ((SettingsUI.ToggleSwitch) manos_checkbox).pairLabel(limite_manos_label);
+        ((SettingsUI.ToggleSwitch) think_time_checkbox).pairLabel(think_time_label);
+        ((SettingsUI.ToggleSwitch) iwtsth_checkbox).pairLabel(iwtsth_icon);
+        ((SettingsUI.ToggleSwitch) rit_checkbox).pairLabel(rit_icon);
+        ((SettingsUI.ToggleSwitch) rebuy_checkbox).pairLabel(recomprar_label);
+        ((SettingsUI.ToggleSwitch) recover_checkbox).pairLabel(recover_checkbox_label);
     }
 
     /**
@@ -1103,13 +1113,7 @@ public class NewGameDialog extends JDialog {
         straddle_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/straddle_24.png"))); // NOI18N
         straddle_icon.setText("Straddle");
         javax.swing.JPanel straddle_row = toggleRow(straddle_icon, straddle_checkbox);
-        straddle_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         straddle_icon.setDoubleBuffered(true);
-        straddle_icon.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                straddle_iconMouseClicked(evt);
-            }
-        });
 
         javax.swing.GroupLayout ciegas_panelLayout = new javax.swing.GroupLayout(ciegas_panel);
         ciegas_panel.setLayout(ciegas_panelLayout);
@@ -1224,13 +1228,7 @@ public class NewGameDialog extends JDialog {
         recomprar_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         recomprar_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/rebuy.png"))); // NOI18N
         recomprar_label.setText("Recomprar");
-        recomprar_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         recomprar_label.setDoubleBuffered(true);
-        recomprar_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                recomprar_labelMouseClicked(evt);
-            }
-        });
 
         javax.swing.JLabel rebuy_limit_label = new javax.swing.JLabel("Límite recompra por jugador");
         rebuy_limit_label.setFont(new java.awt.Font("Dialog", 1, 14));
@@ -1368,13 +1366,7 @@ public class NewGameDialog extends JDialog {
         limite_manos_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         limite_manos_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/meter.png"))); // NOI18N
         limite_manos_label.setText("Límite de manos:");
-        limite_manos_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         limite_manos_label.setDoubleBuffered(true);
-        limite_manos_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                limite_manos_labelMouseClicked(evt);
-            }
-        });
 
         manos_spinner.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         manos_spinner.setModel(new javax.swing.SpinnerNumberModel(100, 1, null, 1));
@@ -1393,13 +1385,7 @@ public class NewGameDialog extends JDialog {
         think_time_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         think_time_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/clock.png"))); // NOI18N
         think_time_label.setText("Tiempo de pensar:");
-        think_time_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         think_time_label.setDoubleBuffered(true);
-        think_time_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                think_time_labelMouseClicked(evt);
-            }
-        });
 
         think_time_spinner.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         think_time_spinner.setModel(new javax.swing.SpinnerNumberModel(40, 10, 120, 5));
@@ -1421,13 +1407,7 @@ public class NewGameDialog extends JDialog {
         iwtsth_icon.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         iwtsth_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/eyes.png"))); // NOI18N
         iwtsth_icon.setText("Regla IWTSTH");
-        iwtsth_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         iwtsth_icon.setDoubleBuffered(true);
-        iwtsth_icon.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                iwtsth_iconMouseClicked(evt);
-            }
-        });
 
         iwtsth_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         iwtsth_checkbox.setDoubleBuffered(true);
@@ -1435,13 +1415,7 @@ public class NewGameDialog extends JDialog {
         rit_icon.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         rit_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png"))); // NOI18N
         rit_icon.setText("ALL-IN Run-it-twice");
-        rit_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         rit_icon.setDoubleBuffered(true);
-        rit_icon.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                rit_iconMouseClicked(evt);
-            }
-        });
 
         rit_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         rit_checkbox.setDoubleBuffered(true);
@@ -1723,13 +1697,7 @@ public class NewGameDialog extends JDialog {
         recover_checkbox_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         recover_checkbox_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/undo.png"))); // NOI18N
         recover_checkbox_label.setText("CONTINUAR TIMBA ANTERIOR:");
-        recover_checkbox_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         recover_checkbox_label.setDoubleBuffered(true);
-        recover_checkbox_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                recover_checkbox_labelMouseClicked(evt);
-            }
-        });
 
         game_label.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
 
@@ -2865,55 +2833,6 @@ public class NewGameDialog extends JDialog {
     private void rebuy_limit_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_rebuy_limit_checkboxActionPerformed
         this.rebuy_limit_spinner.setEnabled(this.rebuy_checkbox.isSelected() && this.rebuy_limit_checkbox.isSelected());
     }//GEN-LAST:event_rebuy_limit_checkboxActionPerformed
-
-    private void recover_checkbox_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_recover_checkbox_labelMouseClicked
-        if (!Helpers.isRealClick(evt)) {
-            return;
-        }
-        recover_checkbox.doClick();
-    }//GEN-LAST:event_recover_checkbox_labelMouseClicked
-
-    private void recomprar_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_recomprar_labelMouseClicked
-        if (!Helpers.isRealClick(evt)) {
-            return;
-        }
-        rebuy_checkbox.doClick();
-    }//GEN-LAST:event_recomprar_labelMouseClicked
-
-    private void limite_manos_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_limite_manos_labelMouseClicked
-        if (!Helpers.isRealClick(evt)) {
-            return;
-        }
-        manos_checkbox.doClick();
-    }//GEN-LAST:event_limite_manos_labelMouseClicked
-
-    private void think_time_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_think_time_labelMouseClicked
-        if (!Helpers.isRealClick(evt)) {
-            return;
-        }
-        think_time_checkbox.doClick();
-    }//GEN-LAST:event_think_time_labelMouseClicked
-
-    private void straddle_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_straddle_iconMouseClicked
-        if (!Helpers.isRealClick(evt)) {
-            return;
-        }
-        straddle_checkbox.doClick();
-    }//GEN-LAST:event_straddle_iconMouseClicked
-
-    private void iwtsth_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_iwtsth_iconMouseClicked
-        if (!Helpers.isRealClick(evt)) {
-            return;
-        }
-        iwtsth_checkbox.doClick();
-    }//GEN-LAST:event_iwtsth_iconMouseClicked
-
-    private void rit_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_rit_iconMouseClicked
-        if (!Helpers.isRealClick(evt)) {
-            return;
-        }
-        rit_checkbox.doClick();
-    }//GEN-LAST:event_rit_iconMouseClicked
 
     private void nickActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_nickActionPerformed
         vamos.doClick();

@@ -1706,6 +1706,9 @@ public class AudioSettingsPanel extends JPanel {
             text.setText(lbl.toString());
         }
         text.setAlignmentY(JComponent.CENTER_ALIGNMENT);
+        if (cb instanceof SettingsUI.ToggleSwitch) {
+            ((SettingsUI.ToggleSwitch) cb).pairLabel(text);
+        }
 
         // Left part: icon cell + label. Right part: preview button (if any) + the toggle,
         // pinned to the column's right edge by alignedRow's glue.

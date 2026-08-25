@@ -210,6 +210,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         this.read_only = read_only;
         this.recover = recover;
         initComponents();
+        pairStandaloneToggleLabels();
 
         setupTooltips();
 
@@ -240,6 +241,14 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         }
 
         snap_signature = controlsSignature();
+    }
+
+    private void pairStandaloneToggleLabels() {
+        ((SettingsUI.ToggleSwitch) manos_checkbox).pairLabel(manos_label);
+        ((SettingsUI.ToggleSwitch) think_time_checkbox).pairLabel(think_time_label);
+        ((SettingsUI.ToggleSwitch) iwtsth_checkbox).pairLabel(iwtsth_label);
+        ((SettingsUI.ToggleSwitch) rit_checkbox).pairLabel(rit_label);
+        ((SettingsUI.ToggleSwitch) rebuy_checkbox).pairLabel(recomprar_label);
     }
 
     public boolean isReadOnly() {
@@ -517,16 +526,6 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         manos_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/meter.png")));
         manos_label.setText("Límite de manos:");
         manos_label.putClientProperty("i18n.key", "game.limite_de_manos");
-        manos_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        manos_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                if (!Helpers.isRealClick(evt)) {
-                    return;
-                }
-                manos_checkbox.doClick();
-            }
-        });
 
         manos_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         manos_checkbox.addActionListener(this::manos_checkboxActionPerformed);
@@ -539,16 +538,6 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         think_time_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/clock.png")));
         think_time_label.setText("Tiempo de pensar:");
         think_time_label.putClientProperty("i18n.key", "newgame.tiempo_pensar");
-        think_time_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        think_time_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                if (!Helpers.isRealClick(evt)) {
-                    return;
-                }
-                think_time_checkbox.doClick();
-            }
-        });
 
         think_time_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         think_time_checkbox.addActionListener(this::think_time_checkboxActionPerformed);
@@ -570,32 +559,12 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         iwtsth_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/eyes.png")));
         iwtsth_label.setText("Regla IWTSTH");
         iwtsth_label.putClientProperty("i18n.key", "menu.regla_iwtsth");
-        iwtsth_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        iwtsth_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                if (!Helpers.isRealClick(evt)) {
-                    return;
-                }
-                iwtsth_checkbox.doClick();
-            }
-        });
         iwtsth_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
         rit_label.setFont(new java.awt.Font("Dialog", 1, 16));
         rit_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png")));
         rit_label.setText("ALL-IN Run-it-twice");
         rit_label.putClientProperty("i18n.key", "menu.regla_run_it_twice");
-        rit_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        rit_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                if (!Helpers.isRealClick(evt)) {
-                    return;
-                }
-                rit_checkbox.doClick();
-            }
-        });
         rit_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
         rabbit_label.setFont(new java.awt.Font("Dialog", 1, 16));
@@ -612,31 +581,31 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                         .addGroup(rules_panelLayout.createSequentialGroup()
                                 .addContainerGap()
                                 .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                        // hand-limit/think-time/showdown share columns (checkbox | label | spinner)
+                                        // hand-limit/think-time/showdown share columns (label | toggle | spinner)
                                         // to line up the three spinners (same as room and game tabs). Showdown, with
-                                        // no checkbox, leaves the gap and aligns its label with the other two.
+                                        // no toggle, leaves that column's gap as in the new-game dialog.
                                         .addGroup(rules_panelLayout.createSequentialGroup()
-                                                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                                        .addComponent(manos_checkbox)
-                                                        .addComponent(think_time_checkbox))
-                                                .addGap(0, 0, 0)
                                                 .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                                                         .addComponent(manos_label)
                                                         .addComponent(think_time_label)
                                                         .addComponent(showdown_time_label))
+                                                .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
+                                                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addComponent(manos_checkbox)
+                                                        .addComponent(think_time_checkbox))
                                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                                 .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                                                         .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE)
                                                         .addComponent(think_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE)
                                                         .addComponent(showdown_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE)))
                                         .addGroup(rules_panelLayout.createSequentialGroup()
-                                                .addComponent(iwtsth_checkbox)
-                                                .addGap(0, 0, 0)
-                                                .addComponent(iwtsth_label))
+                                                .addComponent(iwtsth_label)
+                                                .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
+                                                .addComponent(iwtsth_checkbox))
                                         .addGroup(rules_panelLayout.createSequentialGroup()
-                                                .addComponent(rit_checkbox)
-                                                .addGap(0, 0, 0)
-                                                .addComponent(rit_label))
+                                                .addComponent(rit_label)
+                                                .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
+                                                .addComponent(rit_checkbox))
                                         .addGroup(rules_panelLayout.createSequentialGroup()
                                                 .addComponent(rabbit_label)
                                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -799,16 +768,6 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         straddle_label.setIcon(new javax.swing.ImageIcon(new javax.swing.ImageIcon(getClass().getResource("/images/straddle_small.png")).getImage().getScaledInstance(24, 24, java.awt.Image.SCALE_SMOOTH)));
         straddle_label.setText("Straddle");
         javax.swing.JPanel straddle_row = toggleRow(straddle_label, straddle_checkbox);
-        straddle_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        straddle_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                if (!Helpers.isRealClick(evt)) {
-                    return;
-                }
-                straddle_checkbox.doClick();
-            }
-        });
 
         javax.swing.GroupLayout ciegas_panelLayout = new javax.swing.GroupLayout(ciegas_panel);
         ciegas_panel.setLayout(ciegas_panelLayout);
@@ -893,7 +852,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
 
         // BARE checkbox (no text) + "Rebuy" label with icon next to it, same as the new-game
         // dialog: setIcon on the checkbox breaks the checkbox rendering, so the icon+text live in
-        // a separate label that clicks the checkbox when pressed.
+        // a separate, informational label.
         rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 16));
         rebuy_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         rebuy_checkbox.addActionListener(this::rebuy_checkboxActionPerformed);
@@ -902,16 +861,6 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         recomprar_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/rebuy.png")));
         recomprar_label.setText("Recomprar");
         recomprar_label.putClientProperty("i18n.key", "rebuy.recomprar_2");
-        recomprar_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        recomprar_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                if (!Helpers.isRealClick(evt)) {
-                    return;
-                }
-                rebuy_checkbox.doClick();
-            }
-        });
 
         javax.swing.JLabel rebuy_limit_label = new javax.swing.JLabel("Límite recompra por jugador");
         rebuy_limit_label.setFont(new java.awt.Font("Dialog", 1, 14));
@@ -952,9 +901,9 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                                 .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                                         // "Rebuy" = block header (not indented)
                                         .addGroup(recompra_panelLayout.createSequentialGroup()
-                                                .addComponent(rebuy_checkbox)
-                                                .addGap(0, 0, 0)
-                                                .addComponent(recomprar_label))
+                                                .addComponent(recomprar_label)
+                                                .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
+                                                .addComponent(rebuy_checkbox))
                                         // "Rebuy" sub-options (limit + cap) indented to the right
                                         .addGroup(recompra_panelLayout.createSequentialGroup()
                                                 .addGap(22, 22, 22)

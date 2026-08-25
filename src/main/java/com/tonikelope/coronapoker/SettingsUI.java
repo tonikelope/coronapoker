@@ -256,15 +256,29 @@ public final class SettingsUI {
             setMaximumSize(d);
         }
 
-        // The switch carries no text; its row label lives in a separate JLabel. Pairing it means a
-        // disabled switch greys its label too (Swing dims a disabled JLabel), restoring the old
-        // JCheckBox-with-text behaviour that was lost when the text moved to a separate label.
+        // The switch carries no text; its row label lives in a separate JLabel. Pairing greys the
+        // label with a disabled switch and moves the explanatory tooltip to that label. The label
+        // deliberately remains non-interactive; only a click on the switch changes the setting.
         private JLabel pairedLabel;
 
         public void pairLabel(JLabel label) {
             pairedLabel = label;
             if (label != null) {
                 label.setEnabled(isEnabled());
+                if (getToolTipText() != null) {
+                    label.setToolTipText(getToolTipText());
+                }
+                super.setToolTipText(null);
+            }
+        }
+
+        @Override
+        public void setToolTipText(String text) {
+            if (pairedLabel != null) {
+                pairedLabel.setToolTipText(text);
+                super.setToolTipText(null);
+            } else {
+                super.setToolTipText(text);
             }
         }
 
@@ -359,6 +373,7 @@ public final class SettingsUI {
         cb.setRolloverSelectedIcon(icon);
         cb.setOpaque(false);
         cb.setFocusPainted(false);
+        cb.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
         cb.setIconTextGap(Math.round(fs * 0.3f));
         // Text to the LEFT of the switch, so the row reads "label [switch]" (the settings-toggle
         // convention) instead of the JCheckBox default "[switch] label". Harmless on a text-less

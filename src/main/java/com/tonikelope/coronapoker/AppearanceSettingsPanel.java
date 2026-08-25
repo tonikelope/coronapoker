@@ -1774,12 +1774,10 @@ public class AppearanceSettingsPanel extends JPanel {
         });
         // Label (icon + text) on the left, sliding toggle pushed to the card's right edge.
         JPanel row = alignedRow(0, label, cb);
-        // Optional tooltip: set on the row, the label and the toggle so it appears over the
-        // whole row.
+        // Optional tooltip belongs only to the descriptive label. The switch is exclusively
+        // the click target and deliberately has no tooltip.
         if (tooltipKey != null) {
-            Helpers.setTranslatedToolTip(row, tooltipKey);
             Helpers.setTranslatedToolTip(label, tooltipKey);
-            Helpers.setTranslatedToolTip(cb, tooltipKey);
         }
         return row;
     }

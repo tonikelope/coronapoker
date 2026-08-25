@@ -173,6 +173,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
     public GameSettingsPanel(boolean read_only) {
         this.read_only = read_only;
         initComponents();
+        pairStandaloneToggleLabels();
 
         setupTooltips();
 
@@ -380,6 +381,14 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         snap_signature = controlsSignature();
     }
 
+    private void pairStandaloneToggleLabels() {
+        ((SettingsUI.ToggleSwitch) manos_checkbox).pairLabel(manos_label);
+        ((SettingsUI.ToggleSwitch) think_time_checkbox).pairLabel(think_time_label);
+        ((SettingsUI.ToggleSwitch) iwtsth_checkbox).pairLabel(iwtsth_label);
+        ((SettingsUI.ToggleSwitch) rit_checkbox).pairLabel(rit_label);
+        ((SettingsUI.ToggleSwitch) rebuy_checkbox).pairLabel(recomprar_label);
+    }
+
     // Compact signature of ALL editable controls; comparing two signatures tells if
     // anything changed. (Disabling controls doesn't change their values, so it's stable.)
     private String controlsSignature() {
@@ -523,16 +532,6 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         manos_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/meter.png")));
         manos_label.setText("Límite de manos:");
         manos_label.putClientProperty("i18n.key", "game.limite_de_manos");
-        manos_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        manos_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                if (!Helpers.isRealClick(evt)) {
-                    return;
-                }
-                manos_checkbox.doClick();
-            }
-        });
 
         manos_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         manos_checkbox.addActionListener(new java.awt.event.ActionListener() {
@@ -569,16 +568,6 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         iwtsth_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/eyes.png")));
         iwtsth_label.setText("Regla IWTSTH");
         iwtsth_label.putClientProperty("i18n.key", "menu.regla_iwtsth");
-        iwtsth_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        iwtsth_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                if (!Helpers.isRealClick(evt)) {
-                    return;
-                }
-                iwtsth_checkbox.doClick();
-            }
-        });
 
         iwtsth_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
@@ -586,16 +575,6 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         rit_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png")));
         rit_label.setText("ALL-IN Run-it-twice");
         rit_label.putClientProperty("i18n.key", "menu.regla_run_it_twice");
-        rit_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        rit_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                if (!Helpers.isRealClick(evt)) {
-                    return;
-                }
-                rit_checkbox.doClick();
-            }
-        });
 
         rit_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
@@ -615,31 +594,31 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                                 .addContainerGap()
                                 .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                                         // Hand limit / think time / showdown time share three columns
-                                        // (checkbox | label | spinner) so the three spinners line up on their left
+                                        // (label | toggle | spinner) so the three spinners line up on their left
                                         // edge (same as in the waiting room). Showdown has no checkbox: it leaves
-                                        // the gap and aligns its label with the other two.
+                                        // the toggle-column gap, as in the new-game dialog.
                                         .addGroup(rules_panelLayout.createSequentialGroup()
-                                                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                                        .addComponent(manos_checkbox)
-                                                        .addComponent(think_time_checkbox))
-                                                .addGap(0, 0, 0)
                                                 .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                                                         .addComponent(manos_label)
                                                         .addComponent(think_time_label)
                                                         .addComponent(showdown_time_label))
+                                                .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
+                                                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addComponent(manos_checkbox)
+                                                        .addComponent(think_time_checkbox))
                                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                                 .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                                                         .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(140 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
                                                         .addComponent(think_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(140 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
                                                         .addComponent(showdown_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(140 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)))
                                         .addGroup(rules_panelLayout.createSequentialGroup()
-                                                .addComponent(iwtsth_checkbox)
-                                                .addGap(0, 0, 0)
-                                                .addComponent(iwtsth_label))
+                                                .addComponent(iwtsth_label)
+                                                .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
+                                                .addComponent(iwtsth_checkbox))
                                         .addGroup(rules_panelLayout.createSequentialGroup()
-                                                .addComponent(rit_checkbox)
-                                                .addGap(0, 0, 0)
-                                                .addComponent(rit_label))
+                                                .addComponent(rit_label)
+                                                .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
+                                                .addComponent(rit_checkbox))
                                         .addGroup(rules_panelLayout.createSequentialGroup()
                                                 .addComponent(rabbit_label)
                                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -793,16 +772,6 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         straddle_label.setIcon(new javax.swing.ImageIcon(new javax.swing.ImageIcon(getClass().getResource("/images/straddle_small.png")).getImage().getScaledInstance(24, 24, java.awt.Image.SCALE_SMOOTH)));
         straddle_label.setText("Straddle");
         javax.swing.JPanel straddle_row = toggleRow(straddle_label, straddle_checkbox);
-        straddle_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        straddle_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                if (!Helpers.isRealClick(evt)) {
-                    return;
-                }
-                straddle_checkbox.doClick();
-            }
-        });
 
         javax.swing.GroupLayout ciegas_panelLayout = new javax.swing.GroupLayout(ciegas_panel);
         ciegas_panel.setLayout(ciegas_panelLayout);
@@ -945,9 +914,9 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                                                 .addComponent(buyin_max_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(80 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
                                         // "Rebuy" = header; its sub-options (limit + cap) go indented
                                         .addGroup(compra_panelLayout.createSequentialGroup()
-                                                .addComponent(rebuy_checkbox)
-                                                .addGap(0, 0, 0)
-                                                .addComponent(recomprar_label))
+                                                .addComponent(recomprar_label)
+                                                .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
+                                                .addComponent(rebuy_checkbox))
                                         .addGroup(compra_panelLayout.createSequentialGroup()
                                                 .addGap(Math.round(22 * Helpers.DIALOG_ZOOM), Math.round(22 * Helpers.DIALOG_ZOOM), Math.round(22 * Helpers.DIALOG_ZOOM))
                                                 .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)

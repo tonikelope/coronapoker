@@ -383,4 +383,23 @@ A real-game scenario is complete only when every box is true:
 - [ ] The proportional lane from `TESTING.md` passes; `fast` covers the final
   full matrix before integration.
 
+## Future improvement: simplify scenario extension
+
+Adding a complete real-game scenario currently requires coordinated changes
+across the PowerShell CLI and certification matrix, the Java scenario catalog,
+parent orchestration, node-side policy, contract tests and public tables. The
+contributor guide makes that workflow explicit, but the number of manual
+integration points remains higher than desirable.
+
+This does not currently justify a harness refactor by itself. Revisit it when
+new scenario families must be added regularly or the existing registration
+cost starts causing omissions. A safe future refactor should proceed in small,
+behavior-preserving stages: first strengthen characterization tests, then
+extract per-family handlers from the parent and node classes, introduce an
+exactly-once handler registry, and finally centralize machine-readable scenario
+metadata. Existing CLI values, seeds, `CP_E2E_*` markers, gates, timeouts,
+diagnostics and green/red oracles must remain stable throughout. Run the full
+`fast` matrix after common harness changes, and use `stress` only if timing,
+scheduling, watchdog or gate semantics change.
+
 </div>

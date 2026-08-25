@@ -3735,16 +3735,25 @@ public class Helpers {
             return;
         }
         final javax.swing.JComponent v = (javax.swing.JComponent) view;
+        final Runnable sync_width = () -> {
+            int vw = vp.getExtentSize().width;
+            if (vw > 0 && v.getPreferredSize().width != vw) {
+                v.setPreferredSize(new java.awt.Dimension(vw, v.getPreferredSize().height));
+                v.revalidate();
+            }
+        };
         vp.addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentResized(java.awt.event.ComponentEvent e) {
-                int vw = vp.getExtentSize().width;
-                if (vw > 0 && v.getPreferredSize().width != vw) {
-                    v.setPreferredSize(new java.awt.Dimension(vw, v.getPreferredSize().height));
-                    v.revalidate();
-                }
+                sync_width.run();
             }
         });
+        // A vertical scrollbar changes the viewport extent without necessarily producing a
+        // second componentResized event on every LAF. Track that change too, and synchronize
+        // once immediately so the first pack cannot preserve the form's stale fixed width.
+        vp.addChangeListener(e -> sync_width.run());
+        sync_width.run();
+        javax.swing.SwingUtilities.invokeLater(sync_width);
     }
 
     // First JScrollPane inside the window (depth-first search), or null if none.

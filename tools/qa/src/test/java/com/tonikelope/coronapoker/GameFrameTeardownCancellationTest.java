@@ -14,6 +14,11 @@ final class GameFrameTeardownCancellationTest {
 
     @Test
     void interruptedPresentationPauseCannotAbortCriticalRecoveryTeardown() {
+        // Warm GameFrame/Helpers on a clean thread. Java 25's ImageIO initialization uses a
+        // SecureRandom-backed temp name and correctly refuses to initialize while interrupted;
+        // that is unrelated to the teardown cancellation contract under test.
+        GameFrame.pauseBeforeRecoveryTeardown(0L);
+
         Thread.currentThread().interrupt();
 
         GameFrame.pauseBeforeRecoveryTeardown(5_000L);

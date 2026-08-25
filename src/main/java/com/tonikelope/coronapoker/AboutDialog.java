@@ -33,6 +33,7 @@ import java.awt.Image;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -76,7 +77,7 @@ import javax.swing.Timer;
  */
 public class AboutDialog extends JDialog {
 
-    public static final String VERSION = "24.06";
+    public static final String VERSION = "24.07";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
 
     public static final String TITLE = "about.titulo";
@@ -116,27 +117,15 @@ public class AboutDialog extends JDialog {
         threads.setText(String.valueOf(Helpers.THREAD_POOL.getActiveCount() + 2) + "/" + String.valueOf(Helpers.THREAD_POOL.getPoolSize() + 2) + " " + Translator.translate("ui.hilos"));
 
         if (Init.MOD != null) {
-            mod_label.setText(Init.MOD.get("name") + " " + Init.MOD.get("version"));
-
-            if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/mod.png"))) {
-                Image logo = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/mod.png").getImage();
-
-                if (logo.getHeight(null) > MAX_MOD_LOGO_HEIGHT || logo.getWidth(null) > MAX_MOD_LOGO_HEIGHT) {
-
-                    int new_height = MAX_MOD_LOGO_HEIGHT;
-
-                    int new_width = Math.round(((float) logo.getWidth(null) * MAX_MOD_LOGO_HEIGHT) / logo.getHeight(null));
-
-                    mod_label.setIcon(new ImageIcon(logo.getScaledInstance(new_width, new_height, Image.SCALE_SMOOTH)));
-
-                } else {
-                    mod_label.setIcon(new ImageIcon(logo));
-
-                }
-            }
+            configureModLogo(mod_label, Paths.get(Helpers.getCurrentJarParentPath(), "mod", "mod.png"));
         } else {
             mod_label.setVisible(false);
         }
+
+        // Keep the CoronaPoker and optional MOD branding in one fixed-height row. The old
+        // vertical stack made a MOD logo add its full height below the CoronaPoker logo; on
+        // shorter screens that triggered both scrollbars and shifted every credit line.
+        configureBrandingLayout(jPanel3, corona_icon_label, mod_label, mod_bar);
 
         // GUI_FONT family at DESIGN size (as always) + pack to MEASURE the design size.
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
@@ -183,6 +172,92 @@ public class AboutDialog extends JDialog {
         memory_timer.setRepeats(true);
         memory_timer.setCoalesce(false);
 
+    }
+
+    static boolean configureModLogo(javax.swing.JLabel mod_logo, Path logo_path) {
+        mod_logo.setText(null);
+        mod_logo.setIcon(null);
+
+        if (!Files.isRegularFile(logo_path)) {
+            mod_logo.setVisible(false);
+            return false;
+        }
+
+        Image logo = new ImageIcon(logo_path.toString()).getImage();
+
+        if (logo.getHeight(null) <= 0 || logo.getWidth(null) <= 0) {
+            mod_logo.setVisible(false);
+            return false;
+        }
+
+        if (logo.getHeight(null) > MAX_MOD_LOGO_HEIGHT || logo.getWidth(null) > MAX_MOD_LOGO_HEIGHT) {
+            int new_height = MAX_MOD_LOGO_HEIGHT;
+            int new_width = Math.round(((float) logo.getWidth(null) * MAX_MOD_LOGO_HEIGHT) / logo.getHeight(null));
+            mod_logo.setIcon(new ImageIcon(logo.getScaledInstance(new_width, new_height, Image.SCALE_SMOOTH)));
+        } else {
+            mod_logo.setIcon(new ImageIcon(logo));
+        }
+
+        mod_logo.setVisible(true);
+        return true;
+    }
+
+    /**
+     * Places the built-in and optional MOD logos in the same row. When a MOD
+     * is present, the progress-bar slot stays reserved so checking for updates
+     * cannot move the credits. Without a MOD, no hidden MOD width or gap is
+     * retained, leaving the CoronaPoker logo exactly centered.
+     */
+    static void configureBrandingLayout(javax.swing.JPanel panel,
+            javax.swing.JLabel corona_logo, javax.swing.JLabel mod_logo,
+            javax.swing.JProgressBar progress) {
+
+        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(panel);
+        panel.setLayout(layout);
+        boolean mod_available = mod_logo.isVisible();
+
+        if (!mod_available) {
+            panel.remove(mod_logo);
+            panel.remove(progress);
+            layout.setHorizontalGroup(
+                    layout.createSequentialGroup()
+                            .addContainerGap()
+                            .addComponent(corona_logo)
+                            .addContainerGap()
+            );
+            layout.setVerticalGroup(
+                    layout.createSequentialGroup()
+                            .addComponent(corona_logo)
+                            .addContainerGap()
+            );
+            return;
+        }
+
+        layout.setHonorsVisibility(progress, false);
+
+        layout.setHorizontalGroup(
+                layout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                        .addGroup(layout.createSequentialGroup()
+                                .addContainerGap()
+                                .addComponent(corona_logo)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addComponent(mod_logo)
+                                .addContainerGap())
+                        .addGroup(layout.createSequentialGroup()
+                                .addContainerGap()
+                                .addComponent(progress, javax.swing.GroupLayout.DEFAULT_SIZE, 433, Short.MAX_VALUE)
+                                .addContainerGap())
+        );
+        layout.setVerticalGroup(
+                layout.createSequentialGroup()
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                .addComponent(corona_logo)
+                                .addComponent(mod_logo))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(progress, javax.swing.GroupLayout.PREFERRED_SIZE, 19,
+                                javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addContainerGap()
+        );
     }
 
     // Logo GIF decoded ONCE into full frames (cached; the frames are immutable and shared

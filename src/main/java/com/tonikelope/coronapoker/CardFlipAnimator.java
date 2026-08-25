@@ -36,7 +36,11 @@ import java.awt.RenderingHints;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
+import java.io.IOException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.imageio.ImageIO;
 
@@ -216,11 +220,7 @@ public class CardFlipAnimator {
             return cached;
         }
 
-        URL url = CardFlipAnimator.class.getResource("/images/decks/" + baraja + "/" + valor_palo + ".jpg");
-        if (url == null) {
-            return null;
-        }
-        BufferedImage raw = ImageIO.read(url);
+        BufferedImage raw = loadFaceRaw(baraja, valor_palo);
         if (raw == null) {
             return null;
         }
@@ -228,6 +228,27 @@ public class CardFlipAnimator {
         BufferedImage rounded = rounded(raw, radius);
         SRC_CACHE.put(key, rounded);
         return rounded;
+    }
+
+    /**
+     * Loads a card face at native resolution. Mod decks live next to the game
+     * JAR, while bundled decks are class-path resources.
+     */
+    private static BufferedImage loadFaceRaw(String baraja, String valor_palo)
+            throws IOException {
+
+        Object[] deck = Card.BARAJAS.get(baraja);
+        boolean mod = deck != null && deck.length > 1 && Boolean.TRUE.equals(deck[1]);
+
+        if (mod) {
+            Path face = Paths.get(Helpers.getCurrentJarParentPath()).resolve("mod").resolve("decks")
+                    .resolve(baraja).resolve(valor_palo + ".jpg");
+            return Files.isRegularFile(face) ? ImageIO.read(face.toFile()) : null;
+        }
+
+        URL url = CardFlipAnimator.class.getResource(
+                "/images/decks/" + baraja + "/" + valor_palo + ".jpg");
+        return url != null ? ImageIO.read(url) : null;
     }
 
     /**

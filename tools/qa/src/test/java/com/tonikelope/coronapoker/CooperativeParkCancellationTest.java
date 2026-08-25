@@ -11,6 +11,10 @@ public class CooperativeParkCancellationTest {
 
     @Test
     public void executorInterruptEndsAHighPrecisionPauseImmediately() throws Exception {
+        // Class initialization may use ImageIO/SecureRandom. Do it before the worker is
+        // deliberately interrupted so the test measures park cancellation, not cold startup.
+        Helpers.parkThreadMillis(0);
+
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch completed = new CountDownLatch(1);
         AtomicBoolean interruptPreserved = new AtomicBoolean(false);

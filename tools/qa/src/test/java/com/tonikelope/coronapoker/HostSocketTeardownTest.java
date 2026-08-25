@@ -10,11 +10,19 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import javax.crypto.spec.SecretKeySpec;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 public class HostSocketTeardownTest {
 
     private static final long TEARDOWN_TIMEOUT_SECONDS = 3L;
+
+    @BeforeAll
+    public static void initializeTeardownClassesOutsideTimedSections() {
+        // WaitingRoomFrame's cold initialization loads UI resources and creates the shared
+        // executor. Keep that one-time cost outside the three-second socket-close deadline.
+        WaitingRoomFrame.closeAcceptedClientSockets(List.of());
+    }
 
     @Test
     public void closingTheHostAlsoReleasesAcceptedSocketsStillInHandshake() throws Exception {

@@ -280,7 +280,7 @@ include every row. Counts are the minimum complete sequence that exposes the sta
 transition, plus a following hand whenever liveness after that transition is
 part of the oracle.
 
-| Certification profile | `quick` C/B/H | `fast` C/B/H | `balanced` C/B/H | `stress` C/B/H | Why this topology and length |
+| Certification profile | `quick` (C/B/H) | `fast` (C/B/H) | `balanced` (C/B/H) | `stress` (C/B/H) | Why this topology and length |
 |---|---:|---:|---:|---:|---|
 | `normal-soak` | 2/2/5 | 2/2/5 | 2/2/20 | 2/2/50 | Mixed-table sustained play and repeated settlement |
 | `normal-heads-up` | 1/0/5 | 1/0/5 | 1/0/20 | 1/0/20 | Heads-up blind/order boundary over repeated hands |
@@ -583,24 +583,5 @@ The automated simulator exercises production sockets, `Crupier`, betting,
 cryptographic messages, consensus, settlement, SQLite and lifecycle transitions.
 It does not certify subjective rendering quality, physical audio devices or
 real Internet/NAT behavior; use focused manual checks for those surfaces.
-
-## Future improvement: simplify scenario extension
-
-Adding a complete real-game scenario currently requires coordinated changes
-across the PowerShell CLI and certification matrix, the Java scenario catalog,
-parent orchestration, node-side policy, contract tests and public tables. The
-contributor guide makes that workflow explicit, but the number of manual
-integration points remains higher than desirable.
-
-This does not currently justify a harness refactor by itself. Revisit it when
-new scenario families must be added regularly or the existing registration
-cost starts causing omissions. A safe future refactor should proceed in small,
-behavior-preserving stages: first strengthen characterization tests, then
-extract per-family handlers from the parent and node classes, introduce an
-exactly-once handler registry, and finally centralize machine-readable scenario
-metadata. Existing CLI values, seeds, `CP_E2E_*` markers, gates, timeouts,
-diagnostics and green/red oracles must remain stable throughout. Run the full
-`fast` matrix after common harness changes, and use `stress` only if timing,
-scheduling, watchdog or gate semantics change.
 
 </div>

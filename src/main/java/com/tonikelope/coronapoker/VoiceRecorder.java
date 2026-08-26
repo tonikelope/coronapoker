@@ -63,6 +63,8 @@ public class VoiceRecorder {
     // Tail grace after releasing the key: the last syllable is still in the
     // air (and in the capture buffer) at that instant.
     public static final int TAIL_MILLIS = 250;
+    private static final long FINISH_WAIT_MILLIS = 2000L;
+    private static final long CLOSE_WAIT_MILLIS = 1000L;
     // Safety floor only (empty/dead captures): intentional-tap filtering is
     // done by the manager, so short notes survive.
     public static final int MIN_MILLIS = 100;
@@ -85,8 +87,18 @@ public class VoiceRecorder {
     // and blaming the settings for that is a lie. It gates nothing.
     private static final java.util.concurrent.atomic.AtomicInteger OPEN_LINES = new java.util.concurrent.atomic.AtomicInteger(0);
 
+    @FunctionalInterface
+    interface CaptureLineProvider {
+
+        TargetDataLine get(AudioFormat format) throws Exception;
+    }
+
     private final ByteArrayOutputStream pcm = new ByteArrayOutputStream();
     private final CountDownLatch finished = new CountDownLatch(1);
+    private final CaptureLineProvider line_provider;
+    private final int tail_millis;
+    private final long finish_wait_millis;
+    private final long close_wait_millis;
     private volatile boolean line_counted = false;
     private volatile TargetDataLine line = null;
     private volatile boolean recording = false;
@@ -95,6 +107,20 @@ public class VoiceRecorder {
     private volatile boolean got_audio = false;
     private volatile boolean device_ended = false;
     private volatile Outcome outcome = Outcome.ABORTED;
+
+    public VoiceRecorder() {
+        this(AudioDeviceManager::getTargetDataLine, TAIL_MILLIS, FINISH_WAIT_MILLIS, CLOSE_WAIT_MILLIS);
+    }
+
+    VoiceRecorder(CaptureLineProvider line_provider, int tail_millis, long finish_wait_millis, long close_wait_millis) {
+        if (line_provider == null || tail_millis < 0 || finish_wait_millis < 0L || close_wait_millis < 0L) {
+            throw new IllegalArgumentException("Invalid voice recorder configuration");
+        }
+        this.line_provider = line_provider;
+        this.tail_millis = tail_millis;
+        this.finish_wait_millis = finish_wait_millis;
+        this.close_wait_millis = close_wait_millis;
+    }
 
     /**
      * Opens the microphone and captures in a pool thread until stop() or the
@@ -115,7 +141,7 @@ public class VoiceRecorder {
 
         try {
 
-            line = AudioDeviceManager.getTargetDataLine(PCM_FORMAT);
+            line = line_provider.get(PCM_FORMAT);
 
             line.open(PCM_FORMAT);
 
@@ -327,17 +353,21 @@ public class VoiceRecorder {
 
         // Tail grace: keep capturing briefly so the last word survives the
         // key release. The recording dialog is already gone at this point.
-        Helpers.parkThreadMillis(TAIL_MILLIS);
+        Helpers.parkThreadMillis(tail_millis);
 
         recording = false;
+
+        boolean capture_finished;
 
         try {
             // The reader wakes from its pending read() in <= 100ms of audio,
             // flushes the line tail and counts down. The timeout is a safety
             // net against a capture line gone catatonic.
-            if (!finished.await(2, java.util.concurrent.TimeUnit.SECONDS)) {
+            capture_finished = finished.await(finish_wait_millis, java.util.concurrent.TimeUnit.MILLISECONDS);
+
+            if (!capture_finished) {
                 closeLine();
-                finished.await(1, java.util.concurrent.TimeUnit.SECONDS);
+                capture_finished = finished.await(close_wait_millis, java.util.concurrent.TimeUnit.MILLISECONDS);
             }
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
@@ -345,6 +375,18 @@ public class VoiceRecorder {
         }
 
         if (teardown_aborted) {
+            return null;
+        }
+
+        // Never take a snapshot from a capture thread that is still inside the
+        // native driver. A catatonic TargetDataLine used to fall through here
+        // after the second timeout and turn its short start-up fragment into a
+        // valid-looking (but effectively empty) WAV.
+        if (!capture_finished) {
+            closeLine();
+            Logger.getLogger(VoiceRecorder.class.getName()).log(Level.WARNING,
+                    "Capture line did not terminate after close; discarding {0} ms of partial audio", capturedMillis());
+            finish(Outcome.LOST);
             return null;
         }
 
@@ -389,6 +431,17 @@ public class VoiceRecorder {
 
                 AudioSystem.write(ulaw_stream, AudioFileFormat.Type.WAVE, wav);
 
+                byte[] wav_bytes = wav.toByteArray();
+
+                String invalid_wav = VoiceWavValidator.validationError(wav_bytes);
+
+                if (invalid_wav != null) {
+                    Logger.getLogger(VoiceRecorder.class.getName()).log(Level.SEVERE,
+                            "Voice message encoder produced an invalid WAV: {0}", invalid_wav);
+                    finish(Outcome.ENCODE_ERROR);
+                    return null;
+                }
+
                 if (device_ended) {
                     // Sent, but cut short by the device: worth knowing when the
                     // author reports a note shorter than what they said
@@ -397,7 +450,7 @@ public class VoiceRecorder {
 
                 finish(Outcome.OK);
 
-                return wav.toByteArray();
+                return wav_bytes;
             }
 
         } catch (Exception ex) {

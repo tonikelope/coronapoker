@@ -120,6 +120,9 @@ public class Audio {
     // the newer one. Counting keeps VOICE_RECORDING true while ANY recording is
     // live, regardless of which thread increments/decrements first.
     private final static AtomicInteger VOICE_RECORDING_COUNT = new AtomicInteger(0);
+    private final static Object VOICE_RECORDING_LOCK = new Object();
+    private static final long VOICE_PLAYBACK_RECORDING_WAIT_MILLIS
+            = VoiceRecorder.MAX_SECONDS * 1000L + VoiceRecorder.TAIL_MILLIS + 3500L;
     // How many TEMPORARY background-music silences are live at once, combined with whether the
     // global sound switch has it muted (see refreshMp3LoopMuteState).
     private final static AtomicInteger MP3_LOOP_MUTE_COUNT = new AtomicInteger(0);
@@ -1040,10 +1043,16 @@ public class Audio {
         // Count overlapping recordings instead of a plain toggle: the silence
         // stays up while ANY note is still being captured, so a fast re-record
         // is not un-muted by the previous note's stop() on another thread.
-        int active = recording ? VOICE_RECORDING_COUNT.incrementAndGet()
-                : VOICE_RECORDING_COUNT.updateAndGet(n -> n > 0 ? n - 1 : 0);
+        synchronized (VOICE_RECORDING_LOCK) {
+            int active = recording ? VOICE_RECORDING_COUNT.incrementAndGet()
+                    : VOICE_RECORDING_COUNT.updateAndGet(n -> n > 0 ? n - 1 : 0);
 
-        VOICE_RECORDING = active > 0;
+            VOICE_RECORDING = active > 0;
+
+            if (!VOICE_RECORDING) {
+                VOICE_RECORDING_LOCK.notifyAll();
+            }
+        }
 
         // Reapply every volume law: silence on raise, and on drop restore
         // whatever the remaining flags dictate (e.g. a TTS window still open).
@@ -1084,6 +1093,24 @@ public class Audio {
         // (no GameFrame).
         synchronized (TTS_LOCK) {
 
+            // Publish the player before a possible recording wait. A click on
+            // another note can then stop this deferred one just as it can stop
+            // one already in pre-roll or playback; play() observes the stopped
+            // flag and returns without producing audio.
+            TTS_PLAYER = new CoronaMP3FilePlayer();
+
+            // Recording silence is intentionally absolute, but consuming a
+            // queued note at gain zero made a healthy send look empty. Keep its
+            // place in the serialized voice/TTS queue and start it once the mic
+            // is released. The bound covers one maximum-length recording plus
+            // normal stop cleanup; the chat entry remains replayable on timeout.
+            if (!awaitVoiceRecordingEnd(VOICE_PLAYBACK_RECORDING_WAIT_MILLIS)) {
+                Logger.getLogger(Audio.class.getName()).log(Level.WARNING,
+                        "Voice message playback deferred too long by an active recording; note stays clickable in the chat");
+                TTS_PLAYER = null;
+                return;
+            }
+
             muteAllExceptMp3Loops();
 
             // The silence is ALWAYS lifted (same reason as the TTS above): a failure creating
@@ -1094,10 +1121,6 @@ public class Audio {
                         chat_notify_label.setVisible(true);
                     }
                 });
-
-                // Created before the pre-roll so a concurrent stop() (e.g. clicking
-                // another note) during it still cancels this playback, as before.
-                TTS_PLAYER = new CoronaMP3FilePlayer();
 
                 // Short pre-roll: the duck lands in <= the music line buffer
                 // (120ms) and opening the voice line below takes >= 100ms on its
@@ -1156,6 +1179,35 @@ public class Audio {
                 }
             });
         }
+    }
+
+    static boolean awaitVoiceRecordingEnd(long timeout_millis) {
+        if (timeout_millis < 0L) {
+            throw new IllegalArgumentException("timeout_millis must be non-negative");
+        }
+
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(timeout_millis);
+
+        synchronized (VOICE_RECORDING_LOCK) {
+            while (VOICE_RECORDING) {
+                long remaining_nanos = deadline - System.nanoTime();
+
+                if (remaining_nanos <= 0L) {
+                    return false;
+                }
+
+                try {
+                    long wait_millis = Math.max(1L,
+                            java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(remaining_nanos));
+                    VOICE_RECORDING_LOCK.wait(wait_millis);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     public static void playWavResource(String sound) {

@@ -125,9 +125,8 @@ public class BalanceScreen extends JPanel {
     // size after the responsive auto-fit.
     private final java.util.List<JButton> nav_buttons = new java.util.ArrayList<>();
 
-    // Local player's amount animation: a counter that rolls from total buyin to final stack
-    // (video-game score-count style), then reveals as +/- net. Only when there's a win/loss (not
-    // on a tie).
+    // Local player's amount animation: starts at either zero or the final stack, whichever is
+    // farther from the unsigned net result. Only when there's a win/loss (not on a tie).
     private OutlinedLabel amount_label;
 
     // Swing timers for the amount animation (roll + reveal blink). Kept so they can be stopped
@@ -575,8 +574,8 @@ public class BalanceScreen extends JPanel {
         return hero;
     }
 
-    // Local player's amount. Starts showing the total buyin and animates (startAmountAnimation)
-    // to the final stack; on landing it reveals the net, same giant font and win/loss color.
+    // Local player's amount. Starts at the value selected by startAmountAnimation(); on landing
+    // it reveals the net, with the same giant font and win/loss color.
     // Empty on a tie.
     private JComponent buildAmount() {
         double[] bs = localBuyinStack();
@@ -597,7 +596,8 @@ public class BalanceScreen extends JPanel {
 
         // Rolls in the final win/loss color rather than orange; on landing only the number
         // changes to +/- net (same color), then blinks.
-        OutlinedLabel amount = new OutlinedLabel(Helpers.money2String(buyin), cmp > 0 ? WIN : LOSE);
+        double[] animation_range = amountAnimationRange(buyin, stack);
+        OutlinedLabel amount = new OutlinedLabel(Helpers.money2String(animation_range[0]), cmp > 0 ? WIN : LOSE);
         amount.setFont(new Font("Dialog", Font.BOLD, Math.round(amount_size)));
         amount.setBorder(BorderFactory.createEmptyBorder(0, 30, 0, 30));
 
@@ -623,16 +623,17 @@ public class BalanceScreen extends JPanel {
         }
     }
 
-    // Animated local-amount count: rolls from buyin to stack with a cubic ease-out, holds the
-    // stack briefly, then reveals the net. The loss amount is unsigned because the hero message
-    // already says PIERDES; displaying PIERDES -10 would duplicate the negative meaning.
+    // Animated local-amount count: starts at zero or the final stack, choosing the longest route
+    // to the net result, and rolls there with a cubic ease-out. The result is unsigned because
+    // the hero message already states GANAS/PIERDES; PIERDES -10 would duplicate the meaning.
     private void startAmountAnimation() {
         if (amount_label == null) {
             return;
         }
 
-        final double from = anim_buyin;
-        final double to = anim_stack;
+        final double[] animation_range = amountAnimationRange(anim_buyin, anim_stack);
+        final double from = animation_range[0];
+        final double to = animation_range[1];
         // 1.5s, in sync with the stack-fill animation (Crupier.STACK_FILL_MS). The ease-out and
         // the blink are this screen's signature and stay as-is.
         final long duration_ms = 1500;
@@ -700,6 +701,21 @@ public class BalanceScreen extends JPanel {
 
     static String resultAmountText(double ganancia) {
         return Helpers.money2String(Math.abs(ganancia));
+    }
+
+    static double[] amountAnimationRange(double buyin, double stack) {
+        double cleaned_buyin = Helpers.doubleClean(buyin);
+        double cleaned_stack = Helpers.doubleClean(stack);
+        double ganancia = Helpers.doubleClean(cleaned_stack - cleaned_buyin);
+
+        double result = Math.abs(ganancia);
+        double distance_from_zero = result;
+        double distance_from_stack = Math.abs(cleaned_stack - result);
+        double from = Helpers.doubleSecureCompare(distance_from_stack, distance_from_zero) >= 0
+                ? cleaned_stack
+                : 0d;
+
+        return new double[]{from, result};
     }
 
     // Blinks only the amount on reveal: toggles a "don't paint" flag (repaints just this label,

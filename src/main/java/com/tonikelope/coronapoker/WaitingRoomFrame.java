@@ -5115,7 +5115,14 @@ public class WaitingRoomFrame extends JFrame {
 
         // The rule guard also runs on the host: with voice messages disabled,
         // notes from rogue clients are neither processed nor relayed.
-        if (!GameFrame.VOICE_MESSAGES || audio == null || audio.length == 0 || audio.length > MAX_VOICE_MESSAGE_BYTES) {
+        if (!GameFrame.VOICE_MESSAGES || audio == null || audio.length > MAX_VOICE_MESSAGE_BYTES) {
+            return;
+        }
+
+        String invalid_voice = VoiceWavValidator.validationError(audio);
+
+        if (invalid_voice != null) {
+            LOGGER.log(Level.WARNING, "Dropped invalid voice message from {0}: {1}", new Object[]{nick, invalid_voice});
             return;
         }
 
@@ -5207,6 +5214,13 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     public void enviarNotaVoz(String nick, byte[] audio) {
+
+        String invalid_voice = VoiceWavValidator.validationError(audio);
+
+        if (invalid_voice != null) {
+            LOGGER.log(Level.WARNING, "Refusing to send invalid local voice message: {0}", invalid_voice);
+            return;
+        }
 
         Helpers.threadRun(() -> {
             byte[] voicePayload = BinaryWire.encodeVoice(nick, audio);

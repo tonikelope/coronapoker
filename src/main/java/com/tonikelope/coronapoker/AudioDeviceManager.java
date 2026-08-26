@@ -289,14 +289,20 @@ public class AudioDeviceManager {
             try {
                 return AudioSystem.getTargetDataLine(format, info);
             } catch (Exception ex) {
-                Logger.getLogger(AudioDeviceManager.class.getName()).log(Level.WARNING, "Selected capture device failed ({0}). Falling back to system default.", ex.getMessage());
+                Logger.getLogger(AudioDeviceManager.class.getName()).log(Level.WARNING,
+                        "Selected capture device failed ({0}); refusing to record from a different microphone.", ex.getMessage());
+                LineUnavailableException unavailable = new LineUnavailableException("Selected capture device is unavailable: " + CAPTURE_DEVICE);
+                unavailable.initCause(ex);
+                throw unavailable;
             }
         } else if (CAPTURE_DEVICE != null && !CAPTURE_DEVICE.isEmpty()) {
-            // Windows renames endpoints when a Bluetooth or USB mic reconnects,
-            // so the configured name stops matching and the note is recorded
-            // from whatever the system default is, which is worth knowing when
-            // a note comes out wrong.
-            Logger.getLogger(AudioDeviceManager.class.getName()).log(Level.WARNING, "Selected capture device not found ({0}). Using the system default.", CAPTURE_DEVICE);
+            // Windows can rename a Bluetooth/USB endpoint on reconnect. Falling
+            // back here silently recorded from a webcam, virtual cable or other
+            // default input and produced apparently empty notes. A deliberate
+            // "Default device" selection still reaches the fallback below.
+            Logger.getLogger(AudioDeviceManager.class.getName()).log(Level.WARNING,
+                    "Selected capture device not found ({0}); voice note cancelled.", CAPTURE_DEVICE);
+            throw new LineUnavailableException("Selected capture device not found: " + CAPTURE_DEVICE);
         }
 
         return AudioSystem.getTargetDataLine(format);

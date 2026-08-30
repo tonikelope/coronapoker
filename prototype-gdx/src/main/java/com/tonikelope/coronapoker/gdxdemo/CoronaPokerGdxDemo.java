@@ -47,10 +47,14 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final int SEAT_COUNT = 9;
     private static final int FRAME_SAMPLE_COUNT = 720;
     private static final float CARD_FLIP_SECONDS = 0.620f;
-    private static final float HAND_SECONDS = 30f;
+    private static final float HAND_SECONDS = 33.5f;
     private static final float DEAL_START = 2.25f;
-    private static final float DEAL_CARD_SECONDS = 0.52f;
-    private static final float[] COMMUNITY_REVEAL = {11.6f, 11.78f, 11.96f, 18.2f, 24.1f};
+    private static final float DEAL_CARD_GAP = 0.26f;
+    private static final float DEAL_CARD_SECONDS = 0.24f;
+    private static final float DEAL_END = DEAL_START
+            + (SEAT_COUNT * 2 - 1) * DEAL_CARD_GAP + DEAL_CARD_SECONDS;
+    private static final float ACTION_CINEMATIC_SECONDS = 1.25f;
+    private static final float[] COMMUNITY_REVEAL = {14.2f, 14.4f, 14.6f, 20.5f, 26.8f};
     private static final float CARD_CORNER_RADIUS = 0.075f;
     private static final float CARD_EDGE_SOFTNESS = 0.006f;
     private static final int ACTION_CHECK = 0;
@@ -59,18 +63,18 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final int ACTION_FOLD = 3;
 
     private static final ActionEvent[] ACTIONS = {
-        new ActionEvent(4.8f, 1, ACTION_CHECK, "CHECK", 0, 0, 0),
-        new ActionEvent(6.4f, 2, ACTION_BET, "SUBE 300", 300, 3, 1),
-        new ActionEvent(8.2f, 4, ACTION_FOLD, "FOLD", 0, 0, 0),
-        new ActionEvent(9.7f, 5, ACTION_CALL, "CALL 300", 300, 3, 2),
-        new ActionEvent(11.0f, 7, ACTION_CALL, "CALL 300", 300, 3, 0),
-        new ActionEvent(13.8f, 2, ACTION_BET, "APUESTA 600", 600, 4, 3),
-        new ActionEvent(15.6f, 5, ACTION_CALL, "CALL 600", 600, 4, 1),
-        new ActionEvent(19.7f, 2, ACTION_CHECK, "CHECK", 0, 0, 0),
-        new ActionEvent(21.2f, 5, ACTION_BET, "APUESTA 900", 900, 4, 0),
-        new ActionEvent(22.8f, 7, ACTION_CALL, "CALL 900", 900, 4, 2),
-        new ActionEvent(25.5f, 2, ACTION_BET, "APUESTA 1.200", 1200, 5, 3),
-        new ActionEvent(27.2f, 7, ACTION_FOLD, "FOLD", 0, 0, 0)
+        new ActionEvent(7.5f, 1, ACTION_CHECK, "CHECK", 0, 0, 0),
+        new ActionEvent(8.8f, 2, ACTION_BET, "SUBE 300", 300, 3, 1),
+        new ActionEvent(10.1f, 4, ACTION_FOLD, "FOLD", 0, 0, 0),
+        new ActionEvent(11.4f, 5, ACTION_CALL, "CALL 300", 300, 3, 2),
+        new ActionEvent(12.7f, 7, ACTION_CALL, "CALL 300", 300, 3, 0),
+        new ActionEvent(15.9f, 2, ACTION_BET, "APUESTA 600", 600, 4, 3),
+        new ActionEvent(17.3f, 5, ACTION_CALL, "CALL 600", 600, 4, 1),
+        new ActionEvent(21.8f, 2, ACTION_CHECK, "CHECK", 0, 0, 0),
+        new ActionEvent(23.1f, 5, ACTION_BET, "APUESTA 900", 900, 4, 0),
+        new ActionEvent(24.4f, 7, ACTION_CALL, "CALL 900", 900, 4, 2),
+        new ActionEvent(28.4f, 2, ACTION_BET, "APUESTA 1.200", 1200, 5, 3),
+        new ActionEvent(29.9f, 7, ACTION_FOLD, "FOLD", 0, 0, 0)
     };
 
     private static final String CARD_VERTEX_SHADER = "attribute vec4 a_position;\n"
@@ -181,10 +185,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private Texture pot;
     private Texture[] communityCards;
     private GifTextureAnimation shuffleGif;
-    private GifTextureAnimation checkGif;
-    private GifTextureAnimation betGif;
-    private GifTextureAnimation callGif;
-    private GifTextureAnimation foldGif;
 
     private float tableCenterX;
     private float tableCenterY;
@@ -238,11 +238,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             cardTexture("images/decks/goliat/J_T.jpg"),
             cardTexture("images/decks/goliat/10_P.jpg")
         };
-        shuffleGif = gif("images/decks/goliat/gif/shuffle.gif", 480);
-        checkGif = gif("images/gif_actions/check.gif", 320);
-        betGif = gif("images/gif_actions/bet1.gif", 320);
-        callGif = gif("images/gif_actions/call1.gif", 320);
-        foldGif = gif("images/gif_actions/fold1.gif", 320);
+        shuffleGif = gif("images/decks/goliat/gif/shuffle.gif", 960);
 
         FreeTypeFontGenerator generator = new FreeTypeFontGenerator(
                 Gdx.files.internal("fonts/McLaren-Regular.ttf"));
@@ -544,7 +540,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         drawSeats();
         drawCardsAndPot(tableCx, tableCy, tableW);
         drawFlyingChips(tableCx, tableCy);
-        drawHandGifOverlay();
+        drawHandOverlay();
         drawFooter(width, height);
 
         if (burstClock >= 0f) {
@@ -562,7 +558,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 235f * logo.getHeight() / logo.getWidth());
         drawCentered(uiFont, "MESA GPU // 9 JUGADORES", width / 2f, height - 58f,
                 Color.WHITE, 1f);
-        drawCentered(smallFont, stageText(handTime()) + "  |  GOLIAT + GIF GPU  |  V-SYNC",
+        drawCentered(smallFont, stageText(handTime()) + "  |  GOLIAT + CINEMATICA GPU  |  V-SYNC",
                 width / 2f, height - 94f, CYAN, 1f);
         smallFont.setColor(CYAN);
         smallFont.draw(batch, statsText, width - 475f, height - 46f);
@@ -670,6 +666,14 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
         batch.begin();
         useRoundedCardShader();
+        if (time < DEAL_END) {
+            for (int deckCard = 2; deckCard >= 0; deckCard--) {
+                batch.setColor(1f, 1f, 1f, 0.96f);
+                batch.draw(cardBack, tableCenterX - cardW / 2f + deckCard * 2f,
+                        tableCenterY + 40f - cardH / 2f + deckCard * 2f,
+                        cardW, cardH);
+            }
+        }
         for (Seat seat : seats) {
             if (isFolded(seat.index, time)) {
                 continue;
@@ -682,7 +686,11 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             float sideX = -towardY;
             float sideY = towardX;
             for (int cardIndex = 0; cardIndex < 2; cardIndex++) {
-                float start = DEAL_START + cardIndex * 0.76f + seat.index * 0.07f;
+                // The small blind (left of the dealer) receives the first card.
+                // A complete clockwise round finishes before the second starts.
+                int dealOrder = (seat.index + SEAT_COUNT - 1) % SEAT_COUNT;
+                int dealTurn = cardIndex * SEAT_COUNT + dealOrder;
+                float start = DEAL_START + dealTurn * DEAL_CARD_GAP;
                 float progress = MathUtils.clamp((time - start) / DEAL_CARD_SECONDS, 0f, 1f);
                 if (progress <= 0f) {
                     continue;
@@ -691,9 +699,14 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 float side = cardIndex == 0 ? -15f : 15f;
                 float targetX = seat.x + towardX * 91f + sideX * side;
                 float targetY = seat.y + towardY * 91f + sideY * side;
-                float x = MathUtils.lerp(tableCenterX, targetX, eased);
-                float y = MathUtils.lerp(tableCenterY + 40f, targetY, eased);
-                float rotation = MathUtils.lerp((seat.index - 4) * 22f,
+                float sourceX = tableCenterX;
+                float sourceY = tableCenterY + 40f;
+                float controlX = (sourceX + targetX) * 0.5f + sideX * 86f;
+                float controlY = (sourceY + targetY) * 0.5f + sideY * 86f + 42f;
+                float x = bezier(sourceX, controlX, targetX, eased);
+                float y = bezier(sourceY, controlY, targetY, eased);
+                float launchRotation = (dealTurn & 1) == 0 ? -26f : 26f;
+                float rotation = MathUtils.lerp(launchRotation,
                         cardIndex == 0 ? -7f : 7f, eased);
                 float scale = 0.72f + eased * 0.28f;
                 batch.setColor(0f, 0f, 0f, 0.35f * eased);
@@ -781,7 +794,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         if (time < DEAL_START) {
             return "BARAJANDO";
         }
-        if (time < 4.5f) {
+        if (time < DEAL_END) {
             return "REPARTIENDO";
         }
         if (time < COMMUNITY_REVEAL[0]) {
@@ -793,7 +806,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         if (time < COMMUNITY_REVEAL[4]) {
             return "TURN";
         }
-        if (time < 28.6f) {
+        if (time < 31.2f) {
             return "RIVER";
         }
         return "NUEVA MANO...";
@@ -823,9 +836,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         for (int i = ACTIONS.length - 1; i >= 0; i--) {
             ActionEvent action = ACTIONS[i];
             if (time >= action.time) {
-                GifTextureAnimation animation = gifFor(action.kind);
-                float duration = animation == null ? 1.2f : animation.durationSeconds();
-                if (time < action.time + duration) {
+                if (time < action.time + ACTION_CINEMATIC_SECONDS) {
                     return action;
                 }
                 return null;
@@ -834,34 +845,19 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         return null;
     }
 
-    private GifTextureAnimation gifFor(int kind) {
-        return switch (kind) {
-            case ACTION_BET -> betGif;
-            case ACTION_CALL -> callGif;
-            case ACTION_FOLD -> foldGif;
-            default -> checkGif;
-        };
-    }
-
-    private void drawHandGifOverlay() {
+    private void drawHandOverlay() {
         float time = handTime();
         float worldWidth = viewport.getWorldWidth();
         float worldHeight = viewport.getWorldHeight();
         if (time < DEAL_START) {
-            float width = 430f;
+            float width = Math.min(700f, worldWidth * 0.42f);
             float height = width * shuffleGif.height() / shuffleGif.width();
             float x = tableCenterX - width / 2f;
             float y = tableCenterY - height / 2f;
-            shapes.begin(ShapeRenderer.ShapeType.Filled);
-            shapes.setColor(PANEL);
-            shapes.rect(x - 8f, y - 8f, width + 16f, height + 16f);
-            shapes.setColor(ORANGE);
-            shapes.rect(x - 8f, y - 8f, width + 16f, 4f);
-            shapes.end();
             batch.begin();
             batch.setColor(Color.WHITE);
             batch.draw(shuffleGif.frameAt(time, true), x, y, width, height);
-            drawCentered(uiFont, "BARAJANDO GOLIAT", tableCenterX, y - 22f, Color.WHITE, 1f);
+            drawCentered(uiFont, "BARAJANDO GOLIAT", tableCenterX, y - 12f, Color.WHITE, 1f);
             batch.end();
             return;
         }
@@ -870,34 +866,58 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         if (action == null) {
             return;
         }
-        GifTextureAnimation animation = gifFor(action.kind);
         Seat seat = seats[action.seat];
+        float elapsed = time - action.time;
+        float progress = MathUtils.clamp(elapsed / ACTION_CINEMATIC_SECONDS, 0f, 1f);
+        float appear = Interpolation.pow3Out.apply(MathUtils.clamp(progress / 0.22f, 0f, 1f));
+        float disappear = 1f - Interpolation.pow2In.apply(
+                MathUtils.clamp((progress - 0.72f) / 0.28f, 0f, 1f));
+        float alpha = appear * disappear;
+        Color actionColor = action.kind == ACTION_FOLD ? ORANGE
+                : action.kind == ACTION_CALL ? STACK_GREEN
+                : action.kind == ACTION_BET ? POT_GOLD : CYAN;
         float towardX = tableCenterX - seat.x;
         float towardY = tableCenterY - seat.y;
         float length = Math.max(1f, (float) Math.sqrt(towardX * towardX + towardY * towardY));
         towardX /= length;
         towardY /= length;
-        float width = 224f;
-        float height = width * animation.height() / animation.width();
-        float centerX = seat.x + towardX * 175f;
-        float centerY = seat.y + towardY * 145f;
+        float width = 286f;
+        float height = 68f;
+        float centerX = seat.x + towardX * 172f;
+        float centerY = seat.y + towardY * 150f;
         float x = MathUtils.clamp(centerX - width / 2f, 18f, worldWidth - width - 18f);
         float y = MathUtils.clamp(centerY - height / 2f, 112f, worldHeight - height - 125f);
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        shapes.setColor(PANEL);
-        shapes.rect(x - 6f, y - 6f, width + 12f, height + 12f);
-        shapes.setColor(action.kind == ACTION_FOLD ? ORANGE : CYAN);
-        shapes.rect(x - 6f, y - 6f, width + 12f, 4f);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
+        for (int ring = 0; ring < 3; ring++) {
+            float ringProgress = (progress * 1.7f - ring * 0.18f);
+            if (ringProgress >= 0f && ringProgress <= 1f) {
+                float radius = 58f + Interpolation.circleOut.apply(ringProgress) * 92f;
+                shapes.setColor(actionColor.r, actionColor.g, actionColor.b,
+                        (1f - ringProgress) * 0.20f * alpha);
+                shapes.circle(seat.x, seat.y, radius, 64);
+            }
+        }
+        for (int particle = 0; particle < 18; particle++) {
+            float angle = MathUtils.PI2 * particle / 18f + action.seat * 0.71f;
+            float radius = 52f + Interpolation.pow2Out.apply(progress) * (55f + particle % 4 * 13f);
+            shapes.setColor(actionColor.r, actionColor.g, actionColor.b,
+                    alpha * (0.12f + (particle % 3) * 0.04f));
+            shapes.circle(seat.x + MathUtils.cos(angle) * radius,
+                    seat.y + MathUtils.sin(angle) * radius, 2.5f + particle % 3, 10);
+        }
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapes.setColor(PANEL.r, PANEL.g, PANEL.b, PANEL.a * alpha);
+        shapes.rect(x, y, width, height);
+        shapes.setColor(actionColor.r, actionColor.g, actionColor.b, alpha);
+        shapes.rect(x, y, width * Math.min(1f, progress / 0.82f), 4f);
         shapes.end();
 
         batch.begin();
-        float elapsed = time - action.time;
-        batch.setColor(Color.WHITE);
-        batch.draw(animation.frameAt(elapsed, false), x, y, width, height);
         drawCentered(smallFont, seats[action.seat].name + "  //  " + action.label,
-                x + width / 2f, y - 17f,
-                action.kind == ACTION_FOLD ? ORANGE : Color.WHITE, 1f);
+                x + width / 2f, y + 43f, actionColor, alpha);
         batch.end();
     }
 
@@ -907,6 +927,13 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
         for (ChipFlight flight : flights) {
             Seat from = seats[flight.seat];
+            float impactAge = handTime() - flight.startTime - flight.duration;
+            if (impactAge >= 0f && impactAge < 0.34f) {
+                float impact = impactAge / 0.34f;
+                shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
+                        (1f - impact) * 0.24f);
+                shapes.circle(targetX, targetY, 24f + impact * 82f, 36);
+            }
             float u = flightProgress(flight);
             if (u < 0f) {
                 continue;
@@ -1065,10 +1092,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             texture.dispose();
         }
         shuffleGif.dispose();
-        checkGif.dispose();
-        betGif.dispose();
-        callGif.dispose();
-        foldGif.dispose();
     }
 
     private static final class Star {

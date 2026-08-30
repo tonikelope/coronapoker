@@ -96,10 +96,6 @@
                     <include>images/decks/goliat/J_T.jpg</include>
                     <include>images/decks/goliat/10_P.jpg</include>
                     <include>images/decks/goliat/gif/shuffle.gif</include>
-                    <include>images/gif_actions/check.gif</include>
-                    <include>images/gif_actions/bet1.gif</include>
-                    <include>images/gif_actions/call1.gif</include>
-                    <include>images/gif_actions/fold1.gif</include>
                 </includes>
             </resource>
         </resources>

@@ -54,8 +54,14 @@ lineal de 180 grados en 620 ms, silueta trapezoidal y cambio de reverso a cara
 al cruzar los 90 grados. Las apuestas vuelan como fichas individuales; los
 montones se reservan para representar el bote y permanecen estables.
 
-Después de la introducción se reproduce en bucle una mano visual de 30 segundos:
-barajado Goliat, reparto de dos cartas tapadas a nueve asientos con avatares,
-dealer/ciegas, acciones con los GIF originales de `check`, `bet`, `call` y
-`fold`, stacks y bote actualizados, y destapes independientes de flop, turn y
-river. El fondo reutiliza `tapete_verde.jpg`, teselado como en CoronaPoker.
+Después de la introducción se reproduce en bucle una mano visual de unos 34 segundos.
+El barajado Goliat aparece grande y con el color de fondo eliminado. El reparto
+lanza desde el mazo central estrictamente una carta cada vez, con vuelo curvo,
+sombra y rotación, en orden alrededor de los nueve asientos; sólo después de
+completar la primera vuelta comienza la segunda.
+
+Las acciones ya no reproducen los GIF originales de `check`, `bet`, `call` y
+`fold`: son cinemáticas nativas en tiempo real, con foco del asiento, ondas,
+partículas, fichas individuales, trayectorias curvas e impactos contra el bote.
+La demo también actualiza stacks y bote y destapa flop, turn y river por separado.
+El fondo reutiliza `tapete_verde.jpg`, teselado como en CoronaPoker.

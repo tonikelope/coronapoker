@@ -83,6 +83,11 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float CARD_EDGE_SOFTNESS = 0.006f;
     private static final float PLAYER_POD_WIDTH = 172f;
     private static final float PLAYER_POD_HEIGHT = 62f;
+    private static final float POT_PANEL_HEIGHT = 82f;
+    private static final float POT_BOARD_GAP = 24f;
+    private static final float LOCAL_HUD_Y = 12f;
+    private static final float LOCAL_HUD_HEIGHT = 126f;
+    private static final float LOCAL_HUD_SAFE_TOP = LOCAL_HUD_Y + LOCAL_HUD_HEIGHT + 32f;
     private static final int ACTION_CHECK = 0;
     private static final int ACTION_BET = 1;
     private static final int ACTION_CALL = 2;
@@ -595,19 +600,72 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 logoWidth, logoHeight);
 
         useRoundedCardShader();
-        float cardW = 150f;
-        float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
-        float cardEase = Interpolation.pow3Out.apply(MathUtils.clamp((sceneTime - 0.45f) / 1.1f, 0f, 1f));
-        batch.draw(cardBack, width * 0.17f - cardW / 2f, height * 0.48f - cardH / 2f,
-                cardW / 2f, cardH / 2f, cardW, cardH, cardEase, cardEase,
-                -28f + 360f * (1f - cardEase), 0, 0, cardBack.getWidth(), cardBack.getHeight(), false, false);
-        batch.draw(cardBack, width * 0.83f - cardW / 2f, height * 0.48f - cardH / 2f,
-                cardW / 2f, cardH / 2f, cardW, cardH, cardEase, cardEase,
-                28f - 360f * (1f - cardEase), 0, 0, cardBack.getWidth(), cardBack.getHeight(), false, false);
+        drawIntroSpinningCard(-1f, width, height, alpha);
+        drawIntroSpinningCard(1f, width, height, alpha);
         batch.setShader(null);
+
+        // Five chips spiral in after the cards and settle with a short physical
+        // bounce. This gives the splash a second beat without making it long.
+        for (int chip = 0; chip < 5; chip++) {
+            float raw = MathUtils.clamp(
+                    (sceneTime - 1.05f - chip * 0.085f) / 1.35f, 0f, 1f);
+            if (raw <= 0f) {
+                continue;
+            }
+            float travel = Interpolation.pow3Out.apply(raw);
+            float targetX = width / 2f + (chip - 2f) * 48f;
+            float targetY = height * 0.245f;
+            float startAngle = chip * MathUtils.PI2 / 5f + 0.45f;
+            float startX = width / 2f + MathUtils.cos(startAngle) * width * 0.29f;
+            float startY = height * 0.49f + MathUtils.sin(startAngle) * height * 0.19f;
+            float x = MathUtils.lerp(startX, targetX, travel);
+            float y = MathUtils.lerp(startY, targetY, travel)
+                    + MathUtils.sin(raw * MathUtils.PI) * 115f
+                    + Math.abs(MathUtils.sin(raw * MathUtils.PI * 3f))
+                    * (1f - raw) * 26f;
+            float size = 42f * (0.58f + travel * 0.42f);
+            float rotation = (1f - travel) * (chip % 2 == 0 ? 900f : -900f);
+            Texture chipTexture = flyingChips[chip % flyingChips.length];
+            batch.setColor(1f, 1f, 1f, alpha);
+            batch.draw(chipTexture, x - size / 2f, y - size / 2f,
+                    size / 2f, size / 2f, size, size,
+                    1f, 1f, rotation, 0, 0,
+                    chipTexture.getWidth(), chipTexture.getHeight(), false, false);
+        }
 
         batch.setColor(Color.WHITE);
         batch.end();
+    }
+
+    private void drawIntroSpinningCard(float side, float width, float height,
+            float introAlpha) {
+        float delay = side < 0f ? 0.22f : 0.34f;
+        float raw = MathUtils.clamp((sceneTime - delay) / 2.15f, 0f, 1f);
+        if (raw <= 0f) {
+            return;
+        }
+        float arrival = Interpolation.pow3Out.apply(raw);
+        float cardW = 164f;
+        float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
+        float targetX = width * (side < 0f ? 0.17f : 0.83f);
+        float targetY = height * 0.48f;
+        float startX = side < 0f ? -cardW : width + cardW;
+        float startY = height * 0.15f;
+        float x = MathUtils.lerp(startX, targetX, arrival);
+        float y = MathUtils.lerp(startY, targetY, arrival)
+                + MathUtils.sin(raw * MathUtils.PI) * height * 0.18f;
+        // Quadratic angular decay produces several fast turns followed by a
+        // readable, smooth stop. The height wobble sells the spinning-top feel.
+        float remaining = 1f - raw;
+        float rotation = side * (24f + remaining * remaining * 1620f);
+        float scale = 0.46f + arrival * 0.54f;
+        float wobble = 0.76f + 0.24f
+                * Math.abs(MathUtils.cos(remaining * MathUtils.PI * 9f));
+        batch.setColor(1f, 1f, 1f, introAlpha);
+        batch.draw(cardBack, x - cardW / 2f, y - cardH / 2f,
+                cardW / 2f, cardH / 2f, cardW, cardH,
+                scale, scale * wobble, rotation,
+                0, 0, cardBack.getWidth(), cardBack.getHeight(), false, false);
     }
 
     private void drawTableScene() {
@@ -624,7 +682,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         // The pot owns the central axis, clearly above the upper edge of the
         // community row. It is never painted on top of a card.
         potCenterX = tableCx;
-        potCenterY = tableCy + boardCardH * 0.64f + 145f;
+        float boardTopY = tableCy + boardCardH * 0.64f;
+        potCenterY = boardTopY + POT_BOARD_GAP + POT_PANEL_HEIGHT / 2f;
 
         updateSeatPositions(width, height);
         drawTableBranding(height);
@@ -664,7 +723,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             seats[i].y = SEAT_ANCHORS[i][1] * height;
             if (i == 0) {
                 seats[i].stackX = seats[i].x + 67f;
-                seats[i].stackY = seats[i].y - 39f;
+                // The lowest chip pixel must remain above the complete HUD,
+                // including its frame and shared turn bar.
+                seats[i].stackY = Math.max(seats[i].y - 7f,
+                        LOCAL_HUD_SAFE_TOP + 14f);
                 seats[i].stackTextX = seats[i].stackX;
                 seats[i].stackTextY = seats[i].stackY;
             } else {
@@ -979,7 +1041,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
         float alpha = 1f - payoutFade;
         float panelWidth = 390f;
-        float panelHeight = 82f;
+        float panelHeight = POT_PANEL_HEIGHT;
         float panelX = potCenterX - panelWidth / 2f;
         float panelY = potCenterY - panelHeight / 2f;
         shapes.begin(ShapeRenderer.ShapeType.Filled);
@@ -1294,6 +1356,14 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float centerY = seat.y + towardY * 235f;
         float x = MathUtils.clamp(centerX - width / 2f, 18f, worldWidth - width - 18f);
         float y = MathUtils.clamp(centerY - height / 2f, 112f, worldHeight - height - 125f);
+        // Side-seat callouts live strictly inside the table lane. They must not
+        // cover the avatar, name, stack or position token that triggered them.
+        if (action.seat != 0 && seat.x < worldWidth * 0.20f) {
+            x = Math.max(x, seat.podX + PLAYER_POD_WIDTH + 24f);
+        } else if (action.seat != 0 && seat.x > worldWidth * 0.80f) {
+            x = Math.min(x, seat.podX - width - 24f);
+        }
+        x = MathUtils.clamp(x, 18f, worldWidth - width - 18f);
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -1657,8 +1727,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         // out horizontally: NO IR, PASAR/IR, numeric bet spinner, APOSTAR, ALL IN.
         float hudWidth = Math.min(1110f, width - 620f);
         float hudX = width / 2f - hudWidth / 2f;
-        float hudY = 12f;
-        float hudHeight = 126f;
+        float hudY = LOCAL_HUD_Y;
+        float hudHeight = LOCAL_HUD_HEIGHT;
         float infoWidth = 230f;
         float gap = 12f;
         float foldWidth = 150f;

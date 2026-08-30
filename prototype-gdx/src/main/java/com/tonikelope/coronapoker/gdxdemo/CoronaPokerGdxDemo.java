@@ -73,9 +73,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final String[] HUD_SIZES = {"1/2", "2/3", "POT", "ALL-IN"};
     private static final int[] SHOWDOWN_SEATS = {5, 2};
     private static final float[][] SEAT_ANCHORS = {
-        {0.50f, 0.205f}, {0.18f, 0.19f}, {0.045f, 0.42f},
-        {0.045f, 0.71f}, {0.30f, 0.84f}, {0.70f, 0.84f},
-        {0.955f, 0.71f}, {0.955f, 0.42f}, {0.82f, 0.19f}
+        {0.50f, 0.185f}, {0.135f, 0.145f}, {0.018f, 0.40f},
+        {0.018f, 0.73f}, {0.27f, 0.90f}, {0.73f, 0.90f},
+        {0.982f, 0.73f}, {0.982f, 0.40f}, {0.865f, 0.145f}
     };
 
     private static final ActionEvent[] ACTIONS = {
@@ -624,7 +624,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         for (int i = 0; i < seats.length; i++) {
             seats[i].x = SEAT_ANCHORS[i][0] * width;
             seats[i].y = SEAT_ANCHORS[i][1] * height;
-            seats[i].stackX = seats[i].x + (seats[i].x < width / 2f ? -58f : 58f);
+            // Avatars own the perimeter; chips and labels face inward so the
+            // information stays readable even when a lateral rim is cropped.
+            seats[i].stackX = seats[i].x + (seats[i].x < width / 2f ? 58f : -58f);
             seats[i].stackY = seats[i].y - 62f;
         }
         Seat dealer = seats[0];
@@ -659,9 +661,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         shapes.end();
 
         batch.begin();
+        float readableLeft = 96f;
+        float readableRight = viewport.getWorldWidth() - 96f;
         for (Seat seat : seats) {
             Texture avatar = seat.index == 0 ? avatarDefault : avatarBot;
             boolean folded = isFolded(seat.index, handTime());
+            float readableX = MathUtils.clamp(seat.x, readableLeft, readableRight);
             batch.setColor(folded ? FOLDED_AVATAR : Color.WHITE);
             batch.draw(avatar, seat.x - 29f, seat.y - 29f, 58f, 58f);
             batch.setColor(Color.WHITE);
@@ -673,7 +678,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             }
             drawCentered(smallFont, Integer.toString(seat.index + 1), seat.x + 29f, seat.y + 30f,
                     CYAN, 1f);
-            drawCentered(smallFont, seat.name, seat.x, seat.y - 48f,
+            drawCentered(smallFont, seat.name, readableX, seat.y - 48f,
                     folded ? Color.GRAY : Color.WHITE, 1f);
             seat.updateStack(handTime());
             Texture stackChip = flyingChips[seat.index % flyingChips.length];

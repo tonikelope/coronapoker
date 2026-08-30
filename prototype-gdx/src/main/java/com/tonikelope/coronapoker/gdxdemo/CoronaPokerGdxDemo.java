@@ -66,8 +66,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final int SHUFFLE_AUDIO_STOP_FRAME = 53;
     private static final float CHIP_FLIGHT_DELAY = 0.12f;
     private static final float CHIP_FLIGHT_SECONDS = 0.92f;
-    private static final float DEAL_START = 2.25f;
-    private static final float DEAL_CARD_GAP = 0.17f;
+    private static final float BLIND_POST_START = 2.24f;
+    private static final int BLIND_FLIGHT_COUNT = 3;
+    private static final float DEAL_START = 2.92f;
+    private static final float DEAL_CARD_GAP = 0.14f;
     private static final float DEAL_CARD_SECONDS = 0.21f;
     private static final float DEAL_END = DEAL_START
             + (SEAT_COUNT * 2 - 1) * DEAL_CARD_GAP + DEAL_CARD_SECONDS;
@@ -226,7 +228,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private Texture dealerChip;
     private Texture smallBlindChip;
     private Texture bigBlindChip;
-    private Texture straddleChip;
     private Texture cardBack;
     private Texture[] flyingChips;
     private Texture pot;
@@ -289,7 +290,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         dealerChip = texture("images/dealer.png");
         smallBlindChip = texture("images/sb.png");
         bigBlindChip = texture("images/bb.png");
-        straddleChip = texture("images/dealer_straddle.png");
         cardBack = cardTexture("images/decks/goliat/hq/trasera.jpg");
         flyingChips = new Texture[]{
             createChipTexture(new Color(0xd72d3bff), new Color(0x7f101bff)),
@@ -449,21 +449,32 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private void initialiseFlights() {
-        int count = 0;
+        int count = BLIND_FLIGHT_COUNT;
         for (ActionEvent action : ACTIONS) {
             count += action.chipCount;
         }
         flights = new ChipFlight[count];
         int index = 0;
+        // The table starts at zero. SB posts one 50 chip; BB posts two 50
+        // chips. Their contribution becomes part of the pot only on impact.
+        flights[index++] = new ChipFlight(1, BLIND_POST_START, 0.34f,
+                37f, 2, ACTION_BET, 0, 50);
+        flights[index++] = new ChipFlight(2, BLIND_POST_START + 0.06f, 0.36f,
+                91f, 1, ACTION_BET, 0, 50);
+        flights[index++] = new ChipFlight(2, BLIND_POST_START + 0.14f, 0.38f,
+                143f, 1, ACTION_BET, 1, 50);
         for (ActionEvent action : ACTIONS) {
             for (int chipIndex = 0; chipIndex < action.chipCount; chipIndex++) {
+                int contribution = action.amount / action.chipCount
+                        + (chipIndex < action.amount % action.chipCount ? 1 : 0);
                 flights[index] = new ChipFlight(action.seat,
                         action.time + CHIP_FLIGHT_DELAY + chipIndex * 0.065f,
                         CHIP_FLIGHT_SECONDS + chipIndex * 0.035f,
                         index * 37f,
                         (action.chipColor + chipIndex) % 4,
                         action.kind,
-                        chipIndex);
+                        chipIndex,
+                        contribution);
                 index++;
             }
         }
@@ -770,7 +781,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         for (Seat seat : seats) {
             boolean active = thinkingAction != null && seat.index == thinkingAction.seat;
             boolean folded = isFolded(seat.index, handTime());
-            seat.updateStack(handTime());
+            seat.updateStack(handTime(), flights);
             if (seat.index != 0) {
                 // One component owns name, chips and amount for every rival.
                 Color rim = folded ? BUTTON_LINE : (active ? CYAN : SEAT_RIM);
@@ -810,8 +821,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             batch.setColor(Color.WHITE);
             Texture position = seat.index == 0 ? dealerChip
                     : seat.index == 1 ? smallBlindChip
-                    : seat.index == 2 ? bigBlindChip
-                    : seat.index == 3 ? straddleChip : null;
+                    : seat.index == 2 ? bigBlindChip : null;
             if (position != null) {
                 float positionProgress = positionChipProgress(seat.index, handTime());
                 if (positionProgress > 0f) {
@@ -1209,11 +1219,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private int potAt(float time) {
-        int value = 150;
-        for (ActionEvent action : ACTIONS) {
-            if (action.amount > 0 && time >= action.time
-                    + CHIP_FLIGHT_DELAY + CHIP_FLIGHT_SECONDS) {
-                value += action.amount;
+        int value = 0;
+        for (ChipFlight flight : flights) {
+            if (time >= flight.startTime + flight.duration) {
+                value += flight.potContribution;
             }
         }
         return value;
@@ -1320,7 +1329,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             float alpha = Interpolation.fade.apply(MathUtils.clamp(
                     (time - POSITION_CHIP_START) / 0.20f, 0f, 1f));
             batch.begin();
-            drawCentered(smallFont, "POSICIONES DE MESA", tableCenterX,
+            String phase = time < BLIND_POST_START
+                    ? "POSICIONES DE MESA" : "PUBLICANDO CIEGAS";
+            drawCentered(smallFont, phase, tableCenterX,
                     tableCenterY - 38f, CYAN, alpha);
             batch.end();
             return;
@@ -1929,7 +1940,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         dealerChip.dispose();
         smallBlindChip.dispose();
         bigBlindChip.dispose();
-        straddleChip.dispose();
         cardBack.dispose();
         for (Texture flyingChip : flyingChips) {
             flyingChip.dispose();
@@ -2001,12 +2011,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             this.index = index;
         }
 
-        void updateStack(float time) {
+        void updateStack(float time, ChipFlight[] flights) {
             int current = stack;
-            for (ActionEvent action : ACTIONS) {
-                if (action.seat == index && action.amount > 0
-                        && time >= action.time + CHIP_FLIGHT_DELAY + CHIP_FLIGHT_SECONDS) {
-                    current -= action.amount;
+            for (ChipFlight flight : flights) {
+                if (flight.seat == index
+                        && time >= flight.startTime + flight.duration) {
+                    current -= flight.potContribution;
                 }
             }
             if (current != displayedStack) {
@@ -2025,9 +2035,11 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         final int chipColor;
         final int actionKind;
         final int chipIndex;
+        final int potContribution;
 
         ChipFlight(int seat, float startTime, float duration, float rotation,
-                int chipColor, int actionKind, int chipIndex) {
+                int chipColor, int actionKind, int chipIndex,
+                int potContribution) {
             this.seat = seat;
             this.startTime = startTime;
             this.duration = duration;
@@ -2035,6 +2047,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             this.chipColor = chipColor;
             this.actionKind = actionKind;
             this.chipIndex = chipIndex;
+            this.potContribution = potContribution;
         }
     }
 

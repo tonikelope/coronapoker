@@ -80,7 +80,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final int[] SHOWDOWN_SEATS = {6, 2};
     private static final float[][] SEAT_ANCHORS = {
         {0.50f, 0.185f}, {0.135f, 0.145f}, {0.024f, 0.40f},
-        {0.024f, 0.73f}, {0.24f, 0.90f}, {0.50f, 0.84f},
+        {0.024f, 0.73f}, {0.24f, 0.90f}, {0.50f, 0.93f},
         {0.76f, 0.90f}, {0.976f, 0.73f}, {0.976f, 0.40f},
         {0.865f, 0.145f}
     };
@@ -162,7 +162,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final Color FELT_SHADE_TOP = new Color(0x07111f1f);
     private static final Color FELT_SHADE_BOTTOM = new Color(0x02050c52);
     private static final Color CYAN = new Color(0x36d9ffff);
-    private static final Color CYAN_SOFT = new Color(0x36d9ff55);
     private static final Color ORANGE = new Color(0xff6b27ff);
     private static final Color PANEL = new Color(0x101a2ee6);
     private static final Color SEAT_RIM = new Color(0x647594ff);
@@ -188,7 +187,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private SpriteBatch batch;
     private ShaderProgram roundedCardShader;
 
-    private BitmapFont titleFont;
     private BitmapFont uiFont;
     private BitmapFont smallFont;
 
@@ -313,7 +311,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
         FreeTypeFontGenerator generator = new FreeTypeFontGenerator(
                 Gdx.files.internal("fonts/McLaren-Regular.ttf"));
-        titleFont = font(generator, 66, 2.0f);
         uiFont = font(generator, 31, 1.2f);
         smallFont = font(generator, 21, 0.8f);
         generator.dispose();
@@ -574,19 +571,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 28f - 360f * (1f - cardEase), 0, 0, cardBack.getWidth(), cardBack.getHeight(), false, false);
         batch.setShader(null);
 
-        drawCentered(titleFont, "GPU FRONTEND PROTOTYPE", width / 2f, height * 0.22f, CYAN, alpha);
-        drawCentered(smallFont, "INTRO EN TIEMPO REAL  //  ESPACIO PARA SALTAR",
-                width / 2f, height * 0.16f, Color.LIGHT_GRAY, alpha);
         batch.setColor(Color.WHITE);
         batch.end();
-
-        float progress = MathUtils.clamp(sceneTime / INTRO_SECONDS, 0f, 1f);
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        shapes.setColor(CYAN_SOFT);
-        shapes.rect(width * 0.32f, height * 0.115f, width * 0.36f, 3f);
-        shapes.setColor(CYAN);
-        shapes.rect(width * 0.32f, height * 0.115f, width * 0.36f * progress, 3f);
-        shapes.end();
     }
 
     private void drawTableScene() {
@@ -606,7 +592,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         potCenterY = tableCy + boardCardH * 0.64f + 110f;
 
         updateSeatPositions(width, height);
-        drawHeader(width, height);
+        drawTableBranding(height);
         drawChipTrails(potCenterX, potCenterY);
         // Betting chips travel below the cards, never painted on top of them.
         drawFlyingChips(potCenterX, potCenterY);
@@ -625,18 +611,11 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         }
     }
 
-    private void drawHeader(float width, float height) {
+    private void drawTableBranding(float height) {
         batch.begin();
         batch.setColor(Color.WHITE);
         batch.draw(logo, 42f, height - 125f, 235f,
                 235f * logo.getHeight() / logo.getWidth());
-        drawCentered(uiFont, "TAPETE GPU // 10 JUGADORES", width / 2f, height - 58f,
-                Color.WHITE, 1f);
-        drawCentered(smallFont, stageText(handTime()) + "  |  GOLIAT + CINEMATICA GPU  |  V-SYNC",
-                width / 2f, height - 94f, CYAN, 1f);
-        smallFont.setColor(CYAN);
-        smallFont.draw(batch, statsText, width - 475f, height - 46f);
-        smallFont.setColor(Color.WHITE);
         batch.end();
     }
 
@@ -660,9 +639,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 seats[i].stackTextX = seats[i].stackX;
                 seats[i].stackTextY = seats[i].stackY;
             } else if (i == 5) {
-                // The tenth seat lives below the debug header. Keep its stack
-                // on the left and its hand on the right: together they form a
-                // single seat unit and leave the pot axis completely empty.
+                // The central upper seat is genuinely centred at the top edge;
+                // its stack stays beside the avatar and out of the card lane.
                 seats[i].stackX = seats[i].x - 70f;
                 seats[i].stackY = seats[i].y + 10f;
                 seats[i].stackTextX = seats[i].stackX - 69f;
@@ -759,7 +737,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             drawCentered(smallFont, Integer.toString(seat.index + 1), seat.x + 29f, seat.y + 30f,
                     CYAN, 1f);
             if (seat.index != 0) {
-                drawCentered(smallFont, seat.name, readableX, seat.y - 48f,
+                float nameY = seat.y > viewport.getWorldHeight() * 0.82f
+                        ? seat.y + 50f : seat.y - 48f;
+                drawCentered(smallFont, seat.name, readableX, nameY,
                         folded ? Color.GRAY : Color.WHITE, 1f);
             }
             seat.updateStack(handTime());
@@ -787,14 +767,14 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         if (time < DEAL_START) {
             return;
         }
-        float cardW = 110f;
+        float cardW = 140f;
         float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
         batch.begin();
         for (Seat seat : seats) {
             if (seat.index != 0 && isFolded(seat.index, time)) {
                 continue;
             }
-            float seatCardW = seat.index == 0 ? 175f : cardW;
+            float seatCardW = seat.index == 0 ? 224f : cardW;
             float seatCardH = seatCardW * cardBack.getHeight() / cardBack.getWidth();
             float towardX = tableCenterX - seat.x;
             float towardY = tableCenterY - seat.y;
@@ -803,38 +783,56 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             towardY /= length;
             float sideX = -towardY;
             float sideY = towardX;
-            float handCenterX = seat.x + towardX * (seat.index == 0 ? 110f : 125f);
-            float handCenterY = seat.y + towardY * (seat.index == 0 ? 110f : 125f);
-            float fanX = sideX;
-            float fanY = sideY;
+            float hiddenCenterX = seat.x + towardX * 100f;
+            float hiddenCenterY = seat.y + towardY * 100f;
+            float hiddenFanX = sideX;
+            float hiddenFanY = sideY;
+            float shownCenterX = seat.x + towardX * (seat.index == 0 ? 110f : 125f);
+            float shownCenterY = seat.y + towardY * (seat.index == 0 ? 110f : 125f);
+            float shownFanX = sideX;
+            float shownFanY = sideY;
             if (seat.index != 0) {
                 float worldHeight = viewport.getWorldHeight();
+                if (seat.y > worldHeight * 0.82f) {
+                    // Hidden cards sit directly beneath the upper avatar.
+                    hiddenCenterX = seat.x;
+                    hiddenCenterY = seat.y - 45f;
+                    hiddenFanX = 1f;
+                    hiddenFanY = 0f;
+                } else if (seat.y < worldHeight * 0.22f) {
+                    hiddenCenterX = seat.x;
+                    hiddenCenterY = seat.y + 45f;
+                    hiddenFanX = 1f;
+                    hiddenFanY = 0f;
+                } else {
+                    hiddenCenterX = seat.x + (seat.x < tableCenterX ? 45f : -45f);
+                    hiddenCenterY = seat.y;
+                    hiddenFanX = 0f;
+                    hiddenFanY = 1f;
+                }
+
                 if (seat.index == 5) {
                     // Dock the top-centre hand in the free bay between ORION
-                    // and PIXEL. Nothing belonging to this seat enters the pot.
-                    handCenterX = seat.x + 205f;
-                    handCenterY = seat.y - 45f;
-                    fanX = 1f;
-                    fanY = 0f;
+                    // and PIXEL only when ORION actually reveals its cards.
+                    shownCenterX = seat.x + 205f;
+                    shownCenterY = seat.y - 45f;
+                    shownFanX = 1f;
+                    shownFanY = 0f;
                 } else if (seat.y > worldHeight * 0.82f) {
-                    // Top seats consume the horizontal gaps between avatars.
-                    handCenterX = seat.x + towardX * 125f;
-                    handCenterY = seat.y - 135f;
-                    fanX = 1f;
-                    fanY = 0f;
+                    shownCenterX = seat.x + towardX * 125f;
+                    shownCenterY = seat.y - 135f;
+                    shownFanX = 1f;
+                    shownFanY = 0f;
                 } else if (seat.y < worldHeight * 0.22f) {
-                    // Bottom seats mirror the upper row above their avatars.
-                    handCenterX = seat.x + towardX * 125f;
-                    handCenterY = seat.y + 125f;
-                    fanX = 1f;
-                    fanY = 0f;
+                    shownCenterX = seat.x + towardX * 125f;
+                    shownCenterY = seat.y + 125f;
+                    shownFanX = 1f;
+                    shownFanY = 0f;
                 } else {
-                    // Side seats use their tall perimeter lane instead of
-                    // consuming the central horizontal playing area.
-                    handCenterX = seat.x + (seat.x < tableCenterX ? 125f : -125f);
-                    handCenterY = seat.y + towardY * 75f;
-                    fanX = 0f;
-                    fanY = 1f;
+                    shownCenterX = seat.x + (seat.x < tableCenterX ? 125f : -125f);
+                    shownCenterY = seat.y + towardY * 75f;
+                    shownFanX = 0f;
+                    shownFanY = 1f;
                 }
             }
             for (int cardIndex = 0; cardIndex < 2; cardIndex++) {
@@ -854,12 +852,23 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 boolean revealing = face != null && time >= revealStart;
                 float reveal = revealing ? MathUtils.clamp(
                         (time - revealStart) / CARD_FLIP_SECONDS, 0f, 1f) : 0f;
-                // During showdown the pair opens slightly as it flips, so both
-                // Goliat faces remain completely readable instead of overlapping.
-                float normalSideDistance = seat.index == 0 ? 54f : 30f;
+                float revealMotion = Interpolation.smooth.apply(reveal);
+                float handCenterX = seat.index == 0 ? shownCenterX
+                        : MathUtils.lerp(hiddenCenterX, shownCenterX, revealMotion);
+                float handCenterY = seat.index == 0 ? shownCenterY
+                        : MathUtils.lerp(hiddenCenterY, shownCenterY, revealMotion);
+                float fanX = MathUtils.lerp(hiddenFanX, shownFanX, revealMotion);
+                float fanY = MathUtils.lerp(hiddenFanY, shownFanY, revealMotion);
+                float fanLength = Math.max(0.001f,
+                        (float) Math.sqrt(fanX * fanX + fanY * fanY));
+                fanX /= fanLength;
+                fanY /= fanLength;
+                // Rivals keep a tight pair tucked under their avatar. The pair
+                // only travels out and opens when the player reveals it.
+                float normalSideDistance = seat.index == 0 ? 54f : 18f;
                 float revealedSideDistance = seat.index == 0 ? 82f : 72f;
                 float sideDistance = MathUtils.lerp(
-                        normalSideDistance, revealedSideDistance, reveal);
+                        normalSideDistance, revealedSideDistance, revealMotion);
                 float side = cardIndex == 0 ? -sideDistance : sideDistance;
                 float targetX = handCenterX + fanX * side;
                 float targetY = handCenterY + fanY * side;
@@ -873,9 +882,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 float rotation = MathUtils.lerp(launchRotation,
                         cardIndex == 0 ? -7f : 7f, eased);
                 float scale = 0.82f + eased * 0.18f;
-                float revealScale = seat.index == 0 ? 1.28f : 1.30f;
-                float renderW = revealing ? seatCardW * revealScale : seatCardW;
-                float renderH = revealing ? seatCardH * revealScale : seatCardH;
+                float renderW = seatCardW;
+                float renderH = seatCardH;
                 if (revealing) {
                     usePerspectiveCardShader(face, reveal * MathUtils.PI,
                             seatCardH / seatCardW);
@@ -1095,40 +1103,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         // Match CoronaPoker's defensive close: guarantee that no duplicated or
         // internally recycled OpenAL instance can retain the WAV tail.
         shuffleSound.stop();
-    }
-
-    private String stageText(float time) {
-        if (time < SHUFFLE_END) {
-            return "BARAJANDO";
-        }
-        if (time < DEAL_START) {
-            return "COLOCANDO DEALER / SB / BB";
-        }
-        if (time < DEAL_END) {
-            return "REPARTIENDO";
-        }
-        if (time < BOARD_DEAL_END) {
-            return "REPARTIENDO MESA";
-        }
-        if (time < COMMUNITY_REVEAL[0]) {
-            return "PREFLOP";
-        }
-        if (time < COMMUNITY_REVEAL[3]) {
-            return "FLOP";
-        }
-        if (time < COMMUNITY_REVEAL[4]) {
-            return "TURN";
-        }
-        if (time < SHOWDOWN_START) {
-            return "RIVER";
-        }
-        if (time < WINNER_START) {
-            return "SHOWDOWN";
-        }
-        if (time < 39.1f) {
-            return "GANADOR";
-        }
-        return "NUEVA MANO...";
     }
 
     private int potAt(float time) {
@@ -1667,7 +1641,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         batch.dispose();
         shapes.dispose();
         roundedCardShader.dispose();
-        titleFont.dispose();
         uiFont.dispose();
         smallFont.dispose();
         logo.dispose();

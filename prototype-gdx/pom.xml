@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.tonikelope</groupId>
+    <artifactId>coronapoker-gdx-prototype</artifactId>
+    <version>0.1-SNAPSHOT</version>
+    <name>CoronaPoker libGDX prototype</name>
+
+    <!--
+      Deliberately standalone: this prototype does not participate in the CoronaPoker
+      production build and does not alter the existing executable or its dependencies.
+    -->
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.release>17</maven.compiler.release>
+        <libgdx.version>1.14.2</libgdx.version>
+        <!-- 3.4.x uses LWJGL's JDK 25 FFM backend instead of the legacy JNI path. -->
+        <lwjgl.version>3.4.1</lwjgl.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.badlogicgames.gdx</groupId>
+            <artifactId>gdx</artifactId>
+            <version>${libgdx.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.badlogicgames.gdx</groupId>
+            <artifactId>gdx-backend-lwjgl3</artifactId>
+            <version>${libgdx.version}</version>
+            <exclusions>
+                <exclusion><groupId>org.lwjgl</groupId><artifactId>lwjgl</artifactId></exclusion>
+                <exclusion><groupId>org.lwjgl</groupId><artifactId>lwjgl-glfw</artifactId></exclusion>
+                <exclusion><groupId>org.lwjgl</groupId><artifactId>lwjgl-jemalloc</artifactId></exclusion>
+                <exclusion><groupId>org.lwjgl</groupId><artifactId>lwjgl-openal</artifactId></exclusion>
+                <exclusion><groupId>org.lwjgl</groupId><artifactId>lwjgl-opengl</artifactId></exclusion>
+                <exclusion><groupId>org.lwjgl</groupId><artifactId>lwjgl-stb</artifactId></exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.badlogicgames.gdx</groupId>
+            <artifactId>gdx-platform</artifactId>
+            <version>${libgdx.version}</version>
+            <classifier>natives-desktop</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.badlogicgames.gdx</groupId>
+            <artifactId>gdx-freetype</artifactId>
+            <version>${libgdx.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.badlogicgames.gdx</groupId>
+            <artifactId>gdx-freetype-platform</artifactId>
+            <version>${libgdx.version}</version>
+            <classifier>natives-desktop</classifier>
+        </dependency>
+        <!-- Windows x64 prototype runtime. The production migration can add the
+             corresponding Linux/macOS classifiers when packaging is designed. -->
+        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl</artifactId><version>${lwjgl.version}</version></dependency>
+        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl</artifactId><version>${lwjgl.version}</version><classifier>natives-windows</classifier></dependency>
+        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-glfw</artifactId><version>${lwjgl.version}</version></dependency>
+        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-glfw</artifactId><version>${lwjgl.version}</version><classifier>natives-windows</classifier></dependency>
+        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-jemalloc</artifactId><version>${lwjgl.version}</version></dependency>
+        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-jemalloc</artifactId><version>${lwjgl.version}</version><classifier>natives-windows</classifier></dependency>
+        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-openal</artifactId><version>${lwjgl.version}</version></dependency>
+        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-openal</artifactId><version>${lwjgl.version}</version><classifier>natives-windows</classifier></dependency>
+        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-opengl</artifactId><version>${lwjgl.version}</version></dependency>
+        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-opengl</artifactId><version>${lwjgl.version}</version><classifier>natives-windows</classifier></dependency>
+        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-stb</artifactId><version>${lwjgl.version}</version></dependency>
+        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-stb</artifactId><version>${lwjgl.version}</version><classifier>natives-windows</classifier></dependency>
+    </dependencies>
+
+    <build>
+        <!-- Reuse CoronaPoker's real cards, chips, logo and McLaren font in-place. -->
+        <resources>
+            <resource>
+                <directory>${project.basedir}/../src/main/resources</directory>
+                <includes>
+                    <include>fonts/McLaren-Regular.ttf</include>
+                    <include>images/corona_poker_16.png</include>
+                    <include>images/corona_poker_splash.png</include>
+                    <include>images/chips.png</include>
+                    <include>images/pot.png</include>
+                    <include>images/decks/coronapoker/trasera.jpg</include>
+                    <include>images/decks/coronapoker/A_P.jpg</include>
+                    <include>images/decks/coronapoker/K_D.jpg</include>
+                    <include>images/decks/coronapoker/Q_C.jpg</include>
+                    <include>images/decks/coronapoker/J_T.jpg</include>
+                    <include>images/decks/coronapoker/10_P.jpg</include>
+                </includes>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.14.1</version>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.1</version>
+                <configuration>
+                    <mainClass>com.tonikelope.coronapoker.gdxdemo.CoronaPokerGdxLauncher</mainClass>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <finalName>CoronaPoker-GDX-Prototype</finalName>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>com.tonikelope.coronapoker.gdxdemo.CoronaPokerGdxLauncher</mainClass>
+                                    <manifestEntries>
+                                        <Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
+                                    </manifestEntries>
+                                </transformer>
+                            </transformers>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

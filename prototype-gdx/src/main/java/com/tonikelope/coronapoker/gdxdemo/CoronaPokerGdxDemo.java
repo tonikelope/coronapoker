@@ -48,6 +48,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final int SEAT_COUNT = 10;
     private static final int FRAME_SAMPLE_COUNT = 720;
     private static final float CARD_FLIP_SECONDS = 0.620f;
+    private static final float LOCAL_CARD_FAN_ANGLE = 8.5f;
     private static final float LOCAL_SWAP_DELAY = 0.14f;
     private static final float LOCAL_SWAP_SECONDS = 0.68f;
     private static final float HAND_SECONDS = 40.2f;
@@ -925,6 +926,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 float launchRotation = (dealTurn & 1) == 0 ? -26f : 26f;
                 float restingRotation = cardIndex == 0 ? -7f : 7f;
                 if (seat.index == 0) {
+                    // Local cards form a true V: upper corners open outwards
+                    // while the lower inner corners stay close together.
+                    restingRotation = cardIndex == 0
+                            ? LOCAL_CARD_FAN_ANGLE : -LOCAL_CARD_FAN_ANGLE;
                     restingRotation = MathUtils.lerp(
                             restingRotation, -restingRotation, localSwap);
                 }

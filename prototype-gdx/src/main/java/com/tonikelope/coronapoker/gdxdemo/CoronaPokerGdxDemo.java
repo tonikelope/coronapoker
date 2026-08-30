@@ -767,7 +767,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         if (time < DEAL_START) {
             return;
         }
-        float cardW = 140f;
+        float cardW = 125f;
         float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
         batch.begin();
         for (Seat seat : seats) {
@@ -882,8 +882,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 float rotation = MathUtils.lerp(launchRotation,
                         cardIndex == 0 ? -7f : 7f, eased);
                 float scale = 0.82f + eased * 0.18f;
-                float renderW = seatCardW;
-                float renderH = seatCardH;
+                // The perspective shader maps the visible card into the middle
+                // 2/3 of its canvas. A 1.5x canvas exactly cancels that crop, so
+                // the apparent size before and after reveal is pixel-identical.
+                float shaderCanvas = revealing ? 1.5f : 1f;
+                float renderW = seatCardW * shaderCanvas;
+                float renderH = seatCardH * shaderCanvas;
                 if (revealing) {
                     usePerspectiveCardShader(face, reveal * MathUtils.PI,
                             seatCardH / seatCardW);

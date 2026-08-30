@@ -206,7 +206,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private Sound checkSound;
     private Sound callSound;
     private Sound betSound;
-    private Sound chipSound;
     private Sound foldSound;
     private Sound allInSound;
     private Sound showdownSound;
@@ -225,6 +224,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private float statsClock;
     private float burstClock = -10f;
     private float previousSoundTime = -1f;
+    private long shuffleSoundId = -1L;
     private int frameCursor;
     private int frameCount;
     private boolean intro = true;
@@ -288,7 +288,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         checkSound = sound("sounds/misc/check.wav");
         callSound = sound("sounds/misc/call.wav");
         betSound = sound("sounds/misc/bet.wav");
-        chipSound = sound("sounds/misc/bet_more.wav");
         foldSound = sound("sounds/misc/fold.wav");
         allInSound = sound("sounds/misc/allin.wav");
         showdownSound = sound("sounds/misc/showyourcards.wav");
@@ -467,6 +466,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             sceneTime = 0f;
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.I)) {
+            stopShuffleSound();
             intro = true;
             sceneTime = 0f;
         }
@@ -710,7 +710,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             if (seat.index != 0 && isFolded(seat.index, time)) {
                 continue;
             }
-            float seatCardW = seat.index == 0 ? 112f : cardW;
+            float seatCardW = seat.index == 0 ? 150f : cardW;
             float seatCardH = seatCardW * cardBack.getHeight() / cardBack.getWidth();
             float towardX = tableCenterX - seat.x;
             float towardY = tableCenterY - seat.y;
@@ -738,8 +738,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                         (time - revealStart) / CARD_FLIP_SECONDS, 0f, 1f) : 0f;
                 // During showdown the pair opens slightly as it flips, so both
                 // Goliat faces remain completely readable instead of overlapping.
-                float normalSideDistance = seat.index == 0 ? 58f : 50f;
-                float revealedSideDistance = seat.index == 0 ? 77f : 72f;
+                float normalSideDistance = seat.index == 0 ? 54f : 50f;
+                float revealedSideDistance = seat.index == 0 ? 62f : 72f;
                 float sideDistance = MathUtils.lerp(
                         normalSideDistance, revealedSideDistance, reveal);
                 float side = cardIndex == 0 ? -sideDistance : sideDistance;
@@ -756,7 +756,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 float rotation = MathUtils.lerp(launchRotation,
                         cardIndex == 0 ? -7f : 7f, eased);
                 float scale = 0.82f + eased * 0.18f;
-                float revealScale = seat.index == 0 ? 1.35f : 1.4f;
+                float revealScale = seat.index == 0 ? 1.30f : 1.4f;
                 float renderW = revealing ? seatCardW * revealScale : seatCardW;
                 float renderH = revealing ? seatCardH * revealScale : seatCardH;
                 if (revealing) {
@@ -880,11 +880,15 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float current = handTime();
         float previous = previousSoundTime;
         if (previous < 0f || current < previous) {
+            stopShuffleSound();
             previous = -0.001f;
         }
 
         if (crossed(previous, current, 0f)) {
-            play(shuffleSound, 0.62f, 1f);
+            shuffleSoundId = shuffleSound.play(0.62f, 1f, 0f);
+        }
+        if (crossed(previous, current, DEAL_START)) {
+            stopShuffleSound();
         }
 
         for (int turn = 0; turn < SEAT_COUNT * 2; turn++) {
@@ -911,12 +915,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                     default -> {
                     }
                 }
-            }
-            if (action.amount > 0
-                    && crossed(previous, current, action.time + 1.08f)) {
-                // One compact impact per bet batch. Playing it for every flying
-                // chip would turn a smooth stack movement into audio clutter.
-                play(chipSound, 0.40f, 0.98f + (action.chipColor % 3) * 0.025f);
             }
         }
 
@@ -950,6 +948,13 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
     private static void play(Sound sound, float volume, float pitch) {
         sound.play(volume, pitch, 0f);
+    }
+
+    private void stopShuffleSound() {
+        if (shuffleSoundId >= 0L) {
+            shuffleSound.stop(shuffleSoundId);
+            shuffleSoundId = -1L;
+        }
     }
 
     private String stageText(float time) {
@@ -1499,7 +1504,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         checkSound.dispose();
         callSound.dispose();
         betSound.dispose();
-        chipSound.dispose();
         foldSound.dispose();
         allInSound.dispose();
         showdownSound.dispose();

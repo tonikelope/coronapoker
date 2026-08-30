@@ -109,7 +109,6 @@
                     <include>sounds/misc/check.wav</include>
                     <include>sounds/misc/call.wav</include>
                     <include>sounds/misc/bet.wav</include>
-                    <include>sounds/misc/bet_more.wav</include>
                     <include>sounds/misc/fold.wav</include>
                     <include>sounds/misc/allin.wav</include>
                     <include>sounds/misc/showyourcards.wav</include>

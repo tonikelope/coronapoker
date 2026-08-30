@@ -48,6 +48,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final int SEAT_COUNT = 10;
     private static final int FRAME_SAMPLE_COUNT = 720;
     private static final float CARD_FLIP_SECONDS = 0.620f;
+    private static final float LOCAL_SWAP_DELAY = 0.14f;
+    private static final float LOCAL_SWAP_SECONDS = 0.68f;
     private static final float HAND_SECONDS = 40.2f;
     private static final float SHUFFLE_END = 1.72f;
     private static final float POSITION_CHIP_START = SHUFFLE_END + 0.04f;
@@ -606,6 +608,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         drawHandOverlay();
         drawShowdownOverlay();
         drawLocalHud(width, height);
+        drawFpsCounter(width, height);
 
         if (burstClock >= 0f) {
             burstClock += Math.min(Gdx.graphics.getDeltaTime(), 0.05f);
@@ -795,6 +798,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         if (time < DEAL_START) {
             return;
         }
+        float localSwapRaw = MathUtils.clamp(
+                (time - localSwapStart()) / LOCAL_SWAP_SECONDS, 0f, 1f);
+        float localSwap = Interpolation.smoother.apply(localSwapRaw);
+        float localSwapArc = MathUtils.sin(localSwap * MathUtils.PI);
         float cardW = 125f;
         float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
         batch.begin();
@@ -897,9 +904,25 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 float revealedSideDistance = seat.index == 0 ? 90f : 72f;
                 float sideDistance = MathUtils.lerp(
                         normalSideDistance, revealedSideDistance, revealMotion);
-                float side = cardIndex == 0 ? -sideDistance : sideDistance;
+                float sideDirection = cardIndex == 0 ? -1f : 1f;
+                if (seat.index == 0) {
+                    // Q arrives on the right and J on the left. Once both are
+                    // face-up, swap their slots so the higher card finishes on
+                    // the left. Position changes; card dimensions never do.
+                    sideDirection = MathUtils.lerp(
+                            sideDirection, -sideDirection, localSwap);
+                }
+                float side = sideDirection * sideDistance;
                 float targetX = handCenterX + fanX * side;
                 float targetY = handCenterY + fanY * side;
+                if (seat.index == 0 && localSwapRaw > 0f && localSwapRaw < 1f) {
+                    // Two depth lanes make the crossover readable: the J passes
+                    // in front while the Q travels behind it. Both cards keep
+                    // their exact dimensions throughout the animation.
+                    float lane = cardIndex == 0 ? -30f : 46f;
+                    targetX += towardX * localSwapArc * lane;
+                    targetY += towardY * localSwapArc * lane;
+                }
                 float sourceX = dealerSourceX;
                 float sourceY = dealerSourceY;
                 float controlX = (sourceX + targetX) * 0.5f + fanX * 128f;
@@ -907,8 +930,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 float x = bezier(sourceX, controlX, targetX, eased);
                 float y = bezier(sourceY, controlY, targetY, eased);
                 float launchRotation = (dealTurn & 1) == 0 ? -26f : 26f;
-                float rotation = MathUtils.lerp(launchRotation,
-                        cardIndex == 0 ? -7f : 7f, eased);
+                float restingRotation = cardIndex == 0 ? -7f : 7f;
+                if (seat.index == 0) {
+                    restingRotation = MathUtils.lerp(
+                            restingRotation, -restingRotation, localSwap);
+                }
+                float rotation = MathUtils.lerp(launchRotation, restingRotation, eased);
                 float scale = 0.82f + eased * 0.18f;
                 // The perspective shader maps the visible card into the middle
                 // 2/3 of its canvas. A 1.5x canvas exactly cancels that crop, so
@@ -1176,6 +1203,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             return SHOWDOWN_START + 0.95f + cardIndex * 0.12f;
         }
         return Float.POSITIVE_INFINITY;
+    }
+
+    private static float localSwapStart() {
+        // Sorting starts only after both local cards have landed and finished
+        // turning face-up. In the demo Q/J needs one swap: Q finishes left.
+        return showdownRevealStart(0, 1) + CARD_FLIP_SECONDS + LOCAL_SWAP_DELAY;
     }
 
     private ActionEvent currentAction(float time) {
@@ -1634,6 +1667,28 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 actionY + 68f, POT_GOLD, 0.92f);
         drawCentered(uiFont, "-   600   +", spinnerX + spinnerWidth / 2f,
                 actionY + 40f, Color.WHITE, 1f);
+        batch.end();
+    }
+
+    private void drawFpsCounter(float width, float height) {
+        float panelWidth = 126f;
+        float panelHeight = 42f;
+        float x = width - panelWidth - 20f;
+        float y = height - panelHeight - 18f;
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapes.setColor(0f, 0f, 0f, 0.48f);
+        roundedRect(x + 3f, y - 3f, panelWidth, panelHeight, 11f);
+        shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.88f);
+        roundedRect(x, y, panelWidth, panelHeight, 11f);
+        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.86f);
+        shapes.rect(x + 12f, y + 4f, panelWidth - 24f, 3f);
+        shapes.end();
+
+        batch.begin();
+        drawCentered(smallFont, Gdx.graphics.getFramesPerSecond() + " FPS",
+                x + panelWidth / 2f, y + 29f, Color.WHITE, 1f);
         batch.end();
     }
 

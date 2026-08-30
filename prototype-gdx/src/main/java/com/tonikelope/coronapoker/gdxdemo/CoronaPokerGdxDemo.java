@@ -966,8 +966,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
         float payoutFade = MathUtils.clamp((handTime() - SHOWDOWN_START) / 0.38f, 0f, 1f);
         float pulse = 1f + MathUtils.sin(totalTime * 3.3f) * 0.035f;
-        float potW = 108f * pulse;
-        float potH = potW * pot.getHeight() / pot.getWidth();
+        float basePotW = 108f;
+        float basePotH = basePotW * pot.getHeight() / pot.getWidth();
+        float potW = basePotW * pulse;
+        float potH = basePotH * pulse;
         int currentPot = potAt(handTime());
         if (currentPot != lastPotValue) {
             lastPotValue = currentPot;
@@ -983,7 +985,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float panelWidth = 342f;
         float panelHeight = 72f;
         float panelX = potCenterX - panelWidth / 2f;
-        float panelY = potCenterY - potH / 2f - panelHeight - 14f;
+        // UI geometry must never depend on the decorative chip pulse. Otherwise
+        // the label visibly trembles several pixels every frame.
+        float panelY = potCenterY - basePotH / 2f - panelHeight - 14f;
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);

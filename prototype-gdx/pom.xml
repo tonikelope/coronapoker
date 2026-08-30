@@ -100,6 +100,7 @@
                     <include>images/decks/goliat/K_C.jpg</include>
                     <include>images/decks/goliat/K_T.jpg</include>
                     <include>images/decks/goliat/gif/shuffle.gif</include>
+                    <include>cinematics/allin/rounders.gif</include>
                 </includes>
             </resource>
         </resources>

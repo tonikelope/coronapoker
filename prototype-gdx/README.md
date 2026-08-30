@@ -54,19 +54,30 @@ lineal de 180 grados en 620 ms, silueta trapezoidal y cambio de reverso a cara
 al cruzar los 90 grados. Las apuestas vuelan como fichas individuales; los
 montones se reservan para representar el bote y permanecen estables.
 
-Después de la introducción se reproduce en bucle una mano visual de unos 40 segundos.
+Después de la introducción se reproduce en bucle una mano visual de unos 44 segundos.
 No se dibuja una mesa ovalada: el tapete verde ocupa toda la pantalla y los
 jugadores quedan anclados a sus bordes como en CoronaPoker, con avatares
-discretos y cartas grandes. El barajado Goliat aparece a casi 1.000 píxeles de
-ancho y con su transparencia original.
+discretos y cartas grandes. El barajado Goliat se dibuja a su tamaño nativo
+exacto de 960x540 píxeles físicos, independientemente de la resolución del
+monitor, sin ampliación ni reducción y con su transparencia original.
 
-El reparto lanza desde el mazo central estrictamente una carta cada vez, con un
-vuelo curvo largo, sombra y rotación, en orden alrededor de los nueve asientos;
-sólo después de completar la primera vuelta comienza la segunda.
+El mazo está junto al dealer. Desde allí se lanza estrictamente una carta cada
+vez, con un vuelo curvo largo, sombra y rotación, en orden alrededor de los nueve
+asientos; sólo después de completar la primera vuelta comienza la segunda. Al
+terminar las dos vueltas, el dealer coloca también las cinco cartas comunitarias
+boca abajo, una a una y con vuelo propio.
 
 Las acciones ya no reproducen los GIF originales de `check`, `bet`, `call` y
 `fold`: son cinemáticas nativas en tiempo real, con foco del asiento, ondas,
 partículas, fichas individuales, trayectorias curvas e impactos contra el bote.
+Cada jugador tiene un stack de fichas separado de sus cartas y las apuestas
+salen visualmente desde ese stack. Las cinemáticas especiales de ALL-IN se
+conservan como GIF y usan exactamente la geometría de `GifAnimationDialog` de
+CoronaPoker.
+
+La parte inferior es el HUD del jugador local: estado del turno, stack, tamaños
+rápidos, `FOLD`, `CHECK`, `CALL` y `BET`; durante su acción se activa y resalta
+la opción correspondiente.
 La demo también actualiza stacks y bote y destapa flop, turn y river por separado.
 Termina con un showdown completo: dos manos se giran con la animación de
 CoronaPoker, se muestran sus jugadas, se ilumina al ganador y el bote vuela

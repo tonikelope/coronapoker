@@ -1346,7 +1346,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             batch.begin();
             batch.setColor(Color.WHITE);
             batch.draw(shuffleGif.frameAt(time, true), x, y, width, height);
-            drawCentered(uiFont, "BARAJANDO GOLIAT", tableCenterX, y - 12f, Color.WHITE, 1f);
             batch.end();
             return;
         }

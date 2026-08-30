@@ -14,6 +14,7 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.Texture.TextureFilter;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
@@ -44,6 +45,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final int SEAT_COUNT = 9;
     private static final int FLIGHT_COUNT = 18;
     private static final int FRAME_SAMPLE_COUNT = 720;
+    private static final float CARD_FLIP_SECONDS = 0.620f;
+    private static final float CARD_FLIP_STAGGER = 0.180f;
     private static final float CARD_CORNER_RADIUS = 0.075f;
     private static final float CARD_EDGE_SOFTNESS = 0.006f;
 
@@ -66,14 +69,38 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             + "varying vec4 v_color;\n"
             + "varying vec2 v_texCoords;\n"
             + "uniform sampler2D u_texture;\n"
+            + "uniform sampler2D u_frontTexture;\n"
             + "uniform float u_cornerRadius;\n"
             + "uniform float u_edgeSoftness;\n"
+            + "uniform float u_perspective;\n"
+            + "uniform float u_flipAngle;\n"
+            + "uniform float u_cardAspect;\n"
             + "void main() {\n"
-            + "    vec2 centered = abs(v_texCoords - vec2(0.5));\n"
+            + "    vec2 sourceUv = v_texCoords;\n"
+            + "    if (u_perspective > 0.5) {\n"
+            + "        float x = (v_texCoords.x - 0.5) * 1.5;\n"
+            + "        float y = (v_texCoords.y - 0.5) * 1.5 * u_cardAspect;\n"
+            + "        float halfWidth = 0.5;\n"
+            + "        float depth = 2.0;\n"
+            + "        float projectedX = halfWidth * cos(u_flipAngle);\n"
+            + "        float projectedZ = halfWidth * sin(u_flipAngle);\n"
+            + "        float denominator = projectedX * depth - x * projectedZ;\n"
+            + "        if (abs(denominator) < 0.00001) discard;\n"
+            + "        float horizontal = x * depth / denominator;\n"
+            + "        if (abs(horizontal) > 1.0) discard;\n"
+            + "        float perspectiveScale = depth / (depth + horizontal * projectedZ);\n"
+            + "        sourceUv.y = y / (perspectiveScale * u_cardAspect) + 0.5;\n"
+            + "        if (sourceUv.y < 0.0 || sourceUv.y > 1.0) discard;\n"
+            + "        float facing = u_flipAngle > 1.5707963 ? -horizontal : horizontal;\n"
+            + "        sourceUv.x = facing * 0.5 + 0.5;\n"
+            + "    }\n"
+            + "    vec2 centered = abs(sourceUv - vec2(0.5));\n"
             + "    vec2 corner = centered - (vec2(0.5) - vec2(u_cornerRadius));\n"
             + "    float distanceToCorner = length(max(corner, vec2(0.0))) - u_cornerRadius;\n"
             + "    float mask = 1.0 - smoothstep(-u_edgeSoftness, u_edgeSoftness, distanceToCorner);\n"
-            + "    vec4 pixel = texture2D(u_texture, v_texCoords) * v_color;\n"
+            + "    vec4 backPixel = texture2D(u_texture, sourceUv);\n"
+            + "    vec4 frontPixel = texture2D(u_frontTexture, sourceUv);\n"
+            + "    vec4 pixel = (u_flipAngle > 1.5707963 ? frontPixel : backPixel) * v_color;\n"
             + "    pixel.a *= mask;\n"
             + "    if (pixel.a <= 0.001) discard;\n"
             + "    gl_FragColor = pixel;\n"
@@ -118,7 +145,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
     private Texture logo;
     private Texture cardBack;
-    private Texture chip;
+    private Texture[] flyingChips;
     private Texture pot;
     private Texture[] communityCards;
 
@@ -148,7 +175,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
         logo = texture("images/corona_poker_splash.png");
         cardBack = cardTexture("images/decks/goliat/trasera.jpg");
-        chip = texture("images/chips.png");
+        flyingChips = new Texture[]{
+            createChipTexture(new Color(0xd72d3bff), new Color(0x7f101bff)),
+            createChipTexture(new Color(0x247ee8ff), new Color(0x10458fff)),
+            createChipTexture(new Color(0x20a96bff), new Color(0x0d6840ff)),
+            createChipTexture(new Color(0xe2a72fff), new Color(0x936312ff))
+        };
         pot = texture("images/pot.png");
         communityCards = new Texture[]{
             cardTexture("images/decks/goliat/A_P.jpg"),
@@ -180,6 +212,51 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static Texture cardTexture(String path) {
         Texture texture = new Texture(Gdx.files.internal(path), true);
         texture.setFilter(TextureFilter.MipMapLinearLinear, TextureFilter.Linear);
+        return texture;
+    }
+
+    private static Texture createChipTexture(Color base, Color dark) {
+        final int size = 256;
+        final int center = size / 2;
+        Pixmap pixels = new Pixmap(size, size, Pixmap.Format.RGBA8888);
+        pixels.setColor(0f, 0f, 0f, 0f);
+        pixels.fill();
+
+        pixels.setColor(0f, 0f, 0f, 0.32f);
+        pixels.fillCircle(center + 5, center - 7, 118);
+        pixels.setColor(dark);
+        pixels.fillCircle(center, center, 116);
+        pixels.setColor(base);
+        pixels.fillCircle(center, center, 108);
+
+        pixels.setColor(Color.WHITE);
+        for (int i = 0; i < 8; i++) {
+            float middle = MathUtils.PI2 * i / 8f;
+            float half = 0.115f;
+            int ox1 = center + Math.round(MathUtils.cos(middle - half) * 108f);
+            int oy1 = center + Math.round(MathUtils.sin(middle - half) * 108f);
+            int ox2 = center + Math.round(MathUtils.cos(middle + half) * 108f);
+            int oy2 = center + Math.round(MathUtils.sin(middle + half) * 108f);
+            int ix1 = center + Math.round(MathUtils.cos(middle - half) * 83f);
+            int iy1 = center + Math.round(MathUtils.sin(middle - half) * 83f);
+            int ix2 = center + Math.round(MathUtils.cos(middle + half) * 83f);
+            int iy2 = center + Math.round(MathUtils.sin(middle + half) * 83f);
+            pixels.fillTriangle(ox1, oy1, ox2, oy2, ix1, iy1);
+            pixels.fillTriangle(ox2, oy2, ix2, iy2, ix1, iy1);
+        }
+
+        pixels.setColor(dark);
+        pixels.fillCircle(center, center, 80);
+        pixels.setColor(base);
+        pixels.fillCircle(center, center, 70);
+        pixels.setColor(1f, 1f, 1f, 0.72f);
+        for (int radius = 56; radius <= 59; radius++) {
+            pixels.drawCircle(center, center, radius);
+        }
+
+        Texture texture = new Texture(pixels, true);
+        texture.setFilter(TextureFilter.MipMapLinearLinear, TextureFilter.Linear);
+        pixels.dispose();
         return texture;
     }
 
@@ -487,19 +564,22 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float gap = cardW + 18f;
         float firstX = cx - gap * 2f - cardW / 2f;
         float cardY = cy - cardH * 0.36f;
+        float canvasW = cardW * 1.5f;
+        float canvasH = cardH * 1.5f;
 
         batch.begin();
-        useRoundedCardShader();
         for (int i = 0; i < communityCards.length; i++) {
-            float local = MathUtils.clamp((sceneTime - i * 0.18f) / 0.72f, 0f, 1f);
-            float flip = MathUtils.sin(local * MathUtils.PI - MathUtils.PI / 2f);
-            float visibleWidth = Math.max(2f, cardW * Math.abs(flip));
-            Texture shown = flip >= 0f ? communityCards[i] : cardBack;
-            float x = firstX + i * gap + (cardW - visibleWidth) / 2f;
+            float local = MathUtils.clamp(
+                    (sceneTime - i * CARD_FLIP_STAGGER) / CARD_FLIP_SECONDS, 0f, 1f);
+            float angle = local * MathUtils.PI;
+            float cardX = firstX + i * gap;
+            float canvasX = cardX - (canvasW - cardW) / 2f;
+            float canvasY = cardY - (canvasH - cardH) / 2f;
+            usePerspectiveCardShader(communityCards[i], angle, cardH / cardW);
             batch.setColor(0f, 0f, 0f, 0.35f);
-            batch.draw(shown, x + 7f, cardY - 8f, visibleWidth, cardH);
+            batch.draw(cardBack, canvasX + 7f, canvasY - 8f, canvasW, canvasH);
             batch.setColor(Color.WHITE);
-            batch.draw(shown, x, cardY, visibleWidth, cardH);
+            batch.draw(cardBack, canvasX, canvasY, canvasW, canvasH);
         }
         batch.setShader(null);
 
@@ -513,9 +593,26 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private void useRoundedCardShader() {
+        configureCardShader(cardBack, 0f, false, cardBack.getHeight() / (float) cardBack.getWidth());
+    }
+
+    private void usePerspectiveCardShader(Texture front, float angle, float aspect) {
+        configureCardShader(front, angle, true, aspect);
+    }
+
+    private void configureCardShader(Texture front, float angle, boolean perspective, float aspect) {
+        batch.flush();
         batch.setShader(roundedCardShader);
+        batch.flush();
+        front.bind(1);
+        cardBack.bind(0);
+        roundedCardShader.setUniformi("u_texture", 0);
+        roundedCardShader.setUniformi("u_frontTexture", 1);
         roundedCardShader.setUniformf("u_cornerRadius", CARD_CORNER_RADIUS);
         roundedCardShader.setUniformf("u_edgeSoftness", CARD_EDGE_SOFTNESS);
+        roundedCardShader.setUniformf("u_perspective", perspective ? 1f : 0f);
+        roundedCardShader.setUniformf("u_flipAngle", angle);
+        roundedCardShader.setUniformf("u_cardAspect", aspect);
     }
 
     private void drawChipTrails(float targetX, float targetY) {
@@ -561,11 +658,16 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             float eased = Interpolation.pow2Out.apply(u);
             float x = bezier(from.x, controlX(from.x, targetX, flight), targetX, eased);
             float y = bezier(from.y, controlY(from.y, targetY, flight), targetY, eased);
-            float size = 54f + MathUtils.sin(u * MathUtils.PI) * 16f;
-            batch.draw(chip, x - size / 2f, y - size / 2f, size / 2f, size / 2f,
-                    size, size, 1f, 1f, flight.rotation + u * 540f,
-                    0, 0, chip.getWidth(), chip.getHeight(), false, false);
+            float landing = Interpolation.pow3In.apply(u);
+            float size = (45f + MathUtils.sin(u * MathUtils.PI) * 9f) * (1f - landing * 0.28f);
+            float alpha = MathUtils.clamp((1f - u) / 0.12f, 0f, 1f);
+            Texture flyingChip = flyingChips[(flight.seat + (int) flight.offset) % flyingChips.length];
+            batch.setColor(1f, 1f, 1f, alpha);
+            batch.draw(flyingChip, x - size / 2f, y - size / 2f, size / 2f, size / 2f,
+                    size, size, 1f, 1f, flight.rotation + u * 360f,
+                    0, 0, flyingChip.getWidth(), flyingChip.getHeight(), false, false);
         }
+        batch.setColor(Color.WHITE);
         batch.end();
     }
 
@@ -667,7 +769,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         smallFont.dispose();
         logo.dispose();
         cardBack.dispose();
-        chip.dispose();
+        for (Texture flyingChip : flyingChips) {
+            flyingChip.dispose();
+        }
         pot.dispose();
         for (Texture texture : communityCards) {
             texture.dispose();

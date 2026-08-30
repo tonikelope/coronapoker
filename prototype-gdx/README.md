@@ -47,3 +47,8 @@ La mesa usa la baraja Goliat normal (la misma resolución adecuada para juego),
 con mipmaps y filtrado trilineal para que la reducción sea limpia. Las esquinas
 se recortan en GPU; las imágenes HQ quedan reservadas para un futuro visor de
 cartas ampliadas.
+
+El destape reproduce en GPU el giro de perspectiva de CoronaPoker: rotación
+lineal de 180 grados en 620 ms, silueta trapezoidal y cambio de reverso a cara
+al cruzar los 90 grados. Las apuestas vuelan como fichas individuales; los
+montones se reservan para representar el bote y permanecen estables.

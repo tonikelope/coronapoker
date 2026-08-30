@@ -115,7 +115,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         new ActionEvent(16.2f, 7, ACTION_FOLD, "FOLD", 0, 0, 0),
         new ActionEvent(17.6f, 8, ACTION_CALL, "CALL 300", 300, 3, 0),
         new ActionEvent(19.0f, 9, ACTION_FOLD, "FOLD", 0, 0, 0),
-        new ActionEvent(20.4f, 0, ACTION_CALL, "CALL 300", 300, 3, 1),
+        // The local player folds in this simulated hand so the GDX client also
+        // demonstrates the disabled-hole-cards state used after NO IR.
+        new ActionEvent(20.4f, 0, ACTION_FOLD, "NO IR", 0, 0, 0),
         new ActionEvent(24.0f, 2, ACTION_BET, "APUESTA 600", 600, 4, 3),
         new ActionEvent(25.4f, 6, ACTION_CALL, "CALL 600", 600, 4, 1),
         new ActionEvent(29.0f, 2, ACTION_CHECK, "CHECK", 0, 0, 0),
@@ -868,6 +870,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         if (time < DEAL_START) {
             return;
         }
+        float localFold = localFoldProgress(time);
         float localSwapRaw = localHandNeedsSwap() ? MathUtils.clamp(
                 (time - localSwapStart()) / LOCAL_SWAP_SECONDS, 0f, 1f) : 0f;
         float localSwap = Interpolation.smoother.apply(localSwapRaw);
@@ -981,7 +984,14 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 } else {
                     useRoundedCardShader();
                 }
-                batch.setColor(1f, 1f, 1f, eased);
+                if (seat.index == 0) {
+                    float disabled = Interpolation.smooth.apply(localFold);
+                    float tint = MathUtils.lerp(1f, 0.34f, disabled);
+                    float alpha = eased * MathUtils.lerp(1f, 0.52f, disabled);
+                    batch.setColor(tint, tint, tint, alpha);
+                } else {
+                    batch.setColor(1f, 1f, 1f, eased);
+                }
                 batch.draw(cardBack, x - renderW / 2f, y - renderH / 2f,
                         renderW / 2f, renderH / 2f, renderW, renderH, scale, scale, rotation,
                         0, 0, cardBack.getWidth(), cardBack.getHeight(), false, false);
@@ -1266,6 +1276,21 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
     private static boolean localHandNeedsSwap() {
         return LOCAL_CARD_RANKS[0] < LOCAL_CARD_RANKS[1];
+    }
+
+    private static float localFoldStart() {
+        for (ActionEvent action : ACTIONS) {
+            if (action.seat == 0 && action.kind == ACTION_FOLD) {
+                return action.time;
+            }
+        }
+        return Float.POSITIVE_INFINITY;
+    }
+
+    private static float localFoldProgress(float time) {
+        float start = localFoldStart();
+        return start == Float.POSITIVE_INFINITY
+                ? 0f : MathUtils.clamp((time - start) / 0.30f, 0f, 1f);
     }
 
     private ActionEvent currentAction(float time) {

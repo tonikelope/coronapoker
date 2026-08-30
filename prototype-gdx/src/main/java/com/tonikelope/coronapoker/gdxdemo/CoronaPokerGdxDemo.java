@@ -194,6 +194,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private BitmapFont uiFont;
     private BitmapFont smallFont;
     private BitmapFont playerNameFont;
+    private BitmapFont stackFont;
+    private BitmapFont actionFont;
 
     private Texture logo;
     private Texture feltTexture;
@@ -312,6 +314,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         smallFont = font(generator, 21, 0.8f);
         playerNameFont = font(generator, 44, 3.2f);
         playerNameFont.getData().setScale(0.5f);
+        stackFont = font(generator, 24, 2.0f);
+        actionFont = font(generator, 25, 1.2f);
         generator.dispose();
 
         initialiseStars();
@@ -676,6 +680,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         for (Seat seat : seats) {
             boolean active = currentAction != null && seat.index == currentAction.seat;
             boolean folded = isFolded(seat.index, handTime());
+            seat.updateStack(handTime());
             if (seat.index != 0) {
                 float nameX = MathUtils.clamp(seat.x, 96f,
                         viewport.getWorldWidth() - 96f);
@@ -692,6 +697,24 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                         plateWidth + 4f, plateHeight + 4f, 12f);
                 shapes.setColor(0.015f, 0.028f, 0.05f, folded ? 0.72f : 0.92f);
                 roundedRect(plateX, plateY, plateWidth, plateHeight, 10f);
+
+                glyph.setText(stackFont, seat.stackText);
+                float stackPlateWidth = Math.max(82f, glyph.width + 22f);
+                float stackPlateHeight = 32f;
+                float stackPlateX = MathUtils.clamp(
+                        seat.stackTextX - stackPlateWidth / 2f, 8f,
+                        viewport.getWorldWidth() - stackPlateWidth - 8f);
+                float stackPlateY = MathUtils.clamp(
+                        seat.stackTextY - 25f, 8f,
+                        viewport.getWorldHeight() - stackPlateHeight - 8f);
+                Color stackRim = folded ? BUTTON_LINE : STACK_GREEN;
+                shapes.setColor(stackRim.r, stackRim.g, stackRim.b,
+                        folded ? 0.42f : 0.68f);
+                roundedRect(stackPlateX - 1.5f, stackPlateY - 1.5f,
+                        stackPlateWidth + 3f, stackPlateHeight + 3f, 10f);
+                shapes.setColor(0.012f, 0.025f, 0.043f, 0.90f);
+                roundedRect(stackPlateX, stackPlateY,
+                        stackPlateWidth, stackPlateHeight, 9f);
             }
             if (active) {
                 Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
@@ -754,7 +777,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                             0, 0, position.getWidth(), position.getHeight(), false, false);
                 }
             }
-            seat.updateStack(handTime());
             batch.setColor(folded ? FOLDED_AVATAR : Color.WHITE);
             for (int column = 0; column < 2; column++) {
                 int chipCount = column == 0 ? 6 : 4;
@@ -767,7 +789,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             }
             batch.setColor(Color.WHITE);
             if (seat.index != 0) {
-                drawCentered(smallFont, seat.stackText, seat.stackTextX, seat.stackTextY,
+                drawCentered(stackFont, seat.stackText, seat.stackTextX, seat.stackTextY,
                         folded ? Color.GRAY : STACK_GREEN, 1f);
             }
             drawCentered(smallFont, Integer.toString(seat.index + 1),
@@ -1567,8 +1589,16 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
     private void drawHudActionContent(String text, float x, float y,
             float width, float height, Color color, float alpha) {
-        drawCentered(uiFont, text, x + width / 2f + 17f,
+        float iconBayWidth = 58f;
+        float textCenterX = x + iconBayWidth + (width - iconBayWidth) / 2f;
+        drawCentered(actionFont, text, textCenterX,
                 y + 50f, color, alpha);
+    }
+
+    private void drawHudActionDivider(float x, float y, float height,
+            Color color, float alpha) {
+        shapes.setColor(color.r, color.g, color.b, alpha);
+        shapes.rect(x + 56f, y + 17f, 2f, height - 34f);
     }
 
     private void drawHudActionIcon(int action, float centerX, float centerY,
@@ -1675,6 +1705,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 Color.LIGHT_GRAY, betHover, false, localTurn);
         drawHudActionSurface(allInX, actionY, allInWidth, actionHeight,
                 ORANGE, allInHover, false, localTurn);
+        drawHudActionDivider(foldX, actionY, actionHeight, FOLD_RED, 0.52f);
+        drawHudActionDivider(checkX, actionY, actionHeight, CYAN, 0.52f);
+        drawHudActionDivider(betX, actionY, actionHeight, Color.LIGHT_GRAY, 0.42f);
+        drawHudActionDivider(allInX, actionY, actionHeight, ORANGE, 0.52f);
         float iconY = actionY + actionHeight / 2f;
         drawHudActionIcon(ACTION_FOLD, foldX + 30f, iconY,
                 Color.WHITE, contentAlpha);
@@ -1774,6 +1808,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         uiFont.dispose();
         smallFont.dispose();
         playerNameFont.dispose();
+        stackFont.dispose();
+        actionFont.dispose();
         logo.dispose();
         feltTexture.dispose();
         avatarDefault.dispose();

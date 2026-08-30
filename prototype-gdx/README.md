@@ -44,7 +44,7 @@ java -jar prototype-gdx\target\CoronaPoker-GDX-Prototype.jar
 La esquina superior derecha muestra FPS, frame time p99, peor frame reciente y
 la frecuencia detectada del monitor.
 
-La mesa usa la baraja Goliat normal (la misma resolución adecuada para juego),
+El tapete usa la baraja Goliat normal (la misma resolución adecuada para juego),
 con mipmaps y filtrado trilineal para que la reducción sea limpia. Las esquinas
 se recortan en GPU; las imágenes HQ quedan reservadas para un futuro visor de
 cartas ampliadas.
@@ -54,14 +54,20 @@ lineal de 180 grados en 620 ms, silueta trapezoidal y cambio de reverso a cara
 al cruzar los 90 grados. Las apuestas vuelan como fichas individuales; los
 montones se reservan para representar el bote y permanecen estables.
 
-Después de la introducción se reproduce en bucle una mano visual de unos 34 segundos.
-El barajado Goliat aparece grande y con el color de fondo eliminado. El reparto
-lanza desde el mazo central estrictamente una carta cada vez, con vuelo curvo,
-sombra y rotación, en orden alrededor de los nueve asientos; sólo después de
-completar la primera vuelta comienza la segunda.
+Después de la introducción se reproduce en bucle una mano visual de unos 40 segundos.
+No se dibuja una mesa ovalada: el tapete verde ocupa toda la pantalla y los
+jugadores quedan anclados a sus bordes como en CoronaPoker, con avatares
+discretos y cartas grandes. El barajado Goliat aparece a casi 1.000 píxeles de
+ancho y con su transparencia original.
+
+El reparto lanza desde el mazo central estrictamente una carta cada vez, con un
+vuelo curvo largo, sombra y rotación, en orden alrededor de los nueve asientos;
+sólo después de completar la primera vuelta comienza la segunda.
 
 Las acciones ya no reproducen los GIF originales de `check`, `bet`, `call` y
 `fold`: son cinemáticas nativas en tiempo real, con foco del asiento, ondas,
 partículas, fichas individuales, trayectorias curvas e impactos contra el bote.
 La demo también actualiza stacks y bote y destapa flop, turn y river por separado.
-El fondo reutiliza `tapete_verde.jpg`, teselado como en CoronaPoker.
+Termina con un showdown completo: dos manos se giran con la animación de
+CoronaPoker, se muestran sus jugadas, se ilumina al ganador y el bote vuela
+hacia él. El fondo reutiliza `tapete_verde.jpg`, teselado como en CoronaPoker.

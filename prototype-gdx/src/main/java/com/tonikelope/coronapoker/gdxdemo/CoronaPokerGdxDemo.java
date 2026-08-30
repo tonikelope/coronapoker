@@ -47,34 +47,42 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final int SEAT_COUNT = 9;
     private static final int FRAME_SAMPLE_COUNT = 720;
     private static final float CARD_FLIP_SECONDS = 0.620f;
-    private static final float HAND_SECONDS = 33.5f;
+    private static final float HAND_SECONDS = 40.5f;
     private static final float DEAL_START = 2.25f;
-    private static final float DEAL_CARD_GAP = 0.26f;
-    private static final float DEAL_CARD_SECONDS = 0.24f;
+    private static final float DEAL_CARD_GAP = 0.36f;
+    private static final float DEAL_CARD_SECONDS = 0.34f;
     private static final float DEAL_END = DEAL_START
             + (SEAT_COUNT * 2 - 1) * DEAL_CARD_GAP + DEAL_CARD_SECONDS;
     private static final float ACTION_CINEMATIC_SECONDS = 1.25f;
-    private static final float[] COMMUNITY_REVEAL = {14.2f, 14.4f, 14.6f, 20.5f, 26.8f};
+    private static final float SHOWDOWN_START = 33.0f;
+    private static final float WINNER_START = 35.0f;
+    private static final float[] COMMUNITY_REVEAL = {17.0f, 17.2f, 17.4f, 22.4f, 29.0f};
     private static final float CARD_CORNER_RADIUS = 0.075f;
     private static final float CARD_EDGE_SOFTNESS = 0.006f;
     private static final int ACTION_CHECK = 0;
     private static final int ACTION_BET = 1;
     private static final int ACTION_CALL = 2;
     private static final int ACTION_FOLD = 3;
+    private static final int[] SHOWDOWN_SEATS = {5, 2};
+    private static final float[][] SEAT_ANCHORS = {
+        {0.50f, 0.19f}, {0.22f, 0.19f}, {0.065f, 0.42f},
+        {0.065f, 0.70f}, {0.32f, 0.82f}, {0.68f, 0.82f},
+        {0.935f, 0.70f}, {0.935f, 0.42f}, {0.78f, 0.19f}
+    };
 
     private static final ActionEvent[] ACTIONS = {
-        new ActionEvent(7.5f, 1, ACTION_CHECK, "CHECK", 0, 0, 0),
-        new ActionEvent(8.8f, 2, ACTION_BET, "SUBE 300", 300, 3, 1),
-        new ActionEvent(10.1f, 4, ACTION_FOLD, "FOLD", 0, 0, 0),
-        new ActionEvent(11.4f, 5, ACTION_CALL, "CALL 300", 300, 3, 2),
-        new ActionEvent(12.7f, 7, ACTION_CALL, "CALL 300", 300, 3, 0),
-        new ActionEvent(15.9f, 2, ACTION_BET, "APUESTA 600", 600, 4, 3),
-        new ActionEvent(17.3f, 5, ACTION_CALL, "CALL 600", 600, 4, 1),
-        new ActionEvent(21.8f, 2, ACTION_CHECK, "CHECK", 0, 0, 0),
-        new ActionEvent(23.1f, 5, ACTION_BET, "APUESTA 900", 900, 4, 0),
-        new ActionEvent(24.4f, 7, ACTION_CALL, "CALL 900", 900, 4, 2),
-        new ActionEvent(28.4f, 2, ACTION_BET, "APUESTA 1.200", 1200, 5, 3),
-        new ActionEvent(29.9f, 7, ACTION_FOLD, "FOLD", 0, 0, 0)
+        new ActionEvent(9.1f, 1, ACTION_CHECK, "CHECK", 0, 0, 0),
+        new ActionEvent(10.5f, 2, ACTION_BET, "SUBE 300", 300, 3, 1),
+        new ActionEvent(11.9f, 4, ACTION_FOLD, "FOLD", 0, 0, 0),
+        new ActionEvent(13.3f, 5, ACTION_CALL, "CALL 300", 300, 3, 2),
+        new ActionEvent(14.7f, 7, ACTION_CALL, "CALL 300", 300, 3, 0),
+        new ActionEvent(18.6f, 2, ACTION_BET, "APUESTA 600", 600, 4, 3),
+        new ActionEvent(20.0f, 5, ACTION_CALL, "CALL 600", 600, 4, 1),
+        new ActionEvent(23.8f, 2, ACTION_CHECK, "CHECK", 0, 0, 0),
+        new ActionEvent(25.2f, 5, ACTION_BET, "APUESTA 900", 900, 4, 0),
+        new ActionEvent(26.6f, 7, ACTION_CALL, "CALL 900", 900, 4, 2),
+        new ActionEvent(30.2f, 2, ACTION_BET, "APUESTA 1.200", 1200, 5, 3),
+        new ActionEvent(31.7f, 7, ACTION_FOLD, "FOLD", 0, 0, 0)
     };
 
     private static final String CARD_VERTEX_SHADER = "attribute vec4 a_position;\n"
@@ -140,12 +148,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final Color CYAN = new Color(0x36d9ffff);
     private static final Color CYAN_SOFT = new Color(0x36d9ff55);
     private static final Color ORANGE = new Color(0xff6b27ff);
-    private static final Color FELT = new Color(0x075c3f66);
-    private static final Color FELT_EDGE = new Color(0x16a574ff);
     private static final Color PANEL = new Color(0x101a2ee6);
-    private static final Color TABLE_SHADOW = new Color(0x02060dff);
-    private static final Color FELT_INNER = new Color(0x063a2d66);
-    private static final Color FELT_LINE = new Color(0x51f5c055);
     private static final Color SEAT_RIM = new Color(0x647594ff);
     private static final Color SEAT_INNER = new Color(0x111a2aff);
     private static final Color STACK_GREEN = new Color(0x9fffd2ff);
@@ -184,6 +187,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private Texture[] flyingChips;
     private Texture pot;
     private Texture[] communityCards;
+    private final Texture[][] showdownCards = new Texture[SEAT_COUNT][];
     private GifTextureAnimation shuffleGif;
 
     private float tableCenterX;
@@ -234,9 +238,17 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         communityCards = new Texture[]{
             cardTexture("images/decks/goliat/A_P.jpg"),
             cardTexture("images/decks/goliat/K_D.jpg"),
-            cardTexture("images/decks/goliat/Q_C.jpg"),
-            cardTexture("images/decks/goliat/J_T.jpg"),
-            cardTexture("images/decks/goliat/10_P.jpg")
+            cardTexture("images/decks/goliat/8_C.jpg"),
+            cardTexture("images/decks/goliat/4_T.jpg"),
+            cardTexture("images/decks/goliat/2_P.jpg")
+        };
+        showdownCards[2] = new Texture[]{
+            cardTexture("images/decks/goliat/A_D.jpg"),
+            cardTexture("images/decks/goliat/A_C.jpg")
+        };
+        showdownCards[5] = new Texture[]{
+            cardTexture("images/decks/goliat/K_C.jpg"),
+            cardTexture("images/decks/goliat/K_T.jpg")
         };
         shuffleGif = gif("images/decks/goliat/gif/shuffle.gif", 960);
 
@@ -527,20 +539,18 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float tableCx = width / 2f;
         float tableCy = height * 0.52f;
         float tableW = Math.min(1510f, width * 0.78f);
-        float tableH = Math.min(660f, height * 0.61f);
         tableCenterX = tableCx;
         tableCenterY = tableCy;
 
-        updateSeatPositions(tableCx, tableCy, tableW, tableH);
+        updateSeatPositions(width, height);
         drawHeader(width, height);
-        drawTableGlow(tableCx, tableCy, tableW, tableH);
-        drawTable(tableCx, tableCy, tableW, tableH);
         drawChipTrails(tableCx, tableCy);
         drawHoleCards();
         drawSeats();
         drawCardsAndPot(tableCx, tableCy, tableW);
         drawFlyingChips(tableCx, tableCy);
         drawHandOverlay();
+        drawShowdownOverlay();
         drawFooter(width, height);
 
         if (burstClock >= 0f) {
@@ -556,7 +566,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         batch.setColor(Color.WHITE);
         batch.draw(logo, 42f, height - 125f, 235f,
                 235f * logo.getHeight() / logo.getWidth());
-        drawCentered(uiFont, "MESA GPU // 9 JUGADORES", width / 2f, height - 58f,
+        drawCentered(uiFont, "TAPETE GPU // 9 JUGADORES", width / 2f, height - 58f,
                 Color.WHITE, 1f);
         drawCentered(smallFont, stageText(handTime()) + "  |  GOLIAT + CINEMATICA GPU  |  V-SYNC",
                 width / 2f, height - 94f, CYAN, 1f);
@@ -566,47 +576,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         batch.end();
     }
 
-    private void drawTableGlow(float cx, float cy, float width, float height) {
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
-        for (int i = 8; i >= 1; i--) {
-            shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.012f * (9 - i));
-            shapes.ellipse(cx - width / 2f - i * 7f, cy - height / 2f - i * 5f,
-                    width + i * 14f, height + i * 10f, 128);
-        }
-        shapes.end();
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-    }
-
-    private void drawTable(float cx, float cy, float width, float height) {
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        shapes.setColor(TABLE_SHADOW);
-        shapes.ellipse(cx - width / 2f - 30f, cy - height / 2f - 30f,
-                width + 60f, height + 60f, 128);
-        shapes.setColor(FELT_EDGE);
-        shapes.ellipse(cx - width / 2f - 14f, cy - height / 2f - 14f,
-                width + 28f, height + 28f, 128);
-        shapes.setColor(FELT);
-        shapes.ellipse(cx - width / 2f, cy - height / 2f, width, height, 128);
-        shapes.setColor(FELT_INNER);
-        shapes.ellipse(cx - width * 0.39f, cy - height * 0.34f,
-                width * 0.78f, height * 0.68f, 128);
-        shapes.end();
-
-        shapes.begin(ShapeRenderer.ShapeType.Line);
-        Gdx.gl.glLineWidth(2f);
-        shapes.setColor(FELT_LINE);
-        shapes.ellipse(cx - width * 0.42f, cy - height * 0.37f,
-                width * 0.84f, height * 0.74f, 128);
-        shapes.end();
-    }
-
-    private void updateSeatPositions(float cx, float cy, float tableW, float tableH) {
+    private void updateSeatPositions(float width, float height) {
+        // Same visual language as CoronaPoker's DynamicTablePanel: seats are
+        // pinned to the edges of the felt, not arranged around a casino oval.
         for (int i = 0; i < seats.length; i++) {
-            float angle = MathUtils.PI / 2f + MathUtils.PI2 * i / seats.length;
-            seats[i].x = cx + MathUtils.cos(angle) * tableW * 0.53f;
-            seats[i].y = cy + MathUtils.sin(angle) * tableH * 0.58f;
+            seats[i].x = SEAT_ANCHORS[i][0] * width;
+            seats[i].y = SEAT_ANCHORS[i][1] * height;
         }
     }
 
@@ -621,15 +596,15 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
                 shapes.setColor(CYAN.r, CYAN.g, CYAN.b,
                         0.18f + 0.12f * MathUtils.sin(totalTime * 4f));
-                shapes.circle(seat.x, seat.y, 74f, 48);
+                shapes.circle(seat.x, seat.y, 50f, 48);
                 Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
             }
             shapes.setColor(PANEL);
-            shapes.circle(seat.x, seat.y, 61f, 48);
+            shapes.circle(seat.x, seat.y, 42f, 48);
             shapes.setColor(folded ? BUTTON_LINE : (active ? CYAN : SEAT_RIM));
-            shapes.circle(seat.x, seat.y, 54f, 48);
+            shapes.circle(seat.x, seat.y, 36f, 48);
             shapes.setColor(SEAT_INNER);
-            shapes.circle(seat.x, seat.y, 48f, 48);
+            shapes.circle(seat.x, seat.y, 32f, 48);
         }
         shapes.end();
 
@@ -638,20 +613,20 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             Texture avatar = seat.index == 0 ? avatarDefault : avatarBot;
             boolean folded = isFolded(seat.index, handTime());
             batch.setColor(folded ? FOLDED_AVATAR : Color.WHITE);
-            batch.draw(avatar, seat.x - 43f, seat.y - 43f, 86f, 86f);
+            batch.draw(avatar, seat.x - 29f, seat.y - 29f, 58f, 58f);
             batch.setColor(Color.WHITE);
             Texture position = seat.index == 0 ? dealerChip
                     : seat.index == 1 ? smallBlindChip
                     : seat.index == 2 ? bigBlindChip : null;
             if (position != null) {
-                batch.draw(position, seat.x - 69f, seat.y + 30f, 38f, 38f);
+                batch.draw(position, seat.x - 47f, seat.y + 18f, 30f, 30f);
             }
-            drawCentered(smallFont, Integer.toString(seat.index + 1), seat.x + 39f, seat.y + 38f,
+            drawCentered(smallFont, Integer.toString(seat.index + 1), seat.x + 29f, seat.y + 30f,
                     CYAN, 1f);
-            drawCentered(smallFont, seat.name, seat.x, seat.y - 72f,
+            drawCentered(smallFont, seat.name, seat.x, seat.y - 48f,
                     folded ? Color.GRAY : Color.WHITE, 1f);
             seat.updateStack(handTime());
-            drawCentered(smallFont, seat.stackText, seat.x, seat.y - 97f,
+            drawCentered(smallFont, seat.stackText, seat.x, seat.y - 70f,
                     folded ? Color.GRAY : STACK_GREEN, 1f);
         }
         batch.end();
@@ -662,11 +637,11 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         if (time < DEAL_START) {
             return;
         }
-        float cardW = 46f;
+        float cardW = 74f;
         float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
         batch.begin();
-        useRoundedCardShader();
         if (time < DEAL_END) {
+            useRoundedCardShader();
             for (int deckCard = 2; deckCard >= 0; deckCard--) {
                 batch.setColor(1f, 1f, 1f, 0.96f);
                 batch.draw(cardBack, tableCenterX - cardW / 2f + deckCard * 2f,
@@ -696,26 +671,39 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                     continue;
                 }
                 float eased = Interpolation.pow2Out.apply(progress);
-                float side = cardIndex == 0 ? -15f : 15f;
-                float targetX = seat.x + towardX * 91f + sideX * side;
-                float targetY = seat.y + towardY * 91f + sideY * side;
+                float side = cardIndex == 0 ? -28f : 28f;
+                float targetX = seat.x + towardX * 108f + sideX * side;
+                float targetY = seat.y + towardY * 108f + sideY * side;
                 float sourceX = tableCenterX;
                 float sourceY = tableCenterY + 40f;
-                float controlX = (sourceX + targetX) * 0.5f + sideX * 86f;
-                float controlY = (sourceY + targetY) * 0.5f + sideY * 86f + 42f;
+                float controlX = (sourceX + targetX) * 0.5f + sideX * 128f;
+                float controlY = (sourceY + targetY) * 0.5f + sideY * 128f + 62f;
                 float x = bezier(sourceX, controlX, targetX, eased);
                 float y = bezier(sourceY, controlY, targetY, eased);
                 float launchRotation = (dealTurn & 1) == 0 ? -26f : 26f;
                 float rotation = MathUtils.lerp(launchRotation,
                         cardIndex == 0 ? -7f : 7f, eased);
-                float scale = 0.72f + eased * 0.28f;
+                float scale = 0.82f + eased * 0.18f;
+                Texture face = showdownCards[seat.index] == null
+                        ? null : showdownCards[seat.index][cardIndex];
+                float revealStart = showdownRevealStart(seat.index, cardIndex);
+                boolean revealing = face != null && time >= revealStart;
+                float reveal = revealing ? MathUtils.clamp(
+                        (time - revealStart) / CARD_FLIP_SECONDS, 0f, 1f) : 0f;
+                float renderW = revealing ? cardW * 1.5f : cardW;
+                float renderH = revealing ? cardH * 1.5f : cardH;
+                if (revealing) {
+                    usePerspectiveCardShader(face, reveal * MathUtils.PI, cardH / cardW);
+                } else {
+                    useRoundedCardShader();
+                }
                 batch.setColor(0f, 0f, 0f, 0.35f * eased);
-                batch.draw(cardBack, x - cardW / 2f + 4f, y - cardH / 2f - 5f,
-                        cardW / 2f, cardH / 2f, cardW, cardH, scale, scale, rotation,
+                batch.draw(cardBack, x - renderW / 2f + 5f, y - renderH / 2f - 7f,
+                        renderW / 2f, renderH / 2f, renderW, renderH, scale, scale, rotation,
                         0, 0, cardBack.getWidth(), cardBack.getHeight(), false, false);
                 batch.setColor(1f, 1f, 1f, eased);
-                batch.draw(cardBack, x - cardW / 2f, y - cardH / 2f,
-                        cardW / 2f, cardH / 2f, cardW, cardH, scale, scale, rotation,
+                batch.draw(cardBack, x - renderW / 2f, y - renderH / 2f,
+                        renderW / 2f, renderH / 2f, renderW, renderH, scale, scale, rotation,
                         0, 0, cardBack.getWidth(), cardBack.getHeight(), false, false);
             }
         }
@@ -725,7 +713,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private void drawCardsAndPot(float cx, float cy, float tableWidth) {
-        float cardW = Math.min(126f, tableWidth / 12f);
+        float cardW = Math.min(148f, tableWidth / 10f);
         float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
         float gap = cardW + 18f;
         float firstX = cx - gap * 2f - cardW / 2f;
@@ -749,9 +737,11 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         }
         batch.setShader(null);
 
+        float payoutFade = MathUtils.clamp((handTime() - WINNER_START - 0.2f) / 1.1f, 0f, 1f);
         float pulse = 1f + MathUtils.sin(totalTime * 3.3f) * 0.035f;
         float potW = 108f * pulse;
         float potH = potW * pot.getHeight() / pot.getWidth();
+        batch.setColor(1f, 1f, 1f, 1f - payoutFade);
         batch.draw(pot, cx - potW / 2f, cy + cardH * 0.73f, potW, potH);
         int currentPot = potAt(handTime());
         if (currentPot != lastPotValue) {
@@ -759,7 +749,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             potText = String.format("BOTE %,d", currentPot);
         }
         drawCentered(uiFont, potText, cx, cy + cardH * 0.66f,
-                POT_GOLD, 1f);
+                POT_GOLD, 1f - payoutFade);
+        batch.setColor(Color.WHITE);
         batch.end();
     }
 
@@ -806,8 +797,14 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         if (time < COMMUNITY_REVEAL[4]) {
             return "TURN";
         }
-        if (time < 31.2f) {
+        if (time < SHOWDOWN_START) {
             return "RIVER";
+        }
+        if (time < WINNER_START) {
+            return "SHOWDOWN";
+        }
+        if (time < 39.4f) {
+            return "GANADOR";
         }
         return "NUEVA MANO...";
     }
@@ -829,7 +826,21 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 return true;
             }
         }
-        return false;
+        return time >= SHOWDOWN_START && !isShowdownContender(seat);
+    }
+
+    private static boolean isShowdownContender(int seat) {
+        return seat == 2 || seat == 5;
+    }
+
+    private static float showdownRevealStart(int seat, int cardIndex) {
+        if (seat == 5) {
+            return SHOWDOWN_START + 0.15f + cardIndex * 0.12f;
+        }
+        if (seat == 2) {
+            return SHOWDOWN_START + 0.95f + cardIndex * 0.12f;
+        }
+        return Float.POSITIVE_INFINITY;
     }
 
     private ActionEvent currentAction(float time) {
@@ -850,7 +861,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float worldWidth = viewport.getWorldWidth();
         float worldHeight = viewport.getWorldHeight();
         if (time < DEAL_START) {
-            float width = Math.min(700f, worldWidth * 0.42f);
+            float width = Math.min(1000f, worldWidth * 0.58f);
             float height = width * shuffleGif.height() / shuffleGif.width();
             float x = tableCenterX - width / 2f;
             float y = tableCenterY - height / 2f;
@@ -918,6 +929,121 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         batch.begin();
         drawCentered(smallFont, seats[action.seat].name + "  //  " + action.label,
                 x + width / 2f, y + 43f, actionColor, alpha);
+        batch.end();
+    }
+
+    private void drawShowdownOverlay() {
+        float time = handTime();
+        if (time < SHOWDOWN_START) {
+            return;
+        }
+
+        float revealAlpha = Interpolation.fade.apply(MathUtils.clamp(
+                (time - SHOWDOWN_START) / 0.45f, 0f, 1f));
+        boolean winnerVisible = time >= WINNER_START;
+        float winnerProgress = MathUtils.clamp((time - WINNER_START) / 1.2f, 0f, 1f);
+        float bannerWidth = winnerVisible ? 690f : 430f;
+        float bannerHeight = winnerVisible ? 104f : 72f;
+        float bannerX = tableCenterX - bannerWidth / 2f;
+        float bannerY = tableCenterY + 205f;
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.92f * revealAlpha);
+        shapes.rect(bannerX, bannerY, bannerWidth, bannerHeight);
+        shapes.setColor(winnerVisible ? POT_GOLD : CYAN);
+        shapes.rect(bannerX, bannerY, bannerWidth, 4f);
+
+        for (int seatIndex : SHOWDOWN_SEATS) {
+            Seat seat = seats[seatIndex];
+            float towardX = tableCenterX - seat.x;
+            float towardY = tableCenterY - seat.y;
+            float length = Math.max(1f, (float) Math.sqrt(towardX * towardX + towardY * towardY));
+            towardX /= length;
+            towardY /= length;
+            float labelX = seat.x + towardX * 225f;
+            float labelY = seat.y + towardY * 210f;
+            float cardReveal = MathUtils.clamp((time - showdownRevealStart(seatIndex, 1))
+                    / CARD_FLIP_SECONDS, 0f, 1f);
+            shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.84f * cardReveal);
+            shapes.rect(labelX - 132f, labelY - 28f, 264f, 52f);
+            Color line = seatIndex == 2 && winnerVisible ? POT_GOLD : CYAN;
+            shapes.setColor(line.r, line.g, line.b, cardReveal);
+            shapes.rect(labelX - 132f, labelY - 28f, 264f, 3f);
+        }
+
+        if (winnerVisible) {
+            Seat winner = seats[2];
+            Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
+            for (int ring = 7; ring >= 1; ring--) {
+                float radius = 48f + ring * 16f + MathUtils.sin(totalTime * 4f + ring) * 5f;
+                shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
+                        winnerProgress * (0.018f + (8 - ring) * 0.006f));
+                shapes.circle(winner.x, winner.y, radius, 64);
+            }
+            for (int particle = 0; particle < 72; particle++) {
+                float phase = particle * 1.731f;
+                float travel = (winnerProgress * 1.4f + particle * 0.019f) % 1f;
+                float angle = phase + totalTime * (particle % 2 == 0 ? 0.35f : -0.28f);
+                float radius = 55f + Interpolation.circleOut.apply(travel) * (90f + particle % 8 * 18f);
+                Color color = particle % 3 == 0 ? CYAN : POT_GOLD;
+                shapes.setColor(color.r, color.g, color.b, (1f - travel) * 0.62f);
+                shapes.circle(winner.x + MathUtils.cos(angle) * radius,
+                        winner.y + MathUtils.sin(angle) * radius, 2f + particle % 4, 10);
+            }
+            Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        }
+        shapes.end();
+
+        batch.begin();
+        if (winnerVisible) {
+            drawCentered(uiFont, "RIVERKING GANA", tableCenterX, bannerY + 70f,
+                    POT_GOLD, winnerProgress);
+            drawCentered(smallFont, "TRIO DE ASES  //  BOTE 5.250", tableCenterX,
+                    bannerY + 35f, Color.WHITE, winnerProgress);
+        } else {
+            drawCentered(uiFont, "SHOWDOWN", tableCenterX, bannerY + 47f,
+                    Color.WHITE, revealAlpha);
+        }
+
+        for (int seatIndex : SHOWDOWN_SEATS) {
+            Seat seat = seats[seatIndex];
+            float towardX = tableCenterX - seat.x;
+            float towardY = tableCenterY - seat.y;
+            float length = Math.max(1f, (float) Math.sqrt(towardX * towardX + towardY * towardY));
+            towardX /= length;
+            towardY /= length;
+            float labelX = seat.x + towardX * 225f;
+            float labelY = seat.y + towardY * 210f;
+            float cardReveal = MathUtils.clamp((time - showdownRevealStart(seatIndex, 1))
+                    / CARD_FLIP_SECONDS, 0f, 1f);
+            String result = seatIndex == 2 ? "TRIO DE ASES" : "TRIO DE REYES";
+            Color color = seatIndex == 2 && winnerVisible ? POT_GOLD : Color.WHITE;
+            drawCentered(smallFont, result, labelX, labelY + 5f, color, cardReveal);
+        }
+
+        if (winnerVisible) {
+            Seat winner = seats[2];
+            for (int chip = 0; chip < 18; chip++) {
+                float raw = (time - WINNER_START - 0.18f - chip * 0.035f) / 1.05f;
+                if (raw <= 0f || raw >= 1f) {
+                    continue;
+                }
+                float eased = Interpolation.pow2Out.apply(raw);
+                float targetX = winner.x + (chip % 5 - 2) * 12f;
+                float targetY = winner.y + 18f + (chip % 4) * 8f;
+                float x = bezier(tableCenterX, tableCenterX - 210f, targetX, eased);
+                float y = bezier(tableCenterY + 155f, tableCenterY + 330f, targetY, eased);
+                float size = 34f + MathUtils.sin(raw * MathUtils.PI) * 9f;
+                Texture chipTexture = flyingChips[chip % flyingChips.length];
+                batch.setColor(1f, 1f, 1f, MathUtils.clamp((1f - raw) / 0.12f, 0f, 1f));
+                batch.draw(chipTexture, x - size / 2f, y - size / 2f,
+                        size / 2f, size / 2f, size, size, 1f, 1f,
+                        chip * 29f + raw * 240f, 0, 0,
+                        chipTexture.getWidth(), chipTexture.getHeight(), false, false);
+            }
+        }
+        batch.setColor(Color.WHITE);
         batch.end();
     }
 
@@ -1090,6 +1216,13 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         pot.dispose();
         for (Texture texture : communityCards) {
             texture.dispose();
+        }
+        for (Texture[] hand : showdownCards) {
+            if (hand != null) {
+                for (Texture texture : hand) {
+                    texture.dispose();
+                }
+            }
         }
         shuffleGif.dispose();
     }

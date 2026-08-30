@@ -1804,12 +1804,14 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 localTurn ? 0.48f + turnPulse * 0.30f : 0.34f);
         roundedRect(hudX - 8f, hudY - 8f,
                 hudWidth + 16f, hudHeight + 25f, 19f);
-        shapes.setColor(0.008f, 0.018f, 0.034f, 0.90f);
+        // A unified HUD does not need an opaque black slab. Keep a subtle
+        // smoked-glass tint so the felt remains visible behind the controls.
+        shapes.setColor(0.025f, 0.085f, 0.095f, 0.56f);
         roundedRect(hudX - 3f, hudY - 3f,
                 hudWidth + 6f, hudHeight + 15f, 16f);
-        shapes.setColor(0f, 0f, 0f, 0.46f);
+        shapes.setColor(0.01f, 0.04f, 0.055f, 0.38f);
         roundedRect(hudX + 5f, hudY - 4f, infoWidth, hudHeight, 15f);
-        shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.96f);
+        shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.84f);
         roundedRect(hudX, hudY, infoWidth, hudHeight, 15f);
         shapes.setColor(0.03f, 0.06f, 0.11f, 0.98f);
         roundedRect(hudX + 10f, hudY + 10f, infoWidth - 20f, hudHeight - 20f, 11f);

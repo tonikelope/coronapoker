@@ -53,6 +53,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float POSITION_CHIP_START = SHUFFLE_END + 0.04f;
     private static final float POSITION_CHIP_STAGGER = 0.04f;
     private static final float POSITION_CHIP_SECONDS = 0.40f;
+    private static final int SHUFFLE_AUDIO_STOP_FRAME = 53;
+    private static final float CHIP_FLIGHT_DELAY = 0.12f;
+    private static final float CHIP_FLIGHT_SECONDS = 0.92f;
     private static final float DEAL_START = 2.25f;
     private static final float DEAL_CARD_GAP = 0.36f;
     private static final float DEAL_CARD_SECONDS = 0.34f;
@@ -228,6 +231,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private float statsClock;
     private float burstClock = -10f;
     private float previousSoundTime = -1f;
+    private float shuffleAudioStopTime;
     private long shuffleSoundId = -1L;
     private int frameCursor;
     private int frameCount;
@@ -285,6 +289,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             cardTexture("images/decks/goliat/J_P.jpg")
         };
         shuffleGif = gif("images/decks/goliat/gif/shuffle.gif", 960);
+        shuffleAudioStopTime = shuffleGif.frameStartSeconds(SHUFFLE_AUDIO_STOP_FRAME);
+        System.out.printf("Shuffle audio cutoff: frame %d at %.0f ms%n",
+                SHUFFLE_AUDIO_STOP_FRAME, shuffleAudioStopTime * 1000f);
         allInGif = gif("cinematics/allin/rounders.gif", 563);
         shuffleSound = sound("sounds/misc/shuffle.wav");
         dealSound = sound("sounds/misc/deal.wav");
@@ -418,8 +425,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         for (ActionEvent action : ACTIONS) {
             for (int chipIndex = 0; chipIndex < action.chipCount; chipIndex++) {
                 flights[index] = new ChipFlight(action.seat,
-                        action.time + 0.12f + chipIndex * 0.065f,
-                        0.92f + chipIndex * 0.035f,
+                        action.time + CHIP_FLIGHT_DELAY + chipIndex * 0.065f,
+                        CHIP_FLIGHT_SECONDS + chipIndex * 0.035f,
                         index * 37f,
                         (action.chipColor + chipIndex) % 4);
                 index++;
@@ -628,10 +635,20 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         for (int i = 0; i < seats.length; i++) {
             seats[i].x = SEAT_ANCHORS[i][0] * width;
             seats[i].y = SEAT_ANCHORS[i][1] * height;
-            // Avatars own the perimeter; chips and labels face inward so the
-            // information stays readable even when a lateral rim is cropped.
-            seats[i].stackX = seats[i].x + (seats[i].x < width / 2f ? 58f : -58f);
-            seats[i].stackY = seats[i].y - 62f;
+            // The stack owns a separate OUTWARD row: above upper seats and below
+            // lower seats. One clean chip marks the physical flight origin.
+            float readableX = MathUtils.clamp(seats[i].x, 96f, width - 96f);
+            boolean upperSeat = seats[i].y > tableCenterY;
+            seats[i].stackX = readableX - 55f;
+            seats[i].stackY = seats[i].y + (upperSeat ? 56f : -80f);
+            seats[i].stackTextX = readableX + 15f;
+            seats[i].stackTextY = seats[i].stackY + 7f;
+            if (i == 0) {
+                seats[i].stackX = seats[i].x + 67f;
+                seats[i].stackY = seats[i].y - 39f;
+                seats[i].stackTextX = seats[i].stackX;
+                seats[i].stackTextY = seats[i].stackY;
+            }
             float towardX = tableCenterX - seats[i].x;
             float towardY = tableCenterY - seats[i].y;
             float towardLength = Math.max(1f,
@@ -719,30 +736,23 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                             positionSize, positionSize, 1f, 1f,
                             (1f - positionEase) * (seat.index - 1) * 320f,
                             0, 0, position.getWidth(), position.getHeight(), false, false);
-                    String positionName = seat.index == 0 ? "DEALER"
-                            : seat.index == 1 ? "SB" : "BB";
-                    Color positionColor = seat.index == 0 ? POT_GOLD
-                            : seat.index == 1 ? CYAN : ORANGE;
-                    float labelAlpha = MathUtils.clamp(
-                            (positionProgress - 0.78f) / 0.22f, 0f, 1f);
-                    drawCentered(smallFont, positionName, positionX,
-                            positionY - 31f, positionColor, labelAlpha);
                 }
             }
             drawCentered(smallFont, Integer.toString(seat.index + 1), seat.x + 29f, seat.y + 30f,
                     CYAN, 1f);
-            drawCentered(smallFont, seat.name, readableX, seat.y - 48f,
-                    folded ? Color.GRAY : Color.WHITE, 1f);
+            if (seat.index != 0) {
+                drawCentered(smallFont, seat.name, readableX, seat.y - 48f,
+                        folded ? Color.GRAY : Color.WHITE, 1f);
+            }
             seat.updateStack(handTime());
             Texture stackChip = flyingChips[seat.index % flyingChips.length];
             batch.setColor(folded ? FOLDED_AVATAR : Color.WHITE);
-            for (int chip = 0; chip < 3; chip++) {
-                batch.draw(stackChip, seat.stackX - 10f + chip * 2f,
-                        seat.stackY - 3f + chip * 5f, 20f, 20f);
-            }
+            batch.draw(stackChip, seat.stackX - 12f, seat.stackY - 12f, 24f, 24f);
             batch.setColor(Color.WHITE);
-            drawCentered(smallFont, seat.stackText, seat.stackX, seat.stackY - 8f,
-                    folded ? Color.GRAY : STACK_GREEN, 1f);
+            if (seat.index != 0) {
+                drawCentered(smallFont, seat.stackText, seat.stackTextX, seat.stackTextY,
+                        folded ? Color.GRAY : STACK_GREEN, 1f);
+            }
         }
         batch.end();
     }
@@ -945,7 +955,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         if (crossed(previous, current, 0f)) {
             shuffleSoundId = shuffleSound.play(0.62f, 1f, 0f);
         }
-        if (crossed(previous, current, SHUFFLE_END)) {
+        if (crossed(previous, current, shuffleAudioStopTime)) {
             stopShuffleSound();
         }
 
@@ -966,10 +976,18 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             if (crossed(previous, current, action.time)) {
                 switch (action.kind) {
                     case ACTION_CHECK -> play(checkSound, 0.58f, 1f);
-                    case ACTION_BET -> play(betSound, 0.62f, 1f);
-                    case ACTION_CALL -> play(callSound, 0.58f, 1f);
                     case ACTION_FOLD -> play(foldSound, 0.58f, 1f);
                     case ACTION_ALLIN -> play(allInSound, 0.74f, 1f);
+                    default -> {
+                    }
+                }
+            }
+            float chipLanding = action.time + CHIP_FLIGHT_DELAY + CHIP_FLIGHT_SECONDS;
+            if (action.amount > 0 && crossed(previous, current, chipLanding)) {
+                switch (action.kind) {
+                    case ACTION_CALL -> play(callSound, 0.58f, 1f);
+                    case ACTION_BET -> play(betSound, 0.62f, 1f);
+                    case ACTION_ALLIN -> play(betSound, 0.52f, 0.96f);
                     default -> {
                     }
                 }
@@ -1030,6 +1048,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             shuffleSound.stop(shuffleSoundId);
             shuffleSoundId = -1L;
         }
+        // Match CoronaPoker's defensive close: guarantee that no duplicated or
+        // internally recycled OpenAL instance can retain the WAV tail.
+        shuffleSound.stop();
     }
 
     private String stageText(float time) {
@@ -1069,7 +1090,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private int potAt(float time) {
         int value = 150;
         for (ActionEvent action : ACTIONS) {
-            if (action.amount > 0 && time >= action.time + 0.85f) {
+            if (action.amount > 0 && time >= action.time
+                    + CHIP_FLIGHT_DELAY + CHIP_FLIGHT_SECONDS) {
                 value += action.amount;
             }
         }
@@ -1433,7 +1455,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private static float controlY(float from, float to, ChipFlight flight) {
-        return Math.max(from, to) + 150f + MathUtils.sin(flight.rotation) * 55f;
+        // Midpoint-based arc keeps upper-seat stacks inside the viewport while
+        // retaining a visible bow for every path into the pot.
+        return (from + to) * 0.5f + 120f + MathUtils.sin(flight.rotation) * 45f;
     }
 
     private static float bezier(float from, float control, float to, float t) {
@@ -1452,8 +1476,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private void drawLocalHud(float width, float height) {
-        // A compact console leaves the two lower seats completely outside its
-        // footprint, while preserving generous hit targets for 4K/240 Hz play.
+        // Floating modules leave the felt visible between player information and
+        // actions; this reads as a game HUD instead of a desktop control bar.
         float hudWidth = Math.min(1160f, width - 560f);
         float hudX = width / 2f - hudWidth / 2f;
         float hudY = 12f;
@@ -1472,14 +1496,14 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         shapes.setColor(0f, 0f, 0f, 0.46f);
-        roundedRect(hudX + 6f, hudY - 5f, hudWidth, hudHeight, 15f);
+        roundedRect(hudX + 5f, hudY - 4f, infoWidth, hudHeight, 15f);
         shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.96f);
-        roundedRect(hudX, hudY, hudWidth, hudHeight, 15f);
+        roundedRect(hudX, hudY, infoWidth, hudHeight, 15f);
         shapes.setColor(0.03f, 0.06f, 0.11f, 0.98f);
         roundedRect(hudX + 10f, hudY + 10f, infoWidth - 20f, hudHeight - 20f, 11f);
         Color hudLine = localTurn ? POT_GOLD : CYAN;
         shapes.setColor(hudLine.r, hudLine.g, hudLine.b, 0.82f);
-        shapes.rect(hudX + 16f, hudY + hudHeight - 4f, hudWidth - 32f, 3f);
+        shapes.rect(hudX + 16f, hudY + hudHeight - 4f, infoWidth - 32f, 3f);
 
         float quickWidth = 50f;
         float quickGap = 6f;
@@ -1505,14 +1529,14 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             Color actionColor = i == 0 ? ORANGE : i == 1 ? CYAN
                     : i == 2 ? STACK_GREEN : POT_GOLD;
             boolean selected = localTurn && i == 2;
-            float alpha = localTurn ? (selected ? 0.50f : 0.25f) : 0.12f;
+            float alpha = localTurn ? (selected ? 0.50f : 0.25f) : 0.18f;
             if (hover) {
                 alpha += 0.20f;
             }
             shapes.setColor(0f, 0f, 0f, 0.48f);
             roundedRect(x + 4f, actionY - 5f, actionWidth, actionHeight, 12f);
             shapes.setColor(actionColor.r, actionColor.g, actionColor.b,
-                    localTurn || hover ? 0.78f : 0.34f);
+                    localTurn || hover ? 0.78f : 0.52f);
             roundedRect(x, actionY, actionWidth, actionHeight, 12f);
             shapes.setColor(0.035f, 0.065f, 0.11f, 0.90f - alpha * 0.35f);
             roundedRect(x + 3f, actionY + 5f, actionWidth - 6f,
@@ -1535,9 +1559,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 hudX + infoWidth / 2f, hudY + 112f,
                 localTurn ? POT_GOLD : CYAN, 1f);
         drawCentered(smallFont, "TONIKELOPE  //  " + local.stackText,
-                hudX + infoWidth / 2f, hudY + 87f, Color.WHITE, 1f);
-        drawCentered(smallFont, "APUESTA 600", hudX + infoWidth / 2f,
-                hudY + 65f, Color.LIGHT_GRAY, 0.82f);
+                hudX + infoWidth / 2f, hudY + 82f, Color.WHITE, 1f);
         for (int i = 0; i < HUD_SIZES.length; i++) {
             float quickX = quickStart + i * (quickWidth + quickGap);
             drawCentered(smallFont, HUD_SIZES[i], quickX + quickWidth / 2f, hudY + 39f,
@@ -1548,7 +1570,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             Color actionColor = i == 0 ? ORANGE : i == 1 ? CYAN
                     : i == 2 ? STACK_GREEN : POT_GOLD;
             drawCentered(uiFont, HUD_ACTIONS[i], x + actionWidth / 2f,
-                    actionY + 50f, actionColor, localTurn ? 1f : 0.48f);
+                    actionY + 50f, actionColor, localTurn ? 1f : 0.70f);
         }
         batch.end();
     }
@@ -1656,6 +1678,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float y;
         float stackX;
         float stackY;
+        float stackTextX;
+        float stackTextY;
         float positionX;
         float positionY;
 
@@ -1671,7 +1695,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             int current = stack;
             for (ActionEvent action : ACTIONS) {
                 if (action.seat == index && action.amount > 0
-                        && time >= action.time + 0.85f) {
+                        && time >= action.time + CHIP_FLIGHT_DELAY + CHIP_FLIGHT_SECONDS) {
                     current -= action.amount;
                 }
             }

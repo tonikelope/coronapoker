@@ -159,6 +159,14 @@ final class GifTextureAnimation implements Disposable {
         return durationMs / 1000f;
     }
 
+    float frameStartSeconds(int oneBasedFrame) {
+        if (oneBasedFrame <= 1) {
+            return 0f;
+        }
+        int previousFrame = Math.min(oneBasedFrame - 2, frameEndMs.length - 1);
+        return frameEndMs[previousFrame] / 1000f;
+    }
+
     int width() {
         return width;
     }

@@ -247,8 +247,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private float potCenterX;
     private float potCenterY;
     private int lastPotValue = -1;
-    private String potText = "150";
-    private String potBreakdownText = "CIEGAS 150";
+    private String potText = "BOTE TOTAL: 150";
 
     private float totalTime;
     private float sceneTime;
@@ -966,28 +965,23 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
         float payoutFade = MathUtils.clamp((handTime() - SHOWDOWN_START) / 0.38f, 0f, 1f);
         float pulse = 1f + MathUtils.sin(totalTime * 3.3f) * 0.035f;
-        float basePotW = 108f;
+        float basePotW = 76f;
         float basePotH = basePotW * pot.getHeight() / pot.getWidth();
         float potW = basePotW * pulse;
         float potH = basePotH * pulse;
         int currentPot = potAt(handTime());
         if (currentPot != lastPotValue) {
             lastPotValue = currentPot;
-            potText = String.format("%,d", currentPot);
-            potBreakdownText = currentPot == 150
-                    ? "CIEGAS 150"
-                    : String.format("CIEGAS 150  +  APUESTAS %,d", currentPot - 150);
+            potText = String.format("BOTE TOTAL: %,d", currentPot);
         }
         batch.setColor(Color.WHITE);
         batch.end();
 
         float alpha = 1f - payoutFade;
-        float panelWidth = 342f;
-        float panelHeight = 72f;
+        float panelWidth = 390f;
+        float panelHeight = 82f;
         float panelX = potCenterX - panelWidth / 2f;
-        // UI geometry must never depend on the decorative chip pulse. Otherwise
-        // the label visibly trembles several pixels every frame.
-        float panelY = potCenterY - basePotH / 2f - panelHeight - 14f;
+        float panelY = potCenterY - panelHeight / 2f;
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
@@ -1000,13 +994,15 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
         batch.begin();
         batch.setColor(1f, 1f, 1f, alpha);
-        batch.draw(pot, potCenterX - potW / 2f, potCenterY - potH / 2f, potW, potH);
-        drawCentered(actionFont, "BOTE TOTAL", potCenterX, panelY + 59f,
-                POT_GOLD, alpha);
-        drawCentered(uiFont, potText, potCenterX, panelY + 38f,
-                Color.WHITE, alpha);
-        drawFittedCentered(smallFont, potBreakdownText, potCenterX,
-                panelY + 16f, panelWidth - 22f, STACK_GREEN, alpha);
+        float iconCenterX = panelX + 52f;
+        float iconCenterY = panelY + panelHeight / 2f;
+        batch.draw(pot, iconCenterX - potW / 2f, iconCenterY - potH / 2f,
+                potW, potH);
+        float textAreaX = panelX + 98f;
+        float textAreaWidth = panelWidth - 112f;
+        drawFittedCentered(uiFont, potText,
+                textAreaX + textAreaWidth / 2f, panelY + 51f,
+                textAreaWidth, POT_GOLD, alpha);
         batch.setColor(Color.WHITE);
         batch.end();
     }

@@ -79,6 +79,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final int ACTION_FOLD = 3;
     private static final int ACTION_ALLIN = 4;
     private static final String[] HUD_ACTIONS = {"NO IR", "IR (+300)", "APOSTAR", "ALL IN"};
+    private static final int[] LOCAL_CARD_RANKS = {11, 12};
     private static final int[] SHOWDOWN_SEATS = {6, 2};
     private static final float[][] SEAT_ANCHORS = {
         {0.50f, 0.185f}, {0.135f, 0.145f}, {0.024f, 0.40f},
@@ -201,10 +202,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private Texture smallBlindChip;
     private Texture bigBlindChip;
     private Texture cardBack;
-    private Texture actionFoldIcon;
-    private Texture actionCheckIcon;
-    private Texture actionBetIcon;
-    private Texture actionAllInIcon;
     private Texture[] flyingChips;
     private Texture pot;
     private Texture[] communityCards;
@@ -267,10 +264,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         smallBlindChip = texture("images/sb.png");
         bigBlindChip = texture("images/bb.png");
         cardBack = cardTexture("images/decks/goliat/hq/trasera.jpg");
-        actionFoldIcon = texture("images/action/down.png");
-        actionCheckIcon = texture("images/action/up.png");
-        actionBetIcon = texture("images/action/bet.png");
-        actionAllInIcon = texture("images/action/glasses.png");
         flyingChips = new Texture[]{
             createChipTexture(new Color(0xd72d3bff), new Color(0x7f101bff)),
             createChipTexture(new Color(0x247ee8ff), new Color(0x10458fff)),
@@ -294,8 +287,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             cardTexture("images/decks/goliat/hq/K_T.jpg")
         };
         showdownCards[0] = new Texture[]{
-            cardTexture("images/decks/goliat/hq/Q_P.jpg"),
-            cardTexture("images/decks/goliat/hq/J_P.jpg")
+            cardTexture("images/decks/goliat/hq/J_P.jpg"),
+            cardTexture("images/decks/goliat/hq/Q_P.jpg")
         };
         shuffleGif = gif("images/decks/goliat/gif/shuffle.gif", 960);
         shuffleAudioStopTime = shuffleGif.frameStartSeconds(SHUFFLE_AUDIO_STOP_FRAME);
@@ -798,8 +791,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         if (time < DEAL_START) {
             return;
         }
-        float localSwapRaw = MathUtils.clamp(
-                (time - localSwapStart()) / LOCAL_SWAP_SECONDS, 0f, 1f);
+        float localSwapRaw = localHandNeedsSwap() ? MathUtils.clamp(
+                (time - localSwapStart()) / LOCAL_SWAP_SECONDS, 0f, 1f) : 0f;
         float localSwap = Interpolation.smoother.apply(localSwapRaw);
         float localSwapArc = MathUtils.sin(localSwap * MathUtils.PI);
         float cardW = 125f;
@@ -906,9 +899,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                         normalSideDistance, revealedSideDistance, revealMotion);
                 float sideDirection = cardIndex == 0 ? -1f : 1f;
                 if (seat.index == 0) {
-                    // Q arrives on the right and J on the left. Once both are
-                    // face-up, swap their slots so the higher card finishes on
-                    // the left. Position changes; card dimensions never do.
+                    // Deal order is literal: first card lands left, second
+                    // right. Only a hand whose second rank is higher swaps.
+                    sideDirection = cardIndex == 0 ? 1f : -1f;
                     sideDirection = MathUtils.lerp(
                             sideDirection, -sideDirection, localSwap);
                 }
@@ -916,8 +909,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 float targetX = handCenterX + fanX * side;
                 float targetY = handCenterY + fanY * side;
                 if (seat.index == 0 && localSwapRaw > 0f && localSwapRaw < 1f) {
-                    // Two depth lanes make the crossover readable: the J passes
-                    // in front while the Q travels behind it. Both cards keep
+                    // Two depth lanes make the crossover readable: the Q passes
+                    // in front while the J travels behind it. Both cards keep
                     // their exact dimensions throughout the animation.
                     float lane = cardIndex == 0 ? -30f : 46f;
                     targetX += towardX * localSwapArc * lane;
@@ -1207,8 +1200,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
     private static float localSwapStart() {
         // Sorting starts only after both local cards have landed and finished
-        // turning face-up. In the demo Q/J needs one swap: Q finishes left.
+        // turning face-up. In the demo J/Q needs one swap: Q finishes left.
         return showdownRevealStart(0, 1) + CARD_FLIP_SECONDS + LOCAL_SWAP_DELAY;
+    }
+
+    private static boolean localHandNeedsSwap() {
+        return LOCAL_CARD_RANKS[0] < LOCAL_CARD_RANKS[1];
     }
 
     private ActionEvent currentAction(float time) {
@@ -1563,13 +1560,44 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         shapes.rect(x + 13f, y + 5f, width - 26f, 4f);
     }
 
-    private void drawHudActionContent(Texture icon, String text, float x, float y,
+    private void drawHudActionContent(String text, float x, float y,
             float width, float height, Color color, float alpha) {
-        float iconSize = 36f;
-        batch.setColor(1f, 1f, 1f, alpha);
-        batch.draw(icon, x + 14f, y + (height - iconSize) / 2f, iconSize, iconSize);
         drawCentered(uiFont, text, x + width / 2f + 17f,
                 y + 50f, color, alpha);
+    }
+
+    private void drawHudActionIcon(int action, float centerX, float centerY,
+            Color color, float alpha) {
+        shapes.setColor(color.r, color.g, color.b, alpha);
+        switch (action) {
+            case ACTION_FOLD -> {
+                shapes.rectLine(centerX - 11f, centerY - 11f,
+                        centerX + 11f, centerY + 11f, 5f);
+                shapes.rectLine(centerX - 11f, centerY + 11f,
+                        centerX + 11f, centerY - 11f, 5f);
+            }
+            case ACTION_CHECK -> {
+                shapes.rectLine(centerX - 13f, centerY,
+                        centerX - 4f, centerY - 9f, 5f);
+                shapes.rectLine(centerX - 4f, centerY - 9f,
+                        centerX + 15f, centerY + 12f, 5f);
+            }
+            case ACTION_BET -> {
+                for (int i = 0; i < 3; i++) {
+                    roundedRect(centerX - 14f, centerY - 13f + i * 10f,
+                            28f, 8f, 4f);
+                }
+            }
+            case ACTION_ALLIN -> {
+                roundedRect(centerX - 15f, centerY - 14f, 13f, 8f, 4f);
+                roundedRect(centerX + 2f, centerY - 14f, 13f, 8f, 4f);
+                shapes.rect(centerX - 2.5f, centerY - 3f, 5f, 16f);
+                shapes.triangle(centerX - 10f, centerY + 9f,
+                        centerX + 10f, centerY + 9f, centerX, centerY + 20f);
+            }
+            default -> {
+            }
+        }
     }
 
     private void drawLocalHud(float width, float height) {
@@ -1608,6 +1636,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
         boolean allInHover = pointer.x >= allInX && pointer.x <= allInX + allInWidth
                 && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
+        float contentAlpha = localTurn ? 1f : 0.74f;
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -1641,6 +1670,15 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 Color.LIGHT_GRAY, betHover, false, localTurn);
         drawHudActionSurface(allInX, actionY, allInWidth, actionHeight,
                 ORANGE, allInHover, false, localTurn);
+        float iconY = actionY + actionHeight / 2f;
+        drawHudActionIcon(ACTION_FOLD, foldX + 30f, iconY,
+                Color.WHITE, contentAlpha);
+        drawHudActionIcon(ACTION_CHECK, checkX + 30f, iconY,
+                CYAN, contentAlpha);
+        drawHudActionIcon(ACTION_BET, betX + 30f, iconY,
+                Color.WHITE, contentAlpha);
+        drawHudActionIcon(ACTION_ALLIN, allInX + 30f, iconY,
+                ORANGE, contentAlpha);
         shapes.end();
 
         batch.begin();
@@ -1653,14 +1691,13 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         drawCentered(smallFont, "STACK  " + local.stackText, hudX + infoWidth / 2f,
                 hudY + 48f, STACK_GREEN, 1f);
 
-        float contentAlpha = localTurn ? 1f : 0.74f;
-        drawHudActionContent(actionFoldIcon, HUD_ACTIONS[0], foldX, actionY,
+        drawHudActionContent(HUD_ACTIONS[0], foldX, actionY,
                 foldWidth, actionHeight, Color.WHITE, contentAlpha);
-        drawHudActionContent(actionCheckIcon, HUD_ACTIONS[1], checkX, actionY,
+        drawHudActionContent(HUD_ACTIONS[1], checkX, actionY,
                 checkWidth, actionHeight, CYAN, contentAlpha);
-        drawHudActionContent(actionBetIcon, HUD_ACTIONS[2], betX, actionY,
+        drawHudActionContent(HUD_ACTIONS[2], betX, actionY,
                 betWidth, actionHeight, Color.WHITE, contentAlpha);
-        drawHudActionContent(actionAllInIcon, HUD_ACTIONS[3], allInX, actionY,
+        drawHudActionContent(HUD_ACTIONS[3], allInX, actionY,
                 allInWidth, actionHeight, ORANGE, contentAlpha);
         batch.setColor(Color.WHITE);
         drawCentered(smallFont, "APUESTA", spinnerX + spinnerWidth / 2f,
@@ -1740,10 +1777,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         smallBlindChip.dispose();
         bigBlindChip.dispose();
         cardBack.dispose();
-        actionFoldIcon.dispose();
-        actionCheckIcon.dispose();
-        actionBetIcon.dispose();
-        actionAllInIcon.dispose();
         for (Texture flyingChip : flyingChips) {
             flyingChip.dispose();
         }

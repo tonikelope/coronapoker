@@ -74,12 +74,14 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float[] COMMUNITY_REVEAL = {16.0f, 16.2f, 16.4f, 21.5f, 28.0f};
     private static final float CARD_CORNER_RADIUS = 0.075f;
     private static final float CARD_EDGE_SOFTNESS = 0.006f;
+    private static final float PLAYER_POD_WIDTH = 172f;
+    private static final float PLAYER_POD_HEIGHT = 62f;
     private static final int ACTION_CHECK = 0;
     private static final int ACTION_BET = 1;
     private static final int ACTION_CALL = 2;
     private static final int ACTION_FOLD = 3;
     private static final int ACTION_ALLIN = 4;
-    private static final String[] HUD_ACTIONS = {"NO IR", "IR (+300)", "APOSTAR", "ALL IN"};
+    private static final String[] HUD_ACTIONS = {"NO IR", "IR +300", "APOSTAR", "ALL-IN"};
     private static final int[] LOCAL_CARD_RANKS = {11, 12};
     private static final int[] SHOWDOWN_SEATS = {6, 2};
     private static final float[][] SEAT_ANCHORS = {
@@ -315,7 +317,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         playerNameFont = font(generator, 44, 3.2f);
         playerNameFont.getData().setScale(0.5f);
         stackFont = font(generator, 24, 2.0f);
-        actionFont = font(generator, 25, 1.2f);
+        actionFont = font(generator, 22, 1.0f);
         generator.dispose();
 
         initialiseStars();
@@ -630,28 +632,24 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         for (int i = 0; i < seats.length; i++) {
             seats[i].x = SEAT_ANCHORS[i][0] * width;
             seats[i].y = SEAT_ANCHORS[i][1] * height;
-            float readableX = MathUtils.clamp(seats[i].x, 96f, width - 96f);
             if (i == 0) {
                 seats[i].stackX = seats[i].x + 67f;
                 seats[i].stackY = seats[i].y - 39f;
                 seats[i].stackTextX = seats[i].stackX;
                 seats[i].stackTextY = seats[i].stackY;
-            } else if (seats[i].y > height * 0.82f || seats[i].y < height * 0.22f) {
-                // Top/bottom seats use their free lateral bay. Cards own the
-                // inward lane and the name owns the vertical avatar lane.
-                float side = seats[i].x > tableCenterX ? 1f : -1f;
-                seats[i].stackX = seats[i].x + side * 70f;
-                seats[i].stackY = seats[i].y + 8f;
-                seats[i].stackTextX = seats[i].stackX + side * 70f;
-                seats[i].stackTextY = seats[i].stackY + 7f;
             } else {
-                // Side seats keep the stack above and toward the screen edge,
-                // clear of both the cards and the nickname plate.
-                float side = seats[i].x < tableCenterX ? -1f : 1f;
-                seats[i].stackX = readableX + side * 55f;
-                seats[i].stackY = seats[i].y + 56f;
-                seats[i].stackTextX = seats[i].stackX - side * 70f;
-                seats[i].stackTextY = seats[i].stackY + 7f;
+                // Every rival uses the same PlayerPod. Edge clamping mirrors
+                // the whole component without changing its internal layout.
+                float podCenterX = MathUtils.clamp(seats[i].x,
+                        PLAYER_POD_WIDTH / 2f + 8f,
+                        width - PLAYER_POD_WIDTH / 2f - 8f);
+                seats[i].podX = podCenterX - PLAYER_POD_WIDTH / 2f;
+                seats[i].podY = MathUtils.clamp(seats[i].y - 104f, 8f,
+                        height - PLAYER_POD_HEIGHT - 8f);
+                seats[i].stackX = seats[i].podX + 35f;
+                seats[i].stackY = seats[i].podY + 17f;
+                seats[i].stackTextX = seats[i].podX + 116f;
+                seats[i].stackTextY = seats[i].podY + 21f;
             }
             float towardX = tableCenterX - seats[i].x;
             float towardY = tableCenterY - seats[i].y;
@@ -682,39 +680,17 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             boolean folded = isFolded(seat.index, handTime());
             seat.updateStack(handTime());
             if (seat.index != 0) {
-                float nameX = MathUtils.clamp(seat.x, 96f,
-                        viewport.getWorldWidth() - 96f);
-                float nameY = playerNameY(seat);
-                glyph.setText(playerNameFont, seat.name);
-                float plateWidth = Math.max(112f, glyph.width + 28f);
-                float plateHeight = 34f;
-                float plateX = MathUtils.clamp(nameX - plateWidth / 2f, 8f,
-                        viewport.getWorldWidth() - plateWidth - 8f);
-                float plateY = nameY - 27f;
+                // One component owns name, chips and amount for every rival.
                 Color rim = folded ? BUTTON_LINE : (active ? CYAN : SEAT_RIM);
                 shapes.setColor(rim.r, rim.g, rim.b, folded ? 0.55f : 0.88f);
-                roundedRect(plateX - 2f, plateY - 2f,
-                        plateWidth + 4f, plateHeight + 4f, 12f);
+                roundedRect(seat.podX - 2f, seat.podY - 2f,
+                        PLAYER_POD_WIDTH + 4f, PLAYER_POD_HEIGHT + 4f, 14f);
                 shapes.setColor(0.015f, 0.028f, 0.05f, folded ? 0.72f : 0.92f);
-                roundedRect(plateX, plateY, plateWidth, plateHeight, 10f);
-
-                glyph.setText(stackFont, seat.stackText);
-                float stackPlateWidth = Math.max(82f, glyph.width + 22f);
-                float stackPlateHeight = 32f;
-                float stackPlateX = MathUtils.clamp(
-                        seat.stackTextX - stackPlateWidth / 2f, 8f,
-                        viewport.getWorldWidth() - stackPlateWidth - 8f);
-                float stackPlateY = MathUtils.clamp(
-                        seat.stackTextY - 25f, 8f,
-                        viewport.getWorldHeight() - stackPlateHeight - 8f);
-                Color stackRim = folded ? BUTTON_LINE : STACK_GREEN;
-                shapes.setColor(stackRim.r, stackRim.g, stackRim.b,
-                        folded ? 0.42f : 0.68f);
-                roundedRect(stackPlateX - 1.5f, stackPlateY - 1.5f,
-                        stackPlateWidth + 3f, stackPlateHeight + 3f, 10f);
-                shapes.setColor(0.012f, 0.025f, 0.043f, 0.90f);
-                roundedRect(stackPlateX, stackPlateY,
-                        stackPlateWidth, stackPlateHeight, 9f);
+                roundedRect(seat.podX, seat.podY,
+                        PLAYER_POD_WIDTH, PLAYER_POD_HEIGHT, 12f);
+                shapes.setColor(rim.r, rim.g, rim.b, folded ? 0.24f : 0.42f);
+                shapes.rect(seat.podX + 12f, seat.podY + 31f,
+                        PLAYER_POD_WIDTH - 24f, 2f);
             }
             if (active) {
                 Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
@@ -750,12 +726,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         shapes.end();
 
         batch.begin();
-        float readableLeft = 96f;
-        float readableRight = viewport.getWorldWidth() - 96f;
         for (Seat seat : seats) {
             Texture avatar = seat.index == 0 ? avatarDefault : avatarBot;
             boolean folded = isFolded(seat.index, handTime());
-            float readableX = MathUtils.clamp(seat.x, readableLeft, readableRight);
             batch.setColor(folded ? FOLDED_AVATAR : Color.WHITE);
             batch.draw(avatar, seat.x - 29f, seat.y - 29f, 58f, 58f);
             batch.setColor(Color.WHITE);
@@ -795,18 +768,13 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             drawCentered(smallFont, Integer.toString(seat.index + 1),
                     seat.x + 29f, seat.y + 30f, CYAN, 1f);
             if (seat.index != 0) {
-                // Nickname is the final seat layer: neither cards nor stack can
-                // erase it after its high-contrast plate has been painted.
-                drawCentered(playerNameFont, seat.name, readableX, playerNameY(seat),
+                drawFittedCentered(playerNameFont, seat.name,
+                        seat.podX + PLAYER_POD_WIDTH / 2f, seat.podY + 52f,
+                        PLAYER_POD_WIDTH - 24f,
                         folded ? Color.GRAY : Color.WHITE, 1f);
             }
         }
         batch.end();
-    }
-
-    private float playerNameY(Seat seat) {
-        return seat.y > viewport.getWorldHeight() * 0.82f
-                ? seat.y + 50f : seat.y - 48f;
     }
 
     private void drawHoleCards() {
@@ -834,58 +802,16 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             towardY /= length;
             float sideX = -towardY;
             float sideY = towardX;
-            float hiddenCenterX = seat.x + towardX * 100f;
-            float hiddenCenterY = seat.y + towardY * 100f;
+            float hiddenDistance = seat.index == 0 ? 100f : 78f;
+            float shownDistance = seat.index == 0 ? 110f : 185f;
+            float hiddenCenterX = seat.x + towardX * hiddenDistance;
+            float hiddenCenterY = seat.y + towardY * hiddenDistance;
             float hiddenFanX = sideX;
             float hiddenFanY = sideY;
-            float shownCenterX = seat.x + towardX * (seat.index == 0 ? 110f : 125f);
-            float shownCenterY = seat.y + towardY * (seat.index == 0 ? 110f : 125f);
+            float shownCenterX = seat.x + towardX * shownDistance;
+            float shownCenterY = seat.y + towardY * shownDistance;
             float shownFanX = sideX;
             float shownFanY = sideY;
-            if (seat.index != 0) {
-                float worldHeight = viewport.getWorldHeight();
-                if (seat.y > worldHeight * 0.82f) {
-                    // Hidden cards sit directly beneath the upper avatar.
-                    hiddenCenterX = seat.x;
-                    hiddenCenterY = seat.y - 45f;
-                    hiddenFanX = 1f;
-                    hiddenFanY = 0f;
-                } else if (seat.y < worldHeight * 0.22f) {
-                    hiddenCenterX = seat.x;
-                    hiddenCenterY = seat.y + 45f;
-                    hiddenFanX = 1f;
-                    hiddenFanY = 0f;
-                } else {
-                    hiddenCenterX = seat.x + (seat.x < tableCenterX ? 45f : -45f);
-                    hiddenCenterY = seat.y;
-                    hiddenFanX = 0f;
-                    hiddenFanY = 1f;
-                }
-
-                if (seat.index == 5) {
-                    // Dock the top-centre hand in the free bay between ORION
-                    // and PIXEL only when ORION actually reveals its cards.
-                    shownCenterX = seat.x + 205f;
-                    shownCenterY = seat.y - 45f;
-                    shownFanX = 1f;
-                    shownFanY = 0f;
-                } else if (seat.y > worldHeight * 0.82f) {
-                    shownCenterX = seat.x + towardX * 125f;
-                    shownCenterY = seat.y - 135f;
-                    shownFanX = 1f;
-                    shownFanY = 0f;
-                } else if (seat.y < worldHeight * 0.22f) {
-                    shownCenterX = seat.x + towardX * 125f;
-                    shownCenterY = seat.y + 125f;
-                    shownFanX = 1f;
-                    shownFanY = 0f;
-                } else {
-                    shownCenterX = seat.x + (seat.x < tableCenterX ? 125f : -125f);
-                    shownCenterY = seat.y + towardY * 75f;
-                    shownFanX = 0f;
-                    shownFanY = 1f;
-                }
-            }
             for (int cardIndex = 0; cardIndex < 2; cardIndex++) {
                 // The small blind (left of the dealer) receives the first card.
                 // A complete clockwise round finishes before the second starts.
@@ -1572,33 +1498,40 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
     private void drawHudActionSurface(float x, float y, float width, float height,
             Color color, boolean hover, boolean selected, boolean enabled) {
-        float energy = selected ? 0.56f : hover ? 0.43f : enabled ? 0.30f : 0.20f;
-        shapes.setColor(0f, 0f, 0f, 0.52f);
-        roundedRect(x + 5f, y - 6f, width, height, 12f);
-        shapes.setColor(color.r, color.g, color.b, enabled || hover ? 0.82f : 0.58f);
-        roundedRect(x, y, width, height, 12f);
-        shapes.setColor(0.025f, 0.045f, 0.075f, 0.93f);
-        roundedRect(x + 3f, y + 5f, width - 6f, height - 9f, 9f);
-        shapes.setColor(color.r, color.g, color.b, energy);
-        roundedRect(x + 5f, y + 7f, width - 10f, height - 14f, 8f);
-        shapes.setColor(1f, 1f, 1f, hover || selected ? 0.24f : 0.10f);
-        shapes.rect(x + 15f, y + height - 11f, width - 30f, 3f);
-        shapes.setColor(color.r, color.g, color.b, enabled ? 0.95f : 0.48f);
+        float state = selected ? 0.58f : hover ? 0.46f : enabled ? 0.34f : 0.22f;
+        shapes.setColor(0f, 0f, 0f, 0.58f);
+        roundedRect(x + 5f, y - 6f, width, height, 14f);
+        shapes.setColor(color.r, color.g, color.b,
+                enabled || hover ? 0.90f : 0.62f);
+        roundedRect(x, y, width, height, 14f);
+        shapes.setColor(0.018f, 0.032f, 0.055f, 0.97f);
+        roundedRect(x + 3f, y + 4f, width - 6f, height - 8f, 11f);
+        shapes.setColor(color.r, color.g, color.b, state);
+        roundedRect(x + 6f, y + 8f, width - 12f, height - 17f, 9f);
+        shapes.setColor(1f, 1f, 1f, hover || selected ? 0.22f : 0.09f);
+        roundedRect(x + 9f, y + height - 17f, width - 18f, 8f, 4f);
+        shapes.setColor(color.r, color.g, color.b, enabled ? 1f : 0.56f);
         shapes.rect(x + 13f, y + 5f, width - 26f, 4f);
     }
 
     private void drawHudActionContent(String text, float x, float y,
             float width, float height, Color color, float alpha) {
-        float iconBayWidth = 58f;
+        float iconBayWidth = 50f;
         float textCenterX = x + iconBayWidth + (width - iconBayWidth) / 2f;
-        drawCentered(actionFont, text, textCenterX,
-                y + 50f, color, alpha);
+        drawFittedCentered(actionFont, text, textCenterX,
+                y + 50f, width - iconBayWidth - 14f, color, alpha);
     }
 
-    private void drawHudActionDivider(float x, float y, float height,
+    private void drawHudActionBadge(float x, float y, float height,
             Color color, float alpha) {
-        shapes.setColor(color.r, color.g, color.b, alpha);
-        shapes.rect(x + 56f, y + 17f, 2f, height - 34f);
+        float centerX = x + 27f;
+        float centerY = y + height / 2f;
+        shapes.setColor(0f, 0f, 0f, 0.48f * alpha);
+        shapes.circle(centerX + 2f, centerY - 2f, 22f, 32);
+        shapes.setColor(color.r, color.g, color.b, 0.82f * alpha);
+        shapes.circle(centerX, centerY, 20f, 32);
+        shapes.setColor(0.018f, 0.032f, 0.055f, 0.96f * alpha);
+        shapes.circle(centerX, centerY, 15f, 32);
     }
 
     private void drawHudActionIcon(int action, float centerX, float centerY,
@@ -1702,22 +1635,22 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         shapes.rect(spinnerX + spinnerWidth - 43f, actionY + 9f, 2f, actionHeight - 18f);
 
         drawHudActionSurface(betX, actionY, betWidth, actionHeight,
-                Color.LIGHT_GRAY, betHover, false, localTurn);
+                POT_GOLD, betHover, false, localTurn);
         drawHudActionSurface(allInX, actionY, allInWidth, actionHeight,
                 ORANGE, allInHover, false, localTurn);
-        drawHudActionDivider(foldX, actionY, actionHeight, FOLD_RED, 0.52f);
-        drawHudActionDivider(checkX, actionY, actionHeight, CYAN, 0.52f);
-        drawHudActionDivider(betX, actionY, actionHeight, Color.LIGHT_GRAY, 0.42f);
-        drawHudActionDivider(allInX, actionY, actionHeight, ORANGE, 0.52f);
+        drawHudActionBadge(foldX, actionY, actionHeight, FOLD_RED, contentAlpha);
+        drawHudActionBadge(checkX, actionY, actionHeight, CYAN, contentAlpha);
+        drawHudActionBadge(betX, actionY, actionHeight, POT_GOLD, contentAlpha);
+        drawHudActionBadge(allInX, actionY, actionHeight, ORANGE, contentAlpha);
         float iconY = actionY + actionHeight / 2f;
-        drawHudActionIcon(ACTION_FOLD, foldX + 30f, iconY,
+        drawHudActionIcon(ACTION_FOLD, foldX + 27f, iconY,
                 Color.WHITE, contentAlpha);
-        drawHudActionIcon(ACTION_CHECK, checkX + 30f, iconY,
-                CYAN, contentAlpha);
-        drawHudActionIcon(ACTION_BET, betX + 30f, iconY,
+        drawHudActionIcon(ACTION_CHECK, checkX + 27f, iconY,
                 Color.WHITE, contentAlpha);
-        drawHudActionIcon(ACTION_ALLIN, allInX + 30f, iconY,
-                ORANGE, contentAlpha);
+        drawHudActionIcon(ACTION_BET, betX + 27f, iconY,
+                Color.WHITE, contentAlpha);
+        drawHudActionIcon(ACTION_ALLIN, allInX + 27f, iconY,
+                Color.WHITE, contentAlpha);
         shapes.end();
 
         batch.begin();
@@ -1735,7 +1668,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         drawHudActionContent(HUD_ACTIONS[1], checkX, actionY,
                 checkWidth, actionHeight, CYAN, contentAlpha);
         drawHudActionContent(HUD_ACTIONS[2], betX, actionY,
-                betWidth, actionHeight, Color.WHITE, contentAlpha);
+                betWidth, actionHeight, POT_GOLD, contentAlpha);
         drawHudActionContent(HUD_ACTIONS[3], allInX, actionY,
                 allInWidth, actionHeight, ORANGE, contentAlpha);
         batch.setColor(Color.WHITE);
@@ -1774,6 +1707,20 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         glyph.setText(font, text);
         font.draw(batch, text, centerX - glyph.width / 2f, baselineY);
         font.setColor(Color.WHITE);
+    }
+
+    private void drawFittedCentered(BitmapFont font, String text, float centerX,
+            float baselineY, float maxWidth, Color color, float alpha) {
+        BitmapFont.BitmapFontData data = font.getData();
+        float originalScaleX = data.scaleX;
+        float originalScaleY = data.scaleY;
+        glyph.setText(font, text);
+        if (glyph.width > maxWidth) {
+            float fit = maxWidth / glyph.width;
+            data.setScale(originalScaleX * fit, originalScaleY * fit);
+        }
+        drawCentered(font, text, centerX, baselineY, color, alpha);
+        data.setScale(originalScaleX, originalScaleY);
     }
 
     private void recordFrame(float delta) {
@@ -1875,6 +1822,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float stackY;
         float stackTextX;
         float stackTextY;
+        float podX;
+        float podY;
         float positionX;
         float positionY;
 

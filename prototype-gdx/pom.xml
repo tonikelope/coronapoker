@@ -82,6 +82,12 @@
                     <include>fonts/McLaren-Regular.ttf</include>
                     <include>images/corona_poker_16.png</include>
                     <include>images/corona_poker_splash.png</include>
+                    <include>images/tapete_verde.jpg</include>
+                    <include>images/avatar_default.png</include>
+                    <include>images/avatar_bot.png</include>
+                    <include>images/dealer.png</include>
+                    <include>images/sb.png</include>
+                    <include>images/bb.png</include>
                     <include>images/pot.png</include>
                     <include>images/decks/goliat/trasera.jpg</include>
                     <include>images/decks/goliat/A_P.jpg</include>
@@ -89,6 +95,11 @@
                     <include>images/decks/goliat/Q_C.jpg</include>
                     <include>images/decks/goliat/J_T.jpg</include>
                     <include>images/decks/goliat/10_P.jpg</include>
+                    <include>images/decks/goliat/gif/shuffle.gif</include>
+                    <include>images/gif_actions/check.gif</include>
+                    <include>images/gif_actions/bet1.gif</include>
+                    <include>images/gif_actions/call1.gif</include>
+                    <include>images/gif_actions/fold1.gif</include>
                 </includes>
             </resource>
         </resources>

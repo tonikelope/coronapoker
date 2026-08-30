@@ -36,7 +36,8 @@ java -jar prototype-gdx\target\CoronaPoker-GDX-Prototype.jar
 
 - `Escape`: salir.
 - `F11` o `Alt+Enter`: alternar pantalla completa.
-- `R`: repetir la introducción.
+- `R`: reiniciar la mano simulada.
+- `I`: repetir la introducción.
 - `Espacio`: saltar la intro o lanzar un efecto.
 - Clic: lanzar un efecto en la mesa.
 
@@ -52,3 +53,9 @@ El destape reproduce en GPU el giro de perspectiva de CoronaPoker: rotación
 lineal de 180 grados en 620 ms, silueta trapezoidal y cambio de reverso a cara
 al cruzar los 90 grados. Las apuestas vuelan como fichas individuales; los
 montones se reservan para representar el bote y permanecen estables.
+
+Después de la introducción se reproduce en bucle una mano visual de 30 segundos:
+barajado Goliat, reparto de dos cartas tapadas a nueve asientos con avatares,
+dealer/ciegas, acciones con los GIF originales de `check`, `bet`, `call` y
+`fold`, stacks y bote actualizados, y destapes independientes de flop, turn y
+river. El fondo reutiliza `tapete_verde.jpg`, teselado como en CoronaPoker.

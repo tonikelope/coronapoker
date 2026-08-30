@@ -57,7 +57,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float POSITION_CHIP_START = SHUFFLE_END + 0.04f;
     private static final float POSITION_CHIP_STAGGER = 0.03f;
     private static final float POSITION_CHIP_SECONDS = 0.40f;
-    private static final float POSITION_CHIP_SIZE = 52f;
+    private static final float POSITION_CHIP_SIZE = 64f;
+    private static final float AVATAR_SIZE = 72f;
+    private static final float AVATAR_ACTIVE_RADIUS = 61f;
+    private static final float AVATAR_OUTER_RADIUS = 52f;
+    private static final float AVATAR_RIM_RADIUS = 45f;
+    private static final float AVATAR_INNER_RADIUS = 40f;
     private static final int SHUFFLE_AUDIO_STOP_FRAME = 53;
     private static final float CHIP_FLIGHT_DELAY = 0.12f;
     private static final float CHIP_FLIGHT_SECONDS = 0.92f;
@@ -678,12 +683,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             float towardY = tableCenterY - seats[i].y;
             float towardLength = Math.max(1f,
                     (float) Math.sqrt(towardX * towardX + towardY * towardY));
-            seats[i].positionX = seats[i].x + towardX / towardLength * 62f;
-            seats[i].positionY = seats[i].y + towardY / towardLength * 62f;
+            seats[i].positionX = seats[i].x + towardX / towardLength * 80f;
+            seats[i].positionY = seats[i].y + towardY / towardLength * 80f;
             if (i == 0) {
                 // The large local hand occupies the inward axis; keep its dealer
                 // badge beside the avatar instead of underneath the cards.
-                seats[i].positionX = seats[i].x - 66f;
+                seats[i].positionX = seats[i].x - 82f;
                 seats[i].positionY = seats[i].y + 8f;
             }
         }
@@ -719,15 +724,15 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
                 shapes.setColor(CYAN.r, CYAN.g, CYAN.b,
                         0.18f + 0.12f * MathUtils.sin(totalTime * 4f));
-                shapes.circle(seat.x, seat.y, 50f, 48);
+                shapes.circle(seat.x, seat.y, AVATAR_ACTIVE_RADIUS, 48);
                 Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
             }
             shapes.setColor(PANEL);
-            shapes.circle(seat.x, seat.y, 42f, 48);
+            shapes.circle(seat.x, seat.y, AVATAR_OUTER_RADIUS, 48);
             shapes.setColor(folded ? BUTTON_LINE : (active ? CYAN : SEAT_RIM));
-            shapes.circle(seat.x, seat.y, 36f, 48);
+            shapes.circle(seat.x, seat.y, AVATAR_RIM_RADIUS, 48);
             shapes.setColor(SEAT_INNER);
-            shapes.circle(seat.x, seat.y, 32f, 48);
+            shapes.circle(seat.x, seat.y, AVATAR_INNER_RADIUS, 48);
         }
         shapes.end();
 
@@ -736,7 +741,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             Texture avatar = seat.index == 0 ? avatarDefault : avatarBot;
             boolean folded = isFolded(seat.index, handTime());
             batch.setColor(folded ? FOLDED_AVATAR : Color.WHITE);
-            batch.draw(avatar, seat.x - 29f, seat.y - 29f, 58f, 58f);
+            batch.draw(avatar, seat.x - AVATAR_SIZE / 2f,
+                    seat.y - AVATAR_SIZE / 2f, AVATAR_SIZE, AVATAR_SIZE);
             batch.setColor(Color.WHITE);
             Texture position = seat.index == 0 ? dealerChip
                     : seat.index == 1 ? smallBlindChip
@@ -901,10 +907,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 } else {
                     useRoundedCardShader();
                 }
-                batch.setColor(0f, 0f, 0f, 0.35f * eased);
-                batch.draw(cardBack, x - renderW / 2f + 5f, y - renderH / 2f - 7f,
-                        renderW / 2f, renderH / 2f, renderW, renderH, scale, scale, rotation,
-                        0, 0, cardBack.getWidth(), cardBack.getHeight(), false, false);
                 batch.setColor(1f, 1f, 1f, eased);
                 batch.draw(cardBack, x - renderW / 2f, y - renderH / 2f,
                         renderW / 2f, renderH / 2f, renderW, renderH, scale, scale, rotation,
@@ -951,11 +953,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             } else {
                 useRoundedCardShader();
             }
-            batch.setColor(0f, 0f, 0f, 0.35f * dealEase);
-            batch.draw(cardBack, x - renderW / 2f + 7f, y - renderH / 2f - 8f,
-                    renderW / 2f, renderH / 2f, renderW, renderH,
-                    1f, 1f, rotation, 0, 0,
-                    cardBack.getWidth(), cardBack.getHeight(), false, false);
             batch.setColor(Color.WHITE);
             batch.draw(cardBack, x - renderW / 2f, y - renderH / 2f,
                     renderW / 2f, renderH / 2f, renderW, renderH,

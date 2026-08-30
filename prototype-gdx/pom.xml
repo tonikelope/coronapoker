@@ -86,6 +86,7 @@
                     <include>images/avatar_default.png</include>
                     <include>images/avatar_bot.png</include>
                     <include>images/dealer.png</include>
+                    <include>images/dealer_straddle.png</include>
                     <include>images/sb.png</include>
                     <include>images/bb.png</include>
                     <include>images/pot.png</include>

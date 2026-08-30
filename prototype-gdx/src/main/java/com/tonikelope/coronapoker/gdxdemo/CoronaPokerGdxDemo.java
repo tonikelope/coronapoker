@@ -52,7 +52,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float LOCAL_CARD_FAN_ANGLE = 8.5f;
     private static final float LOCAL_SWAP_DELAY = 0.14f;
     private static final float LOCAL_SWAP_SECONDS = 0.68f;
-    private static final float HAND_SECONDS = 45.8f;
+    private static final float HAND_SECONDS = 48.8f;
     private static final float SHUFFLE_END = 1.72f;
     private static final float POSITION_CHIP_START = SHUFFLE_END + 0.04f;
     private static final float POSITION_CHIP_STAGGER = 0.03f;
@@ -76,8 +76,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float BOARD_DEAL_END = BOARD_DEAL_START
             + 4f * BOARD_CARD_GAP + DEAL_CARD_SECONDS;
     private static final float ACTION_CINEMATIC_SECONDS = 1.25f;
-    private static final float SHOWDOWN_START = 38.4f;
-    private static final float WINNER_START = 40.4f;
+    private static final float SHOWDOWN_START = 41.2f;
+    private static final float WINNER_START = 43.2f;
     private static final float[] COMMUNITY_REVEAL = {22.0f, 22.2f, 22.4f, 27.2f, 33.5f};
     private static final float CARD_CORNER_RADIUS = 0.075f;
     private static final float CARD_EDGE_SOFTNESS = 0.006f;
@@ -115,7 +115,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         new ActionEvent(30.4f, 6, ACTION_BET, "APUESTA 900", 900, 4, 0),
         new ActionEvent(31.8f, 8, ACTION_CALL, "CALL 900", 900, 4, 2),
         new ActionEvent(35.2f, 2, ACTION_ALLIN, "ALL IN 1.200", 1200, 8, 3),
-        new ActionEvent(36.8f, 8, ACTION_FOLD, "FOLD", 0, 0, 0)
+        // rounders.gif lasts 3.42 s. Keep the next action outside that window
+        // so the ALL-IN cinematic is always shown once, from first to last frame.
+        new ActionEvent(39.1f, 8, ACTION_FOLD, "FOLD", 0, 0, 0)
     };
 
     private static final String CARD_VERTEX_SHADER = "attribute vec4 a_position;\n"
@@ -245,7 +247,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private float potCenterX;
     private float potCenterY;
     private int lastPotValue = -1;
-    private String potText = "BOTE 150";
+    private String potText = "150";
+    private String potBreakdownText = "CIEGAS 150";
 
     private float totalTime;
     private float sceneTime;
@@ -622,7 +625,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         // The pot owns the central axis, clearly above the upper edge of the
         // community row. It is never painted on top of a card.
         potCenterX = tableCx;
-        potCenterY = tableCy + boardCardH * 0.64f + 110f;
+        potCenterY = tableCy + boardCardH * 0.64f + 145f;
 
         updateSeatPositions(width, height);
         drawTableBranding(height);
@@ -965,15 +968,41 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float pulse = 1f + MathUtils.sin(totalTime * 3.3f) * 0.035f;
         float potW = 108f * pulse;
         float potH = potW * pot.getHeight() / pot.getWidth();
-        batch.setColor(1f, 1f, 1f, 1f - payoutFade);
-        batch.draw(pot, potCenterX - potW / 2f, potCenterY - potH / 2f, potW, potH);
         int currentPot = potAt(handTime());
         if (currentPot != lastPotValue) {
             lastPotValue = currentPot;
-            potText = String.format("BOTE %,d", currentPot);
+            potText = String.format("%,d", currentPot);
+            potBreakdownText = currentPot == 150
+                    ? "CIEGAS 150"
+                    : String.format("CIEGAS 150  +  APUESTAS %,d", currentPot - 150);
         }
-        drawCentered(uiFont, potText, potCenterX, potCenterY - potH / 2f - 12f,
-                POT_GOLD, 1f - payoutFade);
+        batch.setColor(Color.WHITE);
+        batch.end();
+
+        float alpha = 1f - payoutFade;
+        float panelWidth = 342f;
+        float panelHeight = 72f;
+        float panelX = potCenterX - panelWidth / 2f;
+        float panelY = potCenterY - potH / 2f - panelHeight - 14f;
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b, 0.78f * alpha);
+        roundedRect(panelX - 2f, panelY - 2f,
+                panelWidth + 4f, panelHeight + 4f, 13f);
+        shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.94f * alpha);
+        roundedRect(panelX, panelY, panelWidth, panelHeight, 11f);
+        shapes.end();
+
+        batch.begin();
+        batch.setColor(1f, 1f, 1f, alpha);
+        batch.draw(pot, potCenterX - potW / 2f, potCenterY - potH / 2f, potW, potH);
+        drawCentered(actionFont, "BOTE TOTAL", potCenterX, panelY + 59f,
+                POT_GOLD, alpha);
+        drawCentered(uiFont, potText, potCenterX, panelY + 38f,
+                Color.WHITE, alpha);
+        drawFittedCentered(smallFont, potBreakdownText, potCenterX,
+                panelY + 16f, panelWidth - 22f, STACK_GREEN, alpha);
         batch.setColor(Color.WHITE);
         batch.end();
     }
@@ -1240,7 +1269,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             return;
         }
         if (action.kind == ACTION_ALLIN) {
-            drawAllInCinematic(time - action.time, worldWidth, worldHeight);
+            drawAllInCinematic(action, time - action.time, worldWidth, worldHeight);
             return;
         }
         Seat seat = seats[action.seat];
@@ -1281,7 +1310,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         batch.end();
     }
 
-    private void drawAllInCinematic(float elapsed, float worldWidth, float worldHeight) {
+    private void drawAllInCinematic(ActionEvent action, float elapsed,
+            float worldWidth, float worldHeight) {
         // Exact GifAnimationDialog geometry used by CoronaPoker: landscape clips
         // occupy 50% of the parent height, capped to 80% of its width.
         float height = worldHeight * 0.5f;
@@ -1293,14 +1323,23 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         }
         float x = worldWidth / 2f - width / 2f;
         float y = worldHeight / 2f - height / 2f;
+        float labelWidth = Math.min(width, 520f);
+        float labelX = worldWidth / 2f - labelWidth / 2f;
+        float labelY = y - 66f;
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         shapes.setColor(0f, 0f, 0f, 0.34f);
         shapes.rect(0f, 0f, worldWidth, worldHeight);
+        shapes.setColor(ORANGE.r, ORANGE.g, ORANGE.b, 0.92f);
+        roundedRect(labelX - 2f, labelY - 2f, labelWidth + 4f, 58f, 12f);
+        shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.96f);
+        roundedRect(labelX, labelY, labelWidth, 54f, 10f);
         shapes.end();
         batch.begin();
         batch.setColor(Color.WHITE);
         batch.draw(allInGif.frameAt(elapsed, false), x, y, width, height);
+        drawCentered(uiFont, seats[action.seat].name + "  //  " + action.label,
+                worldWidth / 2f, labelY + 37f, ORANGE, 1f);
         batch.end();
     }
 

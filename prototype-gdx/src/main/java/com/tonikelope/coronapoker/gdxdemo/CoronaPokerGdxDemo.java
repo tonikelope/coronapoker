@@ -774,7 +774,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             if (seat.index != 0 && isFolded(seat.index, time)) {
                 continue;
             }
-            float seatCardW = seat.index == 0 ? 224f : cardW;
+            float seatCardW = seat.index == 0 ? 200f : cardW;
             float seatCardH = seatCardW * cardBack.getHeight() / cardBack.getWidth();
             float towardX = tableCenterX - seat.x;
             float towardY = tableCenterY - seat.y;
@@ -866,7 +866,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 // Rivals keep a tight pair tucked under their avatar. The pair
                 // only travels out and opens when the player reveals it.
                 float normalSideDistance = seat.index == 0 ? 54f : 18f;
-                float revealedSideDistance = seat.index == 0 ? 82f : 72f;
+                float revealedSideDistance = seat.index == 0 ? 90f : 72f;
                 float sideDistance = MathUtils.lerp(
                         normalSideDistance, revealedSideDistance, revealMotion);
                 float side = cardIndex == 0 ? -sideDistance : sideDistance;

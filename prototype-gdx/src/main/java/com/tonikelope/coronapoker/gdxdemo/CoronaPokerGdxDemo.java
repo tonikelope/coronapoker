@@ -661,10 +661,11 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 seats[i].stackTextY = seats[i].stackY;
             } else if (i == 5) {
                 // The tenth seat lives below the debug header. Keep its stack
-                // beside the avatar instead of pushing it through the title.
-                seats[i].stackX = seats[i].x + 70f;
+                // on the left and its hand on the right: together they form a
+                // single seat unit and leave the pot axis completely empty.
+                seats[i].stackX = seats[i].x - 70f;
                 seats[i].stackY = seats[i].y + 10f;
-                seats[i].stackTextX = seats[i].stackX + 69f;
+                seats[i].stackTextX = seats[i].stackX - 69f;
                 seats[i].stackTextY = seats[i].stackY + 7f;
             }
             float towardX = tableCenterX - seats[i].x;
@@ -809,10 +810,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             if (seat.index != 0) {
                 float worldHeight = viewport.getWorldHeight();
                 if (seat.index == 5) {
-                    // The top-centre hand occupies the free bay to the left of
-                    // its avatar, never the protected pot/community axis.
-                    handCenterX = seat.x - 165f;
-                    handCenterY = seat.y - 100f;
+                    // Dock the top-centre hand in the free bay between ORION
+                    // and PIXEL. Nothing belonging to this seat enters the pot.
+                    handCenterX = seat.x + 205f;
+                    handCenterY = seat.y - 45f;
                     fanX = 1f;
                     fanY = 0f;
                 } else if (seat.y > worldHeight * 0.82f) {
@@ -856,7 +857,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 // During showdown the pair opens slightly as it flips, so both
                 // Goliat faces remain completely readable instead of overlapping.
                 float normalSideDistance = seat.index == 0 ? 54f : 30f;
-                float revealedSideDistance = seat.index == 0 ? 62f : 72f;
+                float revealedSideDistance = seat.index == 0 ? 82f : 72f;
                 float sideDistance = MathUtils.lerp(
                         normalSideDistance, revealedSideDistance, reveal);
                 float side = cardIndex == 0 ? -sideDistance : sideDistance;

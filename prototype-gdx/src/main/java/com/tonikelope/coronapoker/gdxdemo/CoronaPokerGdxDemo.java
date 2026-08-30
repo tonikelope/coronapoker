@@ -11,6 +11,7 @@ package com.tonikelope.coronapoker.gdxdemo;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
@@ -72,9 +73,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final String[] HUD_SIZES = {"1/2", "2/3", "POT", "ALL-IN"};
     private static final int[] SHOWDOWN_SEATS = {5, 2};
     private static final float[][] SEAT_ANCHORS = {
-        {0.50f, 0.23f}, {0.22f, 0.19f}, {0.065f, 0.42f},
-        {0.065f, 0.70f}, {0.32f, 0.82f}, {0.68f, 0.82f},
-        {0.935f, 0.70f}, {0.935f, 0.42f}, {0.78f, 0.19f}
+        {0.50f, 0.205f}, {0.18f, 0.19f}, {0.045f, 0.42f},
+        {0.045f, 0.71f}, {0.30f, 0.84f}, {0.70f, 0.84f},
+        {0.955f, 0.71f}, {0.955f, 0.42f}, {0.82f, 0.19f}
     };
 
     private static final ActionEvent[] ACTIONS = {
@@ -199,6 +200,17 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private GifTextureAnimation shuffleGif;
     private GifTextureAnimation allInGif;
 
+    private Sound shuffleSound;
+    private Sound dealSound;
+    private Sound uncoverSound;
+    private Sound checkSound;
+    private Sound callSound;
+    private Sound betSound;
+    private Sound chipSound;
+    private Sound foldSound;
+    private Sound allInSound;
+    private Sound showdownSound;
+
     private float tableCenterX;
     private float tableCenterY;
     private float dealerDeckX;
@@ -212,6 +224,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private float sceneTime;
     private float statsClock;
     private float burstClock = -10f;
+    private float previousSoundTime = -1f;
     private int frameCursor;
     private int frameCount;
     private boolean intro = true;
@@ -263,8 +276,22 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             cardTexture("images/decks/goliat/K_C.jpg"),
             cardTexture("images/decks/goliat/K_T.jpg")
         };
+        showdownCards[0] = new Texture[]{
+            cardTexture("images/decks/goliat/Q_P.jpg"),
+            cardTexture("images/decks/goliat/J_P.jpg")
+        };
         shuffleGif = gif("images/decks/goliat/gif/shuffle.gif", 960);
         allInGif = gif("cinematics/allin/rounders.gif", 563);
+        shuffleSound = sound("sounds/misc/shuffle.wav");
+        dealSound = sound("sounds/misc/deal.wav");
+        uncoverSound = sound("sounds/misc/uncover.wav");
+        checkSound = sound("sounds/misc/check.wav");
+        callSound = sound("sounds/misc/call.wav");
+        betSound = sound("sounds/misc/bet.wav");
+        chipSound = sound("sounds/misc/bet_more.wav");
+        foldSound = sound("sounds/misc/fold.wav");
+        allInSound = sound("sounds/misc/allin.wav");
+        showdownSound = sound("sounds/misc/showyourcards.wav");
 
         FreeTypeFontGenerator generator = new FreeTypeFontGenerator(
                 Gdx.files.internal("fonts/McLaren-Regular.ttf"));
@@ -289,6 +316,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         Texture texture = new Texture(Gdx.files.internal(path), true);
         texture.setFilter(TextureFilter.MipMapLinearLinear, TextureFilter.Linear);
         return texture;
+    }
+
+    private static Sound sound(String path) {
+        return Gdx.audio.newSound(Gdx.files.internal(path));
     }
 
     private static GifTextureAnimation gif(String path, int maxWidth) {
@@ -502,17 +533,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float alpha = sceneTime > INTRO_SECONDS - 0.7f
                 ? MathUtils.clamp((INTRO_SECONDS - sceneTime) / 0.7f, 0f, 1f) : 1f;
 
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
-        for (int i = 8; i >= 1; i--) {
-            float radius = 80f + i * 48f + MathUtils.sin(totalTime * 2f) * 8f;
-            shapes.setColor(ORANGE.r, ORANGE.g, ORANGE.b, alpha * 0.012f * (9 - i));
-            shapes.circle(width / 2f, height / 2f + 45f, radius, 96);
-        }
-        shapes.end();
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-
         batch.begin();
         batch.setColor(1f, 1f, 1f, alpha);
         float logoWidth = Math.min(760f, width * 0.48f) * eased;
@@ -548,6 +568,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private void drawTableScene() {
+        updateHandSounds();
         float width = viewport.getWorldWidth();
         float height = viewport.getWorldHeight();
         float tableCx = width / 2f;
@@ -557,9 +578,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         tableCenterY = tableCy;
         float boardCardW = Math.min(148f, tableW / 10f);
         float boardCardH = boardCardW * cardBack.getHeight() / cardBack.getWidth();
-        float basePotH = 108f * pot.getHeight() / pot.getWidth();
+        // The pot owns the central axis, clearly above the upper edge of the
+        // community row. It is never painted on top of a card.
         potCenterX = tableCx;
-        potCenterY = tableCy + boardCardH * 0.73f + basePotH / 2f;
+        potCenterY = tableCy + boardCardH * 0.64f + 110f;
 
         updateSeatPositions(width, height);
         drawHeader(width, height);
@@ -606,11 +628,11 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             seats[i].stackY = seats[i].y - 62f;
         }
         Seat dealer = seats[0];
-        float dx = tableCenterX - dealer.x;
-        float dy = tableCenterY - dealer.y;
-        float distance = Math.max(1f, (float) Math.sqrt(dx * dx + dy * dy));
-        dealerDeckX = dealer.x + dx / distance * 92f;
-        dealerDeckY = dealer.y + dy / distance * 92f;
+        // Give the dealer's shoe its own unmistakable area. When it sat between
+        // the local avatar and its hand, the remaining deck looked like a third
+        // hole card even though the dealing loop has always stopped at two.
+        dealerDeckX = MathUtils.clamp(dealer.x + 225f, 150f, width - 150f);
+        dealerDeckY = dealer.y + 72f;
     }
 
     private void drawSeats() {
@@ -672,7 +694,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         if (time < DEAL_START) {
             return;
         }
-        float cardW = 74f;
+        float cardW = 100f;
         float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
         batch.begin();
         if (time < BOARD_DEAL_END) {
@@ -685,9 +707,11 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             }
         }
         for (Seat seat : seats) {
-            if (isFolded(seat.index, time)) {
+            if (seat.index != 0 && isFolded(seat.index, time)) {
                 continue;
             }
+            float seatCardW = seat.index == 0 ? 112f : cardW;
+            float seatCardH = seatCardW * cardBack.getHeight() / cardBack.getWidth();
             float towardX = tableCenterX - seat.x;
             float towardY = tableCenterY - seat.y;
             float length = Math.max(1f, (float) Math.sqrt(towardX * towardX + towardY * towardY));
@@ -706,9 +730,22 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                     continue;
                 }
                 float eased = Interpolation.pow2Out.apply(progress);
-                float side = cardIndex == 0 ? -28f : 28f;
-                float targetX = seat.x + towardX * 108f + sideX * side;
-                float targetY = seat.y + towardY * 108f + sideY * side;
+                Texture face = showdownCards[seat.index] == null
+                        ? null : showdownCards[seat.index][cardIndex];
+                float revealStart = showdownRevealStart(seat.index, cardIndex);
+                boolean revealing = face != null && time >= revealStart;
+                float reveal = revealing ? MathUtils.clamp(
+                        (time - revealStart) / CARD_FLIP_SECONDS, 0f, 1f) : 0f;
+                // During showdown the pair opens slightly as it flips, so both
+                // Goliat faces remain completely readable instead of overlapping.
+                float normalSideDistance = seat.index == 0 ? 58f : 50f;
+                float revealedSideDistance = seat.index == 0 ? 77f : 72f;
+                float sideDistance = MathUtils.lerp(
+                        normalSideDistance, revealedSideDistance, reveal);
+                float side = cardIndex == 0 ? -sideDistance : sideDistance;
+                float inwardDistance = seat.index == 0 ? 110f : 148f;
+                float targetX = seat.x + towardX * inwardDistance + sideX * side;
+                float targetY = seat.y + towardY * inwardDistance + sideY * side;
                 float sourceX = dealerDeckX;
                 float sourceY = dealerDeckY;
                 float controlX = (sourceX + targetX) * 0.5f + sideX * 128f;
@@ -719,16 +756,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 float rotation = MathUtils.lerp(launchRotation,
                         cardIndex == 0 ? -7f : 7f, eased);
                 float scale = 0.82f + eased * 0.18f;
-                Texture face = showdownCards[seat.index] == null
-                        ? null : showdownCards[seat.index][cardIndex];
-                float revealStart = showdownRevealStart(seat.index, cardIndex);
-                boolean revealing = face != null && time >= revealStart;
-                float reveal = revealing ? MathUtils.clamp(
-                        (time - revealStart) / CARD_FLIP_SECONDS, 0f, 1f) : 0f;
-                float renderW = revealing ? cardW * 1.5f : cardW;
-                float renderH = revealing ? cardH * 1.5f : cardH;
+                float revealScale = seat.index == 0 ? 1.35f : 1.4f;
+                float renderW = revealing ? seatCardW * revealScale : seatCardW;
+                float renderH = revealing ? seatCardH * revealScale : seatCardH;
                 if (revealing) {
-                    usePerspectiveCardShader(face, reveal * MathUtils.PI, cardH / cardW);
+                    usePerspectiveCardShader(face, reveal * MathUtils.PI,
+                            seatCardH / seatCardW);
                 } else {
                     useRoundedCardShader();
                 }
@@ -744,6 +777,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         }
         batch.setColor(Color.WHITE);
         batch.setShader(null);
+        if (time < BOARD_DEAL_END) {
+            drawCentered(smallFont, "MAZO DEL DEALER", dealerDeckX,
+                    dealerDeckY - cardH / 2f - 10f, CYAN, 0.88f);
+        }
         batch.end();
     }
 
@@ -795,18 +832,18 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         }
         batch.setShader(null);
 
-        float payoutFade = MathUtils.clamp((handTime() - WINNER_START - 0.2f) / 1.1f, 0f, 1f);
+        float payoutFade = MathUtils.clamp((handTime() - SHOWDOWN_START) / 0.38f, 0f, 1f);
         float pulse = 1f + MathUtils.sin(totalTime * 3.3f) * 0.035f;
         float potW = 108f * pulse;
         float potH = potW * pot.getHeight() / pot.getWidth();
         batch.setColor(1f, 1f, 1f, 1f - payoutFade);
-        batch.draw(pot, cx - potW / 2f, cy + cardH * 0.73f, potW, potH);
+        batch.draw(pot, potCenterX - potW / 2f, potCenterY - potH / 2f, potW, potH);
         int currentPot = potAt(handTime());
         if (currentPot != lastPotValue) {
             lastPotValue = currentPot;
             potText = String.format("BOTE %,d", currentPot);
         }
-        drawCentered(uiFont, potText, cx, cy + cardH * 0.66f,
+        drawCentered(uiFont, potText, potCenterX, potCenterY - potH / 2f - 12f,
                 POT_GOLD, 1f - payoutFade);
         batch.setColor(Color.WHITE);
         batch.end();
@@ -837,6 +874,82 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
     private float handTime() {
         return sceneTime % HAND_SECONDS;
+    }
+
+    private void updateHandSounds() {
+        float current = handTime();
+        float previous = previousSoundTime;
+        if (previous < 0f || current < previous) {
+            previous = -0.001f;
+        }
+
+        if (crossed(previous, current, 0f)) {
+            play(shuffleSound, 0.62f, 1f);
+        }
+
+        for (int turn = 0; turn < SEAT_COUNT * 2; turn++) {
+            float cue = DEAL_START + turn * DEAL_CARD_GAP;
+            if (crossed(previous, current, cue)) {
+                play(dealSound, 0.30f, 0.96f + (turn % 3) * 0.025f);
+            }
+        }
+        for (int card = 0; card < communityCards.length; card++) {
+            float cue = BOARD_DEAL_START + card * BOARD_CARD_GAP;
+            if (crossed(previous, current, cue)) {
+                play(dealSound, 0.34f, 0.94f + card * 0.018f);
+            }
+        }
+
+        for (ActionEvent action : ACTIONS) {
+            if (crossed(previous, current, action.time)) {
+                switch (action.kind) {
+                    case ACTION_CHECK -> play(checkSound, 0.58f, 1f);
+                    case ACTION_BET -> play(betSound, 0.62f, 1f);
+                    case ACTION_CALL -> play(callSound, 0.58f, 1f);
+                    case ACTION_FOLD -> play(foldSound, 0.58f, 1f);
+                    case ACTION_ALLIN -> play(allInSound, 0.74f, 1f);
+                    default -> {
+                    }
+                }
+            }
+            if (action.amount > 0
+                    && crossed(previous, current, action.time + 1.08f)) {
+                // One compact impact per bet batch. Playing it for every flying
+                // chip would turn a smooth stack movement into audio clutter.
+                play(chipSound, 0.40f, 0.98f + (action.chipColor % 3) * 0.025f);
+            }
+        }
+
+        for (float reveal : COMMUNITY_REVEAL) {
+            if (crossed(previous, current, reveal)) {
+                play(uncoverSound, 0.48f, 1f);
+            }
+        }
+        for (int seatIndex : SHOWDOWN_SEATS) {
+            for (int cardIndex = 0; cardIndex < 2; cardIndex++) {
+                if (crossed(previous, current,
+                        showdownRevealStart(seatIndex, cardIndex))) {
+                    play(uncoverSound, 0.54f, 1f + cardIndex * 0.035f);
+                }
+            }
+        }
+        for (int cardIndex = 0; cardIndex < 2; cardIndex++) {
+            if (crossed(previous, current, showdownRevealStart(0, cardIndex))) {
+                play(uncoverSound, 0.45f, 1f + cardIndex * 0.035f);
+            }
+        }
+        if (crossed(previous, current, SHOWDOWN_START)) {
+            play(showdownSound, 0.64f, 1f);
+        }
+        previousSoundTime = current;
+    }
+
+    private static boolean crossed(float previous, float current, float cue) {
+        return previous < cue && current >= cue;
+    }
+
+    private static void play(Sound sound, float volume, float pitch) {
+        sound.play(volume, pitch, 0f);
     }
 
     private String stageText(float time) {
@@ -895,6 +1008,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private static float showdownRevealStart(int seat, int cardIndex) {
+        if (seat == 0) {
+            int localDealOrder = SEAT_COUNT - 1;
+            float localDealStart = DEAL_START
+                    + (cardIndex * SEAT_COUNT + localDealOrder) * DEAL_CARD_GAP;
+            return localDealStart + DEAL_CARD_SECONDS;
+        }
         if (seat == 5) {
             return SHOWDOWN_START + 0.15f + cardIndex * 0.12f;
         }
@@ -1374,6 +1493,16 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         }
         shuffleGif.dispose();
         allInGif.dispose();
+        shuffleSound.dispose();
+        dealSound.dispose();
+        uncoverSound.dispose();
+        checkSound.dispose();
+        callSound.dispose();
+        betSound.dispose();
+        chipSound.dispose();
+        foldSound.dispose();
+        allInSound.dispose();
+        showdownSound.dispose();
     }
 
     private static final class Star {

@@ -264,7 +264,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         dealerChip = texture("images/dealer.png");
         smallBlindChip = texture("images/sb.png");
         bigBlindChip = texture("images/bb.png");
-        cardBack = cardTexture("images/decks/goliat/trasera.jpg");
+        cardBack = cardTexture("images/decks/goliat/hq/trasera.jpg");
         actionFoldIcon = texture("images/action/down.png");
         actionCheckIcon = texture("images/action/up.png");
         actionBetIcon = texture("images/action/bet.png");
@@ -277,23 +277,23 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         };
         pot = texture("images/pot.png");
         communityCards = new Texture[]{
-            cardTexture("images/decks/goliat/A_P.jpg"),
-            cardTexture("images/decks/goliat/K_D.jpg"),
-            cardTexture("images/decks/goliat/8_C.jpg"),
-            cardTexture("images/decks/goliat/4_T.jpg"),
-            cardTexture("images/decks/goliat/2_P.jpg")
+            cardTexture("images/decks/goliat/hq/A_P.jpg"),
+            cardTexture("images/decks/goliat/hq/K_D.jpg"),
+            cardTexture("images/decks/goliat/hq/8_C.jpg"),
+            cardTexture("images/decks/goliat/hq/4_T.jpg"),
+            cardTexture("images/decks/goliat/hq/2_P.jpg")
         };
         showdownCards[2] = new Texture[]{
-            cardTexture("images/decks/goliat/A_D.jpg"),
-            cardTexture("images/decks/goliat/A_C.jpg")
+            cardTexture("images/decks/goliat/hq/A_D.jpg"),
+            cardTexture("images/decks/goliat/hq/A_C.jpg")
         };
         showdownCards[6] = new Texture[]{
-            cardTexture("images/decks/goliat/K_C.jpg"),
-            cardTexture("images/decks/goliat/K_T.jpg")
+            cardTexture("images/decks/goliat/hq/K_C.jpg"),
+            cardTexture("images/decks/goliat/hq/K_T.jpg")
         };
         showdownCards[0] = new Texture[]{
-            cardTexture("images/decks/goliat/Q_P.jpg"),
-            cardTexture("images/decks/goliat/J_P.jpg")
+            cardTexture("images/decks/goliat/hq/Q_P.jpg"),
+            cardTexture("images/decks/goliat/hq/J_P.jpg")
         };
         shuffleGif = gif("images/decks/goliat/gif/shuffle.gif", 960);
         shuffleAudioStopTime = shuffleGif.frameStartSeconds(SHUFFLE_AUDIO_STOP_FRAME);
@@ -597,11 +597,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         updateSeatPositions(width, height);
         drawTableBranding(height);
         drawChipTrails(potCenterX, potCenterY);
-        // Betting chips travel below the cards, never painted on top of them.
-        drawFlyingChips(potCenterX, potCenterY);
         drawHoleCards();
         drawSeats();
         drawCardsAndPot(tableCx, tableCy, tableW);
+        // The physical chip flies above the table contents; only its light
+        // trail stays below. This preserves a believable foreground collision.
+        drawFlyingChips(potCenterX, potCenterY);
         drawHandOverlay();
         drawShowdownOverlay();
         drawLocalHud(width, height);
@@ -628,25 +629,27 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         for (int i = 0; i < seats.length; i++) {
             seats[i].x = SEAT_ANCHORS[i][0] * width;
             seats[i].y = SEAT_ANCHORS[i][1] * height;
-            // The stack owns a separate OUTWARD row: above upper seats and below
-            // lower seats. One clean chip marks the physical flight origin.
             float readableX = MathUtils.clamp(seats[i].x, 96f, width - 96f);
-            boolean upperSeat = seats[i].y > tableCenterY;
-            seats[i].stackX = readableX - 55f;
-            seats[i].stackY = seats[i].y + (upperSeat ? 56f : -80f);
-            seats[i].stackTextX = readableX + 15f;
-            seats[i].stackTextY = seats[i].stackY + 7f;
             if (i == 0) {
                 seats[i].stackX = seats[i].x + 67f;
                 seats[i].stackY = seats[i].y - 39f;
                 seats[i].stackTextX = seats[i].stackX;
                 seats[i].stackTextY = seats[i].stackY;
-            } else if (i == 5) {
-                // The central upper seat is genuinely centred at the top edge;
-                // its stack stays beside the avatar and out of the card lane.
-                seats[i].stackX = seats[i].x - 70f;
-                seats[i].stackY = seats[i].y + 10f;
-                seats[i].stackTextX = seats[i].stackX - 69f;
+            } else if (seats[i].y > height * 0.82f || seats[i].y < height * 0.22f) {
+                // Top/bottom seats use their free lateral bay. Cards own the
+                // inward lane and the name owns the vertical avatar lane.
+                float side = seats[i].x > tableCenterX ? 1f : -1f;
+                seats[i].stackX = seats[i].x + side * 70f;
+                seats[i].stackY = seats[i].y + 8f;
+                seats[i].stackTextX = seats[i].stackX + side * 70f;
+                seats[i].stackTextY = seats[i].stackY + 7f;
+            } else {
+                // Side seats keep the stack above and toward the screen edge,
+                // clear of both the cards and the nickname plate.
+                float side = seats[i].x < tableCenterX ? -1f : 1f;
+                seats[i].stackX = readableX + side * 55f;
+                seats[i].stackY = seats[i].y + 56f;
+                seats[i].stackTextX = seats[i].stackX - side * 70f;
                 seats[i].stackTextY = seats[i].stackY + 7f;
             }
             float towardX = tableCenterX - seats[i].x;
@@ -754,12 +757,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                             0, 0, position.getWidth(), position.getHeight(), false, false);
                 }
             }
-            drawCentered(smallFont, Integer.toString(seat.index + 1), seat.x + 29f, seat.y + 30f,
-                    CYAN, 1f);
-            if (seat.index != 0) {
-                drawCentered(playerNameFont, seat.name, readableX, playerNameY(seat),
-                        folded ? Color.GRAY : Color.WHITE, 1f);
-            }
             seat.updateStack(handTime());
             batch.setColor(folded ? FOLDED_AVATAR : Color.WHITE);
             for (int column = 0; column < 2; column++) {
@@ -775,6 +772,14 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             if (seat.index != 0) {
                 drawCentered(smallFont, seat.stackText, seat.stackTextX, seat.stackTextY,
                         folded ? Color.GRAY : STACK_GREEN, 1f);
+            }
+            drawCentered(smallFont, Integer.toString(seat.index + 1),
+                    seat.x + 29f, seat.y + 30f, CYAN, 1f);
+            if (seat.index != 0) {
+                // Nickname is the final seat layer: neither cards nor stack can
+                // erase it after its high-contrast plate has been painted.
+                drawCentered(playerNameFont, seat.name, readableX, playerNameY(seat),
+                        folded ? Color.GRAY : Color.WHITE, 1f);
             }
         }
         batch.end();
@@ -1243,8 +1248,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         towardY /= length;
         float width = 286f;
         float height = 68f;
-        float centerX = seat.x + towardX * 172f;
-        float centerY = seat.y + towardY * 150f;
+        // Action callout belongs to the table lane, not the seat HUD lane.
+        float centerX = seat.x + towardX * 260f;
+        float centerY = seat.y + towardY * 235f;
         float x = MathUtils.clamp(centerX - width / 2f, 18f, worldWidth - width - 18f);
         float y = MathUtils.clamp(centerY - height / 2f, 112f, worldHeight - height - 125f);
 

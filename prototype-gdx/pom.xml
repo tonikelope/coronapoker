@@ -93,18 +93,18 @@
                     <include>images/action/up.png</include>
                     <include>images/action/bet.png</include>
                     <include>images/action/glasses.png</include>
-                    <include>images/decks/goliat/trasera.jpg</include>
-                    <include>images/decks/goliat/A_P.jpg</include>
-                    <include>images/decks/goliat/K_D.jpg</include>
-                    <include>images/decks/goliat/8_C.jpg</include>
-                    <include>images/decks/goliat/4_T.jpg</include>
-                    <include>images/decks/goliat/2_P.jpg</include>
-                    <include>images/decks/goliat/A_D.jpg</include>
-                    <include>images/decks/goliat/A_C.jpg</include>
-                    <include>images/decks/goliat/K_C.jpg</include>
-                    <include>images/decks/goliat/K_T.jpg</include>
-                    <include>images/decks/goliat/Q_P.jpg</include>
-                    <include>images/decks/goliat/J_P.jpg</include>
+                    <include>images/decks/goliat/hq/trasera.jpg</include>
+                    <include>images/decks/goliat/hq/A_P.jpg</include>
+                    <include>images/decks/goliat/hq/K_D.jpg</include>
+                    <include>images/decks/goliat/hq/8_C.jpg</include>
+                    <include>images/decks/goliat/hq/4_T.jpg</include>
+                    <include>images/decks/goliat/hq/2_P.jpg</include>
+                    <include>images/decks/goliat/hq/A_D.jpg</include>
+                    <include>images/decks/goliat/hq/A_C.jpg</include>
+                    <include>images/decks/goliat/hq/K_C.jpg</include>
+                    <include>images/decks/goliat/hq/K_T.jpg</include>
+                    <include>images/decks/goliat/hq/Q_P.jpg</include>
+                    <include>images/decks/goliat/hq/J_P.jpg</include>
                     <include>images/decks/goliat/gif/shuffle.gif</include>
                     <include>cinematics/allin/rounders.gif</include>
                     <include>sounds/misc/shuffle.wav</include>

@@ -84,12 +84,12 @@
                     <include>images/corona_poker_splash.png</include>
                     <include>images/chips.png</include>
                     <include>images/pot.png</include>
-                    <include>images/decks/coronapoker/trasera.jpg</include>
-                    <include>images/decks/coronapoker/A_P.jpg</include>
-                    <include>images/decks/coronapoker/K_D.jpg</include>
-                    <include>images/decks/coronapoker/Q_C.jpg</include>
-                    <include>images/decks/coronapoker/J_T.jpg</include>
-                    <include>images/decks/coronapoker/10_P.jpg</include>
+                    <include>images/decks/goliat/trasera.jpg</include>
+                    <include>images/decks/goliat/A_P.jpg</include>
+                    <include>images/decks/goliat/K_D.jpg</include>
+                    <include>images/decks/goliat/Q_C.jpg</include>
+                    <include>images/decks/goliat/J_T.jpg</include>
+                    <include>images/decks/goliat/10_P.jpg</include>
                 </includes>
             </resource>
         </resources>

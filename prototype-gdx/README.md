@@ -42,3 +42,8 @@ java -jar prototype-gdx\target\CoronaPoker-GDX-Prototype.jar
 
 La esquina superior derecha muestra FPS, frame time p99, peor frame reciente y
 la frecuencia detectada del monitor.
+
+La mesa usa la baraja Goliat normal (la misma resolución adecuada para juego),
+con mipmaps y filtrado trilineal para que la reducción sea limpia. Las esquinas
+se recortan en GPU; las imágenes HQ quedan reservadas para un futuro visor de
+cartas ampliadas.

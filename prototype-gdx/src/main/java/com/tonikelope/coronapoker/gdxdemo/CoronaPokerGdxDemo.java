@@ -22,6 +22,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator.FreeTypeFontParameter;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Interpolation;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
@@ -43,6 +44,40 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final int SEAT_COUNT = 9;
     private static final int FLIGHT_COUNT = 18;
     private static final int FRAME_SAMPLE_COUNT = 720;
+    private static final float CARD_CORNER_RADIUS = 0.075f;
+    private static final float CARD_EDGE_SOFTNESS = 0.006f;
+
+    private static final String CARD_VERTEX_SHADER = "attribute vec4 a_position;\n"
+            + "attribute vec4 a_color;\n"
+            + "attribute vec2 a_texCoord0;\n"
+            + "uniform mat4 u_projTrans;\n"
+            + "varying vec4 v_color;\n"
+            + "varying vec2 v_texCoords;\n"
+            + "void main() {\n"
+            + "    v_color = a_color;\n"
+            + "    v_color.a = v_color.a * (255.0 / 254.0);\n"
+            + "    v_texCoords = a_texCoord0;\n"
+            + "    gl_Position = u_projTrans * a_position;\n"
+            + "}\n";
+
+    private static final String CARD_FRAGMENT_SHADER = "#ifdef GL_ES\n"
+            + "precision mediump float;\n"
+            + "#endif\n"
+            + "varying vec4 v_color;\n"
+            + "varying vec2 v_texCoords;\n"
+            + "uniform sampler2D u_texture;\n"
+            + "uniform float u_cornerRadius;\n"
+            + "uniform float u_edgeSoftness;\n"
+            + "void main() {\n"
+            + "    vec2 centered = abs(v_texCoords - vec2(0.5));\n"
+            + "    vec2 corner = centered - (vec2(0.5) - vec2(u_cornerRadius));\n"
+            + "    float distanceToCorner = length(max(corner, vec2(0.0))) - u_cornerRadius;\n"
+            + "    float mask = 1.0 - smoothstep(-u_edgeSoftness, u_edgeSoftness, distanceToCorner);\n"
+            + "    vec4 pixel = texture2D(u_texture, v_texCoords) * v_color;\n"
+            + "    pixel.a *= mask;\n"
+            + "    if (pixel.a <= 0.001) discard;\n"
+            + "    gl_FragColor = pixel;\n"
+            + "}\n";
 
     private static final Color BACKGROUND_TOP = new Color(0x07111fff);
     private static final Color BACKGROUND_BOTTOM = new Color(0x02050cff);
@@ -75,6 +110,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private ExtendViewport viewport;
     private ShapeRenderer shapes;
     private SpriteBatch batch;
+    private ShaderProgram roundedCardShader;
 
     private BitmapFont titleFont;
     private BitmapFont uiFont;
@@ -105,17 +141,21 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         viewport = new ExtendViewport(BASE_WIDTH, BASE_HEIGHT, 2560f, 1440f, camera);
         shapes = new ShapeRenderer();
         batch = new SpriteBatch(2000);
+        roundedCardShader = new ShaderProgram(CARD_VERTEX_SHADER, CARD_FRAGMENT_SHADER);
+        if (!roundedCardShader.isCompiled()) {
+            throw new IllegalStateException("Rounded-card shader: " + roundedCardShader.getLog());
+        }
 
         logo = texture("images/corona_poker_splash.png");
-        cardBack = texture("images/decks/coronapoker/trasera.jpg");
+        cardBack = cardTexture("images/decks/goliat/trasera.jpg");
         chip = texture("images/chips.png");
         pot = texture("images/pot.png");
         communityCards = new Texture[]{
-            texture("images/decks/coronapoker/A_P.jpg"),
-            texture("images/decks/coronapoker/K_D.jpg"),
-            texture("images/decks/coronapoker/Q_C.jpg"),
-            texture("images/decks/coronapoker/J_T.jpg"),
-            texture("images/decks/coronapoker/10_P.jpg")
+            cardTexture("images/decks/goliat/A_P.jpg"),
+            cardTexture("images/decks/goliat/K_D.jpg"),
+            cardTexture("images/decks/goliat/Q_C.jpg"),
+            cardTexture("images/decks/goliat/J_T.jpg"),
+            cardTexture("images/decks/goliat/10_P.jpg")
         };
 
         FreeTypeFontGenerator generator = new FreeTypeFontGenerator(
@@ -134,6 +174,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static Texture texture(String path) {
         Texture texture = new Texture(Gdx.files.internal(path));
         texture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+        return texture;
+    }
+
+    private static Texture cardTexture(String path) {
+        Texture texture = new Texture(Gdx.files.internal(path), true);
+        texture.setFilter(TextureFilter.MipMapLinearLinear, TextureFilter.Linear);
         return texture;
     }
 
@@ -290,6 +336,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         batch.draw(logo, width / 2f - logoWidth / 2f, height / 2f - logoHeight / 2f + 85f,
                 logoWidth, logoHeight);
 
+        useRoundedCardShader();
         float cardW = 150f;
         float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
         float cardEase = Interpolation.pow3Out.apply(MathUtils.clamp((sceneTime - 0.45f) / 1.1f, 0f, 1f));
@@ -299,6 +346,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         batch.draw(cardBack, width * 0.83f - cardW / 2f, height * 0.48f - cardH / 2f,
                 cardW / 2f, cardH / 2f, cardW, cardH, cardEase, cardEase,
                 28f - 360f * (1f - cardEase), 0, 0, cardBack.getWidth(), cardBack.getHeight(), false, false);
+        batch.setShader(null);
 
         drawCentered(titleFont, "GPU FRONTEND PROTOTYPE", width / 2f, height * 0.22f, CYAN, alpha);
         drawCentered(smallFont, "INTRO EN TIEMPO REAL  //  ESPACIO PARA SALTAR",
@@ -348,7 +396,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 235f * logo.getHeight() / logo.getWidth());
         drawCentered(uiFont, "MESA GPU // 9 JUGADORES", width / 2f, height - 58f,
                 Color.WHITE, 1f);
-        drawCentered(smallFont, "OPENGL + LWJGL3  |  ANIMACION TEMPORAL  |  V-SYNC",
+        drawCentered(smallFont, "GOLIAT + OPENGL  |  ANIMACION TEMPORAL  |  V-SYNC",
                 width / 2f, height - 94f, CYAN, 1f);
         smallFont.setColor(CYAN);
         smallFont.draw(batch, statsText, width - 475f, height - 46f);
@@ -441,6 +489,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float cardY = cy - cardH * 0.36f;
 
         batch.begin();
+        useRoundedCardShader();
         for (int i = 0; i < communityCards.length; i++) {
             float local = MathUtils.clamp((sceneTime - i * 0.18f) / 0.72f, 0f, 1f);
             float flip = MathUtils.sin(local * MathUtils.PI - MathUtils.PI / 2f);
@@ -452,6 +501,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             batch.setColor(Color.WHITE);
             batch.draw(shown, x, cardY, visibleWidth, cardH);
         }
+        batch.setShader(null);
 
         float pulse = 1f + MathUtils.sin(totalTime * 3.3f) * 0.035f;
         float potW = 108f * pulse;
@@ -460,6 +510,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         drawCentered(uiFont, "BOTE  12.450", cx, cy + cardH * 0.66f,
                 POT_GOLD, 1f);
         batch.end();
+    }
+
+    private void useRoundedCardShader() {
+        batch.setShader(roundedCardShader);
+        roundedCardShader.setUniformf("u_cornerRadius", CARD_CORNER_RADIUS);
+        roundedCardShader.setUniformf("u_edgeSoftness", CARD_EDGE_SOFTNESS);
     }
 
     private void drawChipTrails(float targetX, float targetY) {
@@ -605,6 +661,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     public void dispose() {
         batch.dispose();
         shapes.dispose();
+        roundedCardShader.dispose();
         titleFont.dispose();
         uiFont.dispose();
         smallFont.dispose();

@@ -80,7 +80,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final int[] SHOWDOWN_SEATS = {6, 2};
     private static final float[][] SEAT_ANCHORS = {
         {0.50f, 0.185f}, {0.135f, 0.145f}, {0.024f, 0.40f},
-        {0.024f, 0.73f}, {0.24f, 0.90f}, {0.50f, 0.87f},
+        {0.024f, 0.73f}, {0.24f, 0.90f}, {0.50f, 0.84f},
         {0.76f, 0.90f}, {0.976f, 0.73f}, {0.976f, 0.40f},
         {0.865f, 0.145f}
     };
@@ -659,6 +659,13 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 seats[i].stackY = seats[i].y - 39f;
                 seats[i].stackTextX = seats[i].stackX;
                 seats[i].stackTextY = seats[i].stackY;
+            } else if (i == 5) {
+                // The tenth seat lives below the debug header. Keep its stack
+                // beside the avatar instead of pushing it through the title.
+                seats[i].stackX = seats[i].x + 70f;
+                seats[i].stackY = seats[i].y + 10f;
+                seats[i].stackTextX = seats[i].stackX + 69f;
+                seats[i].stackTextY = seats[i].stackY + 7f;
             }
             float towardX = tableCenterX - seats[i].x;
             float towardY = tableCenterY - seats[i].y;
@@ -779,14 +786,14 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         if (time < DEAL_START) {
             return;
         }
-        float cardW = 100f;
+        float cardW = 110f;
         float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
         batch.begin();
         for (Seat seat : seats) {
             if (seat.index != 0 && isFolded(seat.index, time)) {
                 continue;
             }
-            float seatCardW = seat.index == 0 ? 150f : cardW;
+            float seatCardW = seat.index == 0 ? 175f : cardW;
             float seatCardH = seatCardW * cardBack.getHeight() / cardBack.getWidth();
             float towardX = tableCenterX - seat.x;
             float towardY = tableCenterY - seat.y;
@@ -795,6 +802,40 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             towardY /= length;
             float sideX = -towardY;
             float sideY = towardX;
+            float handCenterX = seat.x + towardX * (seat.index == 0 ? 110f : 125f);
+            float handCenterY = seat.y + towardY * (seat.index == 0 ? 110f : 125f);
+            float fanX = sideX;
+            float fanY = sideY;
+            if (seat.index != 0) {
+                float worldHeight = viewport.getWorldHeight();
+                if (seat.index == 5) {
+                    // The top-centre hand occupies the free bay to the left of
+                    // its avatar, never the protected pot/community axis.
+                    handCenterX = seat.x - 165f;
+                    handCenterY = seat.y - 100f;
+                    fanX = 1f;
+                    fanY = 0f;
+                } else if (seat.y > worldHeight * 0.82f) {
+                    // Top seats consume the horizontal gaps between avatars.
+                    handCenterX = seat.x + towardX * 125f;
+                    handCenterY = seat.y - 135f;
+                    fanX = 1f;
+                    fanY = 0f;
+                } else if (seat.y < worldHeight * 0.22f) {
+                    // Bottom seats mirror the upper row above their avatars.
+                    handCenterX = seat.x + towardX * 125f;
+                    handCenterY = seat.y + 125f;
+                    fanX = 1f;
+                    fanY = 0f;
+                } else {
+                    // Side seats use their tall perimeter lane instead of
+                    // consuming the central horizontal playing area.
+                    handCenterX = seat.x + (seat.x < tableCenterX ? 125f : -125f);
+                    handCenterY = seat.y + towardY * 75f;
+                    fanX = 0f;
+                    fanY = 1f;
+                }
+            }
             for (int cardIndex = 0; cardIndex < 2; cardIndex++) {
                 // The small blind (left of the dealer) receives the first card.
                 // A complete clockwise round finishes before the second starts.
@@ -814,25 +855,24 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                         (time - revealStart) / CARD_FLIP_SECONDS, 0f, 1f) : 0f;
                 // During showdown the pair opens slightly as it flips, so both
                 // Goliat faces remain completely readable instead of overlapping.
-                float normalSideDistance = seat.index == 0 ? 54f : 50f;
+                float normalSideDistance = seat.index == 0 ? 54f : 30f;
                 float revealedSideDistance = seat.index == 0 ? 62f : 72f;
                 float sideDistance = MathUtils.lerp(
                         normalSideDistance, revealedSideDistance, reveal);
                 float side = cardIndex == 0 ? -sideDistance : sideDistance;
-                float inwardDistance = seat.index == 0 ? 110f : 148f;
-                float targetX = seat.x + towardX * inwardDistance + sideX * side;
-                float targetY = seat.y + towardY * inwardDistance + sideY * side;
+                float targetX = handCenterX + fanX * side;
+                float targetY = handCenterY + fanY * side;
                 float sourceX = dealerSourceX;
                 float sourceY = dealerSourceY;
-                float controlX = (sourceX + targetX) * 0.5f + sideX * 128f;
-                float controlY = (sourceY + targetY) * 0.5f + sideY * 128f + 62f;
+                float controlX = (sourceX + targetX) * 0.5f + fanX * 128f;
+                float controlY = (sourceY + targetY) * 0.5f + fanY * 128f + 62f;
                 float x = bezier(sourceX, controlX, targetX, eased);
                 float y = bezier(sourceY, controlY, targetY, eased);
                 float launchRotation = (dealTurn & 1) == 0 ? -26f : 26f;
                 float rotation = MathUtils.lerp(launchRotation,
                         cardIndex == 0 ? -7f : 7f, eased);
                 float scale = 0.82f + eased * 0.18f;
-                float revealScale = seat.index == 0 ? 1.30f : 1.4f;
+                float revealScale = seat.index == 0 ? 1.28f : 1.30f;
                 float renderW = revealing ? seatCardW * revealScale : seatCardW;
                 float renderH = revealing ? seatCardH * revealScale : seatCardH;
                 if (revealing) {

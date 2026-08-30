@@ -45,10 +45,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float BASE_HEIGHT = 1080f;
     private static final float INTRO_SECONDS = 4.2f;
     private static final int STAR_COUNT = 150;
-    private static final int SEAT_COUNT = 9;
+    private static final int SEAT_COUNT = 10;
     private static final int FRAME_SAMPLE_COUNT = 720;
     private static final float CARD_FLIP_SECONDS = 0.620f;
-    private static final float HAND_SECONDS = 44.2f;
+    private static final float HAND_SECONDS = 40.2f;
     private static final float SHUFFLE_END = 1.72f;
     private static final float POSITION_CHIP_START = SHUFFLE_END + 0.04f;
     private static final float POSITION_CHIP_STAGGER = 0.04f;
@@ -57,18 +57,18 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float CHIP_FLIGHT_DELAY = 0.12f;
     private static final float CHIP_FLIGHT_SECONDS = 0.92f;
     private static final float DEAL_START = 2.25f;
-    private static final float DEAL_CARD_GAP = 0.36f;
-    private static final float DEAL_CARD_SECONDS = 0.34f;
+    private static final float DEAL_CARD_GAP = 0.17f;
+    private static final float DEAL_CARD_SECONDS = 0.21f;
     private static final float DEAL_END = DEAL_START
             + (SEAT_COUNT * 2 - 1) * DEAL_CARD_GAP + DEAL_CARD_SECONDS;
     private static final float BOARD_DEAL_START = DEAL_END + 0.30f;
-    private static final float BOARD_CARD_GAP = 0.36f;
+    private static final float BOARD_CARD_GAP = 0.20f;
     private static final float BOARD_DEAL_END = BOARD_DEAL_START
             + 4f * BOARD_CARD_GAP + DEAL_CARD_SECONDS;
     private static final float ACTION_CINEMATIC_SECONDS = 1.25f;
-    private static final float SHOWDOWN_START = 36.8f;
-    private static final float WINNER_START = 38.8f;
-    private static final float[] COMMUNITY_REVEAL = {20.0f, 20.2f, 20.4f, 25.5f, 32.0f};
+    private static final float SHOWDOWN_START = 32.8f;
+    private static final float WINNER_START = 34.8f;
+    private static final float[] COMMUNITY_REVEAL = {16.0f, 16.2f, 16.4f, 21.5f, 28.0f};
     private static final float CARD_CORNER_RADIUS = 0.075f;
     private static final float CARD_EDGE_SOFTNESS = 0.006f;
     private static final int ACTION_CHECK = 0;
@@ -77,27 +77,28 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final int ACTION_FOLD = 3;
     private static final int ACTION_ALLIN = 4;
     private static final String[] HUD_ACTIONS = {"NO IR", "IR (+300)", "APOSTAR", "ALL IN"};
-    private static final int[] SHOWDOWN_SEATS = {5, 2};
+    private static final int[] SHOWDOWN_SEATS = {6, 2};
     private static final float[][] SEAT_ANCHORS = {
         {0.50f, 0.185f}, {0.135f, 0.145f}, {0.024f, 0.40f},
-        {0.024f, 0.73f}, {0.27f, 0.90f}, {0.73f, 0.90f},
-        {0.976f, 0.73f}, {0.976f, 0.40f}, {0.865f, 0.145f}
+        {0.024f, 0.73f}, {0.24f, 0.90f}, {0.50f, 0.87f},
+        {0.76f, 0.90f}, {0.976f, 0.73f}, {0.976f, 0.40f},
+        {0.865f, 0.145f}
     };
 
     private static final ActionEvent[] ACTIONS = {
-        new ActionEvent(11.2f, 1, ACTION_CHECK, "CHECK", 0, 0, 0),
-        new ActionEvent(12.6f, 2, ACTION_BET, "SUBE 300", 300, 3, 1),
-        new ActionEvent(14.0f, 4, ACTION_FOLD, "FOLD", 0, 0, 0),
-        new ActionEvent(15.4f, 5, ACTION_CALL, "CALL 300", 300, 3, 2),
-        new ActionEvent(16.8f, 7, ACTION_CALL, "CALL 300", 300, 3, 0),
-        new ActionEvent(18.2f, 0, ACTION_CALL, "CALL 300", 300, 3, 1),
-        new ActionEvent(21.6f, 2, ACTION_BET, "APUESTA 600", 600, 4, 3),
-        new ActionEvent(23.0f, 5, ACTION_CALL, "CALL 600", 600, 4, 1),
-        new ActionEvent(26.8f, 2, ACTION_CHECK, "CHECK", 0, 0, 0),
-        new ActionEvent(28.2f, 5, ACTION_BET, "APUESTA 900", 900, 4, 0),
-        new ActionEvent(29.6f, 7, ACTION_CALL, "CALL 900", 900, 4, 2),
-        new ActionEvent(33.2f, 2, ACTION_ALLIN, "ALL IN 1.200", 1200, 8, 3),
-        new ActionEvent(34.7f, 7, ACTION_FOLD, "FOLD", 0, 0, 0)
+        new ActionEvent(7.2f, 1, ACTION_CHECK, "CHECK", 0, 0, 0),
+        new ActionEvent(8.6f, 2, ACTION_BET, "SUBE 300", 300, 3, 1),
+        new ActionEvent(10.0f, 4, ACTION_FOLD, "FOLD", 0, 0, 0),
+        new ActionEvent(11.4f, 6, ACTION_CALL, "CALL 300", 300, 3, 2),
+        new ActionEvent(12.8f, 8, ACTION_CALL, "CALL 300", 300, 3, 0),
+        new ActionEvent(14.2f, 0, ACTION_CALL, "CALL 300", 300, 3, 1),
+        new ActionEvent(17.6f, 2, ACTION_BET, "APUESTA 600", 600, 4, 3),
+        new ActionEvent(19.0f, 6, ACTION_CALL, "CALL 600", 600, 4, 1),
+        new ActionEvent(22.8f, 2, ACTION_CHECK, "CHECK", 0, 0, 0),
+        new ActionEvent(24.2f, 6, ACTION_BET, "APUESTA 900", 900, 4, 0),
+        new ActionEvent(25.6f, 8, ACTION_CALL, "CALL 900", 900, 4, 2),
+        new ActionEvent(29.2f, 2, ACTION_ALLIN, "ALL IN 1.200", 1200, 8, 3),
+        new ActionEvent(30.7f, 8, ACTION_FOLD, "FOLD", 0, 0, 0)
     };
 
     private static final String CARD_VERTEX_SHADER = "attribute vec4 a_position;\n"
@@ -287,7 +288,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             cardTexture("images/decks/goliat/A_D.jpg"),
             cardTexture("images/decks/goliat/A_C.jpg")
         };
-        showdownCards[5] = new Texture[]{
+        showdownCards[6] = new Texture[]{
             cardTexture("images/decks/goliat/K_C.jpg"),
             cardTexture("images/decks/goliat/K_T.jpg")
         };
@@ -416,7 +417,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
     private void initialiseSeats() {
         String[] names = {"TONIKELOPE", "NEBULA", "RIVERKING", "LUNA", "MAVERICK",
-            "PIXEL", "NOVA", "SHARK", "CORONA_BOT"};
+            "ORION", "PIXEL", "NOVA", "SHARK", "CORONA_BOT"};
         for (int i = 0; i < seats.length; i++) {
             seats[i] = new Seat(names[i], 2500 + i * 375, i);
         }
@@ -435,7 +436,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                         action.time + CHIP_FLIGHT_DELAY + chipIndex * 0.065f,
                         CHIP_FLIGHT_SECONDS + chipIndex * 0.035f,
                         index * 37f,
-                        (action.chipColor + chipIndex) % 4);
+                        (action.chipColor + chipIndex) % 4,
+                        action.kind,
+                        chipIndex);
                 index++;
             }
         }
@@ -627,7 +630,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         batch.setColor(Color.WHITE);
         batch.draw(logo, 42f, height - 125f, 235f,
                 235f * logo.getHeight() / logo.getWidth());
-        drawCentered(uiFont, "TAPETE GPU // 9 JUGADORES", width / 2f, height - 58f,
+        drawCentered(uiFont, "TAPETE GPU // 10 JUGADORES", width / 2f, height - 58f,
                 Color.WHITE, 1f);
         drawCentered(smallFont, stageText(handTime()) + "  |  GOLIAT + CINEMATICA GPU  |  V-SYNC",
                 width / 2f, height - 94f, CYAN, 1f);
@@ -983,15 +986,14 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                     }
                 }
             }
-            float chipLanding = action.time + CHIP_FLIGHT_DELAY + CHIP_FLIGHT_SECONDS;
-            if (action.amount > 0 && crossed(previous, current, chipLanding)) {
-                switch (action.kind) {
-                    case ACTION_CALL -> play(callSound, 0.58f, 1f);
-                    case ACTION_BET -> play(betSound, 0.62f, 1f);
-                    case ACTION_ALLIN -> play(betSound, 0.52f, 0.96f);
-                    default -> {
-                    }
-                }
+        }
+        for (ChipFlight flight : flights) {
+            float landingTime = flight.startTime + flight.duration;
+            if (crossed(previous, current, landingTime)) {
+                Sound landingSound = flight.actionKind == ACTION_CALL ? callSound : betSound;
+                float volume = flight.chipIndex == 0 ? 0.40f : 0.20f;
+                float pitch = 0.92f + (flight.chipColor % 4) * 0.055f;
+                play(landingSound, volume, pitch);
             }
         }
 
@@ -1082,7 +1084,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         if (time < WINNER_START) {
             return "SHOWDOWN";
         }
-        if (time < 43.1f) {
+        if (time < 39.1f) {
             return "GANADOR";
         }
         return "NUEVA MANO...";
@@ -1110,7 +1112,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private static boolean isShowdownContender(int seat) {
-        return seat == 2 || seat == 5;
+        return seat == 2 || seat == 6;
     }
 
     private static float showdownRevealStart(int seat, int cardIndex) {
@@ -1120,7 +1122,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                     + (cardIndex * SEAT_COUNT + localDealOrder) * DEAL_CARD_GAP;
             return localDealStart + DEAL_CARD_SECONDS;
         }
-        if (seat == 5) {
+        if (seat == 6) {
             return SHOWDOWN_START + 0.15f + cardIndex * 0.12f;
         }
         if (seat == 2) {
@@ -1408,14 +1410,19 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             if (u < 0f) {
                 continue;
             }
-            float eased = Interpolation.pow2Out.apply(u);
+            // The rendered chip and its landing sound must share the exact same
+            // progress clock. Easing this position made the chip look settled
+            // before its scheduled collision sound was emitted.
+            float travel = u;
             float x = bezier(from.stackX,
-                    stackControlX(from, targetX, flight), targetX, eased);
+                    stackControlX(from, targetX, flight), targetX, travel);
             float y = bezier(from.stackY,
-                    controlY(from.stackY, targetY, flight), targetY, eased);
+                    controlY(from.stackY, targetY, flight), targetY, travel);
             float landing = Interpolation.pow3In.apply(u);
             float size = (45f + MathUtils.sin(u * MathUtils.PI) * 9f) * (1f - landing * 0.28f);
-            float alpha = MathUtils.clamp((1f - u) / 0.12f, 0f, 1f);
+            // Do not fade before impact: the chip remains tangible until the
+            // collision frame, when it joins the pot and its sound is played.
+            float alpha = 1f;
             Texture flyingChip = flyingChips[flight.chipColor];
             batch.setColor(1f, 1f, 1f, alpha);
             batch.draw(flyingChip, x - size / 2f, y - size / 2f, size / 2f, size / 2f,
@@ -1724,13 +1731,18 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         final float duration;
         final float rotation;
         final int chipColor;
+        final int actionKind;
+        final int chipIndex;
 
-        ChipFlight(int seat, float startTime, float duration, float rotation, int chipColor) {
+        ChipFlight(int seat, float startTime, float duration, float rotation,
+                int chipColor, int actionKind, int chipIndex) {
             this.seat = seat;
             this.startTime = startTime;
             this.duration = duration;
             this.rotation = rotation;
             this.chipColor = chipColor;
+            this.actionKind = actionKind;
+            this.chipIndex = chipIndex;
         }
     }
 

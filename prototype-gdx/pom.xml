@@ -89,6 +89,10 @@
                     <include>images/sb.png</include>
                     <include>images/bb.png</include>
                     <include>images/pot.png</include>
+                    <include>images/action/down.png</include>
+                    <include>images/action/up.png</include>
+                    <include>images/action/bet.png</include>
+                    <include>images/action/glasses.png</include>
                     <include>images/decks/goliat/trasera.jpg</include>
                     <include>images/decks/goliat/A_P.jpg</include>
                     <include>images/decks/goliat/K_D.jpg</include>

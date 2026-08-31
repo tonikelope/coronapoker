@@ -54,6 +54,13 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float LOCAL_SWAP_DELAY = 0.14f;
     private static final float LOCAL_SWAP_SECONDS = 0.68f;
     private static final float HAND_SECONDS = 60.0f;
+    private static final float NORMAL_DEMO_SECONDS = HAND_SECONDS * DEMO_HAND_COUNT;
+    private static final float SHOWCASE_FULL_TABLE_PAUSE = 2.5f;
+    private static final float SHOWCASE_EXIT_SECONDS = 0.85f;
+    private static final float SHOWCASE_REFLOW_SECONDS = 0.90f;
+    private static final float SHOWCASE_PAUSE_SECONDS = 1.50f;
+    private static final float SHOWCASE_STEP_SECONDS = SHOWCASE_EXIT_SECONDS
+            + SHOWCASE_REFLOW_SECONDS + SHOWCASE_PAUSE_SECONDS;
     private static final float SHUFFLE_END = 1.72f;
     private static final float POSITION_CHIP_START = SHUFFLE_END + 0.04f;
     private static final float POSITION_CHIP_STAGGER = 0.03f;
@@ -87,6 +94,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float SHOWDOWN_START = 52.2f;
     private static final float WINNER_START = 54.2f;
     private static final float PAYOUT_COMPLETE = WINNER_START + 1.90f;
+    private static final float SHOWCASE_TABLE_TIME = WINNER_START + 0.25f;
     private static final float[] COMMUNITY_REVEAL = {23.0f, 23.2f, 23.4f, 36.0f, 44.0f};
     private static final float CARD_CORNER_RADIUS = 0.075f;
     private static final float CARD_EDGE_SOFTNESS = 0.006f;
@@ -107,24 +115,18 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final int[] SHOWDOWN_SEATS = {1, 2, 3, 4, 5, 6, 7, 8, 9};
     private static final String[][] SHOWDOWN_RESULTS = {
         {
-            "CARTA ALTA AS", "ESCALERA AL CINCO", "TRIO DE ASES",
-            "CARTA ALTA AS", "CARTA ALTA AS", "CARTA ALTA AS",
-            "TRIO DE REYES", "TRIO DE DOSES", "TRIO DE OCHOS",
-            "TRIO DE CUATROS"
+            "CARTA ALTA", "ESCALERA", "TRÍO",
+            "CARTA ALTA", "CARTA ALTA", "CARTA ALTA",
+            "TRÍO", "TRÍO", "TRÍO", "TRÍO"
         },
         {
-            "CARTA ALTA AS", "PAREJA DE ASES", "TRIO DE DAMAS",
-            "TRIO DE DIECES", "TRIO DE SIETES", "TRIO DE CINCOS",
-            "TRIO DE TRESES", "PAREJA DE DAMAS", "CARTA ALTA DAMA",
-            "PAREJA DE REYES"
+            "CARTA ALTA", "PAREJA", "TRÍO",
+            "TRÍO", "TRÍO", "TRÍO",
+            "TRÍO", "PAREJA", "CARTA ALTA", "PAREJA"
         }
     };
-    private static final float[][] SEAT_ANCHORS = {
-        {0.50f, 0.185f}, {0.135f, 0.145f}, {0.024f, 0.40f},
-        {0.024f, 0.73f}, {0.24f, 0.90f}, {0.50f, 0.93f},
-        {0.76f, 0.90f}, {0.976f, 0.73f}, {0.976f, 0.40f},
-        {0.865f, 0.145f}
-    };
+    private static final float[][][] SEAT_LAYOUTS = createSeatLayouts();
+    private static final float[][] SEAT_ANCHORS = SEAT_LAYOUTS[SEAT_COUNT];
 
     private static final ActionEvent[] ACTIONS = {
         // Preflop. SB and BB already have 50/100 posted. Every player who
@@ -239,6 +241,17 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final Color BUTTON_LINE = new Color(0x31445fff);
     private static final Color FOLD_RED = new Color(0xd9343fff);
     private static final Color FOLDED_AVATAR = new Color(0.35f, 0.35f, 0.38f, 0.72f);
+    // Exact semantic palette from Swing LocalPlayer/RemotePlayer. These are
+    // learned gameplay signals, not decorative colors for the new renderer.
+    private static final Color LEGACY_FOLD = new Color(0x808080ff);
+    private static final Color LEGACY_CHECK = new Color(0x008200ff);
+    private static final Color LEGACY_CALL = new Color(0xffffffff);
+    private static final Color LEGACY_BET = new Color(0xffff00ff);
+    private static final Color LEGACY_RERAISE = new Color(0x7d05e1ff);
+    private static final Color LEGACY_ALL_IN = new Color(0x000000ff);
+    private static final Color LEGACY_SHOW = new Color(0x3399ffff);
+    private static final Color LEGACY_WINNER = new Color(0x00ff00ff);
+    private static final Color LEGACY_LOSER = new Color(0xff0000ff);
 
     private final int detectedRefreshRate;
     private final Star[] stars = new Star[STAR_COUNT];
@@ -296,7 +309,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private float potCenterX;
     private float potCenterY;
     private int lastPotValue = -1;
-    private String potText = "BOTE TOTAL: 150";
+    private String potText = "BOTE: 0";
 
     private float totalTime;
     private float sceneTime;
@@ -400,6 +413,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         validateBettingScenario();
         initialiseStars();
         initialiseSeats();
+        validateAdaptiveSeatLayouts();
         initialiseFlights();
         randomizeThinkDurations();
         Gdx.input.setCursorCatched(false);
@@ -509,6 +523,71 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             "ORION", "PIXEL", "NOVA", "SHARK", "CORONA_BOT"};
         for (int i = 0; i < seats.length; i++) {
             seats[i] = new Seat(names[i], 2500 + i * 375, i);
+        }
+    }
+
+    /**
+     * Distributes occupied seats around the complete table instead of selecting
+     * holes from the ten-player layout. Coordinates are normalized, so the same
+     * geometry scales to every viewport. The local player always owns the lower
+     * center; all rivals are equiangular around the remaining ellipse.
+     */
+    private static float[][][] createSeatLayouts() {
+        float[][][] layouts = new float[SEAT_COUNT + 1][][];
+        for (int playerCount = 2; playerCount <= SEAT_COUNT; playerCount++) {
+            layouts[playerCount] = createSeatAnchors(playerCount);
+        }
+        return layouts;
+    }
+
+    private static float[][] createSeatAnchors(int playerCount) {
+        if (playerCount < 2 || playerCount > SEAT_COUNT) {
+            throw new IllegalArgumentException("Numero de jugadores fuera de rango: "
+                    + playerCount);
+        }
+        float[][] anchors = new float[playerCount][2];
+        anchors[0][0] = 0.50f;
+        anchors[0][1] = 0.185f;
+        for (int seat = 1; seat < playerCount; seat++) {
+            double angle = Math.toRadians(-90d - seat * (360d / playerCount));
+            double cos = Math.cos(angle);
+            double sin = Math.sin(angle);
+            // Fractional powers push side seats towards the edges while retaining
+            // more horizontal air around centered upper/bottom seats.
+            float x = (float) (0.5d + Math.copySign(
+                    0.5d * Math.pow(Math.abs(cos), 0.55d), cos));
+            float y = (float) (0.54d + Math.copySign(
+                    0.48d * Math.pow(Math.abs(sin), 0.85d), sin));
+            anchors[seat][0] = MathUtils.clamp(x, 0.024f, 0.976f);
+            anchors[seat][1] = MathUtils.clamp(y, 0.145f, 0.93f);
+        }
+        if (playerCount == SEAT_COUNT) {
+            // At maximum density the lower side pair needs a dedicated clear
+            // lane above the bottom pair's revealed cards.
+            anchors[2][1] = 0.48f;
+            anchors[8][1] = 0.48f;
+        }
+        return anchors;
+    }
+
+    private static void validateAdaptiveSeatLayouts() {
+        for (int playerCount = 2; playerCount <= SEAT_COUNT; playerCount++) {
+            float[][] anchors = SEAT_LAYOUTS[playerCount];
+            float minimumDistance = Float.POSITIVE_INFINITY;
+            for (int a = 0; a < anchors.length; a++) {
+                for (int b = a + 1; b < anchors.length; b++) {
+                    float dx = (anchors[a][0] - anchors[b][0]) * BASE_WIDTH;
+                    float dy = (anchors[a][1] - anchors[b][1]) * BASE_HEIGHT;
+                    minimumDistance = Math.min(minimumDistance,
+                            (float) Math.sqrt(dx * dx + dy * dy));
+                }
+            }
+            // The ten-player arrangement is the densest supported case. If its
+            // seat envelopes fit, every lower player count has still more room.
+            if (minimumDistance < 230f) {
+                throw new IllegalStateException("Asientos demasiado juntos para "
+                        + playerCount + " jugadores: " + minimumDistance);
+            }
         }
     }
 
@@ -927,8 +1006,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         // Same visual language as CoronaPoker's DynamicTablePanel: seats are
         // pinned to the edges of the felt, not arranged around a casino oval.
         for (int i = 0; i < seats.length; i++) {
-            seats[i].x = SEAT_ANCHORS[i][0] * width;
-            seats[i].y = SEAT_ANCHORS[i][1] * height;
+            seats[i].x = showcaseSeatAnchor(i, 0) * width;
+            seats[i].y = showcaseSeatAnchor(i, 1) * height;
             if (i == 0) {
                 seats[i].stackX = seats[i].x + 67f;
                 // The lowest chip pixel must remain above the complete HUD,
@@ -968,36 +1047,126 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         dealerSourceY = dealer.y;
     }
 
+    private float showcaseSeatAnchor(int seat, int component) {
+        if (!isLayoutShowcase()) {
+            return SEAT_ANCHORS[seat][component];
+        }
+        float elapsed = showcaseElapsed() - SHOWCASE_FULL_TABLE_PAUSE;
+        if (elapsed < 0f) {
+            return SEAT_ANCHORS[seat][component];
+        }
+        int step = Math.min(SEAT_COUNT - 2,
+                Math.max(0, (int) (elapsed / SHOWCASE_STEP_SECONDS)));
+        if (step >= SEAT_COUNT - 2) {
+            return seat < 2 ? SEAT_LAYOUTS[2][seat][component] : 0.5f;
+        }
+        int oldCount = SEAT_COUNT - step;
+        if (seat >= oldCount) {
+            return 0.5f;
+        }
+        float phase = elapsed - step * SHOWCASE_STEP_SECONDS;
+        float oldAnchor = SEAT_LAYOUTS[oldCount][seat][component];
+        if (seat == oldCount - 1) {
+            float exit = Interpolation.pow2In.apply(MathUtils.clamp(
+                    phase / SHOWCASE_EXIT_SECONDS, 0f, 1f));
+            float center = component == 0 ? 0.5f : 0.54f;
+            float push = component == 0 ? 0.28f : 0.20f;
+            return oldAnchor + (oldAnchor - center) * push * exit;
+        }
+        float reflow = Interpolation.smoother.apply(MathUtils.clamp(
+                (phase - SHOWCASE_EXIT_SECONDS) / SHOWCASE_REFLOW_SECONDS, 0f, 1f));
+        float newAnchor = SEAT_LAYOUTS[oldCount - 1][seat][component];
+        return MathUtils.lerp(oldAnchor, newAnchor, reflow);
+    }
+
+    private float seatPresenceAlpha(int seat) {
+        if (!isLayoutShowcase()) {
+            return 1f;
+        }
+        float elapsed = showcaseElapsed() - SHOWCASE_FULL_TABLE_PAUSE;
+        if (elapsed < 0f) {
+            return 1f;
+        }
+        int step = (int) (elapsed / SHOWCASE_STEP_SECONDS);
+        if (step >= SEAT_COUNT - 2) {
+            return seat < 2 ? 1f : 0f;
+        }
+        int oldCount = SEAT_COUNT - step;
+        if (seat < oldCount - 1) {
+            return 1f;
+        }
+        if (seat > oldCount - 1) {
+            return 0f;
+        }
+        float phase = elapsed - step * SHOWCASE_STEP_SECONDS;
+        return 1f - Interpolation.smooth.apply(MathUtils.clamp(
+                phase / SHOWCASE_EXIT_SECONDS, 0f, 1f));
+    }
+
+    private int visiblePlayerCount() {
+        if (!isLayoutShowcase()) {
+            return SEAT_COUNT;
+        }
+        float elapsed = showcaseElapsed() - SHOWCASE_FULL_TABLE_PAUSE;
+        if (elapsed < 0f) {
+            return SEAT_COUNT;
+        }
+        int step = Math.min(SEAT_COUNT - 2,
+                Math.max(0, (int) (elapsed / SHOWCASE_STEP_SECONDS)));
+        if (step >= SEAT_COUNT - 2) {
+            return 2;
+        }
+        int oldCount = SEAT_COUNT - step;
+        float phase = elapsed - step * SHOWCASE_STEP_SECONDS;
+        return phase < SHOWCASE_EXIT_SECONDS ? oldCount : oldCount - 1;
+    }
+
+    private int winnerSeat() {
+        return visiblePlayerCount() > 2 ? 2 : 1;
+    }
+
     private void drawSeats() {
         ActionEvent thinkingAction = thinkingAction(handTime());
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         for (Seat seat : seats) {
+            float presence = seatPresenceAlpha(seat.index);
+            if (presence <= 0f) {
+                continue;
+            }
             boolean active = thinkingAction != null && seat.index == thinkingAction.seat;
             boolean folded = isFolded(seat.index, handTime())
                     && handTime() < SHOWDOWN_START;
+            boolean settledShowdown = handTime() >= WINNER_START
+                    && isShowdownContender(seat.index);
             seat.updateStack(handTime(), flights);
             if (seat.index != 0) {
                 // One component owns name, chips and amount for every rival.
-                Color rim = folded ? BUTTON_LINE : (active ? CYAN : SEAT_RIM);
+                Color rim = settledShowdown
+                        ? (seat.index == winnerSeat() ? LEGACY_WINNER : LEGACY_LOSER)
+                        : folded ? BUTTON_LINE : (active ? CYAN : SEAT_RIM);
                 String actionLabel = lastActionLabelForSeat(seat.index, handTime());
-                shapes.setColor(rim.r, rim.g, rim.b, folded ? 0.55f : 0.88f);
+                shapes.setColor(rim.r, rim.g, rim.b,
+                        (settledShowdown ? 1f : folded ? 0.55f : 0.88f) * presence);
                 roundedRect(seat.podX - 2f, seat.podY - 2f,
                         PLAYER_POD_WIDTH + 4f, PLAYER_POD_HEIGHT + 4f, 14f);
-                shapes.setColor(0.015f, 0.028f, 0.05f, folded ? 0.72f : 0.92f);
+                shapes.setColor(0.015f, 0.028f, 0.05f,
+                        (folded ? 0.72f : 0.92f) * presence);
                 roundedRect(seat.podX, seat.podY,
                         PLAYER_POD_WIDTH, PLAYER_POD_HEIGHT, 12f);
                 if (!actionLabel.isEmpty()) {
                     Color lastColor = lastActionColorForSeat(seat.index, handTime());
                     shapes.setColor(lastColor.r, lastColor.g, lastColor.b,
-                            folded ? 0.68f : 0.92f);
+                            (settledShowdown ? 1f : folded ? 0.68f : 0.92f) * presence);
                     roundedRect(seat.podX + 7f, seat.podY + 7f,
                             PLAYER_POD_WIDTH - 14f, 44f, 8f);
-                    shapes.setColor(1f, 1f, 1f, folded ? 0.24f : 0.48f);
+                    shapes.setColor(1f, 1f, 1f,
+                            (folded ? 0.24f : 0.48f) * presence);
                     shapes.rect(seat.podX + 15f, seat.podY + 47f,
                             PLAYER_POD_WIDTH - 30f, 2f);
                 }
-                shapes.setColor(rim.r, rim.g, rim.b, folded ? 0.24f : 0.42f);
+                shapes.setColor(rim.r, rim.g, rim.b,
+                        (folded ? 0.24f : 0.42f) * presence);
                 shapes.rect(seat.podX + 12f, seat.podY + 55f,
                         PLAYER_POD_WIDTH - 24f, 2f);
                 shapes.rect(seat.podX + 12f, seat.podY + 89f,
@@ -1007,28 +1176,39 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             if (active) {
                 Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
                 shapes.setColor(CYAN.r, CYAN.g, CYAN.b,
-                        0.18f + 0.12f * MathUtils.sin(totalTime * 4f));
+                        (0.18f + 0.12f * MathUtils.sin(totalTime * 4f)) * presence);
                 shapes.circle(seat.x, seat.y, AVATAR_ACTIVE_RADIUS, 48);
                 Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
             }
-            shapes.setColor(PANEL);
+            shapes.setColor(PANEL.r, PANEL.g, PANEL.b, PANEL.a * presence);
             shapes.circle(seat.x, seat.y, AVATAR_OUTER_RADIUS, 48);
-            shapes.setColor(folded ? BUTTON_LINE : (active ? CYAN : SEAT_RIM));
+            Color avatarRim = settledShowdown
+                    ? (seat.index == winnerSeat() ? LEGACY_WINNER : LEGACY_LOSER)
+                    : folded ? BUTTON_LINE : (active ? CYAN : SEAT_RIM);
+            shapes.setColor(avatarRim.r, avatarRim.g, avatarRim.b,
+                    avatarRim.a * presence);
             shapes.circle(seat.x, seat.y, AVATAR_RIM_RADIUS, 48);
-            shapes.setColor(SEAT_INNER);
+            shapes.setColor(SEAT_INNER.r, SEAT_INNER.g, SEAT_INNER.b,
+                    SEAT_INNER.a * presence);
             shapes.circle(seat.x, seat.y, AVATAR_INNER_RADIUS, 48);
         }
         shapes.end();
 
         batch.begin();
         for (Seat seat : seats) {
+            float presence = seatPresenceAlpha(seat.index);
+            if (presence <= 0f) {
+                continue;
+            }
             Texture avatar = seat.index == 0 ? avatarDefault : avatarBot;
             boolean folded = isFolded(seat.index, handTime())
                     && handTime() < SHOWDOWN_START;
-            batch.setColor(folded ? FOLDED_AVATAR : Color.WHITE);
+            Color avatarTint = folded ? FOLDED_AVATAR : Color.WHITE;
+            batch.setColor(avatarTint.r, avatarTint.g, avatarTint.b,
+                    avatarTint.a * presence);
             batch.draw(avatar, seat.x - AVATAR_SIZE / 2f,
                     seat.y - AVATAR_SIZE / 2f, AVATAR_SIZE, AVATAR_SIZE);
-            batch.setColor(Color.WHITE);
+            batch.setColor(1f, 1f, 1f, presence);
             Texture position = seat.index == 0 ? dealerChip
                     : seat.index == 1 ? smallBlindChip
                     : seat.index == 2 ? bigBlindChip : null;
@@ -1048,7 +1228,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                             0, 0, position.getWidth(), position.getHeight(), false, false);
                 }
             }
-            batch.setColor(folded ? FOLDED_AVATAR : Color.WHITE);
+            batch.setColor(avatarTint.r, avatarTint.g, avatarTint.b,
+                    avatarTint.a * presence);
             for (int column = 0; column < 2; column++) {
                 int chipCount = column == 0 ? 6 : 4;
                 Texture stackChip = flyingChips[(seat.index + column) % flyingChips.length];
@@ -1058,25 +1239,25 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                             seat.stackY - 14f + chip * 4f, 26f, 26f);
                 }
             }
-            batch.setColor(Color.WHITE);
+            batch.setColor(1f, 1f, 1f, presence);
             if (seat.index != 0) {
                 drawFittedCenteredInBox(playerNameFont, seat.name,
                         seat.podX + 68f, seat.podY + 93f,
                         PLAYER_POD_WIDTH - 78f, 23f,
-                        folded ? Color.GRAY : Color.WHITE, 1f);
+                        folded ? Color.GRAY : Color.WHITE, presence);
                 String actionLabel = lastActionLabelForSeat(seat.index, handTime());
                 if (!actionLabel.isEmpty()) {
                     drawFittedCenteredInBox(seatActionFont, actionLabel,
                             seat.podX + 16f, seat.podY + 13f,
                             PLAYER_POD_WIDTH - 32f, 32f,
-                            lastActionTextColorForSeat(seat.index, handTime()), 1f);
+                            lastActionTextColorForSeat(seat.index, handTime()), presence);
                 }
-                drawFittedCenteredInBox(stackFont, "STACK " + seat.stackText,
+                drawFittedCenteredInBox(stackFont, seat.stackText,
                         seat.podX + 68f, seat.podY + 62f, 124f, 23f,
-                        folded ? Color.GRAY : STACK_GREEN, 1f);
+                        folded ? Color.GRAY : STACK_GREEN, presence);
                 drawFittedCenteredInBox(stackFont, seat.investedText,
                         seat.podX + 202f, seat.podY + 62f, 76f, 23f,
-                        folded ? Color.GRAY : POT_GOLD, 1f);
+                        folded ? Color.GRAY : POT_GOLD, presence);
             }
         }
         batch.end();
@@ -1096,6 +1277,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
         batch.begin();
         for (Seat seat : seats) {
+            float presence = seatPresenceAlpha(seat.index);
+            if (presence <= 0f) {
+                continue;
+            }
             if (seat.index != 0 && isFolded(seat.index, time)
                     && time < SHOWDOWN_START) {
                 continue;
@@ -1244,10 +1429,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 if (seat.index == 0) {
                     float disabled = Interpolation.smooth.apply(localFold);
                     float tint = MathUtils.lerp(1f, 0.34f, disabled);
-                    float alpha = eased * MathUtils.lerp(1f, 0.52f, disabled);
+                    float alpha = eased * MathUtils.lerp(1f, 0.52f, disabled) * presence;
                     batch.setColor(tint, tint, tint, alpha);
                 } else {
-                    batch.setColor(1f, 1f, 1f, eased);
+                    batch.setColor(1f, 1f, 1f, eased * presence);
                 }
                 batch.draw(cardBack, x - renderW / 2f, y - renderH / 2f,
                         renderW / 2f, renderH / 2f, renderW, renderH, scale, scale, rotation,
@@ -1313,7 +1498,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         int currentPot = potAt(handTime());
         if (currentPot != lastPotValue) {
             lastPotValue = currentPot;
-            potText = String.format("BOTE TOTAL: %,d", currentPot);
+            potText = String.format("BOTE: %,d", currentPot);
         }
         batch.setColor(Color.WHITE);
         batch.end();
@@ -1372,14 +1557,28 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private float handTime() {
-        return sceneTime % HAND_SECONDS;
+        return isLayoutShowcase() ? SHOWCASE_TABLE_TIME : sceneTime % HAND_SECONDS;
     }
 
     private int demoHandIndex() {
-        return ((int) (sceneTime / HAND_SECONDS)) % DEMO_HAND_COUNT;
+        return isLayoutShowcase() ? DEMO_HAND_COUNT - 1
+                : ((int) (sceneTime / HAND_SECONDS)) % DEMO_HAND_COUNT;
+    }
+
+    private boolean isLayoutShowcase() {
+        return sceneTime >= NORMAL_DEMO_SECONDS;
+    }
+
+    private float showcaseElapsed() {
+        return Math.max(0f, sceneTime - NORMAL_DEMO_SECONDS);
     }
 
     private void updateHandSounds() {
+        if (isLayoutShowcase()) {
+            stopShuffleSound();
+            previousSoundTime = SHOWCASE_TABLE_TIME;
+            return;
+        }
         float current = handTime();
         float previous = previousSoundTime;
         if (previous < 0f) {
@@ -1584,9 +1783,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
     private String lastActionLabelForSeat(int seat, float time) {
         if (time >= SHOWDOWN_START && isShowdownContender(seat)) {
-            String result = SHOWDOWN_RESULTS[demoHandIndex()][seat];
-            return seat == 2 && time >= WINNER_START
-                    ? "GANA - " + result : result;
+            return SHOWDOWN_RESULTS[demoHandIndex()][seat];
         }
         ActionEvent latest = lastActionForSeat(seat, time);
         if (latest != null) {
@@ -1605,28 +1802,44 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
     private Color lastActionColorForSeat(int seat, float time) {
         if (time >= SHOWDOWN_START && isShowdownContender(seat)) {
-            return seat == 2 && time >= WINNER_START ? POT_GOLD : CYAN;
+            if (time >= WINNER_START) {
+                return seat == winnerSeat() ? LEGACY_WINNER : LEGACY_LOSER;
+            }
+            return LEGACY_SHOW;
         }
         ActionEvent latest = lastActionForSeat(seat, time);
-        return latest == null ? POT_GOLD : actionColor(latest.kind);
+        return latest == null ? LEGACY_BET : actionColor(latest);
     }
 
     private Color lastActionTextColorForSeat(int seat, float time) {
         if (time >= SHOWDOWN_START && isShowdownContender(seat)) {
-            return PANEL;
+            return time >= WINNER_START && seat == winnerSeat()
+                    ? Color.BLACK : Color.WHITE;
         }
         ActionEvent latest = lastActionForSeat(seat, time);
-        // Bright call/check/bet/all-in bands need dark ink; a fold keeps white
-        // text over red. This is deliberately high-contrast at a glance.
-        return latest != null && latest.kind == ACTION_FOLD
-                ? Color.WHITE : PANEL;
+        return latest == null ? Color.BLACK : actionTextColor(latest);
     }
 
-    private static Color actionColor(int kind) {
-        return kind == ACTION_FOLD ? FOLD_RED
-                : kind == ACTION_CALL ? STACK_GREEN
-                : kind == ACTION_BET ? POT_GOLD
-                : kind == ACTION_ALLIN ? ORANGE : CYAN;
+    private static Color actionColor(ActionEvent action) {
+        if (action.kind == ACTION_FOLD) {
+            return LEGACY_FOLD;
+        }
+        if (action.kind == ACTION_CHECK) {
+            return LEGACY_CHECK;
+        }
+        if (action.kind == ACTION_CALL) {
+            return LEGACY_CALL;
+        }
+        if (action.kind == ACTION_ALLIN) {
+            return LEGACY_ALL_IN;
+        }
+        return action.label.startsWith("RESUBE") ? LEGACY_RERAISE : LEGACY_BET;
+    }
+
+    private static Color actionTextColor(ActionEvent action) {
+        return action.kind == ACTION_CALL
+                || (action.kind == ACTION_BET && !action.label.startsWith("RESUBE"))
+                ? Color.BLACK : Color.WHITE;
     }
 
     private ActionEvent thinkingAction(float time) {
@@ -1722,6 +1935,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private void drawShowdownOverlay() {
+        if (isLayoutShowcase()) {
+            return;
+        }
         float time = handTime();
         if (time < SHOWDOWN_START) {
             return;
@@ -1879,12 +2095,24 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
     private void roundedRect(float x, float y, float width, float height, float radius) {
         float safeRadius = Math.min(radius, Math.min(width, height) * 0.5f);
+        if (safeRadius <= 0f) {
+            shapes.rect(x, y, width, height);
+            return;
+        }
+        // These pieces only share boundaries. The previous implementation
+        // overlapped two rectangles and four circles; with alpha blending those
+        // overlaps appeared as bright balls in every rounded corner.
         shapes.rect(x + safeRadius, y, width - safeRadius * 2f, height);
-        shapes.rect(x, y + safeRadius, width, height - safeRadius * 2f);
-        shapes.circle(x + safeRadius, y + safeRadius, safeRadius, 18);
-        shapes.circle(x + width - safeRadius, y + safeRadius, safeRadius, 18);
-        shapes.circle(x + safeRadius, y + height - safeRadius, safeRadius, 18);
-        shapes.circle(x + width - safeRadius, y + height - safeRadius, safeRadius, 18);
+        shapes.rect(x, y + safeRadius, safeRadius, height - safeRadius * 2f);
+        shapes.rect(x + width - safeRadius, y + safeRadius,
+                safeRadius, height - safeRadius * 2f);
+        shapes.arc(x + safeRadius, y + safeRadius, safeRadius, 180f, 90f, 18);
+        shapes.arc(x + width - safeRadius, y + safeRadius,
+                safeRadius, 270f, 90f, 18);
+        shapes.arc(x + width - safeRadius, y + height - safeRadius,
+                safeRadius, 0f, 90f, 18);
+        shapes.arc(x + safeRadius, y + height - safeRadius,
+                safeRadius, 90f, 90f, 18);
     }
 
     private void drawHudActionSurface(float x, float y, float width, float height,
@@ -1999,6 +2227,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float allInX = betX + betWidth + gap;
         ActionEvent thinking = thinkingAction(handTime());
         boolean localTurn = thinking != null && thinking.seat == 0;
+        boolean settledShowdown = handTime() >= WINNER_START
+                && isShowdownContender(0);
         String lastLocalActionLabel = lastActionLabelForSeat(0, handTime());
         Color lastLocalActionColor = lastActionColorForSeat(0, handTime());
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
@@ -2019,9 +2249,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         float turnPulse = 0.5f + 0.5f * MathUtils.sin(totalTime * 5.2f);
-        Color hudFrame = localTurn ? POT_GOLD : BUTTON_LINE;
+        Color hudFrame = settledShowdown
+                ? (winnerSeat() == 0 ? LEGACY_WINNER : LEGACY_LOSER)
+                : localTurn ? POT_GOLD : BUTTON_LINE;
         shapes.setColor(hudFrame.r, hudFrame.g, hudFrame.b,
-                localTurn ? 0.48f + turnPulse * 0.30f : 0.34f);
+                settledShowdown ? 1f
+                        : localTurn ? 0.48f + turnPulse * 0.30f : 0.34f);
         roundedRect(hudX - 8f, hudY - 8f,
                 hudWidth + 16f, hudHeight + 25f, 19f);
         // A unified HUD does not need an opaque black slab. Keep a subtle
@@ -2037,7 +2270,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         roundedRect(hudX + 10f, hudY + 10f, infoWidth - 20f, hudHeight - 20f, 11f);
         if (!lastLocalActionLabel.isEmpty()) {
             shapes.setColor(lastLocalActionColor.r, lastLocalActionColor.g,
-                    lastLocalActionColor.b, 0.20f);
+                    lastLocalActionColor.b, settledShowdown ? 1f : 0.20f);
             roundedRect(hudX + 14f, hudY + 37f,
                     infoWidth - 28f, 24f, 6f);
         }
@@ -2097,9 +2330,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         if (!lastLocalActionLabel.isEmpty()) {
             drawFittedCenteredInBox(actionFont, lastLocalActionLabel,
                     hudX + 18f, hudY + 37f, infoWidth - 36f, 25f,
-                    Color.WHITE, 1f);
+                    lastActionTextColorForSeat(0, handTime()), 1f);
         }
-        drawFittedCenteredInBox(stackFont, "STACK " + local.stackText,
+        drawFittedCenteredInBox(stackFont, local.stackText,
                 hudX + 12f, hudY + 10f, infoWidth * 0.49f - 14f, 20f,
                 STACK_GREEN, 1f);
         drawFittedCenteredInBox(stackFont, local.investedText,

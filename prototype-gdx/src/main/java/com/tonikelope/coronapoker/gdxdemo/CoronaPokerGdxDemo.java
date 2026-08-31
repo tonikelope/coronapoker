@@ -857,8 +857,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         drawTableBranding(height);
         drawChipTrails(potCenterX, potCenterY);
         // Hidden cards remain underneath their seat. Once a showdown reveal
-        // starts, that card switches to the foreground pass and slides into a
-        // dedicated clear lane beside the board.
+        // starts, that card switches to the foreground pass and slides beside
+        // its owner's avatar, preserving an obvious visual association.
         drawHoleCards(false);
         drawSeats();
         drawCardsAndPot(tableCx, tableCy, tableW);
@@ -1081,12 +1081,19 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             float shownFanX = sideX;
             float shownFanY = sideY;
             if (seat.index != 0 && isShowdownContender(seat.index)) {
-                // A professional showdown rail: one complete hand to either
-                // side of the community row. These destinations are stable,
-                // symmetric and outside the board/pot/player-HUD safe zones.
-                float showdownSide = seat.index == 2 ? -1f : 1f;
-                shownCenterX = tableCenterX + showdownSide * 620f;
-                shownCenterY = tableCenterY + 4f;
+                // Keep ownership unmistakable: the revealed pair stops beside
+                // its avatar, on the side facing away from the nearest screen
+                // edge. It may cross the pod header, but its lower edge is kept
+                // above the large action/result band whenever space permits.
+                float revealSide = seat.x < tableCenterX ? 1f : -1f;
+                float pairHalfWidth = 72f + seatCardW / 2f;
+                shownCenterX = seat.x + revealSide
+                        * (AVATAR_OUTER_RADIUS + pairHalfWidth + 14f);
+                float abovePod = seat.podY + PLAYER_POD_HEIGHT
+                        + seatCardH / 2f - 8f;
+                shownCenterY = MathUtils.clamp(Math.max(seat.y, abovePod),
+                        seatCardH / 2f + 12f,
+                        viewport.getWorldHeight() - seatCardH / 2f - 12f);
                 shownFanX = 1f;
                 shownFanY = 0f;
             }

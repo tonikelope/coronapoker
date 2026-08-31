@@ -105,6 +105,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float LOCAL_HUD_Y = 12f;
     private static final float LOCAL_HUD_HEIGHT = 126f;
     private static final float LOCAL_HUD_SAFE_TOP = LOCAL_HUD_Y + LOCAL_HUD_HEIGHT + 32f;
+    private static final float RIVAL_REVEAL_HUD_GAP = 20f;
+    private static final float RIVAL_REVEAL_TOP_MARGIN = 58f;
     private static final int ACTION_CHECK = 0;
     private static final int ACTION_BET = 1;
     private static final int ACTION_CALL = 2;
@@ -545,6 +547,20 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             throw new IllegalArgumentException("Numero de jugadores fuera de rango: "
                     + playerCount);
         }
+        if (playerCount == SEAT_COUNT) {
+            // The maximum-density layout is a deliberately reserved ten-zone
+            // composition. Top seats avoid the logo/FPS corners, the side pairs
+            // have separate vertical lanes, and the lower side pair starts above
+            // the complete footprint of the two bottom revealed hands.
+            return new float[][]{
+                {0.500f, 0.185f},
+                {0.125f, 0.145f}, {0.024f, 0.500f},
+                {0.024f, 0.790f}, {0.250f, 0.890f},
+                {0.500f, 0.930f}, {0.750f, 0.890f},
+                {0.976f, 0.790f}, {0.976f, 0.500f},
+                {0.875f, 0.145f}
+            };
+        }
         float[][] anchors = new float[playerCount][2];
         anchors[0][0] = 0.50f;
         anchors[0][1] = 0.185f;
@@ -560,12 +576,13 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                     0.48d * Math.pow(Math.abs(sin), 0.85d), sin));
             anchors[seat][0] = MathUtils.clamp(x, 0.024f, 0.976f);
             anchors[seat][1] = MathUtils.clamp(y, 0.145f, 0.93f);
-        }
-        if (playerCount == SEAT_COUNT) {
-            // At maximum density the lower side pair needs a dedicated clear
-            // lane above the bottom pair's revealed cards.
-            anchors[2][1] = 0.48f;
-            anchors[8][1] = 0.48f;
+            if (anchors[seat][1] > 0.84f) {
+                // Keep upper hands out of the permanent logo and FPS corners.
+                anchors[seat][0] = MathUtils.clamp(anchors[seat][0], 0.25f, 0.75f);
+            } else if (anchors[seat][1] < 0.25f) {
+                // Bottom rival pods must end before the central local HUD begins.
+                anchors[seat][0] = anchors[seat][0] < 0.5f ? 0.125f : 0.875f;
+            }
         }
         return anchors;
     }
@@ -1321,9 +1338,13 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 }
                 // The pod masks only the lower card area. Ranks and suits stay
                 // above it, while the overlap makes ownership unmistakable.
+                // The complete card rectangle, not just its center, must clear
+                // the local action HUD. This is what the previous centre-only
+                // spacing check failed to guarantee for NEBULA/CORONA_BOT.
                 shownCenterY = MathUtils.clamp(seat.y + 48f,
-                        seatCardH / 2f + 12f,
-                        viewport.getWorldHeight() - seatCardH / 2f - 12f);
+                        LOCAL_HUD_SAFE_TOP + seatCardH / 2f + RIVAL_REVEAL_HUD_GAP,
+                        viewport.getWorldHeight() - seatCardH / 2f
+                                - RIVAL_REVEAL_TOP_MARGIN);
                 shownFanX = 1f;
                 shownFanY = 0f;
             }
@@ -1981,8 +2002,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 continue;
             }
             float eased = Interpolation.pow2Out.apply(raw);
-            float targetX = winner.x + (chip % 5 - 2) * 12f;
-            float targetY = winner.y + 18f + (chip % 4) * 8f;
+            // Payout chips land on the player's visible stack, never on the
+            // avatar or the revealed ranks/suits.
+            float targetX = winner.stackX + (chip % 5 - 2) * 9f;
+            float targetY = winner.stackY + 8f + (chip % 4) * 6f;
             float x = bezier(potCenterX, tableCenterX - 210f, targetX, eased);
             float y = bezier(potCenterY, tableCenterY + 330f, targetY, eased);
             float size = 34f + MathUtils.sin(raw * MathUtils.PI) * 9f;

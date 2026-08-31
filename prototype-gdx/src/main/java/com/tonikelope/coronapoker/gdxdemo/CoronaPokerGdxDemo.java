@@ -119,6 +119,35 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final int ACTION_CALL = 2;
     private static final int ACTION_FOLD = 3;
     private static final int ACTION_ALLIN = 4;
+    private static final int UI_NONE = 0;
+    private static final int UI_CONTEXT_MENU = 1;
+    private static final int UI_SETTINGS = 2;
+    private static final int UI_GAME_LOG = 3;
+    private static final float CONTEXT_MENU_WIDTH = 360f;
+    private static final float CONTEXT_ROW_HEIGHT = 42f;
+    private static final String[] CONTEXT_ITEMS = {
+        "AJUSTES", "", "VER REGISTRO", "VISOR DE CAPTURAS", "",
+        "BOTONES AUTO", "CONFIRMAR ACCIONES", "RECOMPRA AUTOMÁTICA", "",
+        "AYUDA", "ÚLTIMA MANO", "DETENER TIMBA", "SALIR DE LA DEMO"
+    };
+    private static final String[] SETTINGS_TABS = {
+        "AUDIO", "APARIENCIA", "JUEGO", "ATAJOS"
+    };
+    private static final String[] GAME_LOG_PREVIEW = {
+        "[CoronaPoker // REGISTRO DE LA TIMBA]",
+        "Mano #2  ·  Ciegas 50 / 100  ·  Baraja PepsiMan HQ",
+        "CoronaBot$1 pone la ciega pequeña: 50",
+        "CoronaBot$2 pone la ciega grande: 100",
+        "CoronaBot$6 sube a 300",
+        "CoronaBot$8 iguala 300",
+        "TONIKELOPE no va",
+        "Flop: Q♥  10♦  7♠",
+        "CoronaBot$6 apuesta 600",
+        "CoronaBot$8 iguala 600",
+        "Turn: 5♥    River: 3♣",
+        "Bote final: 9.200",
+        "CoronaBot$2 gana con TRÍO"
+    };
     private static final String[] HUD_ACTIONS = {"NO IR", "IR +300", "APOSTAR", "ALL-IN"};
     private static final int[][] LOCAL_CARD_RANKS = {{11, 12}, {14, 13}};
     private static final int[] SHOWDOWN_SEATS = {1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -249,6 +278,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final Color POT_GOLD = new Color(0xffe07aff);
     private static final Color BUTTON_LINE = new Color(0x31445fff);
     private static final Color FOLD_RED = new Color(0xd9343fff);
+    private static final Color CONTEXT_EXIT = new Color(0xff7d86ff);
     private static final Color FOLDED_AVATAR = new Color(0.35f, 0.35f, 0.38f, 0.72f);
     // Exact semantic palette from Swing LocalPlayer/RemotePlayer. These are
     // learned gameplay signals, not decorative colors for the new renderer.
@@ -273,6 +303,17 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private final GlyphLayout glyph = new GlyphLayout();
     private final Vector2 pointer = new Vector2();
 
+    private int uiLayer = UI_NONE;
+    private float contextMenuX;
+    private float contextMenuY;
+    private float uiOpenedAt;
+    private float musicVolume = 0.40f;
+    private float effectsVolume = 1.0f;
+    private boolean autoButtons;
+    private boolean confirmActions = true;
+    private boolean autoRebuy;
+    private boolean lastHand;
+
     private OrthographicCamera camera;
     private ExtendViewport viewport;
     private ShapeRenderer shapes;
@@ -293,6 +334,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private Texture dealerChip;
     private Texture smallBlindChip;
     private Texture bigBlindChip;
+    private Texture[] contextIcons;
     private Texture[] cardBacks;
     private Texture[] flyingChips;
     private Texture pot;
@@ -356,6 +398,14 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         dealerChip = texture("images/dealer.png");
         smallBlindChip = texture("images/sb.png");
         bigBlindChip = texture("images/bb.png");
+        contextIcons = new Texture[]{
+            texture("images/menu/gear.png"), null,
+            texture("images/menu/log.png"), texture("images/menu/camera.png"), null,
+            texture("images/menu/auto.png"), texture("images/menu/confirmation.png"),
+            texture("images/menu/rebuy.png"), null,
+            texture("images/menu/info.png"), texture("images/menu/last_hand.png"),
+            texture("images/menu/stop.png"), texture("images/menu/close.png")
+        };
         cardBacks = new Texture[]{
             cardTexture("images/decks/goliat/hq/trasera.jpg"),
             cardTexture("mod/decks/pepsiman/hq/trasera.jpg")
@@ -438,7 +488,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 Gdx.files.internal("sounds/misc/background_music.mp3"));
         backgroundMusic.setLooping(true);
         // Same ambient-music attenuation used by CoronaPoker's Audio subsystem.
-        backgroundMusic.setVolume(0.40f);
+        backgroundMusic.setVolume(musicVolume);
         backgroundMusic.play();
         Gdx.input.setCursorCatched(false);
     }
@@ -958,11 +1008,38 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         } else {
             drawTableScene();
         }
+        drawUiLayer();
     }
 
     private void handleInput() {
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            Gdx.app.exit();
+            if (uiLayer == UI_SETTINGS || uiLayer == UI_GAME_LOG) {
+                openUiLayer(UI_CONTEXT_MENU);
+            } else if (uiLayer == UI_CONTEXT_MENU) {
+                uiLayer = UI_NONE;
+            } else {
+                Gdx.app.exit();
+            }
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F11)
+                || (Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
+                && Gdx.input.isKeyJustPressed(Input.Keys.ENTER))) {
+            toggleFullscreen();
+        }
+        if (!intro && Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)
+                && (uiLayer == UI_NONE || uiLayer == UI_CONTEXT_MENU)) {
+            pointer.set(Gdx.input.getX(), Gdx.input.getY());
+            viewport.unproject(pointer);
+            openContextMenu(pointer.x, pointer.y);
+            return;
+        }
+        if (uiLayer != UI_NONE) {
+            if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+                pointer.set(Gdx.input.getX(), Gdx.input.getY());
+                viewport.unproject(pointer);
+                handleUiClick(pointer.x, pointer.y);
+            }
+            return;
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
             if (intro) {
@@ -979,19 +1056,18 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             intro = true;
             sceneTime = 0f;
         }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.F11)
-                || (Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
-                && Gdx.input.isKeyJustPressed(Input.Keys.ENTER))) {
-            if (Gdx.graphics.isFullscreen()) {
-                Gdx.graphics.setWindowedMode(1600, 900);
-            } else {
-                Gdx.graphics.setFullscreenMode(Gdx.graphics.getDisplayMode());
-            }
-        }
-        if (!intro && Gdx.input.justTouched()) {
+        if (!intro && Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
             pointer.set(Gdx.input.getX(), Gdx.input.getY());
             viewport.unproject(pointer);
             burstClock = 0f;
+        }
+    }
+
+    private void toggleFullscreen() {
+        if (Gdx.graphics.isFullscreen()) {
+            Gdx.graphics.setWindowedMode(1600, 900);
+        } else {
+            Gdx.graphics.setFullscreenMode(Gdx.graphics.getDisplayMode());
         }
     }
 
@@ -1805,7 +1881,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         }
 
         if (crossed(previous, current, SHUFFLE_START)) {
-            shuffleSoundId = shuffleSound.play(0.62f, 1f, 0f);
+            shuffleSoundId = shuffleSound.play(0.62f * effectsVolume, 1f, 0f);
         }
         if (crossed(previous, current, SHUFFLE_START + shuffleAudioStopTime)) {
             stopShuffleSound();
@@ -1926,8 +2002,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         batch.end();
     }
 
-    private static void play(Sound sound, float volume, float pitch) {
-        sound.play(volume, pitch, 0f);
+    private void play(Sound sound, float volume, float pitch) {
+        sound.play(volume * effectsVolume, pitch, 0f);
     }
 
     private void stopShuffleSound() {
@@ -2612,6 +2688,434 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         batch.end();
     }
 
+    private void openUiLayer(int layer) {
+        uiLayer = layer;
+        uiOpenedAt = totalTime;
+    }
+
+    private void openContextMenu(float requestedX, float requestedY) {
+        float menuHeight = contextMenuHeight();
+        float worldWidth = viewport.getWorldWidth();
+        float worldHeight = viewport.getWorldHeight();
+        contextMenuX = MathUtils.clamp(requestedX, 8f,
+                Math.max(8f, worldWidth - CONTEXT_MENU_WIDTH - 8f));
+        contextMenuY = MathUtils.clamp(requestedY - menuHeight, 8f,
+                Math.max(8f, worldHeight - menuHeight - 8f));
+        openUiLayer(UI_CONTEXT_MENU);
+    }
+
+    private static boolean isContextSeparator(int item) {
+        return CONTEXT_ITEMS[item].isEmpty();
+    }
+
+    private static float contextRowHeight(int item) {
+        return isContextSeparator(item) ? 16f : CONTEXT_ROW_HEIGHT;
+    }
+
+    private static float contextMenuHeight() {
+        float result = 20f;
+        for (int item = 0; item < CONTEXT_ITEMS.length; item++) {
+            result += contextRowHeight(item);
+        }
+        return result;
+    }
+
+    private float contextItemY(int target) {
+        float cursor = contextMenuY + contextMenuHeight() - 10f;
+        for (int item = 0; item <= target; item++) {
+            cursor -= contextRowHeight(item);
+        }
+        return cursor;
+    }
+
+    private static boolean contextItemEnabled(int item) {
+        // These entries are visible to prove parity with the Swing popup, but
+        // their target screens are outside this table-only visual prototype.
+        return item != 3 && item != 9 && item != 11;
+    }
+
+    private boolean contextItemChecked(int item) {
+        return switch (item) {
+            case 5 -> autoButtons;
+            case 6 -> confirmActions;
+            case 7 -> autoRebuy;
+            case 10 -> lastHand;
+            default -> false;
+        };
+    }
+
+    private void handleUiClick(float x, float y) {
+        switch (uiLayer) {
+            case UI_CONTEXT_MENU -> handleContextMenuClick(x, y);
+            case UI_SETTINGS -> handleSettingsClick(x, y);
+            case UI_GAME_LOG -> handleGameLogClick(x, y);
+            default -> {
+            }
+        }
+    }
+
+    private void handleContextMenuClick(float x, float y) {
+        float menuHeight = contextMenuHeight();
+        if (!contains(x, y, contextMenuX, contextMenuY,
+                CONTEXT_MENU_WIDTH, menuHeight)) {
+            uiLayer = UI_NONE;
+            return;
+        }
+        for (int item = 0; item < CONTEXT_ITEMS.length; item++) {
+            float rowY = contextItemY(item);
+            float rowH = contextRowHeight(item);
+            if (!contains(x, y, contextMenuX, rowY, CONTEXT_MENU_WIDTH, rowH)
+                    || isContextSeparator(item) || !contextItemEnabled(item)) {
+                continue;
+            }
+            switch (item) {
+                case 0 -> openUiLayer(UI_SETTINGS);
+                case 2 -> openUiLayer(UI_GAME_LOG);
+                case 5 -> {
+                    autoButtons = !autoButtons;
+                    uiLayer = UI_NONE;
+                }
+                case 6 -> {
+                    confirmActions = !confirmActions;
+                    uiLayer = UI_NONE;
+                }
+                case 7 -> {
+                    autoRebuy = !autoRebuy;
+                    uiLayer = UI_NONE;
+                }
+                case 10 -> {
+                    lastHand = !lastHand;
+                    uiLayer = UI_NONE;
+                }
+                case 12 -> Gdx.app.exit();
+                default -> {
+                }
+            }
+            return;
+        }
+    }
+
+    private void handleSettingsClick(float x, float y) {
+        float width = viewport.getWorldWidth();
+        float height = viewport.getWorldHeight();
+        float panelW = Math.min(1060f, width - 80f);
+        float panelH = Math.min(700f, height - 70f);
+        float panelX = (width - panelW) / 2f;
+        float panelY = (height - panelH) / 2f;
+        float contentX = panelX + 284f;
+        float sliderW = panelW - 390f;
+        float musicY = panelY + panelH - 248f;
+        float effectsY = musicY - 132f;
+        if (contains(x, y, contentX, musicY - 18f, sliderW, 46f)) {
+            musicVolume = MathUtils.clamp((x - contentX) / sliderW, 0f, 1f);
+            backgroundMusic.setVolume(musicVolume);
+            return;
+        }
+        if (contains(x, y, contentX, effectsY - 18f, sliderW, 46f)) {
+            effectsVolume = MathUtils.clamp((x - contentX) / sliderW, 0f, 1f);
+            return;
+        }
+        if (contains(x, y, panelX + 30f, panelY + 24f, 190f, 58f)
+                || contains(x, y, panelX + panelW - 250f,
+                        panelY + 24f, 220f, 58f)) {
+            openUiLayer(UI_CONTEXT_MENU);
+            return;
+        }
+        // Clicking outside a modal dialog deliberately does nothing.
+    }
+
+    private void handleGameLogClick(float x, float y) {
+        float width = viewport.getWorldWidth();
+        float height = viewport.getWorldHeight();
+        float panelW = Math.min(1160f, width - 80f);
+        float panelH = Math.min(720f, height - 70f);
+        float panelX = (width - panelW) / 2f;
+        float panelY = (height - panelH) / 2f;
+        if (contains(x, y, panelX + panelW - 224f,
+                panelY + 24f, 194f, 58f)) {
+            openUiLayer(UI_CONTEXT_MENU);
+        }
+    }
+
+    private static boolean contains(float px, float py, float x, float y,
+            float width, float height) {
+        return px >= x && px <= x + width && py >= y && py <= y + height;
+    }
+
+    private void drawUiLayer() {
+        if (uiLayer == UI_NONE) {
+            return;
+        }
+        pointer.set(Gdx.input.getX(), Gdx.input.getY());
+        viewport.unproject(pointer);
+        switch (uiLayer) {
+            case UI_CONTEXT_MENU -> drawContextMenu();
+            case UI_SETTINGS -> drawSettingsDialog();
+            case UI_GAME_LOG -> drawGameLogDialog();
+            default -> {
+            }
+        }
+    }
+
+    private float uiFade() {
+        return Interpolation.fade.apply(MathUtils.clamp(
+                (totalTime - uiOpenedAt) / 0.16f, 0f, 1f));
+    }
+
+    private void drawContextMenu() {
+        float alpha = uiFade();
+        float menuHeight = contextMenuHeight();
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapes.setColor(0f, 0f, 0f, 0.48f * alpha);
+        roundedRect(contextMenuX + 7f, contextMenuY - 7f,
+                CONTEXT_MENU_WIDTH, menuHeight, 12f);
+        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.78f * alpha);
+        roundedRect(contextMenuX - 2f, contextMenuY - 2f,
+                CONTEXT_MENU_WIDTH + 4f, menuHeight + 4f, 12f);
+        shapes.setColor(0.018f, 0.035f, 0.060f, 0.98f * alpha);
+        roundedRect(contextMenuX, contextMenuY,
+                CONTEXT_MENU_WIDTH, menuHeight, 10f);
+        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.86f * alpha);
+        shapes.rect(contextMenuX + 8f, contextMenuY + menuHeight - 7f,
+                CONTEXT_MENU_WIDTH - 16f, 3f);
+
+        for (int item = 0; item < CONTEXT_ITEMS.length; item++) {
+            float rowY = contextItemY(item);
+            float rowH = contextRowHeight(item);
+            if (isContextSeparator(item)) {
+                shapes.setColor(BUTTON_LINE.r, BUTTON_LINE.g, BUTTON_LINE.b,
+                        0.72f * alpha);
+                shapes.rect(contextMenuX + 18f, rowY + rowH / 2f,
+                        CONTEXT_MENU_WIDTH - 36f, 1.5f);
+                continue;
+            }
+            boolean enabled = contextItemEnabled(item);
+            boolean hover = enabled && contains(pointer.x, pointer.y,
+                    contextMenuX + 6f, rowY + 2f,
+                    CONTEXT_MENU_WIDTH - 12f, rowH - 4f);
+            if (hover) {
+                Color accent = item == 12 ? FOLD_RED : CYAN;
+                shapes.setColor(accent.r, accent.g, accent.b, 0.24f * alpha);
+                roundedRect(contextMenuX + 6f, rowY + 2f,
+                        CONTEXT_MENU_WIDTH - 12f, rowH - 4f, 7f);
+                shapes.setColor(accent.r, accent.g, accent.b, 0.95f * alpha);
+                shapes.rect(contextMenuX + 6f, rowY + 7f, 4f, rowH - 14f);
+            }
+            if (item == 5 || item == 6 || item == 7 || item == 10) {
+                float boxX = contextMenuX + CONTEXT_MENU_WIDTH - 36f;
+                float boxY = rowY + rowH / 2f - 9f;
+                shapes.setColor(BUTTON_LINE.r, BUTTON_LINE.g, BUTTON_LINE.b,
+                        0.96f * alpha);
+                roundedRect(boxX, boxY, 18f, 18f, 4f);
+                if (contextItemChecked(item)) {
+                    shapes.setColor(STACK_GREEN.r, STACK_GREEN.g,
+                            STACK_GREEN.b, alpha);
+                    roundedRect(boxX + 3f, boxY + 3f, 12f, 12f, 3f);
+                }
+            }
+        }
+        shapes.end();
+
+        batch.begin();
+        for (int item = 0; item < CONTEXT_ITEMS.length; item++) {
+            if (isContextSeparator(item)) {
+                continue;
+            }
+            float rowY = contextItemY(item);
+            float rowH = contextRowHeight(item);
+            boolean enabled = contextItemEnabled(item);
+            Texture icon = contextIcons[item];
+            if (icon != null) {
+                batch.setColor(1f, 1f, 1f, (enabled ? 0.96f : 0.38f) * alpha);
+                batch.draw(icon, contextMenuX + 18f, rowY + (rowH - 25f) / 2f,
+                        25f, 25f);
+            }
+            Color textColor = item == 12 ? CONTEXT_EXIT
+                    : enabled ? Color.WHITE : Color.GRAY;
+            drawLeftInBox(smallFont, CONTEXT_ITEMS[item],
+                    contextMenuX + 56f, rowY + 4f,
+                    CONTEXT_MENU_WIDTH - 104f, rowH - 8f,
+                    textColor, (enabled ? 1f : 0.48f) * alpha);
+        }
+        batch.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    private void drawSettingsDialog() {
+        float alpha = uiFade();
+        float width = viewport.getWorldWidth();
+        float height = viewport.getWorldHeight();
+        float panelW = Math.min(1060f, width - 80f);
+        float panelH = Math.min(700f, height - 70f);
+        float panelX = (width - panelW) / 2f;
+        float panelY = (height - panelH) / 2f;
+        float sideW = 238f;
+        float contentX = panelX + 284f;
+        float sliderW = panelW - 390f;
+        float musicY = panelY + panelH - 248f;
+        float effectsY = musicY - 132f;
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapes.setColor(0f, 0f, 0f, 0.20f * alpha);
+        shapes.rect(0f, 0f, width, height);
+        shapes.setColor(0f, 0f, 0f, 0.58f * alpha);
+        roundedRect(panelX + 9f, panelY - 10f, panelW, panelH, 20f);
+        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.82f * alpha);
+        roundedRect(panelX - 2f, panelY - 2f, panelW + 4f, panelH + 4f, 20f);
+        shapes.setColor(0.015f, 0.030f, 0.052f, 0.985f * alpha);
+        roundedRect(panelX, panelY, panelW, panelH, 18f);
+        shapes.setColor(0.025f, 0.060f, 0.082f, 0.94f * alpha);
+        roundedRect(panelX + 16f, panelY + 98f,
+                sideW, panelH - 174f, 13f);
+        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.22f * alpha);
+        roundedRect(panelX + 25f, panelY + panelH - 190f,
+                sideW - 18f, 55f, 9f);
+        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.95f * alpha);
+        shapes.rect(panelX + 25f, panelY + panelH - 190f, 4f, 55f);
+
+        drawSettingsSlider(contentX, musicY, sliderW,
+                musicVolume, CYAN, alpha);
+        drawSettingsSlider(contentX, effectsY, sliderW,
+                effectsVolume, POT_GOLD, alpha);
+        drawDialogButton(panelX + 30f, panelY + 24f, 190f, 58f,
+                BUTTON_LINE, contains(pointer.x, pointer.y,
+                        panelX + 30f, panelY + 24f, 190f, 58f), alpha);
+        drawDialogButton(panelX + panelW - 250f, panelY + 24f, 220f, 58f,
+                STACK_GREEN, contains(pointer.x, pointer.y,
+                        panelX + panelW - 250f, panelY + 24f, 220f, 58f), alpha);
+        shapes.end();
+
+        batch.begin();
+        drawLeftInBox(uiFont, "AJUSTES", panelX + 34f,
+                panelY + panelH - 70f, panelW - 68f, 42f,
+                Color.WHITE, alpha);
+        drawLeftInBox(smallFont, "CONFIGURACIÓN DE CORONAPOKER",
+                panelX + 35f, panelY + panelH - 100f,
+                panelW - 70f, 24f, CYAN, alpha);
+        for (int i = 0; i < SETTINGS_TABS.length; i++) {
+            drawLeftInBox(actionFont, SETTINGS_TABS[i], panelX + 50f,
+                    panelY + panelH - 186f - i * 70f,
+                    sideW - 52f, 46f, i == 0 ? CYAN : Color.WHITE,
+                    (i == 0 ? 1f : 0.66f) * alpha);
+        }
+        drawLeftInBox(uiFont, "SONIDO", contentX,
+                panelY + panelH - 126f, panelW - 330f, 36f,
+                Color.WHITE, alpha);
+        drawLeftInBox(actionFont, "MÚSICA", contentX,
+                musicY + 28f, 260f, 32f, Color.WHITE, alpha);
+        drawFittedCenteredInBox(actionFont,
+                Math.round(musicVolume * 100f) + "%",
+                contentX + sliderW - 80f, musicY + 28f,
+                80f, 32f, STACK_GREEN, alpha);
+        drawLeftInBox(smallFont, "Banda sonora ambiental en bucle",
+                contentX, musicY - 50f, sliderW, 28f, Color.LIGHT_GRAY, alpha);
+        drawLeftInBox(actionFont, "EFECTOS", contentX,
+                effectsY + 28f, 260f, 32f, Color.WHITE, alpha);
+        drawFittedCenteredInBox(actionFont,
+                Math.round(effectsVolume * 100f) + "%",
+                contentX + sliderW - 80f, effectsY + 28f,
+                80f, 32f, POT_GOLD, alpha);
+        drawLeftInBox(smallFont, "Cartas, fichas, acciones y cinemáticas",
+                contentX, effectsY - 50f, sliderW, 28f, Color.LIGHT_GRAY, alpha);
+        drawFittedCenteredInBox(actionFont, "VOLVER",
+                panelX + 30f, panelY + 24f, 190f, 58f,
+                Color.WHITE, alpha);
+        drawFittedCenteredInBox(actionFont, "GUARDAR",
+                panelX + panelW - 250f, panelY + 24f, 220f, 58f,
+                Color.WHITE, alpha);
+        batch.end();
+    }
+
+    private void drawGameLogDialog() {
+        float alpha = uiFade();
+        float width = viewport.getWorldWidth();
+        float height = viewport.getWorldHeight();
+        float panelW = Math.min(1160f, width - 80f);
+        float panelH = Math.min(720f, height - 70f);
+        float panelX = (width - panelW) / 2f;
+        float panelY = (height - panelH) / 2f;
+        float logX = panelX + 34f;
+        float logY = panelY + 105f;
+        float logW = panelW - 68f;
+        float logH = panelH - 230f;
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapes.setColor(0f, 0f, 0f, 0.20f * alpha);
+        shapes.rect(0f, 0f, width, height);
+        shapes.setColor(0f, 0f, 0f, 0.58f * alpha);
+        roundedRect(panelX + 9f, panelY - 10f, panelW, panelH, 20f);
+        shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b, 0.82f * alpha);
+        roundedRect(panelX - 2f, panelY - 2f, panelW + 4f, panelH + 4f, 20f);
+        shapes.setColor(0.015f, 0.030f, 0.052f, 0.985f * alpha);
+        roundedRect(panelX, panelY, panelW, panelH, 18f);
+        shapes.setColor(0.004f, 0.012f, 0.020f, 0.96f * alpha);
+        roundedRect(logX, logY, logW, logH, 10f);
+        shapes.setColor(BUTTON_LINE.r, BUTTON_LINE.g, BUTTON_LINE.b, 0.85f * alpha);
+        roundedRect(logX + logW - 15f, logY + 14f, 5f, logH - 28f, 3f);
+        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.88f * alpha);
+        roundedRect(logX + logW - 16f, logY + logH - 118f,
+                7f, 88f, 3f);
+        drawDialogButton(panelX + panelW - 224f, panelY + 24f,
+                194f, 58f, POT_GOLD,
+                contains(pointer.x, pointer.y, panelX + panelW - 224f,
+                        panelY + 24f, 194f, 58f), alpha);
+        shapes.end();
+
+        batch.begin();
+        drawLeftInBox(uiFont, "REGISTRO DE LA TIMBA",
+                panelX + 34f, panelY + panelH - 72f,
+                panelW - 68f, 42f, Color.WHITE, alpha);
+        drawLeftInBox(smallFont, "VISTA GDX · LA FUENTE REAL SEGUIRÁ SIENDO EL CORE",
+                panelX + 35f, panelY + panelH - 103f,
+                panelW - 70f, 24f, POT_GOLD, alpha);
+        float baseline = logY + logH - 42f;
+        for (int i = 0; i < GAME_LOG_PREVIEW.length; i++) {
+            Color lineColor = i == 0 ? CYAN
+                    : i == GAME_LOG_PREVIEW.length - 1
+                            ? STACK_GREEN : Color.LIGHT_GRAY;
+            drawLeftInBox(i == 0 ? actionFont : smallFont,
+                    GAME_LOG_PREVIEW[i],
+                    logX + 24f, baseline - i * 31f,
+                    logW - 64f, 27f, lineColor, alpha);
+        }
+        drawFittedCenteredInBox(actionFont, "CERRAR",
+                panelX + panelW - 224f, panelY + 24f,
+                194f, 58f, Color.WHITE, alpha);
+        batch.end();
+    }
+
+    private void drawDialogButton(float x, float y, float width, float height,
+            Color accent, boolean hover, float alpha) {
+        shapes.setColor(0f, 0f, 0f, 0.46f * alpha);
+        roundedRect(x + 4f, y - 4f, width, height, 11f);
+        shapes.setColor(accent.r, accent.g, accent.b,
+                (hover ? 0.92f : 0.62f) * alpha);
+        roundedRect(x, y, width, height, 11f);
+        shapes.setColor(0.018f, 0.035f, 0.060f, 0.98f * alpha);
+        roundedRect(x + 3f, y + 4f, width - 6f, height - 8f, 8f);
+        shapes.setColor(accent.r, accent.g, accent.b,
+                (hover ? 0.34f : 0.18f) * alpha);
+        roundedRect(x + 7f, y + 8f, width - 14f, height - 16f, 7f);
+    }
+
+    private void drawSettingsSlider(float x, float y, float width,
+            float value, Color accent, float alpha) {
+        shapes.setColor(BUTTON_LINE.r, BUTTON_LINE.g, BUTTON_LINE.b,
+                0.90f * alpha);
+        roundedRect(x, y, width, 12f, 6f);
+        shapes.setColor(accent.r, accent.g, accent.b, 0.92f * alpha);
+        float fill = Math.max(12f, width * value);
+        roundedRect(x, y, fill, 12f, 6f);
+        float knobX = x + width * value;
+        shapes.setColor(0f, 0f, 0f, 0.40f * alpha);
+        shapes.circle(knobX + 2f, y + 4f, 13f, 32);
+        shapes.setColor(Color.WHITE.r, Color.WHITE.g, Color.WHITE.b, alpha);
+        shapes.circle(knobX, y + 6f, 11f, 32);
+    }
+
     private void drawFpsCounter(float width, float height) {
         float panelWidth = 126f;
         float panelHeight = 42f;
@@ -2678,6 +3182,26 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         data.setScale(originalScaleX, originalScaleY);
     }
 
+    private void drawLeftInBox(BitmapFont font, String text,
+            float x, float y, float width, float height,
+            Color color, float alpha) {
+        BitmapFont.BitmapFontData data = font.getData();
+        float originalScaleX = data.scaleX;
+        float originalScaleY = data.scaleY;
+        glyph.setText(font, text);
+        float fitX = glyph.width > 0f ? width / glyph.width : 1f;
+        float fitY = glyph.height > 0f ? height / glyph.height : 1f;
+        float fit = Math.min(1f, Math.min(fitX, fitY));
+        if (fit < 1f) {
+            data.setScale(originalScaleX * fit, originalScaleY * fit);
+            glyph.setText(font, text);
+        }
+        font.setColor(color.r, color.g, color.b, alpha);
+        font.draw(batch, glyph, x, y + (height + glyph.height) / 2f);
+        font.setColor(Color.WHITE);
+        data.setScale(originalScaleX, originalScaleY);
+    }
+
     private void recordFrame(float delta) {
         frameSamples[frameCursor] = delta * 1000f;
         frameCursor = (frameCursor + 1) % frameSamples.length;
@@ -2724,6 +3248,11 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         dealerChip.dispose();
         smallBlindChip.dispose();
         bigBlindChip.dispose();
+        for (Texture contextIcon : contextIcons) {
+            if (contextIcon != null) {
+                contextIcon.dispose();
+            }
+        }
         for (Texture cardBack : cardBacks) {
             cardBack.dispose();
         }

@@ -93,6 +93,16 @@
                     <include>images/action/up.png</include>
                     <include>images/action/bet.png</include>
                     <include>images/action/glasses.png</include>
+                    <include>images/menu/gear.png</include>
+                    <include>images/menu/log.png</include>
+                    <include>images/menu/camera.png</include>
+                    <include>images/menu/auto.png</include>
+                    <include>images/menu/confirmation.png</include>
+                    <include>images/menu/rebuy.png</include>
+                    <include>images/menu/info.png</include>
+                    <include>images/menu/last_hand.png</include>
+                    <include>images/menu/stop.png</include>
+                    <include>images/menu/close.png</include>
                     <!-- Package the complete HQ deck. Demo hands change often;
                          a closed per-card list makes a valid source asset fail
                          only after launching the shaded distribution JAR. -->

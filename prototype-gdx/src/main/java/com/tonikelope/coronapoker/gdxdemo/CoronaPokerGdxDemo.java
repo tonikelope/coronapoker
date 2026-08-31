@@ -82,7 +82,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float[] COMMUNITY_REVEAL = {22.0f, 22.2f, 22.4f, 27.2f, 33.5f};
     private static final float CARD_CORNER_RADIUS = 0.075f;
     private static final float CARD_EDGE_SOFTNESS = 0.006f;
-    private static final float PLAYER_POD_WIDTH = 172f;
+    private static final float PLAYER_POD_WIDTH = 244f;
     private static final float PLAYER_POD_HEIGHT = 78f;
     private static final float POT_PANEL_HEIGHT = 82f;
     private static final float POT_BOARD_GAP = 24f;
@@ -751,9 +751,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 seats[i].podY = MathUtils.clamp(
                         seats[i].y - PLAYER_POD_HEIGHT - 42f, 8f,
                         height - PLAYER_POD_HEIGHT - 8f);
-                seats[i].stackX = seats[i].podX + 35f;
+                seats[i].stackX = seats[i].podX + 38f;
                 seats[i].stackY = seats[i].podY + 17f;
-                seats[i].stackTextX = seats[i].podX + 116f;
+                seats[i].stackTextX = seats[i].podX + 103f;
                 seats[i].stackTextY = seats[i].podY + 21f;
             }
             float towardX = tableCenterX - seats[i].x;
@@ -787,24 +787,27 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             if (seat.index != 0) {
                 // One component owns name, chips and amount for every rival.
                 Color rim = folded ? BUTTON_LINE : (active ? CYAN : SEAT_RIM);
-                ActionEvent lastAction = lastActionForSeat(seat.index, handTime());
+                String actionLabel = lastActionLabelForSeat(seat.index, handTime());
                 shapes.setColor(rim.r, rim.g, rim.b, folded ? 0.55f : 0.88f);
                 roundedRect(seat.podX - 2f, seat.podY - 2f,
                         PLAYER_POD_WIDTH + 4f, PLAYER_POD_HEIGHT + 4f, 14f);
                 shapes.setColor(0.015f, 0.028f, 0.05f, folded ? 0.72f : 0.92f);
                 roundedRect(seat.podX, seat.podY,
                         PLAYER_POD_WIDTH, PLAYER_POD_HEIGHT, 12f);
-                if (lastAction != null) {
-                    Color lastColor = actionColor(lastAction.kind);
+                if (!actionLabel.isEmpty()) {
+                    Color lastColor = lastActionColorForSeat(seat.index, handTime());
                     shapes.setColor(lastColor.r, lastColor.g, lastColor.b, 0.18f);
-                    roundedRect(seat.podX + 6f, seat.podY + 28f,
-                            PLAYER_POD_WIDTH - 12f, 22f, 5f);
+                    roundedRect(seat.podX + 56f, seat.podY + 29f,
+                            PLAYER_POD_WIDTH - 64f, 22f, 5f);
+                    shapes.setColor(lastColor.r, lastColor.g, lastColor.b, 0.92f);
+                    shapes.rect(seat.podX + 56f, seat.podY + 29f, 4f, 22f);
                 }
                 shapes.setColor(rim.r, rim.g, rim.b, folded ? 0.24f : 0.42f);
-                shapes.rect(seat.podX + 12f, seat.podY + 26f,
-                        PLAYER_POD_WIDTH - 24f, 2f);
+                shapes.rect(seat.podX + 56f, seat.podY + 27f,
+                        PLAYER_POD_WIDTH - 68f, 2f);
                 shapes.rect(seat.podX + 12f, seat.podY + 51f,
                         PLAYER_POD_WIDTH - 24f, 2f);
+                shapes.rect(seat.podX + 154f, seat.podY + 5f, 2f, 19f);
             }
             if (active) {
                 Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
@@ -861,21 +864,23 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             }
             batch.setColor(Color.WHITE);
             if (seat.index != 0) {
-                drawCentered(stackFont, seat.stackText, seat.stackTextX, seat.stackTextY,
-                        folded ? Color.GRAY : STACK_GREEN, 1f);
-            }
-            if (seat.index != 0) {
                 drawFittedCentered(playerNameFont, seat.name,
                         seat.podX + PLAYER_POD_WIDTH / 2f, seat.podY + 69f,
                         PLAYER_POD_WIDTH - 24f,
                         folded ? Color.GRAY : Color.WHITE, 1f);
-                ActionEvent lastAction = lastActionForSeat(seat.index, handTime());
-                if (lastAction != null) {
-                    drawFittedCentered(actionFont, lastAction.label,
-                            seat.podX + PLAYER_POD_WIDTH / 2f, seat.podY + 45f,
-                            PLAYER_POD_WIDTH - 24f,
-                            actionColor(lastAction.kind), 1f);
+                String actionLabel = lastActionLabelForSeat(seat.index, handTime());
+                if (!actionLabel.isEmpty()) {
+                    drawFittedCentered(actionFont, actionLabel,
+                            seat.podX + 150f, seat.podY + 47f,
+                            PLAYER_POD_WIDTH - 76f,
+                            Color.WHITE, 1f);
                 }
+                drawFittedCentered(stackFont, "STACK " + seat.stackText,
+                        seat.stackTextX, seat.podY + 19f, 94f,
+                        folded ? Color.GRAY : STACK_GREEN, 1f);
+                drawFittedCentered(stackFont, "BOTE " + seat.investedText,
+                        seat.podX + 200f, seat.podY + 19f, 80f,
+                        folded ? Color.GRAY : POT_GOLD, 1f);
             }
         }
         batch.end();
@@ -1333,6 +1338,27 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         return latest;
     }
 
+    private static String lastActionLabelForSeat(int seat, float time) {
+        ActionEvent latest = lastActionForSeat(seat, time);
+        if (latest != null) {
+            return latest.label;
+        }
+        if (time >= BLIND_POST_START) {
+            if (seat == 1) {
+                return "SB 50";
+            }
+            if (seat == 2) {
+                return "BB 100";
+            }
+        }
+        return "";
+    }
+
+    private static Color lastActionColorForSeat(int seat, float time) {
+        ActionEvent latest = lastActionForSeat(seat, time);
+        return latest == null ? POT_GOLD : actionColor(latest.kind);
+    }
+
     private static Color actionColor(int kind) {
         return kind == ACTION_FOLD ? FOLD_RED
                 : kind == ACTION_CALL ? STACK_GREEN
@@ -1764,6 +1790,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float allInX = betX + betWidth + gap;
         ActionEvent thinking = thinkingAction(handTime());
         boolean localTurn = thinking != null && thinking.seat == 0;
+        String lastLocalActionLabel = lastActionLabelForSeat(0, handTime());
+        Color lastLocalActionColor = lastActionColorForSeat(0, handTime());
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(pointer);
 
@@ -1798,9 +1826,19 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         roundedRect(hudX, hudY, infoWidth, hudHeight, 15f);
         shapes.setColor(0.03f, 0.06f, 0.11f, 0.98f);
         roundedRect(hudX + 10f, hudY + 10f, infoWidth - 20f, hudHeight - 20f, 11f);
+        if (!lastLocalActionLabel.isEmpty()) {
+            shapes.setColor(lastLocalActionColor.r, lastLocalActionColor.g,
+                    lastLocalActionColor.b, 0.20f);
+            roundedRect(hudX + 14f, hudY + 37f,
+                    infoWidth - 28f, 24f, 6f);
+        }
         Color hudLine = localTurn ? POT_GOLD : CYAN;
         shapes.setColor(hudLine.r, hudLine.g, hudLine.b, 0.82f);
         shapes.rect(hudX + 16f, hudY + hudHeight - 4f, infoWidth - 32f, 3f);
+        shapes.setColor(BUTTON_LINE.r, BUTTON_LINE.g, BUTTON_LINE.b, 0.72f);
+        shapes.rect(hudX + 16f, hudY + 34f, infoWidth - 32f, 2f);
+        shapes.rect(hudX + 16f, hudY + 63f, infoWidth - 32f, 2f);
+        shapes.rect(hudX + infoWidth / 2f, hudY + 13f, 2f, 18f);
         drawHudActionSurface(foldX, actionY, foldWidth, actionHeight,
                 FOLD_RED, foldHover, false, localTurn);
         drawHudActionSurface(checkX, actionY, checkWidth, actionHeight,
@@ -1840,20 +1878,23 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
         batch.begin();
         Seat local = seats[0];
-        ActionEvent lastLocalAction = lastActionForSeat(0, handTime());
         drawCentered(localTurn ? actionFont : smallFont,
                 localTurn ? "TU TURNO" : "ESPERANDO TURNO",
                 hudX + infoWidth / 2f, hudY + 112f,
                 localTurn ? POT_GOLD : CYAN, 1f);
         drawCentered(uiFont, "TONIKELOPE", hudX + infoWidth / 2f,
-                hudY + 79f, Color.WHITE, 1f);
-        drawCentered(smallFont, "STACK  " + local.stackText, hudX + infoWidth / 2f,
-                hudY + 48f, STACK_GREEN, 1f);
-        if (lastLocalAction != null) {
-            drawFittedCentered(actionFont, lastLocalAction.label,
-                    hudX + infoWidth / 2f, hudY + 22f,
-                    infoWidth - 28f, actionColor(lastLocalAction.kind), 1f);
+                hudY + 82f, Color.WHITE, 1f);
+        if (!lastLocalActionLabel.isEmpty()) {
+            drawFittedCentered(actionFont, lastLocalActionLabel,
+                    hudX + infoWidth / 2f, hudY + 56f,
+                    infoWidth - 36f, Color.WHITE, 1f);
         }
+        drawFittedCentered(stackFont, "STACK " + local.stackText,
+                hudX + infoWidth * 0.26f, hudY + 23f,
+                infoWidth * 0.44f, STACK_GREEN, 1f);
+        drawFittedCentered(stackFont, "BOTE " + local.investedText,
+                hudX + infoWidth * 0.75f, hudY + 23f,
+                infoWidth * 0.40f, POT_GOLD, 1f);
 
         drawHudActionContent(HUD_ACTIONS[0], foldX, actionY,
                 foldWidth, actionHeight, Color.WHITE, contentAlpha);
@@ -2006,7 +2047,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         final String name;
         final int stack;
         String stackText;
+        String investedText;
         int displayedStack;
+        int displayedInvested;
         final int index;
         float x;
         float y;
@@ -2024,20 +2067,28 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             this.stack = stack;
             this.displayedStack = stack;
             this.stackText = String.format("%,d", stack);
+            this.displayedInvested = 0;
+            this.investedText = "0";
             this.index = index;
         }
 
         void updateStack(float time, ChipFlight[] flights) {
             int current = stack;
+            int invested = 0;
             for (ChipFlight flight : flights) {
                 if (flight.seat == index
                         && time >= flight.startTime + flight.duration) {
                     current -= flight.potContribution;
+                    invested += flight.potContribution;
                 }
             }
             if (current != displayedStack) {
                 displayedStack = current;
                 stackText = String.format("%,d", current);
+            }
+            if (invested != displayedInvested) {
+                displayedInvested = invested;
+                investedText = String.format("%,d", invested);
             }
         }
     }

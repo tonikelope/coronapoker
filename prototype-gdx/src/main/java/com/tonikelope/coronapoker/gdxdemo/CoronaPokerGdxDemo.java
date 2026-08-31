@@ -106,7 +106,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float LOCAL_HUD_HEIGHT = 126f;
     private static final float LOCAL_HUD_SAFE_TOP = LOCAL_HUD_Y + LOCAL_HUD_HEIGHT + 32f;
     private static final float RIVAL_REVEAL_HUD_GAP = 20f;
-    private static final float RIVAL_REVEAL_TOP_MARGIN = 58f;
+    private static final float RIVAL_REVEAL_TOP_MARGIN = 8f;
+    private static final float RIVAL_HAND_VERTICAL_OFFSET = -22f;
+    private static final float RIVAL_LATERAL_HAND_OFFSET = 145f;
     private static final int ACTION_CHECK = 0;
     private static final int ACTION_BET = 1;
     private static final int ACTION_CALL = 2;
@@ -1327,18 +1329,20 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 boolean lateralAvatar = Math.abs(avatarOffset) > 32f;
                 float freeSide = avatarOffset < -32f ? 1f
                         : avatarOffset > 32f ? -1f : 0f;
-                // Face-down cards already form the same upright V used by every
-                // seat. Centered avatars keep one card at each side; lateral
-                // avatars tuck that V into the available side and open it on show.
-                hiddenCenterX = seat.x + freeSide * (lateralAvatar ? 80f : 0f);
-                hiddenCenterY = seat.y + (lateralAvatar ? 4f : 48f);
+                // Every rival hand uses one vertical reference: its cards rise
+                // equally above the avatar. Centered avatars keep one card at
+                // each side; lateral avatars move the complete V into the free
+                // side instead of leaving its inner card over the portrait.
+                hiddenCenterX = seat.x + freeSide
+                        * (lateralAvatar ? RIVAL_LATERAL_HAND_OFFSET : 0f);
+                hiddenCenterY = seat.y + RIVAL_HAND_VERTICAL_OFFSET;
                 hiddenFanX = 1f;
                 hiddenFanY = 0f;
                 hiddenSideDistance = lateralAvatar ? 34f : 62f;
                 if (avatarOffset < -32f) {
-                    shownCenterX = seat.x + 125f;
+                    shownCenterX = seat.x + RIVAL_LATERAL_HAND_OFFSET;
                 } else if (avatarOffset > 32f) {
-                    shownCenterX = seat.x - 125f;
+                    shownCenterX = seat.x - RIVAL_LATERAL_HAND_OFFSET;
                 } else {
                     shownCenterX = seat.x;
                     revealedSideDistance = AVATAR_OUTER_RADIUS + 58f;
@@ -1348,8 +1352,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 // The complete card rectangle, not just its center, must clear
                 // the local action HUD. This is what the previous centre-only
                 // spacing check failed to guarantee for NEBULA/CORONA_BOT.
-                float revealVerticalOffset = lateralAvatar ? 4f : 48f;
-                shownCenterY = MathUtils.clamp(seat.y + revealVerticalOffset,
+                shownCenterY = MathUtils.clamp(
+                        seat.y + RIVAL_HAND_VERTICAL_OFFSET,
                         LOCAL_HUD_SAFE_TOP + seatCardH / 2f + RIVAL_REVEAL_HUD_GAP,
                         viewport.getWorldHeight() - seatCardH / 2f
                                 - RIVAL_REVEAL_TOP_MARGIN);

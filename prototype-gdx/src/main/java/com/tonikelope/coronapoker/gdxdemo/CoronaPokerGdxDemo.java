@@ -594,6 +594,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float[][] anchors = new float[playerCount][2];
         anchors[0][0] = 0.50f;
         anchors[0][1] = 0.185f;
+        int firstTopSeat = -1;
+        int topSeatCount = 0;
         for (int seat = 1; seat < playerCount; seat++) {
             double angle = Math.toRadians(-90d - seat * (360d / playerCount));
             double cos = Math.cos(angle);
@@ -605,10 +607,28 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             anchors[seat][0] = MathUtils.clamp(x, 0.024f, 0.976f);
             anchors[seat][1] = MathUtils.clamp(y, 0.145f, 0.93f);
             if (anchors[seat][1] > 0.84f) {
-                // Keep upper hands out of the permanent logo and FPS corners.
-                anchors[seat][0] = MathUtils.clamp(anchors[seat][0], 0.25f, 0.75f);
+                if (firstTopSeat < 0) {
+                    firstTopSeat = seat;
+                }
+                topSeatCount++;
             } else if (anchors[seat][1] < 0.25f) {
                 anchors[seat][0] = anchors[seat][0] < 0.5f ? 0.125f : 0.875f;
+            }
+        }
+        if (topSeatCount > 0) {
+            // The upper row is its own visual lane. Packing it around the
+            // centre opens a deliberate gap to the side columns instead of
+            // leaving holes from the ten-player table when rivals depart.
+            float topSpan = switch (topSeatCount) {
+                case 1 -> 0f;
+                case 2 -> 0.28f;
+                default -> 0.46f;
+            };
+            for (int ordinal = 0; ordinal < topSeatCount; ordinal++) {
+                float progress = topSeatCount == 1 ? 0.5f
+                        : ordinal / (float) (topSeatCount - 1);
+                anchors[firstTopSeat + ordinal][0]
+                        = 0.5f - topSpan / 2f + topSpan * progress;
             }
         }
         return anchors;

@@ -108,7 +108,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float LOCAL_HUD_SAFE_TOP = LOCAL_HUD_Y + LOCAL_HUD_HEIGHT + 32f;
     private static final float RIVAL_REVEAL_HUD_GAP = 20f;
     private static final float RIVAL_REVEAL_TOP_MARGIN = 8f;
+    private static final float RIVAL_CARD_FAN_ANGLE = 7f;
     private static final float RIVAL_HAND_VERTICAL_OFFSET = -22f;
+    private static final float RIVAL_HAND_CENTER_X_INSET = 174f;
+    private static final float RIVAL_HAND_SIDE_DISTANCE = 34f;
     private static final int ACTION_CHECK = 0;
     private static final int ACTION_BET = 1;
     private static final int ACTION_CALL = 2;
@@ -418,6 +421,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         initialiseStars();
         initialiseSeats();
         validateAdaptiveSeatLayouts();
+        validateRivalCardGeometry();
         initialiseFlights();
         validateOpeningSequence();
         randomizeThinkDurations();
@@ -657,6 +661,23 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         return MathUtils.clamp(normalizedX * width,
                 PLAYER_POD_WIDTH / 2f + 8f,
                 width - PLAYER_POD_WIDTH / 2f - 8f);
+    }
+
+    private void validateRivalCardGeometry() {
+        float cardW = RIVAL_HOLE_CARD_WIDTH;
+        float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
+        float angle = RIVAL_CARD_FAN_ANGLE * MathUtils.degreesToRadians;
+        float rotatedHalfWidth = Math.abs(MathUtils.cos(angle)) * cardW / 2f
+                + Math.abs(MathUtils.sin(angle)) * cardH / 2f;
+        float left = RIVAL_HAND_CENTER_X_INSET - RIVAL_HAND_SIDE_DISTANCE
+                - rotatedHalfWidth;
+        float right = RIVAL_HAND_CENTER_X_INSET + RIVAL_HAND_SIDE_DISTANCE
+                + rotatedHalfWidth;
+        if (left < 4f || right > PLAYER_POD_WIDTH - 4f) {
+            throw new IllegalStateException(
+                    "Las cartas rivales no caben dentro de su asiento: "
+                    + left + ".." + right);
+        }
     }
 
     /**
@@ -1114,13 +1135,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private void updateSeatPositions(float width, float height) {
         // Same visual language as CoronaPoker's DynamicTablePanel: seats are
         // distributed around the felt, not arranged around a casino oval. Every
-        // rival is one centered unit: cards, avatar and PlayerPod share one axis.
+        // rival is one fixed unit: avatar left, private cards right, HUD below.
         for (int i = 0; i < seats.length; i++) {
             float anchorX = showcaseSeatAnchor(i, 0) * width;
-            seats[i].x = i == 0 ? anchorX
-                    : centeredRivalX(anchorX / width, width);
             seats[i].y = showcaseSeatAnchor(i, 1) * height;
             if (i == 0) {
+                seats[i].x = anchorX;
                 seats[i].stackX = seats[i].x + 67f;
                 // The lowest chip pixel must remain above the complete HUD,
                 // including its frame and shared turn bar.
@@ -1130,7 +1150,11 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                         + POSITION_CHIP_SIZE / 2f + 4f;
                 seats[i].positionY = seats[i].y + 8f;
             } else {
-                seats[i].podX = seats[i].x - PLAYER_POD_WIDTH / 2f;
+                float podCenterX = centeredRivalX(anchorX / width, width);
+                seats[i].podX = podCenterX - PLAYER_POD_WIDTH / 2f;
+                // All rival seats use the same composition: avatar on the left,
+                // private cards on its right and the information panel below.
+                seats[i].x = seats[i].podX + AVATAR_OUTER_RADIUS;
                 seats[i].podY = MathUtils.clamp(
                         seats[i].y - PLAYER_POD_HEIGHT - 42f, 8f,
                         height - PLAYER_POD_HEIGHT - 8f);
@@ -1330,7 +1354,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             }
             batch.setColor(1f, 1f, 1f, presence);
             if (seat.index != 0) {
-                drawFittedLeftInBox(playerNameFont, seat.name,
+                drawFittedCenteredInBox(playerNameFont, seat.name,
                         seat.podX + 12f, seat.podY + 93f,
                         PLAYER_POD_WIDTH - 24f, 23f,
                         folded ? Color.GRAY : Color.WHITE, presence);
@@ -1400,26 +1424,30 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             float shownFanY = sideY;
             float revealedSideDistance = seat.index == 0 ? 82f : 48f;
             if (seat.index != 0 && isShowdownContender(seat.index)) {
-                // One invariant for every rival: cards, avatar and HUD share
-                // the same centre line. Both the hidden and revealed hand form
-                // an upright V behind the avatar; reveal changes only its spread.
-                hiddenCenterX = seat.x;
-                hiddenCenterY = seat.y + RIVAL_HAND_VERTICAL_OFFSET;
+                // Hidden and revealed cards occupy the exact same fixed V to
+                // the avatar's right. The reveal may hop while airborne, but it
+                // lands at the identical position and never changes card size.
+                hiddenCenterX = seat.podX + RIVAL_HAND_CENTER_X_INSET;
                 hiddenFanX = 1f;
                 hiddenFanY = 0f;
-                hiddenSideDistance = 62f;
-                shownCenterX = seat.x;
-                revealedSideDistance = AVATAR_OUTER_RADIUS + 58f;
+                hiddenSideDistance = RIVAL_HAND_SIDE_DISTANCE;
+                shownCenterX = hiddenCenterX;
+                float revealRadians = RIVAL_CARD_FAN_ANGLE * MathUtils.degreesToRadians;
+                float rotatedHalfHeight = Math.abs(MathUtils.cos(revealRadians))
+                        * seatCardH / 2f + Math.abs(MathUtils.sin(revealRadians))
+                        * seatCardW / 2f;
+                revealedSideDistance = hiddenSideDistance;
                 // The pod masks only the lower card area. Ranks and suits stay
                 // above it, while the overlap makes ownership unmistakable.
-                // The complete card rectangle, not just its center, must clear
-                // the local action HUD. This is what the previous centre-only
-                // spacing check failed to guarantee for NEBULA/CORONA_BOT.
+                // The complete rotated card rectangle, not just its centre,
+                // clears the viewport edges and the local action HUD.
                 shownCenterY = MathUtils.clamp(
                         seat.y + RIVAL_HAND_VERTICAL_OFFSET,
-                        LOCAL_HUD_SAFE_TOP + seatCardH / 2f + RIVAL_REVEAL_HUD_GAP,
-                        viewport.getWorldHeight() - seatCardH / 2f
+                        LOCAL_HUD_SAFE_TOP + rotatedHalfHeight
+                                + RIVAL_REVEAL_HUD_GAP,
+                        viewport.getWorldHeight() - rotatedHalfHeight
                                 - RIVAL_REVEAL_TOP_MARGIN);
+                hiddenCenterY = shownCenterY;
                 shownFanX = 1f;
                 shownFanY = 0f;
             }
@@ -1463,8 +1491,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                         (float) Math.sqrt(fanX * fanX + fanY * fanY));
                 fanX /= fanLength;
                 fanY /= fanLength;
-                // Rivals keep a tight pair tucked under their avatar. The pair
-                // only travels out and opens when the player reveals it.
+                // Rival cards keep the same fixed V at the avatar's right.
+                // Reveal changes only the face/airborne motion, never its rest
+                // coordinates or dimensions.
                 float normalSideDistance = hiddenSideDistance;
                 float sideDistance = MathUtils.lerp(
                         normalSideDistance, revealedSideDistance, revealMotion);
@@ -1494,7 +1523,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 float x = bezier(sourceX, controlX, targetX, eased);
                 float y = bezier(sourceY, controlY, targetY, eased);
                 float launchRotation = (dealTurn & 1) == 0 ? -26f : 26f;
-                float restingRotation = cardIndex == 0 ? 7f : -7f;
+                float restingRotation = cardIndex == 0
+                        ? RIVAL_CARD_FAN_ANGLE : -RIVAL_CARD_FAN_ANGLE;
                 if (seat.index == 0) {
                     // Local cards form a true V: upper corners open outwards
                     // while the lower inner corners stay close together.
@@ -1505,7 +1535,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 } else {
                     // Both final layouts read as a compact V. The second card
                     // is drawn last, but the first card's upper index remains free.
-                    float revealedRotation = cardIndex == 0 ? 7f : -7f;
+                    float revealedRotation = cardIndex == 0
+                            ? RIVAL_CARD_FAN_ANGLE : -RIVAL_CARD_FAN_ANGLE;
                     restingRotation = MathUtils.lerp(
                             restingRotation, revealedRotation, revealMotion);
                 }
@@ -2576,26 +2607,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         font.draw(batch, glyph,
                 x + (width - glyph.width) / 2f,
                 y + (height + glyph.height) / 2f);
-        font.setColor(Color.WHITE);
-        data.setScale(originalScaleX, originalScaleY);
-    }
-
-    private void drawFittedLeftInBox(BitmapFont font, String text,
-            float x, float y, float width, float height,
-            Color color, float alpha) {
-        BitmapFont.BitmapFontData data = font.getData();
-        float originalScaleX = data.scaleX;
-        float originalScaleY = data.scaleY;
-        glyph.setText(font, text);
-        float fitX = glyph.width > 0f ? width / glyph.width : 1f;
-        float fitY = glyph.height > 0f ? height / glyph.height : 1f;
-        float fit = Math.min(1f, Math.min(fitX, fitY));
-        if (fit < 1f) {
-            data.setScale(originalScaleX * fit, originalScaleY * fit);
-            glyph.setText(font, text);
-        }
-        font.setColor(color.r, color.g, color.b, alpha);
-        font.draw(batch, glyph, x, y + (height + glyph.height) / 2f);
         font.setColor(Color.WHITE);
         data.setScale(originalScaleX, originalScaleY);
     }

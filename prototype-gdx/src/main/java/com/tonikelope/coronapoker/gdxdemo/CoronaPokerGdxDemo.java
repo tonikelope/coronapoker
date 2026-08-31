@@ -552,10 +552,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             // levels are vertically regularized; HUD/card structure is unchanged.
             return new float[][]{
                 {0.500f, 0.185f},
-                {0.125f, 0.280f}, {0.024f, 0.500f},
+                {0.125f, 0.280f}, {0.024f, 0.530f},
                 {0.024f, 0.780f}, {0.250f, 0.890f},
                 {0.500f, 0.930f}, {0.750f, 0.890f},
-                {0.976f, 0.780f}, {0.976f, 0.500f},
+                {0.976f, 0.780f}, {0.976f, 0.530f},
                 {0.875f, 0.280f}
             };
         }
@@ -1323,6 +1323,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 // centered pods place one card at either side of the avatar.
                 float podCenterX = seat.podX + PLAYER_POD_WIDTH / 2f;
                 float avatarOffset = seat.x - podCenterX;
+                boolean lateralAvatar = Math.abs(avatarOffset) > 32f;
                 if (avatarOffset < -32f) {
                     shownCenterX = seat.x + 125f;
                 } else if (avatarOffset > 32f) {
@@ -1336,7 +1337,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 // The complete card rectangle, not just its center, must clear
                 // the local action HUD. This is what the previous centre-only
                 // spacing check failed to guarantee for NEBULA/CORONA_BOT.
-                shownCenterY = MathUtils.clamp(seat.y + 48f,
+                float revealVerticalOffset = lateralAvatar ? 4f : 48f;
+                shownCenterY = MathUtils.clamp(seat.y + revealVerticalOffset,
                         LOCAL_HUD_SAFE_TOP + seatCardH / 2f + RIVAL_REVEAL_HUD_GAP,
                         viewport.getWorldHeight() - seatCardH / 2f
                                 - RIVAL_REVEAL_TOP_MARGIN);

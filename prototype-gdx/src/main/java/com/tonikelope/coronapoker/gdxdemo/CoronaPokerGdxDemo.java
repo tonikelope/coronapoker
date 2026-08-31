@@ -1312,6 +1312,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             float hiddenCenterY = seat.y + towardY * hiddenDistance;
             float hiddenFanX = sideX;
             float hiddenFanY = sideY;
+            float hiddenSideDistance = seat.index == 0 ? 54f : 18f;
             float shownCenterX = seat.x + towardX * shownDistance;
             float shownCenterY = seat.y + towardY * shownDistance;
             float shownFanX = sideX;
@@ -1324,6 +1325,16 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 float podCenterX = seat.podX + PLAYER_POD_WIDTH / 2f;
                 float avatarOffset = seat.x - podCenterX;
                 boolean lateralAvatar = Math.abs(avatarOffset) > 32f;
+                float freeSide = avatarOffset < -32f ? 1f
+                        : avatarOffset > 32f ? -1f : 0f;
+                // Face-down cards already form the same upright V used by every
+                // seat. Centered avatars keep one card at each side; lateral
+                // avatars tuck that V into the available side and open it on show.
+                hiddenCenterX = seat.x + freeSide * (lateralAvatar ? 80f : 0f);
+                hiddenCenterY = seat.y + (lateralAvatar ? 4f : 48f);
+                hiddenFanX = 1f;
+                hiddenFanY = 0f;
+                hiddenSideDistance = lateralAvatar ? 34f : 62f;
                 if (avatarOffset < -32f) {
                     shownCenterX = seat.x + 125f;
                 } else if (avatarOffset > 32f) {
@@ -1386,7 +1397,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 fanY /= fanLength;
                 // Rivals keep a tight pair tucked under their avatar. The pair
                 // only travels out and opens when the player reveals it.
-                float normalSideDistance = seat.index == 0 ? 54f : 18f;
+                float normalSideDistance = hiddenSideDistance;
                 float sideDistance = MathUtils.lerp(
                         normalSideDistance, revealedSideDistance, revealMotion);
                 float sideDirection = cardIndex == 0 ? -1f : 1f;
@@ -1415,7 +1426,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 float x = bezier(sourceX, controlX, targetX, eased);
                 float y = bezier(sourceY, controlY, targetY, eased);
                 float launchRotation = (dealTurn & 1) == 0 ? -26f : 26f;
-                float restingRotation = cardIndex == 0 ? -7f : 7f;
+                float restingRotation = cardIndex == 0 ? 7f : -7f;
                 if (seat.index == 0) {
                     // Local cards form a true V: upper corners open outwards
                     // while the lower inner corners stay close together.

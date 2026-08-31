@@ -58,9 +58,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float POSITION_CHIP_STAGGER = 0.03f;
     private static final float POSITION_CHIP_SECONDS = 0.40f;
     private static final float RIVAL_HOLE_CARD_WIDTH = 125f;
-    // CoronaPoker Swing renders every positional puck at 80% of the private
-    // card width. Dealer, SB, BB and Straddle are physically the same size.
-    private static final float POSITION_CHIP_SIZE = RIVAL_HOLE_CARD_WIDTH * 0.80f;
+    // All positional pucks share one physical diameter. The GDX seat tucks its
+    // private cards under the avatar, so Swing's nominal 80% icon ratio looks
+    // oversized here; 54% preserves the perceived CoronaPoker proportion.
+    private static final float POSITION_CHIP_SIZE = RIVAL_HOLE_CARD_WIDTH * 0.54f;
     private static final float AVATAR_SIZE = 72f;
     private static final float AVATAR_ACTIVE_RADIUS = 61f;
     private static final float AVATAR_OUTER_RADIUS = 52f;
@@ -86,8 +87,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float[] COMMUNITY_REVEAL = {23.0f, 23.2f, 23.4f, 36.0f, 44.0f};
     private static final float CARD_CORNER_RADIUS = 0.075f;
     private static final float CARD_EDGE_SOFTNESS = 0.006f;
-    private static final float PLAYER_POD_WIDTH = 244f;
-    private static final float PLAYER_POD_HEIGHT = 78f;
+    private static final float PLAYER_POD_WIDTH = 286f;
+    private static final float PLAYER_POD_HEIGHT = 120f;
     private static final float POT_PANEL_HEIGHT = 82f;
     private static final float POT_BOARD_GAP = 24f;
     private static final float LOCAL_HUD_Y = 12f;
@@ -111,44 +112,44 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final ActionEvent[] ACTIONS = {
         // Preflop. SB and BB already have 50/100 posted. Every player who
         // reaches the flop has contributed exactly 300.
-        new ActionEvent(7.8f, 3, ACTION_CALL, "IGUALA 100", 100, 2, 0),
-        new ActionEvent(9.0f, 4, ACTION_FOLD, "NO IR", 0, 0, 0),
-        new ActionEvent(10.2f, 5, ACTION_CALL, "IGUALA 100", 100, 2, 1),
-        new ActionEvent(11.4f, 6, ACTION_BET, "SUBE A 300", 300, 4, 2),
-        new ActionEvent(12.7f, 7, ACTION_FOLD, "NO IR", 0, 0, 0),
-        new ActionEvent(13.9f, 8, ACTION_CALL, "IGUALA 300", 300, 4, 3),
-        new ActionEvent(15.1f, 9, ACTION_FOLD, "NO IR", 0, 0, 0),
+        new ActionEvent(7.8f, 3, ACTION_CALL, "VA", 100, 2, 0),
+        new ActionEvent(9.0f, 4, ACTION_FOLD, "NO VA", 0, 0, 0),
+        new ActionEvent(10.2f, 5, ACTION_CALL, "VA", 100, 2, 1),
+        new ActionEvent(11.4f, 6, ACTION_BET, "SUBE (+200)", 300, 4, 2),
+        new ActionEvent(12.7f, 7, ACTION_FOLD, "NO VA", 0, 0, 0),
+        new ActionEvent(13.9f, 8, ACTION_CALL, "VA", 300, 4, 3),
+        new ActionEvent(15.1f, 9, ACTION_FOLD, "NO VA", 0, 0, 0),
         // The local fold retains the swap demonstration before disabling its
         // cards; sorting and folding are independent behaviours.
-        new ActionEvent(16.3f, 0, ACTION_FOLD, "NO IR", 0, 0, 0),
-        new ActionEvent(17.5f, 1, ACTION_CALL, "IGUALA 300", 250, 3, 0),
-        new ActionEvent(18.7f, 2, ACTION_CALL, "IGUALA 300", 200, 3, 1),
-        new ActionEvent(19.9f, 3, ACTION_CALL, "IGUALA 300", 200, 3, 2),
-        new ActionEvent(21.1f, 5, ACTION_CALL, "IGUALA 300", 200, 3, 3),
+        new ActionEvent(16.3f, 0, ACTION_FOLD, "NO VAS", 0, 0, 0),
+        new ActionEvent(17.5f, 1, ACTION_CALL, "VA", 250, 3, 0),
+        new ActionEvent(18.7f, 2, ACTION_CALL, "VA", 200, 3, 1),
+        new ActionEvent(19.9f, 3, ACTION_CALL, "VA", 200, 3, 2),
+        new ActionEvent(21.1f, 5, ACTION_CALL, "VA", 200, 3, 3),
 
         // Flop. The three players continuing to the turn finish on 900 each.
-        new ActionEvent(24.4f, 1, ACTION_CHECK, "PASO", 0, 0, 0),
-        new ActionEvent(25.5f, 2, ACTION_CHECK, "PASO", 0, 0, 0),
-        new ActionEvent(26.6f, 3, ACTION_FOLD, "NO IR", 0, 0, 0),
-        new ActionEvent(27.7f, 5, ACTION_CHECK, "PASO", 0, 0, 0),
+        new ActionEvent(24.4f, 1, ACTION_CHECK, "PASA", 0, 0, 0),
+        new ActionEvent(25.5f, 2, ACTION_CHECK, "PASA", 0, 0, 0),
+        new ActionEvent(26.6f, 3, ACTION_FOLD, "NO VA", 0, 0, 0),
+        new ActionEvent(27.7f, 5, ACTION_CHECK, "PASA", 0, 0, 0),
         new ActionEvent(28.8f, 6, ACTION_BET, "APUESTA 600", 600, 4, 0),
-        new ActionEvent(30.4f, 8, ACTION_CALL, "IGUALA 600", 600, 4, 1),
-        new ActionEvent(32.0f, 1, ACTION_FOLD, "NO IR", 0, 0, 0),
-        new ActionEvent(33.0f, 2, ACTION_CALL, "IGUALA 600", 600, 4, 2),
-        new ActionEvent(34.6f, 5, ACTION_FOLD, "NO IR", 0, 0, 0),
+        new ActionEvent(30.4f, 8, ACTION_CALL, "VA", 600, 4, 1),
+        new ActionEvent(32.0f, 1, ACTION_FOLD, "NO VA", 0, 0, 0),
+        new ActionEvent(33.0f, 2, ACTION_CALL, "VA", 600, 4, 2),
+        new ActionEvent(34.6f, 5, ACTION_FOLD, "NO VA", 0, 0, 0),
 
         // Turn. Riverking, Pixel and Shark all close the street on 1,800.
-        new ActionEvent(37.2f, 2, ACTION_CHECK, "PASO", 0, 0, 0),
+        new ActionEvent(37.2f, 2, ACTION_CHECK, "PASA", 0, 0, 0),
         new ActionEvent(38.3f, 6, ACTION_BET, "APUESTA 900", 900, 5, 3),
-        new ActionEvent(40.0f, 8, ACTION_CALL, "IGUALA 900", 900, 5, 0),
-        new ActionEvent(41.7f, 2, ACTION_CALL, "IGUALA 900", 900, 5, 1),
+        new ActionEvent(40.0f, 8, ACTION_CALL, "VA", 900, 5, 0),
+        new ActionEvent(41.7f, 2, ACTION_CALL, "VA", 900, 5, 1),
 
         // River. Riverking has 1,450 left and shoves it. Pixel calls; Shark
         // folds. Both showdown contenders therefore invested exactly 3,250.
-        new ActionEvent(45.0f, 2, ACTION_ALLIN, "ALL-IN 1.450", 1450, 7, 2),
+        new ActionEvent(45.0f, 2, ACTION_ALLIN, "ALL IN (+1.450)", 1450, 7, 2),
         // rounders.gif lasts 3.42 s; the call waits for its final frame.
-        new ActionEvent(48.7f, 6, ACTION_CALL, "IGUALA 1.450", 1450, 7, 3),
-        new ActionEvent(51.0f, 8, ACTION_FOLD, "NO IR", 0, 0, 0)
+        new ActionEvent(48.7f, 6, ACTION_CALL, "VA", 1450, 7, 3),
+        new ActionEvent(51.0f, 8, ACTION_FOLD, "NO VA", 0, 0, 0)
     };
 
     private static final String CARD_VERTEX_SHADER = "attribute vec4 a_position;\n"
@@ -244,6 +245,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private BitmapFont playerNameFont;
     private BitmapFont stackFont;
     private BitmapFont actionFont;
+    private BitmapFont seatActionFont;
 
     private Texture logo;
     private Texture feltTexture;
@@ -364,6 +366,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         playerNameFont.getData().setScale(0.5f);
         stackFont = font(generator, 24, 2.0f);
         actionFont = font(generator, 22, 1.0f);
+        seatActionFont = font(generator, 32, 2.2f);
         generator.dispose();
 
         validateBettingScenario();
@@ -902,8 +905,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 seats[i].podY = MathUtils.clamp(
                         seats[i].y - PLAYER_POD_HEIGHT - 42f, 8f,
                         height - PLAYER_POD_HEIGHT - 8f);
-                seats[i].stackX = seats[i].podX + 38f;
-                seats[i].stackY = seats[i].podY + 17f;
+                seats[i].stackX = seats[i].podX + 36f;
+                seats[i].stackY = seats[i].podY + 68f;
             }
             float towardX = tableCenterX - seats[i].x;
             float towardY = tableCenterY - seats[i].y;
@@ -945,18 +948,20 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                         PLAYER_POD_WIDTH, PLAYER_POD_HEIGHT, 12f);
                 if (!actionLabel.isEmpty()) {
                     Color lastColor = lastActionColorForSeat(seat.index, handTime());
-                    shapes.setColor(lastColor.r, lastColor.g, lastColor.b, 0.18f);
-                    roundedRect(seat.podX + 56f, seat.podY + 29f,
-                            PLAYER_POD_WIDTH - 64f, 22f, 5f);
-                    shapes.setColor(lastColor.r, lastColor.g, lastColor.b, 0.92f);
-                    shapes.rect(seat.podX + 56f, seat.podY + 29f, 4f, 22f);
+                    shapes.setColor(lastColor.r, lastColor.g, lastColor.b,
+                            folded ? 0.68f : 0.92f);
+                    roundedRect(seat.podX + 7f, seat.podY + 7f,
+                            PLAYER_POD_WIDTH - 14f, 44f, 8f);
+                    shapes.setColor(1f, 1f, 1f, folded ? 0.24f : 0.48f);
+                    shapes.rect(seat.podX + 15f, seat.podY + 47f,
+                            PLAYER_POD_WIDTH - 30f, 2f);
                 }
                 shapes.setColor(rim.r, rim.g, rim.b, folded ? 0.24f : 0.42f);
-                shapes.rect(seat.podX + 56f, seat.podY + 27f,
-                        PLAYER_POD_WIDTH - 68f, 2f);
-                shapes.rect(seat.podX + 12f, seat.podY + 51f,
+                shapes.rect(seat.podX + 12f, seat.podY + 55f,
                         PLAYER_POD_WIDTH - 24f, 2f);
-                shapes.rect(seat.podX + 154f, seat.podY + 5f, 2f, 19f);
+                shapes.rect(seat.podX + 12f, seat.podY + 89f,
+                        PLAYER_POD_WIDTH - 24f, 2f);
+                shapes.rect(seat.podX + 198f, seat.podY + 61f, 2f, 24f);
             }
             if (active) {
                 Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
@@ -1014,21 +1019,21 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             batch.setColor(Color.WHITE);
             if (seat.index != 0) {
                 drawFittedCenteredInBox(playerNameFont, seat.name,
-                        seat.podX + 12f, seat.podY + 53f,
-                        PLAYER_POD_WIDTH - 24f, 22f,
+                        seat.podX + 68f, seat.podY + 93f,
+                        PLAYER_POD_WIDTH - 78f, 23f,
                         folded ? Color.GRAY : Color.WHITE, 1f);
                 String actionLabel = lastActionLabelForSeat(seat.index, handTime());
                 if (!actionLabel.isEmpty()) {
-                    drawFittedCenteredInBox(actionFont, actionLabel,
-                            seat.podX + 62f, seat.podY + 30f,
-                            PLAYER_POD_WIDTH - 70f, 20f,
-                            Color.WHITE, 1f);
+                    drawFittedCenteredInBox(seatActionFont, actionLabel,
+                            seat.podX + 16f, seat.podY + 13f,
+                            PLAYER_POD_WIDTH - 32f, 32f,
+                            lastActionTextColorForSeat(seat.index, handTime()), 1f);
                 }
                 drawFittedCenteredInBox(stackFont, "STACK " + seat.stackText,
-                        seat.podX + 58f, seat.podY + 5f, 94f, 19f,
+                        seat.podX + 68f, seat.podY + 62f, 124f, 23f,
                         folded ? Color.GRAY : STACK_GREEN, 1f);
                 drawFittedCenteredInBox(stackFont, seat.investedText,
-                        seat.podX + 158f, seat.podY + 5f, 78f, 19f,
+                        seat.podX + 202f, seat.podY + 62f, 76f, 23f,
                         folded ? Color.GRAY : POT_GOLD, 1f);
             }
         }
@@ -1518,6 +1523,14 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static Color lastActionColorForSeat(int seat, float time) {
         ActionEvent latest = lastActionForSeat(seat, time);
         return latest == null ? POT_GOLD : actionColor(latest.kind);
+    }
+
+    private static Color lastActionTextColorForSeat(int seat, float time) {
+        ActionEvent latest = lastActionForSeat(seat, time);
+        // Bright call/check/bet/all-in bands need dark ink; a fold keeps white
+        // text over red. This is deliberately high-contrast at a glance.
+        return latest != null && latest.kind == ACTION_FOLD
+                ? Color.WHITE : PANEL;
     }
 
     private static Color actionColor(int kind) {
@@ -2176,6 +2189,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         playerNameFont.dispose();
         stackFont.dispose();
         actionFont.dispose();
+        seatActionFont.dispose();
         logo.dispose();
         feltTexture.dispose();
         avatarDefault.dispose();

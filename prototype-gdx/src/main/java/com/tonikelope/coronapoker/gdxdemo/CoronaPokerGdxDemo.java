@@ -52,12 +52,15 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float LOCAL_CARD_FAN_ANGLE = 8.5f;
     private static final float LOCAL_SWAP_DELAY = 0.14f;
     private static final float LOCAL_SWAP_SECONDS = 0.68f;
-    private static final float HAND_SECONDS = 48.8f;
+    private static final float HAND_SECONDS = 60.0f;
     private static final float SHUFFLE_END = 1.72f;
     private static final float POSITION_CHIP_START = SHUFFLE_END + 0.04f;
     private static final float POSITION_CHIP_STAGGER = 0.03f;
     private static final float POSITION_CHIP_SECONDS = 0.40f;
-    private static final float POSITION_CHIP_SIZE = 64f;
+    private static final float RIVAL_HOLE_CARD_WIDTH = 125f;
+    // CoronaPoker Swing renders every positional puck at 80% of the private
+    // card width. Dealer, SB, BB and Straddle are physically the same size.
+    private static final float POSITION_CHIP_SIZE = RIVAL_HOLE_CARD_WIDTH * 0.80f;
     private static final float AVATAR_SIZE = 72f;
     private static final float AVATAR_ACTIVE_RADIUS = 61f;
     private static final float AVATAR_OUTER_RADIUS = 52f;
@@ -77,9 +80,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float BOARD_CARD_GAP = 0.20f;
     private static final float BOARD_DEAL_END = BOARD_DEAL_START
             + 4f * BOARD_CARD_GAP + DEAL_CARD_SECONDS;
-    private static final float SHOWDOWN_START = 41.2f;
-    private static final float WINNER_START = 43.2f;
-    private static final float[] COMMUNITY_REVEAL = {22.0f, 22.2f, 22.4f, 27.2f, 33.5f};
+    private static final float SHOWDOWN_START = 52.2f;
+    private static final float WINNER_START = 54.2f;
+    private static final float PAYOUT_COMPLETE = WINNER_START + 1.90f;
+    private static final float[] COMMUNITY_REVEAL = {23.0f, 23.2f, 23.4f, 36.0f, 44.0f};
     private static final float CARD_CORNER_RADIUS = 0.075f;
     private static final float CARD_EDGE_SOFTNESS = 0.006f;
     private static final float PLAYER_POD_WIDTH = 244f;
@@ -105,27 +109,46 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     };
 
     private static final ActionEvent[] ACTIONS = {
-        new ActionEvent(7.8f, 1, ACTION_CHECK, "CHECK", 0, 0, 0),
-        new ActionEvent(9.2f, 2, ACTION_BET, "SUBE 300", 300, 3, 1),
-        new ActionEvent(10.6f, 3, ACTION_CALL, "CALL 300", 300, 3, 3),
-        new ActionEvent(12.0f, 4, ACTION_FOLD, "FOLD", 0, 0, 0),
-        new ActionEvent(13.4f, 5, ACTION_CALL, "CALL 300", 300, 3, 0),
-        new ActionEvent(14.8f, 6, ACTION_CALL, "CALL 300", 300, 3, 2),
-        new ActionEvent(16.2f, 7, ACTION_FOLD, "FOLD", 0, 0, 0),
-        new ActionEvent(17.6f, 8, ACTION_CALL, "CALL 300", 300, 3, 0),
-        new ActionEvent(19.0f, 9, ACTION_FOLD, "FOLD", 0, 0, 0),
-        // The local player folds in this simulated hand so the GDX client also
-        // demonstrates the disabled-hole-cards state used after NO IR.
-        new ActionEvent(20.4f, 0, ACTION_FOLD, "NO IR", 0, 0, 0),
-        new ActionEvent(24.0f, 2, ACTION_BET, "APUESTA 600", 600, 4, 3),
-        new ActionEvent(25.4f, 6, ACTION_CALL, "CALL 600", 600, 4, 1),
-        new ActionEvent(29.0f, 2, ACTION_CHECK, "CHECK", 0, 0, 0),
-        new ActionEvent(30.4f, 6, ACTION_BET, "APUESTA 900", 900, 4, 0),
-        new ActionEvent(31.8f, 8, ACTION_CALL, "CALL 900", 900, 4, 2),
-        new ActionEvent(35.2f, 2, ACTION_ALLIN, "ALL IN 1.200", 1200, 8, 3),
-        // rounders.gif lasts 3.42 s. Keep the next action outside that window
-        // so the ALL-IN cinematic is always shown once, from first to last frame.
-        new ActionEvent(39.1f, 8, ACTION_FOLD, "FOLD", 0, 0, 0)
+        // Preflop. SB and BB already have 50/100 posted. Every player who
+        // reaches the flop has contributed exactly 300.
+        new ActionEvent(7.8f, 3, ACTION_CALL, "IGUALA 100", 100, 2, 0),
+        new ActionEvent(9.0f, 4, ACTION_FOLD, "NO IR", 0, 0, 0),
+        new ActionEvent(10.2f, 5, ACTION_CALL, "IGUALA 100", 100, 2, 1),
+        new ActionEvent(11.4f, 6, ACTION_BET, "SUBE A 300", 300, 4, 2),
+        new ActionEvent(12.7f, 7, ACTION_FOLD, "NO IR", 0, 0, 0),
+        new ActionEvent(13.9f, 8, ACTION_CALL, "IGUALA 300", 300, 4, 3),
+        new ActionEvent(15.1f, 9, ACTION_FOLD, "NO IR", 0, 0, 0),
+        // The local fold retains the swap demonstration before disabling its
+        // cards; sorting and folding are independent behaviours.
+        new ActionEvent(16.3f, 0, ACTION_FOLD, "NO IR", 0, 0, 0),
+        new ActionEvent(17.5f, 1, ACTION_CALL, "IGUALA 300", 250, 3, 0),
+        new ActionEvent(18.7f, 2, ACTION_CALL, "IGUALA 300", 200, 3, 1),
+        new ActionEvent(19.9f, 3, ACTION_CALL, "IGUALA 300", 200, 3, 2),
+        new ActionEvent(21.1f, 5, ACTION_CALL, "IGUALA 300", 200, 3, 3),
+
+        // Flop. The three players continuing to the turn finish on 900 each.
+        new ActionEvent(24.4f, 1, ACTION_CHECK, "PASO", 0, 0, 0),
+        new ActionEvent(25.5f, 2, ACTION_CHECK, "PASO", 0, 0, 0),
+        new ActionEvent(26.6f, 3, ACTION_FOLD, "NO IR", 0, 0, 0),
+        new ActionEvent(27.7f, 5, ACTION_CHECK, "PASO", 0, 0, 0),
+        new ActionEvent(28.8f, 6, ACTION_BET, "APUESTA 600", 600, 4, 0),
+        new ActionEvent(30.4f, 8, ACTION_CALL, "IGUALA 600", 600, 4, 1),
+        new ActionEvent(32.0f, 1, ACTION_FOLD, "NO IR", 0, 0, 0),
+        new ActionEvent(33.0f, 2, ACTION_CALL, "IGUALA 600", 600, 4, 2),
+        new ActionEvent(34.6f, 5, ACTION_FOLD, "NO IR", 0, 0, 0),
+
+        // Turn. Riverking, Pixel and Shark all close the street on 1,800.
+        new ActionEvent(37.2f, 2, ACTION_CHECK, "PASO", 0, 0, 0),
+        new ActionEvent(38.3f, 6, ACTION_BET, "APUESTA 900", 900, 5, 3),
+        new ActionEvent(40.0f, 8, ACTION_CALL, "IGUALA 900", 900, 5, 0),
+        new ActionEvent(41.7f, 2, ACTION_CALL, "IGUALA 900", 900, 5, 1),
+
+        // River. Riverking has 1,450 left and shoves it. Pixel calls; Shark
+        // folds. Both showdown contenders therefore invested exactly 3,250.
+        new ActionEvent(45.0f, 2, ACTION_ALLIN, "ALL-IN 1.450", 1450, 7, 2),
+        // rounders.gif lasts 3.42 s; the call waits for its final frame.
+        new ActionEvent(48.7f, 6, ACTION_CALL, "IGUALA 1.450", 1450, 7, 3),
+        new ActionEvent(51.0f, 8, ACTION_FOLD, "NO IR", 0, 0, 0)
     };
 
     private static final String CARD_VERTEX_SHADER = "attribute vec4 a_position;\n"
@@ -343,6 +366,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         actionFont = font(generator, 22, 1.0f);
         generator.dispose();
 
+        validateBettingScenario();
         initialiseStars();
         initialiseSeats();
         initialiseFlights();
@@ -449,6 +473,124 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         }
     }
 
+    /**
+     * Keeps the cinematic hand honest. The demo must never reach a new street
+     * while two live players have different committed amounts, and every
+     * CHECK/CALL must be legal against the current street target.
+     */
+    private static void validateBettingScenario() {
+        float[] streetEnds = {
+            COMMUNITY_REVEAL[0], COMMUNITY_REVEAL[3],
+            COMMUNITY_REVEAL[4], SHOWDOWN_START
+        };
+        String[] streetNames = {"preflop", "flop", "turn", "river"};
+        int[] cumulative = new int[SEAT_COUNT];
+        int[] street = new int[SEAT_COUNT];
+        boolean[] active = new boolean[SEAT_COUNT];
+        Arrays.fill(active, true);
+        cumulative[1] = street[1] = 50;
+        cumulative[2] = street[2] = 100;
+        int target = 100;
+        int streetIndex = 0;
+        float previousTime = -1f;
+
+        for (ActionEvent action : ACTIONS) {
+            if (action.time <= previousTime) {
+                throw new IllegalStateException("Acciones fuera de orden en " + action.time);
+            }
+            while (streetIndex < streetEnds.length
+                    && action.time >= streetEnds[streetIndex]) {
+                assertStreetClosed(streetNames[streetIndex], cumulative, street, active);
+                Arrays.fill(street, 0);
+                target = 0;
+                streetIndex++;
+            }
+            if (!active[action.seat]) {
+                throw new IllegalStateException("Actua un jugador retirado: asiento "
+                        + action.seat + " en " + action.time);
+            }
+
+            switch (action.kind) {
+                case ACTION_CHECK -> {
+                    if (street[action.seat] != target) {
+                        throw new IllegalStateException("CHECK ilegal del asiento "
+                                + action.seat + " en " + action.time);
+                    }
+                }
+                case ACTION_FOLD -> active[action.seat] = false;
+                case ACTION_CALL -> {
+                    addContribution(action, cumulative, street);
+                    if (street[action.seat] != target) {
+                        throw new IllegalStateException("CALL no igualado del asiento "
+                                + action.seat + " en " + action.time);
+                    }
+                }
+                case ACTION_BET, ACTION_ALLIN -> {
+                    int before = street[action.seat];
+                    addContribution(action, cumulative, street);
+                    if (street[action.seat] <= target || street[action.seat] <= before) {
+                        throw new IllegalStateException("Apuesta no creciente del asiento "
+                                + action.seat + " en " + action.time);
+                    }
+                    target = street[action.seat];
+                }
+                default -> throw new IllegalStateException("Accion desconocida: " + action.kind);
+            }
+
+            int initialStack = 2500 + action.seat * 375;
+            if (cumulative[action.seat] > initialStack) {
+                throw new IllegalStateException("El asiento " + action.seat
+                        + " apuesta mas que su stack");
+            }
+            previousTime = action.time;
+        }
+
+        while (streetIndex < streetEnds.length) {
+            assertStreetClosed(streetNames[streetIndex], cumulative, street, active);
+            Arrays.fill(street, 0);
+            streetIndex++;
+        }
+
+        int total = 0;
+        for (int contribution : cumulative) {
+            total += contribution;
+        }
+        if (total != 9200) {
+            throw new IllegalStateException("Bote final incoherente: " + total + " != 9200");
+        }
+    }
+
+    private static void addContribution(ActionEvent action,
+            int[] cumulative, int[] street) {
+        if (action.amount <= 0 || action.chipCount <= 0) {
+            throw new IllegalStateException("Apuesta sin importe/fichas en " + action.time);
+        }
+        cumulative[action.seat] += action.amount;
+        street[action.seat] += action.amount;
+    }
+
+    private static void assertStreetClosed(String name, int[] cumulative,
+            int[] street, boolean[] active) {
+        int expectedCumulative = -1;
+        int expectedStreet = -1;
+        for (int seat = 0; seat < SEAT_COUNT; seat++) {
+            if (!active[seat]) {
+                continue;
+            }
+            if (expectedCumulative < 0) {
+                expectedCumulative = cumulative[seat];
+                expectedStreet = street[seat];
+            } else if (cumulative[seat] != expectedCumulative
+                    || street[seat] != expectedStreet) {
+                throw new IllegalStateException("Cierre " + name
+                        + " desigual: asiento " + seat + " lleva "
+                        + cumulative[seat] + " (calle " + street[seat]
+                        + "), esperado " + expectedCumulative
+                        + " (calle " + expectedStreet + ")");
+            }
+        }
+    }
+
     private void initialiseFlights() {
         int count = BLIND_FLIGHT_COUNT;
         for (ActionEvent action : ACTIONS) {
@@ -484,8 +626,19 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private void randomizeThinkDurations() {
         float previousActionTime = BOARD_DEAL_END;
         for (int i = 0; i < ACTIONS.length; i++) {
-            float available = ACTIONS[i].time - previousActionTime - 0.10f;
-            float maximum = Math.min(1.35f, Math.max(0.42f, available));
+            float streetReady = BOARD_DEAL_END;
+            if (ACTIONS[i].time >= COMMUNITY_REVEAL[0]) {
+                streetReady = COMMUNITY_REVEAL[2] + CARD_FLIP_SECONDS;
+            }
+            if (ACTIONS[i].time >= COMMUNITY_REVEAL[3]) {
+                streetReady = COMMUNITY_REVEAL[3] + CARD_FLIP_SECONDS;
+            }
+            if (ACTIONS[i].time >= COMMUNITY_REVEAL[4]) {
+                streetReady = COMMUNITY_REVEAL[4] + CARD_FLIP_SECONDS;
+            }
+            float available = ACTIONS[i].time
+                    - Math.max(previousActionTime, streetReady) - 0.10f;
+            float maximum = Math.min(1.35f, Math.max(0.18f, available));
             float minimum = Math.min(0.55f, maximum * 0.70f);
             thinkDurations[i] = minimum
                     + thinkRandom.nextFloat() * (maximum - minimum);
@@ -878,7 +1031,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 drawFittedCentered(stackFont, "STACK " + seat.stackText,
                         seat.stackTextX, seat.podY + 19f, 94f,
                         folded ? Color.GRAY : STACK_GREEN, 1f);
-                drawFittedCentered(stackFont, "BOTE " + seat.investedText,
+                drawFittedCentered(stackFont, seat.investedText,
                         seat.podX + 200f, seat.podY + 19f, 80f,
                         folded ? Color.GRAY : POT_GOLD, 1f);
             }
@@ -896,7 +1049,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 (time - localSwapStart()) / LOCAL_SWAP_SECONDS, 0f, 1f) : 0f;
         float localSwap = Interpolation.smoother.apply(localSwapRaw);
         float localSwapArc = MathUtils.sin(localSwap * MathUtils.PI);
-        float cardW = 125f;
+        float cardW = RIVAL_HOLE_CARD_WIDTH;
         float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
         batch.begin();
         for (Seat seat : seats) {
@@ -1066,7 +1219,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         }
         batch.setShader(null);
 
-        float payoutFade = MathUtils.clamp((handTime() - SHOWDOWN_START) / 0.38f, 0f, 1f);
+        float payoutFade = MathUtils.clamp(
+                (handTime() - WINNER_START) / (PAYOUT_COMPLETE - WINNER_START), 0f, 1f);
         float pulse = 1f + MathUtils.sin(totalTime * 3.3f) * 0.035f;
         float basePotW = 76f;
         float basePotH = basePotW * pot.getHeight() / pot.getWidth();
@@ -1250,11 +1404,22 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private int potAt(float time) {
+        if (time >= PAYOUT_COMPLETE) {
+            return 0;
+        }
         int value = 0;
         for (ChipFlight flight : flights) {
             if (time >= flight.startTime + flight.duration) {
                 value += flight.potContribution;
             }
+        }
+        return value;
+    }
+
+    private int finalPot() {
+        int value = 0;
+        for (ChipFlight flight : flights) {
+            value += flight.potContribution;
         }
         return value;
     }
@@ -1525,7 +1690,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         if (winnerVisible) {
             drawCentered(uiFont, "RIVERKING GANA", tableCenterX, bannerY + 70f,
                     POT_GOLD, winnerProgress);
-            drawCentered(smallFont, "TRIO DE ASES  //  BOTE 5.550", tableCenterX,
+            drawCentered(smallFont, "TRIO DE ASES  //  BOTE "
+                    + String.format("%,d", finalPot()), tableCenterX,
                     bannerY + 35f, Color.WHITE, winnerProgress);
         } else {
             drawCentered(uiFont, "SHOWDOWN", tableCenterX, bannerY + 47f,
@@ -1892,7 +2058,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         drawFittedCentered(stackFont, "STACK " + local.stackText,
                 hudX + infoWidth * 0.26f, hudY + 23f,
                 infoWidth * 0.44f, STACK_GREEN, 1f);
-        drawFittedCentered(stackFont, "BOTE " + local.investedText,
+        drawFittedCentered(stackFont, local.investedText,
                 hudX + infoWidth * 0.75f, hudY + 23f,
                 infoWidth * 0.40f, POT_GOLD, 1f);
 
@@ -2075,12 +2241,22 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         void updateStack(float time, ChipFlight[] flights) {
             int current = stack;
             int invested = 0;
+            int payout = 0;
             for (ChipFlight flight : flights) {
+                payout += flight.potContribution;
                 if (flight.seat == index
                         && time >= flight.startTime + flight.duration) {
                     current -= flight.potContribution;
                     invested += flight.potContribution;
                 }
+            }
+            if (time >= PAYOUT_COMPLETE) {
+                if (index == 2) {
+                    current += payout;
+                }
+                // Once the pot reaches the winner, no player still has money
+                // committed on the felt for the finished hand.
+                invested = 0;
             }
             if (current != displayedStack) {
                 displayedStack = current;

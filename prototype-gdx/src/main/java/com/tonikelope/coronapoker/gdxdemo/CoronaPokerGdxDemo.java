@@ -77,14 +77,13 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float BOARD_CARD_GAP = 0.20f;
     private static final float BOARD_DEAL_END = BOARD_DEAL_START
             + 4f * BOARD_CARD_GAP + DEAL_CARD_SECONDS;
-    private static final float ACTION_CINEMATIC_SECONDS = 1.25f;
     private static final float SHOWDOWN_START = 41.2f;
     private static final float WINNER_START = 43.2f;
     private static final float[] COMMUNITY_REVEAL = {22.0f, 22.2f, 22.4f, 27.2f, 33.5f};
     private static final float CARD_CORNER_RADIUS = 0.075f;
     private static final float CARD_EDGE_SOFTNESS = 0.006f;
     private static final float PLAYER_POD_WIDTH = 172f;
-    private static final float PLAYER_POD_HEIGHT = 62f;
+    private static final float PLAYER_POD_HEIGHT = 78f;
     private static final float POT_PANEL_HEIGHT = 82f;
     private static final float POT_BOARD_GAP = 24f;
     private static final float LOCAL_HUD_Y = 12f;
@@ -749,7 +748,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                         PLAYER_POD_WIDTH / 2f + 8f,
                         width - PLAYER_POD_WIDTH / 2f - 8f);
                 seats[i].podX = podCenterX - PLAYER_POD_WIDTH / 2f;
-                seats[i].podY = MathUtils.clamp(seats[i].y - 104f, 8f,
+                seats[i].podY = MathUtils.clamp(
+                        seats[i].y - PLAYER_POD_HEIGHT - 42f, 8f,
                         height - PLAYER_POD_HEIGHT - 8f);
                 seats[i].stackX = seats[i].podX + 35f;
                 seats[i].stackY = seats[i].podY + 17f;
@@ -787,14 +787,23 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             if (seat.index != 0) {
                 // One component owns name, chips and amount for every rival.
                 Color rim = folded ? BUTTON_LINE : (active ? CYAN : SEAT_RIM);
+                ActionEvent lastAction = lastActionForSeat(seat.index, handTime());
                 shapes.setColor(rim.r, rim.g, rim.b, folded ? 0.55f : 0.88f);
                 roundedRect(seat.podX - 2f, seat.podY - 2f,
                         PLAYER_POD_WIDTH + 4f, PLAYER_POD_HEIGHT + 4f, 14f);
                 shapes.setColor(0.015f, 0.028f, 0.05f, folded ? 0.72f : 0.92f);
                 roundedRect(seat.podX, seat.podY,
                         PLAYER_POD_WIDTH, PLAYER_POD_HEIGHT, 12f);
+                if (lastAction != null) {
+                    Color lastColor = actionColor(lastAction.kind);
+                    shapes.setColor(lastColor.r, lastColor.g, lastColor.b, 0.18f);
+                    roundedRect(seat.podX + 6f, seat.podY + 28f,
+                            PLAYER_POD_WIDTH - 12f, 22f, 5f);
+                }
                 shapes.setColor(rim.r, rim.g, rim.b, folded ? 0.24f : 0.42f);
-                shapes.rect(seat.podX + 12f, seat.podY + 31f,
+                shapes.rect(seat.podX + 12f, seat.podY + 26f,
+                        PLAYER_POD_WIDTH - 24f, 2f);
+                shapes.rect(seat.podX + 12f, seat.podY + 51f,
                         PLAYER_POD_WIDTH - 24f, 2f);
             }
             if (active) {
@@ -857,9 +866,16 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             }
             if (seat.index != 0) {
                 drawFittedCentered(playerNameFont, seat.name,
-                        seat.podX + PLAYER_POD_WIDTH / 2f, seat.podY + 52f,
+                        seat.podX + PLAYER_POD_WIDTH / 2f, seat.podY + 69f,
                         PLAYER_POD_WIDTH - 24f,
                         folded ? Color.GRAY : Color.WHITE, 1f);
+                ActionEvent lastAction = lastActionForSeat(seat.index, handTime());
+                if (lastAction != null) {
+                    drawFittedCentered(actionFont, lastAction.label,
+                            seat.podX + PLAYER_POD_WIDTH / 2f, seat.podY + 45f,
+                            PLAYER_POD_WIDTH - 24f,
+                            actionColor(lastAction.kind), 1f);
+                }
             }
         }
         batch.end();
@@ -1293,19 +1309,35 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 ? 0f : MathUtils.clamp((time - start) / 0.30f, 0f, 1f);
     }
 
-    private ActionEvent currentAction(float time) {
-        for (int i = ACTIONS.length - 1; i >= 0; i--) {
-            ActionEvent action = ACTIONS[i];
-            if (time >= action.time) {
-                float duration = action.kind == ACTION_ALLIN
-                        ? allInGif.durationSeconds() : ACTION_CINEMATIC_SECONDS;
-                if (time < action.time + duration) {
-                    return action;
-                }
-                return null;
+    private ActionEvent currentAllInAction(float time) {
+        for (ActionEvent action : ACTIONS) {
+            if (action.kind == ACTION_ALLIN
+                    && time >= action.time
+                    && time < action.time + allInGif.durationSeconds()) {
+                return action;
             }
         }
         return null;
+    }
+
+    private static ActionEvent lastActionForSeat(int seat, float time) {
+        ActionEvent latest = null;
+        for (ActionEvent action : ACTIONS) {
+            if (action.time > time) {
+                break;
+            }
+            if (action.seat == seat) {
+                latest = action;
+            }
+        }
+        return latest;
+    }
+
+    private static Color actionColor(int kind) {
+        return kind == ACTION_FOLD ? FOLD_RED
+                : kind == ACTION_CALL ? STACK_GREEN
+                : kind == ACTION_BET ? POT_GOLD
+                : kind == ACTION_ALLIN ? ORANGE : CYAN;
     }
 
     private ActionEvent thinkingAction(float time) {
@@ -1350,69 +1382,21 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             return;
         }
         if (time < DEAL_START) {
-            float alpha = Interpolation.fade.apply(MathUtils.clamp(
-                    (time - POSITION_CHIP_START) / 0.20f, 0f, 1f));
-            batch.begin();
-            String phase = time < BLIND_POST_START
-                    ? "POSICIONES DE MESA" : "PUBLICANDO CIEGAS";
-            drawCentered(smallFont, phase, tableCenterX,
-                    tableCenterY - 38f, CYAN, alpha);
-            batch.end();
+            if (time < BLIND_POST_START) {
+                float alpha = Interpolation.fade.apply(MathUtils.clamp(
+                        (time - POSITION_CHIP_START) / 0.20f, 0f, 1f));
+                batch.begin();
+                drawCentered(smallFont, "POSICIONES DE MESA", tableCenterX,
+                        tableCenterY - 38f, CYAN, alpha);
+                batch.end();
+            }
             return;
         }
 
-        ActionEvent action = currentAction(time);
-        if (action == null) {
-            return;
-        }
-        if (action.kind == ACTION_ALLIN) {
+        ActionEvent action = currentAllInAction(time);
+        if (action != null) {
             drawAllInCinematic(action, time - action.time, worldWidth, worldHeight);
-            return;
         }
-        Seat seat = seats[action.seat];
-        float elapsed = time - action.time;
-        float progress = MathUtils.clamp(elapsed / ACTION_CINEMATIC_SECONDS, 0f, 1f);
-        float appear = Interpolation.pow3Out.apply(MathUtils.clamp(progress / 0.22f, 0f, 1f));
-        float disappear = 1f - Interpolation.pow2In.apply(
-                MathUtils.clamp((progress - 0.72f) / 0.28f, 0f, 1f));
-        float alpha = appear * disappear;
-        Color actionColor = action.kind == ACTION_FOLD ? ORANGE
-                : action.kind == ACTION_CALL ? STACK_GREEN
-                : action.kind == ACTION_BET ? POT_GOLD : CYAN;
-        float towardX = tableCenterX - seat.x;
-        float towardY = tableCenterY - seat.y;
-        float length = Math.max(1f, (float) Math.sqrt(towardX * towardX + towardY * towardY));
-        towardX /= length;
-        towardY /= length;
-        float width = 286f;
-        float height = 68f;
-        // Action callout belongs to the table lane, not the seat HUD lane.
-        float centerX = seat.x + towardX * 260f;
-        float centerY = seat.y + towardY * 235f;
-        float x = MathUtils.clamp(centerX - width / 2f, 18f, worldWidth - width - 18f);
-        float y = MathUtils.clamp(centerY - height / 2f, 112f, worldHeight - height - 125f);
-        // Side-seat callouts live strictly inside the table lane. They must not
-        // cover the avatar, name, stack or position token that triggered them.
-        if (action.seat != 0 && seat.x < worldWidth * 0.20f) {
-            x = Math.max(x, seat.podX + PLAYER_POD_WIDTH + 24f);
-        } else if (action.seat != 0 && seat.x > worldWidth * 0.80f) {
-            x = Math.min(x, seat.podX - width - 24f);
-        }
-        x = MathUtils.clamp(x, 18f, worldWidth - width - 18f);
-
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-        shapes.setColor(PANEL.r, PANEL.g, PANEL.b, PANEL.a * alpha);
-        shapes.rect(x, y, width, height);
-        shapes.setColor(actionColor.r, actionColor.g, actionColor.b, alpha);
-        shapes.rect(x, y, width * Math.min(1f, progress / 0.82f), 4f);
-        shapes.end();
-
-        batch.begin();
-        drawCentered(smallFont, seats[action.seat].name + "  //  " + action.label,
-                x + width / 2f, y + 43f, actionColor, alpha);
-        batch.end();
     }
 
     private void drawAllInCinematic(ActionEvent action, float elapsed,
@@ -1856,6 +1840,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
         batch.begin();
         Seat local = seats[0];
+        ActionEvent lastLocalAction = lastActionForSeat(0, handTime());
         drawCentered(localTurn ? actionFont : smallFont,
                 localTurn ? "TU TURNO" : "ESPERANDO TURNO",
                 hudX + infoWidth / 2f, hudY + 112f,
@@ -1864,6 +1849,11 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 hudY + 79f, Color.WHITE, 1f);
         drawCentered(smallFont, "STACK  " + local.stackText, hudX + infoWidth / 2f,
                 hudY + 48f, STACK_GREEN, 1f);
+        if (lastLocalAction != null) {
+            drawFittedCentered(actionFont, lastLocalAction.label,
+                    hudX + infoWidth / 2f, hudY + 22f,
+                    infoWidth - 28f, actionColor(lastLocalAction.kind), 1f);
+        }
 
         drawHudActionContent(HUD_ACTIONS[0], foldX, actionY,
                 foldWidth, actionHeight, Color.WHITE, contentAlpha);

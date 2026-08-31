@@ -74,6 +74,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     // private cards under the avatar, so Swing's nominal 80% icon ratio looks
     // oversized here; 54% preserves the perceived CoronaPoker proportion.
     private static final float POSITION_CHIP_SIZE = RIVAL_HOLE_CARD_WIDTH * 0.54f;
+    private static final float POSITION_CHIP_HUD_GAP = 7f;
     private static final float AVATAR_SIZE = 72f;
     private static final float AVATAR_ACTIVE_RADIUS = 61f;
     private static final float AVATAR_OUTER_RADIUS = 52f;
@@ -1136,13 +1137,14 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 seats[i].stackX = seats[i].podX + 36f;
                 seats[i].stackY = seats[i].podY + 68f;
                 // Every positional puck lands at the same semantic anchor: to
-                // the avatar's right, overlapping the PlayerPod's upper-right
-                // corner without ever crossing the viewport edge.
+                // the avatar's right and above the PlayerPod's upper-right
+                // corner. Its complete disc clears the text box.
                 seats[i].positionX = MathUtils.clamp(
                         seats[i].podX + PLAYER_POD_WIDTH - 26f,
                         POSITION_CHIP_SIZE / 2f + 4f,
                         width - POSITION_CHIP_SIZE / 2f - 4f);
-                seats[i].positionY = seats[i].podY + PLAYER_POD_HEIGHT + 8f;
+                seats[i].positionY = seats[i].podY + PLAYER_POD_HEIGHT
+                        + POSITION_CHIP_SIZE / 2f + POSITION_CHIP_HUD_GAP;
             }
         }
         Seat dealer = seats[dealerSeat()];
@@ -1328,9 +1330,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             }
             batch.setColor(1f, 1f, 1f, presence);
             if (seat.index != 0) {
-                drawFittedCenteredInBox(playerNameFont, seat.name,
-                        seat.podX + 68f, seat.podY + 93f,
-                        PLAYER_POD_WIDTH - 78f, 23f,
+                drawFittedLeftInBox(playerNameFont, seat.name,
+                        seat.podX + 12f, seat.podY + 93f,
+                        PLAYER_POD_WIDTH - 24f, 23f,
                         folded ? Color.GRAY : Color.WHITE, presence);
                 String actionLabel = lastActionLabelForSeat(seat.index, handTime());
                 if (!actionLabel.isEmpty()) {
@@ -2574,6 +2576,26 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         font.draw(batch, glyph,
                 x + (width - glyph.width) / 2f,
                 y + (height + glyph.height) / 2f);
+        font.setColor(Color.WHITE);
+        data.setScale(originalScaleX, originalScaleY);
+    }
+
+    private void drawFittedLeftInBox(BitmapFont font, String text,
+            float x, float y, float width, float height,
+            Color color, float alpha) {
+        BitmapFont.BitmapFontData data = font.getData();
+        float originalScaleX = data.scaleX;
+        float originalScaleY = data.scaleY;
+        glyph.setText(font, text);
+        float fitX = glyph.width > 0f ? width / glyph.width : 1f;
+        float fitY = glyph.height > 0f ? height / glyph.height : 1f;
+        float fit = Math.min(1f, Math.min(fitX, fitY));
+        if (fit < 1f) {
+            data.setScale(originalScaleX * fit, originalScaleY * fit);
+            glyph.setText(font, text);
+        }
+        font.setColor(color.r, color.g, color.b, alpha);
+        font.draw(batch, glyph, x, y + (height + glyph.height) / 2f);
         font.setColor(Color.WHITE);
         data.setScale(originalScaleX, originalScaleY);
     }

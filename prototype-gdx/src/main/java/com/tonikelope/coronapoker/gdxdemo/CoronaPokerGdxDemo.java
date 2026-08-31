@@ -892,8 +892,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 // including its frame and shared turn bar.
                 seats[i].stackY = Math.max(seats[i].y - 7f,
                         LOCAL_HUD_SAFE_TOP + 14f);
-                seats[i].stackTextX = seats[i].stackX;
-                seats[i].stackTextY = seats[i].stackY;
             } else {
                 // Every rival uses the same PlayerPod. Edge clamping mirrors
                 // the whole component without changing its internal layout.
@@ -906,8 +904,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                         height - PLAYER_POD_HEIGHT - 8f);
                 seats[i].stackX = seats[i].podX + 38f;
                 seats[i].stackY = seats[i].podY + 17f;
-                seats[i].stackTextX = seats[i].podX + 103f;
-                seats[i].stackTextY = seats[i].podY + 21f;
             }
             float towardX = tableCenterX - seats[i].x;
             float towardY = tableCenterY - seats[i].y;
@@ -1017,22 +1013,22 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             }
             batch.setColor(Color.WHITE);
             if (seat.index != 0) {
-                drawFittedCentered(playerNameFont, seat.name,
-                        seat.podX + PLAYER_POD_WIDTH / 2f, seat.podY + 69f,
-                        PLAYER_POD_WIDTH - 24f,
+                drawFittedCenteredInBox(playerNameFont, seat.name,
+                        seat.podX + 12f, seat.podY + 53f,
+                        PLAYER_POD_WIDTH - 24f, 22f,
                         folded ? Color.GRAY : Color.WHITE, 1f);
                 String actionLabel = lastActionLabelForSeat(seat.index, handTime());
                 if (!actionLabel.isEmpty()) {
-                    drawFittedCentered(actionFont, actionLabel,
-                            seat.podX + 150f, seat.podY + 47f,
-                            PLAYER_POD_WIDTH - 76f,
+                    drawFittedCenteredInBox(actionFont, actionLabel,
+                            seat.podX + 62f, seat.podY + 30f,
+                            PLAYER_POD_WIDTH - 70f, 20f,
                             Color.WHITE, 1f);
                 }
-                drawFittedCentered(stackFont, "STACK " + seat.stackText,
-                        seat.stackTextX, seat.podY + 19f, 94f,
+                drawFittedCenteredInBox(stackFont, "STACK " + seat.stackText,
+                        seat.podX + 58f, seat.podY + 5f, 94f, 19f,
                         folded ? Color.GRAY : STACK_GREEN, 1f);
-                drawFittedCentered(stackFont, seat.investedText,
-                        seat.podX + 200f, seat.podY + 19f, 80f,
+                drawFittedCenteredInBox(stackFont, seat.investedText,
+                        seat.podX + 158f, seat.podY + 5f, 78f, 19f,
                         folded ? Color.GRAY : POT_GOLD, 1f);
             }
         }
@@ -1866,9 +1862,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private void drawHudActionContent(String text, float x, float y,
             float width, float height, Color color, float alpha) {
         float iconBayWidth = 50f;
-        float textCenterX = x + iconBayWidth + (width - iconBayWidth) / 2f;
-        drawFittedCentered(actionFont, text, textCenterX,
-                y + 50f, width - iconBayWidth - 14f, color, alpha);
+        drawFittedCenteredInBox(actionFont, text,
+                x + iconBayWidth + 4f, y + 16f,
+                width - iconBayWidth - 14f, height - 32f,
+                color, alpha);
     }
 
     private void drawHudActionBadge(float x, float y, float height,
@@ -2044,23 +2041,24 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
         batch.begin();
         Seat local = seats[0];
-        drawCentered(localTurn ? actionFont : smallFont,
+        drawFittedCenteredInBox(localTurn ? actionFont : smallFont,
                 localTurn ? "TU TURNO" : "ESPERANDO TURNO",
-                hudX + infoWidth / 2f, hudY + 112f,
+                hudX + 12f, hudY + 96f, infoWidth - 24f, 24f,
                 localTurn ? POT_GOLD : CYAN, 1f);
-        drawCentered(uiFont, "TONIKELOPE", hudX + infoWidth / 2f,
-                hudY + 82f, Color.WHITE, 1f);
+        drawFittedCenteredInBox(uiFont, "TONIKELOPE",
+                hudX + 12f, hudY + 66f, infoWidth - 24f, 28f,
+                Color.WHITE, 1f);
         if (!lastLocalActionLabel.isEmpty()) {
-            drawFittedCentered(actionFont, lastLocalActionLabel,
-                    hudX + infoWidth / 2f, hudY + 56f,
-                    infoWidth - 36f, Color.WHITE, 1f);
+            drawFittedCenteredInBox(actionFont, lastLocalActionLabel,
+                    hudX + 18f, hudY + 37f, infoWidth - 36f, 25f,
+                    Color.WHITE, 1f);
         }
-        drawFittedCentered(stackFont, "STACK " + local.stackText,
-                hudX + infoWidth * 0.26f, hudY + 23f,
-                infoWidth * 0.44f, STACK_GREEN, 1f);
-        drawFittedCentered(stackFont, local.investedText,
-                hudX + infoWidth * 0.75f, hudY + 23f,
-                infoWidth * 0.40f, POT_GOLD, 1f);
+        drawFittedCenteredInBox(stackFont, "STACK " + local.stackText,
+                hudX + 12f, hudY + 10f, infoWidth * 0.49f - 14f, 20f,
+                STACK_GREEN, 1f);
+        drawFittedCenteredInBox(stackFont, local.investedText,
+                hudX + infoWidth * 0.52f, hudY + 10f,
+                infoWidth * 0.43f, 20f, POT_GOLD, 1f);
 
         drawHudActionContent(HUD_ACTIONS[0], foldX, actionY,
                 foldWidth, actionHeight, Color.WHITE, contentAlpha);
@@ -2119,6 +2117,28 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             data.setScale(originalScaleX * fit, originalScaleY * fit);
         }
         drawCentered(font, text, centerX, baselineY, color, alpha);
+        data.setScale(originalScaleX, originalScaleY);
+    }
+
+    private void drawFittedCenteredInBox(BitmapFont font, String text,
+            float x, float y, float width, float height,
+            Color color, float alpha) {
+        BitmapFont.BitmapFontData data = font.getData();
+        float originalScaleX = data.scaleX;
+        float originalScaleY = data.scaleY;
+        glyph.setText(font, text);
+        float fitX = glyph.width > 0f ? width / glyph.width : 1f;
+        float fitY = glyph.height > 0f ? height / glyph.height : 1f;
+        float fit = Math.min(1f, Math.min(fitX, fitY));
+        if (fit < 1f) {
+            data.setScale(originalScaleX * fit, originalScaleY * fit);
+            glyph.setText(font, text);
+        }
+        font.setColor(color.r, color.g, color.b, alpha);
+        font.draw(batch, glyph,
+                x + (width - glyph.width) / 2f,
+                y + (height + glyph.height) / 2f);
+        font.setColor(Color.WHITE);
         data.setScale(originalScaleX, originalScaleY);
     }
 
@@ -2221,8 +2241,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float y;
         float stackX;
         float stackY;
-        float stackTextX;
-        float stackTextY;
         float podX;
         float podY;
         float positionX;

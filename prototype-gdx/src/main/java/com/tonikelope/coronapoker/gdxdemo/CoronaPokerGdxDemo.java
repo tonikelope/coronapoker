@@ -856,9 +856,13 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         updateSeatPositions(width, height);
         drawTableBranding(height);
         drawChipTrails(potCenterX, potCenterY);
-        drawHoleCards();
+        // Hidden cards remain underneath their seat. Once a showdown reveal
+        // starts, that card switches to the foreground pass and slides into a
+        // dedicated clear lane beside the board.
+        drawHoleCards(false);
         drawSeats();
         drawCardsAndPot(tableCx, tableCy, tableW);
+        drawHoleCards(true);
         // The physical chip flies above the table contents; only its light
         // trail stays below. This preserves a believable foreground collision.
         drawFlyingChips(potCenterX, potCenterY);
@@ -1040,7 +1044,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         batch.end();
     }
 
-    private void drawHoleCards() {
+    private void drawHoleCards(boolean foregroundReveals) {
         float time = handTime();
         if (time < DEAL_START) {
             return;
@@ -1076,6 +1080,16 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             float shownCenterY = seat.y + towardY * shownDistance;
             float shownFanX = sideX;
             float shownFanY = sideY;
+            if (seat.index != 0 && isShowdownContender(seat.index)) {
+                // A professional showdown rail: one complete hand to either
+                // side of the community row. These destinations are stable,
+                // symmetric and outside the board/pot/player-HUD safe zones.
+                float showdownSide = seat.index == 2 ? -1f : 1f;
+                shownCenterX = tableCenterX + showdownSide * 620f;
+                shownCenterY = tableCenterY + 4f;
+                shownFanX = 1f;
+                shownFanY = 0f;
+            }
             for (int cardIndex = 0; cardIndex < 2; cardIndex++) {
                 // The small blind (left of the dealer) receives the first card.
                 // A complete clockwise round finishes before the second starts.
@@ -1091,6 +1105,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                         ? null : showdownCards[seat.index][cardIndex];
                 float revealStart = showdownRevealStart(seat.index, cardIndex);
                 boolean revealing = face != null && time >= revealStart;
+                boolean foreground = seat.index != 0 && revealing;
+                if (foreground != foregroundReveals) {
+                    continue;
+                }
                 float reveal = revealing ? MathUtils.clamp(
                         (time - revealStart) / CARD_FLIP_SECONDS, 0f, 1f) : 0f;
                 float revealMotion = Interpolation.smooth.apply(reveal);
@@ -1417,14 +1435,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         return value;
     }
 
-    private int finalPot() {
-        int value = 0;
-        for (ChipFlight flight : flights) {
-            value += flight.potContribution;
-        }
-        return value;
-    }
-
     private boolean isFolded(int seat, float time) {
         for (ActionEvent action : ACTIONS) {
             if (action.seat == seat && action.kind == ACTION_FOLD
@@ -1505,6 +1515,13 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private static String lastActionLabelForSeat(int seat, float time) {
+        if (time >= SHOWDOWN_START && isShowdownContender(seat)) {
+            if (seat == 2) {
+                return time >= WINNER_START
+                        ? "GANA - TRIO DE ASES" : "TRIO DE ASES";
+            }
+            return "TRIO DE REYES";
+        }
         ActionEvent latest = lastActionForSeat(seat, time);
         if (latest != null) {
             return latest.label;
@@ -1521,11 +1538,17 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private static Color lastActionColorForSeat(int seat, float time) {
+        if (time >= SHOWDOWN_START && isShowdownContender(seat)) {
+            return seat == 2 && time >= WINNER_START ? POT_GOLD : CYAN;
+        }
         ActionEvent latest = lastActionForSeat(seat, time);
         return latest == null ? POT_GOLD : actionColor(latest.kind);
     }
 
     private static Color lastActionTextColorForSeat(int seat, float time) {
+        if (time >= SHOWDOWN_START && isShowdownContender(seat)) {
+            return PANEL;
+        }
         ActionEvent latest = lastActionForSeat(seat, time);
         // Bright call/check/bet/all-in bands need dark ink; a fold keeps white
         // text over red. This is deliberately high-contrast at a glance.
@@ -1638,111 +1661,55 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             return;
         }
 
-        float revealAlpha = Interpolation.fade.apply(MathUtils.clamp(
-                (time - SHOWDOWN_START) / 0.45f, 0f, 1f));
         boolean winnerVisible = time >= WINNER_START;
+        if (!winnerVisible) {
+            return;
+        }
         float winnerProgress = MathUtils.clamp((time - WINNER_START) / 1.2f, 0f, 1f);
-        float bannerWidth = winnerVisible ? 690f : 430f;
-        float bannerHeight = winnerVisible ? 104f : 72f;
-        float bannerX = tableCenterX - bannerWidth / 2f;
-        float bannerY = tableCenterY + 205f;
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.92f * revealAlpha);
-        shapes.rect(bannerX, bannerY, bannerWidth, bannerHeight);
-        shapes.setColor(winnerVisible ? POT_GOLD : CYAN);
-        shapes.rect(bannerX, bannerY, bannerWidth, 4f);
-
-        for (int seatIndex : SHOWDOWN_SEATS) {
-            Seat seat = seats[seatIndex];
-            float towardX = tableCenterX - seat.x;
-            float towardY = tableCenterY - seat.y;
-            float length = Math.max(1f, (float) Math.sqrt(towardX * towardX + towardY * towardY));
-            towardX /= length;
-            towardY /= length;
-            float labelX = seat.x + towardX * 225f;
-            float labelY = seat.y + towardY * 210f;
-            float cardReveal = MathUtils.clamp((time - showdownRevealStart(seatIndex, 1))
-                    / CARD_FLIP_SECONDS, 0f, 1f);
-            shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.84f * cardReveal);
-            shapes.rect(labelX - 132f, labelY - 28f, 264f, 52f);
-            Color line = seatIndex == 2 && winnerVisible ? POT_GOLD : CYAN;
-            shapes.setColor(line.r, line.g, line.b, cardReveal);
-            shapes.rect(labelX - 132f, labelY - 28f, 264f, 3f);
+        Seat winner = seats[2];
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
+        for (int ring = 7; ring >= 1; ring--) {
+            float radius = 48f + ring * 16f + MathUtils.sin(totalTime * 4f + ring) * 5f;
+            shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
+                    winnerProgress * (0.018f + (8 - ring) * 0.006f));
+            shapes.circle(winner.x, winner.y, radius, 64);
         }
-
-        if (winnerVisible) {
-            Seat winner = seats[2];
-            Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
-            for (int ring = 7; ring >= 1; ring--) {
-                float radius = 48f + ring * 16f + MathUtils.sin(totalTime * 4f + ring) * 5f;
-                shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
-                        winnerProgress * (0.018f + (8 - ring) * 0.006f));
-                shapes.circle(winner.x, winner.y, radius, 64);
-            }
-            for (int particle = 0; particle < 72; particle++) {
-                float phase = particle * 1.731f;
-                float travel = (winnerProgress * 1.4f + particle * 0.019f) % 1f;
-                float angle = phase + totalTime * (particle % 2 == 0 ? 0.35f : -0.28f);
-                float radius = 55f + Interpolation.circleOut.apply(travel) * (90f + particle % 8 * 18f);
-                Color color = particle % 3 == 0 ? CYAN : POT_GOLD;
-                shapes.setColor(color.r, color.g, color.b, (1f - travel) * 0.62f);
-                shapes.circle(winner.x + MathUtils.cos(angle) * radius,
-                        winner.y + MathUtils.sin(angle) * radius, 2f + particle % 4, 10);
-            }
-            Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        for (int particle = 0; particle < 72; particle++) {
+            float phase = particle * 1.731f;
+            float travel = (winnerProgress * 1.4f + particle * 0.019f) % 1f;
+            float angle = phase + totalTime * (particle % 2 == 0 ? 0.35f : -0.28f);
+            float radius = 55f + Interpolation.circleOut.apply(travel)
+                    * (90f + particle % 8 * 18f);
+            Color color = particle % 3 == 0 ? CYAN : POT_GOLD;
+            shapes.setColor(color.r, color.g, color.b, (1f - travel) * 0.62f);
+            shapes.circle(winner.x + MathUtils.cos(angle) * radius,
+                    winner.y + MathUtils.sin(angle) * radius,
+                    2f + particle % 4, 10);
         }
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.end();
 
         batch.begin();
-        if (winnerVisible) {
-            drawCentered(uiFont, "RIVERKING GANA", tableCenterX, bannerY + 70f,
-                    POT_GOLD, winnerProgress);
-            drawCentered(smallFont, "TRIO DE ASES  //  BOTE "
-                    + String.format("%,d", finalPot()), tableCenterX,
-                    bannerY + 35f, Color.WHITE, winnerProgress);
-        } else {
-            drawCentered(uiFont, "SHOWDOWN", tableCenterX, bannerY + 47f,
-                    Color.WHITE, revealAlpha);
-        }
-
-        for (int seatIndex : SHOWDOWN_SEATS) {
-            Seat seat = seats[seatIndex];
-            float towardX = tableCenterX - seat.x;
-            float towardY = tableCenterY - seat.y;
-            float length = Math.max(1f, (float) Math.sqrt(towardX * towardX + towardY * towardY));
-            towardX /= length;
-            towardY /= length;
-            float labelX = seat.x + towardX * 225f;
-            float labelY = seat.y + towardY * 210f;
-            float cardReveal = MathUtils.clamp((time - showdownRevealStart(seatIndex, 1))
-                    / CARD_FLIP_SECONDS, 0f, 1f);
-            String result = seatIndex == 2 ? "TRIO DE ASES" : "TRIO DE REYES";
-            Color color = seatIndex == 2 && winnerVisible ? POT_GOLD : Color.WHITE;
-            drawCentered(smallFont, result, labelX, labelY + 5f, color, cardReveal);
-        }
-
-        if (winnerVisible) {
-            Seat winner = seats[2];
-            for (int chip = 0; chip < 18; chip++) {
-                float raw = (time - WINNER_START - 0.18f - chip * 0.035f) / 1.05f;
-                if (raw <= 0f || raw >= 1f) {
-                    continue;
-                }
-                float eased = Interpolation.pow2Out.apply(raw);
-                float targetX = winner.x + (chip % 5 - 2) * 12f;
-                float targetY = winner.y + 18f + (chip % 4) * 8f;
-                float x = bezier(potCenterX, tableCenterX - 210f, targetX, eased);
-                float y = bezier(potCenterY, tableCenterY + 330f, targetY, eased);
-                float size = 34f + MathUtils.sin(raw * MathUtils.PI) * 9f;
-                Texture chipTexture = flyingChips[chip % flyingChips.length];
-                batch.setColor(1f, 1f, 1f, MathUtils.clamp((1f - raw) / 0.12f, 0f, 1f));
-                batch.draw(chipTexture, x - size / 2f, y - size / 2f,
-                        size / 2f, size / 2f, size, size, 1f, 1f,
-                        chip * 29f + raw * 240f, 0, 0,
-                        chipTexture.getWidth(), chipTexture.getHeight(), false, false);
+        for (int chip = 0; chip < 18; chip++) {
+            float raw = (time - WINNER_START - 0.18f - chip * 0.035f) / 1.05f;
+            if (raw <= 0f || raw >= 1f) {
+                continue;
             }
+            float eased = Interpolation.pow2Out.apply(raw);
+            float targetX = winner.x + (chip % 5 - 2) * 12f;
+            float targetY = winner.y + 18f + (chip % 4) * 8f;
+            float x = bezier(potCenterX, tableCenterX - 210f, targetX, eased);
+            float y = bezier(potCenterY, tableCenterY + 330f, targetY, eased);
+            float size = 34f + MathUtils.sin(raw * MathUtils.PI) * 9f;
+            Texture chipTexture = flyingChips[chip % flyingChips.length];
+            batch.setColor(1f, 1f, 1f, MathUtils.clamp((1f - raw) / 0.12f, 0f, 1f));
+            batch.draw(chipTexture, x - size / 2f, y - size / 2f,
+                    size / 2f, size / 2f, size, size, 1f, 1f,
+                    chip * 29f + raw * 240f, 0, 0,
+                    chipTexture.getWidth(), chipTexture.getHeight(), false, false);
         }
         batch.setColor(Color.WHITE);
         batch.end();

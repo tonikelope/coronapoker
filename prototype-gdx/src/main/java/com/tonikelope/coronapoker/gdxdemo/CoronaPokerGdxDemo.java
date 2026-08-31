@@ -61,10 +61,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float SHOWCASE_PAUSE_SECONDS = 1.50f;
     private static final float SHOWCASE_STEP_SECONDS = SHOWCASE_EXIT_SECONDS
             + SHOWCASE_REFLOW_SECONDS + SHOWCASE_PAUSE_SECONDS;
-    private static final float SHUFFLE_END = 1.72f;
-    private static final float POSITION_CHIP_START = SHUFFLE_END + 0.04f;
+    private static final float POSITION_CHIP_START = 0.06f;
     private static final float POSITION_CHIP_STAGGER = 0.03f;
-    private static final float POSITION_CHIP_SECONDS = 0.40f;
+    private static final float POSITION_CHIP_SECONDS = 0.44f;
+    private static final float BLIND_POST_START = 0.70f;
+    private static final float SHUFFLE_START = 1.32f;
+    private static final float SHUFFLE_END = SHUFFLE_START + 1.72f;
     private static final float RIVAL_HOLE_CARD_WIDTH = 125f;
     private static final float LOCAL_HOLE_CARD_WIDTH = 184f;
     private static final float COMMUNITY_CARD_MAX_WIDTH = 140f;
@@ -80,9 +82,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final int SHUFFLE_AUDIO_STOP_FRAME = 53;
     private static final float CHIP_FLIGHT_DELAY = 0.12f;
     private static final float CHIP_FLIGHT_SECONDS = 0.92f;
-    private static final float BLIND_POST_START = 2.24f;
     private static final int BLIND_FLIGHT_COUNT = 3;
-    private static final float DEAL_START = 2.92f;
+    private static final float DEAL_START = SHUFFLE_END + 0.16f;
     private static final float DEAL_CARD_GAP = 0.14f;
     private static final float DEAL_CARD_SECONDS = 0.21f;
     private static final float DEAL_END = DEAL_START
@@ -94,7 +95,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float SHOWDOWN_START = 52.2f;
     private static final float WINNER_START = 54.2f;
     private static final float PAYOUT_COMPLETE = WINNER_START + 1.90f;
-    private static final float SHOWCASE_TABLE_TIME = WINNER_START + 0.25f;
     private static final float[] COMMUNITY_REVEAL = {23.0f, 23.2f, 23.4f, 36.0f, 44.0f};
     private static final float CARD_CORNER_RADIUS = 0.075f;
     private static final float CARD_EDGE_SOFTNESS = 0.006f;
@@ -108,7 +108,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float RIVAL_REVEAL_HUD_GAP = 20f;
     private static final float RIVAL_REVEAL_TOP_MARGIN = 8f;
     private static final float RIVAL_HAND_VERTICAL_OFFSET = -22f;
-    private static final float RIVAL_LATERAL_HAND_OFFSET = 145f;
     private static final int ACTION_CHECK = 0;
     private static final int ACTION_BET = 1;
     private static final int ACTION_CALL = 2;
@@ -419,6 +418,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         initialiseSeats();
         validateAdaptiveSeatLayouts();
         initialiseFlights();
+        validateOpeningSequence();
         randomizeThinkDurations();
         Gdx.input.setCursorCatched(false);
     }
@@ -523,8 +523,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private void initialiseSeats() {
-        String[] names = {"TONIKELOPE", "NEBULA", "RIVERKING", "LUNA", "MAVERICK",
-            "ORION", "PIXEL", "NOVA", "SHARK", "CORONA_BOT"};
+        String[] names = {"TONIKELOPE", "CoronaBot$1", "CoronaBot$2",
+            "CoronaBot$3", "CoronaBot$4", "CoronaBot$5", "CoronaBot$6",
+            "CoronaBot$7", "CoronaBot$8", "CoronaBot$9"};
         for (int i = 0; i < seats.length; i++) {
             seats[i] = new Seat(names[i], 2500 + i * 375, i);
         }
@@ -550,8 +551,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                     + playerCount);
         }
         if (playerCount == SEAT_COUNT) {
-            // Preserve the proven ten-player composition. Only the four lateral
-            // levels are vertically regularized; HUD/card structure is unchanged.
+            // Preserve the proven ten-player composition. updateSeatPositions
+            // only moves an edge anchor inward far enough to center its complete
+            // PlayerPod beneath the avatar.
             return new float[][]{
                 {0.500f, 0.185f},
                 {0.125f, 0.280f}, {0.024f, 0.530f},
@@ -590,7 +592,11 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             float minimumDistance = Float.POSITIVE_INFINITY;
             for (int a = 0; a < anchors.length; a++) {
                 for (int b = a + 1; b < anchors.length; b++) {
-                    float dx = (anchors[a][0] - anchors[b][0]) * BASE_WIDTH;
+                    float ax = a == 0 ? anchors[a][0] * BASE_WIDTH
+                            : centeredRivalX(anchors[a][0], BASE_WIDTH);
+                    float bx = b == 0 ? anchors[b][0] * BASE_WIDTH
+                            : centeredRivalX(anchors[b][0], BASE_WIDTH);
+                    float dx = ax - bx;
                     float dy = (anchors[a][1] - anchors[b][1]) * BASE_HEIGHT;
                     minimumDistance = Math.min(minimumDistance,
                             (float) Math.sqrt(dx * dx + dy * dy));
@@ -602,7 +608,54 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 throw new IllegalStateException("Asientos demasiado juntos para "
                         + playerCount + " jugadores: " + minimumDistance);
             }
+            // Validate the complete centered rival units, not just avatar
+            // centres. This catches HUD collisions before the animated reflow
+            // can expose them on screen.
+            for (int a = 1; a < anchors.length; a++) {
+                float ax = centeredRivalX(anchors[a][0], BASE_WIDTH);
+                float ay = anchors[a][1] * BASE_HEIGHT;
+                float apodY = MathUtils.clamp(
+                        ay - PLAYER_POD_HEIGHT - 42f, 8f,
+                        BASE_HEIGHT - PLAYER_POD_HEIGHT - 8f);
+                float aLeft = ax - PLAYER_POD_WIDTH / 2f - 4f;
+                float aRight = ax + PLAYER_POD_WIDTH / 2f + 4f;
+                float aBottom = apodY - 4f;
+                float aTop = Math.max(apodY + PLAYER_POD_HEIGHT + 4f,
+                        ay + AVATAR_OUTER_RADIUS + 2f);
+                if (aLeft < 0f || aRight > BASE_WIDTH) {
+                    throw new IllegalStateException(
+                            "PlayerPod fuera de pantalla para "
+                            + playerCount + " jugadores, asiento " + a);
+                }
+                for (int b = a + 1; b < anchors.length; b++) {
+                    float bx = centeredRivalX(anchors[b][0], BASE_WIDTH);
+                    float by = anchors[b][1] * BASE_HEIGHT;
+                    float bpodY = MathUtils.clamp(
+                            by - PLAYER_POD_HEIGHT - 42f, 8f,
+                            BASE_HEIGHT - PLAYER_POD_HEIGHT - 8f);
+                    float bLeft = bx - PLAYER_POD_WIDTH / 2f - 4f;
+                    float bRight = bx + PLAYER_POD_WIDTH / 2f + 4f;
+                    float bBottom = bpodY - 4f;
+                    float bTop = Math.max(bpodY + PLAYER_POD_HEIGHT + 4f,
+                            by + AVATAR_OUTER_RADIUS + 2f);
+                    boolean horizontalOverlap = aLeft < bRight + 8f
+                            && aRight + 8f > bLeft;
+                    boolean verticalOverlap = aBottom < bTop + 8f
+                            && aTop + 8f > bBottom;
+                    if (horizontalOverlap && verticalOverlap) {
+                        throw new IllegalStateException(
+                                "PlayerPods solapados para " + playerCount
+                                + " jugadores: " + a + " y " + b);
+                    }
+                }
+            }
         }
+    }
+
+    private static float centeredRivalX(float normalizedX, float width) {
+        return MathUtils.clamp(normalizedX * width,
+                PLAYER_POD_WIDTH / 2f + 8f,
+                width - PLAYER_POD_WIDTH / 2f - 8f);
     }
 
     /**
@@ -752,6 +805,38 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                         contribution);
                 index++;
             }
+        }
+    }
+
+    /**
+     * Mirrors Crupier's causal opening order. Position pucks must have landed
+     * before the blind chips launch; every blind chip must hit the pot before
+     * the shuffle starts; dealing waits for the complete shuffle animation.
+     */
+    private void validateOpeningSequence() {
+        float lastPositionLanding = POSITION_CHIP_START
+                + (2 * POSITION_CHIP_STAGGER) + POSITION_CHIP_SECONDS;
+        if (lastPositionLanding > BLIND_POST_START) {
+            throw new IllegalStateException(
+                    "Las posiciones no terminan antes de publicar las ciegas");
+        }
+
+        float lastBlindLanding = 0f;
+        for (int i = 0; i < BLIND_FLIGHT_COUNT; i++) {
+            lastBlindLanding = Math.max(lastBlindLanding,
+                    flights[i].startTime + flights[i].duration);
+        }
+        if (lastBlindLanding > SHUFFLE_START) {
+            throw new IllegalStateException(
+                    "Las ciegas no aterrizan antes del barajado");
+        }
+        if (SHUFFLE_END > DEAL_START) {
+            throw new IllegalStateException(
+                    "El reparto comienza antes de terminar el barajado");
+        }
+        if (ACTIONS.length > 0 && BOARD_DEAL_END > ACTIONS[0].time) {
+            throw new IllegalStateException(
+                    "Las acciones comienzan antes de terminar el reparto");
         }
     }
 
@@ -984,6 +1069,15 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
         updateSeatPositions(width, height);
         drawTableBranding(height);
+        if (isLayoutShowcase()) {
+            // This is deliberately the interval between two hands. Players may
+            // leave and the remaining seat units reflow, but no private cards,
+            // board, pot, action residue or position puck belongs on the felt.
+            drawSeats();
+            drawLocalHud(width, height);
+            drawFpsCounter(width, height);
+            return;
+        }
         drawChipTrails(potCenterX, potCenterY);
         // Hidden cards and completed showdown hands live behind their PlayerPod.
         // A revealing card temporarily moves to the foreground while airborne,
@@ -1018,9 +1112,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
     private void updateSeatPositions(float width, float height) {
         // Same visual language as CoronaPoker's DynamicTablePanel: seats are
-        // pinned to the edges of the felt, not arranged around a casino oval.
+        // distributed around the felt, not arranged around a casino oval. Every
+        // rival is one centered unit: cards, avatar and PlayerPod share one axis.
         for (int i = 0; i < seats.length; i++) {
-            seats[i].x = showcaseSeatAnchor(i, 0) * width;
+            float anchorX = showcaseSeatAnchor(i, 0) * width;
+            seats[i].x = i == 0 ? anchorX
+                    : centeredRivalX(anchorX / width, width);
             seats[i].y = showcaseSeatAnchor(i, 1) * height;
             if (i == 0) {
                 seats[i].stackX = seats[i].x + 67f;
@@ -1028,33 +1125,27 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 // including its frame and shared turn bar.
                 seats[i].stackY = Math.max(seats[i].y - 7f,
                         LOCAL_HUD_SAFE_TOP + 14f);
+                seats[i].positionX = seats[i].x + AVATAR_OUTER_RADIUS
+                        + POSITION_CHIP_SIZE / 2f + 4f;
+                seats[i].positionY = seats[i].y + 8f;
             } else {
-                // Restore the original PlayerPod geometry: every rival HUD stays
-                // under its avatar and only edge clamping makes it lateral.
-                float podCenterX = MathUtils.clamp(seats[i].x,
-                        PLAYER_POD_WIDTH / 2f + 8f,
-                        width - PLAYER_POD_WIDTH / 2f - 8f);
-                seats[i].podX = podCenterX - PLAYER_POD_WIDTH / 2f;
+                seats[i].podX = seats[i].x - PLAYER_POD_WIDTH / 2f;
                 seats[i].podY = MathUtils.clamp(
                         seats[i].y - PLAYER_POD_HEIGHT - 42f, 8f,
                         height - PLAYER_POD_HEIGHT - 8f);
                 seats[i].stackX = seats[i].podX + 36f;
                 seats[i].stackY = seats[i].podY + 68f;
-            }
-            float towardX = tableCenterX - seats[i].x;
-            float towardY = tableCenterY - seats[i].y;
-            float towardLength = Math.max(1f,
-                    (float) Math.sqrt(towardX * towardX + towardY * towardY));
-            seats[i].positionX = seats[i].x + towardX / towardLength * 80f;
-            seats[i].positionY = seats[i].y + towardY / towardLength * 80f;
-            if (i == 0) {
-                // The large local hand occupies the inward axis; keep its dealer
-                // badge beside the avatar instead of underneath the cards.
-                seats[i].positionX = seats[i].x - 82f;
-                seats[i].positionY = seats[i].y + 8f;
+                // Every positional puck lands at the same semantic anchor: to
+                // the avatar's right, overlapping the PlayerPod's upper-right
+                // corner without ever crossing the viewport edge.
+                seats[i].positionX = MathUtils.clamp(
+                        seats[i].podX + PLAYER_POD_WIDTH - 26f,
+                        POSITION_CHIP_SIZE / 2f + 4f,
+                        width - POSITION_CHIP_SIZE / 2f - 4f);
+                seats[i].positionY = seats[i].podY + PLAYER_POD_HEIGHT + 8f;
             }
         }
-        Seat dealer = seats[0];
+        Seat dealer = seats[dealerSeat()];
         // Cards originate under the dealer avatar itself. There is no artificial
         // shoe/deck widget on the felt.
         dealerSourceX = dealer.x;
@@ -1136,7 +1227,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private int winnerSeat() {
-        return visiblePlayerCount() > 2 ? 2 : 1;
+        return seatForHand(2);
     }
 
     private void drawSeats() {
@@ -1148,12 +1239,13 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             if (presence <= 0f) {
                 continue;
             }
-            boolean active = thinkingAction != null && seat.index == thinkingAction.seat;
+            boolean active = thinkingAction != null
+                    && seat.index == seatForHand(thinkingAction.seat);
             boolean folded = isFolded(seat.index, handTime())
                     && handTime() < SHOWDOWN_START;
             boolean settledShowdown = handTime() >= WINNER_START
                     && isShowdownContender(seat.index);
-            seat.updateStack(handTime(), flights);
+            seat.updateStack(handTime(), flights, demoHandIndex(), winnerSeat());
             if (seat.index != 0) {
                 // One component owns name, chips and amount for every rival.
                 Color rim = settledShowdown
@@ -1223,25 +1315,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             batch.draw(avatar, seat.x - AVATAR_SIZE / 2f,
                     seat.y - AVATAR_SIZE / 2f, AVATAR_SIZE, AVATAR_SIZE);
             batch.setColor(1f, 1f, 1f, presence);
-            Texture position = seat.index == 0 ? dealerChip
-                    : seat.index == 1 ? smallBlindChip
-                    : seat.index == 2 ? bigBlindChip : null;
-            if (position != null) {
-                float positionProgress = positionChipProgress(seat.index, handTime());
-                if (positionProgress > 0f) {
-                    float positionEase = Interpolation.pow3Out.apply(positionProgress);
-                    float positionX = positionChipX(seat, positionEase);
-                    float positionY = positionChipY(seat, positionEase);
-                    float positionSize = POSITION_CHIP_SIZE
-                            * (0.62f + positionEase * 0.38f);
-                    batch.draw(position, positionX - positionSize / 2f,
-                            positionY - positionSize / 2f,
-                            positionSize / 2f, positionSize / 2f,
-                            positionSize, positionSize, 1f, 1f,
-                            (1f - positionEase) * (seat.index - 1) * 320f,
-                            0, 0, position.getWidth(), position.getHeight(), false, false);
-                }
-            }
             batch.setColor(avatarTint.r, avatarTint.g, avatarTint.b,
                     avatarTint.a * presence);
             for (int column = 0; column < 2; column++) {
@@ -1275,9 +1348,13 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             }
         }
         batch.end();
+        drawPositionChips();
     }
 
     private void drawHoleCards(boolean foregroundRevealFlights) {
+        if (isLayoutShowcase()) {
+            return;
+        }
         float time = handTime();
         if (time < DEAL_START) {
             return;
@@ -1321,32 +1398,16 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             float shownFanY = sideY;
             float revealedSideDistance = seat.index == 0 ? 82f : 48f;
             if (seat.index != 0 && isShowdownContender(seat.index)) {
-                // The final composition follows the actual pod alignment. Edge
-                // pods keep both cards fanned beneath the HUD on the free side;
-                // centered pods place one card at either side of the avatar.
-                float podCenterX = seat.podX + PLAYER_POD_WIDTH / 2f;
-                float avatarOffset = seat.x - podCenterX;
-                boolean lateralAvatar = Math.abs(avatarOffset) > 32f;
-                float freeSide = avatarOffset < -32f ? 1f
-                        : avatarOffset > 32f ? -1f : 0f;
-                // Every rival hand uses one vertical reference: its cards rise
-                // equally above the avatar. Centered avatars keep one card at
-                // each side; lateral avatars move the complete V into the free
-                // side instead of leaving its inner card over the portrait.
-                hiddenCenterX = seat.x + freeSide
-                        * (lateralAvatar ? RIVAL_LATERAL_HAND_OFFSET : 0f);
+                // One invariant for every rival: cards, avatar and HUD share
+                // the same centre line. Both the hidden and revealed hand form
+                // an upright V behind the avatar; reveal changes only its spread.
+                hiddenCenterX = seat.x;
                 hiddenCenterY = seat.y + RIVAL_HAND_VERTICAL_OFFSET;
                 hiddenFanX = 1f;
                 hiddenFanY = 0f;
-                hiddenSideDistance = lateralAvatar ? 34f : 62f;
-                if (avatarOffset < -32f) {
-                    shownCenterX = seat.x + RIVAL_LATERAL_HAND_OFFSET;
-                } else if (avatarOffset > 32f) {
-                    shownCenterX = seat.x - RIVAL_LATERAL_HAND_OFFSET;
-                } else {
-                    shownCenterX = seat.x;
-                    revealedSideDistance = AVATAR_OUTER_RADIUS + 58f;
-                }
+                hiddenSideDistance = 62f;
+                shownCenterX = seat.x;
+                revealedSideDistance = AVATAR_OUTER_RADIUS + 58f;
                 // The pod masks only the lower card area. Ranks and suits stay
                 // above it, while the overlap makes ownership unmistakable.
                 // The complete card rectangle, not just its center, must clear
@@ -1363,7 +1424,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             for (int cardIndex = 0; cardIndex < 2; cardIndex++) {
                 // The small blind (left of the dealer) receives the first card.
                 // A complete clockwise round finishes before the second starts.
-                int dealOrder = (seat.index + SEAT_COUNT - 1) % SEAT_COUNT;
+                int dealOrder = Math.floorMod(
+                        seat.index - smallBlindSeat(), SEAT_COUNT);
                 int dealTurn = cardIndex * SEAT_COUNT + dealOrder;
                 float start = DEAL_START + dealTurn * DEAL_CARD_GAP;
                 float progress = MathUtils.clamp((time - start) / DEAL_CARD_SECONDS, 0f, 1f);
@@ -1590,12 +1652,32 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private float handTime() {
-        return isLayoutShowcase() ? SHOWCASE_TABLE_TIME : sceneTime % HAND_SECONDS;
+        return isLayoutShowcase() ? 0f : sceneTime % HAND_SECONDS;
     }
 
     private int demoHandIndex() {
         return isLayoutShowcase() ? DEMO_HAND_COUNT - 1
                 : ((int) (sceneTime / HAND_SECONDS)) % DEMO_HAND_COUNT;
+    }
+
+    private int seatForHand(int canonicalSeat) {
+        return Math.floorMod(canonicalSeat + demoHandIndex(), SEAT_COUNT);
+    }
+
+    private int canonicalSeatForHand(int actualSeat) {
+        return Math.floorMod(actualSeat - demoHandIndex(), SEAT_COUNT);
+    }
+
+    private int dealerSeat() {
+        return seatForHand(0);
+    }
+
+    private int smallBlindSeat() {
+        return seatForHand(1);
+    }
+
+    private int bigBlindSeat() {
+        return seatForHand(2);
     }
 
     private boolean isLayoutShowcase() {
@@ -1609,7 +1691,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private void updateHandSounds() {
         if (isLayoutShowcase()) {
             stopShuffleSound();
-            previousSoundTime = SHOWCASE_TABLE_TIME;
+            previousSoundTime = 0f;
             return;
         }
         float current = handTime();
@@ -1623,10 +1705,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             previous = -0.001f;
         }
 
-        if (crossed(previous, current, 0f)) {
+        if (crossed(previous, current, SHUFFLE_START)) {
             shuffleSoundId = shuffleSound.play(0.62f, 1f, 0f);
         }
-        if (crossed(previous, current, shuffleAudioStopTime)) {
+        if (crossed(previous, current, SHUFFLE_START + shuffleAudioStopTime)) {
             stopShuffleSound();
         }
 
@@ -1692,21 +1774,57 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         return previous < cue && current >= cue;
     }
 
-    private static float positionChipProgress(int seatIndex, float time) {
-        float start = POSITION_CHIP_START + seatIndex * POSITION_CHIP_STAGGER;
+    private static float positionChipProgress(int role, float time) {
+        float start = POSITION_CHIP_START + role * POSITION_CHIP_STAGGER;
         return MathUtils.clamp((time - start) / POSITION_CHIP_SECONDS, 0f, 1f);
     }
 
-    private float positionChipX(Seat seat, float progress) {
-        float sourceX = tableCenterX + (seat.index - 1) * 34f;
-        float controlX = tableCenterX + (seat.index - 1) * 96f;
-        return bezier(sourceX, controlX, seat.positionX, progress);
-    }
-
-    private float positionChipY(Seat seat, float progress) {
-        float sourceY = tableCenterY + 48f;
-        float controlY = tableCenterY + 172f;
-        return bezier(sourceY, controlY, seat.positionY, progress);
+    private void drawPositionChips() {
+        if (isLayoutShowcase()) {
+            return;
+        }
+        Texture[] roleTextures = {dealerChip, smallBlindChip, bigBlindChip};
+        float time = handTime();
+        int hand = demoHandIndex();
+        batch.begin();
+        for (int role = 0; role < roleTextures.length; role++) {
+            float raw = positionChipProgress(role, time);
+            if (hand == 0 && raw <= 0f) {
+                continue;
+            }
+            float progress = Interpolation.smoother.apply(raw);
+            Seat target = seats[Math.floorMod(role + hand, SEAT_COUNT)];
+            float sourceX;
+            float sourceY;
+            if (hand == 0) {
+                sourceX = tableCenterX + (role - 1) * 34f;
+                sourceY = tableCenterY + 48f;
+            } else {
+                Seat previous = seats[Math.floorMod(role + hand - 1, SEAT_COUNT)];
+                sourceX = previous.positionX;
+                sourceY = previous.positionY;
+            }
+            float middleX = (sourceX + target.positionX) * 0.5f;
+            float middleY = (sourceY + target.positionY) * 0.5f;
+            float inwardX = tableCenterX - middleX;
+            float inwardY = tableCenterY - middleY;
+            float inwardLength = Math.max(1f,
+                    (float) Math.sqrt(inwardX * inwardX + inwardY * inwardY));
+            float controlX = middleX + inwardX / inwardLength * 92f;
+            float controlY = middleY + inwardY / inwardLength * 92f + 34f;
+            float x = bezier(sourceX, controlX, target.positionX, progress);
+            float y = bezier(sourceY, controlY, target.positionY, progress);
+            float size = POSITION_CHIP_SIZE
+                    * (hand == 0 ? 0.62f + progress * 0.38f : 1f);
+            Texture texture = roleTextures[role];
+            batch.setColor(Color.WHITE);
+            batch.draw(texture, x - size / 2f, y - size / 2f,
+                    size / 2f, size / 2f, size, size, 1f, 1f,
+                    (1f - progress) * (role - 1) * 320f,
+                    0, 0, texture.getWidth(), texture.getHeight(), false, false);
+        }
+        batch.setColor(Color.WHITE);
+        batch.end();
     }
 
     private static void play(Sound sound, float volume, float pitch) {
@@ -1737,8 +1855,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private boolean isFolded(int seat, float time) {
+        int canonicalSeat = canonicalSeatForHand(seat);
         for (ActionEvent action : ACTIONS) {
-            if (action.seat == seat && action.kind == ACTION_FOLD
+            if (action.seat == canonicalSeat && action.kind == ACTION_FOLD
                     && time >= action.time + 0.9f) {
                 return true;
             }
@@ -1753,18 +1872,21 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         return seat >= 0 && seat < SEAT_COUNT;
     }
 
-    private static float showdownRevealStart(int seat, int cardIndex) {
+    private float showdownRevealStart(int seat, int cardIndex) {
         if (seat == 0) {
-            int localDealOrder = SEAT_COUNT - 1;
+            int localDealOrder = Math.floorMod(
+                    seat - smallBlindSeat(), SEAT_COUNT);
             float localDealStart = DEAL_START
                     + (cardIndex * SEAT_COUNT + localDealOrder) * DEAL_CARD_GAP;
             return localDealStart + DEAL_CARD_SECONDS;
         }
-        return SHOWDOWN_START + 0.12f + (seat - 1) * 0.12f
+        int revealOrder = Math.floorMod(
+                seat - smallBlindSeat(), SEAT_COUNT);
+        return SHOWDOWN_START + 0.12f + revealOrder * 0.12f
                 + cardIndex * 0.11f;
     }
 
-    private static float localSwapStart() {
+    private float localSwapStart() {
         // Sorting starts only after both local cards have landed and finished
         // turning face-up. In the demo J/Q needs one swap: Q finishes left.
         return showdownRevealStart(0, 1) + CARD_FLIP_SECONDS + LOCAL_SWAP_DELAY;
@@ -1775,16 +1897,17 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         return ranks[0] < ranks[1];
     }
 
-    private static float localFoldStart() {
+    private float localFoldStart() {
         for (ActionEvent action : ACTIONS) {
-            if (action.seat == 0 && action.kind == ACTION_FOLD) {
+            if (seatForHand(action.seat) == 0
+                    && action.kind == ACTION_FOLD) {
                 return action.time;
             }
         }
         return Float.POSITIVE_INFINITY;
     }
 
-    private static float localFoldProgress(float time) {
+    private float localFoldProgress(float time) {
         float start = localFoldStart();
         return start == Float.POSITIVE_INFINITY
                 ? 0f : MathUtils.clamp((time - start) / 0.30f, 0f, 1f);
@@ -1801,13 +1924,14 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         return null;
     }
 
-    private static ActionEvent lastActionForSeat(int seat, float time) {
+    private ActionEvent lastActionForSeat(int seat, float time) {
+        int canonicalSeat = canonicalSeatForHand(seat);
         ActionEvent latest = null;
         for (ActionEvent action : ACTIONS) {
             if (action.time > time) {
                 break;
             }
-            if (action.seat == seat) {
+            if (action.seat == canonicalSeat) {
                 latest = action;
             }
         }
@@ -1823,10 +1947,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             return latest.label;
         }
         if (time >= BLIND_POST_START) {
-            if (seat == 1) {
+            if (seat == smallBlindSeat()) {
                 return "SB 50";
             }
-            if (seat == 2) {
+            if (seat == bigBlindSeat()) {
                 return "BB 100";
             }
         }
@@ -1898,10 +2022,13 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private void drawHandOverlay() {
+        if (isLayoutShowcase()) {
+            return;
+        }
         float time = handTime();
         float worldWidth = viewport.getWorldWidth();
         float worldHeight = viewport.getWorldHeight();
-        if (time < SHUFFLE_END) {
+        if (time >= SHUFFLE_START && time < SHUFFLE_END) {
             // Native physical 1:1 size. Convert the GIF's source pixels to world
             // units so a 2560x1440 monitor does not enlarge 960x540 to 1280x720.
             float width = shuffleGif.width() * worldWidth
@@ -1912,19 +2039,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             float y = tableCenterY - height / 2f;
             batch.begin();
             batch.setColor(Color.WHITE);
-            batch.draw(shuffleGif.frameAt(time, true), x, y, width, height);
+            batch.draw(shuffleGif.frameAt(time - SHUFFLE_START, true),
+                    x, y, width, height);
             batch.end();
             return;
         }
         if (time < DEAL_START) {
-            if (time < BLIND_POST_START) {
-                float alpha = Interpolation.fade.apply(MathUtils.clamp(
-                        (time - POSITION_CHIP_START) / 0.20f, 0f, 1f));
-                batch.begin();
-                drawCentered(smallFont, "POSICIONES DE MESA", tableCenterX,
-                        tableCenterY - 38f, CYAN, alpha);
-                batch.end();
-            }
             return;
         }
 
@@ -1962,7 +2082,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         batch.begin();
         batch.setColor(Color.WHITE);
         batch.draw(allInGif.frameAt(elapsed, false), x, y, width, height);
-        drawCentered(uiFont, seats[action.seat].name + "  //  " + action.label,
+        drawCentered(uiFont, seats[seatForHand(action.seat)].name
+                + "  //  " + action.label,
                 worldWidth / 2f, labelY + 37f, ORANGE, 1f);
         batch.end();
     }
@@ -1984,7 +2105,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        Seat winner = seats[2];
+        Seat winner = seats[winnerSeat()];
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
         for (int ring = 7; ring >= 1; ring--) {
             float radius = 48f + ring * 16f + MathUtils.sin(totalTime * 4f + ring) * 5f;
@@ -2037,7 +2158,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
         for (ChipFlight flight : flights) {
-            Seat from = seats[flight.seat];
+            Seat from = seats[seatForHand(flight.seat)];
             float impactAge = handTime() - flight.startTime - flight.duration;
             if (impactAge >= 0f && impactAge < 0.34f) {
                 float impact = impactAge / 0.34f;
@@ -2078,7 +2199,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private void drawFlyingChips(float targetX, float targetY) {
         batch.begin();
         for (ChipFlight flight : flights) {
-            Seat from = seats[flight.seat];
+            Seat from = seats[seatForHand(flight.seat)];
             float u = flightProgress(flight);
             if (u < 0f) {
                 continue;
@@ -2261,7 +2382,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float betX = spinnerX + spinnerWidth + gap;
         float allInX = betX + betWidth + gap;
         ActionEvent thinking = thinkingAction(handTime());
-        boolean localTurn = thinking != null && thinking.seat == 0;
+        boolean localTurn = thinking != null
+                && seatForHand(thinking.seat) == 0;
         boolean settledShowdown = handTime() >= WINNER_START
                 && isShowdownContender(0);
         String lastLocalActionLabel = lastActionLabelForSeat(0, handTime());
@@ -2573,20 +2695,23 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             this.index = index;
         }
 
-        void updateStack(float time, ChipFlight[] flights) {
+        void updateStack(float time, ChipFlight[] flights,
+                int handOffset, int winnerSeat) {
             int current = stack;
             int invested = 0;
             int payout = 0;
             for (ChipFlight flight : flights) {
                 payout += flight.potContribution;
-                if (flight.seat == index
+                int actualFlightSeat = Math.floorMod(
+                        flight.seat + handOffset, SEAT_COUNT);
+                if (actualFlightSeat == index
                         && time >= flight.startTime + flight.duration) {
                     current -= flight.potContribution;
                     invested += flight.potContribution;
                 }
             }
             if (time >= PAYOUT_COMPLETE) {
-                if (index == 2) {
+                if (index == winnerSeat) {
                     current += payout;
                 }
                 // Once the pot reaches the winner, no player still has money

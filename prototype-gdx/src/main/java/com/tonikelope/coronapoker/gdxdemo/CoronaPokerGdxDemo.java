@@ -552,10 +552,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             // levels are vertically regularized; HUD/card structure is unchanged.
             return new float[][]{
                 {0.500f, 0.185f},
-                {0.125f, 0.280f}, {0.024f, 0.485f},
-                {0.024f, 0.690f}, {0.250f, 0.890f},
+                {0.125f, 0.280f}, {0.024f, 0.500f},
+                {0.024f, 0.780f}, {0.250f, 0.890f},
                 {0.500f, 0.930f}, {0.750f, 0.890f},
-                {0.976f, 0.690f}, {0.976f, 0.485f},
+                {0.976f, 0.780f}, {0.976f, 0.500f},
                 {0.875f, 0.280f}
             };
         }

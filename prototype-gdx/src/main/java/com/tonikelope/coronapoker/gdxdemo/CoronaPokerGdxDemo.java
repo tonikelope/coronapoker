@@ -110,7 +110,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float RIVAL_REVEAL_TOP_MARGIN = 8f;
     private static final float RIVAL_CARD_FAN_ANGLE = 7f;
     private static final float RIVAL_HAND_VERTICAL_OFFSET = -22f;
-    private static final float RIVAL_HAND_CENTER_X_INSET = 174f;
+    private static final float RIVAL_HAND_CENTER_X_INSET = 183f;
     private static final float RIVAL_HAND_SIDE_DISTANCE = 34f;
     private static final int ACTION_CHECK = 0;
     private static final int ACTION_BET = 1;
@@ -673,7 +673,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 - rotatedHalfWidth;
         float right = RIVAL_HAND_CENTER_X_INSET + RIVAL_HAND_SIDE_DISTANCE
                 + rotatedHalfWidth;
-        if (left < 4f || right > PLAYER_POD_WIDTH - 4f) {
+        // Edge pods themselves retain 8 px to the viewport, so the hand may
+        // extend at most 4 px beyond the HUD while preserving a 4 px screen gap.
+        if (left < 4f || right > PLAYER_POD_WIDTH + 4f) {
             throw new IllegalStateException(
                     "Las cartas rivales no caben dentro de su asiento: "
                     + left + ".." + right);

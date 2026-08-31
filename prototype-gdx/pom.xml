@@ -93,18 +93,10 @@
                     <include>images/action/up.png</include>
                     <include>images/action/bet.png</include>
                     <include>images/action/glasses.png</include>
-                    <include>images/decks/goliat/hq/trasera.jpg</include>
-                    <include>images/decks/goliat/hq/A_P.jpg</include>
-                    <include>images/decks/goliat/hq/K_D.jpg</include>
-                    <include>images/decks/goliat/hq/8_C.jpg</include>
-                    <include>images/decks/goliat/hq/4_T.jpg</include>
-                    <include>images/decks/goliat/hq/2_P.jpg</include>
-                    <include>images/decks/goliat/hq/A_D.jpg</include>
-                    <include>images/decks/goliat/hq/A_C.jpg</include>
-                    <include>images/decks/goliat/hq/K_C.jpg</include>
-                    <include>images/decks/goliat/hq/K_T.jpg</include>
-                    <include>images/decks/goliat/hq/Q_P.jpg</include>
-                    <include>images/decks/goliat/hq/J_P.jpg</include>
+                    <!-- Package the complete HQ deck. Demo hands change often;
+                         a closed per-card list makes a valid source asset fail
+                         only after launching the shaded distribution JAR. -->
+                    <include>images/decks/goliat/hq/*.jpg</include>
                     <include>images/decks/goliat/gif/shuffle.gif</include>
                     <include>cinematics/allin/rounders.gif</include>
                     <include>sounds/misc/shuffle.wav</include>

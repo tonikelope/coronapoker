@@ -112,7 +112,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float RIVAL_HAND_VERTICAL_OFFSET = -22f;
     private static final float RIVAL_HAND_CENTER_X_INSET = 183f;
     private static final float RIVAL_HAND_SIDE_DISTANCE = 34f;
-    private static final float RIVAL_LEFT_CARD_SHIFT = 12f;
+    private static final float RIVAL_LEFT_CARD_SHIFT = 16f;
     private static final int ACTION_CHECK = 0;
     private static final int ACTION_BET = 1;
     private static final int ACTION_CALL = 2;

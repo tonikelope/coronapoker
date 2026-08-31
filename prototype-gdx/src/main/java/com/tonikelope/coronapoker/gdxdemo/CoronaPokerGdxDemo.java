@@ -547,20 +547,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             throw new IllegalArgumentException("Numero de jugadores fuera de rango: "
                     + playerCount);
         }
-        if (playerCount == SEAT_COUNT) {
-            // The maximum-density layout is a deliberately reserved ten-zone
-            // composition. Top seats avoid the logo/FPS corners, the side pairs
-            // have separate vertical lanes, and the lower side pair starts above
-            // the complete footprint of the two bottom revealed hands.
-            return new float[][]{
-                {0.500f, 0.185f},
-                {0.125f, 0.145f}, {0.024f, 0.500f},
-                {0.024f, 0.790f}, {0.250f, 0.890f},
-                {0.500f, 0.930f}, {0.750f, 0.890f},
-                {0.976f, 0.790f}, {0.976f, 0.500f},
-                {0.875f, 0.145f}
-            };
-        }
         float[][] anchors = new float[playerCount][2];
         anchors[0][0] = 0.50f;
         anchors[0][1] = 0.185f;
@@ -568,20 +554,16 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             double angle = Math.toRadians(-90d - seat * (360d / playerCount));
             double cos = Math.cos(angle);
             double sin = Math.sin(angle);
-            // Fractional powers push side seats towards the edges while retaining
-            // more horizontal air around centered upper/bottom seats.
-            float x = (float) (0.5d + Math.copySign(
-                    0.5d * Math.pow(Math.abs(cos), 0.55d), cos));
-            float y = (float) (0.54d + Math.copySign(
-                    0.48d * Math.pow(Math.abs(sin), 0.85d), sin));
+            // Equal angular steps on one common ellipse: the occupied seats are
+            // distributed uniformly instead of being pushed into hand-tuned
+            // horizontal bands.
+            float x = (float) (0.5d + cos * 0.476d);
+            float y = (float) (0.54d + sin * 0.390d);
             anchors[seat][0] = MathUtils.clamp(x, 0.024f, 0.976f);
             anchors[seat][1] = MathUtils.clamp(y, 0.145f, 0.93f);
             if (anchors[seat][1] > 0.84f) {
                 // Keep upper hands out of the permanent logo and FPS corners.
                 anchors[seat][0] = MathUtils.clamp(anchors[seat][0], 0.25f, 0.75f);
-            } else if (anchors[seat][1] < 0.25f) {
-                // Bottom rival pods must end before the central local HUD begins.
-                anchors[seat][0] = anchors[seat][0] < 0.5f ? 0.125f : 0.875f;
             }
         }
         return anchors;
@@ -1032,15 +1014,27 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 seats[i].stackY = Math.max(seats[i].y - 7f,
                         LOCAL_HUD_SAFE_TOP + 14f);
             } else {
-                // Every rival uses the same PlayerPod. Edge clamping mirrors
-                // the whole component without changing its internal layout.
-                float podCenterX = MathUtils.clamp(seats[i].x,
+                float centeredPodCenterX = MathUtils.clamp(seats[i].x,
                         PLAYER_POD_WIDTH / 2f + 8f,
                         width - PLAYER_POD_WIDTH / 2f - 8f);
-                seats[i].podX = podCenterX - PLAYER_POD_WIDTH / 2f;
-                seats[i].podY = MathUtils.clamp(
+                float centeredPodX = centeredPodCenterX - PLAYER_POD_WIDTH / 2f;
+                float centeredPodY = MathUtils.clamp(
                         seats[i].y - PLAYER_POD_HEIGHT - 42f, 8f,
                         height - PLAYER_POD_HEIGHT - 8f);
+                float lateralPodX = seats[i].x < tableCenterX
+                        ? seats[i].x - AVATAR_OUTER_RADIUS - PLAYER_POD_WIDTH + 8f
+                        : seats[i].x + AVATAR_OUTER_RADIUS - 8f;
+                lateralPodX = MathUtils.clamp(lateralPodX, 8f,
+                        width - PLAYER_POD_WIDTH - 8f);
+                float lateralPodY = MathUtils.clamp(
+                        seats[i].y - PLAYER_POD_HEIGHT / 2f, 8f,
+                        height - PLAYER_POD_HEIGHT - 8f);
+                // A continuous blend avoids a snap when a shrinking table moves
+                // a lower lateral seat into a centered position.
+                float lowerBlend = 1f - Interpolation.smooth.apply(
+                        MathUtils.clamp((seats[i].y / height - 0.32f) / 0.10f, 0f, 1f));
+                seats[i].podX = MathUtils.lerp(centeredPodX, lateralPodX, lowerBlend);
+                seats[i].podY = MathUtils.lerp(centeredPodY, lateralPodY, lowerBlend);
                 seats[i].stackX = seats[i].podX + 36f;
                 seats[i].stackY = seats[i].podY + 68f;
             }
@@ -1328,14 +1322,15 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 // centered pods place one card at either side of the avatar.
                 float podCenterX = seat.podX + PLAYER_POD_WIDTH / 2f;
                 float avatarOffset = seat.x - podCenterX;
-                if (avatarOffset < -32f) {
-                    shownCenterX = seat.x + 125f;
-                } else if (avatarOffset > 32f) {
-                    shownCenterX = seat.x - 125f;
-                } else {
-                    shownCenterX = seat.x;
-                    revealedSideDistance = AVATAR_OUTER_RADIUS + 58f;
-                }
+                // One rule for every position: a centered avatar gets one card
+                // at each side; as the avatar becomes lateral, the same pair
+                // closes into a fan on its free side. Reflow interpolates it.
+                float lateralLayout = Interpolation.smooth.apply(MathUtils.clamp(
+                        (Math.abs(avatarOffset) - 24f) / 32f, 0f, 1f));
+                float freeSide = avatarOffset == 0f ? 0f : -Math.signum(avatarOffset);
+                shownCenterX = seat.x + freeSide * 125f * lateralLayout;
+                revealedSideDistance = MathUtils.lerp(
+                        AVATAR_OUTER_RADIUS + 58f, 48f, lateralLayout);
                 // The pod masks only the lower card area. Ranks and suits stay
                 // above it, while the overlap makes ownership unmistakable.
                 // The complete card rectangle, not just its center, must clear

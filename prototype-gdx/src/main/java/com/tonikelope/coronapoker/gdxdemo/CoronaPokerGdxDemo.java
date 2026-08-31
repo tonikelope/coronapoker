@@ -47,6 +47,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float INTRO_SECONDS = 4.2f;
     private static final int STAR_COUNT = 150;
     private static final int SEAT_COUNT = 10;
+    private static final int DEMO_HAND_COUNT = 2;
     private static final int FRAME_SAMPLE_COUNT = 720;
     private static final float CARD_FLIP_SECONDS = 0.620f;
     private static final float LOCAL_CARD_FAN_ANGLE = 8.5f;
@@ -58,6 +59,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float POSITION_CHIP_STAGGER = 0.03f;
     private static final float POSITION_CHIP_SECONDS = 0.40f;
     private static final float RIVAL_HOLE_CARD_WIDTH = 125f;
+    private static final float LOCAL_HOLE_CARD_WIDTH = 184f;
+    private static final float COMMUNITY_CARD_MAX_WIDTH = 140f;
     // All positional pucks share one physical diameter. The GDX seat tucks its
     // private cards under the avatar, so Swing's nominal 80% icon ratio looks
     // oversized here; 54% preserves the perceived CoronaPoker proportion.
@@ -100,8 +103,22 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final int ACTION_FOLD = 3;
     private static final int ACTION_ALLIN = 4;
     private static final String[] HUD_ACTIONS = {"NO IR", "IR +300", "APOSTAR", "ALL-IN"};
-    private static final int[] LOCAL_CARD_RANKS = {11, 12};
-    private static final int[] SHOWDOWN_SEATS = {6, 2};
+    private static final int[][] LOCAL_CARD_RANKS = {{11, 12}, {14, 13}};
+    private static final int[] SHOWDOWN_SEATS = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    private static final String[][] SHOWDOWN_RESULTS = {
+        {
+            "CARTA ALTA AS", "ESCALERA AL CINCO", "TRIO DE ASES",
+            "CARTA ALTA AS", "CARTA ALTA AS", "CARTA ALTA AS",
+            "TRIO DE REYES", "TRIO DE DOSES", "TRIO DE OCHOS",
+            "TRIO DE CUATROS"
+        },
+        {
+            "CARTA ALTA AS", "PAREJA DE ASES", "TRIO DE DAMAS",
+            "TRIO DE DIECES", "TRIO DE SIETES", "TRIO DE CINCOS",
+            "TRIO DE TRESES", "PAREJA DE DAMAS", "CARTA ALTA DAMA",
+            "PAREJA DE REYES"
+        }
+    };
     private static final float[][] SEAT_ANCHORS = {
         {0.50f, 0.185f}, {0.135f, 0.145f}, {0.024f, 0.40f},
         {0.024f, 0.73f}, {0.24f, 0.90f}, {0.50f, 0.93f},
@@ -257,8 +274,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private Texture cardBack;
     private Texture[] flyingChips;
     private Texture pot;
-    private Texture[] communityCards;
-    private final Texture[][] showdownCards = new Texture[SEAT_COUNT][];
+    private Texture[][] communityHands;
+    private Texture[][][] holeCardHands;
     private GifTextureAnimation shuffleGif;
     private GifTextureAnimation allInGif;
 
@@ -324,24 +341,35 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             createChipTexture(new Color(0xe2a72fff), new Color(0x936312ff))
         };
         pot = texture("images/pot.png");
-        communityCards = new Texture[]{
-            cardTexture("images/decks/goliat/hq/A_P.jpg"),
-            cardTexture("images/decks/goliat/hq/K_D.jpg"),
-            cardTexture("images/decks/goliat/hq/8_C.jpg"),
-            cardTexture("images/decks/goliat/hq/4_T.jpg"),
-            cardTexture("images/decks/goliat/hq/2_P.jpg")
+        communityHands = new Texture[][]{
+            hqCards("A_P.jpg", "K_D.jpg", "8_C.jpg", "4_T.jpg", "2_P.jpg"),
+            hqCards("Q_C.jpg", "10_D.jpg", "7_P.jpg", "5_C.jpg", "3_T.jpg")
         };
-        showdownCards[2] = new Texture[]{
-            cardTexture("images/decks/goliat/hq/A_D.jpg"),
-            cardTexture("images/decks/goliat/hq/A_C.jpg")
-        };
-        showdownCards[6] = new Texture[]{
-            cardTexture("images/decks/goliat/hq/K_C.jpg"),
-            cardTexture("images/decks/goliat/hq/K_T.jpg")
-        };
-        showdownCards[0] = new Texture[]{
-            cardTexture("images/decks/goliat/hq/J_P.jpg"),
-            cardTexture("images/decks/goliat/hq/Q_P.jpg")
+        holeCardHands = new Texture[][][]{
+            {
+                hqCards("J_P.jpg", "Q_P.jpg"),
+                hqCards("3_C.jpg", "7_D.jpg"),
+                hqCards("A_D.jpg", "A_C.jpg"),
+                hqCards("5_T.jpg", "6_T.jpg"),
+                hqCards("9_P.jpg", "10_P.jpg"),
+                hqCards("Q_D.jpg", "J_D.jpg"),
+                hqCards("K_C.jpg", "K_T.jpg"),
+                hqCards("2_C.jpg", "2_D.jpg"),
+                hqCards("8_D.jpg", "8_T.jpg"),
+                hqCards("4_C.jpg", "4_D.jpg")
+            },
+            {
+                hqCards("A_T.jpg", "K_T.jpg"),
+                hqCards("A_D.jpg", "A_P.jpg"),
+                hqCards("Q_D.jpg", "Q_T.jpg"),
+                hqCards("10_C.jpg", "10_T.jpg"),
+                hqCards("7_C.jpg", "7_D.jpg"),
+                hqCards("5_D.jpg", "5_T.jpg"),
+                hqCards("3_C.jpg", "3_D.jpg"),
+                hqCards("A_C.jpg", "Q_P.jpg"),
+                hqCards("J_T.jpg", "9_T.jpg"),
+                hqCards("K_C.jpg", "K_D.jpg")
+            }
         };
         shuffleGif = gif("images/decks/goliat/gif/shuffle.gif", 960);
         shuffleAudioStopTime = shuffleGif.frameStartSeconds(SHUFFLE_AUDIO_STOP_FRAME);
@@ -387,6 +415,14 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         Texture texture = new Texture(Gdx.files.internal(path), true);
         texture.setFilter(TextureFilter.MipMapLinearLinear, TextureFilter.Linear);
         return texture;
+    }
+
+    private static Texture[] hqCards(String... names) {
+        Texture[] cards = new Texture[names.length];
+        for (int i = 0; i < names.length; i++) {
+            cards[i] = cardTexture("images/decks/goliat/hq/" + names[i]);
+        }
+        return cards;
     }
 
     private static Sound sound(String path) {
@@ -845,7 +881,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float tableW = Math.min(1510f, width * 0.78f);
         tableCenterX = tableCx;
         tableCenterY = tableCy;
-        float boardCardW = Math.min(148f, tableW / 10f);
+        float boardCardW = Math.min(COMMUNITY_CARD_MAX_WIDTH, tableW / 10f);
         float boardCardH = boardCardW * cardBack.getHeight() / cardBack.getWidth();
         // The pot owns the central axis, clearly above the upper edge of the
         // community row. It is never painted on top of a card.
@@ -856,9 +892,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         updateSeatPositions(width, height);
         drawTableBranding(height);
         drawChipTrails(potCenterX, potCenterY);
-        // Hidden cards remain underneath their seat. Once a showdown reveal
-        // starts, that card switches to the foreground pass and slides beside
-        // its owner's avatar, preserving an obvious visual association.
+        // Hidden cards and completed showdown hands live behind their PlayerPod.
+        // A revealing card temporarily moves to the foreground while airborne,
+        // then lands at the exact same coordinates behind its owner's HUD.
         drawHoleCards(false);
         drawSeats();
         drawCardsAndPot(tableCx, tableCy, tableW);
@@ -938,7 +974,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         Gdx.gl.glEnable(GL20.GL_BLEND);
         for (Seat seat : seats) {
             boolean active = thinkingAction != null && seat.index == thinkingAction.seat;
-            boolean folded = isFolded(seat.index, handTime());
+            boolean folded = isFolded(seat.index, handTime())
+                    && handTime() < SHOWDOWN_START;
             seat.updateStack(handTime(), flights);
             if (seat.index != 0) {
                 // One component owns name, chips and amount for every rival.
@@ -986,7 +1023,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         batch.begin();
         for (Seat seat : seats) {
             Texture avatar = seat.index == 0 ? avatarDefault : avatarBot;
-            boolean folded = isFolded(seat.index, handTime());
+            boolean folded = isFolded(seat.index, handTime())
+                    && handTime() < SHOWDOWN_START;
             batch.setColor(folded ? FOLDED_AVATAR : Color.WHITE);
             batch.draw(avatar, seat.x - AVATAR_SIZE / 2f,
                     seat.y - AVATAR_SIZE / 2f, AVATAR_SIZE, AVATAR_SIZE);
@@ -1044,12 +1082,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         batch.end();
     }
 
-    private void drawHoleCards(boolean foregroundReveals) {
+    private void drawHoleCards(boolean foregroundRevealFlights) {
         float time = handTime();
         if (time < DEAL_START) {
             return;
         }
-        float localFold = localFoldProgress(time);
+        float localFold = time >= SHOWDOWN_START ? 0f : localFoldProgress(time);
         float localSwapRaw = localHandNeedsSwap() ? MathUtils.clamp(
                 (time - localSwapStart()) / LOCAL_SWAP_SECONDS, 0f, 1f) : 0f;
         float localSwap = Interpolation.smoother.apply(localSwapRaw);
@@ -1058,10 +1096,11 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
         batch.begin();
         for (Seat seat : seats) {
-            if (seat.index != 0 && isFolded(seat.index, time)) {
+            if (seat.index != 0 && isFolded(seat.index, time)
+                    && time < SHOWDOWN_START) {
                 continue;
             }
-            float seatCardW = seat.index == 0 ? 200f : cardW;
+            float seatCardW = seat.index == 0 ? LOCAL_HOLE_CARD_WIDTH : cardW;
             float seatCardH = seatCardW * cardBack.getHeight() / cardBack.getWidth();
             float towardX = tableCenterX - seat.x;
             float towardY = tableCenterY - seat.y;
@@ -1080,18 +1119,24 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             float shownCenterY = seat.y + towardY * shownDistance;
             float shownFanX = sideX;
             float shownFanY = sideY;
+            float revealedSideDistance = seat.index == 0 ? 82f : 48f;
             if (seat.index != 0 && isShowdownContender(seat.index)) {
-                // Keep ownership unmistakable: the revealed pair stops beside
-                // its avatar, on the side facing away from the nearest screen
-                // edge. It may cross the pod header, but its lower edge is kept
-                // above the large action/result band whenever space permits.
-                float revealSide = seat.x < tableCenterX ? 1f : -1f;
-                float pairHalfWidth = 72f + seatCardW / 2f;
-                shownCenterX = seat.x + revealSide
-                        * (AVATAR_OUTER_RADIUS + pairHalfWidth + 14f);
-                float abovePod = seat.podY + PLAYER_POD_HEIGHT
-                        + seatCardH / 2f - 8f;
-                shownCenterY = MathUtils.clamp(Math.max(seat.y, abovePod),
+                // The final composition follows the actual pod alignment. Edge
+                // pods keep both cards fanned beneath the HUD on the free side;
+                // centered pods place one card at either side of the avatar.
+                float podCenterX = seat.podX + PLAYER_POD_WIDTH / 2f;
+                float avatarOffset = seat.x - podCenterX;
+                if (avatarOffset < -32f) {
+                    shownCenterX = seat.x + 125f;
+                } else if (avatarOffset > 32f) {
+                    shownCenterX = seat.x - 125f;
+                } else {
+                    shownCenterX = seat.x;
+                    revealedSideDistance = AVATAR_OUTER_RADIUS + 58f;
+                }
+                // The pod masks only the lower card area. Ranks and suits stay
+                // above it, while the overlap makes ownership unmistakable.
+                shownCenterY = MathUtils.clamp(seat.y + 48f,
                         seatCardH / 2f + 12f,
                         viewport.getWorldHeight() - seatCardH / 2f - 12f);
                 shownFanX = 1f;
@@ -1108,21 +1153,28 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                     continue;
                 }
                 float eased = Interpolation.pow2Out.apply(progress);
-                Texture face = showdownCards[seat.index] == null
-                        ? null : showdownCards[seat.index][cardIndex];
+                Texture face = holeCardHands[demoHandIndex()][seat.index][cardIndex];
                 float revealStart = showdownRevealStart(seat.index, cardIndex);
                 boolean revealing = face != null && time >= revealStart;
-                boolean foreground = seat.index != 0 && revealing;
-                if (foreground != foregroundReveals) {
-                    continue;
-                }
                 float reveal = revealing ? MathUtils.clamp(
                         (time - revealStart) / CARD_FLIP_SECONDS, 0f, 1f) : 0f;
+                boolean airborneReveal = seat.index != 0 && revealing
+                        && reveal > 0f && reveal < 1f;
+                if (airborneReveal != foregroundRevealFlights) {
+                    continue;
+                }
                 float revealMotion = Interpolation.smooth.apply(reveal);
                 float handCenterX = seat.index == 0 ? shownCenterX
                         : MathUtils.lerp(hiddenCenterX, shownCenterX, revealMotion);
                 float handCenterY = seat.index == 0 ? shownCenterY
                         : MathUtils.lerp(hiddenCenterY, shownCenterY, revealMotion);
+                if (seat.index != 0 && airborneReveal) {
+                    // A short inward hop makes the reveal a flight, rather than
+                    // a flat UI translation, before the card settles behind HUD.
+                    float revealArc = MathUtils.sin(reveal * MathUtils.PI);
+                    handCenterX += towardX * revealArc * 56f;
+                    handCenterY += towardY * revealArc * 56f + revealArc * 24f;
+                }
                 float fanX = MathUtils.lerp(hiddenFanX, shownFanX, revealMotion);
                 float fanY = MathUtils.lerp(hiddenFanY, shownFanY, revealMotion);
                 float fanLength = Math.max(0.001f,
@@ -1132,7 +1184,6 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 // Rivals keep a tight pair tucked under their avatar. The pair
                 // only travels out and opens when the player reveals it.
                 float normalSideDistance = seat.index == 0 ? 54f : 18f;
-                float revealedSideDistance = seat.index == 0 ? 90f : 72f;
                 float sideDistance = MathUtils.lerp(
                         normalSideDistance, revealedSideDistance, revealMotion);
                 float sideDirection = cardIndex == 0 ? -1f : 1f;
@@ -1169,6 +1220,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                             ? LOCAL_CARD_FAN_ANGLE : -LOCAL_CARD_FAN_ANGLE;
                     restingRotation = MathUtils.lerp(
                             restingRotation, -restingRotation, localSwap);
+                } else {
+                    // Both final layouts read as a compact V. The second card
+                    // is drawn last, but the first card's upper index remains free.
+                    float revealedRotation = cardIndex == 0 ? 7f : -7f;
+                    restingRotation = MathUtils.lerp(
+                            restingRotation, revealedRotation, revealMotion);
                 }
                 float rotation = MathUtils.lerp(launchRotation, restingRotation, eased);
                 float scale = 0.82f + eased * 0.18f;
@@ -1203,7 +1260,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private void drawCardsAndPot(float cx, float cy, float tableWidth) {
-        float cardW = Math.min(148f, tableWidth / 10f);
+        Texture[] communityCards = communityHands[demoHandIndex()];
+        float cardW = Math.min(COMMUNITY_CARD_MAX_WIDTH, tableWidth / 10f);
         float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
         float gap = cardW + 18f;
         float firstX = cx - gap * 2f - cardW / 2f;
@@ -1317,6 +1375,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         return sceneTime % HAND_SECONDS;
     }
 
+    private int demoHandIndex() {
+        return ((int) (sceneTime / HAND_SECONDS)) % DEMO_HAND_COUNT;
+    }
+
     private void updateHandSounds() {
         float current = handTime();
         float previous = previousSoundTime;
@@ -1342,7 +1404,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 play(dealSound, 0.30f, 0.96f + (turn % 3) * 0.025f);
             }
         }
-        for (int card = 0; card < communityCards.length; card++) {
+        for (int card = 0; card < communityHands[demoHandIndex()].length; card++) {
             float cue = BOARD_DEAL_START + card * BOARD_CARD_GAP;
             if (crossed(previous, current, cue)) {
                 play(dealSound, 0.34f, 0.94f + card * 0.018f);
@@ -1453,7 +1515,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private static boolean isShowdownContender(int seat) {
-        return seat == 2 || seat == 6;
+        // Showcase mode: every occupied seat reveals so both demo hands can be
+        // evaluated as a complete ten-player layout. The real game will feed
+        // this from its authoritative showdown participant set.
+        return seat >= 0 && seat < SEAT_COUNT;
     }
 
     private static float showdownRevealStart(int seat, int cardIndex) {
@@ -1463,13 +1528,8 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                     + (cardIndex * SEAT_COUNT + localDealOrder) * DEAL_CARD_GAP;
             return localDealStart + DEAL_CARD_SECONDS;
         }
-        if (seat == 6) {
-            return SHOWDOWN_START + 0.15f + cardIndex * 0.12f;
-        }
-        if (seat == 2) {
-            return SHOWDOWN_START + 0.95f + cardIndex * 0.12f;
-        }
-        return Float.POSITIVE_INFINITY;
+        return SHOWDOWN_START + 0.12f + (seat - 1) * 0.12f
+                + cardIndex * 0.11f;
     }
 
     private static float localSwapStart() {
@@ -1478,8 +1538,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         return showdownRevealStart(0, 1) + CARD_FLIP_SECONDS + LOCAL_SWAP_DELAY;
     }
 
-    private static boolean localHandNeedsSwap() {
-        return LOCAL_CARD_RANKS[0] < LOCAL_CARD_RANKS[1];
+    private boolean localHandNeedsSwap() {
+        int[] ranks = LOCAL_CARD_RANKS[demoHandIndex()];
+        return ranks[0] < ranks[1];
     }
 
     private static float localFoldStart() {
@@ -1521,13 +1582,11 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         return latest;
     }
 
-    private static String lastActionLabelForSeat(int seat, float time) {
+    private String lastActionLabelForSeat(int seat, float time) {
         if (time >= SHOWDOWN_START && isShowdownContender(seat)) {
-            if (seat == 2) {
-                return time >= WINNER_START
-                        ? "GANA - TRIO DE ASES" : "TRIO DE ASES";
-            }
-            return "TRIO DE REYES";
+            String result = SHOWDOWN_RESULTS[demoHandIndex()][seat];
+            return seat == 2 && time >= WINNER_START
+                    ? "GANA - " + result : result;
         }
         ActionEvent latest = lastActionForSeat(seat, time);
         if (latest != null) {
@@ -1544,7 +1603,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         return "";
     }
 
-    private static Color lastActionColorForSeat(int seat, float time) {
+    private Color lastActionColorForSeat(int seat, float time) {
         if (time >= SHOWDOWN_START && isShowdownContender(seat)) {
             return seat == 2 && time >= WINNER_START ? POT_GOLD : CYAN;
         }
@@ -1552,7 +1611,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         return latest == null ? POT_GOLD : actionColor(latest.kind);
     }
 
-    private static Color lastActionTextColorForSeat(int seat, float time) {
+    private Color lastActionTextColorForSeat(int seat, float time) {
         if (time >= SHOWDOWN_START && isShowdownContender(seat)) {
             return PANEL;
         }
@@ -2176,12 +2235,14 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
             flyingChip.dispose();
         }
         pot.dispose();
-        for (Texture texture : communityCards) {
-            texture.dispose();
+        for (Texture[] board : communityHands) {
+            for (Texture texture : board) {
+                texture.dispose();
+            }
         }
-        for (Texture[] hand : showdownCards) {
-            if (hand != null) {
-                for (Texture texture : hand) {
+        for (Texture[][] hand : holeCardHands) {
+            for (Texture[] playerCards : hand) {
+                for (Texture texture : playerCards) {
                     texture.dispose();
                 }
             }

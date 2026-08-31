@@ -11,6 +11,7 @@ package com.tonikelope.coronapoker.gdxdemo;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
@@ -292,12 +293,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private Texture dealerChip;
     private Texture smallBlindChip;
     private Texture bigBlindChip;
-    private Texture cardBack;
+    private Texture[] cardBacks;
     private Texture[] flyingChips;
     private Texture pot;
     private Texture[][] communityHands;
     private Texture[][][] holeCardHands;
-    private GifTextureAnimation shuffleGif;
+    private GifTextureAnimation[] shuffleGifs;
     private GifTextureAnimation allInGif;
 
     private Sound shuffleSound;
@@ -309,6 +310,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private Sound foldSound;
     private Sound allInSound;
     private Sound showdownSound;
+    private Music backgroundMusic;
 
     private float tableCenterX;
     private float tableCenterY;
@@ -354,7 +356,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         dealerChip = texture("images/dealer.png");
         smallBlindChip = texture("images/sb.png");
         bigBlindChip = texture("images/bb.png");
-        cardBack = cardTexture("images/decks/goliat/hq/trasera.jpg");
+        cardBacks = new Texture[]{
+            cardTexture("images/decks/goliat/hq/trasera.jpg"),
+            cardTexture("mod/decks/pepsiman/hq/trasera.jpg")
+        };
         flyingChips = new Texture[]{
             createChipTexture(new Color(0xd72d3bff), new Color(0x7f101bff)),
             createChipTexture(new Color(0x247ee8ff), new Color(0x10458fff)),
@@ -364,7 +369,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         pot = texture("images/pot.png");
         communityHands = new Texture[][]{
             hqCards("A_P.jpg", "K_D.jpg", "8_C.jpg", "4_T.jpg", "2_P.jpg"),
-            hqCards("Q_C.jpg", "10_D.jpg", "7_P.jpg", "5_C.jpg", "3_T.jpg")
+            pepsimanHqCards("Q_C.jpg", "10_D.jpg", "7_P.jpg", "5_C.jpg", "3_T.jpg")
         };
         holeCardHands = new Texture[][][]{
             {
@@ -380,20 +385,23 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 hqCards("4_C.jpg", "4_D.jpg")
             },
             {
-                hqCards("A_T.jpg", "K_T.jpg"),
-                hqCards("A_D.jpg", "A_P.jpg"),
-                hqCards("Q_D.jpg", "Q_T.jpg"),
-                hqCards("10_C.jpg", "10_T.jpg"),
-                hqCards("7_C.jpg", "7_D.jpg"),
-                hqCards("5_D.jpg", "5_T.jpg"),
-                hqCards("3_C.jpg", "3_D.jpg"),
-                hqCards("A_C.jpg", "Q_P.jpg"),
-                hqCards("J_T.jpg", "9_T.jpg"),
-                hqCards("K_C.jpg", "K_D.jpg")
+                pepsimanHqCards("A_T.jpg", "K_T.jpg"),
+                pepsimanHqCards("A_D.jpg", "A_P.jpg"),
+                pepsimanHqCards("Q_D.jpg", "Q_T.jpg"),
+                pepsimanHqCards("10_C.jpg", "10_T.jpg"),
+                pepsimanHqCards("7_C.jpg", "7_D.jpg"),
+                pepsimanHqCards("5_D.jpg", "5_T.jpg"),
+                pepsimanHqCards("3_C.jpg", "3_D.jpg"),
+                pepsimanHqCards("A_C.jpg", "Q_P.jpg"),
+                pepsimanHqCards("J_T.jpg", "9_T.jpg"),
+                pepsimanHqCards("K_C.jpg", "K_D.jpg")
             }
         };
-        shuffleGif = gif("images/decks/goliat/gif/shuffle.gif", 960);
-        shuffleAudioStopTime = shuffleGif.frameStartSeconds(SHUFFLE_AUDIO_STOP_FRAME);
+        shuffleGifs = new GifTextureAnimation[]{
+            gif("images/decks/goliat/gif/shuffle.gif", 960),
+            gif("mod/decks/pepsiman/gif/shuffle.gif", 960)
+        };
+        shuffleAudioStopTime = shuffleGifs[0].frameStartSeconds(SHUFFLE_AUDIO_STOP_FRAME);
         System.out.printf("Shuffle audio cutoff: frame %d at %.0f ms%n",
                 SHUFFLE_AUDIO_STOP_FRAME, shuffleAudioStopTime * 1000f);
         allInGif = gif("cinematics/allin/rounders.gif", 563);
@@ -426,6 +434,12 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         initialiseFlights();
         validateOpeningSequence();
         randomizeThinkDurations();
+        backgroundMusic = Gdx.audio.newMusic(
+                Gdx.files.internal("sounds/misc/background_music.mp3"));
+        backgroundMusic.setLooping(true);
+        // Same ambient-music attenuation used by CoronaPoker's Audio subsystem.
+        backgroundMusic.setVolume(0.40f);
+        backgroundMusic.play();
         Gdx.input.setCursorCatched(false);
     }
 
@@ -442,9 +456,17 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private static Texture[] hqCards(String... names) {
+        return deckCards("images/decks/goliat/hq/", names);
+    }
+
+    private static Texture[] pepsimanHqCards(String... names) {
+        return deckCards("mod/decks/pepsiman/hq/", names);
+    }
+
+    private static Texture[] deckCards(String directory, String... names) {
         Texture[] cards = new Texture[names.length];
         for (int i = 0; i < names.length; i++) {
-            cards[i] = cardTexture("images/decks/goliat/hq/" + names[i]);
+            cards[i] = cardTexture(directory + names[i]);
         }
         return cards;
     }
@@ -665,21 +687,23 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private void validateRivalCardGeometry() {
-        float cardW = RIVAL_HOLE_CARD_WIDTH;
-        float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
-        float angle = RIVAL_CARD_FAN_ANGLE * MathUtils.degreesToRadians;
-        float rotatedHalfWidth = Math.abs(MathUtils.cos(angle)) * cardW / 2f
-                + Math.abs(MathUtils.sin(angle)) * cardH / 2f;
-        float left = RIVAL_HAND_CENTER_X_INSET - RIVAL_HAND_SIDE_DISTANCE
-                + RIVAL_LEFT_CARD_SHIFT - rotatedHalfWidth;
-        float right = RIVAL_HAND_CENTER_X_INSET + RIVAL_HAND_SIDE_DISTANCE
-                + rotatedHalfWidth;
-        // Edge pods themselves retain 8 px to the viewport, so the hand may
-        // extend at most 4 px beyond the HUD while preserving a 4 px screen gap.
-        if (left < 4f || right > PLAYER_POD_WIDTH + 4f) {
-            throw new IllegalStateException(
-                    "Las cartas rivales no caben dentro de su asiento: "
-                    + left + ".." + right);
+        for (Texture cardBack : cardBacks) {
+            float cardW = RIVAL_HOLE_CARD_WIDTH;
+            float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
+            float angle = RIVAL_CARD_FAN_ANGLE * MathUtils.degreesToRadians;
+            float rotatedHalfWidth = Math.abs(MathUtils.cos(angle)) * cardW / 2f
+                    + Math.abs(MathUtils.sin(angle)) * cardH / 2f;
+            float left = RIVAL_HAND_CENTER_X_INSET - RIVAL_HAND_SIDE_DISTANCE
+                    + RIVAL_LEFT_CARD_SHIFT - rotatedHalfWidth;
+            float right = RIVAL_HAND_CENTER_X_INSET + RIVAL_HAND_SIDE_DISTANCE
+                    + rotatedHalfWidth;
+            // Edge pods themselves retain 8 px to the viewport, so the hand may
+            // extend at most 4 px beyond the HUD while preserving a 4 px screen gap.
+            if (left < 4f || right > PLAYER_POD_WIDTH + 4f) {
+                throw new IllegalStateException(
+                        "Las cartas rivales no caben dentro de su asiento: "
+                        + left + ".." + right);
+            }
         }
     }
 
@@ -1046,6 +1070,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
     private void drawIntroSpinningCard(float side, float width, float height,
             float introAlpha) {
+        Texture cardBack = cardBacks[0];
         float delay = side < 0f ? 0.22f : 0.34f;
         float raw = MathUtils.clamp((sceneTime - delay) / 2.15f, 0f, 1f);
         if (raw <= 0f) {
@@ -1077,6 +1102,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
     private void drawTableScene() {
         updateHandSounds();
+        Texture cardBack = activeCardBack();
         float width = viewport.getWorldWidth();
         float height = viewport.getWorldHeight();
         float tableCx = width / 2f;
@@ -1393,6 +1419,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 (time - localSwapStart()) / LOCAL_SWAP_SECONDS, 0f, 1f) : 0f;
         float localSwap = Interpolation.smoother.apply(localSwapRaw);
         float localSwapArc = MathUtils.sin(localSwap * MathUtils.PI);
+        Texture cardBack = activeCardBack();
         float cardW = RIVAL_HOLE_CARD_WIDTH;
         float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
         batch.begin();
@@ -1582,6 +1609,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
     private void drawCardsAndPot(float cx, float cy, float tableWidth) {
         Texture[] communityCards = communityHands[demoHandIndex()];
+        Texture cardBack = activeCardBack();
         float cardW = Math.min(COMMUNITY_CARD_MAX_WIDTH, tableWidth / 10f);
         float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
         float gap = cardW + 18f;
@@ -1670,6 +1698,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private void useRoundedCardShader() {
+        Texture cardBack = activeCardBack();
         configureCardShader(cardBack, 0f, false, cardBack.getHeight() / (float) cardBack.getWidth());
     }
 
@@ -1678,6 +1707,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     }
 
     private void configureCardShader(Texture front, float angle, boolean perspective, float aspect) {
+        Texture cardBack = activeCardBack();
         batch.flush();
         batch.setShader(roundedCardShader);
         batch.flush();
@@ -1699,6 +1729,14 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private int demoHandIndex() {
         return isLayoutShowcase() ? DEMO_HAND_COUNT - 1
                 : ((int) (sceneTime / HAND_SECONDS)) % DEMO_HAND_COUNT;
+    }
+
+    private Texture activeCardBack() {
+        return cardBacks[demoHandIndex()];
+    }
+
+    private GifTextureAnimation activeShuffleGif() {
+        return shuffleGifs[demoHandIndex()];
     }
 
     private int seatForHand(int canonicalSeat) {
@@ -2070,6 +2108,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float worldWidth = viewport.getWorldWidth();
         float worldHeight = viewport.getWorldHeight();
         if (time >= SHUFFLE_START && time < SHUFFLE_END) {
+            GifTextureAnimation shuffleGif = activeShuffleGif();
             // Native physical 1:1 size. Convert the GIF's source pixels to world
             // units so a 2560x1440 monitor does not enlarge 960x540 to 1280x720.
             float width = shuffleGif.width() * worldWidth
@@ -2645,6 +2684,10 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
 
     @Override
     public void dispose() {
+        if (backgroundMusic != null) {
+            backgroundMusic.stop();
+            backgroundMusic.dispose();
+        }
         batch.dispose();
         shapes.dispose();
         roundedCardShader.dispose();
@@ -2661,7 +2704,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         dealerChip.dispose();
         smallBlindChip.dispose();
         bigBlindChip.dispose();
-        cardBack.dispose();
+        for (Texture cardBack : cardBacks) {
+            cardBack.dispose();
+        }
         for (Texture flyingChip : flyingChips) {
             flyingChip.dispose();
         }
@@ -2678,7 +2723,9 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 }
             }
         }
-        shuffleGif.dispose();
+        for (GifTextureAnimation shuffleGif : shuffleGifs) {
+            shuffleGif.dispose();
+        }
         allInGif.dispose();
         shuffleSound.dispose();
         dealSound.dispose();

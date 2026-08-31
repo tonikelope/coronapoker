@@ -108,6 +108,15 @@
                     <include>sounds/misc/fold.wav</include>
                     <include>sounds/misc/allin.wav</include>
                     <include>sounds/misc/showyourcards.wav</include>
+                    <include>sounds/misc/background_music.mp3</include>
+                </includes>
+            </resource>
+            <resource>
+                <directory>${project.basedir}/mod</directory>
+                <targetPath>mod</targetPath>
+                <includes>
+                    <include>decks/pepsiman/hq/*.jpg</include>
+                    <include>decks/pepsiman/gif/shuffle.gif</include>
                 </includes>
             </resource>
         </resources>

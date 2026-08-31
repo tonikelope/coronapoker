@@ -112,6 +112,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
     private static final float RIVAL_HAND_VERTICAL_OFFSET = -22f;
     private static final float RIVAL_HAND_CENTER_X_INSET = 183f;
     private static final float RIVAL_HAND_SIDE_DISTANCE = 34f;
+    private static final float RIVAL_LEFT_CARD_SHIFT = 12f;
     private static final int ACTION_CHECK = 0;
     private static final int ACTION_BET = 1;
     private static final int ACTION_CALL = 2;
@@ -670,7 +671,7 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
         float rotatedHalfWidth = Math.abs(MathUtils.cos(angle)) * cardW / 2f
                 + Math.abs(MathUtils.sin(angle)) * cardH / 2f;
         float left = RIVAL_HAND_CENTER_X_INSET - RIVAL_HAND_SIDE_DISTANCE
-                - rotatedHalfWidth;
+                + RIVAL_LEFT_CARD_SHIFT - rotatedHalfWidth;
         float right = RIVAL_HAND_CENTER_X_INSET + RIVAL_HAND_SIDE_DISTANCE
                 + rotatedHalfWidth;
         // Edge pods themselves retain 8 px to the viewport, so the hand may
@@ -1510,6 +1511,11 @@ public final class CoronaPokerGdxDemo extends ApplicationAdapter {
                 float side = sideDirection * sideDistance;
                 float targetX = handCenterX + fanX * side;
                 float targetY = handCenterY + fanY * side;
+                if (seat.index != 0 && cardIndex == 0) {
+                    // Keep the V angle and right card untouched; only tuck the
+                    // left card rightward so its rank/suit clears the avatar.
+                    targetX += RIVAL_LEFT_CARD_SHIFT;
+                }
                 if (seat.index == 0 && localSwapRaw > 0f && localSwapRaw < 1f) {
                     // Two depth lanes make the crossover readable: the Q passes
                     // in front while the J travels behind it. Both cards keep

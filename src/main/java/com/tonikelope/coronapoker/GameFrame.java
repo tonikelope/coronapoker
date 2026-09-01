@@ -29,6 +29,8 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import com.drew.imaging.ImageProcessingException;
+import com.tonikelope.coronapoker.table.TableCommand;
+import com.tonikelope.coronapoker.table.TableCommandSink;
 import static com.tonikelope.coronapoker.Crupier.STREETS;
 import static com.tonikelope.coronapoker.Helpers.TapetePopupMenu.BARAJAS_MENU;
 import static com.tonikelope.coronapoker.Init.M2;
@@ -49,6 +51,8 @@ import java.awt.event.MouseWheelListener;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -921,6 +925,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // land on a normal fold). Cleared on key RELEASE (KEY_RELEASED in the dispatcher).
     private volatile boolean kbd_overlay_swallow_esc = false;
     private volatile boolean kbd_overlay_swallow_space = false;
+    // Canonical table actions. Swing shortcuts and the GDX input adapter both enter
+    // through these exact action bodies, so renderer selection cannot fork poker rules,
+    // synchronization guards or overlay behaviour.
+    private volatile Map<String, Action> table_actions = Map.of();
     private static final Object ZOOM_LOCK = new Object();
 
     private static volatile GameFrame THIS = null;
@@ -2828,6 +2836,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
+        // Publish only after the complete registry has been assembled. setupGlobalShortcuts
+        // can run again when shortcuts change; readers always see one complete immutable map.
+        table_actions = Map.copyOf(gameActions);
+
         KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
 
         if (GameFrame.key_event_dispatcher != null) {
@@ -2872,6 +2884,106 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         };
 
         kfm.addKeyEventDispatcher(GameFrame.key_event_dispatcher);
+    }
+
+    /**
+     * Renderer-neutral entry point for table input. The adapter deliberately executes the
+     * existing canonical actions instead of reproducing any game decision in GDX.
+     */
+    public TableCommandSink getTableCommandSink() {
+        return this::submitTableCommand;
+    }
+
+    private void submitTableCommand(TableCommand command) {
+        if (command == null) {
+            throw new IllegalArgumentException("Table command cannot be null");
+        }
+
+        Helpers.GUIRun(() -> {
+            if (command instanceof TableCommand.ChangeDeck) {
+                selectNextDeck();
+                return;
+            }
+            if (command instanceof TableCommand.OpenSettings) {
+                openSettingsDialog();
+                return;
+            }
+            if (command instanceof TableCommand.Bet bet && !setCanonicalBetAmount(bet.amount())) {
+                return;
+            }
+
+            String actionId = tableActionId(command);
+            Action action = actionId != null ? table_actions.get(actionId) : null;
+            if (action != null && action.isEnabled()) {
+                action.actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, actionId));
+            }
+        });
+    }
+
+    static String tableActionId(TableCommand command) {
+        if (command instanceof TableCommand.Fold) {
+            return KeyboardShortcuts.FOLD;
+        }
+        if (command instanceof TableCommand.CheckOrCall || command instanceof TableCommand.ShowCards) {
+            return KeyboardShortcuts.CHECK;
+        }
+        if (command instanceof TableCommand.Bet) {
+            return KeyboardShortcuts.BET;
+        }
+        if (command instanceof TableCommand.AllIn) {
+            return KeyboardShortcuts.ALLIN;
+        }
+        if (command instanceof TableCommand.ExitGame) {
+            return KeyboardShortcuts.QUIT;
+        }
+        if (command instanceof TableCommand.TogglePause) {
+            return KeyboardShortcuts.PAUSE;
+        }
+        if (command instanceof TableCommand.OpenLog) {
+            return KeyboardShortcuts.LOG_REGISTRO;
+        }
+        return null;
+    }
+
+    private boolean setCanonicalBetAmount(double amount) {
+        if (!Double.isFinite(amount) || getLocalPlayer() == null
+                || !getLocalPlayer().getBet_spinner().isEnabled()
+                || !(getLocalPlayer().getBet_spinner().getModel() instanceof SpinnerNumberModel model)) {
+            return false;
+        }
+
+        Number minimum = (Number) model.getMinimum();
+        Number maximum = (Number) model.getMaximum();
+        Number step = model.getStepSize();
+        BigDecimal value = BigDecimal.valueOf(amount).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal min = decimalValue(minimum);
+        BigDecimal max = decimalValue(maximum);
+        BigDecimal increment = decimalValue(step);
+        if (increment.signum() <= 0 || value.compareTo(min) < 0 || value.compareTo(max) > 0
+                || value.subtract(min).remainder(increment).signum() != 0) {
+            return false;
+        }
+
+        // LocalPlayer's live betting model uses BigDecimal. Preserve its numeric type so
+        // its existing next/previous-value implementation and action listener remain intact.
+        model.setValue(value);
+        return true;
+    }
+
+    private static BigDecimal decimalValue(Number value) {
+        return value instanceof BigDecimal decimal ? decimal : BigDecimal.valueOf(value.doubleValue());
+    }
+
+    private void selectNextDeck() {
+        if (menu_barajas.getItemCount() <= 1) {
+            return;
+        }
+        int selected = 0;
+        while (selected < menu_barajas.getItemCount()
+                && !menu_barajas.getItem(selected).getText().equals(GameFrame.BARAJA)) {
+            selected++;
+        }
+        menu_barajas.getItem((selected + 1) % menu_barajas.getItemCount()).doClick();
     }
 
     private WaitingRoomFrame sala_espera;

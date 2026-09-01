@@ -183,6 +183,7 @@ public class SettingsDialog extends JDialog {
             }
             appearance_panel.applyPendingDisplayMode();
             appearance_panel.applyPendingDialogZoom();
+            appearance_panel.applyPendingTableRenderer();
             // Confirms (persists) the shortcut rebindings.
             KeyboardShortcuts.commit();
             dispose();

@@ -32,7 +32,9 @@ import static com.tonikelope.coronapoker.SettingsUI.scaledIcon;
 import static com.tonikelope.coronapoker.SettingsUI.subGrid;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -153,6 +155,11 @@ public class AppearanceSettingsPanel extends JPanel {
     private final int snap_downgrade_velocidad;
     private final int snap_nivel_luz;
     private final float snap_dialog_zoom;
+    private final TableRendererMode snap_table_renderer;
+    private volatile TableRendererMode pending_table_renderer;
+    private final Map<Component, Boolean> animation_enabled_snapshot = new IdentityHashMap<>();
+    private JPanel animation_panel;
+    private boolean animation_renderer_disabled;
 
     public AppearanceSettingsPanel() {
 
@@ -206,6 +213,8 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_nivel_luz = GameFrame.NIVEL_LUZ;
         snap_dialog_zoom = Helpers.DIALOG_ZOOM;
         pending_dialog_zoom = snap_dialog_zoom;
+        snap_table_renderer = TableRendererMode.preferred();
+        pending_table_renderer = TableRendererMode.effective();
 
         // ---------------- Screen and zoom ----------------
         JPanel pantalla = card("settings.apariencia_pantalla");
@@ -347,6 +356,34 @@ public class AppearanceSettingsPanel extends JPanel {
 
         // ---------------- Table ----------------
         JPanel mesa = card("settings.apariencia_mesa");
+
+        JComboBox<TableRendererMode> renderer_combo = new JComboBox<>(TableRendererMode.values());
+        renderer_combo.setRenderer(new javax.swing.DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(javax.swing.JList<?> list, Object value,
+                    int index, boolean isSelected, boolean cellHasFocus) {
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value instanceof TableRendererMode) {
+                    setText(((TableRendererMode) value).getDisplayName());
+                }
+                return this;
+            }
+        });
+        renderer_combo.setSelectedItem(pending_table_renderer);
+        renderer_combo.setEnabled(gf == null && !TableRendererMode.hasCommandLineOverride());
+        Helpers.setTranslatedToolTip(renderer_combo,
+                TableRendererMode.hasCommandLineOverride()
+                        ? "tooltip.cfg.table_renderer_cli"
+                        : "tooltip.cfg.table_renderer");
+        renderer_combo.addActionListener(e -> {
+            if (!building && renderer_combo.getSelectedItem() instanceof TableRendererMode) {
+                pending_table_renderer = (TableRendererMode) renderer_combo.getSelectedItem();
+            }
+        });
+        JLabel renderer_label = new JLabel(Translator.translate("settings.table_renderer") + ":");
+        renderer_label.setIcon(icon("/images/menu/fx.png"));
+        renderer_label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
+        addLeft(mesa, alignedRow(0, renderer_label, renderer_combo));
 
         List<String> decks = new ArrayList<>(Card.BARAJAS.keySet());
         Collections.sort(decks);
@@ -563,6 +600,7 @@ public class AppearanceSettingsPanel extends JPanel {
 
         // ---------------- Animations ----------------
         JPanel anim = card("settings.apariencia_animaciones");
+        animation_panel = anim;
 
         // Master: turns ALL animations on/off at once. Unchecking it DISABLES (doesn't
         // uncheck) the 5 checkboxes below, which keep their value.
@@ -1081,7 +1119,16 @@ public class AppearanceSettingsPanel extends JPanel {
         // Glue at the bottom of Animations (now including the graphics profile): if this
         // column ends up SHORTER, stretching it to match heights collects the gap
         // cleanly at the bottom.
+        // Renderer is reset LAST: selecting the GDX default disables this whole section,
+        // so all Swing animation defaults must have been applied before that gate closes.
+        reset_actions.add(() -> renderer_combo.setSelectedItem(TableRendererMode.DEFAULT));
         closeColumn(anim);
+
+        // GDX owns its complete animation profile. Swing's detailed animation controls
+        // stay visible for clarity but are disabled while GDX is selected. Their exact
+        // enabled state is restored if the user switches back before saving.
+        renderer_combo.addActionListener(e -> updateAnimationControls(anim));
+        updateAnimationControls(anim);
 
         JPanel right_inner = new JPanel();
         right_inner.setLayout(new BoxLayout(right_inner, BoxLayout.Y_AXIS));
@@ -1153,6 +1200,15 @@ public class AppearanceSettingsPanel extends JPanel {
         persist("dialog_zoom", String.valueOf(Helpers.DIALOG_ZOOM));
     }
 
+    /** Persists the renderer chosen for the next table. Never changes a live table. */
+    public void applyPendingTableRenderer() {
+        if (TableRendererMode.hasCommandLineOverride()
+                || pending_table_renderer == snap_table_renderer) {
+            return;
+        }
+        TableRendererMode.persistPreferred(pending_table_renderer);
+    }
+
     /**
      * Whether appearance changed from the opening state (includes the pending
      * display mode, not yet applied). Used by the dialog to confirm before
@@ -1200,7 +1256,47 @@ public class AppearanceSettingsPanel extends JPanel {
                 || GameFrame.ANIMACION_DOWNGRADE_PREF != snap_anim_downgrade
                 || GameFrame.DOWNGRADE_VELOCIDAD != snap_downgrade_velocidad
                 || GameFrame.NIVEL_LUZ != snap_nivel_luz
-                || pending_dialog_zoom != snap_dialog_zoom;
+                || pending_dialog_zoom != snap_dialog_zoom
+                || (!TableRendererMode.hasCommandLineOverride()
+                && pending_table_renderer != snap_table_renderer);
+    }
+
+    private void updateAnimationControls(JPanel animations) {
+        boolean enable = pending_table_renderer == TableRendererMode.SWING;
+        if (!enable) {
+            if (animation_renderer_disabled) {
+                return;
+            }
+            animation_enabled_snapshot.clear();
+            captureAndDisable(animations);
+            animation_renderer_disabled = true;
+        } else if (animation_renderer_disabled) {
+            restoreEnabledState(animations);
+            animation_enabled_snapshot.clear();
+            animation_renderer_disabled = false;
+        }
+    }
+
+    private void captureAndDisable(Component component) {
+        animation_enabled_snapshot.put(component, component.isEnabled());
+        component.setEnabled(false);
+        if (component instanceof java.awt.Container) {
+            for (Component child : ((java.awt.Container) component).getComponents()) {
+                captureAndDisable(child);
+            }
+        }
+    }
+
+    private void restoreEnabledState(Component component) {
+        Boolean enabled = animation_enabled_snapshot.get(component);
+        if (enabled != null) {
+            component.setEnabled(enabled);
+        }
+        if (component instanceof java.awt.Container) {
+            for (Component child : ((java.awt.Container) component).getComponents()) {
+                restoreEnabledState(child);
+            }
+        }
     }
 
     /**
@@ -1225,6 +1321,14 @@ public class AppearanceSettingsPanel extends JPanel {
      * persist-only. Called by the dialog's "Restore defaults" button.
      */
     public void restoreDefaults() {
+        // GDX disables this whole section because its visual profile is fixed. Temporarily
+        // restore the exact Swing enablement so the hidden Swing preferences can also be
+        // reset correctly, then apply the renderer gate again at the end.
+        if (!animation_enabled_snapshot.isEmpty()) {
+            restoreEnabledState(animation_panel);
+            animation_enabled_snapshot.clear();
+            animation_renderer_disabled = false;
+        }
         // 1) Re-enables the animation MASTER (default ON) BEFORE the children: with the
         //    master off their menu items are grayed out and a doClick would be a no-op
         //    (same as revertLive).
@@ -1243,6 +1347,7 @@ public class AppearanceSettingsPanel extends JPanel {
         for (Runnable action : reset_actions) {
             action.run();
         }
+        updateAnimationControls(animation_panel);
     }
 
     // Revert IN-GAME: re-applies each setting through its normal path (toggles via

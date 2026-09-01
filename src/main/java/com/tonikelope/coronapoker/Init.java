@@ -1805,6 +1805,14 @@ public class Init extends JFrame {
         //ensureRequiredJvmParameters(args, Init.class);
         setupConsoleLogger();
 
+        // Presentation-only selection. This does not alter dealer/game state and a CLI
+        // override is intentionally process-local (it never rewrites preferences).
+        TableRendererMode.configureCommandLine(args);
+        LOGGER.log(Level.INFO, "Table renderer: {0}{1}", new Object[]{
+            TableRendererMode.effective(),
+            TableRendererMode.hasCommandLineOverride() ? " (command line)" : ""
+        });
+
         // Startup housekeeping: cap the unbounded growth of persisted voice notes.
         // Off the boot path on a background thread: it has zero dependency on the
         // rest of startup (notes only matter when a chat line is clicked later),

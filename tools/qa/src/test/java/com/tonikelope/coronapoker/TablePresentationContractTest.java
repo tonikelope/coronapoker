@@ -25,7 +25,8 @@ final class TablePresentationContractTest {
                 sequence -> new TableVisualEvent.Shuffle(sequence, "Goliat",
                         TableVisualEvent.Shuffle.Phase.START));
         presentation.publish(sequence -> new TableVisualEvent.PlayerAction(
-                sequence, "CoronaBot$1", "PASA", 0d));
+                sequence, "CoronaBot$1", TableVisualEvent.PlayerAction.ActionKind.CHECK,
+                "PASA", 0d, 0d));
 
         assertSame(renderer.firstBarrier, returned);
         assertEquals(List.of(1L, 2L), renderer.sequences);

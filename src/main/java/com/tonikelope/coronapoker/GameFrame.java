@@ -31,6 +31,7 @@ package com.tonikelope.coronapoker;
 import com.drew.imaging.ImageProcessingException;
 import com.tonikelope.coronapoker.table.TableCommand;
 import com.tonikelope.coronapoker.table.TableCommandSink;
+import com.tonikelope.coronapoker.table.TableEventBridge;
 import static com.tonikelope.coronapoker.Crupier.STREETS;
 import static com.tonikelope.coronapoker.Helpers.TapetePopupMenu.BARAJAS_MENU;
 import static com.tonikelope.coronapoker.Init.M2;
@@ -929,6 +930,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // through these exact action bodies, so renderer selection cannot fork poker rules,
     // synchronization guards or overlay behaviour.
     private volatile Map<String, Action> table_actions = Map.of();
+    // Optional renderer outlet. It stays detached for Swing and is the only
+    // presentation bridge a GDX table may attach to.
+    private final TableEventBridge table_events = new TableEventBridge();
     private static final Object ZOOM_LOCK = new Object();
 
     private static volatile GameFrame THIS = null;
@@ -2892,6 +2896,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
      */
     public TableCommandSink getTableCommandSink() {
         return this::submitTableCommand;
+    }
+
+    public TableEventBridge getTableEventBridge() {
+        return table_events;
     }
 
     private void submitTableCommand(TableCommand command) {

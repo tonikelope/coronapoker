@@ -21,7 +21,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private final int refreshRate;
     private final CoronaPokerApplication application;
     private final NewGameSessionGateway sessionGateway;
-    private NewGameScreenPreview menu;
+    private GdxFrontendScreen menu;
     private CoronaPokerGdxTable table;
 
     GdxApplicationShell(int refreshRate, CoronaPokerApplication application,
@@ -48,9 +48,12 @@ final class GdxApplicationShell extends ApplicationAdapter {
         if (!ACTIVE.compareAndSet(null, this)) {
             throw new IllegalStateException("Only one GDX application shell may be active");
         }
-        menu = new NewGameScreenPreview(
+        menu = new GdxFrontendScreen(
                 application.service(PreferencesService.class), sessionGateway,
-                request -> application.sessionOpened());
+                opened -> {
+                    application.sessionOpened();
+                    menu.openLobby(opened.lobby());
+                }, application::returnedToMenu);
         menu.create();
     }
 

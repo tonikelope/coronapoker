@@ -37,7 +37,13 @@ public final class LobbySession implements AutoCloseable {
             throw new IllegalArgumentException("A lobby snapshot cannot change session identity");
         }
         snapshot.set(next);
-        listeners.forEach(listener -> listener.accept(next));
+        for (Consumer<LobbySnapshot> listener : listeners) {
+            try {
+                listener.accept(next);
+            } catch (RuntimeException ignored) {
+                // A broken view must not stop delivery to the other frontend adapters.
+            }
+        }
     }
 
     /** Subscribes and immediately supplies the current immutable snapshot. */

@@ -52,7 +52,7 @@ filas siguientes deben seguir siendo accesibles y conservar su semántica.
 | `NewGameDialog` — unirse | Pantalla Unirse a timba | pendiente | Comparte identidad/red; no debe mostrar configuración exclusiva del host. |
 | `NewGameDialog` — recuperar | Flujo Recuperar timba | pendiente | Carga asíncrona, economía bloqueada y opciones permitidas según el flujo Swing. |
 | `BlindStructureManagerDialog` | Gestión de estructuras | pendiente | Overlay o pantalla GDX dentro de la misma ventana. |
-| `WaitingRoomFrame` | Sala de espera a pantalla completa | pendiente | Participantes, chat, controles de host, estado y transición a mesa. |
+| `WaitingRoomFrame` | Sala de espera a pantalla completa | pendiente | Superficie GDX y contrato neutral creados; falta conectar el adaptador real de red, chat binario y transición a mesa. |
 | `GameFrame` | Mesa canónica GDX | pendiente | Hay familias causales ya conectadas, pero la superficie completa aún no cumple paridad. |
 | `SettingsDialog` | Ajustes | pendiente | Pantalla GDX navegable; inventario detallado aún pendiente. |
 | `AboutDialog` | Acerca de | pendiente | Overlay/pantalla GDX. |

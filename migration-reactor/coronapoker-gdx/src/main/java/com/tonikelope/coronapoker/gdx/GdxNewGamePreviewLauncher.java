@@ -22,6 +22,6 @@ public final class GdxNewGamePreviewLauncher {
         config.setIdleFPS(30);
         config.setBackBufferConfig(8, 8, 8, 8, 24, 8, 4);
         config.setWindowIcon("images/corona_poker_16.png");
-        new Lwjgl3Application(new NewGameScreenPreview(menu), config);
+        new Lwjgl3Application(new GdxFrontendScreen(menu), config);
     }
 }

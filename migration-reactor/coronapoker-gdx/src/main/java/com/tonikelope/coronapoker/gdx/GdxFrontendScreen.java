@@ -19,6 +19,11 @@ import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.tonikelope.coronapoker.core.LobbyChatMessage;
+import com.tonikelope.coronapoker.core.LobbyCommand;
+import com.tonikelope.coronapoker.core.LobbyParticipant;
+import com.tonikelope.coronapoker.core.LobbySession;
+import com.tonikelope.coronapoker.core.LobbySnapshot;
 import com.tonikelope.coronapoker.core.NewGameConnectionDraft;
 import com.tonikelope.coronapoker.core.NewGameSessionGateway;
 import com.tonikelope.coronapoker.core.NewGameSubmissionCoordinator;
@@ -40,7 +45,7 @@ import java.util.function.Consumer;
  * the same screen without a session gateway; production injects the real
  * asynchronous handoff owned by the application shell.
  */
-final class NewGameScreenPreview extends ApplicationAdapter implements InputProcessor {
+final class GdxFrontendScreen extends ApplicationAdapter implements InputProcessor {
 
     private static final float WIDTH = 1920f;
     private static final float HEIGHT = 1080f;
@@ -65,6 +70,7 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
     private final Properties initialProperties;
     private final NewGameSubmissionCoordinator submissions;
     private final Consumer<NewGameSubmissionCoordinator.OpenedSession> sessionAccepted;
+    private final Runnable sessionReturnedToMenu;
     private NewGameConnectionDraft connection;
     private NewGameTableDraft table = new NewGameTableDraft();
     private SpriteBatch batch;
@@ -87,52 +93,65 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
     private Surface surface;
     private int historyIndex = -1;
     private boolean disposed;
+    private LobbySession lobbySession;
+    private LobbySnapshot lobby;
+    private AutoCloseable lobbySubscription;
+    private String lobbyChatDraft = "";
+    private String selectedParticipant;
+    private boolean lobbyCommandPending;
+    private LobbyConfirmation lobbyConfirmation;
 
-    NewGameScreenPreview() {
+    GdxFrontendScreen() {
         this(previewProperties(), null, null, false);
     }
 
-    NewGameScreenPreview(NewGameConnectionDraft connection) {
-        this(connection, previewProperties(), null, request -> { }, false);
+    GdxFrontendScreen(NewGameConnectionDraft connection) {
+        this(connection, previewProperties(), null, request -> { }, () -> { }, false);
     }
 
-    NewGameScreenPreview(boolean startAtMenu) {
+    GdxFrontendScreen(boolean startAtMenu) {
         this(previewProperties(), null, null, startAtMenu);
     }
 
-    NewGameScreenPreview(PreferencesService preferences,
+    GdxFrontendScreen(PreferencesService preferences,
             NewGameSessionGateway gateway,
-            Consumer<NewGameSubmissionCoordinator.OpenedSession> sessionAccepted) {
+            Consumer<NewGameSubmissionCoordinator.OpenedSession> sessionAccepted,
+            Runnable sessionReturnedToMenu) {
         this(Objects.requireNonNull(preferences, "preferences").properties(),
                 preferences, Objects.requireNonNull(gateway, "gateway"), true,
-                Objects.requireNonNull(sessionAccepted, "sessionAccepted"));
+                Objects.requireNonNull(sessionAccepted, "sessionAccepted"),
+                Objects.requireNonNull(sessionReturnedToMenu, "sessionReturnedToMenu"));
     }
 
-    private NewGameScreenPreview(Properties properties,
+    private GdxFrontendScreen(Properties properties,
             PreferencesService preferences, NewGameSessionGateway gateway,
             boolean startAtMenu) {
-        this(properties, preferences, gateway, startAtMenu, request -> { });
+        this(properties, preferences, gateway, startAtMenu, request -> { }, () -> { });
     }
 
-    private NewGameScreenPreview(Properties properties,
+    private GdxFrontendScreen(Properties properties,
             PreferencesService preferences, NewGameSessionGateway gateway,
             boolean startAtMenu,
-            Consumer<NewGameSubmissionCoordinator.OpenedSession> sessionAccepted) {
+            Consumer<NewGameSubmissionCoordinator.OpenedSession> sessionAccepted,
+            Runnable sessionReturnedToMenu) {
         this(defaultConnection(properties, NewGameConnectionDraft.Mode.CREATE),
                 properties,
                 preferences == null ? null
                         : new NewGameSubmissionCoordinator(preferences, gateway),
-                sessionAccepted, startAtMenu);
+                sessionAccepted, sessionReturnedToMenu, startAtMenu);
     }
 
-    private NewGameScreenPreview(NewGameConnectionDraft connection,
+    private GdxFrontendScreen(NewGameConnectionDraft connection,
             Properties properties, NewGameSubmissionCoordinator submissions,
             Consumer<NewGameSubmissionCoordinator.OpenedSession> sessionAccepted,
+            Runnable sessionReturnedToMenu,
             boolean startAtMenu) {
         this.connection = Objects.requireNonNull(connection, "connection");
         initialProperties = Objects.requireNonNull(properties, "properties");
         this.submissions = submissions;
         this.sessionAccepted = Objects.requireNonNull(sessionAccepted, "sessionAccepted");
+        this.sessionReturnedToMenu = Objects.requireNonNull(
+                sessionReturnedToMenu, "sessionReturnedToMenu");
         surface = startAtMenu ? Surface.MENU : Surface.NEW_GAME;
     }
 
@@ -205,6 +224,8 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         if (surface == Surface.MENU) {
             drawMainMenu();
+        } else if (surface == Surface.LOBBY) {
+            drawLobby();
         } else {
             drawHeader();
             drawProgress();
@@ -230,6 +251,23 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
             item.font.draw(batch, item.text, x, item.y);
         }
         batch.end();
+    }
+
+    void openLobby(LobbySession session) {
+        closeLobbySubscription();
+        lobbySession = Objects.requireNonNull(session, "session");
+        lobby = session.snapshot();
+        lobbyChatDraft = "";
+        selectedParticipant = null;
+        lobbyCommandPending = false;
+        lobbyConfirmation = null;
+        activeField = null;
+        surface = Surface.LOBBY;
+        lobbySubscription = session.subscribe(next -> Gdx.app.postRunnable(() -> {
+            if (!disposed && lobbySession == session) {
+                lobby = next;
+            }
+        }));
     }
 
     private void drawFeltBackground() {
@@ -271,6 +309,288 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
         drawSpeakerIcon(1370f, 100f, CYAN);
         hit(1250f, 70f, 150f, 55f,
                 () -> showToast("Sonido · control GDX pendiente de conexión"));
+    }
+
+    private void drawLobby() {
+        LobbySnapshot state = lobby;
+        if (state == null) {
+            return;
+        }
+        shapes.setColor(new Color(0x31445f99));
+        shapes.rect(0f, 989f, WIDTH, 1f);
+        text(smallFont, "CORONAPOKER  /", 55f, 1041f, MUTED, false);
+        text(smallFont, "SALA DE ESPERA", 225f, 1041f, GOLD, false);
+        text(tinyFont, lobbyPhaseText(state), 1860f, 1039f,
+                state.phase() == LobbySnapshot.Phase.ERROR ? ORANGE : CYAN, true);
+        text(titleFont, "SALA DE ESPERA", 59f, 935f,
+                new Color(0x000000aa), false);
+        text(titleFont, "SALA DE ESPERA", 55f, 939f, GOLD, false);
+
+        panel(35f, 180f, 430f, 650f, "PARTICIPANTES");
+        text(smallFont, state.participants().size() + "/"
+                + LobbySnapshot.MAX_PARTICIPANTS, 425f, 794f, CYAN, true);
+        float participantY = 720f;
+        for (LobbyParticipant participant : state.participants()) {
+            drawLobbyParticipant(participant, 65f, participantY, 370f, 48f);
+            participantY -= 52f;
+        }
+
+        panel(495f, 180f, 900f, 650f, "CHAT DE LA TIMBA");
+        drawLobbyMessages(state.chat(), 535f, 748f, 820f);
+        drawLobbyChatInput(525f, 215f, 500f);
+        button(1040f, 215f, 100f, 70f, "EMOJI", false,
+                () -> showToast("Selector de emoji GDX pendiente"));
+        button(1150f, 215f, 100f, 70f, "IMAGEN", false,
+                () -> showToast("Enviar imagen GDX pendiente"));
+        button(1260f, 215f, 105f, 70f, "ENVIAR", true,
+                this::sendLobbyChat, !lobbyCommandPending && !lobbyChatDraft.isBlank());
+
+        panel(1425f, 180f, 460f, 650f, "TIMBA");
+        text(tinyFont, "SERVIDOR", 1460f, 748f, MUTED, false);
+        textFit(smallFont, state.serverAddress(), 1460f, 718f,
+                Color.WHITE, false, 390f);
+        drawLobbyGameInfo(state, 1460f, 645f);
+        if (state.host()) {
+            button(1460f, 392f, 390f, 64f, "AÑADIR BOT", false,
+                    () -> submitLobbyCommand(new LobbyCommand.AddBot(), null),
+                    !lobbyCommandPending
+                            && state.participants().size() < LobbySnapshot.MAX_PARTICIPANTS
+                            && !state.startingOrStarted());
+            boolean kickEnabled = selectedRemoteParticipant(state) != null
+                    && !state.startingOrStarted();
+            button(1460f, 312f, 390f, 64f, "EXPULSAR JUGADOR", false,
+                    this::kickSelectedParticipant,
+                    !lobbyCommandPending && kickEnabled);
+            button(1460f, 215f, 390f, 76f, "¡A JUGAR!", true,
+                    () -> lobbyConfirmation = LobbyConfirmation.START,
+                    !lobbyCommandPending && state.participants().size() >= 2
+                            && !state.startingOrStarted());
+        } else {
+            textFit(uiFont, lobbyPhaseText(state), 1655f, 306f,
+                    MUTED, true, 360f);
+        }
+
+        button(35f, 55f, 220f, 70f, "SALIR", false,
+                () -> lobbyConfirmation = LobbyConfirmation.LEAVE,
+                !lobbyCommandPending);
+        toggle(495f, 52f, 620f, "NOTIFICACIONES DEL CHAT DURANTE EL JUEGO",
+                state.chatNotifications(), () -> submitLobbyCommand(
+                        new LobbyCommand.SetChatNotifications(
+                                !state.chatNotifications()), null),
+                !lobbyCommandPending);
+        button(1640f, 55f, 245f, 70f, "AJUSTES", false,
+                () -> showToast("Ajustes GDX pendientes de conexión"));
+
+        if (lobbyConfirmation != null) {
+            drawLobbyConfirmation();
+        }
+    }
+
+    private void drawLobbyParticipant(LobbyParticipant participant, float x,
+            float y, float w, float h) {
+        boolean selected = participant.nickname().equals(selectedParticipant);
+        Color border = selected ? GOLD : participant.secure() ? LINE : ORANGE;
+        outerBox(x, y, w, h, border,
+                selected ? new Color(0x20324cee) : PANEL_LIGHT);
+        shapes.setColor(participant.connected() ? CYAN : ORANGE);
+        shapes.circle(x + 23f, y + h / 2f, 7f, 20);
+        textFit(smallFont, participant.nickname(), x + 43f, y + 31f,
+                participant.asyncWaiting() ? DISABLED : Color.WHITE,
+                false, 230f);
+        if (participant.latencyAvailable()) {
+            text(tinyFont, (participant.latency() >= 0
+                    ? participant.latency() : "-") + " ms",
+                    x + w - 22f, y + 30f, MUTED, true);
+        }
+        hit(x, y, w, h, () -> selectedParticipant = participant.nickname());
+    }
+
+    private void drawLobbyMessages(List<LobbyChatMessage> messages, float x,
+            float top, float width) {
+        int first = Math.max(0, messages.size() - 8);
+        float y = top;
+        for (int i = first; i < messages.size(); i++) {
+            LobbyChatMessage message = messages.get(i);
+            Color color = message.nickname().equals(lobby.localNickname())
+                    ? CYAN : Color.WHITE;
+            textFit(tinyFont, lobbyMessageText(message), x, y, color,
+                    false, width);
+            shapes.setColor(new Color(0x31445f55));
+            shapes.rect(x, y - 26f, width, 1f);
+            y -= 58f;
+        }
+    }
+
+    private static String lobbyMessageText(LobbyChatMessage message) {
+        return switch (message.type()) {
+            case PLAYER_JOINED -> message.nickname() + " se une a la timba";
+            case PLAYER_LEFT -> message.nickname() + " abandona la timba";
+            case VOICE -> message.nickname() + ": [Nota de voz]";
+            case IMAGE -> message.nickname() + ": " + message.content();
+            case TEXT -> message.nickname() + ": " + message.content();
+        };
+    }
+
+    private void drawLobbyChatInput(float x, float y, float w) {
+        boolean focused = "lobbyChat".equals(activeField);
+        outerBox(x, y, w, 70f,
+                focused || hovered(x, y, w, 70f) ? CYAN : LINE,
+                pressed(x, y, w, 70f) ? new Color(0x0b1424ff) : PANEL_LIGHT);
+        textFit(uiFont, lobbyChatDraft.isEmpty() ? "—" : lobbyChatDraft,
+                x + 22f, y + 44f,
+                lobbyChatDraft.isEmpty() ? DISABLED : Color.WHITE,
+                false, w - 44f);
+        hit(x, y, w, 70f, () -> activeField = "lobbyChat");
+    }
+
+    private void drawLobbyGameInfo(LobbySnapshot state, float x, float y) {
+        NewGameTableDraft.Settings settings = state.tableSettings();
+        if (settings == null) {
+            textFit(smallFont, "Recibiendo información del servidor…",
+                    x, y, MUTED, false, 390f);
+            return;
+        }
+        NewGameTableDraft.BlindLevel blind = settings.blindLevels()
+                .get(settings.blindLevelIndex());
+        lobbyInfoRow(x, y, "Compra:", settings.fixedBuyin()
+                ? Integer.toString(settings.buyin()) : "Variable");
+        lobbyInfoRow(x, y - 70f, "Ciegas:", money(blind.smallBlind())
+                + " / " + money(blind.bigBlind()));
+        lobbyInfoRow(x, y - 140f, "Manos:", settings.handLimit()
+                ? Integer.toString(settings.handLimitCount()) : "—");
+        if (state.recovering()) {
+            textFit(tinyFont, "CONTINUANDO TIMBA ANTERIOR", x, y - 205f,
+                    ORANGE, false, 390f);
+        }
+    }
+
+    private void lobbyInfoRow(float x, float y, String label, String value) {
+        shapes.setColor(new Color(0x31445f77));
+        shapes.rect(x, y - 18f, 390f, 1f);
+        text(smallFont, label, x, y + 18f, MUTED, false);
+        textFit(smallFont, value, x + 295f, y + 18f,
+                Color.WHITE, true, 190f);
+    }
+
+    private static String money(double amount) {
+        return String.format(Locale.ROOT, "%.2f", amount);
+    }
+
+    private static String lobbyPhaseText(LobbySnapshot state) {
+        return switch (state.phase()) {
+            case CONNECTING -> "Conectando…";
+            case KEY_EXCHANGE -> "Intercambio de claves…";
+            case RECEIVING_SERVER_INFO -> "Recibiendo información del servidor…";
+            case CONNECTED -> "Conectado";
+            case WAITING_FOR_PLAYERS -> "Esperando jugadores…";
+            case INITIALIZING_GAME -> "Inicializando timba…";
+            case RECONNECTING -> "Reconectando…";
+            case IN_GAME -> "Timba en curso";
+            case ERROR -> state.statusDetail().isBlank() ? "Error" : state.statusDetail();
+            case CLOSED -> "Sala cerrada";
+        };
+    }
+
+    private LobbyParticipant selectedRemoteParticipant(LobbySnapshot state) {
+        if (selectedParticipant == null) {
+            return null;
+        }
+        return state.participants().stream()
+                .filter(participant -> participant.nickname().equals(selectedParticipant))
+                .filter(participant -> !participant.local() && !participant.host())
+                .findFirst().orElse(null);
+    }
+
+    private void drawLobbyConfirmation() {
+        hits.clear();
+        shapes.setColor(new Color(0x02050cbb));
+        shapes.rect(0f, 0f, WIDTH, HEIGHT);
+        String prompt = lobbyConfirmation == LobbyConfirmation.START
+                ? "¿SEGURO QUE QUIERES EMPEZAR YA?"
+                : "¿SEGURO QUE QUIERES SALIR AHORA?";
+        panel(560f, 350f, 800f, 330f, "");
+        textFit(headingFont, prompt, 960f, 560f, Color.WHITE, true, 700f);
+        button(635f, 405f, 300f, 75f, "CANCELAR", false,
+                () -> lobbyConfirmation = null);
+        button(985f, 405f, 300f, 75f,
+                lobbyConfirmation == LobbyConfirmation.START ? "¡A JUGAR!" : "SALIR",
+                true, this::confirmLobbyAction);
+    }
+
+    private void confirmLobbyAction() {
+        LobbyConfirmation action = lobbyConfirmation;
+        lobbyConfirmation = null;
+        if (action == LobbyConfirmation.START) {
+            submitLobbyCommand(new LobbyCommand.StartGame(), null);
+        } else {
+            submitLobbyCommand(new LobbyCommand.Leave(), this::returnFromLobby);
+        }
+    }
+
+    private void kickSelectedParticipant() {
+        LobbyParticipant target = selectedRemoteParticipant(lobby);
+        if (target == null) {
+            showToast("Tienes que seleccionar algún participante");
+            return;
+        }
+        submitLobbyCommand(new LobbyCommand.Kick(target.nickname()),
+                () -> selectedParticipant = null);
+    }
+
+    private void sendLobbyChat() {
+        String message = lobbyChatDraft.trim();
+        if (!message.isEmpty()) {
+            submitLobbyCommand(new LobbyCommand.SendText(message),
+                    () -> lobbyChatDraft = "");
+        }
+    }
+
+    private void submitLobbyCommand(LobbyCommand command, Runnable success) {
+        if (lobbySession == null || lobbyCommandPending) {
+            return;
+        }
+        lobbyCommandPending = true;
+        try {
+            lobbySession.submit(command).whenComplete((ignored, failure) ->
+                    Gdx.app.postRunnable(() -> {
+                        lobbyCommandPending = false;
+                        Throwable cause = unwrap(failure);
+                        if (cause == null) {
+                            if (success != null) {
+                                success.run();
+                            }
+                        } else {
+                            showToast(submissionError(cause));
+                        }
+                    }));
+        } catch (RuntimeException failure) {
+            lobbyCommandPending = false;
+            showToast(submissionError(failure));
+        }
+    }
+
+    private void returnFromLobby() {
+        closeLobbySubscription();
+        if (lobbySession != null) {
+            lobbySession.close();
+        }
+        lobbySession = null;
+        lobby = null;
+        selectedParticipant = null;
+        activeField = null;
+        surface = Surface.MENU;
+        sessionReturnedToMenu.run();
+    }
+
+    private void closeLobbySubscription() {
+        if (lobbySubscription != null) {
+            try {
+                lobbySubscription.close();
+            } catch (Exception ignored) {
+                // Removing an in-process listener is best effort during scene teardown.
+            }
+            lobbySubscription = null;
+        }
     }
 
     private void drawSpeakerIcon(float x, float y, Color color) {
@@ -602,6 +922,9 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
     private void completeSubmission(NewGameSubmissionCoordinator.OpenedSession session,
             Throwable failure) {
         if (disposed) {
+            if (session != null) {
+                session.lobby().close();
+            }
             return;
         }
         Throwable cause = unwrap(failure);
@@ -1081,9 +1404,20 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
         if (keycode == Input.Keys.ESCAPE) {
             if (surface == Surface.NEW_GAME) {
                 cancelOrReturnToMenu();
+            } else if (surface == Surface.LOBBY) {
+                if (lobbyConfirmation != null) {
+                    lobbyConfirmation = null;
+                } else {
+                    lobbyConfirmation = LobbyConfirmation.LEAVE;
+                }
             } else {
                 Gdx.app.exit();
             }
+            return true;
+        }
+        if ((keycode == Input.Keys.ENTER || keycode == Input.Keys.NUMPAD_ENTER)
+                && "lobbyChat".equals(activeField)) {
+            sendLobbyChat();
             return true;
         }
         if (keycode == Input.Keys.BACKSPACE && activeField != null) {
@@ -1123,6 +1457,7 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
             case "nick" -> 15;
             case "password" -> 30;
             case "port" -> 5;
+            case "lobbyChat" -> 16 * 1024 * 1024;
             default -> 128;
         };
         if (value.length() >= limit || ("port".equals(activeField)
@@ -1142,6 +1477,7 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
             case "password" -> connection.password();
             case "server" -> connection.server();
             case "port" -> connection.port();
+            case "lobbyChat" -> lobbyChatDraft;
             default -> "";
         };
     }
@@ -1152,6 +1488,7 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
             case "password" -> connection.setPassword(value);
             case "server" -> connection.setServer(value);
             case "port" -> connection.setPort(value);
+            case "lobbyChat" -> lobbyChatDraft = value;
             default -> {
             }
         }
@@ -1162,6 +1499,11 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
         disposed = true;
         if (submissions != null) {
             submissions.cancel();
+        }
+        closeLobbySubscription();
+        if (lobbySession != null) {
+            lobbySession.close();
+            lobbySession = null;
         }
         batch.dispose();
         shapes.dispose();
@@ -1189,7 +1531,11 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
     }
 
     private enum Surface {
-        MENU, NEW_GAME
+        MENU, NEW_GAME, LOBBY
+    }
+
+    private enum LobbyConfirmation {
+        START, LEAVE
     }
 
     private record Hit(Rectangle bounds, Runnable action) {

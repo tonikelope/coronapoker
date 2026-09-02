@@ -78,6 +78,9 @@ public final class NewGameSubmissionCoordinator {
         if (outcome == null) {
             attempt.result.complete(new OpenedSession(attempt.request, lobby));
         } else {
+            if (lobby != null) {
+                lobby.close();
+            }
             attempt.result.completeExceptionally(outcome);
         }
     }

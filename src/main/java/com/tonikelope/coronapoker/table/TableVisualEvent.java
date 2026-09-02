@@ -17,6 +17,7 @@ public sealed interface TableVisualEvent permits TableVisualEvent.Synchronize,
         TableVisualEvent.MovePosition, TableVisualEvent.PositionRotation,
         TableVisualEvent.PostChips,
         TableVisualEvent.CollectBets, TableVisualEvent.DealHoleCard,
+        TableVisualEvent.DealCommunityCard,
         TableVisualEvent.SwapHoleCards, TableVisualEvent.FoldHoleCards,
         TableVisualEvent.RevealCommunityCards, TableVisualEvent.TurnTimer,
         TableVisualEvent.PlayerAction, TableVisualEvent.Cinematic,
@@ -144,6 +145,16 @@ public sealed interface TableVisualEvent permits TableVisualEvent.Synchronize,
             Objects.requireNonNull(card, "card");
             if (slot < 0 || slot > 1) {
                 throw new IllegalArgumentException("Hole-card slot must be 0 or 1");
+            }
+        }
+    }
+
+    /** Places one community card face down during the initial deal. */
+    record DealCommunityCard(long sequence, int slot) implements TableVisualEvent {
+
+        public DealCommunityCard {
+            if (slot < 0 || slot > 4) {
+                throw new IllegalArgumentException("Community-card slot must be 0..4");
             }
         }
     }

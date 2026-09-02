@@ -32,6 +32,7 @@ import com.tonikelope.coronapoker.crypto.RistrettoSRA;
 import com.tonikelope.coronapoker.crypto.UnlockChainWire;
 import com.tonikelope.coronapoker.crypto.DealChain;
 import com.tonikelope.coronapoker.table.TableEventBridge;
+import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
 
 import com.drew.imaging.ImageProcessingException;
@@ -11910,7 +11911,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        boolean animacion = GameFrame.repartoAnimOn();
+        final boolean attached_deal_presentation = table_events.isAttached();
+        boolean animacion = !attached_deal_presentation && GameFrame.repartoAnimOn();
 
         // Historical base (WITHOUT deal speed applied) for the inter-card pause and the flight
         // duration, each with its own floor (100 / 150) so the arc still reads at a full table.
@@ -11948,7 +11950,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // in resolveVoluntaryStraddle instead).
         Future<?> prefetch_flip_hc1 = null;
         Future<?> prefetch_flip_hc2 = null;
-        if (!defer_straddle_reveal && GameFrame.destapeAnimOn()
+        if (!attached_deal_presentation && !defer_straddle_reveal && GameFrame.destapeAnimOn()
                 && GameFrame.getInstance().getLocalPlayer().isActivo()) {
             final String sp1 = Card.shortStringFromIndex(this.local_original_cards[0] & 0xFF);
             final String sp2 = Card.shortStringFromIndex(this.local_original_cards[1] & 0xFF);
@@ -12022,6 +12024,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         int j, pivote = (i + 1) % GameFrame.getInstance().getJugadores().size();
 
         j = pivote;
+
+        if (attached_deal_presentation) {
+            repartirToAttachedRenderer(pivote, defer_straddle_reveal);
+            this.community_cards_dealt = true;
+            return;
+        }
 
         do {
             GameFrame.getInstance().checkPause();
@@ -12198,6 +12206,80 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // All 5 community cards (and the hole cards) are now on the table: from here on the
         // call-cost overlay can be shown.
         this.community_cards_dealt = true;
+    }
+
+    private void repartirToAttachedRenderer(int pivot, boolean deferStraddleReveal) {
+        java.util.List<Player> players = GameFrame.getInstance().getJugadores();
+        LocalPlayer local = GameFrame.getInstance().getLocalPlayer();
+
+        for (int slot = 0; slot < 2; slot++) {
+            int index = pivot;
+            do {
+                GameFrame.getInstance().checkPause();
+                Player player = players.get(index);
+                if (player.isActivo()) {
+                    boolean localFaceUp = player == local && !deferStraddleReveal;
+                    String code = localFaceUp
+                            ? Card.shortStringFromIndex(this.local_original_cards[slot] & 0xFF)
+                            : "";
+                    TableSnapshot.CardSnapshot snapshot = new TableSnapshot.CardSnapshot(
+                            code, localFaceUp, false);
+                    final int dealtSlot = slot;
+                    awaitAttachedTableEvent(sequence -> new TableVisualEvent.DealHoleCard(
+                            sequence, player.getNickname(), dealtSlot, snapshot),
+                            "Hole-card deal presentation barrier failed");
+
+                    Card card = slot == 0 ? player.getHoleCard1() : player.getHoleCard2();
+                    if (player == local && !deferStraddleReveal) {
+                        card.iniciarConValorNumerico(
+                                (this.local_original_cards[slot] & 0xFF) + 1);
+                        card.destapar(false);
+                    } else {
+                        card.iniciarCarta();
+                    }
+                }
+                index = (index + 1) % players.size();
+            } while (index != pivot);
+        }
+
+        Card[] community = GameFrame.getInstance().getCartas_comunes();
+        for (int slot = 0; slot < community.length; slot++) {
+            GameFrame.getInstance().checkPause();
+            final int dealtSlot = slot;
+            awaitAttachedTableEvent(sequence -> new TableVisualEvent.DealCommunityCard(
+                    sequence, dealtSlot), "Community-card deal presentation barrier failed");
+            community[slot].iniciarCarta();
+        }
+
+        boolean needsSwap = !deferStraddleReveal
+                && local.getHoleCard1().getValorNumerico() != -1
+                && local.getHoleCard2().getValorNumerico() != -1
+                && local.getHoleCard1().getValorNumerico()
+                < local.getHoleCard2().getValorNumerico();
+        if (needsSwap) {
+            awaitAttachedTableEvent(sequence -> new TableVisualEvent.SwapHoleCards(
+                    sequence, local.getNickname()),
+                    "Local hole-card swap presentation barrier failed");
+        }
+        local.ordenarCartas();
+    }
+
+    private boolean awaitAttachedTableEvent(
+            java.util.function.LongFunction<? extends TableVisualEvent> eventFactory,
+            String failureMessage) {
+        java.util.Optional<java.util.concurrent.CompletionStage<Void>> barrier
+                = table_events.publishIfAttached(eventFactory);
+        if (barrier.isEmpty()) {
+            return false;
+        }
+        try {
+            barrier.orElseThrow().toCompletableFuture().get(4, TimeUnit.SECONDS);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, failureMessage, ex);
+        }
+        return true;
     }
 
     // Sorts the local player's hand (high card on the left) once dealing finishes. If the swap

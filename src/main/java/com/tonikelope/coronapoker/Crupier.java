@@ -21823,15 +21823,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void destaparFlop(ArrayList<Player> resisten) {
 
-        // The 2nd and 3rd cards chain with no long pause: their flip GIF is
-        // pre-decoded in background while the first pays its pause and animation,
-        // so the flop's cadence doesn't depend on decode time.
-        prefetchAnimacionDestaparCarta(GameFrame.getInstance().getFlop2());
-        prefetchAnimacionDestaparCarta(GameFrame.getInstance().getFlop3());
+        Card flop1 = GameFrame.getInstance().getFlop1();
+        Card flop2 = GameFrame.getInstance().getFlop2();
+        Card flop3 = GameFrame.getInstance().getFlop3();
+        if (!presentCommunityRevealToAttachedRenderer(0, flop1, flop2, flop3)) {
+            // The 2nd and 3rd cards chain with no long pause: their flip GIF is
+            // pre-decoded in background while the first pays its pause and animation,
+            // so the flop's cadence doesn't depend on decode time.
+            prefetchAnimacionDestaparCarta(flop2);
+            prefetchAnimacionDestaparCarta(flop3);
 
-        mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getFlop1());
-        mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getFlop2());
-        mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getFlop3());
+            mostrarAnimacionDestaparCartaComunitaria(flop1);
+            mostrarAnimacionDestaparCartaComunitaria(flop2);
+            mostrarAnimacionDestaparCartaComunitaria(flop3);
+        }
 
         if (GameFrame.getInstance().isPartida_local()) {
             Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getFlop1().getCartaComoEntero()));
@@ -21851,7 +21856,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void destaparTurn(ArrayList<Player> resisten) {
 
-        mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getTurn());
+        Card turn = GameFrame.getInstance().getTurn();
+        if (!presentCommunityRevealToAttachedRenderer(3, turn)) {
+            mostrarAnimacionDestaparCartaComunitaria(turn);
+        }
 
         if (GameFrame.getInstance().isPartida_local()) {
             Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getTurn().getCartaComoEntero()));
@@ -21870,7 +21878,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void destaparRiver(ArrayList<Player> resisten) {
 
-        mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getRiver());
+        Card river = GameFrame.getInstance().getRiver();
+        if (!presentCommunityRevealToAttachedRenderer(4, river)) {
+            mostrarAnimacionDestaparCartaComunitaria(river);
+        }
 
         if (GameFrame.getInstance().isPartida_local()) {
             Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getRiver().getCartaComoEntero()));
@@ -21884,6 +21895,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         com.add(GameFrame.getInstance().getRiver());
 
         GameFrame.getInstance().getRegistro().print("RIVER -> " + Card.collection2String(com));
+    }
+
+    private boolean presentCommunityRevealToAttachedRenderer(int firstSlot, Card... cards) {
+        if (!table_events.isAttached()) {
+            return false;
+        }
+        java.util.List<TableSnapshot.CardSnapshot> snapshots = Arrays.stream(cards)
+                .map(card -> new TableSnapshot.CardSnapshot(
+                        card.toShortString(), true, card.isDesenfocada()))
+                .toList();
+        awaitAttachedTableEvent(sequence -> new TableVisualEvent.RevealCommunityCards(
+                sequence, firstSlot, snapshots),
+                "Community-card reveal presentation barrier failed");
+        for (Card card : cards) {
+            card.destapar(false);
+        }
+        return true;
     }
 
     private void rejectCriticalShowdownMessage(String command, String detail, Exception error) {

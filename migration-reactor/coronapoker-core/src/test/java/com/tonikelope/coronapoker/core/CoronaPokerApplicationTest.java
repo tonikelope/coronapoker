@@ -95,6 +95,7 @@ final class CoronaPokerApplicationTest {
         AudioService audio = application.service(AudioService.class);
         UpdateService updates = application.service(UpdateService.class);
         FrontendRuntimeService frontendRuntime = application.service(FrontendRuntimeService.class);
+        UpdaterService updater = application.service(UpdaterService.class);
 
         assertThrows(IllegalStateException.class, secureRandom::generator);
         assertThrows(IllegalStateException.class, database::connection);
@@ -107,6 +108,7 @@ final class CoronaPokerApplicationTest {
         assertSame(audio, application.service(AudioService.class));
         assertSame(updates, application.service(UpdateService.class));
         assertSame(frontendRuntime, application.service(FrontendRuntimeService.class));
+        assertSame(updater, application.service(UpdaterService.class));
         application.close();
         assertThrows(IllegalStateException.class, database::connection);
     }
@@ -306,6 +308,30 @@ final class CoronaPokerApplicationTest {
         runtime.close();
 
         assertEquals(List.of("start", "close"), calls);
+    }
+
+    @Test
+    void updaterHandoffPreservesTheClassicCommandContract() throws Exception {
+        List<List<String>> commands = new ArrayList<>();
+        Path updaterJar = Path.of("C:/temp/coronaupdater.jar");
+        Path currentJar = Path.of("C:/app/CoronaPoker-24.10.jar");
+        Path newJar = Path.of("C:/app/CoronaPoker-24.11.jar");
+        Path javaExecutable = Path.of("C:/java/bin/java.exe");
+        UpdaterService updater = new UpdaterService(
+                () -> updaterJar, commands::add);
+        updater.start();
+
+        boolean handedOff = updater.handoff(new UpdaterService.Request(
+                "24.11", currentJar, newJar, javaExecutable, true));
+
+        assertTrue(handedOff);
+        assertEquals(List.of(List.of(
+                javaExecutable.toString(), "-jar", updaterJar.toString(), "24.11",
+                currentJar.toString(), newJar.toString(),
+                "¡Santiago y cierra, España!")), commands);
+        updater.close();
+        assertThrows(IllegalStateException.class, () -> updater.handoff(
+                new UpdaterService.Request("24.11", Path.of("old"), Path.of("new"), Path.of("java"), false)));
     }
 
     private static ApplicationService service(String name, List<String> calls) {

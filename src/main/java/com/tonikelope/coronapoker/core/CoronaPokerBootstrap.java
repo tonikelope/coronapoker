@@ -30,6 +30,11 @@ public final class CoronaPokerBootstrap {
                         ApplicationMetadata.VERSION,
                         3,
                         Duration.ofSeconds(10)),
+                UpdaterService.production(
+                        ApplicationMetadata.UPDATER_URI,
+                        java.nio.file.Path.of(System.getProperty("java.io.tmpdir")),
+                        10_000,
+                        60_000),
                 new AudioService()));
     }
 }

@@ -33,6 +33,7 @@ import com.tonikelope.coronapoker.core.AudioService;
 import com.tonikelope.coronapoker.core.DatabaseService;
 import com.tonikelope.coronapoker.core.SecureRandomService;
 import com.tonikelope.coronapoker.core.UpdateService;
+import com.tonikelope.coronapoker.core.UpdaterService;
 import com.tonikelope.coronapoker.swing.SwingLauncher;
 import java.awt.AWTException;
 import java.awt.Color;
@@ -1132,11 +1133,8 @@ public class Init extends JFrame {
             update_label.setText(Translator.translate("update.preparando_actualizacion"));
             update_label.setVisible(true);
             Helpers.applicationTask(() -> {
-                try {
-                    performUpdate(target);
-                } finally {
-                    // performUpdate only returns if the update failed (on success it
-                    // calls System.exit); restore the button so it can be retried.
+                if (!performUpdate(target)) {
+                    // On failure restore the button so the handoff can be retried.
                     Helpers.GUIRun(() -> {
                         update_label.setVisible(false);
                         update_button.setVisible(true);
@@ -2038,12 +2036,9 @@ public class Init extends JFrame {
         LOGGER.log(Level.INFO, "Initialization complete. Ready.");
     }
 
-    // Downloads the updater and launches the update to the given version. On
-    // success it calls System.exit(0) (the updater takes over) and does NOT
-    // return; if the download fails or throws, it notifies the user and returns
-    // so the caller can restore the UI. Must be invoked from a background
-    // thread: downloadUpdater() blocks on the network.
-    private static void performUpdate(String version) {
+    // Downloads and launches the updater through the process service. Must be
+    // invoked off the EDT because the characterized handoff is blocking.
+    private static boolean performUpdate(String version) {
         Helpers.GUIRun(() -> {
             VENTANA_INICIO.update_label.setText(Translator.translate("update.preparando_actualizacion"));
         });
@@ -2054,17 +2049,17 @@ public class Init extends JFrame {
             // paths like "20X66Yjar" or "20<x>66<x>jar"). replace does a literal
             // substring match, which is what's needed here.
             String new_jar_path = current_jar_path.replace(AboutDialog.VERSION + ".jar", version + ".jar");
-            String updater_jar = Helpers.downloadUpdater();
-
-            if (updater_jar != null) {
-                if (GameFrame.LANGUAGE.equals("es")) {
-                    String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, version, current_jar_path, new_jar_path, "¡Santiago y cierra, España!"};
-                    Runtime.getRuntime().exec(cmdArr);
-                } else {
-                    String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, version, current_jar_path, new_jar_path};
-                    Runtime.getRuntime().exec(cmdArr);
-                }
-                System.exit(0);
+            boolean handedOff = application().service(UpdaterService.class).handoff(
+                    new UpdaterService.Request(
+                            version,
+                            Paths.get(current_jar_path),
+                            Paths.get(new_jar_path),
+                            Paths.get(Helpers.getJavaBinPath()),
+                            GameFrame.LANGUAGE.equals("es")));
+            if (handedOff) {
+                Helpers.GUIRun(() -> VENTANA_INICIO.dispatchEvent(
+                        new WindowEvent(VENTANA_INICIO, WindowEvent.WINDOW_CLOSING)));
+                return true;
             } else {
                 Helpers.mostrarMensajeError(VENTANA_INICIO, Translator.translate("update.no_se_ha_podido_actualizar_2"));
             }
@@ -2072,6 +2067,7 @@ public class Init extends JFrame {
             LOGGER.log(Level.SEVERE, null, ex);
             Helpers.mostrarMensajeError(VENTANA_INICIO, Translator.translate("update.no_se_ha_podido_actualizar"));
         }
+        return false;
     }
 
     private static void UPDATE() {
@@ -2085,6 +2081,7 @@ public class Init extends JFrame {
         NEW_VERSION = null;
 
         application().service(UpdateService.class).checkLatest().whenComplete((result, failure) -> {
+            boolean handedOff = false;
             try {
                 if (failure != null) {
                     LOGGER.log(Level.SEVERE, "Update check failed unexpectedly", failure);
@@ -2097,7 +2094,10 @@ public class Init extends JFrame {
 
                     if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
                         if (VENTANA_INICIO.isVisible() && VENTANA_INICIO.isActive() && Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, Translator.translate("update.hay_una_version_nueva_de"), new ImageIcon(Init.class.getResource("/images/avatar_default.png"))) == 0) {
-                            performUpdate(NEW_VERSION);
+                            handedOff = performUpdate(NEW_VERSION);
+                            if (handedOff) {
+                                return;
+                            }
                         }
                     }
 
@@ -2109,7 +2109,8 @@ public class Init extends JFrame {
             } catch (Throwable t) {
                 LOGGER.log(Level.SEVERE, "Update check failed unexpectedly", t);
             } finally {
-                Helpers.GUIRun(() -> {
+                if (!handedOff) {
+                    Helpers.GUIRun(() -> {
                     VENTANA_INICIO.update_label.setVisible(false);
                     // The button covers two very different states that must be
                     // distinguishable at a glance: either a new version was found
@@ -2134,7 +2135,8 @@ public class Init extends JFrame {
                         VENTANA_INICIO.update_button.setForeground(new Color(204, 102, 0));
                         VENTANA_INICIO.update_button.setVisible(true);
                     }
-                });
+                    });
+                }
             }
         });
     }

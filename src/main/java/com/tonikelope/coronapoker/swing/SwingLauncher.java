@@ -10,6 +10,8 @@ public final class SwingLauncher {
     }
 
     public static void main(String[] args) {
-        Init.launch(args, CoronaPokerBootstrap.createApplication());
+        var application = CoronaPokerBootstrap.createApplication();
+        SwingServiceBridge.bind(application);
+        Init.launch(args, application);
     }
 }

@@ -1,8 +1,11 @@
 package com.tonikelope.coronapoker.core;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -11,6 +14,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 
 final class CoronaPokerApplicationTest {
+
+    @TempDir
+    Path tempDirectory;
 
     @Test
     void followsStartupSessionTableReturnAndShutdownLifecycle() {
@@ -79,9 +85,10 @@ final class CoronaPokerApplicationTest {
 
     @Test
     void bootstrapOwnsAndStartsItsTypedProcessServices() {
-        CoronaPokerApplication application = CoronaPokerBootstrap.createApplication();
+        CoronaPokerApplication application = CoronaPokerBootstrap.createApplication(tempDirectory);
         SecureRandomService secureRandom = application.service(SecureRandomService.class);
         DatabaseService database = application.service(DatabaseService.class);
+        PreferencesService preferences = application.service(PreferencesService.class);
 
         assertThrows(IllegalStateException.class, secureRandom::generator);
         assertThrows(IllegalStateException.class, database::connection);
@@ -90,6 +97,7 @@ final class CoronaPokerApplicationTest {
         assertNotNull(secureRandom.generator());
         assertSame(secureRandom, application.service(SecureRandomService.class));
         assertSame(database, application.service(DatabaseService.class));
+        assertSame(preferences, application.service(PreferencesService.class));
         application.close();
         assertThrows(IllegalStateException.class, database::connection);
     }
@@ -121,6 +129,55 @@ final class CoronaPokerApplicationTest {
         assertSame(failure, application.lifecycle().failure());
         assertEquals(ApplicationLifecycle.State.FAILED, application.lifecycle().state());
         assertThrows(IllegalStateException.class, database::connection);
+    }
+
+    @Test
+    void preferencesLoadAndSaveThroughTheProcessService() throws Exception {
+        Path file = tempDirectory.resolve("settings/coronapoker.properties");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, "nick=alice\n");
+        PreferencesService preferences = new PreferencesService(file);
+
+        assertEquals("alice", preferences.properties().getProperty("nick"));
+        preferences.start();
+        preferences.properties().setProperty("nick", "bob");
+        preferences.save();
+        preferences.close();
+
+        java.util.Properties persisted = new java.util.Properties();
+        try (var input = Files.newInputStream(file)) {
+            persisted.load(input);
+        }
+        assertEquals("bob", persisted.getProperty("nick"));
+    }
+
+    @Test
+    void preferencesCloseFlushesADeferredWrite() throws Exception {
+        Path file = tempDirectory.resolve("deferred/coronapoker.properties");
+        PreferencesService preferences = new PreferencesService(file);
+        preferences.start();
+        preferences.properties().setProperty("master_volume", "0.55");
+
+        preferences.saveDeferred();
+        preferences.close();
+
+        java.util.Properties persisted = new java.util.Properties();
+        try (var input = Files.newInputStream(file)) {
+            persisted.load(input);
+        }
+        assertEquals("0.55", persisted.getProperty("master_volume"));
+    }
+
+    @Test
+    void unreadablePreferencesKeepARescueCopyAndParsedPrefix() throws Exception {
+        Path file = tempDirectory.resolve("corrupt/coronapoker.properties");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, "nick=alice\nbroken=\\u00ZZ\n");
+        PreferencesService preferences = new PreferencesService(file);
+
+        assertEquals("alice", preferences.properties().getProperty("nick"));
+        assertNotNull(preferences.rescueCopy());
+        assertEquals(Files.readString(file), Files.readString(preferences.rescueCopy()));
     }
 
     private static ApplicationService service(String name, List<String> calls) {

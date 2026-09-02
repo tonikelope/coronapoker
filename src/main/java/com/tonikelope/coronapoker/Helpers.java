@@ -34,6 +34,8 @@ import com.drew.metadata.Metadata;
 import com.drew.metadata.MetadataException;
 import com.drew.metadata.gif.GifControlDirectory;
 import com.tonikelope.coronapoker.core.DatabaseService;
+import com.tonikelope.coronapoker.core.PreferencesService;
+import com.tonikelope.coronapoker.swing.SwingServiceBridge;
 import org.dosse.upnp.UPnP;
 import static com.tonikelope.coronapoker.Init.CORONA_DIR;
 import static com.tonikelope.coronapoker.Init.DEBUG_DIR;
@@ -261,10 +263,15 @@ public class Helpers {
     // whole component tree). Only accessed via put/get/containsKey (never iterated),
     // so synchronizedMap is enough for thread safety.
     public static final Map<Component, Integer> ORIGINAL_FONT_SIZE = Collections.synchronizedMap(new WeakHashMap<>());
-    public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
+    private static final PreferencesService PREFERENCES_SERVICE
+            = isDesignTime() ? null : SwingServiceBridge.preferencesOrNull();
+    public static final String PROPERTIES_FILE = PREFERENCES_SERVICE == null
+            ? Init.CORONA_DIR + "/coronapoker.properties" : PREFERENCES_SERVICE.file().toString();
     // Path of the rescue copy when the preferences file came back unreadable, so
     // startup can warn once the log already exists. null = no incident.
-    public static volatile String PROPERTIES_RESCUE_COPY = null;
+    public static volatile String PROPERTIES_RESCUE_COPY = PREFERENCES_SERVICE == null
+            || PREFERENCES_SERVICE.rescueCopy() == null
+            ? null : PREFERENCES_SERVICE.rescueCopy().toString();
     // Upper bound on a command line's size (post-Base64 + encryption + HMAC). Covers
     // with margin the largest message the legitimate protocol can produce (an SRA
     // MEGAPACKET at 52*32 = 1664 bytes + AES padding + IV + HMAC + Base64 runs 2-4 KB;
@@ -289,7 +296,8 @@ public class Helpers {
     public static volatile ImageIcon IMAGEN_POT_CHIP = null;
 
     public volatile static SecureRandom CSPRNG_GENERATOR = null;
-    public volatile static Properties PROPERTIES = isDesignTime() ? new Properties() : loadPropertiesFile();
+    public volatile static Properties PROPERTIES = isDesignTime() ? new Properties()
+            : PREFERENCES_SERVICE == null ? loadPropertiesFile() : PREFERENCES_SERVICE.properties();
     // GLOBAL dialog zoom (font + window size), user preference under Settings ->
     // Appearance. 1.0 = design size (identical to before). INDEPENDENT of the TABLE
     // zoom (GameFrame.ZOOM_LEVEL), which this control does NOT touch.
@@ -4216,7 +4224,7 @@ public class Helpers {
         // the same exposure as any partial write). Not registered at design time
         // (NetBeans): there PROPERTIES is an empty object and flushing it would clobber
         // the developer's real file.
-        if (!isDesignTime()) {
+        if (!isDesignTime() && PREFERENCES_SERVICE == null) {
             try {
                 Thread flush_hook = new Thread(() -> {
                     try {
@@ -4239,11 +4247,25 @@ public class Helpers {
 
     public static void savePropertiesFileDeferred() {
 
+        if (PREFERENCES_SERVICE != null) {
+            PREFERENCES_SERVICE.saveDeferred();
+            return;
+        }
+
         PROPERTIES_DIRTY = true;
         PROPERTIES_FLUSH_TIMER.restart();
     }
 
     public static void savePropertiesFile() {
+
+        if (PREFERENCES_SERVICE != null) {
+            try {
+                PREFERENCES_SERVICE.save();
+            } catch (IOException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            return;
+        }
 
         synchronized (PROPERTIES_LOCK) {
 

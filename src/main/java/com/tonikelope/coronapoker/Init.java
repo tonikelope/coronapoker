@@ -29,6 +29,7 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.core.CoronaPokerApplication;
+import com.tonikelope.coronapoker.swing.SwingLauncher;
 import java.awt.AWTException;
 import java.awt.Color;
 import java.awt.Font;
@@ -94,7 +95,7 @@ import javax.swing.text.StyledDocument;
 public class Init extends JFrame {
 
     private static final Logger LOGGER = Logger.getLogger(Init.class.getName());
-    private static final CoronaPokerApplication APPLICATION = CoronaPokerApplication.withoutServices();
+    private static volatile CoronaPokerApplication APPLICATION;
 
     public static final boolean DEV_MODE = false;
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
@@ -151,7 +152,11 @@ public class Init extends JFrame {
     private volatile JTextPane quote = null;
 
     static CoronaPokerApplication application() {
-        return APPLICATION;
+        CoronaPokerApplication application = APPLICATION;
+        if (application == null) {
+            throw new IllegalStateException("CoronaPoker application has not been launched");
+        }
+        return application;
     }
 
     static {
@@ -1800,12 +1805,19 @@ public class Init extends JFrame {
 
     public static void main(String args[]) {
 
+        SwingLauncher.main(args);
+    }
+
+    public static void launch(String args[], CoronaPokerApplication application) {
+
+        APPLICATION = java.util.Objects.requireNonNull(application, "application");
+
         try {
-            APPLICATION.start();
+            application.start();
             boot(args);
-            APPLICATION.menuReady();
+            application.menuReady();
         } catch (Throwable ex) {
-            APPLICATION.fail(ex);
+            application.fail(ex);
             fatalStartupError(Translator.translate("error.arranque_fatal", DEBUG_DIR), ex);
         }
     }

@@ -53,8 +53,22 @@ final class ArchitectureBoundaryTest {
         String gdxPom = read("coronapoker-gdx/pom.xml");
         assertTrue(gdxPom.contains("../../prototype-gdx/src/main/java"));
         assertTrue(gdxPom.contains("627c71e4f"));
+        assertTrue(gdxPom.contains("com.tonikelope.coronapoker.gdx.GdxLauncher"));
         assertFalse(Files.exists(reactor.resolve(
                 "coronapoker-gdx/src/main/java/com/tonikelope/coronapoker/gdxdemo/CoronaPokerGdxDemo.java")));
+    }
+
+    @Test
+    void bothLaunchersUseTheSharedBootstrap() throws IOException {
+        String swingLauncher = Files.readString(
+                reactor.resolve("../src/main/java/com/tonikelope/coronapoker/swing/SwingLauncher.java").normalize(),
+                StandardCharsets.UTF_8);
+        String gdxLauncher = read("coronapoker-gdx/src/main/java/com/tonikelope/coronapoker/gdx/GdxLauncher.java");
+
+        assertTrue(swingLauncher.contains("CoronaPokerBootstrap.createApplication()"));
+        assertTrue(gdxLauncher.contains("CoronaPokerBootstrap.createApplication()"));
+        assertTrue(gdxLauncher.contains("CoronaPokerGdxLauncher.main(args)"));
+        assertFalse(gdxLauncher.contains("new CoronaPokerGdxDemo"));
     }
 
     private boolean containsGraphicsImport(Path path) {

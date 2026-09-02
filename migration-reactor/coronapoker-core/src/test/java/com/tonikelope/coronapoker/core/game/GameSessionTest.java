@@ -18,6 +18,12 @@ class GameSessionTest {
         assertTrue(session.isHost());
         assertEquals("Alice", session.table().localNickname());
         assertEquals(GameSession.Phase.CREATED, session.phase());
+        assertEquals(0L, session.playTimeSeconds());
+
+        session.setPlayTimeSeconds(41L);
+        assertEquals(42L, session.incrementPlayTimeSecond());
+        assertThrows(IllegalArgumentException.class,
+                () -> session.setPlayTimeSeconds(-1L));
 
         session.start();
         session.setPaused(true);

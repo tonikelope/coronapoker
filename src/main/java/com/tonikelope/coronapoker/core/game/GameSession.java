@@ -3,6 +3,7 @@ package com.tonikelope.coronapoker.core.game;
 
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicLong;
 
 /** Renderer-neutral ownership of one running poker game. */
 public final class GameSession implements AutoCloseable {
@@ -13,6 +14,7 @@ public final class GameSession implements AutoCloseable {
     private final boolean host;
     private final TableState table;
     private final AtomicReference<Phase> phase = new AtomicReference<>(Phase.CREATED);
+    private final AtomicLong playTimeSeconds = new AtomicLong();
 
     public GameSession(String localNickname, boolean host) {
         String normalized = Objects.requireNonNull(localNickname, "localNickname").trim();
@@ -29,6 +31,16 @@ public final class GameSession implements AutoCloseable {
     public TableState table() { return table; }
     public Phase phase() { return phase.get(); }
     public boolean isPaused() { return table.paused(); }
+    public long playTimeSeconds() { return playTimeSeconds.get(); }
+
+    public void setPlayTimeSeconds(long seconds) {
+        if (seconds < 0L) throw new IllegalArgumentException("Play time cannot be negative");
+        playTimeSeconds.set(seconds);
+    }
+
+    public long incrementPlayTimeSecond() {
+        return playTimeSeconds.incrementAndGet();
+    }
 
     public void start() {
         if (!phase.compareAndSet(Phase.CREATED, Phase.RUNNING)) {

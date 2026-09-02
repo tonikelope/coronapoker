@@ -32,7 +32,9 @@ import com.tonikelope.coronapoker.core.network.GameCommandId;
 import com.tonikelope.coronapoker.core.game.GameSession;
 import com.tonikelope.coronapoker.core.game.GameLogSink;
 import com.tonikelope.coronapoker.core.game.GameProgressSink;
+import com.tonikelope.coronapoker.core.game.GameWindowSink;
 import com.tonikelope.coronapoker.core.game.LobbyTransitionSink;
+import com.tonikelope.coronapoker.core.game.TableDisplaySink;
 import com.tonikelope.coronapoker.core.network.GameTransport;
 
 import com.drew.imaging.ImageProcessingException;
@@ -1464,7 +1466,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private final BrightnessOverlay capa_brillo = new BrightnessOverlay();
 
     private volatile ZoomableInterface[] zoomables;
-    private volatile long conta_tiempo_juego = 0L;
     private volatile boolean full_screen = false;
     private volatile boolean timba_pausada = false;
     private volatile String nick_pause = null;
@@ -1933,7 +1934,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     public void setConta_tiempo_juego(long tiempo_juego) {
-        this.conta_tiempo_juego = tiempo_juego;
+        this.game_session.setPlayTimeSeconds(tiempo_juego);
     }
 
     public JMenuItem getJugadas_menu() {
@@ -4168,9 +4169,125 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 sala_espera.pack();
             }
         };
+        TableDisplaySink tableDisplay = new TableDisplaySink() {
+            @Override
+            public void showPot(double amount, Double mainPotProfit) {
+                setTapeteBote(amount, mainPotProfit);
+            }
+
+            @Override
+            public void showPotText(String text) {
+                setTapeteBote(text);
+            }
+
+            @Override
+            public void hideStreetBets() {
+                hideTapeteApuestas();
+            }
+
+            @Override
+            public void showStreetBets(double amount) {
+                setTapeteApuestas(amount);
+            }
+
+            @Override
+            public void showBlinds(double smallBlind, double bigBlind) {
+                setTapeteCiegas(smallBlind, bigBlind);
+            }
+
+            @Override
+            public void showHandNumber(int handNumber) {
+                setTapeteMano(handNumber);
+            }
+
+            @Override
+            public void refresh() {
+                GameFrame.this.refresh();
+            }
+
+            @Override
+            public void setLightsSuppressed(boolean suppressed) {
+                if (suppressed) {
+                    capa_brillo.pushForcedLightsOFF();
+                } else {
+                    capa_brillo.popForcedLightsOFF();
+                }
+                tapete.repaint();
+                tapete.getCommunityCards().refreshLightsIcon();
+            }
+
+            @Override
+            public void downgradeAndRefreshSeats() {
+                downgradeAndRefreshTapete();
+            }
+
+            @Override
+            public void showShuffleTurn(String nickname) {
+                onShuffleTurn(nickname);
+            }
+
+            @Override
+            public void hideShuffleTurn() {
+                onShuffleTurnEnd();
+            }
+        };
+        GameWindowSink gameWindow = new GameWindowSink() {
+            @Override
+            public boolean isOpen() {
+                return GameFrame.getInstance() == GameFrame.this;
+            }
+
+            @Override
+            public void requestExit() {
+                exit_menu.doClick();
+            }
+
+            @Override
+            public void setExitEnabled(boolean enabled) {
+                exit_menu.setEnabled(enabled);
+            }
+
+            @Override
+            public void setFullscreenEnabled(boolean enabled) {
+                full_screen_menu.setEnabled(enabled);
+                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(enabled);
+            }
+
+            @Override
+            public void resetImmediateRebuy() {
+                if (rebuy_now_menu.isEnabled()) {
+                    rebuy_now_menu.setSelected(false);
+                    rebuy_now_menu.setBackground(null);
+                    rebuy_now_menu.setOpaque(false);
+                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
+                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(null);
+                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(false);
+                }
+            }
+
+            @Override
+            public void setGameOverDialogOpen(boolean open) {
+                setGame_over_dialog(open);
+            }
+
+            @Override
+            public void applyAutomaticFullscreen(boolean enabled) {
+                autoZoomFullScreen(enabled);
+            }
+
+            @Override
+            public void stopGameClock() {
+                tiempo_juego.stop();
+            }
+
+            @Override
+            public void finishTransmission(boolean transmissionEnded) {
+                GameFrame.this.finTransmision(transmissionEnded);
+            }
+        };
         crupier = new Crupier(game_session, jugadores, tapete.getLocalPlayer(),
                 getParticipantes(), getCartas_comunes(), gameLog, gameProgress, this::checkPause,
-                gameTransport, lobbyTransition, table_events);
+                gameTransport, lobbyTransition, tableDisplay, gameWindow, table_events);
 
         initComponents();
 
@@ -4561,7 +4678,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     public long getConta_tiempo_juego() {
-        return conta_tiempo_juego;
+        return game_session.playTimeSeconds();
     }
 
     public GameLogDialog getRegistro_dialog() {
@@ -4793,7 +4910,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 if (partida_terminada) {
 
-                    getRegistro().print(Helpers.framedTitle(Translator.translate("game.la_timba_ha_terminado_2") + " -> " + Helpers.getFechaHoraActual() + " (" + Helpers.seconds2FullTime(conta_tiempo_juego) + ")"));
+                    getRegistro().print(Helpers.framedTitle(Translator.translate("game.la_timba_ha_terminado_2") + " -> " + Helpers.getFechaHoraActual() + " (" + Helpers.seconds2FullTime(game_session.playTimeSeconds()) + ")"));
 
                     if (this.getCrupier().isForce_recover()) {
                         getRegistro().print(Helpers.framedTitleAlert(Translator.translate("game.el_server_ha_parado")));
@@ -5239,7 +5356,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // javax.swing.Timer already executes in the EDT. Removed redundant GUIRun context switch.
         tiempo_juego = new Timer(1000, (ActionEvent ae) -> {
             if (!crupier.isFin_de_la_transmision() && !isTimba_pausada()) {
-                String tiempo_juego1 = Helpers.seconds2FullTime(++conta_tiempo_juego);
+                String tiempo_juego1 = Helpers.seconds2FullTime(game_session.incrementPlayTimeSecond());
                 tapete.getCommunityCards().getTiempo_partida().setText(tiempo_juego1);
             } else {
                 tapete.getCommunityCards().getTiempo_partida().setText("--:--:--");

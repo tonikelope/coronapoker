@@ -38,10 +38,12 @@ import com.tonikelope.coronapoker.core.network.ConfirmationTracker;
 import com.tonikelope.coronapoker.core.network.GameCommandId;
 import com.tonikelope.coronapoker.core.network.GameTransport;
 import com.tonikelope.coronapoker.core.game.GameSession;
+import com.tonikelope.coronapoker.core.game.GameWindowSink;
 import com.tonikelope.coronapoker.core.game.GameLogSink;
 import com.tonikelope.coronapoker.core.game.GameProgressSink;
 import com.tonikelope.coronapoker.core.game.LobbyTransitionSink;
 import com.tonikelope.coronapoker.core.game.PauseGate;
+import com.tonikelope.coronapoker.core.game.TableDisplaySink;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
 
 import com.drew.imaging.ImageProcessingException;
@@ -103,17 +105,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final PauseGate pause_gate;
     private final GameTransport game_transport;
     private final LobbyTransitionSink lobby_transition;
+    private final TableDisplaySink table_display;
+    private final GameWindowSink game_window;
     private final TableEventBridge table_events;
 
     public Crupier() {
         this(null, null, null, null, null, GameLogSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(),
+                TableDisplaySink.noop(),
+                GameWindowSink.noop(),
                 new TableEventBridge());
     }
 
     Crupier(TableEventBridge tableEvents) {
         this(null, null, null, null, null, GameLogSink.noop(), GameProgressSink.noop(), PauseGate.open(),
-                GameTransport.unavailable(), LobbyTransitionSink.noop(), tableEvents);
+                GameTransport.unavailable(), LobbyTransitionSink.noop(), TableDisplaySink.noop(),
+                GameWindowSink.noop(), tableEvents);
     }
 
     Crupier(GameSession gameSession, java.util.ArrayList<Player> playerControllers,
@@ -122,6 +129,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Card[] communityCardControllers,
             GameLogSink gameLog, GameProgressSink gameProgress, PauseGate pauseGate,
             GameTransport gameTransport, LobbyTransitionSink lobbyTransition,
+            TableDisplaySink tableDisplay,
+            GameWindowSink gameWindow,
             TableEventBridge tableEvents) {
         this.game_session = gameSession;
         this.player_controllers = playerControllers;
@@ -133,6 +142,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.pause_gate = java.util.Objects.requireNonNull(pauseGate, "pauseGate");
         this.game_transport = java.util.Objects.requireNonNull(gameTransport, "gameTransport");
         this.lobby_transition = java.util.Objects.requireNonNull(lobbyTransition, "lobbyTransition");
+        this.table_display = java.util.Objects.requireNonNull(tableDisplay, "tableDisplay");
+        this.game_window = java.util.Objects.requireNonNull(gameWindow, "gameWindow");
         this.table_events = java.util.Objects.requireNonNull(tableEvents, "tableEvents");
     }
 
@@ -1122,7 +1133,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // top of it.
             if (!Crupier.SECURITY_LOCKDOWN && !gameSession().isHost()) {
                 try {
-                    Helpers.GUIRun(() -> GameFrame.getInstance().getExit_menu().doClick());
+                    Helpers.GUIRun(game_window::requestExit);
                 } catch (Exception ignored) {
                 }
             }
@@ -1564,14 +1575,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // detected the attack would be left with GameFrame open, waiting for
                 // something that never arrives.
                 try {
-                    GameFrame inst = GameFrame.getInstance();
-                    if (inst != null) {
-                        Crupier c = inst.getCrupier();
-                        if (c != null) {
-                            c.setForce_recover(false);
-                            c.setFin_de_la_transmision(true);
-                        }
-                        inst.finTransmision(true);
+                    if (game_window.isOpen()) {
+                        setForce_recover(false);
+                        setFin_de_la_transmision(true);
+                        game_window.finishTransmission(true);
                     }
                 } catch (Exception ex) {
                     LOGGER.log(Level.WARNING, "Failed to dispatch local finTransmision after zero-trust lockdown", ex);
@@ -4843,7 +4850,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // (pot_chips_in_flight, already incremented above) stops
         // actualizarContadoresTapete from overwriting it with the final total too early.
         if (!table_events.isAttached()) {
-            GameFrame.getInstance().setTapeteBote(Math.max(0f, this.bote_sobrante), null);
+            table_display.showPot(Math.max(0f, this.bote_sobrante), null);
         }
     }
 
@@ -7042,9 +7049,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Lights stay off while the buy-in choice runs. The try/finally opened here
         // guarantees the veil lifts even if collection blows up along the way.
         Helpers.GUIRunAndWait(() -> {
-            GameFrame.getInstance().getCapa_brillo().pushForcedLightsOFF();
-            GameFrame.getInstance().getTapete().repaint();
-            GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
+            table_display.setLightsSuppressed(true);
         });
 
         final RebuyDialog[] dlg = new RebuyDialog[1];
@@ -7125,13 +7130,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (dlg[0] != null) {
                     dlg[0].dispose();
                 }
-                GameFrame.getInstance().getCapa_brillo().popForcedLightsOFF();
-                GameFrame.getInstance().getTapete().repaint();
-                // Re-sync the lights icon with the resulting brightness: this dialog runs
+                table_display.setLightsSuppressed(false);
+                    // Re-sync the lights icon with the resulting brightness: this dialog runs
                 // during table setup, where a render can leave the icon "off" while the
                 // lights go back "on" -> icon stuck out of sync otherwise.
-                GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
-            });
+                });
         }
     }
 
@@ -7362,11 +7365,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // showdown arrives at, which only adds the green background, so the label doesn't
             // jump once the hand closes. The show_time gate also stops a late refresh
             // (editing blinds, a chip landing, etc.) from re-showing bet_label after showdown starts.
-            GameFrame.getInstance().hideTapeteApuestas();
+            table_display.hideStreetBets();
             Helpers.GUIRun(() -> GameFrame.getInstance().getTapete().getCommunityCards()
                     .getPot_label().setHorizontalAlignment(JLabel.CENTER));
         } else {
-            GameFrame.getInstance().setTapeteApuestas(this.apuestas);
+            table_display.showStreetBets(this.apuestas);
             // Betting phase: the pot sits LEADING with the street bet_label to its right.
             // Reasserted here (not just in NUEVA_MANO) because the previous showdown/run-out
             // CENTER is a one-shot state: if an EDT reordering (or the previous hand's payout
@@ -7379,8 +7382,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     .getPot_label().setHorizontalAlignment(JLabel.LEADING));
         }
 
-        GameFrame.getInstance().setTapeteCiegas(this.ciega_pequeña, this.ciega_grande);
-        GameFrame.getInstance().setTapeteMano(this.conta_mano);
+        table_display.showBlinds(this.ciega_pequeña, this.ciega_grande);
+        table_display.showHandNumber(this.conta_mano);
 
         refreshCallCostOverlay();
     }
@@ -7425,7 +7428,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         double pot_show = this.rit_pot_board_tag != null
                 ? splitPotForRunItTwice(this.bote_total)[0]
                 : this.bote_total;
-        GameFrame.getInstance().setTapeteBote(pot_show, this.beneficio_bote_principal);
+        table_display.showPot(pot_show, this.beneficio_bote_principal);
     }
 
     private void resetBetPlayerDecisions(ArrayList<Player> jugadores, String nick, boolean partial_raise) {
@@ -9023,7 +9026,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             this.ciegas_double = map.get("blinds_double") != null ? (int) map.get("blinds_double") : 0;
             if (map.get("play_time") != null) {
-                GameFrame.getInstance().setConta_tiempo_juego((long) map.get("play_time"));
+                gameSession().setPlayTimeSeconds((long) map.get("play_time"));
             }
 
             if (recoveredBalances != null && recoveredBalances.isOk()) {
@@ -9182,17 +9185,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // the repaint, icon refresh or the dialog itself throws — an unmatched
                 // lights-off would leave the table dark with a dead switch.
                 try {
-                    GameFrame.getInstance().getCapa_brillo().pushForcedLightsOFF();
-                    GameFrame.getInstance().getTapete().repaint();
-                    GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
+                    table_display.setLightsSuppressed(true);
 
                     recover_dialog = new RecoverDialog(GameFrame.getInstance(), true);
                     recover_dialog.setLocationRelativeTo(recover_dialog.getParent());
                     recover_dialog.setVisible(true);
                 } finally {
-                    GameFrame.getInstance().getCapa_brillo().popForcedLightsOFF();
-                    GameFrame.getInstance().getTapete().repaint();
-                    GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
+                    table_display.setLightsSuppressed(false);
                 }
             });
 
@@ -9227,9 +9226,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         recover_dialog.dispose();
                         recover_dialog = null;
                     }
-                    GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
-                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
-                    GameFrame.getInstance().refresh();
+                    game_window.setFullscreenEnabled(true);
+                    table_display.refresh();
                 });
             }
         } else {
@@ -9238,8 +9236,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 Audio.playWavResource("misc/startplay.wav");
             }
             Helpers.GUIRun(() -> {
-                GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
-                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+                game_window.setFullscreenEnabled(true);
             });
         }
 
@@ -9252,7 +9249,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
             this.game_recovered = 1;
-            GameFrame.getInstance().refresh();
+            table_display.refresh();
         }
         // No else { game_recovered = 0 } here: NUEVA_MANO already resets game_recovered=0 at
         // its start. If the passive-observer joiner branch above already set it to 1, that
@@ -9487,7 +9484,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } catch (UnsupportedEncodingException ex) {
                 LOGGER.log(Level.SEVERE, "Failed to broadcast SERVEREXITRECOVER from MISDEAL", ex);
             }
-            GameFrame.getInstance().finTransmision(true);
+            game_window.finishTransmission(true);
         });
     }
 
@@ -9524,7 +9521,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, "Failed to broadcast SERVEREXIT from zero-trust MISDEAL", ex);
             }
-            GameFrame.getInstance().finTransmision(true);
+            game_window.finishTransmission(true);
         });
     }
 
@@ -9565,7 +9562,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 this.big_blind_nick = positions.bigBlind();
                                 this.small_blind_nick = positions.smallBlind();
                                 this.dealer_nick = positions.dealer();
-                                GameFrame.getInstance().setConta_tiempo_juego(positions.playTime());
+                                gameSession().setPlayTimeSeconds(positions.playTime());
                                 if (positions.doubleBlinds()) {
                                     this.doblarCiegas();
                                 }
@@ -9673,7 +9670,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             if (GameFrame.CIEGAS_DOUBLE_TYPE <= 1) {
                 return (GameFrame.CIEGAS_DOUBLE > 0
-                        && (int) Math.floor((float) GameFrame.getInstance().getConta_tiempo_juego()
+                        && (int) Math.floor((float) gameSession().playTimeSeconds()
                                 / (GameFrame.CIEGAS_DOUBLE * 60)) > this.ciegas_double);
             } else {
                 return (GameFrame.CIEGAS_DOUBLE > 0 && this.conta_mano > 1
@@ -10653,7 +10650,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             game_progress.indeterminate();
 
             if (!gameSession().isHost()) {
-                GameFrame.getInstance().getExit_menu().setEnabled(false);
+                game_window.setExitEnabled(false);
             }
         });
 
@@ -10903,16 +10900,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         this.rebuy_committed.clear();
 
-        Helpers.GUIRun(() -> {
-            if (GameFrame.getInstance().getRebuy_now_menu().isEnabled()) {
-                GameFrame.getInstance().getRebuy_now_menu().setSelected(false);
-                GameFrame.getInstance().getRebuy_now_menu().setBackground(null);
-                GameFrame.getInstance().getRebuy_now_menu().setOpaque(false);
-                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
-                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(null);
-                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(false);
-            }
-        });
+        Helpers.GUIRun(game_window::resetImmediateRebuy);
 
         saltar_primera_mano = false;
 
@@ -11292,7 +11280,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             resolveVoluntaryStraddle();
             game_progress.reset(GameFrame.THINK_TIME);
             Helpers.GUIRun(() -> {
-                GameFrame.getInstance().getExit_menu().setEnabled(true);
+                game_window.setExitEnabled(true);
             });
             disableAllPlayersTimeout();
             return true;
@@ -11306,7 +11294,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             game_progress.reset(GameFrame.THINK_TIME);
             Helpers.GUIRun(() -> {
-                GameFrame.getInstance().getExit_menu().setEnabled(true);
+                game_window.setExitEnabled(true);
             });
             disableAllPlayersTimeout();
             return false;
@@ -11837,7 +11825,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement("UPDATE game SET play_time=? WHERE id=?")) {
                 statement.setQueryTimeout(30);
-                statement.setLong(1, GameFrame.getInstance().getConta_tiempo_juego());
+                statement.setLong(1, gameSession().playTimeSeconds());
                 statement.setInt(2, this.sqlite_id_game);
                 statement.executeUpdate();
 
@@ -16026,7 +16014,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // SIDE-A tag) through the whole redeal animation and until SIDE-B's first
         // street completes.
         this.rit_pot_board_tag = Translator.translate("runittwice.pot_label_b");
-        GameFrame.getInstance().setTapeteBote(splitPotForRunItTwice(this.bote_total)[0], this.beneficio_bote_principal);
+        table_display.showPot(splitPotForRunItTwice(this.bote_total)[0], this.beneficio_bote_principal);
         for (Player p : resisten) {
             p.repaintLastAction();
         }
@@ -16058,7 +16046,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         // Same as after the normal run-out: hides the street's bet_label before
         // SIDE-B's showdown.
-        GameFrame.getInstance().hideTapeteApuestas();
+        table_display.hideStreetBets();
 
         // SIDE-B aborted and the bets were ALREADY refunded: the whole hand is
         // genuinely voided (cancelarManoYDevolverApuestas refunded everything and
@@ -16337,7 +16325,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
                 GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setHorizontalAlignment(JLabel.CENTER);
             });
-            GameFrame.getInstance().setTapeteBote(bote_tapete_final);
+            table_display.showPotText(bote_tapete_final);
         } else {
             final double paidShow = paidThisBoard;
             setPotBackground(Color.GREEN);
@@ -16345,7 +16333,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
                 GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setHorizontalAlignment(JLabel.CENTER);
             });
-            GameFrame.getInstance().setTapeteBote(paidShow, this.beneficio_bote_principal);
+            table_display.showPot(paidShow, this.beneficio_bote_principal);
         }
 
         return paidThisBoard;
@@ -17366,9 +17354,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             recover_dialog.dispose();
                             recover_dialog = null;
                         }
-                        GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
-                        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
-                        GameFrame.getInstance().refresh();
+                        game_window.setFullscreenEnabled(true);
+                        table_display.refresh();
                     });
                     game_log.print(Translator.translate("game.mano_recuperada"));
                     if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
@@ -19825,7 +19812,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         + Base64.getEncoder().encodeToString(this.small_blind_nick.getBytes("UTF-8")) + "#"
                         + Base64.getEncoder().encodeToString(
                                 this.dealer_nick != null ? this.dealer_nick.getBytes("UTF-8") : "".getBytes("UTF-8"))
-                        + "#" + String.valueOf(GameFrame.getInstance().getConta_tiempo_juego())
+                        + "#" + String.valueOf(gameSession().playTimeSeconds())
                         + (doblar_ciegas ? "#1" : "#0");
 
             } catch (UnsupportedEncodingException ex) {
@@ -20472,9 +20459,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     recover_dialog = null;
                 }
 
-                GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
-                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
-                GameFrame.getInstance().refresh();
+                game_window.setFullscreenEnabled(true);
+                table_display.refresh();
             });
 
             this.setSincronizando_mano(false);
@@ -20595,9 +20581,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     recover_dialog.dispose();
                     recover_dialog = null;
                 }
-                GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
-                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
-                GameFrame.getInstance().refresh();
+                game_window.setFullscreenEnabled(true);
+                table_display.refresh();
             });
         }
 
@@ -22529,7 +22514,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (exit > 0) {
-            GameFrame.getInstance().downgradeAndRefreshTapete();
+            table_display.downgradeAndRefreshSeats();
             nick2player.clear();
             for (Player jugador : players()) {
                 nick2player.put(jugador.getNickname(), jugador);
@@ -23410,7 +23395,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // main screen.
         Audio.unmuteLoopMp3("misc/background_music.mp3");
 
-        GameFrame.getInstance().autoZoomFullScreen(GameFrame.AUTO_FULLSCREEN);
+        game_window.applyAutomaticFullscreen(GameFrame.AUTO_FULLSCREEN);
 
         // Variable buy-in mode: each human picks their buy-in on entering the table
         // (lights off) before hand 1. No-op in fixed mode and in recovery.
@@ -23460,7 +23445,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             continue;
                         }
 
-                        GameFrame.getInstance().hideTapeteApuestas();
+                        table_display.hideStreetBets();
                         localPlayer().desactivarControles();
 
                         if (GameFrame.AUTO_ACTION_BUTTONS) {
@@ -23486,9 +23471,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     recover_dialog.dispose();
                                     recover_dialog = null;
                                 }
-                                GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
-                                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
-                                GameFrame.getInstance().refresh();
+                                game_window.setFullscreenEnabled(true);
+                                table_display.refresh();
                             });
                             this.setSincronizando_mano(false);
                             game_log.print(Translator.translate("game.timba_recuperada"));
@@ -23554,7 +23538,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             setPotBackground(Color.RED);
                                             GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
                                         });
-                                        GameFrame.getInstance().setTapeteBote(this.bote.getTotal() + this.bote_sobrante, 0d);
+                                        table_display.showPot(this.bote.getTotal() + this.bote_sobrante, 0d);
                                         // Nobody resists: the whole pot goes unclaimed and rolls into the
                                         // next hand. It's ASSIGNED, like the two twin branches of this same
                                         // switch (case 1 and default) and the run-it-twice path, because
@@ -23602,7 +23586,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             setPotBackground(Color.GREEN);
                                             GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
                                         });
-                                        GameFrame.getInstance().setTapeteBote(this.bote.getTotal() + this.bote_sobrante, this.beneficio_bote_principal);
+                                        table_display.showPot(this.bote.getTotal() + this.bote_sobrante, this.beneficio_bote_principal);
                                         this.bote_total = 0f;
                                         this.bote_sobrante = 0f;
                                         for (Card carta : communityCards()) {
@@ -23682,7 +23666,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 setPotBackground(Color.GREEN);
                                                 GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
                                             });
-                                            GameFrame.getInstance().setTapeteBote(cantidad_pagar_ganador[0], this.beneficio_bote_principal);
+                                            table_display.showPot(cantidad_pagar_ganador[0], this.beneficio_bote_principal);
 
                                         } else {
                                             jugadas = this.calcularJugadas(resisten);
@@ -23819,7 +23803,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 setPotBackground(Color.BLACK);
                                                 GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
                                             });
-                                            GameFrame.getInstance().setTapeteBote(bote_tapete);
+                                            table_display.showPotText(bote_tapete);
                                         }
                                         // Never below zero. If the hand was voided by the barrier above,
                                         // the pot ends up empty but the inherited carryover is still
@@ -24006,7 +23990,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             carta.iniciarCarta();
                         }
 
-                        GameFrame.getInstance().getTiempo_juego().stop();
+                        game_window.stopGameClock();
 
                         // Defense in depth: if we reach GAME OVER while a
                         // recovery dragon was still open (NUEVA_MANO returned false
@@ -24023,7 +24007,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 } else {
 
-                    GameFrame.getInstance().getTiempo_juego().stop();
+                    game_window.stopGameClock();
 
                     // Defense in depth: see comment above.
                     cerrarRecoverDialogYSync();
@@ -24041,12 +24025,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        GameFrame endingFrame = GameFrame.getInstance();
-        if (endingFrame == null) {
+        if (!game_window.isOpen()) {
             // The socket consumer already completed an authoritative teardown.
             return;
         }
-        boolean localHost = endingFrame.isPartida_local();
+        boolean localHost = gameSession().isHost();
 
         // MISDEAL teardown has exactly one owner. On the host, abortAndRecover/
         // abortAndExit delivers the authoritative terminal frame before tearing
@@ -24067,7 +24050,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             sendGAMECommandToServer(exitCmd, false);
         }
 
-        endingFrame.finTransmision(fin_de_la_transmision);
+        game_window.finishTransmission(fin_de_la_transmision);
     }
 
     static boolean shouldDeferMisdealTeardown(boolean handVoided) {
@@ -24266,29 +24249,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // icon update blew up, a dangling dim would leave the table black with a
                     // dead light switch.
                     try {
-                        GameFrame.getInstance().getCapa_brillo().pushForcedLightsOFF();
-
-                        GameFrame.getInstance().getTapete().repaint();
-
-                        GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
+                        table_display.setLightsSuppressed(true);
 
                         gameover_dialog = new GameOverDialog(GameFrame.getInstance(), true);
 
-                        GameFrame.getInstance().setGame_over_dialog(true);
+                        game_window.setGameOverDialogOpen(true);
 
                         gameover_dialog.setLocationRelativeTo(gameover_dialog.getParent());
 
                         gameover_dialog.setVisible(true);
                     } finally {
-                        GameFrame.getInstance().getCapa_brillo().popForcedLightsOFF();
-
-                        GameFrame.getInstance().getTapete().repaint();
-
-                        GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
+                        table_display.setLightsSuppressed(false);
                     }
                 });
 
-                GameFrame.getInstance().setGame_over_dialog(false);
+                game_window.setGameOverDialogOpen(false);
 
                 if (gameover_dialog.isContinua()) {
 
@@ -24351,29 +24326,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // the same reason). Here the table doesn't come back: the player stays a
                     // spectator.
                     try {
-                        GameFrame.getInstance().getCapa_brillo().pushForcedLightsOFF();
-
-                        GameFrame.getInstance().getTapete().repaint();
-
-                        GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
+                        table_display.setLightsSuppressed(true);
 
                         gameover_dialog = new GameOverDialog(GameFrame.getInstance(), true, true);
 
-                        GameFrame.getInstance().setGame_over_dialog(true);
+                        game_window.setGameOverDialogOpen(true);
 
                         gameover_dialog.setLocationRelativeTo(gameover_dialog.getParent());
 
                         gameover_dialog.setVisible(true);
                     } finally {
-                        GameFrame.getInstance().getCapa_brillo().popForcedLightsOFF();
-
-                        GameFrame.getInstance().getTapete().repaint();
-
-                        GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
+                        table_display.setLightsSuppressed(false);
                     }
                 });
 
-                GameFrame.getInstance().setGame_over_dialog(false);
+                game_window.setGameOverDialogOpen(false);
 
                 localPlayer().setSpectator(null);
 
@@ -25007,7 +24974,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      */
     private void emitShuffleTurn(String nick) {
         try {
-            GameFrame.getInstance().onShuffleTurn(nick);
+            table_display.showShuffleTurn(nick);
             this.broadcastGAMECommandFromServer(
                     "SHUFFLE_TURN#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")),
                     null, false);
@@ -25022,7 +24989,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      */
     private void emitShuffleTurnEnd() {
         try {
-            GameFrame.getInstance().onShuffleTurnEnd();
+            table_display.hideShuffleTurn();
             this.broadcastGAMECommandFromServer("SHUFFLE_TURN_END", null, false);
         } catch (Exception ex) {
             LOGGER.log(Level.FINE, "emitShuffleTurnEnd failed (non-fatal, display only)", ex);

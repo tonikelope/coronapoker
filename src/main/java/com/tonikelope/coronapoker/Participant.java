@@ -358,6 +358,11 @@ public class Participant implements Runnable {
         }
     }
 
+    /** Creates the transport-less bot placeholder used only while replaying recovery data. */
+    public static Participant recoveryBot(String nickname) {
+        return new Participant(null, nickname, null, null, null, null, true);
+    }
+
     public void setForce_reset_socket(boolean force) {
         this.force_reset_socket = force;
     }

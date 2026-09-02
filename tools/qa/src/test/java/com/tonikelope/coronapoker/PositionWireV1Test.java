@@ -50,7 +50,7 @@ public class PositionWireV1Test {
         int force = source.indexOf("setForce_recover(true)", failure);
         int pending = source.indexOf("setTerminationPending()", force);
         int finish = source.indexOf("setFin_de_la_transmision(true)", pending);
-        int close = source.indexOf("closeClientSocket()", finish);
+        int close = source.indexOf("game_transport.closeHostConnection()", finish);
         int setPositions = source.indexOf("this.setPositions();");
         int handAbort = source.indexOf("if (isFin_de_la_transmision())", setPositions);
         int handReturn = source.indexOf("return false;", handAbort);

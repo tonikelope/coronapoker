@@ -34,7 +34,7 @@ public class StartCascadeSignalShapeTest {
         int shape = source.indexOf("!startCascadeSignalHasCurrentShape(partes)", known);
         int reject = source.indexOf("this.received_commands.reject(comando)", shape);
         int finish = source.indexOf("setFin_de_la_transmision(true)", reject);
-        int close = source.indexOf("closeClientSocket()", finish);
+        int close = source.indexOf("game_transport.closeHostConnection()", finish);
 
         assertTrue(wait >= 0 && wait < split && split < known && known < shape);
         assertTrue(shape < reject && reject < finish && finish < close);

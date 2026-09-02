@@ -31,6 +31,9 @@ package com.tonikelope.coronapoker;
 import com.tonikelope.coronapoker.core.network.GameCommandId;
 import com.tonikelope.coronapoker.core.game.GameSession;
 import com.tonikelope.coronapoker.core.game.GameLogSink;
+import com.tonikelope.coronapoker.core.game.GameProgressSink;
+import com.tonikelope.coronapoker.core.game.LobbyTransitionSink;
+import com.tonikelope.coronapoker.core.network.GameTransport;
 
 import com.drew.imaging.ImageProcessingException;
 import com.tonikelope.coronapoker.table.TableCommand;
@@ -4085,9 +4088,89 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             GameLogDialog target = registro_dialog;
             if (target != null) target.print(message);
         };
+        GameProgressSink gameProgress = new GameProgressSink() {
+            @Override
+            public void countdown(int seconds) {
+                Helpers.smoothCountdown(getBarra_tiempo(), seconds);
+            }
+
+            @Override
+            public void indeterminate() {
+                Helpers.barraIndeterminada(getBarra_tiempo());
+            }
+
+            @Override
+            public void reset(int seconds) {
+                Helpers.resetBarra(getBarra_tiempo(), seconds);
+            }
+
+            @Override
+            public void setIndeterminate(boolean enabled) {
+                getBarra_tiempo().setIndeterminate(enabled);
+            }
+        };
+        GameTransport gameTransport = new GameTransport() {
+            @Override
+            public String hostNickname() {
+                return sala_espera.getServer_nick();
+            }
+
+            @Override
+            public String tablePassword() {
+                return sala_espera.getPassword();
+            }
+
+            @Override
+            public boolean gameStarted() {
+                return sala_espera.isPartida_empezada();
+            }
+
+            @Override
+            public com.tonikelope.coronapoker.core.network.ConfirmationTracker confirmations() {
+                return sala_espera.getReceived_confirmations();
+            }
+
+            @Override
+            public void sendCommandToHost(String clearText) {
+                sala_espera.writeCommandToServer(Helpers.encryptCommand(clearText,
+                        sala_espera.getLocal_client_aes_key(),
+                        sala_espera.getLocal_client_hmac_key()));
+            }
+
+            @Override
+            public void closeHostConnection() {
+                sala_espera.closeClientSocket();
+            }
+        };
+        LobbyTransitionSink lobbyTransition = new LobbyTransitionSink() {
+            @Override
+            public void removeParticipant(String nickname) {
+                sala_espera.borrarParticipante(nickname);
+            }
+
+            @Override
+            public void seatingPlayers() {
+                sala_espera.getStatus().setText(Translator.translate("ui.sorteando_sitios"));
+            }
+
+            @Override
+            public void hideLobby() {
+                sala_espera.setVisible(false);
+            }
+
+            @Override
+            public void gameStarted() {
+                sala_espera.getStatus().setText(Translator.translate("game.timba_en_curso"));
+                sala_espera.getTts_warning().setVisible(true);
+                sala_espera.getChat_notifications().setVisible(true);
+                sala_espera.getBarra().setVisible(false);
+                sala_espera.getStatus().setIcon(null);
+                sala_espera.pack();
+            }
+        };
         crupier = new Crupier(game_session, jugadores, tapete.getLocalPlayer(),
-                getParticipantes(), getCartas_comunes(), gameLog, this::checkPause,
-                table_events);
+                getParticipantes(), getCartas_comunes(), gameLog, gameProgress, this::checkPause,
+                gameTransport, lobbyTransition, table_events);
 
         initComponents();
 

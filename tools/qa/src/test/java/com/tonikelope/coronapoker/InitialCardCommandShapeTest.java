@@ -40,7 +40,7 @@ public class InitialCardCommandShapeTest {
         int shape = source.indexOf("!initialCardCommandHasCurrentShape(partes)", receiver);
         int reject = source.indexOf("this.received_commands.reject(comando)", shape);
         int finish = source.indexOf("setFin_de_la_transmision(true)", reject);
-        int close = source.indexOf("closeClientSocket()", finish);
+        int close = source.indexOf("game_transport.closeHostConnection()", finish);
         int result = source.indexOf("return null;", close);
 
         assertTrue(receiver >= 0 && receiver < shape && shape < reject);

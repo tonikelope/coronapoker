@@ -36,7 +36,7 @@ public class RecoveryWireWiringTest {
         int mutateStack = source.indexOf("jug.setStack(stack)", reconcile);
         int reject = source.indexOf("balance reconciliation failed", reconcile);
         int stop = source.indexOf("setFin_de_la_transmision(true)", reject);
-        int close = source.indexOf("closeClientSocket()", stop);
+        int close = source.indexOf("game_transport.closeHostConnection()", stop);
 
         assertTrue(evidence >= 0 && evidence < receive);
         assertTrue(receive < reconcile && reconcile < syncShells);
@@ -55,7 +55,7 @@ public class RecoveryWireWiringTest {
         int recover = source.indexOf("setForce_recover(true)", failed);
         int pending = source.indexOf("setTerminationPending()", recover);
         int finished = source.indexOf("setFin_de_la_transmision(true)", pending);
-        int close = source.indexOf("closeClientSocket()", finished);
+        int close = source.indexOf("game_transport.closeHostConnection()", finished);
         int result = source.indexOf("receiveState.isSuccess() ? receiveState.actions() : null", close);
         int receive = source.indexOf("recuperarAccionesLocales();");
         int recoverAbort = source.indexOf("if (isFin_de_la_transmision())", receive);
@@ -92,7 +92,7 @@ public class RecoveryWireWiringTest {
         int force = source.indexOf("setForce_recover(true)", failed);
         int pending = source.indexOf("setTerminationPending()", force);
         int finish = source.indexOf("setFin_de_la_transmision(true)", pending);
-        int close = source.indexOf("closeClientSocket()", finish);
+        int close = source.indexOf("game_transport.closeHostConnection()", finish);
         int result = source.indexOf("receiveState.isSuccess() ? receiveState.snapshot().toMap() : null", close);
         int caller = source.indexOf("map = recibirDatosClaveRecuperados()");
         int nullBranch = source.indexOf("if (map == null)", caller);

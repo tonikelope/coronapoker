@@ -25,7 +25,7 @@ public final class NewGameSubmissionCoordinator {
         return active != null;
     }
 
-    public CompletableFuture<NewGameRequest> submit(
+    public CompletableFuture<OpenedSession> submit(
             NewGameConnectionDraft connection, NewGameTableDraft table) {
         Objects.requireNonNull(connection, "connection");
         final Attempt attempt;
@@ -41,9 +41,9 @@ public final class NewGameSubmissionCoordinator {
         try {
             attempt.opening = Objects.requireNonNull(gateway.open(attempt.request),
                     "gateway result");
-            attempt.opening.whenComplete((ignored, failure) -> finish(attempt, failure));
+            attempt.opening.whenComplete((lobby, failure) -> finish(attempt, lobby, failure));
         } catch (Throwable failure) {
-            finish(attempt, failure);
+            finish(attempt, null, failure);
         }
         return attempt.result;
     }
@@ -54,7 +54,7 @@ public final class NewGameSubmissionCoordinator {
                 && active.opening.cancel(true);
     }
 
-    private void finish(Attempt attempt, Throwable failure) {
+    private void finish(Attempt attempt, LobbySession lobby, Throwable failure) {
         Throwable outcome = unwrap(failure);
         synchronized (this) {
             if (active != attempt) {
@@ -63,6 +63,7 @@ public final class NewGameSubmissionCoordinator {
             active = null;
             if (outcome == null) {
                 try {
+                    Objects.requireNonNull(lobby, "lobby");
                     attempt.connection.commitSuccessful(preferences,
                             attempt.request.connection());
                 } catch (Throwable commitFailure) {
@@ -75,7 +76,7 @@ public final class NewGameSubmissionCoordinator {
         }
 
         if (outcome == null) {
-            attempt.result.complete(attempt.request);
+            attempt.result.complete(new OpenedSession(attempt.request, lobby));
         } else {
             attempt.result.completeExceptionally(outcome);
         }
@@ -92,12 +93,19 @@ public final class NewGameSubmissionCoordinator {
     private static final class Attempt {
         private final NewGameConnectionDraft connection;
         private final NewGameRequest request;
-        private final CompletableFuture<NewGameRequest> result = new CompletableFuture<>();
-        private CompletableFuture<Void> opening;
+        private final CompletableFuture<OpenedSession> result = new CompletableFuture<>();
+        private CompletableFuture<LobbySession> opening;
 
         private Attempt(NewGameConnectionDraft connection, NewGameRequest request) {
             this.connection = connection;
             this.request = request;
+        }
+    }
+
+    public record OpenedSession(NewGameRequest request, LobbySession lobby) {
+        public OpenedSession {
+            Objects.requireNonNull(request, "request");
+            Objects.requireNonNull(lobby, "lobby");
         }
     }
 }

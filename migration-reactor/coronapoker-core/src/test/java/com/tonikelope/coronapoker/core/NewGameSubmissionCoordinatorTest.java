@@ -42,7 +42,7 @@ final class NewGameSubmissionCoordinatorTest {
         NewGameConnectionDraft connection = draft(NewGameConnectionDraft.Mode.CREATE);
         NewGameTableDraft table = new NewGameTableDraft();
         table.setRunItTwice(true);
-        CompletableFuture<Void> opening = new CompletableFuture<>();
+        CompletableFuture<LobbySession> opening = new CompletableFuture<>();
         AtomicReference<NewGameRequest> observed = new AtomicReference<>();
         NewGameSubmissionCoordinator coordinator = new NewGameSubmissionCoordinator(
                 preferences, request -> {
@@ -50,14 +50,17 @@ final class NewGameSubmissionCoordinatorTest {
                     return opening;
                 });
 
-        CompletableFuture<NewGameRequest> result = coordinator.submit(connection, table);
+        CompletableFuture<NewGameSubmissionCoordinator.OpenedSession> result
+                = coordinator.submit(connection, table);
 
         assertTrue(coordinator.submitting());
         assertNull(preferences.properties().getProperty("nick"));
         assertTrue(observed.get().table().runItTwice());
-        opening.complete(null);
+        LobbySession lobby = lobby(true, "Alice");
+        opening.complete(lobby);
 
-        assertSame(observed.get(), result.join());
+        assertSame(observed.get(), result.join().request());
+        assertSame(lobby, result.join().lobby());
         assertFalse(coordinator.submitting());
         assertEquals("Alice", preferences.properties().getProperty("nick"));
     }
@@ -65,7 +68,7 @@ final class NewGameSubmissionCoordinatorTest {
     @Test
     void joinCarriesNoHostSettingsAndCannotBeSubmittedTwice() {
         NewGameConnectionDraft connection = draft(NewGameConnectionDraft.Mode.JOIN);
-        CompletableFuture<Void> opening = new CompletableFuture<>();
+        CompletableFuture<LobbySession> opening = new CompletableFuture<>();
         AtomicInteger calls = new AtomicInteger();
         NewGameSubmissionCoordinator coordinator = new NewGameSubmissionCoordinator(
                 preferences, request -> {
@@ -80,20 +83,20 @@ final class NewGameSubmissionCoordinatorTest {
         assertThrows(IllegalStateException.class,
                 () -> coordinator.submit(connection, new NewGameTableDraft()));
         assertEquals(1, calls.get());
-        opening.complete(null);
+        opening.complete(lobby(false, "Alice"));
     }
 
     @Test
     void asynchronousFailureUnlocksTheSameDraftForRetry() {
         NewGameConnectionDraft connection = draft(NewGameConnectionDraft.Mode.CREATE);
-        CompletableFuture<Void> first = new CompletableFuture<>();
+        CompletableFuture<LobbySession> first = new CompletableFuture<>();
         AtomicInteger calls = new AtomicInteger();
         NewGameSubmissionCoordinator coordinator = new NewGameSubmissionCoordinator(
                 preferences, request -> calls.getAndIncrement() == 0
-                        ? first : CompletableFuture.completedFuture(null));
+                        ? first : CompletableFuture.completedFuture(lobby(true, "Alice")));
 
-        CompletableFuture<NewGameRequest> failed = coordinator.submit(
-                connection, new NewGameTableDraft());
+        CompletableFuture<NewGameSubmissionCoordinator.OpenedSession> failed
+                = coordinator.submit(connection, new NewGameTableDraft());
         first.completeExceptionally(new IllegalStateException("offline"));
 
         CompletionException error = assertThrows(CompletionException.class, failed::join);
@@ -109,8 +112,8 @@ final class NewGameSubmissionCoordinatorTest {
         NewGameConnectionDraft connection = draft(NewGameConnectionDraft.Mode.CREATE);
         NewGameSubmissionCoordinator coordinator = new NewGameSubmissionCoordinator(
                 preferences, request -> new CompletableFuture<>());
-        CompletableFuture<NewGameRequest> result = coordinator.submit(
-                connection, new NewGameTableDraft());
+        CompletableFuture<NewGameSubmissionCoordinator.OpenedSession> result
+                = coordinator.submit(connection, new NewGameTableDraft());
 
         assertTrue(coordinator.cancel());
         assertTrue(result.isCompletedExceptionally());
@@ -123,5 +126,21 @@ final class NewGameSubmissionCoordinatorTest {
         NewGameConnectionDraft draft = NewGameConnectionDraft.from(new Properties(), mode);
         draft.setNickname("Alice");
         return draft;
+    }
+
+    private static LobbySession lobby(boolean host, String localNick) {
+        LobbyParticipant local = new LobbyParticipant(localNick, null, true,
+                host, false, true, false, true,
+                LobbyParticipant.NO_LATENCY, LobbyParticipant.NO_LATENCY);
+        LobbyParticipant remoteHost = new LobbyParticipant("Host", null, false,
+                true, false, true, false, true, 12, 15);
+        LobbySnapshot snapshot = new LobbySnapshot(localNick,
+                host ? localNick : "Host", "localhost:7234", host,
+                LobbySnapshot.Phase.WAITING_FOR_PLAYERS, "",
+                host ? java.util.List.of(local)
+                        : java.util.List.of(local, remoteHost),
+                java.util.List.of(), null, false, true);
+        return new LobbySession(snapshot,
+                command -> CompletableFuture.completedFuture(null));
     }
 }

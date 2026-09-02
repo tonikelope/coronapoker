@@ -20,7 +20,6 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.tonikelope.coronapoker.core.NewGameConnectionDraft;
-import com.tonikelope.coronapoker.core.NewGameRequest;
 import com.tonikelope.coronapoker.core.NewGameSessionGateway;
 import com.tonikelope.coronapoker.core.NewGameSubmissionCoordinator;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
@@ -65,7 +64,7 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
     private final Vector2 pointer = new Vector2();
     private final Properties initialProperties;
     private final NewGameSubmissionCoordinator submissions;
-    private final Consumer<NewGameRequest> sessionAccepted;
+    private final Consumer<NewGameSubmissionCoordinator.OpenedSession> sessionAccepted;
     private NewGameConnectionDraft connection;
     private NewGameTableDraft table = new NewGameTableDraft();
     private SpriteBatch batch;
@@ -103,7 +102,7 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
 
     NewGameScreenPreview(PreferencesService preferences,
             NewGameSessionGateway gateway,
-            Consumer<NewGameRequest> sessionAccepted) {
+            Consumer<NewGameSubmissionCoordinator.OpenedSession> sessionAccepted) {
         this(Objects.requireNonNull(preferences, "preferences").properties(),
                 preferences, Objects.requireNonNull(gateway, "gateway"), true,
                 Objects.requireNonNull(sessionAccepted, "sessionAccepted"));
@@ -117,7 +116,8 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
 
     private NewGameScreenPreview(Properties properties,
             PreferencesService preferences, NewGameSessionGateway gateway,
-            boolean startAtMenu, Consumer<NewGameRequest> sessionAccepted) {
+            boolean startAtMenu,
+            Consumer<NewGameSubmissionCoordinator.OpenedSession> sessionAccepted) {
         this(defaultConnection(properties, NewGameConnectionDraft.Mode.CREATE),
                 properties,
                 preferences == null ? null
@@ -127,7 +127,8 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
 
     private NewGameScreenPreview(NewGameConnectionDraft connection,
             Properties properties, NewGameSubmissionCoordinator submissions,
-            Consumer<NewGameRequest> sessionAccepted, boolean startAtMenu) {
+            Consumer<NewGameSubmissionCoordinator.OpenedSession> sessionAccepted,
+            boolean startAtMenu) {
         this.connection = Objects.requireNonNull(connection, "connection");
         initialProperties = Objects.requireNonNull(properties, "properties");
         this.submissions = submissions;
@@ -598,13 +599,14 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
         }
     }
 
-    private void completeSubmission(NewGameRequest request, Throwable failure) {
+    private void completeSubmission(NewGameSubmissionCoordinator.OpenedSession session,
+            Throwable failure) {
         if (disposed) {
             return;
         }
         Throwable cause = unwrap(failure);
         if (cause == null) {
-            sessionAccepted.accept(request);
+            sessionAccepted.accept(session);
         } else if (cause instanceof CancellationException) {
             surface = Surface.MENU;
             activeField = null;

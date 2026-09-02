@@ -83,6 +83,39 @@ El inventario global enumera las ventanas Swing existentes. Cada una deberá
 desglosarse por control y acción antes de implementarse en GDX, igual que se
 hace a continuación con `NewGameDialog`.
 
+## `WaitingRoomFrame`: sala, participantes y sesión
+
+| Control/estado Swing | Contrato funcional que debe conservar GDX | Estado |
+|---|---|---|
+| `status` / `barra` | Conectando, intercambio de claves, recepción de información, conectado, espera, reconexión, error e inicialización sin bloquear el render. | pendiente |
+| `conectados` / `tot_conectados` | Lista ordenada de 1–10 participantes con avatar, latencias, bot, espera asíncrona y aviso de canal inseguro. | pendiente |
+| clic derecho en participantes | Identicon de canal para cliente o mosaico completo para host. | pendiente |
+| `new_bot_button` | Sólo host; añade `CoronaBot$N`, vuelve a comprobar aforo bajo el mismo turno de admisión y difunde el alta. | pendiente |
+| `kick_user` | Sólo host y participante remoto seleccionado; expulsa, rota contraseña cuando corresponde y actualiza el resto de canales. | pendiente |
+| `empezar_timba` | Sólo host, mínimo dos participantes, confirmación previa, protección contra doble inicio, recuperación de ausentes y transición asíncrona a mesa. | pendiente |
+| `server_address_label` | Muestra la dirección y permite copiarla al portapapeles. | pendiente |
+| `pass_icon` | Copiar, cambiar, generar o eliminar la contraseña; difundirla ordenadamente a quienes permanecen. | pendiente |
+| `game_info_buyin` | Buy-in fijo o variable real; ayuda contextual sin permitir al cliente modificarlo. | pendiente |
+| `game_info_blinds` | Ciegas e intervalo de subida reales. | pendiente |
+| `game_info_hands` | Límite de manos cuando existe. | pendiente |
+| `game_info_recover` | Indica explícitamente que se continúa una timba anterior. | pendiente |
+| `settings_icon` | Abre Ajustes dentro de la misma ventana GDX. | pendiente |
+| `sound_icon` | Alterna sonido y persiste la preferencia compartida. | pendiente |
+| cierre de sala | Confirmación, salida de red ordenada y retorno al menú sin terminar por la fuerza el proceso. | pendiente |
+
+## `WaitingRoomFrame`: chat
+
+| Control/acción Swing | Contrato funcional que debe conservar GDX | Estado |
+|---|---|---|
+| historial `chat` | Orden causal de mensajes, altas, bajas, texto, enlaces, BBCode, emoji, imágenes/GIF y notas de voz. | pendiente |
+| `chat_box` / `send_label` | Envío con Enter o botón, texto vacío rechazado y anti-flood de 500 ms. | pendiente |
+| `emoji_button` / `emoji_panel` | Selector e historial de emoji sin perder el foco de escritura. | pendiente |
+| `image_button` / `ChatImageDialog` | Envío por URL, búsqueda, historial, recepción automática y anti-flood existentes dentro de GDX. | pendiente |
+| notas de voz | Validación WAV, máximo real de 320 KiB, transporte binario y reproducción desde el historial. | pendiente |
+| `chat_notifications` | Activa y persiste las notificaciones durante la partida. | pendiente |
+| `tts_warning` | Conserva el aviso de privacidad y su detalle. | pendiente |
+| `max_min_label` | Maximiza/minimiza el área de chat sin perder estado ni scroll. | pendiente |
+
 ## `NewGameDialog`: identidad, conexión y acciones
 
 | Control/acción Swing | Modos | Contrato funcional que debe conservar GDX | Estado |

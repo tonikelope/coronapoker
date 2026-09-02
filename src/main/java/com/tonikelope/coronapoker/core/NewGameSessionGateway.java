@@ -6,6 +6,6 @@ import java.util.concurrent.CompletableFuture;
 @FunctionalInterface
 public interface NewGameSessionGateway {
 
-    /** Completes only when ownership has passed to the lobby/session layer. */
-    CompletableFuture<Void> open(NewGameRequest request);
+    /** Completes only when ownership has passed to a usable lobby session. */
+    CompletableFuture<LobbySession> open(NewGameRequest request);
 }

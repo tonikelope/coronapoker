@@ -19,10 +19,13 @@ import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.tonikelope.coronapoker.core.NewGameConnectionDraft;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Properties;
 
 /**
  * Interactive visual-only preview of the real NewGameDialog inventory.
@@ -52,6 +55,7 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
     private final Map<String, Float> hoverAnimations = new HashMap<>();
     private final GlyphLayout glyph = new GlyphLayout();
     private final Vector2 pointer = new Vector2();
+    private final NewGameConnectionDraft connection;
     private SpriteBatch batch;
     private ShapeRenderer shapes;
     private Texture feltTexture;
@@ -63,13 +67,7 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
     private BitmapFont tinyFont;
     private int page;
     private String activeField;
-    private String nick = "Jugador";
-    private String password = "";
-    private String server = "localhost";
-    private String port = "7234";
     private boolean fullscreen;
-    private boolean recover;
-    private boolean upnp;
     private boolean fixedBuyin = true;
     private boolean increaseBlinds;
     private boolean blindCap;
@@ -101,6 +99,20 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
     private float elapsed;
     private float frameDelta;
     private Hit pressedHit;
+
+    NewGameScreenPreview() {
+        this(defaultConnection());
+    }
+
+    NewGameScreenPreview(NewGameConnectionDraft connection) {
+        this.connection = Objects.requireNonNull(connection, "connection");
+    }
+
+    private static NewGameConnectionDraft defaultConnection() {
+        Properties defaults = new Properties();
+        defaults.setProperty("nick", "Jugador");
+        return NewGameConnectionDraft.from(defaults, NewGameConnectionDraft.Mode.CREATE);
+    }
 
     @Override
     public void create() {
@@ -205,7 +217,7 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
         });
         text(smallFont, "MENÚ PRINCIPAL  /", 122f, 1041f, MUTED, false);
         text(smallFont, "NUEVA TIMBA", 315f, 1041f, GOLD, false);
-        text(tinyFont, "PREVIEW · NO CONECTADA AL CORE", 1725f,
+        text(tinyFont, "PREVIEW · ESTADO CORE · SIN SESIÓN", 1725f,
                 1039f, ORANGE, true);
         text(titleFont, "NUEVA TIMBA", 434f, 932f, new Color(0x000000aa), false);
         text(titleFont, "NUEVA TIMBA", 430f, 936f, GOLD, false);
@@ -250,15 +262,15 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
         hit(445f, 580f, 150f, 155f,
                 () -> showToast("Haz click para cambiar el avatar"));
 
-        field(610f, 630f, 450f, "Nick:", nick, "nick", false);
-        field(610f, 475f, 450f, "Contraseña:", password, "password", true);
-        toggle(610f, 325f, 450f, "CONTINUAR TIMBA ANTERIOR:", recover,
-                () -> recover = !recover, true);
+        field(610f, 630f, 450f, "Nick:", connection.nickname(), "nick", false);
+        field(610f, 475f, 450f, "Contraseña:", connection.password(), "password", true);
+        toggle(610f, 325f, 450f, "CONTINUAR TIMBA ANTERIOR:", connection.recoverRequested(),
+                () -> connection.setRecoverRequested(!connection.recoverRequested()), true);
 
-        field(1170f, 630f, 430f, "Servidor:", server, "server", false);
-        field(1630f, 630f, 175f, "", port, "port", false);
-        toggle(1170f, 475f, 635f, "UPnP", upnp,
-                () -> upnp = !upnp, true);
+        field(1170f, 630f, 430f, "Servidor:", connection.server(), "server", false);
+        field(1630f, 630f, 175f, "", connection.port(), "port", false);
+        toggle(1170f, 475f, 635f, "UPnP", connection.upnp(),
+                () -> connection.setUpnp(!connection.upnp()), true);
         choice(1170f, 320f, 635f, "Perfil de ajustes:", "Por defecto",
                 () -> showToast("Perfil de ajustes: Por defecto"));
         button(1170f, 215f, 300f, 58f, "GUARDAR…", false,
@@ -375,9 +387,19 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
         shapes.rect(0f, 129f, WIDTH, 1f);
         keyHint(430f, 55f, "ESC", "CERRAR");
         button(1165f, 31f, 250f, 70f, "CANCELAR", false,
-                () -> showToast("PREVIEW: todavía no está conectada al core"));
+                () -> showToast("PREVIEW: cancelar no modifica la configuración"));
         button(1445f, 31f, 410f, 70f, "CREAR TIMBA", true,
-                () -> showToast("PREVIEW: todavía no está conectada al core"));
+                this::validatePreviewSubmission);
+    }
+
+    private void validatePreviewSubmission() {
+        if (!connection.canSubmit()) {
+            showToast("Faltan campos o la recuperación todavía no está lista");
+            return;
+        }
+        connection.beginSubmission();
+        connection.submissionFailed();
+        showToast("Configuración validada · la preview no inicia la sesión");
     }
 
     private void drawToast() {
@@ -867,20 +889,20 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
 
     private String activeValue() {
         return switch (activeField) {
-            case "nick" -> nick;
-            case "password" -> password;
-            case "server" -> server;
-            case "port" -> port;
+            case "nick" -> connection.nickname();
+            case "password" -> connection.password();
+            case "server" -> connection.server();
+            case "port" -> connection.port();
             default -> "";
         };
     }
 
     private void setActiveValue(String value) {
         switch (activeField) {
-            case "nick" -> nick = value;
-            case "password" -> password = value;
-            case "server" -> server = value;
-            case "port" -> port = value;
+            case "nick" -> connection.setNickname(value);
+            case "password" -> connection.setPassword(value);
+            case "server" -> connection.setServer(value);
+            case "port" -> connection.setPort(value);
             default -> {
             }
         }

@@ -38,6 +38,7 @@ import com.tonikelope.coronapoker.core.network.ConfirmationTracker;
 import com.tonikelope.coronapoker.core.network.GameCommandId;
 import com.tonikelope.coronapoker.core.network.GameTransport;
 import com.tonikelope.coronapoker.core.game.GameSession;
+import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.core.game.GameWindowSink;
 import com.tonikelope.coronapoker.core.game.GameLogSink;
 import com.tonikelope.coronapoker.core.game.GameProgressSink;
@@ -101,6 +102,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final java.util.Map<String, Participant> peer_controllers;
     private final Card[] community_card_controllers;
     private final GameLogSink game_log;
+    private final GameDialogSink game_dialogs;
     private final GameProgressSink game_progress;
     private final PauseGate pause_gate;
     private final GameTransport game_transport;
@@ -110,7 +112,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final TableEventBridge table_events;
 
     public Crupier() {
-        this(null, null, null, null, null, GameLogSink.noop(), GameProgressSink.noop(), PauseGate.open(),
+        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(),
                 TableDisplaySink.noop(),
                 GameWindowSink.noop(),
@@ -118,7 +120,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     Crupier(TableEventBridge tableEvents) {
-        this(null, null, null, null, null, GameLogSink.noop(), GameProgressSink.noop(), PauseGate.open(),
+        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(), TableDisplaySink.noop(),
                 GameWindowSink.noop(), tableEvents);
     }
@@ -127,7 +129,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LocalPlayer localPlayerController,
             java.util.Map<String, Participant> peerControllers,
             Card[] communityCardControllers,
-            GameLogSink gameLog, GameProgressSink gameProgress, PauseGate pauseGate,
+            GameLogSink gameLog, GameDialogSink gameDialogs, GameProgressSink gameProgress, PauseGate pauseGate,
             GameTransport gameTransport, LobbyTransitionSink lobbyTransition,
             TableDisplaySink tableDisplay,
             GameWindowSink gameWindow,
@@ -138,6 +140,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.peer_controllers = peerControllers;
         this.community_card_controllers = communityCardControllers;
         this.game_log = java.util.Objects.requireNonNull(gameLog, "gameLog");
+        this.game_dialogs = java.util.Objects.requireNonNull(gameDialogs, "gameDialogs");
         this.game_progress = java.util.Objects.requireNonNull(gameProgress, "gameProgress");
         this.pause_gate = java.util.Objects.requireNonNull(pauseGate, "pauseGate");
         this.game_transport = java.util.Objects.requireNonNull(gameTransport, "gameTransport");
@@ -1119,11 +1122,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         Helpers.threadRun(() -> {
             // Modal: blocks this background thread until the user clicks OK.
-            Helpers.mostrarMensajeError(GameFrame.getInstance(),
+            awaitDialog(game_dialogs.showError(
                     Translator.translate("zero_trust.suspicious_header")
                     + fullReason + "\n\n"
                     + Translator.translate("zero_trust.suspicious_body"),
-                    "justify", zeroTrustPopupWidth());
+                    zeroTrustPopupWidth()));
             // The notice recommends leaving the table: after closing it, one click opens
             // the existing exit flow (same path as the Exit menu / Ctrl+Q). Choosing to
             // keep playing just cancels the dialog. CLIENT ONLY: on the host the warning
@@ -1146,6 +1149,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // any zoom level.
     private int zeroTrustPopupWidth() {
         return Math.round(600f * Helpers.DIALOG_ZOOM);
+    }
+
+    private void awaitDialog(java.util.concurrent.CompletionStage<?> dialog) {
+        try {
+            dialog.toCompletableFuture().join();
+        } catch (RuntimeException failure) {
+            LOGGER.log(Level.WARNING, "Game dialog failed", failure);
+        }
+    }
+
+    private boolean awaitConfirmation(java.util.concurrent.CompletionStage<Boolean> dialog) {
+        try {
+            return Boolean.TRUE.equals(dialog.toCompletableFuture().join());
+        } catch (RuntimeException failure) {
+            LOGGER.log(Level.WARNING, "Game confirmation failed", failure);
+            return false;
+        }
     }
 
     /**
@@ -1195,11 +1215,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             Helpers.threadRun(() -> {
                 try {
-                    Helpers.mostrarMensajeError(GameFrame.getInstance(),
+                    awaitDialog(game_dialogs.showError(
                             Translator.translate("zero_trust.peer_suspicious_header")
                             + line + "\n\n"
                             + Translator.translate("zero_trust.peer_suspicious_body"),
-                            "justify", zeroTrustPopupWidth());
+                            zeroTrustPopupWidth()));
                 } catch (Exception ignored) {
                 }
             });
@@ -1270,11 +1290,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         } catch (Exception ignored) {
         }
         Helpers.threadRun(() -> {
-            Helpers.mostrarMensajeError(GameFrame.getInstance(),
+            awaitDialog(game_dialogs.showError(
                     Translator.translate("zero_trust.suspicious_header")
                     + MessageFormat.format(Translator.translate("zero_trust.deck_unverified"), hostNick) + "\n\n"
                     + Translator.translate("zero_trust.deck_unverified_body"),
-                    "justify", zeroTrustPopupWidth());
+                    zeroTrustPopupWidth()));
         });
     }
 
@@ -1562,11 +1582,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             Helpers.threadRun(() -> {
-                Helpers.mostrarMensajeError(GameFrame.getInstance(),
+                awaitDialog(game_dialogs.showError(
                         Translator.translate("zero_trust.critical_alert_header")
                         + fullReason + "\n\n"
                         + Translator.translate("zero_trust.critical_alert_body"),
-                        "justify", zeroTrustPopupWidth());
+                        zeroTrustPopupWidth()));
                 // After the lockdown popup, the game is over for this peer. The HOST finds
                 // out via the dropped socket + failed cascade -> broadcasts SERVEREXIT to
                 // the rest (abortAndExit). But THIS peer (socket already closed) won't
@@ -6615,8 +6635,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 + " " + Translator.translate("ui.sobrante") + " " + Helpers.money2String(this.bote_sobrante));
 
                 if (error_dialog) {
-                    Helpers.mostrarMensajeError(GameFrame.getInstance(),
-                            Translator.translate("ui.ojo_a_esto_no_salen"));
+                    awaitDialog(game_dialogs.showError(
+                            Translator.translate("ui.ojo_a_esto_no_salen")));
                 }
 
                 game_log
@@ -9364,7 +9384,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // their reader thread resumes from the popup; TCP ordering means the reader thread
         // blocking during the modal only delays delivery, harmlessly.
         try {
-            Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("game.mano_anulada") + " " + Translator.translate(motivo) + "<b>" + Translator.translate("game.mano_anulada_footer") + "</b>");
+            awaitDialog(game_dialogs.showError(Translator.translate("game.mano_anulada")
+                    + " " + Translator.translate(motivo) + "<b>"
+                    + Translator.translate("game.mano_anulada_footer") + "</b>"));
         } finally {
             // The danger alert loops until the user closes the popup.
             Audio.stopDangerAlertLoop();
@@ -10437,11 +10459,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (gameSession().isHost()) {
                     if (localPlayer().getNickname().equals(iwtsther)
-                            || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(),
+                            || awaitConfirmation(game_dialogs.confirm(
                                     iwtsther + Translator.translate("iwtsth.solicita_iwtsth")
                                     + String.valueOf(conta_iwtsth)
                                     + Translator.translate("ui.autorizamos"),
-                                    new ImageIcon(Init.class.getResource("/images/action/robot.png"))) == 0) {
+                                    GameDialogSink.Icon.ROBOT))) {
                         IWTSTH_SHOW(iwtsther, true);
                     } else {
                         IWTSTH_SHOW(iwtsther, false);
@@ -10575,11 +10597,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
         } else {
-            Helpers.mostrarMensajeError(GameFrame.getInstance(),
+            awaitDialog(game_dialogs.showError(
                     Translator.translate("ui.tienes_que_esperar")
                     + Helpers.seconds2FullTime(Math.round(((float) (IWTSTH_ANTI_FLOOD_TIME
                             - (System.currentTimeMillis() - this.last_iwtsth_rejected))) / 1000))
-                    + Translator.translate("iwtsth.para_volver_a_solicitar_iwtsth"));
+                    + Translator.translate("iwtsth.para_volver_a_solicitar_iwtsth")));
         }
     }
 
@@ -10667,9 +10689,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 game_log
                         .print(Translator.translate("blinds.la_configuracion_de_la_partida"));
                 Helpers.threadRun(() -> {
-                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance(),
+                    awaitDialog(game_dialogs.showInfo(
                             Translator.translate("blinds.la_configuracion_de_la_partida"),
-                            new ImageIcon(Init.class.getResource("/images/ciegas_big.png")));
+                            GameDialogSink.Icon.BLINDS));
                 });
             }
         }
@@ -12499,13 +12521,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         } catch (Exception ex) {
         }
 
-        Helpers.GUIRun(() -> {
-            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, aviso,
-                    Color.YELLOW, Color.BLACK, getClass().getResource("/images/stop.png"),
-                    MESA_PARADA_AVISO_TIMEOUT, true);
-            dialog.setLocationRelativeTo(dialog.getParent());
-            dialog.setVisible(true);
-        });
+        game_dialogs.showTimedWarning(aviso, MESA_PARADA_AVISO_TIMEOUT);
 
         return true;
     }
@@ -13408,15 +13424,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * outcome without blocking the game loop.
      */
     private void showConsensusPopup(String title, String body) {
-        Helpers.GUIRun(() -> {
-            try {
-                java.awt.Container container = GameFrame.getInstance();
-                String composed = (title != null ? title + "\n\n" : "") + body;
-                Helpers.mostrarMensajeInformativo(container, composed, "justify", zeroTrustPopupWidth(), null);
-            } catch (Exception ex) {
-                LOGGER.log(Level.WARNING, "Failed to show consensus popup", ex);
-            }
-        });
+        String composed = (title != null ? title + "\n\n" : "") + body;
+        game_dialogs.showInfo(composed, GameDialogSink.Icon.NONE, zeroTrustPopupWidth());
     }
 
     private HashMap<String, Object> recibirDatosClaveRecuperados() {
@@ -20090,10 +20099,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (include_balance && map != null) {
 
             // Recover the balance
-            if (Files.exists(Paths.get(Init.CORONA_DIR + "/balance")) && Helpers.mostrarMensajeInformativoSINO(
-                    GameFrame.getInstance(),
+            if (Files.exists(Paths.get(Init.CORONA_DIR + "/balance")) && awaitConfirmation(game_dialogs.confirm(
                     Translator.translate("ui.se_ha_encontrado_un_fichero"),
-                    new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
+                    GameDialogSink.Icon.MAINTENANCE))) {
 
                 try {
                     String balance = Files.readString(Paths.get(Init.CORONA_DIR + "/balance"));
@@ -21331,10 +21339,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         Helpers.threadRun(() -> {
             try {
-                Helpers.mostrarMensajeError(GameFrame.getInstance(),
+                awaitDialog(game_dialogs.showError(
                         MessageFormat.format(Translator.translate("zero_trust.seat_redraw"), host)
                         + "\n\n" + Translator.translate("zero_trust.seat_redraw_body"),
-                        "justify", zeroTrustPopupWidth());
+                        zeroTrustPopupWidth()));
             } catch (Exception ignored) {
             }
         });
@@ -21390,10 +21398,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         Helpers.threadRun(() -> {
             try {
-                Helpers.mostrarMensajeError(GameFrame.getInstance(),
+                awaitDialog(game_dialogs.showError(
                         MessageFormat.format(Translator.translate("zero_trust.seat_recover_mismatch"), host)
                         + "\n\n" + Translator.translate("zero_trust.seat_recover_mismatch_body"),
-                        "justify", zeroTrustPopupWidth());
+                        zeroTrustPopupWidth()));
             } catch (Exception ignored) {
             }
         });
@@ -23941,7 +23949,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         game_log.print(Translator.translate("player.la_timba_ha_terminado_no"));
 
-                        Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), Translator.translate("player.la_timba_ha_terminado_no"), new ImageIcon(Init.class.getResource("/images/exit.png")));
+                        awaitDialog(game_dialogs.showInfo(
+                                Translator.translate("player.la_timba_ha_terminado_no"),
+                                GameDialogSink.Icon.EXIT));
 
                         fin_de_la_transmision = true;
 
@@ -23955,7 +23965,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     game_log.print(Translator.translate("player.la_timba_ha_terminado_no"));
 
-                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), Translator.translate("player.la_timba_ha_terminado_no"), new ImageIcon(Init.class.getResource("/images/exit.png")));
+                    awaitDialog(game_dialogs.showInfo(
+                            Translator.translate("player.la_timba_ha_terminado_no"),
+                            GameDialogSink.Icon.EXIT));
 
                     fin_de_la_transmision = true;
                 }
@@ -24020,7 +24032,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("error.crupier_fatal"));
+        awaitDialog(game_dialogs.showError(Translator.translate("error.crupier_fatal")));
     }
 
     static boolean shouldRemoveExitedPlayerFromShowdown(boolean exited, int decision) {

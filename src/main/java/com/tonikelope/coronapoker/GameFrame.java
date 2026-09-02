@@ -30,6 +30,7 @@ package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.core.network.GameCommandId;
 import com.tonikelope.coronapoker.core.game.GameSession;
+import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.core.game.GameLogSink;
 import com.tonikelope.coronapoker.core.game.GameProgressSink;
 import com.tonikelope.coronapoker.core.game.GameWindowSink;
@@ -4099,6 +4100,92 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 if (target != null) target.updateShowdownCards(entries);
             }
         };
+        GameDialogSink gameDialogs = new GameDialogSink() {
+            private ImageIcon icon(GameDialogSink.Icon icon) {
+                String resource = switch (icon) {
+                    case ROBOT -> "/images/action/robot.png";
+                    case BLINDS -> "/images/ciegas_big.png";
+                    case STOP -> "/images/stop.png";
+                    case MAINTENANCE -> "/images/mantenimiento.png";
+                    case EXIT -> "/images/exit.png";
+                    default -> null;
+                };
+                return resource == null ? null : new ImageIcon(Init.class.getResource(resource));
+            }
+
+            @Override
+            public java.util.concurrent.CompletionStage<Void> showError(
+                    String message, int preferredWidth) {
+                java.util.concurrent.CompletableFuture<Void> result = new java.util.concurrent.CompletableFuture<>();
+                Helpers.GUIRun(() -> {
+                    try {
+                        if (preferredWidth > 0) {
+                            Helpers.mostrarMensajeError(GameFrame.this, message, "justify", preferredWidth);
+                        } else {
+                            Helpers.mostrarMensajeError(GameFrame.this, message);
+                        }
+                        result.complete(null);
+                    } catch (Throwable failure) {
+                        result.completeExceptionally(failure);
+                    }
+                });
+                return result;
+            }
+
+            @Override
+            public java.util.concurrent.CompletionStage<Void> showInfo(
+                    String message, GameDialogSink.Icon icon, int preferredWidth) {
+                java.util.concurrent.CompletableFuture<Void> result = new java.util.concurrent.CompletableFuture<>();
+                Helpers.GUIRun(() -> {
+                    try {
+                        if (preferredWidth > 0) {
+                            Helpers.mostrarMensajeInformativo(GameFrame.this, message,
+                                    "justify", preferredWidth, icon(icon));
+                        } else {
+                            Helpers.mostrarMensajeInformativo(GameFrame.this, message, icon(icon));
+                        }
+                        result.complete(null);
+                    } catch (Throwable failure) {
+                        result.completeExceptionally(failure);
+                    }
+                });
+                return result;
+            }
+
+            @Override
+            public java.util.concurrent.CompletionStage<Boolean> confirm(
+                    String message, GameDialogSink.Icon icon) {
+                java.util.concurrent.CompletableFuture<Boolean> result = new java.util.concurrent.CompletableFuture<>();
+                Helpers.GUIRun(() -> {
+                    try {
+                        result.complete(Helpers.mostrarMensajeInformativoSINO(
+                                GameFrame.this, message, icon(icon)) == 0);
+                    } catch (Throwable failure) {
+                        result.completeExceptionally(failure);
+                    }
+                });
+                return result;
+            }
+
+            @Override
+            public java.util.concurrent.CompletionStage<Void> showTimedWarning(
+                    String message, int seconds) {
+                java.util.concurrent.CompletableFuture<Void> result = new java.util.concurrent.CompletableFuture<>();
+                Helpers.GUIRun(() -> {
+                    try {
+                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.this, false,
+                                message, Color.YELLOW, Color.BLACK,
+                                getClass().getResource("/images/stop.png"), seconds, true);
+                        dialog.setLocationRelativeTo(dialog.getParent());
+                        dialog.setVisible(true);
+                        result.complete(null);
+                    } catch (Throwable failure) {
+                        result.completeExceptionally(failure);
+                    }
+                });
+                return result;
+            }
+        };
         GameProgressSink gameProgress = new GameProgressSink() {
             @Override
             public void countdown(int seconds) {
@@ -4395,7 +4482,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         };
         crupier = new Crupier(game_session, jugadores, tapete.getLocalPlayer(),
-                getParticipantes(), getCartas_comunes(), gameLog, gameProgress, this::checkPause,
+                getParticipantes(), getCartas_comunes(), gameLog, gameDialogs, gameProgress, this::checkPause,
                 gameTransport, lobbyTransition, tableDisplay, gameWindow, table_events);
 
         initComponents();

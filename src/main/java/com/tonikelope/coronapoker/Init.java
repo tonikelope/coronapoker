@@ -29,6 +29,7 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.core.CoronaPokerApplication;
+import com.tonikelope.coronapoker.core.DatabaseService;
 import com.tonikelope.coronapoker.core.SecureRandomService;
 import com.tonikelope.coronapoker.swing.SwingLauncher;
 import java.awt.AWTException;
@@ -114,6 +115,9 @@ public class Init extends JFrame {
     private static final Color SPLASH_STEP_TEXT_COLOR = Color.WHITE;
     private static final Color SPLASH_STEP_PILL_COLOR = new Color(255, 88, 0, 235);
     public static String SQL_FILE;
+    /** Transitional test seam; production connection ownership is in DatabaseService. */
+    @Deprecated
+    public static volatile Connection SQLITE = null;
     public static final int ANTI_SCREENSAVER_DELAY = 60000; //Ms
     public static final ConcurrentLinkedDeque<JDialog> CURRENT_MODAL_DIALOG = new ConcurrentLinkedDeque<>();
     public static final Object LOCK_CINEMATICS = new Object();
@@ -121,7 +125,6 @@ public class Init extends JFrame {
     public static final String CORONA_INIT_IMAGE = "/images/corona_init.png";
     public static volatile String WINDOW_TITLE = "CoronaPoker " + AboutDialog.VERSION;
     public static volatile ConcurrentHashMap<String, Object> MOD = null;
-    public static volatile Connection SQLITE = null;
     public static volatile Init VENTANA_INICIO = null;
     // Snapshot (size + state) of the launcher window taken right before launching
     // a game, so it reopens identically if cancelled from the waiting room.
@@ -1868,6 +1871,9 @@ public class Init extends JFrame {
             }
         }
 
+        DatabaseService database = application().service(DatabaseService.class);
+        database.useDatabase(SQL_FILE);
+
         try {
             for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
                 if ("Nimbus".equals(info.getName())) {
@@ -1893,7 +1899,8 @@ public class Init extends JFrame {
 
         // No database means no stats, no game recovery, no TOFU identities: no
         // point continuing a half-booted startup.
-        if (!Helpers.initSQLITE()) {
+        if (!Helpers.initSQLITE(database)) {
+            application().fail(new IllegalStateException("SQLite initialization failed"));
             fatalStartupError(Translator.translate("error.bd_fatal", DEBUG_DIR), null);
         }
 

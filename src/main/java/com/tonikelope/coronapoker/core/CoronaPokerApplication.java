@@ -99,6 +99,11 @@ public final class CoronaPokerApplication implements AutoCloseable {
     }
 
     public synchronized void fail(Throwable cause) {
+        Objects.requireNonNull(cause, "cause");
+        Exception closeFailure = closeStartedServices(null);
+        if (closeFailure != null) {
+            cause.addSuppressed(closeFailure);
+        }
         lifecycle.failed(cause);
     }
 

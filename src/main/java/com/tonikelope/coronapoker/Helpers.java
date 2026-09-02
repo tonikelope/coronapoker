@@ -33,6 +33,7 @@ import com.drew.imaging.ImageProcessingException;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.MetadataException;
 import com.drew.metadata.gif.GifControlDirectory;
+import com.tonikelope.coronapoker.core.DatabaseService;
 import org.dosse.upnp.UPnP;
 import static com.tonikelope.coronapoker.Init.CORONA_DIR;
 import static com.tonikelope.coronapoker.Init.DEBUG_DIR;
@@ -231,6 +232,7 @@ import java.util.Base64;
 public class Helpers {
 
     private static final Logger LOGGER = Logger.getLogger(Helpers.class.getName());
+    private static volatile DatabaseService DATABASE;
 
     public static volatile ThreadPoolExecutor THREAD_POOL;
     // Single-thread FIFO queue for the log (GameLogDialog.print). THREAD_POOL is
@@ -1490,6 +1492,10 @@ public class Helpers {
 
     public synchronized static Connection getSQLITE() throws SQLException {
 
+        if (DATABASE != null) {
+            return DATABASE.connection();
+        }
+
         if (SQLITE != null && !SQLITE.isClosed()) {
 
             return SQLITE;
@@ -1541,6 +1547,15 @@ public class Helpers {
     }
 
     public synchronized static void closeSQLITE() {
+
+        if (DATABASE != null) {
+            try {
+                DATABASE.releaseConnection();
+            } catch (SQLException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            return;
+        }
 
         if (SQLITE != null) {
             try {
@@ -1677,6 +1692,11 @@ public class Helpers {
         }
 
         return false;
+    }
+
+    public static boolean initSQLITE(DatabaseService database) {
+        DATABASE = java.util.Objects.requireNonNull(database, "database");
+        return initSQLITE();
     }
 
     /**

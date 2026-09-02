@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 
 final class CoronaPokerApplicationTest {
 
@@ -77,16 +78,49 @@ final class CoronaPokerApplicationTest {
     }
 
     @Test
-    void bootstrapOwnsAndStartsTheTypedSecureRandomService() {
+    void bootstrapOwnsAndStartsItsTypedProcessServices() {
         CoronaPokerApplication application = CoronaPokerBootstrap.createApplication();
-        SecureRandomService service = application.service(SecureRandomService.class);
+        SecureRandomService secureRandom = application.service(SecureRandomService.class);
+        DatabaseService database = application.service(DatabaseService.class);
 
-        assertThrows(IllegalStateException.class, service::generator);
+        assertThrows(IllegalStateException.class, secureRandom::generator);
+        assertThrows(IllegalStateException.class, database::connection);
         application.start();
 
-        assertNotNull(service.generator());
-        assertSame(service, application.service(SecureRandomService.class));
+        assertNotNull(secureRandom.generator());
+        assertSame(secureRandom, application.service(SecureRandomService.class));
+        assertSame(database, application.service(DatabaseService.class));
         application.close();
+        assertThrows(IllegalStateException.class, database::connection);
+    }
+
+    @Test
+    void databaseConnectionCanBeReleasedBetweenGamesButNotAfterProcessClose() throws Exception {
+        DatabaseService database = new DatabaseService(":memory:");
+        database.start();
+
+        java.sql.Connection first = database.connection();
+        database.releaseConnection();
+        java.sql.Connection second = database.connection();
+
+        assertNotSame(first, second);
+        database.close();
+        assertThrows(IllegalStateException.class, database::connection);
+    }
+
+    @Test
+    void applicationFailurePermanentlyClosesItsDatabaseService() throws Exception {
+        DatabaseService database = new DatabaseService(":memory:");
+        CoronaPokerApplication application = new CoronaPokerApplication(List.of(database));
+        application.start();
+        database.connection();
+
+        IllegalStateException failure = new IllegalStateException("schema initialization failed");
+        application.fail(failure);
+
+        assertSame(failure, application.lifecycle().failure());
+        assertEquals(ApplicationLifecycle.State.FAILED, application.lifecycle().state());
+        assertThrows(IllegalStateException.class, database::connection);
     }
 
     private static ApplicationService service(String name, List<String> calls) {

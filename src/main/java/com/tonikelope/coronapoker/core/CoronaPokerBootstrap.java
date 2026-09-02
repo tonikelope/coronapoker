@@ -7,10 +7,14 @@ public final class CoronaPokerBootstrap {
     }
 
     /**
-     * Creates one application process. Concrete DB, crypto, preferences and
-     * audio services will be added here as they are extracted from Swing.
+     * Creates one application process. Further identity, preferences and audio
+     * services will be added here as they are extracted from Swing.
      */
     public static CoronaPokerApplication createApplication() {
-        return new CoronaPokerApplication(java.util.List.of(new SecureRandomService()));
+        String database = java.nio.file.Path.of(
+                System.getProperty("user.home"), ".coronapoker", "coronapoker.db").toString();
+        return new CoronaPokerApplication(java.util.List.of(
+                new SecureRandomService(),
+                new DatabaseService(database)));
     }
 }

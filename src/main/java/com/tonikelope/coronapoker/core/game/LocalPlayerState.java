@@ -9,6 +9,7 @@ public final class LocalPlayerState extends PlayerState {
     private volatile Decision preselectedDecision = Decision.NONE;
     private volatile int responseTime;
 
+    public LocalPlayerState() { super(); }
     public LocalPlayerState(String nickname) { super(nickname); }
     public boolean turn() { return turn; }
     public double callRequired() { return callRequired; }

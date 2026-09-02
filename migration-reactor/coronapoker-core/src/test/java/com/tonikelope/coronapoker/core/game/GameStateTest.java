@@ -36,4 +36,16 @@ class GameStateTest {
         assertEquals(1, before.players().size());
         assertEquals(2, table.snapshot().players().size());
     }
+
+    @Test void frontendCardModelsCanBackTheNeutralPlayerSnapshot() {
+        LocalPlayerState player = new LocalPlayerState("Local");
+        CardState first = new CardState();
+        CardState second = new CardState();
+        player.bindHoleCards(first, second);
+        first.initialize(CardCode.parseShortCode("A_P"), false);
+        second.initialize(CardCode.parseShortCode("K_D"), true);
+
+        assertEquals("A_P", player.snapshot().holeCards().get(0).code().shortCode());
+        assertEquals("K_D", player.snapshot().holeCards().get(1).code().shortCode());
+    }
 }

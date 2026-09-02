@@ -33,8 +33,12 @@ public class PlayerState {
     private volatile boolean showingCards;
     private volatile String lastAction = "";
     private volatile String handName = "";
-    private final CardState firstCard = new CardState();
-    private final CardState secondCard = new CardState();
+    private volatile CardState firstCard = new CardState();
+    private volatile CardState secondCard = new CardState();
+
+    public PlayerState() {
+        nickname = "";
+    }
 
     public PlayerState(String nickname) {
         setNickname(nickname);
@@ -59,9 +63,18 @@ public class PlayerState {
     public CardState firstCard() { return firstCard; }
     public CardState secondCard() { return secondCard; }
 
+    /**
+     * Connects this neutral player model to the card models owned by an
+     * existing frontend adapter. Both references are swapped atomically under
+     * the same monitor used by {@link #snapshot()}.
+     */
+    public synchronized void bindHoleCards(CardState first, CardState second) {
+        firstCard = Objects.requireNonNull(first, "firstCard");
+        secondCard = Objects.requireNonNull(second, "secondCard");
+    }
+
     public final void setNickname(String value) {
         String normalized = Objects.requireNonNull(value, "nickname").trim();
-        if (normalized.isEmpty()) throw new IllegalArgumentException("nickname is required");
         nickname = normalized;
     }
     public void setBuyIn(int value) { buyIn = value; }
@@ -80,7 +93,7 @@ public class PlayerState {
     public void setLastAction(String value) { lastAction = Objects.requireNonNullElse(value, ""); }
     public void setHandName(String value) { handName = Objects.requireNonNullElse(value, ""); }
 
-    public Snapshot snapshot() {
+    public synchronized Snapshot snapshot() {
         return new Snapshot(nickname, buyIn, stack, bet, potContribution,
                 pendingPayment, decision, position, active, spectator, exited,
                 timedOut, winner, showingCards,

@@ -7,6 +7,7 @@ public final class RemotePlayerState extends PlayerState {
     private volatile boolean turn;
     private volatile int responseTime;
 
+    public RemotePlayerState() { super(); }
     public RemotePlayerState(String nickname) { super(nickname); }
     public boolean bot() { return bot; }
     public boolean turn() { return turn; }

@@ -28,6 +28,8 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.game.LocalPlayerState;
+
 import static com.tonikelope.coronapoker.GameFrame.GUI_RENDER_WAIT;
 import static com.tonikelope.coronapoker.GameFrame.NOTIFY_INGAME_GIF_REPEAT;
 import static com.tonikelope.coronapoker.GameFrame.TTS_NO_SOUND_TIMEOUT;
@@ -99,28 +101,20 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private final Object zoom_lock = new Object();
     private final Object rabbit_lock = new Object();
 
-    private volatile String nickname;
-    private volatile int buyin = GameFrame.BUYIN;
-    private volatile double stack = 0;
-    private volatile double bet = 0;
+    private final LocalPlayerState playerState = new LocalPlayerState();
+    {
+        playerState.setBuyIn(GameFrame.BUYIN);
+    }
     private volatile boolean utg = false;
-    private volatile int decision = Player.NODEC;
-    private volatile boolean spectator = false;
-    private volatile double pagar = 0;
     // Baseline of 'pagar' at the start of the current run-it-twice side (0 on
     // SIDE-A, SIDE-A's total when entering SIDE-B). Money won on the side is
     // 'pagar - pagar_face_base', derived from the single source of truth
     // (pagar), so it can never drift out of sync. Unused outside RIT.
     private volatile double pagar_face_base = 0;
-    private volatile double bote = 0;
     private volatile Double last_bote = null;
-    private volatile boolean exit = false;
-    private volatile boolean turno = false;
     private volatile Timer auto_action = null;
     private volatile AutoActionDialog auto_action_dialog = null;
-    private volatile boolean timeout = false;
     private volatile boolean boton_mostrar = false;
-    private volatile boolean winner = false;
     private volatile boolean loser = false;
     // Showdown (RESALTAR_JUGADA_SHOWDOWN): cards of THIS player's hand (no kickers) to highlight
     // on hover over their action label. The three snapshot_ fields hold the state to restore on
@@ -135,13 +129,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile double call_required;
     private volatile double min_raise;
     private volatile int pre_pulsado = Player.NODEC;
-    private volatile boolean muestra = false;
     private volatile int parguela_counter = GameFrame.PEPILLO_COUNTER_MAX;
     private volatile int pause_counter = GameFrame.PAUSE_COUNTER_MAX;
     private volatile boolean auto_pause = false;
     private volatile boolean auto_pause_warning = false;
     private volatile Timer hurryup_timer = null;
-    private volatile int response_counter = 0;
     private volatile boolean spectator_bb = false;
     private volatile Color border_color = null;
     private volatile boolean player_stack_click = false;
@@ -335,8 +327,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public void setRabbitJugada(String jugada, java.util.List<Card> rabbitHandCards) {
+        playerState.setHandName(jugada);
         this.showdown_hand_cards = showdownHandAfterRabbit(
-                this.muestra, this.showdown_hand_cards, rabbitHandCards);
+                    isMuestra(), this.showdown_hand_cards, rabbitHandCards);
 
         Helpers.GUIRun(() -> {
             setPlayerActionIcon("action/rabbit_action.png");
@@ -543,7 +536,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public boolean isTimeout() {
-        return timeout;
+        return playerState.timedOut();
     }
 
     public JSpinner getBet_spinner() {
@@ -552,7 +545,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public int getResponseTime() {
 
-        return GameFrame.THINK_TIME - response_counter;
+        return GameFrame.THINK_TIME - playerState.responseTime();
     }
 
     public Timer getAuto_action() {
@@ -593,7 +586,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public boolean isTurno() {
-        return turno;
+        return playerState.turn();
     }
 
     public int getParguela_counter() {
@@ -625,15 +618,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public void setMuestra(boolean muestra) {
-        this.muestra = muestra;
+        playerState.setShowingCards(muestra);
     }
 
     public boolean isMuestra() {
-        return muestra;
+        return playerState.showingCards();
     }
 
     public boolean isWinner() {
-        return winner;
+        return playerState.winner();
     }
 
     public boolean isLoser() {
@@ -663,26 +656,26 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         // Defensive: a call can arrive before the player is seated (nickname still
         // null); with no chip to paint, there's nothing to do.
-        if (this.nickname == null) {
+        if (getNickname().isEmpty()) {
             return;
         }
 
         ImageIcon chip_label_icon;
 
-        if (this.nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
+        if (getNickname().equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
             Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/bb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
 
             chip_label_icon = Helpers.IMAGEN_BB;
-        } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
+        } else if (getNickname().equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
             Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/sb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
 
             chip_label_icon = Helpers.IMAGEN_SB;
-        } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
+        } else if (getNickname().equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
             // Heads-up the dealer is also UTG; if they straddle, use the combined
             // dealer+straddle chip (the DEALER branch wins over the straddle branch
             // below, so it's resolved here).
             boolean dealer_straddle = GameFrame.getInstance().getCrupier().isStraddle_posted()
-                    && this.nickname.equals(GameFrame.getInstance().getCrupier().getUtg_nick())
+                && getNickname().equals(GameFrame.getInstance().getCrupier().getUtg_nick())
                     && !GameFrame.getInstance().getCrupier().isDead_dealer();
             String dealer_img = dealer_straddle ? "/images/dealer_straddle.png"
                     : (GameFrame.getInstance().getCrupier().isDead_dealer() ? "/images/dead_dealer.png" : "/images/dealer.png");
@@ -691,7 +684,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             chip_label_icon = dealer_straddle ? Helpers.IMAGEN_DEALER_STRADDLE
                     : (GameFrame.getInstance().getCrupier().isDead_dealer() ? Helpers.IMAGEN_DEAD_DEALER : Helpers.IMAGEN_DEALER);
         } else if (GameFrame.getInstance().getCrupier().isStraddle_posted()
-                && this.nickname.equals(GameFrame.getInstance().getCrupier().getUtg_nick())) {
+                && getNickname().equals(GameFrame.getInstance().getCrupier().getUtg_nick())) {
             Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/straddle.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
 
             chip_label_icon = Helpers.IMAGEN_STRADDLE;
@@ -751,13 +744,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public void setSpectator(String msg) {
-        if (!this.exit) {
-            this.spectator = true;
+        if (!isExit()) {
+            playerState.setSpectator(true);
+            playerState.setActive(false);
             // setSpectator is entered only after the completed hand (rebuy
             // decision/warm-up). Do not carry an ALLIN decision into later
             // betting/showdown filters, where it means a current-hand all-in.
-            this.decision = Player.FOLD;
-            this.bote = 0f;
+            setDecisionModel(Player.FOLD);
+            playerState.setPotContribution(0f);
 
             // The hand reset (nuevaMano) only runs for active players, so the highlightable
             // hand from the last one they played would stay stuck on the seat while they're
@@ -784,7 +778,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 chip_label.setVisible(false);
                 sec_pot_win_label.setVisible(false);
 
-                if (GameFrame.hasRebought(nickname)) {
+        if (GameFrame.hasRebought(getNickname())) {
                     setPlayerStackBackground(Color.CYAN);
                     player_stack.setForeground(Color.BLACK);
                 } else {
@@ -793,9 +787,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_stack.setForeground(Color.WHITE);
                 }
 
-                player_stack.setText(Helpers.money2String(stack));
+            player_stack.setText(Helpers.money2String(getStack()));
 
-                if (GameFrame.getInstance().getSala_espera().getServer_nick().equals(nickname)) {
+            if (GameFrame.getInstance().getSala_espera().getServer_nick().equals(getNickname())) {
                     player_name.setForeground(Color.YELLOW);
                 } else {
                     player_name.setForeground(Color.WHITE);
@@ -823,7 +817,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public void unsetSpectator() {
-        this.spectator = false;
+        playerState.setSpectator(false);
+        playerState.setActive(!isExit());
 
         Helpers.GUIRun(() -> {
             setPlayerBorder(new Color(204, 204, 204, 75));
@@ -856,9 +851,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void setTimeout(boolean val) {
 
-        if (this.timeout != val) {
+        if (isTimeout() != val) {
 
-            this.timeout = val;
+            playerState.setTimedOut(val);
 
             Helpers.GUIRun(() -> {
                 if (val) {
@@ -881,7 +876,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     private void setPlayerBorder(Color color) {
 
-        if (!timeout) {
+        if (!isTimeout()) {
             border_color = color;
         }
 
@@ -894,22 +889,23 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public double getPagar() {
-        return pagar;
+        return playerState.pendingPayment();
     }
 
     public double getBote() {
-        return bote;
+        return playerState.potContribution();
     }
 
     public boolean isExit() {
-        return exit;
+        return playerState.exited();
     }
 
     public void setExit() {
 
-        if (!this.exit) {
-            this.exit = true;
-            this.timeout = false;
+        if (!isExit()) {
+            playerState.setExited(true);
+            playerState.setTimedOut(false);
+            playerState.setActive(false);
 
             desactivarControles();
 
@@ -940,20 +936,42 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public boolean isSpectator() {
-        return this.spectator;
+        return playerState.spectator();
     }
 
     public int getDecision() {
-        return decision;
+        return switch (playerState.decision()) {
+            case FOLD -> Player.FOLD;
+            case CHECK -> Player.CHECK;
+            case BET -> Player.BET;
+            case ALL_IN -> Player.ALLIN;
+            case NONE -> Player.NODEC;
+        };
+    }
+
+    private void setDecisionModel(int value) {
+        playerState.setDecision(switch (value) {
+            case Player.FOLD -> com.tonikelope.coronapoker.core.game.PlayerState.Decision.FOLD;
+            case Player.CHECK -> com.tonikelope.coronapoker.core.game.PlayerState.Decision.CHECK;
+            case Player.BET -> com.tonikelope.coronapoker.core.game.PlayerState.Decision.BET;
+            case Player.ALLIN -> com.tonikelope.coronapoker.core.game.PlayerState.Decision.ALL_IN;
+            default -> com.tonikelope.coronapoker.core.game.PlayerState.Decision.NONE;
+        });
     }
 
     public String getNickname() {
-        return nickname;
+        return playerState.nickname();
+    }
+
+    /** Neutral authoritative state consumed by non-Swing frontends. */
+    public LocalPlayerState getState() {
+        return playerState;
     }
 
     @Override
     public void setNickname(String nickname) {
-        this.nickname = nickname;
+        playerState.setNickname(nickname);
+        playerState.setActive(!isExit() && !isSpectator());
 
         Helpers.GUIRun(() -> {
             player_name.setText(nickname);
@@ -978,7 +996,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public double getStack() {
-        return stack;
+        return playerState.stack();
     }
 
     // Live rolling animation of the stack label (EDT-confined). The renderer only writes
@@ -994,7 +1012,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public synchronized void setStack(double stack) {
-        this.stack = Helpers.doubleClean(stack);
+        playerState.setStack(Helpers.doubleClean(stack));
 
         if (!player_stack_click) {
             Helpers.GUIRunAndWait(() -> {
@@ -1008,7 +1026,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 } else {
 
-                    if (GameFrame.hasRebought(nickname)) {
+        if (GameFrame.hasRebought(getNickname())) {
                         setPlayerStackBackground(Color.CYAN);
 
                         player_stack.setForeground(Color.BLACK);
@@ -1043,7 +1061,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             return;
         }
         Helpers.GUIRun(() -> {
-            if (GameFrame.hasRebought(nickname)) {
+        if (GameFrame.hasRebought(getNickname())) {
                 setPlayerStackBackground(Color.CYAN);
                 player_stack.setForeground(Color.BLACK);
             } else {
@@ -1057,11 +1075,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public int getBuyin() {
-        return buyin;
+        return playerState.buyIn();
     }
 
     public double getBet() {
-        return bet;
+        return playerState.bet();
     }
 
     public void player_stack_click() {
@@ -1089,6 +1107,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.GUIRunAndWait(() -> {
             initComponents();
+            playerState.bindHoleCards(holeCard1.getState(), holeCard2.getState());
+            playerState.setActive(true);
             setOpaque(false);
             setBackground(null);
             action_font_base = player_check_button.getFont().getSize();
@@ -1354,20 +1374,20 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void rollCountersToModel() {
         Helpers.GUIRun(() -> {
             this.defer_counter_rolls = false;
-            stackRoller().roll(this.stack, GameFrame.isCounterRollEnabled());
-            betRoller().roll(this.bote, GameFrame.isCounterRollEnabled());
+            stackRoller().roll(getStack(), GameFrame.isCounterRollEnabled());
+            betRoller().roll(getBote(), GameFrame.isCounterRollEnabled());
         });
     }
 
     public synchronized void setBet(double new_bet) {
 
-        double old_bet = bet;
+        double old_bet = getBet();
 
-        bet = Helpers.doubleClean(new_bet);
+        playerState.setBet(Helpers.doubleClean(new_bet));
 
-        if (Helpers.doubleSecureCompare(old_bet, bet) < 0) {
-            this.bote += Helpers.doubleClean(bet - old_bet);
-            setStack(stack - (bet - old_bet));
+        if (Helpers.doubleSecureCompare(old_bet, getBet()) < 0) {
+            playerState.setPotContribution(getBote() + Helpers.doubleClean(getBet() - old_bet));
+            setStack(getStack() - (getBet() - old_bet));
         }
 
         GameFrame.getInstance().getCrupier().getBote().addPlayer(this);
@@ -1377,7 +1397,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             // stays put and rollCountersToModel rolls it when it lands, along with the
             // stack and pot.
             if (!defer_counter_rolls) {
-                betRoller().roll(bote, GameFrame.isCounterRollEnabled());
+                betRoller().roll(getBote(), GameFrame.isCounterRollEnabled());
             }
         });
 
@@ -1385,22 +1405,22 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public synchronized double postAnte(double ante) {
 
-        if (Helpers.doubleSecureCompare(0f, stack) >= 0) {
+        if (Helpers.doubleSecureCompare(0f, getStack()) >= 0) {
             return 0f; // already all-in / no chips: nothing to ante
         }
 
         double real;
 
-        if (Helpers.doubleSecureCompare(ante, stack) < 0) {
+        if (Helpers.doubleSecureCompare(ante, getStack()) < 0) {
             real = Helpers.doubleClean(ante);
         } else {
             // Doesn't cover the full ante: all-in for the ante.
-            real = Helpers.doubleClean(stack);
+            real = Helpers.doubleClean(getStack());
             setDecision(Player.ALLIN);
         }
 
-        this.bote += real;
-        setStack(stack - real);
+        playerState.setPotContribution(getBote() + real);
+        setStack(getStack() - real);
 
         GameFrame.getInstance().getCrupier().getBote().addPlayer(this);
 
@@ -1409,7 +1429,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             // it's deferred and rollCountersToModel rolls it when it lands, along with the
             // stack and pot.
             if (!defer_counter_rolls) {
-                betRoller().roll(bote, GameFrame.isCounterRollEnabled());
+                betRoller().roll(getBote(), GameFrame.isCounterRollEnabled());
             }
         });
 
@@ -1420,13 +1440,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         double want = Helpers.doubleClean(amount);
 
-        if (Helpers.doubleSecureCompare(want, stack) < 0) {
+        if (Helpers.doubleSecureCompare(want, getStack()) < 0) {
             setBet(want);
             return want;
         }
 
         // Doesn't cover the full straddle: all-in for the straddle.
-        double all = Helpers.doubleClean(stack);
+        double all = Helpers.doubleClean(getStack());
         setBet(all);
         setDecision(Player.ALLIN);
         return all;
@@ -1444,17 +1464,17 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         // Re-check at apply time (anti-stale / anti-cheat): never exceed the table ceiling
         // even if the requested amount was larger or the stack changed between the request
         // and the start of the hand. headroom 0 -> rebuy voided.
-        int applied = Math.min(cantidad, GameFrame.rebuyHeadroom(this.stack));
+        int applied = Math.min(cantidad, GameFrame.rebuyHeadroom(getStack()));
         if (applied <= 0) {
             Logger.getLogger(LocalPlayer.class.getName()).log(Level.WARNING,
                     "Rebuy of {0} for {1} voided at apply time (already at table ceiling {2})",
-                    new Object[]{cantidad, this.nickname, GameFrame.getBuyinCap()});
+                new Object[]{cantidad, getNickname(), GameFrame.getBuyinCap()});
             return;
         }
 
-        this.stack += applied;
-        this.buyin += applied;
-        GameFrame.getInstance().getRegistro().print(this.nickname + " " + Translator.translate("rebuy.recompra_2") + String.valueOf(applied) + ")");
+        playerState.setStack(getStack() + applied);
+        playerState.setBuyIn(playerState.buyIn() + applied);
+        GameFrame.getInstance().getRegistro().print(getNickname() + " " + Translator.translate("rebuy.recompra_2") + String.valueOf(applied) + ")");
         if (!silent && GameFrame.cajaSonidoOn()) {
             Audio.playWavResource("misc/cash_register.wav");
         }
@@ -1464,7 +1484,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         // too would flash the final value mid-roll.
         if (!player_stack_click && !silent) {
             Helpers.GUIRun(() -> {
-                player_stack.setText(Helpers.money2String(stack));
+                player_stack.setText(Helpers.money2String(getStack()));
                 setPlayerStackBackground(Color.CYAN);
                 player_stack.setForeground(Color.BLACK);
             });
@@ -1489,9 +1509,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         // Stack-fill gate: if this player is mid-fill on their stack (opening or rebuy), do
         // NOT activate their turn (border + buttons) until it finishes. The rest of the
         // game isn't held up by the animation; only this turn waits.
-        GameFrame.getInstance().getCrupier().awaitStackFillIfPending(this.nickname);
+            GameFrame.getInstance().getCrupier().awaitStackFillIfPending(getNickname());
 
-        turno = true;
+        playerState.setTurn(true);
 
         // On your turn the compact button bar returns to the 2x2 grid (the 4 action
         // buttons + spinner). No effect outside level 3.
@@ -1504,7 +1524,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 Audio.playWavResource("misc/yourturn.wav");
             }
 
-            call_required = Helpers.doubleClean(GameFrame.getInstance().getCrupier().getApuesta_actual() - bet);
+        call_required = Helpers.doubleClean(GameFrame.getInstance().getCrupier().getApuesta_actual() - getBet());
 
             min_raise = BetRules.minRaiseIncrement(GameFrame.getInstance().getCrupier().getUltimo_raise(), GameFrame.getInstance().getCrupier().getCiega_grande());
 
@@ -1532,7 +1552,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_action.setForeground(Color.WHITE);
 
                 //Check whether we can cover the current bet
-                if (Helpers.doubleSecureCompare(call_required, stack) < 0) {
+                if (Helpers.doubleSecureCompare(call_required, getStack()) < 0) {
 
                     player_check_button.setEnabled(true);
 
@@ -1567,8 +1587,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_check_button.putClientProperty("i18n.key", null);
                 }
 
-                if (GameFrame.getInstance().getCrupier().canPlayerRaise(nickname) && GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) > 1 && ((Helpers.doubleSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0 && Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0)
-                        || (Helpers.doubleSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0 && Helpers.doubleSecureCompare(call_required + min_raise, stack) < 0))) {
+            if (GameFrame.getInstance().getCrupier().canPlayerRaise(getNickname()) && GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) > 1 && ((Helpers.doubleSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0 && Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), getStack()) < 0)
+                        || (Helpers.doubleSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0 && Helpers.doubleSecureCompare(call_required + min_raise, getStack()) < 0))) {
 
                     // Spinner step and range aligned to the Crupier's CURRENT sb (not the
                     // static GameFrame.CIEGA_PEQUEÑA, which would be the initial sb and
@@ -1598,7 +1618,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     // aligned_max_total = floor((bet + stack) / sb) * sb, the largest
                     // committed total that's a multiple of sb and fits what the player
                     // has available. spinner_max = aligned_max_total - apuesta_actual.
-                    BigDecimal bet_plus_stack = new BigDecimal(bet + stack).setScale(2, RoundingMode.HALF_UP);
+                    BigDecimal bet_plus_stack = new BigDecimal(getBet() + getStack()).setScale(2, RoundingMode.HALF_UP);
                     BigDecimal aligned_max_total = bet_plus_stack.divide(sb_step, 0, RoundingMode.FLOOR).multiply(sb_step);
                     BigDecimal spinner_max = aligned_max_total.subtract(apuesta_actual_bd);
 
@@ -1694,8 +1714,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 guardarColoresBotonesAccion();
 
                 if ((GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) == 1
-                        || !GameFrame.getInstance().getCrupier().canPlayerRaise(nickname))
-                        && Helpers.doubleSecureCompare(call_required, stack) < 0) {
+                        || !GameFrame.getInstance().getCrupier().canPlayerRaise(getNickname()))
+                        && Helpers.doubleSecureCompare(call_required, getStack()) < 0) {
                     player_allin_button.setText(" ");
                     player_allin_button.putClientProperty("i18n.key", null);
                     player_allin_button.setEnabled(false);
@@ -1727,7 +1747,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 if (!GameFrame.TEST_MODE) {
 
                     //Maximum time to think
-                    response_counter = GameFrame.THINK_TIME;
+        playerState.setResponseTime(GameFrame.THINK_TIME);
 
                     if (auto_action != null) {
                         auto_action.stop();
@@ -1739,19 +1759,19 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         @Override
                         public void actionPerformed(ActionEvent ae) {
 
-                            if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && response_counter > 0 && auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
+                if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && playerState.responseTime() > 0 && auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
 
                                 // Disabled => does NOT decrement (counter frozen): never reaches
                                 // 0/10, so neither hurry-up nor auto-fold trigger, but the loop
                                 // stays alive for the getJugadoresActivos()<2 safety check
                                 // throughout the whole turn.
                                 if (GameFrame.THINK_TIME_ENABLED) {
-                                    response_counter--;
+                    playerState.setResponseTime(playerState.responseTime() - 1);
                                 }
 
                                 // setValue(response_counter) is redundant: smoothCountdown already
                                 // has its own internal Timer updating the bar every 50ms.
-                                if (GameFrame.THINK_TIME_ENABLED && response_counter == GameFrame.getHurryupThreshold()) {
+                    if (GameFrame.THINK_TIME_ENABLED && playerState.responseTime() == GameFrame.getHurryupThreshold()) {
                                     if (GameFrame.avisoTiempoSonidoOn()) {
                                         Audio.playWavResource("misc/hurryup.wav");
                                     }
@@ -1778,9 +1798,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                     }
                                 }
 
-                                if ((GameFrame.THINK_TIME_ENABLED && response_counter == 0) || GameFrame.getInstance().getCrupier().getJugadoresActivos() < 2) {
+                    if ((GameFrame.THINK_TIME_ENABLED && playerState.responseTime() == 0) || GameFrame.getInstance().getCrupier().getJugadoresActivos() < 2) {
                                     Helpers.threadRun(() -> {
-                                        if (GameFrame.THINK_TIME_ENABLED && response_counter == 0) {
+                        if (GameFrame.THINK_TIME_ENABLED && playerState.responseTime() == 0) {
                                             Audio.playWavResourceAndWait("misc/timeout.wav", true, false, !GameFrame.avisoTiempoSonidoOn()); //While the horn plays we'd still be in time to choose (the wait stays intact even if muted)
                                         }
 
@@ -1835,7 +1855,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 action_key = "modo_auto.tirar";
                             }
 
-                        } else if (pre_pulsado == Player.CHECK && (Helpers.doubleSecureCompare(0f, call_required) == 0 || (GameFrame.getInstance().getCrupier().getStreet() == Crupier.PREFLOP && Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), GameFrame.getInstance().getCrupier().getCiega_grande()) == 0) || (GameFrame.AUTO_CALL_ENABLED && (Helpers.doubleSecureCompare(0f, GameFrame.AUTO_CALL_MAX) == 0 || Helpers.doubleSecureCompare(Math.min(call_required, stack), GameFrame.AUTO_CALL_MAX) <= 0)))) {
+            } else if (pre_pulsado == Player.CHECK && (Helpers.doubleSecureCompare(0f, call_required) == 0 || (GameFrame.getInstance().getCrupier().getStreet() == Crupier.PREFLOP && Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), GameFrame.getInstance().getCrupier().getCiega_grande()) == 0) || (GameFrame.AUTO_CALL_ENABLED && (Helpers.doubleSecureCompare(0f, GameFrame.AUTO_CALL_MAX) == 0 || Helpers.doubleSecureCompare(Math.min(call_required, getStack()), GameFrame.AUTO_CALL_MAX) <= 0)))) {
 
                             if (player_check_button.isEnabled()) {
                                 target = player_check_button;
@@ -1981,11 +2001,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         action_button_colors.clear();
 
         Helpers.GUIRun(() -> {
-            if (decision != Player.ALLIN && decision != Player.FOLD) {
+        if (getDecision() != Player.ALLIN && getDecision() != Player.FOLD) {
                 setPlayerBorder(new Color(204, 204, 204, 75));
             }
 
-            turno = false;
+        playerState.setTurn(false);
 
             synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
                 GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
@@ -2052,7 +2072,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void desPrePulsarBotonAuto(JButton boton) {
 
         // Abort the automatic reset of the pre-action if it is already our turn
-        if (turno) {
+        if (isTurno()) {
             return;
         }
 
@@ -2061,7 +2081,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRunAndWait(() -> {
 
             // Double check inside the GUI thread to prevent race conditions
-            if (turno) {
+            if (isTurno()) {
                 return;
             }
 
@@ -2080,7 +2100,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void prePulsarBotonAuto(JButton boton, int dec) {
 
         // Abort the automatic pre-action UI update if it is already our turn
-        if (turno) {
+        if (isTurno()) {
             return;
         }
 
@@ -2091,7 +2111,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             // between the outer check and here, neither is applied — so a press
             // landing exactly on the turn boundary is not auto-fired by
             // esTuTurno, and pre_pulsado can never disagree with the highlight.
-            if (turno) {
+        if (isTurno()) {
                 return;
             }
 
@@ -2153,9 +2173,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void resetBetDecision() {
 
-        int old_dec = this.decision;
+        int old_dec = getDecision();
 
-        this.decision = Player.NODEC;
+        setDecisionModel(Player.NODEC);
 
         Helpers.GUIRun(() -> {
             if (old_dec != Player.BET || Helpers.doubleSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0) {
@@ -2172,7 +2192,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         // FOLD no longer blocks: a folded player can see/arm the pre-buttons out of
         // turn (for the next hands). ALLIN, spectator, exit and showdown still block.
-        if (!turno && decision != Player.ALLIN && !spectator && !exit && !GameFrame.getInstance().getCrupier().isShow_time()) {
+        if (!isTurno() && getDecision() != Player.ALLIN && !isSpectator() && !isExit() && !GameFrame.getInstance().getCrupier().isShow_time()) {
 
             Helpers.GUIRunAndWait(() -> {
 
@@ -2218,7 +2238,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     // re-armed by the first activarPreBotones of the new hand.
     public void desActivarPreBotones(boolean reset_pre_press) {
 
-        if (!turno) {
+        if (!isTurno()) {
 
             Helpers.GUIRunAndWait(() -> {
                 if (reset_pre_press) {
@@ -2244,25 +2264,25 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void refreshPos() {
         if (this.isActivo()) {
-            this.bote = 0f;
+            playerState.setPotContribution(0f);
 
-            if (Helpers.doubleSecureCompare(0f, this.bet) < 0) {
-                setStack(this.stack + this.bet);
+            if (Helpers.doubleSecureCompare(0f, getBet()) < 0) {
+            setStack(getStack() + getBet());
             }
 
-            this.bet = 0f;
+            playerState.setBet(0f);
 
-            if (this.nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
+            if (getNickname().equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
                 this.setPosition(BIG_BLIND);
-            } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
+            } else if (getNickname().equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
                 this.setPosition(SMALL_BLIND);
-            } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
+            } else if (getNickname().equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
                 this.setPosition(DEALER);
             } else {
                 this.setPosition(-1);
             }
 
-            if (this.nickname.equals(GameFrame.getInstance().getCrupier().getUtg_nick())) {
+            if (getNickname().equals(GameFrame.getInstance().getCrupier().getUtg_nick())) {
                 this.setUTG();
             } else {
                 this.disableUTG();
@@ -2322,7 +2342,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
 
             if (!player_stack_click) {
-                if (GameFrame.hasRebought(nickname)) {
+                if (GameFrame.hasRebought(getNickname())) {
                     setPlayerStackBackground(Color.CYAN);
 
                     player_stack.setForeground(Color.BLACK);
@@ -2353,15 +2373,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             desPrePulsarAutoTodo();
         }
 
-        this.decision = Player.NODEC;
+        setDecisionModel(Player.NODEC);
 
         this.botes_secundarios.clear();
 
         this.pagar_face_base = 0f;
 
-        this.muestra = false;
+        playerState.setShowingCards(false);
 
-        this.winner = false;
+        playerState.setWinner(false);
 
         this.loser = false;
 
@@ -2370,11 +2390,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         highlightShowdownHand(false);
         this.showdown_hand_cards = null;
 
-        this.bote = 0f;
+        playerState.setPotContribution(0f);
 
         this.last_bote = null;
 
-        this.bet = 0f;
+        playerState.setBet(0f);
 
         // Safety net: clears any counter-roll deferral left over from a previous hand
         // BEFORE setting this hand's blind's deferral. Only affects the counter roll.
@@ -2383,7 +2403,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         resetGUI();
 
         Integer committedRebuy = GameFrame.getInstance().getCrupier()
-                .consumeCommittedRebuy(nickname);
+                .consumeCommittedRebuy(getNickname());
         if (committedRebuy != null) {
 
             int rebuy = committedRebuy;
@@ -2396,9 +2416,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         }
 
-        setStack(stack + pagar);
+        setStack(getStack() + getPagar());
 
-        pagar = 0f;
+        playerState.setPendingPayment(0f);
 
         // If about to post a blind (BB/SB) whose chip will fly to the pot, its stack/bet does
         // NOT roll in the posting (setPosition->setBet(blind), right below): it's deferred, and
@@ -2407,22 +2427,22 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         // deferred. Same gate as the flight (here game_recovered==0 always: the recover block
         // runs afterward).
         if (GameFrame.getInstance().getCrupier().shouldDeferCountersToChip()
-                && (this.nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())
-                || this.nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick()))) {
+                && (getNickname().equals(GameFrame.getInstance().getCrupier().getBb_nick())
+                || getNickname().equals(GameFrame.getInstance().getCrupier().getSb_nick()))) {
             setCounterRollDeferred(true);
         }
 
-        if (this.nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
+        if (getNickname().equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
             this.setPosition(BIG_BLIND);
-        } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
+        } else if (getNickname().equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
             this.setPosition(SMALL_BLIND);
-        } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
+        } else if (getNickname().equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
             this.setPosition(DEALER);
         } else {
             this.setPosition(-1);
         }
 
-        if (this.nickname.equals(GameFrame.getInstance().getCrupier().getUtg_nick())) {
+        if (getNickname().equals(GameFrame.getInstance().getCrupier().getUtg_nick())) {
             this.setUTG();
         } else {
             this.disableUTG();
@@ -2431,13 +2451,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         if (this.spectator_bb) {
             this.spectator_bb = false;
 
-            if (Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack + bet) < 0) {
+            if (Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), getStack() + getBet()) < 0) {
                 setBet(GameFrame.getInstance().getCrupier().getCiega_grande());
 
             } else {
 
                 //Going ALL IN (setBet first: see note in player_allin_buttonActionPerformed)
-                setBet(stack);
+                setBet(getStack());
                 setDecision(Player.ALLIN);
             }
 
@@ -2446,7 +2466,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public double getEffectiveStack() {
 
-        return Helpers.doubleClean(this.stack) + Helpers.doubleClean(this.bote) + Helpers.doubleClean(this.pagar);
+        return Helpers.doubleClean(getStack()) + Helpers.doubleClean(getBote()) + Helpers.doubleClean(getPagar());
 
     }
 
@@ -2501,11 +2521,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(() -> {
             if (isActivo()) {
 
-                if (nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
+        if (getNickname().equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
                     Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/bb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
-                } else if (nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
+        } else if (getNickname().equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
                     Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/sb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
-                } else if (nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
+        } else if (getNickname().equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
                     Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/dealer.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
                 } else {
                     player_name.setIcon(null);
@@ -2894,17 +2914,27 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void setPosition(int pos) {
 
+        playerState.setPosition(switch (pos) {
+            case Player.DEALER -> com.tonikelope.coronapoker.core.game.PlayerState.Position.DEALER;
+            case Player.SMALL_BLIND -> com.tonikelope.coronapoker.core.game.PlayerState.Position.SMALL_BLIND;
+            case Player.BIG_BLIND -> com.tonikelope.coronapoker.core.game.PlayerState.Position.BIG_BLIND;
+            case Player.DEAD_DEALER -> com.tonikelope.coronapoker.core.game.PlayerState.Position.DEAD_DEALER;
+            case Player.STRADDLE -> com.tonikelope.coronapoker.core.game.PlayerState.Position.STRADDLE;
+            case Player.DEALER_STRADDLE -> com.tonikelope.coronapoker.core.game.PlayerState.Position.DEALER_STRADDLE;
+            default -> com.tonikelope.coronapoker.core.game.PlayerState.Position.NONE;
+        });
+
         switch (pos) {
             case Player.DEALER:
 
                 if (GameFrame.getInstance().getCrupier().getDealer_nick().equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
-                    if (Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getCiega_pequeña(), stack) < 0) {
+                    if (Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getCiega_pequeña(), getStack()) < 0) {
                         setBet(GameFrame.getInstance().getCrupier().getCiega_pequeña());
 
                     } else {
 
                         //Going ALL IN (setBet first: see note in player_allin_buttonActionPerformed)
-                        setBet(stack);
+                        setBet(getStack());
 
                         setDecision(Player.ALLIN);
                     }
@@ -2915,13 +2945,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 break;
             case Player.BIG_BLIND:
 
-                if (Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0) {
+                if (Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), getStack()) < 0) {
                     setBet(GameFrame.getInstance().getCrupier().getCiega_grande());
 
                 } else {
 
                     //Going ALL IN (setBet first: see note in player_allin_buttonActionPerformed)
-                    setBet(stack);
+                    setBet(getStack());
 
                     setDecision(Player.ALLIN);
                 }
@@ -2929,13 +2959,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 break;
             case Player.SMALL_BLIND:
 
-                if (Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getCiega_pequeña(), stack) < 0) {
+                if (Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getCiega_pequeña(), getStack()) < 0) {
                     setBet(GameFrame.getInstance().getCrupier().getCiega_pequeña());
 
                 } else {
 
                     //Going ALL IN (setBet first: see note in player_allin_buttonActionPerformed)
-                    setBet(stack);
+                    setBet(getStack());
 
                     setDecision(Player.ALLIN);
                 }
@@ -3327,7 +3357,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private void player_fold_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_player_fold_buttonActionPerformed
         // TODO add your handling code here:
 
-        if (!turno) {
+        if (!isTurno()) {
 
             synchronized (pre_pulsar_lock) {
 
@@ -3403,9 +3433,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (boton_mostrar && GameFrame.getInstance().getCrupier().isShow_time()) {
 
-                    this.muestra = true;
+                    playerState.setShowingCards(true);
 
-                    if (decision == Player.FOLD) {
+                    if (getDecision() == Player.FOLD) {
                         updateParguela_counter();
                     }
 
@@ -3427,7 +3457,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         synchronized (GameFrame.getInstance().getCrupier().getLock_mostrar()) {
                             if (GameFrame.getInstance().getCrupier().isShow_time()) {
                                 Helpers.threadRun(() -> {
-                                    GameFrame.getInstance().getCrupier().showAndBroadcastPlayerCards(nickname);
+        GameFrame.getInstance().getCrupier().showAndBroadcastPlayerCards(getNickname());
                                 });
                                 ArrayList<Card> cartas_jugada = new ArrayList<>(getHoleCards());
                                 String hole_cards_string = Card.collection2String(getHoleCards());
@@ -3460,13 +3490,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                     setActionTextFitted(Translator.translate("ui.muestras") + jugada.getName() + Translator.translate("ui.suffix_close"));
                                 });
 
-                                if (GameFrame.SONIDOS_CHORRA && decision == Player.FOLD) {
+                                if (GameFrame.SONIDOS_CHORRA && getDecision() == Player.FOLD) {
 
                                     Audio.playWavResource("misc/showyourcards.wav");
 
                                 }
                                 if (!GameFrame.getInstance().getCrupier().getPerdedores().containsKey(GameFrame.getInstance().getLocalPlayer())) {
-                                    GameFrame.getInstance().getRegistro().print(nickname + " " + Translator.translate("ui.muestra_2") + hole_cards_string + Translator.translate("ui.suffix_close") + " -> " + jugada);
+        GameFrame.getInstance().getRegistro().print(getNickname() + " " + Translator.translate("ui.muestra_2") + hole_cards_string + Translator.translate("ui.suffix_close") + " -> " + jugada);
                                 }
                                 Helpers.GUIRun(() -> Helpers.translateComponents(botonera, false));
                             }
@@ -3530,7 +3560,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             // setDecision queues to the EDT reads bet+stack, so this way it
                             // reads them already settled instead of racing the money movement
                             // mid-setBet.
-                            setBet(stack + bet);
+                            setBet(getStack() + getBet());
 
                             setDecision(Player.ALLIN);
 
@@ -3550,7 +3580,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     private void player_check_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_player_check_buttonActionPerformed
         // TODO add your handling code here:
-        if (!turno) {
+        if (!isTurno()) {
 
             synchronized (pre_pulsar_lock) {
 
@@ -3578,7 +3608,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             if (pre_pulsado == Player.CHECK || !GameFrame.CONFIRM_ACTIONS || this.action_button_armed.get(player_check_button) || click_recuperacion) {
 
-                if (Helpers.doubleSecureCompare(this.stack - (GameFrame.getInstance().getCrupier().getApuesta_actual() - this.bet), 0f) == 0) {
+                if (Helpers.doubleSecureCompare(getStack() - (GameFrame.getInstance().getCrupier().getApuesta_actual() - getBet()), 0f) == 0) {
                     player_allin_buttonActionPerformed(null);
                 } else {
 
@@ -3632,7 +3662,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (!GameFrame.getInstance().isTimba_pausada() && getDecision() == Player.NODEC && player_bet_button.isEnabled()) {
 
-            if (Helpers.doubleSecureCompare(stack, (((BigDecimal) bet_spinner.getValue()).doubleValue()) + call_required) == 0) {
+            if (Helpers.doubleSecureCompare(getStack(), (((BigDecimal) bet_spinner.getValue()).doubleValue()) + call_required) == 0) {
 
                 player_allin_buttonActionPerformed(null);
 
@@ -3665,7 +3695,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     Helpers.threadRun(() -> {
                         if (apuesta_recuperada == null) {
 
-                            setBet(bet_spinner_val + bet + call_required);
+                        setBet(bet_spinner_val + getBet() + call_required);
                         } else {
 
                             setBet(apuesta_recuperada);
@@ -3675,7 +3705,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         setDecision(Player.BET);
 
-                        if (GameFrame.SONIDOS_CHORRA && !GameFrame.getInstance().getCrupier().isSincronizando_mano() && GameFrame.getInstance().getCrupier().getConta_raise() > 0 && Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.doubleSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
+                        if (GameFrame.SONIDOS_CHORRA && !GameFrame.getInstance().getCrupier().isSincronizando_mano() && GameFrame.getInstance().getCrupier().getConta_raise() > 0 && Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), getBet()) < 0 && Helpers.doubleSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
 
                             Audio.playWavResource("misc/raise.wav");
 
@@ -3705,11 +3735,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             return;
         }
 
-        if (nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())
-                || nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick())
-                || nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())
+            if (getNickname().equals(GameFrame.getInstance().getCrupier().getBb_nick())
+                    || getNickname().equals(GameFrame.getInstance().getCrupier().getSb_nick())
+                    || getNickname().equals(GameFrame.getInstance().getCrupier().getDealer_nick())
                 || (GameFrame.getInstance().getCrupier().isStraddle_posted()
-                && nickname.equals(GameFrame.getInstance().getCrupier().getUtg_nick()))) {
+                    && getNickname().equals(GameFrame.getInstance().getCrupier().getUtg_nick()))) {
 
             // Cycles the position chip's 3 states: normal -> 70% -> hidden -> normal.
             GameFrame.LOCAL_POSITION_CHIP = (GameFrame.LOCAL_POSITION_CHIP + 1) % 3;
@@ -3740,7 +3770,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 // Shows the fixed buy-in (not the stack value): invalidates the roller so
                 // restoring jumps to the real stack without animating from here.
                 stackRoller().invalidate();
-                player_stack.setText(Helpers.money2String(this.buyin));
+        player_stack.setText(Helpers.money2String(playerState.buyIn()));
                 setPlayerStackBackground(Color.GRAY);
                 player_stack.setForeground(Color.WHITE);
 
@@ -3751,12 +3781,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(getNickname())) {
                             setPlayerStackBackground(Color.YELLOW);
                             player_stack.setForeground(Color.BLACK);
-                            player_stack.setText(Helpers.money2String(stack) + " + " + Helpers.money2String((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname())));
+                            player_stack.setText(Helpers.money2String(getStack()) + " + " + Helpers.money2String((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname())));
                             stackRoller().invalidate();
 
                         } else {
 
-                            if (GameFrame.hasRebought(nickname)) {
+        if (GameFrame.hasRebought(getNickname())) {
                                 setPlayerStackBackground(Color.CYAN);
 
                                 player_stack.setForeground(Color.BLACK);
@@ -3834,7 +3864,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public void setWinner(String msg) {
-        this.winner = true;
+        playerState.setWinner(true);
         this.conta_win++;
 
         Helpers.GUIRun(() -> {
@@ -3862,11 +3892,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         // half the pot. Outside RIT (tag null) -> full pagar and pot, as always.
         final boolean is_rit = GameFrame.getInstance().getCrupier().getRitPotBoardTag() != null;
 
-        final double fullbote = last_bote != null ? last_bote : bote;
+        final double fullbote = last_bote != null ? last_bote : getBote();
 
         final double mibote = is_rit ? Crupier.splitPotForRunItTwice(fullbote)[0] : fullbote;
 
-        final double dinero = is_rit ? Helpers.doubleClean(pagar - pagar_face_base) : pagar;
+        final double dinero = is_rit ? Helpers.doubleClean(getPagar() - pagar_face_base) : getPagar();
 
         if (Helpers.doubleSecureCompare(0f, dinero) < 0 && GameFrame.getInstance().getCrupier().getBote().getSide_pot_count() > 0) {
 
@@ -4034,7 +4064,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void pagar(double pasta, Integer sec_pot) {
 
-        this.pagar += pasta;
+        playerState.setPendingPayment(getPagar() + pasta);
 
         if (sec_pot != null) {
             botes_secundarios.add(sec_pot);
@@ -4063,7 +4093,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void setDecision(int dec) {
 
-        this.decision = dec;
+        setDecisionModel(dec);
+        playerState.setLastAction(getLastActionString());
 
         reraise = false;
 
@@ -4101,7 +4132,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     final int conta_raise_snapshot = GameFrame.getInstance().getCrupier().getConta_raise();
                     // SINGLE read of the volatile bet: the guard and the text must use
                     // exactly the same value (see the note in ALLIN).
-                    final double bet_snapshot = bet;
+                    final double bet_snapshot = getBet();
                     if (Helpers.doubleSecureCompare(apuesta_actual_snapshot, bet_snapshot) < 0 && Helpers.doubleSecureCompare(0f, apuesta_actual_snapshot) < 0) {
                         setActionTextFitted((conta_raise_snapshot > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.money2String(bet_snapshot - apuesta_actual_snapshot) + ")");
 
@@ -4124,7 +4155,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     // down) on another thread. With separate reads, the guard could see the
                     // inflated sum mid-setBet while the text saw the already-settled one,
                     // sneaking a negative amount into the label ("ALL IN (+-0.90)").
-                    final double total_allin = bet + stack;
+                    final double total_allin = getBet() + getStack();
                     if (Helpers.doubleSecureCompare(apuesta_actual_snapshot, total_allin) < 0) {
                         setActionTextFitted(ACTIONS_LABELS[dec - 1][0] + " (+" + Helpers.money2String(total_allin - apuesta_actual_snapshot) + ")");
                     } else {
@@ -4174,7 +4205,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     // pots or stacks (the pot persists across sides).
     @Override
     public void repaintLastAction() {
-        this.winner = false;
+        playerState.setWinner(false);
         this.loser = false;
         // Run-it-twice: forgets SIDE-A's hover highlight before the rewind (idempotent if
         // no hover was active). It's DISCARDED without restoring the color:
@@ -4188,7 +4219,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         // SIDE-B's baseline = what accumulated in SIDE-A: SIDE-B's strip shows
         // 'pagar - base', i.e. ONLY what's won on SIDE-B (pagar keeps accumulating both
         // sides for accounting).
-        this.pagar_face_base = this.pagar;
+        this.pagar_face_base = getPagar();
         // Re-focuses the hole cards: SIDE-A's showdown dims the losers'; on SIDE-B they
         // must look bright again (re-evaluated).
         Helpers.GUIRun(() -> {
@@ -4199,11 +4230,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             // doesn't call) and renderDecisionVisual only repaints the border on
             // ALLIN/FOLD; without this, SIDE-A's winner/loser green/red would survive
             // into CHECK/BET (e.g. whoever covers the all-in).
-            if (decision != Player.ALLIN && decision != Player.FOLD) {
+            if (getDecision() != Player.ALLIN && getDecision() != Player.FOLD) {
                 setPlayerBorder(new Color(204, 204, 204, 75));
             }
         });
-        renderDecisionVisual(this.decision);
+        renderDecisionVisual(getDecision());
     }
 
     // The table log speaks in 3rd person like it does for every other player ("server
@@ -4233,20 +4264,20 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public String getLastActionString() {
 
-        String action = nickname + " ";
+        String action = getNickname() + " ";
 
         switch (this.getDecision()) {
             case Player.FOLD:
-                action += thirdPersonActionLabel() + " (" + Helpers.money2String(this.bote) + ")";
+                action += thirdPersonActionLabel() + " (" + Helpers.money2String(getBote()) + ")";
                 break;
             case Player.CHECK:
-                action += thirdPersonActionLabel() + " (" + Helpers.money2String(this.bote) + ")";
+                action += thirdPersonActionLabel() + " (" + Helpers.money2String(getBote()) + ")";
                 break;
             case Player.BET:
-                action += thirdPersonActionLabel() + " (" + Helpers.money2String(this.bote) + ")";
+                action += thirdPersonActionLabel() + " (" + Helpers.money2String(getBote()) + ")";
                 break;
             case Player.ALLIN:
-                action += thirdPersonActionLabel() + " (" + Helpers.money2String(this.bote) + ")";
+                action += thirdPersonActionLabel() + " (" + Helpers.money2String(getBote()) + ")";
                 ;
                 break;
             default:
@@ -4257,15 +4288,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public void setBuyin(int buyin) {
-        this.buyin = buyin;
+        playerState.setBuyIn(buyin);
 
     }
 
     @Override
     public void showCards(String jugada) {
-        this.muestra = true;
+        playerState.setShowingCards(true);
+        playerState.setHandName(jugada);
         Helpers.GUIRun(() -> {
-            if (GameFrame.getInstance().getCrupier().getRabbit_players().containsKey(nickname)) {
+        if (GameFrame.getInstance().getCrupier().getRabbit_players().containsKey(getNickname())) {
                 setActionBackground(Color.BLUE);
                 setPlayerActionIcon("action/rabbit_action.png");
             } else {
@@ -4340,9 +4372,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public void resetBote() {
-        this.bet = 0f;
-        this.last_bote = this.bote;
-        this.bote = 0f;
+        playerState.setBet(0f);
+        this.last_bote = getBote();
+        playerState.setPotContribution(0f);
     }
 
     @Override
@@ -4389,17 +4421,17 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public boolean isCalentando() {
 
-        return (spectator && Helpers.doubleSecureCompare(0f, stack) < 0);
+        return (isSpectator() && Helpers.doubleSecureCompare(0f, getStack()) < 0);
     }
 
     @Override
     public boolean isActivo() {
-        return (!exit && !spectator);
+        return (!isExit() && !isSpectator());
     }
 
     @Override
     public void setPagar(double pagar) {
-        this.pagar = pagar;
+        playerState.setPendingPayment(pagar);
     }
 
     @Override

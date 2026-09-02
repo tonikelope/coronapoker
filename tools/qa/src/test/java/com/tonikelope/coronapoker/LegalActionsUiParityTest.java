@@ -33,7 +33,7 @@ public class LegalActionsUiParityTest {
                 "src/main/java/com/tonikelope/coronapoker/LocalPlayer.java"));
         String crupier = Files.readString(root.resolve(
                 "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
-        assertTrue(localPlayer.contains("getCrupier().canPlayerRaise(nickname)"));
+        assertTrue(localPlayer.contains("getCrupier().canPlayerRaise(getNickname())"));
         assertTrue(crupier.contains("canPlayerRaise(jugador.getNickname())"));
         assertTrue(crupier.contains("canPlayerRaise(name)"));
         assertFalse(crupier.contains("partial_raise_cum"));

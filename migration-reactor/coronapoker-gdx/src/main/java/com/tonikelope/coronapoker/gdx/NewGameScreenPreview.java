@@ -20,9 +20,11 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.tonikelope.coronapoker.core.NewGameConnectionDraft;
+import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
@@ -56,6 +58,7 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
     private final GlyphLayout glyph = new GlyphLayout();
     private final Vector2 pointer = new Vector2();
     private final NewGameConnectionDraft connection;
+    private final NewGameTableDraft table = new NewGameTableDraft();
     private SpriteBatch batch;
     private ShapeRenderer shapes;
     private Texture feltTexture;
@@ -68,32 +71,6 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
     private int page;
     private String activeField;
     private boolean fullscreen;
-    private boolean fixedBuyin = true;
-    private boolean increaseBlinds;
-    private boolean blindCap;
-    private boolean rebuy = true;
-    private boolean rebuyLimit;
-    private boolean botRebuy = true;
-    private boolean botBalance;
-    private boolean handLimit;
-    private boolean thinkTime = true;
-    private boolean ante;
-    private boolean straddle;
-    private boolean iwtsth;
-    private boolean runItTwice;
-    private int buyin = 10;
-    private int minBb = 10;
-    private int maxBb = 100;
-    private int blindInterval = 60;
-    private int blindCapRaises = 5;
-    private int rebuyCount = 3;
-    private int hands = 100;
-    private int thinkSeconds = 40;
-    private int showdownSeconds = 10;
-    private int rabbit;
-    private int difficulty = 1;
-    private int blindIntervalType = 1;
-    private int rebuyCapPolicy;
     private long toastUntil;
     private String toast = "";
     private float elapsed;
@@ -265,7 +242,7 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
         field(610f, 630f, 450f, "Nick:", connection.nickname(), "nick", false);
         field(610f, 475f, 450f, "Contraseña:", connection.password(), "password", true);
         toggle(610f, 325f, 450f, "CONTINUAR TIMBA ANTERIOR:", connection.recoverRequested(),
-                () -> connection.setRecoverRequested(!connection.recoverRequested()), true);
+                this::toggleRecover, true);
 
         field(1170f, 630f, 430f, "Servidor:", connection.server(), "server", false);
         field(1630f, 630f, 175f, "", connection.port(), "port", false);
@@ -279,107 +256,165 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
                 () -> showToast("Borrar"));
     }
 
+    private void toggleRecover() {
+        connection.setRecoverRequested(!connection.recoverRequested());
+        table.setEconomyLocked(connection.recoverRequested());
+    }
+
     private void drawBlindsPage() {
         panel(430f, 185f, 670f, 625f, "CIEGAS");
         panel(1130f, 185f, 725f, 625f, "AUMENTAR CIEGAS");
 
-        choice(470f, 610f, 590f, "Estructura de ciegas:", "Por defecto",
+        choice(470f, 610f, 590f, "Estructura de ciegas:",
+                table.structureName() == null ? "Por defecto" : table.structureName(),
                 () -> showToast("Estructuras de ciegas"));
-        choice(470f, 460f, 590f, "Ciegas iniciales:", "0.10 / 0.20",
-                () -> showToast("Ciegas iniciales: 0.10 / 0.20"));
+        choice(470f, 460f, 590f, "Ciegas iniciales:", formatBlindLevel(),
+                this::nextBlindLevel, !table.economyLocked());
         button(470f, 300f, 590f, 70f, "ESTRUCTURAS DE CIEGAS", false,
                 () -> showToast("Estructuras de ciegas"));
 
-        toggle(1170f, 610f, 645f, "Aumentar ciegas:", increaseBlinds,
-                () -> increaseBlinds = !increaseBlinds, true);
+        toggle(1170f, 610f, 645f, "Aumentar ciegas:", table.increaseBlinds(),
+                () -> table.setIncreaseBlinds(!table.increaseBlinds()), !table.economyLocked());
         choice(1170f, 460f, 305f, "",
-                blindIntervalType == 1 ? "Minutos" : "Manos",
-                () -> blindIntervalType = blindIntervalType == 1 ? 2 : 1);
-        stepper(1510f, 460f, 305f, "", blindInterval, 1, 999,
-                () -> blindInterval = Math.max(1, blindInterval - 5),
-                () -> blindInterval += 5);
-        toggle(1170f, 325f, 645f, "Tope de aumentos", blindCap,
-                () -> blindCap = !blindCap, increaseBlinds);
-        stepper(1170f, 205f, 645f, "", blindCapRaises,
-                1, 99, () -> blindCapRaises = Math.max(1, blindCapRaises - 1),
-                () -> blindCapRaises++, increaseBlinds && blindCap);
+                table.blindIncreaseType() == NewGameTableDraft.BlindIncreaseType.MINUTES
+                        ? "Minutos" : "Manos",
+                () -> table.setBlindIncreaseType(
+                        table.blindIncreaseType() == NewGameTableDraft.BlindIncreaseType.MINUTES
+                                ? NewGameTableDraft.BlindIncreaseType.HANDS
+                                : NewGameTableDraft.BlindIncreaseType.MINUTES),
+                table.increaseBlinds() && !table.economyLocked());
+        stepper(1510f, 460f, 305f, "", table.blindInterval(), 1, Integer.MAX_VALUE,
+                () -> table.setBlindInterval(table.blindInterval() - 5),
+                () -> table.setBlindInterval(table.blindInterval() + 5),
+                table.increaseBlinds() && !table.economyLocked());
+        toggle(1170f, 325f, 645f, "Tope de aumentos", table.blindCap(),
+                () -> table.setBlindCap(!table.blindCap()),
+                table.blindCapControlEnabled() && !table.economyLocked());
+        stepper(1170f, 205f, 645f, "", table.blindCapRaises(),
+                1, table.maxBlindCapRaises(),
+                () -> table.setBlindCapRaises(table.blindCapRaises() - 1),
+                () -> table.setBlindCapRaises(table.blindCapRaises() + 1),
+                table.blindCapRaisesEnabled() && !table.economyLocked());
+    }
+
+    private String formatBlindLevel() {
+        NewGameTableDraft.BlindLevel level = table.blindLevel();
+        return formatBlind(level.smallBlind()) + " / " + formatBlind(level.bigBlind());
+    }
+
+    private static String formatBlind(double value) {
+        if (value < 1d) {
+            return String.format(Locale.ROOT, "%.2f", value);
+        }
+        return value == Math.rint(value)
+                ? Long.toString((long) value)
+                : Double.toString(value);
+    }
+
+    private void nextBlindLevel() {
+        table.setBlindLevelIndex((table.blindLevelIndex() + 1) % table.blindLevels().size());
     }
 
     private void drawPurchasePage() {
         panel(430f, 185f, 670f, 625f, "COMPRA");
         panel(1130f, 185f, 725f, 625f, "RECOMPRA");
 
-        toggle(470f, 625f, 590f, "Buy-in fijo", fixedBuyin,
-                () -> fixedBuyin = !fixedBuyin, true);
-        stepper(470f, 480f, 590f, "Compra inicial:", buyin, 1, 100,
-                () -> buyin = Math.max(1, buyin - 1), () -> buyin++);
-        stepper(470f, 315f, 280f, "Rango compra (CG):", minBb, 10, 500,
-                () -> minBb = Math.max(10, minBb - 10),
-                () -> minBb = Math.min(maxBb, minBb + 10));
-        stepper(780f, 315f, 280f, "→", maxBb, 10, 500,
-                () -> maxBb = Math.max(minBb, maxBb - 10),
-                () -> maxBb = Math.min(500, maxBb + 10));
+        toggle(470f, 625f, 590f, "Buy-in fijo", table.fixedBuyin(),
+                () -> table.setFixedBuyin(!table.fixedBuyin()), !table.economyLocked());
+        stepper(470f, 480f, 590f, "Compra inicial:", table.buyin(),
+                table.minimumBuyin(), table.maximumBuyin(),
+                () -> table.setBuyin(table.buyin() - 1),
+                () -> table.setBuyin(table.buyin() + 1),
+                table.fixedBuyin() && !table.economyLocked());
+        stepper(470f, 315f, 280f, "Rango compra (CG):", table.minBuyinBb(), 10, 500,
+                () -> table.setMinBuyinBb(table.minBuyinBb() - 10),
+                () -> table.setMinBuyinBb(table.minBuyinBb() + 10),
+                !table.economyLocked());
+        stepper(780f, 315f, 280f, "→", table.maxBuyinBb(), 10, 500,
+                () -> table.setMaxBuyinBb(table.maxBuyinBb() - 10),
+                () -> table.setMaxBuyinBb(table.maxBuyinBb() + 10),
+                !table.economyLocked());
 
-        toggle(1170f, 625f, 645f, "Recomprar", rebuy,
-                () -> rebuy = !rebuy, true);
-        toggle(1170f, 505f, 645f, "Límite recompra por jugador", rebuyLimit,
-                () -> rebuyLimit = !rebuyLimit, rebuy);
-        stepper(1170f, 365f, 645f, "", rebuyCount, 1, 999,
-                () -> rebuyCount = Math.max(1, rebuyCount - 1),
-                () -> rebuyCount++, rebuy && rebuyLimit);
+        toggle(1170f, 625f, 645f, "Recomprar", table.rebuy(),
+                () -> table.setRebuy(!table.rebuy()), true);
+        toggle(1170f, 505f, 645f, "Límite recompra por jugador", table.rebuyLimit(),
+                () -> table.setRebuyLimit(!table.rebuyLimit()), table.rebuyLimitEnabled());
+        stepper(1170f, 365f, 645f, "", table.rebuyLimitCount(), 1, Integer.MAX_VALUE,
+                () -> table.setRebuyLimitCount(table.rebuyLimitCount() - 1),
+                () -> table.setRebuyLimitCount(table.rebuyLimitCount() + 1),
+                table.rebuyLimitCountEnabled());
         choice(1170f, 225f, 645f, "Tope recompra:",
-                rebuyCapPolicy == 0 ? "BUYIN" : "Stack del jugador más alto",
-                () -> rebuyCapPolicy = 1 - rebuyCapPolicy, rebuy);
+                table.rebuyCapPolicy() == NewGameTableDraft.RebuyCapPolicy.BUY_IN
+                        ? "BUYIN" : "Stack del jugador más alto",
+                () -> table.setRebuyCapPolicy(
+                        table.rebuyCapPolicy() == NewGameTableDraft.RebuyCapPolicy.BUY_IN
+                                ? NewGameTableDraft.RebuyCapPolicy.HIGHEST_STACK
+                                : NewGameTableDraft.RebuyCapPolicy.BUY_IN), table.rebuy());
     }
 
     private void drawGamePage() {
         panel(430f, 185f, 670f, 625f, "PARTIDA");
         panel(1130f, 185f, 725f, 625f, "");
 
-        toggle(470f, 625f, 280f, "Límite de manos:", handLimit,
-                () -> handLimit = !handLimit, true);
-        stepper(780f, 615f, 280f, "", hands, 1, 99999,
-                () -> hands = Math.max(1, hands - 10), () -> hands += 10,
-                handLimit);
-        toggle(470f, 495f, 280f, "Tiempo de pensar:", thinkTime,
-                () -> thinkTime = !thinkTime, true);
-        stepper(780f, 485f, 280f, "", thinkSeconds, 10, 120,
-                () -> thinkSeconds = Math.max(10, thinkSeconds - 5),
-                () -> thinkSeconds = Math.min(120, thinkSeconds + 5), thinkTime);
+        toggle(470f, 625f, 280f, "Límite de manos:", table.handLimit(),
+                () -> table.setHandLimit(!table.handLimit()), true);
+        stepper(780f, 615f, 280f, "", table.handLimitCount(), 1, Integer.MAX_VALUE,
+                () -> table.setHandLimitCount(table.handLimitCount() - 10),
+                () -> table.setHandLimitCount(table.handLimitCount() + 10),
+                table.handLimit());
+        toggle(470f, 495f, 280f, "Tiempo de pensar:", table.thinkTime(),
+                () -> table.setThinkTime(!table.thinkTime()), true);
+        stepper(780f, 485f, 280f, "", table.thinkSeconds(), 10, 120,
+                () -> table.setThinkSeconds(table.thinkSeconds() - 5),
+                () -> table.setThinkSeconds(table.thinkSeconds() + 5), table.thinkTime());
         stepper(470f, 325f, 590f, "Tiempo de showdown:",
-                showdownSeconds, 5, 30,
-                () -> showdownSeconds = Math.max(5, showdownSeconds - 1),
-                () -> showdownSeconds = Math.min(30, showdownSeconds + 1));
+                table.showdownSeconds(), 5, 30,
+                () -> table.setShowdownSeconds(table.showdownSeconds() - 5),
+                () -> table.setShowdownSeconds(table.showdownSeconds() + 5));
 
-        toggle(1170f, 635f, 305f, "ANTE", ante, () -> ante = !ante, true);
-        toggle(1510f, 635f, 305f, "STRADDLE", straddle,
-                () -> straddle = !straddle, true);
-        toggle(1170f, 525f, 305f, "IWTSTH", iwtsth,
-                () -> iwtsth = !iwtsth, true);
-        toggle(1510f, 525f, 305f, "RUN IT TWICE", runItTwice,
-                () -> runItTwice = !runItTwice, true);
+        toggle(1170f, 635f, 305f, "ANTE", table.ante(),
+                () -> table.setAnte(!table.ante()), !table.economyLocked());
+        toggle(1510f, 635f, 305f, "STRADDLE", table.straddle(),
+                () -> table.setStraddle(!table.straddle()), !table.economyLocked());
+        toggle(1170f, 525f, 305f, "IWTSTH", table.iwtsth(),
+                () -> table.setIwtsth(!table.iwtsth()), true);
+        toggle(1510f, 525f, 305f, "RUN IT TWICE", table.runItTwice(),
+                () -> table.setRunItTwice(!table.runItTwice()), true);
         choice(1170f, 385f, 645f, "RABBIT HUNTING", rabbitText(),
-                () -> rabbit = (rabbit + 1) % 4);
+                this::nextRabbit);
     }
 
     private String rabbitText() {
-        return switch (rabbit) {
-            case 1 -> "Gratis";
-            case 2 -> "Gratis + SB";
-            case 3 -> "Gratis + SB + BB";
-            default -> "Desactivado";
+        return switch (table.rabbitHunting()) {
+            case FREE -> "Gratis";
+            case FREE_SMALL_BLIND -> "Gratis + SB";
+            case FREE_SMALL_AND_BIG_BLIND -> "Gratis + SB + BB";
+            case OFF -> "Desactivado";
         };
+    }
+
+    private void nextRabbit() {
+        NewGameTableDraft.RabbitHunting[] values = NewGameTableDraft.RabbitHunting.values();
+        table.setRabbitHunting(values[(table.rabbitHunting().ordinal() + 1) % values.length]);
     }
 
     private void drawBotsPage() {
         panel(520f, 185f, 1230f, 625f, "BOTS");
         choice(580f, 610f, 1110f, "Dificultad bots:",
-                difficulty == 0 ? "Fácil" : difficulty == 2 ? "Difícil" : "Media",
-                () -> difficulty = (difficulty + 1) % 3);
-        toggle(580f, 455f, 1110f, "Recomprar bots", botRebuy,
-                () -> botRebuy = !botRebuy, rebuy);
+                table.botDifficulty() == NewGameTableDraft.BotDifficulty.EASY ? "Fácil"
+                        : table.botDifficulty() == NewGameTableDraft.BotDifficulty.HARD
+                                ? "Difícil" : "Media",
+                this::nextBotDifficulty);
+        toggle(580f, 455f, 1110f, "Recomprar bots", table.botRebuy(),
+                () -> table.setBotRebuy(!table.botRebuy()), table.botRebuyEnabled());
         toggle(580f, 325f, 1110f, "Repartir saldo de bots entre humanos",
-                botBalance, () -> botBalance = !botBalance, true);
+                table.botBalanceToHumans(),
+                () -> table.setBotBalanceToHumans(!table.botBalanceToHumans()), true);
+    }
+
+    private void nextBotDifficulty() {
+        NewGameTableDraft.BotDifficulty[] values = NewGameTableDraft.BotDifficulty.values();
+        table.setBotDifficulty(values[(table.botDifficulty().ordinal() + 1) % values.length]);
     }
 
     private void drawFooter() {
@@ -398,6 +433,7 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
             return;
         }
         connection.beginSubmission();
+        table.snapshot();
         connection.submissionFailed();
         showToast("Configuración validada · la preview no inicia la sesión");
     }

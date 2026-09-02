@@ -59,12 +59,12 @@ public final class BlindStructure {
     public static final String PROP_PREFIX = "blind_structure.";
 
     public static final int MAX_STRUCTURES = 64;
-    public static final int MAX_LEVELS = 64;
+    public static final int MAX_LEVELS = com.tonikelope.coronapoker.core.BlindStructureRules.MAX_LEVELS;
     public static final int MAX_NAME_LENGTH = 40;
-    public static final double MIN_BLIND = 0.05;
+    public static final double MIN_BLIND = com.tonikelope.coronapoker.core.BlindStructureRules.MIN_BLIND;
     // Blinds step in 0.05 increments (0.25/0.30/0.35 valid; 0.33/0.04 not) — see
     // the class Javadoc for why 0.05 vs. the engine's 0.01 cent resolution.
-    public static final double BLIND_STEP = 0.05;
+    public static final double BLIND_STEP = com.tonikelope.coronapoker.core.BlindStructureRules.BLIND_STEP;
     // Cap on a single blind (small or big), applied by validateLevels to both
     // the default ladder and editor-defined custom structures. Set to 4,000,000
     // so no blind can push the buy-in (an int throughout the model: player,
@@ -72,7 +72,7 @@ public final class BlindStructure {
     // BuyinRules.CEIL_MAX_BB (500) big blinds, and 500 x 4,000,000 =
     // 2,000,000,000 fits in an int, while the next 1-2-3-5 step (6,000,000+)
     // would overflow it.
-    public static final double MAX_BLIND = 4_000_000;
+    public static final double MAX_BLIND = com.tonikelope.coronapoker.core.BlindStructureRules.MAX_BLIND;
 
     // Validation error codes (also i18n keys). null = valid.
     public static final String ERR_NAME_EMPTY = "blinds.err_name_empty";
@@ -163,33 +163,7 @@ public final class BlindStructure {
      * @return null if valid, otherwise an i18n error key
      */
     public static String validateLevels(double[][] levels) {
-        if (levels == null || levels.length == 0) {
-            return ERR_NO_LEVELS;
-        }
-        if (levels.length > MAX_LEVELS) {
-            return ERR_TOO_MANY_LEVELS;
-        }
-        for (int i = 0; i < levels.length; i++) {
-            if (levels[i] == null || levels[i].length != 2) {
-                return ERR_NO_LEVELS;
-            }
-            double sb = levels[i][0];
-            double bb = levels[i][1];
-            if (sb < MIN_BLIND || bb < MIN_BLIND || sb > MAX_BLIND || bb > MAX_BLIND
-                    || Double.isNaN(sb) || Double.isNaN(bb)) {
-                return ERR_VALUE_RANGE;
-            }
-            if (!isBlindStep(sb) || !isBlindStep(bb)) {
-                return ERR_PRECISION;
-            }
-            if (bb < sb) {
-                return ERR_BB_LT_SB;
-            }
-            if (i > 0 && (sb <= levels[i - 1][0] || bb <= levels[i - 1][1])) {
-                return ERR_NOT_INCREASING;
-            }
-        }
-        return null;
+        return com.tonikelope.coronapoker.core.BlindStructureRules.validateLevels(levels);
     }
 
     // A valid blind value: a whole multiple of the 0.05 blind step (20*v must be
@@ -288,21 +262,7 @@ public final class BlindStructure {
      * 1-2-3-5 step). Returned as a fresh array on each call.
      */
     public static double[][] defaultLevels() {
-        double[] sbs = {
-            0.1, 0.2, 0.3, 0.5,
-            1, 2, 3, 5,
-            10, 20, 30, 50,
-            100, 200, 300, 500,
-            1000, 2000, 3000, 5000,
-            10000, 20000, 30000, 50000,
-            100000, 200000, 300000, 500000,
-            1000000, 2000000
-        };
-        double[][] out = new double[sbs.length][];
-        for (int i = 0; i < sbs.length; i++) {
-            out[i] = new double[]{sbs[i], sbs[i] * 2};
-        }
-        return out;
+        return com.tonikelope.coronapoker.core.BlindStructureRules.defaultLevels();
     }
 
     // ----- Combo display format -----------------------------------------------

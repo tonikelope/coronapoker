@@ -117,3 +117,5 @@ Ejecutada el 2026-09-02 en Windows con Java 17+ y el Maven de NetBeans, usando `
 La primera ejecución restringida de QA tuvo un único `AccessDeniedException` al intentar que `CardFlipAnimatorModDeckTest` crease su fixture junto al JAR instalado en `.m2`. La repetición con acceso normal al repositorio local pasó completa; no se clasificó como defecto de producto.
 
 No se ha abierto la demo ni se ha realizado validación visual, auditiva o de frame pacing en monitor de alta frecuencia. El resultado de esta fase prueba reproducibilidad de build y regresión automatizada, no fidelidad visual en ejecución.
+
+La Fase 1 posterior queda registrada en `docs/GDX_MIGRATION_PHASE1_REPORT.md`. Su smoke abrió el JAR GDX real y detectó el monitor de 240 Hz, pero sigue sin equivaler a la validación visual mediante capturas exigida por el plan.

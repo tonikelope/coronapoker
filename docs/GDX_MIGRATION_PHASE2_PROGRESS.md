@@ -30,6 +30,12 @@ Status: **in progress; phase-2 exit criteria are not yet satisfied**
   characterized classic path for now. `Init.SQLITE` remains only as a
   deprecated compatibility seam for the existing QA injection tests; normal
   production startup and access use `DatabaseService`.
+- Extracted preference-file ownership into the neutral `PreferencesService`.
+  Both launchers now load the same typed service; Swing temporarily exposes its
+  `Properties` object through `SwingServiceBridge` while the existing settings
+  callers are migrated. Atomic writes, 500 ms coalescing, shutdown flush and
+  corrupt-file rescue-copy behavior are preserved without a Swing timer in the
+  process service.
 - Preserved the classic direct entry point: `Init.main` delegates to
   `SwingLauncher`.
 
@@ -40,13 +46,15 @@ Commits:
 - `31ffb2dc8 feat(app): add shared frontend launchers`
 - `5d7613383 refactor(core): own process secure random service`
 - `407d642fc refactor(core): own sqlite connection lifecycle`
+- `bc6ef8880 refactor(core): own persistent preferences`
 
 ## Verification
 
 - `mvn -f migration-reactor/pom.xml ... clean verify`: success for all six
   reactor projects.
-- Core lifecycle/bootstrap/service tests: 7 passed, including connection
-  release/reopen, permanent process close and failure cleanup.
+- Core lifecycle/bootstrap/service tests: 10 passed, including connection
+  release/reopen, permanent process close, failure cleanup, atomic preference
+  persistence, deferred shutdown flush and corrupt-file rescue.
 - Migration architecture tests: 4 passed, including the neutral import
   boundary, dependency direction, canonical demo source and common bootstrap
   launcher wiring.
@@ -64,16 +72,17 @@ Final artifacts for this increment:
 
 | Artifact | Bytes | SHA-256 |
 |---|---:|---|
-| `dist/CoronaPoker-24.11-swing.jar` | 430,062,381 | `985678F8281A0D39CB40D90182447C0CE6DCE1DBCC2F68334C2277A8D459370C` |
-| `dist/CoronaPoker-24.11-gdx.jar` | 432,462,399 | `1841723DD72A7D7F53BD70703B8C63708D44D51C0FF60446C0F73C6F5ED7B4D8` |
+| `dist/CoronaPoker-24.11-swing.jar` | 430,068,538 | `AFDABE97190A570C99C76C2388F29B7DCBD619D3F2508F4DDD5303BCBEB54723` |
+| `dist/CoronaPoker-24.11-gdx.jar` | 432,467,334 | `57FFAE62FBEFF50E0290AF42DAEEBF3D8C3F6969556B561BDE1CB30753F20229` |
 
 ## Still pending in phase 2
 
 - Move SQLite schema creation, migrations and integrity verification out of
   `Helpers`, then migrate the legacy QA connection-injection seam.
 - Extract identity/crypto orchestration beyond the process CSPRNG.
-- Extract preferences/configuration, updates, appearance and audio as typed
-  shared services.
+- Replace the transitional `Helpers.PROPERTIES`/`SwingServiceBridge` exposure
+  with typed configuration and appearance projections.
+- Extract updates and audio as typed shared services.
 - Make process shutdown close those concrete resources and remove remaining
   normal-path `System.exit` ownership from frontends.
 - Prove that both launchers initialize the complete same service set and that

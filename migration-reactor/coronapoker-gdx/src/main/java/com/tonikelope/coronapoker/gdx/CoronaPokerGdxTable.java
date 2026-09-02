@@ -385,6 +385,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private String statsText = "Midiendo frame pacing...";
     private LivePositionRotation livePositionRotation;
     private LiveChipBatch liveChipBatch;
+    private LiveShuffle liveShuffle;
 
     CoronaPokerGdxTable(int detectedRefreshRate) {
         this(detectedRefreshRate, null, () -> {
@@ -684,6 +685,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             liveChipBatch = new LiveChipBatch(collect, System.nanoTime(),
                     barrier, liveState.snapshot());
+        } else if (event instanceof TableVisualEvent.Shuffle shuffle) {
+            acceptLiveShuffle(shuffle, barrier);
         } else {
             throw new UnsupportedOperationException(
                     "GDX animation family not connected yet: "
@@ -1071,6 +1074,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         sceneTime += delta;
         updateLivePositionRotation();
         updateLiveChipBatch();
+        updateLiveShuffle();
         recordFrame(delta);
         handleInput();
         updateStars(delta);
@@ -2230,6 +2234,74 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shuffleSound.stop();
     }
 
+    private void acceptLiveShuffle(TableVisualEvent.Shuffle event,
+            CompletableFuture<Void> barrier) {
+        if (event.phase() == TableVisualEvent.Shuffle.Phase.START) {
+            if (liveShuffle != null) {
+                throw new IllegalStateException("A GDX shuffle is already active");
+            }
+            liveState.apply(event);
+            liveShuffle = new LiveShuffle(event.deck(), System.nanoTime());
+            startLiveShuffleSound(liveShuffle);
+            barrier.complete(null);
+            return;
+        }
+        LiveShuffle active = liveShuffle;
+        if (active == null || active.finishBarrier != null) {
+            throw new IllegalStateException("GDX shuffle FINISH without one active START");
+        }
+        active.finishEvent = event;
+        active.finishBarrier = barrier;
+        float elapsed = active.elapsedSeconds();
+        float duration = active.animation.durationSeconds();
+        active.stopAtSeconds = Math.max(duration,
+                ((float) Math.floor(elapsed / duration) + 1f) * duration);
+    }
+
+    private void updateLiveShuffle() {
+        LiveShuffle active = liveShuffle;
+        if (active == null) {
+            return;
+        }
+        float elapsed = active.elapsedSeconds();
+        float duration = active.animation.durationSeconds();
+        int cycle = Math.max(0, (int) (elapsed / duration));
+        float cycleElapsed = elapsed - cycle * duration;
+        if (cycle != active.soundCycle
+                && (active.finishBarrier == null || elapsed < active.stopAtSeconds)) {
+            stopShuffleSound();
+            active.soundCycle = cycle;
+            active.soundStopped = false;
+            startLiveShuffleSound(active);
+        }
+        if (!active.soundStopped && cycleElapsed >= shuffleAudioStopTime) {
+            stopShuffleSound();
+            active.soundStopped = true;
+        }
+        if (active.finishBarrier == null || elapsed < active.stopAtSeconds) {
+            return;
+        }
+        stopShuffleSound();
+        try {
+            liveState.apply(active.finishEvent);
+            active.finishBarrier.complete(null);
+        } catch (Throwable error) {
+            active.finishBarrier.completeExceptionally(error);
+        } finally {
+            liveShuffle = null;
+        }
+    }
+
+    private void startLiveShuffleSound(LiveShuffle active) {
+        shuffleSoundId = shuffleSound.play(0.62f * effectsVolume, 1f, 0f);
+        active.soundStopped = false;
+    }
+
+    private GifTextureAnimation liveShuffleAnimation(String deck) {
+        return deck != null && deck.toLowerCase(java.util.Locale.ROOT).contains("pepsi")
+                ? shuffleGifs[1] : shuffleGifs[0];
+    }
+
     private int potAt(float time) {
         if (time >= PAYOUT_COMPLETE) {
             return 0;
@@ -2411,6 +2483,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawHandOverlay() {
+        if (liveState != null) {
+            drawLiveShuffleOverlay();
+            return;
+        }
         if (isLayoutShowcase()) {
             return;
         }
@@ -2442,6 +2518,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (action != null) {
             drawAllInCinematic(action, time - action.time, worldWidth, worldHeight);
         }
+    }
+
+    private void drawLiveShuffleOverlay() {
+        LiveShuffle active = liveShuffle;
+        if (active == null) {
+            return;
+        }
+        float worldWidth = viewport.getWorldWidth();
+        float worldHeight = viewport.getWorldHeight();
+        float width = active.animation.width() * worldWidth
+                / Gdx.graphics.getBackBufferWidth();
+        float height = active.animation.height() * worldHeight
+                / Gdx.graphics.getBackBufferHeight();
+        float x = tableCenterX - width / 2f;
+        float y = tableCenterY - height / 2f;
+        batch.begin();
+        batch.setColor(Color.WHITE);
+        batch.draw(active.animation.frameAt(active.elapsedSeconds(), true),
+                x, y, width, height);
+        batch.end();
     }
 
     private void drawAllInCinematic(ActionEvent action, float elapsed,
@@ -3668,6 +3764,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             long elapsedNanos = Math.max(0L, System.nanoTime() - startedAtNanos);
             double durationNanos = event.durationMillis() * 1_000_000d;
             return (float) Math.min(1d, elapsedNanos / durationNanos);
+        }
+    }
+
+    private final class LiveShuffle {
+
+        final GifTextureAnimation animation;
+        final long startedAtNanos;
+        int soundCycle;
+        boolean soundStopped;
+        float stopAtSeconds = Float.POSITIVE_INFINITY;
+        TableVisualEvent.Shuffle finishEvent;
+        CompletableFuture<Void> finishBarrier;
+
+        LiveShuffle(String deck, long startedAtNanos) {
+            animation = liveShuffleAnimation(deck);
+            this.startedAtNanos = startedAtNanos;
+        }
+
+        float elapsedSeconds() {
+            return Math.max(0L, System.nanoTime() - startedAtNanos)
+                    / 1_000_000_000f;
         }
     }
 

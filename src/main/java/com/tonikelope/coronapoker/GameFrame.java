@@ -4080,7 +4080,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // so a previous session that ended in lockdown would otherwise leak
         // into this fresh game.
         Crupier.SECURITY_LOCKDOWN = false;
-        crupier = new Crupier(game_session, table_events);
+        crupier = new Crupier(game_session, jugadores, tapete.getLocalPlayer(),
+                getParticipantes(), table_events);
 
         initComponents();
 

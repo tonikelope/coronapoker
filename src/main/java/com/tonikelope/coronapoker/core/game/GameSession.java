@@ -28,6 +28,7 @@ public final class GameSession implements AutoCloseable {
     public boolean isHost() { return host; }
     public TableState table() { return table; }
     public Phase phase() { return phase.get(); }
+    public boolean isPaused() { return table.paused(); }
 
     public void start() {
         if (!phase.compareAndSet(Phase.CREATED, Phase.RUNNING)) {

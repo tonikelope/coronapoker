@@ -22,6 +22,7 @@ class GameSessionTest {
         session.start();
         session.setPaused(true);
         assertEquals(GameSession.Phase.RUNNING, session.phase());
+        assertTrue(session.isPaused());
         assertTrue(session.table().paused());
 
         session.finish();

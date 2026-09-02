@@ -28,6 +28,8 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
 import javax.swing.JDialog;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
@@ -52,6 +54,8 @@ public class RebuyDialog extends JDialog {
     private volatile boolean rebuy = false;
     private volatile boolean cancelled = false;
     private volatile boolean cancelable = false;
+    private volatile BiConsumer<Boolean, Integer> decision_listener;
+    private final AtomicBoolean decision_emitted = new AtomicBoolean(false);
     // "Defer close" mode: accepting (OK or timeout) does not close the dialog; it switches to
     // "waiting for the other players" and the dealer closes it once collection finishes. Only
     // used by the variable initial buy-in.
@@ -67,6 +71,19 @@ public class RebuyDialog extends JDialog {
 
     public void setDeferClose(boolean v) {
         this.defer_close = v;
+    }
+
+    public void setDecisionListener(BiConsumer<Boolean, Integer> listener) {
+        this.decision_listener = listener;
+        emitDecisionIfResolved();
+    }
+
+    private void emitDecisionIfResolved() {
+        if ((!rebuy && !cancelled) || decision_listener == null
+                || !decision_emitted.compareAndSet(false, true)) {
+            return;
+        }
+        decision_listener.accept(rebuy, (int) rebuy_spinner.getValue());
     }
 
     /**
@@ -231,7 +248,10 @@ public class RebuyDialog extends JDialog {
                     // timeout, discard without rebuying (same as pressing Cancel).
                     if (!cancelable) {
                         rebuy = true;
+                    } else {
+                        cancelled = true;
                     }
+                    emitDecisionIfResolved();
                     if (defer_close) {
                         // Initial buy-in: on timeout the default is accepted and the dialog
                         // switches to "waiting for the other players" (closed by the dealer).
@@ -408,11 +428,13 @@ public class RebuyDialog extends JDialog {
         // Cancel: stops the countdown so the deadline doesn't auto-accept after closing
         // (rebuy stays false).
         cancelled = true;
+        emitDecisionIfResolved();
         dispose();
     }//GEN-LAST:event_cancel_buttonActionPerformed
 
     private void ok_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ok_buttonActionPerformed
         rebuy = true;
+        emitDecisionIfResolved();
         if (defer_close) {
             // Initial buy-in: don't close; switch to "waiting for the other players".
             enterWaitingMode();

@@ -978,6 +978,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int IWTSTH_TIMEOUT = 15000;
     public static final int RIT_VOTE_TIMEOUT = 15; // Seconds the run-it-twice vote lasts (timeout = NORMAL)
     public static final int STRADDLE_DECISION_TIMEOUT = 10; // Seconds UTG has to decide on a voluntary straddle (timeout = no straddle). Declining, with no straddle UTG speaks first -> rondaApuestas starts their normal turn (esTuTurno: think-time + "your turn" / thinking)
+    public static final int REBUY_DIALOG_COUNTDOWN = 15;
     public static final int STRADDLE_RESULT_WAIT_TIMEOUT = 20; // Cap (s) the client waits for the host's STRADDLE_RESULT before assuming NO (covers the host's worst case ~9s + network slack; avoids hanging if the host early-returned without broadcasting)
     private static final double BOT_STRADDLE_PROBABILITY = 0.12; // Probability a bot UTG places a voluntary straddle (tunable)
     public static final int MONTECARLO_ITERATIONS = 1000;// Enough for a speed/accuracy tradeoff
@@ -1169,6 +1170,38 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         } catch (RuntimeException failure) {
             LOGGER.log(Level.WARNING, "Game confirmation failed", failure);
             return false;
+        }
+    }
+
+    private GameDecisionSink.RebuyResult awaitRebuyResult(
+            java.util.concurrent.CompletionStage<GameDecisionSink.RebuyResult> decision,
+            BooleanSupplier cancelled) {
+        java.util.concurrent.CompletableFuture<GameDecisionSink.RebuyResult> future
+                = decision.toCompletableFuture();
+        while (!cancelled.getAsBoolean()) {
+            try {
+                return future.get(Math.max(1, GameFrame.WAIT_QUEUES),
+                        TimeUnit.MILLISECONDS);
+            } catch (java.util.concurrent.TimeoutException pending) {
+                // A semantic future is pending; no frontend widget is observed.
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return null;
+            } catch (Exception failure) {
+                LOGGER.log(Level.WARNING, "Rebuy decision failed", failure);
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private GameDecisionSink.GameOverResult awaitGameOverResult(
+            java.util.concurrent.CompletionStage<GameDecisionSink.GameOverResult> decision) {
+        try {
+            return decision.toCompletableFuture().join();
+        } catch (RuntimeException failure) {
+            LOGGER.log(Level.WARNING, "Game-over decision failed", failure);
+            return new GameDecisionSink.GameOverResult(false, 0);
         }
     }
 
@@ -2257,7 +2290,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // start/stop symmetric even if that flag were toggled mid-recovery: recovering
     // never outlives the recovery and background_music is never duplicated.
     private volatile boolean recovering_music_active = false;
-    private volatile RecoverDialog recover_dialog = null;
+    private volatile GameDecisionSink.CloseHandle recover_dialog = null;
     private volatile String current_local_cinematic_b64 = null;
     private volatile String current_remote_cinematic_b64 = null;
     private volatile boolean rebuy_time = false;
@@ -2285,7 +2318,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // is already back in the stacks: if not yet, it must leave it somewhere findable, because the
     // refund arriving afterward won't find anything to give back.
     private volatile boolean apuestas_devueltas = false;
-    private volatile GameOverDialog gameover_dialog = null;
     private volatile String dealer_nick = null;
     private volatile String big_blind_nick = null;
     private volatile String small_blind_nick = null;
@@ -6850,7 +6882,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         //   below) until the REBUYs arrive or the crupier's safety timeouts fire.
         final boolean barra_smooth = !GameFrame.cinematicasGameOverOn();
         if (barra_smooth) {
-            game_progress.countdown(GameOverDialog.REBUY_DIALOG_COUNTDOWN);
+            game_progress.countdown(REBUY_DIALOG_COUNTDOWN);
         } else {
             game_progress.indeterminate();
         }
@@ -6971,7 +7003,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // remaining REBUYs arrive or the safety timeout fires. If they arrive first,
                 // the loop exits on its own and the final resetBarra cancels the smooth bar.
                 if (barra_smooth && !barra_indeterminada
-                        && System.currentTimeMillis() - barra_start > GameOverDialog.REBUY_DIALOG_COUNTDOWN * 1000L) {
+                        && System.currentTimeMillis() - barra_start > REBUY_DIALOG_COUNTDOWN * 1000L) {
                     barra_indeterminada = true;
                     game_progress.indeterminate();
                 }
@@ -7069,35 +7101,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             table_display.setLightsSuppressed(true);
         });
 
-        final RebuyDialog[] dlg = new RebuyDialog[1];
+        GameDecisionSink.RebuyHandle dialog = null;
 
         try {
-            Helpers.GUIRunAndWait(() -> {
-                dlg[0] = new RebuyDialog(GameFrame.getInstance(), true, false,
-                        GameOverDialog.REBUY_DIALOG_COUNTDOWN,
-                        GameFrame.getBuyinMin(), GameFrame.getBuyinMax(), GameFrame.getBuyinDefault(),
-                        "rebuy.compra_inicial");
-                dlg[0].setDeferClose(true);
-                dlg[0].setLocationRelativeTo(dlg[0].getParent());
-            });
+            dialog = game_decisions.showRebuy(new GameDecisionSink.RebuyRequest(
+                    false, REBUY_DIALOG_COUNTDOWN,
+                    GameFrame.getBuyinMin(), GameFrame.getBuyinMax(),
+                    GameFrame.getBuyinDefault(), "rebuy.compra_inicial",
+                    false, true));
 
-            // Show WITHOUT blocking this thread: the crupier must keep collecting from the
-            // rest. The dialog is modal and, on accept (defer_close), switches to "waiting
-            // for other players" instead of closing; the crupier closes it once collection is done.
-            Helpers.GUIRun(() -> dlg[0].setVisible(true));
+            GameDecisionSink.RebuyResult selection = awaitRebuyResult(
+                    dialog.result(), this::tableWaitCancelled);
 
-            // Wait for the local choice (OK, or auto-accept after 15s).
-            while (!dlg[0].isRebuy() && !tableWaitCancelled()) {
-                Helpers.pausar(GameFrame.WAIT_QUEUES);
-            }
-
-            if (tableWaitCancelled()) {
+            if (selection == null || tableWaitCancelled()) {
                 return;
             }
 
-            // The spinner already clamps to the configured range; this clamp is defensive.
+            // The frontend already clamps to the configured range; this is defensive.
             int chosen = GameFrame.getBuyinRange().clampWireAmount(
-                    (int) dlg[0].getRebuy_spinner().getValue());
+                    selection.amount());
 
             ArrayList<String> pending = new ArrayList<>();
 
@@ -7142,11 +7164,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             recibirBuyinsIniciales(pending);
 
         } finally {
+            if (dialog != null) {
+                dialog.close();
+            }
             Helpers.GUIRunAndWait(() -> {
-                // Close the "waiting for others" dialog (everyone's in now).
-                if (dlg[0] != null) {
-                    dlg[0].dispose();
-                }
                 table_display.setLightsSuppressed(false);
                     // Re-sync the lights icon with the resulting brightness: this dialog runs
                 // during table setup, where a render can leave the icon "off" while the
@@ -9210,15 +9231,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // pattern as the game-over blocks) so the finally always undoes it, even if
                 // the repaint, icon refresh or the dialog itself throws — an unmatched
                 // lights-off would leave the table dark with a dead switch.
-                try {
-                    table_display.setLightsSuppressed(true);
-
-                    recover_dialog = new RecoverDialog(GameFrame.getInstance(), true);
-                    recover_dialog.setLocationRelativeTo(recover_dialog.getParent());
-                    recover_dialog.setVisible(true);
-                } finally {
-                    table_display.setLightsSuppressed(false);
-                }
+                recover_dialog = game_decisions.showRecovery();
             });
 
             if (gameSession().isHost() || localPlayer().isActivo()) {
@@ -9248,8 +9261,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
                 Helpers.GUIRun(() -> {
                     if (recover_dialog != null) {
-                        recover_dialog.setVisible(false);
-                        recover_dialog.dispose();
+                        recover_dialog.close();
                         recover_dialog = null;
                     }
                     game_window.setFullscreenEnabled(true);
@@ -17307,8 +17319,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     this.setSincronizando_mano(false);
                     Helpers.GUIRun(() -> {
                         if (recover_dialog != null) {
-                            recover_dialog.setVisible(false);
-                            recover_dialog.dispose();
+                            recover_dialog.close();
                             recover_dialog = null;
                         }
                         game_window.setFullscreenEnabled(true);
@@ -20406,8 +20417,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             Helpers.GUIRun(() -> {
                 if (recover_dialog != null) {
-                    recover_dialog.setVisible(false);
-                    recover_dialog.dispose();
+                    recover_dialog.close();
                     recover_dialog = null;
                 }
 
@@ -20529,8 +20539,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (hadDialog) {
             Helpers.GUIRun(() -> {
                 if (recover_dialog != null) {
-                    recover_dialog.setVisible(false);
-                    recover_dialog.dispose();
+                    recover_dialog.close();
                     recover_dialog = null;
                 }
                 game_window.setFullscreenEnabled(true);
@@ -23419,8 +23428,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             this.acciones_locales_recuperadas.clear();
                             Helpers.GUIRun(() -> {
                                 if (recover_dialog != null) {
-                                    recover_dialog.setVisible(false);
-                                    recover_dialog.dispose();
+                                    recover_dialog.close();
                                     recover_dialog = null;
                                 }
                                 game_window.setFullscreenEnabled(true);
@@ -24117,28 +24125,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 int rebuy_max = GameFrame.getBuyinCap();
                 int rebuy_def = GameFrame.FIXED_BUYIN ? GameFrame.BUYIN : GameFrame.getBuyinDefault();
 
-                final RebuyDialog[] auto_rebuy_dialog = new RebuyDialog[1];
+                GameDecisionSink.RebuyHandle autoRebuy = game_decisions.showRebuy(
+                        new GameDecisionSink.RebuyRequest(false,
+                                REBUY_DIALOG_COUNTDOWN, rebuy_min, rebuy_max,
+                                rebuy_def, "rebuy.recomprar_auto", true, false));
+                GameDecisionSink.RebuyResult autoDecision = awaitRebuyResult(
+                        autoRebuy.result(), this::tableWaitCancelled);
+                autoRebuy.close();
 
-                Helpers.GUIRunAndWait(() -> {
-                    auto_rebuy_dialog[0] = new RebuyDialog(GameFrame.getInstance(), true, false, GameOverDialog.REBUY_DIALOG_COUNTDOWN, rebuy_min, rebuy_max, rebuy_def, "rebuy.recomprar_auto", true);
-                    auto_rebuy_dialog[0].setLocationRelativeTo(auto_rebuy_dialog[0].getParent());
-                    auto_rebuy_dialog[0].setVisible(true);
-                });
-
-                if (auto_rebuy_dialog[0].isRebuy()) {
+                if (autoDecision != null && autoDecision.accepted()) {
 
                     try {
 
                         rebuy_players.remove(localPlayer().getNickname());
 
                         rebuy_now.put(localPlayer().getNickname(),
-                                (int) auto_rebuy_dialog[0].getRebuy_spinner().getValue());
+                                autoDecision.amount());
 
                         String comando = "REBUY#"
                                 + Base64.getEncoder().encodeToString(
                                         localPlayer().getNickname().getBytes("UTF-8"))
                                 + "#"
-                                + String.valueOf((int) auto_rebuy_dialog[0].getRebuy_spinner().getValue());
+                                + autoDecision.amount();
 
                         if (gameSession().isHost()) {
                             this.broadcastGAMECommandFromServer(comando, null);
@@ -24183,42 +24191,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             } else if (GameFrame.REBUY && !atRebuyLimit(localPlayer().getNickname())) {
 
-                Helpers.GUIRunAndWait(() -> {
-                    // The table dims for the duration of game-over. The dimming goes INSIDE
-                    // the try so the finally undoes it no matter what: if the repaint or the
-                    // icon update blew up, a dangling dim would leave the table black with a
-                    // dead light switch.
-                    try {
-                        table_display.setLightsSuppressed(true);
+                GameDecisionSink.GameOverResult gameOver = awaitGameOverResult(
+                        game_decisions.showGameOver(
+                                new GameDecisionSink.GameOverRequest(false)));
 
-                        gameover_dialog = new GameOverDialog(GameFrame.getInstance(), true);
-
-                        game_window.setGameOverDialogOpen(true);
-
-                        gameover_dialog.setLocationRelativeTo(gameover_dialog.getParent());
-
-                        gameover_dialog.setVisible(true);
-                    } finally {
-                        table_display.setLightsSuppressed(false);
-                    }
-                });
-
-                game_window.setGameOverDialogOpen(false);
-
-                if (gameover_dialog.isContinua()) {
+                if (gameOver.continuePlaying()) {
 
                     try {
 
                         rebuy_players.remove(localPlayer().getNickname());
 
                         rebuy_now.put(localPlayer().getNickname(),
-                                (int) gameover_dialog.getBuyin_dialog().getRebuy_spinner().getValue());
+                                gameOver.rebuyAmount());
 
                         String comando = "REBUY#"
                                 + Base64.getEncoder().encodeToString(
                                         localPlayer().getNickname().getBytes("UTF-8"))
                                 + "#"
-                                + String.valueOf((int) gameover_dialog.getBuyin_dialog().getRebuy_spinner().getValue());
+                                + gameOver.rebuyAmount();
 
                         if (gameSession().isHost()) {
                             this.broadcastGAMECommandFromServer(comando, null);
@@ -24261,26 +24251,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             } else {
 
-                Helpers.GUIRunAndWait(() -> {
-                    // Same temporary dimming as the rebuy branch above (and inside the try for
-                    // the same reason). Here the table doesn't come back: the player stays a
-                    // spectator.
-                    try {
-                        table_display.setLightsSuppressed(true);
-
-                        gameover_dialog = new GameOverDialog(GameFrame.getInstance(), true, true);
-
-                        game_window.setGameOverDialogOpen(true);
-
-                        gameover_dialog.setLocationRelativeTo(gameover_dialog.getParent());
-
-                        gameover_dialog.setVisible(true);
-                    } finally {
-                        table_display.setLightsSuppressed(false);
-                    }
-                });
-
-                game_window.setGameOverDialogOpen(false);
+                awaitGameOverResult(game_decisions.showGameOver(
+                        new GameDecisionSink.GameOverRequest(true)));
 
                 localPlayer().setSpectator(null);
 

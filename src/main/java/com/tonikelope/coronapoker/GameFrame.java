@@ -4269,6 +4269,106 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     }
                 };
             }
+
+            @Override
+            public RebuyHandle showRebuy(GameDecisionSink.RebuyRequest request) {
+                java.util.concurrent.CompletableFuture<GameDecisionSink.RebuyResult> result
+                        = new java.util.concurrent.CompletableFuture<>();
+                final RebuyDialog[] created = new RebuyDialog[1];
+                Helpers.GUIRunAndWait(() -> {
+                    RebuyDialog dialog = new RebuyDialog(GameFrame.this, true,
+                            request.cancelAllowed(), request.timeoutSeconds(),
+                            request.minimum(), request.maximum(),
+                            request.defaultAmount(), request.headerKey(),
+                            request.automatic());
+                    dialog.setDeferClose(request.deferClose());
+                    dialog.setDecisionListener((accepted, amount) -> result.complete(
+                            new GameDecisionSink.RebuyResult(accepted, amount)));
+                    dialog.setLocationRelativeTo(dialog.getParent());
+                    created[0] = dialog;
+                });
+                RebuyDialog dialog = created[0];
+                Helpers.GUIRun(() -> {
+                    dialog.setVisible(true);
+                    result.complete(new GameDecisionSink.RebuyResult(
+                            dialog.isRebuy(),
+                            (int) dialog.getRebuy_spinner().getValue()));
+                });
+                return new RebuyHandle() {
+                    @Override
+                    public java.util.concurrent.CompletionStage<GameDecisionSink.RebuyResult> result() {
+                        return result;
+                    }
+
+                    @Override
+                    public void close() {
+                        Helpers.GUIRun(dialog::dispose);
+                    }
+                };
+            }
+
+            @Override
+            public java.util.concurrent.CompletionStage<GameDecisionSink.GameOverResult> showGameOver(
+                    GameDecisionSink.GameOverRequest request) {
+                java.util.concurrent.CompletableFuture<GameDecisionSink.GameOverResult> result
+                        = new java.util.concurrent.CompletableFuture<>();
+                Helpers.GUIRun(() -> {
+                    try {
+                        tableDisplayLights(true);
+                        setGame_over_dialog(true);
+                        GameOverDialog dialog = request.direct()
+                                ? new GameOverDialog(GameFrame.this, true, true)
+                                : new GameOverDialog(GameFrame.this, true);
+                        dialog.setLocationRelativeTo(dialog.getParent());
+                        dialog.setVisible(true);
+                        int amount = dialog.isContinua()
+                                && dialog.getBuyin_dialog() != null
+                                ? (int) dialog.getBuyin_dialog()
+                                        .getRebuy_spinner().getValue() : 0;
+                        result.complete(new GameDecisionSink.GameOverResult(
+                                dialog.isContinua(), amount));
+                    } catch (Throwable failure) {
+                        result.completeExceptionally(failure);
+                    } finally {
+                        setGame_over_dialog(false);
+                        tableDisplayLights(false);
+                    }
+                });
+                return result;
+            }
+
+            private void tableDisplayLights(boolean suppressed) {
+                if (suppressed) {
+                    capa_brillo.pushForcedLightsOFF();
+                } else {
+                    capa_brillo.popForcedLightsOFF();
+                }
+                tapete.repaint();
+                tapete.getCommunityCards().refreshLightsIcon();
+            }
+
+            @Override
+            public CloseHandle showRecovery() {
+                final RecoverDialog[] created = new RecoverDialog[1];
+                Helpers.GUIRunAndWait(() -> {
+                    RecoverDialog dialog = new RecoverDialog(GameFrame.this, true);
+                    dialog.setLocationRelativeTo(dialog.getParent());
+                    created[0] = dialog;
+                });
+                RecoverDialog dialog = created[0];
+                Helpers.GUIRun(() -> {
+                    try {
+                        tableDisplayLights(true);
+                        dialog.setVisible(true);
+                    } finally {
+                        tableDisplayLights(false);
+                    }
+                });
+                return () -> Helpers.GUIRun(() -> {
+                    dialog.setVisible(false);
+                    dialog.dispose();
+                });
+            }
         };
         GameProgressSink gameProgress = new GameProgressSink() {
             @Override

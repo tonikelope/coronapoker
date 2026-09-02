@@ -24,6 +24,38 @@ public interface GameDecisionSink {
     int NO_STRADDLE = 0;
     int POST_STRADDLE = 1;
 
+    record RebuyRequest(boolean cancelAllowed, int timeoutSeconds,
+            int minimum, int maximum, int defaultAmount, String headerKey,
+            boolean automatic, boolean deferClose) {
+
+        public RebuyRequest {
+            Objects.requireNonNull(headerKey, "headerKey");
+            if (timeoutSeconds < 0 || minimum < 0 || maximum < minimum
+                    || defaultAmount < 0) {
+                throw new IllegalArgumentException("invalid rebuy request");
+            }
+        }
+    }
+
+    record RebuyResult(boolean accepted, int amount) {
+    }
+
+    record GameOverRequest(boolean direct) {
+    }
+
+    record GameOverResult(boolean continuePlaying, int rebuyAmount) {
+    }
+
+    interface CloseHandle {
+
+        void close();
+    }
+
+    interface RebuyHandle extends CloseHandle {
+
+        CompletionStage<RebuyResult> result();
+    }
+
     interface RunItTwiceHandle {
 
         int currentVote();
@@ -50,6 +82,12 @@ public interface GameDecisionSink {
             String potText, IntConsumer voteListener);
 
     StraddleHandle showStraddle(int timeoutSeconds, String amountText);
+
+    RebuyHandle showRebuy(RebuyRequest request);
+
+    CompletionStage<GameOverResult> showGameOver(GameOverRequest request);
+
+    CloseHandle showRecovery();
 
     static GameDecisionSink noop() {
         return new GameDecisionSink() {
@@ -101,6 +139,37 @@ public interface GameDecisionSink {
                     public void refreshLayout() {
                     }
                 };
+            }
+
+            @Override
+            public RebuyHandle showRebuy(RebuyRequest request) {
+                Objects.requireNonNull(request, "request");
+                RebuyResult value = new RebuyResult(
+                        !request.cancelAllowed(), Math.min(request.maximum(),
+                                Math.max(request.minimum(), request.defaultAmount())));
+                return new RebuyHandle() {
+                    @Override
+                    public CompletionStage<RebuyResult> result() {
+                        return CompletableFuture.completedFuture(value);
+                    }
+
+                    @Override
+                    public void close() {
+                    }
+                };
+            }
+
+            @Override
+            public CompletionStage<GameOverResult> showGameOver(
+                    GameOverRequest request) {
+                Objects.requireNonNull(request, "request");
+                return CompletableFuture.completedFuture(
+                        new GameOverResult(false, 0));
+            }
+
+            @Override
+            public CloseHandle showRecovery() {
+                return () -> { };
             }
         };
     }

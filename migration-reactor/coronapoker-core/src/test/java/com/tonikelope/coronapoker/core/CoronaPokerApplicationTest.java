@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 final class CoronaPokerApplicationTest {
 
@@ -73,6 +74,19 @@ final class CoronaPokerApplicationTest {
         application.start();
 
         assertThrows(IllegalStateException.class, application::tableEntered);
+    }
+
+    @Test
+    void bootstrapOwnsAndStartsTheTypedSecureRandomService() {
+        CoronaPokerApplication application = CoronaPokerBootstrap.createApplication();
+        SecureRandomService service = application.service(SecureRandomService.class);
+
+        assertThrows(IllegalStateException.class, service::generator);
+        application.start();
+
+        assertNotNull(service.generator());
+        assertSame(service, application.service(SecureRandomService.class));
+        application.close();
     }
 
     private static ApplicationService service(String name, List<String> calls) {

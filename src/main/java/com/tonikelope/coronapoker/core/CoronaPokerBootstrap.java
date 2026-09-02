@@ -11,6 +11,6 @@ public final class CoronaPokerBootstrap {
      * audio services will be added here as they are extracted from Swing.
      */
     public static CoronaPokerApplication createApplication() {
-        return CoronaPokerApplication.withoutServices();
+        return new CoronaPokerApplication(java.util.List.of(new SecureRandomService()));
     }
 }

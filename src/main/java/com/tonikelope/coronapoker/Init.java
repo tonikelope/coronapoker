@@ -29,6 +29,7 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.core.CoronaPokerApplication;
+import com.tonikelope.coronapoker.core.SecureRandomService;
 import com.tonikelope.coronapoker.swing.SwingLauncher;
 import java.awt.AWTException;
 import java.awt.Color;
@@ -53,9 +54,6 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
-import java.security.Security;
 import java.sql.Connection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -1901,14 +1899,13 @@ public class Init extends JFrame {
 
         splashStep(Translator.translate("splash.aleatoriedad"));
 
-        try {
-            LOGGER.log(Level.INFO, "Trying to load CSPRNG HASH DRBG SHA-512...");
-            Security.setProperty("securerandom.drbg.config", "Hash_DRBG,SHA-512,256,reseed_only");
-            Helpers.CSPRNG_GENERATOR = SecureRandom.getInstance("DRBG");
-            LOGGER.log(Level.INFO, "CSPRNG OK");
-        } catch (NoSuchAlgorithmException ex) {
-            Helpers.CSPRNG_GENERATOR = new SecureRandom();
+        LOGGER.log(Level.INFO, "Trying to load CSPRNG HASH DRBG SHA-512...");
+        SecureRandomService secureRandom = application().service(SecureRandomService.class);
+        Helpers.CSPRNG_GENERATOR = secureRandom.generator();
+        if (secureRandom.usesFallback()) {
             LOGGER.log(Level.WARNING, "Fallback CSPRNG -> {0}", Helpers.CSPRNG_GENERATOR.getAlgorithm());
+        } else {
+            LOGGER.log(Level.INFO, "CSPRNG OK");
         }
 
         splashStep(Translator.translate("splash.recursos"));

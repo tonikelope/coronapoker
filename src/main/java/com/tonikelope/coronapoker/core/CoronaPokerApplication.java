@@ -30,6 +30,24 @@ public final class CoronaPokerApplication implements AutoCloseable {
         return lifecycle;
     }
 
+    /** Returns the single service assignable to {@code type}. */
+    public <T extends ApplicationService> T service(Class<T> type) {
+        Objects.requireNonNull(type, "type");
+        T match = null;
+        for (ApplicationService service : services) {
+            if (type.isInstance(service)) {
+                if (match != null) {
+                    throw new IllegalStateException("Multiple application services match " + type.getName());
+                }
+                match = type.cast(service);
+            }
+        }
+        if (match == null) {
+            throw new IllegalArgumentException("Application service not registered: " + type.getName());
+        }
+        return match;
+    }
+
     /** Starts every shared service exactly once. */
     public synchronized void start() {
         lifecycle.beginStartup();

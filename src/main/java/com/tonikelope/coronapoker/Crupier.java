@@ -31,6 +31,8 @@ package com.tonikelope.coronapoker;
 import com.tonikelope.coronapoker.crypto.RistrettoSRA;
 import com.tonikelope.coronapoker.crypto.UnlockChainWire;
 import com.tonikelope.coronapoker.crypto.DealChain;
+import com.tonikelope.coronapoker.table.TableEventBridge;
+import com.tonikelope.coronapoker.table.TableVisualEvent;
 
 import com.drew.imaging.ImageProcessingException;
 import static com.tonikelope.coronapoker.Card.BARAJAS;
@@ -81,6 +83,19 @@ import javax.swing.JLabel;
 public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context.DealerView {
 
     private static final Logger LOGGER = Logger.getLogger(Crupier.class.getName());
+    private final TableEventBridge table_events;
+
+    public Crupier() {
+        this(new TableEventBridge());
+    }
+
+    Crupier(TableEventBridge tableEvents) {
+        this.table_events = java.util.Objects.requireNonNull(tableEvents, "tableEvents");
+    }
+
+    public TableEventBridge getTableEventBridge() {
+        return table_events;
+    }
 
     /**
      * Mutates action[] in place into a synthetic FOLD. Shared contract for the
@@ -4648,7 +4663,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // brings in, normally 0) so it visibly RISES as chips land. The deferral
         // (pot_chips_in_flight, already incremented above) stops
         // actualizarContadoresTapete from overwriting it with the final total too early.
-        GameFrame.getInstance().setTapeteBote(Math.max(0f, this.bote_sobrante), null);
+        if (!table_events.isAttached()) {
+            GameFrame.getInstance().setTapeteBote(Math.max(0f, this.bote_sobrante), null);
+        }
     }
 
     private void addForcedBetContributor(java.util.List<Player> list, String nick) {
@@ -4709,6 +4726,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
+        double potBefore = Math.max(0d, Helpers.doubleClean(this.bote_sobrante));
+        double potAfterLanding = Math.max(0d, Helpers.doubleClean(this.bote_total));
+        if (presentForcedBetsToAttachedRenderer(contributors, potBefore, potAfterLanding)) {
+            return;
+        }
+
         // The community panel (and its pot_label) must be visible and positioned before
         // flying chips: otherwise getPotIconScreenCenter() returns null and flyChipToPot
         // falls back to the table center. The shuffle hides it again afterwards.
@@ -4752,6 +4775,41 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 Thread.currentThread().interrupt();
             }
         }
+    }
+
+    /**
+     * First direct dealer-to-frontend causal slice. An attached renderer owns
+     * the complete forced-bet animation and its audio; completion is the same
+     * barrier that currently precedes shuffling. The detached Swing path below
+     * remains the compatibility oracle until its renderer adapter is installed.
+     */
+    boolean presentForcedBetsToAttachedRenderer(java.util.List<Player> contributors,
+            double potBefore, double potAfterLanding) {
+        java.util.List<TableVisualEvent.ChipTransfer> transfers = contributors.stream()
+                .map(player -> new TableVisualEvent.ChipTransfer(
+                        player.getNickname(), Helpers.doubleClean(player.getBote())))
+                .toList();
+
+        java.util.Optional<java.util.concurrent.CompletionStage<Void>> barrier
+                = table_events.publishIfAttached(sequence -> new TableVisualEvent.CollectBets(
+                        sequence, transfers, potBefore, potAfterLanding));
+        if (barrier.isEmpty()) {
+            return false;
+        }
+
+        try {
+            barrier.orElseThrow().toCompletableFuture().get(4, TimeUnit.SECONDS);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "Forced-bet presentation barrier failed", ex);
+        } finally {
+            for (Player player : contributors) {
+                pot_chips_in_flight.updateAndGet(value -> Math.max(0, value - 1));
+                player.setCounterRollDeferred(false);
+            }
+        }
+        return true;
     }
 
     // Fixed-duration stack fill animation: all players finish together (STACK_FILL_MS)

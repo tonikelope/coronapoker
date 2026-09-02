@@ -84,14 +84,18 @@ public sealed interface TableVisualEvent permits TableVisualEvent.Synchronize,
     }
 
     record CollectBets(long sequence, List<ChipTransfer> transfers,
-            double potAfterLanding) implements TableVisualEvent {
+            double potBefore, double potAfterLanding) implements TableVisualEvent {
 
         public CollectBets {
             transfers = List.copyOf(transfers);
             if (transfers.isEmpty()) {
                 throw new IllegalArgumentException("Collect-bets event needs at least one transfer");
             }
+            requireMoney(potBefore, "Pot before collection");
             requireMoney(potAfterLanding, "Pot after landing");
+            if (potAfterLanding < potBefore) {
+                throw new IllegalArgumentException("Pot cannot decrease while collecting bets");
+            }
         }
     }
 

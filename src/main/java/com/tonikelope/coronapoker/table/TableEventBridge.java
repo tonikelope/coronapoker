@@ -9,6 +9,7 @@
 package com.tonikelope.coronapoker.table;
 
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
@@ -59,9 +60,17 @@ public final class TableEventBridge implements AutoCloseable {
 
     public CompletionStage<Void> publish(
             LongFunction<? extends TableVisualEvent> eventFactory) {
+        return publishIfAttached(eventFactory).orElse(NO_RENDERER);
+    }
+
+    /** Publishes atomically with the attachment lookup. */
+    public Optional<CompletionStage<Void>> publishIfAttached(
+            LongFunction<? extends TableVisualEvent> eventFactory) {
         Objects.requireNonNull(eventFactory, "eventFactory");
         TablePresentation current = presentation.get();
-        return current == null ? NO_RENDERER : current.publish(eventFactory);
+        return current == null
+                ? Optional.empty()
+                : Optional.of(current.publish(eventFactory));
     }
 
     @Override

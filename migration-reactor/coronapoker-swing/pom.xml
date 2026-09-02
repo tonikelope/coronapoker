@@ -58,6 +58,7 @@
                 <configuration>
                     <excludes>
                         <exclude>com/tonikelope/coronapoker/core/**</exclude>
+                        <exclude>com/tonikelope/coronapoker/table/**</exclude>
                     </excludes>
                 </configuration>
             </plugin>

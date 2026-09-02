@@ -22,8 +22,10 @@ final class ArchitectureBoundaryTest {
 
     @Test
     void coreHasNoSwingAwtOrLibgdxImports() throws IOException {
-        Path sources = reactor.resolve("../src/main/java/com/tonikelope/coronapoker/core").normalize();
-        try (Stream<Path> files = Files.walk(sources)) {
+        List<Path> sourceRoots = List.of(
+                reactor.resolve("../src/main/java/com/tonikelope/coronapoker/core").normalize(),
+                reactor.resolve("../src/main/java/com/tonikelope/coronapoker/table").normalize());
+        try (Stream<Path> files = sourceRoots.stream().flatMap(this::walk)) {
             List<Path> violations = files
                     .filter(path -> path.toString().endsWith(".java"))
                     .filter(this::containsGraphicsImport)
@@ -45,7 +47,9 @@ final class ArchitectureBoundaryTest {
         assertTrue(swingPom.contains("<artifactId>coronapoker-core</artifactId>"));
         assertTrue(gdxPom.contains("<artifactId>coronapoker-core</artifactId>"));
         assertTrue(corePom.contains("../../src/main/java/com/tonikelope/coronapoker/core"));
+        assertTrue(corePom.contains("../../src/main/java/com/tonikelope/coronapoker/table"));
         assertTrue(swingPom.contains("com/tonikelope/coronapoker/core/**"));
+        assertTrue(swingPom.contains("com/tonikelope/coronapoker/table/**"));
     }
 
     @Test
@@ -76,6 +80,14 @@ final class ArchitectureBoundaryTest {
             return GRAPHICS_IMPORT.matcher(Files.readString(path, StandardCharsets.UTF_8)).find();
         } catch (IOException ex) {
             throw new IllegalStateException("Cannot inspect " + path, ex);
+        }
+    }
+
+    private Stream<Path> walk(Path root) {
+        try {
+            return Files.walk(root);
+        } catch (IOException ex) {
+            throw new IllegalStateException("Cannot inspect " + root, ex);
         }
     }
 

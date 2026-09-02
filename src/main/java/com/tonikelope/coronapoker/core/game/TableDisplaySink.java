@@ -17,6 +17,30 @@ import java.util.function.BooleanSupplier;
 /** Immediate, semantic table-display operations retained by the classic flow. */
 public interface TableDisplaySink {
 
+    interface OverlayHandle {
+
+        void remove();
+
+        static OverlayHandle noop() {
+            return () -> {
+            };
+        }
+    }
+
+    interface PreparedCardFlip {
+
+        boolean matches(String cardCode, boolean topHalf, float zoomFactor);
+
+        int frameCount();
+
+        long totalMillis();
+    }
+
+    enum FlipSound {
+        STANDARD,
+        LOCAL
+    }
+
     record PayoutTransfer(String nickname, double stackBefore,
             double amount) {
     }
@@ -97,6 +121,27 @@ public interface TableDisplaySink {
 
     void playShuffleLoop(boolean animationEnabled, boolean soundEnabled,
             BooleanSupplier keepRunning, Runnable onComplete);
+
+    OverlayHandle addPositionChipOverlay(String nickname);
+
+    void dealHoleCard(String nickname, int slot, int durationMillis,
+            boolean soundEnabled, Runnable onLand);
+
+    void dealCommunityCard(int slot, int durationMillis,
+            boolean soundEnabled, Runnable onLand);
+
+    void swapHoleCards(String nickname, int durationMillis, boolean arc,
+            Runnable onSwapApply);
+
+    PreparedCardFlip prepareCardFlip(String cardCode, boolean topHalf,
+            float zoomFactor);
+
+    void playHoleCardFlips(String nickname, int[] slots,
+            List<PreparedCardFlip> flips, int delayEndMillis,
+            FlipSound sound);
+
+    void playCommunityCardFlip(int slot, PreparedCardFlip flip,
+            int delayEndMillis, FlipSound sound);
 
     static TableDisplaySink noop() {
         return new TableDisplaySink() {
@@ -234,6 +279,47 @@ public interface TableDisplaySink {
                     boolean soundEnabled, BooleanSupplier keepRunning,
                     Runnable onComplete) {
                 onComplete.run();
+            }
+
+            @Override
+            public OverlayHandle addPositionChipOverlay(String nickname) {
+                return OverlayHandle.noop();
+            }
+
+            @Override
+            public void dealHoleCard(String nickname, int slot,
+                    int durationMillis, boolean soundEnabled, Runnable onLand) {
+                onLand.run();
+            }
+
+            @Override
+            public void dealCommunityCard(int slot, int durationMillis,
+                    boolean soundEnabled, Runnable onLand) {
+                onLand.run();
+            }
+
+            @Override
+            public void swapHoleCards(String nickname, int durationMillis,
+                    boolean arc, Runnable onSwapApply) {
+                onSwapApply.run();
+            }
+
+            @Override
+            public PreparedCardFlip prepareCardFlip(String cardCode,
+                    boolean topHalf, float zoomFactor) {
+                return null;
+            }
+
+            @Override
+            public void playHoleCardFlips(String nickname, int[] slots,
+                    List<PreparedCardFlip> flips, int delayEndMillis,
+                    FlipSound sound) {
+            }
+
+            @Override
+            public void playCommunityCardFlip(int slot,
+                    PreparedCardFlip flip, int delayEndMillis,
+                    FlipSound sound) {
             }
         };
     }

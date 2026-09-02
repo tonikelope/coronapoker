@@ -4323,22 +4323,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return dealer_nick;
     }
 
-    // Anchor card for the dealer's seat: the deal animation's flight origin (cards
-    // fly from the dealer's hands to the other seats and community positions).
-    // Returns its first hole card as the fixed point, or null if the dealer can't
-    // be resolved (the flight then starts from the center of the table).
-    private Card getDealerSeatAnchor() {
-        if (this.dealer_nick == null) {
-            return null;
-        }
-        for (Player p : players()) {
-            if (this.dealer_nick.equals(p.getNickname())) {
-                return p.getHoleCard1();
-            }
-        }
-        return null;
-    }
-
     // Chip-rotation flights already computed by prepareChipRotation (consumed by
     // animateChipRotation when it flies). Prepared right after fixing positions so the
     // big chip can be hidden before it's ever painted.
@@ -11682,7 +11666,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.straddle_prefetch_flip_hc2 = null;
 
         // Chip overlay for hole card 1's flying chip: created right before the flight.
-        this.local_chip_flight_overlay = null;
+        this.local_chip_flight_overlay = TableDisplaySink.OverlayHandle.noop();
 
         if (!animacion) {
 
@@ -11724,9 +11708,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             cancelarManoYDevolverApuestas("peer.state_inconsistent", true);
             return;
         }
-
-        // Dealer's seat: origin anchor for the deal-card flight.
-        final Card deal_origin = getDealerSeatAnchor();
 
         int j, pivote = (i + 1) % players().size();
 
@@ -11783,11 +11764,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // should disappear. The real chip isn't touched here (stays visible under the
                 // overlay).
                 if (flip_local) {
-                    local_chip_flight_overlay = GameFrame.getInstance().getTapete()
-                            .addChipTopOverlay(localPlayer().getChip_label());
+                    local_chip_flight_overlay = table_display
+                            .addPositionChipOverlay(localPlayer().getNickname());
                 }
 
-                GameFrame.getInstance().getTapete().flyCardToSeat(hc1, deal_origin, flight_dur, GameFrame.dealSound(), seat);
+                table_display.dealHoleCard(jugador.getNickname(), 0,
+                        flight_dur, GameFrame.repartoSonidoOn(), seat);
 
                 // Animated reveal on ANOTHER thread as soon as it lands: the dealer keeps
                 // dealing without waiting for your card to open. Uses the already-ready
@@ -11857,7 +11839,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     seat = () -> hc2.iniciarCarta();
                 }
 
-                GameFrame.getInstance().getTapete().flyCardToSeat(hc2, deal_origin, flight_dur, GameFrame.dealSound(), seat);
+                table_display.dealHoleCard(jugador.getNickname(), 1,
+                        flight_dur, GameFrame.repartoSonidoOn(), seat);
 
                 if (flip_local) {
                     final Future<?> pf = prefetch_flip_hc2;
@@ -11902,7 +11885,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // lands seated (same mechanics/speed as the hole cards). The flight is
                 // blocking, so it consumes the inter-card time and triggers deal.wav on launch.
                 final Card cc = carta;
-                GameFrame.getInstance().getTapete().flyCardToSeat(cc, deal_origin, flight_dur, GameFrame.dealSound(), () -> cc.iniciarCarta());
+                table_display.dealCommunityCard(
+                        java.util.Arrays.asList(communityCards()).indexOf(cc),
+                        flight_dur, GameFrame.repartoSonidoOn(),
+                        () -> cc.iniciarCarta());
             } else {
                 Helpers.pausar(pausa);
             }
@@ -12083,9 +12069,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // already reappeared after hc1's reveal).
         Helpers.threadRun(() -> {
             try {
-                GameFrame.getInstance().getTapete().playHoleCardSwap(c1, c2,
+                table_display.swapHoleCards(local.getNickname(),
                         GameFrame.SWAP_ANIM_DURATION, GameFrame.SWAP_ANIM_ARC,
-                        local.getChip_label(), () -> local.ordenarCartas());
+                        () -> local.ordenarCartas());
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
                 // The logical swap is mandatory even if the animation fails.
@@ -15451,14 +15437,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         float vel = GameFrame.REPARTO_VELOCIDAD / 100f;
         int pausa = Math.max(60, Math.round(pausa_base * vel));
         int flight_dur = Math.max(80, Math.round(flight_base * vel));
-        final Card deal_origin = getDealerSeatAnchor();
-
         Helpers.pausar(pausa);
 
         for (Card carta : corridas) {
             pause_gate.await();
             final Card cc = carta;
-            GameFrame.getInstance().getTapete().flyCardToSeat(cc, deal_origin, flight_dur, GameFrame.dealSound(), () -> cc.iniciarCarta());
+            table_display.dealCommunityCard(
+                    java.util.Arrays.asList(communityCards()).indexOf(cc),
+                    flight_dur, GameFrame.repartoSonidoOn(),
+                    () -> cc.iniciarCarta());
         }
     }
 
@@ -21041,9 +21028,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // different value).
     private static final class FlipAnim {
 
-        private final PreRenderedGif anim;
-        private final int display_w;
-        private final int display_h;
+        private final TableDisplaySink.PreparedCardFlip anim;
         private final float zoom_factor;
         private final String card;
         // Whether the flip was rendered at half height (compact view). Compared
@@ -21052,10 +21037,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // and is re-decoded.
         private final boolean top_half;
 
-        private FlipAnim(PreRenderedGif anim, int display_w, int display_h, float zoom_factor, String card, boolean top_half) {
+        private FlipAnim(TableDisplaySink.PreparedCardFlip anim,
+                float zoom_factor, String card, boolean top_half) {
             this.anim = anim;
-            this.display_w = display_w;
-            this.display_h = display_h;
             this.zoom_factor = zoom_factor;
             this.card = card;
             this.top_half = top_half;
@@ -21084,42 +21068,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         float zoom_factor = (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
 
-        try {
-            int card_w = Card.getCardWidth();
-            int card_h = Card.getCardHeight();
-            int corner = Card.getCardCorner();
-            int duration = GameFrame.CARD_FLIP_DURATION;
-            // Frame count proportional to duration (~60 fps), clamped. SAME count in
-            // Quality and Performance modes: fewer frames made the flip choppy (same
-            // total duration spread over half the steps = stutter). Performance mode
-            // cheapens the flip by dropping supersampling (SS=1 in CardFlipAnimator),
-            // not frame count, so it stays smooth and only loses image sharpness.
-            int num_frames = Math.max(20, Math.min(45, Math.round(duration / 16f)));
-            // "Zoom in" effect: the flipping card is drawn at this factor of the
-            // static card's size (1.0 = disabled, pixel-perfect handoff; >1.0 enlarges
-            // it for the effect).
-            float flip_zoom = GameFrame.CARD_FLIP_ZOOM / 100f;
-
-            PreRenderedGif anim = CardFlipAnimator.generate(GameFrame.BARAJA,
-                    valor_palo,
-                    card_w, card_h, corner, duration, num_frames, flip_zoom, top_half);
-
-            if (anim == null) {
-                return null;
-            }
-
-            // In compact view the canvas (and the overlay that paints it) is at half
-            // height, so the half-card flip stays centered over the split static image
-            // and the flip->card handoff doesn't jump in size.
-            int display_w = CardFlipAnimator.canvasWidth(card_w, flip_zoom);
-            int display_h = CardFlipAnimator.canvasHeight(top_half ? card_h / 2 : card_h, flip_zoom);
-
-            return new FlipAnim(anim, display_w, display_h, zoom_factor, valor_palo, top_half);
-
-        } catch (Exception ex) {
-            LOGGER.log(Level.WARNING, "Card flip render failed (plain uncover fallback)", ex);
-            return null;
-        }
+        TableDisplaySink.PreparedCardFlip anim = table_display.prepareCardFlip(
+                valor_palo, top_half, zoom_factor);
+        return anim == null ? null
+                : new FlipAnim(anim, zoom_factor, valor_palo, top_half);
     }
 
     // Launches a card's flip-GIF pre-decode in background. Used by destaparFlop for
@@ -21285,13 +21237,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // height (flipping the top half of the card, not squashing the whole
                 // frame, which would distort the warp's trapezoid), matching the
                 // split static image underneath.
-                GameFrame.getInstance().getTapete().playCardFlipOverlays(
-                        new Card[]{c1, c2},
-                        new PreRenderedGif[]{anim1.anim, anim2.anim},
-                        new int[]{anim1.display_w, anim2.display_w},
-                        new int[]{anim1.display_h, anim2.display_h},
-                        0,
-                        GameFrame.uncoverSound());
+                table_display.playHoleCardFlips(jugador.getNickname(),
+                        new int[]{0, 1},
+                        java.util.List.of(anim1.anim, anim2.anim), 0,
+                        TableDisplaySink.FlipSound.STANDARD);
 
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
@@ -21311,7 +21260,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // lands UNDER the chip without disturbing the deal animation). repartir() puts
     // it up before hc1's flight and revelarHoleCardLocalAnimada removes it right
     // before the flip, when the chip should disappear.
-    private volatile javax.swing.JLabel local_chip_flight_overlay;
+    private volatile TableDisplaySink.OverlayHandle local_chip_flight_overlay
+            = TableDisplaySink.OverlayHandle.noop();
 
     // Pre-decode of the LOCAL straddler's two hole-card flips, launched from
     // repartir (values are already in local_original_cards) so that when
@@ -21379,21 +21329,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // the flight overlay, at the same instant the flip starts).
             if (chip_on_card) {
                 local.setChipForcedHidden(true);
-                GameFrame.getInstance().getTapete().removeTopOverlay(local_chip_flight_overlay);
-                local_chip_flight_overlay = null;
+                local_chip_flight_overlay.remove();
+                local_chip_flight_overlay = TableDisplaySink.OverlayHandle.noop();
             }
 
             // The card flips over an ephemeral overlay centered on its seat:
             // playCardFlipOverlays hides the face-down card in the same EDT event
             // that shows its first frame, and does the sync uncover under the last
             // frame, so no gap is ever painted. delay_end=0.
-            GameFrame.getInstance().getTapete().playCardFlipOverlays(
-                    new Card[]{carta},
-                    new PreRenderedGif[]{decoded.anim},
-                    new int[]{decoded.display_w},
-                    new int[]{decoded.display_h},
-                    0,
-                    GameFrame.uncoverMyCardsSound());
+            int slot = carta == local.getHoleCard1() ? 0 : 1;
+            table_display.playHoleCardFlips(local.getNickname(),
+                    new int[]{slot}, java.util.List.of(decoded.anim), 0,
+                    TableDisplaySink.FlipSound.LOCAL);
 
         } catch (Exception ex) {
             LOGGER.log(Level.SEVERE, null, ex);
@@ -21405,8 +21352,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // Belt and suspenders: if we bailed before the flip (gate/decode),
                 // still remove the flight overlay. The chip REAPPEARS right when it's
                 // done (refreshPositionChipIcons respects whether the user disabled it).
-                GameFrame.getInstance().getTapete().removeTopOverlay(local_chip_flight_overlay);
-                local_chip_flight_overlay = null;
+                local_chip_flight_overlay.remove();
+                local_chip_flight_overlay = TableDisplaySink.OverlayHandle.noop();
                 local.setChipForcedHidden(false);
                 local.refreshPositionChipIcons();
             }
@@ -21470,7 +21417,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     decoded = decodeCardFlipAnim(carta);
                 }
 
-                final PreRenderedGif anim = (decoded != null) ? decoded.anim : null;
+                final TableDisplaySink.PreparedCardFlip anim
+                        = (decoded != null) ? decoded.anim : null;
 
                 if (anim == null) {
                     // Render unavailable: plain uncover with the usual pause.
@@ -21483,11 +21431,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (!PRE_RENDERED_ENGINE_LOGGED) {
                         PRE_RENDERED_ENGINE_LOGGED = true;
                         LOGGER.log(Level.INFO, "Card flip animations: Swing/Java2D render engine active ({0} frames / {1} ms)",
-                                new Object[]{anim.getFrameCount(), anim.getTotalMs()});
+                                new Object[]{anim.frameCount(), anim.totalMillis()});
                     }
-
-                    final int fdw = decoded.display_w;
-                    final int fdh = decoded.display_h;
 
                     long lapsed = System.currentTimeMillis() - start;
 
@@ -21496,26 +21441,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             : (this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA_ALLIN - lapsed
                                     : PAUSA_DESTAPAR_CARTA - lapsed));
 
-                    Helpers.GUIRunAndWait(() -> {
-                        int x = (int) ((int) ((carta.getLocationOnScreen().getX() + Math.round(carta.getWidth() / 2))
-                                - Math.round(fdw / 2))
-                                - GameFrame.getInstance().getTapete().getLocationOnScreen().getX());
-
-                        int y = (int) ((int) ((carta.getLocationOnScreen().getY() + Math.round(carta.getHeight() / 2))
-                                - Math.round(fdh / 2))
-                                - GameFrame.getInstance().getTapete().getLocationOnScreen().getY());
-
-                        GameFrame.getInstance().getTapete().getCentral_label().setLocation(x, y);
-                    });
-
                     // on_show hides the face-down card in the SAME EDT event that shows
                     // the first frame (card->flip handoff in a single paint) and
                     // before_hide uncovers the static image UNDER the last frame before
                     // hiding the overlay (flip->card handoff without ever painting a gap).
-                    GameFrame.getInstance().getTapete().showCentralFrames(anim, fdw, fdh, CARD_ANIMATION_DELAY,
-                            GameFrame.uncoverSound(),
-                            () -> carta.setVisibleCard(false),
-                            () -> carta.destaparSync());
+                    table_display.playCommunityCardFlip(
+                            java.util.Arrays.asList(communityCards()).indexOf(carta),
+                            anim, CARD_ANIMATION_DELAY,
+                            TableDisplaySink.FlipSound.STANDARD);
                 }
 
             } catch (Exception ex) {

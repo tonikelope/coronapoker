@@ -4935,6 +4935,189 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     }
                 });
             }
+
+            private Card dealerAnchor() {
+                if (crupier == null || crupier.getDealer_nick() == null) {
+                    return null;
+                }
+                Player dealer = player(crupier.getDealer_nick());
+                return dealer == null ? null : dealer.getHoleCard1();
+            }
+
+            @Override
+            public TableDisplaySink.OverlayHandle addPositionChipOverlay(
+                    String nickname) {
+                Player seat = player(nickname);
+                javax.swing.JLabel overlay = tapete.addChipTopOverlay(
+                        seat == null ? null : seat.getChip_label());
+                return overlay == null ? TableDisplaySink.OverlayHandle.noop()
+                        : () -> tapete.removeTopOverlay(overlay);
+            }
+
+            @Override
+            public void dealHoleCard(String nickname, int slot,
+                    int durationMillis, boolean soundEnabled, Runnable onLand) {
+                Player seat = player(nickname);
+                Card target = seat == null ? null
+                        : slot == 0 ? seat.getHoleCard1() : seat.getHoleCard2();
+                tapete.flyCardToSeat(target, dealerAnchor(), durationMillis,
+                        soundEnabled ? GameFrame.dealSound() : null, onLand);
+            }
+
+            @Override
+            public void dealCommunityCard(int slot, int durationMillis,
+                    boolean soundEnabled, Runnable onLand) {
+                Card[] cards = getCartas_comunes();
+                Card target = slot >= 0 && slot < cards.length
+                        ? cards[slot] : null;
+                tapete.flyCardToSeat(target, dealerAnchor(), durationMillis,
+                        soundEnabled ? GameFrame.dealSound() : null, onLand);
+            }
+
+            @Override
+            public void swapHoleCards(String nickname, int durationMillis,
+                    boolean arc, Runnable onSwapApply) {
+                Player seat = player(nickname);
+                if (seat == null) {
+                    onSwapApply.run();
+                    return;
+                }
+                tapete.playHoleCardSwap(seat.getHoleCard1(),
+                        seat.getHoleCard2(), durationMillis, arc,
+                        seat.getChip_label(), onSwapApply);
+            }
+
+            final class SwingPreparedCardFlip
+                    implements TableDisplaySink.PreparedCardFlip {
+
+                final PreRenderedGif animation;
+                final int displayWidth;
+                final int displayHeight;
+                final float zoomFactor;
+                final String cardCode;
+                final boolean topHalf;
+
+                SwingPreparedCardFlip(PreRenderedGif animation,
+                        int displayWidth, int displayHeight, float zoomFactor,
+                        String cardCode, boolean topHalf) {
+                    this.animation = animation;
+                    this.displayWidth = displayWidth;
+                    this.displayHeight = displayHeight;
+                    this.zoomFactor = zoomFactor;
+                    this.cardCode = cardCode;
+                    this.topHalf = topHalf;
+                }
+
+                @Override
+                public boolean matches(String code, boolean half,
+                        float zoom) {
+                    return cardCode.equals(code) && topHalf == half
+                            && Float.compare(zoomFactor, zoom) == 0;
+                }
+
+                @Override
+                public int frameCount() {
+                    return animation.getFrameCount();
+                }
+
+                @Override
+                public long totalMillis() {
+                    return animation.getTotalMs();
+                }
+            }
+
+            @Override
+            public TableDisplaySink.PreparedCardFlip prepareCardFlip(
+                    String cardCode, boolean topHalf, float zoomFactor) {
+                try {
+                    int cardWidth = Card.getCardWidth();
+                    int cardHeight = Card.getCardHeight();
+                    int corner = Card.getCardCorner();
+                    int duration = GameFrame.CARD_FLIP_DURATION;
+                    int frames = Math.max(20,
+                            Math.min(45, Math.round(duration / 16f)));
+                    float flipZoom = GameFrame.CARD_FLIP_ZOOM / 100f;
+                    PreRenderedGif animation = CardFlipAnimator.generate(
+                            GameFrame.BARAJA, cardCode, cardWidth, cardHeight,
+                            corner, duration, frames, flipZoom, topHalf);
+                    if (animation == null) {
+                        return null;
+                    }
+                    return new SwingPreparedCardFlip(animation,
+                            CardFlipAnimator.canvasWidth(cardWidth, flipZoom),
+                            CardFlipAnimator.canvasHeight(
+                                    topHalf ? cardHeight / 2 : cardHeight,
+                                    flipZoom),
+                            zoomFactor, cardCode, topHalf);
+                } catch (Exception ex) {
+                    Logger.getLogger(GameFrame.class.getName()).log(
+                            Level.WARNING,
+                            "Card flip render failed (plain uncover fallback)",
+                            ex);
+                    return null;
+                }
+            }
+
+            private String flipSound(TableDisplaySink.FlipSound sound) {
+                return sound == TableDisplaySink.FlipSound.LOCAL
+                        ? GameFrame.uncoverMyCardsSound()
+                        : GameFrame.uncoverSound();
+            }
+
+            @Override
+            public void playHoleCardFlips(String nickname, int[] slots,
+                    java.util.List<TableDisplaySink.PreparedCardFlip> flips,
+                    int delayEndMillis, TableDisplaySink.FlipSound sound) {
+                Player seat = player(nickname);
+                if (seat == null || slots.length != flips.size()) {
+                    return;
+                }
+                Card[] cards = new Card[slots.length];
+                PreRenderedGif[] animations = new PreRenderedGif[slots.length];
+                int[] widths = new int[slots.length];
+                int[] heights = new int[slots.length];
+                for (int i = 0; i < slots.length; i++) {
+                    if (!(flips.get(i) instanceof SwingPreparedCardFlip flip)) {
+                        return;
+                    }
+                    cards[i] = slots[i] == 0
+                            ? seat.getHoleCard1() : seat.getHoleCard2();
+                    animations[i] = flip.animation;
+                    widths[i] = flip.displayWidth;
+                    heights[i] = flip.displayHeight;
+                }
+                tapete.playCardFlipOverlays(cards, animations, widths, heights,
+                        delayEndMillis, flipSound(sound));
+            }
+
+            @Override
+            public void playCommunityCardFlip(int slot,
+                    TableDisplaySink.PreparedCardFlip prepared,
+                    int delayEndMillis, TableDisplaySink.FlipSound sound) {
+                if (!(prepared instanceof SwingPreparedCardFlip flip)) {
+                    return;
+                }
+                Card[] cards = getCartas_comunes();
+                if (slot < 0 || slot >= cards.length) {
+                    return;
+                }
+                Card card = cards[slot];
+                Helpers.GUIRunAndWait(() -> {
+                    int x = (int) ((card.getLocationOnScreen().getX()
+                            + Math.round(card.getWidth() / 2f))
+                            - Math.round(flip.displayWidth / 2f)
+                            - tapete.getLocationOnScreen().getX());
+                    int y = (int) ((card.getLocationOnScreen().getY()
+                            + Math.round(card.getHeight() / 2f))
+                            - Math.round(flip.displayHeight / 2f)
+                            - tapete.getLocationOnScreen().getY());
+                    tapete.getCentral_label().setLocation(x, y);
+                });
+                tapete.showCentralFrames(flip.animation, flip.displayWidth,
+                        flip.displayHeight, delayEndMillis, flipSound(sound),
+                        () -> card.setVisibleCard(false),
+                        () -> card.destaparSync());
+            }
         };
         GameWindowSink gameWindow = new GameWindowSink() {
             @Override

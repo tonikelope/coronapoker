@@ -29,6 +29,7 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.core.network.GameCommandId;
+import com.tonikelope.coronapoker.core.game.GameSession;
 
 import com.drew.imaging.ImageProcessingException;
 import com.tonikelope.coronapoker.table.TableCommand;
@@ -935,6 +936,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // Optional renderer outlet. It stays detached for Swing and is the only
     // presentation bridge a GDX table may attach to.
     private final TableEventBridge table_events = new TableEventBridge();
+    private final GameSession game_session;
     private static final Object ZOOM_LOCK = new Object();
 
     private static volatile GameFrame THIS = null;
@@ -2341,6 +2343,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
 
             this.timba_pausada = !this.timba_pausada;
+            game_session.setPaused(this.timba_pausada);
 
             if (this.timba_pausada) {
 
@@ -3000,6 +3003,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public Crupier getCrupier() {
         return crupier;
+    }
+
+    public GameSession getGameSession() {
+        return game_session;
     }
 
     public boolean isPartida_local() {
@@ -4023,6 +4030,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         partida_local = partidalocal;
 
+        game_session = new GameSession(nicklocal, partidalocal);
+
         // The card/chip/back image cache (Card.updateCachedImages) is DERIVED from the zoom,
         // but the launcher's zoom spinner (Settings outside a game) only sets ZOOM_LEVEL
         // without rewinding it, since the start screen shows no cards to preview against.
@@ -4071,7 +4080,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // so a previous session that ended in lockdown would otherwise leak
         // into this fresh game.
         Crupier.SECURITY_LOCKDOWN = false;
-        crupier = new Crupier(table_events);
+        crupier = new Crupier(game_session, table_events);
 
         initComponents();
 
@@ -4598,6 +4607,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 run_cleanup = true;
 
                 fin = true;
+
+                game_session.finish();
 
                 getCrupier().setFin_de_la_transmision(true);
 
@@ -5132,6 +5143,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         }
 
+        game_session.start();
         runCriticalAsync(crupier);
 
         // javax.swing.Timer already executes in the EDT. Removed redundant GUIRun context switch.

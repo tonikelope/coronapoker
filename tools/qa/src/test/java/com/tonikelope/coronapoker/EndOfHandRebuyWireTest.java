@@ -48,7 +48,7 @@ public class EndOfHandRebuyWireTest {
                 "src/main/java/com/tonikelope/coronapoker/Crupier.java")).replace("\r\n", "\n");
 
         assertEquals(true, source.contains("if (!rebuy_players.isEmpty()\n"
-                + "                || (local_ruined && !GameFrame.getInstance().isPartida_local()))"));
+                + "                || (local_ruined && !gameSession().isHost()))"));
         int start = source.indexOf("private void recibirRebuys(");
         int end = source.indexOf("private void recibirBuyinsIniciales(", start);
         String method = source.substring(start, end);

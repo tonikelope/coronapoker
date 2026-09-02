@@ -22,6 +22,14 @@ Status: **in progress; phase-2 exit criteria are not yet satisfied**
 - Extracted the process CSPRNG into the first concrete typed shared service,
   `SecureRandomService`. Swing consumes the same generator through the
   bootstrap instead of constructing it in `Init`.
+- Extracted SQLite driver/configuration/connection ownership into the typed
+  process service `DatabaseService`. Closing a game releases the current
+  connection so a later game can reopen it; application failure or process
+  shutdown closes the service permanently.
+- Kept schema creation, migrations and startup integrity checks on the
+  characterized classic path for now. `Init.SQLITE` remains only as a
+  deprecated compatibility seam for the existing QA injection tests; normal
+  production startup and access use `DatabaseService`.
 - Preserved the classic direct entry point: `Init.main` delegates to
   `SwingLauncher`.
 
@@ -31,12 +39,14 @@ Commits:
 - `f26e4c3a9 refactor(swing): publish application lifecycle events`
 - `31ffb2dc8 feat(app): add shared frontend launchers`
 - `5d7613383 refactor(core): own process secure random service`
+- `407d642fc refactor(core): own sqlite connection lifecycle`
 
 ## Verification
 
 - `mvn -f migration-reactor/pom.xml ... clean verify`: success for all six
   reactor projects.
-- Core lifecycle/bootstrap tests: 5 passed.
+- Core lifecycle/bootstrap/service tests: 7 passed, including connection
+  release/reopen, permanent process close and failure cleanup.
 - Migration architecture tests: 4 passed, including the neutral import
   boundary, dependency direction, canonical demo source and common bootstrap
   launcher wiring.
@@ -54,12 +64,13 @@ Final artifacts for this increment:
 
 | Artifact | Bytes | SHA-256 |
 |---|---:|---|
-| `dist/CoronaPoker-24.11-swing.jar` | 430,059,606 | `7007113220A8EBEF282C78F2DB9E59580E9F3C692878DF92CB435BDA340CCE54` |
-| `dist/CoronaPoker-24.11-gdx.jar` | 418,065,687 | `7CB5274D2A77D491FAA5768037CE8899FCA65F3DEB48983542DDAE5133D8F496` |
+| `dist/CoronaPoker-24.11-swing.jar` | 430,062,381 | `985678F8281A0D39CB40D90182447C0CE6DCE1DBCC2F68334C2277A8D459370C` |
+| `dist/CoronaPoker-24.11-gdx.jar` | 432,462,399 | `1841723DD72A7D7F53BD70703B8C63708D44D51C0FF60446C0F73C6F5ED7B4D8` |
 
 ## Still pending in phase 2
 
-- Extract DB ownership and shutdown from Swing startup.
+- Move SQLite schema creation, migrations and integrity verification out of
+  `Helpers`, then migrate the legacy QA connection-injection seam.
 - Extract identity/crypto orchestration beyond the process CSPRNG.
 - Extract preferences/configuration, updates, appearance and audio as typed
   shared services.

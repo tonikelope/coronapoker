@@ -700,9 +700,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             liveCardFlight = new LiveCardFlight(event, System.nanoTime(), barrier);
             play(dealSound, 0.32f, 1f);
         } else {
-            throw new UnsupportedOperationException(
-                    "GDX animation family not connected yet: "
-                    + event.getClass().getSimpleName());
+            liveState.apply(event);
+            if (event instanceof TableVisualEvent.DeckChanged changed) {
+                liveDeck = changed.deck();
+            }
+            syncSeatsFromLiveState();
+            barrier.complete(null);
         }
     }
 

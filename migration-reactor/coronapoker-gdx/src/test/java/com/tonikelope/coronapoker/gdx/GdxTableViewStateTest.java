@@ -2,6 +2,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
@@ -41,6 +42,34 @@ final class GdxTableViewStateTest {
 
         assertThrows(IllegalArgumentException.class,
                 () -> state.apply(new TableVisualEvent.CloseTable(4)));
+    }
+
+    @Test
+    void acceptsEveryStateEventFamilyThroughPayoutAndClose() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+        state.apply(new TableVisualEvent.PostChips(1, "ana", 10,
+                TableVisualEvent.PostChips.Destination.STREET_BET));
+        state.apply(new TableVisualEvent.PlayerAction(2, "ana",
+                TableVisualEvent.PlayerAction.ActionKind.CALL, "IGUALA", 20, 10));
+        state.apply(new TableVisualEvent.RevealHoleCards(3, "ana",
+                card("A_C"), card("K_C")));
+        state.apply(new TableVisualEvent.HandResult(4, "ana", "COLOR", true));
+        state.apply(new TableVisualEvent.ShowdownHighlight(5, "ana", true,
+                List.of(0, 1), List.of(0, 1, 2)));
+        state.apply(new TableVisualEvent.Payout(6, "ana", 40, 0));
+        state.apply(new TableVisualEvent.DeckChanged(7, "goliat"));
+        state.apply(new TableVisualEvent.Cinematic(8,
+                TableVisualEvent.Cinematic.Type.ALL_IN,
+                TableVisualEvent.Cinematic.Phase.START));
+        state.apply(new TableVisualEvent.CloseTable(9));
+
+        assertEquals(9, state.lastSequence());
+        assertEquals("COLOR", player(state, "ana").handName());
+        assertTrue(player(state, "ana").winner());
+    }
+
+    private static TableSnapshot.CardSnapshot card(String code) {
+        return new TableSnapshot.CardSnapshot(code, true, false);
     }
 
     private static TableSnapshot.PlayerSnapshot player(

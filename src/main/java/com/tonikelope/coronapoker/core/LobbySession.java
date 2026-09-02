@@ -1,5 +1,7 @@
 package com.tonikelope.coronapoker.core;
 
+import com.tonikelope.coronapoker.table.TableSession;
+import java.util.concurrent.CompletableFuture;
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -16,6 +18,7 @@ public final class LobbySession implements AutoCloseable {
     private final CopyOnWriteArrayList<Consumer<LobbySnapshot>> listeners
             = new CopyOnWriteArrayList<>();
     private final AtomicBoolean closed = new AtomicBoolean();
+    private final CompletableFuture<TableSession> tableSession = new CompletableFuture<>();
 
     public LobbySession(LobbySnapshot initialSnapshot, LobbyCommandSink commands) {
         this(initialSnapshot, commands, () -> { });
@@ -69,6 +72,27 @@ public final class LobbySession implements AutoCloseable {
         return Objects.requireNonNull(commands.submit(checked), "command result");
     }
 
+    /** Completes exactly once when the validated game is ready for a renderer. */
+    public CompletionStage<TableSession> tableSession() {
+        return tableSession;
+    }
+
+    /** Called by the canonical game controller after INIT has been accepted. */
+    public void publishTableSession(TableSession next) {
+        ensureOpen();
+        TableSession checked = Objects.requireNonNull(next, "tableSession");
+        LobbySnapshot state = snapshot.get();
+        if (!state.startingOrStarted()) {
+            throw new IllegalStateException("Table handoff requires a starting lobby");
+        }
+        if (!state.localNickname().equals(checked.initialState().localNickname())) {
+            throw new IllegalArgumentException("Table handoff changed the local player");
+        }
+        if (!tableSession.complete(checked)) {
+            throw new IllegalStateException("A table was already handed off");
+        }
+    }
+
     private static void validate(LobbyCommand command, LobbySnapshot state) {
         boolean hostOnly = command instanceof LobbyCommand.AddBot
                 || command instanceof LobbyCommand.Kick
@@ -109,6 +133,13 @@ public final class LobbySession implements AutoCloseable {
     public void close() {
         if (closed.compareAndSet(false, true)) {
             listeners.clear();
+            TableSession table = tableSession.getNow(null);
+            if (table != null) {
+                table.close();
+            } else {
+                tableSession.completeExceptionally(
+                        new IllegalStateException("Lobby session closed before table handoff"));
+            }
             try {
                 resource.close();
             } catch (Exception ignored) {

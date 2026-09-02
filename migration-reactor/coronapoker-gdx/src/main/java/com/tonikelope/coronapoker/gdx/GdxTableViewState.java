@@ -76,6 +76,21 @@ final class GdxTableViewState {
                         player.active(), player.winner(), transfer.position(),
                         player.lastAction(), player.handName(), player.holeCards()));
             }
+        } else if (event instanceof TableVisualEvent.PostChips post) {
+            replacePlayer(post.nickname(), player -> copyPlayer(player,
+                    Math.max(0d, player.stack() - post.amount()),
+                    post.destination() == TableVisualEvent.PostChips.Destination.STREET_BET
+                            ? player.streetBet() + post.amount() : player.streetBet(),
+                    post.destination() == TableVisualEvent.PostChips.Destination.POT
+                            ? player.potContribution() + post.amount()
+                            : player.potContribution(),
+                    player.active(), player.winner(), player.position(),
+                    player.lastAction(), player.handName(), player.holeCards()));
+            if (post.destination() == TableVisualEvent.PostChips.Destination.POT) {
+                snapshot = copySnapshot(snapshot, snapshot.pot() + post.amount(),
+                        snapshot.currentTurnNickname(), snapshot.players(),
+                        snapshot.communityCards());
+            }
         } else if (event instanceof TableVisualEvent.CollectBets collect) {
             applyCollection(collect);
         } else if (event instanceof TableVisualEvent.DealHoleCard deal) {
@@ -142,6 +157,12 @@ final class GdxTableViewState {
                     Math.max(0d, snapshot.pot() - payout.amount()),
                     snapshot.currentTurnNickname(), snapshot.players(),
                     snapshot.communityCards());
+        } else if (event instanceof TableVisualEvent.DeckChanged
+                || event instanceof TableVisualEvent.Cinematic
+                || event instanceof TableVisualEvent.ShowdownHighlight
+                || event instanceof TableVisualEvent.CloseTable
+                || event instanceof TableVisualEvent.Shuffle) {
+            // Transient presentation-only events still consume their sequence.
         }
     }
 

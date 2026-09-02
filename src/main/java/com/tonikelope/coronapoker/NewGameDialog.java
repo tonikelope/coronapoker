@@ -2030,6 +2030,8 @@ public class NewGameDialog extends JDialog {
 
             WaitingRoomFrame espera = new WaitingRoomFrame(partida_local, elnick, server_ip_textfield.getText().trim() + ":" + server_port_textfield.getText().trim(), avatar, pass_text.getPassword().length == 0 ? null : new String(pass_text.getPassword()), upnp_checkbox.isSelected());
 
+            Init.application().sessionOpened();
+
             WaitingRoomFrame.setInstance(espera);
 
             espera.setLocationRelativeTo(this);

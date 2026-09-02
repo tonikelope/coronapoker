@@ -4155,6 +4155,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                         new GameFrame(THIS, local_nick, false);
                                                                     }
                                                                 });
+                                                                Init.application().tableEntered();
                                                                 partida_empezada = true;
                                                                 Helpers.GUIRunAndWait(() -> setVisible(false));
                                                                 GameFrame.getInstance().AJUGAR();
@@ -4248,6 +4249,7 @@ public class WaitingRoomFrame extends JFrame {
             if (GameFrame.getInstance() == null || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
                 invalidateSession();
                 Helpers.GUIRunAndWait(() -> {
+                    Init.application().returnedToMenu();
                     // On cancel, reopen the launch screen at the same spot and size (or
                     // maximized if it was) on the screen the waiting room is on.
                     Helpers.showFrameOnScreen(Init.VENTANA_INICIO, getGraphicsConfiguration(),
@@ -4992,6 +4994,7 @@ public class WaitingRoomFrame extends JFrame {
             if (GameFrame.getInstance() == null || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
                 invalidateSession();
                 Helpers.GUIRun(() -> {
+                    Init.application().returnedToMenu();
                     // On cancel, reopen the launch screen at the same spot and size (or
                     // maximized if it was) on the screen the waiting room is on.
                     Helpers.showFrameOnScreen(Init.VENTANA_INICIO, getGraphicsConfiguration(),
@@ -6506,6 +6509,7 @@ public class WaitingRoomFrame extends JFrame {
                 GameFrame.clearFailedInstance();
                 throw new RuntimeException("GameFrame construction failed", build_error[0]);
             }
+            Init.application().tableEntered();
             partida_empezada = true;
             Helpers.GUIRunAndWait(() -> setVisible(false));
             GameFrame.getInstance().AJUGAR();

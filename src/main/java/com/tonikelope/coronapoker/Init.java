@@ -28,6 +28,7 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.CoronaPokerApplication;
 import java.awt.AWTException;
 import java.awt.Color;
 import java.awt.Font;
@@ -93,6 +94,7 @@ import javax.swing.text.StyledDocument;
 public class Init extends JFrame {
 
     private static final Logger LOGGER = Logger.getLogger(Init.class.getName());
+    private static final CoronaPokerApplication APPLICATION = CoronaPokerApplication.withoutServices();
 
     public static final boolean DEV_MODE = false;
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
@@ -147,6 +149,10 @@ public class Init extends JFrame {
     private volatile Timer quote_timer = null;
     private volatile int conta_quote = 0;
     private volatile JTextPane quote = null;
+
+    static CoronaPokerApplication application() {
+        return APPLICATION;
+    }
 
     static {
         if (!isDesignTime()) {
@@ -1140,6 +1146,7 @@ public class Init extends JFrame {
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         Helpers.PROPERTIES.setProperty("master_volume", String.valueOf(Audio.MASTER_VOLUME));
         Helpers.savePropertiesFile();
+        APPLICATION.close();
 
     }//GEN-LAST:event_formWindowClosing
 
@@ -1794,8 +1801,11 @@ public class Init extends JFrame {
     public static void main(String args[]) {
 
         try {
+            APPLICATION.start();
             boot(args);
+            APPLICATION.menuReady();
         } catch (Throwable ex) {
+            APPLICATION.fail(ex);
             fatalStartupError(Translator.translate("error.arranque_fatal", DEBUG_DIR), ex);
         }
     }

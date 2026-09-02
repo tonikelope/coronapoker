@@ -5066,6 +5066,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Audio.playLoopMp3Resource("misc/background_music.mp3");
 
             Helpers.GUIRunAndWait(() -> {
+                Init.application().returnedToMenu();
                 Init.VENTANA_INICIO.getTapete().refresh();
                 Helpers.showFrameOnScreen(Init.VENTANA_INICIO, return_screen);
 

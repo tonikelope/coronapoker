@@ -4441,6 +4441,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // the caller continues immediately.
     public void launchChipToPot(Player player) {
 
+        // The accepted PlayerAction event below owns the GDX chip flight and its impact
+        // barrier. Player implementations call this earlier while applying their local
+        // decision; starting a Swing flight here would duplicate presentation and expose an
+        // action before the authoritative reducer accepts it.
+        if (table_events.isAttached()) {
+            return;
+        }
+
         if (!GameFrame.apuestasAnimOn() || GameFrame.RECOVER || isFin_de_la_transmision()) {
             // No chip animation: the handler may have deferred rolling the stack/bet
             // waiting for this chip, which won't fly -> roll them now instead. No-op if
@@ -12282,6 +12290,44 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return true;
     }
 
+    private void presentAcceptedActionToAttachedRenderer(Player player, int decision,
+            double oldPlayerBet) {
+        if (!table_events.isAttached()) {
+            return;
+        }
+        double contribution = Helpers.doubleClean(
+                Math.max(0d, player.getBet() - oldPlayerBet));
+        TableVisualEvent.PlayerAction.ActionKind kind = actionKind(
+                decision, contribution, this.apuesta_actual);
+        double actionAmount = decision == Player.FOLD || kind == TableVisualEvent.PlayerAction.ActionKind.CHECK
+                ? 0d : Helpers.doubleClean(player.getBet());
+
+        awaitAttachedTableEvent(sequence -> new TableVisualEvent.PlayerAction(
+                sequence, player.getNickname(), kind, kind.name(),
+                actionAmount, contribution),
+                "Player-action presentation barrier failed");
+        if (decision == Player.FOLD) {
+            awaitAttachedTableEvent(sequence -> new TableVisualEvent.FoldHoleCards(
+                    sequence, player.getNickname()),
+                    "Fold-card presentation barrier failed");
+        }
+    }
+
+    static TableVisualEvent.PlayerAction.ActionKind actionKind(int decision,
+            double contribution, double currentBet) {
+        return switch (decision) {
+            case Player.FOLD -> TableVisualEvent.PlayerAction.ActionKind.FOLD;
+            case Player.CHECK -> contribution > 0d
+                    ? TableVisualEvent.PlayerAction.ActionKind.CALL
+                    : TableVisualEvent.PlayerAction.ActionKind.CHECK;
+            case Player.BET -> currentBet > 0d
+                    ? TableVisualEvent.PlayerAction.ActionKind.RAISE
+                    : TableVisualEvent.PlayerAction.ActionKind.BET;
+            case Player.ALLIN -> TableVisualEvent.PlayerAction.ActionKind.ALL_IN;
+            default -> throw new IllegalArgumentException("Unsupported player decision: " + decision);
+        };
+    }
+
     // Sorts the local player's hand (high card on the left) once dealing finishes. If the swap
     // animation is enabled (swapAnimOn) and a swap is actually needed (hc1 < hc2) with both
     // cards face-up and visible, crosses them with an animation (each slides to the other's
@@ -17569,6 +17615,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             "betting reducer diverged for " + current_player.getNickname()));
                     return resisten;
                 }
+
+                presentAcceptedActionToAttachedRenderer(
+                        current_player, decision, old_player_bet);
 
                 Bot.OpponentTracker stats = Bot.TRACKER_MEMORY.computeIfAbsent(current_player.getNickname(), k -> new Bot.OpponentTracker());
 

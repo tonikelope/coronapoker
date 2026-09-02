@@ -49,4 +49,20 @@ final class TableVisualEventContractTest {
                 () -> new TableVisualEvent.TurnTimer(2L, "CoronaBot$1", 10_000L, 10_001L,
                         TableVisualEvent.TurnTimer.Phase.UPDATE));
     }
+
+    @Test
+    void acceptedPokerDecisionsMapWithoutReadingSwingLabels() {
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.FOLD,
+                Crupier.actionKind(Player.FOLD, 0d, 100d));
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.CHECK,
+                Crupier.actionKind(Player.CHECK, 0d, 100d));
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.CALL,
+                Crupier.actionKind(Player.CHECK, 50d, 100d));
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.BET,
+                Crupier.actionKind(Player.BET, 100d, 0d));
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.RAISE,
+                Crupier.actionKind(Player.BET, 200d, 100d));
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
+                Crupier.actionKind(Player.ALLIN, 500d, 100d));
+    }
 }

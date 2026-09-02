@@ -12328,6 +12328,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         };
     }
 
+    private void presentTurnTimerToAttachedRenderer(Player player,
+            TableVisualEvent.TurnTimer.Phase phase) {
+        if (!table_events.isAttached()) {
+            return;
+        }
+        long totalMillis = GameFrame.THINK_TIME_ENABLED
+                ? TimeUnit.SECONDS.toMillis(GameFrame.THINK_TIME) : 0L;
+        String nickname = phase == TableVisualEvent.TurnTimer.Phase.STOP
+                ? "" : player.getNickname();
+        long remainingMillis = phase == TableVisualEvent.TurnTimer.Phase.START
+                ? totalMillis : 0L;
+        awaitAttachedTableEvent(sequence -> new TableVisualEvent.TurnTimer(
+                sequence, nickname, totalMillis, remainingMillis, phase),
+                "Turn-timer presentation barrier failed");
+    }
+
     // Sorts the local player's hand (high card on the left) once dealing finishes. If the swap
     // animation is enabled (swapAnimOn) and a swap is actually needed (hc1 < hc2) with both
     // cards face-up and visible, crosses them with an animation (each slides to the other's
@@ -17294,6 +17310,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     GameFrame.getInstance().getLocalPlayer().activarPreBotones();
                 }
 
+                presentTurnTimerToAttachedRenderer(current_player,
+                        TableVisualEvent.TurnTimer.Phase.START);
+
                 if (current_player == GameFrame.getInstance().getLocalPlayer()) {
                     current_player.esTuTurno();
                     if (eraSincronizacion && (accion_recuperada = siguienteAccionLocalRecuperada(current_player.getNickname())) != null) {
@@ -17332,6 +17351,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (!awaitPlayerTurnCompletion(getLock_apuestas(), awaitedLocalPlayer::isTurno,
                             this::isFin_de_la_transmision, () -> this.termination_pending,
                             WAIT_QUEUES)) {
+                        presentTurnTimerToAttachedRenderer(current_player,
+                                TableVisualEvent.TurnTimer.Phase.STOP);
                         return resisten;
                     }
 
@@ -17439,6 +17460,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (tableWaitCancelled()) {
+                    presentTurnTimerToAttachedRenderer(current_player,
+                            TableVisualEvent.TurnTimer.Phase.STOP);
                     return resisten;
                 }
 
@@ -17596,8 +17619,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (!awaitPlayerTurnCompletion(getLock_apuestas(), awaitedPlayer::isTurno,
                         this::isFin_de_la_transmision, () -> this.termination_pending,
                         WAIT_QUEUES)) {
+                    presentTurnTimerToAttachedRenderer(current_player,
+                            TableVisualEvent.TurnTimer.Phase.STOP);
                     return resisten;
                 }
+                presentTurnTimerToAttachedRenderer(current_player,
+                        TableVisualEvent.TurnTimer.Phase.STOP);
 
                 // Identity: absorb the (record || sig) bytes into H_t.
                 // Same call on host and every client, so the chain stays byte-identical

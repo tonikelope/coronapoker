@@ -1,5 +1,5 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
-package com.tonikelope.coronapoker;
+package com.tonikelope.coronapoker.core.network;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -36,7 +36,7 @@ public final class GameCommandGate {
         this(direction, DEFAULT_MAX_SEEN_COMMANDS);
     }
 
-    GameCommandGate(GameCommandType.Direction direction, int maxSeenCommands) {
+    public GameCommandGate(GameCommandType.Direction direction, int maxSeenCommands) {
         if (direction == null) throw new IllegalArgumentException("direction is required");
         if (maxSeenCommands <= 0) throw new IllegalArgumentException("maxSeenCommands must be positive");
         this.direction = direction;

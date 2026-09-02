@@ -1,5 +1,7 @@
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.network.SessionOutbox;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;

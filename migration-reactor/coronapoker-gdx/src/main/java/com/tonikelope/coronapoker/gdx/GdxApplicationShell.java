@@ -5,7 +5,9 @@ import com.badlogic.gdx.Gdx;
 import com.tonikelope.coronapoker.core.CoronaPokerApplication;
 import com.tonikelope.coronapoker.core.NewGameSessionGateway;
 import com.tonikelope.coronapoker.core.PreferencesService;
+import com.tonikelope.coronapoker.core.LobbySession;
 import com.tonikelope.coronapoker.table.TableCommandSink;
+import com.tonikelope.coronapoker.table.TableSession;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -53,8 +55,46 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 opened -> {
                     application.sessionOpened();
                     menu.openLobby(opened.lobby());
+                    awaitTable(opened.lobby());
                 }, application::returnedToMenu);
         menu.create();
+    }
+
+    private void awaitTable(LobbySession lobby) {
+        lobby.tableSession().whenComplete((session, failure) ->
+                Gdx.app.postRunnable(() -> {
+                    if (failure != null) {
+                        if (menu != null && lobby.snapshot().startingOrStarted()) {
+                            menu.showSessionError(rootMessage(failure));
+                        }
+                        return;
+                    }
+                    attachTable(session);
+                }));
+    }
+
+    private void attachTable(TableSession session) {
+        if (table != null) {
+            session.close();
+            menu.showSessionError("Ya hay una mesa GDX abierta");
+            return;
+        }
+        GdxTableRenderer renderer = new GdxTableRenderer(session.commands());
+        session.attach(renderer).whenComplete((ignored, failure) ->
+                Gdx.app.postRunnable(() -> {
+                    if (failure == null) {
+                        application.tableEntered();
+                    } else {
+                        renderer.close();
+                        menu.showSessionError(rootMessage(failure));
+                    }
+                }));
+    }
+
+    private static String rootMessage(Throwable failure) {
+        Throwable root = failure;
+        while (root.getCause() != null) root = root.getCause();
+        return root.getMessage() == null ? root.getClass().getSimpleName() : root.getMessage();
     }
 
     @Override

@@ -1,5 +1,7 @@
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.network.GameCommandType;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;

@@ -6,6 +6,11 @@ by the migration plan.
 | Date | Source | Destination | Reason |
 |---|---|---|---|
 | 2026-09-02 | `migration-reactor/coronapoker-core/src/main/java/com/tonikelope/coronapoker/core/package-info.java` | `src/main/java/com/tonikelope/coronapoker/core/package-info.java` | Make the neutral package available to the classic build and to the migration reactor from one physical source tree. |
+| 2026-09-02 | `src/main/java/com/tonikelope/coronapoker/GameCommandId.java` | `src/main/java/com/tonikelope/coronapoker/core/network/GameCommandId.java` | Share the exact process-wide GAME identifier contract between Swing and GDX. |
+| 2026-09-02 | `src/main/java/com/tonikelope/coronapoker/GameCommandType.java` | `src/main/java/com/tonikelope/coronapoker/core/network/GameCommandType.java` | Make the closed protocol registry renderer-neutral. |
+| 2026-09-02 | `src/main/java/com/tonikelope/coronapoker/GameCommandGate.java` | `src/main/java/com/tonikelope/coronapoker/core/network/GameCommandGate.java` | Reuse the same direction and replay checks in both transports. |
+| 2026-09-02 | `src/main/java/com/tonikelope/coronapoker/SessionOutbox.java` | `src/main/java/com/tonikelope/coronapoker/core/network/SessionOutbox.java` | Reuse the bounded, generation-aware reliable outbox without UI dependencies. |
+| 2026-09-02 | `src/main/java/com/tonikelope/coronapoker/ConfirmationTracker.java` | `src/main/java/com/tonikelope/coronapoker/core/network/ConfirmationTracker.java` | Share request-scoped command acknowledgement state. |
 
 The `coronapoker-core` module compiles the destination directory directly. The
 `coronapoker-swing` module excludes that package from its reused classic source

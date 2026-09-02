@@ -1,5 +1,7 @@
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.network.GameCommandId;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.HashSet;
 import java.util.Set;

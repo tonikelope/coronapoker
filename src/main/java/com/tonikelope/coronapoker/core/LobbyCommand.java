@@ -11,7 +11,10 @@ public sealed interface LobbyCommand permits LobbyCommand.SendText,
 
     record SendText(String text) implements LobbyCommand {
         public SendText {
-            text = required(text, "text");
+            text = Objects.requireNonNull(text, "text");
+            if (text.isBlank()) {
+                throw new IllegalArgumentException("text is required");
+            }
         }
     }
 

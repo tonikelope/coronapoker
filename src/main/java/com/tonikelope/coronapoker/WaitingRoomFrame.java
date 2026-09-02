@@ -28,6 +28,10 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.network.ConfirmationTracker;
+import com.tonikelope.coronapoker.core.network.GameCommandGate;
+import com.tonikelope.coronapoker.core.network.GameCommandId;
+
 import com.tonikelope.coronapoker.crypto.RistrettoSRA;
 import com.tonikelope.coronapoker.crypto.DealChain;
 import com.tonikelope.coronapoker.crypto.UnlockChainWire;

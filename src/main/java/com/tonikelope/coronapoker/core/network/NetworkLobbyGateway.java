@@ -46,17 +46,23 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.crypto.KeyAgreement;
 import javax.crypto.spec.SecretKeySpec;
 
 /** Native, UI-free implementation of the existing CoronaPoker lobby wire. */
 public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoCloseable {
+    private static final Logger LOGGER = Logger.getLogger(NetworkLobbyGateway.class.getName());
     static final byte[] MAGIC = java.util.HexFormat.of().parseHex("5c1f158dd9855cc9");
     static final int HANDSHAKE_TIMEOUT_MS = 30_000;
     static final int MAX_PUBLIC_KEY_BYTES = 256;
     static final int MAX_SESSION_ID_BYTES = 64;
     static final int MAX_COMMAND_BYTES = 16 * 1024 * 1024;
     static final int MAX_VOICE_BYTES = 320 * 1024;
+    static final long GAME_CONFIRMATION_TIMEOUT_MS = 10_000L;
+    static final int GAME_OUTBOX_MAX_ELEMENTS = 10_000;
+    static final long GAME_OUTBOX_MAX_BYTES = 16L * 1024L * 1024L;
     private static final AtomicInteger THREAD_NUMBER = new AtomicInteger();
 
     private final Path coronaDirectory;
@@ -110,7 +116,6 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private final Map<String, Peer> peers = new LinkedHashMap<>();
         private final List<LobbyChatMessage> chat = new ArrayList<>();
         private final AtomicLong chatSequence = new AtomicLong();
-        private final AtomicInteger commandId = new AtomicInteger(new SecureRandom().nextInt());
         private final AtomicBoolean closed = new AtomicBoolean();
         private volatile String password;
         private volatile ServerSocket serverSocket;
@@ -166,7 +171,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             socket.setTcpNoDelay(true);
             socket.setKeepAlive(true);
             socket.setSoTimeout(HANDSHAKE_TIMEOUT_MS);
-            Connection connection = clientHandshake(socket, request, identity, directory);
+            Connection connection = clientHandshake(socket, request, identity, directory, executor);
             Transport transport = new Transport(false, request, directory, executor,
                     connection.sessionId, identity,
                     NewGameTableDraft.Settings.parseWire(connection.gameConfig));
@@ -189,7 +194,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         }
 
         private static Connection clientHandshake(Socket socket, NewGameRequest request,
-                PlayerIdentity identity, Path directory) throws Exception {
+                PlayerIdentity identity, Path directory,
+                ExecutorService executor) throws Exception {
             InputStream input = new BufferedInputStream(socket.getInputStream());
             OutputStream output = new BufferedOutputStream(socket.getOutputStream());
             output.write(MAGIC);
@@ -203,7 +209,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             byte[] remotePublic = readBounded(dataIn, MAX_PUBLIC_KEY_BYTES, "server public key");
             byte[] sessionId = readBounded(dataIn, MAX_SESSION_ID_BYTES, "session id");
             SecretKeySpec[] keys = keys(pair, remotePublic, request.connection().password());
-            Connection connection = new Connection(socket, input, output, keys[0], keys[1]);
+            Connection connection = new Connection(socket, input, output, keys[0], keys[1],
+                    GameCommandType.Direction.HOST_TO_CLIENT, executor);
             connection.sessionId = sessionId;
             byte[] avatar = readAvatar(request.connection().avatar());
             String join = b64(request.connection().nickname()) + "#" + ApplicationMetadata.VERSION
@@ -270,7 +277,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 dataOut.write(sessionId);
                 dataOut.flush();
                 SecretKeySpec[] keys = keys(pair, remotePublic, password);
-                connection = new Connection(socket, input, output, keys[0], keys[1]);
+                connection = new Connection(socket, input, output, keys[0], keys[1],
+                        GameCommandType.Direction.CLIENT_TO_HOST, executor);
                 String join = connection.readEncryptedText();
                 if (join == null) throw new IOException("Client closed during handshake");
                 String[] parts = join.split("#", -1);
@@ -437,7 +445,12 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     }
                     if (command != null) receiveText(connection, command, fromClient);
                 }
-            } catch (Exception ignored) { }
+            } catch (Exception failure) {
+                if (!closed.get() && !connection.closed.get()) {
+                    LOGGER.log(Level.WARNING, "Authenticated lobby channel failed for "
+                            + connection.remoteNickname, failure);
+                }
+            }
         }
 
         private synchronized void receiveText(Connection source, String command,
@@ -445,7 +458,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             String[] parts = command.split("#", -1);
             switch (parts[0]) {
                 case "PING" -> source.writePlain("PONG2#" + (Integer.parseInt(parts[1]) + 2));
-                case "PONG", "PONG2", "CONF" -> { }
+                case "PONG", "PONG2" -> { }
+                case "CONF" -> source.confirm(Integer.parseInt(parts[1]));
                 case "EXIT" -> {
                     if (fromClient) removePeer(source.remoteNickname, true);
                     else { publish(LobbySnapshot.Phase.CLOSED, "El servidor ha cancelado la timba"); close(); }
@@ -461,8 +475,16 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 }
                 case "GAME" -> {
                     if (parts.length < 3) throw new IOException("Malformed GAME frame");
-                    source.writeEncrypted("CONF#" + (Integer.parseInt(parts[1]) + 1) + "#OK");
-                    if (!fromClient) receiveGame(parts);
+                    int id = Integer.parseInt(parts[1]);
+                    String subcommand = parts[2];
+                    GameCommandGate.Decision decision = source.gameCommandGate.accept(
+                            subcommand, id, command);
+                    if (decision.closeConnection() || fromClient
+                            || !isLobbyGameCommand(subcommand)) {
+                        throw new IOException("Unsupported GAME command in lobby: " + subcommand);
+                    }
+                    source.writeEncrypted("CONF#" + (id + 1) + "#OK");
+                    if (decision.enqueue()) receiveGame(parts);
                 }
                 default -> { }
             }
@@ -506,6 +528,14 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 case "INIT" -> publish(LobbySnapshot.Phase.IN_GAME, "");
                 default -> { }
             }
+        }
+
+        private static boolean isLobbyGameCommand(String command) {
+            return switch (command) {
+                case "NEWUSER", "USERSLIST", "DELUSER", "GAMEINFO", "GAMECONFIG",
+                        "INIT", "YOUARELATE", "SERVEREXIT", "SERVEREXITRECOVER" -> true;
+                default -> false;
+            };
         }
 
         private synchronized void receiveBinary(Connection source, byte[] clear,
@@ -565,7 +595,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         }
 
         private void sendGame(Connection connection, String body) throws Exception {
-            connection.writeEncrypted("GAME#" + commandId.getAndIncrement() + "#" + body);
+            connection.enqueueGame(body);
         }
 
         private void broadcastDirect(String body, Connection except) throws Exception {
@@ -647,6 +677,13 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private final OutputStream output;
         private final SecretKeySpec aes;
         private final SecretKeySpec hmac;
+        private final GameCommandGate gameCommandGate;
+        private final SessionOutbox gameOutbox = new SessionOutbox(
+                GAME_OUTBOX_MAX_ELEMENTS, GAME_OUTBOX_MAX_BYTES);
+        private final Object confirmationLock = new Object();
+        private final AtomicBoolean closed = new AtomicBoolean();
+        private volatile Integer expectedConfirmation;
+        private volatile boolean confirmationReceived;
         private byte[] sessionId;
         private String remoteNickname;
         private Path remoteAvatar;
@@ -657,9 +694,80 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private String gameConfig;
 
         Connection(Socket socket, InputStream input, OutputStream output,
-                SecretKeySpec aes, SecretKeySpec hmac) {
+                SecretKeySpec aes, SecretKeySpec hmac,
+                GameCommandType.Direction inboundGameDirection,
+                ExecutorService executor) {
             this.socket = socket; this.input = input; this.output = output;
             this.aes = aes; this.hmac = hmac;
+            this.gameCommandGate = new GameCommandGate(inboundGameDirection);
+            executor.execute(this::runGameOutbox);
+        }
+        void confirm(int confirmationId) {
+            synchronized (confirmationLock) {
+                if (expectedConfirmation != null
+                        && expectedConfirmation.intValue() == confirmationId) {
+                    confirmationReceived = true;
+                    confirmationLock.notifyAll();
+                }
+            }
+        }
+        void enqueueGame(String body) throws IOException {
+            if (closed.get() || !gameOutbox.offer(body)) {
+                close();
+                throw new IOException("Critical GAME outbox is closed or full");
+            }
+        }
+        private void runGameOutbox() {
+            while (!closed.get()) {
+                SessionOutbox.Entry entry = gameOutbox.peek();
+                if (entry == null) {
+                    synchronized (gameOutbox) {
+                        if (gameOutbox.isEmpty() && !closed.get()) {
+                            try { gameOutbox.wait(250L); }
+                            catch (InterruptedException interrupted) {
+                                Thread.currentThread().interrupt();
+                                close();
+                            }
+                        }
+                    }
+                    continue;
+                }
+                int confirmationId = entry.wireId() + 1;
+                synchronized (confirmationLock) {
+                    expectedConfirmation = confirmationId;
+                    confirmationReceived = false;
+                }
+                try {
+                    writeEncrypted("GAME#" + entry.wireId() + "#" + entry.command());
+                    long deadline = System.nanoTime()
+                            + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(
+                                    GAME_CONFIRMATION_TIMEOUT_MS);
+                    boolean confirmed;
+                    synchronized (confirmationLock) {
+                        while (!closed.get() && !confirmationReceived) {
+                            long remaining = deadline - System.nanoTime();
+                            if (remaining <= 0L) break;
+                            long millis = Math.max(1L,
+                                    java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(remaining));
+                            confirmationLock.wait(millis);
+                        }
+                        confirmed = confirmationReceived;
+                    }
+                    if (confirmed && gameOutbox.isCurrent(entry)) {
+                        gameOutbox.removeIfHead(entry);
+                    }
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    close();
+                } catch (IOException failure) {
+                    close();
+                } finally {
+                    synchronized (confirmationLock) {
+                        expectedConfirmation = null;
+                        confirmationReceived = false;
+                    }
+                }
+            }
         }
         synchronized void writeEncrypted(String clear) throws IOException {
             String frame = SecureChannelCodec.encryptCommand(clear, aes, hmac);
@@ -679,7 +787,12 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             if (frame == null || !frame.isText()) return null;
             return SecureChannelCodec.decryptCommand(frame.text(), aes, hmac);
         }
-        @Override public void close() { try { socket.close(); } catch (IOException ignored) { } }
+        @Override public void close() {
+            if (!closed.compareAndSet(false, true)) return;
+            gameOutbox.advanceGeneration();
+            synchronized (confirmationLock) { confirmationLock.notifyAll(); }
+            try { socket.close(); } catch (IOException ignored) { }
+        }
     }
 
     private record Peer(String nickname, Path avatar, boolean local, boolean host,
@@ -768,7 +881,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         return Base64.getEncoder().encodeToString(text.getBytes(StandardCharsets.UTF_8));
     }
     private static String text64(String encoded) {
-        return new String(Base64.getDecoder().decode(encoded.replaceAll("[^A-Za-z0-9+/=]", "")), StandardCharsets.UTF_8).trim();
+        return new String(Base64.getDecoder().decode(
+                encoded.replaceAll("[^A-Za-z0-9+/=]", "")), StandardCharsets.UTF_8);
     }
     private static String emptyToNull(String value) {
         return value == null || value.isEmpty() ? null : value;

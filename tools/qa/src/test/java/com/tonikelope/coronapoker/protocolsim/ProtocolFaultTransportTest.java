@@ -1,8 +1,8 @@
 package com.tonikelope.coronapoker.protocolsim;
 
 import com.tonikelope.coronapoker.CanonicalActionRecord;
-import com.tonikelope.coronapoker.GameCommandGate;
-import com.tonikelope.coronapoker.GameCommandType;
+import com.tonikelope.coronapoker.core.network.GameCommandGate;
+import com.tonikelope.coronapoker.core.network.GameCommandType;
 import com.tonikelope.coronapoker.HandStateChain;
 import com.tonikelope.coronapoker.IdentityManager;
 import java.util.Base64;

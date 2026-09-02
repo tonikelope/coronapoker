@@ -1,5 +1,7 @@
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.network.SessionOutbox;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertFalse;

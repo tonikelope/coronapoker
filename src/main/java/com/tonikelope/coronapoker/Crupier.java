@@ -34,6 +34,8 @@ import com.tonikelope.coronapoker.crypto.DealChain;
 import com.tonikelope.coronapoker.table.TableEventBridge;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
+import com.tonikelope.coronapoker.core.network.ConfirmationTracker;
+import com.tonikelope.coronapoker.core.network.GameCommandId;
 
 import com.drew.imaging.ImageProcessingException;
 import static com.tonikelope.coronapoker.Card.BARAJAS;

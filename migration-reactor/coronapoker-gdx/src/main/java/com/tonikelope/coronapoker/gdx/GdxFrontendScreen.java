@@ -270,6 +270,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }));
     }
 
+    void showSessionError(String detail) {
+        showToast(detail == null || detail.isBlank()
+                ? "No se pudo abrir la mesa" : detail);
+    }
+
     private void drawFeltBackground() {
         batch.begin();
         batch.setColor(Color.WHITE);

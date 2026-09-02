@@ -6,7 +6,7 @@
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  */
-package com.tonikelope.coronapoker;
+package com.tonikelope.coronapoker.core.network;
 
 import java.util.ArrayList;
 import java.util.Collection;

@@ -8,6 +8,8 @@
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.network.SessionOutbox;
+
 import com.tonikelope.coronapoker.protocolsim.CampaignProgress;
 import com.tonikelope.coronapoker.protocolsim.CampaignSeed;
 import java.nio.charset.StandardCharsets;

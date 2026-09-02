@@ -28,6 +28,10 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.network.ConfirmationTracker;
+import com.tonikelope.coronapoker.core.network.GameCommandGate;
+import com.tonikelope.coronapoker.core.network.GameCommandType;
+
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.net.Socket;

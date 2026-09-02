@@ -47,11 +47,11 @@ class NetworkLobbyGatewayTest {
                 }
                 await(() -> host.snapshot().participants().size() == 2);
 
-                client.submit(new LobbyCommand.SendText("hola mesa")).toCompletableFuture()
+                client.submit(new LobbyCommand.SendText("  hola mesa  ")).toCompletableFuture()
                         .get(2, TimeUnit.SECONDS);
                 await(() -> host.snapshot().chat().stream()
                         .anyMatch(item -> item.nickname().equals("Invitado")
-                                && item.content().equals("hola mesa")));
+                                && item.content().equals("  hola mesa  ")));
 
                 host.submit(new LobbyCommand.AddBot()).toCompletableFuture().get(2, TimeUnit.SECONDS);
                 await(() -> client.snapshot().participants().stream().anyMatch(p -> p.bot()));

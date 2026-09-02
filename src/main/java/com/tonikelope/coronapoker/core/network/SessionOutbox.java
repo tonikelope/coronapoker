@@ -1,5 +1,5 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
-package com.tonikelope.coronapoker;
+package com.tonikelope.coronapoker.core.network;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;

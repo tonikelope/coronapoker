@@ -4646,6 +4646,184 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             public void hideShuffleTurn() {
                 onShuffleTurnEnd();
             }
+
+            private Player player(String nickname) {
+                if (nickname == null || nickname.isEmpty()) {
+                    return null;
+                }
+                for (Player candidate : jugadores) {
+                    if (nickname.equals(candidate.getNickname())) {
+                        return candidate;
+                    }
+                }
+                return null;
+            }
+
+            private ImageIcon positionChip(
+                    com.tonikelope.coronapoker.table.TableSnapshot.Position position) {
+                return switch (position) {
+                    case BIG_BLIND -> Helpers.IMAGEN_BB;
+                    case SMALL_BLIND -> Helpers.IMAGEN_SB;
+                    case DEAD_DEALER -> Helpers.IMAGEN_DEAD_DEALER;
+                    case DEALER -> Helpers.IMAGEN_DEALER;
+                    case STRADDLE, DEALER_STRADDLE -> Helpers.IMAGEN_STRADDLE;
+                    default -> null;
+                };
+            }
+
+            @Override
+            public void preparePositionRotation(
+                    java.util.List<com.tonikelope.coronapoker.table.TableVisualEvent.PositionTransfer> transfers) {
+                Helpers.GUIRunAndWait(() -> {
+                    for (var transfer : transfers) {
+                        Player destination = player(transfer.toNickname());
+                        if (destination != null) {
+                            destination.getChip_label().setVisible(false);
+                        }
+                    }
+                });
+            }
+
+            @Override
+            public java.util.concurrent.CompletionStage<Void> animatePositionRotation(
+                    java.util.List<com.tonikelope.coronapoker.table.TableVisualEvent.PositionTransfer> transfers,
+                    long durationMillis, Runnable onLand) {
+                java.util.List<TablePanel.ChipFlight> flights
+                        = new java.util.ArrayList<>();
+                for (var transfer : transfers) {
+                    Player destination = player(transfer.toNickname());
+                    ImageIcon chip = positionChip(transfer.position());
+                    if (destination == null || chip == null) {
+                        continue;
+                    }
+                    Player origin = transfer.fromCenter()
+                            ? null : player(transfer.fromNickname());
+                    flights.add(new TablePanel.ChipFlight(
+                            origin, destination, chip));
+                }
+                tapete.flyChipsToSeats(flights,
+                        Math.toIntExact(durationMillis), onLand);
+                return java.util.concurrent.CompletableFuture.completedFuture(null);
+            }
+
+            @Override
+            public void preparePotTarget() {
+                Helpers.GUIRunAndWait(() -> {
+                    CommunityCardsPanel community = tapete.getCommunityCards();
+                    community.setVisible(true);
+                    community.revalidate();
+                    community.repaint();
+                });
+            }
+
+            @Override
+            public void launchChipToPot(String nickname, int shrinkMillis,
+                    Runnable onLand) {
+                Player source = player(nickname);
+                if (source == null) {
+                    onLand.run();
+                    return;
+                }
+                tapete.flyChipToPot(source, Helpers.IMAGEN_POT_CHIP,
+                        shrinkMillis, onLand);
+            }
+
+            @Override
+            public java.util.concurrent.CompletionStage<Void> potFlashCompletion() {
+                java.util.concurrent.CompletableFuture<Void> result
+                        = new java.util.concurrent.CompletableFuture<>();
+                tapete.getCommunityCards().onPotFlashDone(
+                        () -> result.complete(null));
+                return result;
+            }
+
+            @Override
+            public java.util.concurrent.CompletionStage<Void> animateShowdownPayout(
+                    java.util.List<TableDisplaySink.PayoutTransfer> payouts,
+                    int shrinkMillis, int postAnimationPauseMillis) {
+                java.util.concurrent.CompletableFuture<Void> result
+                        = new java.util.concurrent.CompletableFuture<>();
+                try {
+                    java.util.LinkedHashMap<Player, TableDisplaySink.PayoutTransfer> resolved
+                            = new java.util.LinkedHashMap<>();
+                    double total = 0d;
+                    for (TableDisplaySink.PayoutTransfer transfer : payouts) {
+                        Player winner = player(transfer.nickname());
+                        if (winner != null && transfer.amount() > 0d) {
+                            resolved.put(winner, transfer);
+                            total = Helpers.doubleClean(total + transfer.amount());
+                        }
+                    }
+                    if (resolved.isEmpty() || total <= 0d) {
+                        result.complete(null);
+                        return result;
+                    }
+
+                    CommunityCardsPanel community = tapete.getCommunityCards();
+                    String potPrefix = Translator.translate("game.bote_2");
+                    double initialPot = total;
+                    java.util.LinkedHashMap<Player, RollingCounter> rollers
+                            = new java.util.LinkedHashMap<>();
+                    Helpers.GUIRunAndWait(() -> {
+                        community.rollPotValue(potPrefix, initialPot, "", false);
+                        for (var entry : resolved.entrySet()) {
+                            Player winner = entry.getKey();
+                            RollingCounter roller = new RollingCounter(
+                                    winner::setStackDisplay,
+                                    GameFrame.COUNTER_ROLL_SPEED,
+                                    GameFrame.COUNTER_ROLL_MIN_MS,
+                                    GameFrame.COUNTER_ROLL_MAX_MS);
+                            roller.set(entry.getValue().stackBefore());
+                            rollers.put(winner, roller);
+                        }
+                    });
+
+                    java.util.concurrent.CountDownLatch landed
+                            = new java.util.concurrent.CountDownLatch(resolved.size());
+                    double[] remaining = {initialPot};
+                    for (var entry : resolved.entrySet()) {
+                        Player winner = entry.getKey();
+                        TableDisplaySink.PayoutTransfer transfer = entry.getValue();
+                        tapete.flyChipFromPot(winner, Helpers.IMAGEN_POT_CHIP,
+                                shrinkMillis, () -> Helpers.GUIRun(() -> {
+                                    remaining[0] = Helpers.doubleClean(Math.max(
+                                            0d, remaining[0] - transfer.amount()));
+                                    community.rollPotValue(potPrefix, remaining[0], "",
+                                            GameFrame.isCounterRollEnabled());
+                                    RollingCounter roller = rollers.get(winner);
+                                    if (roller != null) {
+                                        roller.roll(Helpers.doubleClean(
+                                                transfer.stackBefore() + transfer.amount()),
+                                                GameFrame.isCounterRollEnabled());
+                                    }
+                                    landed.countDown();
+                                }));
+                    }
+
+                    if (!landed.await(3, java.util.concurrent.TimeUnit.SECONDS)
+                            || crupier.isFin_de_la_transmision()) {
+                        result.complete(null);
+                        return result;
+                    }
+                    Helpers.parkThreadMillis(
+                            shrinkMillis + postAnimationPauseMillis);
+                    Helpers.GUIRunAndWait(() -> {
+                        community.rollPotValue(potPrefix, 0d, "", false);
+                        for (var entry : resolved.entrySet()) {
+                            TableDisplaySink.PayoutTransfer transfer = entry.getValue();
+                            entry.getKey().setStackDisplay(Helpers.doubleClean(
+                                    transfer.stackBefore() + transfer.amount()));
+                        }
+                    });
+                    result.complete(null);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    result.completeExceptionally(ex);
+                } catch (Throwable failure) {
+                    result.completeExceptionally(failure);
+                }
+                return result;
+            }
         };
         GameWindowSink gameWindow = new GameWindowSink() {
             @Override

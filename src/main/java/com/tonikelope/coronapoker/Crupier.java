@@ -4344,7 +4344,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Chip-rotation flights already computed by prepareChipRotation (consumed by
     // animateChipRotation when it flies). Prepared right after fixing positions so the
     // big chip can be hidden before it's ever painted.
-    private java.util.List<TablePanel.ChipFlight> pending_chip_rotation_flights;
     private java.util.List<Player> pending_chip_rotation_to_hide;
     private java.util.List<TableVisualEvent.PositionTransfer> pending_position_rotation;
     // Players whose big chip stays SUPPRESSED (refreshPositionChipIcons won't paint it
@@ -4367,7 +4366,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // after the nuevaMano loop; the actual flight happens later in animateChipRotation().
     private void prepareChipRotation(String prev_dealer_nick, String prev_sb_nick, String prev_bb_nick) {
 
-        this.pending_chip_rotation_flights = null;
         this.pending_chip_rotation_to_hide = null;
         this.pending_position_rotation = null;
         this.big_chip_suppressed = null;
@@ -4377,7 +4375,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         final java.util.Map<String, Player> n2p = getNick2player();
-        final java.util.List<TablePanel.ChipFlight> flights = new java.util.ArrayList<>();
         final java.util.List<TableVisualEvent.PositionTransfer> neutralTransfers
                 = new java.util.ArrayList<>();
         // Asientos cuya ficha grande se oculta antes del vuelo: SOLO los destinos de
@@ -4387,14 +4384,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Big blind: always painted.
         addPositionTransfer(neutralTransfers, n2p, prev_bb_nick, this.big_blind_nick,
                 com.tonikelope.coronapoker.table.TableSnapshot.Position.BIG_BLIND, false);
-        addChipFlight(flights, to_hide, n2p, prev_bb_nick, this.big_blind_nick, Helpers.IMAGEN_BB, false);
 
         // Small blind: only if its seat differs from the big blind's.
         String new_sb_holder = chipHolder(this.small_blind_nick, this.big_blind_nick, null);
         String old_sb_holder = chipHolder(prev_sb_nick, prev_bb_nick, null);
         addPositionTransfer(neutralTransfers, n2p, old_sb_holder, new_sb_holder,
                 com.tonikelope.coronapoker.table.TableSnapshot.Position.SMALL_BLIND, false);
-        addChipFlight(flights, to_hide, n2p, old_sb_holder, new_sb_holder, Helpers.IMAGEN_SB, false);
 
         // Dealer button: only if its seat differs from both blinds' (heads-up dealer ==
         // small blind -> no visible button). On a DEAD DEALER (the player who should
@@ -4409,8 +4404,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         ? com.tonikelope.coronapoker.table.TableSnapshot.Position.DEAD_DEALER
                         : com.tonikelope.coronapoker.table.TableSnapshot.Position.DEALER,
                 dead);
-        addChipFlight(flights, to_hide, n2p, old_dealer_holder, new_dealer_holder,
-                dead ? Helpers.IMAGEN_DEAD_DEALER : Helpers.IMAGEN_DEALER, dead);
 
         this.pending_position_rotation = neutralTransfers.isEmpty()
                 ? null : java.util.List.copyOf(neutralTransfers);
@@ -4419,20 +4412,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        if (flights.isEmpty()) {
+        if (neutralTransfers.isEmpty()) {
             return;
+        }
+
+        for (TableVisualEvent.PositionTransfer transfer : neutralTransfers) {
+            Player destination = n2p.get(transfer.toNickname());
+            if (destination != null && !to_hide.contains(destination)) {
+                to_hide.add(destination);
+            }
         }
 
         // Suppresses painting of destination big chips until they land (so no
         // intermediate repaint restores them) and hides them right away.
         this.big_chip_suppressed = to_hide;
-        Helpers.GUIRunAndWait(() -> {
-            for (Player p : to_hide) {
-                p.getChip_label().setVisible(false);
-            }
-        });
-
-        this.pending_chip_rotation_flights = flights;
+        table_display.preparePositionRotation(neutralTransfers);
         this.pending_chip_rotation_to_hide = to_hide;
     }
 
@@ -4442,17 +4436,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // end / nothing to move).
     private void animateChipRotation() {
 
-        final java.util.List<TablePanel.ChipFlight> flights = this.pending_chip_rotation_flights;
         final java.util.List<Player> to_hide = this.pending_chip_rotation_to_hide;
         final java.util.List<TableVisualEvent.PositionTransfer> neutralTransfers
                 = this.pending_position_rotation;
-        this.pending_chip_rotation_flights = null;
         this.pending_chip_rotation_to_hide = null;
         this.pending_position_rotation = null;
 
         boolean hasNeutralRotation = neutralTransfers != null && !neutralTransfers.isEmpty();
-        boolean hasSwingRotation = flights != null && !flights.isEmpty();
-        if (isFin_de_la_transmision() || (!hasNeutralRotation && !hasSwingRotation)) {
+        if (isFin_de_la_transmision() || !hasNeutralRotation) {
             this.big_chip_suppressed = null;
             return;
         }
@@ -4467,19 +4458,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        if (!hasSwingRotation) {
-            this.big_chip_suppressed = null;
-            return;
-        }
-
-        GameFrame.getInstance().getTapete().flyChipsToSeats(flights, flight_dur, () -> {
-            // Stops suppressing right before restoring: the chip appears under the
-            // flying one (seamless handoff) and can be painted normally again.
-            this.big_chip_suppressed = null;
-            for (Player p : to_hide) {
-                p.refreshPositionChipIcons();
+        java.util.concurrent.atomic.AtomicBoolean landed
+                = new java.util.concurrent.atomic.AtomicBoolean();
+        Runnable onLand = () -> {
+            if (landed.compareAndSet(false, true)) {
+                this.big_chip_suppressed = null;
+                for (Player p : to_hide) {
+                    p.refreshPositionChipIcons();
+                }
             }
-        });
+        };
+        try {
+            table_display.animatePositionRotation(
+                    neutralTransfers, flight_dur, onLand)
+                    .toCompletableFuture().get(4, TimeUnit.SECONDS);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING,
+                    "Classic position-rotation presentation barrier failed", ex);
+        } finally {
+            onLand.run();
+        }
     }
 
     boolean presentPositionRotationToAttachedRenderer(
@@ -4532,29 +4532,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 fromCenter || oldNickname == null));
     }
 
-    // Adds a chip flight from the previous holder to the new one and registers its
-    // destination seat in to_hide. Skipped if the role isn't painted (newNick null)
-    // or the new holder can't be resolved. With fromCenter, the chip starts at the
-    // CENTER of the table (first hand or dead dealer: the origin seat no longer
-    // exists) and the "no movement" filter doesn't apply; otherwise origin = previous
-    // seat, and it's skipped when there's no movement (same seat).
-    private void addChipFlight(java.util.List<TablePanel.ChipFlight> flights, java.util.List<Player> to_hide,
-            java.util.Map<String, Player> n2p, String oldNick, String newNick, ImageIcon sprite, boolean fromCenter) {
-        if (newNick == null || sprite == null) {
-            return;
-        }
-        Player to = n2p.get(newNick);
-        if (to == null) {
-            return;
-        }
-        Player from = fromCenter ? null : ((oldNick != null) ? n2p.get(oldNick) : null);
-        if (!fromCenter && from == to) {
-            return;
-        }
-        flights.add(new TablePanel.ChipFlight(from, to, sprite));
-        to_hide.add(to);
-    }
-
     // Duration (ms) of the chip's shrink-and-fade when it lands in the pot.
     private static final int POT_CHIP_SHRINK_MS = 320;
     // Brief visual beat after the payout chip has fully shrunk into the winner's stack.
@@ -4603,7 +4580,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // stack (down) and bet (up) into the model — all three at once. The handler
         // left stack/bet unrolled (deferred) for exactly this. Guaranteed-once via flyChipToPot.
         pot_chips_in_flight.incrementAndGet();
-        GameFrame.getInstance().getTapete().flyChipToPot(player, Helpers.IMAGEN_POT_CHIP, POT_CHIP_SHRINK_MS, () -> {
+        table_display.launchChipToPot(player.getNickname(),
+                POT_CHIP_SHRINK_MS, () -> {
             pot_chips_in_flight.decrementAndGet();
             // Only the pot VALUE (not the full actualizarContadoresTapete): so landing
             // doesn't re-show bet_label if showdown already hid it.
@@ -4649,207 +4627,41 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 || this.game_recovered != 0
                 || isFin_de_la_transmision()
                 || localPlayer().isExit()) {
-
             return;
         }
 
-        final LinkedHashMap<Player, Double> payouts = new LinkedHashMap<>();
-
-        double totalPaid = 0f;
-
-        for (Player p : players()) {
-
-            if (p == null) {
+        java.util.List<TableDisplaySink.PayoutTransfer> payouts
+                = new java.util.ArrayList<>();
+        for (Player player : players()) {
+            if (player == null) {
                 continue;
             }
-
-            double pay = Helpers.doubleClean(p.getPagar());
-
+            double pay = Helpers.doubleClean(player.getPagar());
             if (Helpers.doubleSecureCompare(0f, pay) < 0) {
-
-                payouts.put(p, pay);
-
-                totalPaid = Helpers.doubleClean(totalPaid + pay);
+                payouts.add(new TableDisplaySink.PayoutTransfer(
+                        player.getNickname(), player.getStack(), pay));
             }
         }
-
-        if (payouts.isEmpty()
-                || Helpers.doubleSecureCompare(0f, totalPaid) >= 0) {
-
+        if (payouts.isEmpty()) {
             return;
         }
 
-        final TablePanel table = GameFrame.getInstance().getTapete();
-
-        final CommunityCardsPanel community = table.getCommunityCards();
-
-        final String potPrefix = Translator.translate("game.bote_2");
-
-        final double initialPot = totalPaid;
-
-        /*
-     * Temporary visual stack rollers.
-     *
-     * They use EXACTLY the same speed and duration bounds as the real live
-     * stack/pot counters. Their renderer delegates to setStackDisplay(), so
-     * the actual stack model remains untouched.
-         */
-        final LinkedHashMap<Player, RollingCounter> stackRollers
-                = new LinkedHashMap<>();
-
-        Helpers.GUIRunAndWait(() -> {
-
-            /*
-         * Show the total amount that is actually going to be distributed.
-         *
-         * This also converts side-pot/RIT textual breakdowns back into one
-         * numeric value without animating before the payout chip starts.
-             */
-            community.rollPotValue(
-                    potPrefix,
-                    initialPot,
-                    "",
-                    false
-            );
-
-            for (Map.Entry<Player, Double> entry : payouts.entrySet()) {
-
-                final Player player = entry.getKey();
-
-                RollingCounter roller = new RollingCounter(
-                        (value) -> player.setStackDisplay(value),
-                        GameFrame.COUNTER_ROLL_SPEED,
-                        GameFrame.COUNTER_ROLL_MIN_MS,
-                        GameFrame.COUNTER_ROLL_MAX_MS
-                );
-
-                /*
-             * Seed the temporary roller with the player's current pre-payout
-             * stack. No visible change occurs here.
-                 */
-                roller.set(player.getStack());
-
-                stackRollers.put(player, roller);
-            }
-        });
-
-        /*
-     * Same subtle chip sound used by CALL, played when the payout chips leave
-     * the pot.
-         */
         if (GameFrame.igualarSonidoOn()) {
             Audio.playWavResource("misc/call.wav");
         }
 
-        final java.util.concurrent.CountDownLatch landed
-                = new java.util.concurrent.CountDownLatch(payouts.size());
-
-        /*
-     * All landing callbacks are ultimately serialized on the EDT, so this
-     * value can safely represent the pot amount still waiting to be awarded.
-         */
-        final double[] remainingPot = {initialPot};
-
-        for (Map.Entry<Player, Double> entry : payouts.entrySet()) {
-
-            final Player player = entry.getKey();
-
-            final double pay = entry.getValue();
-
-            table.flyChipFromPot(
-                    player,
-                    Helpers.IMAGEN_POT_CHIP,
-                    POT_CHIP_SHRINK_MS,
-                    () -> {
-
-                        Helpers.GUIRun(() -> {
-
-                            /*
-                         * EXACT landing moment:
-                         *
-                         * - this winner's stack starts rolling UP
-                         * - the pot starts rolling DOWN
-                         *
-                         * This mirrors launchChipToPot(), where the stack/bet
-                         * and pot rolls start when the betting chip lands.
-                             */
-                            remainingPot[0] = Helpers.doubleClean(
-                                    Math.max(0f, remainingPot[0] - pay)
-                            );
-
-                            community.rollPotValue(
-                                    potPrefix,
-                                    remainingPot[0],
-                                    "",
-                                    GameFrame.isCounterRollEnabled()
-                            );
-
-                            RollingCounter stackRoller
-                                    = stackRollers.get(player);
-
-                            if (stackRoller != null) {
-
-                                stackRoller.roll(
-                                        Helpers.doubleClean(
-                                                player.getStack() + pay
-                                        ),
-                                        GameFrame.isCounterRollEnabled()
-                                );
-                            }
-
-                            landed.countDown();
-                        });
-                    }
-            );
-        }
-
-        boolean allLanded = false;
-
         try {
-
-            allLanded = landed.await(
-                    3,
-                    java.util.concurrent.TimeUnit.SECONDS
-            );
-
+            table_display.animateShowdownPayout(payouts,
+                    POT_CHIP_SHRINK_MS,
+                    SHOWDOWN_PAYOUT_POST_ANIMATION_PAUSE_MS)
+                    .toCompletableFuture().get(5, TimeUnit.SECONDS);
         } catch (InterruptedException ex) {
-
             Thread.currentThread().interrupt();
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING,
+                    "Classic showdown-payout presentation barrier failed", ex);
         }
-
-        if (!allLanded || isFin_de_la_transmision()) {
-            return;
-        }
-
-        Helpers.parkThreadMillis(POT_CHIP_SHRINK_MS + SHOWDOWN_PAYOUT_POST_ANIMATION_PAUSE_MS);
-
-        /*
-        * Defensive exact landing values. Normally these are already identical
-        * to what is displayed; this only eliminates any possible final-frame
-        * scheduling lag before nuevaMano().
-         */
-        Helpers.GUIRunAndWait(() -> {
-
-            community.rollPotValue(
-                    potPrefix,
-                    0f,
-                    "",
-                    false
-            );
-
-            for (Map.Entry<Player, Double> entry : payouts.entrySet()) {
-
-                Player player = entry.getKey();
-
-                player.setStackDisplay(
-                        Helpers.doubleClean(
-                                player.getStack() + entry.getValue()
-                        )
-                );
-            }
-        });
     }
-
     public int getGame_recovered() {
         return game_recovered;
     }
@@ -4971,11 +4783,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // The community panel (and its pot_label) must be visible and positioned before
         // flying chips: otherwise getPotIconScreenCenter() returns null and flyChipToPot
         // falls back to the table center. The shuffle hides it again afterwards.
-        Helpers.GUIRunAndWait(() -> {
-            GameFrame.getInstance().getTapete().getCommunityCards().setVisible(true);
-            GameFrame.getInstance().getTapete().getCommunityCards().revalidate();
-            GameFrame.getInstance().getTapete().getCommunityCards().repaint();
-        });
+        table_display.preparePotTarget();
 
         if (GameFrame.apuestaSonidoOn()) {
             Audio.playWavResource("misc/bet.wav");
@@ -4984,7 +4792,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(contributors.size());
 
         for (Player p : contributors) {
-            GameFrame.getInstance().getTapete().flyChipToPot(p, Helpers.IMAGEN_POT_CHIP, POT_CHIP_SHRINK_MS, () -> {
+            table_display.launchChipToPot(p.getNickname(),
+                    POT_CHIP_SHRINK_MS, () -> {
                 pot_chips_in_flight.decrementAndGet();
                 refreshTapeteBoteValue();
                 // Roll this contributor's stack/bet counters to the model right as the pot
@@ -5003,12 +4812,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Wait for the exact end of the pot's yellow flash (not an arbitrary delay):
         // onPotFlashDone fires when the flash timer ends, or immediately if none is running.
         if (!isFin_de_la_transmision()) {
-            final java.util.concurrent.CountDownLatch flash_done = new java.util.concurrent.CountDownLatch(1);
-            GameFrame.getInstance().getTapete().getCommunityCards().onPotFlashDone(flash_done::countDown);
             try {
-                flash_done.await(2, java.util.concurrent.TimeUnit.SECONDS);
+                table_display.potFlashCompletion().toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
+            } catch (Exception ex) {
+                LOGGER.log(Level.WARNING,
+                        "Classic pot-flash presentation barrier failed", ex);
             }
         }
     }
@@ -15090,20 +14901,39 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             straddler.refreshPositionChipIcons();
             return;
         }
-        final java.util.List<TablePanel.ChipFlight> flights = new java.util.ArrayList<>();
-        flights.add(new TablePanel.ChipFlight(null, straddler, Helpers.IMAGEN_STRADDLE)); // null = from center
+        final java.util.List<TableVisualEvent.PositionTransfer> transfers
+                = java.util.List.of(new TableVisualEvent.PositionTransfer(
+                        "", straddler.getNickname(),
+                        com.tonikelope.coronapoker.table.TableSnapshot.Position.STRADDLE,
+                        true));
         int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / getJugadoresActivos())));
         final int flight_dur = Math.max(150, pausa);
-        Helpers.GUIRunAndWait(() -> straddler.getChip_label().setVisible(false));
-        final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
-        GameFrame.getInstance().getTapete().flyChipsToSeats(flights, flight_dur, () -> {
-            straddler.refreshPositionChipIcons();
-            latch.countDown();
-        });
+
+        if (presentPositionRotationToAttachedRenderer(transfers, flight_dur)) {
+            return;
+        }
+
+        this.big_chip_suppressed = java.util.List.of(straddler);
+        table_display.preparePositionRotation(transfers);
+        java.util.concurrent.atomic.AtomicBoolean landed
+                = new java.util.concurrent.atomic.AtomicBoolean();
+        Runnable onLand = () -> {
+            if (landed.compareAndSet(false, true)) {
+                this.big_chip_suppressed = null;
+                straddler.refreshPositionChipIcons();
+            }
+        };
         try {
-            latch.await(2, java.util.concurrent.TimeUnit.SECONDS);
+            table_display.animatePositionRotation(
+                    transfers, flight_dur, onLand)
+                    .toCompletableFuture().get(2, TimeUnit.SECONDS);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING,
+                    "Classic straddle-chip presentation barrier failed", ex);
+        } finally {
+            onLand.run();
         }
     }
 

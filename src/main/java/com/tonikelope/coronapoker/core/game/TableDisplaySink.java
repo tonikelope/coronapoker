@@ -8,8 +8,17 @@
  */
 package com.tonikelope.coronapoker.core.game;
 
+import com.tonikelope.coronapoker.table.TableVisualEvent;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+
 /** Immediate, semantic table-display operations retained by the classic flow. */
 public interface TableDisplaySink {
+
+    record PayoutTransfer(String nickname, double stackBefore,
+            double amount) {
+    }
 
     enum PotStyle {
         DEFAULT,
@@ -61,6 +70,23 @@ public interface TableDisplaySink {
     void showShuffleTurn(String nickname);
 
     void hideShuffleTurn();
+
+    void preparePositionRotation(
+            List<TableVisualEvent.PositionTransfer> transfers);
+
+    CompletionStage<Void> animatePositionRotation(
+            List<TableVisualEvent.PositionTransfer> transfers,
+            long durationMillis, Runnable onLand);
+
+    void preparePotTarget();
+
+    void launchChipToPot(String nickname, int shrinkMillis, Runnable onLand);
+
+    CompletionStage<Void> potFlashCompletion();
+
+    CompletionStage<Void> animateShowdownPayout(
+            List<PayoutTransfer> payouts, int shrinkMillis,
+            int postAnimationPauseMillis);
 
     static TableDisplaySink noop() {
         return new TableDisplaySink() {
@@ -150,6 +176,41 @@ public interface TableDisplaySink {
 
             @Override
             public void hideShuffleTurn() {
+            }
+
+            @Override
+            public void preparePositionRotation(
+                    List<TableVisualEvent.PositionTransfer> transfers) {
+            }
+
+            @Override
+            public CompletionStage<Void> animatePositionRotation(
+                    List<TableVisualEvent.PositionTransfer> transfers,
+                    long durationMillis, Runnable onLand) {
+                onLand.run();
+                return CompletableFuture.completedFuture(null);
+            }
+
+            @Override
+            public void preparePotTarget() {
+            }
+
+            @Override
+            public void launchChipToPot(String nickname, int shrinkMillis,
+                    Runnable onLand) {
+                onLand.run();
+            }
+
+            @Override
+            public CompletionStage<Void> potFlashCompletion() {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            @Override
+            public CompletionStage<Void> animateShowdownPayout(
+                    List<PayoutTransfer> payouts, int shrinkMillis,
+                    int postAnimationPauseMillis) {
+                return CompletableFuture.completedFuture(null);
             }
         };
     }

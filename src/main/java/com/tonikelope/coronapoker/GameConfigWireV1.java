@@ -8,14 +8,9 @@
  */
 package com.tonikelope.coronapoker;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.math.BigDecimal;
+import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.util.Base64;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -121,115 +116,23 @@ public final class GameConfigWireV1 {
     }
 
     public byte[] encode() {
-        try {
-            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-            DataOutputStream out = new DataOutputStream(bytes);
-            out.writeInt(MAGIC);
-            out.writeInt(VERSION);
-            out.writeInt(CAPABILITIES);
-            out.writeInt(buyin);
-            out.writeLong(toCents(smallBlind));
-            out.writeLong(toCents(bigBlind));
-            out.writeInt(blindsDouble);
-            out.writeInt(blindsDoubleType);
-            writeBoolean(out, recover);
-            writeString(out, sessionId);
-            writeBoolean(out, rebuy);
-            out.writeInt(hands);
-            out.writeLong(toCents(blindCap));
-            out.writeInt(rebuyLimit);
-            writeBoolean(out, botRebuy);
-            writeBoolean(out, fixedBuyin);
-            out.writeInt(buyinMinBb);
-            out.writeInt(buyinMaxBb);
-            out.writeInt(rebuyCapPolicy);
-            writeBoolean(out, ante);
-            writeBoolean(out, straddle);
-            writeBoolean(out, iwtsth);
-            writeBoolean(out, runItTwice);
-            out.writeInt(rabbitHunting);
-            out.writeInt(thinkTime);
-            writeBoolean(out, thinkTimeEnabled);
-            out.writeInt(showdownTime);
-            writeBoolean(out, botBalanceToHumans);
-            writeString(out, blindStructure == null ? "" : BlindStructure.levelsToString(blindStructure));
-            out.flush();
-            byte[] encoded = bytes.toByteArray();
-            if (encoded.length > MAX_PACKET_BYTES) {
-                throw new IllegalStateException("configuration packet too large");
-            }
-            return encoded;
-        } catch (Exception ex) {
-            throw new IllegalStateException("cannot encode validated configuration", ex);
-        }
+        return GameConfigCodecV1.encode(toCoreConfiguration());
     }
 
     public String encodeBase64() {
-        return Base64.getEncoder().encodeToString(encode());
+        return GameConfigCodecV1.encodeBase64(toCoreConfiguration());
     }
 
     public static Result decodeBase64(String encoded) {
-        try {
-            if (encoded == null || encoded.length() > MAX_PACKET_BYTES * 2) {
-                return Result.error("invalid configuration encoding");
-            }
-            return decode(Base64.getDecoder().decode(encoded));
-        } catch (IllegalArgumentException ex) {
-            return Result.error("invalid configuration encoding");
-        }
+        return fromCore(GameConfigCodecV1.decodeBase64(encoded));
     }
 
     public static Result decode(byte[] encoded) {
-        if (encoded == null || encoded.length > MAX_PACKET_BYTES) {
-            return Result.error("invalid configuration packet size");
-        }
-        try {
-            DataInputStream in = new DataInputStream(new ByteArrayInputStream(encoded));
-            if (in.readInt() != MAGIC || in.readInt() != VERSION || in.readInt() != CAPABILITIES) {
-                return Result.error("unsupported configuration version or capabilities");
-            }
-            Builder b = builder()
-                    .buyin(in.readInt())
-                    .smallBlind(fromCents(in.readLong()))
-                    .bigBlind(fromCents(in.readLong()))
-                    .blindsDouble(in.readInt(), in.readInt())
-                    .recover(readBoolean(in))
-                    .sessionId(readString(in, MAX_SESSION_BYTES))
-                    .rebuy(readBoolean(in))
-                    .hands(in.readInt())
-                    .blindCap(fromCents(in.readLong()))
-                    .rebuyLimit(in.readInt())
-                    .botRebuy(readBoolean(in))
-                    .fixedBuyin(readBoolean(in))
-                    .buyinRangeBb(in.readInt(), in.readInt())
-                    .rebuyCapPolicy(in.readInt())
-                    .ante(readBoolean(in))
-                    .straddle(readBoolean(in))
-                    .iwtsth(readBoolean(in))
-                    .runItTwice(readBoolean(in))
-                    .rabbitHunting(in.readInt())
-                    .thinkTime(in.readInt(), readBoolean(in))
-                    .showdownTime(in.readInt())
-                    .botBalanceToHumans(readBoolean(in));
-            String structure = readString(in, MAX_STRUCTURE_BYTES);
-            if (!structure.isEmpty()) {
-                b.blindStructure(BlindStructure.parseValidatedLevels(structure));
-            }
-            if (in.available() != 0) {
-                return Result.error("trailing configuration data");
-            }
-            return b.build();
-        } catch (Exception ex) {
-            return Result.error("malformed configuration packet");
-        }
+        return fromCore(GameConfigCodecV1.decode(encoded));
     }
 
     public byte[] canonicalHash() {
-        try {
-            return MessageDigest.getInstance("SHA-256").digest(encode());
-        } catch (Exception ex) {
-            throw new IllegalStateException("SHA-256 unavailable", ex);
-        }
+        return GameConfigCodecV1.canonicalHash(toCoreConfiguration());
     }
 
     public static boolean publish(Result result, AtomicReference<GameConfigWireV1> target) {
@@ -303,40 +206,53 @@ public final class GameConfigWireV1 {
         return MoneyCents.fromDouble(value).cents();
     }
 
-    private static double fromCents(long cents) {
-        return BigDecimal.valueOf(cents, 2).doubleValue();
+    private GameConfigCodecV1.Configuration toCoreConfiguration() {
+        List<GameConfigCodecV1.BlindLevel> structure = blindStructure == null
+                ? List.of() : java.util.Arrays.stream(blindStructure)
+                        .map(level -> new GameConfigCodecV1.BlindLevel(level[0], level[1]))
+                        .toList();
+        return new GameConfigCodecV1.Configuration(buyin, smallBlind, bigBlind,
+                blindsDouble, blindsDoubleType, recover, sessionId, rebuy, hands,
+                blindCap, rebuyLimit, botRebuy, fixedBuyin, buyinMinBb,
+                buyinMaxBb, rebuyCapPolicy, ante, straddle, iwtsth, runItTwice,
+                rabbitHunting, thinkTime, thinkTimeEnabled, showdownTime,
+                botBalanceToHumans, structure);
     }
 
-    private static void writeBoolean(DataOutputStream out, boolean value) throws Exception {
-        out.writeByte(value ? 1 : 0);
-    }
-
-    private static boolean readBoolean(DataInputStream in) throws Exception {
-        int value = in.readUnsignedByte();
-        if (value != 0 && value != 1) {
-            throw new IllegalArgumentException("invalid boolean");
+    private static Result fromCore(GameConfigCodecV1.Result decoded) {
+        if (decoded == null || !decoded.isOk()) {
+            return Result.error(decoded == null ? "malformed configuration packet" : decoded.error());
         }
-        return value == 1;
-    }
-
-    private static void writeString(DataOutputStream out, String value) throws Exception {
-        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
-        out.writeInt(bytes.length);
-        out.write(bytes);
-    }
-
-    private static String readString(DataInputStream in, int maximum) throws Exception {
-        int length = in.readInt();
-        if (length < 0 || length > maximum || length > in.available()) {
-            throw new IllegalArgumentException("invalid string length");
+        GameConfigCodecV1.Configuration value = decoded.value();
+        Builder builder = builder()
+                .buyin(value.buyin())
+                .smallBlind(value.smallBlind())
+                .bigBlind(value.bigBlind())
+                .blindsDouble(value.blindsDouble(), value.blindsDoubleType())
+                .recover(value.recover())
+                .sessionId(value.sessionId())
+                .rebuy(value.rebuy())
+                .hands(value.hands())
+                .blindCap(value.blindCap())
+                .rebuyLimit(value.rebuyLimit())
+                .botRebuy(value.botRebuy())
+                .fixedBuyin(value.fixedBuyin())
+                .buyinRangeBb(value.buyinMinBb(), value.buyinMaxBb())
+                .rebuyCapPolicy(value.rebuyCapPolicy())
+                .ante(value.ante())
+                .straddle(value.straddle())
+                .iwtsth(value.iwtsth())
+                .runItTwice(value.runItTwice())
+                .rabbitHunting(value.rabbitHunting())
+                .thinkTime(value.thinkTime(), value.thinkTimeEnabled())
+                .showdownTime(value.showdownTime())
+                .botBalanceToHumans(value.botBalanceToHumans());
+        if (!value.blindStructure().isEmpty()) {
+            builder.blindStructure(value.blindStructure().stream()
+                    .map(level -> new double[]{level.smallBlind(), level.bigBlind()})
+                    .toArray(double[][]::new));
         }
-        byte[] bytes = new byte[length];
-        in.readFully(bytes);
-        String decoded = new String(bytes, StandardCharsets.UTF_8);
-        if (!MessageDigest.isEqual(bytes, decoded.getBytes(StandardCharsets.UTF_8))) {
-            throw new IllegalArgumentException("invalid UTF-8");
-        }
-        return decoded;
+        return builder.build();
     }
 
     private static double[][] copyStructure(double[][] source) {

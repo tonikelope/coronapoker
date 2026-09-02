@@ -37,6 +37,8 @@ import com.tonikelope.coronapoker.table.TableVisualEvent;
 import com.tonikelope.coronapoker.core.network.ConfirmationTracker;
 import com.tonikelope.coronapoker.core.network.GameCommandId;
 import com.tonikelope.coronapoker.core.game.GameSession;
+import com.tonikelope.coronapoker.core.game.GameLogSink;
+import com.tonikelope.coronapoker.core.game.PauseGate;
 
 import com.drew.imaging.ImageProcessingException;
 import static com.tonikelope.coronapoker.Card.BARAJAS;
@@ -91,24 +93,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final java.util.ArrayList<Player> player_controllers;
     private final LocalPlayer local_player_controller;
     private final java.util.Map<String, Participant> peer_controllers;
+    private final Card[] community_card_controllers;
+    private final GameLogSink game_log;
+    private final PauseGate pause_gate;
     private final TableEventBridge table_events;
 
     public Crupier() {
-        this(null, null, null, null, new TableEventBridge());
+        this(null, null, null, null, null, GameLogSink.noop(), PauseGate.open(),
+                new TableEventBridge());
     }
 
     Crupier(TableEventBridge tableEvents) {
-        this(null, null, null, null, tableEvents);
+        this(null, null, null, null, null, GameLogSink.noop(), PauseGate.open(), tableEvents);
     }
 
     Crupier(GameSession gameSession, java.util.ArrayList<Player> playerControllers,
             LocalPlayer localPlayerController,
             java.util.Map<String, Participant> peerControllers,
+            Card[] communityCardControllers,
+            GameLogSink gameLog, PauseGate pauseGate,
             TableEventBridge tableEvents) {
         this.game_session = gameSession;
         this.player_controllers = playerControllers;
         this.local_player_controller = localPlayerController;
         this.peer_controllers = peerControllers;
+        this.community_card_controllers = communityCardControllers;
+        this.game_log = java.util.Objects.requireNonNull(gameLog, "gameLog");
+        this.pause_gate = java.util.Objects.requireNonNull(pauseGate, "pauseGate");
         this.table_events = java.util.Objects.requireNonNull(tableEvents, "tableEvents");
     }
 
@@ -138,6 +149,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             throw new IllegalStateException("Crupier has no bound peer repository");
         }
         return peer_controllers;
+    }
+
+    private Card[] communityCards() {
+        if (community_card_controllers == null || community_card_controllers.length != 5) {
+            throw new IllegalStateException("Crupier has no complete community-card repository");
+        }
+        return community_card_controllers;
+    }
+
+    private Card communityCard(int index) {
+        return communityCards()[index];
     }
 
     public TableEventBridge getTableEventBridge() {
@@ -1061,7 +1083,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // self-detection; nobody is named.
         final String fullReason = withSuspectHostPrefix(reason);
         try {
-            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.suspicious_alert") + " " + fullReason);
+            game_log.print(Translator.translate("zero_trust.suspicious_alert") + " " + fullReason);
         } catch (Exception ignored) {
         }
         Helpers.threadRun(() -> {
@@ -1111,7 +1133,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         this.recover_absence_warned = true;
         try {
-            GameFrame.getInstance().getRegistro().print(Translator.translate("game.recover_accion_ausencia"));
+            game_log.print(Translator.translate("game.recover_accion_ausencia"));
         } catch (Exception ignored) {
         }
     }
@@ -1134,8 +1156,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     (peerNick != null && !peerNick.isEmpty()) ? peerNick : "?");
             final String line = suspect + " " + Translator.translate(reasonKey);
             try {
-                if (GameFrame.getInstance() != null && GameFrame.getInstance().getRegistro() != null) {
-                    GameFrame.getInstance().getRegistro().print(
+                if (GameFrame.getInstance() != null && game_log != null) {
+                    game_log.print(
                             Translator.translate("zero_trust.peer_alert") + " " + line);
                 }
             } catch (Exception ignored) {
@@ -1211,7 +1233,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final String hostNick = (host != null && !host.isEmpty()) ? host : "?";
 
         try {
-            GameFrame.getInstance().getRegistro().print(
+            game_log.print(
                     Translator.translate("zero_trust.suspicious_alert") + " "
                     + MessageFormat.format(Translator.translate("zero_trust.deck_unverified"), hostNick));
         } catch (Exception ignored) {
@@ -1495,8 +1517,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // SUSPICIOUS: on a client, the host causes the anomaly -> named in the red
             // warning + popup.
             final String fullReason = withSuspectHostPrefix(reason);
-            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.security_alert") + " " + fullReason);
-            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.lockdown_activated"));
+            game_log.print(Translator.translate("zero_trust.security_alert") + " " + fullReason);
+            game_log.print(Translator.translate("zero_trust.lockdown_activated"));
 
             // If we're the client, close the socket to the host immediately. In lockdown
             // the client refuses any further REQ_SRA_UNLOCK_CHAIN, and the SRA cascade has
@@ -3815,7 +3837,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // The 24h active-time ceiling is intentionally far above every legitimate
                 // full-table cascade/retry path. It is a fail-closed safety net, not latency policy.
                 long now = System.currentTimeMillis();
-                if (GameFrame.getInstance().checkPause()) {
+                if (pause_gate.await()) {
                     espera_inicio = now;
                 } else {
                     active_wait_ms += Math.max(0L, now - last_progress_tick);
@@ -6171,8 +6193,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
                             });
 
-                            synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
-                                GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
+                            synchronized (getLock_apuestas()) {
+                                getLock_apuestas().notifyAll();
                             }
                         }
                     });
@@ -6196,8 +6218,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
 
-                        synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
-                            GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
+                        synchronized (getLock_apuestas()) {
+                            getLock_apuestas().notifyAll();
                         }
                     });
                 }
@@ -6220,8 +6242,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
 
-                    synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
-                        GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
+                    synchronized (getLock_apuestas()) {
+                        getLock_apuestas().notifyAll();
                     }
                 });
 
@@ -6554,19 +6576,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             status.append("\n(##) ").append(gridBorderLine('└', '┴', '┘', bal_cols));
 
             if (print) {
-                GameFrame.getInstance().getRegistro().print(status.toString());
+                game_log.print(status.toString());
 
                 // Ante-active indicator: the ante is symmetric (everyone antes), not a
                 // per-nick role like straddle, so it gets its own line with the chip icon
                 // ("(A )" token).
                 if (GameFrame.ANTE) {
-                    GameFrame.getInstance().getRegistro().print("(A ) " + Translator.translate("game.antes_activos", Helpers.money2String(this.ciega_pequeña)));
+                    game_log.print("(A ) " + Translator.translate("game.antes_activos", Helpers.money2String(this.ciega_pequeña)));
                 }
             }
 
             if (error_auditor) {
 
-                GameFrame.getInstance().getRegistro()
+                game_log
                         .print("($$) " + Translator.translate("ui.auditor_de_cuentas") + " -> STACKS: "
                                 + Helpers.money2String(stack_sum) + " / BUYIN: " + Helpers.money2String(buyin_sum)
                                 + " " + Translator.translate("ui.sobrante") + " " + Helpers.money2String(this.bote_sobrante));
@@ -6576,7 +6598,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             Translator.translate("ui.ojo_a_esto_no_salen"));
                 }
 
-                GameFrame.getInstance().getRegistro()
+                game_log
                         .print(Translator.translate("ui.ojo_a_esto_no_salen"));
             }
         }
@@ -6930,7 +6952,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
 
-                if (GameFrame.getInstance().checkPause()) {
+                if (pause_gate.await()) {
                     start_time = System.currentTimeMillis();
                     // The smooth bar freezes during pause (its deadline is pushed in
                     // smoothCountdown too): push the indeterminate-flip instant along with it
@@ -7160,7 +7182,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
 
-                if (GameFrame.getInstance().checkPause()) {
+                if (pause_gate.await()) {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > 2 * GameFrame.REBUY_TIMEOUT) {
                     if (gameSession().isHost()) {
@@ -7497,7 +7519,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Defensive clone: pass a copy to Hand so it doesn't reorder the UI's cards.
             ArrayList<Card> evalList = new ArrayList<>();
             evalList.addAll(jugador.getHoleCards());
-            for (Card c : GameFrame.getInstance().getCartas_comunes()) {
+            for (Card c : communityCards()) {
                 if (!c.isTapada()) {
                     evalList.add(c);
                 }
@@ -8056,7 +8078,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                                 ArrayList<Card> evaluationList = new ArrayList<>();
                                 evaluationList.addAll(fjugador.getHoleCards());
-                                for (Card c : GameFrame.getInstance().getCartas_comunes()) {
+                                for (Card c : communityCards()) {
                                     if (!c.isTapada()) {
                                         evaluationList.add(c);
                                     }
@@ -8078,7 +8100,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 }
 
                                 if (!perdedores.containsKey(fjugador)) {
-                                    GameFrame.getInstance().getRegistro().print(nick + " " + Translator.translate("ui.muestra_2") + Card.collection2String(fjugador.getHoleCards()) + ")" + (jugada != null ? " -> " + jugada : ""));
+                                    game_log.print(nick + " " + Translator.translate("ui.muestra_2") + Card.collection2String(fjugador.getHoleCards()) + ")" + (jugada != null ? " -> " + jugada : ""));
                                 }
 
                                 sqlNewShowcards(fjugador.getNickname(), fjugador.getDecision() == Player.FOLD);
@@ -9174,7 +9196,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (!this.acciones_locales_recuperadas.isEmpty()) {
                 this.sincronizando_mano = true;
             } else {
-                GameFrame.getInstance().getRegistro().print(Translator.translate("game.timba_recuperada"));
+                game_log.print(Translator.translate("game.timba_recuperada"));
 
                 if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
                     Audio.playWavResource("misc/startplay.wav");
@@ -9197,7 +9219,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 });
             }
         } else {
-            GameFrame.getInstance().getRegistro().print(Translator.translate("game.timba_recuperada"));
+            game_log.print(Translator.translate("game.timba_recuperada"));
             if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
                 Audio.playWavResource("misc/startplay.wav");
             }
@@ -9254,8 +9276,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // ZERO_TRUST cascade failure aborted the hand mid-replay) close it now so it
         // does not stay on screen and does not keep sincronizando_mano latched.
         cerrarRecoverDialogYSync();
-        GameFrame.getInstance().getRegistro().print(Translator.translate("game.mano_anulada") + " " + Translator.translate(motivo));
-        GameFrame.getInstance().getRegistro().print(Translator.translate("game.mano_anulada_footer"));
+        game_log.print(Translator.translate("game.mano_anulada") + " " + Translator.translate(motivo));
+        game_log.print(Translator.translate("game.mano_anulada_footer"));
 
         if (broadcast && gameSession().isHost()) {
             try {
@@ -9558,7 +9580,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (!ok) {
 
-                if (GameFrame.getInstance().checkPause()) {
+                if (pause_gate.await()) {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
 
@@ -9668,7 +9690,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Audio.playWavResource("misc/double_blinds.wav");
         }
 
-        GameFrame.getInstance().getRegistro().print(Translator.translate("blinds.se_doblan_las_ciegas"));
+        game_log.print(Translator.translate("blinds.se_doblan_las_ciegas"));
 
     }
 
@@ -10259,31 +10281,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         }
 
-                        GameFrame.getInstance().getRegistro().print(nick + " " + Translator.translate("rabbit.solicito_rabbit_hunting")
+                        game_log.print(nick + " " + Translator.translate("rabbit.solicito_rabbit_hunting")
                                 + " (" + Helpers.money2String(coste_rabbit) + ")");
 
                         if (nick.equals(localPlayer().getNickname())) {
                             // For a local request, compute the best hypothetical hand.
                             ArrayList<Card> cartas = new ArrayList<>();
 
-                            for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
+                            for (Card carta_comun : communityCards()) {
 
                                 if (!carta_comun.isTapada()) {
                                     cartas.add(carta_comun);
                                 }
                             }
 
-                            GameFrame.getInstance().getRegistro()
+                            game_log
                                     .print(Translator.translate("rabbit.rabbit_hunting_cartas_comunitarias")
                                             + " " + Card.collection2String(cartas));
 
                             cartas = localPlayer().getHoleCards();
 
-                            GameFrame.getInstance().getRegistro()
+                            game_log
                                     .print(Translator.translate("rabbit.rabbit_hunting_tu_mano_repartida")
                                             + " " + Card.collection2String(cartas));
 
-                            for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
+                            for (Card carta_comun : communityCards()) {
 
                                 if (!carta_comun.isTapada()) {
                                     cartas.add(carta_comun);
@@ -10295,7 +10317,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             localPlayer().setRabbitJugada(
                                     jugada.getName(), jugada.getWinners());
 
-                            GameFrame.getInstance().getRegistro()
+                            game_log
                                     .print(Translator.translate("rabbit.rabbit_hunting_mejor_hipotetica_jugada")
                                             + " " + Card.collection2String(jugada.getWinners()) + " (" + jugada.getName() + ")");
 
@@ -10355,7 +10377,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 int conta_iwtsth = (int) iwtsth_requests.get(iwtsther);
 
-                GameFrame.getInstance().getRegistro().print(
+                game_log.print(
                         iwtsther + " " + Translator.translate("iwtsth.solicita_iwtsth") + String.valueOf(conta_iwtsth) + ")");
 
                 Helpers.GUIRunAndWait(() -> {
@@ -10467,7 +10489,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     } else {
                         // If denied, inform the UI and register rejection timestamp for anti-flood
-                        GameFrame.getInstance().getRegistro().print(Translator.translate("iwtsth.el_servidor_ha_denegado_la") + " " + iwtsther);
+                        game_log.print(Translator.translate("iwtsth.el_servidor_ha_denegado_la") + " " + iwtsther);
                         if (GameFrame.cinematicasOn()) {
                             Helpers.GUIRun(() -> {
                                 try {
@@ -10550,7 +10572,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         synchronized (lock_rabbit) {
             boolean hay_rabbits_tapadas = false;
 
-            for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+            for (Card carta : communityCards()) {
                 if (carta.isRabbitTapada()) {
                     hay_rabbits_tapadas = true;
                     break;
@@ -10561,7 +10583,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (GameFrame.destapeSonidoOn()) {
                     Helpers.threadRun(() -> Audio.playPreloadedWav("misc/uncover.wav"));
                 }
-                for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+                for (Card carta : communityCards()) {
                     carta.destaparRabbit();
                     // The underlying card must be revealed once the rabbit overlay is gone.
                     if (carta.getCartaComoEntero() >= 0) {
@@ -10642,8 +10664,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     sqlUpdateGameDoubleBlinds();
                 }
                 this.ante_straddle_update = false;
-                GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
-                GameFrame.getInstance().getRegistro()
+                actualizarContadoresTapete();
+                game_log
                         .print(Translator.translate("blinds.la_configuracion_de_la_partida"));
                 Helpers.threadRun(() -> {
                     Helpers.mostrarMensajeInformativo(GameFrame.getInstance(),
@@ -10708,7 +10730,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+        for (Card carta : communityCards()) {
             carta.resetearCarta(false);
         }
 
@@ -10812,7 +10834,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (GameFrame.cajaSonidoOn()) {
                     Audio.playWavResource("misc/cash_register.wav");
                 }
-                GameFrame.getInstance().getRegistro()
+                game_log
                         .print(Translator.translate("game.bote_sobrante") + " -> " + Helpers.money2String(bote_sobrante));
             }
 
@@ -10881,7 +10903,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         saltar_primera_mano = false;
 
         if (GameFrame.isRECOVER()) {
-            GameFrame.getInstance().getRegistro().print(Translator.translate("game.recuperando_timba"));
+            game_log.print(Translator.translate("game.recuperando_timba"));
             try {
                 recuperarDatosClavePartida();
             } finally {
@@ -11010,7 +11032,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         // Framed hand header is emitted only after the definitive recovery counter is known.
-        GameFrame.getInstance().getRegistro().print(
+        game_log.print(
                 Helpers.framedTitle(Translator.translate("game.mano_2") + " (" + this.conta_mano + ")"));
 
         this.apuesta_actual = this.ciega_grande;
@@ -11846,19 +11868,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 case FLOP:
                     sql = "UPDATE hand SET flop_players=?, com_cards=? WHERE id=?";
                     cards = Card.collection2ShortString(
-                            new ArrayList<>(Arrays.asList(GameFrame.getInstance().getCartas_comunes())).subList(0, 3));
+                            new ArrayList<>(Arrays.asList(communityCards())).subList(0, 3));
                     break;
 
                 case TURN:
                     sql = "UPDATE hand SET turn_players=?, com_cards=? WHERE id=?";
                     cards = Card.collection2ShortString(
-                            new ArrayList<>(Arrays.asList(GameFrame.getInstance().getCartas_comunes())).subList(0, 4));
+                            new ArrayList<>(Arrays.asList(communityCards())).subList(0, 4));
                     break;
 
                 case RIVER:
                     sql = "UPDATE hand SET river_players=?, com_cards=? WHERE id=?";
                     cards = Card.collection2ShortString(
-                            new ArrayList<>(Arrays.asList(GameFrame.getInstance().getCartas_comunes())));
+                            new ArrayList<>(Arrays.asList(communityCards())));
                     break;
             }
 
@@ -12048,7 +12070,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (!animacion) {
 
-            for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+            for (Card carta : communityCards()) {
                 carta.iniciarCarta();
             }
 
@@ -12101,7 +12123,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         do {
-            GameFrame.getInstance().checkPause();
+            pause_gate.await();
 
             Player jugador = players().get(j);
 
@@ -12190,7 +12212,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         } while (j != pivote);
 
         do {
-            GameFrame.getInstance().checkPause();
+            pause_gate.await();
 
             Player jugador = players().get(j);
 
@@ -12255,9 +12277,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         } while (j != pivote);
 
-        for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+        for (Card carta : communityCards()) {
 
-            GameFrame.getInstance().checkPause();
+            pause_gate.await();
 
             if (animacion) {
                 // Each community card flies face-down from the dealer to its position and
@@ -12284,7 +12306,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (int slot = 0; slot < 2; slot++) {
             int index = pivot;
             do {
-                GameFrame.getInstance().checkPause();
+                pause_gate.await();
                 Player player = players.get(index);
                 if (player.isActivo()) {
                     boolean localFaceUp = player == local && !deferStraddleReveal;
@@ -12311,9 +12333,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } while (index != pivot);
         }
 
-        Card[] community = GameFrame.getInstance().getCartas_comunes();
+        Card[] community = communityCards();
         for (int slot = 0; slot < community.length; slot++) {
-            GameFrame.getInstance().checkPause();
+            pause_gate.await();
             final int dealtSlot = slot;
             awaitAttachedTableEvent(sequence -> new TableVisualEvent.DealCommunityCard(
                     sequence, dealtSlot), "Community-card deal presentation barrier failed");
@@ -12486,7 +12508,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final String aviso = Translator.translate("conn.mesa_parada_aviso");
 
         try {
-            GameFrame.getInstance().getRegistro().print(aviso);
+            game_log.print(aviso);
         } catch (Exception ex) {
         }
 
@@ -12551,7 +12573,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // Paused time does not consume the progress budget. Expiry is fail-closed:
                 // close the host channel and leave the hand open for deterministic recovery.
                 long now = System.currentTimeMillis();
-                if (GameFrame.getInstance().checkPause()) {
+                if (pause_gate.await()) {
                     espera_inicio = now;
                 } else {
                     active_wait_ms += Math.max(0L, now - last_progress_tick);
@@ -13216,7 +13238,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.SEVERE,
                     "Hand {0} signature divergence: divergent=[{1}], local_H={2}",
                     new Object[]{sqlite_id_hand, divergentList, localHB64});
-            GameFrame.getInstance().getRegistro().print(
+            game_log.print(
                     Translator.translate("game.mano_verificacion_divergente"));
             insertDisputedHandRow(receipts, hFinalLocal, "DIVERGENT");
             showConsensusPopup(
@@ -13228,7 +13250,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.WARNING,
                     "Hand {0} verification incomplete: missing=[{1}]",
                     new Object[]{sqlite_id_hand, missingList});
-            GameFrame.getInstance().getRegistro().print(
+            game_log.print(
                     MessageFormat.format(
                             Translator.translate("game.mano_verificacion_jugador_ausente"),
                             missingList));
@@ -13244,7 +13266,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.WARNING,
                     "Hand {0} verified with invalid-sig flag from: [{1}], local_H={2}",
                     new Object[]{sqlite_id_hand, reportersList, localHB64});
-            GameFrame.getInstance().getRegistro().print(
+            game_log.print(
                     MessageFormat.format(
                             Translator.translate("game.mano_verificacion_firma_invalida"),
                             reportersList));
@@ -13264,7 +13286,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.WARNING,
                     "Hand {0} verified but NO shuffle proof reached: [{1}] (host withholding?), local_H={2}",
                     new Object[]{sqlite_id_hand, noProofList, localHB64});
-            GameFrame.getInstance().getRegistro().print(
+            game_log.print(
                     MessageFormat.format(
                             Translator.translate("game.mano_verificacion_host_sin_prueba"),
                             noProofList));
@@ -13285,7 +13307,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.WARNING,
                     "Hand {0} verified; shuffle proof still pending (slow peer) for: [{1}], local_H={2}",
                     new Object[]{sqlite_id_hand, deckList, localHB64});
-            GameFrame.getInstance().getRegistro().print(
+            game_log.print(
                     MessageFormat.format(Translator.translate("game.barajado_pendiente"), String.valueOf(handOrdinal)));
             insertDisputedHandRow(receipts, hFinalLocal, "DECK_UNVERIFIED");
         } else {
@@ -13321,7 +13343,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         "Hand {0} consensus OK but the following peers have UNVERIFIED Ed25519 pubkeys (TOFU pinned but not confirmed out-of-band): [{1}]",
                         new Object[]{sqlite_id_hand, String.join(", ", unverifiedTofu)});
             }
-            GameFrame.getInstance().getRegistro().print(
+            game_log.print(
                     MessageFormat.format(Translator.translate("game.mano_verificada_consenso"), String.valueOf(handOrdinal)));
         }
         return true;
@@ -13462,7 +13484,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (!receiveState.isTerminal()) {
 
-                if (GameFrame.getInstance().checkPause()) {
+                if (pause_gate.await()) {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
 
@@ -13533,7 +13555,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 break;
             }
             if (!receiveState.isTerminal()) {
-                if (GameFrame.getInstance().checkPause()) {
+                if (pause_gate.await()) {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
                     LOGGER.log(Level.SEVERE, "ACTIONDATA timeout; recovery failed and the client connection will close");
@@ -14192,7 +14214,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (!ok && !jugador.isExit()) {
-                    boolean pausedNow = GameFrame.getInstance().checkPause();
+                    boolean pausedNow = pause_gate.await();
                     // The client freezes the acting player's think-time counter while ANY peer
                     // is in timeout (reconnecting) or the table is paused (LocalPlayer.auto_action
                     // uses exactly !isSomePlayerTimeout() && !isTimba_pausada()) — that time
@@ -14578,7 +14600,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // pot_label reflects that until the rewind flips it to SIDE-B.
             this.rit_pot_board_tag = Translator.translate("runittwice.pot_label_a");
         }
-        GameFrame.getInstance().getRegistro().print(Translator.translate(agreed ? "runittwice.log_accepted" : "runittwice.log_rejected"));
+        game_log.print(Translator.translate(agreed ? "runittwice.log_accepted" : "runittwice.log_rejected"));
     }
 
     // Is there a blind HUMAN straddler this hand? Returns their nick, or null. This is
@@ -15083,7 +15105,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // checked is whether peers are reconnecting: on a client nothing clears that
             // flag until the round starts (i.e. after this wait), so checking it would make
             // the deadline eternal.
-            if (GameFrame.getInstance().checkPause()) {
+            if (pause_gate.await()) {
                 deadline = System.currentTimeMillis() + STRADDLE_RESULT_WAIT_TIMEOUT * 1000L;
             }
         }
@@ -15589,7 +15611,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // this file: it SLEEPS during the pause without releasing that monitor, so
             // checking inside it would pin the thread that dispatches incoming commands
             // (including the resume order and the very cards being waited on here).
-            if (GameFrame.getInstance().checkPause()) {
+            if (pause_gate.await()) {
                 deadline = System.currentTimeMillis() + REMOTE_SRA_PEER_TIMEOUT_MS;
             }
         }
@@ -15598,7 +15620,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void destaparCartaComunitaria(int street, ArrayList<Player> resisten) {
 
-        GameFrame.getInstance().checkPause();
+        pause_gate.await();
 
         switch (street) {
             case FLOP:
@@ -15657,13 +15679,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (street == Crupier.FLOP) {
-            GameFrame.getInstance().getFlop1().actualizarConValorNumerico(hostIndices[0] + 1);
-            GameFrame.getInstance().getFlop2().actualizarConValorNumerico(hostIndices[1] + 1);
-            GameFrame.getInstance().getFlop3().actualizarConValorNumerico(hostIndices[2] + 1);
+            communityCard(0).actualizarConValorNumerico(hostIndices[0] + 1);
+            communityCard(1).actualizarConValorNumerico(hostIndices[1] + 1);
+            communityCard(2).actualizarConValorNumerico(hostIndices[2] + 1);
         } else if (street == Crupier.TURN) {
-            GameFrame.getInstance().getTurn().actualizarConValorNumerico(hostIndices[0] + 1);
+            communityCard(3).actualizarConValorNumerico(hostIndices[0] + 1);
         } else if (street == Crupier.RIVER) {
-            GameFrame.getInstance().getRiver().actualizarConValorNumerico(hostIndices[0] + 1);
+            communityCard(4).actualizarConValorNumerico(hostIndices[0] + 1);
         }
 
         if (this.hand_state_chain == null) {
@@ -15768,25 +15790,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         ArrayList<Card> compartidas = new ArrayList<>();
 
         if (rit_allin_street < FLOP) {
-            corridas.add(GameFrame.getInstance().getFlop1());
-            corridas.add(GameFrame.getInstance().getFlop2());
-            corridas.add(GameFrame.getInstance().getFlop3());
+            corridas.add(communityCard(0));
+            corridas.add(communityCard(1));
+            corridas.add(communityCard(2));
         } else {
-            compartidas.add(GameFrame.getInstance().getFlop1());
-            compartidas.add(GameFrame.getInstance().getFlop2());
-            compartidas.add(GameFrame.getInstance().getFlop3());
+            compartidas.add(communityCard(0));
+            compartidas.add(communityCard(1));
+            compartidas.add(communityCard(2));
         }
 
         if (rit_allin_street < TURN) {
-            corridas.add(GameFrame.getInstance().getTurn());
+            corridas.add(communityCard(3));
         } else {
-            compartidas.add(GameFrame.getInstance().getTurn());
+            compartidas.add(communityCard(3));
         }
 
         if (rit_allin_street < RIVER) {
-            corridas.add(GameFrame.getInstance().getRiver());
+            corridas.add(communityCard(4));
         } else {
-            compartidas.add(GameFrame.getInstance().getRiver());
+            compartidas.add(communityCard(4));
         }
 
         // With the local player already out of the game, the rewind switches to the dry
@@ -15830,7 +15852,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Helpers.pausar(pausa);
 
         for (Card carta : corridas) {
-            GameFrame.getInstance().checkPause();
+            pause_gate.await();
             final Card cc = carta;
             GameFrame.getInstance().getTapete().flyCardToSeat(cc, deal_origin, flight_dur, GameFrame.dealSound(), () -> cc.iniciarCarta());
         }
@@ -15958,7 +15980,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         // ---- SIDE-A (board already on the table) ----
         double paidA = settleRunItTwiceBoard(resisten, 0, wonAnySide);
-        GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_fin_a"));
+        game_log.print(Translator.translate("runittwice.log_fin_a"));
 
         if (!GameFrame.TEST_MODE && !isFin_de_la_transmision()
                 && !localPlayer().isExit()) {
@@ -16089,7 +16111,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         double paidB = 0;
         if (dealt && !isFin_de_la_transmision()) {
             paidB = settleRunItTwiceBoard(resisten, 1, wonAnySide);
-            GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_fin_b"));
+            game_log.print(Translator.translate("runittwice.log_fin_b"));
         }
 
         // Indivisible remainder not distributed on either board -> carried as
@@ -16187,12 +16209,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // half, but that's presentation only (splitPotForRunItTwice in the run-out
             // / paidShow in the showdown) — it doesn't touch the accounting.
             paidThisBoard += cantidad[0];
-            GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_2") + Helpers.money2String(cantidad[0]) + ") -> " + jugada);
+            game_log.print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_2") + Helpers.money2String(cantidad[0]) + ") -> " + jugada);
         }
 
         // Dims the community cards that aren't part of any winning hand (same
         // highlight as the normal showdown).
-        for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+        for (Card carta : communityCards()) {
             if (!cartas_usadas_jugadas.contains(carta)) {
                 carta.desenfocar();
             }
@@ -16241,7 +16263,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         for (Map.Entry<Player, Hand> e : jugadas.entrySet()) {
-            GameFrame.getInstance().getRegistro().print(e.getKey().getNickname() + " " + Translator.translate("game.pierde_bote") + Helpers.money2String(cantidad[0]) + ")");
+            game_log.print(e.getKey().getNickname() + " " + Translator.translate("game.pierde_bote") + Helpers.money2String(cantidad[0]) + ")");
             if (isSideB) {
                 this.perdedores.put(e.getKey(), e.getValue());
             }
@@ -16269,7 +16291,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     only.pagar(current_pot.getTotal(), null);
                     only.marcarBotePot(sec);
                     paidThisBoard += current_pot.getTotal();
-                    GameFrame.getInstance().getRegistro().print(only.getNickname() + " " + Translator.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(sec) + " (" + Helpers.money2String(current_pot.getTotal()) + ")");
+                    game_log.print(only.getNickname() + " " + Translator.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(sec) + " (" + Helpers.money2String(current_pot.getTotal()) + ")");
                     this.sqlUpdateShowdownPay(only);
                 }
             } else {
@@ -16286,11 +16308,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     ganador.pagar(sCantidad[0], null);
                     ganador.marcarBotePot(sec);
                     paidThisBoard += sCantidad[0];
-                    GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_secundario") + String.valueOf(sec) + " (" + Helpers.money2String(sCantidad[0]) + ") -> " + jugada);
+                    game_log.print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_secundario") + String.valueOf(sec) + " (" + Helpers.money2String(sCantidad[0]) + ") -> " + jugada);
                     this.sqlUpdateShowdownPay(ganador);
                 }
                 for (Map.Entry<Player, Hand> e : sjugadas.entrySet()) {
-                    GameFrame.getInstance().getRegistro().print(e.getKey().getNickname() + " " + Translator.translate("game.pierde_bote_secundario") + String.valueOf(sec) + " (" + Helpers.money2String(sCantidad[0]) + ")");
+                    game_log.print(e.getKey().getNickname() + " " + Translator.translate("game.pierde_bote_secundario") + String.valueOf(sec) + " (" + Helpers.money2String(sCantidad[0]) + ")");
                     if (isSideB) {
                         perdedores.put(e.getKey(), e.getValue());
                     }
@@ -16373,13 +16395,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (street == Crupier.FLOP) {
-            GameFrame.getInstance().getFlop1().actualizarConValorNumerico(hostIndices[0] + 1);
-            GameFrame.getInstance().getFlop2().actualizarConValorNumerico(hostIndices[1] + 1);
-            GameFrame.getInstance().getFlop3().actualizarConValorNumerico(hostIndices[2] + 1);
+            communityCard(0).actualizarConValorNumerico(hostIndices[0] + 1);
+            communityCard(1).actualizarConValorNumerico(hostIndices[1] + 1);
+            communityCard(2).actualizarConValorNumerico(hostIndices[2] + 1);
         } else if (street == Crupier.TURN) {
-            GameFrame.getInstance().getTurn().actualizarConValorNumerico(hostIndices[0] + 1);
+            communityCard(3).actualizarConValorNumerico(hostIndices[0] + 1);
         } else if (street == Crupier.RIVER) {
-            GameFrame.getInstance().getRiver().actualizarConValorNumerico(hostIndices[0] + 1);
+            communityCard(4).actualizarConValorNumerico(hostIndices[0] + 1);
         }
 
         // COMM_REVEAL with a SIDE-B street code — identical pattern to the live board
@@ -16749,12 +16771,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
         if (street > Crupier.FLOP) {
-            prior.add(GameFrame.getInstance().getFlop1().getCardIndex());
-            prior.add(GameFrame.getInstance().getFlop2().getCardIndex());
-            prior.add(GameFrame.getInstance().getFlop3().getCardIndex());
+            prior.add(communityCard(0).getCardIndex());
+            prior.add(communityCard(1).getCardIndex());
+            prior.add(communityCard(2).getCardIndex());
         }
         if (street > Crupier.TURN) {
-            prior.add(GameFrame.getInstance().getTurn().getCardIndex());
+            prior.add(communityCard(3).getCardIndex());
         }
         return prior;
     }
@@ -16955,7 +16977,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if ((!piece_ok || !reveal_ok) && !isFin_de_la_transmision() && !this.termination_pending) {
-                if (GameFrame.getInstance().checkPause()) {
+                if (pause_gate.await()) {
                     deliveryDeadline = System.currentTimeMillis() + COMMUNITY_DELIVERY_TIMEOUT_MS;
                 }
                 long remaining = deliveryDeadline - System.currentTimeMillis();
@@ -17078,15 +17100,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         // Finally update UI with the verified indices.
         if (street == Crupier.FLOP) {
-            GameFrame.getInstance().getFlop1().actualizarConValorNumerico(pieceIndices[0] + 1);
-            GameFrame.getInstance().getFlop2().actualizarConValorNumerico(pieceIndices[1] + 1);
-            GameFrame.getInstance().getFlop3().actualizarConValorNumerico(pieceIndices[2] + 1);
+            communityCard(0).actualizarConValorNumerico(pieceIndices[0] + 1);
+            communityCard(1).actualizarConValorNumerico(pieceIndices[1] + 1);
+            communityCard(2).actualizarConValorNumerico(pieceIndices[2] + 1);
             this.flop_revealed = true;
         } else if (street == Crupier.TURN) {
-            GameFrame.getInstance().getTurn().actualizarConValorNumerico(pieceIndices[0] + 1);
+            communityCard(3).actualizarConValorNumerico(pieceIndices[0] + 1);
             this.turn_revealed = true;
         } else if (street == Crupier.RIVER) {
-            GameFrame.getInstance().getRiver().actualizarConValorNumerico(pieceIndices[0] + 1);
+            communityCard(4).actualizarConValorNumerico(pieceIndices[0] + 1);
             this.river_revealed = true;
         }
 
@@ -17241,7 +17263,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             actualizarContadoresTapete();
 
             do {
-                GameFrame.getInstance().checkPause();
+                pause_gate.await();
                 turno = System.currentTimeMillis();
                 Object[] accion_recuperada = null;
                 Object[] action = null;
@@ -17347,7 +17369,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
                         GameFrame.getInstance().refresh();
                     });
-                    GameFrame.getInstance().getRegistro().print(Translator.translate("game.mano_recuperada"));
+                    game_log.print(Translator.translate("game.mano_recuperada"));
                     if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
                         Audio.playWavResource("misc/startplay.wav");
                     }
@@ -17730,7 +17752,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
 
-                GameFrame.getInstance().getRegistro().print(current_player.getLastActionString());
+                game_log.print(current_player.getLastActionString());
 
                 if (decision != Player.FOLD) {
                     this.apuestas += current_player.getBet() - old_player_bet;
@@ -18065,21 +18087,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // everything already revealed), leave the timer bar alone — briefly calling
         // barraIndeterminada + resetBarra(0) back to back caused a visible flicker
         // at the end of showdown.
-        boolean willRabbit = (street <= PREFLOP && GameFrame.getInstance().getFlop1().isTapada())
-                || (street <= FLOP && GameFrame.getInstance().getTurn().isTapada())
-                || (street <= TURN && GameFrame.getInstance().getRiver().isTapada());
+        boolean willRabbit = (street <= PREFLOP && communityCard(0).isTapada())
+                || (street <= FLOP && communityCard(3).isTapada())
+                || (street <= TURN && communityCard(4).isTapada());
         if (!willRabbit) {
             return;
         }
         Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
         try {
-            if (street <= PREFLOP && GameFrame.getInstance().getFlop1().isTapada()) {
+            if (street <= PREFLOP && communityCard(0).isTapada()) {
                 enviarRabbitComunitarias(FLOP);
             }
-            if (street <= FLOP && GameFrame.getInstance().getTurn().isTapada()) {
+            if (street <= FLOP && communityCard(3).isTapada()) {
                 enviarRabbitComunitarias(TURN);
             }
-            if (street <= TURN && GameFrame.getInstance().getRiver().isTapada()) {
+            if (street <= TURN && communityCard(4).isTapada()) {
                 enviarRabbitComunitarias(RIVER);
             }
         } catch (Exception e) {
@@ -18117,18 +18139,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (targetStreet == Crupier.FLOP) {
-            GameFrame.getInstance().getFlop1().actualizarConValorNumerico(hostIndices[0] + 1);
-            GameFrame.getInstance().getFlop2().actualizarConValorNumerico(hostIndices[1] + 1);
-            GameFrame.getInstance().getFlop3().actualizarConValorNumerico(hostIndices[2] + 1);
-            GameFrame.getInstance().getFlop1().taparRabbit();
-            GameFrame.getInstance().getFlop2().taparRabbit();
-            GameFrame.getInstance().getFlop3().taparRabbit();
+            communityCard(0).actualizarConValorNumerico(hostIndices[0] + 1);
+            communityCard(1).actualizarConValorNumerico(hostIndices[1] + 1);
+            communityCard(2).actualizarConValorNumerico(hostIndices[2] + 1);
+            communityCard(0).taparRabbit();
+            communityCard(1).taparRabbit();
+            communityCard(2).taparRabbit();
         } else if (targetStreet == Crupier.TURN) {
-            GameFrame.getInstance().getTurn().actualizarConValorNumerico(hostIndices[0] + 1);
-            GameFrame.getInstance().getTurn().taparRabbit();
+            communityCard(3).actualizarConValorNumerico(hostIndices[0] + 1);
+            communityCard(3).taparRabbit();
         } else if (targetStreet == Crupier.RIVER) {
-            GameFrame.getInstance().getRiver().actualizarConValorNumerico(hostIndices[0] + 1);
-            GameFrame.getInstance().getRiver().taparRabbit();
+            communityCard(4).actualizarConValorNumerico(hostIndices[0] + 1);
+            communityCard(4).taparRabbit();
         }
         return true;
     }
@@ -18282,7 +18304,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // other wait in this file: without this reset, a pause longer than
                     // the timeout expired it the instant play resumed, leaving perfectly
                     // alive opponents with their cards stuck face-down.
-                    if (GameFrame.getInstance().checkPause()) {
+                    if (pause_gate.await()) {
                         start_time = System.currentTimeMillis();
                     } else if (System.currentTimeMillis() - start_time > SHOWDOWN_DELIVERY_TIMEOUT_MS) {
                         LOGGER.log(Level.SEVERE,
@@ -18490,7 +18512,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // compute as if there were no flop. On the host this is unchanged.
             org.alberta.poker.Hand board_loki = new org.alberta.poker.Hand();
 
-            for (Card comun : GameFrame.getInstance().getCartas_comunes()) {
+            for (Card comun : communityCards()) {
                 if (comun != null && !comun.isTapada() && comun.getValor() != null && !comun.getValor().isEmpty()) {
                     org.alberta.poker.Card loki_card = Bot.coronaIntegerCard2LokiCard(comun.getCartaComoEntero());
                     if (loki_card != null) {
@@ -18616,7 +18638,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 mv_tabla.append("\n(MV) ").append(gridBorderLine('└', '┴', '┘', mv_cols));
 
-                GameFrame.getInstance().getRegistro().print(mv_tabla.toString());
+                game_log.print(mv_tabla.toString());
             }
         }
     }
@@ -19184,7 +19206,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final String nick = actorNick;
         Helpers.GUIRun(() -> {
             try {
-                GameFrame.getInstance().getRegistro().print(
+                game_log.print(
                         MessageFormat.format(
                                 Translator.translate("game.firma_accion_invalida"),
                                 nick));
@@ -20458,7 +20480,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             this.setSincronizando_mano(false);
 
-            GameFrame.getInstance().getRegistro().print(Translator.translate("game.timba_recuperada"));
+            game_log.print(Translator.translate("game.timba_recuperada"));
 
             if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
 
@@ -21364,7 +21386,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         seat_redraw_warned = true;
         try {
-            GameFrame.getInstance().getRegistro().print(
+            game_log.print(
                     Translator.translate("zero_trust.suspicious_alert") + " "
                     + MessageFormat.format(Translator.translate("zero_trust.seat_redraw"), host));
         } catch (Exception ignored) {
@@ -21423,7 +21445,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         seat_recover_mismatch_warned = true;
         try {
-            GameFrame.getInstance().getRegistro().print(
+            game_log.print(
                     Translator.translate("zero_trust.suspicious_alert") + " "
                     + MessageFormat.format(Translator.translate("zero_trust.seat_recover_mismatch"), host));
         } catch (Exception ignored) {
@@ -21894,7 +21916,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (anim == null) {
                     // Render unavailable: plain uncover with the usual pause.
                     Helpers.pausar(
-                            (carta == GameFrame.getInstance().getFlop2() || carta == GameFrame.getInstance().getFlop3()) ? 0
+                            (carta == communityCard(1) || carta == communityCard(2)) ? 0
                             : (this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA_ALLIN : PAUSA_DESTAPAR_CARTA));
                     carta.destapar();
                 } else {
@@ -21911,7 +21933,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     long lapsed = System.currentTimeMillis() - start;
 
                     Helpers.pausar(
-                            (carta == GameFrame.getInstance().getFlop2() || carta == GameFrame.getInstance().getFlop3()) ? 0
+                            (carta == communityCard(1) || carta == communityCard(2)) ? 0
                             : (this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA_ALLIN - lapsed
                                     : PAUSA_DESTAPAR_CARTA - lapsed));
 
@@ -21952,14 +21974,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         carta.checkSpecialCardSound();
-        GameFrame.getInstance().checkPause();
+        pause_gate.await();
     }
 
     public void destaparFlop(ArrayList<Player> resisten) {
 
-        Card flop1 = GameFrame.getInstance().getFlop1();
-        Card flop2 = GameFrame.getInstance().getFlop2();
-        Card flop3 = GameFrame.getInstance().getFlop3();
+        Card flop1 = communityCard(0);
+        Card flop2 = communityCard(1);
+        Card flop3 = communityCard(2);
         if (!presentCommunityRevealToAttachedRenderer(0, flop1, flop2, flop3)) {
             // The 2nd and 3rd cards chain with no long pause: their flip GIF is
             // pre-decoded in background while the first pays its pause and animation,
@@ -21973,62 +21995,62 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (gameSession().isHost()) {
-            Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getFlop1().getCartaComoEntero()));
-            Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getFlop2().getCartaComoEntero()));
-            Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getFlop3().getCartaComoEntero()));
+            Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(communityCard(0).getCartaComoEntero()));
+            Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(communityCard(1).getCartaComoEntero()));
+            Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(communityCard(2).getCartaComoEntero()));
         }
 
         ArrayList<Card> flop = new ArrayList<>();
-        flop.add(GameFrame.getInstance().getFlop1());
-        flop.add(GameFrame.getInstance().getFlop2());
-        flop.add(GameFrame.getInstance().getFlop3());
+        flop.add(communityCard(0));
+        flop.add(communityCard(1));
+        flop.add(communityCard(2));
 
-        GameFrame.getInstance().getRegistro().print("FLOP -> " + Card.collection2String(flop));
+        game_log.print("FLOP -> " + Card.collection2String(flop));
 
         checkJugadasParciales(resisten);
     }
 
     public void destaparTurn(ArrayList<Player> resisten) {
 
-        Card turn = GameFrame.getInstance().getTurn();
+        Card turn = communityCard(3);
         if (!presentCommunityRevealToAttachedRenderer(3, turn)) {
             mostrarAnimacionDestaparCartaComunitaria(turn);
         }
 
         if (gameSession().isHost()) {
-            Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getTurn().getCartaComoEntero()));
+            Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(communityCard(3).getCartaComoEntero()));
         }
 
         ArrayList<Card> com = new ArrayList<>();
-        com.add(GameFrame.getInstance().getFlop1());
-        com.add(GameFrame.getInstance().getFlop2());
-        com.add(GameFrame.getInstance().getFlop3());
-        com.add(GameFrame.getInstance().getTurn());
+        com.add(communityCard(0));
+        com.add(communityCard(1));
+        com.add(communityCard(2));
+        com.add(communityCard(3));
 
-        GameFrame.getInstance().getRegistro().print("TURN -> " + Card.collection2String(com));
+        game_log.print("TURN -> " + Card.collection2String(com));
 
         checkJugadasParciales(resisten);
     }
 
     public void destaparRiver(ArrayList<Player> resisten) {
 
-        Card river = GameFrame.getInstance().getRiver();
+        Card river = communityCard(4);
         if (!presentCommunityRevealToAttachedRenderer(4, river)) {
             mostrarAnimacionDestaparCartaComunitaria(river);
         }
 
         if (gameSession().isHost()) {
-            Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getRiver().getCartaComoEntero()));
+            Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(communityCard(4).getCartaComoEntero()));
         }
 
         ArrayList<Card> com = new ArrayList<>();
-        com.add(GameFrame.getInstance().getFlop1());
-        com.add(GameFrame.getInstance().getFlop2());
-        com.add(GameFrame.getInstance().getFlop3());
-        com.add(GameFrame.getInstance().getTurn());
-        com.add(GameFrame.getInstance().getRiver());
+        com.add(communityCard(0));
+        com.add(communityCard(1));
+        com.add(communityCard(2));
+        com.add(communityCard(3));
+        com.add(communityCard(4));
 
-        GameFrame.getInstance().getRegistro().print("RIVER -> " + Card.collection2String(com));
+        game_log.print("RIVER -> " + Card.collection2String(com));
     }
 
     private boolean presentCommunityRevealToAttachedRenderer(int firstSlot, Card... cards) {
@@ -22096,7 +22118,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         LinkedHashMap<String, int[]> verified = new LinkedHashMap<>();
         HashSet<Integer> occupied = new HashSet<>();
-        for (Card boardCard : GameFrame.getInstance().getCartas_comunes()) {
+        for (Card boardCard : communityCards()) {
             if (boardCard != null && !boardCard.isTapada()) {
                 int id = boardCard.getCardIndex();
                 if (id >= 0 && id <= 51) {
@@ -22330,7 +22352,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return;
             }
 
-            if (GameFrame.getInstance().checkPause()) {
+            if (pause_gate.await()) {
                 start_time = System.currentTimeMillis();
             } else if (System.currentTimeMillis() - start_time > SHOWDOWN_DELIVERY_TIMEOUT_MS) {
                 LOGGER.log(Level.SEVERE,
@@ -22508,7 +22530,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 } else {
                     ganancia_msg += Translator.translate("ui.ni_gana_ni_pierde");
                 }
-                GameFrame.getInstance().getRegistro().print(jugador.getNickname() + " " + Translator.translate("game.abandona_la_timba_2") + " -> " + ganancia_msg);
+                game_log.print(jugador.getNickname() + " " + Translator.translate("game.abandona_la_timba_2") + " -> " + ganancia_msg);
                 exit++;
             }
         }
@@ -22532,15 +22554,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public boolean ganaPorUltimaCarta(Player jugador, Hand jugada, int MIN) {
 
-        if (!GameFrame.getInstance().getRiver().isTapada()
-                && jugada.getWinners().contains(GameFrame.getInstance().getRiver()) && jugada.getValue() >= MIN
+        if (!communityCard(4).isTapada()
+                && jugada.getWinners().contains(communityCard(4)) && jugada.getValue() >= MIN
                 && (jugada.getWinners().contains(jugador.getHoleCard1())
                 || jugada.getWinners().contains(jugador.getHoleCard2()))) {
 
-            ArrayList<Card> cartas = new ArrayList<>(Arrays.asList(GameFrame.getInstance().getCartas_comunes()));
+            ArrayList<Card> cartas = new ArrayList<>(Arrays.asList(communityCards()));
             cartas.add(jugador.getHoleCard1());
             cartas.add(jugador.getHoleCard2());
-            cartas.remove(GameFrame.getInstance().getRiver());
+            cartas.remove(communityCard(4));
 
             Hand nueva_jugada = new Hand(cartas);
 
@@ -22552,7 +22574,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public boolean badbeat(Player perdedor, Player ganador) {
 
-        Card[] community = GameFrame.getInstance().getCartas_comunes();
+        Card[] community = communityCards();
         Card[] loserPocket = perdedor == null ? null
                 : new Card[]{perdedor.getHoleCard1(), perdedor.getHoleCard2()};
         Card[] winnerPocket = ganador == null ? null
@@ -22570,7 +22592,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             cartas.add(perdedor.getHoleCard2());
 
-            cartas.remove(GameFrame.getInstance().getRiver());
+            cartas.remove(communityCard(4));
 
             Hand jugada_perdedor_turn = new Hand(cartas);
 
@@ -23487,7 +23509,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 GameFrame.getInstance().refresh();
                             });
                             this.setSincronizando_mano(false);
-                            GameFrame.getInstance().getRegistro().print(Translator.translate("game.timba_recuperada"));
+                            game_log.print(Translator.translate("game.timba_recuperada"));
 
                             if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
                                 Audio.playWavResource("misc/startplay.wav");
@@ -23545,7 +23567,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         // Math yes, GUI no.
                                         procesarCartasResistencia(new ArrayList<Player>(), false);
 
-                                        GameFrame.getInstance().getRegistro().print("-----" + Translator.translate("game.gana_bote") + Helpers.money2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate("action.sin_tener_que_mostrar"));
+                                        game_log.print("-----" + Translator.translate("game.gana_bote") + Helpers.money2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate("action.sin_tener_que_mostrar"));
                                         Helpers.GUIRun(() -> {
                                             setPotBackground(Color.RED);
                                             GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
@@ -23579,7 +23601,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             this.bote_sobrante = this.bote_total;
                                         }
                                         ganadores = new HashMap<>();
-                                        for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+                                        for (Card carta : communityCards()) {
                                             carta.desenfocar();
                                         }
                                         break;
@@ -23593,7 +23615,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         }
                                         resisten.get(0).pagar(this.bote.getTotal() + this.bote_sobrante, null);
                                         this.beneficio_bote_principal = this.bote.getTotal() + this.bote_sobrante - this.bote.getBet();
-                                        GameFrame.getInstance().getRegistro().print(resisten.get(0).getNickname() + " " + Translator.translate("game.gana_bote") + Helpers.money2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate("action.sin_tener_que_mostrar"));
+                                        game_log.print(resisten.get(0).getNickname() + " " + Translator.translate("game.gana_bote") + Helpers.money2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate("action.sin_tener_que_mostrar"));
                                         Helpers.GUIRun(() -> {
                                             setPotBackground(Color.GREEN);
                                             GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
@@ -23601,7 +23623,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         GameFrame.getInstance().setTapeteBote(this.bote.getTotal() + this.bote_sobrante, this.beneficio_bote_principal);
                                         this.bote_total = 0f;
                                         this.bote_sobrante = 0f;
-                                        for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+                                        for (Card carta : communityCards()) {
                                             carta.desenfocar();
                                         }
                                         if (resisten.get(0) == localPlayer()) {
@@ -23655,12 +23677,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 jugadas.remove(ganador);
                                                 ganador.pagar(cantidad_pagar_ganador[0], null);
                                                 this.bote_total -= cantidad_pagar_ganador[0];
-                                                GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_2") + Helpers.money2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
+                                                game_log.print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_2") + Helpers.money2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
                                                 unganador = ganador;
                                                 jugada_ganadora = jugada.getValue();
                                             }
 
-                                            for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+                                            for (Card carta : communityCards()) {
                                                 if (!cartas_usadas_jugadas.contains(carta)) {
                                                     diferir_dim.add(carta);
                                                 }
@@ -23670,7 +23692,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 Player perdedor = entry.getKey();
                                                 badbeat |= badbeat(perdedor, unganador);
                                                 perdedores.put(perdedor, entry.getValue());
-                                                GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote") + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
+                                                game_log.print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote") + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
                                             }
 
                                             this.showdown(jugadas, ganadores, diferir_dim);
@@ -23717,12 +23739,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 ganador.pagar(cantidad_pagar_ganador[0], null);
                                                 this.bote_total -= cantidad_pagar_ganador[0];
                                                 jugada = entry.getValue();
-                                                GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_principal") + Helpers.money2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
+                                                game_log.print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_principal") + Helpers.money2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
                                                 unganador = ganador;
                                                 jugada_ganadora = jugada.getValue();
                                             }
 
-                                            for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+                                            for (Card carta : communityCards()) {
                                                 if (!cartas_usadas_jugadas.contains(carta)) {
                                                     diferir_dim.add(carta);
                                                 }
@@ -23732,7 +23754,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 Player perdedor = entry.getKey();
                                                 badbeat |= badbeat(perdedor, unganador);
                                                 perdedores.put(perdedor, entry.getValue());
-                                                GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote_principal") + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
+                                                game_log.print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote_principal") + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
                                             }
 
                                             // DERIVED pots' winners are computed BEFORE painting the
@@ -23783,7 +23805,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                     bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + Helpers.money2String(current_pot.getTotal()) + "}";
                                                     current_pot.getPlayers().get(0).pagar(current_pot.getTotal(), conta_bote_secundario);
                                                     this.bote_total -= current_pot.getTotal();
-                                                    GameFrame.getInstance().getRegistro().print(current_pot.getPlayers().get(0).getNickname() + " " + Translator.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(current_pot.getTotal()) + ")");
+                                                    game_log.print(current_pot.getPlayers().get(0).getNickname() + " " + Translator.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(current_pot.getTotal()) + ")");
                                                     this.sqlUpdateShowdownPay(current_pot.getPlayers().get(0));
                                                 } else {
                                                     // Reuse what was already computed above: recomputing here
@@ -23798,13 +23820,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                         ganador.pagar(cantidad_pagar_ganador[0], conta_bote_secundario);
                                                         this.bote_total -= cantidad_pagar_ganador[0];
                                                         Hand jugada = entry.getValue();
-                                                        GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
+                                                        game_log.print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
                                                         this.sqlUpdateShowdownPay(ganador);
                                                     }
                                                     for (Map.Entry<Player, Hand> entry : jugadas.entrySet()) {
                                                         Player perdedor = entry.getKey();
                                                         perdedores.put(perdedor, entry.getValue());
-                                                        GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
+                                                        game_log.print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
                                                     }
                                                 }
                                                 current_pot = current_pot.getSidePot();
@@ -23910,7 +23932,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     procesarCartasComunesRestantes();
                                 }
 
-                                for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+                                for (Card carta : communityCards()) {
                                     if (carta.isTapada()) {
                                         if (GameFrame.RABBIT_HUNTING != 0 && !localPlayer().isCalentando() && !localPlayer().isSpectator()) {
                                             carta.taparRabbit();
@@ -23998,7 +24020,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             this.bote_sobrante = 0f;
                         }
 
-                        for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+                        for (Card carta : communityCards()) {
                             carta.iniciarCarta();
                         }
 
@@ -24010,7 +24032,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // down so the user is not stuck looking at the GIF.
                         cerrarRecoverDialogYSync();
 
-                        GameFrame.getInstance().getRegistro().print(Translator.translate("player.la_timba_ha_terminado_no"));
+                        game_log.print(Translator.translate("player.la_timba_ha_terminado_no"));
 
                         Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), Translator.translate("player.la_timba_ha_terminado_no"), new ImageIcon(Init.class.getResource("/images/exit.png")));
 
@@ -24024,7 +24046,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // Defense in depth: see comment above.
                     cerrarRecoverDialogYSync();
 
-                    GameFrame.getInstance().getRegistro().print(Translator.translate("player.la_timba_ha_terminado_no"));
+                    game_log.print(Translator.translate("player.la_timba_ha_terminado_no"));
 
                     Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), Translator.translate("player.la_timba_ha_terminado_no"), new ImageIcon(Init.class.getResource("/images/exit.png")));
 
@@ -24251,7 +24273,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     localPlayer().setSpectator(null);
 
-                    GameFrame.getInstance().getRegistro().print(localPlayer().getNickname() + " "
+                    game_log.print(localPlayer().getNickname() + " "
                             + Translator.translate("player.te_quedas_de_espectador"));
                 }
 
@@ -24337,7 +24359,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     localPlayer().setSpectator(null);
 
-                    GameFrame.getInstance().getRegistro().print(localPlayer().getNickname() + " "
+                    game_log.print(localPlayer().getNickname() + " "
                             + Translator.translate("player.te_quedas_de_espectador"));
                 }
 
@@ -24374,7 +24396,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 localPlayer().setSpectator(null);
 
-                GameFrame.getInstance().getRegistro().print(localPlayer().getNickname() + " "
+                game_log.print(localPlayer().getNickname() + " "
                         + Translator.translate("player.te_quedas_de_espectador"));
             }
 
@@ -24482,7 +24504,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             ArrayList<Card> cartas_utilizables = new ArrayList<>();
-            for (Card c : GameFrame.getInstance().getCartas_comunes()) {
+            for (Card c : communityCards()) {
                 if (c != null && !c.isTapada() && c.getValor() != null && !c.getValor().isEmpty()) {
                     cartas_utilizables.add(c);
                 }

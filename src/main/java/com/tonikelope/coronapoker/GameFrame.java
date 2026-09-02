@@ -30,6 +30,7 @@ package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.core.network.GameCommandId;
 import com.tonikelope.coronapoker.core.game.GameSession;
+import com.tonikelope.coronapoker.core.game.GameLogSink;
 
 import com.drew.imaging.ImageProcessingException;
 import com.tonikelope.coronapoker.table.TableCommand;
@@ -4080,8 +4081,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // so a previous session that ended in lockdown would otherwise leak
         // into this fresh game.
         Crupier.SECURITY_LOCKDOWN = false;
+        GameLogSink gameLog = message -> {
+            GameLogDialog target = registro_dialog;
+            if (target != null) target.print(message);
+        };
         crupier = new Crupier(game_session, jugadores, tapete.getLocalPlayer(),
-                getParticipantes(), table_events);
+                getParticipantes(), getCartas_comunes(), gameLog, this::checkPause,
+                table_events);
 
         initComponents();
 

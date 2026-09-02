@@ -12,6 +12,10 @@ import com.tonikelope.coronapoker.Player;
 import com.tonikelope.coronapoker.RunItTwiceDialog;
 import com.tonikelope.coronapoker.VoluntaryStraddleDialog;
 import com.tonikelope.coronapoker.WaitingRoomFrame;
+import com.tonikelope.coronapoker.core.CoronaPokerApplication;
+import com.tonikelope.coronapoker.core.CoronaPokerBootstrap;
+import com.tonikelope.coronapoker.core.DatabaseService;
+import com.tonikelope.coronapoker.swing.SwingServiceBridge;
 import java.awt.EventQueue;
 import java.awt.Frame;
 import java.awt.GraphicsDevice;
@@ -93,9 +97,19 @@ public final class RealGameNodeMain {
         });
 
         NodeConfig config = NodeConfig.parse(args);
+        CoronaPokerApplication application = CoronaPokerBootstrap.createApplication(
+                Path.of(System.getProperty("user.home")));
+        SwingServiceBridge.bind(application);
+        Init.bindApplication(application);
+        application.start();
+        try {
         CONFIGURED_CLIENTS = config.clients;
         CONFIGURED_BOTS = config.bots;
-        configureRuntime(config);
+        configureRuntime(config, application);
+        // This deterministic entry point deliberately bypasses Init/NewGameDialog,
+        // so reproduce the two lifecycle transitions those production screens own.
+        application.menuReady();
+        application.sessionOpened();
 
         // Force-recover returns through the real launcher. Ordinary E2E startup
         // bypasses it only to configure the waiting room deterministically, so
@@ -231,9 +245,13 @@ public final class RealGameNodeMain {
         // The parent owns the lifetime of all peers and stops them together once
         // every independent SQLite ledger has observed the completed hand(s).
         PARENT_CLOSED.await();
+        } finally {
+            application.close();
+        }
     }
 
-    private static void configureRuntime(NodeConfig config) throws Exception {
+    private static void configureRuntime(NodeConfig config,
+            CoronaPokerApplication application) throws Exception {
         Path home = Path.of(System.getProperty("user.home"));
         Files.createDirectories(home);
         Init.SQL_FILE = home.resolve("coronapoker-e2e.db").toString();
@@ -271,7 +289,9 @@ public final class RealGameNodeMain {
         EmojiPanel.initClass();
         Helpers.GUI_FONT = Helpers.createAndRegisterFont(
                 Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));
-        if (!Helpers.initSQLITE()) {
+        DatabaseService database = application.service(DatabaseService.class);
+        database.useDatabase(Init.SQL_FILE);
+        if (!Helpers.initSQLITE(database)) {
             throw new IllegalStateException("cannot initialize isolated SQLite at " + Init.SQL_FILE);
         }
         IdentityManager identity = IdentityManager.initializeForNick(config.nick);

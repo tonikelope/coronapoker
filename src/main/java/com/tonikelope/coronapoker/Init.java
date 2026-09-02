@@ -160,6 +160,19 @@ public class Init extends JFrame {
         return application;
     }
 
+    /**
+     * Binds the shared lifecycle for an embedded Swing entry point such as the
+     * real-game QA node. The caller remains responsible for start and close.
+     */
+    public static synchronized void bindApplication(CoronaPokerApplication application) {
+        CoronaPokerApplication candidate = java.util.Objects.requireNonNull(
+                application, "application");
+        if (APPLICATION != null && APPLICATION != candidate) {
+            throw new IllegalStateException("CoronaPoker application is already bound");
+        }
+        APPLICATION = candidate;
+    }
+
     static {
         if (!isDesignTime()) {
             LOGGER.log(Level.INFO, "OS: {0}", System.getProperty("os.name"));
@@ -1821,7 +1834,7 @@ public class Init extends JFrame {
 
     public static void launch(String args[], CoronaPokerApplication application) {
 
-        APPLICATION = java.util.Objects.requireNonNull(application, "application");
+        bindApplication(application);
 
         try {
             application.start();

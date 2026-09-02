@@ -7413,6 +7413,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         table_display.showCallCost("+" + Helpers.money2String(shown));
     }
 
+    private void updateShowdownCardsInLog() {
+        java.util.List<GameLogSink.ShowdownEntry> entries = this.perdedores.entrySet().stream()
+                .map(entry -> {
+                    Player player = entry.getKey();
+                    boolean revealed = !"".equals(player.getHoleCard1().getValor())
+                            && ((player != localPlayer() && !player.getHoleCard1().isTapada())
+                            || (player == localPlayer() && localPlayer().isMuestra()));
+                    return new GameLogSink.ShowdownEntry(
+                            player.getNickname(), revealed,
+                            revealed ? Card.collection2String(player.getHoleCards()) : "",
+                            revealed ? entry.getValue().toString() : "");
+                })
+                .toList();
+        game_log.updateShowdownCards(entries);
+    }
+
     // Refreshes ONLY the pot_label value (bet_label/blinds/hand untouched). Used by a flying
     // chip's landing to apply the deferred pot value without re-showing bet_label (which
     // showdown may have hidden). RIT: during each side's run-out, shows the HALF that side
@@ -23870,7 +23886,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     setShowTime(false);
                                 }
                                 localPlayer().desactivar_boton_mostrar();
-                                GameFrame.getInstance().getRegistro().actualizarCartasPerdedores(perdedores);
+                                updateShowdownCardsInLog();
 
                                 if (!this.isLast_hand()) {
                                     checkRebuyTime();
@@ -23889,7 +23905,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     setShowTime(false);
                                 }
                                 localPlayer().desactivar_boton_mostrar();
-                                GameFrame.getInstance().getRegistro().actualizarCartasPerdedores(perdedores);
+                                updateShowdownCardsInLog();
                                 if (!this.isLast_hand()) {
                                     checkRebuyTime();
                                     exitSpectatorBots();

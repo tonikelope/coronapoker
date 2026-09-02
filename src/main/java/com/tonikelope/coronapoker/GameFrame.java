@@ -4086,9 +4086,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // so a previous session that ended in lockdown would otherwise leak
         // into this fresh game.
         Crupier.SECURITY_LOCKDOWN = false;
-        GameLogSink gameLog = message -> {
-            GameLogDialog target = registro_dialog;
-            if (target != null) target.print(message);
+        GameLogSink gameLog = new GameLogSink() {
+            @Override
+            public void print(String message) {
+                GameLogDialog target = registro_dialog;
+                if (target != null) target.print(message);
+            }
+
+            @Override
+            public void updateShowdownCards(java.util.List<GameLogSink.ShowdownEntry> entries) {
+                GameLogDialog target = registro_dialog;
+                if (target != null) target.updateShowdownCards(entries);
+            }
         };
         GameProgressSink gameProgress = new GameProgressSink() {
             @Override

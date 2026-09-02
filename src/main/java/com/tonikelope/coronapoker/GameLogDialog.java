@@ -1199,9 +1199,30 @@ public final class GameLogDialog extends JDialog {
      */
     public void actualizarCartasPerdedores(ConcurrentHashMap<Player, Hand> perdedores) {
 
+        java.util.List<com.tonikelope.coronapoker.core.game.GameLogSink.ShowdownEntry> entries
+                = new java.util.ArrayList<>();
+        if (perdedores != null) {
+            for (Map.Entry<Player, Hand> entry : perdedores.entrySet()) {
+                Player player = entry.getKey();
+                boolean revealed = !"".equals(player.getHoleCard1().getValor())
+                        && ((player != GameFrame.getInstance().getLocalPlayer() && !player.getHoleCard1().isTapada())
+                        || (player == GameFrame.getInstance().getLocalPlayer()
+                        && GameFrame.getInstance().getLocalPlayer().isMuestra()));
+                entries.add(new com.tonikelope.coronapoker.core.game.GameLogSink.ShowdownEntry(
+                        player.getNickname(), revealed,
+                        revealed ? Card.collection2String(player.getHoleCards()) : "",
+                        revealed ? entry.getValue().toString() : ""));
+            }
+        }
+        updateShowdownCards(entries);
+    }
+
+    public void updateShowdownCards(
+            java.util.List<com.tonikelope.coronapoker.core.game.GameLogSink.ShowdownEntry> entries) {
+
         synchronized (log_lock) {
 
-            if (perdedores != null && !perdedores.isEmpty()) {
+            if (entries != null && !entries.isEmpty()) {
 
                 // Text BEFORE the substitutions: re-rendering the whole log gets more
                 // expensive the longer it is, and this ran at the end of EVERY hand even
@@ -1210,23 +1231,15 @@ public final class GameLogDialog extends JDialog {
                 // no-op anyway.
                 final String log_antes = GameLogDialog.LOG_TEXT;
 
-                for (Map.Entry<Player, Hand> entry : perdedores.entrySet()) {
+                for (com.tonikelope.coronapoker.core.game.GameLogSink.ShowdownEntry entry : entries) {
 
-                    Player perdedor = entry.getKey();
+                    if (entry.revealed()) {
 
-                    Hand jugada = entry.getValue();
-
-                    if (!"".equals(perdedor.getHoleCard1().getValor()) && ((perdedor != GameFrame.getInstance().getLocalPlayer() && !perdedor.getHoleCard1().isTapada()) || (perdedor == GameFrame.getInstance().getLocalPlayer() && GameFrame.getInstance().getLocalPlayer().isMuestra()))) {
-
-                        String hole_cards_string = Card.collection2String(perdedor.getHoleCards());
-
-                        String jugada_string = jugada.toString();
-
-                        GameLogDialog.LOG_TEXT = GameLogDialog.LOG_TEXT.replaceAll(perdedor.getNickname().replace("$", "\\$") + " +[(]---[)] +(\\w+ .+)", perdedor.getNickname().replace("$", "\\$") + " (" + hole_cards_string + ") $1 -> " + jugada_string);
+                        GameLogDialog.LOG_TEXT = GameLogDialog.LOG_TEXT.replaceAll(entry.nickname().replace("$", "\\$") + " +[(]---[)] +(\\w+ .+)", entry.nickname().replace("$", "\\$") + " (" + entry.holeCards() + ") $1 -> " + entry.hand());
 
                     } else {
 
-                        GameLogDialog.LOG_TEXT = GameLogDialog.LOG_TEXT.replaceAll(perdedor.getNickname().replace("$", "\\$") + " +[(]---[)]", perdedor.getNickname().replace("$", "\\$") + " (***)");
+                        GameLogDialog.LOG_TEXT = GameLogDialog.LOG_TEXT.replaceAll(entry.nickname().replace("$", "\\$") + " +[(]---[)]", entry.nickname().replace("$", "\\$") + " (***)");
 
                     }
                 }

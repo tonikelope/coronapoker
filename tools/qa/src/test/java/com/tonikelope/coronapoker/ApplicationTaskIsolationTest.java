@@ -11,11 +11,15 @@ public class ApplicationTaskIsolationTest {
     @Test
     public void startupTasksCannotHoldThePerTableExecutorOpen() throws Exception {
         String init = Files.readString(sourceRoot().resolve("Init.java")).replace("\r\n", "\n");
+        String audioBackend = Files.readString(sourceRoot().resolve("swing/SwingAudioBackend.java"))
+                .replace("\r\n", "\n");
 
         assertTrue(init.contains("Helpers.applicationTask(Helpers::purgeOldVoiceNotes"),
                 "voice-note startup cleanup belongs to the application lifecycle");
-        assertTrue(init.contains("Helpers.applicationTask(() -> {\n            Audio.warmAudioDevice()"),
+        assertTrue(audioBackend.contains("Helpers.applicationTask(() -> {"),
                 "audio startup warmup belongs to the application lifecycle");
+        assertTrue(audioBackend.contains("Audio.warmAudioDevice()"),
+                "the process audio backend must warm the endpoint asynchronously");
 
         String update = methodBody(init, "UPDATE");
         assertTrue(update.contains("Helpers.applicationTask(() ->"),

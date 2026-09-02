@@ -21,6 +21,7 @@ public final class CoronaPokerBootstrap {
         return new CoronaPokerApplication(java.util.List.of(
                 new PreferencesService(coronaDirectory.resolve("coronapoker.properties")),
                 new SecureRandomService(),
-                new DatabaseService(coronaDirectory.resolve("coronapoker.db").toString())));
+                new DatabaseService(coronaDirectory.resolve("coronapoker.db").toString()),
+                new AudioService()));
     }
 }

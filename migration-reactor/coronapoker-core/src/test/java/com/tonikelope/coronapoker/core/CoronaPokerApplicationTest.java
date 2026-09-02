@@ -10,6 +10,7 @@ import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 
@@ -89,6 +90,7 @@ final class CoronaPokerApplicationTest {
         SecureRandomService secureRandom = application.service(SecureRandomService.class);
         DatabaseService database = application.service(DatabaseService.class);
         PreferencesService preferences = application.service(PreferencesService.class);
+        AudioService audio = application.service(AudioService.class);
 
         assertThrows(IllegalStateException.class, secureRandom::generator);
         assertThrows(IllegalStateException.class, database::connection);
@@ -98,6 +100,7 @@ final class CoronaPokerApplicationTest {
         assertSame(secureRandom, application.service(SecureRandomService.class));
         assertSame(database, application.service(DatabaseService.class));
         assertSame(preferences, application.service(PreferencesService.class));
+        assertSame(audio, application.service(AudioService.class));
         application.close();
         assertThrows(IllegalStateException.class, database::connection);
     }
@@ -178,6 +181,61 @@ final class CoronaPokerApplicationTest {
         assertEquals("alice", preferences.properties().getProperty("nick"));
         assertNotNull(preferences.rescueCopy());
         assertEquals(Files.readString(file), Files.readString(preferences.rescueCopy()));
+    }
+
+    @Test
+    void audioBackendActivatesAndClosesExactlyOnce() throws Exception {
+        List<String> calls = new ArrayList<>();
+        AudioService audio = new AudioService();
+        audio.configure(new AudioService.Backend() {
+            @Override
+            public void start() {
+                calls.add("start");
+            }
+
+            @Override
+            public void close() {
+                calls.add("close");
+            }
+        });
+
+        audio.start();
+        audio.activate();
+        audio.activate();
+        audio.close();
+        audio.close();
+
+        assertEquals(List.of("start", "close"), calls);
+        assertTrue(audio.isActivated());
+    }
+
+    @Test
+    void failedAudioActivationCannotRetryAndStillClosesItsBackend() throws Exception {
+        List<String> calls = new ArrayList<>();
+        IllegalStateException failure = new IllegalStateException("audio device unavailable");
+        AudioService audio = new AudioService();
+        audio.configure(new AudioService.Backend() {
+            @Override
+            public void start() {
+                calls.add("start");
+                throw failure;
+            }
+
+            @Override
+            public void close() {
+                calls.add("close");
+            }
+        });
+        CoronaPokerApplication application = new CoronaPokerApplication(List.of(audio));
+        application.start();
+
+        assertSame(failure, assertThrows(IllegalStateException.class, audio::activate));
+        IllegalStateException retryFailure = assertThrows(IllegalStateException.class, audio::activate);
+        assertEquals("Audio backend activation previously failed", retryFailure.getMessage());
+        application.fail(failure);
+
+        assertEquals(List.of("start", "close"), calls);
+        assertEquals(ApplicationLifecycle.State.FAILED, application.lifecycle().state());
     }
 
     private static ApplicationService service(String name, List<String> calls) {

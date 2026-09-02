@@ -29,6 +29,7 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.core.CoronaPokerApplication;
+import com.tonikelope.coronapoker.core.AudioService;
 import com.tonikelope.coronapoker.core.DatabaseService;
 import com.tonikelope.coronapoker.core.SecureRandomService;
 import com.tonikelope.coronapoker.swing.SwingLauncher;
@@ -1984,46 +1985,12 @@ public class Init extends JFrame {
 
         Card.updateCachedImages(1f + GameFrame.ZOOM_LEVEL * GameFrame.getZOOM_STEP(), true);
 
-        // A corrupt master_volume used to cascade: >1.0 overflows the gain control
-        // (misdiagnosed as a missing audio device) and NaN poisons floatClean.
-        float master_volume;
-
-        try {
-            master_volume = Float.parseFloat(Helpers.PROPERTIES.getProperty("master_volume", "0.8"));
-        } catch (NumberFormatException ex) {
-            master_volume = Float.NaN;
-        }
-
-        if (Float.isNaN(master_volume) || master_volume < 0f || master_volume > 1f) {
-            LOGGER.log(Level.WARNING, "Invalid master_volume property, falling back to default.");
-            master_volume = 0.8f;
-        }
-
         splashStep(Translator.translate("splash.audio"));
-
-        Audio.MASTER_VOLUME = master_volume;
-
-        if (!GameFrame.SONIDOS) {
-            Audio.muteAll();
-        } else {
-            Audio.unmuteAll();
+        try {
+            application().service(AudioService.class).activate();
+        } catch (Exception ex) {
+            throw new IllegalStateException("Could not start process audio", ex);
         }
-
-        // init.wav is the FIRST sound of the process and used to play clipped
-        // sometimes: it played while the OS was still waking up the audio endpoint.
-        // Warm the device with a silent line and ONLY THEN play init.wav, on a
-        // separate thread so the window isn't delayed.
-        Helpers.applicationTask(() -> {
-            Audio.warmAudioDevice();
-            Audio.playWavResourceAndWait("misc/init.wav", true, false, !GameFrame.arranqueSonidoOn());
-            // uncover.wav (card reveal) is deck-independent (misc/) and plays on every
-            // card flip: preloaded ONCE here, with the endpoint already warm, so every
-            // reveal starts instantly (clip pre-opened and reused, no per-reveal line
-            // open lagging behind the flip animation). Never invalidated.
-            Audio.preloadWav("misc/uncover.wav");
-        }, "CoronaPoker-audio-warmup");
-
-        Audio.playLoopMp3Resource("misc/background_music.mp3");
 
         splashStep(Translator.translate("splash.ventana"));
 

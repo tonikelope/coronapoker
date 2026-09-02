@@ -1,5 +1,7 @@
 package com.tonikelope.coronapoker.core;
 
+import java.time.Duration;
+
 /** Shared construction point used by every CoronaPoker frontend launcher. */
 public final class CoronaPokerBootstrap {
 
@@ -22,6 +24,11 @@ public final class CoronaPokerBootstrap {
                 new PreferencesService(coronaDirectory.resolve("coronapoker.properties")),
                 new SecureRandomService(),
                 new DatabaseService(coronaDirectory.resolve("coronapoker.db").toString()),
+                UpdateService.forLatestRelease(
+                        ApplicationMetadata.LATEST_RELEASE_URI,
+                        ApplicationMetadata.VERSION,
+                        3,
+                        Duration.ofSeconds(10)),
                 new AudioService()));
     }
 }

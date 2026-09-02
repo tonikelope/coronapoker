@@ -28,6 +28,8 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.ApplicationMetadata;
+
 import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.Toolkit;
@@ -77,8 +79,8 @@ import javax.swing.Timer;
  */
 public class AboutDialog extends JDialog {
 
-    public static final String VERSION = "24.10";
-    public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
+    public static final String VERSION = ApplicationMetadata.VERSION;
+    public static final String UPDATE_URL = ApplicationMetadata.LATEST_RELEASE_URI.toString();
 
     public static final String TITLE = "about.titulo";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;

@@ -4,6 +4,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -91,6 +93,7 @@ final class CoronaPokerApplicationTest {
         DatabaseService database = application.service(DatabaseService.class);
         PreferencesService preferences = application.service(PreferencesService.class);
         AudioService audio = application.service(AudioService.class);
+        UpdateService updates = application.service(UpdateService.class);
 
         assertThrows(IllegalStateException.class, secureRandom::generator);
         assertThrows(IllegalStateException.class, database::connection);
@@ -101,6 +104,7 @@ final class CoronaPokerApplicationTest {
         assertSame(database, application.service(DatabaseService.class));
         assertSame(preferences, application.service(PreferencesService.class));
         assertSame(audio, application.service(AudioService.class));
+        assertSame(updates, application.service(UpdateService.class));
         application.close();
         assertThrows(IllegalStateException.class, database::connection);
     }
@@ -236,6 +240,46 @@ final class CoronaPokerApplicationTest {
 
         assertEquals(List.of("start", "close"), calls);
         assertEquals(ApplicationLifecycle.State.FAILED, application.lifecycle().state());
+    }
+
+    @Test
+    void updateServiceRetriesAndReturnsATypedAvailableVersion() throws Exception {
+        AtomicInteger attempts = new AtomicInteger();
+        UpdateService updates = new UpdateService("24.10", 3, () -> {
+            if (attempts.incrementAndGet() < 3) {
+                return null;
+            }
+            return "24.11";
+        });
+        updates.start();
+
+        UpdateService.CheckResult result = updates.checkLatest().get(2, TimeUnit.SECONDS);
+
+        assertEquals(UpdateService.Status.UPDATE_AVAILABLE, result.status());
+        assertEquals("24.11", result.version());
+        assertEquals(3, attempts.get());
+        updates.close();
+        assertThrows(IllegalStateException.class, updates::checkLatest);
+    }
+
+    @Test
+    void updateServiceDistinguishesCurrentFromUnavailable() throws Exception {
+        UpdateService current = new UpdateService("24.10", 3, () -> "24.10");
+        current.start();
+        assertEquals(UpdateService.Status.CURRENT,
+                current.checkLatest().get(2, TimeUnit.SECONDS).status());
+        current.close();
+
+        AtomicInteger attempts = new AtomicInteger();
+        UpdateService unavailable = new UpdateService("24.10", 3, () -> {
+            attempts.incrementAndGet();
+            return null;
+        });
+        unavailable.start();
+        assertEquals(UpdateService.Status.UNAVAILABLE,
+                unavailable.checkLatest().get(2, TimeUnit.SECONDS).status());
+        assertEquals(3, attempts.get());
+        unavailable.close();
     }
 
     private static ApplicationService service(String name, List<String> calls) {

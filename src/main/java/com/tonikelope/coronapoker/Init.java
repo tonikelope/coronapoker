@@ -32,6 +32,7 @@ import com.tonikelope.coronapoker.core.CoronaPokerApplication;
 import com.tonikelope.coronapoker.core.AudioService;
 import com.tonikelope.coronapoker.core.DatabaseService;
 import com.tonikelope.coronapoker.core.SecureRandomService;
+import com.tonikelope.coronapoker.core.UpdateService;
 import com.tonikelope.coronapoker.swing.SwingLauncher;
 import java.awt.AWTException;
 import java.awt.Color;
@@ -145,10 +146,6 @@ public class Init extends JFrame {
     private static volatile boolean VOLUME_BEEP_PENDING = false;
     private static volatile boolean FORCE_CLOSE_DIALOG = false;
     private static volatile String NEW_VERSION = null;
-    // Silent retries for the version check (startup and the UPDATE button):
-    // with Helpers.HTTP_TIMEOUT bounding each attempt, a slow or down GitHub
-    // never blocks or pops a dialog.
-    private static final int UPDATE_CHECK_RETRIES = 3;
     private volatile Timer quote_timer = null;
     private volatile int conta_quote = 0;
     private volatile JTextPane quote = null;
@@ -2064,44 +2061,36 @@ public class Init extends JFrame {
     }
 
     private static void UPDATE() {
-        Helpers.applicationTask(() -> {
-            // Only the "checking for update..." label: the action buttons stay free
-            // during the check (with a slow GitHub, retries can take several seconds
-            // and shouldn't block the user; the panel's setEnabled(false) that used
-            // to be here was also a no-op — JPanel doesn't propagate disable to its
-            // children). If the user already jumped into a game, the update offer
-            // simply doesn't show that session (window visible + active guard).
-            Helpers.GUIRun(() -> {
-                VENTANA_INICIO.update_label.setVisible(true);
-                VENTANA_INICIO.update_button.setVisible(false);
-            });
-            // Reset so a manual UPDATE click always re-checks (a prior "already
-            // up to date" check leaves NEW_VERSION blank).
-            NEW_VERSION = null;
+        // Only the "checking for update..." label: the action buttons stay free
+        // during the check. Network work and retries belong to the process service;
+        // this frontend only presents its typed result.
+        Helpers.GUIRun(() -> {
+            VENTANA_INICIO.update_label.setVisible(true);
+            VENTANA_INICIO.update_button.setVisible(false);
+        });
+        NEW_VERSION = null;
 
-            // try/finally: the check is best-effort and runs in the background, but
-            // no matter what happens (unexpected network exception, Error, dialog
-            // failure) the finally MUST restore the UI — otherwise the "CHECKING FOR
-            // UPDATE..." label stays stuck forever.
+        application().service(UpdateService.class).checkLatest().whenComplete((result, failure) -> {
             try {
-                // Up to UPDATE_CHECK_RETRIES silent attempts: if GitHub doesn't
-                // respond, just leave the UPDATE button visible for a manual check
-                // (the "retry?" modal dialog that used to be here could ambush a
-                // user already in a game, lacking the visible/active window guard
-                // that the offer itself has).
-                for (int intento = 0; intento < UPDATE_CHECK_RETRIES && NEW_VERSION == null; intento++) {
-                    NEW_VERSION = Helpers.checkLatestCoronaPokerVersion(AboutDialog.UPDATE_URL);
-                }
+                if (failure != null) {
+                    LOGGER.log(Level.SEVERE, "Update check failed unexpectedly", failure);
+                } else {
+                    NEW_VERSION = switch (result.status()) {
+                        case UPDATE_AVAILABLE -> result.version();
+                        case CURRENT -> "";
+                        case UNAVAILABLE -> null;
+                    };
 
-                if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
-                    if (VENTANA_INICIO.isVisible() && VENTANA_INICIO.isActive() && Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, Translator.translate("update.hay_una_version_nueva_de"), new ImageIcon(Init.class.getResource("/images/avatar_default.png"))) == 0) {
-                        performUpdate(NEW_VERSION);
+                    if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
+                        if (VENTANA_INICIO.isVisible() && VENTANA_INICIO.isActive() && Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, Translator.translate("update.hay_una_version_nueva_de"), new ImageIcon(Init.class.getResource("/images/avatar_default.png"))) == 0) {
+                            performUpdate(NEW_VERSION);
+                        }
                     }
-                }
 
-                if (Init.MOD != null) {
-                    LOGGER.log(Level.INFO, "Checking MOD updates...");
-                    Helpers.checkMODVersion(VENTANA_INICIO);
+                    if (Init.MOD != null) {
+                        LOGGER.log(Level.INFO, "Checking MOD updates...");
+                        Helpers.checkMODVersion(VENTANA_INICIO);
+                    }
                 }
             } catch (Throwable t) {
                 LOGGER.log(Level.SEVERE, "Update check failed unexpectedly", t);
@@ -2133,7 +2122,7 @@ public class Init extends JFrame {
                     }
                 });
             }
-        }, "CoronaPoker-update-check");
+        });
     }
 
     private static void antiScreensaver() {

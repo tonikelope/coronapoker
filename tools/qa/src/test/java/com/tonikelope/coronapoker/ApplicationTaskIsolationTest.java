@@ -13,6 +13,8 @@ public class ApplicationTaskIsolationTest {
         String init = Files.readString(sourceRoot().resolve("Init.java")).replace("\r\n", "\n");
         String audioBackend = Files.readString(sourceRoot().resolve("swing/SwingAudioBackend.java"))
                 .replace("\r\n", "\n");
+        String updateService = Files.readString(sourceRoot().resolve("core/UpdateService.java"))
+                .replace("\r\n", "\n");
 
         assertTrue(init.contains("Helpers.applicationTask(Helpers::purgeOldVoiceNotes"),
                 "voice-note startup cleanup belongs to the application lifecycle");
@@ -22,8 +24,10 @@ public class ApplicationTaskIsolationTest {
                 "the process audio backend must warm the endpoint asynchronously");
 
         String update = methodBody(init, "UPDATE");
-        assertTrue(update.contains("Helpers.applicationTask(() ->"),
-                "network update checks must not prevent a table executor handoff");
+        assertTrue(update.contains("application().service(UpdateService.class).checkLatest()"),
+                "the frontend must delegate release-network work to the process service");
+        assertTrue(updateService.contains("thread.setDaemon(true)"),
+                "release checks must not pin process shutdown");
     }
 
     @Test

@@ -47,6 +47,7 @@ public record TableSnapshot(
     public enum Position {
         NONE,
         DEALER,
+        DEAD_DEALER,
         SMALL_BLIND,
         BIG_BLIND,
         STRADDLE,

@@ -24,6 +24,37 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class CrupierTableEventBridgeTest {
 
     @Test
+    void positionRotationIsAlsoARealDealerBarrier() throws Exception {
+        TableEventBridge bridge = new TableEventBridge();
+        BlockingRenderer renderer = new BlockingRenderer();
+        bridge.attach(renderer, emptyTable()).toCompletableFuture().join();
+        Crupier dealer = new Crupier(bridge);
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        List<TableVisualEvent.PositionTransfer> transfers = List.of(
+                new TableVisualEvent.PositionTransfer(
+                        "old-bb", "new-bb", TableSnapshot.Position.BIG_BLIND, false));
+
+        try {
+            Future<Boolean> presented = executor.submit(() ->
+                    dealer.presentPositionRotationToAttachedRenderer(transfers, 240L));
+
+            assertTrue(renderer.eventReceived.await(1, TimeUnit.SECONDS));
+            assertFalse(presented.isDone(),
+                    "The dealer crossed the position-flight barrier before landing");
+            TableVisualEvent.PositionRotation event = assertInstanceOf(
+                    TableVisualEvent.PositionRotation.class, renderer.event);
+            assertEquals(transfers, event.transfers());
+            assertEquals(240L, event.durationMillis());
+
+            renderer.animation.complete(null);
+            assertTrue(presented.get(1, TimeUnit.SECONDS));
+        } finally {
+            executor.shutdownNow();
+            bridge.close();
+        }
+    }
+
+    @Test
     void forcedBetsBlockShuffleProgressUntilTheRendererCompletesItsImpact() throws Exception {
         TableEventBridge bridge = new TableEventBridge();
         BlockingRenderer renderer = new BlockingRenderer();

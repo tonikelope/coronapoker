@@ -4206,6 +4206,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // big chip can be hidden before it's ever painted.
     private java.util.List<TablePanel.ChipFlight> pending_chip_rotation_flights;
     private java.util.List<Player> pending_chip_rotation_to_hide;
+    private java.util.List<TableVisualEvent.PositionTransfer> pending_position_rotation;
     // Players whose big chip stays SUPPRESSED (refreshPositionChipIcons won't paint it
     // even if called) from prepareChipRotation until the flying chip lands. Without
     // this, hiding it once isn't enough: an intermediate repaint (the table's initial
@@ -4228,6 +4229,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         this.pending_chip_rotation_flights = null;
         this.pending_chip_rotation_to_hide = null;
+        this.pending_position_rotation = null;
         this.big_chip_suppressed = null;
 
         if (!GameFrame.ciegasDealerAnimOn() || GameFrame.RECOVER || isFin_de_la_transmision()) {
@@ -4236,16 +4238,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         final java.util.Map<String, Player> n2p = getNick2player();
         final java.util.List<TablePanel.ChipFlight> flights = new java.util.ArrayList<>();
+        final java.util.List<TableVisualEvent.PositionTransfer> neutralTransfers
+                = new java.util.ArrayList<>();
         // Asientos cuya ficha grande se oculta antes del vuelo: SOLO los destinos de
         // vuelos reales, para que una ficha que NO se mueve no parpadee.
         final java.util.List<Player> to_hide = new java.util.ArrayList<>();
 
         // Big blind: always painted.
+        addPositionTransfer(neutralTransfers, n2p, prev_bb_nick, this.big_blind_nick,
+                com.tonikelope.coronapoker.table.TableSnapshot.Position.BIG_BLIND, false);
         addChipFlight(flights, to_hide, n2p, prev_bb_nick, this.big_blind_nick, Helpers.IMAGEN_BB, false);
 
         // Small blind: only if its seat differs from the big blind's.
         String new_sb_holder = chipHolder(this.small_blind_nick, this.big_blind_nick, null);
         String old_sb_holder = chipHolder(prev_sb_nick, prev_bb_nick, null);
+        addPositionTransfer(neutralTransfers, n2p, old_sb_holder, new_sb_holder,
+                com.tonikelope.coronapoker.table.TableSnapshot.Position.SMALL_BLIND, false);
         addChipFlight(flights, to_hide, n2p, old_sb_holder, new_sb_holder, Helpers.IMAGEN_SB, false);
 
         // Dealer button: only if its seat differs from both blinds' (heads-up dealer ==
@@ -4256,8 +4264,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final boolean dead = isDead_dealer();
         String new_dealer_holder = chipHolder(this.dealer_nick, this.big_blind_nick, this.small_blind_nick);
         String old_dealer_holder = chipHolder(prev_dealer_nick, prev_bb_nick, prev_sb_nick);
+        addPositionTransfer(neutralTransfers, n2p, old_dealer_holder, new_dealer_holder,
+                dead
+                        ? com.tonikelope.coronapoker.table.TableSnapshot.Position.DEAD_DEALER
+                        : com.tonikelope.coronapoker.table.TableSnapshot.Position.DEALER,
+                dead);
         addChipFlight(flights, to_hide, n2p, old_dealer_holder, new_dealer_holder,
                 dead ? Helpers.IMAGEN_DEAD_DEALER : Helpers.IMAGEN_DEALER, dead);
+
+        this.pending_position_rotation = neutralTransfers.isEmpty()
+                ? null : java.util.List.copyOf(neutralTransfers);
+
+        if (table_events.isAttached()) {
+            return;
+        }
 
         if (flights.isEmpty()) {
             return;
@@ -4284,10 +4304,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         final java.util.List<TablePanel.ChipFlight> flights = this.pending_chip_rotation_flights;
         final java.util.List<Player> to_hide = this.pending_chip_rotation_to_hide;
+        final java.util.List<TableVisualEvent.PositionTransfer> neutralTransfers
+                = this.pending_position_rotation;
         this.pending_chip_rotation_flights = null;
         this.pending_chip_rotation_to_hide = null;
+        this.pending_position_rotation = null;
 
-        if (flights == null || flights.isEmpty() || isFin_de_la_transmision()) {
+        boolean hasNeutralRotation = neutralTransfers != null && !neutralTransfers.isEmpty();
+        boolean hasSwingRotation = flights != null && !flights.isEmpty();
+        if (isFin_de_la_transmision() || (!hasNeutralRotation && !hasSwingRotation)) {
             this.big_chip_suppressed = null;
             return;
         }
@@ -4295,6 +4320,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Same duration (speed) as each dealt card's flight.
         int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / getJugadoresActivos())));
         final int flight_dur = Math.max(150, pausa);
+
+        if (hasNeutralRotation
+                && presentPositionRotationToAttachedRenderer(neutralTransfers, flight_dur)) {
+            this.big_chip_suppressed = null;
+            return;
+        }
+
+        if (!hasSwingRotation) {
+            this.big_chip_suppressed = null;
+            return;
+        }
 
         GameFrame.getInstance().getTapete().flyChipsToSeats(flights, flight_dur, () -> {
             // Stops suppressing right before restoring: the chip appears under the
@@ -4304,6 +4340,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 p.refreshPositionChipIcons();
             }
         });
+    }
+
+    boolean presentPositionRotationToAttachedRenderer(
+            java.util.List<TableVisualEvent.PositionTransfer> transfers,
+            long durationMillis) {
+        java.util.Optional<java.util.concurrent.CompletionStage<Void>> barrier
+                = table_events.publishIfAttached(sequence ->
+                        new TableVisualEvent.PositionRotation(
+                                sequence, transfers, durationMillis));
+        if (barrier.isEmpty()) {
+            return false;
+        }
+        try {
+            barrier.orElseThrow().toCompletableFuture().get(4, TimeUnit.SECONDS);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "Position-rotation presentation barrier failed", ex);
+        }
+        return true;
     }
 
     // Returns the nick that shows its chip, or null if that role isn't painted
@@ -4317,6 +4373,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return null;
         }
         return nick;
+    }
+
+    private static void addPositionTransfer(
+            java.util.List<TableVisualEvent.PositionTransfer> transfers,
+            java.util.Map<String, Player> playersByNickname,
+            String oldNickname, String newNickname,
+            com.tonikelope.coronapoker.table.TableSnapshot.Position position,
+            boolean fromCenter) {
+        if (newNickname == null || !playersByNickname.containsKey(newNickname)) {
+            return;
+        }
+        if (!fromCenter && java.util.Objects.equals(oldNickname, newNickname)) {
+            return;
+        }
+        transfers.add(new TableVisualEvent.PositionTransfer(
+                oldNickname, newNickname, position,
+                fromCenter || oldNickname == null));
     }
 
     // Adds a chip flight from the previous holder to the new one and registers its

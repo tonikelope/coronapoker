@@ -14,7 +14,8 @@ import java.util.Objects;
 /** Semantic visual events emitted by the unchanged game flow. */
 public sealed interface TableVisualEvent permits TableVisualEvent.Synchronize,
         TableVisualEvent.HandBoundary, TableVisualEvent.Shuffle,
-        TableVisualEvent.MovePosition, TableVisualEvent.PostChips,
+        TableVisualEvent.MovePosition, TableVisualEvent.PositionRotation,
+        TableVisualEvent.PostChips,
         TableVisualEvent.CollectBets, TableVisualEvent.DealHoleCard,
         TableVisualEvent.SwapHoleCards, TableVisualEvent.FoldHoleCards,
         TableVisualEvent.RevealCommunityCards, TableVisualEvent.TurnTimer,
@@ -64,6 +65,34 @@ public sealed interface TableVisualEvent permits TableVisualEvent.Synchronize,
 
         public MovePosition {
             Objects.requireNonNull(nickname, "nickname");
+            Objects.requireNonNull(position, "position");
+        }
+    }
+
+    /** Dealer/SB/BB move in one parallel batch before forced bets are posted. */
+    record PositionRotation(long sequence, List<PositionTransfer> transfers,
+            long durationMillis) implements TableVisualEvent {
+
+        public PositionRotation {
+            transfers = List.copyOf(transfers);
+            if (transfers.isEmpty()) {
+                throw new IllegalArgumentException("Position rotation needs at least one transfer");
+            }
+            if (durationMillis <= 0L) {
+                throw new IllegalArgumentException("Position rotation duration must be positive");
+            }
+        }
+    }
+
+    record PositionTransfer(String fromNickname, String toNickname,
+            TableSnapshot.Position position, boolean fromCenter) {
+
+        public PositionTransfer {
+            fromNickname = fromNickname == null ? "" : fromNickname;
+            Objects.requireNonNull(toNickname, "toNickname");
+            if (toNickname.isBlank()) {
+                throw new IllegalArgumentException("Position destination player is required");
+            }
             Objects.requireNonNull(position, "position");
         }
     }

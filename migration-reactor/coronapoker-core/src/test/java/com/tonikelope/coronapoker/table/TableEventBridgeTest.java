@@ -68,6 +68,22 @@ final class TableEventBridgeTest {
                 new TableVisualEvent.CloseTable(sequence)).isEmpty());
     }
 
+    @Test
+    void positionRotationIsOneParallelTimedEvent() {
+        TableVisualEvent.PositionRotation rotation = new TableVisualEvent.PositionRotation(
+                3L, List.of(
+                        new TableVisualEvent.PositionTransfer(
+                                "old-bb", "new-bb", TableSnapshot.Position.BIG_BLIND, false),
+                        new TableVisualEvent.PositionTransfer(
+                                "old-sb", "new-sb", TableSnapshot.Position.SMALL_BLIND, false)),
+                240L);
+
+        assertEquals(2, rotation.transfers().size());
+        assertEquals(240L, rotation.durationMillis());
+        assertThrows(IllegalArgumentException.class, () ->
+                new TableVisualEvent.PositionRotation(4L, List.of(), 240L));
+    }
+
     private static TableSnapshot emptyTable() {
         return new TableSnapshot(0L, "local", TableSnapshot.Street.WAITING,
                 0d, "", false, List.of(), List.of());

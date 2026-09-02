@@ -94,6 +94,7 @@ final class CoronaPokerApplicationTest {
         PreferencesService preferences = application.service(PreferencesService.class);
         AudioService audio = application.service(AudioService.class);
         UpdateService updates = application.service(UpdateService.class);
+        FrontendRuntimeService frontendRuntime = application.service(FrontendRuntimeService.class);
 
         assertThrows(IllegalStateException.class, secureRandom::generator);
         assertThrows(IllegalStateException.class, database::connection);
@@ -105,6 +106,7 @@ final class CoronaPokerApplicationTest {
         assertSame(preferences, application.service(PreferencesService.class));
         assertSame(audio, application.service(AudioService.class));
         assertSame(updates, application.service(UpdateService.class));
+        assertSame(frontendRuntime, application.service(FrontendRuntimeService.class));
         application.close();
         assertThrows(IllegalStateException.class, database::connection);
     }
@@ -280,6 +282,30 @@ final class CoronaPokerApplicationTest {
                 unavailable.checkLatest().get(2, TimeUnit.SECONDS).status());
         assertEquals(3, attempts.get());
         unavailable.close();
+    }
+
+    @Test
+    void frontendRuntimeOwnsItsBackendExactlyOnce() throws Exception {
+        List<String> calls = new ArrayList<>();
+        FrontendRuntimeService runtime = new FrontendRuntimeService();
+        runtime.configure(new FrontendRuntimeService.Backend() {
+            @Override
+            public void start() {
+                calls.add("start");
+            }
+
+            @Override
+            public void close() {
+                calls.add("close");
+            }
+        });
+
+        runtime.start();
+        runtime.start();
+        runtime.close();
+        runtime.close();
+
+        assertEquals(List.of("start", "close"), calls);
     }
 
     private static ApplicationService service(String name, List<String> calls) {

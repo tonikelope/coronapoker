@@ -2,6 +2,7 @@ package com.tonikelope.coronapoker.swing;
 
 import com.tonikelope.coronapoker.core.CoronaPokerApplication;
 import com.tonikelope.coronapoker.core.AudioService;
+import com.tonikelope.coronapoker.core.FrontendRuntimeService;
 import com.tonikelope.coronapoker.core.PreferencesService;
 import java.util.Objects;
 
@@ -20,6 +21,7 @@ public final class SwingServiceBridge {
             throw new IllegalStateException("Swing services already bound to another application");
         }
         preferences = service;
+        application.service(FrontendRuntimeService.class).configure(new SwingRuntimeBackend());
         application.service(AudioService.class).configure(new SwingAudioBackend());
     }
 

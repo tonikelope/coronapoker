@@ -24,6 +24,7 @@ public final class CoronaPokerBootstrap {
                 new PreferencesService(coronaDirectory.resolve("coronapoker.properties")),
                 new SecureRandomService(),
                 new DatabaseService(coronaDirectory.resolve("coronapoker.db").toString()),
+                new FrontendRuntimeService(),
                 UpdateService.forLatestRelease(
                         ApplicationMetadata.LATEST_RELEASE_URI,
                         ApplicationMetadata.VERSION,

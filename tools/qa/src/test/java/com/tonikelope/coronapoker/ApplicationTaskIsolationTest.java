@@ -28,6 +28,10 @@ public class ApplicationTaskIsolationTest {
                 "the frontend must delegate release-network work to the process service");
         assertTrue(updateService.contains("thread.setDaemon(true)"),
                 "release checks must not pin process shutdown");
+        assertTrue(init.contains("setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE)"),
+                "normal close must let the application lifecycle release resources first");
+        assertTrue(init.contains("\"CoronaPoker-process-shutdown\""),
+                "normal close must not block the Swing event thread");
     }
 
     @Test

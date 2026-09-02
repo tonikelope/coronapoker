@@ -147,6 +147,7 @@ public class Init extends JFrame {
     private static volatile boolean FORCE_CLOSE_DIALOG = false;
     private static volatile String NEW_VERSION = null;
     private volatile Timer quote_timer = null;
+    private volatile boolean shutdown_started = false;
     private volatile int conta_quote = 0;
     private volatile JTextPane quote = null;
 
@@ -732,7 +733,7 @@ public class Init extends JFrame {
         baraja_panel = new javax.swing.JPanel();
         baraja_fondo = new javax.swing.JLabel();
 
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("CoronaPoker");
         setIconImage(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage());
         addComponentListener(new java.awt.event.ComponentAdapter() {
@@ -1148,9 +1149,22 @@ public class Init extends JFrame {
     }//GEN-LAST:event_update_buttonActionPerformed
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
-        Helpers.PROPERTIES.setProperty("master_volume", String.valueOf(Audio.MASTER_VOLUME));
-        Helpers.savePropertiesFile();
-        APPLICATION.close();
+        if (shutdown_started) {
+            return;
+        }
+        shutdown_started = true;
+        setVisible(false);
+        Helpers.applicationTask(() -> {
+            try {
+                Helpers.PROPERTIES.setProperty("master_volume", String.valueOf(Audio.MASTER_VOLUME));
+                Helpers.savePropertiesFile();
+                APPLICATION.close();
+            } catch (Throwable failure) {
+                LOGGER.log(Level.SEVERE, "Process shutdown failed", failure);
+            } finally {
+                Helpers.GUIRun(this::dispose);
+            }
+        }, "CoronaPoker-process-shutdown");
 
     }//GEN-LAST:event_formWindowClosing
 

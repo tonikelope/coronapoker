@@ -1207,10 +1207,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     (peerNick != null && !peerNick.isEmpty()) ? peerNick : "?");
             final String line = suspect + " " + Translator.translate(reasonKey);
             try {
-                if (GameFrame.getInstance() != null && game_log != null) {
-                    game_log.print(
-                            Translator.translate("zero_trust.peer_alert") + " " + line);
-                }
+                game_log.print(Translator.translate("zero_trust.peer_alert") + " " + line);
             } catch (Exception ignored) {
             }
             Helpers.threadRun(() -> {
@@ -1497,11 +1494,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // already past — the queue is persistent). Uses the Job's ordinal
                             // (handId), not getMano(), which could already point to another
                             // hand. Guarded because this runs on the queue's thread.
-                            GameFrame gf = GameFrame.getInstance();
-                            if (gf != null && gf.getRegistro() != null) {
-                                gf.getRegistro().print(
-                                        MessageFormat.format(Translator.translate("game.barajado_verificado"), String.valueOf(handId)));
-                            }
+                            game_log.print(MessageFormat.format(
+                                    Translator.translate("game.barajado_verificado"),
+                                    String.valueOf(handId)));
                         }
 
                         @Override
@@ -3709,11 +3704,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     shuffle_proof_gate_lock.notifyAll();
                                 }
                                 guardarFosilSRA();
-                                GameFrame gfBg = GameFrame.getInstance();
-                                if (gfBg != null && gfBg.getRegistro() != null) {
-                                    gfBg.getRegistro().print(
-                                            MessageFormat.format(Translator.translate("game.barajado_verificado"), String.valueOf(bgHandOrdinal)));
-                                }
+                                game_log.print(MessageFormat.format(
+                                        Translator.translate("game.barajado_verificado"),
+                                        String.valueOf(bgHandOrdinal)));
                             } catch (Exception bcEx) {
                                 markShuffleProofFailed(bgMega);
                                 LOGGER.log(Level.SEVERE,
@@ -17522,8 +17515,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         && !canPlayerRaise(current_player.getNickname()))) {
                     LOGGER.log(Level.SEVERE, "Raise without entitlement rejected for {0}",
                             current_player.getNickname());
-                    Participant currentParticipant = GameFrame.getInstance()
-                            .getParticipantes().get(current_player.getNickname());
+                    Participant currentParticipant = peers().get(current_player.getNickname());
                     boolean locallyControlledProducer
                             = current_player == localPlayer()
                             || (gameSession().isHost()
@@ -19506,9 +19498,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      */
     public void broadcastTelemetryFrame() {
         try {
-            if (GameFrame.getInstance() == null) {
-                return;
-            }
             java.util.Map<String, com.tonikelope.coronapoker.Participant> parts
                     = peers();
             if (parts == null || parts.isEmpty()) {

@@ -4824,6 +4824,49 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
                 return result;
             }
+
+            @Override
+            public void animateStackFill(
+                    java.util.List<TableDisplaySink.StackTransfer> transfers,
+                    long durationMillis, Runnable onComplete) {
+                long started = System.currentTimeMillis();
+                Helpers.GUIRunAndWait(() -> {
+                    for (TableDisplaySink.StackTransfer transfer : transfers) {
+                        Player seat = player(transfer.nickname());
+                        if (seat != null) {
+                            seat.setStackDisplay(transfer.from());
+                        }
+                    }
+                });
+                Helpers.GUIRun(() -> {
+                    javax.swing.Timer roll = new javax.swing.Timer(16, null);
+                    roll.addActionListener(event -> {
+                        double progress = Math.min(1d,
+                                (System.currentTimeMillis() - started)
+                                / (double) durationMillis);
+                        if (progress >= 1d) {
+                            ((javax.swing.Timer) event.getSource()).stop();
+                            for (TableDisplaySink.StackTransfer transfer : transfers) {
+                                Player seat = player(transfer.nickname());
+                                if (seat != null) {
+                                    seat.setStackDisplay(seat.getStack());
+                                }
+                            }
+                            onComplete.run();
+                            return;
+                        }
+                        for (TableDisplaySink.StackTransfer transfer : transfers) {
+                            Player seat = player(transfer.nickname());
+                            if (seat != null) {
+                                double value = transfer.from()
+                                        + (transfer.to() - transfer.from()) * progress;
+                                seat.setStackDisplay(Helpers.doubleClean(value));
+                            }
+                        }
+                    });
+                    roll.start();
+                });
+            }
         };
         GameWindowSink gameWindow = new GameWindowSink() {
             @Override

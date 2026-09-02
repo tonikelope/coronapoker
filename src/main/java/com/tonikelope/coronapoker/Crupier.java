@@ -4942,71 +4942,48 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // the final counter's job). Visual only (setStackDisplay, model untouched). Blocks the
     // caller until the last frame via a CountDownLatch. Plays start_sound if set and cuts it
     // when the final stack frame lands, so a longer clip cannot outlive the visual fill.
-    private void animateStackFill(java.util.List<Player> players, double[] from, double[] to, String start_sound) {
+    private void animateStackFill(java.util.List<Player> players,
+            double[] from, double[] to, String startSound) {
         if (players == null || players.isEmpty()) {
             return;
         }
 
-        if (start_sound != null) {
-            Audio.playWavResource(start_sound);
+        if (startSound != null) {
+            Audio.playWavResource(startSound);
         }
 
-        final int n = players.size();
-
-        // Frame 0: paint everyone at their initial value before the roll starts.
-        Helpers.GUIRunAndWait(() -> {
-            for (int i = 0; i < n; i++) {
-                players.get(i).setStackDisplay(from[i]);
-            }
-        });
-
-        final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
-        final long start_ms = System.currentTimeMillis();
-
-        // Publish latch + nicks before starting the Timer: the game doesn't wait here, only
-        // esTuTurno (via awaitStackFillIfPending) blocks a player's turn until their own
-        // stack finishes rising. The Timer releases the latch on the last frame.
+        java.util.List<TableDisplaySink.StackTransfer> transfers
+                = new java.util.ArrayList<>(players.size());
         java.util.Set<String> nicks = new java.util.HashSet<>();
-        for (Player pl : players) {
-            nicks.add(pl.getNickname());
+        for (int index = 0; index < players.size(); index++) {
+            Player player = players.get(index);
+            transfers.add(new TableDisplaySink.StackTransfer(
+                    player.getNickname(), from[index], to[index]));
+            nicks.add(player.getNickname());
         }
+
+        java.util.concurrent.CountDownLatch latch
+                = new java.util.concurrent.CountDownLatch(1);
         this.stack_fill_nicks = nicks;
         this.stack_fill_latch = latch;
-
-        // The Timer lives and runs on the EDT. Each tick advances the same linear progress
-        // for all players; on completion it snaps to final values and releases the latch.
-        // Doesn't block here — the hand keeps going.
-        Helpers.GUIRun(() -> {
-            javax.swing.Timer roll = new javax.swing.Timer(16, null);
-            roll.addActionListener((e) -> {
-                double p = Math.min(1.0, (System.currentTimeMillis() - start_ms) / (double) STACK_FILL_MS);
-
-                if (p >= 1.0) {
-                    ((javax.swing.Timer) e.getSource()).stop();
-                    for (int i = 0; i < n; i++) {
-                        // Land on the current model value, not the precomputed to[i]: since
-                        // the fill is non-blocking, a blind/ante may have posted mid-fill and
-                        // already reduced the stack. getStack() is volatile and no longer
-                        // synchronized, so reading it on the EDT can't deadlock with a worker
-                        // thread (see setStack/setBet).
-                        players.get(i).setStackDisplay(players.get(i).getStack());
-                    }
-                    if (start_sound != null) {
-                        Audio.stopWavResource(start_sound);
-                    }
-                    latch.countDown();
-                    return;
+        java.util.concurrent.atomic.AtomicBoolean completed
+                = new java.util.concurrent.atomic.AtomicBoolean();
+        Runnable onComplete = () -> {
+            if (completed.compareAndSet(false, true)) {
+                if (startSound != null) {
+                    Audio.stopWavResource(startSound);
                 }
-
-                for (int i = 0; i < n; i++) {
-                    double value = from[i] + (to[i] - from[i]) * p; // linear, no ease-out
-                    players.get(i).setStackDisplay(Helpers.doubleClean(value));
-                }
-            });
-            roll.start();
-        });
+                latch.countDown();
+            }
+        };
+        try {
+            table_display.animateStackFill(
+                    transfers, STACK_FILL_MS, onComplete);
+        } catch (RuntimeException failure) {
+            onComplete.run();
+            throw failure;
+        }
     }
-
     // Per-player gate: if 'nick' is in the current fill batch and still rising, blocks until
     // done (called by esTuTurno before enabling the turn: border + buttons). Only that
     // player's turn stalls, never the whole game. Returns immediately if nothing is pending

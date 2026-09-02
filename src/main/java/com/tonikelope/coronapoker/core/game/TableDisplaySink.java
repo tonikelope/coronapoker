@@ -20,6 +20,9 @@ public interface TableDisplaySink {
             double amount) {
     }
 
+    record StackTransfer(String nickname, double from, double to) {
+    }
+
     enum PotStyle {
         DEFAULT,
         WIN,
@@ -87,6 +90,9 @@ public interface TableDisplaySink {
     CompletionStage<Void> animateShowdownPayout(
             List<PayoutTransfer> payouts, int shrinkMillis,
             int postAnimationPauseMillis);
+
+    void animateStackFill(List<StackTransfer> transfers,
+            long durationMillis, Runnable onComplete);
 
     static TableDisplaySink noop() {
         return new TableDisplaySink() {
@@ -211,6 +217,12 @@ public interface TableDisplaySink {
                     List<PayoutTransfer> payouts, int shrinkMillis,
                     int postAnimationPauseMillis) {
                 return CompletableFuture.completedFuture(null);
+            }
+
+            @Override
+            public void animateStackFill(List<StackTransfer> transfers,
+                    long durationMillis, Runnable onComplete) {
+                onComplete.run();
             }
         };
     }

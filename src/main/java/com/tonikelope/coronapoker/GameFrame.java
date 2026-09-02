@@ -87,6 +87,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JProgressBar;
@@ -4198,6 +4199,105 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void showHandNumber(int handNumber) {
                 setTapeteMano(handNumber);
+            }
+
+            @Override
+            public void setPotCentered(boolean centered) {
+                Helpers.GUIRun(() -> tapete.getCommunityCards().getPot_label()
+                        .setHorizontalAlignment(centered ? JLabel.CENTER : JLabel.LEADING));
+            }
+
+            @Override
+            public void setPotStyle(TableDisplaySink.PotStyle style) {
+                Helpers.GUIRun(() -> {
+                    CommunityCardsPanel community = tapete.getCommunityCards();
+                    community.getPot_label().setOpaque(false);
+                    community.getPot_panel().setOpaque(style != TableDisplaySink.PotStyle.DEFAULT);
+                    switch (style) {
+                        case WIN:
+                            community.getPot_panel().setBackground(Color.GREEN);
+                            community.getPot_label().setForeground(Color.BLACK);
+                            break;
+                        case LOSS:
+                            community.getPot_panel().setBackground(Color.RED);
+                            community.getPot_label().setForeground(Color.WHITE);
+                            break;
+                        case SIDE_POT:
+                            community.getPot_panel().setBackground(Color.BLACK);
+                            community.getPot_label().setForeground(Color.WHITE);
+                            break;
+                        default:
+                            community.getPot_label().setForeground(community.getBet_label().getForeground());
+                            break;
+                    }
+                });
+            }
+
+            @Override
+            public void showCallCost(String text) {
+                Helpers.GUIRun(() -> tapete.updateCallCostOverlay(text));
+            }
+
+            @Override
+            public void hideCallCost() {
+                Helpers.GUIRun(tapete::hideCallCostOverlay);
+            }
+
+            @Override
+            public void resetForNewHand() {
+                Helpers.GUIRun(() -> {
+                    CommunityCardsPanel community = tapete.getCommunityCards();
+                    community.getPot_panel().setOpaque(false);
+                    community.getPot_label().setHorizontalAlignment(JLabel.LEADING);
+                    community.restoreBetLabelicon();
+                    community.getPot_label().setForeground(community.getBet_label().getForeground());
+                    community.setPotTextImmediate("---");
+                    community.getHand_label().setVisible(false);
+                    community.getBet_label().setVisible(false);
+                });
+            }
+
+            @Override
+            public void setHandAndStreetBetVisible(boolean visible) {
+                Helpers.GUIRun(() -> {
+                    tapete.getCommunityCards().getHand_label().setVisible(visible);
+                    tapete.getCommunityCards().getBet_label().setVisible(visible);
+                });
+            }
+
+            @Override
+            public void showDecryptingStreet(String text) {
+                Helpers.GUIRunAndWait(() -> {
+                    tapete.getCommunityCards().getPot_label().setForeground(Color.ORANGE);
+                    tapete.getCommunityCards().setPotTextImmediate(text);
+                });
+            }
+
+            @Override
+            public void finishDecryptingStreet() {
+                Helpers.GUIRunAndWait(() -> tapete.getCommunityCards().getPot_label().setForeground(
+                        tapete.getCommunityCards().getBet_label().getForeground()));
+            }
+
+            @Override
+            public void prepareRunItTwiceSideB() {
+                Helpers.GUIRun(() -> {
+                    CommunityCardsPanel community = tapete.getCommunityCards();
+                    community.getPot_panel().setOpaque(false);
+                    community.getPot_label().setHorizontalAlignment(JLabel.CENTER);
+                    community.getPot_label().setForeground(community.getBet_label().getForeground());
+                    community.getHand_label().setVisible(true);
+                });
+            }
+
+            @Override
+            public void requestHandLimitAction() {
+                Helpers.GUIRun(tapete.getCommunityCards()::hand_label_left_click);
+            }
+
+            @Override
+            public void repaintCommunity() {
+                Helpers.GUIRun(tapete.getCommunityCards()::repaint);
             }
 
             @Override

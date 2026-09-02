@@ -11,6 +11,13 @@ package com.tonikelope.coronapoker.core.game;
 /** Immediate, semantic table-display operations retained by the classic flow. */
 public interface TableDisplaySink {
 
+    enum PotStyle {
+        DEFAULT,
+        WIN,
+        LOSS,
+        SIDE_POT
+    }
+
     void showPot(double amount, Double mainPotProfit);
 
     void showPotText(String text);
@@ -22,6 +29,28 @@ public interface TableDisplaySink {
     void showBlinds(double smallBlind, double bigBlind);
 
     void showHandNumber(int handNumber);
+
+    void setPotCentered(boolean centered);
+
+    void setPotStyle(PotStyle style);
+
+    void showCallCost(String text);
+
+    void hideCallCost();
+
+    void resetForNewHand();
+
+    void setHandAndStreetBetVisible(boolean visible);
+
+    void showDecryptingStreet(String text);
+
+    void finishDecryptingStreet();
+
+    void prepareRunItTwiceSideB();
+
+    void requestHandLimitAction();
+
+    void repaintCommunity();
 
     void refresh();
 
@@ -57,6 +86,50 @@ public interface TableDisplaySink {
 
             @Override
             public void showHandNumber(int handNumber) {
+            }
+
+            @Override
+            public void setPotCentered(boolean centered) {
+            }
+
+            @Override
+            public void setPotStyle(PotStyle style) {
+            }
+
+            @Override
+            public void showCallCost(String text) {
+            }
+
+            @Override
+            public void hideCallCost() {
+            }
+
+            @Override
+            public void resetForNewHand() {
+            }
+
+            @Override
+            public void setHandAndStreetBetVisible(boolean visible) {
+            }
+
+            @Override
+            public void showDecryptingStreet(String text) {
+            }
+
+            @Override
+            public void finishDecryptingStreet() {
+            }
+
+            @Override
+            public void prepareRunItTwiceSideB() {
+            }
+
+            @Override
+            public void requestHandLimitAction() {
+            }
+
+            @Override
+            public void repaintCommunity() {
             }
 
             @Override

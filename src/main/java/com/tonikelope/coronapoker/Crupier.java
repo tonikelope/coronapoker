@@ -7366,8 +7366,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // jump once the hand closes. The show_time gate also stops a late refresh
             // (editing blinds, a chip landing, etc.) from re-showing bet_label after showdown starts.
             table_display.hideStreetBets();
-            Helpers.GUIRun(() -> GameFrame.getInstance().getTapete().getCommunityCards()
-                    .getPot_label().setHorizontalAlignment(JLabel.CENTER));
+            table_display.setPotCentered(true);
         } else {
             table_display.showStreetBets(this.apuestas);
             // Betting phase: the pot sits LEADING with the street bet_label to its right.
@@ -7378,8 +7377,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Tying the alignment to the phase on every counter refresh corrects it instantly
             // (symmetric to the CENTER branch above). setHorizontalAlignment is a no-op when
             // the value already matches, so this doesn't force extra repaints.
-            Helpers.GUIRun(() -> GameFrame.getInstance().getTapete().getCommunityCards()
-                    .getPot_label().setHorizontalAlignment(JLabel.LEADING));
+            table_display.setPotCentered(false);
         }
 
         table_display.showBlinds(this.ciega_pequeña, this.ciega_grande);
@@ -7394,30 +7392,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // local player active and something to call; hidden otherwise. Amount is capped to the
     // stack. Respects the Appearance toggle.
     public void refreshCallCostOverlay() {
-        TablePanel tapete = GameFrame.getInstance().getTapete();
-        if (tapete == null) {
-            return;
-        }
-
         LocalPlayer lp = localPlayer();
 
         if (!GameFrame.MOSTRAR_COSTE_IGUALAR || !this.community_cards_dealt
                 || this.show_time || this.destapar_resistencia
                 || lp == null || !lp.isActivo() || lp.isExit()
                 || lp.getDecision() == Player.FOLD || lp.getDecision() == Player.ALLIN) {
-            tapete.hideCallCostOverlay();
+            table_display.hideCallCost();
             return;
         }
 
         double cost = Helpers.doubleClean(this.apuesta_actual - lp.getBet());
 
         if (Helpers.doubleSecureCompare(0f, cost) >= 0) {
-            tapete.hideCallCostOverlay();
+            table_display.hideCallCost();
             return;
         }
 
         double shown = Math.min(cost, Helpers.doubleClean(lp.getStack()));
-        tapete.updateCallCostOverlay("+" + Helpers.money2String(shown));
+        table_display.showCallCost("+" + Helpers.money2String(shown));
     }
 
     // Refreshes ONLY the pot_label value (bet_label/blinds/hand untouched). Used by a flying
@@ -10605,14 +10598,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    private void setPotBackground(Color color) {
-        Helpers.GUIRun(() -> {
-            GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(false);
-            GameFrame.getInstance().getTapete().getCommunityCards().getPot_panel().setOpaque(true);
-            GameFrame.getInstance().getTapete().getCommunityCards().getPot_panel().setBackground(color);
-        });
-    }
-
     private boolean NUEVA_MANO() {
 
         final boolean leavingPassiveObservedHand = this.passive_recovery_observer;
@@ -10635,24 +10620,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.active_crypto_ring = null;
         this.game_recovered = 0;
 
-        Helpers.GUIRun(() -> {
-
-            GameFrame.getInstance().getTapete().getCommunityCards().getPot_panel().setOpaque(false);
-            GameFrame.getInstance().getTapete().getCommunityCards().getPot_label()
-                    .setHorizontalAlignment(JLabel.LEADING);
-            GameFrame.getInstance().getTapete().getCommunityCards().restoreBetLabelicon();
-            GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(
-                    GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().getForeground());
-            GameFrame.getInstance().getTapete().getCommunityCards().setPotTextImmediate("---");
-            GameFrame.getInstance().getTapete().getCommunityCards().getHand_label().setVisible(false);
-            GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().setVisible(false);
-
-            game_progress.indeterminate();
-
-            if (!gameSession().isHost()) {
-                game_window.setExitEnabled(false);
-            }
-        });
+        table_display.resetForNewHand();
+        game_progress.indeterminate();
+        if (!gameSession().isHost()) {
+            game_window.setExitEnabled(false);
+        }
 
         if (!GameFrame.RECOVER) {
             Helpers.cleanHandCrupierTempFiles(this.sqlite_id_game);
@@ -11030,7 +11002,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (GameFrame.MANOS == conta_mano && gameSession().isHost()) {
-            Helpers.GUIRun(GameFrame.getInstance().getTapete().getCommunityCards()::hand_label_left_click);
+            table_display.requestHandLimitAction();
         }
 
         // Framed hand header is emitted only after the definitive recovery counter is known.
@@ -11107,10 +11079,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // chips fly later, after the position chips rotate.
             prepareForcedBetsToPot();
 
-            Helpers.GUIRun(() -> {
-                GameFrame.getInstance().getTapete().getCommunityCards().getHand_label().setVisible(true);
-                GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().setVisible(true);
-            });
+            table_display.setHandAndStreetBetVisible(true);
 
             actualizarContadoresTapete();
 
@@ -15875,11 +15844,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // deals visually identical to SIDE-A.
             ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
             ScheduledFuture<?> loadingTask = scheduler.schedule(() -> {
-                Helpers.GUIRunAndWait(() -> {
-                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.ORANGE);
-                    GameFrame.getInstance().getTapete().getCommunityCards().setPotTextImmediate(Translator.translate("zero_trust.decrypting_street"));
-                    game_progress.setIndeterminate(true);
-                });
+                table_display.showDecryptingStreet(Translator.translate("zero_trust.decrypting_street"));
+                game_progress.setIndeterminate(true);
             }, 500, TimeUnit.MILLISECONDS);
 
             boolean ok = false;
@@ -15890,11 +15856,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } finally {
                 loadingTask.cancel(false);
                 scheduler.shutdown();
-                Helpers.GUIRunAndWait(() -> {
-                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(
-                            GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().getForeground());
-                    game_progress.setIndeterminate(false);
-                });
+                table_display.finishDecryptingStreet();
+                game_progress.setIndeterminate(false);
             }
 
             if (!ok) {
@@ -15988,18 +15951,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // shows ONLY the pot (centered, no bet_label) via actualizarContadoresTapete.
         // Alignment stays CENTER (the run-out already centers), same as the showdown
         // that follows.
-        Helpers.GUIRun(() -> {
-            CommunityCardsPanel cc = GameFrame.getInstance().getTapete().getCommunityCards();
-            cc.getPot_panel().setOpaque(false);
-            cc.getPot_label().setHorizontalAlignment(JLabel.CENTER);
-            cc.getPot_label().setForeground(cc.getBet_label().getForeground());
-            // The hand counter is still THIS hand's (SIDE-B is the same deal): it must
-            // stay VISIBLE during the rewind, same as SIDE-A's run-out and the normal
-            // deal. Hiding it left the last hand's yellow hand_panel with no number
-            // (looked like blank text on yellow); the black foreground was already set
-            // by last_hand_on and nothing changes it.
-            cc.getHand_label().setVisible(true);
-        });
+        // The hand counter is still THIS hand's (SIDE-B is the same deal): it must
+        // stay VISIBLE during the rewind, same as SIDE-A's run-out and the normal
+        // deal. Hiding it left the last hand's yellow hand_panel with no number.
+        table_display.prepareRunItTwiceSideB();
         // The bar starts full for SIDE-B (it was left empty after the pause).
         game_progress.reset(100);
         // During SIDE-B's deal (animated rewind + repartirSideB ->
@@ -16025,17 +15980,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // rewind). The shared cards (the all-in street and earlier) are already in the
         // board that monteCarlo removes on its own.
         this.rit_side_a_runout_cards.clear();
-        CommunityCardsPanel ccA = GameFrame.getInstance().getTapete().getCommunityCards();
         if (this.rit_allin_street < FLOP) {
-            this.rit_side_a_runout_cards.add(ccA.getFlop1().getCartaComoEntero());
-            this.rit_side_a_runout_cards.add(ccA.getFlop2().getCartaComoEntero());
-            this.rit_side_a_runout_cards.add(ccA.getFlop3().getCartaComoEntero());
+            this.rit_side_a_runout_cards.add(communityCard(0).getCartaComoEntero());
+            this.rit_side_a_runout_cards.add(communityCard(1).getCartaComoEntero());
+            this.rit_side_a_runout_cards.add(communityCard(2).getCartaComoEntero());
         }
         if (this.rit_allin_street < TURN) {
-            this.rit_side_a_runout_cards.add(ccA.getTurn().getCartaComoEntero());
+            this.rit_side_a_runout_cards.add(communityCard(3).getCartaComoEntero());
         }
         if (this.rit_allin_street < RIVER) {
-            this.rit_side_a_runout_cards.add(ccA.getRiver().getCartaComoEntero());
+            this.rit_side_a_runout_cards.add(communityCard(4).getCartaComoEntero());
         }
         // Rewind: pull the run community cards and redeal them face down with the
         // game's deal animation.
@@ -16319,20 +16273,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         //   black strip), same as the normal showdown with side pots.
         // - a single pot: amount paid + profit (green background).
         if (this.bote.getSidePot() != null) {
-            setPotBackground(Color.BLACK);
+            table_display.setPotStyle(TableDisplaySink.PotStyle.SIDE_POT);
             final String bote_tapete_final = bote_tapete;
-            Helpers.GUIRun(() -> {
-                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
-                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setHorizontalAlignment(JLabel.CENTER);
-            });
+            table_display.setPotCentered(true);
             table_display.showPotText(bote_tapete_final);
         } else {
             final double paidShow = paidThisBoard;
-            setPotBackground(Color.GREEN);
-            Helpers.GUIRun(() -> {
-                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
-                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setHorizontalAlignment(JLabel.CENTER);
-            });
+            table_display.setPotStyle(TableDisplaySink.PotStyle.WIN);
+            table_display.setPotCentered(true);
             table_display.showPot(paidShow, this.beneficio_bote_principal);
         }
 
@@ -17139,11 +17087,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (street > PREFLOP) {
             ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
             ScheduledFuture<?> loadingTask = scheduler.schedule(() -> {
-                Helpers.GUIRunAndWait(() -> {
-                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.ORANGE);
-                    GameFrame.getInstance().getTapete().getCommunityCards().setPotTextImmediate(Translator.translate("zero_trust.decrypting_street"));
-                    game_progress.setIndeterminate(true);
-                });
+                table_display.showDecryptingStreet(Translator.translate("zero_trust.decrypting_street"));
+                game_progress.setIndeterminate(true);
             }, 500, TimeUnit.MILLISECONDS);
 
             boolean success = false;
@@ -17156,12 +17101,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } finally {
                 loadingTask.cancel(false);
                 scheduler.shutdown();
-                Helpers.GUIRunAndWait(() -> {
-                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(
-                            GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().getForeground()
-                    );
-                    game_progress.setIndeterminate(false);
-                });
+                table_display.finishDecryptingStreet();
+                game_progress.setIndeterminate(false);
             }
 
             if (!success) {
@@ -23534,10 +23475,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         procesarCartasResistencia(new ArrayList<Player>(), false);
 
                                         game_log.print("-----" + Translator.translate("game.gana_bote") + Helpers.money2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate("action.sin_tener_que_mostrar"));
-                                        Helpers.GUIRun(() -> {
-                                            setPotBackground(Color.RED);
-                                            GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
-                                        });
+                                        table_display.setPotStyle(TableDisplaySink.PotStyle.LOSS);
                                         table_display.showPot(this.bote.getTotal() + this.bote_sobrante, 0d);
                                         // Nobody resists: the whole pot goes unclaimed and rolls into the
                                         // next hand. It's ASSIGNED, like the two twin branches of this same
@@ -23582,10 +23520,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         resisten.get(0).pagar(this.bote.getTotal() + this.bote_sobrante, null);
                                         this.beneficio_bote_principal = this.bote.getTotal() + this.bote_sobrante - this.bote.getBet();
                                         game_log.print(resisten.get(0).getNickname() + " " + Translator.translate("game.gana_bote") + Helpers.money2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate("action.sin_tener_que_mostrar"));
-                                        Helpers.GUIRun(() -> {
-                                            setPotBackground(Color.GREEN);
-                                            GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
-                                        });
+                                        table_display.setPotStyle(TableDisplaySink.PotStyle.WIN);
                                         table_display.showPot(this.bote.getTotal() + this.bote_sobrante, this.beneficio_bote_principal);
                                         this.bote_total = 0f;
                                         this.bote_sobrante = 0f;
@@ -23662,10 +23597,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             }
 
                                             this.showdown(jugadas, ganadores, diferir_dim);
-                                            Helpers.GUIRun(() -> {
-                                                setPotBackground(Color.GREEN);
-                                                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
-                                            });
+                                            table_display.setPotStyle(TableDisplaySink.PotStyle.WIN);
                                             table_display.showPot(cantidad_pagar_ganador[0], this.beneficio_bote_principal);
 
                                         } else {
@@ -23799,10 +23731,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 conta_bote_secundario++;
                                                 indice_lateral++;
                                             }
-                                            Helpers.GUIRun(() -> {
-                                                setPotBackground(Color.BLACK);
-                                                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
-                                            });
+                                            table_display.setPotStyle(TableDisplaySink.PotStyle.SIDE_POT);
                                             table_display.showPotText(bote_tapete);
                                         }
                                         // Never below zero. If the hand was voided by the barrier above,
@@ -23816,9 +23745,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 }
                             }
 
-                            Helpers.GUIRun(() -> {
-                                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setHorizontalAlignment(JLabel.CENTER);
-                            });
+                            table_display.setPotCentered(true);
 
                             this.bote_total = 0f;
 
@@ -23888,9 +23815,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // setters synchronize on lock_fin_mano, so any change during hand
                             // close queues up and applies cleanly once it's resolved (next
                             // hand). Only the table repaint is left.
-                            Helpers.GUIRun(() -> {
-                                GameFrame.getInstance().getTapete().getCommunityCards().repaint();
-                            });
+                            table_display.repaintCommunity();
 
                             synchronized (lock_rabbit) {
 

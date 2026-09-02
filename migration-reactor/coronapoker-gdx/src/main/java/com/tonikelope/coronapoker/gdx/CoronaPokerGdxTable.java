@@ -37,8 +37,10 @@ import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
@@ -386,6 +388,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private LivePositionRotation livePositionRotation;
     private LiveChipBatch liveChipBatch;
     private LiveShuffle liveShuffle;
+    private LiveCardFlight liveCardFlight;
+    private final Map<String, Texture> liveCardFaces = new HashMap<>();
+    private String liveDeck = "goliat";
 
     CoronaPokerGdxTable(int detectedRefreshRate) {
         this(detectedRefreshRate, null, () -> {
@@ -687,6 +692,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     barrier, liveState.snapshot());
         } else if (event instanceof TableVisualEvent.Shuffle shuffle) {
             acceptLiveShuffle(shuffle, barrier);
+        } else if (event instanceof TableVisualEvent.DealHoleCard
+                || event instanceof TableVisualEvent.DealCommunityCard) {
+            if (liveCardFlight != null) {
+                throw new IllegalStateException("A GDX card deal is already active");
+            }
+            liveCardFlight = new LiveCardFlight(event, System.nanoTime(), barrier);
+            play(dealSound, 0.32f, 1f);
         } else {
             throw new UnsupportedOperationException(
                     "GDX animation family not connected yet: "
@@ -1075,6 +1087,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateLivePositionRotation();
         updateLiveChipBatch();
         updateLiveShuffle();
+        updateLiveCardFlight();
         recordFrame(delta);
         handleInput();
         updateStars(delta);
@@ -1608,7 +1621,116 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawPositionChips();
     }
 
+    private void drawLiveHoleCards(boolean foregroundFlights) {
+        Texture cardBack = activeCardBack();
+        batch.begin();
+        if (!foregroundFlights) {
+            for (TableSnapshot.PlayerSnapshot player : liveState.snapshot().players()) {
+                Seat seat = seatByNickname(player.nickname());
+                if (seat == null) {
+                    continue;
+                }
+                for (int slot = 0; slot < player.holeCards().size() && slot < 2; slot++) {
+                    TableSnapshot.CardSnapshot card = player.holeCards().get(slot);
+                    LiveCardPlacement placement = liveHolePlacement(seat, slot);
+                    drawLiveRestingCard(card, placement, cardBack);
+                }
+            }
+        } else if (liveCardFlight != null
+                && liveCardFlight.event instanceof TableVisualEvent.DealHoleCard deal) {
+            Seat seat = seatByNickname(deal.nickname());
+            if (seat != null) {
+                LiveCardPlacement target = liveHolePlacement(seat, deal.slot());
+                float progress = Interpolation.pow2Out.apply(liveCardFlight.progress());
+                float controlX = (dealerSourceX + target.x) * 0.5f + 128f;
+                float controlY = (dealerSourceY + target.y) * 0.5f + 190f;
+                float x = bezier(dealerSourceX, controlX, target.x, progress);
+                float y = bezier(dealerSourceY, controlY, target.y, progress);
+                float launchRotation = (deal.slot() & 1) == 0 ? -26f : 26f;
+                float rotation = MathUtils.lerp(launchRotation,
+                        target.rotation, progress);
+                float scale = 0.82f + progress * 0.18f;
+                useRoundedCardShader();
+                batch.setColor(Color.WHITE);
+                batch.draw(cardBack, x - target.width / 2f,
+                        y - target.height / 2f, target.width / 2f,
+                        target.height / 2f, target.width, target.height,
+                        scale, scale, rotation, 0, 0,
+                        cardBack.getWidth(), cardBack.getHeight(), false, false);
+            }
+        }
+        batch.setShader(null);
+        batch.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    private LiveCardPlacement liveHolePlacement(Seat seat, int slot) {
+        Texture cardBack = activeCardBack();
+        float width = seat.index == 0 ? LOCAL_HOLE_CARD_WIDTH : RIVAL_HOLE_CARD_WIDTH;
+        float height = width * cardBack.getHeight() / cardBack.getWidth();
+        if (seat.index != 0) {
+            float radians = RIVAL_CARD_FAN_ANGLE * MathUtils.degreesToRadians;
+            float rotatedHalfHeight = Math.abs(MathUtils.cos(radians)) * height / 2f
+                    + Math.abs(MathUtils.sin(radians)) * width / 2f;
+            float centerX = seat.podX + RIVAL_HAND_CENTER_X_INSET;
+            float centerY = MathUtils.clamp(seat.y + RIVAL_HAND_VERTICAL_OFFSET,
+                    LOCAL_HUD_SAFE_TOP + rotatedHalfHeight + RIVAL_REVEAL_HUD_GAP,
+                    viewport.getWorldHeight() - rotatedHalfHeight
+                            - RIVAL_REVEAL_TOP_MARGIN);
+            float x = centerX + (slot == 0 ? -1f : 1f) * RIVAL_HAND_SIDE_DISTANCE;
+            if (slot == 0) {
+                x += RIVAL_LEFT_CARD_SHIFT;
+            }
+            return new LiveCardPlacement(x, centerY, width, height,
+                    slot == 0 ? RIVAL_CARD_FAN_ANGLE : -RIVAL_CARD_FAN_ANGLE);
+        }
+        float towardX = tableCenterX - seat.x;
+        float towardY = tableCenterY - seat.y;
+        float length = Math.max(1f, (float) Math.sqrt(
+                towardX * towardX + towardY * towardY));
+        towardX /= length;
+        towardY /= length;
+        float sideX = -towardY;
+        float sideY = towardX;
+        float centerX = seat.x + towardX * 110f;
+        float centerY = seat.y + towardY * 110f;
+        float side = (slot == 0 ? 1f : -1f) * 82f;
+        return new LiveCardPlacement(centerX + sideX * side,
+                centerY + sideY * side, width, height,
+                slot == 0 ? LOCAL_CARD_FAN_ANGLE : -LOCAL_CARD_FAN_ANGLE);
+    }
+
+    private void drawLiveRestingCard(TableSnapshot.CardSnapshot card,
+            LiveCardPlacement placement, Texture cardBack) {
+        float tint = card.disabled() ? 0.34f : 1f;
+        float alpha = card.disabled() ? 0.52f : 1f;
+        batch.setColor(tint, tint, tint, alpha);
+        if (card.faceUp() && !card.code().isBlank()) {
+            Texture face = liveCardFace(card.code());
+            usePerspectiveCardShader(face, MathUtils.PI,
+                    placement.height / placement.width);
+            float canvasWidth = placement.width * 1.5f;
+            float canvasHeight = placement.height * 1.5f;
+            batch.draw(cardBack, placement.x - canvasWidth / 2f,
+                    placement.y - canvasHeight / 2f, canvasWidth / 2f,
+                    canvasHeight / 2f, canvasWidth, canvasHeight, 1f, 1f,
+                    placement.rotation, 0, 0, cardBack.getWidth(),
+                    cardBack.getHeight(), false, false);
+        } else {
+            useRoundedCardShader();
+            batch.draw(cardBack, placement.x - placement.width / 2f,
+                    placement.y - placement.height / 2f, placement.width / 2f,
+                    placement.height / 2f, placement.width, placement.height,
+                    1f, 1f, placement.rotation, 0, 0, cardBack.getWidth(),
+                    cardBack.getHeight(), false, false);
+        }
+    }
+
     private void drawHoleCards(boolean foregroundRevealFlights) {
+        if (liveState != null) {
+            drawLiveHoleCards(foregroundRevealFlights);
+            return;
+        }
         if (isLayoutShowcase()) {
             return;
         }
@@ -1809,6 +1931,37 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
     }
 
+    private void drawLiveCommunityCards(float cx, float cardY, float cardW,
+            float cardH, float gap, float firstX, Texture cardBack) {
+        List<TableSnapshot.CardSnapshot> board = liveState.snapshot().communityCards();
+        for (int slot = 0; slot < board.size() && slot < 5; slot++) {
+            TableSnapshot.CardSnapshot card = board.get(slot);
+            float x = firstX + slot * gap + cardW / 2f;
+            float y = cardY + cardH / 2f;
+            drawLiveRestingCard(card,
+                    new LiveCardPlacement(x, y, cardW, cardH, 0f), cardBack);
+        }
+        if (liveCardFlight == null
+                || !(liveCardFlight.event
+                instanceof TableVisualEvent.DealCommunityCard deal)) {
+            return;
+        }
+        int slot = deal.slot();
+        float progress = Interpolation.pow2Out.apply(liveCardFlight.progress());
+        float targetX = firstX + slot * gap + cardW / 2f;
+        float targetY = cardY + cardH / 2f;
+        float controlX = (dealerSourceX + targetX) * 0.5f + (slot - 2f) * 42f;
+        float controlY = Math.max(dealerSourceY, targetY) + 150f;
+        float x = bezier(dealerSourceX, controlX, targetX, progress);
+        float y = bezier(dealerSourceY, controlY, targetY, progress);
+        float rotation = MathUtils.lerp(-20f + slot * 10f, 0f, progress);
+        useRoundedCardShader();
+        batch.setColor(Color.WHITE);
+        batch.draw(cardBack, x - cardW / 2f, y - cardH / 2f,
+                cardW / 2f, cardH / 2f, cardW, cardH, 1f, 1f, rotation,
+                0, 0, cardBack.getWidth(), cardBack.getHeight(), false, false);
+    }
+
     private void drawCardsAndPot(float cx, float cy, float tableWidth) {
         Texture[] communityCards = communityHands[demoHandIndex()];
         Texture cardBack = activeCardBack();
@@ -1821,7 +1974,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float canvasH = cardH * 1.5f;
 
         batch.begin();
-        for (int i = 0; i < communityCards.length; i++) {
+        if (liveState != null) {
+            drawLiveCommunityCards(cx, cardY, cardW, cardH, gap, firstX, cardBack);
+        } else {
+            for (int i = 0; i < communityCards.length; i++) {
             float dealStart = BOARD_DEAL_START + i * BOARD_CARD_GAP;
             float dealProgress = MathUtils.clamp(
                     (handTime() - dealStart) / DEAL_CARD_SECONDS, 0f, 1f);
@@ -1847,10 +2003,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 useRoundedCardShader();
             }
             batch.setColor(Color.WHITE);
-            batch.draw(cardBack, x - renderW / 2f, y - renderH / 2f,
-                    renderW / 2f, renderH / 2f, renderW, renderH,
-                    1f, 1f, rotation, 0, 0,
-                    cardBack.getWidth(), cardBack.getHeight(), false, false);
+                batch.draw(cardBack, x - renderW / 2f, y - renderH / 2f,
+                        renderW / 2f, renderH / 2f, renderW, renderH,
+                        1f, 1f, rotation, 0, 0,
+                        cardBack.getWidth(), cardBack.getHeight(), false, false);
+            }
         }
         batch.setShader(null);
 
@@ -1941,6 +2098,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private Texture activeCardBack() {
+        if (liveState != null) {
+            return liveDeck != null
+                    && liveDeck.toLowerCase(java.util.Locale.ROOT).contains("pepsi")
+                    ? cardBacks[1] : cardBacks[0];
+        }
         return cardBacks[demoHandIndex()];
     }
 
@@ -2240,6 +2402,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (liveShuffle != null) {
                 throw new IllegalStateException("A GDX shuffle is already active");
             }
+            liveDeck = event.deck();
             liveState.apply(event);
             liveShuffle = new LiveShuffle(event.deck(), System.nanoTime());
             startLiveShuffleSound(liveShuffle);
@@ -2300,6 +2463,32 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private GifTextureAnimation liveShuffleAnimation(String deck) {
         return deck != null && deck.toLowerCase(java.util.Locale.ROOT).contains("pepsi")
                 ? shuffleGifs[1] : shuffleGifs[0];
+    }
+
+    private void updateLiveCardFlight() {
+        LiveCardFlight active = liveCardFlight;
+        if (active == null || active.progress() < 1f) {
+            return;
+        }
+        try {
+            liveState.apply(active.event);
+            active.barrier.complete(null);
+        } catch (Throwable error) {
+            active.barrier.completeExceptionally(error);
+        } finally {
+            liveCardFlight = null;
+        }
+    }
+
+    private Texture liveCardFace(String code) {
+        if (code == null || code.isBlank()) {
+            return activeCardBack();
+        }
+        String directory = liveDeck != null
+                && liveDeck.toLowerCase(java.util.Locale.ROOT).contains("pepsi")
+                ? "mod/decks/pepsiman/hq/" : "images/decks/goliat/hq/";
+        return liveCardFaces.computeIfAbsent(directory + code,
+                key -> cardTexture(key + ".jpg"));
     }
 
     private int potAt(float time) {
@@ -3732,6 +3921,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
         }
+        for (Texture texture : liveCardFaces.values()) {
+            texture.dispose();
+        }
+        liveCardFaces.clear();
         for (GifTextureAnimation shuffleGif : shuffleGifs) {
             shuffleGif.dispose();
         }
@@ -3745,6 +3938,30 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         foldSound.dispose();
         allInSound.dispose();
         showdownSound.dispose();
+    }
+
+    private record LiveCardPlacement(float x, float y, float width,
+            float height, float rotation) {
+    }
+
+    private static final class LiveCardFlight {
+
+        final TableVisualEvent event;
+        final long startedAtNanos;
+        final CompletableFuture<Void> barrier;
+
+        LiveCardFlight(TableVisualEvent event, long startedAtNanos,
+                CompletableFuture<Void> barrier) {
+            this.event = event;
+            this.startedAtNanos = startedAtNanos;
+            this.barrier = barrier;
+        }
+
+        float progress() {
+            float elapsed = Math.max(0L, System.nanoTime() - startedAtNanos)
+                    / 1_000_000_000f;
+            return Math.min(1f, elapsed / DEAL_CARD_SECONDS);
+        }
     }
 
     private static final class LivePositionRotation {

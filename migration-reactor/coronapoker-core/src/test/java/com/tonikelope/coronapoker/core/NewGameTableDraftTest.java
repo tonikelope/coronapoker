@@ -77,4 +77,17 @@ final class NewGameTableDraftTest {
         assertThrows(UnsupportedOperationException.class,
                 () -> settings.blindLevels().clear());
     }
+
+    @Test
+    void serializesTheClassicLobbyConfigWithoutFrontendTypes() {
+        NewGameTableDraft.Settings settings = new NewGameTableDraft().snapshot();
+
+        assertEquals("10|0.10 / 0.20", settings.gameInfoForWire());
+        assertEquals("SB=0.1#BG=0.2#STRUCT=#BUYIN=10#FIXED=1#BMIN=10#BMAX=100"
+                + "#REBUY=1#RLIM=0#BOTRB=1#BOTBAL=0#RCAP=0#DBL=0#DTYPE=1"
+                + "#BCAP=0.0#MANOS=-1#ANTE=0#STR=0#IWTSTH=0#RIT=0#RABBIT=0"
+                + "#THINKT=40#THINKON=1#SHOWDOWN=10#DIFF=MEDIUM",
+                settings.serializeForWire());
+        assertEquals(settings, NewGameTableDraft.Settings.parseWire(settings.serializeForWire()));
+    }
 }

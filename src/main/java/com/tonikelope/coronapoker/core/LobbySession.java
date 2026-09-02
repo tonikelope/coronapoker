@@ -12,14 +12,21 @@ public final class LobbySession implements AutoCloseable {
 
     private final AtomicReference<LobbySnapshot> snapshot;
     private final LobbyCommandSink commands;
+    private final AutoCloseable resource;
     private final CopyOnWriteArrayList<Consumer<LobbySnapshot>> listeners
             = new CopyOnWriteArrayList<>();
     private final AtomicBoolean closed = new AtomicBoolean();
 
     public LobbySession(LobbySnapshot initialSnapshot, LobbyCommandSink commands) {
+        this(initialSnapshot, commands, () -> { });
+    }
+
+    public LobbySession(LobbySnapshot initialSnapshot, LobbyCommandSink commands,
+            AutoCloseable resource) {
         snapshot = new AtomicReference<>(Objects.requireNonNull(initialSnapshot,
                 "initialSnapshot"));
         this.commands = Objects.requireNonNull(commands, "commands");
+        this.resource = Objects.requireNonNull(resource, "resource");
     }
 
     public LobbySnapshot snapshot() {
@@ -102,6 +109,11 @@ public final class LobbySession implements AutoCloseable {
     public void close() {
         if (closed.compareAndSet(false, true)) {
             listeners.clear();
+            try {
+                resource.close();
+            } catch (Exception ignored) {
+                // Transport shutdown is best-effort; the session is closed regardless.
+            }
         }
     }
 }

@@ -7,7 +7,7 @@ import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
 import com.tonikelope.coronapoker.core.CoronaPokerApplication;
 import com.tonikelope.coronapoker.core.CoronaPokerBootstrap;
 import com.tonikelope.coronapoker.core.NewGameSessionGateway;
-import java.util.concurrent.CompletableFuture;
+import com.tonikelope.coronapoker.core.network.NetworkLobbyGateway;
 
 /**
  * Process entry point for the GDX frontend.
@@ -59,10 +59,11 @@ public final class GdxLauncher {
             config.setFullscreenMode(display);
         }
 
-        NewGameSessionGateway pendingLobby = request -> CompletableFuture.failedFuture(
-                new IllegalStateException("La sala de espera GDX está en migración"));
-        new Lwjgl3Application(new GdxApplicationShell(
-                display.refreshRate, application, pendingLobby), config);
+        try (NetworkLobbyGateway lobbyGateway = NetworkLobbyGateway.forCurrentUser()) {
+            NewGameSessionGateway sessions = lobbyGateway;
+            new Lwjgl3Application(new GdxApplicationShell(
+                    display.refreshRate, application, sessions), config);
+        }
     }
 
     private static DisplayMode fastestDisplayMode() {

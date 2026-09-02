@@ -1,7 +1,9 @@
 package com.tonikelope.coronapoker.core;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /** Complete staged table configuration used by NewGameDialog frontends. */
@@ -225,6 +227,177 @@ public final class NewGameTableDraft {
             RabbitHunting rabbitHunting, BotDifficulty botDifficulty) {
         public Settings {
             blindLevels = List.copyOf(blindLevels);
+        }
+
+        public BlindLevel selectedBlindLevel() {
+            return blindLevels.get(blindLevelIndex);
+        }
+
+        /** Exact KEY=VALUE mirror consumed by the classic waiting-room client. */
+        public String serializeForWire() {
+            BlindLevel selected = selectedBlindLevel();
+            String structure = structureName == null ? "" : serializeLevels(blindLevels);
+            int doubleEvery = increaseBlinds ? blindInterval : 0;
+            int doubleType = blindIncreaseType == BlindIncreaseType.MINUTES ? 1 : 2;
+            double blindCapValue = blindCap
+                    ? blindLevels.get(Math.min(blindLevels.size() - 1,
+                            blindLevelIndex + blindCapRaises)).bigBlind() : 0d;
+            int handLimitValue = handLimit ? handLimitCount : -1;
+            int rebuyLimitValue = rebuy && rebuyLimit ? rebuyLimitCount : 0;
+            return "SB=" + selected.smallBlind()
+                    + "#BG=" + selected.bigBlind()
+                    + "#STRUCT=" + structure
+                    + "#BUYIN=" + buyin
+                    + "#FIXED=" + bool(fixedBuyin)
+                    + "#BMIN=" + minBuyinBb
+                    + "#BMAX=" + maxBuyinBb
+                    + "#REBUY=" + bool(rebuy)
+                    + "#RLIM=" + rebuyLimitValue
+                    + "#BOTRB=" + bool(botRebuy)
+                    + "#BOTBAL=" + bool(botBalanceToHumans)
+                    + "#RCAP=" + (rebuyCapPolicy == RebuyCapPolicy.BUY_IN ? 0 : 1)
+                    + "#DBL=" + doubleEvery
+                    + "#DTYPE=" + doubleType
+                    + "#BCAP=" + blindCapValue
+                    + "#MANOS=" + handLimitValue
+                    + "#ANTE=" + bool(ante)
+                    + "#STR=" + bool(straddle)
+                    + "#IWTSTH=" + bool(iwtsth)
+                    + "#RIT=" + bool(runItTwice)
+                    + "#RABBIT=" + rabbitHunting.ordinal()
+                    + "#THINKT=" + thinkSeconds
+                    + "#THINKON=" + bool(thinkTime)
+                    + "#SHOWDOWN=" + showdownSeconds
+                    + "#DIFF=" + botDifficulty.name();
+        }
+
+        /** Reads the classic KEY=VALUE mirror into the neutral settings model. */
+        public static Settings parseWire(String wire) {
+            if (wire == null || wire.isBlank()) {
+                throw new IllegalArgumentException("Empty table configuration");
+            }
+            Map<String, String> values = new HashMap<>();
+            for (String pair : wire.split("#")) {
+                int separator = pair.indexOf('=');
+                if (separator > 0) values.put(pair.substring(0, separator), pair.substring(separator + 1));
+            }
+            try {
+                NewGameTableDraft draft = new NewGameTableDraft();
+                String structure = values.getOrDefault("STRUCT", "");
+                if (!structure.isEmpty()) {
+                    draft.setBlindStructure("wire", parseLevels(structure), 0);
+                }
+                double small = Double.parseDouble(required(values, "SB"));
+                double big = Double.parseDouble(required(values, "BG"));
+                int selected = 0;
+                for (int i = 0; i < draft.blindLevels().size(); i++) {
+                    BlindLevel level = draft.blindLevels().get(i);
+                    if (Double.compare(level.smallBlind(), small) == 0
+                            && Double.compare(level.bigBlind(), big) == 0) {
+                        selected = i;
+                        break;
+                    }
+                }
+                draft.setBlindLevelIndex(selected);
+                draft.setMaxBuyinBb(Integer.parseInt(required(values, "BMAX")));
+                draft.setMinBuyinBb(Integer.parseInt(required(values, "BMIN")));
+                draft.setFixedBuyin(one(values, "FIXED"));
+                draft.setBuyin(Integer.parseInt(required(values, "BUYIN")));
+                draft.setRebuy(one(values, "REBUY"));
+                int rebuyLimit = Integer.parseInt(required(values, "RLIM"));
+                draft.setRebuyLimit(rebuyLimit > 0);
+                if (rebuyLimit > 0) draft.setRebuyLimitCount(rebuyLimit);
+                draft.setBotRebuy(one(values, "BOTRB"));
+                draft.setBotBalanceToHumans(one(values, "BOTBAL"));
+                draft.setRebuyCapPolicy("1".equals(values.get("RCAP"))
+                        ? RebuyCapPolicy.HIGHEST_STACK : RebuyCapPolicy.BUY_IN);
+                int interval = Integer.parseInt(required(values, "DBL"));
+                draft.setIncreaseBlinds(interval > 0);
+                if (interval > 0) draft.setBlindInterval(interval);
+                draft.setBlindIncreaseType("2".equals(values.get("DTYPE"))
+                        ? BlindIncreaseType.HANDS : BlindIncreaseType.MINUTES);
+                double cap = Double.parseDouble(required(values, "BCAP"));
+                if (cap > 0d) {
+                    draft.setBlindCap(true);
+                    int raises = 1;
+                    for (int i = selected + 1; i < draft.blindLevels().size(); i++) {
+                        if (Double.compare(draft.blindLevels().get(i).bigBlind(), cap) == 0) {
+                            raises = i - selected;
+                            break;
+                        }
+                    }
+                    draft.setBlindCapRaises(raises);
+                }
+                int hands = Integer.parseInt(required(values, "MANOS"));
+                draft.setHandLimit(hands >= 0);
+                if (hands >= 0) draft.setHandLimitCount(hands);
+                draft.setAnte(one(values, "ANTE"));
+                draft.setStraddle(one(values, "STR"));
+                draft.setIwtsth(one(values, "IWTSTH"));
+                draft.setRunItTwice(one(values, "RIT"));
+                draft.setRabbitHunting(RabbitHunting.values()[Integer.parseInt(required(values, "RABBIT"))]);
+                draft.setThinkSeconds(Integer.parseInt(required(values, "THINKT")));
+                draft.setThinkTime(one(values, "THINKON"));
+                draft.setShowdownSeconds(Integer.parseInt(required(values, "SHOWDOWN")));
+                draft.setBotDifficulty(BotDifficulty.valueOf(required(values, "DIFF")));
+                return draft.snapshot();
+            } catch (RuntimeException invalid) {
+                throw new IllegalArgumentException("Malformed table configuration", invalid);
+            }
+        }
+
+        /** Compact lobby summary used by the current protocol's NICKOK packet. */
+        public String gameInfoForWire() {
+            BlindLevel selected = selectedBlindLevel();
+            String buyinText = fixedBuyin ? Integer.toString(buyin) + (rebuy ? "" : "*") : "--";
+            String blindsText = displayMoney(selected.smallBlind()) + " / " + displayMoney(selected.bigBlind());
+            if (increaseBlinds) {
+                blindsText += " @ " + blindInterval
+                        + (blindIncreaseType == BlindIncreaseType.MINUTES ? "'" : "*");
+            }
+            return buyinText + "|" + blindsText + (handLimit ? "|" + handLimitCount : "");
+        }
+
+        private static String serializeLevels(List<BlindLevel> levels) {
+            StringBuilder result = new StringBuilder();
+            for (BlindLevel level : levels) {
+                if (!result.isEmpty()) result.append(',');
+                result.append(number(level.smallBlind())).append('/').append(number(level.bigBlind()));
+            }
+            return result.toString();
+        }
+
+        private static List<BlindLevel> parseLevels(String wire) {
+            List<BlindLevel> levels = new ArrayList<>();
+            for (String token : wire.split(",")) {
+                String[] pair = token.split("/", -1);
+                if (pair.length != 2) throw new IllegalArgumentException("Malformed blind structure");
+                levels.add(new BlindLevel(Double.parseDouble(pair[0]), Double.parseDouble(pair[1])));
+            }
+            return levels;
+        }
+
+        private static String required(Map<String, String> values, String key) {
+            String value = values.get(key);
+            if (value == null) throw new IllegalArgumentException("Missing " + key);
+            return value;
+        }
+
+        private static boolean one(Map<String, String> values, String key) {
+            return "1".equals(required(values, key));
+        }
+
+        private static String number(double value) {
+            return value == Math.rint(value) ? Long.toString((long) value) : Double.toString(value);
+        }
+
+        private static String displayMoney(double value) {
+            String formatted = String.format(java.util.Locale.ROOT, "%.2f", value);
+            return formatted.endsWith(".00") ? formatted.substring(0, formatted.length() - 3) : formatted;
+        }
+
+        private static int bool(boolean value) {
+            return value ? 1 : 0;
         }
     }
 }

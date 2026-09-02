@@ -32,6 +32,7 @@ import com.tonikelope.coronapoker.core.network.GameCommandId;
 import com.tonikelope.coronapoker.core.game.GameSession;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.core.game.GameDecisionSink;
+import com.tonikelope.coronapoker.core.game.GameCinematicSink;
 import com.tonikelope.coronapoker.core.game.GameLogSink;
 import com.tonikelope.coronapoker.core.game.GameProgressSink;
 import com.tonikelope.coronapoker.core.game.GameWindowSink;
@@ -4190,6 +4191,41 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 return result;
             }
         };
+        GameCinematicSink gameCinematics = request -> {
+            java.util.concurrent.CompletableFuture<GameCinematicSink.Result> result
+                    = new java.util.concurrent.CompletableFuture<>();
+            Helpers.GUIRun(() -> {
+                try {
+                    URL source;
+                    if (request.type() == GameCinematicSink.Type.ALL_IN) {
+                        java.nio.file.Path modPath = Paths.get(
+                                Helpers.getCurrentJarParentPath(), "mod", "cinematics",
+                                "allin", request.assetName());
+                        source = Init.MOD != null && Files.exists(modPath)
+                                ? modPath.toUri().toURL()
+                                : getClass().getResource(
+                                        "/cinematics/allin/" + request.assetName());
+                    } else {
+                        source = getClass().getResource(
+                                "/cinematics/misc/" + request.assetName());
+                    }
+                    if (source == null) {
+                        result.complete(new GameCinematicSink.Result(false, false));
+                        return;
+                    }
+                    GifAnimationDialog dialog = new GifAnimationDialog(
+                            GameFrame.this, true, new ImageIcon(source),
+                            Helpers.getGIFFramesCount(source));
+                    dialog.setLocationRelativeTo(dialog.getParent());
+                    dialog.setVisible(true);
+                    result.complete(new GameCinematicSink.Result(
+                            true, dialog.isForce_exit()));
+                } catch (Throwable failure) {
+                    result.completeExceptionally(failure);
+                }
+            });
+            return result;
+        };
         GameDecisionSink gameDecisions = new GameDecisionSink() {
             @Override
             public RunItTwiceHandle showRunItTwice(int timeoutSeconds,
@@ -4667,7 +4703,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         };
         crupier = new Crupier(game_session, jugadores, tapete.getLocalPlayer(),
                 getParticipantes(), getCartas_comunes(), gameLog, gameDialogs,
-                gameDecisions, gameProgress, this::checkPause,
+                gameDecisions, gameCinematics, gameProgress, this::checkPause,
                 gameTransport, lobbyTransition, tableDisplay, gameWindow, table_events);
 
         initComponents();

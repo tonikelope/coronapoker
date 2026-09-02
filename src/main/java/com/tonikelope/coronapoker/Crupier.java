@@ -40,6 +40,7 @@ import com.tonikelope.coronapoker.core.network.GameTransport;
 import com.tonikelope.coronapoker.core.game.GameSession;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.core.game.GameDecisionSink;
+import com.tonikelope.coronapoker.core.game.GameCinematicSink;
 import com.tonikelope.coronapoker.core.game.GameWindowSink;
 import com.tonikelope.coronapoker.core.game.GameLogSink;
 import com.tonikelope.coronapoker.core.game.GameProgressSink;
@@ -48,7 +49,6 @@ import com.tonikelope.coronapoker.core.game.PauseGate;
 import com.tonikelope.coronapoker.core.game.TableDisplaySink;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
 
-import com.drew.imaging.ImageProcessingException;
 import static com.tonikelope.coronapoker.Card.BARAJAS;
 import static com.tonikelope.coronapoker.GameFrame.WAIT_QUEUES;
 import java.awt.Color;
@@ -56,7 +56,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -87,7 +86,6 @@ import java.util.function.BooleanSupplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
-import javax.swing.JLabel;
 
 /**
  * @author tonikelope
@@ -105,6 +103,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GameLogSink game_log;
     private final GameDialogSink game_dialogs;
     private final GameDecisionSink game_decisions;
+    private final GameCinematicSink game_cinematics;
     private final GameProgressSink game_progress;
     private final PauseGate pause_gate;
     private final GameTransport game_transport;
@@ -114,7 +113,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final TableEventBridge table_events;
 
     public Crupier() {
-        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameProgressSink.noop(), PauseGate.open(),
+        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(),
                 TableDisplaySink.noop(),
                 GameWindowSink.noop(),
@@ -122,7 +121,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     Crupier(TableEventBridge tableEvents) {
-        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameProgressSink.noop(), PauseGate.open(),
+        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(), TableDisplaySink.noop(),
                 GameWindowSink.noop(), tableEvents);
     }
@@ -132,6 +131,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             java.util.Map<String, Participant> peerControllers,
             Card[] communityCardControllers,
             GameLogSink gameLog, GameDialogSink gameDialogs, GameDecisionSink gameDecisions,
+            GameCinematicSink gameCinematics,
             GameProgressSink gameProgress, PauseGate pauseGate,
             GameTransport gameTransport, LobbyTransitionSink lobbyTransition,
             TableDisplaySink tableDisplay,
@@ -145,6 +145,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.game_log = java.util.Objects.requireNonNull(gameLog, "gameLog");
         this.game_dialogs = java.util.Objects.requireNonNull(gameDialogs, "gameDialogs");
         this.game_decisions = java.util.Objects.requireNonNull(gameDecisions, "gameDecisions");
+        this.game_cinematics = java.util.Objects.requireNonNull(gameCinematics, "gameCinematics");
         this.game_progress = java.util.Objects.requireNonNull(gameProgress, "gameProgress");
         this.pause_gate = java.util.Objects.requireNonNull(pauseGate, "pauseGate");
         this.game_transport = java.util.Objects.requireNonNull(gameTransport, "gameTransport");
@@ -5951,6 +5952,52 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    private void playAllInCinematic(String filename, long durationMillis,
+            boolean enabled) {
+        Helpers.threadRun(() -> {
+            long started = System.currentTimeMillis();
+            try {
+                GameCinematicSink.Result result = enabled
+                        ? game_cinematics.play(new GameCinematicSink.Request(
+                                GameCinematicSink.Type.ALL_IN, filename,
+                                durationMillis)).toCompletableFuture().get()
+                        : new GameCinematicSink.Result(false, false);
+                if (!result.shown() || result.skipped()) {
+                    long remaining = started + durationMillis
+                            - System.currentTimeMillis();
+                    if (remaining > 0L) {
+                        Helpers.pausar(remaining);
+                    }
+                }
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                Helpers.logCooperativeCancellation(LOGGER,
+                        "all-in cinematic playback", ex);
+            } catch (Exception ex) {
+                LOGGER.log(Level.SEVERE,
+                        "All-in cinematic playback failed; continuing the hand", ex);
+            } finally {
+                cinematicOff();
+                current_remote_cinematic_b64 = null;
+                game_progress.reset(GameFrame.THINK_TIME);
+                synchronized (getLock_apuestas()) {
+                    getLock_apuestas().notifyAll();
+                }
+            }
+        });
+    }
+
+    private void playAuxiliaryCinematic(GameCinematicSink.Type type,
+            String assetName) {
+        game_cinematics.play(new GameCinematicSink.Request(type, assetName, 0L))
+                .whenComplete((ignored, failure) -> {
+                    if (failure != null) {
+                        LOGGER.log(Level.WARNING,
+                                "Auxiliary cinematic playback failed", failure);
+                    }
+                });
+    }
+
     // All-in cinematic bag: indices into allin_cinematics shuffled with the CSPRNG. Instead
     // of rolling per all-in (which can repeat the same clip several times in a row), each
     // player shuffles all animations once (new Crupier per game = new bag) and consumes them
@@ -6172,152 +6219,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             game_progress.indeterminate();
 
-            if (GameFrame.cinematicasAllinOn()) {
-
-                final ImageIcon icon;
-                URL url_icon = resolveAllinCinematicURL(filename);
-
-                if (url_icon != null) {
-
-                    icon = new ImageIcon(url_icon);
-
-                    final URL f_url_icon = url_icon;
-
-                    Helpers.threadRun(new Runnable() {
-                        private volatile GifAnimationDialog gif_dialog;
-
-                        public void run() {
-
-                            if (pausa != 0L) {
-
-                                long now = System.currentTimeMillis();
-
-                                // The dialog is built on (and waited for on) the EDT because it's read
-                                // right below; firing it off without waiting could read a dialog that
-                                // doesn't exist yet, silently leaving the cinematic flag stuck ON.
-                                // Showing it, however, runs separately without waiting — it's modal
-                                // and wouldn't return until closed.
-                                Helpers.GUIRunAndWait(() -> {
-                                    try {
-                                        gif_dialog = new GifAnimationDialog(GameFrame.getInstance(), true, icon,
-                                                Helpers.getGIFFramesCount(f_url_icon));
-                                        gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
-                                    } catch (IOException | ImageProcessingException ex) {
-                                        LOGGER.log(Level.SEVERE, null, ex);
-                                    }
-                                });
-
-                                final GifAnimationDialog dialogo = gif_dialog;
-
-                                if (dialogo == null) {
-                                    // Animation couldn't be shown: clear the flag anyway, or the table
-                                    // waits forever for an end that will never come.
-                                    LOGGER.log(Level.SEVERE,
-                                            "All-in cinematic dialog could not be created — skipping the animation");
-                                    cinematicOff();
-                                } else {
-
-                                    Helpers.GUIRun(() -> dialogo.setVisible(true));
-
-                                    synchronized (Init.LOCK_CINEMATICS) {
-                                        while (Init.PLAYING_CINEMATIC && !dialogo.isForce_exit()) {
-
-                                            try {
-                                                Init.LOCK_CINEMATICS.wait(1000);
-
-                                            } catch (InterruptedException ex) {
-                                                Helpers.logCooperativeCancellation(LOGGER, "cinematic playback wait", ex);
-                                                break;
-                                            }
-                                        }
-                                    }
-
-                                    if (dialogo.isForce_exit()) {
-
-                                        long pause = now + pausa - System.currentTimeMillis();
-
-                                        if (pause > 0) {
-                                            Helpers.pausar(pause);
-                                        }
-
-                                        Init.PLAYING_CINEMATIC = false;
-
-                                        synchronized (Init.LOCK_CINEMATICS) {
-
-                                            Init.LOCK_CINEMATICS.notifyAll();
-
-                                        }
-                                    }
-                                }
-                            }
-
-                            current_remote_cinematic_b64 = null;
-
-                            final GifAnimationDialog dialogo_cerrar = gif_dialog;
-
-                            Helpers.GUIRun(() -> {
-                                if (dialogo_cerrar != null && dialogo_cerrar.isVisible()) {
-                                    dialogo_cerrar.dispose();
-                                }
-
-                                game_progress.reset(GameFrame.THINK_TIME);
-                            });
-
-                            synchronized (getLock_apuestas()) {
-                                getLock_apuestas().notifyAll();
-                            }
-                        }
-                    });
-
-                } else {
-
-                    Helpers.threadRun(() -> {
-                        if (current_remote_cinematic_b64 != null && pausa != 0L) {
-
-                            Helpers.pausar(pausa);
-                            Init.PLAYING_CINEMATIC = false;
-
-                            synchronized (Init.LOCK_CINEMATICS) {
-
-                                Init.LOCK_CINEMATICS.notifyAll();
-
-                            }
-                        }
-
-                        current_remote_cinematic_b64 = null;
-
-                        game_progress.reset(GameFrame.THINK_TIME);
-
-                        synchronized (getLock_apuestas()) {
-                            getLock_apuestas().notifyAll();
-                        }
-                    });
-                }
-
-            } else {
-
-                Helpers.threadRun(() -> {
-                    if (pausa != 0L) {
-                        Helpers.pausar(pausa);
-                        Init.PLAYING_CINEMATIC = false;
-
-                        synchronized (Init.LOCK_CINEMATICS) {
-
-                            Init.LOCK_CINEMATICS.notifyAll();
-
-                        }
-                    }
-
-                    current_remote_cinematic_b64 = null;
-
-                    game_progress.reset(GameFrame.THINK_TIME);
-
-                    synchronized (getLock_apuestas()) {
-                        getLock_apuestas().notifyAll();
-                    }
-                });
-
-            }
+            playAllInCinematic(filename, pausa,
+                    GameFrame.cinematicasAllinOn()
+                    && resolveAllinCinematicURL(filename) != null);
 
         }
 
@@ -10448,18 +10352,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (GameFrame.cinematicasOn()) {
-                    Helpers.GUIRun(() -> {
-                        try {
-                            GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance(), true,
-                                    new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth.gif")),
-                                    Helpers.getGIFFramesCount(
-                                            getClass().getResource("/cinematics/misc/iwtsth.gif").toURI().toURL()));
-                            gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
-                            gif_dialog.setVisible(true);
-                        } catch (URISyntaxException | IOException | ImageProcessingException ex) {
-                            LOGGER.log(Level.SEVERE, null, ex);
-                        }
-                    });
+                    playAuxiliaryCinematic(
+                            GameCinematicSink.Type.IWTSTH_REQUEST,
+                            "iwtsth.gif");
                     Helpers.pausar(500);
                     Audio.playWavResourceAndWait("misc/iwtsth.wav", true, false, !GameFrame.iwtsthSonidoOn());
                 } else {
@@ -10542,14 +10437,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // If denied, inform the UI and register rejection timestamp for anti-flood
                         game_log.print(Translator.translate("iwtsth.el_servidor_ha_denegado_la") + " " + iwtsther);
                         if (GameFrame.cinematicasOn()) {
-                            Helpers.GUIRun(() -> {
-                                try {
-                                    GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance(), true, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth_no.gif")), Helpers.getGIFFramesCount(getClass().getResource("/cinematics/misc/iwtsth_no.gif").toURI().toURL()));
-                                    gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
-                                    gif_dialog.setVisible(true);
-                                } catch (URISyntaxException | IOException | ImageProcessingException ex) {
-                                }
-                            });
+                            playAuxiliaryCinematic(
+                                    GameCinematicSink.Type.IWTSTH_DENIED,
+                                    "iwtsth_no.gif");
                         }
                         if (localPlayer().getNickname().equals(iwtsther)) {
                             this.last_iwtsth_rejected = System.currentTimeMillis();

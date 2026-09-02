@@ -10,8 +10,11 @@ public final class GdxNewGamePreviewLauncher {
     }
 
     public static void main(String[] args) {
+        boolean menu = java.util.Arrays.asList(args).contains("--menu");
         Lwjgl3ApplicationConfiguration config = new Lwjgl3ApplicationConfiguration();
-        config.setTitle("CoronaPoker GDX // Preview Nueva timba");
+        config.setTitle(menu
+                ? "CoronaPoker GDX // Preview navegación"
+                : "CoronaPoker GDX // Preview Nueva timba");
         config.setWindowedMode(1600, 900);
         config.setResizable(true);
         config.useVsync(true);
@@ -19,6 +22,6 @@ public final class GdxNewGamePreviewLauncher {
         config.setIdleFPS(30);
         config.setBackBufferConfig(8, 8, 8, 8, 24, 8, 4);
         config.setWindowIcon("images/corona_poker_16.png");
-        new Lwjgl3Application(new NewGameScreenPreview(), config);
+        new Lwjgl3Application(new NewGameScreenPreview(menu), config);
     }
 }

@@ -57,8 +57,8 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
     private final Map<String, Float> hoverAnimations = new HashMap<>();
     private final GlyphLayout glyph = new GlyphLayout();
     private final Vector2 pointer = new Vector2();
-    private final NewGameConnectionDraft connection;
-    private final NewGameTableDraft table = new NewGameTableDraft();
+    private NewGameConnectionDraft connection;
+    private NewGameTableDraft table = new NewGameTableDraft();
     private SpriteBatch batch;
     private ShapeRenderer shapes;
     private Texture feltTexture;
@@ -76,19 +76,30 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
     private float elapsed;
     private float frameDelta;
     private Hit pressedHit;
+    private Surface surface;
+    private int historyIndex = -1;
 
     NewGameScreenPreview() {
-        this(defaultConnection());
+        this(defaultConnection(NewGameConnectionDraft.Mode.CREATE), false);
     }
 
     NewGameScreenPreview(NewGameConnectionDraft connection) {
-        this.connection = Objects.requireNonNull(connection, "connection");
+        this(connection, false);
     }
 
-    private static NewGameConnectionDraft defaultConnection() {
+    NewGameScreenPreview(boolean startAtMenu) {
+        this(defaultConnection(NewGameConnectionDraft.Mode.CREATE), startAtMenu);
+    }
+
+    private NewGameScreenPreview(NewGameConnectionDraft connection, boolean startAtMenu) {
+        this.connection = Objects.requireNonNull(connection, "connection");
+        surface = startAtMenu ? Surface.MENU : Surface.NEW_GAME;
+    }
+
+    private static NewGameConnectionDraft defaultConnection(NewGameConnectionDraft.Mode mode) {
         Properties defaults = new Properties();
         defaults.setProperty("nick", "Jugador");
-        return NewGameConnectionDraft.from(defaults, NewGameConnectionDraft.Mode.CREATE);
+        return NewGameConnectionDraft.from(defaults, mode);
     }
 
     @Override
@@ -147,16 +158,20 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        drawHeader();
-        drawProgress();
-        switch (page) {
-            case 0 -> drawIdentityPage();
-            case 1 -> drawBlindsPage();
-            case 2 -> drawPurchasePage();
-            case 3 -> drawGamePage();
-            default -> drawBotsPage();
+        if (surface == Surface.MENU) {
+            drawMainMenu();
+        } else {
+            drawHeader();
+            drawProgress();
+            switch (page) {
+                case 0 -> drawIdentityPage();
+                case 1 -> drawBlindsPage();
+                case 2 -> drawPurchasePage();
+                case 3 -> drawGamePage();
+                default -> drawBotsPage();
+            }
+            drawFooter();
         }
-        drawFooter();
         if (System.currentTimeMillis() < toastUntil) {
             drawToast();
         }
@@ -182,6 +197,54 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
         batch.end();
     }
 
+    private void drawMainMenu() {
+        shapes.setColor(new Color(0x31445f99));
+        shapes.rect(0f, 989f, WIDTH, 1f);
+        text(tinyFont, "PREVIEW · NAVEGACIÓN GDX · SIN SESIÓN", 1725f,
+                1039f, ORANGE, true);
+
+        panel(515f, 155f, 890f, 755f, "");
+        text(titleFont, "CORONAPOKER", 964f, 843f,
+                new Color(0x000000aa), true);
+        text(titleFont, "CORONAPOKER", 960f, 847f, GOLD, true);
+        button(595f, 625f, 730f, 82f, "CREAR TIMBA", true,
+                () -> openNewGame(NewGameConnectionDraft.Mode.CREATE));
+        button(595f, 520f, 730f, 82f, "UNIRME A TIMBA", false,
+                () -> openNewGame(NewGameConnectionDraft.Mode.JOIN));
+        button(595f, 415f, 730f, 82f, "ESTADÍSTICAS", false,
+                () -> showToast("Estadísticas · pantalla GDX pendiente de conexión"));
+        button(595f, 310f, 350f, 82f, "AJUSTES", false,
+                () -> showToast("Ajustes · pantalla GDX pendiente de conexión"));
+        choice(975f, 310f, 350f, "", "Español",
+                () -> showToast("Español / English"));
+        button(595f, 205f, 350f, 82f, "ACERCA DE", false,
+                () -> showToast("Acerca de CoronaPoker"));
+        button(975f, 205f, 350f, 82f, "SALIR", false, Gdx.app::exit);
+
+        keyHint(535f, 75f, "F11", "PANTALLA COMPLETA");
+        text(smallFont, "SONIDO", 1285f, 107f, MUTED, false);
+        drawSpeakerIcon(1370f, 100f, CYAN);
+        hit(1250f, 70f, 150f, 55f,
+                () -> showToast("Sonido · control GDX pendiente de conexión"));
+    }
+
+    private void drawSpeakerIcon(float x, float y, Color color) {
+        shapes.setColor(color);
+        shapes.rect(x - 22f, y - 10f, 15f, 20f);
+        shapes.triangle(x - 7f, y - 10f, x + 8f, y - 22f, x + 8f, y + 22f);
+        shapes.rectLine(x + 15f, y - 14f, x + 15f, y + 14f, 3f);
+        shapes.rectLine(x + 24f, y - 21f, x + 24f, y + 21f, 3f);
+    }
+
+    private void openNewGame(NewGameConnectionDraft.Mode mode) {
+        connection = defaultConnection(mode);
+        table = new NewGameTableDraft();
+        page = 0;
+        activeField = null;
+        historyIndex = -1;
+        surface = Surface.NEW_GAME;
+    }
+
     private void drawHeader() {
         shapes.setColor(LINE);
         shapes.rect(0f, 989f, WIDTH, 1f);
@@ -189,19 +252,25 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
             if (page > 0) {
                 page--;
             } else {
-                showToast("PREVIEW AISLADA: no hay un menú anterior conectado");
+                surface = Surface.MENU;
             }
         });
         text(smallFont, "MENÚ PRINCIPAL  /", 122f, 1041f, MUTED, false);
-        text(smallFont, "NUEVA TIMBA", 315f, 1041f, GOLD, false);
+        text(smallFont, connection.mode() == NewGameConnectionDraft.Mode.JOIN
+                ? "UNIRME A TIMBA" : "NUEVA TIMBA", 315f, 1041f, GOLD, false);
         text(tinyFont, "PREVIEW · ESTADO CORE · SIN SESIÓN", 1725f,
                 1039f, ORANGE, true);
-        text(titleFont, "NUEVA TIMBA", 434f, 932f, new Color(0x000000aa), false);
-        text(titleFont, "NUEVA TIMBA", 430f, 936f, GOLD, false);
+        String title = connection.mode() == NewGameConnectionDraft.Mode.JOIN
+                ? "UNIRME A TIMBA" : "NUEVA TIMBA";
+        text(titleFont, title, 434f, 932f, new Color(0x000000aa), false);
+        text(titleFont, title, 430f, 936f, GOLD, false);
     }
 
     private void drawProgress() {
-        String[] names = {"NUEVA TIMBA", "CIEGAS", "COMPRA", "PARTIDA", "BOTS"};
+        boolean joining = connection.mode() == NewGameConnectionDraft.Mode.JOIN;
+        String[] names = joining
+                ? new String[]{"UNIRME A TIMBA"}
+                : new String[]{"NUEVA TIMBA", "CIEGAS", "COMPRA", "PARTIDA", "BOTS"};
         shapes.setColor(new Color(0x31445fbb));
         shapes.rect(389f, 130f, 1f, 860f);
         for (int i = 0; i < names.length; i++) {
@@ -215,7 +284,7 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
                 shapes.setColor(GOLD);
                 roundedRect(x + 5f, y + 15f, 4f, 48f, 2f);
             }
-            drawNavIcon(i, x + 39f, y + 39f,
+            drawNavIcon(joining ? 0 : i, x + 39f, y + 39f,
                     selected ? CYAN : DISABLED);
             textFit(actionFont, names[i], x + 74f, y + 49f,
                     selected ? Color.WHITE : MUTED, false, 230f);
@@ -241,19 +310,44 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
 
         field(610f, 630f, 450f, "Nick:", connection.nickname(), "nick", false);
         field(610f, 475f, 450f, "Contraseña:", connection.password(), "password", true);
-        toggle(610f, 325f, 450f, "CONTINUAR TIMBA ANTERIOR:", connection.recoverRequested(),
-                this::toggleRecover, true);
+        if (connection.mode() != NewGameConnectionDraft.Mode.JOIN) {
+            toggle(610f, 325f, 450f, "CONTINUAR TIMBA ANTERIOR:",
+                    connection.recoverRequested(), this::toggleRecover, true);
+        }
 
         field(1170f, 630f, 430f, "Servidor:", connection.server(), "server", false);
         field(1630f, 630f, 175f, "", connection.port(), "port", false);
-        toggle(1170f, 475f, 635f, "UPnP", connection.upnp(),
-                () -> connection.setUpnp(!connection.upnp()), true);
-        choice(1170f, 320f, 635f, "Perfil de ajustes:", "Por defecto",
-                () -> showToast("Perfil de ajustes: Por defecto"));
-        button(1170f, 215f, 300f, 58f, "GUARDAR…", false,
-                () -> showToast("Guardar…"));
-        button(1500f, 215f, 305f, 58f, "BORRAR", false,
-                () -> showToast("Borrar"));
+        if (connection.mode() == NewGameConnectionDraft.Mode.JOIN) {
+            String history = connection.serverHistory().isEmpty()
+                    ? "Sin servidores anteriores"
+                    : connection.serverHistory().get(historyIndex < 0
+                            ? connection.serverHistory().size() - 1 : historyIndex);
+            choice(1170f, 475f, 635f, "Servidores anteriores:", history,
+                    this::nextServerHistory, !connection.serverHistory().isEmpty());
+        } else {
+            toggle(1170f, 475f, 635f, "UPnP", connection.upnp(),
+                    () -> connection.setUpnp(!connection.upnp()), true);
+            choice(1170f, 320f, 635f, "Perfil de ajustes:", "Por defecto",
+                    () -> showToast("Perfil de ajustes: Por defecto"));
+            button(1170f, 215f, 300f, 58f, "GUARDAR…", false,
+                    () -> showToast("Guardar…"));
+            button(1500f, 215f, 305f, 58f, "BORRAR", false,
+                    () -> showToast("Borrar"));
+        }
+    }
+
+    private void nextServerHistory() {
+        List<String> history = connection.serverHistory();
+        if (history.isEmpty()) {
+            return;
+        }
+        historyIndex = (historyIndex + 1) % history.size();
+        String endpoint = history.get(historyIndex);
+        int separator = endpoint.lastIndexOf(':');
+        if (separator > 0 && separator < endpoint.length() - 1) {
+            connection.setServer(endpoint.substring(0, separator));
+            connection.setPort(endpoint.substring(separator + 1));
+        }
     }
 
     private void toggleRecover() {
@@ -422,8 +516,10 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
         shapes.rect(0f, 129f, WIDTH, 1f);
         keyHint(430f, 55f, "ESC", "CERRAR");
         button(1165f, 31f, 250f, 70f, "CANCELAR", false,
-                () -> showToast("PREVIEW: cancelar no modifica la configuración"));
-        button(1445f, 31f, 410f, 70f, "CREAR TIMBA", true,
+                () -> surface = Surface.MENU);
+        button(1445f, 31f, 410f, 70f,
+                connection.mode() == NewGameConnectionDraft.Mode.JOIN
+                        ? "UNIRME A TIMBA" : "CREAR TIMBA", true,
                 this::validatePreviewSubmission);
     }
 
@@ -433,7 +529,9 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
             return;
         }
         connection.beginSubmission();
-        table.snapshot();
+        if (connection.mode() != NewGameConnectionDraft.Mode.JOIN) {
+            table.snapshot();
+        }
         connection.submissionFailed();
         showToast("Configuración validada · la preview no inicia la sesión");
     }
@@ -872,22 +970,29 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
             return true;
         }
         if (keycode == Input.Keys.ESCAPE) {
-            Gdx.app.exit();
+            if (surface == Surface.NEW_GAME) {
+                activeField = null;
+                surface = Surface.MENU;
+            } else {
+                Gdx.app.exit();
+            }
             return true;
         }
         if (keycode == Input.Keys.BACKSPACE && activeField != null) {
             setActiveValue(removeLast(activeValue()));
             return true;
         }
-        if (activeField == null && keycode == Input.Keys.LEFT && page > 0) {
+        boolean hostPages = surface == Surface.NEW_GAME
+                && connection.mode() != NewGameConnectionDraft.Mode.JOIN;
+        if (hostPages && activeField == null && keycode == Input.Keys.LEFT && page > 0) {
             page--;
             return true;
         }
-        if (activeField == null && keycode == Input.Keys.RIGHT && page < 4) {
+        if (hostPages && activeField == null && keycode == Input.Keys.RIGHT && page < 4) {
             page++;
             return true;
         }
-        if (keycode == Input.Keys.TAB) {
+        if (hostPages && keycode == Input.Keys.TAB) {
             activeField = null;
             page = (page + 1) % 5;
             return true;
@@ -969,6 +1074,10 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
 
     private record TextItem(BitmapFont font, String text, float x, float y,
             Color color, boolean centered) {
+    }
+
+    private enum Surface {
+        MENU, NEW_GAME
     }
 
     private record Hit(Rectangle bounds, Runnable action) {

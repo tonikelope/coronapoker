@@ -381,8 +381,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private int frameCursor;
     private int frameCount;
     private boolean intro = true;
+    private boolean readySignalled;
     private String statsText = "Midiendo frame pacing...";
     private LivePositionRotation livePositionRotation;
+    private LiveChipBatch liveChipBatch;
 
     CoronaPokerGdxTable(int detectedRefreshRate) {
         this(detectedRefreshRate, null, () -> {
@@ -512,7 +514,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         backgroundMusic.setVolume(musicVolume);
         backgroundMusic.play();
         Gdx.input.setCursorCatched(false);
-        onReady.run();
     }
 
     private static Texture texture(String path) {
@@ -677,6 +678,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             livePositionRotation = new LivePositionRotation(rotation,
                     System.nanoTime(), barrier);
+        } else if (event instanceof TableVisualEvent.CollectBets collect) {
+            if (liveChipBatch != null) {
+                throw new IllegalStateException("A GDX chip batch is already active");
+            }
+            liveChipBatch = new LiveChipBatch(collect, System.nanoTime(),
+                    barrier, liveState.snapshot());
         } else {
             throw new UnsupportedOperationException(
                     "GDX animation family not connected yet: "
@@ -1063,6 +1070,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         totalTime += delta;
         sceneTime += delta;
         updateLivePositionRotation();
+        updateLiveChipBatch();
         recordFrame(delta);
         handleInput();
         updateStars(delta);
@@ -1080,6 +1088,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 intro = false;
                 sceneTime = 0f;
                 burstClock = 0f;
+                if (!readySignalled) {
+                    readySignalled = true;
+                    onReady.run();
+                }
             }
         } else {
             drawTableScene();
@@ -1482,7 +1494,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     && handTime() < SHOWDOWN_START;
             boolean settledShowdown = handTime() >= WINNER_START
                     && isShowdownContender(seat.index);
-            seat.updateStack(handTime(), flights, demoHandIndex(), winnerSeat());
+            if (liveState == null) {
+                seat.updateStack(handTime(), flights, demoHandIndex(), winnerSeat());
+            } else {
+                updateLiveSeatAmounts(seat);
+            }
             if (seat.index != 0) {
                 // One component owns name, chips and amount for every rival.
                 Color rim = settledShowdown
@@ -1841,7 +1857,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float basePotH = basePotW * pot.getHeight() / pot.getWidth();
         float potW = basePotW * pulse;
         float potH = basePotH * pulse;
-        int currentPot = potAt(handTime());
+        int currentPot = liveState == null
+                ? potAt(handTime()) : Math.max(0, (int) Math.round(livePot()));
         if (currentPot != lastPotValue) {
             lastPotValue = currentPot;
             potText = String.format("BOTE: %,d", currentPot);
@@ -2526,7 +2543,153 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
     }
 
+    private void updateLiveChipBatch() {
+        LiveChipBatch active = liveChipBatch;
+        if (active == null) {
+            return;
+        }
+        float elapsed = active.elapsedSeconds();
+        for (LiveChip chip : active.chips) {
+            if (!chip.soundPlayed && chip.progress(elapsed) >= 1f) {
+                chip.soundPlayed = true;
+                play(betSound, chip.chipIndex == 0 ? 0.40f : 0.20f,
+                        0.92f + chip.color * 0.055f);
+            }
+        }
+        if (!active.complete(elapsed)) {
+            return;
+        }
+        try {
+            liveState.apply(active.event);
+            syncSeatsFromLiveState();
+            active.barrier.complete(null);
+        } catch (Throwable error) {
+            active.barrier.completeExceptionally(error);
+        } finally {
+            liveChipBatch = null;
+        }
+    }
+
+    private void updateLiveSeatAmounts(Seat seat) {
+        TableSnapshot.PlayerSnapshot player = liveState.snapshot().players().stream()
+                .filter(candidate -> candidate.nickname().equals(seat.name))
+                .findFirst().orElse(null);
+        if (player == null) {
+            return;
+        }
+        double landed = liveChipBatch == null ? 0d
+                : liveChipBatch.landedContribution(seat.name,
+                        liveChipBatch.elapsedSeconds());
+        int stack = Math.max(0, (int) Math.round(player.stack() - landed));
+        int invested = Math.max(0, (int) Math.round(player.streetBet()));
+        if (stack != seat.displayedStack) {
+            seat.displayedStack = stack;
+            seat.stackText = String.format("%,d", stack);
+        }
+        if (invested != seat.displayedInvested) {
+            seat.displayedInvested = invested;
+            seat.investedText = String.format("%,d", invested);
+        }
+    }
+
+    private double livePot() {
+        LiveChipBatch active = liveChipBatch;
+        return active == null ? liveState.snapshot().pot()
+                : active.event.potBefore()
+                + active.landedContribution(null, active.elapsedSeconds());
+    }
+
+    private void drawLiveChipTrails(float targetX, float targetY) {
+        LiveChipBatch active = liveChipBatch;
+        if (active == null) {
+            return;
+        }
+        float elapsed = active.elapsedSeconds();
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
+        for (LiveChip chip : active.chips) {
+            Seat from = seatByNickname(chip.nickname);
+            if (from == null) {
+                continue;
+            }
+            float impactAge = elapsed - chip.startSeconds - chip.durationSeconds;
+            if (impactAge >= 0f && impactAge < 0.34f) {
+                float impact = impactAge / 0.34f;
+                shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
+                        (1f - impact) * 0.24f);
+                shapes.circle(targetX, targetY, 24f + impact * 82f, 36);
+            }
+            float progress = chip.progress(elapsed);
+            if (progress < 0f || progress >= 1f) {
+                continue;
+            }
+            shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
+                    (1f - progress) * 0.22f);
+            shapes.circle(from.stackX, from.stackY, 18f + progress * 28f, 24);
+            for (int tail = 1; tail <= 5; tail++) {
+                float t = Math.max(0f, progress - tail * 0.025f);
+                float x = bezier(from.stackX,
+                        liveStackControlX(from, targetX, chip.rotation), targetX, t);
+                float y = bezier(from.stackY,
+                        liveControlY(from.stackY, targetY, chip.rotation), targetY, t);
+                shapes.setColor(ORANGE.r, ORANGE.g, ORANGE.b,
+                        (6 - tail) * 0.028f);
+                shapes.circle(x, y, 15f - tail * 1.7f, 12);
+            }
+        }
+        shapes.end();
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+    }
+
+    private void drawLiveFlyingChips(float targetX, float targetY) {
+        LiveChipBatch active = liveChipBatch;
+        if (active == null) {
+            return;
+        }
+        float elapsed = active.elapsedSeconds();
+        batch.begin();
+        for (LiveChip chip : active.chips) {
+            Seat from = seatByNickname(chip.nickname);
+            float progress = chip.progress(elapsed);
+            if (from == null || progress < 0f || progress >= 1f) {
+                continue;
+            }
+            float x = bezier(from.stackX,
+                    liveStackControlX(from, targetX, chip.rotation),
+                    targetX, progress);
+            float y = bezier(from.stackY,
+                    liveControlY(from.stackY, targetY, chip.rotation),
+                    targetY, progress);
+            float landing = Interpolation.pow3In.apply(progress);
+            float size = (45f + MathUtils.sin(progress * MathUtils.PI) * 9f)
+                    * (1f - landing * 0.28f);
+            Texture texture = flyingChips[chip.color];
+            batch.setColor(Color.WHITE);
+            batch.draw(texture, x - size / 2f, y - size / 2f,
+                    size / 2f, size / 2f, size, size, 1f, 1f,
+                    chip.rotation + progress * 360f,
+                    0, 0, texture.getWidth(), texture.getHeight(), false, false);
+        }
+        batch.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    private float liveStackControlX(Seat from, float to, float rotation) {
+        float outward = from.stackX < tableCenterX ? -1f : 1f;
+        return (from.stackX + to) * 0.5f + outward * 175f
+                + MathUtils.cos(rotation) * 35f;
+    }
+
+    private static float liveControlY(float from, float to, float rotation) {
+        return (from + to) * 0.5f + 120f + MathUtils.sin(rotation) * 45f;
+    }
+
     private void drawChipTrails(float targetX, float targetY) {
+        if (liveState != null) {
+            drawLiveChipTrails(targetX, targetY);
+            return;
+        }
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
@@ -2570,6 +2733,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawFlyingChips(float targetX, float targetY) {
+        if (liveState != null) {
+            drawLiveFlyingChips(targetX, targetY);
+            return;
+        }
         batch.begin();
         for (ChipFlight flight : flights) {
             Seat from = seats[seatForHand(flight.seat)];
@@ -3501,6 +3668,100 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             long elapsedNanos = Math.max(0L, System.nanoTime() - startedAtNanos);
             double durationNanos = event.durationMillis() * 1_000_000d;
             return (float) Math.min(1d, elapsedNanos / durationNanos);
+        }
+    }
+
+    private static final class LiveChipBatch {
+
+        final TableVisualEvent.CollectBets event;
+        final long startedAtNanos;
+        final CompletableFuture<Void> barrier;
+        final List<LiveChip> chips;
+
+        LiveChipBatch(TableVisualEvent.CollectBets event, long startedAtNanos,
+                CompletableFuture<Void> barrier, TableSnapshot snapshot) {
+            this.event = event;
+            this.startedAtNanos = startedAtNanos;
+            this.barrier = barrier;
+            List<LiveChip> created = new ArrayList<>();
+            for (int transferIndex = 0;
+                    transferIndex < event.transfers().size(); transferIndex++) {
+                TableVisualEvent.ChipTransfer transfer =
+                        event.transfers().get(transferIndex);
+                TableSnapshot.Position position = snapshot.players().stream()
+                        .filter(player -> player.nickname().equals(transfer.nickname()))
+                        .map(TableSnapshot.PlayerSnapshot::position)
+                        .findFirst().orElse(TableSnapshot.Position.NONE);
+                int chipCount = switch (position) {
+                    case BIG_BLIND -> 2;
+                    case STRADDLE, DEALER_STRADDLE -> 3;
+                    default -> 1;
+                };
+                double base = transfer.amount() / chipCount;
+                for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {
+                    double contribution = chipIndex == chipCount - 1
+                            ? transfer.amount() - base * (chipCount - 1) : base;
+                    float start = transferIndex * 0.025f + chipIndex * 0.06f;
+                    float duration = event.potBefore() == 0d
+                            ? 0.34f + chipIndex * 0.02f
+                            : CHIP_FLIGHT_SECONDS + chipIndex * 0.035f;
+                    created.add(new LiveChip(transfer.nickname(), start, duration,
+                            (transferIndex * 97f + chipIndex * 53f) % 360f,
+                            (transferIndex + chipIndex) % 4, chipIndex,
+                            contribution));
+                }
+            }
+            chips = List.copyOf(created);
+        }
+
+        float elapsedSeconds() {
+            return Math.max(0L, System.nanoTime() - startedAtNanos) / 1_000_000_000f;
+        }
+
+        boolean complete(float elapsed) {
+            return chips.stream().allMatch(chip -> chip.progress(elapsed) >= 1f);
+        }
+
+        double landedContribution(String nickname, float elapsed) {
+            double total = 0d;
+            for (LiveChip chip : chips) {
+                if ((nickname == null || nickname.equals(chip.nickname))
+                        && chip.progress(elapsed) >= 1f) {
+                    total += chip.contribution;
+                }
+            }
+            return total;
+        }
+    }
+
+    private static final class LiveChip {
+
+        final String nickname;
+        final float startSeconds;
+        final float durationSeconds;
+        final float rotation;
+        final int color;
+        final int chipIndex;
+        final double contribution;
+        boolean soundPlayed;
+
+        LiveChip(String nickname, float startSeconds, float durationSeconds,
+                float rotation, int color, int chipIndex, double contribution) {
+            this.nickname = nickname;
+            this.startSeconds = startSeconds;
+            this.durationSeconds = durationSeconds;
+            this.rotation = rotation;
+            this.color = color;
+            this.chipIndex = chipIndex;
+            this.contribution = contribution;
+        }
+
+        float progress(float elapsed) {
+            float raw = elapsed - startSeconds;
+            if (raw < 0f) {
+                return -1f;
+            }
+            return Math.min(1f, raw / durationSeconds);
         }
     }
 

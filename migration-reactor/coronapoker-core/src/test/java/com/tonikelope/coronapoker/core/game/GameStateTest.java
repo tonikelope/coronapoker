@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import com.tonikelope.coronapoker.table.TableSnapshot;
+import com.tonikelope.coronapoker.table.TableSnapshotMapper;
 import org.junit.jupiter.api.Test;
 
 class GameStateTest {
@@ -47,5 +49,25 @@ class GameStateTest {
 
         assertEquals("A_P", player.snapshot().holeCards().get(0).code().shortCode());
         assertEquals("K_D", player.snapshot().holeCards().get(1).code().shortCode());
+    }
+
+    @Test void neutralAggregateMapsWithoutFrontendTypes() {
+        TableState table = new TableState("Local");
+        LocalPlayerState local = new LocalPlayerState("Local");
+        local.setStack(125d);
+        local.setActive(true);
+        local.firstCard().initialize(CardCode.parseShortCode("A_P"), true);
+        local.firstCard().setVisible(true);
+        table.putPlayer(local);
+        table.hand().begin(7, "hand-7");
+        table.hand().pot().setTotal(40d);
+        table.hand().turn().begin("Local", 10L, 30);
+
+        TableSnapshot snapshot = TableSnapshotMapper.from(table.snapshot());
+
+        assertEquals(TableSnapshot.Street.PREFLOP, snapshot.street());
+        assertEquals(40d, snapshot.pot());
+        assertEquals("Local", snapshot.currentTurnNickname());
+        assertEquals("A_P", snapshot.players().get(0).holeCards().get(0).code());
     }
 }

@@ -27,18 +27,34 @@ public final class FakePotPlayer implements Player {
     private final double bote;
     private final int decision;
     private final boolean activo;
+    private final com.tonikelope.coronapoker.core.game.PlayerState state;
 
     public FakePotPlayer(String nickname, double bote, int decision, boolean activo) {
         this.nickname = nickname;
         this.bote = bote;
         this.decision = decision;
         this.activo = activo;
+        state = new com.tonikelope.coronapoker.core.game.PlayerState(nickname);
+        state.setPotContribution(bote);
+        state.setActive(activo);
+        state.setDecision(switch (decision) {
+            case Player.FOLD -> com.tonikelope.coronapoker.core.game.PlayerState.Decision.FOLD;
+            case Player.CHECK -> com.tonikelope.coronapoker.core.game.PlayerState.Decision.CHECK;
+            case Player.BET -> com.tonikelope.coronapoker.core.game.PlayerState.Decision.BET;
+            case Player.ALLIN -> com.tonikelope.coronapoker.core.game.PlayerState.Decision.ALL_IN;
+            default -> com.tonikelope.coronapoker.core.game.PlayerState.Decision.NONE;
+        });
     }
 
     // ---- the only state HandPot reads -------------------------------------
     @Override
     public String getNickname() {
         return nickname;
+    }
+
+    @Override
+    public com.tonikelope.coronapoker.core.game.PlayerState getState() {
+        return state;
     }
 
     @Override

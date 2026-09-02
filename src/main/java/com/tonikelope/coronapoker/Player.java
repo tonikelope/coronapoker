@@ -116,6 +116,9 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
 
     public String getNickname();
 
+    /** Renderer-neutral state backing this frontend adapter. */
+    public com.tonikelope.coronapoker.core.game.PlayerState getState();
+
     public void setNickname(String name);
 
     public Card getHoleCard1();

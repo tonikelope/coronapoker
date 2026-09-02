@@ -92,6 +92,34 @@ final class CrupierTableEventBridgeTest {
         }
     }
 
+    @Test
+    void shuffleFinishIsTheBarrierBeforeDealing() throws Exception {
+        TableEventBridge bridge = new TableEventBridge();
+        ShuffleRenderer renderer = new ShuffleRenderer();
+        bridge.attach(renderer, emptyTable()).toCompletableFuture().join();
+        Crupier dealer = new Crupier(bridge);
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+
+        try {
+            assertTrue(dealer.presentShufflePhaseToAttachedRenderer(
+                    TableVisualEvent.Shuffle.Phase.START));
+            assertEquals(TableVisualEvent.Shuffle.Phase.START, renderer.lastPhase);
+
+            Future<Boolean> finished = executor.submit(() ->
+                    dealer.presentShufflePhaseToAttachedRenderer(
+                            TableVisualEvent.Shuffle.Phase.FINISH));
+            assertTrue(renderer.finishReceived.await(1, TimeUnit.SECONDS));
+            assertFalse(finished.isDone(),
+                    "The dealer crossed the shuffle barrier before its final frame/audio");
+
+            renderer.finishAnimation.complete(null);
+            assertTrue(finished.get(1, TimeUnit.SECONDS));
+        } finally {
+            executor.shutdownNow();
+            bridge.close();
+        }
+    }
+
     private static Player player(String nickname, double pot,
             AtomicBoolean counterDeferred) {
         return (Player) Proxy.newProxyInstance(
@@ -144,6 +172,34 @@ final class CrupierTableEventBridgeTest {
             this.event = event;
             eventReceived.countDown();
             return animation;
+        }
+
+        @Override
+        public void close() {
+        }
+    }
+
+    private static final class ShuffleRenderer implements TableRenderer {
+
+        private final CountDownLatch finishReceived = new CountDownLatch(1);
+        private final CompletableFuture<Void> finishAnimation = new CompletableFuture<>();
+        private volatile TableVisualEvent.Shuffle.Phase lastPhase;
+
+        @Override
+        public CompletionStage<Void> open(TableSnapshot initialState) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public CompletionStage<Void> render(TableVisualEvent event) {
+            TableVisualEvent.Shuffle shuffle = assertInstanceOf(
+                    TableVisualEvent.Shuffle.class, event);
+            lastPhase = shuffle.phase();
+            if (shuffle.phase() == TableVisualEvent.Shuffle.Phase.FINISH) {
+                finishReceived.countDown();
+                return finishAnimation;
+            }
+            return CompletableFuture.completedFuture(null);
         }
 
         @Override

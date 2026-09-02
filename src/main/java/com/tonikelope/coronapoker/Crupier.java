@@ -4885,6 +4885,48 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return true;
     }
 
+    /**
+     * Publishes one edge of the shuffle lifecycle. START completes when the renderer has
+     * started its loop; FINISH completes only after image and audio have reached their real
+     * end. That makes FINISH the causal barrier immediately before dealing.
+     */
+    boolean presentShufflePhaseToAttachedRenderer(TableVisualEvent.Shuffle.Phase phase) {
+        java.util.Optional<java.util.concurrent.CompletionStage<Void>> barrier
+                = table_events.publishIfAttached(sequence -> new TableVisualEvent.Shuffle(
+                        sequence, GameFrame.BARAJA, phase));
+        if (barrier.isEmpty()) {
+            return false;
+        }
+        try {
+            barrier.orElseThrow().toCompletableFuture().get(4, TimeUnit.SECONDS);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "Shuffle presentation barrier failed at " + phase, ex);
+        }
+        return true;
+    }
+
+    private void finishShufflePresentation(boolean attachedPresentation,
+            Object shuffleLock, boolean[] workerDone, String waitContext) {
+        if (attachedPresentation) {
+            presentShufflePhaseToAttachedRenderer(TableVisualEvent.Shuffle.Phase.FINISH);
+            return;
+        }
+        synchronized (shuffleLock) {
+            while (!workerDone[0]) {
+                try {
+                    shuffleLock.wait(1000);
+                } catch (InterruptedException ex) {
+                    Helpers.logCooperativeCancellation(LOGGER, waitContext, ex);
+                    break;
+                }
+            }
+        }
+        // The Swing animation paths already stop it on exit; this covers any remaining edge.
+        Audio.stopPreloadedWav("misc/shuffle.wav");
+    }
+
     // Fixed-duration stack fill animation: all players finish together (STACK_FILL_MS)
     // regardless of stack size, avoiding a staggered look. Linear interpolation, no ease-out —
     // that's BalanceScreen's signature on the final counter, not this curtain's.
@@ -10995,9 +11037,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // each audio-only cycle in the fallback path).
             barajando = true;
 
+            // GDX owns the audiovisual shuffle when a renderer is attached. START only
+            // acknowledges that the loop is running; FINISH below is the real barrier that
+            // stops it on a complete cycle before repartir(). Swing remains byte-for-byte on
+            // its established worker-loop path while the bridge is detached.
+            final boolean attached_shuffle_presentation
+                    = presentShufflePhaseToAttachedRenderer(TableVisualEvent.Shuffle.Phase.START);
+
             final boolean[] gif_thread_done = {false};
 
-            Helpers.threadRun(() -> {
+            if (!attached_shuffle_presentation) {
+                Helpers.threadRun(() -> {
                 // Open (once) and reuse the shuffle audio line BEFORE animating and off the EDT:
                 // starting the sound on each GIF pass will be instant, with no per-cycle open
                 // that could lag and end up silent.
@@ -11083,7 +11133,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     gif_thread_done[0] = true;
                     shuffle_lock.notifyAll();
                 }
-            });
+                });
+            }
 
             if (GameFrame.getInstance().isPartida_local() && this.game_recovered == 0) {
 
@@ -11091,18 +11142,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // If the cascade fails (someone doesn't respond), abort initialization.
                     if (!enviarCartasJugadoresRemotos()) {
                         barajando = false;
-                        synchronized (shuffle_lock) {
-                            while (!gif_thread_done[0]) {
-                                try {
-                                    shuffle_lock.wait(1000);
-                                } catch (InterruptedException ex) {
-                                    Helpers.logCooperativeCancellation(LOGGER, "shuffle wait (abort path)", ex);
-                                    break;
-                                }
-                            }
-                        }
-
-                        Audio.stopPreloadedWav("misc/shuffle.wav");
+                        finishShufflePresentation(attached_shuffle_presentation,
+                                shuffle_lock, gif_thread_done, "shuffle wait (abort path)");
 
                         return false;
                     }
@@ -11125,21 +11166,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             // Cascade done: signal the loop to exit at the next cycle boundary.
             barajando = false;
-
-            synchronized (shuffle_lock) {
-                while (!gif_thread_done[0]) {
-                    try {
-                        shuffle_lock.wait(1000);
-                    } catch (InterruptedException ex) {
-                        Helpers.logCooperativeCancellation(LOGGER, "shuffle wait", ex);
-                        break;
-                    }
-                }
-            }
-
-            // The shuffle has finished: stop the audio before dealing. The animation paths
-            // already stop it on exit; this covers any remaining edge case.
-            Audio.stopPreloadedWav("misc/shuffle.wav");
+            finishShufflePresentation(attached_shuffle_presentation,
+                    shuffle_lock, gif_thread_done, "shuffle wait");
 
             if (!GameFrame.getInstance().isPartida_local()
                     && !GameFrame.getInstance().getLocalPlayer().isCalentando()

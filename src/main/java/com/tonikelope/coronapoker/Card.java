@@ -28,6 +28,9 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.game.CardCode;
+import com.tonikelope.coronapoker.core.game.CardState;
+
 import java.awt.Dimension;
 import java.awt.Image;
 import java.nio.file.Files;
@@ -79,25 +82,18 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     private static volatile ImageIcon IMAGEN_RABBIT_SB;
     private static volatile List<String> CARTAS_SONIDO = null;
     private static volatile float CURRENT_ZOOM = 0f;
-    private volatile String valor = "";
-    private volatile String palo = "";
-    private volatile boolean iniciada = false;
-    private volatile boolean tapada = true;
-    private volatile boolean desenfocada = false;
+    private final CardState state = new CardState();
     // Semi-transparent yellow overlay painted over the card during showdown, on hovering a
     // losing player's hand label, to highlight which cards make up that hand
     // (RESALTAR_JUGADA_SHOWDOWN). Doesn't touch the image or focus state; actual painting happens
     // in paint(). Cleared in resetearCarta().
-    private volatile boolean tinte_showdown = false;
     private final static java.awt.Color TINTE_SHOWDOWN_COLOR = new java.awt.Color(255, 236, 0, 80);
-    private volatile boolean visible_card = false;
     private volatile boolean compactable = true;
     private volatile boolean gui = true;
     private volatile ImageIcon image = null;
     private volatile ImageIcon image_b = null;
     private volatile RemotePlayer iwtsth_candidate = null;
     private final Object image_precache_lock = new Object();
-    private volatile boolean secure_hidden = false;
     private volatile int rabbit = RABBIT_OFF;
     private volatile boolean mouse_hover = false;
 
@@ -123,17 +119,17 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     public void destaparRabbit() {
         if (isRabbitTapada()) {
             rabbit = RABBIT_DESTAPADA;
-            tapada = false;
+        state.setFaceUp(true);
             refreshCard();
         }
     }
 
     public boolean isSecure_hidden() {
-        return secure_hidden;
+        return state.secureHidden();
     }
 
     public void setSecure_hidden(boolean secure_hidden) {
-        this.secure_hidden = secure_hidden;
+        state.setSecureHidden(secure_hidden);
     }
 
     public void setIwtsth_candidate(RemotePlayer iwtsth_candidate) {
@@ -141,11 +137,11 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     }
 
     public boolean isIniciadaConValor() {
-        return this.isIniciada() && !"".equals(this.valor) && !"".equals(this.palo);
+        return state.initialized() && state.code() != null;
     }
 
     public boolean isVisible_card() {
-        return visible_card;
+        return state.visible();
     }
 
     /**
@@ -162,11 +158,11 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     }
 
     public void setVisibleCard(boolean v_card) {
-        this.visible_card = v_card;
+        state.setVisible(v_card);
 
-        if (!this.secure_hidden) {
+        if (!state.secureHidden()) {
             Helpers.GUIRun(() -> {
-                card_image.setVisible(visible_card);
+            card_image.setVisible(state.visible());
             });
         }
     }
@@ -636,7 +632,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
                             }
                         } else {
                             // Read from Global Cache
-                            String key = valor + "_" + palo;
+                            String key = toShortString();
                             if (!isDesenfocada() || mouse_hover) {
                                 img = GLOBAL_FRONT_CACHE.computeIfAbsent(key, k
                                         -> createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + k + ".jpg")
@@ -744,7 +740,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
             synchronized (image_precache_lock) {
                 try {
                     if (isIniciadaConValor()) {
-                        String key = valor + "_" + palo;
+                        String key = toShortString();
                         if (image == null) {
                             if (Thread.currentThread().isInterrupted()
                                     || GameFrame.getInstance() == null) {
@@ -784,10 +780,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     public void iniciarCarta(boolean visible) {
 
         synchronized (image_precache_lock) {
-            this.iniciada = true;
-            this.tapada = true;
-            this.desenfocada = false;
-            this.visible_card = visible;
+            state.initializeUnknown(visible);
             invalidateImagePrecache();
         }
         refreshCard();
@@ -800,14 +793,8 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     public void resetearCarta(boolean visible) {
 
         synchronized (image_precache_lock) {
-            this.iniciada = false;
-            this.tapada = false;
+            state.reset(visible, true);
             this.rabbit = RABBIT_OFF;
-            this.desenfocada = false;
-            this.tinte_showdown = false;
-            this.visible_card = visible;
-            this.valor = "";
-            this.palo = "";
             this.iwtsth_candidate = null;
             invalidateImagePrecache();
         }
@@ -874,14 +861,15 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
     @Override
     public String toString() {
-        return "[" + this.valor + Card.UNICODE_TABLE.get(this.palo) + "]";
+        return "[" + getValor() + Card.UNICODE_TABLE.get(getPalo()) + "]";
     }
 
     /**
      * @return the compact "VALUE_SUIT" form used as a cache/lookup key
      */
     public String toShortString() {
-        return this.valor + "_" + this.palo;
+        CardCode code = state.code();
+        return code == null ? "_" : code.shortCode();
     }
 
     /**
@@ -907,16 +895,13 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
             String nuevoPalo = palo.toUpperCase().trim();
 
             // Avoid flicker and IO by skipping if state is identical
-            if (this.iniciada && this.valor.equals(nuevoValor) && this.palo.equals(nuevoPalo) && this.tapada == tapada) {
+            CardCode next = CardCode.of(nuevoValor, nuevoPalo);
+            if (state.initialized() && next.equals(state.code()) && isTapada() == tapada) {
                 return;
             }
 
-            this.valor = nuevoValor;
-            this.palo = nuevoPalo;
             invalidateImagePrecache();
-            this.iniciada = true;
-            this.tapada = tapada;
-            this.desenfocada = false;
+            state.initialize(next, !tapada);
         }
         this.refreshCard();
     }
@@ -927,12 +912,12 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
             String nuevoPalo = palo.toUpperCase().trim();
 
             // Avoid flicker by skipping if value is identical
-            if (this.valor.equals(nuevoValor) && this.palo.equals(nuevoPalo)) {
+            CardCode next = CardCode.of(nuevoValor, nuevoPalo);
+            if (next.equals(state.code())) {
                 return;
             }
 
-            this.valor = nuevoValor;
-            this.palo = nuevoPalo;
+            state.updateCode(next);
             invalidateImagePrecache();
         }
         this.refreshCard();
@@ -945,9 +930,8 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
     public void actualizarValorPaloEnfoque(String valor, String palo, boolean desenfocada, boolean refresh) {
         synchronized (image_precache_lock) {
-            this.valor = valor.toUpperCase().trim();
-            this.palo = palo.toUpperCase().trim();
-            this.desenfocada = desenfocada;
+            state.updateCode(CardCode.of(valor, palo));
+            state.setDisabled(desenfocada);
             invalidateImagePrecache();
         }
 
@@ -1015,10 +999,11 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
         int valor_num = -1;
 
-        if (!this.valor.isEmpty() && Character.isDigit(this.valor.charAt(0))) {
-            valor_num = Integer.valueOf(valor);
+        String currentValue = getValor();
+        if (!currentValue.isEmpty() && Character.isDigit(currentValue.charAt(0))) {
+            valor_num = Integer.valueOf(currentValue);
         } else {
-            switch (valor) {
+            switch (currentValue) {
                 case "A":
                     valor_num = sort_low_ace ? 1 : 14;
                     break;
@@ -1040,7 +1025,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     }
 
     public boolean isIniciada() {
-        return iniciada;
+        return state.initialized();
     }
 
     public void destapar() {
@@ -1050,15 +1035,14 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
     public void destapar(boolean sound) {
 
-        if (isIniciadaConValor() && this.tapada) {
+        if (isIniciadaConValor() && isTapada()) {
 
             if (sound && GameFrame.destapeSonidoOn()) {
                 Helpers.threadRun(() -> Audio.playPreloadedWav("misc/uncover.wav"));
             }
 
-            this.tapada = false;
-
-            this.visible_card = true;
+            state.setFaceUp(true);
+            state.setVisible(true);
 
             this.refreshCard();
 
@@ -1084,11 +1068,10 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
      */
     public void destaparSync() {
 
-        if (isIniciadaConValor() && this.tapada) {
+        if (isIniciadaConValor() && isTapada()) {
 
-            this.tapada = false;
-
-            this.visible_card = true;
+            state.setFaceUp(true);
+            state.setVisible(true);
 
             final ConcurrentLinkedQueue<Long> notifier = new ConcurrentLinkedQueue<>();
 
@@ -1114,9 +1097,9 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
     public void tapar() {
 
-        if (!this.tapada) {
+        if (!isTapada()) {
 
-            this.tapada = true;
+            state.setFaceUp(false);
 
             this.refreshCard();
         }
@@ -1124,9 +1107,9 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
     public void desenfocar() {
 
-        if (!this.desenfocada && this.isIniciada()) {
+        if (!state.disabled() && this.isIniciada()) {
 
-            this.desenfocada = true;
+            state.setDisabled(true);
 
             this.refreshCard();
         }
@@ -1135,9 +1118,9 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
     public void enfocar() {
 
-        if (this.desenfocada && this.isIniciada()) {
+        if (state.disabled() && this.isIniciada()) {
 
-            this.desenfocada = false;
+            state.setDisabled(false);
 
             this.refreshCard();
         }
@@ -1151,8 +1134,8 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
      * enough — no need to rebuild the icon.
      */
     public void marcarTinteShowdown() {
-        if (!this.tinte_showdown) {
-            this.tinte_showdown = true;
+        if (!state.showdownHighlighted()) {
+            state.setShowdownHighlighted(true);
             Helpers.GUIRun(this::repaint);
         }
     }
@@ -1161,14 +1144,14 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
      * Clears the tint set by {@link #marcarTinteShowdown()}.
      */
     public void desmarcarTinteShowdown() {
-        if (this.tinte_showdown) {
-            this.tinte_showdown = false;
+        if (state.showdownHighlighted()) {
+            state.setShowdownHighlighted(false);
             Helpers.GUIRun(this::repaint);
         }
     }
 
     public boolean isTinteShowdown() {
-        return tinte_showdown;
+        return state.showdownHighlighted();
     }
 
     // The yellow tint is painted AFTER super.paint() (image + rabbit included), so it sits above
@@ -1180,7 +1163,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     public void paint(java.awt.Graphics g) {
         super.paint(g);
 
-        if (tinte_showdown) {
+        if (state.showdownHighlighted()) {
             int w = getWidth();
             int h = getHeight();
 
@@ -1219,19 +1202,24 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     }
 
     public String getValor() {
-        return valor;
+        return state.code() == null ? "" : state.code().rank().wire();
     }
 
     public String getPalo() {
-        return palo;
+        return state.code() == null ? "" : state.code().suit().wire();
     }
 
     public boolean isTapada() {
-        return tapada;
+        return !state.faceUp();
     }
 
     public boolean isDesenfocada() {
-        return desenfocada;
+        return state.disabled();
+    }
+
+    /** Neutral state used by the engine and non-Swing renderers. */
+    public CardState getState() {
+        return state;
     }
 
     /**
@@ -1333,7 +1321,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
                 if (!isTapada()) {
 
-                    carta = CardVisorDialog.cartaFrom(this.valor, this.palo);
+        carta = CardVisorDialog.cartaFrom(getValor(), getPalo());
 
                 } else {
 

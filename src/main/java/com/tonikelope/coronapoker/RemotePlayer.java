@@ -28,6 +28,7 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.game.RemotePlayerState;
 import static com.tonikelope.coronapoker.GameFrame.GUI_RENDER_WAIT;
 import static com.tonikelope.coronapoker.GameFrame.NOTIFY_INGAME_GIF_REPEAT;
 import static com.tonikelope.coronapoker.GameFrame.TTS_NO_SOUND_TIMEOUT;
@@ -85,6 +86,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public static final int MIN_ACTION_HEIGHT = 45;
 
     private volatile String nickname;
+    private final RemotePlayerState playerState = new RemotePlayerState();
+    {
+        playerState.setBuyIn(GameFrame.BUYIN);
+    }
     private volatile double stack = 0;
     private volatile int buyin = GameFrame.BUYIN;
     private volatile double bet = 0;
@@ -357,7 +362,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public boolean isMuestra() {
-        return muestra;
+        return playerState.showingCards();
     }
 
     @Override
@@ -694,7 +699,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public boolean isTimeout() {
-        return timeout;
+        return playerState.timedOut();
     }
 
     private void setPlayerBorder(Color color) {
@@ -710,7 +715,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public int getResponseTime() {
 
-        return GameFrame.THINK_TIME - response_counter;
+        return GameFrame.THINK_TIME - playerState.responseTime();
     }
 
     public Bot getBot() {
@@ -719,7 +724,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public boolean isTurno() {
-        return turno;
+        return playerState.turn();
     }
 
     @Override
@@ -728,12 +733,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         if (this.isActivo()) {
 
             this.bote = 0f;
+            playerState.setPotContribution(0f);
 
             if (Helpers.doubleSecureCompare(0f, this.bet) < 0) {
                 setStack(this.stack + this.bet);
             }
 
             this.bet = 0f;
+            playerState.setBet(0f);
 
             if (this.nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
                 this.setPosition(BIG_BLIND);
@@ -755,7 +762,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public boolean isWinner() {
-        return winner;
+        return playerState.winner();
     }
 
     public boolean isLoser() {
@@ -768,12 +775,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public int getBuyin() {
-        return buyin;
+        return playerState.buyIn();
     }
 
     @Override
     public boolean isExit() {
-        return exit;
+        return playerState.exited();
     }
 
     @Override
@@ -782,6 +789,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         if (!this.exit) {
             this.exit = true;
             this.timeout = false;
+            playerState.setExited(true);
+            playerState.setTimedOut(false);
+            playerState.setActive(false);
 
             Helpers.GUIRun(() -> {
                 if (auto_action != null) {
@@ -813,12 +823,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public double getPagar() {
-        return pagar;
+        return playerState.pendingPayment();
     }
 
     @Override
     public double getBote() {
-        return bote;
+        return playerState.potContribution();
     }
 
     // Live roll of the stack label (EDT-confined). The renderer only writes the text; the color
@@ -837,6 +847,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public synchronized void setStack(double stack) {
         this.stack = Helpers.doubleClean(stack);
+        playerState.setStack(this.stack);
 
         if (!player_stack_click) {
             Helpers.GUIRunAndWait(() -> {
@@ -924,9 +935,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         double old_bet = bet;
 
         bet = Helpers.doubleClean(new_bet);
+        playerState.setBet(bet);
 
         if (Helpers.doubleSecureCompare(old_bet, bet) < 0) {
             this.bote += Helpers.doubleClean(bet - old_bet);
+            playerState.setPotContribution(this.bote);
             setStack(stack - (bet - old_bet));
         }
 
@@ -960,6 +973,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
 
         this.bote += real;
+        playerState.setPotContribution(this.bote);
         setStack(stack - real);
 
         GameFrame.getInstance().getCrupier().getBote().addPlayer(this);
@@ -999,6 +1013,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         // the game isn't blocked by the animation; only this turn waits.
         GameFrame.getInstance().getCrupier().awaitStackFillIfPending(this.nickname);
         turno = true;
+        playerState.setTurn(true);
 
         GameFrame.getInstance().getCrupier().disableAllPlayersTimeout();
 
@@ -1045,6 +1060,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 // Maximum think time
                 Helpers.GUIRun(() -> {
                     response_counter = GameFrame.THINK_TIME;
+                    playerState.setResponseTime(response_counter);
                     if (auto_action != null) {
                         auto_action.stop();
                     }
@@ -1062,6 +1078,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                 // host decides the remote player's turn on its own.
                                 if (GameFrame.THINK_TIME_ENABLED) {
                                     response_counter--;
+                                    playerState.setResponseTime(response_counter);
                                 }
 
                                 // setValue(response_counter) would be redundant: smoothCountdown
@@ -1115,6 +1132,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             });
 
             this.decision = decision;
+            setDecisionState(decision);
 
             switch (this.decision) {
                 case Player.CHECK:
@@ -1149,6 +1167,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private void setDecision(int dec) {
 
         this.decision = dec;
+        setDecisionState(dec);
 
         raise = false;
 
@@ -1270,6 +1289,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             return;
         }
         this.winner = false;
+        playerState.setWinner(false);
         this.loser = false;
         // Run-it-twice: forgets SIDE-A's hover highlight before the rewind (idempotent if no
         // hover was active). DISCARDED without restoring the color: renderDecisionVisual (below)
@@ -1330,6 +1350,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         Audio.stopWavResource("misc/hurryup.wav");
 
         turno = false;
+        playerState.setTurn(false);
 
         synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
             GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
@@ -1585,11 +1606,27 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public int getDecision() {
-        return decision;
+        return switch (playerState.decision()) {
+            case FOLD -> Player.FOLD;
+            case CHECK -> Player.CHECK;
+            case BET -> Player.BET;
+            case ALL_IN -> Player.ALLIN;
+            case NONE -> Player.NODEC;
+        };
+    }
+
+    private void setDecisionState(int value) {
+        playerState.setDecision(switch (value) {
+            case Player.FOLD -> com.tonikelope.coronapoker.core.game.PlayerState.Decision.FOLD;
+            case Player.CHECK -> com.tonikelope.coronapoker.core.game.PlayerState.Decision.CHECK;
+            case Player.BET -> com.tonikelope.coronapoker.core.game.PlayerState.Decision.BET;
+            case Player.ALLIN -> com.tonikelope.coronapoker.core.game.PlayerState.Decision.ALL_IN;
+            default -> com.tonikelope.coronapoker.core.game.PlayerState.Decision.NONE;
+        });
     }
 
     public double getBet() {
-        return bet;
+        return playerState.bet();
     }
 
     public void setTimeout(boolean val) {
@@ -1597,6 +1634,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         if (this.timeout != val) {
 
             this.timeout = val;
+            playerState.setTimedOut(val);
 
             Helpers.GUIRun(() -> {
                 if (val) {
@@ -1623,6 +1661,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.GUIRunAndWait(() -> {
             initComponents();
+            playerState.bindHoleCards(holeCard1.getState(), holeCard2.getState());
+            playerState.setActive(true);
             setOpaque(false);
             setBackground(null);
             installShowdownHandHighlight();
@@ -1759,11 +1799,18 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public String getNickname() {
-        return nickname;
+        return playerState.nickname();
+    }
+
+    /** Neutral authoritative state consumed by non-Swing frontends. */
+    public RemotePlayerState getState() {
+        return playerState;
     }
 
     public void setNickname(String nickname) {
         this.nickname = nickname;
+        playerState.setNickname(nickname);
+        playerState.setActive(!isExit() && !isSpectator());
 
         Helpers.GUIRun(() -> {
 
@@ -1801,6 +1848,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         if (GameFrame.getInstance().isPartida_local() && GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu()) {
             this.bot = new Bot(this);
+            playerState.setBot(true);
         }
     }
 
@@ -2384,6 +2432,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void setWinner(String msg) {
         this.winner = true;
+        playerState.setWinner(true);
         this.conta_win++;
 
         Helpers.GUIRun(() -> {
@@ -2565,6 +2614,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public void pagar(double pasta, Integer sec_pot) {
 
         this.pagar += pasta;
+        playerState.setPendingPayment(this.pagar);
 
         if (sec_pot != null) {
             botes_secundarios.add(sec_pot);
@@ -2583,6 +2633,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public void setPosition(int pos) {
+
+        playerState.setPosition(switch (pos) {
+            case Player.DEALER -> com.tonikelope.coronapoker.core.game.PlayerState.Position.DEALER;
+            case Player.SMALL_BLIND -> com.tonikelope.coronapoker.core.game.PlayerState.Position.SMALL_BLIND;
+            case Player.BIG_BLIND -> com.tonikelope.coronapoker.core.game.PlayerState.Position.BIG_BLIND;
+            case Player.DEAD_DEALER -> com.tonikelope.coronapoker.core.game.PlayerState.Position.DEAD_DEALER;
+            case Player.STRADDLE -> com.tonikelope.coronapoker.core.game.PlayerState.Position.STRADDLE;
+            case Player.DEALER_STRADDLE -> com.tonikelope.coronapoker.core.game.PlayerState.Position.DEALER_STRADDLE;
+            default -> com.tonikelope.coronapoker.core.game.PlayerState.Position.NONE;
+        });
 
         switch (pos) {
             case Player.DEALER:
@@ -2660,6 +2720,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         this.stack += applied;
         this.buyin += applied;
+        playerState.setStack(this.stack);
+        playerState.setBuyIn(this.buyin);
 
         GameFrame.getInstance().getRegistro().print(this.nickname + " " + Translator.translate("rebuy.recompra_2") + String.valueOf(applied) + ")");
 
@@ -2689,7 +2751,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     // does).
     @Override
     public double getStack() {
-        return stack;
+        return playerState.stack();
     }
 
     public JLabel getPlayer_action() {
@@ -2767,6 +2829,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         setAvatar();
 
         this.decision = Player.NODEC;
+        setDecisionState(Player.NODEC);
 
         this.notify_blocked = false;
 
@@ -2775,6 +2838,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.pagar_face_base = 0f;
 
         this.winner = false;
+        playerState.setWinner(false);
+        playerState.setHandName("");
 
         this.loser = false;
 
@@ -2784,10 +2849,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.showdown_hand_cards = null;
 
         this.bote = 0f;
+        playerState.setPotContribution(0f);
 
         this.last_bote = null;
 
         this.bet = 0f;
+        playerState.setBet(0f);
 
         // Safety net: clears any counter-roll deferral left hanging from a previous hand (e.g. an
         // action cinematic interrupted before launching its chip) BEFORE setting this hand's
@@ -2814,6 +2881,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         setStack(stack + pagar);
 
         pagar = 0f;
+        playerState.setPendingPayment(0f);
 
         // If about to post a blind (BB/SB) whose chip will fly to the pot, don't roll its
         // stack/bet at posting time (setPosition->setBet(blind), right below): it's deferred and,
@@ -2921,6 +2989,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         int old_dec = this.decision;
 
         this.decision = Player.NODEC;
+        setDecisionState(Player.NODEC);
 
         Helpers.GUIRun(() -> {
             if (old_dec != Player.BET || Helpers.doubleSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0) {
@@ -2956,7 +3025,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public boolean isSpectator() {
-        return this.spectator;
+        return playerState.spectator();
     }
 
     @Override
@@ -2992,6 +3061,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void setBuyin(int buyin) {
         this.buyin = buyin;
+        playerState.setBuyIn(buyin);
 
     }
 
@@ -2999,11 +3069,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public void setSpectator(String msg) {
         if (!this.exit) {
             this.spectator = true;
+            playerState.setSpectator(true);
+            playerState.setActive(false);
             // setSpectator is entered only after the completed hand (rebuy
             // decision/warm-up). Do not carry an ALLIN decision into later
             // betting/showdown filters, where it means a current-hand all-in.
             this.decision = Player.FOLD;
+            setDecisionState(Player.FOLD);
             this.bote = 0f;
+            playerState.setPotContribution(0f);
 
             // The hand reset (nuevaMano) only runs for active players, so the highlightable hand
             // from the last hand they played would stay stuck to the seat while they're a
@@ -3096,6 +3170,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void unsetSpectator() {
         this.spectator = false;
+        playerState.setSpectator(false);
+        playerState.setActive(!isExit());
 
         Helpers.GUIRun(() -> {
             setPlayerBorder(new Color(204, 204, 204, 75));
@@ -3162,6 +3238,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void showCards(String jugada) {
         this.muestra = true;
+        playerState.setShowingCards(true);
+        playerState.setHandName(jugada);
         Helpers.GUIRun(() -> {
             if (GameFrame.getInstance().getCrupier().getRabbit_players().containsKey(nickname)) {
                 setActionBackground(Color.BLUE);
@@ -3180,6 +3258,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.bet = 0f;
         this.last_bote = this.bote;
         this.bote = 0f;
+        playerState.setBet(0f);
+        playerState.setPotContribution(0f);
     }
 
     @Override
@@ -3234,17 +3314,18 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public boolean isCalentando() {
 
-        return (spectator && Helpers.doubleSecureCompare(0f, stack) < 0);
+        return (isSpectator() && Helpers.doubleSecureCompare(0f, getStack()) < 0);
     }
 
     @Override
     public boolean isActivo() {
-        return (!exit && !spectator);
+        return (!isExit() && !isSpectator());
     }
 
     @Override
     public void setPagar(double pagar) {
         this.pagar = pagar;
+        playerState.setPendingPayment(pagar);
     }
 
     // Serializes concurrent animated reveals of the same player (e.g. a duplicate/echoed
@@ -3264,6 +3345,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     // button. Same font-shrink handling for long hand names as setWinner/setLoser (which will
     // repaint over it in the verdict pass).
     public void showJugadaNeutral(String jugada) {
+
+        playerState.setHandName(jugada);
 
         Helpers.GUIRun(() -> {
             setActionBackground(new Color(204, 204, 204, 75));

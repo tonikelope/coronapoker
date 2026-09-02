@@ -22,7 +22,7 @@ final class ArchitectureBoundaryTest {
 
     @Test
     void coreHasNoSwingAwtOrLibgdxImports() throws IOException {
-        Path sources = reactor.resolve("coronapoker-core/src/main/java");
+        Path sources = reactor.resolve("../src/main/java/com/tonikelope/coronapoker/core").normalize();
         try (Stream<Path> files = Files.walk(sources)) {
             List<Path> violations = files
                     .filter(path -> path.toString().endsWith(".java"))
@@ -44,6 +44,8 @@ final class ArchitectureBoundaryTest {
         assertFalse(gdxPom.contains("coronapoker-swing"));
         assertTrue(swingPom.contains("<artifactId>coronapoker-core</artifactId>"));
         assertTrue(gdxPom.contains("<artifactId>coronapoker-core</artifactId>"));
+        assertTrue(corePom.contains("../../src/main/java/com/tonikelope/coronapoker/core"));
+        assertTrue(swingPom.contains("com/tonikelope/coronapoker/core/**"));
     }
 
     @Test

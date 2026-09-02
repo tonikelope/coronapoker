@@ -16,8 +16,10 @@ original path.
 ## Temporary phase-2 exception
 
 As of 2026-09-02 both frontend launchers use `CoronaPokerBootstrap`. The shared
-bootstrap now owns the process CSPRNG, but DB, identity, preferences and audio
-still belong to the classic startup and must be extracted one at a time with
-characterization tests. This exception is removed only when those concrete
-services are owned by the shared bootstrap; the presence of both launchers by
-itself does not satisfy the phase-2 exit criteria.
+bootstrap owns the process CSPRNG, SQLite connection lifecycle, persistent
+preferences and the audio lifecycle/activation boundary. Schema and integrity
+orchestration, identity, updates and the concrete GDX audio backend still
+belong outside the neutral core or remain placeholders and must be extracted
+one at a time with characterization tests. This exception is removed only when
+those concrete services are owned by the shared bootstrap; the presence of
+both launchers by itself does not satisfy the phase-2 exit criteria.

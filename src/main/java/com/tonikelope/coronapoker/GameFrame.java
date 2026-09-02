@@ -31,6 +31,7 @@ package com.tonikelope.coronapoker;
 import com.tonikelope.coronapoker.core.network.GameCommandId;
 import com.tonikelope.coronapoker.core.game.GameSession;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
+import com.tonikelope.coronapoker.core.game.GameDecisionSink;
 import com.tonikelope.coronapoker.core.game.GameLogSink;
 import com.tonikelope.coronapoker.core.game.GameProgressSink;
 import com.tonikelope.coronapoker.core.game.GameWindowSink;
@@ -2300,15 +2301,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // alive (volatile fields), and after a settle so the seat/buttons/cards already have
         // their new size; re-invoking showOn recomputes their bounds.
         final AutoActionDialog auto_dlg = tapete.getLocalPlayer().getAuto_action_dialog();
-        final VoluntaryStraddleDialog straddle_dlg = getCrupier() != null ? getCrupier().getStraddle_local_dialog() : null;
+        final GameDecisionSink.StraddleHandle straddle_dlg
+                = getCrupier() != null ? getCrupier().getStraddle_local_dialog() : null;
         if (auto_dlg != null || straddle_dlg != null) {
             Helpers.pausar(GameFrame.GUI_RENDER_WAIT);
             Helpers.GUIRun(() -> {
                 if (auto_dlg != null && auto_dlg.isShowing()) {
                     auto_dlg.showOn(tapete);
                 }
-                if (straddle_dlg != null && straddle_dlg.isShowing()) {
-                    straddle_dlg.showOn(tapete);
+                if (straddle_dlg != null && straddle_dlg.isOpen()) {
+                    straddle_dlg.refreshLayout();
                 }
             });
         }
@@ -2729,9 +2731,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             ) {
                 // With the voluntary straddle dialog or AUTO MODE dialog open, ESC = CANCEL
                 // (straddle: DON'T post; auto: cancel the automatic action) instead of folding.
-                VoluntaryStraddleDialog sd = getCrupier() != null ? getCrupier().getStraddle_local_dialog() : null;
-                if (sd != null && sd.isShowing()) {
-                    sd.cancel();
+                GameDecisionSink.StraddleHandle sd
+                        = getCrupier() != null ? getCrupier().getStraddle_local_dialog() : null;
+                if (sd != null && sd.isOpen()) {
+                    sd.decline();
                     kbd_overlay_swallow_esc = true;
                     return;
                 }
@@ -2760,8 +2763,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             ) {
                 // With the voluntary straddle dialog or AUTO MODE dialog open, SPACE = ACCEPT
                 // (straddle: POST; auto: run the automatic action now) instead of checking.
-                VoluntaryStraddleDialog sd = getCrupier() != null ? getCrupier().getStraddle_local_dialog() : null;
-                if (sd != null && sd.isShowing()) {
+                GameDecisionSink.StraddleHandle sd
+                        = getCrupier() != null ? getCrupier().getStraddle_local_dialog() : null;
+                if (sd != null && sd.isOpen()) {
                     sd.accept();
                     kbd_overlay_swallow_space = true;
                     return;
@@ -4186,6 +4190,86 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 return result;
             }
         };
+        GameDecisionSink gameDecisions = new GameDecisionSink() {
+            @Override
+            public RunItTwiceHandle showRunItTwice(int timeoutSeconds,
+                    int totalVoters, String potText,
+                    java.util.function.IntConsumer voteListener) {
+                final RunItTwiceDialog[] created = new RunItTwiceDialog[1];
+                Helpers.GUIRunAndWait(() -> {
+                    RunItTwiceDialog dialog = new RunItTwiceDialog(
+                            GameFrame.this, timeoutSeconds, totalVoters, potText);
+                    dialog.setVoteListener(voteListener);
+                    created[0] = dialog;
+                });
+                RunItTwiceDialog dialog = created[0];
+                Helpers.GUIRun(() -> dialog.setVisible(true));
+                return new RunItTwiceHandle() {
+                    @Override
+                    public int currentVote() {
+                        return dialog.getVote();
+                    }
+
+                    @Override
+                    public void updateTally(int normal, int runItTwice) {
+                        dialog.setTally(normal, runItTwice);
+                    }
+
+                    @Override
+                    public void close() {
+                        dialog.closeDialog();
+                    }
+                };
+            }
+
+            @Override
+            public StraddleHandle showStraddle(int timeoutSeconds,
+                    String amountText) {
+                java.util.concurrent.CompletableFuture<Integer> decision
+                        = new java.util.concurrent.CompletableFuture<>();
+                final VoluntaryStraddleDialog[] created
+                        = new VoluntaryStraddleDialog[1];
+                Helpers.GUIRunAndWait(() -> {
+                    LocalPlayer local = tapete.getLocalPlayer();
+                    VoluntaryStraddleDialog dialog = new VoluntaryStraddleDialog(
+                            local.getHoleCard1(), local.getHoleCard2(),
+                            timeoutSeconds, amountText, decision::complete);
+                    created[0] = dialog;
+                    dialog.showOn(tapete);
+                });
+                VoluntaryStraddleDialog dialog = created[0];
+                return new StraddleHandle() {
+                    @Override
+                    public java.util.concurrent.CompletionStage<Integer> decision() {
+                        return decision;
+                    }
+
+                    @Override
+                    public boolean isOpen() {
+                        return !decision.isDone() && dialog.isShowing();
+                    }
+
+                    @Override
+                    public void accept() {
+                        dialog.accept();
+                    }
+
+                    @Override
+                    public void decline() {
+                        dialog.cancel();
+                    }
+
+                    @Override
+                    public void refreshLayout() {
+                        Helpers.GUIRun(() -> {
+                            if (!decision.isDone() && dialog.isShowing()) {
+                                dialog.showOn(tapete);
+                            }
+                        });
+                    }
+                };
+            }
+        };
         GameProgressSink gameProgress = new GameProgressSink() {
             @Override
             public void countdown(int seconds) {
@@ -4482,7 +4566,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         };
         crupier = new Crupier(game_session, jugadores, tapete.getLocalPlayer(),
-                getParticipantes(), getCartas_comunes(), gameLog, gameDialogs, gameProgress, this::checkPause,
+                getParticipantes(), getCartas_comunes(), gameLog, gameDialogs,
+                gameDecisions, gameProgress, this::checkPause,
                 gameTransport, lobbyTransition, tableDisplay, gameWindow, table_events);
 
         initComponents();

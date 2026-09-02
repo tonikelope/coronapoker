@@ -39,6 +39,7 @@ import com.tonikelope.coronapoker.core.network.GameCommandId;
 import com.tonikelope.coronapoker.core.network.GameTransport;
 import com.tonikelope.coronapoker.core.game.GameSession;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
+import com.tonikelope.coronapoker.core.game.GameDecisionSink;
 import com.tonikelope.coronapoker.core.game.GameWindowSink;
 import com.tonikelope.coronapoker.core.game.GameLogSink;
 import com.tonikelope.coronapoker.core.game.GameProgressSink;
@@ -103,6 +104,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final Card[] community_card_controllers;
     private final GameLogSink game_log;
     private final GameDialogSink game_dialogs;
+    private final GameDecisionSink game_decisions;
     private final GameProgressSink game_progress;
     private final PauseGate pause_gate;
     private final GameTransport game_transport;
@@ -112,7 +114,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final TableEventBridge table_events;
 
     public Crupier() {
-        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameProgressSink.noop(), PauseGate.open(),
+        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(),
                 TableDisplaySink.noop(),
                 GameWindowSink.noop(),
@@ -120,7 +122,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     Crupier(TableEventBridge tableEvents) {
-        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameProgressSink.noop(), PauseGate.open(),
+        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(), TableDisplaySink.noop(),
                 GameWindowSink.noop(), tableEvents);
     }
@@ -129,7 +131,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LocalPlayer localPlayerController,
             java.util.Map<String, Participant> peerControllers,
             Card[] communityCardControllers,
-            GameLogSink gameLog, GameDialogSink gameDialogs, GameProgressSink gameProgress, PauseGate pauseGate,
+            GameLogSink gameLog, GameDialogSink gameDialogs, GameDecisionSink gameDecisions,
+            GameProgressSink gameProgress, PauseGate pauseGate,
             GameTransport gameTransport, LobbyTransitionSink lobbyTransition,
             TableDisplaySink tableDisplay,
             GameWindowSink gameWindow,
@@ -141,6 +144,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.community_card_controllers = communityCardControllers;
         this.game_log = java.util.Objects.requireNonNull(gameLog, "gameLog");
         this.game_dialogs = java.util.Objects.requireNonNull(gameDialogs, "gameDialogs");
+        this.game_decisions = java.util.Objects.requireNonNull(gameDecisions, "gameDecisions");
         this.game_progress = java.util.Objects.requireNonNull(gameProgress, "gameProgress");
         this.pause_gate = java.util.Objects.requireNonNull(pauseGate, "pauseGate");
         this.game_transport = java.util.Objects.requireNonNull(gameTransport, "gameTransport");
@@ -2156,9 +2160,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile String straddle_utg_nick = null; // with straddle, the REAL "under the gun" (first to act) = next active after the straddler; null without straddle
     private volatile boolean straddle_recovered_posted = false; // recovery (host): whether the replayed hand had the straddle posted (from the fossil); host rebroadcasts this decision instead of asking again
     private volatile Boolean straddle_recover_fossil_posted = null; // recovery (client) zero-trust cross-check: whether OUR OWN current-format fossil recorded the straddle as posted this hand; compared against the host's STRADDLE_RESULT to flag a hostile/buggy host WITHOUT changing the applied value. null = no active local recovery datum
-    private volatile VoluntaryStraddleDialog straddle_local_dialog = null; // voluntary-straddle dialog open on the UTG's peer (to close it externally)
+    private volatile GameDecisionSink.StraddleHandle straddle_local_dialog = null; // voluntary-straddle decision open on the UTG's peer (to close it externally)
 
-    public VoluntaryStraddleDialog getStraddle_local_dialog() {
+    public GameDecisionSink.StraddleHandle getStraddle_local_dialog() {
         return straddle_local_dialog;
     }
 
@@ -2216,7 +2220,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // hands (while the board is transitioning), only during betting with cards already on the table.
     private volatile boolean community_cards_dealt = false;
     // Run-it-twice vote dialog active on the CLIENT (host-driven via RIT_VOTE_*).
-    private volatile RunItTwiceDialog rit_client_dialog = null;
+    private volatile GameDecisionSink.RunItTwiceHandle rit_client_dialog = null;
     // True while dealing the second board (SIDE-B) of a run-it-twice. Opens the UNLOCK_PHASE_RIT2_*
     // phases in the gate; outside SIDE-B it's false and those phases are always rejected. Set locally
     // (not by the host) on host and clients when entering/leaving the SIDE-B deal, preserving the
@@ -14310,7 +14314,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    private void broadcastRitTally(int normal, int rit, RunItTwiceDialog hostDialog) {
+    private void broadcastRitTally(int normal, int rit,
+            GameDecisionSink.RunItTwiceHandle hostDialog) {
         // confirmation=false: fire-and-forget. Doesn't wait for ACKs (live tallies
         // must be fast) and, crucially, doesn't drain received_commands — waiting
         // for confirmation would steal the RIT_VOTE_RESP messages we're collecting.
@@ -14320,7 +14325,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.WARNING, "Failed to broadcast RIT_VOTE_TALLY", e);
         }
         if (hostDialog != null) {
-            hostDialog.setTally(normal, rit);
+            hostDialog.updateTally(normal, rit);
         }
     }
 
@@ -14373,12 +14378,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         final int totalVotersFinal = totalVoters;
         final String potText = Helpers.money2String(this.bote_total);
-        final RunItTwiceDialog[] hd = new RunItTwiceDialog[1];
-        if (localIsVoter) {
-            Helpers.GUIRunAndWait(() -> hd[0] = new RunItTwiceDialog(GameFrame.getInstance(), RIT_VOTE_TIMEOUT, totalVotersFinal, potText));
-            Helpers.GUIRun(() -> hd[0].setVisible(true));
-        }
-        final RunItTwiceDialog hostDialog = hd[0];
+        final GameDecisionSink.RunItTwiceHandle hostDialog = localIsVoter
+                ? game_decisions.showRunItTwice(
+                        RIT_VOTE_TIMEOUT, totalVotersFinal, potText, null)
+                : null;
 
         for (String nick : remoteVoterNicks) {
             sendRitVoteReq(remoteVoterParts.get(nick), RIT_VOTE_TIMEOUT, totalVoters);
@@ -14401,8 +14404,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             boolean changed = false;
 
             if (localIsVoter && !votes.containsKey(localNick)
-                    && hostDialog != null && hostDialog.getVote() != RunItTwiceDialog.VOTE_PENDING) {
-                votes.put(localNick, hostDialog.getVote());
+                    && hostDialog != null
+                    && hostDialog.currentVote() != GameDecisionSink.VOTE_PENDING) {
+                votes.put(localNick, hostDialog.currentVote());
                 changed = true;
             }
 
@@ -14440,7 +14444,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (changed) {
                 int n = 0, r = 0;
                 for (int v : votes.values()) {
-                    if (v == RunItTwiceDialog.VOTE_NORMAL) {
+                    if (v == GameDecisionSink.VOTE_NORMAL) {
                         n++;
                     } else {
                         r++;
@@ -14472,7 +14476,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         int n = 0, r = 0;
         for (int v : votes.values()) {
-            if (v == RunItTwiceDialog.VOTE_NORMAL) {
+            if (v == GameDecisionSink.VOTE_NORMAL) {
                 n++;
             } else {
                 r++;
@@ -14483,12 +14487,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         broadcastRitTally(n, r, hostDialog);
         if (!broadcastRitClose(agreed ? 1 : 0)) {
             if (hostDialog != null) {
-                hostDialog.closeDialog();
+                hostDialog.close();
             }
             return false;
         }
         if (hostDialog != null) {
-            hostDialog.closeDialog();
+            hostDialog.close();
         }
 
         return agreed;
@@ -14496,9 +14500,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     // ---- Run-it-twice: CLIENT side (reacts to the host's RIT_VOTE_*) ---------
     public void showRitClientVoteDialog(int timeout, int totalVoters, double pot) {
-        Helpers.GUIRun(() -> {
-            RunItTwiceDialog d = new RunItTwiceDialog(GameFrame.getInstance(), timeout, totalVoters, Helpers.money2String(pot));
-            d.setVoteListener((v) -> Helpers.threadRun(() -> {
+        this.rit_client_dialog = game_decisions.showRunItTwice(
+                timeout, totalVoters, Helpers.money2String(pot),
+                (v) -> Helpers.threadRun(() -> {
                 try {
                     String myNickB64 = Base64.getEncoder().encodeToString(gameSession().localNickname().getBytes("UTF-8"));
                     sendGAMECommandToServer("RIT_VOTE_RESP#" + myNickB64 + "#" + v, false);
@@ -14508,15 +14512,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     game_transport.closeHostConnection();
                 }
             }));
-            this.rit_client_dialog = d;
-            d.setVisible(true);
-        });
     }
 
     public void updateRitClientTally(int normal, int rit) {
-        RunItTwiceDialog d = this.rit_client_dialog;
+        GameDecisionSink.RunItTwiceHandle d = this.rit_client_dialog;
         if (d != null) {
-            d.setTally(normal, rit);
+            d.updateTally(normal, rit);
         }
     }
 
@@ -14539,9 +14540,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // result, not a stale (false,false), so a later recover cross-check can't false-accuse.
         this.rit_vote_done = true;
         this.guardarFosilSRA();
-        RunItTwiceDialog d = this.rit_client_dialog;
+        GameDecisionSink.RunItTwiceHandle d = this.rit_client_dialog;
         if (d != null) {
-            d.closeDialog();
+            d.close();
             this.rit_client_dialog = null;
         }
         printRitVoteResult(agreed);
@@ -14552,16 +14553,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (this.rit_vote_close_received) {
             throw new IllegalStateException("duplicate RIT_VOTE_CLOSE for current hand");
         }
-        RunItTwiceDialog dialog = this.rit_client_dialog;
+        GameDecisionSink.RunItTwiceHandle dialog = this.rit_client_dialog;
         Player local = localPlayer();
         boolean localMustApprove = local != null && local.isActivo()
                 && !local.isCalentando() && !local.isSpectator()
                 && local.getDecision() != Player.FOLD;
-        int localVote = dialog != null ? dialog.getVote() : RunItTwiceDialog.VOTE_PENDING;
+        int localVote = dialog != null
+                ? dialog.currentVote() : GameDecisionSink.VOTE_PENDING;
         if (this.game_recovered != 0 && Boolean.TRUE.equals(this.rit_recover_fossil_agreed)) {
             // The local fossil proves this client had already observed the unanimous
             // result before the interruption; recovery intentionally does not re-vote.
-            localVote = RunItTwiceDialog.VOTE_RUN_IT_TWICE;
+            localVote = GameDecisionSink.VOTE_RUN_IT_TWICE;
         }
         if (!ritResultCompatibleWithLocalVote(localMustApprove, localVote, agreed)) {
             LOGGER.log(Level.SEVERE,
@@ -14576,7 +14578,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     static boolean ritResultCompatibleWithLocalVote(boolean localMustApprove,
             int localVote, boolean agreed) {
         return !agreed || !localMustApprove
-                || localVote == RunItTwiceDialog.VOTE_RUN_IT_TWICE;
+                || localVote == GameDecisionSink.VOTE_RUN_IT_TWICE;
     }
 
     public void printRitVoteResult(boolean agreed) {
@@ -14734,7 +14736,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 startStraddleCountdownBar();
             }
 
-            int decision = VoluntaryStraddleDialog.NO_STRADDLE;
+            int decision = GameDecisionSink.NO_STRADDLE;
             byte[] straddler_sig = null; // signature of the straddler's decision (for the deferred release)
             if (host) {
                 // HOST: authoritative. On a fresh hand it decides (own dialog / bot / SIGNED
@@ -14752,7 +14754,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         straddler_sig = this.pending_remote_straddle_sig; // signature from the straddler client
                     }
                 } else {
-                    decision = this.straddle_recovered_posted ? VoluntaryStraddleDialog.POST_STRADDLE : VoluntaryStraddleDialog.NO_STRADDLE;
+                    decision = this.straddle_recovered_posted
+                            ? GameDecisionSink.POST_STRADDLE : GameDecisionSink.NO_STRADDLE;
                 }
                 if (!broadcastStraddleResult(decision)) {
                     return;
@@ -14778,7 +14781,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // hostile/buggy host (registro + debug log + popup) WITHOUT changing the applied
                 // value -- recover reconstructs from the trusted replay and H_t already backs the
                 // player's own actions. null = fresh hand or an old fossil without the field.
-                boolean resultPosted = (decision == VoluntaryStraddleDialog.POST_STRADDLE);
+                boolean resultPosted = (decision == GameDecisionSink.POST_STRADDLE);
                 if (!fresh && recoverHostDecisionMismatch(this.straddle_recover_fossil_posted, resultPosted)) {
                     LOGGER.log(Level.SEVERE,
                             "ZERO-TRUST STRADDLE (recover): host RESULT (posted={0}) contradicts own fossil (posted={1}) for {2}",
@@ -14796,7 +14799,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // persists straddle_recovered_posted (set here); it equals straddle_posted once
                 // applyStraddlePost runs, but is known earlier. guardarFosilSRA still skips VISUAL@
                 // while straddle_cards_pending, so this doesn't clobber the deferred reveal.
-                this.straddle_recovered_posted = (decision == VoluntaryStraddleDialog.POST_STRADDLE);
+                this.straddle_recovered_posted = (decision == GameDecisionSink.POST_STRADDLE);
                 guardarFosilSRA();
                 stopStraddleCountdownBar();
                 if (!local_is_straddler && straddler instanceof RemotePlayer) {
@@ -14862,7 +14865,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            if (decision == VoluntaryStraddleDialog.POST_STRADDLE && !isFin_de_la_transmision() && released_ok) {
+            if (decision == GameDecisionSink.POST_STRADDLE
+                    && !isFin_de_la_transmision() && released_ok) {
                 // applyStraddlePost first flies the RED chip to the seat (blocks until it
                 // lands); then, fresh-hand only, the money chips fly to the pot (the usual
                 // yellow flash). The old mandatory straddle was folded into apuestas AND
@@ -14892,9 +14896,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         } finally {
             // Closes the local dialog if it was still open (idempotent).
-            VoluntaryStraddleDialog d = this.straddle_local_dialog;
+            GameDecisionSink.StraddleHandle d = this.straddle_local_dialog;
             if (d != null) {
-                d.cancel();
+                d.decline();
                 this.straddle_local_dialog = null;
             }
 
@@ -14930,37 +14934,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private int botStraddleDecision(Player bot) {
         double amount = Helpers.doubleClean(2 * this.ciega_grande);
         if (Helpers.doubleSecureCompare(bot.getStack(), 5 * amount) < 0) {
-            return VoluntaryStraddleDialog.NO_STRADDLE;
+            return GameDecisionSink.NO_STRADDLE;
         }
         return (Helpers.CSPRNG_GENERATOR.nextDouble() < BOT_STRADDLE_PROBABILITY)
-                ? VoluntaryStraddleDialog.POST_STRADDLE : VoluntaryStraddleDialog.NO_STRADDLE;
+                ? GameDecisionSink.POST_STRADDLE : GameDecisionSink.NO_STRADDLE;
     }
 
     // Shows the voluntary straddle dialog over the local UTG's (face-down) hole cards and
     // BLOCKS until the player decides (button) or the countdown expires (5s -> NO).
     // Returns 1 = post, 0 = no.
     private int promptStraddleLocal(Player straddler) {
-        final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
-        final int[] result = {VoluntaryStraddleDialog.NO_STRADDLE};
         final String amount_text = Helpers.money2String(straddleAmountFor(straddler));
-        final java.awt.Component c1 = straddler.getHoleCard1();
-        final java.awt.Component c2 = straddler.getHoleCard2();
-        Helpers.GUIRun(() -> {
-            VoluntaryStraddleDialog dlg = new VoluntaryStraddleDialog(c1, c2,
-                    STRADDLE_DECISION_TIMEOUT, amount_text, (ans) -> {
-                        result[0] = ans;
-                        latch.countDown();
-                    });
-            this.straddle_local_dialog = dlg;
-            dlg.showOn(GameFrame.getInstance().getTapete());
-        });
+        GameDecisionSink.StraddleHandle dialog = game_decisions.showStraddle(
+                STRADDLE_DECISION_TIMEOUT, amount_text);
+        this.straddle_local_dialog = dialog;
         try {
-            // The dialog auto-resolves at 5s (or sooner via button); +3s margin.
-            latch.await(STRADDLE_DECISION_TIMEOUT + 3, java.util.concurrent.TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
+            return dialog.decision().toCompletableFuture().get(
+                    STRADDLE_DECISION_TIMEOUT + 3L,
+                    java.util.concurrent.TimeUnit.SECONDS);
+        } catch (InterruptedException failure) {
             Thread.currentThread().interrupt();
+        } catch (Exception failure) {
+            LOGGER.log(Level.WARNING, "Voluntary straddle decision failed", failure);
         }
-        return result[0];
+        return GameDecisionSink.NO_STRADDLE;
     }
 
     // Straddle amount to DISPLAY: 2x the big blind, or the UTG's stack if it can't cover
@@ -15021,7 +15018,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
         }
-        return VoluntaryStraddleDialog.NO_STRADDLE;
+        return GameDecisionSink.NO_STRADDLE;
     }
 
     // Client: waits for the host's canonical STRADDLE_RESULT by draining received_commands
@@ -15048,7 +15045,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         "STRADDLE_RESULT requires exactly four fields");
                             }
                             int v = Integer.parseInt(partes[3]);
-                            if (v == VoluntaryStraddleDialog.NO_STRADDLE || v == VoluntaryStraddleDialog.POST_STRADDLE) {
+                            if (v == GameDecisionSink.NO_STRADDLE
+                                    || v == GameDecisionSink.POST_STRADDLE) {
                                 result = v;
                             } else {
                                 throw new IllegalArgumentException("invalid STRADDLE_RESULT value");

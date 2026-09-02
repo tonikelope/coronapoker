@@ -10,7 +10,7 @@ import com.tonikelope.coronapoker.LocalPlayer;
 import com.tonikelope.coronapoker.NewGameDialog;
 import com.tonikelope.coronapoker.Player;
 import com.tonikelope.coronapoker.RunItTwiceDialog;
-import com.tonikelope.coronapoker.VoluntaryStraddleDialog;
+import com.tonikelope.coronapoker.core.game.GameDecisionSink;
 import com.tonikelope.coronapoker.WaitingRoomFrame;
 import com.tonikelope.coronapoker.core.CoronaPokerApplication;
 import com.tonikelope.coronapoker.core.CoronaPokerBootstrap;
@@ -65,7 +65,7 @@ public final class RealGameNodeMain {
             new WeakHashMap<>());
     private static final Set<RunItTwiceDialog> RIT_DIALOGS_VOTED
             = java.util.Collections.newSetFromMap(new WeakHashMap<>());
-    private static final Set<VoluntaryStraddleDialog> STRADDLE_DIALOGS_ACCEPTED
+    private static final Set<GameDecisionSink.StraddleHandle> STRADDLE_DIALOGS_ACCEPTED
             = java.util.Collections.newSetFromMap(new WeakHashMap<>());
     private static final Set<NewGameDialog> RECOVERY_DIALOGS_SUBMITTED
             = java.util.Collections.newSetFromMap(new WeakHashMap<>());
@@ -839,7 +839,8 @@ public final class RealGameNodeMain {
         if (frame == null || frame.getCrupier() == null) {
             return;
         }
-        VoluntaryStraddleDialog dialog = frame.getCrupier().getStraddle_local_dialog();
+        GameDecisionSink.StraddleHandle dialog
+                = frame.getCrupier().getStraddle_local_dialog();
         if (dialog != null && STRADDLE_DIALOGS_ACCEPTED.add(dialog)) {
             dialog.accept();
             marker("STRADDLE_ACCEPTED", "nick=" + frame.getNick_local()

@@ -4489,6 +4489,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      */
     private void animateShowdownPayout() {
 
+        if (table_events.isAttached()) {
+            for (Player player : GameFrame.getInstance().getJugadores()) {
+                if (player == null) {
+                    continue;
+                }
+                double pay = Helpers.doubleClean(player.getPagar());
+                if (Helpers.doubleSecureCompare(0f, pay) < 0) {
+                    awaitAttachedTableEvent(sequence -> new TableVisualEvent.Payout(
+                            sequence, player.getNickname(), pay, 0),
+                            "Showdown payout presentation barrier failed");
+                }
+            }
+            return;
+        }
+
         if (GameFrame.TEST_MODE
                 || !GameFrame.apuestasAnimOn()
                 || GameFrame.RECOVER
@@ -21990,6 +22005,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return true;
     }
 
+    private boolean presentHoleCardsToAttachedRenderer(Player player) {
+        if (!table_events.isAttached()) {
+            return false;
+        }
+        Card left = player.getHoleCard1();
+        Card right = player.getHoleCard2();
+        TableSnapshot.CardSnapshot leftSnapshot = new TableSnapshot.CardSnapshot(
+                left.toShortString(), true, left.isDesenfocada());
+        TableSnapshot.CardSnapshot rightSnapshot = new TableSnapshot.CardSnapshot(
+                right.toShortString(), true, right.isDesenfocada());
+        awaitAttachedTableEvent(sequence -> new TableVisualEvent.RevealHoleCards(
+                sequence, player.getNickname(), leftSnapshot, rightSnapshot),
+                "Showdown hole-card presentation barrier failed");
+        player.destaparCartas(false);
+        return true;
+    }
+
     private void rejectCriticalShowdownMessage(String command, String detail, Exception error) {
         if (error == null) {
             LOGGER.log(Level.SEVERE, detail);
@@ -22944,24 +22976,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // falls after the previous player's neutral label). This way pass
                     // 2's verdicts land RIGHT as the last flip finishes, same as a
                     // multiway all-in.
-                    if (estaba_tapada && alguno_destapado && !GameFrame.TEST_MODE) {
+                    if (estaba_tapada && alguno_destapado && !GameFrame.TEST_MODE
+                            && !table_events.isAttached()) {
                         Helpers.pausar(PAUSA_ENTRE_DESTAPES_SHOWDOWN);
                     }
 
                     // Blocks until the flip finishes (crupier thread, like community
                     // cards).
-                    mostrarAnimacionDestaparCartasJugador(jugador_actual, false);
+                    if (!presentHoleCardsToAttachedRenderer(jugador_actual)) {
+                        mostrarAnimacionDestaparCartasJugador(jugador_actual, false);
+                    }
 
                     if (estaba_tapada) {
                         // Hand name on the NEUTRAL label (the label's resting gray,
                         // not the SHOW button's blue): shows WHAT they hold without
                         // giving away whether they win.
-                        if (jugador_actual instanceof RemotePlayer) {
+                        if (!table_events.isAttached() && jugador_actual instanceof RemotePlayer) {
                             ((RemotePlayer) jugador_actual).showJugadaNeutral(jugada.getName());
                         }
 
                         alguno_destapado = true;
-                    } else if (jugador_actual == GameFrame.getInstance().getLocalPlayer()) {
+                    } else if (!table_events.isAttached()
+                            && jugador_actual == GameFrame.getInstance().getLocalPlayer()) {
                         // LocalPlayer already sees its own cards face-up (no flip to
                         // animate), but its hand must still paint on the NEUTRAL label
                         // during the sequential uncover just like everyone else's.
@@ -23056,6 +23092,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     }
                 }
+
+                awaitAttachedTableEvent(sequence -> new TableVisualEvent.HandResult(
+                        sequence, jugador_actual.getNickname(),
+                        mustShow || isLocal ? jugada.getName() : "", isWinner),
+                        "Showdown-result presentation barrier failed");
             }
 
             // Record history to simulate bot "Tilt"

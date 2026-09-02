@@ -23,7 +23,8 @@ class NetworkLobbyGatewayTest {
         int port;
         try (ServerSocket reservation = new ServerSocket(0)) { port = reservation.getLocalPort(); }
         try (NetworkLobbyGateway hostGateway = new NetworkLobbyGateway(temporary.resolve("host"));
-             NetworkLobbyGateway clientGateway = new NetworkLobbyGateway(temporary.resolve("client"))) {
+             NetworkLobbyGateway clientGateway = new NetworkLobbyGateway(temporary.resolve("client"));
+             NetworkLobbyGateway lateGateway = new NetworkLobbyGateway(temporary.resolve("late"))) {
             LobbySession host = hostGateway.open(request(false, "Anfitrion", port))
                     .get(5, TimeUnit.SECONDS);
             LobbySession client = clientGateway.open(request(true, "Invitado", port))
@@ -32,6 +33,19 @@ class NetworkLobbyGatewayTest {
                 await(() -> host.snapshot().participants().size() == 2);
                 assertEquals(2, client.snapshot().participants().size());
                 assertEquals(host.snapshot().tableSettings(), client.snapshot().tableSettings());
+
+                LobbySession late = lateGateway.open(request(true, "Ultimo", port))
+                        .get(5, TimeUnit.SECONDS);
+                try {
+                    await(() -> late.snapshot().participants().size() == 3);
+                    assertTrue(late.snapshot().participants().stream()
+                            .anyMatch(participant -> participant.nickname().equals("Invitado")
+                                    && participant.secure()),
+                            "USERSLIST must preserve the existing peer's verified identity");
+                } finally {
+                    late.close();
+                }
+                await(() -> host.snapshot().participants().size() == 2);
 
                 client.submit(new LobbyCommand.SendText("hola mesa")).toCompletableFuture()
                         .get(2, TimeUnit.SECONDS);

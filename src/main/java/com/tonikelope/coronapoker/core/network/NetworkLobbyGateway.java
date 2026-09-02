@@ -148,7 +148,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             server.bind(new InetSocketAddress(port));
             transport.serverSocket = server;
             transport.peers.put(transport.localNickname,
-                    Peer.local(transport.localNickname, request.connection().avatar(), true));
+                    Peer.local(transport.localNickname, request.connection().avatar(), true,
+                            identity.publicKey(), identity.signJoin(sessionId)));
             LobbySession session = new LobbySession(transport.snapshot(
                     LobbySnapshot.Phase.WAITING_FOR_PLAYERS, ""), transport::submit, transport);
             transport.session = session;
@@ -173,9 +174,12 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             transport.serverNickname = connection.remoteNickname;
             transport.peers.put(connection.remoteNickname,
                     new Peer(connection.remoteNickname, connection.remoteAvatar, false, true,
-                            false, connection.secure, connection));
+                            false, connection.secure, connection,
+                            connection.remoteIdentityPublicKey,
+                            connection.remoteIdentitySignature));
             transport.peers.put(transport.localNickname,
-                    Peer.local(transport.localNickname, request.connection().avatar(), false));
+                    Peer.local(transport.localNickname, request.connection().avatar(), false,
+                            identity.publicKey(), identity.signJoin(connection.sessionId)));
             LobbySession session = new LobbySession(transport.snapshot(
                     LobbySnapshot.Phase.CONNECTED, ""), transport::submit, transport);
             transport.session = session;
@@ -225,6 +229,10 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 byte[] signature = Base64.getDecoder().decode(identityParts[3]);
                 connection.secure = PlayerIdentity.verifyJoin(sessionId,
                         connection.remoteNickname, key, signature);
+                if (connection.secure) {
+                    connection.remoteIdentityPublicKey = key;
+                    connection.remoteIdentitySignature = signature;
+                }
             }
             return connection;
         }
@@ -303,7 +311,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                             + "#" + Base64.getEncoder().encodeToString(identity.signJoin(sessionId)));
                     connection.writeEncrypted("*");
                     sendUsersList(connection);
-                    Peer peer = new Peer(nickname, avatar, false, false, false, true, connection);
+                    Peer peer = new Peer(nickname, avatar, false, false, false, true, connection,
+                            publicKey, signature);
                     peers.put(nickname, peer);
                     addPresence(nickname, LobbyChatMessage.Type.PLAYER_JOINED);
                     publish(LobbySnapshot.Phase.WAITING_FOR_PLAYERS, "");
@@ -360,7 +369,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             int number = 1;
             String nickname;
             do nickname = "CoronaBot$" + number++; while (peers.containsKey(nickname));
-            peers.put(nickname, new Peer(nickname, null, false, false, true, true, null));
+            peers.put(nickname, new Peer(nickname, null, false, false, true, true, null,
+                    null, null));
             addPresence(nickname, LobbyChatMessage.Type.PLAYER_JOINED);
             broadcastGame("NEWUSER#" + b64(nickname) + "#0", null);
             publish(currentPhase(), "");
@@ -465,7 +475,11 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     if (findNormalized(nickname) == null) {
                         boolean bot = nickname.startsWith("CoronaBot$");
                         Path avatar = parts.length > 5 ? saveAvatar(parts[5], nickname, coronaDirectory) : null;
-                        peers.put(nickname, new Peer(nickname, avatar, false, false, bot, true, null));
+                        Peer peer = remotePeer(nickname, avatar, false, bot,
+                                parts.length > 4 && "1".equals(parts[4]),
+                                parts.length > 6 ? parts[6] : "*",
+                                parts.length > 7 ? parts[7] : "*");
+                        peers.put(nickname, peer);
                         addPresence(nickname, LobbyChatMessage.Type.PLAYER_JOINED);
                         publish(currentPhase(), "");
                     }
@@ -478,7 +492,11 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         if (findNormalized(nickname) == null) {
                             boolean bot = nickname.startsWith("CoronaBot$");
                             Path avatar = user.length > 2 ? saveAvatar(user[2], nickname, coronaDirectory) : null;
-                            peers.put(nickname, new Peer(nickname, avatar, false, false, bot, true, null));
+                            Peer peer = remotePeer(nickname, avatar, false, bot,
+                                    user.length > 1 && "1".equals(user[1]),
+                                    user.length > 3 ? user[3] : "*",
+                                    user.length > 4 ? user[4] : "*");
+                            peers.put(nickname, peer);
                         }
                     }
                     publish(currentPhase(), "");
@@ -506,10 +524,38 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             for (Peer peer : peers.values()) {
                 if (peer.local || peer.connection == newcomer) continue;
                 if (users.length() > "USERSLIST#".length()) users.append('@');
+                byte[] avatar = readAvatar(peer.avatar);
                 users.append(b64(peer.nickname)).append('|').append(peer.secure ? '0' : '1')
-                        .append('|').append('*').append('|').append('*').append('|').append('*');
+                        .append('|').append(avatar == null ? "*" : Base64.getEncoder().encodeToString(avatar))
+                        .append('|').append(peer.identityPublicKey == null ? "*"
+                                : Base64.getEncoder().encodeToString(peer.identityPublicKey))
+                        .append('|').append(peer.identitySignature == null ? "*"
+                                : Base64.getEncoder().encodeToString(peer.identitySignature));
             }
             if (users.length() > "USERSLIST#".length()) sendGame(newcomer, users.toString());
+        }
+
+        private Peer remotePeer(String nickname, Path avatar, boolean peerHost, boolean bot,
+                boolean unsecure, String encodedKey, String encodedSignature) {
+            byte[] key = null;
+            byte[] signature = null;
+            boolean identityValid = bot;
+            if (!bot && !"*".equals(encodedKey) && !"*".equals(encodedSignature)) {
+                try {
+                    byte[] candidateKey = Base64.getDecoder().decode(encodedKey);
+                    byte[] candidateSignature = Base64.getDecoder().decode(encodedSignature);
+                    if (PlayerIdentity.verifyJoin(sessionId, nickname,
+                            candidateKey, candidateSignature)) {
+                        key = candidateKey;
+                        signature = candidateSignature;
+                        identityValid = true;
+                    }
+                } catch (IllegalArgumentException ignored) {
+                    // Keep the participant visible but explicitly mark its identity as unverified.
+                }
+            }
+            return new Peer(nickname, avatar, false, peerHost, bot,
+                    !unsecure && identityValid, null, key, signature);
         }
 
         private void broadcastGame(String body, Connection except) throws Exception {
@@ -605,6 +651,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private String remoteNickname;
         private Path remoteAvatar;
         private boolean secure;
+        private byte[] remoteIdentityPublicKey;
+        private byte[] remoteIdentitySignature;
         private String gameInfo;
         private String gameConfig;
 
@@ -635,10 +683,17 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
     }
 
     private record Peer(String nickname, Path avatar, boolean local, boolean host,
-            boolean bot, boolean secure, Connection connection) {
+            boolean bot, boolean secure, Connection connection,
+            byte[] identityPublicKey, byte[] identitySignature) {
+        private Peer {
+            identityPublicKey = identityPublicKey == null ? null : identityPublicKey.clone();
+            identitySignature = identitySignature == null ? null : identitySignature.clone();
+        }
         boolean connected() { return connection == null ? bot || local : !connection.socket.isClosed(); }
-        static Peer local(String nickname, Path avatar, boolean host) {
-            return new Peer(nickname, avatar, true, host, false, true, null);
+        static Peer local(String nickname, Path avatar, boolean host,
+                byte[] identityPublicKey, byte[] identitySignature) {
+            return new Peer(nickname, avatar, true, host, false, true, null,
+                    identityPublicKey, identitySignature);
         }
     }
 

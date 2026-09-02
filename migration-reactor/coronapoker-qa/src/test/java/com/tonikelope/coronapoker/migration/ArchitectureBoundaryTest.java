@@ -71,7 +71,9 @@ final class ArchitectureBoundaryTest {
 
         assertTrue(swingLauncher.contains("CoronaPokerBootstrap.createApplication()"));
         assertTrue(gdxLauncher.contains("CoronaPokerBootstrap.createApplication()"));
-        assertTrue(gdxLauncher.contains("CoronaPokerGdxLauncher.main(args)"));
+        assertTrue(gdxLauncher.contains("new GdxApplicationShell"));
+        assertTrue(gdxLauncher.contains("new Lwjgl3Application"));
+        assertFalse(gdxLauncher.contains("CoronaPokerGdxLauncher.main(args)"));
         assertFalse(gdxLauncher.contains("new CoronaPokerGdxDemo"));
     }
 

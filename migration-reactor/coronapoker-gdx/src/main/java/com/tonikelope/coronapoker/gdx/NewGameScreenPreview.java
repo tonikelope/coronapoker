@@ -20,7 +20,11 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.tonikelope.coronapoker.core.NewGameConnectionDraft;
+import com.tonikelope.coronapoker.core.NewGameRequest;
+import com.tonikelope.coronapoker.core.NewGameSessionGateway;
+import com.tonikelope.coronapoker.core.NewGameSubmissionCoordinator;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
+import com.tonikelope.coronapoker.core.PreferencesService;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -28,12 +32,14 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletionException;
+import java.util.function.Consumer;
 
 /**
- * Interactive visual-only preview of the real NewGameDialog inventory.
- *
- * This class cannot create a game and is not reachable from GdxLauncher. It is
- * intentionally isolated until the form is backed by the neutral core model.
+ * Native menu and staged NewGameDialog replacement. The preview launcher uses
+ * the same screen without a session gateway; production injects the real
+ * asynchronous handoff owned by the application shell.
  */
 final class NewGameScreenPreview extends ApplicationAdapter implements InputProcessor {
 
@@ -57,6 +63,9 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
     private final Map<String, Float> hoverAnimations = new HashMap<>();
     private final GlyphLayout glyph = new GlyphLayout();
     private final Vector2 pointer = new Vector2();
+    private final Properties initialProperties;
+    private final NewGameSubmissionCoordinator submissions;
+    private final Consumer<NewGameRequest> sessionAccepted;
     private NewGameConnectionDraft connection;
     private NewGameTableDraft table = new NewGameTableDraft();
     private SpriteBatch batch;
@@ -78,28 +87,63 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
     private Hit pressedHit;
     private Surface surface;
     private int historyIndex = -1;
+    private boolean disposed;
 
     NewGameScreenPreview() {
-        this(defaultConnection(NewGameConnectionDraft.Mode.CREATE), false);
+        this(previewProperties(), null, null, false);
     }
 
     NewGameScreenPreview(NewGameConnectionDraft connection) {
-        this(connection, false);
+        this(connection, previewProperties(), null, request -> { }, false);
     }
 
     NewGameScreenPreview(boolean startAtMenu) {
-        this(defaultConnection(NewGameConnectionDraft.Mode.CREATE), startAtMenu);
+        this(previewProperties(), null, null, startAtMenu);
     }
 
-    private NewGameScreenPreview(NewGameConnectionDraft connection, boolean startAtMenu) {
+    NewGameScreenPreview(PreferencesService preferences,
+            NewGameSessionGateway gateway,
+            Consumer<NewGameRequest> sessionAccepted) {
+        this(Objects.requireNonNull(preferences, "preferences").properties(),
+                preferences, Objects.requireNonNull(gateway, "gateway"), true,
+                Objects.requireNonNull(sessionAccepted, "sessionAccepted"));
+    }
+
+    private NewGameScreenPreview(Properties properties,
+            PreferencesService preferences, NewGameSessionGateway gateway,
+            boolean startAtMenu) {
+        this(properties, preferences, gateway, startAtMenu, request -> { });
+    }
+
+    private NewGameScreenPreview(Properties properties,
+            PreferencesService preferences, NewGameSessionGateway gateway,
+            boolean startAtMenu, Consumer<NewGameRequest> sessionAccepted) {
+        this(defaultConnection(properties, NewGameConnectionDraft.Mode.CREATE),
+                properties,
+                preferences == null ? null
+                        : new NewGameSubmissionCoordinator(preferences, gateway),
+                sessionAccepted, startAtMenu);
+    }
+
+    private NewGameScreenPreview(NewGameConnectionDraft connection,
+            Properties properties, NewGameSubmissionCoordinator submissions,
+            Consumer<NewGameRequest> sessionAccepted, boolean startAtMenu) {
         this.connection = Objects.requireNonNull(connection, "connection");
+        initialProperties = Objects.requireNonNull(properties, "properties");
+        this.submissions = submissions;
+        this.sessionAccepted = Objects.requireNonNull(sessionAccepted, "sessionAccepted");
         surface = startAtMenu ? Surface.MENU : Surface.NEW_GAME;
     }
 
-    private static NewGameConnectionDraft defaultConnection(NewGameConnectionDraft.Mode mode) {
+    private static Properties previewProperties() {
         Properties defaults = new Properties();
         defaults.setProperty("nick", "Jugador");
-        return NewGameConnectionDraft.from(defaults, mode);
+        return defaults;
+    }
+
+    private static NewGameConnectionDraft defaultConnection(Properties properties,
+            NewGameConnectionDraft.Mode mode) {
+        return NewGameConnectionDraft.from(properties, mode);
     }
 
     @Override
@@ -237,7 +281,7 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
     }
 
     private void openNewGame(NewGameConnectionDraft.Mode mode) {
-        connection = defaultConnection(mode);
+        connection = defaultConnection(initialProperties, mode);
         table = new NewGameTableDraft();
         page = 0;
         activeField = null;
@@ -512,28 +556,83 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
     }
 
     private void drawFooter() {
+        boolean submitting = submissions != null && submissions.submitting();
+        if (submitting) {
+            // The immutable request is already in flight. Keep only Cancel
+            // interactive so the visible form cannot drift from that request.
+            hits.clear();
+            activeField = null;
+        }
         shapes.setColor(LINE);
         shapes.rect(0f, 129f, WIDTH, 1f);
         keyHint(430f, 55f, "ESC", "CERRAR");
         button(1165f, 31f, 250f, 70f, "CANCELAR", false,
-                () -> surface = Surface.MENU);
+                this::cancelOrReturnToMenu);
         button(1445f, 31f, 410f, 70f,
-                connection.mode() == NewGameConnectionDraft.Mode.JOIN
-                        ? "UNIRME A TIMBA" : "CREAR TIMBA", true,
-                this::validatePreviewSubmission);
+                submitting ? "CONECTANDO…"
+                        : connection.mode() == NewGameConnectionDraft.Mode.JOIN
+                                ? "UNIRME A TIMBA" : "CREAR TIMBA",
+                true, this::submitNewGame, !submitting);
     }
 
-    private void validatePreviewSubmission() {
+    private void submitNewGame() {
         if (!connection.canSubmit()) {
             showToast("Faltan campos o la recuperación todavía no está lista");
             return;
         }
-        connection.beginSubmission();
-        if (connection.mode() != NewGameConnectionDraft.Mode.JOIN) {
-            table.snapshot();
+        if (submissions == null) {
+            connection.beginSubmission();
+            if (connection.mode() != NewGameConnectionDraft.Mode.JOIN) {
+                table.snapshot();
+            }
+            connection.submissionFailed();
+            showToast("Configuración validada · la preview no inicia la sesión");
+            return;
         }
-        connection.submissionFailed();
-        showToast("Configuración validada · la preview no inicia la sesión");
+        try {
+            submissions.submit(connection, table).whenComplete((request, failure) ->
+                    Gdx.app.postRunnable(() -> completeSubmission(request, failure)));
+            showToast("Conectando con la sala de espera…");
+        } catch (RuntimeException failure) {
+            showToast(submissionError(failure));
+        }
+    }
+
+    private void completeSubmission(NewGameRequest request, Throwable failure) {
+        if (disposed) {
+            return;
+        }
+        Throwable cause = unwrap(failure);
+        if (cause == null) {
+            sessionAccepted.accept(request);
+        } else if (cause instanceof CancellationException) {
+            surface = Surface.MENU;
+            activeField = null;
+        } else {
+            showToast(submissionError(cause));
+        }
+    }
+
+    private void cancelOrReturnToMenu() {
+        if (submissions != null && submissions.submitting()) {
+            if (submissions.cancel()) {
+                showToast("Cancelando conexión…");
+            }
+            return;
+        }
+        activeField = null;
+        surface = Surface.MENU;
+    }
+
+    private static Throwable unwrap(Throwable failure) {
+        return failure instanceof CompletionException completion
+                && completion.getCause() != null ? completion.getCause() : failure;
+    }
+
+    private static String submissionError(Throwable failure) {
+        String message = failure.getMessage();
+        return message == null || message.isBlank()
+                ? "No se pudo abrir la sala de espera" : message;
     }
 
     private void drawToast() {
@@ -674,7 +773,12 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
 
     private void button(float x, float y, float w, float h, String label,
             boolean primary, Runnable action) {
-        boolean hover = hovered(x, y, w, h);
+        button(x, y, w, h, label, primary, action, true);
+    }
+
+    private void button(float x, float y, float w, float h, String label,
+            boolean primary, Runnable action, boolean enabled) {
+        boolean hover = enabled && hovered(x, y, w, h);
         float hoverTarget = hover ? 1f : 0f;
         float hoverAmount = hoverAnimations.getOrDefault(label, hoverTarget);
         hoverAmount += (hoverTarget - hoverAmount)
@@ -691,8 +795,8 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
             roundedRect(x - 4f * hoverAmount, y - 4f * hoverAmount,
                     w + 8f * hoverAmount, h + 8f * hoverAmount, 18f);
         }
-        Color border = primary ? GOLD : hover ? CYAN : CYAN_DARK;
-        Color fill = pressed(x, y, w, h)
+        Color border = !enabled ? LINE : primary ? GOLD : hover ? CYAN : CYAN_DARK;
+        Color fill = enabled && pressed(x, y, w, h)
                 ? new Color(0x07111fd9)
                 : primary ? new Color(ORANGE.r, ORANGE.g, ORANGE.b, 0.84f)
                 : new Color(PANEL_LIGHT);
@@ -703,11 +807,14 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
             shapes.setColor(new Color(0x6d4300aa));
             shapes.rect(x + 18f, y + 6f, w - 36f, 3f);
         }
-        Color labelColor = primary && !pressed(x, y, w, h)
-                ? new Color(0x07111fff) : primary ? GOLD : CYAN;
+        Color labelColor = !enabled ? DISABLED
+                : primary && !pressed(x, y, w, h)
+                        ? new Color(0x07111fff) : primary ? GOLD : CYAN;
         textFit(actionFont, label, x + w / 2f, y + h / 2f + 8f,
                 labelColor, true, w - 30f);
-        hit(x, y, w, h, action);
+        if (enabled) {
+            hit(x, y, w, h, action);
+        }
     }
 
     private void backButton(float x, float y, float w, float h,
@@ -971,8 +1078,7 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
         }
         if (keycode == Input.Keys.ESCAPE) {
             if (surface == Surface.NEW_GAME) {
-                activeField = null;
-                surface = Surface.MENU;
+                cancelOrReturnToMenu();
             } else {
                 Gdx.app.exit();
             }
@@ -1051,6 +1157,10 @@ final class NewGameScreenPreview extends ApplicationAdapter implements InputProc
 
     @Override
     public void dispose() {
+        disposed = true;
+        if (submissions != null) {
+            submissions.cancel();
+        }
         batch.dispose();
         shapes.dispose();
         feltTexture.dispose();

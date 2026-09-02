@@ -2,7 +2,9 @@ package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.utils.ScreenUtils;
+import com.tonikelope.coronapoker.core.CoronaPokerApplication;
+import com.tonikelope.coronapoker.core.NewGameSessionGateway;
+import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.table.TableCommandSink;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import java.util.Objects;
@@ -17,10 +19,16 @@ final class GdxApplicationShell extends ApplicationAdapter {
             new AtomicReference<>();
 
     private final int refreshRate;
+    private final CoronaPokerApplication application;
+    private final NewGameSessionGateway sessionGateway;
+    private NewGameScreenPreview menu;
     private CoronaPokerGdxTable table;
 
-    GdxApplicationShell(int refreshRate) {
+    GdxApplicationShell(int refreshRate, CoronaPokerApplication application,
+            NewGameSessionGateway sessionGateway) {
         this.refreshRate = refreshRate;
+        this.application = Objects.requireNonNull(application, "application");
+        this.sessionGateway = Objects.requireNonNull(sessionGateway, "sessionGateway");
     }
 
     static GdxApplicationShell active() {
@@ -40,13 +48,17 @@ final class GdxApplicationShell extends ApplicationAdapter {
         if (!ACTIVE.compareAndSet(null, this)) {
             throw new IllegalStateException("Only one GDX application shell may be active");
         }
+        menu = new NewGameScreenPreview(
+                application.service(PreferencesService.class), sessionGateway,
+                request -> application.sessionOpened());
+        menu.create();
     }
 
     @Override
     public void render() {
         CoronaPokerGdxTable current = table;
         if (current == null) {
-            ScreenUtils.clear(0.01f, 0.025f, 0.055f, 1f);
+            menu.render();
         } else {
             current.render();
         }
@@ -57,6 +69,8 @@ final class GdxApplicationShell extends ApplicationAdapter {
         CoronaPokerGdxTable current = table;
         if (current != null) {
             current.resize(width, height);
+        } else if (menu != null) {
+            menu.resize(width, height);
         }
     }
 
@@ -92,6 +106,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
             if (table == expected && table != null) {
                 table.dispose();
                 table = null;
+                Gdx.input.setInputProcessor(menu);
             }
         });
     }
@@ -102,6 +117,10 @@ final class GdxApplicationShell extends ApplicationAdapter {
         table = null;
         if (current != null) {
             current.dispose();
+        }
+        if (menu != null) {
+            menu.dispose();
+            menu = null;
         }
         ACTIVE.compareAndSet(this, null);
     }

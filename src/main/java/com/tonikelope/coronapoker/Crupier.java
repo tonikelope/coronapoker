@@ -51,7 +51,6 @@ import com.tonikelope.coronapoker.core.LobbySnapshot;
 
 import static com.tonikelope.coronapoker.Card.BARAJAS;
 import static com.tonikelope.coronapoker.GameFrame.WAIT_QUEUES;
-import java.awt.Color;
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -85,7 +84,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.ImageIcon;
 
 /**
  * @author tonikelope
@@ -10835,95 +10833,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             final boolean[] gif_thread_done = {false};
 
             if (!attached_shuffle_presentation) {
-                Helpers.threadRun(() -> {
-                // Open (once) and reuse the shuffle audio line BEFORE animating and off the EDT:
-                // starting the sound on each GIF pass will be instant, with no per-cycle open
-                // that could lag and end up silent.
-                if (!isFin_de_la_transmision()) {
-                    Audio.preloadWav("misc/shuffle.wav");
-                }
-
-                URL url_icon = shuffleGifUrl();
-                if (url_icon != null && GameFrame.barajadoAnimOn()) {
-
-                    // Pre-decoded engine with catch-up, also used for the shuffle: a single
-                    // decode per deck (normally already warmed up at startup/deck change; the
-                    // old Toolkit animator used to re-decode the whole GIF on EVERY loop cycle
-                    // due to the flush) with cycles always at nominal duration even under a
-                    // coarse Windows timer. Falls back to the legacy path if the GIF can't be
-                    // pre-decoded (or exceeds the RAM cap).
-                    PreRenderedGif shuffle_anim = getShuffleAnim(url_icon);
-
-                    Helpers.GUIRunAndWait(() -> {
-                        GameFrame.getInstance().getTapete().getCommunityCards().setVisible(false);
-                    });
-
-                    if (shuffle_anim != null) {
-                        // Loops until the SRA cascade finishes, with a minimum of 1 full cycle
-                        // (the predicate is only checked at cycle end) and audio re-triggered
-                        // each cycle, like the legacy do-while.
-                        GameFrame.getInstance().getTapete().showCentralFramesLoop(shuffle_anim,
-                                shuffle_anim.getWidth(), shuffle_anim.getHeight(),
-                                GameFrame.shuffleSound(), SHUFFLE_AUDIO_STOP_FRAME, () -> barajando);
-                    } else {
-                        ImageIcon icon = new ImageIcon(url_icon);
-                        // Loop the shuffle GIF until the SRA cascade finishes (min 1
-                        // full pass thanks to the do-while). The audio is synced to
-                        // each GIF pass with the pre-opened clip: start at the pass
-                        // start, stop when the pass (showCentralImage) returns.
-                        do {
-                            if (GameFrame.barajadoSonidoOn()) {
-                                Audio.playPreloadedWav("misc/shuffle.wav");
+                table_display.playShuffleLoop(
+                        GameFrame.barajadoAnimOn(),
+                        GameFrame.barajadoSonidoOn(),
+                        () -> barajando && !isFin_de_la_transmision(),
+                        () -> {
+                            synchronized (shuffle_lock) {
+                                gif_thread_done[0] = true;
+                                shuffle_lock.notifyAll();
                             }
-                            GameFrame.getInstance().getTapete().showCentralImage(icon, 0, 0, true, null, 0, 0);
-                            Audio.stopPreloadedWav("misc/shuffle.wav");
-                        } while (barajando && !isFin_de_la_transmision());
-                    }
-
-                    if (!isFin_de_la_transmision()) {
-                        Helpers.GUIRunAndWait(() -> {
-                            GameFrame.getInstance().getTapete().getCommunityCards().setVisible(true);
                         });
-                    }
-                } else if (!isFin_de_la_transmision()) {
-                    // No shuffle GIF (the deck ships none, or animations are disabled): hide the
-                    // community cards — same as the GIF path — and show "SHUFFLING" centered
-                    // where the GIF would go, at the community-cards panel width, while the
-                    // shuffle sound loops.
-                    Helpers.GUIRunAndWait(() -> {
-                        GameFrame.getInstance().getTapete().getCommunityCards().setVisible(false);
-                        GameFrame.getInstance().getTapete().showShufflingText();
-                    });
-                    // playWavResourceAndWait blocks for the natural duration of the clip, so
-                    // the do-while replays it back-to-back with no silence in between, while
-                    // the "BARAJANDO" label stays up. Minimum 1 play guaranteed.
-                    do {
-                        if (GameFrame.barajadoSonidoOn()) {
-                            Audio.playWavResourceAndWait("misc/shuffle.wav");
-                        } else {
-                            // No shuffle sound: the clip's blocking wait no longer paces the loop,
-                            // so pause instead of busy-spinning while the "SHUFFLING" label stays
-                            // up until the SRA cascade finishes.
-                            Helpers.pausar(300);
-                        }
-                    } while (barajando && !isFin_de_la_transmision());
-
-                    // Hiding the label is ALWAYS safe (the shuffle has finished); restore the
-                    // community cards only if the transmission hasn't ended (same as the GIF path).
-                    Helpers.GUIRunAndWait(() -> {
-                        GameFrame.getInstance().getTapete().hideShufflingText();
-                        if (!isFin_de_la_transmision()) {
-                            GameFrame.getInstance().getTapete().getCommunityCards().setVisible(true);
-                        }
-                    });
-                }
-                synchronized (shuffle_lock) {
-                    gif_thread_done[0] = true;
-                    shuffle_lock.notifyAll();
-                }
-                });
             }
-
             if (gameSession().isHost() && this.game_recovered == 0) {
 
                 try {

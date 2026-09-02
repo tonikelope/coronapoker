@@ -4867,6 +4867,74 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     roll.start();
                 });
             }
+
+            @Override
+            public void playShuffleLoop(boolean animationEnabled,
+                    boolean soundEnabled,
+                    java.util.function.BooleanSupplier keepRunning,
+                    Runnable onComplete) {
+                Helpers.threadRun(() -> {
+                    try {
+                        if (crupier == null
+                                || crupier.isFin_de_la_transmision()) {
+                            return;
+                        }
+                        Audio.preloadWav("misc/shuffle.wav");
+                        URL source = Crupier.shuffleGifUrl();
+                        if (source != null && animationEnabled) {
+                            PreRenderedGif animation
+                                    = Crupier.getShuffleAnim(source);
+                            Helpers.GUIRunAndWait(() -> tapete
+                                    .getCommunityCards().setVisible(false));
+                            if (animation != null) {
+                                tapete.showCentralFramesLoop(animation,
+                                        animation.getWidth(), animation.getHeight(),
+                                        GameFrame.shuffleSound(),
+                                        Crupier.SHUFFLE_AUDIO_STOP_FRAME,
+                                        keepRunning);
+                            } else {
+                                ImageIcon icon = new ImageIcon(source);
+                                do {
+                                    if (soundEnabled) {
+                                        Audio.playPreloadedWav("misc/shuffle.wav");
+                                    }
+                                    tapete.showCentralImage(
+                                            icon, 0, 0, true, null, 0, 0);
+                                    Audio.stopPreloadedWav("misc/shuffle.wav");
+                                } while (keepRunning.getAsBoolean());
+                            }
+                            if (crupier != null
+                                    && !crupier.isFin_de_la_transmision()) {
+                                Helpers.GUIRunAndWait(() -> tapete
+                                        .getCommunityCards().setVisible(true));
+                            }
+                        } else if (crupier != null
+                                && !crupier.isFin_de_la_transmision()) {
+                            Helpers.GUIRunAndWait(() -> {
+                                tapete.getCommunityCards().setVisible(false);
+                                tapete.showShufflingText();
+                            });
+                            do {
+                                if (soundEnabled) {
+                                    Audio.playWavResourceAndWait(
+                                            "misc/shuffle.wav");
+                                } else {
+                                    Helpers.pausar(300);
+                                }
+                            } while (keepRunning.getAsBoolean());
+                            Helpers.GUIRunAndWait(() -> {
+                                tapete.hideShufflingText();
+                                if (crupier != null
+                                        && !crupier.isFin_de_la_transmision()) {
+                                    tapete.getCommunityCards().setVisible(true);
+                                }
+                            });
+                        }
+                    } finally {
+                        onComplete.run();
+                    }
+                });
+            }
         };
         GameWindowSink gameWindow = new GameWindowSink() {
             @Override

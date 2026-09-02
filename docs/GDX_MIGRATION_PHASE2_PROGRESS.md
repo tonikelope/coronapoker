@@ -48,6 +48,16 @@ Status: **in progress; phase-2 exit criteria are not yet satisfied**
   its prototype audiovisual playback. Its production `AudioService` backend is
   therefore still silent; unifying that ownership without altering the
   canonical renderer remains a phase-2 task.
+- Moved the application version and latest-release URI to neutral
+  `ApplicationMetadata`, retaining the current visible version `24.10`.
+- Extracted CoronaPoker release discovery into `UpdateService`: both launchers
+  own the same service, checks are serialized on a process-owned daemon,
+  distinguish available/current/unavailable results, preserve three silent
+  attempts with a 10-second per-attempt bound and are cancelled on shutdown.
+  Swing now only maps that typed result to its existing controls and dialogs.
+- Updater download/process handoff and MOD update checks still use the legacy
+  Swing/`Helpers` path. The frontend-network exit criterion is therefore not
+  yet satisfied by this incremental extraction.
 - Preserved the classic direct entry point: `Init.main` delegates to
   `SwingLauncher`.
 
@@ -60,15 +70,16 @@ Commits:
 - `407d642fc refactor(core): own sqlite connection lifecycle`
 - `bc6ef8880 refactor(core): own persistent preferences`
 - `ddd5ef521 refactor(core): own process audio lifecycle`
+- `a335eec36 refactor(core): own release update checks`
 
 ## Verification
 
 - `mvn -f migration-reactor/pom.xml ... clean verify`: success for all six
   reactor projects.
-- Core lifecycle/bootstrap/service tests: 12 passed, including connection
+- Core lifecycle/bootstrap/service tests: 14 passed, including connection
   release/reopen, permanent process close, failure cleanup, atomic preference
   persistence, deferred shutdown flush, corrupt-file rescue, exactly-once audio
-  activation and failed-activation cleanup.
+  activation, failed-activation cleanup and typed update retry/outcome behavior.
 - Migration architecture tests: 4 passed, including the neutral import
   boundary, dependency direction, canonical demo source and common bootstrap
   launcher wiring.
@@ -86,8 +97,8 @@ Final artifacts for this increment:
 
 | Artifact | Bytes | SHA-256 |
 |---|---:|---|
-| `dist/CoronaPoker-24.11-swing.jar` | 430,072,787 | `7AA690758FA3E8A0CC48C739BE7B290B2AF4068EEFCD70BC3B92A429153D8990` |
-| `dist/CoronaPoker-24.11-gdx.jar` | 432,469,615 | `50F03BA8BB21B73D061694AF4D0642018D2386AEE7999BEC5DD4CC277F61A1A9` |
+| `dist/CoronaPoker-24.11-swing.jar` | 430,082,265 | `421A58CEDBF316A80F5D0C48A6C5DCB9D7E28538DDEFC8264149C470477AE52F` |
+| `dist/CoronaPoker-24.11-gdx.jar` | 432,478,074 | `EDBBFEBA199AEB96FE0F79373258A665FF53E174F93372ECA5ED6B0DE4D5CBCD` |
 
 ## Still pending in phase 2
 
@@ -96,7 +107,8 @@ Final artifacts for this increment:
 - Extract identity/crypto orchestration beyond the process CSPRNG.
 - Replace the transitional `Helpers.PROPERTIES`/`SwingServiceBridge` exposure
   with typed configuration and appearance projections.
-- Extract updates as a typed shared service.
+- Move updater download/process handoff and MOD update networking out of Swing
+  and `Helpers` into typed process services.
 - Connect GDX audiovisual playback to the process `AudioService` without
   changing or approximating the canonical demo renderer and without starting
   a second music/audio owner.

@@ -17,9 +17,11 @@ original path.
 
 As of 2026-09-02 both frontend launchers use `CoronaPokerBootstrap`. The shared
 bootstrap owns the process CSPRNG, SQLite connection lifecycle, persistent
-preferences and the audio lifecycle/activation boundary. Schema and integrity
-orchestration, identity, updates and the concrete GDX audio backend still
-belong outside the neutral core or remain placeholders and must be extracted
-one at a time with characterization tests. This exception is removed only when
-those concrete services are owned by the shared bootstrap; the presence of
-both launchers by itself does not satisfy the phase-2 exit criteria.
+preferences, the audio lifecycle/activation boundary, application metadata and
+CoronaPoker release discovery. Schema and integrity orchestration, identity,
+updater download/process handoff, MOD update networking and the concrete GDX
+audio backend still belong outside the neutral core or remain placeholders and
+must be extracted one at a time with characterization tests. This exception is
+removed only when those concrete services are owned by the shared bootstrap;
+the presence of both launchers by itself does not satisfy the phase-2 exit
+criteria.

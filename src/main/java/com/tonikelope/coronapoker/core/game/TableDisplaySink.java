@@ -111,6 +111,12 @@ public interface TableDisplaySink {
 
     void showLoser(String nickname, String message);
 
+    void preparePlayerReveal(String nickname);
+
+    void revealPlayerCards(String nickname, boolean sound);
+
+    void showNeutralHand(String nickname, String handName);
+
     void preparePositionRotation(
             List<TableVisualEvent.PositionTransfer> transfers);
 
@@ -267,6 +273,18 @@ public interface TableDisplaySink {
 
             @Override
             public void showLoser(String nickname, String message) {
+            }
+
+            @Override
+            public void preparePlayerReveal(String nickname) {
+            }
+
+            @Override
+            public void revealPlayerCards(String nickname, boolean sound) {
+            }
+
+            @Override
+            public void showNeutralHand(String nickname, String handName) {
             }
 
             @Override

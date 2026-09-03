@@ -4807,6 +4807,32 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
             }
 
+            @Override
+            public void preparePlayerReveal(String nickname) {
+                Player seat = player(nickname);
+                if (seat instanceof RemotePlayer remote) {
+                    remote.prepararDestapeAnimado();
+                }
+            }
+
+            @Override
+            public void revealPlayerCards(String nickname, boolean sound) {
+                Player seat = player(nickname);
+                if (seat != null) {
+                    seat.destaparCartas(sound);
+                }
+            }
+
+            @Override
+            public void showNeutralHand(String nickname, String handName) {
+                Player seat = player(nickname);
+                if (seat instanceof RemotePlayer remote) {
+                    remote.showJugadaNeutral(handName);
+                } else if (seat instanceof LocalPlayer local) {
+                    local.showJugadaNeutral(handName);
+                }
+            }
+
             private ImageIcon positionChip(
                     com.tonikelope.coronapoker.table.TableSnapshot.Position position) {
                 return switch (position) {

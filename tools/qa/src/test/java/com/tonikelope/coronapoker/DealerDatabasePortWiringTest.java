@@ -36,12 +36,17 @@ final class DealerDatabasePortWiringTest {
         assertTrue(dealer.contains("table_display.showLoser("));
         assertTrue(dealer.contains("table_display.showPlayerCards("));
         assertTrue(dealer.contains("table_display.resetPlayer("));
+        assertTrue(dealer.contains("table_display.revealPlayerCards("));
+        assertTrue(dealer.contains("table_display.showNeutralHand("));
         assertFalse(dealerCode.contains(".setWinner("));
         assertFalse(dealerCode.contains(".setLoser("));
         assertFalse(dealerCode.contains(".showCards("));
         assertFalse(dealerCode.contains(".resetGUI("));
         assertFalse(dealerCode.contains(".refreshPos("));
         assertFalse(dealerCode.contains(".refreshPositionChipIcons("));
+        assertFalse(dealerCode.contains(".destaparCartas("));
+        assertFalse(dealerCode.contains(".prepararDestapeAnimado("));
+        assertFalse(dealerCode.contains(".showJugadaNeutral("));
     }
 
     private static Path root() {

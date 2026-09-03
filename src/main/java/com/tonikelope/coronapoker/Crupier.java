@@ -21137,7 +21137,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return;
             }
 
-            jugador.prepararDestapeAnimado();
+            table_display.preparePlayerReveal(jugador.getNickname());
 
             c1.destapar();
             c2.destapar(false);
@@ -21171,7 +21171,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 && c2.isIniciadaConValor() && c2.isTapada();
 
         if (!destapable) {
-            jugador.destaparCartas(sound);
+            table_display.revealPlayerCards(jugador.getNickname(), sound);
+            jugador.getHoleCard1().destapar(false);
+            jugador.getHoleCard2().destapar(false);
             return;
         }
 
@@ -21227,7 +21229,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     return;
                 }
 
-                rp.prepararDestapeAnimado();
+                table_display.preparePlayerReveal(rp.getNickname());
 
                 // The player's TWO hole cards flip AT ONCE in a single call
                 // (playCardFlipOverlays already animates several cards in parallel,
@@ -21252,7 +21254,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } finally {
                 // Whatever happens with the animation, the logical uncover is
                 // mandatory (no-op if destaparSync already flipped the cards).
-                jugador.destaparCartas(false);
+                table_display.revealPlayerCards(jugador.getNickname(), false);
+                jugador.getHoleCard1().destapar(false);
+                jugador.getHoleCard2().destapar(false);
             }
         }
     }
@@ -21580,7 +21584,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.RevealHoleCards(
                 sequence, player.getNickname(), leftSnapshot, rightSnapshot),
                 "Showdown hole-card presentation barrier failed");
-        player.destaparCartas(false);
+        table_display.revealPlayerCards(player.getNickname(), false);
+        player.getHoleCard1().destapar(false);
+        player.getHoleCard2().destapar(false);
         return true;
     }
 
@@ -22551,7 +22557,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // not the SHOW button's blue): shows WHAT they hold without
                         // giving away whether they win.
                         if (!table_events.isAttached() && jugador_actual instanceof RemotePlayer) {
-                            ((RemotePlayer) jugador_actual).showJugadaNeutral(jugada.getName());
+                            table_display.showNeutralHand(jugador_actual.getNickname(), jugada.getName());
                         }
 
                         alguno_destapado = true;
@@ -22560,7 +22566,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // LocalPlayer already sees its own cards face-up (no flip to
                         // animate), but its hand must still paint on the NEUTRAL label
                         // during the sequential uncover just like everyone else's.
-                        ((LocalPlayer) jugador_actual).showJugadaNeutral(jugada.getName());
+                        table_display.showNeutralHand(jugador_actual.getNickname(), jugada.getName());
                     }
                 }
 

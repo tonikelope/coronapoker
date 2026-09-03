@@ -24,6 +24,10 @@ final class DealerDatabasePortWiringTest {
         assertFalse(dealer.contains("Helpers.getSQLITE()"));
         assertTrue(adapter.contains("return GameFrame.SQL_LOCK"));
         assertTrue(adapter.contains("return Helpers.getSQLITE()"));
+        assertTrue(dealer.contains("host_configuration.create(this.getUGI())"));
+        assertFalse(dealer.contains("GameConfigWireV1.fromGlobals()"));
+        assertFalse(dealer.contains("GameFrame.RECOVER_ID"));
+        assertFalse(dealer.contains("GameFrame.persistRecoverSettings"));
     }
 
     private static Path root() {

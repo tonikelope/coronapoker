@@ -10,4 +10,8 @@ final class SwingGameDatabase implements GameDatabase {
     @Override public Connection connection() throws java.sql.SQLException {
         return Helpers.getSQLITE();
     }
+    @Override public int recoveryGameId() { return GameFrame.RECOVER_ID; }
+    @Override public void persistRecoverySettings(int gameId) {
+        GameFrame.persistRecoverSettings(gameId);
+    }
 }

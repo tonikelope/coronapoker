@@ -11,6 +11,10 @@ public interface GameDatabase {
 
     Connection connection() throws SQLException;
 
+    int recoveryGameId();
+
+    void persistRecoverySettings(int gameId);
+
     static GameDatabase unavailable() {
         return Unavailable.INSTANCE;
     }
@@ -23,5 +27,7 @@ public interface GameDatabase {
         @Override public Connection connection() {
             throw new IllegalStateException("Game database is not installed");
         }
+        @Override public int recoveryGameId() { return -1; }
+        @Override public void persistRecoverySettings(int gameId) { }
     }
 }

@@ -38,6 +38,7 @@ import com.tonikelope.coronapoker.core.network.ConfirmationTracker;
 import com.tonikelope.coronapoker.core.network.GameCommandId;
 import com.tonikelope.coronapoker.core.network.GameTransport;
 import com.tonikelope.coronapoker.core.game.GameSession;
+import com.tonikelope.coronapoker.core.game.GameSessionIds;
 import com.tonikelope.coronapoker.core.game.GameTiming;
 import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
@@ -53,6 +54,7 @@ import com.tonikelope.coronapoker.core.game.GamePresentationSettings;
 import com.tonikelope.coronapoker.core.game.LobbyTransitionSink;
 import com.tonikelope.coronapoker.core.game.PauseGate;
 import com.tonikelope.coronapoker.core.game.TableDisplaySink;
+import com.tonikelope.coronapoker.core.game.HostGameConfigurationSource;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
 
 import java.io.File;
@@ -107,6 +109,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GameDialogSink game_dialogs;
     private final GameDecisionSink game_decisions;
     private final GameDatabase game_database;
+    private final HostGameConfigurationSource host_configuration;
     private final GameCinematicSink game_cinematics;
     private final GameProgressSink game_progress;
     private final PauseGate pause_gate;
@@ -120,7 +123,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final TableEventBridge table_events;
 
     public Crupier() {
-        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
+        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), HostGameConfigurationSource.unavailable(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(),
                 TableDisplaySink.noop(),
                 GameWindowSink.noop(),
@@ -130,7 +133,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     Crupier(TableEventBridge tableEvents) {
-        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
+        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), HostGameConfigurationSource.unavailable(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(), TableDisplaySink.noop(),
                 GameWindowSink.noop(), GameUiExecutor.direct(), GameAudioSink.silent(),
                 GamePresentationSettings.defaults(),
@@ -143,6 +146,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Card[] communityCardControllers,
             GameLogSink gameLog, GameDialogSink gameDialogs, GameDecisionSink gameDecisions,
             GameDatabase gameDatabase,
+            HostGameConfigurationSource hostConfiguration,
             GameCinematicSink gameCinematics,
             GameProgressSink gameProgress, PauseGate pauseGate,
             GameTransport gameTransport, LobbyTransitionSink lobbyTransition,
@@ -161,6 +165,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.game_dialogs = java.util.Objects.requireNonNull(gameDialogs, "gameDialogs");
         this.game_decisions = java.util.Objects.requireNonNull(gameDecisions, "gameDecisions");
         this.game_database = java.util.Objects.requireNonNull(gameDatabase, "gameDatabase");
+        this.host_configuration = java.util.Objects.requireNonNull(
+                hostConfiguration, "hostConfiguration");
         this.game_cinematics = java.util.Objects.requireNonNull(gameCinematics, "gameCinematics");
         this.game_progress = java.util.Objects.requireNonNull(gameProgress, "gameProgress");
         this.pause_gate = java.util.Objects.requireNonNull(pauseGate, "pauseGate");
@@ -11558,7 +11564,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (created) {
-            GameFrame.persistRecoverSettings(sqlite_id_game);
+            game_database.persistRecoverySettings(sqlite_id_game);
         }
         return created;
     }
@@ -22747,7 +22753,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 try (PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
                     statement.setQueryTimeout(30);
 
-                    statement.setInt(1, GameFrame.RECOVER_ID);
+                    statement.setInt(1, game_database.recoveryGameId());
 
                     ResultSet rs = statement.executeQuery();
 
@@ -22760,7 +22766,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 return ret;
             } else {
-                return Helpers.genRandomString(GameFrame.UGI_LENGTH);
+                return GameSessionIds.random();
             }
         }
     }
@@ -22818,15 +22824,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         boolean create_client_recovery_game = false;
 
         if (gameSession().isHost()) {
-            GameFrame.UGI = this.getUGI();
-            GameConfigWireV1.Result validatedConfig = GameConfigWireV1.fromGlobals();
-            if (!validatedConfig.isOk()) {
-                LOGGER.log(Level.SEVERE, "Host table configuration is invalid: {0}",
-                        validatedConfig.error());
+            GameConfigCodecV1.Configuration config;
+            try {
+                config = GameConfigCodecV1.requireValid(
+                        host_configuration.create(this.getUGI()));
+            } catch (IllegalArgumentException | IllegalStateException failure) {
+                LOGGER.log(Level.SEVERE, "Host table configuration is invalid", failure);
                 return;
             }
-            GameConfigCodecV1.Configuration config
-                    = validatedConfig.value().toCoreConfiguration();
             gameSession().updateConfiguration(config);
             broadcastGAMECommandFromServer("INIT#"
                     + GameConfigCodecV1.encodeBase64(config), null);
@@ -22838,8 +22843,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (gameSession().isRecovering()) {
             if (gameSession().isHost()) {
-                this.sqlite_id_game = GameFrame.RECOVER_ID;
-                GameFrame.persistRecoverSettings(this.sqlite_id_game);
+                this.sqlite_id_game = game_database.recoveryGameId();
+                game_database.persistRecoverySettings(this.sqlite_id_game);
             } else {
                 Integer gid = sqlUGI2GID(configuration().sessionId());
                 if (gid == null) {

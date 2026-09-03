@@ -4883,6 +4883,33 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
             }
 
+            @Override
+            public void setShowdownHighlight(String nickname, boolean enabled,
+                    java.util.List<Integer> holeCardSlots,
+                    java.util.List<Integer> communityCardSlots) {
+                Player seat = player(nickname);
+                if (seat == null) {
+                    return;
+                }
+                java.util.ArrayList<Card> cards = new java.util.ArrayList<>();
+                if (enabled) {
+                    for (int slot : holeCardSlots) {
+                        if (slot == 0) {
+                            cards.add(seat.getHoleCard1());
+                        } else if (slot == 1) {
+                            cards.add(seat.getHoleCard2());
+                        }
+                    }
+                    Card[] community = getCartas_comunes();
+                    for (int slot : communityCardSlots) {
+                        if (slot >= 0 && slot < community.length) {
+                            cards.add(community[slot]);
+                        }
+                    }
+                }
+                seat.setShowdownHand(enabled ? cards : null);
+            }
+
             private ImageIcon positionChip(
                     com.tonikelope.coronapoker.table.TableSnapshot.Position position) {
                 return switch (position) {

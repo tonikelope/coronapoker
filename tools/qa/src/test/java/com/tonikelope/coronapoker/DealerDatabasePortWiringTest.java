@@ -41,6 +41,10 @@ final class DealerDatabasePortWiringTest {
         assertTrue(dealer.contains("table_display.showRabbitNotice("));
         assertTrue(dealer.contains("table_display.setRebuyWaiting("));
         assertTrue(dealer.contains("table_display.setStraddleThinking("));
+        assertTrue(dealer.contains("table_display.setShowdownHighlight("));
+        assertTrue(dealer.contains("new TableVisualEvent.ShowdownHighlight("));
+        assertTrue(dealer.contains("table_display.setShowdownHighlight("));
+        assertTrue(dealer.contains("new TableVisualEvent.ShowdownHighlight("));
         assertFalse(dealerCode.contains(".setWinner("));
         assertFalse(dealerCode.contains(".setLoser("));
         assertFalse(dealerCode.contains(".showCards("));
@@ -56,6 +60,8 @@ final class DealerDatabasePortWiringTest {
         assertFalse(dealerCode.contains("((RemotePlayer) jugador).showRebuyOutcome("));
         assertFalse(dealerCode.contains(".showStraddleThinking("));
         assertFalse(dealerCode.contains(".clearStraddleThinking("));
+        assertFalse(dealerCode.contains(".setShowdownHand("));
+        assertFalse(dealerCode.contains(".setShowdownHand("));
     }
 
     private static Path root() {

@@ -126,6 +126,9 @@ public interface TableDisplaySink {
 
     void setStraddleThinking(String nickname, boolean thinking);
 
+    void setShowdownHighlight(String nickname, boolean enabled,
+            List<Integer> holeCardSlots, List<Integer> communityCardSlots);
+
     void preparePositionRotation(
             List<TableVisualEvent.PositionTransfer> transfers);
 
@@ -312,6 +315,12 @@ public interface TableDisplaySink {
             @Override
             public void setStraddleThinking(String nickname,
                     boolean thinking) {
+            }
+
+            @Override
+            public void setShowdownHighlight(String nickname, boolean enabled,
+                    List<Integer> holeCardSlots,
+                    List<Integer> communityCardSlots) {
             }
 
             @Override

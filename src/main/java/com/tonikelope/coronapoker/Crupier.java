@@ -7258,7 +7258,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // Enables hover highlighting for the hand just revealed (forced IWTSTH or the
                 // voluntary SHOW button): no kickers, same as a winner. Showdown only sets this
                 // for players who were already showing; here it's done for the late reveal.
-                jugador.setShowdownHand(jugada.getWinners());
+                setShowdownHighlight(jugador, jugada.getWinners());
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Error evaluating Hand while showing cards of " + nick, e);
             }
@@ -7819,7 +7819,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     // Enables hover highlighting for the hand just revealed (received
                                     // SHOWCARDS: forced IWTSTH or a peer's voluntary SHOW): no kickers,
                                     // same as a winner. Set on the late reveal, not just at showdown.
-                                    fjugador.setShowdownHand(jugada.getWinners());
+                                    setShowdownHighlight(fjugador, jugada.getWinners());
                                 } catch (Exception e) {
                                 }
 
@@ -21568,6 +21568,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return true;
     }
 
+    private void setShowdownHighlight(Player player,
+            java.util.List<Card> winningCards) {
+        java.util.ArrayList<Integer> holeSlots = new java.util.ArrayList<>();
+        java.util.ArrayList<Integer> communitySlots = new java.util.ArrayList<>();
+        if (winningCards != null) {
+            if (winningCards.contains(player.getHoleCard1())) {
+                holeSlots.add(0);
+            }
+            if (winningCards.contains(player.getHoleCard2())) {
+                holeSlots.add(1);
+            }
+            Card[] community = communityCards();
+            for (int slot = 0; slot < community.length; slot++) {
+                if (winningCards.contains(community[slot])) {
+                    communitySlots.add(slot);
+                }
+            }
+        }
+        boolean enabled = winningCards != null;
+        table_display.setShowdownHighlight(player.getNickname(), enabled,
+                holeSlots, communitySlots);
+        table_events.publish(sequence -> new TableVisualEvent.ShowdownHighlight(
+                sequence, player.getNickname(), enabled, holeSlots,
+                communitySlots));
+    }
+
     private void rejectCriticalShowdownMessage(String command, String detail, Exception error) {
         if (error == null) {
             LOGGER.log(Level.SEVERE, detail);
@@ -22579,7 +22605,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // (the local player always sees their own; a remote one only if it
                     // showed). Without this, no winner had showdown_hand_cards and hover
                     // did nothing on their label.
-                    jugador_actual.setShowdownHand((isLocal || mustShow) ? jugada.getWinners() : null);
+                    setShowdownHighlight(jugador_actual,
+                            (isLocal || mustShow) ? jugada.getWinners() : null);
 
                     this.sqlNewShowdown(jugador_actual, jugada, true, !mustShow);
 
@@ -22620,7 +22647,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // visible: the local player always sees their own; a remote one who
                     // didn't show (muck/IWTSTH) keeps its hand hidden and nothing is
                     // highlighted.
-                    jugador_actual.setShowdownHand((isLocal || mustShow) ? jugada.getWinners() : null);
+                    setShowdownHighlight(jugador_actual,
+                            (isLocal || mustShow) ? jugada.getWinners() : null);
 
                     this.sqlNewShowdown(jugador_actual, jugada, false, !mustShow);
 

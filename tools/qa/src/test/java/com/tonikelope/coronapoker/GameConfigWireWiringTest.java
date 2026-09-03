@@ -31,6 +31,22 @@ public class GameConfigWireWiringTest {
         assertFalse(waiting.contains("GameFrame.BLIND_CAP = partes_comando.length > 7"));
     }
 
+    @Test
+    public void hostInstallsValidatedConfigurationBeforeFirstSharedRead() throws IOException {
+        String dealer = Files.readString(locateRoot().resolve(
+                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+        int run = dealer.indexOf("public void run()");
+        int install = dealer.indexOf("gameSession().updateConfiguration(config)", run);
+        int blinds = dealer.indexOf(
+                "this.ciega_pequeña = configuration().smallBlind()", install);
+        int progress = dealer.indexOf(
+                "game_progress.reset(configuration().thinkTime())", blinds);
+
+        assertTrue(run >= 0 && run < install);
+        assertTrue(install < blinds && blinds < progress,
+                "host must install strict INIT before shared configuration reads");
+    }
+
     private static Path locateRoot() {
         Path start = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
         for (Path path = start; path != null; path = path.getParent()) {

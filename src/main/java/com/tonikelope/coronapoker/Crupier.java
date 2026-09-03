@@ -42,6 +42,7 @@ import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.core.game.GameDecisionSink;
 import com.tonikelope.coronapoker.core.game.GameCinematicSink;
 import com.tonikelope.coronapoker.core.game.GameWindowSink;
+import com.tonikelope.coronapoker.core.game.GameUiExecutor;
 import com.tonikelope.coronapoker.core.game.GameLogSink;
 import com.tonikelope.coronapoker.core.game.GameProgressSink;
 import com.tonikelope.coronapoker.core.game.LobbyTransitionSink;
@@ -107,6 +108,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final LobbyTransitionSink lobby_transition;
     private final TableDisplaySink table_display;
     private final GameWindowSink game_window;
+    private final GameUiExecutor game_ui;
     private final TableEventBridge table_events;
 
     public Crupier() {
@@ -114,13 +116,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 GameTransport.unavailable(), LobbyTransitionSink.noop(),
                 TableDisplaySink.noop(),
                 GameWindowSink.noop(),
+                GameUiExecutor.direct(),
                 new TableEventBridge());
     }
 
     Crupier(TableEventBridge tableEvents) {
         this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(), TableDisplaySink.noop(),
-                GameWindowSink.noop(), tableEvents);
+                GameWindowSink.noop(), GameUiExecutor.direct(), tableEvents);
     }
 
     Crupier(GameSession gameSession, java.util.ArrayList<Player> playerControllers,
@@ -133,6 +136,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameTransport gameTransport, LobbyTransitionSink lobbyTransition,
             TableDisplaySink tableDisplay,
             GameWindowSink gameWindow,
+            GameUiExecutor gameUi,
             TableEventBridge tableEvents) {
         this.game_session = gameSession;
         this.player_controllers = playerControllers;
@@ -149,6 +153,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.lobby_transition = java.util.Objects.requireNonNull(lobbyTransition, "lobbyTransition");
         this.table_display = java.util.Objects.requireNonNull(tableDisplay, "tableDisplay");
         this.game_window = java.util.Objects.requireNonNull(gameWindow, "gameWindow");
+        this.game_ui = java.util.Objects.requireNonNull(gameUi, "gameUi");
         this.table_events = java.util.Objects.requireNonNull(tableEvents, "tableEvents");
     }
 
@@ -1040,7 +1045,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // top of it.
             if (!Crupier.SECURITY_LOCKDOWN && !gameSession().isHost()) {
                 try {
-                    Helpers.GUIRun(game_window::requestExit);
+                    game_ui.run(game_window::requestExit);
                 } catch (Exception ignored) {
                 }
             }
@@ -6671,7 +6676,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         // Lights stay off while the buy-in choice runs. The try/finally opened here
         // guarantees the veil lifts even if collection blows up along the way.
-        Helpers.GUIRunAndWait(() -> {
+        game_ui.runAndWait(() -> {
             table_display.setLightsSuppressed(true);
         });
 
@@ -6741,7 +6746,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (dialog != null) {
                 dialog.close();
             }
-            Helpers.GUIRunAndWait(() -> {
+            game_ui.runAndWait(() -> {
                 table_display.setLightsSuppressed(false);
                     // Re-sync the lights icon with the resulting brightness: this dialog runs
                 // during table setup, where a render can leave the icon "off" while the
@@ -8800,7 +8805,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 recovering_music_active = true;
             }
 
-            Helpers.GUIRun(() -> {
+            game_ui.run(() -> {
                 // Temporary lights-off while the hand recovers. Kept inside the try (same
                 // pattern as the game-over blocks) so the finally always undoes it, even if
                 // the repaint, icon refresh or the dialog itself throws — an unmatched
@@ -8833,7 +8838,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     Audio.playLoopMp3Resource("misc/background_music.mp3");
                     recovering_music_active = false;
                 }
-                Helpers.GUIRun(() -> {
+                game_ui.run(() -> {
                     if (recover_dialog != null) {
                         recover_dialog.close();
                         recover_dialog = null;
@@ -8847,7 +8852,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
                 Audio.playWavResource("misc/startplay.wav");
             }
-            Helpers.GUIRun(() -> {
+            game_ui.run(() -> {
                 game_window.setFullscreenEnabled(true);
             });
         }
@@ -9883,7 +9888,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                             Helpers.threadRun(() -> {
 
-                                Helpers.GUIRunAndWait(() -> {
+                                game_ui.runAndWait(() -> {
 
                                     rp.setNotifyRabbitLabel();
                                     rp.getChat_notify_label().setVisible(true);
@@ -9893,7 +9898,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 synchronized (rp.getChat_notify_label()) {
                                     Helpers.pausar(RABBIT_LABEL_TIMEOUT);
 
-                                    Helpers.GUIRun(() -> {
+                                    game_ui.run(() -> {
 
                                         rp.getChat_notify_label().setVisible(false);
 
@@ -10005,7 +10010,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 game_log.print(
                         iwtsther + " " + Translator.translate("iwtsth.solicita_iwtsth") + String.valueOf(conta_iwtsth) + ")");
 
-                Helpers.GUIRunAndWait(() -> {
+                game_ui.runAndWait(() -> {
                     if (localPlayer().isBotonMostrarActivado()) {
                         localPlayer().getPlayer_allin_button().setEnabled(false);
                     }
@@ -10122,7 +10127,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // - Restore the show button if applicable.
             // - Restore the progress bar to pausaConBarra's correct state (not just
             //   setIndeterminate(false), which would leave it visually "maxed out, not moving").
-            Helpers.GUIRunAndWait(() -> {
+            game_ui.runAndWait(() -> {
                 if (localPlayer().isBoton_mostrar() && !localPlayer().isBotonMostrarActivado() && !localPlayer().isMuestra()) {
                     localPlayer().getPlayer_allin_button().setEnabled(true);
                 }
@@ -10479,7 +10484,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         this.rebuy_committed.clear();
 
-        Helpers.GUIRun(game_window::resetImmediateRebuy);
+        game_ui.run(game_window::resetImmediateRebuy);
 
         saltar_primera_mano = false;
 
@@ -10777,7 +10782,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // active. Finally reveals the local UTG's hidden cards.
             resolveVoluntaryStraddle();
             game_progress.reset(GameFrame.THINK_TIME);
-            Helpers.GUIRun(() -> {
+            game_ui.run(() -> {
                 game_window.setExitEnabled(true);
             });
             disableAllPlayersTimeout();
@@ -10791,7 +10796,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             game_progress.reset(GameFrame.THINK_TIME);
-            Helpers.GUIRun(() -> {
+            game_ui.run(() -> {
                 game_window.setExitEnabled(true);
             });
             disableAllPlayersTimeout();
@@ -14726,7 +14731,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private void startStraddleCountdownBar() {
         this.straddle_bar_active = true;
         Helpers.threadRun(() -> {
-            Helpers.GUIRun(() -> game_progress.countdown(STRADDLE_DECISION_TIMEOUT));
+            game_ui.run(() -> game_progress.countdown(STRADDLE_DECISION_TIMEOUT));
             int t = STRADDLE_DECISION_TIMEOUT;
             while (t > 0 && this.straddle_bar_active && !isFin_de_la_transmision()) {
                 Helpers.pausar(1000);
@@ -14735,7 +14740,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             if (this.straddle_bar_active && !isFin_de_la_transmision()) {
-                Helpers.GUIRun(() -> game_progress.indeterminate());
+                game_ui.run(() -> game_progress.indeterminate());
             }
         });
     }
@@ -14769,7 +14774,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Without flip animation (or local already out / transmission ended): reveals
         // FLAT, exactly as usual.
         if (!GameFrame.destapeAnimOn() || local.isExit() || isFin_de_la_transmision()) {
-            Helpers.GUIRunAndWait(() -> {
+            game_ui.runAndWait(() -> {
                 c1.iniciarConValorNumerico(v1);
                 c1.destapar(false);
                 c2.iniciarConValorNumerico(v2);
@@ -14783,7 +14788,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // deal: iniciarConValorNumerico doesn't touch visible_card, so without
         // setVisibleCard(true) they wouldn't show) and open them spinning one after the
         // other (each call blocks until its flip finishes).
-        Helpers.GUIRunAndWait(() -> {
+        game_ui.runAndWait(() -> {
             c1.setVisibleCard(true);
             c1.iniciarConValorNumerico(v1);
             c2.setVisibleCard(true);
@@ -15308,7 +15313,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // auditor snapshot).
         boolean animacion = GameFrame.repartoAnimOn() && !localPlayer().isExit();
 
-        Helpers.GUIRunAndWait(() -> {
+        game_ui.runAndWait(() -> {
             // Run cards -> off the table (resetearCarta invisible) if animated, or
             // straight face down otherwise.
             // Shared cards -> enfocar() to undo SIDE-A's showdown dimming, so SIDE-B's
@@ -16821,7 +16826,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // safety net after rondaApuestas(PREFLOP) (path #4).
                 if (!eraSincronizacion && this.isSincronizando_mano()) {
                     this.setSincronizando_mano(false);
-                    Helpers.GUIRun(() -> {
+                    game_ui.run(() -> {
                         if (recover_dialog != null) {
                             recover_dialog.close();
                             recover_dialog = null;
@@ -16859,26 +16864,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         localplayer.setClick_recuperacion(true);
                         switch ((int) accion_recuperada[0]) {
                             case Player.FOLD:
-                                Helpers.GUIRun(() -> {
+                                game_ui.run(() -> {
                                     localplayer.getPlayer_fold_button().doClick();
                                     localplayer.setClick_recuperacion(false);
                                 });
                                 break;
                             case Player.CHECK:
-                                Helpers.GUIRun(() -> {
+                                game_ui.run(() -> {
                                     localplayer.getPlayer_check_button().doClick();
                                     localplayer.setClick_recuperacion(false);
                                 });
                                 break;
                             case Player.ALLIN:
-                                Helpers.GUIRun(() -> {
+                                game_ui.run(() -> {
                                     localplayer.getPlayer_allin_button().doClick();
                                     localplayer.setClick_recuperacion(false);
                                 });
                                 break;
                             case Player.BET:
                                 localplayer.setApuesta_recuperada((Double) accion_recuperada[1]);
-                                Helpers.GUIRun(() -> {
+                                game_ui.run(() -> {
                                     localplayer.getPlayer_bet_button().doClick();
                                     localplayer.setClick_recuperacion(false);
                                 });
@@ -18661,7 +18666,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      */
     private void printInvalidActionSigToRegistro(String actorNick) {
         final String nick = actorNick;
-        Helpers.GUIRun(() -> {
+        game_ui.run(() -> {
             try {
                 game_log.print(
                         MessageFormat.format(
@@ -19919,7 +19924,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (this.acciones_locales_recuperadas.isEmpty()) {
 
-            Helpers.GUIRun(() -> {
+            game_ui.run(() -> {
                 if (recover_dialog != null) {
                     recover_dialog.close();
                     recover_dialog = null;
@@ -20041,7 +20046,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         boolean hadDialog = (this.recover_dialog != null);
 
         if (hadDialog) {
-            Helpers.GUIRun(() -> {
+            game_ui.run(() -> {
                 if (recover_dialog != null) {
                     recover_dialog.close();
                     recover_dialog = null;
@@ -22586,7 +22591,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (GameFrame.IWTSTH_RULE && isIWTSTH4LocalPlayerAuthorized()) {
 
-            Helpers.GUIRun(() -> {
+            game_ui.run(() -> {
                 for (RemotePlayer rp : remotePlayers()) {
                     if (rp.isActivo() && rp.isLoser() && rp.getHoleCard1().isTapada()) {
                         rp.getIwtsth_blink_timer().start();
@@ -22761,7 +22766,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        Helpers.GUIRun(lobby_transition::seatingPlayers);
+        game_ui.run(lobby_transition::seatingPlayers);
 
         this.nicks_permutados = sortearSitios();
         sentarParticipantes();
@@ -22788,9 +22793,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        Helpers.GUIRunAndWait(lobby_transition::hideLobby);
+        game_ui.runAndWait(lobby_transition::hideLobby);
 
-        Helpers.GUIRun(lobby_transition::gameStarted);
+        game_ui.run(lobby_transition::gameStarted);
 
         Audio.stopLoopMp3("misc/waiting_room.mp3");
 
@@ -22876,7 +22881,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // dragon closes here as a final safety net.
                         if (this.isSincronizando_mano()) {
                             this.acciones_locales_recuperadas.clear();
-                            Helpers.GUIRun(() -> {
+                            game_ui.run(() -> {
                                 if (recover_dialog != null) {
                                     recover_dialog.close();
                                     recover_dialog = null;

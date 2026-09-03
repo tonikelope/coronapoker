@@ -5242,10 +5242,23 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 GameFrame.this.finTransmision(transmissionEnded);
             }
         };
+        com.tonikelope.coronapoker.core.game.GameUiExecutor gameUi
+                = new com.tonikelope.coronapoker.core.game.GameUiExecutor() {
+            @Override
+            public void run(Runnable action) {
+                Helpers.GUIRun(action);
+            }
+
+            @Override
+            public void runAndWait(Runnable action) {
+                Helpers.GUIRunAndWait(action);
+            }
+        };
         crupier = new Crupier(game_session, jugadores, tapete.getLocalPlayer(),
                 getParticipantes(), getCartas_comunes(), gameLog, gameDialogs,
                 gameDecisions, gameCinematics, gameProgress, this::checkPause,
-                gameTransport, lobbyTransition, tableDisplay, gameWindow, table_events);
+                gameTransport, lobbyTransition, tableDisplay, gameWindow, gameUi,
+                table_events);
 
         initComponents();
 

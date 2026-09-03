@@ -3768,7 +3768,9 @@ public class WaitingRoomFrame extends JFrame {
                                                                 break;
                                                             case "MAXHANDS":
                                                                 try {
-                                                                    GameFrame.MANOS = LiveRuleWire.parseMaxHands(partes_comando);
+                                                                    int value = LiveRuleWire.parseMaxHands(partes_comando);
+                                                                    GameFrame.MANOS = value;
+                                                                    GameFrame.getInstance().getGameSession().setHands(value);
                                                                     GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
                                                                 } catch (Exception ex) {
                                                                     LOGGER.log(Level.SEVERE, "Invalid MAXHANDS; closing host channel", ex);
@@ -3790,6 +3792,8 @@ public class WaitingRoomFrame extends JFrame {
                                                                     GameFrame.getInstance().getCrupier().marcarCambioAnteStraddle();
                                                                 }
                                                                 updateConfig.value().applyBlindUpdateToGlobals();
+                                                                GameFrame.getInstance().getGameSession().applyBlindUpdate(
+                                                                        updateConfig.value().toCoreConfiguration());
                                                                 GameFrame.getInstance().getCrupier().actualizarCiegasManualmente(
                                                                         updateConfig.value().smallBlind(), updateConfig.value().bigBlind(),
                                                                         updateConfig.value().blindsDouble(), updateConfig.value().blindsDoubleType());

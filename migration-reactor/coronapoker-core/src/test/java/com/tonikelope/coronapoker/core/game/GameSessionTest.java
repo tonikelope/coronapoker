@@ -38,6 +38,24 @@ class GameSessionTest {
         assertEquals(!CONFIGURATION.botBalanceToHumans(),
                 session.configuration().botBalanceToHumans());
 
+        com.tonikelope.coronapoker.core.NewGameTableDraft blindDraft
+                = new com.tonikelope.coronapoker.core.NewGameTableDraft();
+        blindDraft.setBlindLevelIndex(1);
+        blindDraft.setAnte(true);
+        GameConfigCodecV1.Configuration blindUpdate = GameConfigCodecV1.fromSettings(
+                blindDraft.snapshot(), false, CONFIGURATION.sessionId());
+        session.applyBlindUpdate(blindUpdate);
+        assertEquals(blindUpdate.smallBlind(), session.configuration().smallBlind());
+        assertEquals(blindUpdate.bigBlind(), session.configuration().bigBlind());
+        assertTrue(session.configuration().ante());
+        assertEquals(!CONFIGURATION.iwtsth(), session.configuration().iwtsth());
+
+        session.setHands(12);
+        session.applyRecoveredBuyin(25, false);
+        assertEquals(12, session.configuration().hands());
+        assertEquals(25, session.configuration().buyin());
+        assertFalse(session.configuration().rebuy());
+
         session.setPlayTimeSeconds(41L);
         assertEquals(42L, session.incrementPlayTimeSecond());
         assertThrows(IllegalArgumentException.class,

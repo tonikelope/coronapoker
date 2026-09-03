@@ -172,6 +172,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return game_session;
     }
 
+    private GameConfigCodecV1.Configuration configuration() {
+        return gameSession().configuration();
+    }
+
     private java.util.ArrayList<Player> players() {
         if (player_controllers == null) {
             throw new IllegalStateException("Crupier has no bound player repository");
@@ -4578,7 +4582,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         java.util.List<Player> contributors = new java.util.ArrayList<>();
 
-        if (GameFrame.ANTE) {
+        if (configuration().ante()) {
             // Everyone anted (+ blinds/straddle): one chip per active player.
             for (Player p : players()) {
                 if (p.isActivo()) {
@@ -5084,7 +5088,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public boolean atRebuyLimit(String nick) {
-        return GameFrame.REBUY_LIMIT > 0 && getRebuyCount(nick) >= GameFrame.REBUY_LIMIT;
+        return configuration().rebuyLimit() > 0
+                && getRebuyCount(nick) >= configuration().rebuyLimit();
     }
 
     public boolean isLast_hand() {
@@ -5210,7 +5215,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (denied_by_limit) {
                     this.broadcastGAMECommandFromServerLocked(
                             "REBUYDENIED#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
-                            + String.valueOf(GameFrame.REBUY_LIMIT),
+                            + String.valueOf(configuration().rebuyLimit()),
                             null, false);
                 } else if (broadcast_now) {
                     this.broadcastGAMECommandFromServerLocked(
@@ -5662,7 +5667,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } finally {
                 cinematicOff();
                 current_remote_cinematic_b64 = null;
-                game_progress.reset(GameFrame.THINK_TIME);
+                game_progress.reset(configuration().thinkTime());
                 synchronized (getLock_apuestas()) {
                     getLock_apuestas().notifyAll();
                 }
@@ -6238,7 +6243,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // Ante-active indicator: the ante is symmetric (everyone antes), not a
                 // per-nick role like straddle, so it gets its own line with the chip icon
                 // ("(A )" token).
-                if (GameFrame.ANTE) {
+                if (configuration().ante()) {
                     game_log.print("(A ) " + Translator.translate("game.antes_activos", Helpers.money2String(this.ciega_pequeña)));
                 }
             }
@@ -6653,7 +6658,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         }
 
-        game_progress.reset(GameFrame.THINK_TIME);
+        game_progress.reset(configuration().thinkTime());
     }
 
     // Sets a player's INITIAL buy-in (variable mode). Not a rebuy: sets stack and buyin
@@ -6676,7 +6681,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // and recibirRebuys machinery. Skipped in fixed mode and on recover (stacks come from balance).
     private void solicitarBuyinsIniciales() {
 
-        if (GameFrame.FIXED_BUYIN || GameFrame.RECOVER) {
+        if (configuration().fixedBuyin() || GameFrame.RECOVER) {
             return;
         }
 
@@ -6860,7 +6865,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        game_progress.reset(GameFrame.THINK_TIME);
+        game_progress.reset(configuration().thinkTime());
     }
 
     // Tracks who's already been announced instead of checking the player's exit flag: on
@@ -7187,9 +7192,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 LOGGER.log(Level.WARNING, "Error evaluating Hand while showing cards of " + nick, e);
             }
 
-            setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : GameFrame.SHOWDOWN_TIME);
+            setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : configuration().showdownTime());
         } else if (isLocal) {
-            setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : GameFrame.SHOWDOWN_TIME);
+            setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : configuration().showdownTime());
         }
     }
 
@@ -7614,7 +7619,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 // Defense: if the server echoes our own packet back to us on a remote client, ignore it.
                 if (!gameSession().isHost() && jugador.equals(localPlayer())) {
-                    setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : GameFrame.SHOWDOWN_TIME);
+                    setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : configuration().showdownTime());
                     return false;
                 }
 
@@ -7760,9 +7765,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                         });
                     }
-                    setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : GameFrame.SHOWDOWN_TIME);
+                    setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : configuration().showdownTime());
                 } else {
-                    setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : GameFrame.SHOWDOWN_TIME);
+                    setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : configuration().showdownTime());
                 }
                 return decrypted;
             }
@@ -8634,12 +8639,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int recoveredHandId = map.get("hand_id") != null ? (int) map.get("hand_id") : -1;
             this.sqlite_id_hand = recoveredHandId > 0 ? recoveredHandId : -1;
             int recoveredBuyin = map.get("buyin") != null ? (int) map.get("buyin") : 0;
+            int activeBuyin = configuration().buyin();
             if (recoveredBuyin > 0) {
                 GameFrame.BUYIN = recoveredBuyin;
+                activeBuyin = recoveredBuyin;
             }
+            boolean activeRebuy = configuration().rebuy();
             if (map.get("rebuy") != null) {
                 GameFrame.REBUY = (boolean) map.get("rebuy");
+                activeRebuy = (boolean) map.get("rebuy");
             }
+            gameSession().applyRecoveredBuyin(activeBuyin, activeRebuy);
             int recoveredContaMano = map.get("conta_mano") != null ? (int) map.get("conta_mano") : 0;
             if (recoveredContaMano > 0) {
                 setContaManoLocal(recoveredContaMano);
@@ -8736,9 +8746,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // boundary. Otherwise the ordinary correlated nickname makes
                 // the new lobby bot indistinguishable from the old spectator
                 // and it is silently expelled after recovery.
-                if (GameFrame.REBUY && gameSession().configuration().botRebuy()) {
-                    int requested = GameFrame.FIXED_BUYIN
-                            ? GameFrame.BUYIN : GameFrame.getBuyinDefault();
+                if (configuration().rebuy() && configuration().botRebuy()) {
+                    int requested = configuration().fixedBuyin()
+                            ? configuration().buyin() : GameFrame.getBuyinDefault();
                     for (String nick : recoveryLobbyBotsNeedingBuyin(
                             recoveredBalances.balances(), recoveryLobbyBots)) {
                         if (atRebuyLimit(nick)) {
@@ -9259,8 +9269,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void actualizarCiegasManualmente(double sb, double bb, int double_val, int double_type) {
         synchronized (lock_ciegas) {
 
-            if (this.ciega_pequeña != sb || this.ciega_grande != bb || GameFrame.CIEGAS_DOUBLE != double_val
-                    || GameFrame.CIEGAS_DOUBLE_TYPE != double_type) {
+            if (this.ciega_pequeña != sb || this.ciega_grande != bb
+                    || configuration().blindsDouble() != double_val
+                    || configuration().blindsDoubleType() != double_type) {
 
                 this.ciegas_update = new Object[]{sb, bb, double_val, double_type};
 
@@ -9293,17 +9304,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // ladder: stop increasing, never re-announce.
                 return false;
             }
-            if (GameFrame.BLIND_CAP > 0f && Helpers.doubleSecureCompare(simulateNextBlinds()[1], GameFrame.BLIND_CAP) > 0) {
+            if (configuration().blindCap() > 0f
+                    && Helpers.doubleSecureCompare(simulateNextBlinds()[1], configuration().blindCap()) > 0) {
                 return false;
             }
-            if (GameFrame.CIEGAS_DOUBLE_TYPE <= 1) {
-                return (GameFrame.CIEGAS_DOUBLE > 0
+            if (configuration().blindsDoubleType() <= 1) {
+                return (configuration().blindsDouble() > 0
                         && (int) Math.floor((float) gameSession().playTimeSeconds()
-                                / (GameFrame.CIEGAS_DOUBLE * 60)) > this.ciegas_double);
+                                / (configuration().blindsDouble() * 60)) > this.ciegas_double);
             } else {
-                return (GameFrame.CIEGAS_DOUBLE > 0 && this.conta_mano > 1
+                return (configuration().blindsDouble() > 0 && this.conta_mano > 1
                         && ((int) Math.floor((float) (this.conta_mano - 1))
-                        / GameFrame.CIEGAS_DOUBLE) > this.ciegas_double);
+                        / configuration().blindsDouble()) > this.ciegas_double);
             }
         }
     }
@@ -10622,7 +10634,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return true;
         }
 
-        if (GameFrame.MANOS == conta_mano && gameSession().isHost()) {
+        if (configuration().hands() == conta_mano && gameSession().isHost()) {
             table_display.requestHandLimitAction();
         }
 
@@ -10678,7 +10690,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // RECOVERED hand: the ante is dead money the replay doesn't reproduce (it's not an
             // action), so it's re-posted here (runs after refreshPos, before the replay). No-op
             // if ANTE is off.
-            if (GameFrame.ANTE) {
+            if (configuration().ante()) {
                 double total_antes = 0f;
                 for (Player jugador : players()) {
                     if (jugador.isActivo()) {
@@ -10790,7 +10802,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // on every peer before the preflop round. No-op if STRADDLE is off / heads-up / <=2
             // active. Finally reveals the local UTG's hidden cards.
             resolveVoluntaryStraddle();
-            game_progress.reset(GameFrame.THINK_TIME);
+            game_progress.reset(configuration().thinkTime());
             game_ui.run(() -> {
                 game_window.setExitEnabled(true);
             });
@@ -10804,7 +10816,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     jugador.pagar(jugador.getBet(), null);
                 }
             }
-            game_progress.reset(GameFrame.THINK_TIME);
+            game_progress.reset(configuration().thinkTime());
             game_ui.run(() -> {
                 game_window.setExitEnabled(true);
             });
@@ -11448,17 +11460,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 statement.setString(2, String.join("#", players.toArray(new String[0])));
 
-                statement.setInt(3, GameFrame.BUYIN);
+                statement.setInt(3, configuration().buyin());
 
                 statement.setDouble(4, Helpers.doubleClean(GameFrame.CIEGA_PEQUEÑA));
 
-                statement.setInt(5, GameFrame.CIEGAS_DOUBLE);
+                statement.setInt(5, configuration().blindsDouble());
 
-                statement.setBoolean(6, GameFrame.REBUY);
+                statement.setBoolean(6, configuration().rebuy());
 
                 statement.setString(7, game_transport.hostNickname());
 
-                statement.setInt(8, GameFrame.CIEGAS_DOUBLE_TYPE);
+                statement.setInt(8, configuration().blindsDoubleType());
 
                 statement.setString(9, GameFrame.UGI);
 
@@ -11538,7 +11550,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // both hole cards are dealt FACE DOWN and not revealed here — they decide blind whether
         // to straddle, and resolveVoluntaryStraddle flips them after the decision. Only affects
         // the local player when they're UTG; everyone else is unchanged.
-        final boolean defer_straddle_reveal = GameFrame.STRADDLE && this.game_recovered == 0
+        final boolean defer_straddle_reveal = configuration().straddle() && this.game_recovered == 0
                 && getJugadoresActivos() > 2 && this.utg_nick != null
                 && this.utg_nick.equals(localPlayer().getNickname())
                 && localPlayer().isActivo();
@@ -11932,8 +11944,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (!table_events.isAttached()) {
             return;
         }
-        long totalMillis = GameFrame.THINK_TIME_ENABLED
-                ? TimeUnit.SECONDS.toMillis(GameFrame.THINK_TIME) : 0L;
+        long totalMillis = configuration().thinkTimeEnabled()
+                ? TimeUnit.SECONDS.toMillis(configuration().thinkTime()) : 0L;
         String nickname = phase == TableVisualEvent.TurnTimer.Phase.STOP
                 ? "" : player.getNickname();
         long remainingMillis = phase == TableVisualEvent.TurnTimer.Phase.START
@@ -13409,8 +13421,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // on timeout rather than forcing a FOLD, so we never overwrite a decision that
         // arrives just within the limit.
         Participant actor = peers().get(jugador.getNickname());
-        boolean thinkTimeEnforced = GameFrame.THINK_TIME_ENABLED && actor != null && !actor.isCpu();
-        long actionBudgetMs = (long) GameFrame.THINK_TIME * 1000L + 60000L;
+        boolean thinkTimeEnforced = configuration().thinkTimeEnabled() && actor != null && !actor.isCpu();
+        long actionBudgetMs = (long) configuration().thinkTime() * 1000L + 60000L;
         long actionDeadlineMs = System.currentTimeMillis() + actionBudgetMs;
         do {
             ok = false;
@@ -14109,7 +14121,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // shared by the deal (lock retention), recibirMisCartas (deal blind) and
     // resolveVoluntaryStraddle (release after deciding).
     private String blindStraddlerNickThisHand() {
-        if (!GameFrame.STRADDLE || this.game_recovered != 0 || getJugadoresActivos() <= 2 || this.utg_nick == null) {
+        if (!configuration().straddle() || this.game_recovered != 0 || getJugadoresActivos() <= 2 || this.utg_nick == null) {
             return null;
         }
         Player utg = null;
@@ -14217,7 +14229,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private void resolveVoluntaryStraddle() {
         boolean released_ok = true; // true if there were no deferred cards to release, or they released OK
         try {
-            if (!GameFrame.STRADDLE || getJugadoresActivos() <= 2 || isFin_de_la_transmision()) {
+            if (!configuration().straddle() || getJugadoresActivos() <= 2 || isFin_de_la_transmision()) {
                 return;
             }
             Player straddler = null;
@@ -15488,7 +15500,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // (same criterion as the main loop's between-hands pause) is critical here:
             // this pause runs UNDER lock_contabilidad, and finTransmision waits on that
             // same lock, so isFin_de_la_transmision() can never be raised in time.
-            this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? GameFrame.SHOWDOWN_TIME : Math.round(1.5f * GameFrame.SHOWDOWN_TIME));
+            this.pausaConBarra(this.bote.getSide_pot_count() == 0
+                    ? configuration().showdownTime()
+                    : Math.round(1.5f * configuration().showdownTime()));
         }
 
         // ---- SIDE-B: rewind + deal ----
@@ -19435,8 +19449,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
-                statement.setInt(1, GameFrame.CIEGAS_DOUBLE_TYPE);
-                statement.setInt(2, GameFrame.CIEGAS_DOUBLE);
+                statement.setInt(1, configuration().blindsDoubleType());
+                statement.setInt(2, configuration().blindsDouble());
                 statement.setInt(3, this.sqlite_id_game);
                 statement.executeUpdate();
             } catch (SQLException ex) {
@@ -22743,7 +22757,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     @Override
     public void run() {
-        game_progress.reset(GameFrame.THINK_TIME);
+        game_progress.reset(configuration().thinkTime());
 
         boolean create_client_recovery_game = false;
 
@@ -23328,7 +23342,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                             if (!GameFrame.TEST_MODE) {
                                 if (getJugadoresActivos() > 1 && !localPlayer().isExit()) {
-                                    this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? ((resisten.size() > 1 || gameSession().configuration().rabbitHunting() != 0) ? GameFrame.SHOWDOWN_TIME : Math.round(0.5f * GameFrame.SHOWDOWN_TIME)) : Math.round(1.5f * GameFrame.SHOWDOWN_TIME));
+                                    this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? ((resisten.size() > 1 || configuration().rabbitHunting() != 0) ? configuration().showdownTime() : Math.round(0.5f * configuration().showdownTime())) : Math.round(1.5f * configuration().showdownTime()));
                                 }
 
                                 if (this.iwtsthing) {
@@ -23531,13 +23545,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 Participant participante = peers()
                         .get(jugador.getNickname());
                 boolean bot = participante != null && participante.isCpu();
-                if (GameFrame.REBUY && (!bot || gameSession().configuration().botRebuy())
+                if (configuration().rebuy() && (!bot || configuration().botRebuy())
                         && !testModeNickSelected(
                                 "coronapoker.qa.spectatorOnBrokeNicks",
                                 jugador.getNickname())
                         && !atRebuyLimit(jugador.getNickname())) {
-                    int amount = GameFrame.FIXED_BUYIN
-                            ? GameFrame.BUYIN : GameFrame.getBuyinDefault();
+                    int amount = configuration().fixedBuyin()
+                            ? configuration().buyin() : GameFrame.getBuyinDefault();
                     rebuy_now.put(jugador.getNickname(), amount);
                 } else {
                     jugador.setSpectator(null);
@@ -23562,7 +23576,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 Participant participante = peers().get(nick);
                 boolean isBot = participante != null && participante.isCpu();
 
-                if (!GameFrame.REBUY || (isBot && !gameSession().configuration().botRebuy()) || atRebuyLimit(nick)) {
+                if (!configuration().rebuy() || (isBot && !configuration().botRebuy()) || atRebuyLimit(nick)) {
                     jugador.setSpectator(null);
                 } else {
                     rebuy_players.add(nick);
@@ -23585,15 +23599,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             this.rebuy_time = true;
 
-            if (GameFrame.REBUY && !atRebuyLimit(localPlayer().getNickname()) && GameFrame.AUTO_REBUY_ON_BROKE) {
+            if (configuration().rebuy() && !atRebuyLimit(localPlayer().getNickname()) && GameFrame.AUTO_REBUY_ON_BROKE) {
 
                 // Automatic rebuy on going broke: skips the game-over animation and
                 // goes straight to the RebuyDialog (AUTO) — same countdown bar and
                 // default amount, plus a red cancel button. On expiry -> rebuy; on
                 // cancel -> spectator.
-                int rebuy_min = GameFrame.FIXED_BUYIN ? 1 : GameFrame.getBuyinMin();
+                int rebuy_min = configuration().fixedBuyin() ? 1 : GameFrame.getBuyinMin();
                 int rebuy_max = GameFrame.getBuyinCap();
-                int rebuy_def = GameFrame.FIXED_BUYIN ? GameFrame.BUYIN : GameFrame.getBuyinDefault();
+                int rebuy_def = configuration().fixedBuyin() ? configuration().buyin() : GameFrame.getBuyinDefault();
 
                 GameDecisionSink.RebuyHandle autoRebuy = game_decisions.showRebuy(
                         new GameDecisionSink.RebuyRequest(false,
@@ -23659,7 +23673,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             + Translator.translate("player.te_quedas_de_espectador"));
                 }
 
-            } else if (GameFrame.REBUY && !atRebuyLimit(localPlayer().getNickname())) {
+            } else if (configuration().rebuy() && !atRebuyLimit(localPlayer().getNickname())) {
 
                 GameDecisionSink.GameOverResult gameOver = awaitGameOverResult(
                         game_decisions.showGameOver(
@@ -23749,7 +23763,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // Automatic rebuy for a broke bot: in fixed mode it rebuys the full
                         // buy-in (as always); in variable mode, the default 50BB
                         // (consistent with its starting buy-in).
-                        int botbuy = GameFrame.FIXED_BUYIN ? GameFrame.BUYIN : GameFrame.getBuyinDefault();
+                        int botbuy = configuration().fixedBuyin()
+                                ? configuration().buyin() : GameFrame.getBuyinDefault();
                         rebuy_now.put(jugador.getNickname(), botbuy);
 
                         try {

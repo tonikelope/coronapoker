@@ -94,6 +94,19 @@ public final class GameSession implements AutoCloseable {
         mutateConfiguration(current -> current.withBotBalanceToHumans(value));
     }
 
+    public void applyBlindUpdate(GameConfigCodecV1.Configuration update) {
+        GameConfigCodecV1.requireValid(update);
+        mutateConfiguration(current -> current.withBlindUpdate(update));
+    }
+
+    public void setHands(int value) {
+        mutateConfiguration(current -> current.withHands(value));
+    }
+
+    public void applyRecoveredBuyin(int buyin, boolean rebuy) {
+        mutateConfiguration(current -> current.withRecoveredBuyin(buyin, rebuy));
+    }
+
     public void setPlayTimeSeconds(long seconds) {
         if (seconds < 0L) throw new IllegalArgumentException("Play time cannot be negative");
         playTimeSeconds.set(seconds);

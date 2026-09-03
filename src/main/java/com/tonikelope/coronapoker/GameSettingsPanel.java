@@ -1168,6 +1168,11 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             LOGGER.log(Level.SEVERE, "Refusing to broadcast invalid table configuration: {0}", config.error());
             return;
         }
+        GameFrame.getInstance().getGameSession()
+                .applyBlindUpdate(config.value().toCoreConfiguration());
+        if (manos_changed) {
+            GameFrame.getInstance().getGameSession().setHands(desired_manos);
+        }
         final String encodedConfig = config.value().encodeBase64();
         Helpers.threadRun(() -> {
             GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer(

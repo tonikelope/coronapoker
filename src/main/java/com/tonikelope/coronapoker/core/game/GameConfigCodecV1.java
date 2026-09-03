@@ -328,6 +328,36 @@ public final class GameConfigCodecV1 {
                     value);
         }
 
+        public Configuration withBlindUpdate(Configuration source) {
+            Objects.requireNonNull(source, "source");
+            return new Configuration(buyin, source.smallBlind, source.bigBlind,
+                    source.blindsDouble, source.blindsDoubleType, recover,
+                    sessionId, rebuy, hands, source.blindCap, rebuyLimit,
+                    botRebuy, fixedBuyin, buyinMinBb, buyinMaxBb,
+                    rebuyCapPolicy, source.ante, source.straddle, iwtsth,
+                    runItTwice, rabbitHunting, thinkTime, thinkTimeEnabled,
+                    showdownTime, botBalanceToHumans, source.blindStructure);
+        }
+
+        public Configuration withHands(int value) {
+            return new Configuration(buyin, smallBlind, bigBlind, blindsDouble,
+                    blindsDoubleType, recover, sessionId, rebuy, value, blindCap,
+                    rebuyLimit, botRebuy, fixedBuyin, buyinMinBb, buyinMaxBb,
+                    rebuyCapPolicy, ante, straddle, iwtsth, runItTwice,
+                    rabbitHunting, thinkTime, thinkTimeEnabled, showdownTime,
+                    botBalanceToHumans, blindStructure);
+        }
+
+        public Configuration withRecoveredBuyin(int nextBuyin, boolean nextRebuy) {
+            return new Configuration(nextBuyin, smallBlind, bigBlind,
+                    blindsDouble, blindsDoubleType, recover, sessionId,
+                    nextRebuy, hands, blindCap, rebuyLimit, botRebuy, fixedBuyin,
+                    buyinMinBb, buyinMaxBb, rebuyCapPolicy, ante, straddle,
+                    iwtsth, runItTwice, rabbitHunting, thinkTime,
+                    thinkTimeEnabled, showdownTime, botBalanceToHumans,
+                    blindStructure);
+        }
+
         private Configuration withLiveRules(boolean nextIwtsth,
                 boolean nextRunItTwice, int nextRabbitHunting,
                 boolean nextBotRebuy, boolean nextBotBalanceToHumans) {

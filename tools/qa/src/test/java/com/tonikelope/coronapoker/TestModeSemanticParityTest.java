@@ -19,15 +19,18 @@ class TestModeSemanticParityTest {
                 "GameFrame.java", 6,
                 "Init.java", 1,
                 "LocalPlayer.java", 3,
-                "RemotePlayer.java", 1);
+                "RemotePlayer.java", 1,
+                "SwingGamePresentationSettings.java", 1);
 
         try (var sources = Files.list(sourceRoot())) {
             Map<String, Integer> actual = sources
                     .filter(path -> path.getFileName().toString().endsWith(".java"))
-                    .filter(path -> read(path).contains("TEST_MODE"))
+                    .filter(path -> read(path).contains("TEST_MODE")
+                            || read(path).contains("presentation_settings.testMode()"))
                     .collect(java.util.stream.Collectors.toMap(
                             path -> path.getFileName().toString(),
-                            path -> occurrences(read(path), "TEST_MODE")));
+                            path -> occurrences(read(path), "TEST_MODE")
+                            + occurrences(read(path), "presentation_settings.testMode()")));
             org.junit.jupiter.api.Assertions.assertEquals(reviewedOccurrences, actual,
                     "A TEST_MODE shortcut was added, removed or moved; review its semantic "
                     + "effect before updating this inventory");
@@ -83,7 +86,7 @@ class TestModeSemanticParityTest {
         assertTrue(method >= 0 && normalPath > method);
 
         String testPath = source.substring(method, normalPath);
-        assertTrue(testPath.contains("if (GameFrame.TEST_MODE)"));
+        assertTrue(testPath.contains("if (presentation_settings.testMode())"));
         assertTrue(testPath.contains("rebuy_now.put(jugador.getNickname(), amount)"));
         assertTrue(testPath.contains("jugador.setSpectator(null)"));
         assertFalse(testPath.contains("setStack("));
@@ -124,7 +127,9 @@ class TestModeSemanticParityTest {
     private static void assertObservabilityOnly(String source, String marker) {
         int markerOffset = source.indexOf(marker);
         assertTrue(markerOffset >= 0, "missing reviewed QA marker " + marker);
-        int branchStart = source.lastIndexOf("if (GameFrame.TEST_MODE", markerOffset);
+        int branchStart = Math.max(
+                source.lastIndexOf("if (GameFrame.TEST_MODE", markerOffset),
+                source.lastIndexOf("if (presentation_settings.testMode()", markerOffset));
         int branchEnd = source.indexOf('}', markerOffset);
         assertTrue(branchStart >= 0 && branchEnd > markerOffset,
                 "QA marker is not guarded by TEST_MODE: " + marker);

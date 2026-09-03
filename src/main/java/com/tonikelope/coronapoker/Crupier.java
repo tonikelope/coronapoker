@@ -48,6 +48,7 @@ import com.tonikelope.coronapoker.core.game.GameWindowSink;
 import com.tonikelope.coronapoker.core.game.GameUiExecutor;
 import com.tonikelope.coronapoker.core.game.GameLogSink;
 import com.tonikelope.coronapoker.core.game.GameProgressSink;
+import com.tonikelope.coronapoker.core.game.GamePresentationSettings;
 import com.tonikelope.coronapoker.core.game.LobbyTransitionSink;
 import com.tonikelope.coronapoker.core.game.PauseGate;
 import com.tonikelope.coronapoker.core.game.TableDisplaySink;
@@ -113,6 +114,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GameWindowSink game_window;
     private final GameUiExecutor game_ui;
     private final GameAudioSink game_audio;
+    private final GamePresentationSettings presentation_settings;
     private final TableEventBridge table_events;
 
     public Crupier() {
@@ -121,7 +123,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 TableDisplaySink.noop(),
                 GameWindowSink.noop(),
                 GameUiExecutor.direct(),
-                GameAudioSink.silent(),
+                GameAudioSink.silent(), GamePresentationSettings.defaults(),
                 new TableEventBridge());
     }
 
@@ -129,6 +131,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(), TableDisplaySink.noop(),
                 GameWindowSink.noop(), GameUiExecutor.direct(), GameAudioSink.silent(),
+                GamePresentationSettings.defaults(),
                 tableEvents);
     }
 
@@ -144,6 +147,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameWindowSink gameWindow,
             GameUiExecutor gameUi,
             GameAudioSink gameAudio,
+            GamePresentationSettings presentationSettings,
             TableEventBridge tableEvents) {
         this.game_session = gameSession;
         this.player_controllers = playerControllers;
@@ -162,6 +166,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.game_window = java.util.Objects.requireNonNull(gameWindow, "gameWindow");
         this.game_ui = java.util.Objects.requireNonNull(gameUi, "gameUi");
         this.game_audio = java.util.Objects.requireNonNull(gameAudio, "gameAudio");
+        this.presentation_settings = java.util.Objects.requireNonNull(
+                presentationSettings, "presentationSettings");
         this.table_events = java.util.Objects.requireNonNull(tableEvents, "tableEvents");
     }
 
@@ -2202,7 +2208,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean sincronizando_mano = false;
     // True between starting recovering.mp3 (background_music stopped) and the
     // recovery-completion path that swaps it back. Tracking the actual swap state
-    // instead of re-reading GameFrame.MUSICA_AMBIENTAL at each end makes the
+    // instead of re-reading presentation_settings.ambientMusic() at each end makes the
     // start/stop symmetric even if that flag were toggled mid-recovery: recovering
     // never outlives the recovery and background_music is never duplicated.
     private volatile boolean recovering_music_active = false;
@@ -4269,7 +4275,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.pending_position_rotation = null;
         this.big_chip_suppressed = null;
 
-        if (!GameFrame.ciegasDealerAnimOn() || gameSession().isRecovering() || isFin_de_la_transmision()) {
+        if (!presentation_settings.blindDealerAnimation() || gameSession().isRecovering() || isFin_de_la_transmision()) {
             return;
         }
 
@@ -4464,7 +4470,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        if (!GameFrame.apuestasAnimOn() || gameSession().isRecovering() || isFin_de_la_transmision()) {
+        if (!presentation_settings.betAnimation() || gameSession().isRecovering() || isFin_de_la_transmision()) {
             // No chip animation: the handler may have deferred rolling the stack/bet
             // waiting for this chip, which won't fly -> roll them now instead. No-op if
             // nothing was deferred.
@@ -4520,8 +4526,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        if (GameFrame.TEST_MODE
-                || !GameFrame.apuestasAnimOn()
+        if (presentation_settings.testMode()
+                || !presentation_settings.betAnimation()
                 || gameSession().isRecovering()
                 || this.game_recovered != 0
                 || isFin_de_la_transmision()
@@ -4545,7 +4551,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        if (GameFrame.igualarSonidoOn()) {
+        if (presentation_settings.callSound()) {
             game_audio.playWavResource("misc/call.wav");
         }
 
@@ -4576,7 +4582,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private void prepareForcedBetsToPot() {
         this.forced_bet_chip_contributors = null;
 
-        if (!GameFrame.apuestasAnimOn() || gameSession().isRecovering() || isFin_de_la_transmision() || this.game_recovered != 0) {
+        if (!presentation_settings.betAnimation() || gameSession().isRecovering() || isFin_de_la_transmision() || this.game_recovered != 0) {
             return;
         }
 
@@ -4684,7 +4690,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // falls back to the table center. The shuffle hides it again afterwards.
         table_display.preparePotTarget();
 
-        if (GameFrame.apuestaSonidoOn()) {
+        if (presentation_settings.betSound()) {
             game_audio.playWavResource("misc/bet.wav");
         }
 
@@ -4766,7 +4772,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     boolean presentShufflePhaseToAttachedRenderer(TableVisualEvent.Shuffle.Phase phase) {
         java.util.Optional<java.util.concurrent.CompletionStage<Void>> barrier
                 = table_events.publishIfAttached(sequence -> new TableVisualEvent.Shuffle(
-                        sequence, GameFrame.BARAJA, phase));
+                        sequence, presentation_settings.deck(), phase));
         if (barrier.isEmpty()) {
             return false;
         }
@@ -4816,7 +4822,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // in rebuy_fill_animated, which reComprar reads for its 'silent' flag so a mid-count
     // toggle can't double the rebuy till sound.
     public boolean isStackFillAnimated() {
-        return GameFrame.contadoresAnimOn() && !gameSession().isRecovering() && !isFin_de_la_transmision();
+        return presentation_settings.counterAnimation() && !gameSession().isRecovering() && !isFin_de_la_transmision();
     }
 
     // Whether the current rebuy batch was animated (and already played the till sound);
@@ -4832,7 +4838,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // before moving money: if true, setBet/setStack leave the label alone and
     // launchChipToPot rolls the counters on landing instead.
     public boolean shouldDeferCountersToChip() {
-        return GameFrame.apuestasAnimOn() && GameFrame.contadoresAnimOn()
+        return presentation_settings.betAnimation() && presentation_settings.counterAnimation()
                 && !gameSession().isRecovering() && !isFin_de_la_transmision();
     }
 
@@ -4945,7 +4951,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             to[i] = players.get(i).getStack();
         }
 
-        animateStackFill(players, from, to, GameFrame.initialStackFillSound());
+        animateStackFill(players, from, to, presentation_settings.initialStackFillSound());
         awaitInitialStackFill();
     }
 
@@ -4994,7 +5000,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         this.rebuy_fill_animated = true;
-        animateStackFill(players, from, to, GameFrame.cashRegisterSound());
+        animateStackFill(players, from, to, presentation_settings.cashRegisterSound());
     }
 
     public String getBb_nick() {
@@ -5068,10 +5074,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void commitPendingRebuysForBoundary() {
         synchronized (lock_rebuynow) {
-            Map<String, Integer> pendingBefore = GameFrame.TEST_MODE
+            Map<String, Integer> pendingBefore = presentation_settings.testMode()
                     ? new LinkedHashMap<>(rebuy_now) : null;
             commitPendingRebuys(rebuy_now, rebuy_committed);
-            if (GameFrame.TEST_MODE && !pendingBefore.isEmpty()) {
+            if (presentation_settings.testMode() && !pendingBefore.isEmpty()) {
                 LOGGER.log(Level.INFO,
                         "QA REBUY_BOUNDARY_COMMIT hand={0} entries={1}",
                         new Object[]{this.getMano(), pendingBefore});
@@ -5353,14 +5359,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    public static void loadMODSounds() {
+    public static void loadMODSounds(String language) {
 
         if (Init.MOD != null) {
 
             if (Files.exists(Paths
-                    .get(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + GameFrame.LANGUAGE + "/allin/"))) {
+                    .get(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + language + "/allin/"))) {
                 File[] archivos = new File(
-                        Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + GameFrame.LANGUAGE + "/allin/")
+                        Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + language + "/allin/")
                         .listFiles(File::isFile);
 
                 ArrayList<String> filenames = new ArrayList<>();
@@ -5371,29 +5377,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (!FUSION_MOD_SOUNDS) {
-                    Crupier.ALLIN_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + GameFrame.LANGUAGE + "/allin/",
+                    Crupier.ALLIN_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + language + "/allin/",
                             filenames.toArray(new String[0]));
                 } else {
 
                     ArrayList<String> sounds = new ArrayList<>();
 
-                    sounds.addAll(Arrays.asList(Crupier.ALLIN_SOUNDS.get(GameFrame.LANGUAGE).getValue()));
+                    sounds.addAll(Arrays.asList(Crupier.ALLIN_SOUNDS.get(language).getValue()));
 
                     sounds.addAll(filenames);
 
-                    Crupier.ALLIN_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + GameFrame.LANGUAGE + "/allin/",
+                    Crupier.ALLIN_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + language + "/allin/",
                             sounds.toArray(new String[0]));
                 }
 
             } else {
 
-                Crupier.ALLIN_SOUNDS_MOD = Crupier.ALLIN_SOUNDS.get(GameFrame.LANGUAGE);
+                Crupier.ALLIN_SOUNDS_MOD = Crupier.ALLIN_SOUNDS.get(language);
             }
 
             if (Files.exists(Paths
-                    .get(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + GameFrame.LANGUAGE + "/fold/"))) {
+                    .get(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + language + "/fold/"))) {
                 File[] archivos = new File(
-                        Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + GameFrame.LANGUAGE + "/fold/")
+                        Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + language + "/fold/")
                         .listFiles(File::isFile);
 
                 ArrayList<String> filenames = new ArrayList<>();
@@ -5404,28 +5410,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (!FUSION_MOD_SOUNDS) {
-                    Crupier.FOLD_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + GameFrame.LANGUAGE + "/fold/",
+                    Crupier.FOLD_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + language + "/fold/",
                             filenames.toArray(new String[0]));
                 } else {
 
                     ArrayList<String> sounds = new ArrayList<>();
 
-                    sounds.addAll(Arrays.asList(Crupier.FOLD_SOUNDS.get(GameFrame.LANGUAGE).getValue()));
+                    sounds.addAll(Arrays.asList(Crupier.FOLD_SOUNDS.get(language).getValue()));
 
                     sounds.addAll(filenames);
 
-                    Crupier.FOLD_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + GameFrame.LANGUAGE + "/fold/",
+                    Crupier.FOLD_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + language + "/fold/",
                             sounds.toArray(new String[0]));
                 }
 
             } else {
-                Crupier.FOLD_SOUNDS_MOD = Crupier.FOLD_SOUNDS.get(GameFrame.LANGUAGE);
+                Crupier.FOLD_SOUNDS_MOD = Crupier.FOLD_SOUNDS.get(language);
             }
 
             if (Files.exists(Paths.get(
-                    Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + GameFrame.LANGUAGE + "/showdown/"))) {
+                    Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + language + "/showdown/"))) {
                 File[] archivos = new File(
-                        Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + GameFrame.LANGUAGE + "/showdown/")
+                        Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + language + "/showdown/")
                         .listFiles(File::isFile);
 
                 ArrayList<String> filenames = new ArrayList<>();
@@ -5436,29 +5442,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (!FUSION_MOD_SOUNDS) {
-                    Crupier.SHOWDOWN_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + GameFrame.LANGUAGE + "/showdown/",
+                    Crupier.SHOWDOWN_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + language + "/showdown/",
                             filenames.toArray(new String[0]));
                 } else {
 
                     ArrayList<String> sounds = new ArrayList<>();
 
-                    sounds.addAll(Arrays.asList(Crupier.SHOWDOWN_SOUNDS.get(GameFrame.LANGUAGE).getValue()));
+                    sounds.addAll(Arrays.asList(Crupier.SHOWDOWN_SOUNDS.get(language).getValue()));
 
                     sounds.addAll(filenames);
 
-                    Crupier.SHOWDOWN_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + GameFrame.LANGUAGE + "/showdown/",
+                    Crupier.SHOWDOWN_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + language + "/showdown/",
                             sounds.toArray(new String[0]));
                 }
 
             } else {
 
-                Crupier.SHOWDOWN_SOUNDS_MOD = Crupier.SHOWDOWN_SOUNDS.get(GameFrame.LANGUAGE);
+                Crupier.SHOWDOWN_SOUNDS_MOD = Crupier.SHOWDOWN_SOUNDS.get(language);
             }
 
             if (Files.exists(Paths
-                    .get(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + GameFrame.LANGUAGE + "/loser/"))) {
+                    .get(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + language + "/loser/"))) {
                 File[] archivos = new File(
-                        Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + GameFrame.LANGUAGE + "/loser/")
+                        Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + language + "/loser/")
                         .listFiles(File::isFile);
 
                 ArrayList<String> filenames = new ArrayList<>();
@@ -5469,29 +5475,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (!FUSION_MOD_SOUNDS) {
-                    Crupier.LOSER_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + GameFrame.LANGUAGE + "/loser/",
+                    Crupier.LOSER_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + language + "/loser/",
                             filenames.toArray(new String[0]));
                 } else {
 
                     ArrayList<String> sounds = new ArrayList<>();
 
-                    sounds.addAll(Arrays.asList(Crupier.LOSER_SOUNDS.get(GameFrame.LANGUAGE).getValue()));
+                    sounds.addAll(Arrays.asList(Crupier.LOSER_SOUNDS.get(language).getValue()));
 
                     sounds.addAll(filenames);
 
-                    Crupier.LOSER_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + GameFrame.LANGUAGE + "/loser/",
+                    Crupier.LOSER_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + language + "/loser/",
                             sounds.toArray(new String[0]));
                 }
 
             } else {
 
-                Crupier.LOSER_SOUNDS_MOD = Crupier.LOSER_SOUNDS.get(GameFrame.LANGUAGE);
+                Crupier.LOSER_SOUNDS_MOD = Crupier.LOSER_SOUNDS.get(language);
             }
 
             if (Files.exists(Paths
-                    .get(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + GameFrame.LANGUAGE + "/winner/"))) {
+                    .get(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + language + "/winner/"))) {
                 File[] archivos = new File(
-                        Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + GameFrame.LANGUAGE + "/winner/")
+                        Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + language + "/winner/")
                         .listFiles(File::isFile);
 
                 ArrayList<String> filenames = new ArrayList<>();
@@ -5502,22 +5508,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (!FUSION_MOD_SOUNDS) {
-                    Crupier.WINNER_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + GameFrame.LANGUAGE + "/winner/",
+                    Crupier.WINNER_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + language + "/winner/",
                             filenames.toArray(new String[0]));
                 } else {
 
                     ArrayList<String> sounds = new ArrayList<>();
 
-                    sounds.addAll(Arrays.asList(Crupier.WINNER_SOUNDS.get(GameFrame.LANGUAGE).getValue()));
+                    sounds.addAll(Arrays.asList(Crupier.WINNER_SOUNDS.get(language).getValue()));
 
                     sounds.addAll(filenames);
 
-                    Crupier.WINNER_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + GameFrame.LANGUAGE + "/winner/",
+                    Crupier.WINNER_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + language + "/winner/",
                             sounds.toArray(new String[0]));
                 }
 
             } else {
-                Crupier.WINNER_SOUNDS_MOD = Crupier.WINNER_SOUNDS.get(GameFrame.LANGUAGE);
+                Crupier.WINNER_SOUNDS_MOD = Crupier.WINNER_SOUNDS.get(language);
             }
 
         }
@@ -5771,7 +5777,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD)
                 : Map.ofEntries(Crupier.ALLIN_CINEMATICS);
 
-        if (!this.sincronizando_mano && GameFrame.cinematicasAllinOn() && map.containsKey("allin/")
+        if (!this.sincronizando_mano && presentation_settings.allInCinematics() && map.containsKey("allin/")
                 && map.get("allin/").length > 0) {
 
             Object[][] allin_cinematics = map.get("allin/");
@@ -5868,7 +5874,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         String chosen_filename = announced_filename;
         long chosen_pausa = announced_pausa;
 
-        if (!this.sincronizando_mano && GameFrame.cinematicasAllinOn()
+        if (!this.sincronizando_mano && presentation_settings.allInCinematics()
                 && resolveAllinCinematicURL(announced_filename) == null) {
 
             Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD)
@@ -5908,7 +5914,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             game_progress.indeterminate();
 
             playAllInCinematic(filename, pausa,
-                    GameFrame.cinematicasAllinOn()
+                    presentation_settings.allInCinematics()
                     && resolveAllinCinematicURL(filename) != null);
 
         }
@@ -5922,28 +5928,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void soundAllin() {
 
-        if (!this.sincronizando_mano && GameFrame.SONIDOS_CHORRA && !fold_sound_playing) {
+        if (!this.sincronizando_mano && presentation_settings.sillySounds() && !fold_sound_playing) {
 
             game_audio.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_SOUNDS_MOD)
-                    : Map.ofEntries(Crupier.ALLIN_SOUNDS.get(GameFrame.LANGUAGE)));
+                    : Map.ofEntries(Crupier.ALLIN_SOUNDS.get(presentation_settings.language())));
 
         }
 
     }
 
     public void soundFold() {
-        if (!this.sincronizando_mano && GameFrame.SONIDOS_CHORRA && !fold_sound_playing) {
+        if (!this.sincronizando_mano && presentation_settings.sillySounds() && !fold_sound_playing) {
             this.fold_sound_playing = true;
             Helpers.threadRun(() -> {
                 game_audio.playRandomWavResourceAndWait(Init.MOD != null ? Map.ofEntries(Crupier.FOLD_SOUNDS_MOD)
-                        : Map.ofEntries(Crupier.FOLD_SOUNDS.get(GameFrame.LANGUAGE)));
+                        : Map.ofEntries(Crupier.FOLD_SOUNDS.get(presentation_settings.language())));
                 fold_sound_playing = false;
             });
         }
     }
 
     public void soundShowdown() {
-        if (!this.sincronizando_mano && GameFrame.SONIDOS_CHORRA && !fold_sound_playing) {
+        if (!this.sincronizando_mano && presentation_settings.sillySounds() && !fold_sound_playing) {
 
             if (badbeat) {
                 Helpers.threadRun(() -> {
@@ -5954,7 +5960,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         game_audio.unmuteAllLoopMp3();
                     }
                 });
-            } else if (jugada_ganadora >= Hand.POKER && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+            } else if (jugada_ganadora >= Hand.POKER && presentation_settings.language().equals(presentation_settings.defaultLanguage())) {
 
                 Helpers.threadRun(() -> {
                     game_audio.muteAllLoopMp3();
@@ -5969,17 +5975,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 game_audio.playRandomWavResource(Init.MOD != null
                         ? Map.ofEntries(Crupier.SHOWDOWN_SOUNDS_MOD, Crupier.WINNER_SOUNDS_MOD,
                                 Crupier.LOSER_SOUNDS_MOD)
-                        : Map.ofEntries(Crupier.SHOWDOWN_SOUNDS.get(GameFrame.LANGUAGE),
-                                Crupier.WINNER_SOUNDS.get(GameFrame.LANGUAGE),
-                                Crupier.LOSER_SOUNDS.get(GameFrame.LANGUAGE)));
+                        : Map.ofEntries(Crupier.SHOWDOWN_SOUNDS.get(presentation_settings.language()),
+                                Crupier.WINNER_SOUNDS.get(presentation_settings.language()),
+                                Crupier.LOSER_SOUNDS.get(presentation_settings.language())));
             }
         }
     }
 
     public void soundWinner(int jugada, boolean ultima_carta) {
-        if (!this.sincronizando_mano && GameFrame.SONIDOS_CHORRA && !fold_sound_playing) {
+        if (!this.sincronizando_mano && presentation_settings.sillySounds() && !fold_sound_playing) {
 
-            if ((jugada >= Hand.POKER || badbeat) && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+            if ((jugada >= Hand.POKER || badbeat) && presentation_settings.language().equals(presentation_settings.defaultLanguage())) {
 
                 Helpers.threadRun(() -> {
                     game_audio.muteAllLoopMp3();
@@ -5994,18 +6000,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 Map<String, String[]> sonidos;
 
-                if (ultima_carta && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+                if (ultima_carta && presentation_settings.language().equals(presentation_settings.defaultLanguage())) {
 
                     sonidos = Init.MOD != null
                             ? Map.ofEntries(Crupier.WINNER_SOUNDS_MOD,
                                     new HashMap.SimpleEntry<>("misc/", new String[]{"lastcard.wav"}))
-                            : Map.ofEntries(Crupier.WINNER_SOUNDS.get(GameFrame.LANGUAGE),
+                            : Map.ofEntries(Crupier.WINNER_SOUNDS.get(presentation_settings.language()),
                                     new HashMap.SimpleEntry<>("misc/", new String[]{"lastcard.wav"}));
 
                 } else {
 
                     sonidos = Init.MOD != null ? Map.ofEntries(Crupier.WINNER_SOUNDS_MOD)
-                            : Map.ofEntries(Crupier.WINNER_SOUNDS.get(GameFrame.LANGUAGE));
+                            : Map.ofEntries(Crupier.WINNER_SOUNDS.get(presentation_settings.language()));
                 }
 
                 game_audio.playRandomWavResource(sonidos);
@@ -6014,7 +6020,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public void soundLoser(int jugada) {
-        if (!this.sincronizando_mano && GameFrame.SONIDOS_CHORRA && !fold_sound_playing) {
+        if (!this.sincronizando_mano && presentation_settings.sillySounds() && !fold_sound_playing) {
 
             if (badbeat) {
                 Helpers.threadRun(() -> {
@@ -6025,7 +6031,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         game_audio.unmuteAllLoopMp3();
                     }
                 });
-            } else if (jugada >= Hand.FULL && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+            } else if (jugada >= Hand.FULL && presentation_settings.language().equals(presentation_settings.defaultLanguage())) {
 
                 Map.Entry<String, String[]> WTF_SOUNDS = new HashMap.SimpleEntry<>("joke/es/loser/", new String[]{
                     "encargado.wav",
@@ -6035,7 +6041,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             } else {
                 game_audio.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.LOSER_SOUNDS_MOD)
-                        : Map.ofEntries(Crupier.LOSER_SOUNDS.get(GameFrame.LANGUAGE)));
+                        : Map.ofEntries(Crupier.LOSER_SOUNDS.get(presentation_settings.language())));
             }
         }
     }
@@ -6472,7 +6478,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // - OFF: the bar smoothly counts down the game-over decision seconds (same as the
         //   "REBUY? (N)" action-label countdown), then flips to indeterminate (in the loop
         //   below) until the REBUYs arrive or the crupier's safety timeouts fire.
-        final boolean barra_smooth = !GameFrame.cinematicasGameOverOn();
+        final boolean barra_smooth = !presentation_settings.gameOverCinematics();
         if (barra_smooth) {
             game_progress.countdown(REBUY_DIALOG_COUNTDOWN);
         } else {
@@ -6886,7 +6892,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // The EXIT handler has already validated the wire; this validation also
         // protects the convenience overloads from storing malformed material.
         rememberExitCommunityTestament(nick, testamento);
-        if (GameFrame.TEST_MODE && testamento != null && !testamento.isEmpty()
+        if (presentation_settings.testMode() && testamento != null && !testamento.isEmpty()
                 && !"*".equals(testamento)) {
             LOGGER.log(Level.INFO, "QA EXIT_TESTAMENT_ACCEPTED nick={0}", nick);
         }
@@ -7024,7 +7030,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void refreshCallCostOverlay() {
         LocalPlayer lp = localPlayer();
 
-        if (!GameFrame.MOSTRAR_COSTE_IGUALAR || !this.community_cards_dealt
+        if (!presentation_settings.showCallCost() || !this.community_cards_dealt
                 || this.show_time || this.destapar_resistencia
                 || lp == null || !lp.isActivo() || lp.isExit()
                 || lp.getDecision() == Player.FOLD || lp.getDecision() == Player.ALLIN) {
@@ -7192,9 +7198,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 LOGGER.log(Level.WARNING, "Error evaluating Hand while showing cards of " + nick, e);
             }
 
-            setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : configuration().showdownTime());
+            setTiempo_pausa(presentation_settings.testMode() ? PAUSA_ENTRE_MANOS_TEST : configuration().showdownTime());
         } else if (isLocal) {
-            setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : configuration().showdownTime());
+            setTiempo_pausa(presentation_settings.testMode() ? PAUSA_ENTRE_MANOS_TEST : configuration().showdownTime());
         }
     }
 
@@ -7619,7 +7625,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 // Defense: if the server echoes our own packet back to us on a remote client, ignore it.
                 if (!gameSession().isHost() && jugador.equals(localPlayer())) {
-                    setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : configuration().showdownTime());
+                    setTiempo_pausa(presentation_settings.testMode() ? PAUSA_ENTRE_MANOS_TEST : configuration().showdownTime());
                     return false;
                 }
 
@@ -7752,7 +7758,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 } catch (Exception e) {
                                 }
 
-                                if (GameFrame.SONIDOS_CHORRA && fjugador.getDecision() == Player.FOLD) {
+                                if (presentation_settings.sillySounds() && fjugador.getDecision() == Player.FOLD) {
                                     game_audio.playWavResource("misc/showyourcards.wav");
                                 }
 
@@ -7765,9 +7771,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                         });
                     }
-                    setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : configuration().showdownTime());
+                    setTiempo_pausa(presentation_settings.testMode() ? PAUSA_ENTRE_MANOS_TEST : configuration().showdownTime());
                 } else {
-                    setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : configuration().showdownTime());
+                    setTiempo_pausa(presentation_settings.testMode() ? PAUSA_ENTRE_MANOS_TEST : configuration().showdownTime());
                 }
                 return decrypted;
             }
@@ -8759,7 +8765,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 GameFrame.rebuyHeadroom(0f));
                         if (amount > 0) {
                             rebuy_now.put(nick, amount);
-                            if (GameFrame.TEST_MODE) {
+                            if (presentation_settings.testMode()) {
                                 LOGGER.log(Level.INFO,
                                         "QA RECOVERY_BOT_BUYIN_STAGED nick={0} amount={1}",
                                         new Object[]{nick, amount});
@@ -8819,7 +8825,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
-            if (GameFrame.MUSICA_AMBIENTAL) {
+            if (presentation_settings.ambientMusic()) {
                 game_audio.stopLoopMp3("misc/background_music.mp3");
                 game_audio.playLoopMp3Resource("misc/recovering.mp3");
                 recovering_music_active = true;
@@ -8849,7 +8855,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else {
                 game_log.print(Translator.translate("game.timba_recuperada"));
 
-                if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
+                if (presentation_settings.language().equals(presentation_settings.defaultLanguage()) && presentation_settings.startSound()) {
                     game_audio.playWavResource("misc/startplay.wav");
                 }
 
@@ -8869,7 +8875,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         } else {
             game_log.print(Translator.translate("game.timba_recuperada"));
-            if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
+            if (presentation_settings.language().equals(presentation_settings.defaultLanguage()) && presentation_settings.startSound()) {
                 game_audio.playWavResource("misc/startplay.wav");
             }
             game_ui.run(() -> {
@@ -8969,10 +8975,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // routine — a single warning sound is enough. Each gated by its own settings checkbox.
         boolean peligro_grave = motivo != null && motivo.startsWith("zero_trust.");
         if (peligro_grave) {
-            if (GameFrame.errorSonidoOn()) {
+            if (presentation_settings.errorSound()) {
                 game_audio.startDangerAlertLoop("misc/danger_alert.wav");
             }
-        } else if (GameFrame.avisoSonidoOn()) {
+        } else if (presentation_settings.warningSound()) {
             game_audio.playWavResource("misc/warning.wav");
         }
 
@@ -9338,7 +9344,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         this.ciega_grande = next[1];
 
-        if (GameFrame.ciegasSonidoOn()) {
+        if (presentation_settings.blindSound()) {
             game_audio.playWavResource("misc/double_blinds.wav");
         }
 
@@ -9454,7 +9460,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 : RecoveryBalanceReconciler.reconcileExact(wire, localRows);
         if (!verified.isOk()
                 || !verified.balances().keySet().equals(localRows.keySet())) {
-            if (GameFrame.TEST_MODE) {
+            if (presentation_settings.testMode()) {
                 LOGGER.log(Level.SEVERE,
                         "QA NEXT_HAND_BALANCE_REJECT hand={0} passive={1} local={2} wire={3}",
                         new Object[]{this.getMano(), passiveObserver, localRows, wire});
@@ -9669,7 +9675,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             boundaryWire = RecoveryBalanceReconciler.encodeLocal(
                                     collectNextHandBalanceRows());
                             this.next_hand_balance_wire = boundaryWire;
-                            if (GameFrame.TEST_MODE) {
+                            if (presentation_settings.testMode()) {
                                 LOGGER.log(Level.INFO,
                                         "QA NEXT_HAND_BALANCE_SEALED hand={0} wire={1}",
                                         new Object[]{this.getMano(), boundaryWire});
@@ -10048,14 +10054,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
 
-                if (GameFrame.cinematicasOn()) {
+                if (presentation_settings.cinematics()) {
                     playAuxiliaryCinematic(
                             GameCinematicSink.Type.IWTSTH_REQUEST,
                             "iwtsth.gif");
                     Helpers.pausar(500);
-                    game_audio.playWavResourceAndWait("misc/iwtsth.wav", true, false, !GameFrame.iwtsthSonidoOn());
+                    game_audio.playWavResourceAndWait("misc/iwtsth.wav", true, false, !presentation_settings.iwtsthSound());
                 } else {
-                    game_audio.playWavResourceAndWait("misc/iwtsth.wav", true, false, !GameFrame.iwtsthSonidoOn());
+                    game_audio.playWavResourceAndWait("misc/iwtsth.wav", true, false, !presentation_settings.iwtsthSound());
                 }
 
                 if (gameSession().isHost()) {
@@ -10133,7 +10139,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     } else {
                         // If denied, inform the UI and register rejection timestamp for anti-flood
                         game_log.print(Translator.translate("iwtsth.el_servidor_ha_denegado_la") + " " + iwtsther);
-                        if (GameFrame.cinematicasOn()) {
+                        if (presentation_settings.cinematics()) {
                             playAuxiliaryCinematic(
                                     GameCinematicSink.Type.IWTSTH_DENIED,
                                     "iwtsth_no.gif");
@@ -10218,7 +10224,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if (hay_rabbits_tapadas) {
-                if (GameFrame.destapeSonidoOn()) {
+                if (presentation_settings.flipSound()) {
                     Helpers.threadRun(() -> game_audio.playPreloadedWav("misc/uncover.wav"));
                 }
                 for (Card carta : communityCards()) {
@@ -10305,7 +10311,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (Player jugador : players()) {
             if (!jugador.isExit() && jugador.isSpectator() && (Helpers.doubleSecureCompare(0f, jugador.getStack()) < 0
                     || rebuy_committed.containsKey(jugador.getNickname()))) {
-                if (GameFrame.TEST_MODE && rebuy_committed.containsKey(jugador.getNickname())) {
+                if (presentation_settings.testMode() && rebuy_committed.containsKey(jugador.getNickname())) {
                     LOGGER.log(Level.INFO,
                             "QA REBUY_SPECTATOR_REACTIVATED hand={0} nick={1} amount={2}",
                             new Object[]{this.getMano(), jugador.getNickname(),
@@ -10445,10 +10451,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         synchronized (getLock_contabilidad()) {
             if (Helpers.doubleSecureCompare(0f, this.bote_sobrante) < 0) {
-                if (GameFrame.SONIDOS_CHORRA && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+                if (presentation_settings.sillySounds() && presentation_settings.language().equals(presentation_settings.defaultLanguage())) {
                     game_audio.playWavResource("misc/indivisible.wav");
                 }
-                if (GameFrame.cajaSonidoOn()) {
+                if (presentation_settings.cashSound()) {
                     game_audio.playWavResource("misc/cash_register.wav");
                 }
                 game_log
@@ -10745,8 +10751,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (!attached_shuffle_presentation) {
                 table_display.playShuffleLoop(
-                        GameFrame.barajadoAnimOn(),
-                        GameFrame.barajadoSonidoOn(),
+                        presentation_settings.shuffleAnimation(),
+                        presentation_settings.shuffleSound(),
                         () -> barajando && !isFin_de_la_transmision(),
                         () -> {
                             synchronized (shuffle_lock) {
@@ -11530,7 +11536,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         final boolean attached_deal_presentation = table_events.isAttached();
-        boolean animacion = !attached_deal_presentation && GameFrame.repartoAnimOn();
+        boolean animacion = !attached_deal_presentation && presentation_settings.dealAnimation();
 
         // Historical base (WITHOUT deal speed applied) for the inter-card pause and the flight
         // duration, each with its own floor (100 / 150) so the arc still reads at a full table.
@@ -11543,7 +11549,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // would get flattened by the max(). Normal (100) = exact base; Slow (150) slower; Fast
         // (60) faster. The flight is blocking, so in animation mode flight_dur replaces the
         // inter-card pause.
-        float vel = GameFrame.REPARTO_VELOCIDAD / 100f;
+        float vel = presentation_settings.dealSpeed() / 100f;
         int pausa = Math.max(60, Math.round(pausa_base * vel));
         int flight_dur = Math.max(80, Math.round(flight_base * vel));
 
@@ -11568,14 +11574,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // in resolveVoluntaryStraddle instead).
         Future<?> prefetch_flip_hc1 = null;
         Future<?> prefetch_flip_hc2 = null;
-        if (!attached_deal_presentation && !defer_straddle_reveal && GameFrame.destapeAnimOn()
+        if (!attached_deal_presentation && !defer_straddle_reveal && presentation_settings.flipAnimation()
                 && localPlayer().isActivo()) {
             final String sp1 = Card.shortStringFromIndex(this.local_original_cards[0] & 0xFF);
             final String sp2 = Card.shortStringFromIndex(this.local_original_cards[1] & 0xFF);
             // The local player's hole cards are split (half-height) ONLY at compact-view level
             // 3, so the flip is pre-decoded already cropped for that level. If the view changes
             // before the reveal, takePrefetchedHoleCardFlip detects it and decodes inline instead.
-            final boolean local_top_half = (GameFrame.VISTA_COMPACTA == 3);
+            final boolean local_top_half = (presentation_settings.compactView() == 3);
             if (sp1 != null) {
                 prefetch_flip_hc1 = Helpers.futureRun(() -> decodeCardFlipAnim(sp1, local_top_half));
             }
@@ -11656,7 +11662,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 final Card hc1 = jugador.getHoleCard1();
                 final boolean es_local = (jugador == localPlayer());
                 // Only YOUR card, and only with the reveal animation on, flips open.
-                final boolean flip_local = es_local && !defer_straddle_reveal && GameFrame.destapeAnimOn();
+                final boolean flip_local = es_local && !defer_straddle_reveal && presentation_settings.flipAnimation();
 
                 // The face-down card flies from the dealer to the seat and lands seated
                 // (deal.wav is triggered by the flight itself when launched). For the local
@@ -11696,7 +11702,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 table_display.dealHoleCard(jugador.getNickname(), 0,
-                        flight_dur, GameFrame.repartoSonidoOn(), seat);
+                        flight_dur, presentation_settings.dealSound(), seat);
 
                 // Animated reveal on ANOTHER thread as soon as it lands: the dealer keeps
                 // dealing without waiting for your card to open. Uses the already-ready
@@ -11708,13 +11714,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             } else if (jugador.isActivo() && jugador == localPlayer()) {
 
-                if (GameFrame.repartoSonidoOn()) {
+                if (presentation_settings.dealSound()) {
                     game_audio.playWavResource("misc/deal.wav", false);
                 }
 
                 if (defer_straddle_reveal) {
                     jugador.getHoleCard1().iniciarCarta();
-                } else if (GameFrame.destapeAnimOn()) {
+                } else if (presentation_settings.flipAnimation()) {
                     // Face down with its value set, revealed async (doesn't slow the deal).
                     final Card lhc1 = jugador.getHoleCard1();
                     lhc1.iniciarConValorNumerico((this.local_original_cards[0] & 0xFF) + 1);
@@ -11745,7 +11751,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 final Card hc2 = jugador.getHoleCard2();
                 final boolean es_local = (jugador == localPlayer());
-                final boolean flip_local = es_local && !defer_straddle_reveal && GameFrame.destapeAnimOn();
+                final boolean flip_local = es_local && !defer_straddle_reveal && presentation_settings.flipAnimation();
 
                 // Same as hole card 1: with the reveal animation on it lands face down and
                 // flips async on landing; without it, revealed instantly.
@@ -11767,7 +11773,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 table_display.dealHoleCard(jugador.getNickname(), 1,
-                        flight_dur, GameFrame.repartoSonidoOn(), seat);
+                        flight_dur, presentation_settings.dealSound(), seat);
 
                 if (flip_local) {
                     final Future<?> pf = prefetch_flip_hc2;
@@ -11776,13 +11782,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             } else if (jugador.isActivo() && jugador == localPlayer()) {
 
-                if (GameFrame.repartoSonidoOn()) {
+                if (presentation_settings.dealSound()) {
                     game_audio.playWavResource("misc/deal.wav", false);
                 }
 
                 if (defer_straddle_reveal) {
                     jugador.getHoleCard2().iniciarCarta();
-                } else if (GameFrame.destapeAnimOn()) {
+                } else if (presentation_settings.flipAnimation()) {
                     final Card lhc2 = jugador.getHoleCard2();
                     lhc2.iniciarConValorNumerico((this.local_original_cards[1] & 0xFF) + 1);
                     final Future<?> pf = prefetch_flip_hc2;
@@ -11814,7 +11820,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 final Card cc = carta;
                 table_display.dealCommunityCard(
                         java.util.Arrays.asList(communityCards()).indexOf(cc),
-                        flight_dur, GameFrame.repartoSonidoOn(),
+                        flight_dur, presentation_settings.dealSound(),
                         () -> cc.iniciarCarta());
             } else {
                 Helpers.pausar(pausa);
@@ -11980,7 +11986,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Only animate when a swap is actually needed, the setting is on, both cards are
         // FACE UP and visible (if a reveal were still in progress they'd be face-down ->
         // instant sort instead), and the player is still in the game.
-        boolean animable = needsSwap && GameFrame.swapAnimOn()
+        boolean animable = needsSwap && presentation_settings.swapAnimation()
                 && !c1.isTapada() && !c2.isTapada()
                 && c1.isVisible_card() && c2.isVisible_card()
                 && !local.isExit() && !isFin_de_la_transmision();
@@ -11997,7 +12003,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Helpers.threadRun(() -> {
             try {
                 table_display.swapHoleCards(local.getNickname(),
-                        GameFrame.SWAP_ANIM_DURATION, GameFrame.SWAP_ANIM_ARC,
+                        presentation_settings.swapAnimationDuration(), presentation_settings.swapAnimationArc(),
                         () -> local.ordenarCartas());
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
@@ -13831,7 +13837,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             byte[] iv = new byte[16];
             Helpers.CSPRNG_GENERATOR.nextBytes(iv);
             // The pot travels as a raw double: each client formats it with its own
-            // locale (money2String depends on GameFrame.LANGUAGE).
+            // locale (money2String depends on presentation_settings.language()).
             p.writeCommandFromServer(Helpers.encryptCommand("GAME#" + id + "#RIT_VOTE_REQ#" + timeout + "#" + totalVoters + "#" + this.bote_total, p.getAes_key(), iv, p.getHmac_key()));
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Failed to send RIT_VOTE_REQ", e);
@@ -13946,7 +13952,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 throw new IllegalArgumentException("unexpected or duplicate RIT voter");
                             }
                             votes.put(vote.nick(), vote.decision());
-                            if (GameFrame.TEST_MODE) {
+                            if (presentation_settings.testMode()) {
                                 LOGGER.log(Level.INFO,
                                         "QA RIT_VOTE_ACCEPTED nick={0} decision={1}",
                                         new Object[]{vote.nick(), vote.decision()});
@@ -14412,7 +14418,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // The straddle is a forced bet (2x BB): sounds like the blinds (bet.wav)
                     // and, like them (flyForcedBetsToPot), ONLY if the chip animation is on.
                     // Synced with the money chip landing in the pot.
-                    if (GameFrame.apuestasAnimOn() && GameFrame.apuestaSonidoOn()) {
+                    if (presentation_settings.betAnimation() && presentation_settings.betSound()) {
                         game_audio.playWavResource("misc/bet.wav");
                     }
                     launchChipToPot(straddler_f);
@@ -14515,7 +14521,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                             answer = response.decision();
                             this.pending_remote_straddle_sig = response.signature();
-                            if (GameFrame.TEST_MODE) {
+                            if (presentation_settings.testMode()) {
                                 LOGGER.log(Level.INFO,
                                         "QA STRADDLE_RESP_ACCEPTED nick={0} decision={1}",
                                         new Object[]{response.nick(), response.decision()});
@@ -14708,7 +14714,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // BLOCKS until it lands. Without animation / on recover / on transmission end: just
     // paints the static chip (identical to the old straddle).
     private void flyStraddleChipToSeat(Player straddler) {
-        if (!GameFrame.ciegasDealerAnimOn() || gameSession().isRecovering()
+        if (!presentation_settings.blindDealerAnimation() || gameSession().isRecovering()
                 || this.game_recovered != 0 || isFin_de_la_transmision()) {
             straddler.refreshPositionChipIcons();
             return;
@@ -14797,7 +14803,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         // Without flip animation (or local already out / transmission ended): reveals
         // FLAT, exactly as usual.
-        if (!GameFrame.destapeAnimOn() || local.isExit() || isFin_de_la_transmision()) {
+        if (!presentation_settings.flipAnimation() || local.isExit() || isFin_de_la_transmision()) {
             game_ui.runAndWait(() -> {
                 c1.iniciarConValorNumerico(v1);
                 c1.destapar(false);
@@ -15335,7 +15341,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // (it carries half the pot), but it runs under lock_contabilidad, and every
         // cosmetic pause delays the real exit (finTransmision waits on that lock for the
         // auditor snapshot).
-        boolean animacion = GameFrame.repartoAnimOn() && !localPlayer().isExit();
+        boolean animacion = presentation_settings.dealAnimation() && !localPlayer().isExit();
 
         game_ui.runAndWait(() -> {
             // Run cards -> off the table (resetearCarta invisible) if animated, or
@@ -15363,7 +15369,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // as repartir(): a floor plus a speed factor applied after the floor).
         int pausa_base = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / this.getJugadoresActivos())));
         int flight_base = Math.max(150, pausa_base);
-        float vel = GameFrame.REPARTO_VELOCIDAD / 100f;
+        float vel = presentation_settings.dealSpeed() / 100f;
         int pausa = Math.max(60, Math.round(pausa_base * vel));
         int flight_dur = Math.max(80, Math.round(flight_base * vel));
         Helpers.pausar(pausa);
@@ -15373,7 +15379,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             final Card cc = carta;
             table_display.dealCommunityCard(
                     java.util.Arrays.asList(communityCards()).indexOf(cc),
-                    flight_dur, GameFrame.repartoSonidoOn(),
+                    flight_dur, presentation_settings.dealSound(),
                     () -> cc.iniciarCarta());
         }
     }
@@ -15496,7 +15502,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         double paidA = settleRunItTwiceBoard(resisten, 0, wonAnySide);
         game_log.print(Translator.translate("runittwice.log_fin_a"));
 
-        if (!GameFrame.TEST_MODE && !isFin_de_la_transmision()
+        if (!presentation_settings.testMode() && !isFin_de_la_transmision()
                 && !localPlayer().isExit()) {
             // Pause to let SIDE-A sink in = the SAME as the pause after SIDE-B's queue
             // (1.5x with side pots), so both sides wait equally. The isExit() guard
@@ -16861,7 +16867,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         table_display.refresh();
                     });
                     game_log.print(Translator.translate("game.mano_recuperada"));
-                    if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
+                    if (presentation_settings.language().equals(presentation_settings.defaultLanguage()) && presentation_settings.startSound()) {
                         game_audio.playWavResource("misc/startplay.wav");
                     }
                     if (recovering_music_active) {
@@ -16874,7 +16880,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 double old_player_bet = current_player.getBet();
                 LOGGER.log(Level.INFO, "Read DECISION from {0}", current_player.getNickname());
 
-                if (GameFrame.AUTO_ACTION_BUTTONS && current_player != localPlayer()
+                if (presentation_settings.autoActionButtons() && current_player != localPlayer()
                         && localPlayer().getDecision() != Player.FOLD
                         && localPlayer().getDecision() != Player.ALLIN) {
                     localPlayer().activarPreBotones();
@@ -19964,7 +19970,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             game_log.print(Translator.translate("game.timba_recuperada"));
 
-            if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
+            if (presentation_settings.language().equals(presentation_settings.defaultLanguage()) && presentation_settings.startSound()) {
 
                 game_audio.playWavResource("misc/startplay.wav");
             }
@@ -20986,7 +20992,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // is shown split at half height (its top half), so its flip also renders at
         // half height to match the static image (same rule as the hole-card swap).
         return decodeCardFlipAnim(carta.toShortString(),
-                GameFrame.VISTA_COMPACTA > 0 && carta.isCompactable());
+                presentation_settings.compactView() > 0 && carta.isCompactable());
     }
 
     // Same, but from the "value_suit" key directly (without needing a Card already
@@ -21012,7 +21018,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // to hand.
     private void prefetchAnimacionDestaparCarta(Card carta) {
 
-        if (GameFrame.destapeAnimOn()) {
+        if (presentation_settings.flipAnimation()) {
             flip_anim_prefetch.put(carta, Helpers.futureRun(() -> decodeCardFlipAnim(carta)));
         }
     }
@@ -21033,7 +21039,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (decoded != null && decoded.card.equals(carta.toShortString())
                     && decoded.zoom_factor == (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)
-                    && decoded.top_half == (GameFrame.VISTA_COMPACTA > 0 && carta.isCompactable())) {
+                    && decoded.top_half == (presentation_settings.compactView() > 0 && carta.isCompactable())) {
                 return decoded;
             }
         } catch (InterruptedException ex) {
@@ -21103,7 +21109,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         RemotePlayer rp = (RemotePlayer) jugador;
 
-        if (!GameFrame.destapeAnimOn()) {
+        if (!presentation_settings.flipAnimation()) {
             destaparCartasJugadorSeco(rp);
             return;
         }
@@ -21241,7 +21247,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         try {
             Helpers.parkThreadMillis(pre_delay_ms);
 
-            if (!GameFrame.destapeAnimOn() || !carta.isIniciadaConValor() || !carta.isTapada()
+            if (!presentation_settings.flipAnimation() || !carta.isIniciadaConValor() || !carta.isTapada()
                     || local.isExit() || isFin_de_la_transmision()) {
                 return;
             }
@@ -21306,7 +21312,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (decoded != null && decoded.card.equals(carta.toShortString())
                     && decoded.zoom_factor == (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)
-                    && decoded.top_half == (GameFrame.VISTA_COMPACTA > 0 && carta.isCompactable())) {
+                    && decoded.top_half == (presentation_settings.compactView() > 0 && carta.isCompactable())) {
                 return decoded;
             }
         } catch (InterruptedException ex) {
@@ -21331,7 +21337,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        if (GameFrame.destapeAnimOn()) {
+        if (presentation_settings.flipAnimation()) {
 
             long start = System.currentTimeMillis();
 
@@ -22461,7 +22467,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // falls after the previous player's neutral label). This way pass
                     // 2's verdicts land RIGHT as the last flip finishes, same as a
                     // multiway all-in.
-                    if (estaba_tapada && alguno_destapado && !GameFrame.TEST_MODE
+                    if (estaba_tapada && alguno_destapado && !presentation_settings.testMode()
                             && !table_events.isAttached()) {
                         Helpers.pausar(PAUSA_ENTRE_DESTAPES_SHOWDOWN);
                     }
@@ -22525,9 +22531,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     this.sqlNewShowdown(jugador_actual, jugada, true, !mustShow);
 
-                    if (GameFrame.SONIDOS_CHORRA && isLocal) {
+                    if (presentation_settings.sillySounds() && isLocal) {
                         if (jugador_actual.getDecision() == Player.ALLIN) {
-                            game_audio.playWavResource("joke/" + GameFrame.LANGUAGE + "/winner/applause.wav");
+                            game_audio.playWavResource("joke/" + presentation_settings.language() + "/winner/applause.wav");
                         } else {
                             this.soundWinner(jugada.getValue(), ganaPorUltimaCarta(jugador_actual, jugada, Crupier.MIN_ULTIMA_CARTA_JUGADA));
                         }
@@ -22566,8 +22572,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     this.sqlNewShowdown(jugador_actual, jugada, false, !mustShow);
 
-                    if (GameFrame.SONIDOS_CHORRA && isLocal) {
-                        if (jugador_actual.getDecision() == Player.ALLIN && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+                    if (presentation_settings.sillySounds() && isLocal) {
+                        if (jugador_actual.getDecision() == Player.ALLIN && presentation_settings.language().equals(presentation_settings.defaultLanguage())) {
                             java.util.Map.Entry<String, String[]> WTF_SOUNDS = new java.util.HashMap.SimpleEntry<>("joke/es/loser/", new String[]{
                                 "encargado.wav",
                                 "matias.wav"});
@@ -22830,8 +22836,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         game_audio.stopLoopMp3("misc/waiting_room.mp3");
 
         if (!gameSession().isRecovering()
-                && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)
-                && GameFrame.inicioSonidoOn()) {
+                && presentation_settings.language().equals(presentation_settings.defaultLanguage())
+                && presentation_settings.startSound()) {
             game_audio.playWavResource("misc/startplay.wav");
         }
 
@@ -22896,7 +22902,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         table_display.hideStreetBets();
                         localPlayer().desactivarControles();
 
-                        if (GameFrame.AUTO_ACTION_BUTTONS) {
+                        if (presentation_settings.autoActionButtons()) {
                             // Persist mode keeps the queued pre-press across the hand
                             // boundary (hides the buttons but does not clear pre_pulsado).
                             localPlayer().desActivarPreBotones(!GameFrame.AUTO_ACTION_PERSIST);
@@ -22924,7 +22930,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             this.setSincronizando_mano(false);
                             game_log.print(Translator.translate("game.timba_recuperada"));
 
-                            if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
+                            if (presentation_settings.language().equals(presentation_settings.defaultLanguage()) && presentation_settings.startSound()) {
                                 game_audio.playWavResource("misc/startplay.wav");
                             }
 
@@ -23255,7 +23261,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                             this.bote_total = 0f;
 
-                            if (!GameFrame.TEST_MODE && !resisten.contains(localPlayer())) {
+                            if (!presentation_settings.testMode() && !resisten.contains(localPlayer())) {
                                 if (localPlayer().isActivo() && localPlayer().getParguela_counter() > 0) {
                                     localPlayer().activar_boton_mostrar(true);
                                 }
@@ -23345,7 +23351,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                             startIWTSTHPlayersBlinking();
 
-                            if (!GameFrame.TEST_MODE) {
+                            if (!presentation_settings.testMode()) {
                                 if (getJugadoresActivos() > 1 && !localPlayer().isExit()) {
                                     this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? ((resisten.size() > 1 || configuration().rabbitHunting() != 0) ? configuration().showdownTime() : Math.round(0.5f * configuration().showdownTime())) : Math.round(1.5f * configuration().showdownTime()));
                                 }
@@ -23539,7 +23545,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // not on a blind, and the settlement fail-closed guard correctly stopped the table.
         // Apply the configured rebuy/spectator policy deterministically on every peer; the
         // next NUEVA_MANO consumes rebuy_now through the normal accounting path.
-        if (GameFrame.TEST_MODE) {
+        if (presentation_settings.testMode()) {
             for (Player jugador : players()) {
                 if (!jugador.isActivo()
                         || Helpers.doubleSecureCompare(0f,
@@ -23810,8 +23816,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * is active. Selected choices still traverse the normal action, protocol,
      * accounting and settlement paths; only the human/bot decision is fixed.
      */
-    static boolean testModeNickSelected(String propertyName, String nick) {
-        if (!GameFrame.TEST_MODE || propertyName == null || nick == null) {
+    boolean testModeNickSelected(String propertyName, String nick) {
+        if (!presentation_settings.testMode() || propertyName == null || nick == null) {
             return false;
         }
         return configuredNickSelected(System.getProperty(propertyName, ""), nick);

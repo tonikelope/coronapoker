@@ -132,7 +132,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
             }
             try {
                 CoronaPokerGdxTable candidate = new CoronaPokerGdxTable(
-                        refreshRate, new GdxTableViewState(initialState),
+                        refreshRate, new GdxTableViewState(initialState), commands,
                         () -> opened.accept(table));
                 table = candidate;
                 candidate.create();

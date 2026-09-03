@@ -34,6 +34,8 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.ExtendViewport;
 import com.tonikelope.coronapoker.table.TableSnapshot;
+import com.tonikelope.coronapoker.table.TableCommand;
+import com.tonikelope.coronapoker.table.TableCommandSink;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -302,6 +304,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private final int detectedRefreshRate;
     private final GdxTableViewState liveState;
+    private final TableCommandSink commands;
     private final Runnable onReady;
     private final Star[] stars = new Star[STAR_COUNT];
     private final Seat[] seats = new Seat[SEAT_COUNT];
@@ -391,16 +394,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private LiveCardFlight liveCardFlight;
     private final Map<String, Texture> liveCardFaces = new HashMap<>();
     private String liveDeck = "goliat";
+    private double liveBetAmount = 1d;
 
     CoronaPokerGdxTable(int detectedRefreshRate) {
-        this(detectedRefreshRate, null, () -> {
+        this(detectedRefreshRate, null, command -> { }, () -> {
         });
     }
 
     CoronaPokerGdxTable(int detectedRefreshRate, GdxTableViewState liveState,
-            Runnable onReady) {
+            TableCommandSink commands, Runnable onReady) {
         this.detectedRefreshRate = detectedRefreshRate;
         this.liveState = liveState;
+        this.commands = Objects.requireNonNull(commands, "commands");
         this.onReady = Objects.requireNonNull(onReady, "onReady");
     }
 
@@ -666,6 +671,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 seats[index] = new Seat("", 0, index);
             }
         }
+    }
+
+    private TableSnapshot.PlayerSnapshot livePlayer(Seat seat) {
+        if (liveState == null || seat == null || seat.name.isBlank()) {
+            return null;
+        }
+        return liveState.snapshot().players().stream()
+                .filter(player -> player.nickname().equals(seat.name))
+                .findFirst().orElse(null);
+    }
+
+    private static String formatAmount(double amount) {
+        return java.math.BigDecimal.valueOf(amount).stripTrailingZeros()
+                .toPlainString();
     }
 
     void acceptEvent(TableVisualEvent event, CompletableFuture<Void> barrier) {
@@ -1125,6 +1144,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 openUiLayer(UI_CONTEXT_MENU);
             } else if (uiLayer == UI_CONTEXT_MENU) {
                 uiLayer = UI_NONE;
+            } else if (liveState != null) {
+                submit(new TableCommand.ExitGame());
             } else {
                 Gdx.app.exit();
             }
@@ -1149,6 +1170,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             return;
         }
+        if (!intro && liveState != null) {
+            handleLiveTableInput();
+            return;
+        }
         if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
             if (intro) {
                 intro = false;
@@ -1169,6 +1194,54 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             viewport.unproject(pointer);
             burstClock = 0f;
         }
+    }
+
+    private void handleLiveTableInput() {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F)) {
+            submit(new TableCommand.Fold());
+        } else if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
+            submit(new TableCommand.CheckOrCall());
+        } else if (Gdx.input.isKeyJustPressed(Input.Keys.A)) {
+            submit(new TableCommand.AllIn());
+        }
+        if (!Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+            return;
+        }
+        pointer.set(Gdx.input.getX(), Gdx.input.getY());
+        viewport.unproject(pointer);
+        switch (hudTarget(pointer.x, pointer.y, viewport.getWorldWidth())) {
+            case 1 -> submit(new TableCommand.Fold());
+            case 2 -> submit(new TableCommand.CheckOrCall());
+            case 3 -> liveBetAmount = Math.max(0d, liveBetAmount - 1d);
+            case 4 -> liveBetAmount += 1d;
+            case 5 -> submit(new TableCommand.Bet(liveBetAmount));
+            case 6 -> submit(new TableCommand.AllIn());
+            default -> { }
+        }
+    }
+
+    static int hudTarget(float x, float y, float worldWidth) {
+        float hudWidth = Math.min(1110f, worldWidth - 620f);
+        float hudX = worldWidth / 2f - hudWidth / 2f;
+        float actionY = LOCAL_HUD_Y + 24f;
+        float actionHeight = 80f;
+        float gap = 12f;
+        float foldX = hudX + 230f + gap;
+        float checkX = foldX + 150f + gap;
+        float spinnerX = checkX + 200f + gap;
+        float betX = spinnerX + 145f + gap;
+        float allInX = betX + 175f + gap;
+        if (contains(x, y, foldX, actionY, 150f, actionHeight)) return 1;
+        if (contains(x, y, checkX, actionY, 200f, actionHeight)) return 2;
+        if (contains(x, y, spinnerX, actionY, 43f, actionHeight)) return 3;
+        if (contains(x, y, spinnerX + 102f, actionY, 43f, actionHeight)) return 4;
+        if (contains(x, y, betX, actionY, 175f, actionHeight)) return 5;
+        if (contains(x, y, allInX, actionY, 150f, actionHeight)) return 6;
+        return 0;
+    }
+
+    private void submit(TableCommand command) {
+        commands.submit(command);
     }
 
     private void toggleFullscreen() {
@@ -1496,6 +1569,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private int winnerSeat() {
+        if (liveState != null) {
+            for (int index = 0; index < seats.length; index++) {
+                TableSnapshot.PlayerSnapshot player = livePlayer(seats[index]);
+                if (player != null && player.winner()) return index;
+            }
+            return -1;
+        }
         return seatForHand(2);
     }
 
@@ -1508,7 +1588,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (presence <= 0f) {
                 continue;
             }
-            boolean active = thinkingAction != null
+            boolean active = liveState != null
+                    ? liveState.snapshot().currentTurnNickname().equals(seat.name)
+                    : thinkingAction != null
                     && seat.index == seatForHand(thinkingAction.seat);
             boolean folded = isFolded(seat.index, handTime())
                     && handTime() < SHOWDOWN_START;
@@ -2508,6 +2590,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean isFolded(int seat, float time) {
+        if (liveState != null) {
+            TableSnapshot.PlayerSnapshot player = livePlayer(seats[seat]);
+            return player != null && !player.active();
+        }
         int canonicalSeat = canonicalSeatForHand(seat);
         for (ActionEvent action : ACTIONS) {
             if (action.seat == canonicalSeat && action.kind == ACTION_FOLD
@@ -2518,7 +2604,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return time >= SHOWDOWN_START && !isShowdownContender(seat);
     }
 
-    private static boolean isShowdownContender(int seat) {
+    private boolean isShowdownContender(int seat) {
+        if (liveState != null) {
+            TableSnapshot.PlayerSnapshot player = livePlayer(seats[seat]);
+            return player != null && (player.winner()
+                    || !player.handName().isBlank()
+                    || player.holeCards().stream().anyMatch(TableSnapshot.CardSnapshot::faceUp));
+        }
         // Showcase mode: every occupied seat reveals so both demo hands can be
         // evaluated as a complete ten-player layout. The real game will feed
         // this from its authoritative showdown participant set.
@@ -2592,6 +2684,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private String lastActionLabelForSeat(int seat, float time) {
+        if (liveState != null) {
+            TableSnapshot.PlayerSnapshot player = livePlayer(seats[seat]);
+            if (player == null) return "";
+            return !player.handName().isBlank() ? player.handName() : player.lastAction();
+        }
         if (time >= SHOWDOWN_START && isShowdownContender(seat)) {
             return SHOWDOWN_RESULTS[demoHandIndex()][seat];
         }
@@ -2611,6 +2708,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private Color lastActionColorForSeat(int seat, float time) {
+        if (liveState != null) {
+            TableSnapshot.PlayerSnapshot player = livePlayer(seats[seat]);
+            if (player == null) return LEGACY_BET;
+            if (!player.handName().isBlank()) {
+                return player.winner() ? LEGACY_WINNER : LEGACY_LOSER;
+            }
+            return LEGACY_BET;
+        }
         if (time >= SHOWDOWN_START && isShowdownContender(seat)) {
             if (time >= WINNER_START) {
                 return seat == winnerSeat() ? LEGACY_WINNER : LEGACY_LOSER;
@@ -2622,6 +2727,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private Color lastActionTextColorForSeat(int seat, float time) {
+        if (liveState != null) {
+            TableSnapshot.PlayerSnapshot player = livePlayer(seats[seat]);
+            return player != null && player.winner() ? Color.BLACK : Color.WHITE;
+        }
         if (time >= SHOWDOWN_START && isShowdownContender(seat)) {
             return time >= WINNER_START && seat == winnerSeat()
                     ? Color.BLACK : Color.WHITE;
@@ -2664,6 +2773,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private float sharedTurnRemaining(float time) {
+        if (liveState != null) {
+            long total = liveState.turnTotalMillis();
+            return total <= 0L ? 0f : MathUtils.clamp(
+                    liveState.turnRemainingMillis() / (float) total, 0f, 1f);
+        }
         for (int i = 0; i < ACTIONS.length; i++) {
             ActionEvent action = ACTIONS[i];
             float start = action.time - thinkDurations[i];
@@ -3210,8 +3324,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float betX = spinnerX + spinnerWidth + gap;
         float allInX = betX + betWidth + gap;
         ActionEvent thinking = thinkingAction(handTime());
-        boolean localTurn = thinking != null
-                && seatForHand(thinking.seat) == 0;
+        boolean localTurn = liveState != null
+                ? liveState.snapshot().localNickname().equals(
+                        liveState.snapshot().currentTurnNickname())
+                : thinking != null && seatForHand(thinking.seat) == 0;
         boolean settledShowdown = handTime() >= WINNER_START
                 && isShowdownContender(0);
         String lastLocalActionLabel = lastActionLabelForSeat(0, handTime());
@@ -3309,7 +3425,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 localTurn ? "TU TURNO" : "ESPERANDO TURNO",
                 hudX + 12f, hudY + 96f, infoWidth - 24f, 24f,
                 localTurn ? POT_GOLD : CYAN, 1f);
-        drawFittedCenteredInBox(uiFont, "TONIKELOPE",
+        drawFittedCenteredInBox(uiFont, liveState == null ? "TONIKELOPE"
+                : liveState.snapshot().localNickname(),
                 hudX + 12f, hudY + 66f, infoWidth - 24f, 28f,
                 Color.WHITE, 1f);
         if (!lastLocalActionLabel.isEmpty()) {
@@ -3326,7 +3443,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         drawHudActionContent(HUD_ACTIONS[0], foldX, actionY,
                 foldWidth, actionHeight, Color.WHITE, contentAlpha);
-        drawHudActionContent(HUD_ACTIONS[1], checkX, actionY,
+        drawHudActionContent(liveState == null ? HUD_ACTIONS[1] : "PASAR / IR", checkX, actionY,
                 checkWidth, actionHeight, CYAN, contentAlpha);
         drawHudActionContent(HUD_ACTIONS[2], betX, actionY,
                 betWidth, actionHeight, POT_GOLD, contentAlpha);
@@ -3335,8 +3452,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.setColor(Color.WHITE);
         drawCentered(smallFont, "APUESTA", spinnerX + spinnerWidth / 2f,
                 actionY + 68f, POT_GOLD, 0.92f);
-        drawCentered(uiFont, "-   600   +", spinnerX + spinnerWidth / 2f,
-                actionY + 40f, Color.WHITE, 1f);
+        drawCentered(uiFont, liveState == null ? "-   600   +"
+                : "-   " + formatAmount(liveBetAmount) + "   +",
+                spinnerX + spinnerWidth / 2f, actionY + 40f,
+                Color.WHITE, 1f);
         batch.end();
     }
 
@@ -3421,8 +3540,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 continue;
             }
             switch (item) {
-                case 0 -> openUiLayer(UI_SETTINGS);
-                case 2 -> openUiLayer(UI_GAME_LOG);
+                case 0 -> {
+                    if (liveState != null) submit(new TableCommand.OpenSettings());
+                    openUiLayer(UI_SETTINGS);
+                }
+                case 2 -> {
+                    if (liveState != null) submit(new TableCommand.OpenLog());
+                    openUiLayer(UI_GAME_LOG);
+                }
                 case 5 -> {
                     autoButtons = !autoButtons;
                     uiLayer = UI_NONE;
@@ -3439,7 +3564,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     lastHand = !lastHand;
                     uiLayer = UI_NONE;
                 }
-                case 12 -> Gdx.app.exit();
+                case 12 -> {
+                    if (liveState != null) submit(new TableCommand.ExitGame());
+                    else Gdx.app.exit();
+                    uiLayer = UI_NONE;
+                }
                 default -> {
                 }
             }

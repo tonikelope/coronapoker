@@ -12,6 +12,17 @@ import org.junit.jupiter.api.Test;
 final class GdxTableViewStateTest {
 
     @Test
+    void liveHudHitMapRoutesEveryCanonicalPokerAction() {
+        assertEquals(1, CoronaPokerGdxTable.hudTarget(700f, 70f, 1920f));
+        assertEquals(2, CoronaPokerGdxTable.hudTarget(900f, 70f, 1920f));
+        assertEquals(3, CoronaPokerGdxTable.hudTarget(1035f, 70f, 1920f));
+        assertEquals(4, CoronaPokerGdxTable.hudTarget(1140f, 70f, 1920f));
+        assertEquals(5, CoronaPokerGdxTable.hudTarget(1250f, 70f, 1920f));
+        assertEquals(6, CoronaPokerGdxTable.hudTarget(1420f, 70f, 1920f));
+        assertEquals(0, CoronaPokerGdxTable.hudTarget(300f, 70f, 1920f));
+    }
+
+    @Test
     void projectsCausalOpeningAndBetLandingWithoutReadingWidgets() {
         GdxTableViewState state = new GdxTableViewState(snapshot());
 

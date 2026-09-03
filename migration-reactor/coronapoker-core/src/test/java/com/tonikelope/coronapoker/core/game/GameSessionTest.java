@@ -10,15 +10,21 @@ import org.junit.jupiter.api.Test;
 
 class GameSessionTest {
 
+    private static final GameConfigCodecV1.Configuration CONFIGURATION
+            = GameConfigCodecV1.fromSettings(
+                    new com.tonikelope.coronapoker.core.NewGameTableDraft().snapshot(),
+                    false, "test-session");
+
     @Test
     void ownsIdentityRoleLifecycleAndNeutralTable() {
-        GameSession session = new GameSession("Alice", true);
+        GameSession session = new GameSession("Alice", true, CONFIGURATION);
 
         assertEquals("Alice", session.localNickname());
         assertTrue(session.isHost());
         assertEquals("Alice", session.table().localNickname());
         assertEquals(GameSession.Phase.CREATED, session.phase());
         assertEquals(0L, session.playTimeSeconds());
+        assertEquals(CONFIGURATION, session.configuration());
 
         session.setPlayTimeSeconds(41L);
         assertEquals(42L, session.incrementPlayTimeSecond());
@@ -38,6 +44,8 @@ class GameSessionTest {
         session.close();
         assertEquals(GameSession.Phase.CLOSED, session.phase());
         assertThrows(IllegalStateException.class, () -> session.setPaused(false));
+        assertThrows(IllegalStateException.class,
+                () -> session.updateConfiguration(CONFIGURATION));
     }
 
     @Test
@@ -45,6 +53,7 @@ class GameSessionTest {
         GameSession session = new GameSession("Bob", false);
 
         assertFalse(session.isHost());
+        assertThrows(IllegalStateException.class, session::configuration);
         session.start();
         assertThrows(IllegalStateException.class, session::start);
     }

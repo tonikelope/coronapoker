@@ -4112,6 +4112,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         partida_local = partidalocal;
 
         game_session = new GameSession(nicklocal, partidalocal);
+        // Clients arrive here after the authenticated INIT has already decoded and
+        // validated the complete configuration. Hosts cannot capture it yet: their
+        // persistent game id (UGI) is generated/recovered by Crupier at run start.
+        if (!partidalocal) {
+            GameConfigWireV1.Result initialConfig = GameConfigWireV1.fromGlobals();
+            if (!initialConfig.isOk()) {
+                throw new IllegalStateException("Invalid table configuration: "
+                        + initialConfig.error());
+            }
+            game_session.updateConfiguration(initialConfig.value().toCoreConfiguration());
+        }
 
         // The card/chip/back image cache (Card.updateCachedImages) is DERIVED from the zoom,
         // but the launcher's zoom spinner (Settings outside a game) only sets ZOOM_LEVEL

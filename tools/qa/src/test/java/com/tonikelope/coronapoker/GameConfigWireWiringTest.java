@@ -23,7 +23,8 @@ public class GameConfigWireWiringTest {
         assertTrue(waiting.contains("GameConfigWireV1.decodeBase64(partes_comando[3])"));
         assertTrue(waiting.contains("Invalid INIT configuration; closing connection"));
         assertTrue(waiting.contains("Invalid UPDATEBLINDS configuration; closing connection"));
-        assertTrue(dealer.contains("\"INIT#\" + config.value().encodeBase64()"));
+        assertTrue(dealer.contains("GameConfigCodecV1.encodeBase64(config)"));
+        assertTrue(dealer.contains("gameSession().updateConfiguration(config)"));
         assertTrue(settings.contains("\"UPDATEBLINDS#\" + encodedConfig"));
         assertFalse(dealer.contains("INIT#\" + String.valueOf(GameFrame.BUYIN)"));
         assertFalse(waiting.contains("GameFrame.BUYIN = Integer.parseInt(partes_comando[3])"));

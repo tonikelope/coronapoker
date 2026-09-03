@@ -14,6 +14,8 @@ public final class GameSession implements AutoCloseable {
     private final boolean host;
     private final TableState table;
     private final AtomicReference<Phase> phase = new AtomicReference<>(Phase.CREATED);
+    private final AtomicReference<GameConfigCodecV1.Configuration> configuration
+            = new AtomicReference<>();
     private final AtomicLong playTimeSeconds = new AtomicLong();
 
     public GameSession(String localNickname, boolean host) {
@@ -26,12 +28,33 @@ public final class GameSession implements AutoCloseable {
         this.table = new TableState(normalized);
     }
 
+    public GameSession(String localNickname, boolean host,
+            GameConfigCodecV1.Configuration configuration) {
+        this(localNickname, host);
+        this.configuration.set(GameConfigCodecV1.requireValid(configuration));
+    }
+
     public String localNickname() { return localNickname; }
     public boolean isHost() { return host; }
     public TableState table() { return table; }
     public Phase phase() { return phase.get(); }
     public boolean isPaused() { return table.paused(); }
     public long playTimeSeconds() { return playTimeSeconds.get(); }
+
+    public GameConfigCodecV1.Configuration configuration() {
+        GameConfigCodecV1.Configuration current = configuration.get();
+        if (current == null) {
+            throw new IllegalStateException("Game session has no validated configuration");
+        }
+        return current;
+    }
+
+    public void updateConfiguration(GameConfigCodecV1.Configuration next) {
+        if (phase.get() == Phase.CLOSED) {
+            throw new IllegalStateException("Game session is closed");
+        }
+        configuration.set(GameConfigCodecV1.requireValid(next));
+    }
 
     public void setPlayTimeSeconds(long seconds) {
         if (seconds < 0L) throw new IllegalArgumentException("Play time cannot be negative");

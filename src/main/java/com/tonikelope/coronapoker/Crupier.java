@@ -38,6 +38,7 @@ import com.tonikelope.coronapoker.core.network.ConfirmationTracker;
 import com.tonikelope.coronapoker.core.network.GameCommandId;
 import com.tonikelope.coronapoker.core.network.GameTransport;
 import com.tonikelope.coronapoker.core.game.GameSession;
+import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.core.game.GameDecisionSink;
 import com.tonikelope.coronapoker.core.game.GameCinematicSink;
@@ -22746,13 +22747,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (gameSession().isHost()) {
             GameFrame.UGI = this.getUGI();
-            GameConfigWireV1.Result config = GameConfigWireV1.fromGlobals();
-            if (!config.isOk()) {
-                LOGGER.log(Level.SEVERE, "Host table configuration is invalid: {0}", config.error());
+            GameConfigWireV1.Result validatedConfig = GameConfigWireV1.fromGlobals();
+            if (!validatedConfig.isOk()) {
+                LOGGER.log(Level.SEVERE, "Host table configuration is invalid: {0}",
+                        validatedConfig.error());
                 return;
             }
-            config.value().applyToGlobals();
-            broadcastGAMECommandFromServer("INIT#" + config.value().encodeBase64(), null);
+            GameConfigCodecV1.Configuration config
+                    = validatedConfig.value().toCoreConfiguration();
+            gameSession().updateConfiguration(config);
+            broadcastGAMECommandFromServer("INIT#"
+                    + GameConfigCodecV1.encodeBase64(config), null);
         }
 
         if (GameFrame.RECOVER) {

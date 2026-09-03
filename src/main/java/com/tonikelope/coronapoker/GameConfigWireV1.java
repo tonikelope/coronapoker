@@ -206,7 +206,7 @@ public final class GameConfigWireV1 {
         return MoneyCents.fromDouble(value).cents();
     }
 
-    private GameConfigCodecV1.Configuration toCoreConfiguration() {
+    public GameConfigCodecV1.Configuration toCoreConfiguration() {
         List<GameConfigCodecV1.BlindLevel> structure = blindStructure == null
                 ? List.of() : java.util.Arrays.stream(blindStructure)
                         .map(level -> new GameConfigCodecV1.BlindLevel(level[0], level[1]))

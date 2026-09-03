@@ -165,6 +165,10 @@ public final class GameConfigCodecV1 {
         }
     }
 
+    public static Configuration requireValid(Configuration configuration) {
+        return validate(configuration);
+    }
+
     private static Configuration validate(Configuration value) {
         Objects.requireNonNull(value, "configuration");
         if (value.buyin() <= 0 || value.sessionId().isBlank()

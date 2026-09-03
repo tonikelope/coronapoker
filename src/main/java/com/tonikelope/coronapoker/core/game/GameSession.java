@@ -19,7 +19,10 @@ public final class GameSession implements AutoCloseable {
             = new AtomicReference<>();
     private final java.util.concurrent.atomic.AtomicBoolean recovering
             = new java.util.concurrent.atomic.AtomicBoolean();
+    private final java.util.concurrent.atomic.AtomicBoolean runItTwiceLocked
+            = new java.util.concurrent.atomic.AtomicBoolean();
     private final AtomicLong playTimeSeconds = new AtomicLong();
+    private final AtomicLong startTimestampMillis = new AtomicLong();
 
     public GameSession(String localNickname, boolean host) {
         String normalized = Objects.requireNonNull(localNickname, "localNickname").trim();
@@ -46,6 +49,8 @@ public final class GameSession implements AutoCloseable {
     public Phase phase() { return phase.get(); }
     public boolean isPaused() { return table.paused(); }
     public long playTimeSeconds() { return playTimeSeconds.get(); }
+    public long startTimestampMillis() { return startTimestampMillis.get(); }
+    public boolean isRunItTwiceLocked() { return runItTwiceLocked.get(); }
 
     public GameConfigCodecV1.Configuration configuration() {
         GameConfigCodecV1.Configuration current = configuration.get();
@@ -68,6 +73,21 @@ public final class GameSession implements AutoCloseable {
             throw new IllegalStateException("Game session is closed");
         }
         recovering.set(value);
+    }
+
+    public void setStartTimestampMillis(long value) {
+        if (value < 0L) throw new IllegalArgumentException("Start timestamp cannot be negative");
+        if (phase.get() == Phase.CLOSED) {
+            throw new IllegalStateException("Game session is closed");
+        }
+        startTimestampMillis.set(value);
+    }
+
+    public void setRunItTwiceLocked(boolean value) {
+        if (phase.get() == Phase.CLOSED) {
+            throw new IllegalStateException("Game session is closed");
+        }
+        runItTwiceLocked.set(value);
     }
 
     public void updateConfiguration(GameConfigCodecV1.Configuration next) {

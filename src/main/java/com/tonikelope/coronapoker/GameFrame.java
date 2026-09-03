@@ -318,11 +318,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
     public static volatile boolean VOICE_MESSAGES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("voice_messages", "true"));
     public static volatile boolean RUN_IT_TWICE = false;
-    // Freezes changes to RUN_IT_TWICE during the all-in run-out (from the moment it starts
-    // until NUEVA_MANO): the vote is decided by reading the flag without a lock, so it must
-    // not change in that window. It used to be guaranteed by graying out the menu; now the
-    // setter is a no-op and the "Game settings" dialog disables the control while it's active.
-    public static volatile boolean RUN_IT_TWICE_LOCKED = false;
     public static volatile boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
     public static volatile boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "false"));
     // Music MASTER switch: turns off ALL background tracks at once (game, waiting room,
@@ -999,7 +994,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile int RECOVER_ID = -1;
     public static volatile String UGI = null;
     public final static int UGI_LENGTH = 50;
-    public static volatile long GAME_START_TIMESTAMP;
     public static volatile KeyEventDispatcher key_event_dispatcher = null;
     // Anti-double-action guard: when a keyboard overlay (straddle / AUTO MODE) is resolved with
     // ESC/SPACE, repeats of the SAME held key (OS auto-repeat) and immediate re-presses are
@@ -3988,7 +3982,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         // Frozen during the all-in run-out: the vote is already being decided with the
         // current value, so it can't be changed until NUEVA_MANO.
-        if (RUN_IT_TWICE_LOCKED) {
+        GameFrame currentFrame = getInstance();
+        if (currentFrame != null && currentFrame.getGameSession().isRunItTwiceLocked()) {
             return;
         }
 
@@ -5317,7 +5312,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // Defensive: if a previous game ended mid-run-out, the flag could have stayed on
         // (only NUEVA_MANO clears it). Reset when mounting the table so it doesn't start with
         // Run It Twice frozen in the settings dialog.
-        GameFrame.RUN_IT_TWICE_LOCKED = false;
+        getGameSession().setRunItTwiceLocked(false);
 
         last_hand_menu.setSelected(false);
 
@@ -5956,7 +5951,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 }
 
-                Timestamp ts = new Timestamp(GAME_START_TIMESTAMP);
+                Timestamp ts = new Timestamp(getGameSession().startTimestampMillis());
                 DateFormat timeZoneFormat = new SimpleDateFormat("dd_MM_yyyy__HH_mm_ss");
                 Date date = new Date(ts.getTime());
                 String fecha = timeZoneFormat.format(date);

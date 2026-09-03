@@ -13,6 +13,9 @@ final class SwingGamePresentationSettings implements GamePresentationSettings {
     @Override public boolean ambientMusic() { return GameFrame.MUSICA_AMBIENTAL; }
     @Override public boolean showCallCost() { return GameFrame.MOSTRAR_COSTE_IGUALAR; }
     @Override public boolean autoActionButtons() { return GameFrame.AUTO_ACTION_BUTTONS; }
+    @Override public boolean autoActionPersist() { return GameFrame.AUTO_ACTION_PERSIST; }
+    @Override public boolean autoRebuyOnBroke() { return GameFrame.AUTO_REBUY_ON_BROKE; }
+    @Override public boolean autoFullscreen() { return GameFrame.AUTO_FULLSCREEN; }
     @Override public boolean cinematics() { return GameFrame.cinematicasOn(); }
     @Override public boolean allInCinematics() { return GameFrame.cinematicasAllinOn(); }
     @Override public boolean gameOverCinematics() { return GameFrame.cinematicasGameOverOn(); }
@@ -40,4 +43,5 @@ final class SwingGamePresentationSettings implements GamePresentationSettings {
     @Override public int dealSpeed() { return GameFrame.REPARTO_VELOCIDAD; }
     @Override public int swapAnimationDuration() { return GameFrame.SWAP_ANIM_DURATION; }
     @Override public boolean swapAnimationArc() { return GameFrame.SWAP_ANIM_ARC; }
+    @Override public float zoomFactor() { return 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP; }
 }

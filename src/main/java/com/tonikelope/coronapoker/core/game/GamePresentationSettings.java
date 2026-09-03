@@ -16,6 +16,9 @@ public interface GamePresentationSettings {
     boolean ambientMusic();
     boolean showCallCost();
     boolean autoActionButtons();
+    boolean autoActionPersist();
+    boolean autoRebuyOnBroke();
+    boolean autoFullscreen();
     boolean cinematics();
     boolean allInCinematics();
     boolean gameOverCinematics();
@@ -43,6 +46,7 @@ public interface GamePresentationSettings {
     int dealSpeed();
     int swapAnimationDuration();
     boolean swapAnimationArc();
+    float zoomFactor();
 
     static GamePresentationSettings defaults() {
         return DefaultSettings.INSTANCE;
@@ -59,6 +63,9 @@ public interface GamePresentationSettings {
         @Override public boolean ambientMusic() { return true; }
         @Override public boolean showCallCost() { return true; }
         @Override public boolean autoActionButtons() { return false; }
+        @Override public boolean autoActionPersist() { return false; }
+        @Override public boolean autoRebuyOnBroke() { return false; }
+        @Override public boolean autoFullscreen() { return false; }
         @Override public boolean cinematics() { return true; }
         @Override public boolean allInCinematics() { return true; }
         @Override public boolean gameOverCinematics() { return true; }
@@ -86,5 +93,6 @@ public interface GamePresentationSettings {
         @Override public int dealSpeed() { return 100; }
         @Override public int swapAnimationDuration() { return 320; }
         @Override public boolean swapAnimationArc() { return false; }
+        @Override public float zoomFactor() { return 1f; }
     }
 }

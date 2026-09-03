@@ -374,7 +374,8 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             bots_combobox.setEnabled(false);
             bot_rebuy_checkbox.setEnabled(false);
             bot_balance_checkbox.setEnabled(false);
-        } else if (GameFrame.RUN_IT_TWICE_LOCKED) {
+        } else if (GameFrame.getInstance() != null
+                && GameFrame.getInstance().getGameSession().isRunItTwiceLocked()) {
             rit_checkbox.setEnabled(false);
         }
 

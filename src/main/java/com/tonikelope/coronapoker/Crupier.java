@@ -7996,7 +7996,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     = RecoveryBalanceReconciler.encode(recoveredBalances);
 
             if (map.get("start") != null) {
-                GameFrame.GAME_START_TIMESTAMP = (long) map.get("start");
+                gameSession().setStartTimestampMillis((long) map.get("start"));
             }
 
             java.util.ArrayList<String> pendientes = new java.util.ArrayList<>();
@@ -10443,7 +10443,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         // The run-out has ended: allow toggling RUN_IT_TWICE again (locked while the all-in
         // run-out was in progress).
-        GameFrame.RUN_IT_TWICE_LOCKED = false;
+        gameSession().setRunItTwiceLocked(false);
 
         this.run_it_twice_side_b = false;
 
@@ -11497,9 +11497,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     sql, java.sql.Statement.RETURN_GENERATED_KEYS)) {
                 statement.setQueryTimeout(30);
 
-                GameFrame.GAME_START_TIMESTAMP = System.currentTimeMillis();
+                gameSession().setStartTimestampMillis(System.currentTimeMillis());
 
-                statement.setLong(1, GameFrame.GAME_START_TIMESTAMP);
+                statement.setLong(1, gameSession().startTimestampMillis());
 
                 ArrayList<String> players = new ArrayList<>();
 
@@ -17387,7 +17387,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (firstResistencia && gameSession().isHost()) {
                     // Freeze RUN_IT_TWICE for the run-out: the vote decision below reads
                     // the flag without a lock, so it must not change until NUEVA_MANO.
-                    GameFrame.RUN_IT_TWICE_LOCKED = true;
+                    gameSession().setRunItTwiceLocked(true);
                 }
                 this.destapar_resistencia = true;
                 // Start the run-out: hide bet_label and center the pot now
@@ -21048,7 +21048,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // showed up as a phantom pause.
     private FlipAnim decodeCardFlipAnim(String valor_palo, boolean top_half) {
 
-        float zoom_factor = (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
+        float zoom_factor = presentation_settings.zoomFactor();
 
         TableDisplaySink.PreparedCardFlip anim = table_display.prepareCardFlip(
                 valor_palo, top_half, zoom_factor);
@@ -21083,7 +21083,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             FlipAnim decoded = (FlipAnim) prefetched.get();
 
             if (decoded != null && decoded.card.equals(carta.toShortString())
-                    && decoded.zoom_factor == (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)
+                    && decoded.zoom_factor == presentation_settings.zoomFactor()
                     && decoded.top_half == (presentation_settings.compactView() > 0 && carta.isCompactable())) {
                 return decoded;
             }
@@ -21356,7 +21356,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             FlipAnim decoded = (FlipAnim) prefetched.get();
 
             if (decoded != null && decoded.card.equals(carta.toShortString())
-                    && decoded.zoom_factor == (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)
+                    && decoded.zoom_factor == presentation_settings.zoomFactor()
                     && decoded.top_half == (presentation_settings.compactView() > 0 && carta.isCompactable())) {
                 return decoded;
             }
@@ -22896,7 +22896,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // main screen.
         game_audio.unmuteLoopMp3("misc/background_music.mp3");
 
-        game_window.applyAutomaticFullscreen(GameFrame.AUTO_FULLSCREEN);
+        game_window.applyAutomaticFullscreen(presentation_settings.autoFullscreen());
 
         // Variable buy-in mode: each human picks their buy-in on entering the table
         // (lights off) before hand 1. No-op in fixed mode and in recovery.
@@ -22952,7 +22952,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         if (presentation_settings.autoActionButtons()) {
                             // Persist mode keeps the queued pre-press across the hand
                             // boundary (hides the buttons but does not clear pre_pulsado).
-                            localPlayer().desActivarPreBotones(!GameFrame.AUTO_ACTION_PERSIST);
+                            localPlayer().desActivarPreBotones(!presentation_settings.autoActionPersist());
                         }
 
                         // The dragon must close after the preflop replay even
@@ -23657,7 +23657,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             this.rebuy_time = true;
 
-            if (configuration().rebuy() && !atRebuyLimit(localPlayer().getNickname()) && GameFrame.AUTO_REBUY_ON_BROKE) {
+            if (configuration().rebuy() && !atRebuyLimit(localPlayer().getNickname())
+                    && presentation_settings.autoRebuyOnBroke()) {
 
                 // Automatic rebuy on going broke: skips the game-over animation and
                 // goes straight to the RebuyDialog (AUTO) — same countdown bar and

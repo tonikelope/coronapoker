@@ -24,10 +24,16 @@ class GameSessionTest {
         assertEquals("Alice", session.table().localNickname());
         assertEquals(GameSession.Phase.CREATED, session.phase());
         assertEquals(0L, session.playTimeSeconds());
+        assertEquals(0L, session.startTimestampMillis());
+        assertFalse(session.isRunItTwiceLocked());
         assertEquals(CONFIGURATION, session.configuration());
         assertEquals(CONFIGURATION.recover(), session.isRecovering());
         session.setRecovering(true);
         assertTrue(session.isRecovering());
+        session.setStartTimestampMillis(123456789L);
+        session.setRunItTwiceLocked(true);
+        assertEquals(123456789L, session.startTimestampMillis());
+        assertTrue(session.isRunItTwiceLocked());
 
         session.setIwtsth(!CONFIGURATION.iwtsth());
         session.setRunItTwice(!CONFIGURATION.runItTwice());
@@ -79,6 +85,8 @@ class GameSessionTest {
         assertThrows(IllegalStateException.class, () -> session.setPaused(false));
         assertThrows(IllegalStateException.class,
                 () -> session.updateConfiguration(CONFIGURATION));
+        assertThrows(IllegalStateException.class,
+                () -> session.setRunItTwiceLocked(false));
     }
 
     @Test

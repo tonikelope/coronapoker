@@ -25,6 +25,9 @@ class GameSessionTest {
         assertEquals(GameSession.Phase.CREATED, session.phase());
         assertEquals(0L, session.playTimeSeconds());
         assertEquals(CONFIGURATION, session.configuration());
+        assertEquals(CONFIGURATION.recover(), session.isRecovering());
+        session.setRecovering(true);
+        assertTrue(session.isRecovering());
 
         session.setIwtsth(!CONFIGURATION.iwtsth());
         session.setRunItTwice(!CONFIGURATION.runItTwice());

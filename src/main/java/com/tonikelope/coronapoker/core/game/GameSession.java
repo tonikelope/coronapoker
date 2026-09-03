@@ -17,6 +17,8 @@ public final class GameSession implements AutoCloseable {
     private final AtomicReference<Phase> phase = new AtomicReference<>(Phase.CREATED);
     private final AtomicReference<GameConfigCodecV1.Configuration> configuration
             = new AtomicReference<>();
+    private final java.util.concurrent.atomic.AtomicBoolean recovering
+            = new java.util.concurrent.atomic.AtomicBoolean();
     private final AtomicLong playTimeSeconds = new AtomicLong();
 
     public GameSession(String localNickname, boolean host) {
@@ -32,7 +34,10 @@ public final class GameSession implements AutoCloseable {
     public GameSession(String localNickname, boolean host,
             GameConfigCodecV1.Configuration configuration) {
         this(localNickname, host);
-        this.configuration.set(GameConfigCodecV1.requireValid(configuration));
+        GameConfigCodecV1.Configuration valid
+                = GameConfigCodecV1.requireValid(configuration);
+        this.configuration.set(valid);
+        this.recovering.set(valid.recover());
     }
 
     public String localNickname() { return localNickname; }
@@ -54,11 +59,26 @@ public final class GameSession implements AutoCloseable {
         return configuration.get() != null;
     }
 
+    public boolean isRecovering() {
+        return recovering.get();
+    }
+
+    public void setRecovering(boolean value) {
+        if (phase.get() == Phase.CLOSED) {
+            throw new IllegalStateException("Game session is closed");
+        }
+        recovering.set(value);
+    }
+
     public void updateConfiguration(GameConfigCodecV1.Configuration next) {
         if (phase.get() == Phase.CLOSED) {
             throw new IllegalStateException("Game session is closed");
         }
-        configuration.set(GameConfigCodecV1.requireValid(next));
+        GameConfigCodecV1.Configuration valid = GameConfigCodecV1.requireValid(next);
+        GameConfigCodecV1.Configuration previous = configuration.getAndSet(valid);
+        if (previous == null) {
+            recovering.set(valid.recover());
+        }
     }
 
     public void mutateConfiguration(UnaryOperator<GameConfigCodecV1.Configuration> mutation) {

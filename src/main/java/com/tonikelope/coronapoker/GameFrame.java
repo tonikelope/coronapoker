@@ -2550,6 +2550,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public static void setRECOVER(boolean RECOVER) {
         GameFrame.RECOVER = RECOVER;
+        GameFrame current = getInstance();
+        if (current != null) {
+            current.getGameSession().setRecovering(RECOVER);
+        }
     }
 
     public JMenuItem getShortcuts_menu() {
@@ -4132,6 +4136,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         partida_local = partidalocal;
 
         game_session = new GameSession(nicklocal, partidalocal);
+        game_session.setRecovering(GameFrame.RECOVER);
         // Clients arrive here after the authenticated INIT has already decoded and
         // validated the complete configuration. Hosts cannot capture it yet: their
         // persistent game id (UGI) is generated/recovered by Crupier at run start.

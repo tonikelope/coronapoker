@@ -15,7 +15,8 @@ public class RecoveryWireWiringTest {
                 "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         String receiveState = Files.readString(locateRoot().resolve(
                 "src/main/java/com/tonikelope/coronapoker/RecoveryReceiveState.java"));
-        assertTrue(source.contains("new RecoveryReceiveState(GameFrame.UGI)"));
+        assertTrue(source.contains("new RecoveryReceiveState(configuration().sessionId())"));
+        assertFalse(source.contains("new RecoveryReceiveState(GameFrame.UGI)"));
         assertTrue(receiveState.contains("RecoverySnapshotV1.decode(wire, expectedSession)"));
         assertTrue(source.contains("snapshot.value().encode()"));
         assertFalse(source.contains("ObjectInputStream"));

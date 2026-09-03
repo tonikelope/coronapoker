@@ -3033,7 +3033,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // derives from. Proofs are NOT generated here (would block the deal -> longer shuffle
             // animation); they're generated in background after the loop.
             byte[] cascadeGenesis = contextBoundShuffleGenesis(
-                    GameFrame.UGI, this.current_hand_id, currentRing);
+                    configuration().sessionId(), this.current_hand_id, currentRing);
             java.util.List<byte[]> chainDecks = new java.util.ArrayList<>();
             java.util.List<int[]> chainStepPerm = new java.util.ArrayList<>();   // host/bot: perm; remote: null
             java.util.List<byte[]> chainStepK = new java.util.ArrayList<>();      // host/bot: k; remote: null
@@ -3535,7 +3535,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // passes, the bundle is broadcast so every peer verifies it independently (see
         // WaitingRoomFrame's DUALLOCK_BUNDLE handler). Failure is terminal before betting.
         final byte[] bgGenesis = contextBoundShuffleGenesis(
-                GameFrame.UGI, this.current_hand_id, this.active_crypto_ring);
+                configuration().sessionId(), this.current_hand_id, this.active_crypto_ring);
         final int bgHandOrdinal = getMano(); // ordinal de ESTA mano, para el "barajado verificado" del registro
         final java.util.List<byte[]> bgDecks = this.cascade_chain_decks;
         final java.util.List<int[]> bgPerm = this.cascade_step_perm;
@@ -4269,7 +4269,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.pending_position_rotation = null;
         this.big_chip_suppressed = null;
 
-        if (!GameFrame.ciegasDealerAnimOn() || GameFrame.RECOVER || isFin_de_la_transmision()) {
+        if (!GameFrame.ciegasDealerAnimOn() || gameSession().isRecovering() || isFin_de_la_transmision()) {
             return;
         }
 
@@ -4464,7 +4464,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        if (!GameFrame.apuestasAnimOn() || GameFrame.RECOVER || isFin_de_la_transmision()) {
+        if (!GameFrame.apuestasAnimOn() || gameSession().isRecovering() || isFin_de_la_transmision()) {
             // No chip animation: the handler may have deferred rolling the stack/bet
             // waiting for this chip, which won't fly -> roll them now instead. No-op if
             // nothing was deferred.
@@ -4522,7 +4522,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (GameFrame.TEST_MODE
                 || !GameFrame.apuestasAnimOn()
-                || GameFrame.RECOVER
+                || gameSession().isRecovering()
                 || this.game_recovered != 0
                 || isFin_de_la_transmision()
                 || localPlayer().isExit()) {
@@ -4576,7 +4576,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private void prepareForcedBetsToPot() {
         this.forced_bet_chip_contributors = null;
 
-        if (!GameFrame.apuestasAnimOn() || GameFrame.RECOVER || isFin_de_la_transmision() || this.game_recovered != 0) {
+        if (!GameFrame.apuestasAnimOn() || gameSession().isRecovering() || isFin_de_la_transmision() || this.game_recovered != 0) {
             return;
         }
 
@@ -4816,7 +4816,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // in rebuy_fill_animated, which reComprar reads for its 'silent' flag so a mid-count
     // toggle can't double the rebuy till sound.
     public boolean isStackFillAnimated() {
-        return GameFrame.contadoresAnimOn() && !GameFrame.RECOVER && !isFin_de_la_transmision();
+        return GameFrame.contadoresAnimOn() && !gameSession().isRecovering() && !isFin_de_la_transmision();
     }
 
     // Whether the current rebuy batch was animated (and already played the till sound);
@@ -4833,7 +4833,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // launchChipToPot rolls the counters on landing instead.
     public boolean shouldDeferCountersToChip() {
         return GameFrame.apuestasAnimOn() && GameFrame.contadoresAnimOn()
-                && !GameFrame.RECOVER && !isFin_de_la_transmision();
+                && !gameSession().isRecovering() && !isFin_de_la_transmision();
     }
 
     // Animates each label linearly from from[i] to to[i] over the same fixed duration
@@ -6681,7 +6681,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // and recibirRebuys machinery. Skipped in fixed mode and on recover (stacks come from balance).
     private void solicitarBuyinsIniciales() {
 
-        if (configuration().fixedBuyin() || GameFrame.RECOVER) {
+        if (configuration().fixedBuyin() || gameSession().isRecovering()) {
             return;
         }
 
@@ -7827,7 +7827,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     stG.setBoolean(7, map.get("rebuy") != null ? (boolean) map.get("rebuy") : true);
                     stG.setString(8, (String) map.get("server"));
                     stG.setInt(9, map.get("blinds_time_type") != null ? (int) map.get("blinds_time_type") : 0);
-                    stG.setString(10, GameFrame.UGI);
+                    stG.setString(10, configuration().sessionId());
                     stG.setInt(11, 0);
                     stG.executeUpdate();
                 }
@@ -7922,7 +7922,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return;
             }
 
-            RecoverySnapshotV1.Result localSnapshot = RecoverySnapshotV1.fromMap(map, GameFrame.UGI);
+            RecoverySnapshotV1.Result localSnapshot = RecoverySnapshotV1.fromMap(
+                    map, configuration().sessionId());
             if (!localSnapshot.isOk()) {
                 LOGGER.log(Level.SEVERE, "Invalid local recovery snapshot: {0}", localSnapshot.error());
                 saltar_primera_mano = true;
@@ -10259,7 +10260,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             game_window.setExitEnabled(false);
         }
 
-        if (!GameFrame.RECOVER) {
+        if (!gameSession().isRecovering()) {
             Helpers.cleanHandCrupierTempFiles(this.sqlite_id_game);
         }
 
@@ -10350,7 +10351,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             carta.resetearCarta(false);
         }
 
-        final boolean recoveryRequestedForThisHand = GameFrame.isRECOVER();
+        final boolean recoveryRequestedForThisHand = gameSession().isRecovering();
 
         // Independent of the definitive hand ordinal: clear the bot board at the same early
         // point as a normal new hand, before recovery performs any potentially slow work.
@@ -10363,14 +10364,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final String prev_sb_nick = this.small_blind_nick;
         final String prev_bb_nick = this.big_blind_nick;
 
-        if (!GameFrame.RECOVER) {
+        if (!gameSession().isRecovering()) {
             this.setPositions();
             if (isFin_de_la_transmision()) {
                 return false;
             }
         }
 
-        if (GameFrame.isRECOVER() && gameSession().isHost()) {
+        if (gameSession().isRecovering() && gameSession().isHost()) {
             resyncRECOVERGLOBALS();
         }
 
@@ -10509,7 +10510,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         saltar_primera_mano = false;
 
-        if (GameFrame.isRECOVER()) {
+        if (gameSession().isRecovering()) {
             game_log.print(Translator.translate("game.recuperando_timba"));
             try {
                 recuperarDatosClavePartida();
@@ -10519,7 +10520,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // recovery mode again — the host has no valid SQL data and the client waits for
                 // RECOVERDATA the host never sends (it's not recovery for the host) -> guaranteed
                 // hang. setRECOVER is idempotent.
-                if (GameFrame.RECOVER) {
+                if (gameSession().isRecovering()) {
                     GameFrame.setRECOVER(false);
                 }
                 // After a recovery with saltar=true (fresh hand, no replay), NUEVA_MANO's
@@ -11472,7 +11473,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 statement.setInt(8, configuration().blindsDoubleType());
 
-                statement.setString(9, GameFrame.UGI);
+                statement.setString(9, configuration().sessionId());
 
                 statement.setInt(10, gameSession().isHost() ? 1 : 0);
 
@@ -12951,7 +12952,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         // Exit guard (see the note in recibirPosiciones). Returns null if the
         // transmission dies before RECOVERDATA arrives.
-        RecoveryReceiveState receiveState = new RecoveryReceiveState(GameFrame.UGI);
+        RecoveryReceiveState receiveState = new RecoveryReceiveState(configuration().sessionId());
 
         long start_time = System.currentTimeMillis();
 
@@ -13165,7 +13166,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        RecoverySnapshotV1.Result snapshot = RecoverySnapshotV1.fromMap(datos, GameFrame.UGI);
+        RecoverySnapshotV1.Result snapshot = RecoverySnapshotV1.fromMap(
+                datos, configuration().sessionId());
         if (!snapshot.isOk()) {
             LOGGER.log(Level.SEVERE, "Refusing to send invalid RECOVERDATA: {0}", snapshot.error());
             return;
@@ -14706,7 +14708,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // BLOCKS until it lands. Without animation / on recover / on transmission end: just
     // paints the static chip (identical to the old straddle).
     private void flyStraddleChipToSeat(Player straddler) {
-        if (!GameFrame.ciegasDealerAnimOn() || GameFrame.RECOVER || this.game_recovered != 0 || isFin_de_la_transmision()) {
+        if (!GameFrame.ciegasDealerAnimOn() || gameSession().isRecovering()
+                || this.game_recovered != 0 || isFin_de_la_transmision()) {
             straddler.refreshPositionChipIcons();
             return;
         }
@@ -20098,7 +20101,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // drawn — and for a fresh game verified — when the table first started): broadcast it
             // over the recovery-only SEATS wire and return it verbatim. Otherwise run the verifiable
             // commit-reveal draw so no peer, host included, can bias the seating.
-            if (GameFrame.isRECOVER()) {
+            if (gameSession().isRecovering()) {
                 ArrayList<String> recovered = this.recuperarSorteoSitios();
                 if (recovered != null) {
                     broadcastRecoveredSeats(recovered);
@@ -20493,7 +20496,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // a fresh game would let a hostile host skip commit-reveal entirely and
                             // dictate the seating (verifyRecoveredSeatsAgainstLocal is a no-op on a
                             // brand-new client with no persisted ring), so refuse it there and fail fast.
-                            if (!GameFrame.isRECOVER()) {
+                            if (!gameSession().isRecovering()) {
                                 rejectCriticalSeatDrawHostCommand(null,
                                         "Bare SEATS on a fresh game; closing host channel", null);
                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: received a bare SEATS on a fresh (non-recover) game — a legitimate draw uses SEAT_DRAW_BEGIN; refusing the seating (possible commit-reveal bypass by the host). The game will fail to start rather than accept an unverified seating.");
@@ -22681,7 +22684,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public String getUGI() {
         synchronized (GameFrame.SQL_LOCK) {
-            if (GameFrame.isRECOVER()) {
+            if (gameSession().isRecovering()) {
                 String ret = null;
 
                 String sql = "SELECT ugi from game WHERE id=?";
@@ -22776,12 +22779,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     + GameConfigCodecV1.encodeBase64(config), null);
         }
 
-        if (GameFrame.RECOVER) {
+        if (gameSession().isRecovering()) {
             if (gameSession().isHost()) {
                 this.sqlite_id_game = GameFrame.RECOVER_ID;
                 GameFrame.persistRecoverSettings(this.sqlite_id_game);
             } else {
-                Integer gid = sqlUGI2GID(GameFrame.UGI);
+                Integer gid = sqlUGI2GID(configuration().sessionId());
                 if (gid == null) {
                     // A newly restarted client may not have this UGI locally. Defer the
                     // insert until sentarParticipantes has populated nicks_permutados and
@@ -22809,7 +22812,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        if (!GameFrame.RECOVER) {
+        if (!gameSession().isRecovering()) {
             if (!sqlNewGame()) {
                 LOGGER.log(Level.SEVERE, "Could not create a valid local game row");
                 setFin_de_la_transmision(true);
@@ -22826,7 +22829,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         game_audio.stopLoopMp3("misc/waiting_room.mp3");
 
-        if (!GameFrame.RECOVER && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
+        if (!gameSession().isRecovering()
+                && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)
+                && GameFrame.inicioSonidoOn()) {
             game_audio.playWavResource("misc/startplay.wav");
         }
 

@@ -5287,7 +5287,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         };
         crupier = new Crupier(game_session, jugadores, tapete.getLocalPlayer(),
                 getParticipantes(), getCartas_comunes(), gameLog, gameDialogs,
-                gameDecisions, gameCinematics, gameProgress, this::checkPause,
+                gameDecisions, new SwingGameDatabase(), gameCinematics,
+                gameProgress, this::checkPause,
                 gameTransport, lobbyTransition, tableDisplay, gameWindow, gameUi,
                 new SwingGameAudio(),
                 new SwingGamePresentationSettings(),

@@ -42,6 +42,7 @@ import com.tonikelope.coronapoker.core.game.GameTiming;
 import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.core.game.GameDecisionSink;
+import com.tonikelope.coronapoker.core.game.GameDatabase;
 import com.tonikelope.coronapoker.core.game.GameCinematicSink;
 import com.tonikelope.coronapoker.core.game.GameAudioSink;
 import com.tonikelope.coronapoker.core.game.GameWindowSink;
@@ -105,6 +106,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GameLogSink game_log;
     private final GameDialogSink game_dialogs;
     private final GameDecisionSink game_decisions;
+    private final GameDatabase game_database;
     private final GameCinematicSink game_cinematics;
     private final GameProgressSink game_progress;
     private final PauseGate pause_gate;
@@ -118,7 +120,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final TableEventBridge table_events;
 
     public Crupier() {
-        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
+        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(),
                 TableDisplaySink.noop(),
                 GameWindowSink.noop(),
@@ -128,7 +130,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     Crupier(TableEventBridge tableEvents) {
-        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
+        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(), TableDisplaySink.noop(),
                 GameWindowSink.noop(), GameUiExecutor.direct(), GameAudioSink.silent(),
                 GamePresentationSettings.defaults(),
@@ -140,6 +142,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             java.util.Map<String, Participant> peerControllers,
             Card[] communityCardControllers,
             GameLogSink gameLog, GameDialogSink gameDialogs, GameDecisionSink gameDecisions,
+            GameDatabase gameDatabase,
             GameCinematicSink gameCinematics,
             GameProgressSink gameProgress, PauseGate pauseGate,
             GameTransport gameTransport, LobbyTransitionSink lobbyTransition,
@@ -157,6 +160,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.game_log = java.util.Objects.requireNonNull(gameLog, "gameLog");
         this.game_dialogs = java.util.Objects.requireNonNull(gameDialogs, "gameDialogs");
         this.game_decisions = java.util.Objects.requireNonNull(gameDecisions, "gameDecisions");
+        this.game_database = java.util.Objects.requireNonNull(gameDatabase, "gameDatabase");
         this.game_cinematics = java.util.Objects.requireNonNull(gameCinematics, "gameCinematics");
         this.game_progress = java.util.Objects.requireNonNull(gameProgress, "gameProgress");
         this.pause_gate = java.util.Objects.requireNonNull(pauseGate, "pauseGate");
@@ -999,14 +1003,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // from "no open hand": only the latter is a legitimate passive observer.
     private LocalRecoveryBalanceEvidence readLocalRecoverBalanceEvidence() {
         java.util.Map<String, double[]> balances = new java.util.LinkedHashMap<>();
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
             try {
                 int localHandId;
                 String handIdB64;
                 java.util.Set<String> roster;
                 String handSql = "SELECT id, hand_id_b64, preflop_players FROM hand "
                         + "WHERE id=(SELECT max(id) FROM hand WHERE id_game=?) AND end IS NULL";
-                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(handSql)) {
+                try (PreparedStatement statement = game_database.connection().prepareStatement(handSql)) {
                     statement.setQueryTimeout(30);
                     statement.setInt(1, this.sqlite_id_game);
                     try (ResultSet rs = statement.executeQuery()) {
@@ -1026,7 +1030,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 String balanceSql = "SELECT player, round(stack,2) AS stack, buyin, rebuy_count "
                         + "FROM balance WHERE id_hand=?";
-                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(balanceSql)) {
+                try (PreparedStatement statement = game_database.connection().prepareStatement(balanceSql)) {
                     statement.setQueryTimeout(30);
                     statement.setInt(1, localHandId);
                     try (ResultSet rs = statement.executeQuery()) {
@@ -7860,11 +7864,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return false;
         }
 
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
             try {
                 // 1. Ensure the Game record exists locally
                 String sqlGame = "INSERT OR IGNORE INTO game(id, start, players, buyin, sb, blinds_time, rebuy, server, blinds_time_type, ugi, local) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-                try (java.sql.PreparedStatement stG = Helpers.getSQLITE().prepareStatement(sqlGame)) {
+                try (java.sql.PreparedStatement stG = game_database.connection().prepareStatement(sqlGame)) {
                     stG.setInt(1, this.sqlite_id_game);
                     stG.setLong(2, map.get("start") != null ? (long) map.get("start") : System.currentTimeMillis());
                     stG.setString(3, (String) map.get("preflop_players"));
@@ -7881,7 +7885,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 // 2. Ensure the Hand record exists locally
                 String sqlHand = "INSERT OR IGNORE INTO hand(id, id_game, counter, sbval, blinds_double, dealer, sb, bb, start, preflop_players) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-                try (java.sql.PreparedStatement stH = Helpers.getSQLITE().prepareStatement(sqlHand)) {
+                try (java.sql.PreparedStatement stH = game_database.connection().prepareStatement(sqlHand)) {
                     stH.setInt(1, this.sqlite_id_hand);
                     stH.setInt(2, this.sqlite_id_game);
                     stH.setInt(3, map.get("conta_mano") != null ? (int) map.get("conta_mano") : 1);
@@ -7903,7 +7907,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // as the next completed hand on both databases.
                 long recoveredEnd = (Long) map.get("hand_end");
                 if (recoveredEnd != 0L) {
-                    try (PreparedStatement close = Helpers.getSQLITE().prepareStatement(
+                    try (PreparedStatement close = game_database.connection().prepareStatement(
                             "UPDATE hand SET end=?, pot=0 WHERE id=? AND end IS NULL")) {
                         close.setQueryTimeout(30);
                         close.setLong(1, recoveredEnd);
@@ -9086,11 +9090,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // with a default stack/buyin -> auditor mismatch. Grouping into a transaction makes
             // it all-or-nothing: a crash before commit rolls back to a still-open hand, a state
             // recovery already knows how to handle.
-            synchronized (GameFrame.SQL_LOCK) {
+            synchronized (game_database.lock()) {
                 try {
                     ArrayList<HandCloseTransaction.BalanceUpdate> balances
                             = collectHandBalanceSnapshot(false);
-                    HandCloseTransaction.closeAborted(Helpers.getSQLITE(), sqlite_id_hand,
+                    HandCloseTransaction.closeAborted(game_database.connection(), sqlite_id_hand,
                             System.currentTimeMillis(), balances);
                 } catch (Exception ex) {
                     LOGGER.log(Level.SEVERE, "Failed to persist aborted-hand close — rolling back", ex);
@@ -9125,9 +9129,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         MoneyCents.ofCents(Math.multiplyExact((long) balance.buyin(), 100L)),
                         balance.rebuyCount()));
             }
-            synchronized (GameFrame.SQL_LOCK) {
+            synchronized (game_database.lock()) {
                 HandCloseTransaction.closeAborted(
-                        Helpers.getSQLITE(), handId, end, balances);
+                        game_database.connection(), handId, end, balances);
             }
             this.local_mega_packet = null;
             this.active_crypto_ring = null;
@@ -10878,7 +10882,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private boolean sqlNewHand() {
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
 
             ArrayList<String> jugadores = new ArrayList<>();
             for (Player jugador : players()) {
@@ -10934,7 +10938,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         this.big_blind_nick, System.currentTimeMillis(),
                         String.join("#", jugadores.toArray(new String[0])));
                 int committedHandId = HandCreateTransaction.create(
-                        Helpers.getSQLITE(), hand, balances);
+                        game_database.connection(), hand, balances);
                 // Publish only after HandCreateTransaction has committed the hand and
                 // its complete balance roster.
                 this.sqlite_id_hand = committedHandId;
@@ -11002,13 +11006,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void sqlNewAction(Player current_player, byte[] actionRecord, byte[] actionSig) {
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
             // Recovery: persist the canonical record + Ed25519
             // signature bytes alongside the action so a post-crash recovery can
             // replay them into HandStateChain. Synthetic exit folds are the only
             // current path that can persist without a record/signature.
             String sql = "INSERT INTO action(id_hand, player, counter, round, action, bet, conta_raise, response_time, record_b64, sig_b64) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            try (java.sql.PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (java.sql.PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
                 statement.setInt(1, this.sqlite_id_hand);
                 statement.setString(2, current_player.getNickname());
@@ -11036,7 +11040,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private boolean sqlCheckGenuineRecoverAction(Player current_player) {
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
             boolean ret = false;
 
             try {
@@ -11045,7 +11049,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 boolean exists;
 
-                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                try (PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
 
                     statement.setQueryTimeout(30);
                     statement.setInt(1, this.sqlite_id_hand);
@@ -11064,7 +11068,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     sql = "SELECT player FROM action WHERE id_hand=? and player=? and counter=? and action=?"
                             + (current_player.getDecision() >= Player.BET ? " and bet=?" : "");
 
-                    try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                    try (PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
 
                         statement.setQueryTimeout(30);
                         statement.setInt(1, this.sqlite_id_hand);
@@ -11105,10 +11109,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * it, so a warning is never silently downgraded).
      */
     private int sqlCountLocalHandActions(String nick) {
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
             int ret = Integer.MAX_VALUE;
             String sql = "SELECT COUNT(*) FROM action WHERE id_hand=? AND player=?";
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
                 statement.setInt(1, this.sqlite_id_hand);
                 statement.setString(2, nick);
@@ -11126,11 +11130,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void sqlNewShowcards(String jugador, boolean parguela) {
 
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
 
             String sql = "INSERT INTO showcards(id_hand, player, parguela) VALUES(?,?,?)";
 
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
                 statement.setInt(1, this.sqlite_id_hand);
 
                 statement.setString(2, jugador);
@@ -11148,11 +11152,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void sqlUpdateShowdownHand(Player jugador, Hand jugada) {
 
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
 
             String sql = "UPDATE showdown SET hole_cards=?, hand_cards=?, hand_val=? WHERE id_hand=? AND player=?";
 
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
                 statement.setString(1, jugador.getHoleCard1().isTapada() ? null
                         : jugador.getHoleCard1().toShortString() + "#" + jugador.getHoleCard2().toShortString());
 
@@ -11181,11 +11185,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
 
             String sql = "UPDATE showdown SET pay=?, profit=? WHERE id_hand=? AND player=?";
 
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
                 statement.setDouble(1, Helpers.doubleClean(jugador.getPagar()));
 
                 statement.setDouble(2, Helpers.doubleClean(jugador.getPagar() - jugador.getBote()));
@@ -11204,13 +11208,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private int sqlGetPlayerContaWins(String nick, int game_id) {
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
 
             int tot = 0;
 
             String sql = "SELECT COUNT(*) as total FROM showdown,hand WHERE showdown.player=? AND showdown.winner=? AND showdown.id_hand=hand.id AND hand.id_game=?";
 
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
                 statement.setString(1, nick);
 
                 statement.setBoolean(2, true);
@@ -11239,11 +11243,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
 
             String sql = "INSERT INTO showdown(id_hand, player, hole_cards, hand_cards, hand_val, winner, pay, profit) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
                 statement.setInt(1, this.sqlite_id_hand);
 
                 statement.setString(2, jugador != null ? jugador.getNickname() : "-----");
@@ -11272,7 +11276,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private boolean sqlUpdateHandEnd(double bote_tot) {
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
 
             // ArrayList, not an indexed String[auditor.size()]: since auditor is a
             // ConcurrentHashMap, size() and entrySet() could get out of sync if another thread
@@ -11308,7 +11312,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             boolean tx = false;
             boolean committed = false;
             try {
-                con = Helpers.getSQLITE();
+                con = game_database.connection();
                 prev_autocommit = con.getAutoCommit();
                 con.setAutoCommit(false);
                 tx = true;
@@ -11399,7 +11403,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 LOGGER.log(Level.SEVERE, null, ex);
             }
 
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement("UPDATE game SET play_time=? WHERE id=?")) {
+            try (PreparedStatement statement = game_database.connection().prepareStatement("UPDATE game SET play_time=? WHERE id=?")) {
                 statement.setQueryTimeout(30);
                 statement.setLong(1, gameSession().playTimeSeconds());
                 statement.setInt(2, this.sqlite_id_game);
@@ -11419,7 +11423,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
 
             ArrayList<String> jugadores = new ArrayList<>();
 
@@ -11462,7 +11466,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     break;
             }
 
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
                 statement.setString(1, String.join("#", jugadores.toArray(new String[0])));
                 statement.setString(2, cards);
@@ -11489,11 +11493,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         boolean created = false;
 
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
 
             String sql = "INSERT INTO game(start, players, buyin, sb, blinds_time, rebuy, server, blinds_time_type, ugi, local) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(
+            try (PreparedStatement statement = game_database.connection().prepareStatement(
                     sql, java.sql.Statement.RETURN_GENERATED_KEYS)) {
                 statement.setQueryTimeout(30);
 
@@ -12972,8 +12976,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // The shared SQLite Connection is not thread-safe and a StatsSync import may hold an
         // open transaction on it. Without SQL_LOCK this forensic INSERT could be swept into
         // that ambient transaction and lost on its rollback, or crash on native contention.
-        synchronized (GameFrame.SQL_LOCK) {
-            try (java.sql.PreparedStatement st = Helpers.getSQLITE().prepareStatement(
+        synchronized (game_database.lock()) {
+            try (java.sql.PreparedStatement st = game_database.connection().prepareStatement(
                     "INSERT INTO disputed_hands(id_hand, timestamp, receipts, local_h, reason) VALUES(?,?,?,?,?)")) {
                 st.setInt(1, this.sqlite_id_hand);
                 st.setLong(2, System.currentTimeMillis() / 1000L);
@@ -18313,9 +18317,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (handId == null || this.sqlite_id_hand <= 0) {
             return;
         }
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
             String sql = "UPDATE hand SET hand_id_b64=? WHERE id=?";
-            try (java.sql.PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (java.sql.PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
                 statement.setString(1, Base64.getEncoder().encodeToString(handId));
                 statement.setInt(2, this.sqlite_id_hand);
@@ -18337,9 +18341,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * data or SQL failure; the betting/reveal gates then terminate the hand.
      */
     private String sqlRecoverLocalHandIdB64() {
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
             String sql = "SELECT hand_id_b64 FROM hand WHERE id=(SELECT max(id) FROM hand WHERE id_game=?)";
-            try (java.sql.PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (java.sql.PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
                 statement.setInt(1, this.sqlite_id_game);
                 try (java.sql.ResultSet rs = statement.executeQuery()) {
@@ -19496,11 +19500,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void sqlUpdateGameDoubleBlinds() {
 
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
 
             String sql = "UPDATE game SET blinds_time_type=?, blinds_time=? WHERE id=?";
 
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setInt(1, configuration().blindsDoubleType());
@@ -19516,13 +19520,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private String sqlRecoverGameSeats() {
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
 
             String ret = null;
 
             String sql = "SELECT players from game WHERE id=?";
 
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setInt(1, this.sqlite_id_game);
@@ -19589,11 +19593,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void sqlUpdateGameSeats(String players) {
 
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
 
             String sql = "UPDATE game SET players=? WHERE id=?";
 
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setString(1, players);
@@ -19609,7 +19613,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private String sqlRecoverHandActions() {
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
             String ret = null;
             // Recovery: pull record_b64 / sig_b64 and emit the strict V1 codec
             // so recovery replays each action with the exact bytes
@@ -19617,7 +19621,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // missing values map to "*" on the wire so the receiver falls back to
             // a no-op absorb for that step (chain stays at the previous H_t).
             String actions = null;
-            try (java.sql.PreparedStatement statement = Helpers.getSQLITE().prepareStatement(RECOVERY_HAND_ACTIONS_SQL)) {
+            try (java.sql.PreparedStatement statement = game_database.connection().prepareStatement(RECOVERY_HAND_ACTIONS_SQL)) {
                 statement.setQueryTimeout(30);
                 bindRecoveryHandActionsQuery(statement, this.sqlite_id_hand);
                 try (java.sql.ResultSet rs = statement.executeQuery()) {
@@ -19640,11 +19644,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         HashMap<String, Object> map = null;
 
         // Phase 1: read the key/recovery data. Needs SQL_LOCK; no EDT interaction.
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
 
             try {
 
-                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(RECOVERY_GAME_KEY_DATA_SQL)) {
+                try (PreparedStatement statement = game_database.connection().prepareStatement(RECOVERY_GAME_KEY_DATA_SQL)) {
 
                     statement.setQueryTimeout(30);
                     bindRecoveryGameKeyDataQuery(statement, this.sqlite_id_game);
@@ -19711,11 +19715,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             } else {
 
-                synchronized (GameFrame.SQL_LOCK) {
+                synchronized (game_database.lock()) {
 
                     String sql = "select balance.player as PLAYER, round(balance.stack,2) as STACK, balance.buyin as BUYIN, balance.rebuy_count as REBUY_COUNT from balance,hand,game where balance.id_hand=hand.id and game.id=? and hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?)";
 
-                    try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                    try (PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
 
                         statement.setQueryTimeout(30);
                         statement.setInt(1, this.sqlite_id_game);
@@ -19746,13 +19750,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private HashMap<String, Object> sqlRecoverGamePositions() {
 
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
 
             HashMap<String, Object> map = null;
 
             String sql = "select hand.dealer as dealer, hand.sb as sb, hand.bb as bb from game,hand where hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) and game.id=hand.id_game and hand.id_game=?";
 
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setInt(1, this.sqlite_id_game);
@@ -22680,9 +22684,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public Integer sqlUGI2GID(String ugi) {
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
             try {
-                return findGameIdByUgi(Helpers.getSQLITE(), ugi);
+                return findGameIdByUgi(game_database.connection(), ugi);
             } catch (SQLException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
                 return null;
@@ -22707,13 +22711,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public Integer getHandIdFromUGI(String ugi) {
 
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
 
             Integer ret = null;
 
             String sql = "SELECT max(hand.id) as hand_id from game,hand WHERE game.ugi=? AND hand.id_game=game.id";
 
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setString(1, ugi);
@@ -22734,13 +22738,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public String getUGI() {
-        synchronized (GameFrame.SQL_LOCK) {
+        synchronized (game_database.lock()) {
             if (gameSession().isRecovering()) {
                 String ret = null;
 
                 String sql = "SELECT ugi from game WHERE id=?";
 
-                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                try (PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
                     statement.setQueryTimeout(30);
 
                     statement.setInt(1, GameFrame.RECOVER_ID);

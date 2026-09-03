@@ -10085,9 +10085,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         iwtsther + " " + Translator.translate("iwtsth.solicita_iwtsth") + String.valueOf(conta_iwtsth) + ")");
 
                 game_ui.runAndWait(() -> {
-                    if (localPlayer().isBotonMostrarActivado()) {
-                        localPlayer().getPlayer_allin_button().setEnabled(false);
-                    }
+                    table_display.suspendVoluntaryShowAction();
                     game_progress.indeterminate();
                 });
 
@@ -10202,9 +10200,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // - Restore the progress bar to pausaConBarra's correct state (not just
             //   setIndeterminate(false), which would leave it visually "maxed out, not moving").
             game_ui.runAndWait(() -> {
-                if (localPlayer().isBoton_mostrar() && !localPlayer().isBotonMostrarActivado() && !localPlayer().isMuestra()) {
-                    localPlayer().getPlayer_allin_button().setEnabled(true);
-                }
+                table_display.restoreVoluntaryShowAction();
             });
             // Restore the bar to pausaConBarra's remaining value so the loop can keep
             // decrementing correctly instead of appearing "stuck at max".
@@ -11989,6 +11985,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     : TableVisualEvent.PlayerAction.ActionKind.BET;
             case Player.ALLIN -> TableVisualEvent.PlayerAction.ActionKind.ALL_IN;
             default -> throw new IllegalArgumentException("Unsupported player decision: " + decision);
+        };
+    }
+
+    static com.tonikelope.coronapoker.core.game.PlayerState.Decision
+            playerStateDecision(int decision) {
+        return switch (decision) {
+            case Player.FOLD -> com.tonikelope.coronapoker.core.game.PlayerState.Decision.FOLD;
+            case Player.CHECK -> com.tonikelope.coronapoker.core.game.PlayerState.Decision.CHECK;
+            case Player.BET -> com.tonikelope.coronapoker.core.game.PlayerState.Decision.BET;
+            case Player.ALLIN -> com.tonikelope.coronapoker.core.game.PlayerState.Decision.ALL_IN;
+            default -> throw new IllegalArgumentException(
+                    "Unsupported player decision: " + decision);
         };
     }
 
@@ -16938,35 +16946,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (current_player == localPlayer()) {
                     current_player.esTuTurno();
                     if (eraSincronizacion && (accion_recuperada = siguienteAccionLocalRecuperada(current_player.getNickname())) != null) {
-                        LocalPlayer localplayer = (LocalPlayer) current_player;
-                        localplayer.setClick_recuperacion(true);
-                        switch ((int) accion_recuperada[0]) {
-                            case Player.FOLD:
-                                game_ui.run(() -> {
-                                    localplayer.getPlayer_fold_button().doClick();
-                                    localplayer.setClick_recuperacion(false);
-                                });
-                                break;
-                            case Player.CHECK:
-                                game_ui.run(() -> {
-                                    localplayer.getPlayer_check_button().doClick();
-                                    localplayer.setClick_recuperacion(false);
-                                });
-                                break;
-                            case Player.ALLIN:
-                                game_ui.run(() -> {
-                                    localplayer.getPlayer_allin_button().doClick();
-                                    localplayer.setClick_recuperacion(false);
-                                });
-                                break;
-                            case Player.BET:
-                                localplayer.setApuesta_recuperada((Double) accion_recuperada[1]);
-                                game_ui.run(() -> {
-                                    localplayer.getPlayer_bet_button().doClick();
-                                    localplayer.setClick_recuperacion(false);
-                                });
-                                break;
-                        }
+                        game_decisions.replayRecoveredAction(
+                                playerStateDecision((int) accion_recuperada[0]),
+                                (Double) accion_recuperada[1]);
                     }
 
                     final Player awaitedLocalPlayer = current_player;

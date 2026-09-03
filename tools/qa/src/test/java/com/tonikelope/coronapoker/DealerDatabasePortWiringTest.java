@@ -43,6 +43,8 @@ final class DealerDatabasePortWiringTest {
         assertTrue(dealer.contains("table_display.setStraddleThinking("));
         assertTrue(dealer.contains("table_display.setShowdownHighlight("));
         assertTrue(dealer.contains("new TableVisualEvent.ShowdownHighlight("));
+        assertTrue(dealer.contains("game_decisions.replayRecoveredAction("));
+        assertTrue(dealer.contains("table_display.suspendVoluntaryShowAction("));
         assertTrue(dealer.contains("table_display.setShowdownHighlight("));
         assertTrue(dealer.contains("new TableVisualEvent.ShowdownHighlight("));
         assertFalse(dealerCode.contains(".setWinner("));
@@ -61,6 +63,10 @@ final class DealerDatabasePortWiringTest {
         assertFalse(dealerCode.contains(".showStraddleThinking("));
         assertFalse(dealerCode.contains(".clearStraddleThinking("));
         assertFalse(dealerCode.contains(".setShowdownHand("));
+        assertFalse(dealerCode.contains(".getPlayer_fold_button("));
+        assertFalse(dealerCode.contains(".getPlayer_check_button("));
+        assertFalse(dealerCode.contains(".getPlayer_bet_button("));
+        assertFalse(dealerCode.contains(".getPlayer_allin_button("));
         assertFalse(dealerCode.contains(".setShowdownHand("));
     }
 

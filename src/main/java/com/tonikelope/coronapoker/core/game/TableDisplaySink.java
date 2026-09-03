@@ -129,6 +129,10 @@ public interface TableDisplaySink {
     void setShowdownHighlight(String nickname, boolean enabled,
             List<Integer> holeCardSlots, List<Integer> communityCardSlots);
 
+    void suspendVoluntaryShowAction();
+
+    void restoreVoluntaryShowAction();
+
     void preparePositionRotation(
             List<TableVisualEvent.PositionTransfer> transfers);
 
@@ -321,6 +325,14 @@ public interface TableDisplaySink {
             public void setShowdownHighlight(String nickname, boolean enabled,
                     List<Integer> holeCardSlots,
                     List<Integer> communityCardSlots) {
+            }
+
+            @Override
+            public void suspendVoluntaryShowAction() {
+            }
+
+            @Override
+            public void restoreVoluntaryShowAction() {
             }
 
             @Override

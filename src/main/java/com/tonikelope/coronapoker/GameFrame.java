@@ -4484,6 +4484,31 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
 
             @Override
+            public void replayRecoveredAction(
+                    com.tonikelope.coronapoker.core.game.PlayerState.Decision decision,
+                    double amount) {
+                LocalPlayer local = tapete.getLocalPlayer();
+                local.setClick_recuperacion(true);
+                if (decision == com.tonikelope.coronapoker.core.game.PlayerState.Decision.BET) {
+                    local.setApuesta_recuperada(amount);
+                }
+                Helpers.GUIRun(() -> {
+                    try {
+                        switch (decision) {
+                            case FOLD -> local.getPlayer_fold_button().doClick();
+                            case CHECK -> local.getPlayer_check_button().doClick();
+                            case ALL_IN -> local.getPlayer_allin_button().doClick();
+                            case BET -> local.getPlayer_bet_button().doClick();
+                            default -> throw new IllegalArgumentException(
+                                    "Unsupported recovered decision: " + decision);
+                        }
+                    } finally {
+                        local.setClick_recuperacion(false);
+                    }
+                });
+            }
+
+            @Override
             public CloseHandle showRecovery() {
                 final RecoverDialog[] created = new RecoverDialog[1];
                 Helpers.GUIRunAndWait(() -> {
@@ -4908,6 +4933,24 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     }
                 }
                 seat.setShowdownHand(enabled ? cards : null);
+            }
+
+            @Override
+            public void suspendVoluntaryShowAction() {
+                LocalPlayer local = tapete.getLocalPlayer();
+                if (local.isBotonMostrarActivado()) {
+                    local.getPlayer_allin_button().setEnabled(false);
+                }
+            }
+
+            @Override
+            public void restoreVoluntaryShowAction() {
+                LocalPlayer local = tapete.getLocalPlayer();
+                if (local.isBoton_mostrar()
+                        && !local.isBotonMostrarActivado()
+                        && !local.isMuestra()) {
+                    local.getPlayer_allin_button().setEnabled(true);
+                }
             }
 
             private ImageIcon positionChip(

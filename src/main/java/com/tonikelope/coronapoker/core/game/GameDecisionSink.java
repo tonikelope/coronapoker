@@ -87,6 +87,8 @@ public interface GameDecisionSink {
 
     CompletionStage<GameOverResult> showGameOver(GameOverRequest request);
 
+    void replayRecoveredAction(PlayerState.Decision decision, double amount);
+
     CloseHandle showRecovery();
 
     static GameDecisionSink noop() {
@@ -165,6 +167,11 @@ public interface GameDecisionSink {
                 Objects.requireNonNull(request, "request");
                 return CompletableFuture.completedFuture(
                         new GameOverResult(false, 0));
+            }
+
+            @Override
+            public void replayRecoveredAction(PlayerState.Decision decision,
+                    double amount) {
             }
 
             @Override

@@ -189,10 +189,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int DEFAULT_ZOOM_LEVEL = 0;
     public static final float ZOOM_STEP = 0.05f;
 
-    public static final int WAIT_QUEUES = 250;
+    public static final int WAIT_QUEUES = com.tonikelope.coronapoker.core.game.GameTiming.QUEUE_POLL_MILLIS;
     public static final int WAIT_PAUSE = 1000;
-    public static final int CLIENT_RECEPTION_TIMEOUT = 10000;
-    public static final int CONFIRMATION_TIMEOUT = 10000;
+    public static final int CLIENT_RECEPTION_TIMEOUT = com.tonikelope.coronapoker.core.game.GameTiming.CLIENT_RECEPTION_TIMEOUT_MILLIS;
+    public static final int CONFIRMATION_TIMEOUT = com.tonikelope.coronapoker.core.game.GameTiming.CONFIRMATION_TIMEOUT_MILLIS;
     // P2P reconnection grace window (ms), independent of think time: disconnects are
     // detected via PING/PONG and socket timeouts (Participant.RECIBIDO_TIMEOUT = 45s =
     // MAX_CONSECUTIVE_PING_FAILURES * (PING_INTERVAL_MS + PING_PONG_TIMEOUT)), never by the
@@ -201,7 +201,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // Reconnect2ServerDialog threshold on the client side.
     public static final int CLIENT_RECON_TIMEOUT = 80000; // 80 s
     public static final int CLIENT_RECON_ERROR_PAUSE = 5000;
-    public static final int REBUY_TIMEOUT = 25000;
+    public static final int REBUY_TIMEOUT = com.tonikelope.coronapoker.core.game.GameTiming.REBUY_TIMEOUT_MILLIS;
     public static final String BARAJA_DEFAULT = "coronapoker";
     public static final String DEFAULT_LANGUAGE = "es";
     public static final int PEPILLO_COUNTER_MAX = 5;
@@ -3918,12 +3918,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             gf.runCriticalAsync(() -> {
                 synchronized (gf.getCrupier().getLock_fin_mano()) {
                     GameFrame.IWTSTH_RULE = on;
+                    gf.getGameSession().setIwtsth(on);
                     gf.getCrupier().broadcastGAMECommandFromServer("IWTSTHRULE#" + (on ? "1" : "0"), null);
                     GameFrame.persistRecoverSettings(gf.getCrupier().getSqlite_game_id());
                 }
             });
         } else {
             GameFrame.IWTSTH_RULE = on;
+            if (gf != null && gf.getGameSession().hasConfiguration()) {
+                gf.getGameSession().setIwtsth(on);
+            }
         }
     }
 
@@ -3939,12 +3943,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             gf.runCriticalAsync(() -> {
                 synchronized (gf.getCrupier().getLock_fin_mano()) {
                     GameFrame.BOT_BALANCE_TO_HUMANS = on;
+                    gf.getGameSession().setBotBalanceToHumans(on);
                     gf.getCrupier().broadcastGAMECommandFromServer("BOTBALRULE#" + (on ? "1" : "0"), null);
                     GameFrame.persistRecoverSettings(gf.getCrupier().getSqlite_game_id());
                 }
             });
         } else {
             GameFrame.BOT_BALANCE_TO_HUMANS = on;
+            if (gf != null && gf.getGameSession().hasConfiguration()) {
+                gf.getGameSession().setBotBalanceToHumans(on);
+            }
         }
     }
 
@@ -3959,12 +3967,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             gf.runCriticalAsync(() -> {
                 synchronized (gf.getCrupier().getLock_fin_mano()) {
                     GameFrame.BOT_REBUY = on;
+                    gf.getGameSession().setBotRebuy(on);
                     gf.getCrupier().broadcastGAMECommandFromServer("BOTREBUYRULE#" + (on ? "1" : "0"), null);
                     GameFrame.persistRecoverSettings(gf.getCrupier().getSqlite_game_id());
                 }
             });
         } else {
             GameFrame.BOT_REBUY = on;
+            if (gf != null && gf.getGameSession().hasConfiguration()) {
+                gf.getGameSession().setBotRebuy(on);
+            }
         }
     }
 
@@ -3982,12 +3994,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             gf.runCriticalAsync(() -> {
                 synchronized (gf.getCrupier().getLock_fin_mano()) {
                     GameFrame.RUN_IT_TWICE = on;
+                    gf.getGameSession().setRunItTwice(on);
                     gf.getCrupier().broadcastGAMECommandFromServer("RUNITWICERULE#" + (on ? "1" : "0"), null);
                     GameFrame.persistRecoverSettings(gf.getCrupier().getSqlite_game_id());
                 }
             });
         } else {
             GameFrame.RUN_IT_TWICE = on;
+            if (gf != null && gf.getGameSession().hasConfiguration()) {
+                gf.getGameSession().setRunItTwice(on);
+            }
         }
     }
 
@@ -3999,12 +4015,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             gf.runCriticalAsync(() -> {
                 synchronized (gf.getCrupier().getLock_fin_mano()) {
                     GameFrame.RABBIT_HUNTING = mode;
+                    gf.getGameSession().setRabbitHunting(mode);
                     gf.getCrupier().broadcastGAMECommandFromServer("RABBITRULE#" + String.valueOf(mode), null);
                     GameFrame.persistRecoverSettings(gf.getCrupier().getSqlite_game_id());
                 }
             });
         } else {
             GameFrame.RABBIT_HUNTING = mode;
+            if (gf != null && gf.getGameSession().hasConfiguration()) {
+                gf.getGameSession().setRabbitHunting(mode);
+            }
         }
     }
 

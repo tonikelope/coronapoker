@@ -38,6 +38,7 @@ import com.tonikelope.coronapoker.core.network.ConfirmationTracker;
 import com.tonikelope.coronapoker.core.network.GameCommandId;
 import com.tonikelope.coronapoker.core.network.GameTransport;
 import com.tonikelope.coronapoker.core.game.GameSession;
+import com.tonikelope.coronapoker.core.game.GameTiming;
 import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.core.game.GameDecisionSink;
@@ -52,7 +53,6 @@ import com.tonikelope.coronapoker.core.game.PauseGate;
 import com.tonikelope.coronapoker.core.game.TableDisplaySink;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
 
-import static com.tonikelope.coronapoker.GameFrame.WAIT_QUEUES;
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -95,6 +95,7 @@ import java.util.logging.Logger;
 public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context.DealerView {
 
     private static final Logger LOGGER = Logger.getLogger(Crupier.class.getName());
+    private static final int WAIT_QUEUES = GameTiming.QUEUE_POLL_MILLIS;
     private final GameSession game_session;
     private final java.util.ArrayList<Player> player_controllers;
     private final LocalPlayer local_player_controller;
@@ -1091,7 +1092,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 = decision.toCompletableFuture();
         while (!cancelled.getAsBoolean()) {
             try {
-                return future.get(Math.max(1, GameFrame.WAIT_QUEUES),
+                return future.get(Math.max(1, GameTiming.QUEUE_POLL_MILLIS),
                         TimeUnit.MILLISECONDS);
             } catch (java.util.concurrent.TimeoutException pending) {
                 // A semantic future is pending; no frontend widget is observed.
@@ -6614,7 +6615,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // smoothCountdown too): push the indeterminate-flip instant along with it
                     // so it doesn't get cut short.
                     barra_start = System.currentTimeMillis();
-                } else if (System.currentTimeMillis() - start_time > 2 * GameFrame.REBUY_TIMEOUT) {
+                } else if (System.currentTimeMillis() - start_time > 2 * GameTiming.REBUY_TIMEOUT_MILLIS) {
                     if (gameSession().isHost()) {
                         // Player didn't respond to the rebuy prompt in time: treated as "no
                         // rebuy" (spectator), same as an explicit "0" reply. Previously this
@@ -6825,7 +6826,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (pause_gate.await()) {
                     start_time = System.currentTimeMillis();
-                } else if (System.currentTimeMillis() - start_time > 2 * GameFrame.REBUY_TIMEOUT) {
+                } else if (System.currentTimeMillis() - start_time > 2 * GameTiming.REBUY_TIMEOUT_MILLIS) {
                     if (gameSession().isHost()) {
                         LOGGER.log(Level.INFO, "Initial buy-in timeout — pending players default to {0}", GameFrame.getBuyinDefault());
                         for (String nick : pending) {
@@ -7356,7 +7357,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.rabbit_open_hand_id = this.current_hand_id == null
                         ? null : this.current_hand_id.clone();
                 this.rabbit_fee_ledger = this.rabbit_open_hand_id == null ? null
-                        : new RabbitFeeLedger(this.rabbit_open_hand_id, GameFrame.RABBIT_HUNTING,
+                        : new RabbitFeeLedger(this.rabbit_open_hand_id,
+                                gameSession().configuration().rabbitHunting(),
                                 settlementAmountToCents(this.ciega_pequeña),
                                 settlementAmountToCents(this.ciega_grande));
             }
@@ -8734,7 +8736,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // boundary. Otherwise the ordinary correlated nickname makes
                 // the new lobby bot indistinguishable from the old spectator
                 // and it is silently expelled after recovery.
-                if (GameFrame.REBUY && GameFrame.BOT_REBUY) {
+                if (GameFrame.REBUY && gameSession().configuration().botRebuy()) {
                     int requested = GameFrame.FIXED_BUYIN
                             ? GameFrame.BUYIN : GameFrame.getBuyinDefault();
                     for (String nick : recoveryLobbyBotsNeedingBuyin(
@@ -9219,7 +9221,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (pause_gate.await()) {
                     start_time = System.currentTimeMillis();
-                } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
+                } else if (System.currentTimeMillis() - start_time > GameTiming.CLIENT_RECEPTION_TIMEOUT_MILLIS) {
 
                     LOGGER.log(Level.SEVERE, "recibirPosiciones timeout; the client connection will close");
                     failed = true;
@@ -12330,7 +12332,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 receipts.put(localNick, localReceipt);
             }
 
-            long deadline = System.currentTimeMillis() + GameFrame.CLIENT_RECEPTION_TIMEOUT;
+            long deadline = System.currentTimeMillis() + GameTiming.CLIENT_RECEPTION_TIMEOUT_MILLIS;
             boolean isHost = gameSession().isHost();
 
             // Identity: relays are collected inside the
@@ -12987,7 +12989,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (pause_gate.await()) {
                     start_time = System.currentTimeMillis();
-                } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
+                } else if (System.currentTimeMillis() - start_time > GameTiming.CLIENT_RECEPTION_TIMEOUT_MILLIS) {
 
                     LOGGER.log(Level.SEVERE, "RECOVERDATA timeout; recovery failed and the client connection will close");
                     receiveState.rejectTimeout();
@@ -13058,7 +13060,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (!receiveState.isTerminal()) {
                 if (pause_gate.await()) {
                     start_time = System.currentTimeMillis();
-                } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
+                } else if (System.currentTimeMillis() - start_time > GameTiming.CLIENT_RECEPTION_TIMEOUT_MILLIS) {
                     LOGGER.log(Level.SEVERE, "ACTIONDATA timeout; recovery failed and the client connection will close");
                     receiveState.rejectTimeout();
                     break;
@@ -13347,7 +13349,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
 
-                if (System.currentTimeMillis() - start_time > GameFrame.CONFIRMATION_TIMEOUT) {
+                if (System.currentTimeMillis() - start_time > GameTiming.CONFIRMATION_TIMEOUT_MILLIS) {
                     timeout = true;
                 } else if (!pending.isEmpty()) {
 
@@ -17348,7 +17350,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             return resisten;
                         }
                         printRitVoteResult(this.rit_agreed);
-                    } else if (GameFrame.RUN_IT_TWICE) {
+                    } else if (gameSession().configuration().runItTwice()) {
                         boolean agreed = runRitVote(resisten);
                         if (isFin_de_la_transmision() || this.mano_anulada) {
                             return resisten;
@@ -22423,7 +22425,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // - It's an All-in (destapar_resistencia = true)
                 // - The player is one of the pot's winners
                 // - It's the first player to act at showdown (pivote)
-                boolean mustShow = !GameFrame.IWTSTH_RULE
+                boolean mustShow = !gameSession().configuration().iwtsth()
                         || this.destapar_resistencia
                         || isWinner
                         || first_to_show;
@@ -22596,7 +22598,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void startIWTSTHPlayersBlinking() {
 
-        if (GameFrame.IWTSTH_RULE && isIWTSTH4LocalPlayerAuthorized()) {
+        if (gameSession().configuration().iwtsth() && isIWTSTH4LocalPlayerAuthorized()) {
 
             game_ui.run(() -> {
                 for (RemotePlayer rp : remotePlayers()) {
@@ -22699,7 +22701,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (GameFrame.IWTSTH_RULE_RECOVER != null) {
             boolean v = GameFrame.IWTSTH_RULE_RECOVER;
             GameFrame.IWTSTH_RULE_RECOVER = null;
-            if (v != GameFrame.IWTSTH_RULE) {
+            if (v != gameSession().configuration().iwtsth()) {
                 GameFrame.setIwtsthRule(v);
             }
         }
@@ -22707,7 +22709,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (GameFrame.RABBIT_HUNTING_RECOVER != null) {
             int v = GameFrame.RABBIT_HUNTING_RECOVER;
             GameFrame.RABBIT_HUNTING_RECOVER = null;
-            if (v != GameFrame.RABBIT_HUNTING) {
+            if (v != gameSession().configuration().rabbitHunting()) {
                 GameFrame.setRabbitHunting(v);
             }
         }
@@ -22715,7 +22717,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (GameFrame.RUN_IT_TWICE_RECOVER != null) {
             boolean v = GameFrame.RUN_IT_TWICE_RECOVER;
             GameFrame.RUN_IT_TWICE_RECOVER = null;
-            if (v != GameFrame.RUN_IT_TWICE) {
+            if (v != gameSession().configuration().runItTwice()) {
                 GameFrame.setRunItTwiceRule(v);
             }
         }
@@ -23304,13 +23306,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                             synchronized (lock_rabbit) {
 
-                                if (GameFrame.RABBIT_HUNTING != 0 && !localPlayer().isCalentando() && !localPlayer().isSpectator()) {
+                                if (gameSession().configuration().rabbitHunting() != 0
+                                        && !localPlayer().isCalentando() && !localPlayer().isSpectator()) {
                                     procesarCartasComunesRestantes();
                                 }
 
                                 for (Card carta : communityCards()) {
                                     if (carta.isTapada()) {
-                                        if (GameFrame.RABBIT_HUNTING != 0 && !localPlayer().isCalentando() && !localPlayer().isSpectator()) {
+                                        if (gameSession().configuration().rabbitHunting() != 0
+                                                && !localPlayer().isCalentando() && !localPlayer().isSpectator()) {
                                             carta.taparRabbit();
                                         } else {
                                             carta.desenfocar();
@@ -23324,7 +23328,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                             if (!GameFrame.TEST_MODE) {
                                 if (getJugadoresActivos() > 1 && !localPlayer().isExit()) {
-                                    this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? ((resisten.size() > 1 || GameFrame.RABBIT_HUNTING != 0) ? GameFrame.SHOWDOWN_TIME : Math.round(0.5f * GameFrame.SHOWDOWN_TIME)) : Math.round(1.5f * GameFrame.SHOWDOWN_TIME));
+                                    this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? ((resisten.size() > 1 || gameSession().configuration().rabbitHunting() != 0) ? GameFrame.SHOWDOWN_TIME : Math.round(0.5f * GameFrame.SHOWDOWN_TIME)) : Math.round(1.5f * GameFrame.SHOWDOWN_TIME));
                                 }
 
                                 if (this.iwtsthing) {
@@ -23361,7 +23365,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     checkRebuyTime();
                                     exitSpectatorBots();
                                     updateExitPlayers();
-                                    if (GameFrame.RABBIT_HUNTING != 0) {
+                                    if (gameSession().configuration().rabbitHunting() != 0) {
                                         waitRabbitProcessing();
                                     }
                                 } else {
@@ -23379,7 +23383,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     checkRebuyTime();
                                     exitSpectatorBots();
                                     updateExitPlayers();
-                                    if (GameFrame.RABBIT_HUNTING != 0) {
+                                    if (gameSession().configuration().rabbitHunting() != 0) {
                                         waitRabbitProcessing();
                                     }
                                 }
@@ -23527,7 +23531,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 Participant participante = peers()
                         .get(jugador.getNickname());
                 boolean bot = participante != null && participante.isCpu();
-                if (GameFrame.REBUY && (!bot || GameFrame.BOT_REBUY)
+                if (GameFrame.REBUY && (!bot || gameSession().configuration().botRebuy())
                         && !testModeNickSelected(
                                 "coronapoker.qa.spectatorOnBrokeNicks",
                                 jugador.getNickname())
@@ -23558,7 +23562,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 Participant participante = peers().get(nick);
                 boolean isBot = participante != null && participante.isCpu();
 
-                if (!GameFrame.REBUY || (isBot && !GameFrame.BOT_REBUY) || atRebuyLimit(nick)) {
+                if (!GameFrame.REBUY || (isBot && !gameSession().configuration().botRebuy()) || atRebuyLimit(nick)) {
                     jugador.setSpectator(null);
                 } else {
                     rebuy_players.add(nick);

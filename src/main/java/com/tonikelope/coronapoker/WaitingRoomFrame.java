@@ -3337,8 +3337,10 @@ public class WaitingRoomFrame extends JFrame {
                                                                 // Global host rule. The "Game settings" dialog reflects the flag
                                                                 // when it opens; there's no menu/popup control left to sync.
                                                                 try {
-                                                                    GameFrame.IWTSTH_RULE = LiveRuleWire.parseBoolean(
+                                                                    boolean value = LiveRuleWire.parseBoolean(
                                                                             partes_comando, "IWTSTHRULE");
+                                                                    GameFrame.IWTSTH_RULE = value;
+                                                                    GameFrame.getInstance().getGameSession().setIwtsth(value);
                                                                 } catch (Exception ex) {
                                                                     LOGGER.log(Level.SEVERE, "Invalid IWTSTHRULE; closing host channel", ex);
                                                                     closeCriticalHostChannel();
@@ -3346,8 +3348,10 @@ public class WaitingRoomFrame extends JFrame {
                                                                 break;
                                                             case "RUNITWICERULE":
                                                                 try {
-                                                                    GameFrame.RUN_IT_TWICE = LiveRuleWire.parseBoolean(
+                                                                    boolean value = LiveRuleWire.parseBoolean(
                                                                             partes_comando, "RUNITWICERULE");
+                                                                    GameFrame.RUN_IT_TWICE = value;
+                                                                    GameFrame.getInstance().getGameSession().setRunItTwice(value);
                                                                 } catch (Exception ex) {
                                                                     LOGGER.log(Level.SEVERE, "Invalid RUNITWICERULE; closing host channel", ex);
                                                                     closeCriticalHostChannel();
@@ -3357,8 +3361,10 @@ public class WaitingRoomFrame extends JFrame {
                                                                 // Whether bots' balance is split among humans (editable mid-game by
                                                                 // the host). The "Game settings" dialog reflects the flag on open.
                                                                 try {
-                                                                    GameFrame.BOT_BALANCE_TO_HUMANS = LiveRuleWire.parseBoolean(
+                                                                    boolean value = LiveRuleWire.parseBoolean(
                                                                             partes_comando, "BOTBALRULE");
+                                                                    GameFrame.BOT_BALANCE_TO_HUMANS = value;
+                                                                    GameFrame.getInstance().getGameSession().setBotBalanceToHumans(value);
                                                                 } catch (Exception ex) {
                                                                     LOGGER.log(Level.SEVERE, "Invalid BOTBALRULE; closing host channel", ex);
                                                                     closeCriticalHostChannel();
@@ -3367,8 +3373,10 @@ public class WaitingRoomFrame extends JFrame {
                                                             case "BOTREBUYRULE":
                                                                 // Whether bots rebuy (editable mid-game by the host).
                                                                 try {
-                                                                    GameFrame.BOT_REBUY = LiveRuleWire.parseBoolean(
+                                                                    boolean value = LiveRuleWire.parseBoolean(
                                                                             partes_comando, "BOTREBUYRULE");
+                                                                    GameFrame.BOT_REBUY = value;
+                                                                    GameFrame.getInstance().getGameSession().setBotRebuy(value);
                                                                 } catch (Exception ex) {
                                                                     LOGGER.log(Level.SEVERE, "Invalid BOTREBUYRULE; closing host channel", ex);
                                                                     closeCriticalHostChannel();
@@ -3419,7 +3427,9 @@ public class WaitingRoomFrame extends JFrame {
                                                                 break;
                                                             case "RABBITRULE":
                                                                 try {
-                                                                    GameFrame.RABBIT_HUNTING = LiveRuleWire.parseRabbit(partes_comando);
+                                                                    int value = LiveRuleWire.parseRabbit(partes_comando);
+                                                                    GameFrame.RABBIT_HUNTING = value;
+                                                                    GameFrame.getInstance().getGameSession().setRabbitHunting(value);
                                                                 } catch (Exception ex) {
                                                                     LOGGER.log(Level.SEVERE, "Invalid RABBITRULE; closing host channel", ex);
                                                                     closeCriticalHostChannel();

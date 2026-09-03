@@ -302,6 +302,42 @@ public final class GameConfigCodecV1 {
             sessionId = Objects.requireNonNull(sessionId, "sessionId");
             blindStructure = List.copyOf(blindStructure);
         }
+
+        public Configuration withIwtsth(boolean value) {
+            return withLiveRules(value, runItTwice, rabbitHunting, botRebuy,
+                    botBalanceToHumans);
+        }
+
+        public Configuration withRunItTwice(boolean value) {
+            return withLiveRules(iwtsth, value, rabbitHunting, botRebuy,
+                    botBalanceToHumans);
+        }
+
+        public Configuration withRabbitHunting(int value) {
+            return withLiveRules(iwtsth, runItTwice, value, botRebuy,
+                    botBalanceToHumans);
+        }
+
+        public Configuration withBotRebuy(boolean value) {
+            return withLiveRules(iwtsth, runItTwice, rabbitHunting, value,
+                    botBalanceToHumans);
+        }
+
+        public Configuration withBotBalanceToHumans(boolean value) {
+            return withLiveRules(iwtsth, runItTwice, rabbitHunting, botRebuy,
+                    value);
+        }
+
+        private Configuration withLiveRules(boolean nextIwtsth,
+                boolean nextRunItTwice, int nextRabbitHunting,
+                boolean nextBotRebuy, boolean nextBotBalanceToHumans) {
+            return new Configuration(buyin, smallBlind, bigBlind, blindsDouble,
+                    blindsDoubleType, recover, sessionId, rebuy, hands, blindCap,
+                    rebuyLimit, nextBotRebuy, fixedBuyin, buyinMinBb, buyinMaxBb,
+                    rebuyCapPolicy, ante, straddle, nextIwtsth, nextRunItTwice,
+                    nextRabbitHunting, thinkTime, thinkTimeEnabled, showdownTime,
+                    nextBotBalanceToHumans, blindStructure);
+        }
     }
 
     public record Result(Configuration value, String error) {

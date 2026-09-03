@@ -3,6 +3,7 @@ package com.tonikelope.coronapoker.core.game;
 
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.UnaryOperator;
 import java.util.concurrent.atomic.AtomicLong;
 
 /** Renderer-neutral ownership of one running poker game. */
@@ -49,11 +50,48 @@ public final class GameSession implements AutoCloseable {
         return current;
     }
 
+    public boolean hasConfiguration() {
+        return configuration.get() != null;
+    }
+
     public void updateConfiguration(GameConfigCodecV1.Configuration next) {
         if (phase.get() == Phase.CLOSED) {
             throw new IllegalStateException("Game session is closed");
         }
         configuration.set(GameConfigCodecV1.requireValid(next));
+    }
+
+    public void mutateConfiguration(UnaryOperator<GameConfigCodecV1.Configuration> mutation) {
+        Objects.requireNonNull(mutation, "mutation");
+        if (phase.get() == Phase.CLOSED) {
+            throw new IllegalStateException("Game session is closed");
+        }
+        configuration.updateAndGet(current -> {
+            if (current == null) {
+                throw new IllegalStateException("Game session has no validated configuration");
+            }
+            return GameConfigCodecV1.requireValid(mutation.apply(current));
+        });
+    }
+
+    public void setIwtsth(boolean value) {
+        mutateConfiguration(current -> current.withIwtsth(value));
+    }
+
+    public void setRunItTwice(boolean value) {
+        mutateConfiguration(current -> current.withRunItTwice(value));
+    }
+
+    public void setRabbitHunting(int value) {
+        mutateConfiguration(current -> current.withRabbitHunting(value));
+    }
+
+    public void setBotRebuy(boolean value) {
+        mutateConfiguration(current -> current.withBotRebuy(value));
+    }
+
+    public void setBotBalanceToHumans(boolean value) {
+        mutateConfiguration(current -> current.withBotBalanceToHumans(value));
     }
 
     public void setPlayTimeSeconds(long seconds) {

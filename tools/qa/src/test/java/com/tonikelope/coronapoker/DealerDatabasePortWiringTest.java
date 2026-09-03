@@ -32,6 +32,16 @@ final class DealerDatabasePortWiringTest {
         assertFalse(dealer.contains("GameFrame.persistRecoverSettings"));
         assertFalse(dealerCode.contains("GameFrame."),
                 "Crupier executable code must remain frontend-neutral");
+        assertTrue(dealer.contains("table_display.showWinner("));
+        assertTrue(dealer.contains("table_display.showLoser("));
+        assertTrue(dealer.contains("table_display.showPlayerCards("));
+        assertTrue(dealer.contains("table_display.resetPlayer("));
+        assertFalse(dealerCode.contains(".setWinner("));
+        assertFalse(dealerCode.contains(".setLoser("));
+        assertFalse(dealerCode.contains(".showCards("));
+        assertFalse(dealerCode.contains(".resetGUI("));
+        assertFalse(dealerCode.contains(".refreshPos("));
+        assertFalse(dealerCode.contains(".refreshPositionChipIcons("));
     }
 
     private static Path root() {

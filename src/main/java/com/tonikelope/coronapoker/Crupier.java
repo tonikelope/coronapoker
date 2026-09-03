@@ -4434,7 +4434,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (landed.compareAndSet(false, true)) {
                 this.big_chip_suppressed = null;
                 for (Player p : to_hide) {
-                    p.refreshPositionChipIcons();
+                    table_display.refreshPositionChip(p.getNickname());
                 }
             }
         };
@@ -7254,7 +7254,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             try {
                 Hand jugada = new Hand(evalList);
-                jugador.showCards(jugada.getName());
+                table_display.showPlayerCards(jugador.getNickname(), jugada.getName());
                 // Enables hover highlighting for the hand just revealed (forced IWTSTH or the
                 // voluntary SHOW button): no kickers, same as a winner. Showdown only sets this
                 // for players who were already showing; here it's done for the late reveal.
@@ -7815,7 +7815,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 Hand jugada = null;
                                 try {
                                     jugada = new Hand(evaluationList);
-                                    fjugador.showCards(jugada.getName());
+                                    table_display.showPlayerCards(fjugador.getNickname(), jugada.getName());
                                     // Enables hover highlighting for the hand just revealed (received
                                     // SHOWCARDS: forced IWTSTH or a peer's voluntary SHOW): no kickers,
                                     // same as a winner. Set on the late reveal, not just at showdown.
@@ -8870,7 +8870,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         this.utg_nick = permutadoPos2Nick(utg_pos);
                     }
                     for (Player jugador : players()) {
-                        jugador.refreshPos();
+                        table_display.refreshPlayerPosition(jugador.getNickname());
                     }
                 }
             } else {
@@ -8882,7 +8882,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // not call setPositions again (would double-rotate).
                 this.recovery_positions_set = true;
                 for (Player jugador : players()) {
-                    jugador.refreshPos();
+                    table_display.refreshPlayerPosition(jugador.getNickname());
                 }
             }
             actualizarContadoresTapete();
@@ -10417,7 +10417,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (jugador.isActivo()) {
                 jugador.getHoleCard1().resetearCarta(false);
                 jugador.getHoleCard2().resetearCarta(false);
-                jugador.resetGUI();
+                table_display.resetPlayer(jugador.getNickname());
             }
         }
 
@@ -14784,7 +14784,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private void flyStraddleChipToSeat(Player straddler) {
         if (!presentation_settings.blindDealerAnimation() || gameSession().isRecovering()
                 || this.game_recovered != 0 || isFin_de_la_transmision()) {
-            straddler.refreshPositionChipIcons();
+            table_display.refreshPositionChip(straddler.getNickname());
             return;
         }
         final java.util.List<TableVisualEvent.PositionTransfer> transfers
@@ -14806,7 +14806,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Runnable onLand = () -> {
             if (landed.compareAndSet(false, true)) {
                 this.big_chip_suppressed = null;
-                straddler.refreshPositionChipIcons();
+                table_display.refreshPositionChip(straddler.getNickname());
             }
         };
         try {
@@ -21360,7 +21360,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 local_chip_flight_overlay.remove();
                 local_chip_flight_overlay = TableDisplaySink.OverlayHandle.noop();
                 local.setChipForcedHidden(false);
-                local.refreshPositionChipIcons();
+                table_display.refreshPositionChip(local.getNickname());
             }
         }
     }
@@ -22587,7 +22587,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 boolean mustShow = must_show.get(jugador_actual);
 
                 if (isWinner) {
-                    jugador_actual.setWinner(jugada.getName());
+                    table_display.showWinner(jugador_actual.getNickname(), jugada.getName());
 
                     // Optional showdown highlight (RESALTAR_JUGADA_SHOWDOWN): same as for
                     // losers, records the cards that make up the WINNING hand (no kickers)
@@ -22610,7 +22610,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 } else {
                     // UI update for losers
                     if (isLocal) {
-                        jugador_actual.setLoser(jugada.getName());
+                        table_display.showLoser(jugador_actual.getNickname(), jugada.getName());
                         localPlayer().setMuestra(mustShow);
 
                         // If the local player mucked (cards face-down), enable the voluntary
@@ -22624,9 +22624,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // mustShow that governed the uncover. A remote who did NOT show
                         // keeps the generic "LOSE" label; if it showed, the hand is exposed.
                         if (!mustShow) {
-                            jugador_actual.setLoser(Translator.translate("ui.pierde_3"));
+                            table_display.showLoser(jugador_actual.getNickname(), Translator.translate("ui.pierde_3"));
                         } else {
-                            jugador_actual.setLoser(jugada.getName());
+                            table_display.showLoser(jugador_actual.getNickname(), jugada.getName());
                         }
                     }
 
@@ -23049,7 +23049,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     case 1:
                                         procesarCartasResistencia(new ArrayList<Player>(), false);
 
-                                        resisten.get(0).setWinner(resisten.contains(localPlayer()) ? Translator.translate("ui.ganas_3") : Translator.translate("ui.gana_3"));
+                                        table_display.showWinner(resisten.get(0).getNickname(), resisten.contains(localPlayer()) ? Translator.translate("ui.ganas_3") : Translator.translate("ui.gana_3"));
                                         if (resisten.get(0) != localPlayer()) {
                                             resisten.get(0).getHoleCard1().desenfocar();
                                             resisten.get(0).getHoleCard2().desenfocar();

@@ -4759,6 +4759,54 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 return null;
             }
 
+            @Override
+            public void resetPlayer(String nickname) {
+                Player seat = player(nickname);
+                if (seat != null) {
+                    seat.resetGUI();
+                }
+            }
+
+            @Override
+            public void refreshPlayerPosition(String nickname) {
+                Player seat = player(nickname);
+                if (seat != null) {
+                    seat.refreshPos();
+                }
+            }
+
+            @Override
+            public void refreshPositionChip(String nickname) {
+                Player seat = player(nickname);
+                if (seat != null) {
+                    seat.refreshPositionChipIcons();
+                }
+            }
+
+            @Override
+            public void showPlayerCards(String nickname, String handName) {
+                Player seat = player(nickname);
+                if (seat != null) {
+                    seat.showCards(handName);
+                }
+            }
+
+            @Override
+            public void showWinner(String nickname, String message) {
+                Player seat = player(nickname);
+                if (seat != null) {
+                    seat.setWinner(message);
+                }
+            }
+
+            @Override
+            public void showLoser(String nickname, String message) {
+                Player seat = player(nickname);
+                if (seat != null) {
+                    seat.setLoser(message);
+                }
+            }
+
             private ImageIcon positionChip(
                     com.tonikelope.coronapoker.table.TableSnapshot.Position position) {
                 return switch (position) {

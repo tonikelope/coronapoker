@@ -99,6 +99,18 @@ public interface TableDisplaySink {
 
     void hideShuffleTurn();
 
+    void resetPlayer(String nickname);
+
+    void refreshPlayerPosition(String nickname);
+
+    void refreshPositionChip(String nickname);
+
+    void showPlayerCards(String nickname, String handName);
+
+    void showWinner(String nickname, String message);
+
+    void showLoser(String nickname, String message);
+
     void preparePositionRotation(
             List<TableVisualEvent.PositionTransfer> transfers);
 
@@ -231,6 +243,30 @@ public interface TableDisplaySink {
 
             @Override
             public void hideShuffleTurn() {
+            }
+
+            @Override
+            public void resetPlayer(String nickname) {
+            }
+
+            @Override
+            public void refreshPlayerPosition(String nickname) {
+            }
+
+            @Override
+            public void refreshPositionChip(String nickname) {
+            }
+
+            @Override
+            public void showPlayerCards(String nickname, String handName) {
+            }
+
+            @Override
+            public void showWinner(String nickname, String message) {
+            }
+
+            @Override
+            public void showLoser(String nickname, String message) {
             }
 
             @Override

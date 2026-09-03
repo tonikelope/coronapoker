@@ -126,6 +126,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GameAudioSink game_audio;
     private final GamePresentationSettings presentation_settings;
     private final TableEventBridge table_events;
+    private volatile boolean voluntary_show_visible;
 
     public Crupier() {
         this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), HostGameConfigurationSource.unavailable(), GameStateMirror.noop(), RecoveredSettingsSynchronizer.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
@@ -10086,7 +10087,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         iwtsther + " " + Translator.translate("iwtsth.solicita_iwtsth") + String.valueOf(conta_iwtsth) + ")");
 
                 game_ui.runAndWait(() -> {
-                    table_display.suspendVoluntaryShowAction();
+                    suspendVoluntaryShowAction();
                     game_progress.indeterminate();
                 });
 
@@ -10169,7 +10170,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // and re-enable the voluntary "Show" button, which makes no sense —
                             // the cards were already forcibly shown.
                             local.setMuestra(true);
-                            table_display.hideVoluntaryShowAction();
+                            setVoluntaryShowAction(false, false);
                         }
 
                         // B) Bots: Since they live in the Host's memory, the Server Host forces them to show
@@ -10201,7 +10202,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // - Restore the progress bar to pausaConBarra's correct state (not just
             //   setIndeterminate(false), which would leave it visually "maxed out, not moving").
             game_ui.runAndWait(() -> {
-                table_display.restoreVoluntaryShowAction();
+                restoreVoluntaryShowAction();
             });
             // Restore the bar to pausaConBarra's remaining value so the loop can keep
             // decrementing correctly instead of appearing "stuck at max".
@@ -12029,6 +12030,41 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.conta_raise);
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.ActionControls(
                 sequence, controls), "Action-control presentation barrier failed");
+    }
+
+    private void setVoluntaryShowAction(boolean visible, boolean countdown) {
+        voluntary_show_visible = visible;
+        if (table_events.isAttached()) {
+            ActionControlState controls = ActionControlState.disabled()
+                    .withShowCards(visible);
+            awaitAttachedTableEvent(sequence -> new TableVisualEvent.ActionControls(
+                    sequence, controls), "Show-action presentation barrier failed");
+        } else if (visible) {
+            table_display.showVoluntaryShowAction(countdown);
+        } else {
+            table_display.hideVoluntaryShowAction();
+        }
+    }
+
+    private void suspendVoluntaryShowAction() {
+        if (table_events.isAttached()) {
+            awaitAttachedTableEvent(sequence -> new TableVisualEvent.ActionControls(
+                    sequence, ActionControlState.disabled()),
+                    "Show-action suspension barrier failed");
+        } else {
+            table_display.suspendVoluntaryShowAction();
+        }
+    }
+
+    private void restoreVoluntaryShowAction() {
+        if (table_events.isAttached()) {
+            ActionControlState controls = ActionControlState.disabled()
+                    .withShowCards(voluntary_show_visible);
+            awaitAttachedTableEvent(sequence -> new TableVisualEvent.ActionControls(
+                    sequence, controls), "Show-action restore barrier failed");
+        } else {
+            table_display.restoreVoluntaryShowAction();
+        }
     }
 
     // Sorts the local player's hand (high card on the left) once dealing finishes. If the swap
@@ -22625,7 +22661,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // If the local player mucked (cards face-down), enable the voluntary
                         // SHOW button
                         if (!mustShow) {
-                            table_display.showVoluntaryShowAction(true);
+                            setVoluntaryShowAction(true, true);
                         }
                     } else {
                         // Pass 1's uncover can be asynchronous in the classic fallback, so
@@ -23070,7 +23106,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             carta.desenfocar();
                                         }
                                         if (resisten.get(0) == localPlayer()) {
-                                            table_display.showVoluntaryShowAction(false);
+                                            setVoluntaryShowAction(true, false);
                                         }
                                         if (resisten.get(0) == localPlayer()) {
                                             this.soundWinner(0, false);
@@ -23293,7 +23329,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                             if (!presentation_settings.testMode() && !resisten.contains(localPlayer())) {
                                 if (localPlayer().isActivo() && localPlayer().getParguela_counter() > 0) {
-                                    table_display.showVoluntaryShowAction(true);
+                                    setVoluntaryShowAction(true, true);
                                 }
                                 this.soundShowdown();
                             }
@@ -23413,7 +23449,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 synchronized (lock_mostrar) {
                                     setShowTime(false);
                                 }
-                                table_display.hideVoluntaryShowAction();
+                                setVoluntaryShowAction(false, false);
                                 updateShowdownCardsInLog();
 
                                 if (!this.isLast_hand()) {
@@ -23432,7 +23468,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 synchronized (lock_mostrar) {
                                     setShowTime(false);
                                 }
-                                table_display.hideVoluntaryShowAction();
+                                setVoluntaryShowAction(false, false);
                                 updateShowdownCardsInLog();
                                 if (!this.isLast_hand()) {
                                     checkRebuyTime();

@@ -39,4 +39,20 @@ final class ActionControlStateTest {
         assertFalse(controls.allInEnabled());
         assertTrue(controls.foldEnabled());
     }
+
+    @Test
+    void voluntaryShowIsAnIndependentPostTurnAction() {
+        ActionControlState controls = ActionControlState.disabled()
+                .withShowCards(true);
+
+        assertTrue(controls.showCards());
+        assertFalse(controls.foldEnabled());
+        assertEquals(ActionControlState.CallAction.DISABLED,
+                controls.callAction());
+        assertEquals(ActionControlState.RaiseAction.DISABLED,
+                controls.raiseAction());
+        assertFalse(controls.allInEnabled());
+        assertEquals(ActionControlState.disabled(),
+                controls.withShowCards(false));
+    }
 }

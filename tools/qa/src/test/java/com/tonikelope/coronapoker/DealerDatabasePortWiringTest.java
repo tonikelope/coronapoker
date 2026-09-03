@@ -44,6 +44,8 @@ final class DealerDatabasePortWiringTest {
         assertTrue(dealer.contains("table_display.setShowdownHighlight("));
         assertTrue(dealer.contains("new TableVisualEvent.ShowdownHighlight("));
         assertTrue(dealer.contains("new TableVisualEvent.ActionControls("));
+        assertTrue(dealer.contains("setVoluntaryShowAction(true"));
+        assertTrue(dealer.contains("setVoluntaryShowAction(false"));
         assertTrue(dealer.contains("game_decisions.replayRecoveredAction("));
         assertTrue(dealer.contains("table_display.suspendVoluntaryShowAction("));
         assertTrue(dealer.contains("table_display.activateLocalPreActions("));

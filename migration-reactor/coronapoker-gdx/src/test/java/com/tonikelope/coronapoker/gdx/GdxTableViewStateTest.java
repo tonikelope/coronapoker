@@ -69,7 +69,11 @@ final class GdxTableViewStateTest {
                 state.actionControls().callAction());
         assertEquals(10d, state.actionControls().callAmount());
 
-        state.apply(new TableVisualEvent.TurnTimer(3, "", 30_000, 0,
+        state.apply(new TableVisualEvent.ActionControls(3,
+                ActionControlState.disabled().withShowCards(true)));
+        assertTrue(state.actionControls().showCards());
+
+        state.apply(new TableVisualEvent.TurnTimer(4, "", 30_000, 0,
                 TableVisualEvent.TurnTimer.Phase.STOP));
         assertEquals(ActionControlState.disabled(), state.actionControls());
     }

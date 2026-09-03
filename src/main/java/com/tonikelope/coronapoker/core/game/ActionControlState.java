@@ -33,6 +33,12 @@ public record ActionControlState(boolean foldEnabled, CallAction callAction,
                 false, false);
     }
 
+    public ActionControlState withShowCards(boolean visible) {
+        return new ActionControlState(foldEnabled, callAction, callAmount,
+                raiseAction, raiseMinimum, raiseMaximum, raiseStep, raiseAmount,
+                allInEnabled, visible);
+    }
+
     public static ActionControlState forTurn(double currentBet,
             double lastRaise, double bigBlind, double smallBlind,
             double playerBet, double playerStack, int playersAbleToBet,

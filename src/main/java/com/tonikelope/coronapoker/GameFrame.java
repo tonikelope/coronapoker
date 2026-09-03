@@ -5258,6 +5258,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 getParticipantes(), getCartas_comunes(), gameLog, gameDialogs,
                 gameDecisions, gameCinematics, gameProgress, this::checkPause,
                 gameTransport, lobbyTransition, tableDisplay, gameWindow, gameUi,
+                new SwingGameAudio(),
                 table_events);
 
         initComponents();

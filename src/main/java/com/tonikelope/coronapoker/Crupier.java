@@ -41,6 +41,7 @@ import com.tonikelope.coronapoker.core.game.GameSession;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.core.game.GameDecisionSink;
 import com.tonikelope.coronapoker.core.game.GameCinematicSink;
+import com.tonikelope.coronapoker.core.game.GameAudioSink;
 import com.tonikelope.coronapoker.core.game.GameWindowSink;
 import com.tonikelope.coronapoker.core.game.GameUiExecutor;
 import com.tonikelope.coronapoker.core.game.GameLogSink;
@@ -109,6 +110,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final TableDisplaySink table_display;
     private final GameWindowSink game_window;
     private final GameUiExecutor game_ui;
+    private final GameAudioSink game_audio;
     private final TableEventBridge table_events;
 
     public Crupier() {
@@ -117,13 +119,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 TableDisplaySink.noop(),
                 GameWindowSink.noop(),
                 GameUiExecutor.direct(),
+                GameAudioSink.silent(),
                 new TableEventBridge());
     }
 
     Crupier(TableEventBridge tableEvents) {
         this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(), TableDisplaySink.noop(),
-                GameWindowSink.noop(), GameUiExecutor.direct(), tableEvents);
+                GameWindowSink.noop(), GameUiExecutor.direct(), GameAudioSink.silent(),
+                tableEvents);
     }
 
     Crupier(GameSession gameSession, java.util.ArrayList<Player> playerControllers,
@@ -137,6 +141,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             TableDisplaySink tableDisplay,
             GameWindowSink gameWindow,
             GameUiExecutor gameUi,
+            GameAudioSink gameAudio,
             TableEventBridge tableEvents) {
         this.game_session = gameSession;
         this.player_controllers = playerControllers;
@@ -154,6 +159,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.table_display = java.util.Objects.requireNonNull(tableDisplay, "tableDisplay");
         this.game_window = java.util.Objects.requireNonNull(gameWindow, "gameWindow");
         this.game_ui = java.util.Objects.requireNonNull(gameUi, "gameUi");
+        this.game_audio = java.util.Objects.requireNonNull(gameAudio, "gameAudio");
         this.table_events = java.util.Objects.requireNonNull(tableEvents, "tableEvents");
     }
 
@@ -4534,7 +4540,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (GameFrame.igualarSonidoOn()) {
-            Audio.playWavResource("misc/call.wav");
+            game_audio.playWavResource("misc/call.wav");
         }
 
         try {
@@ -4673,7 +4679,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         table_display.preparePotTarget();
 
         if (GameFrame.apuestaSonidoOn()) {
-            Audio.playWavResource("misc/bet.wav");
+            game_audio.playWavResource("misc/bet.wav");
         }
 
         final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(contributors.size());
@@ -4785,7 +4791,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
         // The Swing animation paths already stop it on exit; this covers any remaining edge.
-        Audio.stopPreloadedWav("misc/shuffle.wav");
+        game_audio.stopPreloadedWav("misc/shuffle.wav");
     }
 
     // Fixed-duration stack fill animation: all players finish together (STACK_FILL_MS)
@@ -4836,7 +4842,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (startSound != null) {
-            Audio.playWavResource(startSound);
+            game_audio.playWavResource(startSound);
         }
 
         java.util.List<TableDisplaySink.StackTransfer> transfers
@@ -4858,7 +4864,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Runnable onComplete = () -> {
             if (completed.compareAndSet(false, true)) {
                 if (startSound != null) {
-                    Audio.stopWavResource(startSound);
+                    game_audio.stopWavResource(startSound);
                 }
                 latch.countDown();
             }
@@ -5788,7 +5794,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             || getClass().getResource(
                                     "/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav")) != null) {
 
-                        Audio.playWavResource("allin/" + filename.replaceAll("\\.gif$", ".wav"));
+                        game_audio.playWavResource("allin/" + filename.replaceAll("\\.gif$", ".wav"));
                     }
 
                     return _cinematicAllin(filename, pausa);
@@ -5911,7 +5917,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (!this.sincronizando_mano && GameFrame.SONIDOS_CHORRA && !fold_sound_playing) {
 
-            Audio.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_SOUNDS_MOD)
+            game_audio.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_SOUNDS_MOD)
                     : Map.ofEntries(Crupier.ALLIN_SOUNDS.get(GameFrame.LANGUAGE)));
 
         }
@@ -5922,7 +5928,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (!this.sincronizando_mano && GameFrame.SONIDOS_CHORRA && !fold_sound_playing) {
             this.fold_sound_playing = true;
             Helpers.threadRun(() -> {
-                Audio.playRandomWavResourceAndWait(Init.MOD != null ? Map.ofEntries(Crupier.FOLD_SOUNDS_MOD)
+                game_audio.playRandomWavResourceAndWait(Init.MOD != null ? Map.ofEntries(Crupier.FOLD_SOUNDS_MOD)
                         : Map.ofEntries(Crupier.FOLD_SOUNDS.get(GameFrame.LANGUAGE)));
                 fold_sound_playing = false;
             });
@@ -5934,26 +5940,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (badbeat) {
                 Helpers.threadRun(() -> {
-                    Audio.muteAllLoopMp3();
+                    game_audio.muteAllLoopMp3();
                     try {
-                        Audio.playWavResourceAndWait("misc/badbeat.wav");
+                        game_audio.playWavResourceAndWait("misc/badbeat.wav");
                     } finally {
-                        Audio.unmuteAllLoopMp3();
+                        game_audio.unmuteAllLoopMp3();
                     }
                 });
             } else if (jugada_ganadora >= Hand.POKER && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
 
                 Helpers.threadRun(() -> {
-                    Audio.muteAllLoopMp3();
+                    game_audio.muteAllLoopMp3();
                     try {
-                        Audio.playWavResourceAndWait("misc/youarelucky.wav");
+                        game_audio.playWavResourceAndWait("misc/youarelucky.wav");
                     } finally {
-                        Audio.unmuteAllLoopMp3();
+                        game_audio.unmuteAllLoopMp3();
                     }
                 });
 
             } else {
-                Audio.playRandomWavResource(Init.MOD != null
+                game_audio.playRandomWavResource(Init.MOD != null
                         ? Map.ofEntries(Crupier.SHOWDOWN_SOUNDS_MOD, Crupier.WINNER_SOUNDS_MOD,
                                 Crupier.LOSER_SOUNDS_MOD)
                         : Map.ofEntries(Crupier.SHOWDOWN_SOUNDS.get(GameFrame.LANGUAGE),
@@ -5969,11 +5975,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if ((jugada >= Hand.POKER || badbeat) && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
 
                 Helpers.threadRun(() -> {
-                    Audio.muteAllLoopMp3();
+                    game_audio.muteAllLoopMp3();
                     try {
-                        Audio.playWavResourceAndWait("misc/youarelucky.wav");
+                        game_audio.playWavResourceAndWait("misc/youarelucky.wav");
                     } finally {
-                        Audio.unmuteAllLoopMp3();
+                        game_audio.unmuteAllLoopMp3();
                     }
                 });
 
@@ -5995,7 +6001,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             : Map.ofEntries(Crupier.WINNER_SOUNDS.get(GameFrame.LANGUAGE));
                 }
 
-                Audio.playRandomWavResource(sonidos);
+                game_audio.playRandomWavResource(sonidos);
             }
         }
     }
@@ -6005,11 +6011,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (badbeat) {
                 Helpers.threadRun(() -> {
-                    Audio.muteAllLoopMp3();
+                    game_audio.muteAllLoopMp3();
                     try {
-                        Audio.playWavResourceAndWait("misc/badbeat.wav");
+                        game_audio.playWavResourceAndWait("misc/badbeat.wav");
                     } finally {
-                        Audio.unmuteAllLoopMp3();
+                        game_audio.unmuteAllLoopMp3();
                     }
                 });
             } else if (jugada >= Hand.FULL && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
@@ -6018,10 +6024,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     "encargado.wav",
                     "matias.wav"});
 
-                Audio.playRandomWavResource(Map.ofEntries(WTF_SOUNDS));
+                game_audio.playRandomWavResource(Map.ofEntries(WTF_SOUNDS));
 
             } else {
-                Audio.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.LOSER_SOUNDS_MOD)
+                game_audio.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.LOSER_SOUNDS_MOD)
                         : Map.ofEntries(Crupier.LOSER_SOUNDS.get(GameFrame.LANGUAGE)));
             }
         }
@@ -7739,7 +7745,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 }
 
                                 if (GameFrame.SONIDOS_CHORRA && fjugador.getDecision() == Player.FOLD) {
-                                    Audio.playWavResource("misc/showyourcards.wav");
+                                    game_audio.playWavResource("misc/showyourcards.wav");
                                 }
 
                                 if (!perdedores.containsKey(fjugador)) {
@@ -8800,8 +8806,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
             if (GameFrame.MUSICA_AMBIENTAL) {
-                Audio.stopLoopMp3("misc/background_music.mp3");
-                Audio.playLoopMp3Resource("misc/recovering.mp3");
+                game_audio.stopLoopMp3("misc/background_music.mp3");
+                game_audio.playLoopMp3Resource("misc/recovering.mp3");
                 recovering_music_active = true;
             }
 
@@ -8830,12 +8836,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 game_log.print(Translator.translate("game.timba_recuperada"));
 
                 if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
-                    Audio.playWavResource("misc/startplay.wav");
+                    game_audio.playWavResource("misc/startplay.wav");
                 }
 
                 if (recovering_music_active) {
-                    Audio.stopLoopMp3("misc/recovering.mp3");
-                    Audio.playLoopMp3Resource("misc/background_music.mp3");
+                    game_audio.stopLoopMp3("misc/recovering.mp3");
+                    game_audio.playLoopMp3Resource("misc/background_music.mp3");
                     recovering_music_active = false;
                 }
                 game_ui.run(() -> {
@@ -8850,7 +8856,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         } else {
             game_log.print(Translator.translate("game.timba_recuperada"));
             if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
-                Audio.playWavResource("misc/startplay.wav");
+                game_audio.playWavResource("misc/startplay.wav");
             }
             game_ui.run(() -> {
                 game_window.setFullscreenEnabled(true);
@@ -8950,10 +8956,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         boolean peligro_grave = motivo != null && motivo.startsWith("zero_trust.");
         if (peligro_grave) {
             if (GameFrame.errorSonidoOn()) {
-                Audio.startDangerAlertLoop("misc/danger_alert.wav");
+                game_audio.startDangerAlertLoop("misc/danger_alert.wav");
             }
         } else if (GameFrame.avisoSonidoOn()) {
-            Audio.playWavResource("misc/warning.wav");
+            game_audio.playWavResource("misc/warning.wav");
         }
 
         // Coherent MISDEAL halt across host AND client. Both peers must: show the MISDEAL popup
@@ -8977,7 +8983,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     + Translator.translate("game.mano_anulada_footer") + "</b>"));
         } finally {
             // The danger alert loops until the user closes the popup.
-            Audio.stopDangerAlertLoop();
+            game_audio.stopDangerAlertLoop();
         }
         if (!rollbackAbortedHand()) {
             LOGGER.log(Level.SEVERE,
@@ -9317,7 +9323,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.ciega_grande = next[1];
 
         if (GameFrame.ciegasSonidoOn()) {
-            Audio.playWavResource("misc/double_blinds.wav");
+            game_audio.playWavResource("misc/double_blinds.wav");
         }
 
         game_log.print(Translator.translate("blinds.se_doblan_las_ciegas"));
@@ -10031,9 +10037,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             GameCinematicSink.Type.IWTSTH_REQUEST,
                             "iwtsth.gif");
                     Helpers.pausar(500);
-                    Audio.playWavResourceAndWait("misc/iwtsth.wav", true, false, !GameFrame.iwtsthSonidoOn());
+                    game_audio.playWavResourceAndWait("misc/iwtsth.wav", true, false, !GameFrame.iwtsthSonidoOn());
                 } else {
-                    Audio.playWavResourceAndWait("misc/iwtsth.wav", true, false, !GameFrame.iwtsthSonidoOn());
+                    game_audio.playWavResourceAndWait("misc/iwtsth.wav", true, false, !GameFrame.iwtsthSonidoOn());
                 }
 
                 if (gameSession().isHost()) {
@@ -10197,7 +10203,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (hay_rabbits_tapadas) {
                 if (GameFrame.destapeSonidoOn()) {
-                    Helpers.threadRun(() -> Audio.playPreloadedWav("misc/uncover.wav"));
+                    Helpers.threadRun(() -> game_audio.playPreloadedWav("misc/uncover.wav"));
                 }
                 for (Card carta : communityCards()) {
                     carta.destaparRabbit();
@@ -10424,10 +10430,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         synchronized (getLock_contabilidad()) {
             if (Helpers.doubleSecureCompare(0f, this.bote_sobrante) < 0) {
                 if (GameFrame.SONIDOS_CHORRA && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
-                    Audio.playWavResource("misc/indivisible.wav");
+                    game_audio.playWavResource("misc/indivisible.wav");
                 }
                 if (GameFrame.cajaSonidoOn()) {
-                    Audio.playWavResource("misc/cash_register.wav");
+                    game_audio.playWavResource("misc/cash_register.wav");
                 }
                 game_log
                         .print(Translator.translate("game.bote_sobrante") + " -> " + Helpers.money2String(bote_sobrante));
@@ -11687,7 +11693,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else if (jugador.isActivo() && jugador == localPlayer()) {
 
                 if (GameFrame.repartoSonidoOn()) {
-                    Audio.playWavResource("misc/deal.wav", false);
+                    game_audio.playWavResource("misc/deal.wav", false);
                 }
 
                 if (defer_straddle_reveal) {
@@ -11755,7 +11761,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else if (jugador.isActivo() && jugador == localPlayer()) {
 
                 if (GameFrame.repartoSonidoOn()) {
-                    Audio.playWavResource("misc/deal.wav", false);
+                    game_audio.playWavResource("misc/deal.wav", false);
                 }
 
                 if (defer_straddle_reveal) {
@@ -14390,7 +14396,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // and, like them (flyForcedBetsToPot), ONLY if the chip animation is on.
                     // Synced with the money chip landing in the pot.
                     if (GameFrame.apuestasAnimOn() && GameFrame.apuestaSonidoOn()) {
-                        Audio.playWavResource("misc/bet.wav");
+                        game_audio.playWavResource("misc/bet.wav");
                     }
                     launchChipToPot(straddler_f);
                 }
@@ -16836,11 +16842,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     });
                     game_log.print(Translator.translate("game.mano_recuperada"));
                     if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
-                        Audio.playWavResource("misc/startplay.wav");
+                        game_audio.playWavResource("misc/startplay.wav");
                     }
                     if (recovering_music_active) {
-                        Audio.stopLoopMp3("misc/recovering.mp3");
-                        Audio.playLoopMp3Resource("misc/background_music.mp3");
+                        game_audio.stopLoopMp3("misc/recovering.mp3");
+                        game_audio.playLoopMp3Resource("misc/background_music.mp3");
                         recovering_music_active = false;
                     }
                 }
@@ -19940,12 +19946,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
 
-                Audio.playWavResource("misc/startplay.wav");
+                game_audio.playWavResource("misc/startplay.wav");
             }
 
             if (recovering_music_active) {
-                Audio.stopLoopMp3("misc/recovering.mp3");
-                Audio.playLoopMp3Resource("misc/background_music.mp3");
+                game_audio.stopLoopMp3("misc/recovering.mp3");
+                game_audio.playLoopMp3Resource("misc/background_music.mp3");
                 recovering_music_active = false;
             }
 
@@ -20060,8 +20066,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.setSincronizando_mano(false);
             this.acciones_locales_recuperadas.clear();
             if (recovering_music_active) {
-                Audio.stopLoopMp3("misc/recovering.mp3");
-                Audio.playLoopMp3Resource("misc/background_music.mp3");
+                game_audio.stopLoopMp3("misc/recovering.mp3");
+                game_audio.playLoopMp3Resource("misc/background_music.mp3");
                 recovering_music_active = false;
             }
         }
@@ -22501,7 +22507,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     if (GameFrame.SONIDOS_CHORRA && isLocal) {
                         if (jugador_actual.getDecision() == Player.ALLIN) {
-                            Audio.playWavResource("joke/" + GameFrame.LANGUAGE + "/winner/applause.wav");
+                            game_audio.playWavResource("joke/" + GameFrame.LANGUAGE + "/winner/applause.wav");
                         } else {
                             this.soundWinner(jugada.getValue(), ganaPorUltimaCarta(jugador_actual, jugada, Crupier.MIN_ULTIMA_CARTA_JUGADA));
                         }
@@ -22545,7 +22551,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             java.util.Map.Entry<String, String[]> WTF_SOUNDS = new java.util.HashMap.SimpleEntry<>("joke/es/loser/", new String[]{
                                 "encargado.wav",
                                 "matias.wav"});
-                            Audio.playRandomWavResource(java.util.Map.ofEntries(WTF_SOUNDS));
+                            game_audio.playRandomWavResource(java.util.Map.ofEntries(WTF_SOUNDS));
                         } else {
                             this.soundLoser(jugada.getValue());
                         }
@@ -22797,10 +22803,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         game_ui.run(lobby_transition::gameStarted);
 
-        Audio.stopLoopMp3("misc/waiting_room.mp3");
+        game_audio.stopLoopMp3("misc/waiting_room.mp3");
 
         if (!GameFrame.RECOVER && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
-            Audio.playWavResource("misc/startplay.wav");
+            game_audio.playWavResource("misc/startplay.wav");
         }
 
         // ALWAYS unmute the background loop when entering the game (the waiting room
@@ -22809,7 +22815,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // muted while the flag starts off would mean toggling it on mid-game wouldn't
         // wake it up (the contextual mute would stay at 0) until returning to the
         // main screen.
-        Audio.unmuteLoopMp3("misc/background_music.mp3");
+        game_audio.unmuteLoopMp3("misc/background_music.mp3");
 
         game_window.applyAutomaticFullscreen(GameFrame.AUTO_FULLSCREEN);
 
@@ -22893,12 +22899,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             game_log.print(Translator.translate("game.timba_recuperada"));
 
                             if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
-                                Audio.playWavResource("misc/startplay.wav");
+                                game_audio.playWavResource("misc/startplay.wav");
                             }
 
                             if (recovering_music_active) {
-                                Audio.stopLoopMp3("misc/recovering.mp3");
-                                Audio.playLoopMp3Resource("misc/background_music.mp3");
+                                game_audio.stopLoopMp3("misc/recovering.mp3");
+                                game_audio.playLoopMp3Resource("misc/background_music.mp3");
                                 recovering_music_active = false;
                             }
                         }

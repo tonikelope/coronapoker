@@ -7,11 +7,22 @@ import com.tonikelope.coronapoker.core.LobbySession;
 import com.tonikelope.coronapoker.core.NewGameConnectionDraft;
 import com.tonikelope.coronapoker.core.NewGameRequest;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
+import com.tonikelope.coronapoker.core.game.GameLaunchContext;
+import com.tonikelope.coronapoker.core.game.GameTableFactory;
+import com.tonikelope.coronapoker.table.TableEventBridge;
+import com.tonikelope.coronapoker.table.TableRenderer;
+import com.tonikelope.coronapoker.table.TableSession;
+import com.tonikelope.coronapoker.table.TableSnapshot;
+import com.tonikelope.coronapoker.table.TableVisualEvent;
 import java.net.ServerSocket;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -64,6 +75,87 @@ class NetworkLobbyGatewayTest {
                 host.close();
             }
         }
+    }
+
+    @Test void startTransfersTheAuthenticatedChannelToBothTableSessions() throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) { port = reservation.getLocalPort(); }
+        AtomicReference<GameLaunchContext> hostContext = new AtomicReference<>();
+        AtomicReference<GameLaunchContext> clientContext = new AtomicReference<>();
+        GameTableFactory tables = context -> {
+            (context.lobby().host() ? hostContext : clientContext).set(context);
+            TableEventBridge events = new TableEventBridge();
+            return new TableSession(emptyTable(context.lobby().localNickname()), command -> { },
+                    events, () -> {
+                        if (context.lobby().host()) {
+                            try {
+                                context.channel().broadcastFromHost("INIT#native-handoff", null);
+                            } catch (java.io.IOException failure) {
+                                return CompletableFuture.failedFuture(failure);
+                            }
+                        }
+                        return CompletableFuture.completedFuture(null);
+                    });
+        };
+        try (NetworkLobbyGateway hostGateway = new NetworkLobbyGateway(
+                    temporary.resolve("handoff-host"), tables);
+             NetworkLobbyGateway clientGateway = new NetworkLobbyGateway(
+                    temporary.resolve("handoff-client"), tables)) {
+            LobbySession host = hostGateway.open(request(false, "Anfitrion", port))
+                    .get(5, TimeUnit.SECONDS);
+            LobbySession client = clientGateway.open(request(true, "Invitado", port))
+                    .get(5, TimeUnit.SECONDS);
+            try {
+                await(() -> host.snapshot().participants().size() == 2);
+                host.submit(new LobbyCommand.StartGame()).toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS);
+                TableSession hostTable = host.tableSession().toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS);
+                hostTable.attach(immediateRenderer()).toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS);
+
+                TableSession clientTable = client.tableSession().toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS);
+                assertEquals("Anfitrion", hostTable.initialState().localNickname());
+                assertEquals("Invitado", clientTable.initialState().localNickname());
+                assertTrue(client.snapshot().startingOrStarted());
+
+                AtomicReference<String> bufferedInit = new AtomicReference<>();
+                clientContext.get().channel().subscribe(inbound ->
+                        bufferedInit.set(inbound.command()));
+                await(() -> "INIT#native-handoff".equals(bufferedInit.get()));
+                assertTrue(hostContext.get().lobby().host());
+
+                AtomicReference<String> hostInbound = new AtomicReference<>();
+                hostContext.get().channel().subscribe(inbound ->
+                        hostInbound.set(inbound.peerNickname() + ":" + inbound.command()));
+                clientContext.get().channel().sendToHost("ACTION#payload");
+                await(() -> "Invitado:ACTION#payload".equals(hostInbound.get()));
+
+                hostContext.get().channel().sendFromHost("Invitado", "PAUSE#0#host");
+                await(() -> "PAUSE#0#host".equals(bufferedInit.get()));
+            } finally {
+                client.close();
+                host.close();
+            }
+        }
+    }
+
+    private static TableSnapshot emptyTable(String nickname) {
+        return new TableSnapshot(0L, nickname, TableSnapshot.Street.WAITING,
+                0d, "", false, List.of(), List.of());
+    }
+
+    private static TableRenderer immediateRenderer() {
+        return new TableRenderer() {
+            @Override public CompletionStage<Void> open(TableSnapshot initialState) {
+                return CompletableFuture.completedFuture(null);
+            }
+            @Override public CompletionStage<Void> render(TableVisualEvent event) {
+                return CompletableFuture.completedFuture(null);
+            }
+            @Override public void close() { }
+        };
     }
 
     private static NewGameRequest request(boolean joining, String nickname, int port) {

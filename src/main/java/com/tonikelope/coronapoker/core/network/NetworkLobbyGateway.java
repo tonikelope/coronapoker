@@ -10,6 +10,9 @@ import com.tonikelope.coronapoker.core.NewGameRequest;
 import com.tonikelope.coronapoker.core.NewGameSessionGateway;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import com.tonikelope.coronapoker.core.identity.PlayerIdentity;
+import com.tonikelope.coronapoker.core.game.GameChannel;
+import com.tonikelope.coronapoker.core.game.GameLaunchContext;
+import com.tonikelope.coronapoker.core.game.GameTableFactory;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
@@ -46,6 +49,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.KeyAgreement;
@@ -66,12 +70,18 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
     private static final AtomicInteger THREAD_NUMBER = new AtomicInteger();
 
     private final Path coronaDirectory;
+    private final GameTableFactory gameTables;
     private final ExecutorService executor;
     private final AtomicBoolean closed = new AtomicBoolean();
 
     public NetworkLobbyGateway(Path coronaDirectory) {
+        this(coronaDirectory, GameTableFactory.unavailable());
+    }
+
+    public NetworkLobbyGateway(Path coronaDirectory, GameTableFactory gameTables) {
         this.coronaDirectory = Objects.requireNonNull(coronaDirectory, "coronaDirectory")
                 .toAbsolutePath().normalize();
+        this.gameTables = Objects.requireNonNull(gameTables, "gameTables");
         ThreadFactory threads = task -> {
             Thread thread = new Thread(task, "coronapoker-network-" + THREAD_NUMBER.incrementAndGet());
             thread.setDaemon(true);
@@ -84,14 +94,19 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         return new NetworkLobbyGateway(Path.of(System.getProperty("user.home"), ".coronapoker"));
     }
 
+    public static NetworkLobbyGateway forCurrentUser(GameTableFactory gameTables) {
+        return new NetworkLobbyGateway(Path.of(System.getProperty("user.home"), ".coronapoker"),
+                gameTables);
+    }
+
     @Override
     public CompletableFuture<LobbySession> open(NewGameRequest request) {
         Objects.requireNonNull(request, "request");
         if (closed.get()) return CompletableFuture.failedFuture(new IllegalStateException("Network gateway is closed"));
         return CompletableFuture.supplyAsync(() -> {
             try {
-                return request.joining() ? Transport.openClient(request, coronaDirectory, executor)
-                        : Transport.openHost(request, coronaDirectory, executor);
+                return request.joining() ? Transport.openClient(request, coronaDirectory, executor, gameTables)
+                        : Transport.openHost(request, coronaDirectory, executor, gameTables);
             } catch (Exception failure) {
                 throw new java.util.concurrent.CompletionException(failure);
             }
@@ -110,6 +125,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private final Path coronaDirectory;
         private final ExecutorService executor;
         private final NewGameTableDraft.Settings tableSettings;
+        private final GameTableFactory gameTables;
+        private final NativeGameChannel gameChannel;
         private final boolean recovering;
         private final byte[] sessionId;
         private final PlayerIdentity identity;
@@ -126,7 +143,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         private Transport(boolean host, NewGameRequest request, Path coronaDirectory,
                 ExecutorService executor, byte[] sessionId, PlayerIdentity identity,
-                NewGameTableDraft.Settings tableSettings) {
+                NewGameTableDraft.Settings tableSettings, GameTableFactory gameTables) {
             this.host = host;
             this.localNickname = request.connection().nickname();
             this.endpoint = request.connection().server() + ":" + request.connection().port();
@@ -134,19 +151,21 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             this.coronaDirectory = coronaDirectory;
             this.executor = executor;
             this.tableSettings = Objects.requireNonNull(tableSettings, "tableSettings");
+            this.gameTables = Objects.requireNonNull(gameTables, "gameTables");
             this.recovering = request.connection().recover();
             this.sessionId = sessionId;
             this.identity = identity;
             this.serverNickname = host ? localNickname : "";
+            this.gameChannel = new NativeGameChannel(this, executor);
         }
 
         static LobbySession openHost(NewGameRequest request, Path directory,
-                ExecutorService executor) throws Exception {
+                ExecutorService executor, GameTableFactory gameTables) throws Exception {
             PlayerIdentity identity = PlayerIdentity.loadOrCreate(directory, request.connection().nickname());
             byte[] sessionId = new byte[16];
             new SecureRandom().nextBytes(sessionId);
             Transport transport = new Transport(true, request, directory, executor, sessionId,
-                    identity, request.table());
+                    identity, request.table(), gameTables);
             int port = parsePort(request.connection().port());
             ServerSocket server = new ServerSocket();
             server.setReuseAddress(true);
@@ -163,7 +182,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         }
 
         static LobbySession openClient(NewGameRequest request, Path directory,
-                ExecutorService executor) throws Exception {
+                ExecutorService executor, GameTableFactory gameTables) throws Exception {
             PlayerIdentity identity = PlayerIdentity.loadOrCreate(directory, request.connection().nickname());
             Socket socket = new Socket();
             socket.connect(new InetSocketAddress(request.connection().server(),
@@ -174,7 +193,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             Connection connection = clientHandshake(socket, request, identity, directory, executor);
             Transport transport = new Transport(false, request, directory, executor,
                     connection.sessionId, identity,
-                    NewGameTableDraft.Settings.parseWire(connection.gameConfig));
+                    NewGameTableDraft.Settings.parseWire(connection.gameConfig), gameTables);
             transport.serverConnection = connection;
             transport.serverNickname = connection.remoteNickname;
             transport.peers.put(connection.remoteNickname,
@@ -348,12 +367,31 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     else if (command instanceof LobbyCommand.Kick kick) kick(kick.nickname());
                     else if (command instanceof LobbyCommand.ChangePassword change) changePassword(change.password());
                     else if (command instanceof LobbyCommand.SetChatNotifications notifications) setNotifications(notifications.enabled());
-                    else if (command instanceof LobbyCommand.StartGame) publish(LobbySnapshot.Phase.INITIALIZING_GAME, "");
+                    else if (command instanceof LobbyCommand.StartGame) startGame();
                     else if (command instanceof LobbyCommand.Leave) leave();
                 } catch (Exception failure) {
                     throw new java.util.concurrent.CompletionException(failure);
                 }
             }, executor);
+        }
+
+        private synchronized void startGame() throws Exception {
+            if (!host) throw new IllegalStateException("Only the host can start the game");
+            publish(LobbySnapshot.Phase.INITIALIZING_GAME, "");
+            try {
+                publishTableSession();
+            } catch (Exception failure) {
+                publish(LobbySnapshot.Phase.ERROR, failure.getMessage() == null
+                        ? failure.getClass().getSimpleName() : failure.getMessage());
+                throw failure;
+            }
+        }
+
+        private void publishTableSession() throws Exception {
+            LobbySession active = session;
+            if (active == null) throw new IllegalStateException("Lobby session is not ready");
+            active.publishTableSession(gameTables.create(
+                    new GameLaunchContext(active.snapshot(), gameChannel)));
         }
 
         private synchronized void sendChat(String text) throws Exception {
@@ -479,12 +517,29 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     String subcommand = parts[2];
                     GameCommandGate.Decision decision = source.gameCommandGate.accept(
                             subcommand, id, command);
-                    if (decision.closeConnection() || fromClient
-                            || !isLobbyGameCommand(subcommand)) {
-                        throw new IOException("Unsupported GAME command in lobby: " + subcommand);
+                    boolean lobbyCommand = isLobbyGameCommand(subcommand);
+                    LobbySession activeSession = session;
+                    boolean gameActive = activeSession != null
+                            && activeSession.snapshot().startingOrStarted();
+                    if (decision.closeConnection()
+                            || (fromClient && lobbyCommand)
+                            || (!lobbyCommand && !gameActive)) {
+                        throw new IOException("Unsupported GAME command for current phase: " + subcommand);
                     }
-                    source.writeEncrypted("CONF#" + (id + 1) + "#OK");
-                    if (decision.enqueue()) receiveGame(parts);
+                    if (decision.acknowledge()) {
+                        source.writeEncrypted("CONF#" + (id + 1) + "#OK");
+                    }
+                    if (decision.enqueue()) {
+                        if (lobbyCommand) receiveGame(parts);
+                        if (gameActive || "INIT".equals(subcommand)) {
+                            if ("INIT".equals(subcommand) && !host) {
+                                publish(LobbySnapshot.Phase.IN_GAME, "");
+                                publishTableSession();
+                            }
+                            gameChannel.receive(source.remoteNickname,
+                                    command.substring(command.indexOf('#', command.indexOf('#') + 1) + 1));
+                        }
+                    }
                 }
                 default -> { }
             }
@@ -525,7 +580,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 }
                 case "DELUSER" -> removePeer(text64(parts[3]), false);
                 case "GAMEINFO", "GAMECONFIG" -> { }
-                case "INIT" -> publish(LobbySnapshot.Phase.IN_GAME, "");
+                case "INIT" -> { }
                 default -> { }
             }
         }
@@ -598,6 +653,32 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             connection.enqueueGame(body);
         }
 
+        private synchronized void sendGameTo(String nickname, String body) throws IOException {
+            if (!host) throw new IllegalStateException("Only the host can send to a peer");
+            Peer peer = findNormalized(nickname);
+            if (peer == null || peer.connection == null || peer.local || peer.bot) {
+                throw new IOException("Game peer is unavailable: " + nickname);
+            }
+            peer.connection.enqueueGame(body);
+        }
+
+        private synchronized void sendGameToHost(String body) throws IOException {
+            if (host) throw new IllegalStateException("The host cannot send to itself");
+            if (serverConnection == null) throw new IOException("Host connection is unavailable");
+            serverConnection.enqueueGame(body);
+        }
+
+        private synchronized void broadcastGameFromChannel(String body,
+                String skipNickname) throws IOException {
+            if (!host) throw new IllegalStateException("Only the host can broadcast");
+            for (Peer peer : List.copyOf(peers.values())) {
+                if (peer.connection != null
+                        && (skipNickname == null || !peer.nickname.equals(skipNickname))) {
+                    peer.connection.enqueueGame(body);
+                }
+            }
+        }
+
         private void broadcastDirect(String body, Connection except) throws Exception {
             for (Peer peer : List.copyOf(peers.values())) {
                 if (peer.connection != null && peer.connection != except) peer.connection.writeEncrypted(body);
@@ -663,11 +744,115 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         @Override public void close() {
             if (!closed.compareAndSet(false, true)) return;
+            gameChannel.close();
             try { if (serverSocket != null) serverSocket.close(); } catch (IOException ignored) { }
             if (serverConnection != null) serverConnection.close();
             synchronized (this) {
                 for (Peer peer : peers.values()) if (peer.connection != null) peer.connection.close();
             }
+        }
+    }
+
+    /** Ordered handoff queue; network reads never invoke the controller inline. */
+    private static final class NativeGameChannel implements GameChannel {
+        private static final int MAX_PENDING_COMMANDS = 10_000;
+        private static final long MAX_PENDING_BYTES = 16L * 1024L * 1024L;
+        private final Transport transport;
+        private final ExecutorService executor;
+        private final java.util.ArrayDeque<Inbound> pending = new java.util.ArrayDeque<>();
+        private boolean closed;
+        private boolean draining;
+        private long pendingBytes;
+        private Consumer<Inbound> listener;
+
+        NativeGameChannel(Transport transport, ExecutorService executor) {
+            this.transport = transport;
+            this.executor = executor;
+        }
+
+        synchronized void receive(String peerNickname, String command) throws IOException {
+            if (closed) throw new IOException("Game channel is closed");
+            int bytes = command.getBytes(StandardCharsets.UTF_8).length;
+            if (pending.size() >= MAX_PENDING_COMMANDS
+                    || bytes > MAX_PENDING_BYTES - pendingBytes) {
+                close();
+                throw new IOException("Game input queue is full");
+            }
+            pending.addLast(new Inbound(peerNickname, command));
+            pendingBytes += bytes;
+            scheduleDrain();
+        }
+
+        @Override
+        public synchronized AutoCloseable subscribe(Consumer<Inbound> next) {
+            if (closed) throw new IllegalStateException("Game channel is closed");
+            if (listener != null) throw new IllegalStateException("Game channel already has a consumer");
+            listener = Objects.requireNonNull(next, "listener");
+            scheduleDrain();
+            return this::detach;
+        }
+
+        private synchronized void detach() {
+            listener = null;
+        }
+
+        private void scheduleDrain() {
+            if (listener == null || draining || pending.isEmpty()) return;
+            draining = true;
+            executor.execute(this::drain);
+        }
+
+        private void drain() {
+            while (true) {
+                Consumer<Inbound> target;
+                Inbound command;
+                synchronized (this) {
+                    if (closed || listener == null || pending.isEmpty()) {
+                        draining = false;
+                        return;
+                    }
+                    target = listener;
+                    command = pending.removeFirst();
+                    pendingBytes -= command.command().getBytes(StandardCharsets.UTF_8).length;
+                }
+                try {
+                    target.accept(command);
+                } catch (RuntimeException failure) {
+                    transport.fail("El motor rechazó un comando de partida: "
+                            + failure.getMessage());
+                    close();
+                    return;
+                }
+            }
+        }
+
+        @Override public void sendToHost(String command) throws IOException {
+            transport.sendGameToHost(requireCommand(command));
+        }
+
+        @Override public void broadcastFromHost(String command, String skipNickname)
+                throws IOException {
+            transport.broadcastGameFromChannel(requireCommand(command), skipNickname);
+        }
+
+        @Override public void sendFromHost(String nickname, String command) throws IOException {
+            transport.sendGameTo(Objects.requireNonNull(nickname, "nickname"),
+                    requireCommand(command));
+        }
+
+        private static String requireCommand(String command) {
+            String checked = Objects.requireNonNull(command, "command");
+            if (checked.isBlank() || checked.startsWith("GAME#")) {
+                throw new IllegalArgumentException("A game channel command must omit the GAME envelope");
+            }
+            return checked;
+        }
+
+        @Override public synchronized void close() {
+            closed = true;
+            pending.clear();
+            pendingBytes = 0L;
+            listener = null;
         }
     }
 

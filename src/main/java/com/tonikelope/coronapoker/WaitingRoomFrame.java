@@ -3288,7 +3288,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     String timeoutNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                     Helpers.GUIRun(() -> {
                                                                         if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
-                                                                            Player p = GameFrame.getInstance().getCrupier().getNick2player().get(timeoutNick);
+                                                                            Player p = (Player) GameFrame.getInstance().getCrupier().getNick2player().get(timeoutNick);
                                                                             if (p != null) {
                                                                                 // Triggers the visual change (red/purple border and timeout icon)
                                                                                 p.setTimeout(true);

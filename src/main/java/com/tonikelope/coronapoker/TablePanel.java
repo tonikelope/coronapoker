@@ -1291,7 +1291,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         // turn. current_bet is kept as a robustness guard (the aggressor set the current
         // bet, so it matches theirs) plus for the in-pot card checks.
         double current_bet = GameFrame.getInstance().getCrupier().getApuesta_actual();
-        Player last_aggressor = GameFrame.getInstance().getCrupier().getLast_aggressor();
+        Player last_aggressor = (Player) GameFrame.getInstance().getCrupier().getLast_aggressor();
         for (RemotePlayer rp : rps) {
             if (rp == null) {
                 continue;

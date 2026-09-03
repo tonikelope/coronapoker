@@ -24,7 +24,8 @@ final class ArchitectureBoundaryTest {
     void coreHasNoSwingAwtOrLibgdxImports() throws IOException {
         List<Path> sourceRoots = List.of(
                 reactor.resolve("../src/main/java/com/tonikelope/coronapoker/core").normalize(),
-                reactor.resolve("../src/main/java/com/tonikelope/coronapoker/table").normalize());
+                reactor.resolve("../src/main/java/com/tonikelope/coronapoker/table").normalize(),
+                reactor.resolve("../src/main/java/com/tonikelope/coronapoker/bot/context").normalize());
         try (Stream<Path> files = sourceRoots.stream().flatMap(this::walk)) {
             List<Path> violations = files
                     .filter(path -> path.toString().endsWith(".java"))

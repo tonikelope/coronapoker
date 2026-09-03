@@ -29,6 +29,7 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.core.game.RemotePlayerState;
+import com.tonikelope.coronapoker.core.game.GameHandResult;
 import static com.tonikelope.coronapoker.GameFrame.GUI_RENDER_WAIT;
 import static com.tonikelope.coronapoker.GameFrame.NOTIFY_INGAME_GIF_REPEAT;
 import static com.tonikelope.coronapoker.GameFrame.TTS_NO_SOUND_TIMEOUT;
@@ -3868,7 +3869,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     @Override
-    public void setJugadaParcial(Hand jugada, boolean ganador, float win_per) {
+    public void setJugadaParcial(GameHandResult jugada, boolean ganador, float win_per) {
 
         Helpers.GUIRun(() -> {
             setActionBackground(ganador ? new Color(120, 200, 0) : new Color(230, 70, 0));

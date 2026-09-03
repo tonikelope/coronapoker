@@ -33,6 +33,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
+import com.tonikelope.coronapoker.core.game.GamePlayerController;
 
 /**
  * A poker player at the table — local or remote — covering hand state,
@@ -40,7 +41,8 @@ import javax.swing.JLabel;
  *
  * @author tonikelope
  */
-public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayerView {
+public interface Player extends GamePlayerController,
+        com.tonikelope.coronapoker.bot.context.BotPlayerView {
 
     /**
      * Formats the secondary-pot indexes without taking a separate size
@@ -126,6 +128,18 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
     public Card getHoleCard2();
 
     public ArrayList<Card> getHoleCards();
+
+    @Override
+    default int getHoleCard1Index() {
+        Card card = getHoleCard1();
+        return card == null ? -1 : card.getCardIndex();
+    }
+
+    @Override
+    default int getHoleCard2Index() {
+        Card card = getHoleCard2();
+        return card == null ? -1 : card.getCardIndex();
+    }
 
     public void setWinner(String msg);
 
@@ -291,7 +305,10 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
 
     public JLabel getChat_notify_label();
 
-    public void setJugadaParcial(Hand jugada, boolean ganador, float win_per);
+    @Override
+    public void setJugadaParcial(
+            com.tonikelope.coronapoker.core.game.GameHandResult jugada,
+            boolean ganador, float win_per);
 
     public boolean isWinner();
 

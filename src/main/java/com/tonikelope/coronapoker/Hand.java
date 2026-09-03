@@ -28,6 +28,7 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.game.GameHandResult;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -38,7 +39,7 @@ import java.util.HashMap;
  *
  * @author tonikelope
  */
-public class Hand {
+public class Hand implements GameHandResult {
 
     private static final String[] HAND_KEYS = new String[]{
         "hand.high_card", "hand.one_pair", "hand.two_pair", "hand.three_of_a_kind",

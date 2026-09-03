@@ -37,6 +37,7 @@
                             <sources>
                                 <source>${project.basedir}/../../src/main/java/com/tonikelope/coronapoker/core</source>
                                 <source>${project.basedir}/../../src/main/java/com/tonikelope/coronapoker/table</source>
+                                <source>${project.basedir}/../../src/main/java/com/tonikelope/coronapoker/bot/context</source>
                             </sources>
                         </configuration>
                     </execution>

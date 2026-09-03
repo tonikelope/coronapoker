@@ -6657,7 +6657,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                         String nick = (String) tts[0];
 
-                        Player jugador = GameFrame.getInstance().getCrupier().getNick2player().get(nick);
+                        Player jugador = (Player) GameFrame.getInstance().getCrupier().getNick2player().get(nick);
 
                         if (jugador != null) {
                             if (tts[1] instanceof URL) {

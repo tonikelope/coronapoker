@@ -13,9 +13,6 @@
  */
 package com.tonikelope.coronapoker.bot.context;
 
-import com.tonikelope.coronapoker.Bot;
-import com.tonikelope.coronapoker.Card;
-
 /**
  * Read-only slice of a Player that the bot subsystem inspects to make its
  * decisions. Splitting it out of {@link com.tonikelope.coronapoker.Player} lets
@@ -35,23 +32,14 @@ public interface BotPlayerView {
 
     boolean isActivo();
 
-    Card getHoleCard1();
-
-    Card getHoleCard2();
-
     /**
-     * First hole card as an Alberta-encoded index (rank + suit*13). Production
-     * players convert from their {@link Card} object; test fakes can override
-     * to bypass the Swing-bound concrete card.
+     * First hole card as an Alberta-encoded index (rank + suit*13), or -1 when
+     * the card is not available.
      */
-    default int getHoleCard1Index() {
-        return Bot.coronaCard2LokiCard(getHoleCard1()).getIndex();
-    }
+    int getHoleCard1Index();
 
     /**
      * Second hole card as an Alberta-encoded index.
      */
-    default int getHoleCard2Index() {
-        return Bot.coronaCard2LokiCard(getHoleCard2()).getIndex();
-    }
+    int getHoleCard2Index();
 }

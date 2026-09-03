@@ -1370,7 +1370,7 @@ public class Participant implements Runnable {
         try {
             if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
                 Crupier c = GameFrame.getInstance().getCrupier();
-                Player p = c.getNick2player() != null ? c.getNick2player().get(nick) : null;
+                Player p = c.getNick2player() != null ? (Player) c.getNick2player().get(nick) : null;
                 if (p != null && !p.isExit()) {
                     p.setExit();
                 }

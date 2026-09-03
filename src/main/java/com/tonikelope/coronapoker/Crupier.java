@@ -10168,7 +10168,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // and re-enable the voluntary "Show" button, which makes no sense —
                             // the cards were already forcibly shown.
                             local.setMuestra(true);
-                            local.desactivar_boton_mostrar();
+                            table_display.hideVoluntaryShowAction();
                         }
 
                         // B) Bots: Since they live in the Host's memory, the Server Host forces them to show
@@ -16937,7 +16937,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (presentation_settings.autoActionButtons() && current_player != localPlayer()
                         && localPlayer().getDecision() != Player.FOLD
                         && localPlayer().getDecision() != Player.ALLIN) {
-                    localPlayer().activarPreBotones();
+                    table_display.activateLocalPreActions();
                 }
 
                 presentTurnTimerToAttachedRenderer(current_player,
@@ -17379,7 +17379,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // uncovers.
                 actualizarContadoresTapete();
                 if (resisten.contains(localPlayer())) {
-                    localPlayer().desactivarControles();
+                    table_display.deactivateLocalControls();
                 }
                 procesarCartasResistencia(resisten, true);
                 if (isFin_de_la_transmision() || this.termination_pending
@@ -22609,7 +22609,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // If the local player mucked (cards face-down), enable the voluntary
                         // SHOW button
                         if (!mustShow) {
-                            localPlayer().activar_boton_mostrar(true);
+                            table_display.showVoluntaryShowAction(true);
                         }
                     } else {
                         // Pass 1's uncover can be asynchronous in the classic fallback, so
@@ -22685,13 +22685,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (gameSession().configuration().iwtsth() && isIWTSTH4LocalPlayerAuthorized()) {
 
-            game_ui.run(() -> {
-                for (RemotePlayer rp : remotePlayers()) {
-                    if (rp.isActivo() && rp.isLoser() && rp.getHoleCard1().isTapada()) {
-                        rp.getIwtsth_blink_timer().start();
-                    }
-                }
-            });
+            table_display.startIwtsthCandidateBlinking();
 
         }
     }
@@ -22919,12 +22913,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
 
                         table_display.hideStreetBets();
-                        localPlayer().desactivarControles();
+                        table_display.deactivateLocalControls();
 
                         if (presentation_settings.autoActionButtons()) {
                             // Persist mode keeps the queued pre-press across the hand
                             // boundary (hides the buttons but does not clear pre_pulsado).
-                            localPlayer().desActivarPreBotones(!presentation_settings.autoActionPersist());
+                            table_display.deactivateLocalPreActions(
+                                    !presentation_settings.autoActionPersist());
                         }
 
                         // The dragon must close after the preflop replay even
@@ -23059,7 +23054,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             carta.desenfocar();
                                         }
                                         if (resisten.get(0) == localPlayer()) {
-                                            localPlayer().activar_boton_mostrar(false);
+                                            table_display.showVoluntaryShowAction(false);
                                         }
                                         if (resisten.get(0) == localPlayer()) {
                                             this.soundWinner(0, false);
@@ -23282,7 +23277,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                             if (!presentation_settings.testMode() && !resisten.contains(localPlayer())) {
                                 if (localPlayer().isActivo() && localPlayer().getParguela_counter() > 0) {
-                                    localPlayer().activar_boton_mostrar(true);
+                                    table_display.showVoluntaryShowAction(true);
                                 }
                                 this.soundShowdown();
                             }
@@ -23402,7 +23397,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 synchronized (lock_mostrar) {
                                     setShowTime(false);
                                 }
-                                localPlayer().desactivar_boton_mostrar();
+                                table_display.hideVoluntaryShowAction();
                                 updateShowdownCardsInLog();
 
                                 if (!this.isLast_hand()) {
@@ -23421,7 +23416,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 synchronized (lock_mostrar) {
                                     setShowTime(false);
                                 }
-                                localPlayer().desactivar_boton_mostrar();
+                                table_display.hideVoluntaryShowAction();
                                 updateShowdownCardsInLog();
                                 if (!this.isLast_hand()) {
                                     checkRebuyTime();

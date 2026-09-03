@@ -133,6 +133,18 @@ public interface TableDisplaySink {
 
     void restoreVoluntaryShowAction();
 
+    void activateLocalPreActions();
+
+    void deactivateLocalControls();
+
+    void deactivateLocalPreActions(boolean clearSelection);
+
+    void showVoluntaryShowAction(boolean countdown);
+
+    void hideVoluntaryShowAction();
+
+    void startIwtsthCandidateBlinking();
+
     void preparePositionRotation(
             List<TableVisualEvent.PositionTransfer> transfers);
 
@@ -333,6 +345,30 @@ public interface TableDisplaySink {
 
             @Override
             public void restoreVoluntaryShowAction() {
+            }
+
+            @Override
+            public void activateLocalPreActions() {
+            }
+
+            @Override
+            public void deactivateLocalControls() {
+            }
+
+            @Override
+            public void deactivateLocalPreActions(boolean clearSelection) {
+            }
+
+            @Override
+            public void showVoluntaryShowAction(boolean countdown) {
+            }
+
+            @Override
+            public void hideVoluntaryShowAction() {
+            }
+
+            @Override
+            public void startIwtsthCandidateBlinking() {
             }
 
             @Override

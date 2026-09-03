@@ -45,6 +45,12 @@ final class DealerDatabasePortWiringTest {
         assertTrue(dealer.contains("new TableVisualEvent.ShowdownHighlight("));
         assertTrue(dealer.contains("game_decisions.replayRecoveredAction("));
         assertTrue(dealer.contains("table_display.suspendVoluntaryShowAction("));
+        assertTrue(dealer.contains("table_display.activateLocalPreActions("));
+        assertTrue(dealer.contains("table_display.deactivateLocalControls("));
+        assertTrue(dealer.contains("table_display.deactivateLocalPreActions("));
+        assertTrue(dealer.contains("table_display.showVoluntaryShowAction("));
+        assertTrue(dealer.contains("table_display.hideVoluntaryShowAction("));
+        assertTrue(dealer.contains("table_display.startIwtsthCandidateBlinking("));
         assertTrue(dealer.contains("table_display.setShowdownHighlight("));
         assertTrue(dealer.contains("new TableVisualEvent.ShowdownHighlight("));
         assertFalse(dealerCode.contains(".setWinner("));
@@ -67,6 +73,12 @@ final class DealerDatabasePortWiringTest {
         assertFalse(dealerCode.contains(".getPlayer_check_button("));
         assertFalse(dealerCode.contains(".getPlayer_bet_button("));
         assertFalse(dealerCode.contains(".getPlayer_allin_button("));
+        assertFalse(dealerCode.contains(".activarPreBotones("));
+        assertFalse(dealerCode.contains(".desactivarControles("));
+        assertFalse(dealerCode.contains(".desActivarPreBotones("));
+        assertFalse(dealerCode.contains(".activar_boton_mostrar("));
+        assertFalse(dealerCode.contains(".desactivar_boton_mostrar("));
+        assertFalse(dealerCode.contains(".getIwtsth_blink_timer("));
         assertFalse(dealerCode.contains(".setShowdownHand("));
     }
 

@@ -4953,6 +4953,44 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
             }
 
+            @Override
+            public void activateLocalPreActions() {
+                tapete.getLocalPlayer().activarPreBotones();
+            }
+
+            @Override
+            public void deactivateLocalControls() {
+                tapete.getLocalPlayer().desactivarControles();
+            }
+
+            @Override
+            public void deactivateLocalPreActions(boolean clearSelection) {
+                tapete.getLocalPlayer().desActivarPreBotones(clearSelection);
+            }
+
+            @Override
+            public void showVoluntaryShowAction(boolean countdown) {
+                tapete.getLocalPlayer().activar_boton_mostrar(countdown);
+            }
+
+            @Override
+            public void hideVoluntaryShowAction() {
+                tapete.getLocalPlayer().desactivar_boton_mostrar();
+            }
+
+            @Override
+            public void startIwtsthCandidateBlinking() {
+                Helpers.GUIRun(() -> {
+                    for (Player seat : jugadores) {
+                        if (seat instanceof RemotePlayer remote
+                                && remote.isActivo() && remote.isLoser()
+                                && remote.getHoleCard1().isTapada()) {
+                            remote.getIwtsth_blink_timer().start();
+                        }
+                    }
+                });
+            }
+
             private ImageIcon positionChip(
                     com.tonikelope.coronapoker.table.TableSnapshot.Position position) {
                 return switch (position) {

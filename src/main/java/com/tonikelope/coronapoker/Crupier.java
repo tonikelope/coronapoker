@@ -49,7 +49,6 @@ import com.tonikelope.coronapoker.core.game.PauseGate;
 import com.tonikelope.coronapoker.core.game.TableDisplaySink;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
 
-import static com.tonikelope.coronapoker.Card.BARAJAS;
 import static com.tonikelope.coronapoker.GameFrame.WAIT_QUEUES;
 import java.io.File;
 import java.io.IOException;
@@ -794,105 +793,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int CARD_ANIMATION_DELAY = 100;
     // Diagnostic confirmation (once per session) of which engine renders the card flips
     private static volatile boolean PRE_RENDERED_ENGINE_LOGGED = false;
-    // Memory cap for pre-decoding shuffle.gif (built-in decks run ~43 MB thanks to the
-    // indexed fast path; a mod's shuffle.gif estimated above this falls back to the
-    // legacy Toolkit path instead of eating RAM)
-    public static final long PRE_RENDERED_SHUFFLE_MAX_BYTES = 64L * 1024 * 1024;
-    // Frame (1-based) of each gif loop where shuffle.wav is CUT, deliberately before the
-    // last frame: gives the device's (lagging) output buffer time to finish draining
-    // before the loop ends visually. Cutting right at the end makes the sound trail
-    // slightly after the animation disappears.
-    public static final int SHUFFLE_AUDIO_STOP_FRAME = 53;
-    // Pre-decoded shuffle.gif cache for the CURRENT deck (single entry, keyed by URL):
-    // the ~0.5 s decode is paid once per deck (usually during startup/deck-change
-    // warm-up, outside the game) and the animation stays resident (~43 MB for built-in
-    // decks) until the deck changes, which replaces and frees it. A null value also
-    // caches the failure (undecodable or over-cap mod GIF): one attempt and one WARNING
-    // per deck.
-    private static volatile Map.Entry<String, PreRenderedGif> SHUFFLE_ANIM_CACHE = null;
-
-    private static final Object SHUFFLE_ANIM_LOCK = new Object();
-
-    // URL of the current deck's shuffle.gif (mod file or built-in resource), null if the
-    // deck has none
-    public static URL shuffleGifUrl() {
-
-        String baraja = GameFrame.BARAJA;
-
-        boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(baraja))[1];
-
-        if (baraja_mod && Files.exists(
-                Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif"))) {
-            try {
-                return Paths
-                        .get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif")
-                        .toUri().toURL();
-            } catch (MalformedURLException ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
-            }
-
-        } else if (Crupier.class.getResource("/images/decks/" + baraja + "/gif/shuffle.gif") != null) {
-            return Crupier.class.getResource("/images/decks/" + baraja + "/gif/shuffle.gif");
-        }
-
-        return null;
-    }
-
-    // Pre-decoded shuffle.gif from the cache, decoding it if missing (null if it can't be
-    // decoded or exceeds the cap: legacy path). Synchronized so warm-up and the shuffle
-    // thread never pay the decode twice.
-    public static PreRenderedGif getShuffleAnim(URL url_icon) {
-
-        String url_key = url_icon.toString();
-
-        synchronized (SHUFFLE_ANIM_LOCK) {
-
-            Map.Entry<String, PreRenderedGif> cache = SHUFFLE_ANIM_CACHE;
-
-            if (cache != null && url_key.equals(cache.getKey())) {
-                return cache.getValue();
-            }
-
-            PreRenderedGif anim = null;
-
-            try {
-                anim = PreRenderedGif.decode(url_icon, PRE_RENDERED_SHUFFLE_MAX_BYTES);
-            } catch (Exception ex) {
-                LOGGER.log(Level.WARNING, "Shuffle GIF pre-decode failed (legacy Toolkit animation fallback)", ex);
-            }
-
-            // Logged on every actual decode (only happens on a cache miss, i.e. startup and
-            // each deck change, since the cache holds a single entry): confirms
-            // pre-generation after a deck change too, not just at startup.
-            if (anim != null) {
-                LOGGER.log(Level.INFO, "Shuffle animation pre-rendered for deck \"{0}\" ({1} frames / {2} ms)",
-                        new Object[]{GameFrame.BARAJA, anim.getFrameCount(), anim.getTotalMs()});
-            }
-
-            SHUFFLE_ANIM_CACHE = new HashMap.SimpleEntry<>(url_key, anim);
-
-            return anim;
-        }
-    }
-
-    // Warms the cache in background (startup, deck change, animations re-enabled) so the
-    // first hand doesn't pay the ~0.5 s decode
-    public static void warmShuffleAnimCache() {
-
-        if (!GameFrame.barajadoAnimOn()) {
-            return;
-        }
-
-        Helpers.threadRun(() -> {
-
-            URL url_icon = shuffleGifUrl();
-
-            if (url_icon != null) {
-                getShuffleAnim(url_icon);
-            }
-        });
-    }
-
     public static final int MIN_ULTIMA_CARTA_JUGADA = Hand.TRIO;
     public static volatile boolean FUSION_MOD_SOUNDS = true;
     public static volatile boolean FUSION_MOD_CINEMATICS = true;

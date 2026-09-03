@@ -40,7 +40,7 @@ import java.util.logging.Logger;
  * not depend on a reproducible sequence. No effect on gameplay.
  *
  * <p>
- * Crypto analogue of {@code Crupier.warmShuffleAnimCache()} (which pre-decodes
+ * Crypto analogue of {@code GameFrame.warmShuffleAnimCache()} (which pre-decodes
  * the shuffle GIF). Exercising the SAME path as a real deal also spares the
  * first hand an uncommon-trap deoptimization from taking a branch the warm-up
  * never walked.

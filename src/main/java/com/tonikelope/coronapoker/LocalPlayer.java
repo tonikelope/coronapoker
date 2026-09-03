@@ -1305,7 +1305,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
      * RemotePlayer.ensureShuffleCascadeIcon.
      */
     private ImageIcon ensureShuffleCascadeIcon() throws Exception {
-        URL url = Crupier.shuffleGifUrl();
+        URL url = GameFrame.shuffleGifUrl();
         if (url == null) {
             return null;
         }

@@ -1992,7 +1992,7 @@ public class Init extends JFrame {
 
         // Pre-decodes the current deck's shuffle.gif in the background at startup,
         // so the first hand doesn't pay the decode cost.
-        Crupier.warmShuffleAnimCache();
+        GameFrame.warmShuffleAnimCache();
 
         // Same for the animated About logo (corona_logo.gif): pre-decode in the
         // background so the first About open doesn't pay the decode cost.

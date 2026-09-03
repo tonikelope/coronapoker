@@ -3739,7 +3739,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
      * step on its frame counters.
      */
     private ImageIcon ensureShuffleCascadeIcon() throws Exception {
-        URL url = Crupier.shuffleGifUrl();
+        URL url = GameFrame.shuffleGifUrl();
         if (url == null) {
             return null;
         }

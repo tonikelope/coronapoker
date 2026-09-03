@@ -115,6 +115,75 @@ import java.util.Base64;
 // this class by hand and do NOT restore the .form (the original is kept in git history).
 public final class GameFrame extends javax.swing.JFrame implements ZoomableInterface, MouseWheelListener {
 
+    private static final long PRE_RENDERED_SHUFFLE_MAX_BYTES
+            = 64L * 1024L * 1024L;
+    private static final int SHUFFLE_AUDIO_STOP_FRAME = 53;
+    private static final Object SHUFFLE_ANIM_LOCK = new Object();
+    private static volatile Map.Entry<String, PreRenderedGif> SHUFFLE_ANIM_CACHE;
+
+    static URL shuffleGifUrl() {
+        String deck = GameFrame.BARAJA;
+        Object[] metadata = (Object[]) Card.BARAJAS.get(deck);
+        if (metadata == null) {
+            return null;
+        }
+        boolean modDeck = (boolean) metadata[1];
+        if (modDeck) {
+            try {
+                java.nio.file.Path path = Paths.get(
+                        Helpers.getCurrentJarParentPath(), "mod", "decks",
+                        deck, "gif", "shuffle.gif");
+                return Files.exists(path) ? path.toUri().toURL() : null;
+            } catch (Exception ex) {
+                Logger.getLogger(GameFrame.class.getName()).log(
+                        Level.SEVERE, null, ex);
+                return null;
+            }
+        }
+        return GameFrame.class.getResource(
+                "/images/decks/" + deck + "/gif/shuffle.gif");
+    }
+
+    static PreRenderedGif getShuffleAnim(URL source) {
+        String key = source.toString();
+        synchronized (SHUFFLE_ANIM_LOCK) {
+            Map.Entry<String, PreRenderedGif> cache = SHUFFLE_ANIM_CACHE;
+            if (cache != null && key.equals(cache.getKey())) {
+                return cache.getValue();
+            }
+            PreRenderedGif animation = null;
+            try {
+                animation = PreRenderedGif.decode(
+                        source, PRE_RENDERED_SHUFFLE_MAX_BYTES);
+            } catch (Exception ex) {
+                Logger.getLogger(GameFrame.class.getName()).log(Level.WARNING,
+                        "Shuffle GIF pre-decode failed "
+                        + "(legacy Toolkit animation fallback)", ex);
+            }
+            if (animation != null) {
+                Logger.getLogger(GameFrame.class.getName()).log(Level.INFO,
+                        "Shuffle animation pre-rendered for deck \"{0}\" "
+                        + "({1} frames / {2} ms)",
+                        new Object[]{GameFrame.BARAJA,
+                            animation.getFrameCount(), animation.getTotalMs()});
+            }
+            SHUFFLE_ANIM_CACHE = new HashMap.SimpleEntry<>(key, animation);
+            return animation;
+        }
+    }
+
+    public static void warmShuffleAnimCache() {
+        if (!GameFrame.barajadoAnimOn()) {
+            return;
+        }
+        Helpers.threadRun(() -> {
+            URL source = shuffleGifUrl();
+            if (source != null) {
+                getShuffleAnim(source);
+            }
+        });
+    }
+
     // Factory zoom level: 0 = 100%, the size the board is designed for; also the
     // target of the zoom reset (Ctrl+0).
     public static final int DEFAULT_ZOOM_LEVEL = 0;
@@ -2180,7 +2249,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         // Pre-decodes the new deck's shuffle.gif in the background (the cache holds a single
         // entry: it replaces and frees the previous one)
-        Crupier.warmShuffleAnimCache();
+        GameFrame.warmShuffleAnimCache();
 
     }
 
@@ -4880,17 +4949,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                             return;
                         }
                         Audio.preloadWav("misc/shuffle.wav");
-                        URL source = Crupier.shuffleGifUrl();
+                        URL source = GameFrame.shuffleGifUrl();
                         if (source != null && animationEnabled) {
                             PreRenderedGif animation
-                                    = Crupier.getShuffleAnim(source);
+                                    = GameFrame.getShuffleAnim(source);
                             Helpers.GUIRunAndWait(() -> tapete
                                     .getCommunityCards().setVisible(false));
                             if (animation != null) {
                                 tapete.showCentralFramesLoop(animation,
                                         animation.getWidth(), animation.getHeight(),
                                         GameFrame.shuffleSound(),
-                                        Crupier.SHUFFLE_AUDIO_STOP_FRAME,
+                                        GameFrame.SHUFFLE_AUDIO_STOP_FRAME,
                                         keepRunning);
                             } else {
                                 ImageIcon icon = new ImageIcon(source);
@@ -8165,7 +8234,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.savePropertiesFile();
         applyAnimationMaster();
         if (value && GameFrame.ANIMACION_BARAJADO_PREF) {
-            Crupier.warmShuffleAnimCache();
+            GameFrame.warmShuffleAnimCache();
         }
     }
 

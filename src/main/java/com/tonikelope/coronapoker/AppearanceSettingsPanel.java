@@ -413,7 +413,7 @@ public class AppearanceSettingsPanel extends JPanel {
                     Card.updateCachedImages(1f + GameFrame.ZOOM_LEVEL * GameFrame.getZOOM_STEP(), true);
                     // Out of game there's no cambiarBaraja() to warm the cache: pre-decode
                     // the new deck's shuffle.gif here so the first hand doesn't pay for it.
-                    Crupier.warmShuffleAnimCache();
+                    GameFrame.warmShuffleAnimCache();
                 }
             }
         });
@@ -716,7 +716,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 v -> {
                     GameFrame.ANIMACION_BARAJADO_PREF = v;
                     if (v) {
-                        Crupier.warmShuffleAnimCache();
+                        GameFrame.warmShuffleAnimCache();
                     }
                 },
                 GameFrame.ANIMACION_BARAJADO_PREF));
@@ -1481,7 +1481,7 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.PROPERTIES.setProperty("animacion_barajado", String.valueOf(snap_anim_barajado));
             Helpers.savePropertiesFile();
             if (snap_anim_barajado) {
-                Crupier.warmShuffleAnimCache();
+                GameFrame.warmShuffleAnimCache();
             }
         }
         if (GameFrame.ANIMACION_DESTAPE_PREF != snap_anim_destape) {
@@ -1673,7 +1673,7 @@ public class AppearanceSettingsPanel extends JPanel {
         // session, re-warm the cache (BARAJA is already reverted above) so the decode
         // doesn't drag into the first hand. Out of game there's no cambiarBaraja() to do it.
         if (baraja_reverted) {
-            Crupier.warmShuffleAnimCache();
+            GameFrame.warmShuffleAnimCache();
         }
 
         if (tapete_changed) {

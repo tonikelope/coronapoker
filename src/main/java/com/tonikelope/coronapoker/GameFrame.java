@@ -4833,6 +4833,56 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
             }
 
+            @Override
+            public void showRabbitNotice(String nickname, int durationMillis) {
+                Player seat = player(nickname);
+                if (!(seat instanceof RemotePlayer remote)) {
+                    return;
+                }
+                Helpers.threadRun(() -> {
+                    Helpers.GUIRunAndWait(() -> {
+                        remote.setNotifyRabbitLabel();
+                        remote.getChat_notify_label().setVisible(true);
+                    });
+                    synchronized (remote.getChat_notify_label()) {
+                        Helpers.pausar(durationMillis);
+                        Helpers.GUIRun(() -> remote.getChat_notify_label()
+                                .setVisible(false));
+                        remote.getChat_notify_label().notifyAll();
+                    }
+                });
+            }
+
+            @Override
+            public void setRebuyWaiting(String nickname, boolean waiting,
+                    boolean rebought) {
+                Player seat = player(nickname);
+                if (seat instanceof RemotePlayer remote) {
+                    remote.setRebuying(waiting, rebought);
+                }
+            }
+
+            @Override
+            public void showRebuyOutcome(String nickname, boolean rebought) {
+                Player seat = player(nickname);
+                if (seat instanceof RemotePlayer remote) {
+                    remote.showRebuyOutcome(rebought);
+                }
+            }
+
+            @Override
+            public void setStraddleThinking(String nickname,
+                    boolean thinking) {
+                Player seat = player(nickname);
+                if (seat instanceof RemotePlayer remote) {
+                    if (thinking) {
+                        remote.showStraddleThinking();
+                    } else {
+                        remote.clearStraddleThinking();
+                    }
+                }
+            }
+
             private ImageIcon positionChip(
                     com.tonikelope.coronapoker.table.TableSnapshot.Position position) {
                 return switch (position) {

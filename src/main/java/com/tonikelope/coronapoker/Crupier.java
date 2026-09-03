@@ -6447,7 +6447,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Participant participante = peers().get(nick);
             if (jugador instanceof RemotePlayer && !jugador.isExit()
                     && participante != null && !participante.isCpu()) {
-                ((RemotePlayer) jugador).setRebuying(true);
+                table_display.setRebuyWaiting(jugador.getNickname(), true, false);
             }
         }
     }
@@ -6612,9 +6612,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             if (skip_countdown) {
                                 // No remote countdown was started (local player also
                                 // busted): just reflect the outcome.
-                                ((RemotePlayer) jugador).showRebuyOutcome(recompra);
+                                table_display.showRebuyOutcome(jugador.getNickname(), recompra);
                             } else {
-                                ((RemotePlayer) jugador).setRebuying(false, recompra);
+                                table_display.setRebuyWaiting(jugador.getNickname(), false, recompra);
                             }
                         }
 
@@ -6679,7 +6679,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // Left mid-rebuy (closed/disconnected): drop from the wait and clear
                         // the countdown visual (setRebuying's exit guard leaves the LEFT visual alone).
                         if (jp instanceof RemotePlayer) {
-                            ((RemotePlayer) jp).setRebuying(false);
+                            table_display.setRebuyWaiting(jp.getNickname(), false, false);
                         }
                         iterator.remove();
                     }
@@ -6708,7 +6708,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // Stop the countdown visual; with spectator already set, the
                             // restore is skipped and setSpectator's repaint takes over.
                             if (jpk instanceof RemotePlayer) {
-                                ((RemotePlayer) jpk).setRebuying(false);
+                                table_display.setRebuyWaiting(jpk.getNickname(), false, false);
                             }
                         }
                         timeout = true;
@@ -9980,30 +9980,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
 
                         if (jugador instanceof RemotePlayer) {
-                            RemotePlayer rp = (RemotePlayer) jugador;
-
-                            Helpers.threadRun(() -> {
-
-                                game_ui.runAndWait(() -> {
-
-                                    rp.setNotifyRabbitLabel();
-                                    rp.getChat_notify_label().setVisible(true);
-
-                                });
-
-                                synchronized (rp.getChat_notify_label()) {
-                                    Helpers.pausar(RABBIT_LABEL_TIMEOUT);
-
-                                    game_ui.run(() -> {
-
-                                        rp.getChat_notify_label().setVisible(false);
-
-                                    });
-
-                                    rp.getChat_notify_label().notifyAll();
-                                }
-
-                            });
+                            table_display.showRabbitNotice(jugador.getNickname(),
+                                    RABBIT_LABEL_TIMEOUT);
 
                         }
 
@@ -14328,7 +14306,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // everyone else + a community bar counting down 5s). Recover doesn't ask (the
             // host restores from the fossil and rebroadcasts), so there's no wait.
             if (fresh && !local_is_straddler && straddler instanceof RemotePlayer) {
-                ((RemotePlayer) straddler_f).showStraddleThinking();
+                table_display.setStraddleThinking(straddler_f.getNickname(), true);
             }
             if (fresh) {
                 startStraddleCountdownBar();
@@ -14401,7 +14379,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 guardarFosilSRA();
                 stopStraddleCountdownBar();
                 if (!local_is_straddler && straddler instanceof RemotePlayer) {
-                    ((RemotePlayer) straddler_f).clearStraddleThinking();
+                    table_display.setStraddleThinking(straddler_f.getNickname(), false);
                 }
             }
 

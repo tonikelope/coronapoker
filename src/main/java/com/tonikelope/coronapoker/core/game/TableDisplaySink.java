@@ -117,6 +117,15 @@ public interface TableDisplaySink {
 
     void showNeutralHand(String nickname, String handName);
 
+    void showRabbitNotice(String nickname, int durationMillis);
+
+    void setRebuyWaiting(String nickname, boolean waiting,
+            boolean rebought);
+
+    void showRebuyOutcome(String nickname, boolean rebought);
+
+    void setStraddleThinking(String nickname, boolean thinking);
+
     void preparePositionRotation(
             List<TableVisualEvent.PositionTransfer> transfers);
 
@@ -285,6 +294,24 @@ public interface TableDisplaySink {
 
             @Override
             public void showNeutralHand(String nickname, String handName) {
+            }
+
+            @Override
+            public void showRabbitNotice(String nickname, int durationMillis) {
+            }
+
+            @Override
+            public void setRebuyWaiting(String nickname, boolean waiting,
+                    boolean rebought) {
+            }
+
+            @Override
+            public void showRebuyOutcome(String nickname, boolean rebought) {
+            }
+
+            @Override
+            public void setStraddleThinking(String nickname,
+                    boolean thinking) {
             }
 
             @Override

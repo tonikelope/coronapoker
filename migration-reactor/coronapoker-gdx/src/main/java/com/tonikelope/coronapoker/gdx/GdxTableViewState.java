@@ -2,6 +2,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
+import com.tonikelope.coronapoker.core.game.ActionControlState;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -16,6 +17,7 @@ final class GdxTableViewState {
     private long lastSequence;
     private long turnTotalMillis;
     private long turnRemainingMillis;
+    private ActionControlState actionControls = ActionControlState.disabled();
 
     GdxTableViewState(TableSnapshot initialState) {
         snapshot = Objects.requireNonNull(initialState, "initialState");
@@ -35,6 +37,10 @@ final class GdxTableViewState {
 
     long turnRemainingMillis() {
         return turnRemainingMillis;
+    }
+
+    ActionControlState actionControls() {
+        return actionControls;
     }
 
     void apply(TableVisualEvent event) {
@@ -128,6 +134,8 @@ final class GdxTableViewState {
                     snapshot.currentTurnNickname(), snapshot.players(), board);
         } else if (event instanceof TableVisualEvent.TurnTimer timer) {
             applyTurnTimer(timer);
+        } else if (event instanceof TableVisualEvent.ActionControls controls) {
+            actionControls = controls.state();
         } else if (event instanceof TableVisualEvent.PlayerAction action) {
             replacePlayer(action.nickname(), player -> copyPlayer(player,
                     Math.max(0d, player.stack() - action.potContribution()),
@@ -214,6 +222,7 @@ final class GdxTableViewState {
     private void stopTurn() {
         turnTotalMillis = 0L;
         turnRemainingMillis = 0L;
+        actionControls = ActionControlState.disabled();
         snapshot = copySnapshot(snapshot, snapshot.pot(), "",
                 snapshot.players(), snapshot.communityCards());
     }

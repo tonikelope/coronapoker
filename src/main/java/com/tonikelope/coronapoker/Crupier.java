@@ -57,6 +57,7 @@ import com.tonikelope.coronapoker.core.game.PauseGate;
 import com.tonikelope.coronapoker.core.game.TableDisplaySink;
 import com.tonikelope.coronapoker.core.game.HostGameConfigurationSource;
 import com.tonikelope.coronapoker.core.game.RecoveredSettingsSynchronizer;
+import com.tonikelope.coronapoker.core.game.ActionControlState;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
 
 import java.io.File;
@@ -12016,6 +12017,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 "Turn-timer presentation barrier failed");
     }
 
+    private void presentLocalActionControlsToAttachedRenderer() {
+        if (!table_events.isAttached()) {
+            return;
+        }
+        LocalPlayer local = localPlayer();
+        ActionControlState controls = ActionControlState.forTurn(
+                this.apuesta_actual, this.ultimo_raise, this.ciega_grande,
+                this.ciega_pequeña, local.getBet(), local.getStack(),
+                puedenApostar(players()), canPlayerRaise(local.getNickname()),
+                this.conta_raise);
+        awaitAttachedTableEvent(sequence -> new TableVisualEvent.ActionControls(
+                sequence, controls), "Action-control presentation barrier failed");
+    }
+
     // Sorts the local player's hand (high card on the left) once dealing finishes. If the swap
     // animation is enabled (swapAnimOn) and a swap is actually needed (hc1 < hc2) with both
     // cards face-up and visible, crosses them with an animation (each slides to the other's
@@ -16944,6 +16959,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         TableVisualEvent.TurnTimer.Phase.START);
 
                 if (current_player == localPlayer()) {
+                    presentLocalActionControlsToAttachedRenderer();
                     current_player.esTuTurno();
                     if (eraSincronizacion && (accion_recuperada = siguienteAccionLocalRecuperada(current_player.getNickname())) != null) {
                         game_decisions.replayRecoveredAction(

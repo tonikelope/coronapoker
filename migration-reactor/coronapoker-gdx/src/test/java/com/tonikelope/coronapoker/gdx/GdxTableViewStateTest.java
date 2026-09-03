@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
+import com.tonikelope.coronapoker.core.game.ActionControlState;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -53,6 +54,24 @@ final class GdxTableViewStateTest {
 
         assertThrows(IllegalArgumentException.class,
                 () -> state.apply(new TableVisualEvent.CloseTable(4)));
+    }
+
+    @Test
+    void actionControlsFollowTurnLifecycle() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+        ActionControlState controls = ActionControlState.forTurn(
+                20d, 10d, 10d, 5d, 10d, 100d, 3, true, 0);
+        state.apply(new TableVisualEvent.TurnTimer(1, "ana", 30_000,
+                30_000, TableVisualEvent.TurnTimer.Phase.START));
+        state.apply(new TableVisualEvent.ActionControls(2, controls));
+
+        assertEquals(ActionControlState.CallAction.CALL,
+                state.actionControls().callAction());
+        assertEquals(10d, state.actionControls().callAmount());
+
+        state.apply(new TableVisualEvent.TurnTimer(3, "", 30_000, 0,
+                TableVisualEvent.TurnTimer.Phase.STOP));
+        assertEquals(ActionControlState.disabled(), state.actionControls());
     }
 
     @Test

@@ -36,6 +36,8 @@ public class LegalActionsUiParityTest {
         assertTrue(localPlayer.contains("getCrupier().canPlayerRaise(getNickname())"));
         assertTrue(crupier.contains("canPlayerRaise(jugador.getNickname())"));
         assertTrue(crupier.contains("canPlayerRaise(name)"));
+        assertTrue(crupier.contains("ActionControlState.forTurn("));
+        assertTrue(crupier.contains("new TableVisualEvent.ActionControls("));
         assertFalse(crupier.contains("partial_raise_cum"));
     }
 

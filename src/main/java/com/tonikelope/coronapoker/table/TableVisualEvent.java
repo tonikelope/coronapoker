@@ -20,6 +20,7 @@ public sealed interface TableVisualEvent permits TableVisualEvent.Synchronize,
         TableVisualEvent.DealCommunityCard,
         TableVisualEvent.SwapHoleCards, TableVisualEvent.FoldHoleCards,
         TableVisualEvent.RevealCommunityCards, TableVisualEvent.TurnTimer,
+        TableVisualEvent.ActionControls,
         TableVisualEvent.PlayerAction, TableVisualEvent.Cinematic,
         TableVisualEvent.RevealHoleCards, TableVisualEvent.HandResult,
         TableVisualEvent.ShowdownHighlight, TableVisualEvent.Payout,
@@ -207,6 +208,15 @@ public sealed interface TableVisualEvent permits TableVisualEvent.Synchronize,
             START,
             UPDATE,
             STOP
+        }
+    }
+
+    record ActionControls(long sequence,
+            com.tonikelope.coronapoker.core.game.ActionControlState state)
+            implements TableVisualEvent {
+
+        public ActionControls {
+            Objects.requireNonNull(state, "state");
         }
     }
 

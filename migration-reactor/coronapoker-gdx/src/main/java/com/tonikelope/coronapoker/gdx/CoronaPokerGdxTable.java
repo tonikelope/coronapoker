@@ -37,6 +37,7 @@ import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableCommand;
 import com.tonikelope.coronapoker.table.TableCommandSink;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
+import com.tonikelope.coronapoker.core.game.ActionControlState;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -687,6 +688,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 .toPlainString();
     }
 
+    private static String callLabel(ActionControlState controls) {
+        return switch (controls.callAction()) {
+            case CHECK -> "PASAR";
+            case CALL -> "IR (+" + formatAmount(controls.callAmount()) + ")";
+            case DISABLED -> "";
+        };
+    }
+
+    private static String raiseLabel(ActionControlState controls) {
+        return switch (controls.raiseAction()) {
+            case BET -> "APOSTAR";
+            case RAISE -> "SUBIR";
+            case RERAISE -> "RESUBIR";
+            case DISABLED -> "";
+        };
+    }
+
     void acceptEvent(TableVisualEvent event, CompletableFuture<Void> barrier) {
         if (liveState == null) {
             throw new IllegalStateException("The approved demo has no live event source");
@@ -720,6 +738,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             play(dealSound, 0.32f, 1f);
         } else {
             liveState.apply(event);
+            if (event instanceof TableVisualEvent.ActionControls controls) {
+                liveBetAmount = controls.state().raiseAmount();
+            }
             if (event instanceof TableVisualEvent.DeckChanged changed) {
                 liveDeck = changed.deck();
             }
@@ -1197,11 +1218,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void handleLiveTableInput() {
-        if (Gdx.input.isKeyJustPressed(Input.Keys.F)) {
+        ActionControlState controls = liveState.actionControls();
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F) && controls.foldEnabled()) {
             submit(new TableCommand.Fold());
-        } else if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
+        } else if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
+                && controls.callAction() != ActionControlState.CallAction.DISABLED) {
             submit(new TableCommand.CheckOrCall());
-        } else if (Gdx.input.isKeyJustPressed(Input.Keys.A)) {
+        } else if (Gdx.input.isKeyJustPressed(Input.Keys.A)
+                && controls.allInEnabled()) {
             submit(new TableCommand.AllIn());
         }
         if (!Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
@@ -1210,14 +1234,35 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(pointer);
         switch (hudTarget(pointer.x, pointer.y, viewport.getWorldWidth())) {
-            case 1 -> submit(new TableCommand.Fold());
-            case 2 -> submit(new TableCommand.CheckOrCall());
-            case 3 -> liveBetAmount = Math.max(0d, liveBetAmount - 1d);
-            case 4 -> liveBetAmount += 1d;
-            case 5 -> submit(new TableCommand.Bet(liveBetAmount));
-            case 6 -> submit(new TableCommand.AllIn());
+            case 1 -> {
+                if (controls.foldEnabled()) submit(new TableCommand.Fold());
+            }
+            case 2 -> {
+                if (controls.callAction() != ActionControlState.CallAction.DISABLED) {
+                    submit(new TableCommand.CheckOrCall());
+                }
+            }
+            case 3 -> adjustLiveBet(-1);
+            case 4 -> adjustLiveBet(1);
+            case 5 -> {
+                if (controls.raiseAction() != ActionControlState.RaiseAction.DISABLED) {
+                    submit(new TableCommand.Bet(liveBetAmount));
+                }
+            }
+            case 6 -> {
+                if (controls.showCards()) submit(new TableCommand.ShowCards());
+                else if (controls.allInEnabled()) submit(new TableCommand.AllIn());
+            }
             default -> { }
         }
+    }
+
+    private void adjustLiveBet(int direction) {
+        ActionControlState controls = liveState.actionControls();
+        if (controls.raiseAction() == ActionControlState.RaiseAction.DISABLED) return;
+        liveBetAmount = MathUtils.clamp(
+                liveBetAmount + direction * controls.raiseStep(),
+                controls.raiseMinimum(), controls.raiseMaximum());
     }
 
     static int hudTarget(float x, float y, float worldWidth) {
@@ -3328,6 +3373,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 ? liveState.snapshot().localNickname().equals(
                         liveState.snapshot().currentTurnNickname())
                 : thinking != null && seatForHand(thinking.seat) == 0;
+        ActionControlState controls = liveState == null
+                ? null : liveState.actionControls();
+        boolean foldEnabled = liveState == null ? localTurn : controls.foldEnabled();
+        boolean checkEnabled = liveState == null ? localTurn
+                : controls.callAction() != ActionControlState.CallAction.DISABLED;
+        boolean betEnabled = liveState == null ? localTurn
+                : controls.raiseAction() != ActionControlState.RaiseAction.DISABLED;
+        boolean allInEnabled = liveState == null ? localTurn
+                : controls.allInEnabled() || controls.showCards();
         boolean settledShowdown = handTime() >= WINNER_START
                 && isShowdownContender(0);
         String lastLocalActionLabel = lastActionLabelForSeat(0, handTime());
@@ -3345,7 +3399,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
         boolean allInHover = pointer.x >= allInX && pointer.x <= allInX + allInWidth
                 && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
-        float contentAlpha = localTurn ? 1f : 0.74f;
+        float contentAlpha = localTurn ? 1f : 0.52f;
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -3383,9 +3437,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.rect(hudX + 16f, hudY + 63f, infoWidth - 32f, 2f);
         shapes.rect(hudX + infoWidth / 2f, hudY + 13f, 2f, 18f);
         drawHudActionSurface(foldX, actionY, foldWidth, actionHeight,
-                FOLD_RED, foldHover, false, localTurn);
+                FOLD_RED, foldHover && foldEnabled, false, foldEnabled);
         drawHudActionSurface(checkX, actionY, checkWidth, actionHeight,
-                CYAN, checkHover, localTurn, localTurn);
+                CYAN, checkHover && checkEnabled,
+                checkEnabled && localTurn, checkEnabled);
 
         shapes.setColor(0f, 0f, 0f, 0.52f);
         roundedRect(spinnerX + 4f, actionY - 5f, spinnerWidth, actionHeight, 12f);
@@ -3400,9 +3455,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.rect(spinnerX + spinnerWidth - 43f, actionY + 9f, 2f, actionHeight - 18f);
 
         drawHudActionSurface(betX, actionY, betWidth, actionHeight,
-                POT_GOLD, betHover, false, localTurn);
+                POT_GOLD, betHover && betEnabled, false, betEnabled);
         drawHudActionSurface(allInX, actionY, allInWidth, actionHeight,
-                ORANGE, allInHover, false, localTurn);
+                ORANGE, allInHover && allInEnabled, false, allInEnabled);
         drawHudActionBadge(foldX, actionY, actionHeight, FOLD_RED, contentAlpha);
         drawHudActionBadge(checkX, actionY, actionHeight, CYAN, contentAlpha);
         drawHudActionBadge(betX, actionY, actionHeight, POT_GOLD, contentAlpha);
@@ -3443,11 +3498,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         drawHudActionContent(HUD_ACTIONS[0], foldX, actionY,
                 foldWidth, actionHeight, Color.WHITE, contentAlpha);
-        drawHudActionContent(liveState == null ? HUD_ACTIONS[1] : "PASAR / IR", checkX, actionY,
+        drawHudActionContent(liveState == null ? HUD_ACTIONS[1] : callLabel(controls), checkX, actionY,
                 checkWidth, actionHeight, CYAN, contentAlpha);
-        drawHudActionContent(HUD_ACTIONS[2], betX, actionY,
+        drawHudActionContent(liveState == null ? HUD_ACTIONS[2] : raiseLabel(controls), betX, actionY,
                 betWidth, actionHeight, POT_GOLD, contentAlpha);
-        drawHudActionContent(HUD_ACTIONS[3], allInX, actionY,
+        drawHudActionContent(liveState != null && controls.showCards()
+                ? "MOSTRAR" : HUD_ACTIONS[3], allInX, actionY,
                 allInWidth, actionHeight, ORANGE, contentAlpha);
         batch.setColor(Color.WHITE);
         drawCentered(smallFont, "APUESTA", spinnerX + spinnerWidth / 2f,

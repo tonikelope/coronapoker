@@ -14,6 +14,8 @@ final class DealerDatabasePortWiringTest {
         Path root = root();
         String dealer = Files.readString(root.resolve(
                 "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+        String dealerCode = dealer.replaceAll("(?s)/\\*.*?\\*/", "")
+                .replaceAll("(?m)//.*$", "");
         String adapter = Files.readString(root.resolve(
                 "src/main/java/com/tonikelope/coronapoker/SwingGameDatabase.java"));
 
@@ -28,6 +30,8 @@ final class DealerDatabasePortWiringTest {
         assertFalse(dealer.contains("GameConfigWireV1.fromGlobals()"));
         assertFalse(dealer.contains("GameFrame.RECOVER_ID"));
         assertFalse(dealer.contains("GameFrame.persistRecoverSettings"));
+        assertFalse(dealerCode.contains("GameFrame."),
+                "Crupier executable code must remain frontend-neutral");
     }
 
     private static Path root() {

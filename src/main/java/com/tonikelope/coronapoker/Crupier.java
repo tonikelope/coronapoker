@@ -39,6 +39,7 @@ import com.tonikelope.coronapoker.core.network.GameCommandId;
 import com.tonikelope.coronapoker.core.network.GameTransport;
 import com.tonikelope.coronapoker.core.game.GameSession;
 import com.tonikelope.coronapoker.core.game.GameSessionIds;
+import com.tonikelope.coronapoker.core.game.GameStateMirror;
 import com.tonikelope.coronapoker.core.game.GameTiming;
 import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
@@ -55,6 +56,7 @@ import com.tonikelope.coronapoker.core.game.LobbyTransitionSink;
 import com.tonikelope.coronapoker.core.game.PauseGate;
 import com.tonikelope.coronapoker.core.game.TableDisplaySink;
 import com.tonikelope.coronapoker.core.game.HostGameConfigurationSource;
+import com.tonikelope.coronapoker.core.game.RecoveredSettingsSynchronizer;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
 
 import java.io.File;
@@ -110,6 +112,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GameDecisionSink game_decisions;
     private final GameDatabase game_database;
     private final HostGameConfigurationSource host_configuration;
+    private final GameStateMirror state_mirror;
+    private final RecoveredSettingsSynchronizer recovered_settings;
     private final GameCinematicSink game_cinematics;
     private final GameProgressSink game_progress;
     private final PauseGate pause_gate;
@@ -123,7 +127,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final TableEventBridge table_events;
 
     public Crupier() {
-        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), HostGameConfigurationSource.unavailable(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
+        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), HostGameConfigurationSource.unavailable(), GameStateMirror.noop(), RecoveredSettingsSynchronizer.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(),
                 TableDisplaySink.noop(),
                 GameWindowSink.noop(),
@@ -133,7 +137,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     Crupier(TableEventBridge tableEvents) {
-        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), HostGameConfigurationSource.unavailable(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
+        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), HostGameConfigurationSource.unavailable(), GameStateMirror.noop(), RecoveredSettingsSynchronizer.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(), TableDisplaySink.noop(),
                 GameWindowSink.noop(), GameUiExecutor.direct(), GameAudioSink.silent(),
                 GamePresentationSettings.defaults(),
@@ -147,6 +151,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameLogSink gameLog, GameDialogSink gameDialogs, GameDecisionSink gameDecisions,
             GameDatabase gameDatabase,
             HostGameConfigurationSource hostConfiguration,
+            GameStateMirror stateMirror,
+            RecoveredSettingsSynchronizer recoveredSettings,
             GameCinematicSink gameCinematics,
             GameProgressSink gameProgress, PauseGate pauseGate,
             GameTransport gameTransport, LobbyTransitionSink lobbyTransition,
@@ -167,6 +173,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.game_database = java.util.Objects.requireNonNull(gameDatabase, "gameDatabase");
         this.host_configuration = java.util.Objects.requireNonNull(
                 hostConfiguration, "hostConfiguration");
+        this.state_mirror = java.util.Objects.requireNonNull(stateMirror, "stateMirror");
+        this.recovered_settings = java.util.Objects.requireNonNull(
+                recoveredSettings, "recoveredSettings");
         this.game_cinematics = java.util.Objects.requireNonNull(gameCinematics, "gameCinematics");
         this.game_progress = java.util.Objects.requireNonNull(gameProgress, "gameProgress");
         this.pause_gate = java.util.Objects.requireNonNull(pauseGate, "pauseGate");
@@ -194,6 +203,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private GameConfigCodecV1.Configuration configuration() {
         return gameSession().configuration();
+    }
+
+    private void setRecovering(boolean value) {
+        gameSession().setRecovering(value);
+        state_mirror.recovering(value);
     }
 
     private BuyinRules.Range buyinRange() {
@@ -8699,15 +8713,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int recoveredBuyin = map.get("buyin") != null ? (int) map.get("buyin") : 0;
             int activeBuyin = configuration().buyin();
             if (recoveredBuyin > 0) {
-                GameFrame.BUYIN = recoveredBuyin;
                 activeBuyin = recoveredBuyin;
             }
             boolean activeRebuy = configuration().rebuy();
             if (map.get("rebuy") != null) {
-                GameFrame.REBUY = (boolean) map.get("rebuy");
                 activeRebuy = (boolean) map.get("rebuy");
             }
             gameSession().applyRecoveredBuyin(activeBuyin, activeRebuy);
+            state_mirror.recoveredBuyin(activeBuyin, activeRebuy);
             int recoveredContaMano = map.get("conta_mano") != null ? (int) map.get("conta_mano") : 0;
             if (recoveredContaMano > 0) {
                 setContaManoLocal(recoveredContaMano);
@@ -8939,7 +8952,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         this.update_game_seats = true;
-        GameFrame.setRECOVER(false);
+        setRecovering(false);
 
         if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
             this.game_recovered = 1;
@@ -10334,8 +10347,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (this.ciegas_update != null || this.ante_straddle_update) {
             synchronized (lock_ciegas) {
                 if (this.ciegas_update != null) {
-                    GameFrame.CIEGAS_DOUBLE = (int) ciegas_update[2];
-                    GameFrame.CIEGAS_DOUBLE_TYPE = (int) ciegas_update[3];
+                    state_mirror.blindSchedule(
+                            (int) ciegas_update[2], (int) ciegas_update[3]);
                     this.ciega_pequeña = (double) ciegas_update[0];
                     this.ciega_grande = (double) ciegas_update[1];
                     this.ciegas_update = null;
@@ -10582,7 +10595,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // RECOVERDATA the host never sends (it's not recovery for the host) -> guaranteed
                 // hang. setRECOVER is idempotent.
                 if (gameSession().isRecovering()) {
-                    GameFrame.setRECOVER(false);
+                    setRecovering(false);
                 }
                 // After a recovery with saltar=true (fresh hand, no replay), NUEVA_MANO's
                 // setPositions call above was skipped (gated on !GameFrame.RECOVER, which was
@@ -11524,7 +11537,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 statement.setInt(3, configuration().buyin());
 
-                statement.setDouble(4, Helpers.doubleClean(GameFrame.CIEGA_PEQUEÑA));
+                statement.setDouble(4, Helpers.doubleClean(this.ciega_pequeña));
 
                 statement.setInt(5, configuration().blindsDouble());
 
@@ -22772,51 +22785,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void resyncRECOVERGLOBALS() {
-        // Recovered global rules (IWTSTH / Rabbit / Run It Twice): re-applied via the
-        // static setters (set field + broadcast *RULE to reconnecting clients +
-        // persistRecoverSettings), only if they differ from the default value
-        // recovery starts with. Idempotent and default-agnostic.
-        if (GameFrame.IWTSTH_RULE_RECOVER != null) {
-            boolean v = GameFrame.IWTSTH_RULE_RECOVER;
-            GameFrame.IWTSTH_RULE_RECOVER = null;
-            if (v != gameSession().configuration().iwtsth()) {
-                GameFrame.setIwtsthRule(v);
-            }
-        }
-
-        if (GameFrame.RABBIT_HUNTING_RECOVER != null) {
-            int v = GameFrame.RABBIT_HUNTING_RECOVER;
-            GameFrame.RABBIT_HUNTING_RECOVER = null;
-            if (v != gameSession().configuration().rabbitHunting()) {
-                GameFrame.setRabbitHunting(v);
-            }
-        }
-
-        if (GameFrame.RUN_IT_TWICE_RECOVER != null) {
-            boolean v = GameFrame.RUN_IT_TWICE_RECOVER;
-            GameFrame.RUN_IT_TWICE_RECOVER = null;
-            if (v != gameSession().configuration().runItTwice()) {
-                GameFrame.setRunItTwiceRule(v);
-            }
-        }
-
-        // Voice messages in recover: same default-agnostic pattern as RIT
-        if (GameFrame.VOICE_MESSAGES_RECOVER != null) {
-            final boolean recovered_voice = GameFrame.VOICE_MESSAGES_RECOVER;
-            GameFrame.VOICE_MESSAGES_RECOVER = null;
-            if (recovered_voice != GameFrame.VOICE_MESSAGES) {
-                GameFrame.setVoiceMessages(recovered_voice);
-            }
-        }
-
-        // Global TTS in recover: same default-agnostic pattern as voice messages
-        if (GameFrame.TTS_SERVER_RECOVER != null) {
-            final boolean recovered_tts = GameFrame.TTS_SERVER_RECOVER;
-            GameFrame.TTS_SERVER_RECOVER = null;
-            if (recovered_tts != GameFrame.TTS_SERVER) {
-                GameFrame.setTTSGlobal(recovered_tts);
-            }
-        }
+        recovered_settings.apply();
     }
 
     @Override

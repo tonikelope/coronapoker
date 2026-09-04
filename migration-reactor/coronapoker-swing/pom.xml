@@ -83,10 +83,12 @@
                         <exclude>com/tonikelope/coronapoker/RabbitFeeLedger.java</exclude>
                         <exclude>com/tonikelope/coronapoker/RecoveredActionBatch.java</exclude>
                         <exclude>com/tonikelope/coronapoker/RecoveredActionCodec.java</exclude>
+                        <exclude>com/tonikelope/coronapoker/RecoveredActionSqlReader.java</exclude>
                         <exclude>com/tonikelope/coronapoker/RecoveryActionReceiveState.java</exclude>
                         <exclude>com/tonikelope/coronapoker/RecoveryBalanceReconciler.java</exclude>
                         <exclude>com/tonikelope/coronapoker/RecoveryReceiveState.java</exclude>
                         <exclude>com/tonikelope/coronapoker/RecoverySnapshotV1.java</exclude>
+                        <exclude>com/tonikelope/coronapoker/RecoveryGameKeyDataReader.java</exclude>
                         <exclude>com/tonikelope/coronapoker/RemoteRebuyBarrier.java</exclude>
                         <exclude>com/tonikelope/coronapoker/SeatDraw.java</exclude>
                         <exclude>com/tonikelope/coronapoker/SeatRing.java</exclude>

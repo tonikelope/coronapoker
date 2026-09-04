@@ -56,10 +56,12 @@
                         <include>com/tonikelope/coronapoker/RabbitFeeLedger.java</include>
                         <include>com/tonikelope/coronapoker/RecoveredActionBatch.java</include>
                         <include>com/tonikelope/coronapoker/RecoveredActionCodec.java</include>
+                        <include>com/tonikelope/coronapoker/RecoveredActionSqlReader.java</include>
                         <include>com/tonikelope/coronapoker/RecoveryActionReceiveState.java</include>
                         <include>com/tonikelope/coronapoker/RecoveryBalanceReconciler.java</include>
                         <include>com/tonikelope/coronapoker/RecoveryReceiveState.java</include>
                         <include>com/tonikelope/coronapoker/RecoverySnapshotV1.java</include>
+                        <include>com/tonikelope/coronapoker/RecoveryGameKeyDataReader.java</include>
                         <include>com/tonikelope/coronapoker/RemoteRebuyBarrier.java</include>
                         <include>com/tonikelope/coronapoker/SeatDraw.java</include>
                         <include>com/tonikelope/coronapoker/SeatRing.java</include>

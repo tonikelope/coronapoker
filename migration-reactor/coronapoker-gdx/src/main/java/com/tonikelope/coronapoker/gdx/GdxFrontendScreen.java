@@ -381,13 +381,29 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 new Color(0x000000aa), false);
         text(titleFont, "SALA DE ESPERA", 55f, 894f, GOLD, false);
 
-        panel(35f, 180f, 430f, 650f, "PARTICIPANTES");
-        text(smallFont, state.participants().size() + "/"
-                + LobbySnapshot.MAX_PARTICIPANTS, 425f, 794f, CYAN, true);
-        float participantY = 720f;
-        for (LobbyParticipant participant : state.participants()) {
-            drawLobbyParticipant(participant, 65f, participantY, 370f, 48f);
-            participantY -= 52f;
+        panel(35f, 180f, 430f, 650f, "TIMBA");
+        text(tinyFont, "SERVIDOR", 70f, 748f, MUTED, false);
+        textFit(smallFont, state.serverAddress(), 70f, 718f,
+                Color.WHITE, false, 360f);
+        drawLobbyGameInfo(state, 70f, 645f);
+        if (state.host()) {
+            button(70f, 392f, 360f, 64f, "AÑADIR BOT", false,
+                    () -> submitLobbyCommand(new LobbyCommand.AddBot(), null),
+                    !lobbyCommandPending
+                            && state.participants().size() < LobbySnapshot.MAX_PARTICIPANTS
+                            && !state.startingOrStarted());
+            boolean kickEnabled = selectedRemoteParticipant(state) != null
+                    && !state.startingOrStarted();
+            button(70f, 312f, 360f, 64f, "EXPULSAR JUGADOR", false,
+                    this::kickSelectedParticipant,
+                    !lobbyCommandPending && kickEnabled);
+            button(70f, 215f, 360f, 76f, "¡A JUGAR!", true,
+                    () -> lobbyConfirmation = LobbyConfirmation.START,
+                    !lobbyCommandPending && state.participants().size() >= 2
+                            && !state.startingOrStarted());
+        } else {
+            textFit(uiFont, lobbyPhaseText(state), 250f, 306f,
+                    MUTED, true, 340f);
         }
 
         panel(495f, 180f, 900f, 650f, "CHAT DE LA TIMBA");
@@ -400,29 +416,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         button(1260f, 215f, 105f, 70f, "ENVIAR", true,
                 this::sendLobbyChat, !lobbyCommandPending && !lobbyChatDraft.isBlank());
 
-        panel(1425f, 180f, 460f, 650f, "TIMBA");
-        text(tinyFont, "SERVIDOR", 1460f, 748f, MUTED, false);
-        textFit(smallFont, state.serverAddress(), 1460f, 718f,
-                Color.WHITE, false, 390f);
-        drawLobbyGameInfo(state, 1460f, 645f);
-        if (state.host()) {
-            button(1460f, 392f, 390f, 64f, "AÑADIR BOT", false,
-                    () -> submitLobbyCommand(new LobbyCommand.AddBot(), null),
-                    !lobbyCommandPending
-                            && state.participants().size() < LobbySnapshot.MAX_PARTICIPANTS
-                            && !state.startingOrStarted());
-            boolean kickEnabled = selectedRemoteParticipant(state) != null
-                    && !state.startingOrStarted();
-            button(1460f, 312f, 390f, 64f, "EXPULSAR JUGADOR", false,
-                    this::kickSelectedParticipant,
-                    !lobbyCommandPending && kickEnabled);
-            button(1460f, 215f, 390f, 76f, "¡A JUGAR!", true,
-                    () -> lobbyConfirmation = LobbyConfirmation.START,
-                    !lobbyCommandPending && state.participants().size() >= 2
-                            && !state.startingOrStarted());
-        } else {
-            textFit(uiFont, lobbyPhaseText(state), 1655f, 306f,
-                    MUTED, true, 360f);
+        panel(1425f, 180f, 460f, 650f, "PARTICIPANTES");
+        text(smallFont, state.participants().size() + "/"
+                + LobbySnapshot.MAX_PARTICIPANTS, 1845f, 794f, CYAN, true);
+        float participantY = 720f;
+        for (LobbyParticipant participant : state.participants()) {
+            drawLobbyParticipant(participant, 1455f, participantY, 400f, 48f);
+            participantY -= 52f;
         }
 
         button(35f, 55f, 220f, 70f, "SALIR", false,
@@ -453,7 +453,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.circle(x + 51f, y + h / 2f, 4f, 20);
         textFit(smallFont, participant.nickname(), x + 64f, y + 31f,
                 participant.asyncWaiting() ? DISABLED : Color.WHITE,
-                false, 210f);
+                false, w - 150f);
         if (participant.latencyAvailable()) {
             text(tinyFont, (participant.latency() >= 0
                     ? participant.latency() : "-") + " ms",

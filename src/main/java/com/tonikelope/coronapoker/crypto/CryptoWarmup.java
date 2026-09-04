@@ -17,7 +17,6 @@
 package com.tonikelope.coronapoker.crypto;
 
 import com.tonikelope.coronapoker.DeterministicShuffle;
-import com.tonikelope.coronapoker.Helpers;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
@@ -98,7 +97,7 @@ public final class CryptoWarmup {
         if (!STARTED.compareAndSet(false, true)) {
             return;
         }
-        Helpers.threadRun(() -> {
+        Thread worker = new Thread(() -> {
             final Thread warmupThread = Thread.currentThread();
             final int warmupPrio = warmupThread.getPriority();
             // Slightly lowered priority: the warm-up runs full crypto cycles that would compete
@@ -136,7 +135,9 @@ public final class CryptoWarmup {
             } finally {
                 warmupThread.setPriority(warmupPrio);
             }
-        });
+        }, "crypto-warmup");
+        worker.setDaemon(true);
+        worker.start();
     }
 
     /**

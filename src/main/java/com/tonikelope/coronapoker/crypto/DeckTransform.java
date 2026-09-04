@@ -16,7 +16,6 @@
  */
 package com.tonikelope.coronapoker.crypto;
 
-import com.tonikelope.coronapoker.Helpers;
 import java.math.BigInteger;
 
 /**
@@ -57,7 +56,7 @@ public final class DeckTransform {
             p[i] = i;
         }
         for (int i = n - 1; i > 0; i--) {
-            int j = Helpers.CSPRNG_GENERATOR.nextInt(i + 1); // unbiased
+            int j = CryptoRandom.generator().nextInt(i + 1); // unbiased
             int t = p[i];
             p[i] = p[j];
             p[j] = t;

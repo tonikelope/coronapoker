@@ -1932,6 +1932,7 @@ public class Init extends JFrame {
         LOGGER.log(Level.INFO, "Trying to load CSPRNG HASH DRBG SHA-512...");
         SecureRandomService secureRandom = application().service(SecureRandomService.class);
         Helpers.CSPRNG_GENERATOR = secureRandom.generator();
+        com.tonikelope.coronapoker.crypto.CryptoRandom.configure(Helpers.CSPRNG_GENERATOR);
         if (secureRandom.usesFallback()) {
             LOGGER.log(Level.WARNING, "Fallback CSPRNG -> {0}", Helpers.CSPRNG_GENERATOR.getAlgorithm());
         } else {

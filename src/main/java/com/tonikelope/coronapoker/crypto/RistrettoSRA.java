@@ -16,7 +16,6 @@
  */
 package com.tonikelope.coronapoker.crypto;
 
-import com.tonikelope.coronapoker.Helpers;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.util.Arrays;
@@ -54,7 +53,7 @@ public final class RistrettoSRA {
     public static byte[] generateLockScalar() {
         while (true) {
             byte[] raw = new byte[32];
-            Helpers.CSPRNG_GENERATOR.nextBytes(raw);
+            CryptoRandom.generator().nextBytes(raw);
             raw[31] &= (byte) 0x1f; // keep <= 253 bits to make rejection efficient
             BigInteger s = bytesToScalar(raw);
             if (s.signum() != 0 && s.compareTo(L) < 0) {

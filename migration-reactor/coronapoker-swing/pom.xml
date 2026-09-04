@@ -60,6 +60,7 @@
                         <exclude>com/tonikelope/coronapoker/core/**</exclude>
                         <exclude>com/tonikelope/coronapoker/table/**</exclude>
                         <exclude>com/tonikelope/coronapoker/bot/context/**</exclude>
+                        <exclude>com/tonikelope/coronapoker/crypto/**</exclude>
                         <exclude>com/tonikelope/coronapoker/BetRules.java</exclude>
                         <exclude>com/tonikelope/coronapoker/BettingRoundState.java</exclude>
                         <exclude>com/tonikelope/coronapoker/BuyinCount.java</exclude>
@@ -94,6 +95,7 @@
                         <exclude>com/tonikelope/coronapoker/SeatRing.java</exclude>
                         <exclude>com/tonikelope/coronapoker/SettlementPresentation.java</exclude>
                         <exclude>com/tonikelope/coronapoker/SettlementRecord.java</exclude>
+                        <exclude>com/tonikelope/coronapoker/ShuffleVerificationQueue.java</exclude>
                         <exclude>com/tonikelope/coronapoker/TableFailure.java</exclude>
                         <exclude>com/tonikelope/coronapoker/TableTerminationWire.java</exclude>
                     </excludes>

@@ -16,7 +16,6 @@
  */
 package com.tonikelope.coronapoker.crypto;
 
-import com.tonikelope.coronapoker.Helpers;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 
@@ -124,7 +123,7 @@ public final class Dleq {
     private static BigInteger randomScalar() {
         while (true) {
             byte[] raw = new byte[32];
-            Helpers.CSPRNG_GENERATOR.nextBytes(raw);
+            CryptoRandom.generator().nextBytes(raw);
             raw[31] &= (byte) 0x1f;
             BigInteger r = RistrettoSRA.bytesToScalar(raw);
             if (r.signum() != 0 && r.compareTo(L) < 0) {

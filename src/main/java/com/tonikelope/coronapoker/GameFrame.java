@@ -5534,6 +5534,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 HandPot::new,
                 new SwingGameRuntimeEnvironment(),
                 new SwingGameCinematicState(),
+                new SwingGameCinematicAssets(),
                 new SwingGameValueFormatter(),
                 table_events);
 

@@ -52,6 +52,7 @@ import com.tonikelope.coronapoker.core.game.GameDecisionSink;
 import com.tonikelope.coronapoker.core.game.GameDatabase;
 import com.tonikelope.coronapoker.core.game.GameCinematicSink;
 import com.tonikelope.coronapoker.core.game.GameCinematicState;
+import com.tonikelope.coronapoker.core.game.GameCinematicAssets;
 import com.tonikelope.coronapoker.core.game.GameAudioSink;
 import com.tonikelope.coronapoker.core.game.GameAsync;
 import com.tonikelope.coronapoker.core.game.GameCancellation;
@@ -88,10 +89,7 @@ import com.tonikelope.coronapoker.core.LobbySnapshot;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.text.MessageFormat;
@@ -144,6 +142,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final RecoveredSettingsSynchronizer recovered_settings;
     private final GameCinematicSink game_cinematics;
     private final GameCinematicState cinematic_state;
+    private final GameCinematicAssets cinematic_assets;
     private final GameProgressSink game_progress;
     private final PauseGate pause_gate;
     private final GameTransport game_transport;
@@ -169,7 +168,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 TableDisplaySink.noop(),
                 GameWindowSink.noop(),
                 GameUiExecutor.direct(),
-                GameAudioSink.silent(), GameAsync.standalone(), GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GameText.keys(), GameHandFactory.unavailable(), GamePotFactory.unavailable(), GameRuntimeEnvironment.defaults(), GameCinematicState.idle(), GameValueFormatter.plain(),
+                GameAudioSink.silent(), GameAsync.standalone(), GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GameText.keys(), GameHandFactory.unavailable(), GamePotFactory.unavailable(), GameRuntimeEnvironment.defaults(), GameCinematicState.idle(), GameCinematicAssets.none(), GameValueFormatter.plain(),
                 new TableEventBridge());
     }
 
@@ -177,7 +176,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this(null, null, null, null, null, GameIdentity.unavailable(), GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), HostGameConfigurationSource.unavailable(), GameStateMirror.noop(), RecoveredSettingsSynchronizer.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(), TableDisplaySink.noop(),
                 GameWindowSink.noop(), GameUiExecutor.direct(), GameAudioSink.silent(), GameAsync.standalone(),
-                GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GameText.keys(), GameHandFactory.unavailable(), GamePotFactory.unavailable(), GameRuntimeEnvironment.defaults(), GameCinematicState.idle(), GameValueFormatter.plain(),
+                GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GameText.keys(), GameHandFactory.unavailable(), GamePotFactory.unavailable(), GameRuntimeEnvironment.defaults(), GameCinematicState.idle(), GameCinematicAssets.none(), GameValueFormatter.plain(),
                 tableEvents);
     }
 
@@ -207,6 +206,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GamePotFactory potFactory,
             GameRuntimeEnvironment runtimeEnvironment,
             GameCinematicState cinematicState,
+            GameCinematicAssets cinematicAssets,
             GameValueFormatter valueFormatter,
             TableEventBridge tableEvents) {
         this.game_session = gameSession;
@@ -244,6 +244,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.runtime_environment = java.util.Objects.requireNonNull(
                 runtimeEnvironment, "runtimeEnvironment");
         this.cinematic_state = java.util.Objects.requireNonNull(cinematicState, "cinematicState");
+        this.cinematic_assets = java.util.Objects.requireNonNull(cinematicAssets, "cinematicAssets");
         this.value_formatter = java.util.Objects.requireNonNull(valueFormatter, "valueFormatter");
         this.table_events = java.util.Objects.requireNonNull(tableEvents, "tableEvents");
         if (gameSession != null && gameSession.hasConfiguration()) {
@@ -5691,55 +5692,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Duration of a cinematic from the local catalog: the value declared in the table, or if
     // absent, the GIF's own length (mod first, bundled second). 0 if it couldn't be determined.
     private long allinCinematicPausa(Object[] cinematic) {
-
-        String filename = (String) cinematic[0];
-
-        long pausa = 0L;
-
         if (cinematic.length > 1) {
-
-            pausa = (long) cinematic[1];
-
-        } else if (Files
-                .exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename))) {
-
-            try {
-                pausa = Helpers.getGIFLength(
-                        Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename).toUri()
-                                .toURL());
-
-            } catch (Exception ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
-            }
-        } else if (getClass().getResource("/cinematics/allin/" + filename) != null) {
-            try {
-                pausa = Helpers
-                        .getGIFLength(getClass().getResource("/cinematics/allin/" + filename).toURI().toURL());
-
-            } catch (Exception ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
-            }
+            return (long) cinematic[1];
         }
-
-        return pausa;
-    }
-
-    // Local URL of an all-in cinematic GIF: mod first (if the mod file exists, never falls
-    // back to bundled even if its URL fails), bundled second, null if not present locally.
-    private URL resolveAllinCinematicURL(String filename) {
-
-        if (runtime_environment.modActive() && Files
-                .exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename))) {
-            try {
-                return Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename)
-                        .toUri().toURL();
-            } catch (MalformedURLException ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
-                return null;
-            }
+        try {
+            return cinematic_assets.durationMillis((String) cinematic[0]);
+        } catch (Exception failure) {
+            LOGGER.log(Level.SEVERE, "Could not determine cinematic duration", failure);
+            return 0L;
         }
-
-        return getClass().getResource("/cinematics/allin/" + filename);
     }
 
     public boolean localCinematicAllin() {
@@ -5771,11 +5732,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         getLock_apuestas().notifyAll();
                     }
 
-                    if (Files
-                            .exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/"
-                                    + filename.replaceAll("\\.gif$", ".wav")))
-                            || getClass().getResource(
-                                    "/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav")) != null) {
+                    if (cinematic_assets.hasCompanionAudio(filename)) {
 
                         game_audio.playWavResource("allin/" + filename.replaceAll("\\.gif$", ".wav"));
                     }
@@ -5845,7 +5802,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         long chosen_pausa = announced_pausa;
 
         if (!this.sincronizando_mano && presentation_settings.allInCinematics()
-                && resolveAllinCinematicURL(announced_filename) == null) {
+                && !cinematic_assets.hasCinematic(announced_filename)) {
 
             Map<String, Object[][]> map = runtime_environment.modActive() ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD)
                     : Map.ofEntries(Crupier.ALLIN_CINEMATICS);
@@ -5885,14 +5842,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             playAllInCinematic(filename, pausa,
                     presentation_settings.allInCinematics()
-                    && resolveAllinCinematicURL(filename) != null);
+                    && cinematic_assets.hasCinematic(filename));
 
         }
 
-        return (Files
-                .exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/"
-                        + filename.replaceAll("\\.gif$", ".wav")))
-                || getClass().getResource("/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav")) != null);
+        return cinematic_assets.hasCompanionAudio(filename);
 
     }
 
@@ -22378,7 +22332,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         vueltas_sin_bajar = 0;
                         tiempo_pausa--;
 
-                        // NOTE: the VISUAL bar is animated by Helpers.smoothCountdown on
+                        // NOTE: the VISUAL bar is animated by the frontend countdown on
                         // wall-clock time and is only frozen by isTimba_pausada() — it does
                         // NOT freeze for IWTSTH/rabbit. The AUTHORITY for when the pause
                         // ends is this logical counter (tiempo_pausa). During an

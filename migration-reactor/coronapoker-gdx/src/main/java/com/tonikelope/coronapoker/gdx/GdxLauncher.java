@@ -87,7 +87,7 @@ public final class GdxLauncher {
                 application.service(DatabaseService.class),
                 new GdxGameText(preferences.properties()
                         .getProperty("lenguaje", "es")),
-                new GdxGameDialogSink());
+                new GdxGameDialogSink(), new GdxGameDecisionSink());
         try (NetworkLobbyGateway lobbyGateway
                 = NetworkLobbyGateway.forCurrentUser(gameTables)) {
             NewGameSessionGateway sessions = lobbyGateway;

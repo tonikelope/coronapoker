@@ -34,6 +34,14 @@ final class GdxTableDialogTest {
         warning.opened(10f);
         assertFalse(warning.expired(12.99f));
         assertTrue(warning.expired(13f));
+        warning.timeout();
+        assertTrue(warning.result().toCompletableFuture().join());
+
+        GdxTableDialog choice = dialog(GdxTableDialog.Kind.CONFIRM, 3);
+        choice.opened(20f);
+        assertTrue(choice.expired(23f));
+        choice.timeout();
+        assertFalse(choice.result().toCompletableFuture().join());
     }
 
     private static GdxTableDialog dialog(GdxTableDialog.Kind kind, int seconds) {

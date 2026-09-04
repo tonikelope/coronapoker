@@ -1395,7 +1395,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void updateDialog() {
         if (activeDialog != null
                 && (activeDialog.complete() || activeDialog.expired(totalTime))) {
-            if (!activeDialog.complete()) activeDialog.accept();
+            if (!activeDialog.complete()) activeDialog.timeout();
             activeDialog = dialogQueue.pollFirst();
             if (activeDialog != null) activeDialog.opened(totalTime);
         }
@@ -4584,14 +4584,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         panelY + 34f, 230f, 64f), 1f);
         shapes.end();
 
-        String title = switch (dialog.kind()) {
-            case ERROR -> "ERROR";
-            case INFO -> "INFORMACIÓN";
-            case CONFIRM -> "CONFIRMACIÓN";
-            case TIMED_WARNING -> "AVISO";
-        };
         batch.begin();
-        drawLeftInBox(uiFont, title, panelX + 42f,
+        drawLeftInBox(uiFont, dialog.title(), panelX + 42f,
                 panelY + panelH - 80f, panelW - 84f, 46f,
                 accent, 1f);
         BitmapFont.BitmapFontData dialogFontData = uiFont.getData();
@@ -4613,12 +4607,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         uiFont.setColor(Color.WHITE);
         dialogFontData.setScale(originalScaleX, originalScaleY);
         if (confirm) {
-            drawFittedCenteredInBox(actionFont, "CANCELAR",
+            drawFittedCenteredInBox(actionFont, dialog.negativeLabel(),
                     panelX + 42f, panelY + 34f, 230f, 64f,
                     Color.WHITE, 1f);
         }
         drawFittedCenteredInBox(actionFont,
-                confirm ? "ACEPTAR" : "CERRAR",
+                dialog.positiveLabel(),
                 acceptX, panelY + 34f, 230f, 64f,
                 Color.WHITE, 1f);
         batch.end();

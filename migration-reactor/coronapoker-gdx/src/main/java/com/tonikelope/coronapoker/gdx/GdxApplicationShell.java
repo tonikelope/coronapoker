@@ -26,6 +26,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private final GdxGameLogSink gameLog;
     private GdxFrontendScreen menu;
     private LobbySession lobby;
+    private CoronaPokerGdxTable startupIntro;
     private CoronaPokerGdxTable table;
 
     GdxApplicationShell(int refreshRate, CoronaPokerApplication application,
@@ -63,8 +64,13 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 }, () -> {
                     lobby = null;
                     application.returnedToMenu();
-                });
+        });
         menu.create();
+        startupIntro = new CoronaPokerGdxTable(refreshRate,
+                () -> Gdx.app.postRunnable(this::finishStartupIntro));
+        startupIntro.create();
+        startupIntro.resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        Gdx.input.setInputProcessor(null);
         // Re-apply the swap interval after the native window and its target
         // monitor exist. On mixed-refresh Windows desktops the configuration
         // flag alone can otherwise remain tied to the primary display.
@@ -110,6 +116,11 @@ final class GdxApplicationShell extends ApplicationAdapter {
 
     @Override
     public void render() {
+        CoronaPokerGdxTable intro = startupIntro;
+        if (intro != null) {
+            intro.render();
+            return;
+        }
         CoronaPokerGdxTable current = table;
         if (current == null) {
             menu.render();
@@ -123,6 +134,11 @@ final class GdxApplicationShell extends ApplicationAdapter {
         // A window can cross to another refresh-rate monitor. Rebinding VSync
         // here keeps GLFW's swap interval attached to the active context.
         Gdx.graphics.setVSync(true);
+        CoronaPokerGdxTable intro = startupIntro;
+        if (intro != null) {
+            intro.resize(width, height);
+            return;
+        }
         CoronaPokerGdxTable current = table;
         if (current != null) {
             current.resize(width, height);
@@ -185,8 +201,21 @@ final class GdxApplicationShell extends ApplicationAdapter {
         });
     }
 
+    private void finishStartupIntro() {
+        CoronaPokerGdxTable intro = startupIntro;
+        startupIntro = null;
+        if (intro != null) intro.dispose();
+        if (menu != null) {
+            menu.resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+            Gdx.input.setInputProcessor(menu);
+        }
+    }
+
     @Override
     public void dispose() {
+        CoronaPokerGdxTable intro = startupIntro;
+        startupIntro = null;
+        if (intro != null) intro.dispose();
         CoronaPokerGdxTable current = table;
         table = null;
         if (current != null) {

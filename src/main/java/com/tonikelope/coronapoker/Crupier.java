@@ -11819,7 +11819,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         double contribution = MoneyMath.clean(
                 Math.max(0d, player.getBet() - oldPlayerBet));
         TableVisualEvent.PlayerAction.ActionKind kind = actionKind(
-                decision, contribution, this.apuesta_actual);
+                decision, contribution, this.apuesta_actual, this.conta_raise);
         double actionAmount = decision == GamePlayerController.FOLD || kind == TableVisualEvent.PlayerAction.ActionKind.CHECK
                 ? 0d : MoneyMath.clean(player.getBet());
         String labelKey = switch (kind) {
@@ -11828,14 +11828,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             case CALL -> "action.label.call2";
             case BET -> "action.label.bet2";
             case RAISE -> "action.label.raise2";
+            case RERAISE -> "action.label.raise2";
             case ALL_IN -> "action.label.allin";
             default -> throw new IllegalStateException(
                     "Unexpected accepted action kind: " + kind);
         };
 
+        String actionLabel = kind == TableVisualEvent.PlayerAction.ActionKind.RERAISE
+                ? "RE" + game_text.translate(labelKey)
+                : game_text.translate(labelKey);
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.PlayerAction(
                 sequence, player.getNickname(), kind,
-                game_text.translate(labelKey),
+                actionLabel,
                 actionAmount, contribution),
                 "GamePlayerController-action presentation barrier failed");
         if (decision == GamePlayerController.FOLD) {
@@ -11847,13 +11851,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     static TableVisualEvent.PlayerAction.ActionKind actionKind(int decision,
             double contribution, double currentBet) {
+        return actionKind(decision, contribution, currentBet, 0);
+    }
+
+    static TableVisualEvent.PlayerAction.ActionKind actionKind(int decision,
+            double contribution, double currentBet, int raiseCount) {
         return switch (decision) {
             case GamePlayerController.FOLD -> TableVisualEvent.PlayerAction.ActionKind.FOLD;
             case GamePlayerController.CHECK -> contribution > 0d
                     ? TableVisualEvent.PlayerAction.ActionKind.CALL
                     : TableVisualEvent.PlayerAction.ActionKind.CHECK;
             case GamePlayerController.BET -> currentBet > 0d
-                    ? TableVisualEvent.PlayerAction.ActionKind.RAISE
+                    ? raiseCount > 0
+                            ? TableVisualEvent.PlayerAction.ActionKind.RERAISE
+                            : TableVisualEvent.PlayerAction.ActionKind.RAISE
                     : TableVisualEvent.PlayerAction.ActionKind.BET;
             case GamePlayerController.ALLIN -> TableVisualEvent.PlayerAction.ActionKind.ALL_IN;
             default -> throw new IllegalArgumentException("Unsupported player decision: " + decision);

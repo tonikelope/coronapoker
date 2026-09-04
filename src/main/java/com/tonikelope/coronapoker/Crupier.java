@@ -68,11 +68,13 @@ import com.tonikelope.coronapoker.core.game.TableDisplaySink;
 import com.tonikelope.coronapoker.core.game.HostGameConfigurationSource;
 import com.tonikelope.coronapoker.core.game.RecoveredSettingsSynchronizer;
 import com.tonikelope.coronapoker.core.game.ActionControlState;
+import com.tonikelope.coronapoker.core.game.AtomicTextFile;
 import com.tonikelope.coronapoker.core.game.CardCode;
 import com.tonikelope.coronapoker.core.game.GameCardController;
 import com.tonikelope.coronapoker.core.game.GameIdentity;
 import com.tonikelope.coronapoker.core.game.GameIdentityTrust;
 import com.tonikelope.coronapoker.core.game.GameHandFactory;
+import com.tonikelope.coronapoker.core.game.GameHandStateRepository;
 import com.tonikelope.coronapoker.core.game.GameHandResult;
 import com.tonikelope.coronapoker.core.game.GameIdentityVerifier;
 import com.tonikelope.coronapoker.core.game.GamePeerController;
@@ -136,6 +138,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GameDialogSink game_dialogs;
     private final GameDecisionSink game_decisions;
     private final GameDatabase game_database;
+    private final GameHandStateRepository hand_state_repository;
     private final HostGameConfigurationSource host_configuration;
     private final GameStateMirror state_mirror;
     private final RecoveredSettingsSynchronizer recovered_settings;
@@ -216,6 +219,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.game_dialogs = java.util.Objects.requireNonNull(gameDialogs, "gameDialogs");
         this.game_decisions = java.util.Objects.requireNonNull(gameDecisions, "gameDecisions");
         this.game_database = java.util.Objects.requireNonNull(gameDatabase, "gameDatabase");
+        this.hand_state_repository = GameHandStateRepository.sql(this.game_database);
         this.host_configuration = java.util.Objects.requireNonNull(
                 hostConfiguration, "hostConfiguration");
         this.state_mirror = java.util.Objects.requireNonNull(stateMirror, "stateMirror");
@@ -7950,7 +7954,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (!saltar_primera_mano && map.get("hand_end") != null && (Long) map.get("hand_end") == 0L) {
                 try {
-                    String fosil = Helpers.loadHandFossil(this.sqlite_id_game);
+                    String fosil = hand_state_repository.load(this.sqlite_id_game);
 
                     if (!isCurrentRecoveryFossil(fosil)) {
                         LOGGER.log(Level.SEVERE,
@@ -8310,7 +8314,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 String localNick = gameSession().localNickname();
                 String fosil = handInProgress && localEvidence != null
                         && localEvidence.hasOpenHand()
-                        ? Helpers.loadHandFossil(this.sqlite_id_game) : null;
+                        ? hand_state_repository.load(this.sqlite_id_game) : null;
                 boolean sameLocalAndHostHand = localEvidence != null
                         && handIdB64Matches(localEvidence.handIdB64,
                                 map != null ? (String) map.get("hand_id_b64") : null);
@@ -10206,7 +10210,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (!gameSession().isRecovering()) {
-            Helpers.cleanHandCrupierTempFiles(this.sqlite_id_game);
+            hand_state_repository.delete(this.sqlite_id_game);
         }
 
         readyForNextHand(leavingPassiveObservedHand);
@@ -11290,7 +11294,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // instead of an empty file. This is a per-hand forensic backup — losing one
                 // partial backup is recoverable, losing the whole history (a
                 // truncate-then-crash with writeString) is not.
-                Helpers.writeStringAtomic(runtime_environment.dataDirectory().resolve(balanceFileName),
+                AtomicTextFile.write(runtime_environment.dataDirectory().resolve(balanceFileName),
                         String.join("@", balance_float));
             } catch (IOException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
@@ -17560,7 +17564,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // hand restores it (the host rebroadcasts the decision, doesn't re-ask).
             fosil.append("#STRADDLE@").append(this.straddle_recovered_posted);
 
-            Helpers.saveHandFossil(this.sqlite_id_game, fosil.toString());
+            hand_state_repository.save(this.sqlite_id_game, fosil.toString());
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Error saving SRA fossil to disk", e);
         }

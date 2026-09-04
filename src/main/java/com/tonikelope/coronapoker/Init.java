@@ -1109,7 +1109,7 @@ public class Init extends JFrame {
 
             translateGlobalLabels();
 
-            Crupier.loadMODSounds(GameFrame.LANGUAGE);
+            SwingModMediaCatalog.loadSounds(GameFrame.LANGUAGE);
 
             Helpers.setCoronaLocale();
 
@@ -1639,7 +1639,7 @@ public class Init extends JFrame {
         Helpers.savePropertiesFile();
         Helpers.translateComponents(this, false);
         translateGlobalLabels();
-        Crupier.loadMODSounds(GameFrame.LANGUAGE);
+        SwingModMediaCatalog.loadSounds(GameFrame.LANGUAGE);
         Helpers.setCoronaLocale();
         printQuote();
         updateLanguageFlag();
@@ -1975,8 +1975,8 @@ public class Init extends JFrame {
                 Crupier.FUSION_MOD_CINEMATICS = (boolean) Init.MOD.get("fusion_cinematics");
             }
 
-            Crupier.loadMODSounds(GameFrame.LANGUAGE);
-            Crupier.loadMODCinematicsAllin();
+            SwingModMediaCatalog.loadSounds(GameFrame.LANGUAGE);
+            SwingModMediaCatalog.loadAllInCinematics();
 
             if (Init.MOD.containsKey("font") && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/fonts/" + Init.MOD.get("font")))) {
                 try {

@@ -5531,6 +5531,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Translator::translate,
                 Hand::fromControllers,
                 HandPot::new,
+                new SwingGameRuntimeEnvironment(),
+                new SwingGameCinematicState(),
                 table_events);
 
         initComponents();

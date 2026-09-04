@@ -47,6 +47,7 @@ import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.core.game.GameDecisionSink;
 import com.tonikelope.coronapoker.core.game.GameDatabase;
 import com.tonikelope.coronapoker.core.game.GameCinematicSink;
+import com.tonikelope.coronapoker.core.game.GameCinematicState;
 import com.tonikelope.coronapoker.core.game.GameAudioSink;
 import com.tonikelope.coronapoker.core.game.GameWindowSink;
 import com.tonikelope.coronapoker.core.game.GameUiExecutor;
@@ -70,10 +71,10 @@ import com.tonikelope.coronapoker.core.game.GamePeerController;
 import com.tonikelope.coronapoker.core.game.GamePlayerController;
 import com.tonikelope.coronapoker.core.game.GamePot;
 import com.tonikelope.coronapoker.core.game.GamePotFactory;
+import com.tonikelope.coronapoker.core.game.GameRuntimeEnvironment;
 import com.tonikelope.coronapoker.core.BlindStructureRules;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
@@ -130,6 +131,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GameStateMirror state_mirror;
     private final RecoveredSettingsSynchronizer recovered_settings;
     private final GameCinematicSink game_cinematics;
+    private final GameCinematicState cinematic_state;
     private final GameProgressSink game_progress;
     private final PauseGate pause_gate;
     private final GameTransport game_transport;
@@ -143,6 +145,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GameText game_text;
     private final GameHandFactory hand_factory;
     private final GamePotFactory pot_factory;
+    private final GameRuntimeEnvironment runtime_environment;
     private final TableEventBridge table_events;
     private volatile boolean voluntary_show_visible;
 
@@ -152,7 +155,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 TableDisplaySink.noop(),
                 GameWindowSink.noop(),
                 GameUiExecutor.direct(),
-                GameAudioSink.silent(), GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GameText.keys(), GameHandFactory.unavailable(), GamePotFactory.unavailable(),
+                GameAudioSink.silent(), GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GameText.keys(), GameHandFactory.unavailable(), GamePotFactory.unavailable(), GameRuntimeEnvironment.defaults(), GameCinematicState.idle(),
                 new TableEventBridge());
     }
 
@@ -160,7 +163,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this(null, null, null, null, null, GameIdentity.unavailable(), GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), HostGameConfigurationSource.unavailable(), GameStateMirror.noop(), RecoveredSettingsSynchronizer.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(), TableDisplaySink.noop(),
                 GameWindowSink.noop(), GameUiExecutor.direct(), GameAudioSink.silent(),
-                GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GameText.keys(), GameHandFactory.unavailable(), GamePotFactory.unavailable(),
+                GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GameText.keys(), GameHandFactory.unavailable(), GamePotFactory.unavailable(), GameRuntimeEnvironment.defaults(), GameCinematicState.idle(),
                 tableEvents);
     }
 
@@ -187,6 +190,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameText gameText,
             GameHandFactory handFactory,
             GamePotFactory potFactory,
+            GameRuntimeEnvironment runtimeEnvironment,
+            GameCinematicState cinematicState,
             TableEventBridge tableEvents) {
         this.game_session = gameSession;
         this.player_controllers = controllerView(playerControllers);
@@ -218,6 +223,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.game_text = java.util.Objects.requireNonNull(gameText, "gameText");
         this.hand_factory = java.util.Objects.requireNonNull(handFactory, "handFactory");
         this.pot_factory = java.util.Objects.requireNonNull(potFactory, "potFactory");
+        this.runtime_environment = java.util.Objects.requireNonNull(
+                runtimeEnvironment, "runtimeEnvironment");
+        this.cinematic_state = java.util.Objects.requireNonNull(cinematicState, "cinematicState");
         this.table_events = java.util.Objects.requireNonNull(tableEvents, "tableEvents");
         if (gameSession != null && gameSession.hasConfiguration()) {
             this.ciega_pequeña = gameSession.configuration().smallBlind();
@@ -5481,209 +5489,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 () -> isFin_de_la_transmision() || termination_pending);
     }
 
-    public static void loadMODCinematicsAllin() {
-
-        if (Init.MOD != null) {
-
-            ArrayList<Object[]> cinematics = new ArrayList<>();
-
-            File cinematics_folder = new File(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin");
-
-            // ALLIN CINEMATICS
-            if (cinematics_folder.isDirectory() && cinematics_folder.canRead()
-                    && cinematics_folder.listFiles(File::isFile).length > 0) {
-
-                for (final File fileEntry : cinematics_folder.listFiles(File::isFile)) {
-                    if (fileEntry.getName().toLowerCase().endsWith(".gif")) {
-                        cinematics.add(new Object[]{fileEntry.getName()});
-                    }
-                }
-
-                if (FUSION_MOD_CINEMATICS) {
-
-                    cinematics.addAll(Arrays.asList(Crupier.ALLIN_CINEMATICS.getValue()));
-                }
-                Crupier.ALLIN_CINEMATICS_MOD = new HashMap.SimpleEntry<>("allin/", cinematics.toArray(new Object[0][]));
-
-            } else {
-
-                Crupier.ALLIN_CINEMATICS_MOD = Crupier.ALLIN_CINEMATICS;
-            }
-
-        }
-    }
-
-    public static void loadMODSounds(String language) {
-
-        if (Init.MOD != null) {
-
-            if (Files.exists(Paths
-                    .get(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + language + "/allin/"))) {
-                File[] archivos = new File(
-                        Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + language + "/allin/")
-                        .listFiles(File::isFile);
-
-                ArrayList<String> filenames = new ArrayList<>();
-
-                for (var f : archivos) {
-
-                    filenames.add(f.getName());
-                }
-
-                if (!FUSION_MOD_SOUNDS) {
-                    Crupier.ALLIN_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + language + "/allin/",
-                            filenames.toArray(new String[0]));
-                } else {
-
-                    ArrayList<String> sounds = new ArrayList<>();
-
-                    sounds.addAll(Arrays.asList(Crupier.ALLIN_SOUNDS.get(language).getValue()));
-
-                    sounds.addAll(filenames);
-
-                    Crupier.ALLIN_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + language + "/allin/",
-                            sounds.toArray(new String[0]));
-                }
-
-            } else {
-
-                Crupier.ALLIN_SOUNDS_MOD = Crupier.ALLIN_SOUNDS.get(language);
-            }
-
-            if (Files.exists(Paths
-                    .get(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + language + "/fold/"))) {
-                File[] archivos = new File(
-                        Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + language + "/fold/")
-                        .listFiles(File::isFile);
-
-                ArrayList<String> filenames = new ArrayList<>();
-
-                for (var f : archivos) {
-
-                    filenames.add(f.getName());
-                }
-
-                if (!FUSION_MOD_SOUNDS) {
-                    Crupier.FOLD_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + language + "/fold/",
-                            filenames.toArray(new String[0]));
-                } else {
-
-                    ArrayList<String> sounds = new ArrayList<>();
-
-                    sounds.addAll(Arrays.asList(Crupier.FOLD_SOUNDS.get(language).getValue()));
-
-                    sounds.addAll(filenames);
-
-                    Crupier.FOLD_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + language + "/fold/",
-                            sounds.toArray(new String[0]));
-                }
-
-            } else {
-                Crupier.FOLD_SOUNDS_MOD = Crupier.FOLD_SOUNDS.get(language);
-            }
-
-            if (Files.exists(Paths.get(
-                    Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + language + "/showdown/"))) {
-                File[] archivos = new File(
-                        Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + language + "/showdown/")
-                        .listFiles(File::isFile);
-
-                ArrayList<String> filenames = new ArrayList<>();
-
-                for (var f : archivos) {
-
-                    filenames.add(f.getName());
-                }
-
-                if (!FUSION_MOD_SOUNDS) {
-                    Crupier.SHOWDOWN_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + language + "/showdown/",
-                            filenames.toArray(new String[0]));
-                } else {
-
-                    ArrayList<String> sounds = new ArrayList<>();
-
-                    sounds.addAll(Arrays.asList(Crupier.SHOWDOWN_SOUNDS.get(language).getValue()));
-
-                    sounds.addAll(filenames);
-
-                    Crupier.SHOWDOWN_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + language + "/showdown/",
-                            sounds.toArray(new String[0]));
-                }
-
-            } else {
-
-                Crupier.SHOWDOWN_SOUNDS_MOD = Crupier.SHOWDOWN_SOUNDS.get(language);
-            }
-
-            if (Files.exists(Paths
-                    .get(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + language + "/loser/"))) {
-                File[] archivos = new File(
-                        Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + language + "/loser/")
-                        .listFiles(File::isFile);
-
-                ArrayList<String> filenames = new ArrayList<>();
-
-                for (var f : archivos) {
-
-                    filenames.add(f.getName());
-                }
-
-                if (!FUSION_MOD_SOUNDS) {
-                    Crupier.LOSER_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + language + "/loser/",
-                            filenames.toArray(new String[0]));
-                } else {
-
-                    ArrayList<String> sounds = new ArrayList<>();
-
-                    sounds.addAll(Arrays.asList(Crupier.LOSER_SOUNDS.get(language).getValue()));
-
-                    sounds.addAll(filenames);
-
-                    Crupier.LOSER_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + language + "/loser/",
-                            sounds.toArray(new String[0]));
-                }
-
-            } else {
-
-                Crupier.LOSER_SOUNDS_MOD = Crupier.LOSER_SOUNDS.get(language);
-            }
-
-            if (Files.exists(Paths
-                    .get(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + language + "/winner/"))) {
-                File[] archivos = new File(
-                        Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + language + "/winner/")
-                        .listFiles(File::isFile);
-
-                ArrayList<String> filenames = new ArrayList<>();
-
-                for (var f : archivos) {
-
-                    filenames.add(f.getName());
-                }
-
-                if (!FUSION_MOD_SOUNDS) {
-                    Crupier.WINNER_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + language + "/winner/",
-                            filenames.toArray(new String[0]));
-                } else {
-
-                    ArrayList<String> sounds = new ArrayList<>();
-
-                    sounds.addAll(Arrays.asList(Crupier.WINNER_SOUNDS.get(language).getValue()));
-
-                    sounds.addAll(filenames);
-
-                    Crupier.WINNER_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + language + "/winner/",
-                            sounds.toArray(new String[0]));
-                }
-
-            } else {
-                Crupier.WINNER_SOUNDS_MOD = Crupier.WINNER_SOUNDS.get(language);
-            }
-
-        }
-
-    }
-
     public boolean isFin_de_la_transmision() {
         return fin_de_la_transmision;
     }
@@ -5793,11 +5598,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // LOCK_CINEMATICS (the _cinematicAllin watcher, bot turns). Used on early-outs where
     // no animation will play, since the caller already set PLAYING_CINEMATIC=true.
     private void cinematicOff() {
-        Init.PLAYING_CINEMATIC = false;
-
-        synchronized (Init.LOCK_CINEMATICS) {
-            Init.LOCK_CINEMATICS.notifyAll();
-        }
+        cinematic_state.stop();
     }
 
     private void playAllInCinematic(String filename, long durationMillis,
@@ -5912,7 +5713,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // back to bundled even if its URL fails), bundled second, null if not present locally.
     private URL resolveAllinCinematicURL(String filename) {
 
-        if (Init.MOD != null && Files
+        if (runtime_environment.modActive() && Files
                 .exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename))) {
             try {
                 return Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename)
@@ -5928,7 +5729,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public boolean localCinematicAllin() {
 
-        Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD)
+        Map<String, Object[][]> map = runtime_environment.modActive() ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD)
                 : Map.ofEntries(Crupier.ALLIN_CINEMATICS);
 
         if (!this.sincronizando_mano && presentation_settings.allInCinematics() && map.containsKey("allin/")
@@ -6031,7 +5832,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (!this.sincronizando_mano && presentation_settings.allInCinematics()
                 && resolveAllinCinematicURL(announced_filename) == null) {
 
-            Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD)
+            Map<String, Object[][]> map = runtime_environment.modActive() ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD)
                     : Map.ofEntries(Crupier.ALLIN_CINEMATICS);
 
             if (map.containsKey("allin/") && map.get("allin/").length > 0) {
@@ -6084,7 +5885,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (!this.sincronizando_mano && presentation_settings.sillySounds() && !fold_sound_playing) {
 
-            game_audio.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_SOUNDS_MOD)
+            game_audio.playRandomWavResource(runtime_environment.modActive() ? Map.ofEntries(Crupier.ALLIN_SOUNDS_MOD)
                     : Map.ofEntries(Crupier.ALLIN_SOUNDS.get(presentation_settings.language())));
 
         }
@@ -6095,7 +5896,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (!this.sincronizando_mano && presentation_settings.sillySounds() && !fold_sound_playing) {
             this.fold_sound_playing = true;
             Helpers.threadRun(() -> {
-                game_audio.playRandomWavResourceAndWait(Init.MOD != null ? Map.ofEntries(Crupier.FOLD_SOUNDS_MOD)
+                game_audio.playRandomWavResourceAndWait(runtime_environment.modActive() ? Map.ofEntries(Crupier.FOLD_SOUNDS_MOD)
                         : Map.ofEntries(Crupier.FOLD_SOUNDS.get(presentation_settings.language())));
                 fold_sound_playing = false;
             });
@@ -6126,7 +5927,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 });
 
             } else {
-                game_audio.playRandomWavResource(Init.MOD != null
+                game_audio.playRandomWavResource(runtime_environment.modActive()
                         ? Map.ofEntries(Crupier.SHOWDOWN_SOUNDS_MOD, Crupier.WINNER_SOUNDS_MOD,
                                 Crupier.LOSER_SOUNDS_MOD)
                         : Map.ofEntries(Crupier.SHOWDOWN_SOUNDS.get(presentation_settings.language()),
@@ -6156,7 +5957,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (ultima_carta && presentation_settings.language().equals(presentation_settings.defaultLanguage())) {
 
-                    sonidos = Init.MOD != null
+                    sonidos = runtime_environment.modActive()
                             ? Map.ofEntries(Crupier.WINNER_SOUNDS_MOD,
                                     new HashMap.SimpleEntry<>("misc/", new String[]{"lastcard.wav"}))
                             : Map.ofEntries(Crupier.WINNER_SOUNDS.get(presentation_settings.language()),
@@ -6164,7 +5965,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 } else {
 
-                    sonidos = Init.MOD != null ? Map.ofEntries(Crupier.WINNER_SOUNDS_MOD)
+                    sonidos = runtime_environment.modActive() ? Map.ofEntries(Crupier.WINNER_SOUNDS_MOD)
                             : Map.ofEntries(Crupier.WINNER_SOUNDS.get(presentation_settings.language()));
                 }
 
@@ -6194,7 +5995,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 game_audio.playRandomWavResource(Map.ofEntries(WTF_SOUNDS));
 
             } else {
-                game_audio.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.LOSER_SOUNDS_MOD)
+                game_audio.playRandomWavResource(runtime_environment.modActive() ? Map.ofEntries(Crupier.LOSER_SOUNDS_MOD)
                         : Map.ofEntries(Crupier.LOSER_SOUNDS.get(presentation_settings.language())));
             }
         }
@@ -11471,7 +11272,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             LOGGER.log(Level.INFO, () -> "Balance after hand " + String.valueOf(conta_mano) + " -> " + String.join("@", balance_float));
 
-            String balanceFileName = Init.DEV_MODE ? "/balance_backup_" + gameSession().localNickname().replaceAll("[^a-zA-Z0-9.-]", "_") + ".txt" : "/balance_backup.txt";
+            String balanceFileName = runtime_environment.developmentMode()
+                    ? "balance_backup_" + gameSession().localNickname().replaceAll("[^a-zA-Z0-9.-]", "_") + ".txt"
+                    : "balance_backup.txt";
 
             try {
                 // writeStringAtomic instead of a direct Files.writeString: guarantees that a
@@ -11479,7 +11282,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // instead of an empty file. This is a per-hand forensic backup — losing one
                 // partial backup is recoverable, losing the whole history (a
                 // truncate-then-crash with writeString) is not.
-                Helpers.writeStringAtomic(Paths.get(Init.CORONA_DIR + balanceFileName), String.join("@", balance_float));
+                Helpers.writeStringAtomic(runtime_environment.dataDirectory().resolve(balanceFileName),
+                        String.join("@", balance_float));
             } catch (IOException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
             }
@@ -17192,7 +16996,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     break;
                             }
 
-                            if ((Init.DEV_MODE && ALLIN_BOT_TEST)
+                            if ((runtime_environment.developmentMode() && ALLIN_BOT_TEST)
                                     || testModeNickSelected(
                                             "coronapoker.qa.forceBotAllInNicks",
                                             current_player.getNickname())) {
@@ -19810,20 +19614,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (include_balance && map != null) {
 
             // Recover the balance
-            if (Files.exists(Paths.get(Init.CORONA_DIR + "/balance")) && awaitConfirmation(game_dialogs.confirm(
+            java.nio.file.Path balancePath = runtime_environment.dataDirectory().resolve("balance");
+            java.nio.file.Path usedBalancePath = runtime_environment.dataDirectory().resolve("balance_used");
+            if (Files.exists(balancePath) && awaitConfirmation(game_dialogs.confirm(
                     game_text.translate("ui.se_ha_encontrado_un_fichero"),
                     GameDialogSink.Icon.MAINTENANCE))) {
 
                 try {
-                    String balance = Files.readString(Paths.get(Init.CORONA_DIR + "/balance"));
+                    String balance = Files.readString(balancePath);
 
                     // REPLACE_EXISTING: without it, a leftover balance_used from a
                     // previous recovery would make the move fail with
                     // FileAlreadyExistsException, leaving the original balance file on
                     // disk for a later recovery to pick up stale data. This makes
                     // marking it as used idempotent.
-                    Files.move(Paths.get(Init.CORONA_DIR + "/balance"),
-                            Paths.get(Init.CORONA_DIR + "/balance_used"),
+                    Files.move(balancePath, usedBalancePath,
                             java.nio.file.StandardCopyOption.REPLACE_EXISTING);
 
                     map.put("balance", balance.trim());
@@ -22013,19 +21818,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // and this wait may be running under lock_contabilidad (showdown), which
         // blocks finTransmision — the end flag can't be raised until the lock is
         // released, so checking it alone isn't enough.
-        while (Init.PLAYING_CINEMATIC && !isFin_de_la_transmision()
+        while (cinematic_state.isPlaying() && !isFin_de_la_transmision()
                 && !localPlayer().isExit()) {
-            synchronized (Init.LOCK_CINEMATICS) {
-                if (!Init.PLAYING_CINEMATIC || isFin_de_la_transmision()
-                        || localPlayer().isExit()) {
-                    break;
-                }
-                try {
-                    Init.LOCK_CINEMATICS.wait(1000);
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
+            if (!cinematic_state.isPlaying() || isFin_de_la_transmision()
+                    || localPlayer().isExit()) {
+                break;
+            }
+            try {
+                cinematic_state.awaitChange(1000L);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                break;
             }
         }
     }

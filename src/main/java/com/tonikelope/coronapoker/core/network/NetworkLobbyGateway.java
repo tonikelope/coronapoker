@@ -391,7 +391,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             LobbySession active = session;
             if (active == null) throw new IllegalStateException("Lobby session is not ready");
             active.publishTableSession(gameTables.create(
-                    new GameLaunchContext(active.snapshot(), gameChannel)));
+                    new GameLaunchContext(active.snapshot(), gameChannel, identity)));
         }
 
         private synchronized void sendChat(String text) throws Exception {

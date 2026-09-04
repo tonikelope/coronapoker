@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker.core.identity;
 
+import com.tonikelope.coronapoker.core.game.GameIdentity;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -28,7 +29,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /** Persistent per-nickname Ed25519 identity shared by Swing and GDX adapters. */
-public final class PlayerIdentity {
+public final class PlayerIdentity implements GameIdentity {
     private static final Logger LOGGER = Logger.getLogger(PlayerIdentity.class.getName());
     private static final String ALGORITHM = "Ed25519";
     private static final byte[] X509_HEADER = {
@@ -83,6 +84,83 @@ public final class PlayerIdentity {
 
     public String nickname() { return nickname; }
     public byte[] publicKey() { return publicKey.clone(); }
+
+    @Override public boolean isReady() { return true; }
+    @Override public String getLoadError() { return null; }
+    @Override public byte[] getPublicKey() { return publicKey(); }
+
+    @Override
+    public byte[] signAction(byte[] record) {
+        return GameIdentityProtocol.signAction(privateKey, record);
+    }
+
+    @Override
+    public byte[] signReceipt(byte[] handId, byte[] finalHash, byte flags) {
+        return GameIdentityProtocol.signReceipt(privateKey, handId, finalHash, flags);
+    }
+
+    @Override
+    public byte[] signShowdownReveal(byte[] handId, String nickname, byte[] pocketKey,
+            int firstCard, int secondCard) {
+        return GameIdentityProtocol.signShowdownReveal(privateKey, handId, nickname,
+                pocketKey, firstCard, secondCard);
+    }
+
+    @Override
+    public byte[] signStraddleDecision(byte[] handId, String nickname, int decision) {
+        return GameIdentityProtocol.signStraddleDecision(privateKey, handId, nickname,
+                decision);
+    }
+
+    @Override
+    public byte[] signRabbitRequest(byte[] handId, String nickname, byte[] nonce) {
+        return GameIdentityProtocol.signRabbitRequest(privateKey, handId, nickname, nonce);
+    }
+
+    @Override
+    public byte[] signSeatCommit(byte[] nonce, String nickname, byte[] commitment) {
+        return GameIdentityProtocol.signSeatCommit(privateKey, nonce, nickname, commitment);
+    }
+
+    @Override
+    public boolean verifyActionSignature(byte[] key, byte[] record, byte[] signature) {
+        return GameIdentityProtocol.verifyAction(key, record, signature);
+    }
+
+    @Override
+    public boolean verifyReceiptSignature(byte[] key, byte[] handId, byte[] finalHash,
+            byte flags, byte[] signature) {
+        return GameIdentityProtocol.verifyReceipt(key, handId, finalHash, flags, signature);
+    }
+
+    @Override
+    public boolean verifyShowdownRevealSignature(byte[] key, byte[] handId,
+            String nickname, byte[] pocketKey, int firstCard, int secondCard,
+            byte[] signature) {
+        return GameIdentityProtocol.verifyShowdownReveal(key, handId, nickname, pocketKey,
+                firstCard, secondCard, signature);
+    }
+
+    @Override
+    public boolean verifyStraddleDecisionSignature(byte[] key, byte[] handId,
+            String nickname, int decision, byte[] signature) {
+        return GameIdentityProtocol.verifyStraddleDecision(key, handId, nickname, decision,
+                signature);
+    }
+
+    @Override
+    public boolean verifyRabbitRequestSignature(byte[] key, byte[] handId,
+            String nickname, byte[] nonce, byte[] signature) {
+        return GameIdentityProtocol.verifyRabbitRequest(key, handId, nickname, nonce,
+                signature);
+    }
+
+    @Override
+    public boolean verifySeatCommitSignature(byte[] key, byte[] nonce, String nickname,
+            byte[] commitment, byte[] signature) {
+        return GameIdentityProtocol.verifySeatCommit(key, nonce, nickname, commitment,
+                signature);
+    }
 
     public byte[] signJoin(byte[] sessionId) {
         try {

@@ -5390,6 +5390,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
             }
 
+            @Override
+            public void playSpecialCardSound(String cardCode) {
+                Card.checkSpecialCardSound(cardCode);
+            }
+
             private String flipSound(TableDisplaySink.FlipSound sound) {
                 return sound == TableDisplaySink.FlipSound.LOCAL
                         ? GameFrame.uncoverMyCardsSound()

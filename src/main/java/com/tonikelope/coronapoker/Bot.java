@@ -33,6 +33,8 @@ import com.tonikelope.coronapoker.bot.context.DealerView;
 import com.tonikelope.coronapoker.bot.eval.BotEvaluator;
 import com.tonikelope.coronapoker.bot.eval.MemoizedAlbertaEvaluator;
 import com.tonikelope.coronapoker.bot.eval.Potential;
+import com.tonikelope.coronapoker.core.game.CardCode;
+import com.tonikelope.coronapoker.core.game.GameCardController;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
@@ -1926,9 +1928,9 @@ public class Bot {
     }
 
     /**
-     * @return the Alberta engine's suit index for a Corona {@link Card}'s suit
+     * @return the Alberta engine's suit index for a Corona card's suit
      */
-    public static int coronaCardSuit2LokiCardSuit(Card carta) {
+    public static int coronaCardSuit2LokiCardSuit(GameCardController carta) {
         return Bot.SUITS.indexOf(carta.getPalo());
     }
 
@@ -1939,7 +1941,7 @@ public class Bot {
     public static org.alberta.poker.Card coronaIntegerCard2LokiCard(int carta) {
         int v = (carta - 1) % 13;
         int val = (v == 0 ? 14 : v + 1);
-        String palo = Card.PALOS[(int) ((float) (carta - 1) / 13)];
+        String palo = CardCode.fromOneBased(carta).suit().wire();
         return new org.alberta.poker.Card(val - 2, Bot.SUITS.indexOf(palo));
     }
 
@@ -1951,10 +1953,10 @@ public class Bot {
     }
 
     /**
-     * Converts a Corona {@link Card} to its Alberta engine
+     * Converts a Corona card to its Alberta engine
      * {@code org.alberta.poker.Card} equivalent.
      */
-    public static org.alberta.poker.Card coronaCard2LokiCard(Card carta) {
+    public static org.alberta.poker.Card coronaCard2LokiCard(GameCardController carta) {
         return new org.alberta.poker.Card(carta.getValorNumerico() - 2, Bot.coronaCardSuit2LokiCardSuit(carta));
     }
 }

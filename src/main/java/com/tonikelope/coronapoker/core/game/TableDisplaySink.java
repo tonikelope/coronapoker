@@ -189,6 +189,9 @@ public interface TableDisplaySink {
     void playCommunityCardFlip(int slot, PreparedCardFlip flip,
             int delayEndMillis, FlipSound sound);
 
+    /** Plays any deck-specific sound associated with a revealed card. */
+    void playSpecialCardSound(String cardCode);
+
     static TableDisplaySink noop() {
         return new TableDisplaySink() {
             @Override
@@ -458,6 +461,10 @@ public interface TableDisplaySink {
             public void playCommunityCardFlip(int slot,
                     PreparedCardFlip flip, int delayEndMillis,
                     FlipSound sound) {
+            }
+
+            @Override
+            public void playSpecialCardSound(String cardCode) {
             }
         };
     }

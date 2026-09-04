@@ -31,6 +31,7 @@ package com.tonikelope.coronapoker;
 import com.tonikelope.coronapoker.core.game.CardCode;
 import com.tonikelope.coronapoker.core.game.CardState;
 import com.tonikelope.coronapoker.core.game.GameCardController;
+import com.tonikelope.coronapoker.core.game.GameCards;
 
 import java.awt.Dimension;
 import java.awt.Image;
@@ -809,16 +810,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable,
      * {@code null} if the list is null/empty
      */
     public static String collection2String(List<Card> cartas) {
-
-        if (cartas != null && !cartas.isEmpty()) {
-            String cadena = "";
-
-            cadena = cartas.stream().map((carta) -> carta + " ").reduce(cadena, String::concat);
-
-            return cadena.substring(0, cadena.length() - 1);
-        }
-
-        return null;
+        return GameCards.displayCollection(cartas);
     }
 
     /**
@@ -826,16 +818,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable,
      * {@code null} if the list is null/empty
      */
     public static String collection2ShortString(List<Card> cartas) {
-
-        if (cartas != null && !cartas.isEmpty()) {
-            String cadena = "";
-
-            cadena = cartas.stream().map((carta) -> carta.toShortString() + "#").reduce(cadena, String::concat);
-
-            return cadena.substring(0, cadena.length() - 1);
-        }
-
-        return null;
+        return GameCards.shortCollection(cartas);
     }
 
     /**
@@ -863,7 +846,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable,
 
     @Override
     public String toString() {
-        return "[" + getValor() + Card.UNICODE_TABLE.get(getPalo()) + "]";
+        return GameCards.display(this);
     }
 
     /**
@@ -1230,10 +1213,15 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable,
      */
     public boolean checkSpecialCardSound() {
 
+        return checkSpecialCardSound(toShortString());
+    }
+
+    public static boolean checkSpecialCardSound(String cardCode) {
+
         if (GameFrame.SONIDOS_CHORRA && CARTAS_SONIDO != null) {
 
-            if (CARTAS_SONIDO.contains(this.toShortString())) {
-                Audio.playWavResource("decks/" + GameFrame.BARAJA + "/" + this.toShortString() + ".wav");
+            if (CARTAS_SONIDO.contains(cardCode)) {
+                Audio.playWavResource("decks/" + GameFrame.BARAJA + "/" + cardCode + ".wav");
                 return true;
             }
         }

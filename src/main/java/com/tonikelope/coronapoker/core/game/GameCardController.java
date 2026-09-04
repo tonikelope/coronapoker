@@ -40,6 +40,11 @@ public interface GameCardController {
 
     boolean isDesenfocada();
 
+    /** Whether compact presentation may crop this card to its top half. */
+    default boolean isCompactable() {
+        return true;
+    }
+
     void destapar();
 
     void destapar(boolean sound);

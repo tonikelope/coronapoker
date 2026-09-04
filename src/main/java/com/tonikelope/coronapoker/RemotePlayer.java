@@ -724,6 +724,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     @Override
+    public void resetAutomatedDecisionState() {
+        if (bot != null) {
+            bot.resetBot();
+        }
+    }
+
+    @Override
     public boolean isTurno() {
         return playerState.turn();
     }
@@ -3869,7 +3876,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     @Override
-    public void setJugadaParcial(GameHandResult jugada, boolean ganador, float win_per) {
+    public void setJugadaParcial(Hand jugada, boolean ganador, float win_per) {
 
         Helpers.GUIRun(() -> {
             setActionBackground(ganador ? new Color(120, 200, 0) : new Color(230, 70, 0));

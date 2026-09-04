@@ -88,6 +88,10 @@ public interface GamePlayerController
 
     void resetBetDecision();
 
+    /** Clears per-hand state owned by an automated decision provider, if any. */
+    default void resetAutomatedDecisionState() {
+    }
+
     boolean isSpectator();
 
     boolean isExit();
@@ -115,7 +119,20 @@ public interface GamePlayerController
 
     boolean isWinner();
 
+    boolean isLoser();
+
     boolean isMuestra();
+
+    void setMuestra(boolean showing);
+
+    void setConta_rabbit(int count);
+
+    void setRabbitJugada(String handName,
+            List<? extends GameCardController> rabbitHandCards);
+
+    void setChipForcedHidden(boolean hidden);
+
+    int getParguela_counter();
 
     void disableUTG();
 

@@ -51,6 +51,8 @@ public final class AlbertaEvaluatorAdapter implements BotEvaluator {
 
     @Override
     public double handStrengthVsN(int hole1, int hole2, int[] board, int opponents) {
+        requireCardIndex(hole1, "hole1");
+        requireCardIndex(hole2, "hole2");
         org.alberta.poker.Card c1 = new org.alberta.poker.Card(hole1);
         org.alberta.poker.Card c2 = new org.alberta.poker.Card(hole2);
         return he.handRank(c1, c2, toHand(board), opponents);
@@ -154,9 +156,18 @@ public final class AlbertaEvaluatorAdapter implements BotEvaluator {
         if (indices == null) {
             return h;
         }
-        for (int idx : indices) {
+        for (int i = 0; i < indices.length; i++) {
+            int idx = indices[i];
+            requireCardIndex(idx, "board[" + i + "]");
             h.addCard(idx);
         }
         return h;
+    }
+
+    private static void requireCardIndex(int index, String position) {
+        if (index < 0 || index >= org.alberta.poker.Card.NUM_CARDS) {
+            throw new IllegalArgumentException(
+                    "Invalid Alberta card index for " + position + ": " + index);
+        }
     }
 }

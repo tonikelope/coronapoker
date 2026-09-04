@@ -42,4 +42,12 @@ public interface BotPlayerView {
      * Second hole card as an Alberta-encoded index.
      */
     int getHoleCard2Index();
+
+    /**
+     * Compatibility surface for existing harnesses. The neutral bot logic uses
+     * the encoded indexes above and never inspects these renderer-owned values.
+     */
+    Object getHoleCard1();
+
+    Object getHoleCard2();
 }

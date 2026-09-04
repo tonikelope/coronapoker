@@ -26,7 +26,10 @@ public final class CardState {
     }
 
     public synchronized void initializeUnknown(boolean nextVisible) {
-        code = null;
+        // Match the legacy Card.iniciarCarta contract: turning a slot face down
+        // must not discard a value already known by the authoritative engine
+        // (notably host-controlled bots). Truly unknown cards already have a
+        // null code after reset().
         initialized = true;
         faceUp = false;
         disabled = false;

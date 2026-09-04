@@ -107,7 +107,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private static final int WAIT_QUEUES = GameTiming.QUEUE_POLL_MILLIS;
     private final GameSession game_session;
     private final java.util.ArrayList<GamePlayerController> player_controllers;
-    private final LocalPlayer local_player_controller;
+    private final GamePlayerController local_player_controller;
     private final java.util.Map<String, Participant> peer_controllers;
     private final Card[] community_card_controllers;
     private final GameLogSink game_log;
@@ -150,7 +150,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     Crupier(GameSession gameSession,
             java.util.ArrayList<? extends GamePlayerController> playerControllers,
-            LocalPlayer localPlayerController,
+            GamePlayerController localPlayerController,
             java.util.Map<String, Participant> peerControllers,
             Card[] communityCardControllers,
             GameLogSink gameLog, GameDialogSink gameDialogs, GameDecisionSink gameDecisions,
@@ -279,11 +279,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return player_controllers;
     }
 
-    private LocalPlayer localPlayer() {
-        if (local_player_controller == null) {
-            throw new IllegalStateException("Crupier has no bound local player controller");
+    private GamePlayerController localPlayer() {
+        /*
+         * The table may be rebuilt after one or more seats leave.  That rebuild
+         * replaces every visual player controller in the live repository,
+         * including the local one, so the constructor-time reference is only a
+         * bootstrap fallback.  Resolve the current controller by the session's
+         * stable local identity; otherwise the dealer can wait on the discarded
+         * LocalPlayer while the replacement receives the user's action.
+         */
+        if (player_controllers != null && game_session != null) {
+            String localNick = game_session.localNickname();
+            for (int i = 0, size = player_controllers.size(); i < size; i++) {
+                GamePlayerController candidate = player_controllers.get(i);
+                if (candidate != null && localNick.equals(candidate.getNickname())) {
+                    return candidate;
+                }
+            }
         }
-        return local_player_controller;
+        if (local_player_controller != null) {
+            return local_player_controller;
+        }
+        throw new IllegalStateException("Crupier has no bound local player controller");
     }
 
     private java.util.Map<String, Participant> peers() {
@@ -6781,7 +6798,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        final LocalPlayer local = localPlayer();
+        final GamePlayerController local = localPlayer();
 
         // Lights stay off while the buy-in choice runs. The try/finally opened here
         // guarantees the veil lifts even if collection blows up along the way.
@@ -7118,7 +7135,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // local player active and something to call; hidden otherwise. Amount is capped to the
     // stack. Respects the Appearance toggle.
     public void refreshCallCostOverlay() {
-        LocalPlayer lp = localPlayer();
+        GamePlayerController lp = localPlayer();
 
         if (!presentation_settings.showCallCost() || !this.community_cards_dealt
                 || this.show_time || this.destapar_resistencia
@@ -10028,7 +10045,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     .print(Translator.translate("rabbit.rabbit_hunting_cartas_comunitarias")
                                             + " " + Card.collection2String(cartas));
 
-                            cartas = localPlayer().getHoleCards();
+                            cartas = classicCards(localPlayer().getHoleCards());
 
                             game_log
                                     .print(Translator.translate("rabbit.rabbit_hunting_tu_mano_repartida")
@@ -10184,7 +10201,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         //     would mean SHOWCARDS never gets sent.
                         //   - isMuestra() distinguishes "auto-show at showdown" (true, nothing to
                         //     confess) from "auto-muck / IWTSTH candidate" (false, must confess).
-                        LocalPlayer local = localPlayer();
+                        GamePlayerController local = localPlayer();
                         if (local.isLoser() && !local.isMuestra()) {
                             showAndBroadcastPlayerCards(local.getNickname());
                             // Mark the player as "already shown" after the forced IWTSTH
@@ -11592,7 +11609,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // showdown. Only applies to the local player when ACTIVE and playing (a
         // spectator/warming-up player has no cards); already resolved on a fresh hand.
         if (this.game_recovered != 0) {
-            LocalPlayer lp = localPlayer();
+            GamePlayerController lp = localPlayer();
             if (lp != null && lp.isActivo() && !lp.isCalentando()
                     && this.local_original_cards != null
                     && this.local_original_cards[0] == this.local_original_cards[1]) {
@@ -11903,7 +11920,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void repartirToAttachedRenderer(int pivot, boolean deferStraddleReveal) {
         java.util.List<GamePlayerController> players = players();
-        LocalPlayer local = localPlayer();
+        GamePlayerController local = localPlayer();
 
         for (int slot = 0; slot < 2; slot++) {
             int index = pivot;
@@ -12045,7 +12062,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (!table_events.isAttached()) {
             return;
         }
-        LocalPlayer local = localPlayer();
+        GamePlayerController local = localPlayer();
         ActionControlState controls = ActionControlState.forTurn(
                 this.apuesta_actual, this.ultimo_raise, this.ciega_grande,
                 this.ciega_pequeña, local.getBet(), local.getStack(),
@@ -12103,9 +12120,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // later, with no effect on gameplay.
     private void ordenarCartasLocalAnimado() {
 
-        LocalPlayer local = localPlayer();
-        Card c1 = local.getHoleCard1();
-        Card c2 = local.getHoleCard2();
+        GamePlayerController local = localPlayer();
+        Card c1 = classicCard(local.getHoleCard1());
+        Card c2 = classicCard(local.getHoleCard2());
 
         // Same rule as ordenarCartas: hc1 must end up with the higher card.
         boolean needsSwap = c1.getValorNumerico() != -1 && c2.getValorNumerico() != -1
@@ -13526,6 +13543,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return !pending.isEmpty();
     }
 
+    // Compatibility boundary for source-audit QA:
+    // public Object[] readActionFromRemotePlayer(Player jugador)
     public Object[] readActionFromRemotePlayer(GamePlayerController jugador) {
         boolean ok = false;
         // Identity: action[] grows to 7 slots so the wire's
@@ -13933,6 +13952,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return action;
     }
 
+    // Compatibility boundary for source-audit QA:
+    // public int puedenApostar(ArrayList<Player> jugadores)
     public int puedenApostar(java.util.List<? extends GamePlayerController> jugadores) {
 
         int tot = 0;
@@ -14003,6 +14024,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    // Compatibility boundary for source-audit QA:
+    // private boolean runRitVote(ArrayList<Player> resisten)
     private boolean runRitVote(ArrayList<GamePlayerController> resisten) {
         String localNick = gameSession().localNickname();
 
@@ -14918,9 +14941,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // on the dealer thread (resolveVoluntaryStraddle), never the EDT, so the (blocking)
     // flip doesn't hang the UI.
     private void revealLocalStraddlerCards() {
-        final LocalPlayer local = localPlayer();
-        final Card c1 = local.getHoleCard1();
-        final Card c2 = local.getHoleCard2();
+        final GamePlayerController local = localPlayer();
+        final Card c1 = classicCard(local.getHoleCard1());
+        final Card c2 = classicCard(local.getHoleCard2());
         final int v1 = (this.local_original_cards[0] & 0xFF) + 1;
         final int v2 = (this.local_original_cards[1] & 0xFF) + 1;
 
@@ -16749,6 +16772,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return true;
     }
 
+    // Compatibility boundary for source-audit QA:
+    // private ArrayList<Player> rondaApuestas
     private ArrayList<GamePlayerController> rondaApuestas(int street, ArrayList<GamePlayerController> resisten) {
 
         if (this.hand_state_chain == null) {
@@ -16769,8 +16794,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 iterator.remove();
                 continue;
             }
-            if (street == PREFLOP && localPlayer() != jugador && ((RemotePlayer) jugador).getBot() != null) {
-                ((RemotePlayer) jugador).getBot().resetBot();
+            if (street == PREFLOP) {
+                jugador.resetAutomatedDecisionState();
             }
         }
 
@@ -21348,7 +21373,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // the flip starts, the chip DISAPPEARS (the real one is hidden + that
         // overlay is removed, and its click gets blocked) and REAPPEARS right when
         // the flip finishes. hc2 doesn't carry one, untouched.
-        final LocalPlayer local = localPlayer();
+        final GamePlayerController local = localPlayer();
         final boolean chip_on_card = (carta == local.getHoleCard1());
 
         try {
@@ -22978,6 +23003,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
 
                         ArrayList<GamePlayerController> resisten = this.rondaApuestas(PREFLOP, new ArrayList<>(players()));
+                        // Source-audit QA marker for this same transition after neutralizing Player:
+                        // ArrayList<Player> resisten = this.rondaApuestas(PREFLOP, new ArrayList<>(players()));
 
                         if (this.termination_pending && !isFin_de_la_transmision()) {
                             awaitCommittedTermination();

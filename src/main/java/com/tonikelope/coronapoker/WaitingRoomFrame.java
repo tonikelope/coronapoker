@@ -2483,7 +2483,7 @@ public class WaitingRoomFrame extends JFrame {
                             File server_avatar = decodeRemoteAvatar(
                                     server_avatar_encoded, server_nick, "server intro");
                             nuevoParticipanteRemoto(server_nick, server_avatar, null, null, null, false,
-                                    THIS.isUnsecure_server());
+                                    WaitingRoomFrame.this.isUnsecure_server());
                             nuevoParticipante(local_nick, local_avatar, null, null, null, false, false);
 
                             // Handshake complete: the client's subsequent reads (GAME, PING/PONG,
@@ -4807,8 +4807,12 @@ public class WaitingRoomFrame extends JFrame {
                                         } catch (Exception ex) {
                                             LOGGER.log(Level.WARNING, "Could not clear handshake SoTimeout on new join", ex);
                                         }
-                                        nuevoParticipanteRemoto(client_nick, client_avatar, client_socket, aes_key, hmac_key,
-                                                false, false);
+                                        // Human and bot admissions share lock_new_client, so the
+                                        // capacity/name check above and this insertion are one
+                                        // atomic host operation without nesting the participant-map
+                                        // monitor around nuevoParticipante's instance monitor.
+                                        nuevoParticipanteRemoto(client_nick, client_avatar, client_socket,
+                                                aes_key, hmac_key, false, false);
                                         // Identity: cache pubkey+self_sig on the new Participant
                                         // and run local TOFU resolution. partes[4] / partes[5] were
                                         // validated above by verifyJoinSelfSig.
@@ -6663,6 +6667,35 @@ public class WaitingRoomFrame extends JFrame {
                 Audio.playWavResource("misc/laser.wav");
             }
 
+            final String bot_nick;
+            final Participant bot_participant;
+            synchronized (lock_new_client) {
+                // Make the UI operation observable as one completed admission. In
+                // particular, a reconnecting human must never be mistaken for the
+                // participant created by this click while its worker is still queued.
+                // The same lock serializes host-side human admissions.
+                if (participantes.size() >= MAX_PARTICIPANTES) {
+                    LOGGER.log(Level.WARNING,
+                            "Table filled up while adding a bot ({0} participants) — not adding it",
+                            participantes.size());
+                    new_bot_button.setEnabled(false);
+                    return;
+                }
+
+                int conta_bot = 0;
+                String candidate;
+                do {
+                    conta_bot++;
+                    candidate = "CoronaBot$" + String.valueOf(conta_bot);
+                } while (participantes.containsKey(candidate));
+                bot_nick = candidate;
+                nuevoParticipante(bot_nick, null, null, null, null, true, false);
+                bot_participant = participantes.get(bot_nick);
+            }
+
+            // Resource I/O and network fan-out stay off the EDT. The participant
+            // itself already exists, so callers and subsequent clicks observe the
+            // exact bot identity produced by this operation.
             Helpers.threadRun(() -> {
                 try {
                     byte[] avatar_b = null;
@@ -6674,48 +6707,22 @@ public class WaitingRoomFrame extends JFrame {
                         LOGGER.log(Level.SEVERE, "Failed to load bot avatar", ex);
                     }
 
-                    synchronized (lock_new_client) {
-                        // Capacity is checked AGAIN HERE, same as its twin for a client join: the
-                        // button's check ran before waiting for the turn, and in that gap someone
-                        // could have joined over the network. Going over capacity leaves the room
-                        // without enough seats for everyone and hangs when the game starts. The
-                        // nick is also chosen here, or two simultaneous joins could end up with
-                        // the same one.
-                        if (participantes.size() >= MAX_PARTICIPANTES) {
-                            LOGGER.log(Level.WARNING,
-                                    "Table filled up while adding a bot ({0} participants) — not adding it",
-                                    participantes.size());
-                            Helpers.GUIRun(() -> {
-                                new_bot_button.setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
-                            });
-                            return;
-                        }
-
-                        String bot_nick;
-                        int conta_bot = 0;
-                        do {
-                            conta_bot++;
-                            bot_nick = "CoronaBot$" + String.valueOf(conta_bot);
-                        } while (participantes.get(bot_nick) != null);
-
-                        String comando = "NEWUSER#" + Base64.getEncoder().encodeToString(bot_nick.getBytes("UTF-8")) + "#0";
-                        comando += "#" + (avatar_b != null ? Base64.getEncoder().encodeToString(avatar_b) : "*");
-
-                        nuevoParticipante(bot_nick, null, null, null, null, true, false);
-                        broadcastASYNCGAMECommandFromServer(comando, participantes.get(bot_nick));
-                        Helpers.GUIRun(() -> {
-                            empezar_timba.setEnabled(true);
-                            kick_user.setEnabled(true);
-                            new_bot_button.setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
-                            chat_box.requestFocus();
-                            revalidate();
-                            repaint();
-                        });
-                    }
+                    String comando = "NEWUSER#"
+                            + Base64.getEncoder().encodeToString(bot_nick.getBytes("UTF-8")) + "#0";
+                    comando += "#" + (avatar_b != null
+                            ? Base64.getEncoder().encodeToString(avatar_b) : "*");
+                    broadcastASYNCGAMECommandFromServer(comando, bot_participant);
                 } catch (UnsupportedEncodingException ex) {
                     LOGGER.log(Level.SEVERE, null, ex);
                 }
             });
+
+            empezar_timba.setEnabled(true);
+            kick_user.setEnabled(true);
+            new_bot_button.setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
+            chat_box.requestFocus();
+            revalidate();
+            repaint();
         }
 
     }//GEN-LAST:event_new_bot_buttonActionPerformed

@@ -327,10 +327,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    public void setRabbitJugada(String jugada, java.util.List<Card> rabbitHandCards) {
+    @Override
+    public void setRabbitJugada(String jugada,
+            java.util.List<? extends com.tonikelope.coronapoker.core.game.GameCardController> rabbitHandCards) {
         playerState.setHandName(jugada);
+        java.util.List<Card> classicRabbitHand = new java.util.ArrayList<>(rabbitHandCards.size());
+        for (com.tonikelope.coronapoker.core.game.GameCardController card : rabbitHandCards) {
+            classicRabbitHand.add((Card) card);
+        }
         this.showdown_hand_cards = showdownHandAfterRabbit(
-                    isMuestra(), this.showdown_hand_cards, rabbitHandCards);
+                    isMuestra(), this.showdown_hand_cards, classicRabbitHand);
 
         Helpers.GUIRun(() -> {
             setPlayerActionIcon("action/rabbit_action.png");
@@ -4541,7 +4547,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     @Override
-    public void setJugadaParcial(GameHandResult jugada, boolean ganador, float win_per) {
+    public void setJugadaParcial(Hand jugada, boolean ganador, float win_per) {
         Helpers.GUIRun(() -> {
             setActionBackground(ganador ? new Color(120, 200, 0) : new Color(230, 70, 0));
             player_action.setForeground(ganador ? Color.BLACK : Color.WHITE);

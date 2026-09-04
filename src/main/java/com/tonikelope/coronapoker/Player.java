@@ -44,6 +44,35 @@ import com.tonikelope.coronapoker.core.game.GamePlayerController;
 public interface Player extends GamePlayerController,
         com.tonikelope.coronapoker.bot.context.BotPlayerView {
 
+    /** Only the local Swing adapter maintains the voluntary-show countdown. */
+    @Override
+    default int getParguela_counter() {
+        return 0;
+    }
+
+    /** Local-only hooks are inert for the classic remote-player adapter. */
+    @Override
+    default void setConta_rabbit(int count) {
+    }
+
+    @Override
+    default void setRabbitJugada(String handName,
+            java.util.List<? extends com.tonikelope.coronapoker.core.game.GameCardController> rabbitHandCards) {
+    }
+
+    @Override
+    default boolean isLoser() {
+        return false;
+    }
+
+    @Override
+    default void setChipForcedHidden(boolean hidden) {
+    }
+
+    @Override
+    default void setMuestra(boolean showing) {
+    }
+
     /**
      * Formats the secondary-pot indexes without taking a separate size
      * snapshot. The player implementations store them in a weakly-consistent
@@ -132,13 +161,13 @@ public interface Player extends GamePlayerController,
     @Override
     default int getHoleCard1Index() {
         Card card = getHoleCard1();
-        return card == null ? -1 : card.getCardIndex();
+        return card == null ? -1 : Bot.coronaCard2LokiCard(card).getIndex();
     }
 
     @Override
     default int getHoleCard2Index() {
         Card card = getHoleCard2();
-        return card == null ? -1 : card.getCardIndex();
+        return card == null ? -1 : Bot.coronaCard2LokiCard(card).getIndex();
     }
 
     public void setWinner(String msg);
@@ -305,10 +334,14 @@ public interface Player extends GamePlayerController,
 
     public JLabel getChat_notify_label();
 
+    public void setJugadaParcial(Hand jugada, boolean ganador, float win_per);
+
     @Override
-    public void setJugadaParcial(
+    default void setJugadaParcial(
             com.tonikelope.coronapoker.core.game.GameHandResult jugada,
-            boolean ganador, float win_per);
+            boolean ganador, float win_per) {
+        setJugadaParcial((Hand) jugada, ganador, win_per);
+    }
 
     public boolean isWinner();
 

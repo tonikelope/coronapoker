@@ -52,6 +52,7 @@ import com.tonikelope.coronapoker.core.game.GameAudioSink;
 import com.tonikelope.coronapoker.core.game.GameWindowSink;
 import com.tonikelope.coronapoker.core.game.GameUiExecutor;
 import com.tonikelope.coronapoker.core.game.GameLogSink;
+import com.tonikelope.coronapoker.core.game.MoneyMath;
 import com.tonikelope.coronapoker.core.game.GameProgressSink;
 import com.tonikelope.coronapoker.core.game.GamePresentationSettings;
 import com.tonikelope.coronapoker.core.game.LobbyTransitionSink;
@@ -306,7 +307,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private double bigBlindForSmallBlind(double smallBlind) {
         for (GameConfigCodecV1.BlindLevel level : configuration().blindStructure()) {
-            if (Helpers.doubleSecureCompare(level.smallBlind(), smallBlind) == 0) {
+            if (MoneyMath.compare(level.smallBlind(), smallBlind) == 0) {
                 return level.bigBlind();
             }
         }
@@ -821,7 +822,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // boundary using the same cent rule as expectedActionAmountCents, then
             // serialize one canonical decimal value.
             wireBet = MoneyCents.fromDouble(
-                    Helpers.doubleClean(((Number) bet).doubleValue())).toString();
+                    MoneyMath.clean(((Number) bet).doubleValue())).toString();
         }
         return "ACTION#"
                 + Base64.getEncoder().encodeToString(nick.getBytes(java.nio.charset.StandardCharsets.UTF_8))
@@ -4678,8 +4679,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (player == null) {
                     continue;
                 }
-                double pay = Helpers.doubleClean(player.getPagar());
-                if (Helpers.doubleSecureCompare(0f, pay) < 0) {
+                double pay = MoneyMath.clean(player.getPagar());
+                if (MoneyMath.compare(0f, pay) < 0) {
                     awaitAttachedTableEvent(sequence -> new TableVisualEvent.Payout(
                             sequence, player.getNickname(), pay, 0),
                             "Showdown payout presentation barrier failed");
@@ -4703,8 +4704,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (player == null) {
                 continue;
             }
-            double pay = Helpers.doubleClean(player.getPagar());
-            if (Helpers.doubleSecureCompare(0f, pay) < 0) {
+            double pay = MoneyMath.clean(player.getPagar());
+            if (MoneyMath.compare(0f, pay) < 0) {
                 payouts.add(new TableDisplaySink.PayoutTransfer(
                         player.getNickname(), player.getStack(), pay));
             }
@@ -4841,8 +4842,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        double potBefore = Math.max(0d, Helpers.doubleClean(this.bote_sobrante));
-        double potAfterLanding = Math.max(0d, Helpers.doubleClean(this.bote_total));
+        double potBefore = Math.max(0d, MoneyMath.clean(this.bote_sobrante));
+        double potAfterLanding = Math.max(0d, MoneyMath.clean(this.bote_total));
         if (presentForcedBetsToAttachedRenderer(contributors, potBefore, potAfterLanding)) {
             return;
         }
@@ -4901,7 +4902,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             double potBefore, double potAfterLanding) {
         java.util.List<TableVisualEvent.ChipTransfer> transfers = contributors.stream()
                 .map(player -> new TableVisualEvent.ChipTransfer(
-                        player.getNickname(), Helpers.doubleClean(player.getBote())))
+                        player.getNickname(), MoneyMath.clean(player.getBote())))
                 .toList();
 
         java.util.Optional<java.util.concurrent.CompletionStage<Void>> barrier
@@ -5098,7 +5099,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         java.util.List<GamePlayerController> players = new java.util.ArrayList<>();
         for (GamePlayerController p : players()) {
             if (p != null && !p.isExit() && !p.isCalentando()
-                    && Helpers.doubleSecureCompare(0f, p.getStack()) < 0) {
+                    && MoneyMath.compare(0f, p.getStack()) < 0) {
                 players.add(p);
             }
         }
@@ -6056,7 +6057,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             for (GamePlayerController jugador : players()) {
                 this.auditor.put(jugador.getNickname(),
                         new Double[]{jugador.getStack()
-                            + (Helpers.doubleSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar()
+                            + (MoneyMath.compare(0f, jugador.getPagar()) < 0 ? jugador.getPagar()
                             : jugador.getBote()),
                             (double) jugador.getBuyin()});
             }
@@ -6147,18 +6148,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // balance after rebuilding.
             boolean error_auditor = false, error_dialog = false;
 
-            if (Helpers.doubleSecureCompare(Helpers.doubleClean(stack_sum) + Helpers.doubleClean(this.bote_sobrante),
+            if (MoneyMath.compare(MoneyMath.clean(stack_sum) + MoneyMath.clean(this.bote_sobrante),
                     buyin_sum) != 0) {
 
-                if (this.game_recovered == 1 && Helpers.doubleSecureCompare(0f, this.bote_sobrante) <= 0) {
+                if (this.game_recovered == 1 && MoneyMath.compare(0f, this.bote_sobrante) <= 0) {
 
                     this.game_recovered = 2;
 
                     // Rebuild the leftover pot lost during game recovery.
                     this.bote_sobrante = Helpers
-                            .doubleClean(Helpers.doubleClean(buyin_sum) - Helpers.doubleClean(stack_sum));
+                            .doubleClean(MoneyMath.clean(buyin_sum) - MoneyMath.clean(stack_sum));
 
-                    if (Helpers.doubleSecureCompare(0f, this.bote_sobrante) <= 0) {
+                    if (MoneyMath.compare(0f, this.bote_sobrante) <= 0) {
 
                         this.bote_total = this.bote_sobrante;
 
@@ -6169,8 +6170,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         this.settlement_accounting_invalid = true;
                     }
 
-                    if (Helpers.doubleSecureCompare(
-                            Helpers.doubleClean(stack_sum) + Helpers.doubleClean(this.bote_sobrante), buyin_sum) != 0) {
+                    if (MoneyMath.compare(
+                            MoneyMath.clean(stack_sum) + MoneyMath.clean(this.bote_sobrante), buyin_sum) != 0) {
                         error_auditor = true;
                         error_dialog = true;
                     }
@@ -6192,7 +6193,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     String.format("%" + stack_w + "s", Helpers.money2String(stack_sum)),
                     String.format("%" + buyin_w + "s", Helpers.money2String(buyin_sum))));
 
-            if (Helpers.doubleSecureCompare(0f, this.bote_sobrante) < 0) {
+            if (MoneyMath.compare(0f, this.bote_sobrante) < 0) {
                 status.append(" (").append(Helpers.money2String(this.bote_sobrante)).append(")");
             }
 
@@ -6272,8 +6273,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (pasta == null) {
                 continue;
             }
-            double stack = Helpers.doubleClean(pasta[0]);
-            double buyin = Helpers.doubleClean(pasta[1]);
+            double stack = MoneyMath.clean(pasta[0]);
+            double buyin = MoneyMath.clean(pasta[1]);
             long bot_cents = Math.subtractExact(MoneyCents.fromDouble(stack).cents(),
                     MoneyCents.fromDouble(buyin).cents());
             sb_cents = Math.addExact(sb_cents, bot_cents);
@@ -6314,9 +6315,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (pasta == null) {
                 continue;
             }
-            double buyin = Helpers.doubleClean(pasta[1]);
+            double buyin = MoneyMath.clean(pasta[1]);
             long add_cents = per_cents + (i == chosen ? rem_cents : 0L);
-            double new_stack = Helpers.doubleClean(Helpers.doubleClean(pasta[0]) + sign * add_cents / 100.0);
+            double new_stack = MoneyMath.clean(MoneyMath.clean(pasta[0]) + sign * add_cents / 100.0);
             auditor.put(nick, new Double[]{new_stack, buyin});
         }
 
@@ -6993,14 +6994,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        double cost = Helpers.doubleClean(this.apuesta_actual - lp.getBet());
+        double cost = MoneyMath.clean(this.apuesta_actual - lp.getBet());
 
-        if (Helpers.doubleSecureCompare(0f, cost) >= 0) {
+        if (MoneyMath.compare(0f, cost) >= 0) {
             table_display.hideCallCost();
             return;
         }
 
-        double shown = Math.min(cost, Helpers.doubleClean(lp.getStack()));
+        double shown = Math.min(cost, MoneyMath.clean(lp.getStack()));
         table_display.showCallCost("+" + Helpers.money2String(shown));
     }
 
@@ -8652,7 +8653,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         jug.setBuyin(buyin);
                         jug.setBet(0f);
                         this.auditor.put(name, new Double[]{stack, (double) buyin});
-                        if (Helpers.doubleSecureCompare(0f, jug.getStack()) == 0) {
+                        if (MoneyMath.compare(0f, jug.getStack()) == 0) {
                             jug.setSpectator(null);
                         }
                     } else {
@@ -8669,7 +8670,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     boolean inBalance = nicksRec.contains(j.getNickname());
                     boolean inRing = cryptoRingList != null && cryptoRingList.contains(j.getNickname());
 
-                    if (Helpers.doubleSecureCompare(0f, j.getStack()) == 0) {
+                    if (MoneyMath.compare(0f, j.getStack()) == 0) {
                         j.setSpectator(null);
                     }
 
@@ -8680,18 +8681,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 j.setBet(0f);
                                 j.setSpectator(null);
                                 this.auditor.put(j.getNickname(), new Double[]{0d, (double) j.getBuyin()});
-                            } else if (j.isCalentando() && Helpers.doubleSecureCompare(0f, j.getStack()) < 0) {
+                            } else if (j.isCalentando() && MoneyMath.compare(0f, j.getStack()) < 0) {
                                 j.setSpectator(game_text.translate("game.calentando"));
                             }
                         } else {
-                            if (Helpers.doubleSecureCompare(0f, j.getStack()) < 0) {
+                            if (MoneyMath.compare(0f, j.getStack()) < 0) {
                                 j.setSpectator(game_text.translate("game.calentando"));
                             }
                             this.auditor.put(j.getNickname(), new Double[]{j.getStack(), (double) j.getBuyin()});
                         }
                     } else {
                         if (!inBalance) {
-                            if (Helpers.doubleSecureCompare(0f, j.getStack()) < 0) {
+                            if (MoneyMath.compare(0f, j.getStack()) < 0) {
                                 j.setSpectator(game_text.translate("game.calentando"));
                             }
                             this.auditor.put(j.getNickname(), new Double[]{j.getStack(), (double) j.getBuyin()});
@@ -8902,10 +8903,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             for (GamePlayerController jugador : players()) {
 
                 // getBote() is the player's total invested in the current hand, all streets summed.
-                double refund = Helpers.doubleClean(jugador.getBote());
+                double refund = MoneyMath.clean(jugador.getBote());
 
-                if (Helpers.doubleSecureCompare(refund, 0f) > 0) {
-                    jugador.setStack(Helpers.doubleClean(jugador.getStack()) + refund);
+                if (MoneyMath.compare(refund, 0f) > 0) {
+                    jugador.setStack(MoneyMath.clean(jugador.getStack()) + refund);
                     jugador.setBet(0f);
                     jugador.resetBote(); // Purge the financial memory for this aborted hand
                 }
@@ -9268,7 +9269,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return false;
             }
             if (configuration().blindCap() > 0f
-                    && Helpers.doubleSecureCompare(simulateNextBlinds()[1], configuration().blindCap()) > 0) {
+                    && MoneyMath.compare(simulateNextBlinds()[1], configuration().blindCap()) > 0) {
                 return false;
             }
             if (configuration().blindsDoubleType() <= 1) {
@@ -9290,7 +9291,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (next == null) {
             // checkDoblarCiegas already vetoes this; defensive guard against a phantom
             // blind increase announcement at the last ladder level.
-            LOGGER.log(Level.WARNING, "doblarCiegas sin nivel siguiente en la escalera (sb={0})", Helpers.doubleClean(this.ciega_pequeña));
+            LOGGER.log(Level.WARNING, "doblarCiegas sin nivel siguiente en la escalera (sb={0})", MoneyMath.clean(this.ciega_pequeña));
             return;
         }
 
@@ -9332,7 +9333,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (value != null && value.length >= 2
                     && value[0] != null && value[1] != null) {
                 rows.put(entry.getKey(), new double[]{
-                    Helpers.doubleClean(value[0]), value[1],
+                    MoneyMath.clean(value[0]), value[1],
                     getRebuyCount(entry.getKey())
                 });
             }
@@ -9368,7 +9369,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         int appliedRebuy = pendingRebuy == null || pendingRebuy <= 0
                 ? 0 : Math.min(pendingRebuy, Math.max(0, rebuyHeadroom));
         return new double[]{
-            Helpers.doubleClean(stack + appliedRebuy + pendingPayout),
+            MoneyMath.clean(stack + appliedRebuy + pendingPayout),
             buyin + appliedRebuy,
             rebuyCount + (appliedRebuy > 0 ? 1 : 0)
         };
@@ -9852,7 +9853,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             double stack = jugador.getStack();
 
                             coste_rabbit = authorization.feeCents() / 100d;
-                            if (Helpers.doubleSecureCompare(stack, coste_rabbit) >= 0) {
+                            if (MoneyMath.compare(stack, coste_rabbit) >= 0) {
                                 bote_sobrante += coste_rabbit;
                                 jugador.setStack(stack - coste_rabbit);
                             } else {
@@ -10240,7 +10241,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.recover_action_order = null;
 
         for (GamePlayerController jugador : players()) {
-            if (!jugador.isExit() && jugador.isSpectator() && (Helpers.doubleSecureCompare(0f, jugador.getStack()) < 0
+            if (!jugador.isExit() && jugador.isSpectator() && (MoneyMath.compare(0f, jugador.getStack()) < 0
                     || rebuy_committed.containsKey(jugador.getNickname()))) {
                 if (presentation_settings.testMode() && rebuy_committed.containsKey(jugador.getNickname())) {
                     LOGGER.log(Level.INFO,
@@ -10381,7 +10382,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.local_signed_straddle_decision = -1;
 
         synchronized (getLock_contabilidad()) {
-            if (Helpers.doubleSecureCompare(0f, this.bote_sobrante) < 0) {
+            if (MoneyMath.compare(0f, this.bote_sobrante) < 0) {
                 if (presentation_settings.sillySounds() && presentation_settings.language().equals(presentation_settings.defaultLanguage())) {
                     game_audio.playWavResource("misc/indivisible.wav");
                 }
@@ -10523,7 +10524,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     try {
                         for (GamePlayerController j : players()) {
                             if (j != null && !j.isExit() && j.isSpectator()
-                                    && Helpers.doubleSecureCompare(0f, j.getStack()) < 0) {
+                                    && MoneyMath.compare(0f, j.getStack()) < 0) {
                                 j.unsetSpectator();
                             }
                         }
@@ -10613,7 +10614,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.apuestas = 0f;
 
             for (GamePlayerController jugador : players()) {
-                if (Helpers.doubleSecureCompare(0f, jugador.getBet()) < 0) {
+                if (MoneyMath.compare(0f, jugador.getBet()) < 0) {
                     this.apuestas += jugador.getBet();
                 }
             }
@@ -10750,7 +10751,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         } else {
 
             for (GamePlayerController jugador : players()) {
-                if (jugador.isActivo() && Helpers.doubleSecureCompare(0f, jugador.getBet()) < 0) {
+                if (jugador.isActivo() && MoneyMath.compare(0f, jugador.getBet()) < 0) {
                     jugador.pagar(jugador.getBet(), null);
                 }
             }
@@ -10851,7 +10852,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (this.conta_mano == 1) {
             for (GamePlayerController jugador : players()) {
                 if (jugador != null && (jugador.isActivo()
-                        || Helpers.doubleSecureCompare(0f, jugador.getStack()) == 0
+                        || MoneyMath.compare(0f, jugador.getStack()) == 0
                         || jugador.isExit())) {
                     double stack = jugador.getStack() + (includeCurrentBet ? jugador.getBet() : 0d);
                     rows.add(handCloseBalance(jugador.getNickname(), stack,
@@ -10863,7 +10864,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 GamePlayerController jugador = nick2player.get(entry.getKey());
                 if (jugador != null) {
                     if (jugador.isActivo()
-                            || Helpers.doubleSecureCompare(0f, jugador.getStack()) == 0
+                            || MoneyMath.compare(0f, jugador.getStack()) == 0
                             || jugador.isExit()) {
                         double stack = jugador.getStack() + (includeCurrentBet ? jugador.getBet() : 0d);
                         rows.add(handCloseBalance(jugador.getNickname(), stack,
@@ -10883,7 +10884,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private static HandCloseTransaction.BalanceUpdate handCloseBalance(String nick,
             double stack, int buyin, int rebuyCount) {
         return new HandCloseTransaction.BalanceUpdate(nick,
-                MoneyCents.fromDouble(Helpers.doubleClean(stack)),
+                MoneyCents.fromDouble(MoneyMath.clean(stack)),
                 MoneyCents.fromDouble(buyin), BuyinCount.of(rebuyCount));
     }
 
@@ -10901,7 +10902,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 statement.setInt(3, this.conta_accion);
                 statement.setInt(4, this.street);
                 statement.setInt(5, current_player.getDecision());
-                statement.setDouble(6, Helpers.doubleClean(current_player.getBet()));
+                statement.setDouble(6, MoneyMath.clean(current_player.getBet()));
                 statement.setInt(7, this.getConta_raise());
                 statement.setInt(8, current_player.getResponseTime());
                 if (actionRecord != null) {
@@ -10959,7 +10960,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         statement.setInt(4, current_player.getDecision());
 
                         if (current_player.getDecision() >= GamePlayerController.BET) {
-                            statement.setDouble(5, Helpers.doubleClean(current_player.getBet()));
+                            statement.setDouble(5, MoneyMath.clean(current_player.getBet()));
                         }
 
                         try (ResultSet rs = statement.executeQuery()) {
@@ -11072,9 +11073,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             String sql = "UPDATE showdown SET pay=?, profit=? WHERE id_hand=? AND player=?";
 
             try (PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
-                statement.setDouble(1, Helpers.doubleClean(jugador.getPagar()));
+                statement.setDouble(1, MoneyMath.clean(jugador.getPagar()));
 
-                statement.setDouble(2, Helpers.doubleClean(jugador.getPagar() - jugador.getBote()));
+                statement.setDouble(2, MoneyMath.clean(jugador.getPagar() - jugador.getBote()));
 
                 statement.setInt(3, this.sqlite_id_hand);
 
@@ -11144,10 +11145,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 statement.setBoolean(6, win);
 
-                statement.setDouble(7, Helpers.doubleClean(jugador != null ? jugador.getPagar() : 0));
+                statement.setDouble(7, MoneyMath.clean(jugador != null ? jugador.getPagar() : 0));
 
                 statement.setDouble(8,
-                        Helpers.doubleClean(jugador != null ? jugador.getPagar() - jugador.getBote() : 0));
+                        MoneyMath.clean(jugador != null ? jugador.getPagar() - jugador.getBote() : 0));
 
                 statement.executeUpdate();
             } catch (SQLException ex) {
@@ -11207,13 +11208,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         if (jugador != null) {
 
                             double finalStack = jugador.getStack()
-                                    + (Helpers.doubleSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : 0f);
+                                    + (MoneyMath.compare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : 0f);
                             // sqlNewHand intentionally has no row for a positive-stack warming
                             // spectator. Mirror that eligibility here; every row that should
                             // exist remains strict, while an intentional non-participant is not
                             // misclassified as a zero-row persistence failure.
                             if (jugador.isActivo()
-                                    || Helpers.doubleSecureCompare(0f, jugador.getStack()) == 0
+                                    || MoneyMath.compare(0f, jugador.getStack()) == 0
                                     || jugador.isExit()) {
                                 balance_updates.add(handCloseBalance(jugador.getNickname(),
                                         finalStack, jugador.getBuyin(),
@@ -11221,8 +11222,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                             balance_float.add(Base64.getEncoder().encodeToString(jugador.getNickname().getBytes("UTF-8"))
                                     + "|"
-                                    + String.valueOf(Helpers.doubleClean(jugador.getStack()
-                                            + (Helpers.doubleSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar()
+                                    + String.valueOf(MoneyMath.clean(jugador.getStack()
+                                            + (MoneyMath.compare(0f, jugador.getPagar()) < 0 ? jugador.getPagar()
                                             : 0f)))
                                     + "|" + String.valueOf(jugador.getBuyin())
                                     + "|" + String.valueOf(getRebuyCount(jugador.getNickname())));
@@ -11234,7 +11235,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             balance_updates.add(handCloseBalance(entry.getKey(), pasta[0],
                                     auditedBuyin, getRebuyCount(entry.getKey())));
                             balance_float.add(Base64.getEncoder().encodeToString(entry.getKey().getBytes("UTF-8")) + "|"
-                                    + String.valueOf(Helpers.doubleClean(pasta[0])) + "|" + String.valueOf(auditedBuyin)
+                                    + String.valueOf(MoneyMath.clean(pasta[0])) + "|" + String.valueOf(auditedBuyin)
                                     + "|" + String.valueOf(getRebuyCount(entry.getKey())));
                         }
                     } catch (UnsupportedEncodingException ex) {
@@ -11403,7 +11404,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 statement.setInt(3, configuration().buyin());
 
-                statement.setDouble(4, Helpers.doubleClean(this.ciega_pequeña));
+                statement.setDouble(4, MoneyMath.clean(this.ciega_pequeña));
 
                 statement.setInt(5, configuration().blindsDouble());
 
@@ -11847,12 +11848,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (!table_events.isAttached()) {
             return;
         }
-        double contribution = Helpers.doubleClean(
+        double contribution = MoneyMath.clean(
                 Math.max(0d, player.getBet() - oldPlayerBet));
         TableVisualEvent.PlayerAction.ActionKind kind = actionKind(
                 decision, contribution, this.apuesta_actual);
         double actionAmount = decision == GamePlayerController.FOLD || kind == TableVisualEvent.PlayerAction.ActionKind.CHECK
-                ? 0d : Helpers.doubleClean(player.getBet());
+                ? 0d : MoneyMath.clean(player.getBet());
 
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.PlayerAction(
                 sequence, player.getNickname(), kind, kind.name(),
@@ -14464,8 +14465,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // and only with a comfortable stack (doesn't self-harm). Runs ONLY on the host (it
     // decides for the bot).
     private int botStraddleDecision(GamePlayerController bot) {
-        double amount = Helpers.doubleClean(2 * this.ciega_grande);
-        if (Helpers.doubleSecureCompare(bot.getStack(), 5 * amount) < 0) {
+        double amount = MoneyMath.clean(2 * this.ciega_grande);
+        if (MoneyMath.compare(bot.getStack(), 5 * amount) < 0) {
             return GameDecisionSink.NO_STRADDLE;
         }
         return (Helpers.CSPRNG_GENERATOR.nextDouble() < BOT_STRADDLE_PROBABILITY)
@@ -14496,9 +14497,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // it (all-in for less). The UTG has no prior blind, so their available amount is
     // stack + bet (bet = 0 in practice).
     private double straddleAmountFor(GamePlayerController straddler) {
-        double full = Helpers.doubleClean(2 * this.ciega_grande);
-        double available = Helpers.doubleClean(straddler.getStack() + straddler.getBet());
-        return Helpers.doubleSecureCompare(available, full) < 0 ? available : full;
+        double full = MoneyMath.clean(2 * this.ciega_grande);
+        double available = MoneyMath.clean(straddler.getStack() + straddler.getBet());
+        return MoneyMath.compare(available, full) < 0 ? available : full;
     }
 
     // Host: waits for the client UTG's STRADDLE_RESP by draining received_commands
@@ -14689,12 +14690,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // the amount posted. Does NOT add to bote_total (the caller does). Replicates the old
     // mandatory straddle's path so consensus converges across all peers.
     private double applyStraddlePost(GamePlayerController straddler) {
-        double straddle_amount = Helpers.doubleClean(2 * this.ciega_grande);
+        double straddle_amount = MoneyMath.clean(2 * this.ciega_grande);
         double posted = straddler.postStraddle(straddle_amount);
-        if (Helpers.doubleSecureCompare(this.apuesta_actual, posted) < 0) {
+        if (MoneyMath.compare(this.apuesta_actual, posted) < 0) {
             this.apuesta_actual = posted;
         }
-        if (Helpers.doubleSecureCompare(posted, straddle_amount) >= 0) {
+        if (MoneyMath.compare(posted, straddle_amount) >= 0) {
             this.ultimo_raise = this.ciega_grande;
         }
         this.straddle_posted = true;
@@ -15632,7 +15633,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Indivisible remainder not distributed on either board -> carried as
         // bote_sobrante into the next hand (exact money conservation).
         if (dealt) {
-            this.bote_sobrante = Math.max(0, Helpers.doubleClean(ritPotTotal - paidA - paidB));
+            this.bote_sobrante = Math.max(0, MoneyMath.clean(ritPotTotal - paidA - paidB));
         } else if (!this.apuestas_devueltas) {
             // SIDE-B was never dealt and the bets have NOT been refunded: happens when
             // the abort comes from elsewhere, typically the local player leaving. The
@@ -15651,7 +15652,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // 15.01 paid, 14.99 chips went missing and the auditor flagged an imbalance.
             // The old comment here assumed aborting always meant voiding the hand, and
             // only then does someone handle the money.
-            this.bote_sobrante = Math.max(0, Helpers.doubleClean(ritPotTotal - paidA));
+            this.bote_sobrante = Math.max(0, MoneyMath.clean(ritPotTotal - paidA));
         }
 
         // Final conta_win: +1 only if the player won some side (overrides the
@@ -16971,21 +16972,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                             switch (decision_loki) {
                                 case GamePlayerController.FOLD:
-                                    if (Helpers.doubleSecureCompare(0f, this.getApuesta_actual()) == 0 || Helpers.doubleSecureCompare(current_player.getBet(), this.getApuesta_actual()) == 0) {
+                                    if (MoneyMath.compare(0f, this.getApuesta_actual()) == 0 || MoneyMath.compare(current_player.getBet(), this.getApuesta_actual()) == 0) {
                                         action = new Object[]{GamePlayerController.CHECK, 0d, null};
                                     }
                                     break;
                                 case GamePlayerController.CHECK:
-                                    if (Helpers.doubleSecureCompare(current_player.getStack(), call_required) <= 0) {
+                                    if (MoneyMath.compare(current_player.getStack(), call_required) <= 0) {
                                         action = new Object[]{GamePlayerController.ALLIN, 0d, null};
                                     }
                                     break;
                                 case GamePlayerController.BET:
-                                    if (Helpers.doubleSecureCompare(current_player.getStack(), call_required) <= 0) {
+                                    if (MoneyMath.compare(current_player.getStack(), call_required) <= 0) {
                                         action = new Object[]{GamePlayerController.ALLIN, 0d, null};
                                     } else {
                                         double b = current_player.automatedBetSize();
-                                        if (Helpers.doubleSecureCompare(current_player.getStack() * 0.75f, b - current_player.getBet()) <= 0) {
+                                        if (MoneyMath.compare(current_player.getStack() * 0.75f, b - current_player.getBet()) <= 0) {
                                             action = new Object[]{GamePlayerController.ALLIN, 0d, null};
                                         } else if (puedenApostar(players()) <= 1) {
                                             action = new Object[]{GamePlayerController.CHECK, 0d, null};
@@ -17206,14 +17207,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (this.street == Crupier.PREFLOP) {
                     boolean isBBCheck = current_player.getNickname().equals(this.big_blind_nick)
                             && decision == GamePlayerController.CHECK
-                            && Helpers.doubleSecureCompare(this.apuesta_actual, this.getCiega_grande()) == 0;
+                            && MoneyMath.compare(this.apuesta_actual, this.getCiega_grande()) == 0;
                     // With a straddle, the "free check" belongs to the straddler (UTG) on
                     // their own straddle (apuesta_actual == 2x BB), not the big blind —
                     // that forced check doesn't count as VPIP either.
                     boolean isStraddleCheck = this.straddle_posted
                             && current_player.getNickname().equals(this.utg_nick)
                             && decision == GamePlayerController.CHECK
-                            && Helpers.doubleSecureCompare(this.apuesta_actual, Helpers.doubleClean(2 * this.getCiega_grande())) == 0;
+                            && MoneyMath.compare(this.apuesta_actual, MoneyMath.clean(2 * this.getCiega_grande())) == 0;
                     if (!isBBCheck && !isStraddleCheck && (decision == GamePlayerController.CHECK || decision == GamePlayerController.BET || decision == GamePlayerController.ALLIN)) {
                         stats.recordVPIP(this.conta_mano);
                     }
@@ -17234,7 +17235,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     this.apuestas += current_player.getBet() - old_player_bet;
                     this.bote_total += current_player.getBet() - old_player_bet;
 
-                    if (decision == GamePlayerController.BET || (decision == GamePlayerController.ALLIN && Helpers.doubleSecureCompare(this.apuesta_actual, current_player.getBet()) < 0)) {
+                    if (decision == GamePlayerController.BET || (decision == GamePlayerController.ALLIN && MoneyMath.compare(this.apuesta_actual, current_player.getBet()) < 0)) {
                         boolean partial_raise = false;
                         double min_raise = BetRules.minRaiseIncrement(getUltimo_raise(), getCiega_grande());
                         double current_raise = current_player.getBet() - this.apuesta_actual;
@@ -17255,7 +17256,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                         end_pos = conta_pos;
 
-                    } else if (street == PREFLOP && Helpers.doubleSecureCompare(this.apuesta_actual, this.getCiega_grande()) == 0 && !current_player.getNickname().equals(this.getBb_nick()) && !current_player.getNickname().equals(this.getSb_nick())) {
+                    } else if (street == PREFLOP && MoneyMath.compare(this.apuesta_actual, this.getCiega_grande()) == 0 && !current_player.getNickname().equals(this.getBb_nick()) && !current_player.getNickname().equals(this.getSb_nick())) {
                         limpers++;
                     }
                 } else {
@@ -18430,11 +18431,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             case GamePlayerController.FOLD:
                 return 0L;
             case GamePlayerController.CHECK:
-                return CanonicalActionRecord.amountToCents(Helpers.doubleClean(apuestaActual));
+                return CanonicalActionRecord.amountToCents(MoneyMath.clean(apuestaActual));
             case GamePlayerController.BET:
-                return CanonicalActionRecord.amountToCents(Helpers.doubleClean(betAbsoluteTarget));
+                return CanonicalActionRecord.amountToCents(MoneyMath.clean(betAbsoluteTarget));
             case GamePlayerController.ALLIN:
-                return CanonicalActionRecord.amountToCents(Helpers.doubleClean(playerBet + playerStack));
+                return CanonicalActionRecord.amountToCents(MoneyMath.clean(playerBet + playerStack));
             default:
                 return 0L;
         }
@@ -21943,7 +21944,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     static boolean shouldExitSpectatorBot(boolean remotePlayer, boolean exited,
             boolean spectator, double stack, boolean cpu, boolean rebuyQueued) {
         return remotePlayer && !exited && spectator
-                && Helpers.doubleSecureCompare(0f, stack) == 0
+                && MoneyMath.compare(0f, stack) == 0
                 && cpu && !rebuyQueued;
     }
 
@@ -21952,11 +21953,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (GamePlayerController jugador : players()) {
             if (jugador.isExit()) {
                 this.auditor.put(jugador.getNickname(), new Double[]{jugador.getStack() + jugador.getPagar(), (double) jugador.getBuyin()});
-                double ganancia = Helpers.doubleClean(Helpers.doubleClean(jugador.getStack()) + Helpers.doubleClean(jugador.getPagar())) - Helpers.doubleClean(jugador.getBuyin());
+                double ganancia = MoneyMath.clean(MoneyMath.clean(jugador.getStack()) + MoneyMath.clean(jugador.getPagar())) - MoneyMath.clean(jugador.getBuyin());
                 String ganancia_msg = "";
-                if (Helpers.doubleSecureCompare(ganancia, 0f) < 0) {
+                if (MoneyMath.compare(ganancia, 0f) < 0) {
                     ganancia_msg += game_text.translate("ui.pierde_2") + " " + Helpers.money2String(ganancia * -1);
-                } else if (Helpers.doubleSecureCompare(ganancia, 0f) > 0) {
+                } else if (MoneyMath.compare(ganancia, 0f) > 0) {
                     ganancia_msg += game_text.translate("ui.gana_4") + " " + Helpers.money2String(ganancia);
                 } else {
                     ganancia_msg += game_text.translate("ui.ni_gana_ni_pierde");
@@ -22134,7 +22135,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     static long settlementAmountToCents(double amount) {
-        return MoneyCents.fromDouble(Helpers.doubleClean(amount)).cents();
+        return MoneyCents.fromDouble(MoneyMath.clean(amount)).cents();
     }
 
     // True if a host-driven decision the host REPLAYS on recover (voluntary straddle posted, or
@@ -23377,7 +23378,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     } else {
 
-                        if (!localPlayer().isSpectator() && Helpers.doubleSecureCompare(0f, this.bote_sobrante) < 0) {
+                        if (!localPlayer().isSpectator() && MoneyMath.compare(0f, this.bote_sobrante) < 0) {
                             localPlayer().pagar(this.bote_sobrante, null);
                             this.bote_sobrante = 0f;
                         }
@@ -23505,9 +23506,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (presentation_settings.testMode()) {
             for (GamePlayerController jugador : players()) {
                 if (!jugador.isActivo()
-                        || Helpers.doubleSecureCompare(0f,
-                                Helpers.doubleClean(jugador.getStack())
-                                + Helpers.doubleClean(jugador.getPagar())) != 0) {
+                        || MoneyMath.compare(0f,
+                                MoneyMath.clean(jugador.getStack())
+                                + MoneyMath.clean(jugador.getPagar())) != 0) {
                     continue;
                 }
                 GamePeerController participante = peers()
@@ -23537,8 +23538,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (GamePlayerController jugador : players()) {
 
             if (jugador != localPlayer() && jugador.isActivo()
-                    && Helpers.doubleSecureCompare(0f,
-                            Helpers.doubleClean(jugador.getStack()) + Helpers.doubleClean(jugador.getPagar())) == 0) {
+                    && MoneyMath.compare(0f,
+                            MoneyMath.clean(jugador.getStack()) + MoneyMath.clean(jugador.getPagar())) == 0) {
 
                 String nick = jugador.getNickname();
                 GamePeerController participante = peers().get(nick);
@@ -23560,8 +23561,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // case recibirRebuys does NOT launch one and only shows each remote's
         // outcome (REBUY).
         boolean local_ruined = localPlayer().isActivo()
-                && Helpers.doubleSecureCompare(Helpers.doubleClean(localPlayer().getStack())
-                        + Helpers.doubleClean(localPlayer().getPagar()), 0f) == 0;
+                && MoneyMath.compare(MoneyMath.clean(localPlayer().getStack())
+                        + MoneyMath.clean(localPlayer().getPagar()), 0f) == 0;
 
         if (local_ruined) {
 

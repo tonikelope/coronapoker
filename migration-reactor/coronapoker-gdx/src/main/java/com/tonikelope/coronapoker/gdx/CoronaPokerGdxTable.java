@@ -3371,6 +3371,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (liveState != null) {
             TableSnapshot.PlayerSnapshot player = livePlayer(seats[seat]);
             if (player == null) return "";
+            if (isLiveThinkingSeat(seats[seat])) return "PENSANDO...";
             return !player.handName().isBlank() ? player.handName() : player.lastAction();
         }
         if (time >= SHOWDOWN_START && isShowdownContender(seat)) {
@@ -3395,6 +3396,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (liveState != null) {
             TableSnapshot.PlayerSnapshot player = livePlayer(seats[seat]);
             if (player == null) return LEGACY_BET;
+            if (isLiveThinkingSeat(seats[seat])) return POT_GOLD;
             if (player.nickname().equals(liveShowdownHoverNickname)) {
                 return POT_GOLD;
             }
@@ -3416,6 +3418,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Color lastActionTextColorForSeat(int seat, float time) {
         if (liveState != null) {
             TableSnapshot.PlayerSnapshot player = livePlayer(seats[seat]);
+            if (isLiveThinkingSeat(seats[seat])) {
+                return Color.BLACK;
+            }
             if (player != null
                     && player.nickname().equals(liveShowdownHoverNickname)) {
                 return Color.BLACK;
@@ -3434,6 +3439,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         ActionEvent latest = lastActionForSeat(seat, time);
         return latest == null ? Color.BLACK : actionTextColor(latest);
+    }
+
+    private boolean isLiveThinkingSeat(Seat seat) {
+        if (liveState == null || seat == null || seat.name.isBlank()) {
+            return false;
+        }
+        TableSnapshot snapshot = liveState.snapshot();
+        return !seat.name.equals(snapshot.localNickname())
+                && seat.name.equals(snapshot.currentTurnNickname());
     }
 
     private static Color actionColor(ActionEvent action) {

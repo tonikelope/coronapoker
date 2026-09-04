@@ -35,6 +35,7 @@ import com.tonikelope.coronapoker.crypto.UnlockChainWire;
 import com.tonikelope.coronapoker.crypto.DealChain;
 import com.tonikelope.coronapoker.table.TableEventBridge;
 import com.tonikelope.coronapoker.table.TableSnapshot;
+import com.tonikelope.coronapoker.table.TableSnapshotMapper;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
 import com.tonikelope.coronapoker.core.network.ConfirmationTracker;
 import com.tonikelope.coronapoker.core.network.GameCommandId;
@@ -22765,6 +22766,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (GamePlayerController jugador : players()) {
             nick2player.put(jugador.getNickname(), jugador);
         }
+
+        // The verifiable draw above establishes the canonical circular seat
+        // order. The GDX table was initially opened with lobby insertion order,
+        // which is only provisional and can differ from this ring; keeping it
+        // made otherwise-correct turns jump around the screen. Publish the
+        // authoritative roster before any hand event so every later nickname
+        // resolves to the same clockwise seat used by rondaApuestas/dealing.
+        awaitAttachedTableEvent(sequence -> new TableVisualEvent.SeatRoster(
+                sequence, TableSnapshotMapper.from(gameSession().table().snapshot())),
+                "Canonical seat-roster presentation barrier failed");
 
         if (create_client_recovery_game && !sqlNewGame()) {
             LOGGER.log(Level.SEVERE, "Client recovery could not create a valid local game row");

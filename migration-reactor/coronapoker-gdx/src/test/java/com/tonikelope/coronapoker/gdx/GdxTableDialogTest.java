@@ -44,6 +44,19 @@ final class GdxTableDialogTest {
         assertFalse(choice.result().toCompletableFuture().join());
     }
 
+    @Test
+    void rebuyAmountIsClampedAndMovesInRangeDerivedSteps() {
+        GdxTableDialog rebuy = new GdxTableDialog("RECOMPRAR", "", 0,
+                15, true, "CANCELAR", 10, 1000, 5000);
+        assertEquals(1000, rebuy.amount());
+        rebuy.changeAmount(-1);
+        assertEquals(990, rebuy.amount());
+        for (int i = 0; i < 200; i++) rebuy.changeAmount(-1);
+        assertEquals(10, rebuy.amount());
+        rebuy.timeout();
+        assertTrue(rebuy.result().toCompletableFuture().join());
+    }
+
     private static GdxTableDialog dialog(GdxTableDialog.Kind kind, int seconds) {
         return new GdxTableDialog(kind, "mensaje", GameDialogSink.Icon.NONE,
                 0, seconds);

@@ -1417,13 +1417,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(pointer);
         float panelW = dialogWidth(dialog);
-        float panelH = 390f;
+        float panelH = dialogHeight(dialog);
         float panelX = (viewport.getWorldWidth() - panelW) / 2f;
         float panelY = (viewport.getWorldHeight() - panelH) / 2f;
-        if (dialog.kind() == GdxTableDialog.Kind.CONFIRM
+        if (dialog.showsNegative()
                 && contains(pointer.x, pointer.y, panelX + 42f,
                         panelY + 34f, 230f, 64f)) {
             dialog.dismiss();
+        } else if (dialog.hasAmount()
+                && contains(pointer.x, pointer.y, panelX + panelW / 2f - 190f,
+                        panelY + 155f, 72f, 64f)) {
+            dialog.changeAmount(-1);
+        } else if (dialog.hasAmount()
+                && contains(pointer.x, pointer.y, panelX + panelW / 2f + 118f,
+                        panelY + 155f, 72f, 64f)) {
+            dialog.changeAmount(1);
         } else if (contains(pointer.x, pointer.y,
                 panelX + panelW - 272f, panelY + 34f, 230f, 64f)) {
             dialog.accept();
@@ -1433,6 +1441,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static float dialogWidth(GdxTableDialog dialog) {
         return MathUtils.clamp(dialog.preferredWidth() > 0
                 ? dialog.preferredWidth() : 860f, 620f, 1200f);
+    }
+
+    private static float dialogHeight(GdxTableDialog dialog) {
+        return dialog.hasAmount() ? 470f : 390f;
     }
 
     private void handleLiveTableInput() {
@@ -4548,15 +4560,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float width = viewport.getWorldWidth();
         float height = viewport.getWorldHeight();
         float panelW = dialogWidth(dialog);
-        float panelH = 390f;
+        float panelH = dialogHeight(dialog);
         float panelX = (width - panelW) / 2f;
         float panelY = (height - panelH) / 2f;
         float acceptX = panelX + panelW - 272f;
-        boolean confirm = dialog.kind() == GdxTableDialog.Kind.CONFIRM;
+        boolean choice = dialog.kind() == GdxTableDialog.Kind.CONFIRM
+                || dialog.hasAmount();
         Color accent = switch (dialog.kind()) {
             case ERROR -> FOLD_RED;
             case INFO -> CYAN;
-            case CONFIRM, TIMED_WARNING -> POT_GOLD;
+            case CONFIRM, TIMED_WARNING, REBUY -> POT_GOLD;
         };
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
@@ -4574,7 +4587,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.045f);
         roundedRect(panelX + 28f, panelY + 125f,
                 panelW - 56f, panelH - 222f, 12f);
-        if (confirm) {
+        if (dialog.showsNegative()) {
             drawDialogButton(panelX + 42f, panelY + 34f, 230f, 64f,
                     BUTTON_LINE, contains(pointer.x, pointer.y,
                             panelX + 42f, panelY + 34f, 230f, 64f), 1f);
@@ -4582,6 +4595,28 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawDialogButton(acceptX, panelY + 34f, 230f, 64f, accent,
                 contains(pointer.x, pointer.y, acceptX,
                         panelY + 34f, 230f, 64f), 1f);
+        if (dialog.hasAmount()) {
+            float minusX = panelX + panelW / 2f - 190f;
+            float plusX = panelX + panelW / 2f + 118f;
+            drawDialogButton(minusX, panelY + 155f, 72f, 64f,
+                    CYAN, contains(pointer.x, pointer.y, minusX,
+                            panelY + 155f, 72f, 64f), 1f);
+            drawDialogButton(plusX, panelY + 155f, 72f, 64f,
+                    CYAN, contains(pointer.x, pointer.y, plusX,
+                            panelY + 155f, 72f, 64f), 1f);
+        }
+        if (dialog.seconds() > 0) {
+            float progressW = panelW - 84f;
+            shapes.setColor(BUTTON_LINE.r, BUTTON_LINE.g,
+                    BUTTON_LINE.b, 0.80f);
+            roundedRect(panelX + 42f, panelY + 116f, progressW, 8f, 4f);
+            float remaining = progressW * dialog.remainingFraction(totalTime);
+            if (remaining > 0f) {
+                shapes.setColor(accent.r, accent.g, accent.b, 0.94f);
+                roundedRect(panelX + 42f, panelY + 116f,
+                        remaining, 8f, 4f);
+            }
+        }
         shapes.end();
 
         batch.begin();
@@ -4592,7 +4627,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float originalScaleX = dialogFontData.scaleX;
         float originalScaleY = dialogFontData.scaleY;
         float messageW = panelW - 112f;
-        float messageH = panelH - 240f;
+        float messageH = dialog.hasAmount() ? 86f : panelH - 240f;
         glyph.setText(uiFont, dialog.message(), Color.WHITE,
                 messageW, Align.center, true);
         if (glyph.height > messageH) {
@@ -4603,10 +4638,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         uiFont.setColor(Color.WHITE);
         uiFont.draw(batch, glyph, panelX + 56f,
-                panelY + 125f + (panelH - 222f + glyph.height) / 2f);
+                dialog.hasAmount() ? panelY + 286f
+                        : panelY + 125f + (panelH - 222f + glyph.height) / 2f);
         uiFont.setColor(Color.WHITE);
         dialogFontData.setScale(originalScaleX, originalScaleY);
-        if (confirm) {
+        if (dialog.hasAmount()) {
+            drawFittedCenteredInBox(actionFont, "−",
+                    panelX + panelW / 2f - 190f, panelY + 155f,
+                    72f, 64f, Color.WHITE, 1f);
+            drawFittedCenteredInBox(uiFont,
+                    Integer.toString(dialog.amount()),
+                    panelX + panelW / 2f - 110f, panelY + 155f,
+                    220f, 64f, POT_GOLD, 1f);
+            drawFittedCenteredInBox(actionFont, "+",
+                    panelX + panelW / 2f + 118f, panelY + 155f,
+                    72f, 64f, Color.WHITE, 1f);
+            drawFittedCenteredInBox(smallFont,
+                    dialog.minimumAmount() + "  —  " + dialog.maximumAmount(),
+                    panelX + panelW / 2f - 190f, panelY + 135f,
+                    380f, 24f, Color.LIGHT_GRAY, 1f);
+        }
+        if (dialog.showsNegative()) {
             drawFittedCenteredInBox(actionFont, dialog.negativeLabel(),
                     panelX + 42f, panelY + 34f, 230f, 64f,
                     Color.WHITE, 1f);

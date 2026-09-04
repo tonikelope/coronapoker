@@ -3,6 +3,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import com.tonikelope.coronapoker.core.game.GameDecisionSink;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
+import com.tonikelope.coronapoker.core.game.GameText;
 import com.tonikelope.coronapoker.core.game.PlayerState;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -15,6 +16,15 @@ import java.util.function.IntConsumer;
 final class GdxGameDecisionSink implements GameDecisionSink {
 
     private final GameDecisionSink fallback = GameDecisionSink.noop();
+    private final GameText text;
+
+    GdxGameDecisionSink() {
+        this(GameText.keys());
+    }
+
+    GdxGameDecisionSink(GameText text) {
+        this.text = Objects.requireNonNull(text, "text");
+    }
 
     @Override
     public RunItTwiceHandle showRunItTwice(int timeoutSeconds,
@@ -31,7 +41,8 @@ final class GdxGameDecisionSink implements GameDecisionSink {
 
     @Override
     public RebuyHandle showRebuy(RebuyRequest request) {
-        return fallback.showRebuy(request);
+        return new NativeRebuyHandle(Objects.requireNonNull(request,
+                "request"));
     }
 
     @Override
@@ -123,5 +134,31 @@ final class GdxGameDecisionSink implements GameDecisionSink {
         @Override public void accept() { dialog.accept(); }
         @Override public void decline() { dialog.dismiss(); }
         @Override public void refreshLayout() { }
+    }
+
+    private final class NativeRebuyHandle implements RebuyHandle {
+        private final CompletableFuture<RebuyResult> result =
+                new CompletableFuture<>();
+        private final GdxTableDialog dialog;
+
+        NativeRebuyHandle(RebuyRequest request) {
+            boolean cancelVisible = request.cancelAllowed()
+                    || request.automatic();
+            dialog = new GdxTableDialog(text.translate(request.headerKey()),
+                    "", 820, request.timeoutSeconds(),
+                    !request.cancelAllowed(), cancelVisible ? "CANCELAR" : "",
+                    request.minimum(), request.maximum(),
+                    request.defaultAmount());
+            dialog.result().thenAccept(accepted -> result.complete(
+                    new RebuyResult(accepted, dialog.amount())));
+            present(dialog);
+        }
+
+        @Override public CompletionStage<RebuyResult> result() { return result; }
+
+        @Override
+        public void close() {
+            if (!result.isDone()) dialog.dismiss();
+        }
     }
 }

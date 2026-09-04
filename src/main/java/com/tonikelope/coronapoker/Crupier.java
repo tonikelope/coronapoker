@@ -64,6 +64,7 @@ import com.tonikelope.coronapoker.core.game.GameIdentity;
 import com.tonikelope.coronapoker.core.game.GameIdentityVerifier;
 import com.tonikelope.coronapoker.core.game.GamePeerController;
 import com.tonikelope.coronapoker.core.game.GamePlayerController;
+import com.tonikelope.coronapoker.core.BlindStructureRules;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
 
 import java.io.File;
@@ -9424,10 +9425,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     // The effective blind ladder: the active custom structure, or else the default ladder
     // (1-2-3-5 x 10^n, from 0.1/0.2 up to 2,000,000/4,000,000). Both paths cap identically via
-    // BlindStructure.nextLevel, which stops increasing once the last level is reached.
+    // BlindStructureRules.nextLevel, which stops increasing once the last level is reached.
     private double[][] effectiveBlindStructure() {
         if (configuration().blindStructure().isEmpty()) {
-            return BlindStructure.defaultLevels();
+            return BlindStructureRules.defaultLevels();
         }
         return configuration().blindStructure().stream()
                 .map(level -> new double[]{level.smallBlind(), level.bigBlind()})
@@ -9435,14 +9436,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private double[] simulateNextBlinds() {
-        double[] next = BlindStructure.nextLevel(effectiveBlindStructure(), this.ciega_pequeña);
+        double[] next = BlindStructureRules.nextLevel(effectiveBlindStructure(), this.ciega_pequeña);
         return next != null ? next : new double[]{this.ciega_pequeña, this.ciega_grande};
     }
 
     private boolean checkDoblarCiegas() {
 
         synchronized (lock_ciegas) {
-            if (BlindStructure.nextLevel(effectiveBlindStructure(), this.ciega_pequeña) == null) {
+            if (BlindStructureRules.nextLevel(effectiveBlindStructure(), this.ciega_pequeña) == null) {
                 // Ladder exhausted (last level reached) or the current blind is off the
                 // ladder: stop increasing, never re-announce.
                 return false;
@@ -9465,7 +9466,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void doblarCiegas() {
 
-        double[] next = BlindStructure.nextLevel(effectiveBlindStructure(), this.ciega_pequeña);
+        double[] next = BlindStructureRules.nextLevel(effectiveBlindStructure(), this.ciega_pequeña);
 
         if (next == null) {
             // checkDoblarCiegas already vetoes this; defensive guard against a phantom

@@ -303,25 +303,12 @@ public final class BlindStructure {
     // same ladder level iff they have the same canonical cent value.
     // Validated ladders have strictly increasing small blinds (>= 0.05 apart), so
     // this key is unique per level and distinguishes e.g. 0.25 from 0.30.
-    private static int cents(double v) {
-        return Math.toIntExact(MoneyCents.fromDouble(v).cents());
-    }
-
     /**
      * Index of the level whose small blind matches {@code sb} at the game's
      * cent money resolution, or -1 if none.
      */
     public static int indexOfLevel(double[][] structure, double sb) {
-        if (structure == null) {
-            return -1;
-        }
-        int key = cents(sb);
-        for (int i = 0; i < structure.length; i++) {
-            if (cents(structure[i][0]) == key) {
-                return i;
-            }
-        }
-        return -1;
+        return com.tonikelope.coronapoker.core.BlindStructureRules.indexOfLevel(structure, sb);
     }
 
     /**
@@ -330,11 +317,7 @@ public final class BlindStructure {
      * or is not on this ladder at all. Returned as a fresh array.
      */
     public static double[] nextLevel(double[][] structure, double currentSb) {
-        int idx = indexOfLevel(structure, currentSb);
-        if (idx < 0 || idx + 1 >= structure.length) {
-            return null;
-        }
-        return new double[]{structure[idx + 1][0], structure[idx + 1][1]};
+        return com.tonikelope.coronapoker.core.BlindStructureRules.nextLevel(structure, currentSb);
     }
 
     // ----- Registry persistence -----------------------------------------------

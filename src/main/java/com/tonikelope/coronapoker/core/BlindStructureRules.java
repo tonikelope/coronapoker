@@ -1,5 +1,7 @@
 package com.tonikelope.coronapoker.core;
 
+import com.tonikelope.coronapoker.MoneyCents;
+
 /** Renderer-neutral validation and built-in ladder for blind structures. */
 public final class BlindStructureRules {
 
@@ -65,6 +67,33 @@ public final class BlindStructureRules {
             result[i] = new double[]{smallBlinds[i], smallBlinds[i] * 2};
         }
         return result;
+    }
+
+    /** Index of an exact cent-valued small blind in a validated ladder. */
+    public static int indexOfLevel(double[][] structure, double smallBlind) {
+        if (structure == null) {
+            return -1;
+        }
+        int key = cents(smallBlind);
+        for (int i = 0; i < structure.length; i++) {
+            if (cents(structure[i][0]) == key) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** Defensive copy of the next ladder level, or null at the top/off-ladder. */
+    public static double[] nextLevel(double[][] structure, double currentSmallBlind) {
+        int index = indexOfLevel(structure, currentSmallBlind);
+        if (index < 0 || index + 1 >= structure.length) {
+            return null;
+        }
+        return new double[]{structure[index + 1][0], structure[index + 1][1]};
+    }
+
+    private static int cents(double value) {
+        return Math.toIntExact(MoneyCents.fromDouble(value).cents());
     }
 
     private static boolean isBlindStep(double value) {

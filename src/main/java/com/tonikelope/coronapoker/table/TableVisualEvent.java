@@ -245,11 +245,21 @@ public sealed interface TableVisualEvent permits TableVisualEvent.Synchronize,
         }
     }
 
-    record Cinematic(long sequence, Type type, Phase phase) implements TableVisualEvent {
+    record Cinematic(long sequence, Type type, Phase phase, String assetName,
+            long durationMillis) implements TableVisualEvent {
+
+        public Cinematic(long sequence, Type type, Phase phase) {
+            this(sequence, type, phase, "", 0L);
+        }
 
         public Cinematic {
             Objects.requireNonNull(type, "type");
             Objects.requireNonNull(phase, "phase");
+            assetName = assetName == null ? "" : assetName;
+            if (durationMillis < 0L) {
+                throw new IllegalArgumentException(
+                        "Cinematic duration cannot be negative");
+            }
         }
 
         public enum Type {

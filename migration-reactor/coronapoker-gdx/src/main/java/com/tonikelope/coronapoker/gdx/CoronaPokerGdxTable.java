@@ -360,6 +360,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Texture[][][] holeCardHands;
     private GifTextureAnimation[] shuffleGifs;
     private GifTextureAnimation allInGif;
+    private final Map<String, GifTextureAnimation> liveAllInGifs = new HashMap<>();
 
     private Sound shuffleSound;
     private Sound dealSound;
@@ -398,6 +399,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private LiveActionChip liveActionChip;
     private LiveChipBatch liveChipBatch;
     private LivePayout livePayout;
+    private LiveCinematic liveCinematic;
     private LiveShuffle liveShuffle;
     private final List<LiveCardFlight> liveCardFlights = new ArrayList<>();
     private int liveHoleDealCount;
@@ -498,6 +500,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         System.out.printf("Shuffle audio cutoff: frame %d at %.0f ms%n",
                 SHUFFLE_AUDIO_STOP_FRAME, shuffleAudioStopTime * 1000f);
         allInGif = gif("cinematics/allin/rounders.gif", 563);
+        liveAllInGifs.put("rounders.gif", allInGif);
         shuffleSound = sound("sounds/misc/shuffle.wav");
         dealSound = sound("sounds/misc/deal.wav");
         uncoverSound = sound("sounds/misc/uncover.wav");
@@ -752,6 +755,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 throw new IllegalStateException("A GDX payout is already active");
             }
             livePayout = new LivePayout(payout, System.nanoTime(), barrier);
+        } else if (event instanceof TableVisualEvent.Cinematic cinematic
+                && cinematic.type() == TableVisualEvent.Cinematic.Type.ALL_IN
+                && cinematic.phase() == TableVisualEvent.Cinematic.Phase.START) {
+            if (liveCinematic != null) {
+                throw new IllegalStateException("A GDX cinematic is already active");
+            }
+            String asset = cinematic.assetName().isBlank()
+                    ? "rounders.gif" : cinematic.assetName();
+            GifTextureAnimation animation = liveAllInGifs.computeIfAbsent(asset,
+                    name -> gif("cinematics/allin/" + name, 563));
+            liveCinematic = new LiveCinematic(cinematic, animation,
+                    System.nanoTime(), barrier);
+            play(allInSound, 0.72f, 1f);
         } else if (event instanceof TableVisualEvent.Shuffle shuffle) {
             acceptLiveShuffle(shuffle, barrier);
         } else if (event instanceof TableVisualEvent.DealHoleCard deal) {
@@ -1216,6 +1232,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateLiveActionChip();
         updateLiveChipBatch();
         updateLivePayout();
+        updateLiveCinematic();
         updateLiveShuffle();
         updateLiveCardFlight();
         updateLiveHoleSwap();
@@ -3237,6 +3254,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawHandOverlay() {
         if (liveState != null) {
             drawLiveShuffleOverlay();
+            drawLiveCinematicOverlay();
             return;
         }
         if (isLayoutShowcase()) {
@@ -3289,6 +3307,49 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.setColor(Color.WHITE);
         batch.draw(active.animation.frameAt(active.elapsedSeconds(), true),
                 x, y, width, height);
+        batch.end();
+    }
+
+    private void drawLiveCinematicOverlay() {
+        LiveCinematic active = liveCinematic;
+        if (active == null) {
+            return;
+        }
+        float worldWidth = viewport.getWorldWidth();
+        float worldHeight = viewport.getWorldHeight();
+        float height = worldHeight * 0.5f;
+        float width = active.animation.width() * height
+                / active.animation.height();
+        float maxWidth = worldWidth * 0.8f;
+        if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+        }
+        float x = worldWidth / 2f - width / 2f;
+        float y = worldHeight / 2f - height / 2f;
+        float labelWidth = Math.min(width, 520f);
+        float labelX = worldWidth / 2f - labelWidth / 2f;
+        float labelY = y - 66f;
+        String nickname = liveState.snapshot().players().stream()
+                .filter(player -> "ALL_IN".equals(player.lastAction()))
+                .map(TableSnapshot.PlayerSnapshot::nickname)
+                .findFirst().orElse("ALL IN");
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        shapes.setColor(0f, 0f, 0f, 0.34f);
+        shapes.rect(0f, 0f, worldWidth, worldHeight);
+        shapes.setColor(ORANGE.r, ORANGE.g, ORANGE.b, 0.92f);
+        roundedRect(labelX - 2f, labelY - 2f,
+                labelWidth + 4f, 58f, 12f);
+        shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.96f);
+        roundedRect(labelX, labelY, labelWidth, 54f, 10f);
+        shapes.end();
+        batch.begin();
+        batch.setColor(Color.WHITE);
+        batch.draw(active.animation.frameAt(active.elapsedSeconds(), false),
+                x, y, width, height);
+        drawCentered(uiFont, nickname + "  //  ALL IN",
+                worldWidth / 2f, labelY + 37f, ORANGE, 1f);
         batch.end();
     }
 
@@ -3483,6 +3544,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             active.barrier.completeExceptionally(error);
         } finally {
             livePayout = null;
+        }
+    }
+
+    private void updateLiveCinematic() {
+        LiveCinematic active = liveCinematic;
+        if (active == null
+                || active.elapsedSeconds() < active.animation.durationSeconds()) {
+            return;
+        }
+        try {
+            liveState.apply(active.event);
+            active.barrier.complete(null);
+        } catch (Throwable error) {
+            active.barrier.completeExceptionally(error);
+        } finally {
+            liveCinematic = null;
         }
     }
 
@@ -4666,6 +4743,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         for (GifTextureAnimation shuffleGif : shuffleGifs) {
             shuffleGif.dispose();
         }
+        for (GifTextureAnimation cinematic : liveAllInGifs.values()) {
+            if (cinematic != allInGif) {
+                cinematic.dispose();
+            }
+        }
+        liveAllInGifs.clear();
         allInGif.dispose();
         shuffleSound.dispose();
         dealSound.dispose();
@@ -5004,6 +5087,28 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float progress(float elapsed) {
             return MathUtils.clamp((elapsed - startSeconds) / durationSeconds,
                     0f, 1f);
+        }
+    }
+
+    private static final class LiveCinematic {
+
+        final TableVisualEvent.Cinematic event;
+        final GifTextureAnimation animation;
+        final long startedAtNanos;
+        final CompletableFuture<Void> barrier;
+
+        LiveCinematic(TableVisualEvent.Cinematic event,
+                GifTextureAnimation animation, long startedAtNanos,
+                CompletableFuture<Void> barrier) {
+            this.event = event;
+            this.animation = animation;
+            this.startedAtNanos = startedAtNanos;
+            this.barrier = barrier;
+        }
+
+        float elapsedSeconds() {
+            return Math.max(0L, System.nanoTime() - startedAtNanos)
+                    / 1_000_000_000f;
         }
     }
 

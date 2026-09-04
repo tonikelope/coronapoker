@@ -9,6 +9,7 @@ import com.tonikelope.coronapoker.core.game.CoreGameDatabase;
 import com.tonikelope.coronapoker.core.game.CoreGameHand;
 import com.tonikelope.coronapoker.core.game.CoreGamePot;
 import com.tonikelope.coronapoker.core.game.CorePlayerController;
+import com.tonikelope.coronapoker.core.game.ClasspathGameCinematicAssets;
 import com.tonikelope.coronapoker.core.game.GameAsync;
 import com.tonikelope.coronapoker.core.game.GameAudioSink;
 import com.tonikelope.coronapoker.core.game.GameBotService;
@@ -116,11 +117,31 @@ public final class CoreGameTableFactory implements GameTableFactory {
                         lobby.recovering(), sessionId);
         GameText text = GameText.keys();
         GameWindowSink window = gameWindow(game, windowOpen);
+        GameCinematicAssets cinematicAssets =
+                new ClasspathGameCinematicAssets("cinematics/allin");
+        GameCinematicSink cinematics = request -> {
+            if (request.type() != GameCinematicSink.Type.ALL_IN
+                    || !events.isAttached()) {
+                return CompletableFuture.completedFuture(
+                        new GameCinematicSink.Result(false, false));
+            }
+            TableVisualEvent.Cinematic.Type type =
+                    TableVisualEvent.Cinematic.Type.ALL_IN;
+            return events.publish(sequence -> new TableVisualEvent.Cinematic(
+                    sequence, type, TableVisualEvent.Cinematic.Phase.START,
+                    request.assetName(), request.durationMillis()))
+                    .thenCompose(ignored -> events.publish(sequence ->
+                    new TableVisualEvent.Cinematic(sequence, type,
+                            TableVisualEvent.Cinematic.Phase.FINISH,
+                            request.assetName(), request.durationMillis())))
+                    .thenApply(ignored ->
+                    new GameCinematicSink.Result(true, false));
+        };
         Crupier dealer = new Crupier(game, players, local, peers, community,
                 context.identity(), GameLogSink.noop(), GameDialogSink.noop(),
                 GameDecisionSink.noop(), new CoreGameDatabase(database),
                 hostConfiguration, GameStateMirror.noop(),
-                RecoveredSettingsSynchronizer.noop(), GameCinematicSink.noop(),
+                RecoveredSettingsSynchronizer.noop(), cinematics,
                 GameProgressSink.noop(), pause, transport,
                 LobbyTransitionSink.noop(), TableDisplaySink.noop(), window,
                 GameUiExecutor.direct(), GameAudioSink.silent(),
@@ -128,7 +149,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 GameIdentityTrust.unverified(), text,
                 cards -> new CoreGameHand(cards, text), CoreGamePot::new,
                 GameRuntimeEnvironment.defaults(), GameCinematicState.idle(),
-                GameCinematicAssets.none(), GameValueFormatter.plain(),
+                cinematicAssets, GameValueFormatter.plain(),
                 GameBotService.standalone(), events);
 
         players.forEach(player -> player.bindPotRegistration(

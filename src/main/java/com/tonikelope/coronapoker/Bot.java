@@ -35,6 +35,7 @@ import com.tonikelope.coronapoker.bot.eval.MemoizedAlbertaEvaluator;
 import com.tonikelope.coronapoker.bot.eval.Potential;
 import com.tonikelope.coronapoker.core.game.CardCode;
 import com.tonikelope.coronapoker.core.game.GameCardController;
+import com.tonikelope.coronapoker.core.game.GameOpponentStats;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
@@ -139,7 +140,7 @@ public class Bot {
      * across hands, used to bias fold-equity and bet/call decisions toward an
      * opponent's observed tendencies.
      */
-    public static class OpponentTracker {
+    public static class OpponentTracker implements GameOpponentStats {
 
         private int handsPlayed = 0;
         private int voluntarilyPutInPot = 0;

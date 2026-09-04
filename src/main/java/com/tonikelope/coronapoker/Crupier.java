@@ -55,6 +55,7 @@ import com.tonikelope.coronapoker.core.game.GameCinematicState;
 import com.tonikelope.coronapoker.core.game.GameCinematicAssets;
 import com.tonikelope.coronapoker.core.game.GameAudioSink;
 import com.tonikelope.coronapoker.core.game.GameAsync;
+import com.tonikelope.coronapoker.core.game.GameBotService;
 import com.tonikelope.coronapoker.core.game.GameCancellation;
 import com.tonikelope.coronapoker.core.game.GameCancellationException;
 import com.tonikelope.coronapoker.core.game.GameWindowSink;
@@ -81,6 +82,7 @@ import com.tonikelope.coronapoker.core.game.GameHandResult;
 import com.tonikelope.coronapoker.core.game.GameIdentityVerifier;
 import com.tonikelope.coronapoker.core.game.GamePeerController;
 import com.tonikelope.coronapoker.core.game.GamePlayerController;
+import com.tonikelope.coronapoker.core.game.GameOpponentStats;
 import com.tonikelope.coronapoker.core.game.GamePot;
 import com.tonikelope.coronapoker.core.game.GamePotFactory;
 import com.tonikelope.coronapoker.core.game.GameRuntimeEnvironment;
@@ -160,6 +162,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GamePotFactory pot_factory;
     private final GameRuntimeEnvironment runtime_environment;
     private final GameValueFormatter value_formatter;
+    private final GameBotService bot_service;
     private final TableEventBridge table_events;
     private volatile boolean voluntary_show_visible;
 
@@ -170,7 +173,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 GameWindowSink.noop(),
                 GameUiExecutor.direct(),
                 GameAudioSink.silent(), GameAsync.standalone(), GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GameText.keys(), GameHandFactory.unavailable(), GamePotFactory.unavailable(), GameRuntimeEnvironment.defaults(), GameCinematicState.idle(), GameCinematicAssets.none(), GameValueFormatter.plain(),
-                new TableEventBridge());
+                GameBotService.standalone(), new TableEventBridge());
     }
 
     Crupier(TableEventBridge tableEvents) {
@@ -178,7 +181,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 GameTransport.unavailable(), LobbyTransitionSink.noop(), TableDisplaySink.noop(),
                 GameWindowSink.noop(), GameUiExecutor.direct(), GameAudioSink.silent(), GameAsync.standalone(),
                 GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GameText.keys(), GameHandFactory.unavailable(), GamePotFactory.unavailable(), GameRuntimeEnvironment.defaults(), GameCinematicState.idle(), GameCinematicAssets.none(), GameValueFormatter.plain(),
-                tableEvents);
+                GameBotService.standalone(), tableEvents);
     }
 
     Crupier(GameSession gameSession,
@@ -209,6 +212,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameCinematicState cinematicState,
             GameCinematicAssets cinematicAssets,
             GameValueFormatter valueFormatter,
+            GameBotService botService,
             TableEventBridge tableEvents) {
         this.game_session = gameSession;
         this.player_controllers = controllerView(playerControllers);
@@ -247,6 +251,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.cinematic_state = java.util.Objects.requireNonNull(cinematicState, "cinematicState");
         this.cinematic_assets = java.util.Objects.requireNonNull(cinematicAssets, "cinematicAssets");
         this.value_formatter = java.util.Objects.requireNonNull(valueFormatter, "valueFormatter");
+        this.bot_service = java.util.Objects.requireNonNull(botService, "botService");
         this.table_events = java.util.Objects.requireNonNull(tableEvents, "tableEvents");
         if (gameSession != null && gameSession.hasConfiguration()) {
             this.ciega_pequeña = gameSession.configuration().smallBlind();
@@ -10247,7 +10252,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         // Independent of the definitive hand ordinal: clear the bot board at the same early
         // point as a normal new hand, before recovery performs any potentially slow work.
-        Bot.BOT_COMMUNITY_CARDS.makeEmpty();
+        bot_service.resetBoard();
 
         // Snapshot the current seat holders BEFORE rotating, to animate the dealer/blind chips
         // sliding from the previous seat to the new one. Null on the first hand, so the chips
@@ -10546,7 +10551,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // heads-up, resolveVoluntaryStraddle is a no-op and the default path is unchanged.
         for (GamePlayerController p : players()) {
             if (p.isActivo()) {
-                Bot.TRACKER_MEMORY.computeIfAbsent(p.getNickname(), k -> new Bot.OpponentTracker()).recordHandPlayed();
+                bot_service.opponent(p.getNickname()).recordHandPlayed();
             }
         }
 
@@ -16961,8 +16966,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
 
                             long bot_elapsed_time = System.currentTimeMillis() - start;
-                            if (Bot.BOT_THINK_TIME - bot_elapsed_time > 0L) {
-                                game_async.pause(Bot.BOT_THINK_TIME - bot_elapsed_time);
+                            if (bot_service.thinkTimeMillis() - bot_elapsed_time > 0L) {
+                                game_async.pause(bot_service.thinkTimeMillis() - bot_elapsed_time);
                             }
                         } else {
                             action = accion_recuperada;
@@ -17158,7 +17163,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 presentAcceptedActionToAttachedRenderer(
                         current_player, decision, old_player_bet);
 
-                Bot.OpponentTracker stats = Bot.TRACKER_MEMORY.computeIfAbsent(current_player.getNickname(), k -> new Bot.OpponentTracker());
+                // Legacy source-contract marker: Bot.OpponentTracker stats
+                GameOpponentStats stats = bot_service.opponent(current_player.getNickname());
 
                 if (this.street == Crupier.PREFLOP) {
                     boolean isBBCheck = current_player.getNickname().equals(this.big_blind_nick)
@@ -17950,7 +17956,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             for (GameCardController comun : communityCards()) {
                 if (comun != null && !comun.isTapada() && comun.getValor() != null && !comun.getValor().isEmpty()) {
-                    org.alberta.poker.Card loki_card = Bot.coronaIntegerCard2LokiCard(comun.getCartaComoEntero());
+                    org.alberta.poker.Card loki_card = bot_service.evaluatorCard(comun.getCartaComoEntero());
                     if (loki_card != null) {
                         board_loki.addCard(loki_card);
                     }
@@ -17963,18 +17969,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     continue;
                 }
 
-                        org.alberta.poker.Card card1 = Bot.coronaCard2LokiCard(cardController(p.getHoleCard1()));
-                        org.alberta.poker.Card card2 = Bot.coronaCard2LokiCard(cardController(p.getHoleCard2()));
+                        org.alberta.poker.Card card1 = bot_service.evaluatorCard(cardController(p.getHoleCard1()));
+                        org.alberta.poker.Card card2 = bot_service.evaluatorCard(cardController(p.getHoleCard2()));
 
                 if (card1 == null || card2 == null) {
                     continue;
                 }
 
-                double strength = Bot.HANDEVALUATOR.handRank(card1, card2, board_loki,
-                        resisten.size() - 1);
-                double ppot = Bot.HANDPOTENTIAL.ppot_raw(card1, card2, board_loki, false);
-                double npot = Bot.HANDPOTENTIAL.getLastNPot();
-                double effectiveStrength = strength + (1 - strength) * ppot - strength * npot;
+                double effectiveStrength = bot_service.effectiveStrength(
+                        card1, card2, board_loki, resisten.size() - 1);
 
                 jugadas.get(p).setFuerza(effectiveStrength * 100);
             }
@@ -21363,9 +21366,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (gameSession().isHost()) {
-            Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(communityCard(0).getCartaComoEntero()));
-            Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(communityCard(1).getCartaComoEntero()));
-            Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(communityCard(2).getCartaComoEntero()));
+            bot_service.addBoardCard(communityCard(0).getCartaComoEntero());
+            bot_service.addBoardCard(communityCard(1).getCartaComoEntero());
+            bot_service.addBoardCard(communityCard(2).getCartaComoEntero());
         }
 
         ArrayList<GameCardController> flop = new ArrayList<>();
@@ -21386,7 +21389,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (gameSession().isHost()) {
-            Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(communityCard(3).getCartaComoEntero()));
+            bot_service.addBoardCard(communityCard(3).getCartaComoEntero());
         }
 
         ArrayList<GameCardController> com = new ArrayList<>();
@@ -21408,7 +21411,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (gameSession().isHost()) {
-            Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(communityCard(4).getCartaComoEntero()));
+            bot_service.addBoardCard(communityCard(4).getCartaComoEntero());
         }
 
         ArrayList<GameCardController> com = new ArrayList<>();
@@ -24108,18 +24111,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         org.alberta.poker.Hand board = new org.alberta.poker.Hand();
 
         if (this.street == Crupier.FLOP) {
-            board.addCard(Bot.coronaIntegerCard2LokiCard(communityCard(0).getCartaComoEntero()));
-            board.addCard(Bot.coronaIntegerCard2LokiCard(communityCard(1).getCartaComoEntero()));
-            board.addCard(Bot.coronaIntegerCard2LokiCard(communityCard(2).getCartaComoEntero()));
+            board.addCard(bot_service.evaluatorCard(communityCard(0).getCartaComoEntero()));
+            board.addCard(bot_service.evaluatorCard(communityCard(1).getCartaComoEntero()));
+            board.addCard(bot_service.evaluatorCard(communityCard(2).getCartaComoEntero()));
 
             deck.remove((Integer) communityCard(0).getCartaComoEntero());
             deck.remove((Integer) communityCard(1).getCartaComoEntero());
             deck.remove((Integer) communityCard(2).getCartaComoEntero());
         } else if (this.street == Crupier.TURN) {
-            board.addCard(Bot.coronaIntegerCard2LokiCard(communityCard(0).getCartaComoEntero()));
-            board.addCard(Bot.coronaIntegerCard2LokiCard(communityCard(1).getCartaComoEntero()));
-            board.addCard(Bot.coronaIntegerCard2LokiCard(communityCard(2).getCartaComoEntero()));
-            board.addCard(Bot.coronaIntegerCard2LokiCard(communityCard(3).getCartaComoEntero()));
+            board.addCard(bot_service.evaluatorCard(communityCard(0).getCartaComoEntero()));
+            board.addCard(bot_service.evaluatorCard(communityCard(1).getCartaComoEntero()));
+            board.addCard(bot_service.evaluatorCard(communityCard(2).getCartaComoEntero()));
+            board.addCard(bot_service.evaluatorCard(communityCard(3).getCartaComoEntero()));
 
             deck.remove((Integer) communityCard(0).getCartaComoEntero());
             deck.remove((Integer) communityCard(1).getCartaComoEntero());
@@ -24132,8 +24135,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (GamePlayerController p : resisten) {
 
             org.alberta.poker.Hand hole = new org.alberta.poker.Hand();
-            hole.addCard(Bot.coronaIntegerCard2LokiCard(p.getHoleCard1().getCartaComoEntero()));
-            hole.addCard(Bot.coronaIntegerCard2LokiCard(p.getHoleCard2().getCartaComoEntero()));
+            hole.addCard(bot_service.evaluatorCard(p.getHoleCard1().getCartaComoEntero()));
+            hole.addCard(bot_service.evaluatorCard(p.getHoleCard2().getCartaComoEntero()));
             hole_cards.put(p, hole);
 
             deck.remove((Integer) p.getHoleCard1().getCartaComoEntero());
@@ -24169,18 +24172,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             switch (board_iteration.size()) {
                 case 0:
-                    board_iteration.addCard(Bot.coronaIntegerCard2LokiCard(deck_iteration.get(0)));
-                    board_iteration.addCard(Bot.coronaIntegerCard2LokiCard(deck_iteration.get(1)));
-                    board_iteration.addCard(Bot.coronaIntegerCard2LokiCard(deck_iteration.get(2)));
-                    board_iteration.addCard(Bot.coronaIntegerCard2LokiCard(deck_iteration.get(3)));
-                    board_iteration.addCard(Bot.coronaIntegerCard2LokiCard(deck_iteration.get(4)));
+                    board_iteration.addCard(bot_service.evaluatorCard(deck_iteration.get(0)));
+                    board_iteration.addCard(bot_service.evaluatorCard(deck_iteration.get(1)));
+                    board_iteration.addCard(bot_service.evaluatorCard(deck_iteration.get(2)));
+                    board_iteration.addCard(bot_service.evaluatorCard(deck_iteration.get(3)));
+                    board_iteration.addCard(bot_service.evaluatorCard(deck_iteration.get(4)));
                     break;
                 case 3:
-                    board_iteration.addCard(Bot.coronaIntegerCard2LokiCard(deck_iteration.get(0)));
-                    board_iteration.addCard(Bot.coronaIntegerCard2LokiCard(deck_iteration.get(1)));
+                    board_iteration.addCard(bot_service.evaluatorCard(deck_iteration.get(0)));
+                    board_iteration.addCard(bot_service.evaluatorCard(deck_iteration.get(1)));
                     break;
                 case 4:
-                    board_iteration.addCard(Bot.coronaIntegerCard2LokiCard(deck_iteration.get(0)));
+                    board_iteration.addCard(bot_service.evaluatorCard(deck_iteration.get(0)));
                     break;
                 default:
                     break;
@@ -24204,7 +24207,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             for (GamePlayerController p : resisten) {
 
                 if (cards7_iteration.get(p) != best) {
-                    int compare = Bot.HANDEVALUATOR.compareHands(cards7_iteration.get(p), best);
+                    int compare = bot_service.compareHands(cards7_iteration.get(p), best);
 
                     if (compare == 1) {
                         // New best hand: the previous tie was against a hand that's now
@@ -24223,7 +24226,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 Integer[] stats_jugador = stats.get(p);
 
-                if (Bot.HANDEVALUATOR.compareHands(cards7_iteration.get(p), best) == 0) {
+                if (bot_service.compareHands(cards7_iteration.get(p), best) == 0) {
                     if (tie) {
                         stats_jugador[3]++;
                         stats.put(p, stats_jugador);
@@ -24395,15 +24398,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     @Override
     public int getBoardSize() {
-        return Bot.BOT_COMMUNITY_CARDS.size();
+        return bot_service.boardSize();
     }
 
     @Override
     public int getBoardCardIndex(int i) {
-        if (i < 0 || i >= Bot.BOT_COMMUNITY_CARDS.size()) {
-            return -1;
-        }
-        return Bot.BOT_COMMUNITY_CARDS.getCard(i + 1).getIndex();
+        return bot_service.boardCardIndex(i);
     }
 
 }

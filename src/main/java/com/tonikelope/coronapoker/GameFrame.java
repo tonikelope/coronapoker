@@ -5541,6 +5541,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 new SwingGameCinematicState(),
                 new SwingGameCinematicAssets(),
                 new SwingGameValueFormatter(),
+                new SwingGameBotService(),
                 table_events);
 
         initComponents();

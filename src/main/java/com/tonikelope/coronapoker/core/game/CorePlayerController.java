@@ -15,7 +15,7 @@ public final class CorePlayerController implements GamePlayerController {
     private final CoreCardController firstCard;
     private final CoreCardController secondCard;
     private final boolean local;
-    private final Bot bot;
+    private volatile Bot bot;
     private final Object revealLock = new Object();
     private volatile DealerView dealer;
     private volatile boolean spectatorBigBlind;
@@ -25,6 +25,8 @@ public final class CorePlayerController implements GamePlayerController {
     private volatile int winCount;
     private volatile int rabbitCount;
     private volatile int parguelaCount;
+    private volatile Runnable turnCompletionSignal = () -> { };
+    private volatile Runnable potRegistration = () -> { };
 
     private CorePlayerController(String nickname, boolean local, boolean automated) {
         this.local = local;
@@ -56,6 +58,16 @@ public final class CorePlayerController implements GamePlayerController {
 
     public boolean isBot() {
         return bot != null;
+    }
+
+    /** Binds the dealer wait that must be released after a renderer decision. */
+    public void bindTurnCompletionSignal(Runnable signal) {
+        turnCompletionSignal = Objects.requireNonNull(signal, "signal");
+    }
+
+    /** Binds this player to the dealer's current per-hand pot. */
+    public void bindPotRegistration(Runnable registration) {
+        potRegistration = Objects.requireNonNull(registration, "registration");
     }
 
     @Override
@@ -95,6 +107,7 @@ public final class CorePlayerController implements GamePlayerController {
             default -> { return false; }
         }
         setTurn(false);
+        turnCompletionSignal.run();
         return true;
     }
 
@@ -160,7 +173,22 @@ public final class CorePlayerController implements GamePlayerController {
     @Override public void setTimeout(boolean value) { state.setTimedOut(value); }
     @Override public String getNickname() { return state.nickname(); }
     @Override public PlayerState getState() { return state; }
-    @Override public void setNickname(String name) { state.setNickname(name); }
+    @Override
+    public synchronized void setNickname(String name) {
+        state.setNickname(name);
+        if (!local && state instanceof RemotePlayerState remote) {
+            boolean automated = name.contains("$");
+            remote.setBot(automated);
+            if (automated && bot == null) {
+                bot = new Bot(this);
+                DealerView current = dealer;
+                if (current != null) bot.setContext(current, null);
+            } else if (!automated) {
+                bot = null;
+            }
+        }
+        state.setActive(!isExit() && !isSpectator());
+    }
     @Override public CoreCardController getHoleCard1() { return firstCard; }
     @Override public CoreCardController getHoleCard2() { return secondCard; }
     @Override public List<CoreCardController> getHoleCards() {
@@ -192,6 +220,7 @@ public final class CorePlayerController implements GamePlayerController {
             underTheGun = nickname.equals(current.getUtg_nick());
         }
         state.setPosition(position);
+        postForcedBlind(current, position);
         if (spectatorBigBlind && current != null) {
             spectatorBigBlind = false;
             double blind = current.getCiega_grande();
@@ -200,6 +229,28 @@ public final class CorePlayerController implements GamePlayerController {
                 setBet(getStack());
                 setDecision(ALLIN, "ALL IN");
             }
+        }
+    }
+
+    private void postForcedBlind(DealerView current,
+            PlayerState.Position position) {
+        if (current == null) {
+            return;
+        }
+        boolean headsUpDealer = position == PlayerState.Position.DEALER
+                && getNickname().equals(current.getSb_nick());
+        double blind = position == PlayerState.Position.BIG_BLIND
+                ? current.getCiega_grande()
+                : position == PlayerState.Position.SMALL_BLIND || headsUpDealer
+                        ? current.getCiega_pequeña() : 0d;
+        if (MoneyMath.compare(blind, 0d) <= 0) {
+            return;
+        }
+        if (MoneyMath.compare(blind, getStack()) < 0) {
+            setBet(blind);
+        } else {
+            setBet(getStack());
+            setDecision(ALLIN, "ALL IN");
         }
     }
 
@@ -226,6 +277,7 @@ public final class CorePlayerController implements GamePlayerController {
             state.setPotContribution(MoneyMath.clean(getBote() + difference));
             setStack(getStack() - difference);
         }
+        potRegistration.run();
     }
 
     @Override
@@ -239,6 +291,7 @@ public final class CorePlayerController implements GamePlayerController {
         }
         state.setPotContribution(MoneyMath.clean(getBote() + actual));
         setStack(getStack() - actual);
+        potRegistration.run();
         return actual;
     }
 
@@ -314,6 +367,7 @@ public final class CorePlayerController implements GamePlayerController {
         state.setTimedOut(false);
         state.setActive(false);
         setTurn(false);
+        turnCompletionSignal.run();
     }
     @Override public String getLastActionString() { return state.lastAction(); }
     @Override public void setBuyin(int buyin) { state.setBuyIn(buyin); }

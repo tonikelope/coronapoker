@@ -367,6 +367,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Sound allInSound;
     private Sound showdownSound;
     private Music backgroundMusic;
+    private final boolean audioMuted = Boolean.getBoolean("coronapoker.gdx.silent");
 
     private float tableCenterX;
     private float tableCenterY;
@@ -393,6 +394,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private LiveChipBatch liveChipBatch;
     private LiveShuffle liveShuffle;
     private LiveCardFlight liveCardFlight;
+    private LiveHoleSwap liveHoleSwap;
     private final Map<String, Texture> liveCardFaces = new HashMap<>();
     private String liveDeck = "goliat";
     private double liveBetAmount = 1d;
@@ -524,7 +526,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         backgroundMusic.setLooping(true);
         // Same ambient-music attenuation used by CoronaPoker's Audio subsystem.
         backgroundMusic.setVolume(musicVolume);
-        backgroundMusic.play();
+        if (!audioMuted) {
+            backgroundMusic.play();
+        }
         Gdx.input.setCursorCatched(false);
     }
 
@@ -736,6 +740,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             liveCardFlight = new LiveCardFlight(event, System.nanoTime(), barrier);
             play(dealSound, 0.32f, 1f);
+        } else if (event instanceof TableVisualEvent.SwapHoleCards swap) {
+            if (liveHoleSwap != null) {
+                throw new IllegalStateException("A GDX hole-card swap is already active");
+            }
+            TableSnapshot.PlayerSnapshot player = liveState.snapshot().players()
+                    .stream()
+                    .filter(candidate -> candidate.nickname().equals(swap.nickname()))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Cannot animate cards for missing player "
+                            + swap.nickname()));
+            liveHoleSwap = new LiveHoleSwap(swap, System.nanoTime(),
+                    player.holeCards());
+            liveState.apply(event);
+            syncSeatsFromLiveState();
+            barrier.complete(null);
         } else {
             liveState.apply(event);
             if (event instanceof TableVisualEvent.ActionControls controls) {
@@ -1131,6 +1151,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateLiveChipBatch();
         updateLiveShuffle();
         updateLiveCardFlight();
+        updateLiveHoleSwap();
         recordFrame(delta);
         handleInput();
         updateStars(delta);
@@ -1478,8 +1499,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawTableBranding(float height) {
         batch.begin();
         batch.setColor(Color.WHITE);
-        batch.draw(logo, 42f, height - 145f, 235f,
-                235f * logo.getHeight() / logo.getWidth());
+        float logoWidth = 235f;
+        float logoHeight = logoWidth * logo.getHeight() / logo.getWidth();
+        batch.draw(logo, 42f, height - 32f - logoHeight,
+                logoWidth, logoHeight);
         batch.end();
     }
 
@@ -1760,6 +1783,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (seat == null) {
                     continue;
                 }
+                if (liveHoleSwap != null
+                        && liveHoleSwap.event.nickname().equals(player.nickname())) {
+                    drawLiveHoleSwap(seat, cardBack);
+                    continue;
+                }
                 for (int slot = 0; slot < player.holeCards().size() && slot < 2; slot++) {
                     TableSnapshot.CardSnapshot card = player.holeCards().get(slot);
                     LiveCardPlacement placement = liveHolePlacement(seat, slot);
@@ -1792,6 +1820,33 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.setShader(null);
         batch.setColor(Color.WHITE);
         batch.end();
+    }
+
+    private void drawLiveHoleSwap(Seat seat, Texture cardBack) {
+        if (liveHoleSwap.cards.size() < 2) {
+            return;
+        }
+        float raw = liveHoleSwap.progress();
+        float motion = Interpolation.smoother.apply(raw);
+        float arc = MathUtils.sin(motion * MathUtils.PI);
+        float towardX = tableCenterX - seat.x;
+        float towardY = tableCenterY - seat.y;
+        float length = Math.max(1f, (float) Math.sqrt(
+                towardX * towardX + towardY * towardY));
+        towardX /= length;
+        towardY /= length;
+
+        for (int slot = 0; slot < 2; slot++) {
+            LiveCardPlacement from = liveHolePlacement(seat, slot);
+            LiveCardPlacement to = liveHolePlacement(seat, 1 - slot);
+            float lane = slot == 0 ? -30f : 46f;
+            LiveCardPlacement animated = new LiveCardPlacement(
+                    MathUtils.lerp(from.x, to.x, motion) + towardX * arc * lane,
+                    MathUtils.lerp(from.y, to.y, motion) + towardY * arc * lane,
+                    from.width, from.height,
+                    MathUtils.lerp(from.rotation, to.rotation, motion));
+            drawLiveRestingCard(liveHoleSwap.cards.get(slot), animated, cardBack);
+        }
     }
 
     private LiveCardPlacement liveHolePlacement(Seat seat, int slot) {
@@ -2165,6 +2220,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        float boardWidth = cardW + 4f * gap;
+        drawSharedTurnBar(firstX, cardY - 38f, boardWidth, handTime());
         shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b, 0.78f * alpha);
         roundedRect(panelX - 2f, panelY - 2f,
                 panelWidth + 4f, panelHeight + 4f, 13f);
@@ -2293,7 +2350,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
 
         if (crossed(previous, current, SHUFFLE_START)) {
-            shuffleSoundId = shuffleSound.play(0.62f * effectsVolume, 1f, 0f);
+            startShuffleSound();
         }
         if (crossed(previous, current, SHUFFLE_START + shuffleAudioStopTime)) {
             stopShuffleSound();
@@ -2513,7 +2570,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void play(Sound sound, float volume, float pitch) {
+        if (audioMuted) {
+            return;
+        }
         sound.play(volume * effectsVolume, pitch, 0f);
+    }
+
+    private void startShuffleSound() {
+        if (!audioMuted) {
+            shuffleSoundId = shuffleSound.play(0.62f * effectsVolume, 1f, 0f);
+        }
     }
 
     private void stopShuffleSound() {
@@ -2586,7 +2652,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void startLiveShuffleSound(LiveShuffle active) {
-        shuffleSoundId = shuffleSound.play(0.62f * effectsVolume, 1f, 0f);
+        startShuffleSound();
         active.soundStopped = false;
     }
 
@@ -2608,6 +2674,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } finally {
             liveCardFlight = null;
         }
+    }
+
+    private void updateLiveHoleSwap() {
+        LiveHoleSwap active = liveHoleSwap;
+        if (active == null || !active.finished()) {
+            return;
+        }
+        liveHoleSwap = null;
     }
 
     private Texture liveCardFace(String code) {
@@ -3341,7 +3415,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.setColor(0.018f, 0.032f, 0.055f, 0.96f);
         roundedRect(x, y, width, height, 5f);
         if (remaining > 0.002f) {
-            float fillWidth = Math.max(height, width * remaining);
+            float fillWidth = width * remaining;
             shapes.setColor(timerColor.r, timerColor.g, timerColor.b, 0.96f);
             roundedRect(x, y, fillWidth, height, 5f);
         }
@@ -3471,7 +3545,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 Color.WHITE, contentAlpha);
         drawHudActionIcon(ACTION_ALLIN, allInX + 27f, iconY,
                 Color.WHITE, contentAlpha);
-        drawSharedTurnBar(hudX, hudY + hudHeight + 7f, hudWidth, handTime());
         shapes.end();
 
         batch.begin();
@@ -4149,6 +4222,37 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float elapsed = Math.max(0L, System.nanoTime() - startedAtNanos)
                     / 1_000_000_000f;
             return Math.min(1f, elapsed / DEAL_CARD_SECONDS);
+        }
+    }
+
+    private static final class LiveHoleSwap {
+
+        final TableVisualEvent.SwapHoleCards event;
+        final long startedAtNanos;
+        final List<TableSnapshot.CardSnapshot> cards;
+
+        LiveHoleSwap(TableVisualEvent.SwapHoleCards event, long startedAtNanos,
+                List<TableSnapshot.CardSnapshot> cards) {
+            this.event = event;
+            this.startedAtNanos = startedAtNanos;
+            this.cards = List.copyOf(cards);
+        }
+
+        float elapsedSeconds() {
+            return Math.max(0L, System.nanoTime() - startedAtNanos)
+                    / 1_000_000_000f;
+        }
+
+        float progress() {
+            return MathUtils.clamp(
+                    (elapsedSeconds() - CARD_FLIP_SECONDS - LOCAL_SWAP_DELAY)
+                    / LOCAL_SWAP_SECONDS,
+                    0f, 1f);
+        }
+
+        boolean finished() {
+            return elapsedSeconds() >= CARD_FLIP_SECONDS + LOCAL_SWAP_DELAY
+                    + LOCAL_SWAP_SECONDS;
         }
     }
 

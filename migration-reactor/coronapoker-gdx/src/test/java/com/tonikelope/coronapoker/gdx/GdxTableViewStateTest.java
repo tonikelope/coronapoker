@@ -79,6 +79,29 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void cardsAppearOnlyWhenTheirOwnDealEventLands() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+        assertEquals(0, player(state, "ana").holeCards().size());
+        assertEquals(0, state.snapshot().communityCards().size());
+
+        state.apply(new TableVisualEvent.DealHoleCard(1, "ana", 0,
+                new TableSnapshot.CardSnapshot("", false, false)));
+        assertEquals(1, player(state, "ana").holeCards().size());
+
+        state.apply(new TableVisualEvent.DealHoleCard(2, "ana", 1,
+                new TableSnapshot.CardSnapshot("", false, false)));
+        assertEquals(2, player(state, "ana").holeCards().size());
+
+        state.apply(new TableVisualEvent.DealCommunityCard(3, 0));
+        assertEquals(1, state.snapshot().communityCards().size());
+
+        state.apply(new TableVisualEvent.HandBoundary(4, 2,
+                TableVisualEvent.HandBoundary.Phase.PREPARE));
+        assertEquals(0, player(state, "ana").holeCards().size());
+        assertEquals(0, state.snapshot().communityCards().size());
+    }
+
+    @Test
     void acceptsEveryStateEventFamilyThroughPayoutAndClose() {
         GdxTableViewState state = new GdxTableViewState(snapshot());
         state.apply(new TableVisualEvent.PostChips(1, "ana", 10,

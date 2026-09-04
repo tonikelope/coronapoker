@@ -58,6 +58,10 @@ final class GdxApplicationShell extends ApplicationAdapter {
                     awaitTable(opened.lobby());
                 }, application::returnedToMenu);
         menu.create();
+        // Re-apply the swap interval after the native window and its target
+        // monitor exist. On mixed-refresh Windows desktops the configuration
+        // flag alone can otherwise remain tied to the primary display.
+        Gdx.graphics.setVSync(true);
     }
 
     private void awaitTable(LobbySession lobby) {
@@ -109,6 +113,9 @@ final class GdxApplicationShell extends ApplicationAdapter {
 
     @Override
     public void resize(int width, int height) {
+        // A window can cross to another refresh-rate monitor. Rebinding VSync
+        // here keeps GLFW's swap interval attached to the active context.
+        Gdx.graphics.setVSync(true);
         CoronaPokerGdxTable current = table;
         if (current != null) {
             current.resize(width, height);

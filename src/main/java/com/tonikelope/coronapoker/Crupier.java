@@ -10522,6 +10522,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             setContaManoLocal(this.conta_mano + 1);
         }
 
+        awaitAttachedTableEvent(sequence -> new TableVisualEvent.HandBoundary(
+                sequence, this.conta_mano,
+                TableVisualEvent.HandBoundary.Phase.PREPARE),
+                "New-hand presentation barrier failed");
+
         if (this.passive_recovery_observer) {
             // This peer was not a member of the recovered hand and therefore has
             // no evidence with which to verify or replay it. Returning success lets
@@ -11752,13 +11757,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             sequence, player.getNickname(), dealtSlot, snapshot),
                             "Hole-card deal presentation barrier failed");
 
-        GameCardController card = cardController(slot == 0 ? player.getHoleCard1() : player.getHoleCard2());
+                    GameCardController card = cardController(slot == 0
+                            ? player.getHoleCard1() : player.getHoleCard2());
                     if (player == local && !deferStraddleReveal) {
                         card.iniciarConValorNumerico(
                                 (this.local_original_cards[slot] & 0xFF) + 1);
                         card.destapar(false);
                     } else {
                         card.iniciarCarta();
+                    }
+                    if (player == local && slot == 1 && !deferStraddleReveal
+                            && local.getHoleCard1().getValorNumerico() != -1
+                            && local.getHoleCard2().getValorNumerico() != -1
+                            && local.getHoleCard1().getValorNumerico()
+                            < local.getHoleCard2().getValorNumerico()) {
+                        awaitAttachedTableEvent(sequence
+                                -> new TableVisualEvent.SwapHoleCards(
+                                sequence, local.getNickname()),
+                                "Local hole-card swap presentation barrier failed");
                     }
                 }
                 index = (index + 1) % players.size();
@@ -11774,16 +11790,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             community[slot].iniciarCarta();
         }
 
-        boolean needsSwap = !deferStraddleReveal
-                && local.getHoleCard1().getValorNumerico() != -1
-                && local.getHoleCard2().getValorNumerico() != -1
-                && local.getHoleCard1().getValorNumerico()
-                < local.getHoleCard2().getValorNumerico();
-        if (needsSwap) {
-            awaitAttachedTableEvent(sequence -> new TableVisualEvent.SwapHoleCards(
-                    sequence, local.getNickname()),
-                    "Local hole-card swap presentation barrier failed");
-        }
         local.ordenarCartas();
     }
 

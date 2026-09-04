@@ -43,6 +43,7 @@
                         <include>com/tonikelope/coronapoker/BuyinRules.java</include>
                         <include>com/tonikelope/coronapoker/CanonicalActionRecord.java</include>
                         <include>com/tonikelope/coronapoker/CriticalVoteEnvelope.java</include>
+                        <include>com/tonikelope/coronapoker/CoreGameTableFactory.java</include>
                         <include>com/tonikelope/coronapoker/Crupier.java</include>
                         <include>com/tonikelope/coronapoker/DeterministicShuffle.java</include>
                         <include>com/tonikelope/coronapoker/EndOfHandRebuyWire.java</include>

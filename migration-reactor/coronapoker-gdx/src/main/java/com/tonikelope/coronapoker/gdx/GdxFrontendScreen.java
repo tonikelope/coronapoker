@@ -76,6 +76,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private SpriteBatch batch;
     private ShapeRenderer shapes;
     private Texture feltTexture;
+    private Texture logo;
     private BitmapFont titleFont;
     private BitmapFont headingFont;
     private BitmapFont actionFont;
@@ -173,6 +174,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         feltTexture = new Texture(Gdx.files.internal("images/tapete_verde.jpg"));
         feltTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
         feltTexture.setWrap(TextureWrap.Repeat, TextureWrap.Repeat);
+        logo = new Texture(Gdx.files.internal("images/corona_poker_splash.png"));
+        logo.setFilter(TextureFilter.Linear, TextureFilter.Linear);
         FreeTypeFontGenerator titleGenerator = new FreeTypeFontGenerator(
                 Gdx.files.internal("fonts/Montserrat-Bold.ttf"));
         titleFont = font(titleGenerator, 58, 0.35f);
@@ -180,7 +183,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         FreeTypeFontGenerator displayGenerator = new FreeTypeFontGenerator(
                 Gdx.files.internal("fonts/Montserrat-SemiBold.ttf"));
         headingFont = font(displayGenerator, 30, 0.2f);
-        actionFont = font(displayGenerator, 21, 0f);
+        actionFont = font(displayGenerator, 26, 0.2f);
         displayGenerator.dispose();
         FreeTypeFontGenerator bodyGenerator = new FreeTypeFontGenerator(
                 Gdx.files.internal("fonts/Inter-Medium.ttf"));
@@ -281,20 +284,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         batch.draw(feltTexture, 0f, 0f, WIDTH, HEIGHT,
                 0f, 0f, WIDTH / feltTexture.getWidth(),
                 HEIGHT / feltTexture.getHeight());
+        if (surface == Surface.MENU) {
+            float logoWidth = 320f;
+            float logoHeight = logoWidth * logo.getHeight() / logo.getWidth();
+            batch.draw(logo, 42f, HEIGHT - 32f - logoHeight,
+                    logoWidth, logoHeight);
+        }
         batch.setColor(Color.WHITE);
         batch.end();
     }
 
     private void drawMainMenu() {
-        shapes.setColor(new Color(0x31445f99));
-        shapes.rect(0f, 989f, WIDTH, 1f);
-        text(tinyFont, "PREVIEW · NAVEGACIÓN GDX · SIN SESIÓN", 1725f,
-                1039f, ORANGE, true);
-
-        panel(515f, 155f, 890f, 755f, "");
-        text(titleFont, "CORONAPOKER", 964f, 843f,
-                new Color(0x000000aa), true);
-        text(titleFont, "CORONAPOKER", 960f, 847f, GOLD, true);
+        panel(515f, 155f, 890f, 650f, "");
         button(595f, 625f, 730f, 82f, "CREAR TIMBA", true,
                 () -> openNewGame(NewGameConnectionDraft.Mode.CREATE));
         button(595f, 520f, 730f, 82f, "UNIRME A TIMBA", false,
@@ -1137,9 +1138,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             shapes.setColor(new Color(0x6d4300aa));
             shapes.rect(x + 18f, y + 6f, w - 36f, 3f);
         }
-        Color labelColor = !enabled ? DISABLED
-                : primary && !pressed(x, y, w, h)
-                        ? new Color(0x07111fff) : primary ? GOLD : CYAN;
+        Color labelColor = enabled ? GOLD : DISABLED;
         textFit(actionFont, label, x + w / 2f, y + h / 2f + 8f,
                 labelColor, true, w - 30f);
         if (enabled) {
@@ -1513,6 +1512,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         batch.dispose();
         shapes.dispose();
         feltTexture.dispose();
+        logo.dispose();
         titleFont.dispose();
         headingFont.dispose();
         actionFont.dispose();

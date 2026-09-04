@@ -17,6 +17,7 @@ final class GdxTableViewState {
     private long lastSequence;
     private long turnTotalMillis;
     private long turnRemainingMillis;
+    private long turnTimerUpdatedNanos;
     private ActionControlState actionControls = ActionControlState.disabled();
 
     GdxTableViewState(TableSnapshot initialState) {
@@ -36,7 +37,12 @@ final class GdxTableViewState {
     }
 
     long turnRemainingMillis() {
-        return turnRemainingMillis;
+        if (turnTotalMillis <= 0L || turnRemainingMillis <= 0L) {
+            return 0L;
+        }
+        long elapsedMillis = Math.max(0L,
+                (System.nanoTime() - turnTimerUpdatedNanos) / 1_000_000L);
+        return Math.max(0L, turnRemainingMillis - elapsedMillis);
     }
 
     ActionControlState actionControls() {
@@ -104,11 +110,13 @@ final class GdxTableViewState {
                     player.stack(), player.streetBet(), player.potContribution(),
                     player.active(), player.winner(), player.position(),
                     player.lastAction(), player.handName(),
-                    replaceCard(player.holeCards(), deal.slot(), deal.card(), 2)));
+                    replaceCard(player.holeCards(), deal.slot(), deal.card(),
+                            deal.slot() + 1)));
         } else if (event instanceof TableVisualEvent.DealCommunityCard deal) {
             snapshot = copySnapshot(snapshot, snapshot.pot(),
                     snapshot.currentTurnNickname(), snapshot.players(),
-                    replaceCard(snapshot.communityCards(), deal.slot(), HIDDEN_CARD, 5));
+                    replaceCard(snapshot.communityCards(), deal.slot(), HIDDEN_CARD,
+                            deal.slot() + 1));
         } else if (event instanceof TableVisualEvent.SwapHoleCards swap) {
             replacePlayer(swap.nickname(), player -> {
                 List<TableSnapshot.CardSnapshot> cards = padded(player.holeCards(), 2);
@@ -215,6 +223,7 @@ final class GdxTableViewState {
         }
         turnTotalMillis = timer.totalMillis();
         turnRemainingMillis = timer.remainingMillis();
+        turnTimerUpdatedNanos = System.nanoTime();
         snapshot = copySnapshot(snapshot, snapshot.pot(), timer.nickname(),
                 snapshot.players(), snapshot.communityCards());
     }
@@ -222,6 +231,7 @@ final class GdxTableViewState {
     private void stopTurn() {
         turnTotalMillis = 0L;
         turnRemainingMillis = 0L;
+        turnTimerUpdatedNanos = 0L;
         actionControls = ActionControlState.disabled();
         snapshot = copySnapshot(snapshot, snapshot.pot(), "",
                 snapshot.players(), snapshot.communityCards());

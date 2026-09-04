@@ -59,6 +59,8 @@ import com.tonikelope.coronapoker.core.game.HostGameConfigurationSource;
 import com.tonikelope.coronapoker.core.game.RecoveredSettingsSynchronizer;
 import com.tonikelope.coronapoker.core.game.ActionControlState;
 import com.tonikelope.coronapoker.core.game.GameCardController;
+import com.tonikelope.coronapoker.core.game.GameIdentity;
+import com.tonikelope.coronapoker.core.game.GameIdentityVerifier;
 import com.tonikelope.coronapoker.core.game.GamePeerController;
 import com.tonikelope.coronapoker.core.game.GamePlayerController;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
@@ -110,6 +112,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final java.util.ArrayList<GamePlayerController> player_controllers;
     private final GamePlayerController local_player_controller;
     private final java.util.Map<String, GamePeerController> peer_controllers;
+    private final GameIdentity game_identity;
     private final Card[] community_card_controllers;
     private final GameLogSink game_log;
     private final GameDialogSink game_dialogs;
@@ -132,7 +135,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean voluntary_show_visible;
 
     public Crupier() {
-        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), HostGameConfigurationSource.unavailable(), GameStateMirror.noop(), RecoveredSettingsSynchronizer.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
+        this(null, null, null, null, null, GameIdentity.unavailable(), GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), HostGameConfigurationSource.unavailable(), GameStateMirror.noop(), RecoveredSettingsSynchronizer.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(),
                 TableDisplaySink.noop(),
                 GameWindowSink.noop(),
@@ -142,7 +145,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     Crupier(TableEventBridge tableEvents) {
-        this(null, null, null, null, null, GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), HostGameConfigurationSource.unavailable(), GameStateMirror.noop(), RecoveredSettingsSynchronizer.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
+        this(null, null, null, null, null, GameIdentity.unavailable(), GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), HostGameConfigurationSource.unavailable(), GameStateMirror.noop(), RecoveredSettingsSynchronizer.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(), TableDisplaySink.noop(),
                 GameWindowSink.noop(), GameUiExecutor.direct(), GameAudioSink.silent(),
                 GamePresentationSettings.defaults(),
@@ -154,6 +157,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GamePlayerController localPlayerController,
             java.util.Map<String, ? extends GamePeerController> peerControllers,
             Card[] communityCardControllers,
+            GameIdentity gameIdentity,
             GameLogSink gameLog, GameDialogSink gameDialogs, GameDecisionSink gameDecisions,
             GameDatabase gameDatabase,
             HostGameConfigurationSource hostConfiguration,
@@ -173,6 +177,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.local_player_controller = localPlayerController;
         this.peer_controllers = peerControllerView(peerControllers);
         this.community_card_controllers = communityCardControllers;
+        this.game_identity = java.util.Objects.requireNonNull(gameIdentity, "gameIdentity");
         this.game_log = java.util.Objects.requireNonNull(gameLog, "gameLog");
         this.game_dialogs = java.util.Objects.requireNonNull(gameDialogs, "gameDialogs");
         this.game_decisions = java.util.Objects.requireNonNull(gameDecisions, "gameDecisions");
@@ -4186,7 +4191,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (pocketKey.length != 32) {
                 return "*";
             }
-            IdentityManager im = IdentityManager.getInstance();
+            GameIdentity im = game_identity;
             if (!im.isReady()) {
                 return "*";
             }
@@ -7793,7 +7798,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         LOGGER.log(Level.WARNING,
                                                 "SHOWCARDS for {0}: signer pubkey or hand_id not resolved; refusing",
                                                 nick);
-                                    } else if (!IdentityManager.verifyShowdownReveal(signerPubkey,
+                                    } else if (!game_identity.verifyShowdownRevealSignature(signerPubkey,
                                             this.current_hand_id, nick, sraKey,
                                             revealedCards[0], revealedCards[1], sig)) {
                                         if (!gameSession().isHost()) {
@@ -9909,7 +9914,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         byte[] nonce = new byte[RabbitFeeLedger.NONCE_BYTES];
         new java.security.SecureRandom().nextBytes(nonce);
-        IdentityManager identity = IdentityManager.getInstance();
+        GameIdentity identity = game_identity;
         if (!identity.isReady()) {
             LOGGER.log(Level.SEVERE, "Cannot sign Rabbit request: identity is not ready");
             return;
@@ -9931,7 +9936,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         byte[] requesterPubkey = request == null
                 ? null : resolveReceiptSignerPubkey(request.playerId());
-        if (requesterPubkey == null || !IdentityManager.verifyRabbitRequest(
+        if (requesterPubkey == null || !game_identity.verifyRabbitRequestSignature(
                 requesterPubkey, request.handId(), request.playerId(), request.nonce(),
                 request.requesterSignature())) {
             throw new IllegalArgumentException("invalid Rabbit requester signature");
@@ -9963,7 +9968,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final String nick = authorization.request().playerId();
         final int conta_rabbit = authorization.count();
         final byte[] requesterPubkey = resolveReceiptSignerPubkey(nick);
-        if (requesterPubkey == null || !IdentityManager.verifyRabbitRequest(
+        if (requesterPubkey == null || !game_identity.verifyRabbitRequestSignature(
                 requesterPubkey, requestedHandId, nick, authorization.request().nonce(),
                 authorization.request().requesterSignature())) {
             throw new IllegalArgumentException("invalid Rabbit requester signature");
@@ -12546,7 +12551,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         && signerKey != null
                                         && java.util.Arrays.equals(envelope.handId(), handIdSnap)
                                         && (envelope.flags() & ~0x07) == 0
-                                        && IdentityManager.verifyReceipt(signerKey,
+                                        && game_identity.verifyReceiptSignature(signerKey,
                                                 envelope.handId(), envelope.finalHash(),
                                                 envelope.flags(), envelope.signature());
                                 if (!validIngress) {
@@ -12690,7 +12695,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * this hand.
      */
     private byte[] buildLocalReceipt(byte[] handId, byte[] hFinal) {
-        IdentityManager im = IdentityManager.getInstance();
+        GameIdentity im = game_identity;
         if (!im.isReady()) {
             LOGGER.log(Level.SEVERE,
                     "Cannot build local receipt: identity not ready ({0})", im.getLoadError());
@@ -12870,7 +12875,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 missing.add(nick);
                 continue;
             }
-            if (!IdentityManager.verifyReceipt(pubkey, handId, hFinal, flags, sig)) {
+            if (!game_identity.verifyReceiptSignature(pubkey, handId, hFinal, flags, sig)) {
                 // Receipt does NOT verify against the peer's known pubkey: forgery
                 // or corrupted key. Stronger signal than absence → DIVERGENT.
                 LOGGER.log(Level.SEVERE, "Receipt signature INVALID for nick={0}", nick);
@@ -13036,7 +13041,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /**
      * Resolves the pubkey that should validate {@code nick}'s receipt sig. The
-     * host's own pubkey comes from IdentityManager when {@code nick} is the
+     * host's own pubkey comes from the injected identity when {@code nick} is the
      * local user; everyone else's comes from Participant.getIdentity_pubkey().
      */
     private byte[] resolveReceiptSignerPubkey(String nick) {
@@ -13044,7 +13049,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return null;
         }
         if (nick.equals(gameSession().localNickname())) {
-            return IdentityManager.getInstance().getPublicKey();
+            return game_identity.getPublicKey();
         }
         GamePeerController par = peers().get(nick);
         return par != null ? par.getIdentity_pubkey() : null;
@@ -13711,7 +13716,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                         printInvalidActionSigToRegistro(jugador.getNickname());
                                                         this.saw_invalid_action_sig = true;
                                                         synthesizeUnverifiedFoldAction(action);
-                                                    } else if (!IdentityManager.verifyAction(signerPubkey, wireRecord, wireSig)) {
+                                                    } else if (!game_identity.verifyActionSignature(signerPubkey, wireRecord, wireSig)) {
                                                         LOGGER.log(Level.SEVERE,
                                                                 "ZERO-TRUST: invalid Ed25519 signature on action by {0} (voluntary={1}) — SYNTHESIZING FOLD instead of applying falsified decision",
                                                                 new Object[]{jugador.getNickname(), wireVoluntary});
@@ -14345,13 +14350,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.WARNING, "STRADDLE_DECISION: cannot resolve pubkey for {0}", straddlerNick);
             return false;
         }
-        return IdentityManager.verifyStraddleDecision(pubkey, this.current_hand_id, straddlerNick, decision, sig);
+        return game_identity.verifyStraddleDecisionSignature(pubkey, this.current_hand_id,
+                straddlerNick, decision, sig);
     }
 
     // Signs the LOCAL player's straddle decision (when the host is the straddler, or the
     // straddler client before sending it). Null if identity isn't ready or hand_id is missing.
     private byte[] signLocalStraddleDecision(int decision) {
-        IdentityManager im = IdentityManager.getInstance();
+        GameIdentity im = game_identity;
         if (this.current_hand_id == null || !im.isReady()) {
             return null;
         }
@@ -16735,7 +16741,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         hostPubkey = hostPar.getIdentity_pubkey();
                     }
                 }
-                if (hostPubkey == null || !IdentityManager.verifyAction(hostPubkey, revealRecord, revealSig)) {
+                if (hostPubkey == null || !game_identity.verifyActionSignature(hostPubkey,
+                        revealRecord, revealSig)) {
                     rejectCriticalCommunityMessage(revealCommand,
                             "ZERO-TRUST: invalid COMM_REVEAL signature; closing host channel", null);
                     return false;
@@ -18066,7 +18073,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 warnMaliciousPeer(nick, "zero_trust.peer_sra_corrupt");
                 return false;
             }
-            if (!IdentityManager.verifyShowdownReveal(signerPubkey, this.current_hand_id,
+            if (!game_identity.verifyShowdownRevealSignature(signerPubkey, this.current_hand_id,
                     nick, key, cards[0], cards[1], sig)) {
                 LOGGER.log(Level.SEVERE,
                         "verifyAndStoreShowdownKey: card-bound Ed25519 signature FAILED for {0}.",
@@ -18747,7 +18754,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      *
      * Host's pubkey resolution depends on which side we are on: -
      * partida_local=true (this process IS the host):
-     * IdentityManager.getInstance().getPublicKey(). - partida_local=false (this
+     * the injected local identity. - partida_local=false (this
      * process is a client):
      * participantes.get(server_nick).getIdentity_pubkey().
      *
@@ -18755,7 +18762,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * reject the action or cancel the dependent transition.
      */
     private byte[] resolveActionSignerPubkey(String actorNick, boolean isVoluntary) {
-        IdentityManager identity = IdentityManager.getInstance();
+        GameIdentity identity = game_identity;
         byte[] localPubkey = identity.isReady() ? identity.getPublicKey() : null;
         boolean actorIsLocal = actorNick != null && actorNick.equals(gameSession().localNickname());
         GamePeerController actor = actorNick != null ? peers().get(actorNick) : null;
@@ -18804,7 +18811,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * identity). The caller treats null as "cannot verify" — rejects.
      */
     private byte[] resolveShowdownSignerPubkey(String revealNick) {
-        IdentityManager identity = IdentityManager.getInstance();
+        GameIdentity identity = game_identity;
         byte[] localPubkey = identity.isReady() ? identity.getPublicKey() : null;
         boolean revealerIsLocal = revealNick != null && revealNick.equals(gameSession().localNickname());
         GamePeerController revealer = revealNick != null ? peers().get(revealNick) : null;
@@ -18848,7 +18855,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * originating LOCALLY in this process — host's own UI, a bot (host drives
      * it), an auto-fold (host fabricates on behalf of a timed-out / EXITed
      * peer), or a client's own UI when partida_local is false. Returns null
-     * when the chain is uninitialised or IdentityManager isn't ready (the wire
+     * when the chain is uninitialised or the game identity isn't ready (the wire
      * then carries "*" placeholders so the receiver skips verification
      * gracefully).
      *
@@ -18864,7 +18871,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (chain == null) {
             return null;
         }
-        IdentityManager im = IdentityManager.getInstance();
+        GameIdentity im = game_identity;
         if (!im.isReady()) {
             return null;
         }
@@ -18904,7 +18911,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (chain == null) {
             return null;
         }
-        IdentityManager im = IdentityManager.getInstance();
+        GameIdentity im = game_identity;
         if (!im.isReady()) {
             return null;
         }
@@ -19902,7 +19909,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return false;
         }
         try {
-            return IdentityManager.verifyAction(publicKey, record, signature);
+            return GameIdentityVerifier.verifyAction(publicKey, record, signature);
         } catch (RuntimeException ex) {
             return false;
         }
@@ -20365,7 +20372,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 byte[] sig = decodeSeatSig(p[6]);
                 byte[] pub = seatContributorPubkey(nick);
                 if (pub == null || sig == null
-                        || !IdentityManager.verifySeatCommit(pub, nonce, nick, commit, sig)) {
+                        || !game_identity.verifySeatCommitSignature(pub, nonce, nick, commit, sig)) {
                     LOGGER.log(Level.SEVERE, "ZERO-TRUST: invalid seat-commit signature from {0} — dropping", nick);
                     return "";
                 }
@@ -20753,7 +20760,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 }
                                 byte[] pub = seatContributorPubkey(nick);
                                 if (pub == null || sig == null
-                                        || !IdentityManager.verifySeatCommit(pub, nonce, nick, commit, sig)) {
+                                        || !game_identity.verifySeatCommitSignature(pub, nonce, nick, commit, sig)) {
                                     LOGGER.log(Level.SEVERE, "ZERO-TRUST: host relayed an invalid seat-commit signature for {0}", nick);
                                     ok = false;
                                     break;
@@ -20905,7 +20912,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // unsigned human commitments permit host equivocation.
     private byte[] seatContributorPubkey(String nick) {
         if (nick != null && nick.equals(gameSession().localNickname())) {
-            IdentityManager im = IdentityManager.getInstance();
+            GameIdentity im = game_identity;
             return im.isReady() ? im.getPublicKey() : null;
         }
         GamePeerController pp = peers().get(nick);
@@ -20915,7 +20922,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Signs the local player's seat commitment. A null result aborts the draw at the caller.
     private byte[] signSeatCommitLocal(byte[] nonce, String nick, byte[] commit) {
         try {
-            IdentityManager im = IdentityManager.getInstance();
+            GameIdentity im = game_identity;
             return im.isReady() ? im.signSeatCommit(nonce, nick, commit) : null;
         } catch (Exception ex) {
             LOGGER.log(Level.WARNING, "signSeatCommit failed", ex);
@@ -21719,7 +21726,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 throw new IllegalArgumentException("POTCARDS contains an unusable pocket key");
             }
             byte[] signerPubkey = resolveShowdownSignerPubkey(entry.nick());
-            if (signerPubkey == null || !IdentityManager.verifyShowdownReveal(signerPubkey,
+            if (signerPubkey == null || !game_identity.verifyShowdownRevealSignature(signerPubkey,
                     this.current_hand_id, entry.nick(), key,
                     entry.firstCard(), entry.secondCard(), sig)) {
                 throw new IllegalArgumentException("POTCARDS card-bound signature is invalid");

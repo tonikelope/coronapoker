@@ -63,7 +63,7 @@ import java.util.logging.Logger;
  * cross-protocol signature confusion. Example: "ACTION\0", "JOIN\0",
  * "RECEIPT\0".
  */
-public final class IdentityManager {
+public final class IdentityManager implements com.tonikelope.coronapoker.core.game.GameIdentity {
 
     private static final Logger LOGGER = Logger.getLogger(IdentityManager.class.getName());
 
@@ -606,6 +606,43 @@ public final class IdentityManager {
             LOGGER.log(Level.WARNING, "verifySeatCommit rejected by argument validation: {0}", ex.getMessage());
             return false;
         }
+    }
+
+    @Override
+    public boolean verifyActionSignature(byte[] publicKey, byte[] record, byte[] signature) {
+        return verifyAction(publicKey, record, signature);
+    }
+
+    @Override
+    public boolean verifyReceiptSignature(byte[] publicKey, byte[] handId, byte[] finalHash,
+            byte flags, byte[] signature) {
+        return verifyReceipt(publicKey, handId, finalHash, flags, signature);
+    }
+
+    @Override
+    public boolean verifyShowdownRevealSignature(byte[] publicKey, byte[] handId,
+            String nickname, byte[] pocketKey, int firstCard, int secondCard,
+            byte[] signature) {
+        return verifyShowdownReveal(publicKey, handId, nickname, pocketKey,
+                firstCard, secondCard, signature);
+    }
+
+    @Override
+    public boolean verifyStraddleDecisionSignature(byte[] publicKey, byte[] handId,
+            String nickname, int decision, byte[] signature) {
+        return verifyStraddleDecision(publicKey, handId, nickname, decision, signature);
+    }
+
+    @Override
+    public boolean verifyRabbitRequestSignature(byte[] publicKey, byte[] handId,
+            String nickname, byte[] nonce, byte[] signature) {
+        return verifyRabbitRequest(publicKey, handId, nickname, nonce, signature);
+    }
+
+    @Override
+    public boolean verifySeatCommitSignature(byte[] publicKey, byte[] nonce,
+            String nickname, byte[] commitment, byte[] signature) {
+        return verifySeatCommit(publicKey, nonce, nickname, commitment, signature);
     }
 
     // ===== JOIN_IDENTITY helpers =====

@@ -24,6 +24,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private final CoronaPokerApplication application;
     private final NewGameSessionGateway sessionGateway;
     private GdxFrontendScreen menu;
+    private LobbySession lobby;
     private CoronaPokerGdxTable table;
 
     GdxApplicationShell(int refreshRate, CoronaPokerApplication application,
@@ -54,9 +55,13 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 application.service(PreferencesService.class), sessionGateway,
                 opened -> {
                     application.sessionOpened();
-                    menu.openLobby(opened.lobby());
-                    awaitTable(opened.lobby());
-                }, application::returnedToMenu);
+                    lobby = opened.lobby();
+                    menu.openLobby(lobby);
+                    awaitTable(lobby);
+                }, () -> {
+                    lobby = null;
+                    application.returnedToMenu();
+                });
         menu.create();
         // Re-apply the swap interval after the native window and its target
         // monitor exist. On mixed-refresh Windows desktops the configuration
@@ -157,6 +162,10 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 table.dispose();
                 table = null;
                 Gdx.input.setInputProcessor(menu);
+                LobbySession completedLobby = lobby;
+                if (completedLobby != null) {
+                    menu.returnFromTable(completedLobby);
+                }
             }
         });
     }

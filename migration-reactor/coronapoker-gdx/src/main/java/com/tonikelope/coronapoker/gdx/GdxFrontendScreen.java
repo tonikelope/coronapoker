@@ -664,6 +664,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         sessionReturnedToMenu.run();
     }
 
+    /** Returns only the lobby which owned the table that has just closed. */
+    void returnFromTable(LobbySession expected) {
+        if (lobbySession == Objects.requireNonNull(expected, "expected")) {
+            returnFromLobby();
+        }
+    }
+
     private void closeLobbySubscription() {
         if (lobbySubscription != null) {
             try {

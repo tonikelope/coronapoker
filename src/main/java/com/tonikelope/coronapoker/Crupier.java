@@ -73,6 +73,7 @@ import com.tonikelope.coronapoker.core.game.GamePlayerController;
 import com.tonikelope.coronapoker.core.game.GamePot;
 import com.tonikelope.coronapoker.core.game.GamePotFactory;
 import com.tonikelope.coronapoker.core.game.GameRuntimeEnvironment;
+import com.tonikelope.coronapoker.core.game.GameValueFormatter;
 import com.tonikelope.coronapoker.core.BlindStructureRules;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
 
@@ -147,6 +148,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GameHandFactory hand_factory;
     private final GamePotFactory pot_factory;
     private final GameRuntimeEnvironment runtime_environment;
+    private final GameValueFormatter value_formatter;
     private final TableEventBridge table_events;
     private volatile boolean voluntary_show_visible;
 
@@ -156,7 +158,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 TableDisplaySink.noop(),
                 GameWindowSink.noop(),
                 GameUiExecutor.direct(),
-                GameAudioSink.silent(), GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GameText.keys(), GameHandFactory.unavailable(), GamePotFactory.unavailable(), GameRuntimeEnvironment.defaults(), GameCinematicState.idle(),
+                GameAudioSink.silent(), GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GameText.keys(), GameHandFactory.unavailable(), GamePotFactory.unavailable(), GameRuntimeEnvironment.defaults(), GameCinematicState.idle(), GameValueFormatter.plain(),
                 new TableEventBridge());
     }
 
@@ -164,7 +166,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this(null, null, null, null, null, GameIdentity.unavailable(), GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), HostGameConfigurationSource.unavailable(), GameStateMirror.noop(), RecoveredSettingsSynchronizer.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(), TableDisplaySink.noop(),
                 GameWindowSink.noop(), GameUiExecutor.direct(), GameAudioSink.silent(),
-                GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GameText.keys(), GameHandFactory.unavailable(), GamePotFactory.unavailable(), GameRuntimeEnvironment.defaults(), GameCinematicState.idle(),
+                GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GameText.keys(), GameHandFactory.unavailable(), GamePotFactory.unavailable(), GameRuntimeEnvironment.defaults(), GameCinematicState.idle(), GameValueFormatter.plain(),
                 tableEvents);
     }
 
@@ -193,6 +195,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GamePotFactory potFactory,
             GameRuntimeEnvironment runtimeEnvironment,
             GameCinematicState cinematicState,
+            GameValueFormatter valueFormatter,
             TableEventBridge tableEvents) {
         this.game_session = gameSession;
         this.player_controllers = controllerView(playerControllers);
@@ -227,6 +230,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.runtime_environment = java.util.Objects.requireNonNull(
                 runtimeEnvironment, "runtimeEnvironment");
         this.cinematic_state = java.util.Objects.requireNonNull(cinematicState, "cinematicState");
+        this.value_formatter = java.util.Objects.requireNonNull(valueFormatter, "valueFormatter");
         this.table_events = java.util.Objects.requireNonNull(tableEvents, "tableEvents");
         if (gameSession != null && gameSession.hasConfiguration()) {
             this.ciega_pequeña = gameSession.configuration().smallBlind();
@@ -1238,7 +1242,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // overflows the screen. Scales with the dialog zoom to keep the same proportion at
     // any zoom level.
     private int zeroTrustPopupWidth() {
-        return Math.round(600f * Helpers.DIALOG_ZOOM);
+        return Math.round(600f * presentation_settings.dialogZoomFactor());
     }
 
     private void awaitDialog(java.util.concurrent.CompletionStage<?> dialog) {
@@ -6096,9 +6100,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 buyin_sum += pasta[1];
 
-                String stack_s = Helpers.money2String(pasta[0]);
+                String stack_s = value_formatter.money(pasta[0]);
 
-                String buyin_s = Helpers.money2String(pasta[1]);
+                String buyin_s = value_formatter.money(pasta[1]);
 
                 // Same priority order as the table icon (BB > SB > dealer): in heads-up the
                 // dealer is also the small blind.
@@ -6190,11 +6194,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             status.append("\n($$) ").append(gridRowLine(
                     " ".repeat(nick_w),
-                    String.format("%" + stack_w + "s", Helpers.money2String(stack_sum)),
-                    String.format("%" + buyin_w + "s", Helpers.money2String(buyin_sum))));
+                    String.format("%" + stack_w + "s", value_formatter.money(stack_sum)),
+                    String.format("%" + buyin_w + "s", value_formatter.money(buyin_sum))));
 
             if (MoneyMath.compare(0f, this.bote_sobrante) < 0) {
-                status.append(" (").append(Helpers.money2String(this.bote_sobrante)).append(")");
+                status.append(" (").append(value_formatter.money(this.bote_sobrante)).append(")");
             }
 
             status.append("\n(##) ").append(gridBorderLine('└', '┴', '┘', bal_cols));
@@ -6206,7 +6210,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // per-nick role like straddle, so it gets its own line with the chip icon
                 // ("(A )" token).
                 if (configuration().ante()) {
-                    game_log.print("(A ) " + game_text.translate("game.antes_activos", Helpers.money2String(this.ciega_pequeña)));
+                    game_log.print("(A ) " + game_text.translate("game.antes_activos", value_formatter.money(this.ciega_pequeña)));
                 }
             }
 
@@ -6214,8 +6218,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 game_log
                         .print("($$) " + game_text.translate("ui.auditor_de_cuentas") + " -> STACKS: "
-                                + Helpers.money2String(stack_sum) + " / BUYIN: " + Helpers.money2String(buyin_sum)
-                                + " " + game_text.translate("ui.sobrante") + " " + Helpers.money2String(this.bote_sobrante));
+                                + value_formatter.money(stack_sum) + " / BUYIN: " + value_formatter.money(buyin_sum)
+                                + " " + game_text.translate("ui.sobrante") + " " + value_formatter.money(this.bote_sobrante));
 
                 if (error_dialog) {
                     awaitDialog(game_dialogs.showError(
@@ -7002,7 +7006,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         double shown = Math.min(cost, MoneyMath.clean(lp.getStack()));
-        table_display.showCallCost("+" + Helpers.money2String(shown));
+        table_display.showCallCost("+" + value_formatter.money(shown));
     }
 
     private void updateShowdownCardsInLog() {
@@ -9876,7 +9880,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
 
                         game_log.print(nick + " " + game_text.translate("rabbit.solicito_rabbit_hunting")
-                                + " (" + Helpers.money2String(coste_rabbit) + ")");
+                                + " (" + value_formatter.money(coste_rabbit) + ")");
 
                         if (nick.equals(localPlayer().getNickname())) {
                             // For a local request, compute the best hypothetical hand.
@@ -10133,7 +10137,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         } else {
             awaitDialog(game_dialogs.showError(
                     game_text.translate("ui.tienes_que_esperar")
-                    + Helpers.seconds2FullTime(Math.round(((float) (IWTSTH_ANTI_FLOOD_TIME
+                    + value_formatter.elapsed(Math.round(((float) (IWTSTH_ANTI_FLOOD_TIME
                             - (System.currentTimeMillis() - this.last_iwtsth_rejected))) / 1000))
                     + game_text.translate("iwtsth.para_volver_a_solicitar_iwtsth")));
         }
@@ -10390,7 +10394,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     game_audio.playWavResource("misc/cash_register.wav");
                 }
                 game_log
-                        .print(game_text.translate("game.bote_sobrante") + " -> " + Helpers.money2String(bote_sobrante));
+                        .print(game_text.translate("game.bote_sobrante") + " -> " + value_formatter.money(bote_sobrante));
             }
 
             this.settlement_accounting_invalid = false;
@@ -10579,7 +10583,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         // Framed hand header is emitted only after the definitive recovery counter is known.
         game_log.print(
-                Helpers.framedTitle(game_text.translate("game.mano_2") + " (" + this.conta_mano + ")"));
+                value_formatter.framedTitle(game_text.translate("game.mano_2") + " (" + this.conta_mano + ")"));
 
         this.apuesta_actual = this.ciega_grande;
 
@@ -13909,7 +13913,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         final int totalVotersFinal = totalVoters;
-        final String potText = Helpers.money2String(this.bote_total);
+        final String potText = value_formatter.money(this.bote_total);
         final GameDecisionSink.RunItTwiceHandle hostDialog = localIsVoter
                 ? game_decisions.showRunItTwice(
                         RIT_VOTE_TIMEOUT, totalVotersFinal, potText, null)
@@ -14033,7 +14037,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // ---- Run-it-twice: CLIENT side (reacts to the host's RIT_VOTE_*) ---------
     public void showRitClientVoteDialog(int timeout, int totalVoters, double pot) {
         this.rit_client_dialog = game_decisions.showRunItTwice(
-                timeout, totalVoters, Helpers.money2String(pot),
+                timeout, totalVoters, value_formatter.money(pot),
                 (v) -> Helpers.threadRun(() -> {
                 try {
                     String myNickB64 = Base64.getEncoder().encodeToString(gameSession().localNickname().getBytes("UTF-8"));
@@ -14477,7 +14481,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // BLOCKS until the player decides (button) or the countdown expires (5s -> NO).
     // Returns 1 = post, 0 = no.
     private int promptStraddleLocal(GamePlayerController straddler) {
-        final String amount_text = Helpers.money2String(straddleAmountFor(straddler));
+        final String amount_text = value_formatter.money(straddleAmountFor(straddler));
         GameDecisionSink.StraddleHandle dialog = game_decisions.showStraddle(
                 STRADDLE_DECISION_TIMEOUT, amount_text);
         this.straddle_local_dialog = dialog;
@@ -15725,7 +15729,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // half, but that's presentation only (splitPotForRunItTwice in the run-out
             // / paidShow in the showdown) — it doesn't touch the accounting.
             paidThisBoard += cantidad[0];
-                    game_log.print(ganador.getNickname() + " (" + Card.collection2String(classicCards(ganador.getHoleCards())) + game_text.translate("game.gana_bote_2") + Helpers.money2String(cantidad[0]) + ") -> " + jugada);
+                    game_log.print(ganador.getNickname() + " (" + Card.collection2String(classicCards(ganador.getHoleCards())) + game_text.translate("game.gana_bote_2") + value_formatter.money(cantidad[0]) + ") -> " + jugada);
         }
 
         // Dims the community cards that aren't part of any winning hand (same
@@ -15779,7 +15783,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         for (Map.Entry<GamePlayerController, GameHandResult> e : jugadas.entrySet()) {
-            game_log.print(e.getKey().getNickname() + " " + game_text.translate("game.pierde_bote") + Helpers.money2String(cantidad[0]) + ")");
+            game_log.print(e.getKey().getNickname() + " " + game_text.translate("game.pierde_bote") + value_formatter.money(cantidad[0]) + ")");
             if (isSideB) {
                 this.perdedores.put(e.getKey(), e.getValue());
             }
@@ -15790,7 +15794,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // plays. Profit does NOT go here (ambiguous with multiple pots); per-player
         // profit is already in the black strip. The main pot shows without the
         // remainder (same as normal mode).
-        String bote_tapete = "#1{" + Helpers.money2String(splitPotForRunItTwice(this.bote.getTotal())[board]) + "}";
+        String bote_tapete = "#1{" + value_formatter.money(splitPotForRunItTwice(this.bote.getTotal())[board]) + "}";
 
         // ---- Side pots ----
         GamePot current_pot = this.bote.getSidePot();
@@ -15802,12 +15806,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // between boards (nothing to compete for).
                 if (board == 0) {
                     // Only appears in SIDE-A's breakdown (not paid on SIDE-B).
-                    bote_tapete = bote_tapete + " + #" + String.valueOf(sec) + "{" + Helpers.money2String(current_pot.getTotal()) + "}";
+                    bote_tapete = bote_tapete + " + #" + String.valueOf(sec) + "{" + value_formatter.money(current_pot.getTotal()) + "}";
                     GamePlayerController only = current_pot.getPlayerControllers().get(0);
                     only.pagar(current_pot.getTotal(), null);
                     only.marcarBotePot(sec);
                     paidThisBoard += current_pot.getTotal();
-                    game_log.print(only.getNickname() + " " + game_text.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(sec) + " (" + Helpers.money2String(current_pot.getTotal()) + ")");
+                    game_log.print(only.getNickname() + " " + game_text.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(sec) + " (" + value_formatter.money(current_pot.getTotal()) + ")");
                     this.sqlUpdateShowdownPay(only);
                 }
             } else {
@@ -15815,7 +15819,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 HashMap<GamePlayerController, GameHandResult> sganadores = sideWinners.get(sideIndex);
                 double sHalf = splitPotForRunItTwice(current_pot.getTotal())[board];
                 double[] sCantidad = this.calcularBoteParaGanador(sHalf, sganadores.size());
-                bote_tapete = bote_tapete + " + #" + String.valueOf(sec) + "{" + Helpers.money2String(sHalf) + "}";
+                bote_tapete = bote_tapete + " + #" + String.valueOf(sec) + "{" + value_formatter.money(sHalf) + "}";
                 for (Map.Entry<GamePlayerController, GameHandResult> e : sganadores.entrySet()) {
                     GamePlayerController ganador = e.getKey();
                     GameHandResult jugada = e.getValue();
@@ -15824,11 +15828,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     ganador.pagar(sCantidad[0], null);
                     ganador.marcarBotePot(sec);
                     paidThisBoard += sCantidad[0];
-                            game_log.print(ganador.getNickname() + " (" + Card.collection2String(classicCards(ganador.getHoleCards())) + game_text.translate("game.gana_bote_secundario") + String.valueOf(sec) + " (" + Helpers.money2String(sCantidad[0]) + ") -> " + jugada);
+                            game_log.print(ganador.getNickname() + " (" + Card.collection2String(classicCards(ganador.getHoleCards())) + game_text.translate("game.gana_bote_secundario") + String.valueOf(sec) + " (" + value_formatter.money(sCantidad[0]) + ") -> " + jugada);
                     this.sqlUpdateShowdownPay(ganador);
                 }
                 for (Map.Entry<GamePlayerController, GameHandResult> e : sjugadas.entrySet()) {
-                    game_log.print(e.getKey().getNickname() + " " + game_text.translate("game.pierde_bote_secundario") + String.valueOf(sec) + " (" + Helpers.money2String(sCantidad[0]) + ")");
+                    game_log.print(e.getKey().getNickname() + " " + game_text.translate("game.pierde_bote_secundario") + String.valueOf(sec) + " (" + value_formatter.money(sCantidad[0]) + ")");
                     if (isSideB) {
                         perdedores.put(e.getKey(), e.getValue());
                     }
@@ -18057,7 +18061,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 GameHandResult manoParcial = jugadas.get(p);
 
                 p.setJugadaParcial(manoParcial, ganadores.containsKey(p),
-                        Helpers.floatClean(((float) (stats[1] + stats[3]) / stats[0]) * 100));
+                        value_formatter.decimal(((float) (stats[1] + stats[3]) / stats[0]) * 100));
 
                 String jugada_s = manoParcial.getName() != null ? manoParcial.getName() : "";
                 String gana_s = multiversePct(((float) stats[1] / stats[0]) * 100);
@@ -21956,9 +21960,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 double ganancia = MoneyMath.clean(MoneyMath.clean(jugador.getStack()) + MoneyMath.clean(jugador.getPagar())) - MoneyMath.clean(jugador.getBuyin());
                 String ganancia_msg = "";
                 if (MoneyMath.compare(ganancia, 0f) < 0) {
-                    ganancia_msg += game_text.translate("ui.pierde_2") + " " + Helpers.money2String(ganancia * -1);
+                    ganancia_msg += game_text.translate("ui.pierde_2") + " " + value_formatter.money(ganancia * -1);
                 } else if (MoneyMath.compare(ganancia, 0f) > 0) {
-                    ganancia_msg += game_text.translate("ui.gana_4") + " " + Helpers.money2String(ganancia);
+                    ganancia_msg += game_text.translate("ui.gana_4") + " " + value_formatter.money(ganancia);
                 } else {
                     ganancia_msg += game_text.translate("ui.ni_gana_ni_pierde");
                 }
@@ -22944,7 +22948,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         // Math yes, GUI no.
                                         procesarCartasResistencia(new ArrayList<GamePlayerController>(), false);
 
-                                        game_log.print("-----" + game_text.translate("game.gana_bote") + Helpers.money2String(this.bote.getTotal() + this.bote_sobrante) + game_text.translate("action.sin_tener_que_mostrar"));
+                                        game_log.print("-----" + game_text.translate("game.gana_bote") + value_formatter.money(this.bote.getTotal() + this.bote_sobrante) + game_text.translate("action.sin_tener_que_mostrar"));
                                         table_display.setPotStyle(TableDisplaySink.PotStyle.LOSS);
                                         table_display.showPot(this.bote.getTotal() + this.bote_sobrante, 0d);
                                         // Nobody resists: the whole pot goes unclaimed and rolls into the
@@ -22989,7 +22993,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         }
                                         resisten.get(0).pagar(this.bote.getTotal() + this.bote_sobrante, null);
                                         this.beneficio_bote_principal = this.bote.getTotal() + this.bote_sobrante - this.bote.getBet();
-                                        game_log.print(resisten.get(0).getNickname() + " " + game_text.translate("game.gana_bote") + Helpers.money2String(this.bote.getTotal() + this.bote_sobrante) + game_text.translate("action.sin_tener_que_mostrar"));
+                                        game_log.print(resisten.get(0).getNickname() + " " + game_text.translate("game.gana_bote") + value_formatter.money(this.bote.getTotal() + this.bote_sobrante) + game_text.translate("action.sin_tener_que_mostrar"));
                                         table_display.setPotStyle(TableDisplaySink.PotStyle.WIN);
                                         table_display.showPot(this.bote.getTotal() + this.bote_sobrante, this.beneficio_bote_principal);
                                         this.bote_total = 0f;
@@ -23048,7 +23052,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 jugadas.remove(ganador);
                                                 ganador.pagar(cantidad_pagar_ganador[0], null);
                                                 this.bote_total -= cantidad_pagar_ganador[0];
-                                                game_log.print(ganador.getNickname() + " (" + Card.collection2String(classicCards(ganador.getHoleCards())) + game_text.translate("game.gana_bote_2") + Helpers.money2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
+                                                game_log.print(ganador.getNickname() + " (" + Card.collection2String(classicCards(ganador.getHoleCards())) + game_text.translate("game.gana_bote_2") + value_formatter.money(cantidad_pagar_ganador[0]) + ") -> " + jugada);
                                                 unganador = ganador;
                                                 jugada_ganadora = jugada.getValue();
                                             }
@@ -23063,7 +23067,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 GamePlayerController perdedor = entry.getKey();
                                                 badbeat |= badbeat(perdedor, unganador);
                                                 perdedores.put(perdedor, entry.getValue());
-                                                game_log.print(perdedor.getNickname() + " " + game_text.translate("game.pierde_bote") + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
+                                                game_log.print(perdedor.getNickname() + " " + game_text.translate("game.pierde_bote") + value_formatter.money(cantidad_pagar_ganador[0]) + ")");
                                             }
 
                                             this.showdown(jugadas, ganadores, diferir_dim);
@@ -23075,7 +23079,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             ganadores = this.calcularGanadores(new HashMap<>(jugadas));
                                             double[] cantidad_pagar_ganador = this.calcularBoteParaGanador(this.bote.getTotal() + this.bote_sobrante, ganadores.size());
                                             this.beneficio_bote_principal = cantidad_pagar_ganador[0] - this.bote.getBet();
-                                            String bote_tapete = "#1{" + Helpers.money2String(this.bote.getTotal()) + "}";
+                                            String bote_tapete = "#1{" + value_formatter.money(this.bote.getTotal()) + "}";
                                             ArrayList<Card> cartas_usadas_jugadas = new ArrayList<>();
                                             // Cards to dim: NOT dimmed here (settle) — deferred until
                                             // after showdown's pass 2, to avoid leaking the dimmed back
@@ -23107,7 +23111,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 ganador.pagar(cantidad_pagar_ganador[0], null);
                                                 this.bote_total -= cantidad_pagar_ganador[0];
                                                 jugada = entry.getValue();
-                                                game_log.print(ganador.getNickname() + " (" + Card.collection2String(classicCards(ganador.getHoleCards())) + game_text.translate("game.gana_bote_principal") + Helpers.money2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
+                                                game_log.print(ganador.getNickname() + " (" + Card.collection2String(classicCards(ganador.getHoleCards())) + game_text.translate("game.gana_bote_principal") + value_formatter.money(cantidad_pagar_ganador[0]) + ") -> " + jugada);
                                                 unganador = ganador;
                                                 jugada_ganadora = jugada.getValue();
                                             }
@@ -23122,7 +23126,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 GamePlayerController perdedor = entry.getKey();
                                                 badbeat |= badbeat(perdedor, unganador);
                                                 perdedores.put(perdedor, entry.getValue());
-                                                game_log.print(perdedor.getNickname() + " " + game_text.translate("game.pierde_bote_principal") + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
+                                                game_log.print(perdedor.getNickname() + " " + game_text.translate("game.pierde_bote_principal") + value_formatter.money(cantidad_pagar_ganador[0]) + ")");
                                             }
 
                                             // DERIVED pots' winners are computed BEFORE painting the
@@ -23170,10 +23174,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                                             while (current_pot != null) {
                                                 if (current_pot.getPlayerControllers().size() == 1) {
-                                                    bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + Helpers.money2String(current_pot.getTotal()) + "}";
+                                                    bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + value_formatter.money(current_pot.getTotal()) + "}";
                                                     current_pot.getPlayerControllers().get(0).pagar(current_pot.getTotal(), conta_bote_secundario);
                                                     this.bote_total -= current_pot.getTotal();
-                                                    game_log.print(current_pot.getPlayerControllers().get(0).getNickname() + " " + game_text.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(current_pot.getTotal()) + ")");
+                                                    game_log.print(current_pot.getPlayerControllers().get(0).getNickname() + " " + game_text.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(conta_bote_secundario) + " (" + value_formatter.money(current_pot.getTotal()) + ")");
                                                     this.sqlUpdateShowdownPay(current_pot.getPlayerControllers().get(0));
                                                 } else {
                                                     // Reuse what was already computed above: recomputing here
@@ -23181,20 +23185,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                     jugadas = jugadas_por_lateral.get(indice_lateral);
                                                     ganadores = ganadores_por_lateral.get(indice_lateral);
                                                     cantidad_pagar_ganador = this.calcularBoteParaGanador(current_pot.getTotal(), ganadores.size());
-                                                    bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + Helpers.money2String(current_pot.getTotal()) + "}";
+                                                    bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + value_formatter.money(current_pot.getTotal()) + "}";
                                                     for (Map.Entry<GamePlayerController, GameHandResult> entry : ganadores.entrySet()) {
                                                         GamePlayerController ganador = entry.getKey();
                                                         jugadas.remove(entry.getKey());
                                                         ganador.pagar(cantidad_pagar_ganador[0], conta_bote_secundario);
                                                         this.bote_total -= cantidad_pagar_ganador[0];
                                                         GameHandResult jugada = entry.getValue();
-                                                        game_log.print(ganador.getNickname() + " (" + Card.collection2String(classicCards(ganador.getHoleCards())) + game_text.translate("game.gana_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
+                                                        game_log.print(ganador.getNickname() + " (" + Card.collection2String(classicCards(ganador.getHoleCards())) + game_text.translate("game.gana_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + value_formatter.money(cantidad_pagar_ganador[0]) + ") -> " + jugada);
                                                         this.sqlUpdateShowdownPay(ganador);
                                                     }
                                                     for (Map.Entry<GamePlayerController, GameHandResult> entry : jugadas.entrySet()) {
                                                         GamePlayerController perdedor = entry.getKey();
                                                         perdedores.put(perdedor, entry.getValue());
-                                                        game_log.print(perdedor.getNickname() + " " + game_text.translate("game.pierde_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
+                                                        game_log.print(perdedor.getNickname() + " " + game_text.translate("game.pierde_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + value_formatter.money(cantidad_pagar_ganador[0]) + ")");
                                                     }
                                                 }
                                                 current_pot = current_pot.getSidePot();

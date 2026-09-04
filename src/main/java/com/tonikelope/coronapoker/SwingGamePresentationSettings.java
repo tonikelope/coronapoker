@@ -44,4 +44,5 @@ final class SwingGamePresentationSettings implements GamePresentationSettings {
     @Override public int swapAnimationDuration() { return GameFrame.SWAP_ANIM_DURATION; }
     @Override public boolean swapAnimationArc() { return GameFrame.SWAP_ANIM_ARC; }
     @Override public float zoomFactor() { return 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP; }
+    @Override public float dialogZoomFactor() { return Helpers.DIALOG_ZOOM; }
 }

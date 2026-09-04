@@ -28,6 +28,8 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.game.GamePlayerController;
+import com.tonikelope.coronapoker.core.game.GamePot;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -39,7 +41,7 @@ import java.util.Comparator;
  *
  * @author tonikelope
  */
-public final class HandPot {
+public final class HandPot implements GamePot {
 
     private final ArrayList<Player> players = new ArrayList<>();
     // Dead money carried over from a lower-level pot: folded players who put in MORE
@@ -143,6 +145,11 @@ public final class HandPot {
         return players;
     }
 
+    @Override
+    public java.util.List<? extends GamePlayerController> getPlayerControllers() {
+        return players;
+    }
+
     /**
      * Adds dead money inherited from a lower-level pot. Does NOT touch
      * {@code bet}: a folded player doesn't set a pot's ceiling, they only
@@ -164,6 +171,11 @@ public final class HandPot {
         if (!players.contains(jugador)) {
             players.add(jugador);
         }
+    }
+
+    @Override
+    public void addPlayerController(GamePlayerController player) {
+        addPlayer((Player) player);
     }
 
     /**

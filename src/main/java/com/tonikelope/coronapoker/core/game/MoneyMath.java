@@ -20,4 +20,8 @@ public final class MoneyMath {
         }
         return new BigDecimal(value).setScale(decimals, RoundingMode.HALF_UP).doubleValue();
     }
+
+    public static int compare(double left, double right) {
+        return Double.compare(clean(left), clean(right));
+    }
 }

@@ -641,7 +641,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         final double dinero = is_rit ? Helpers.doubleClean(pagar - pagar_face_base) : pagar;
 
-        if (Helpers.doubleSecureCompare(0f, dinero) < 0 && GameFrame.getInstance().getCrupier().getBote().getSide_pot_count() > 0) {
+        if (Helpers.doubleSecureCompare(0f, dinero) < 0 && GameFrame.getInstance().getCrupier().getGamePot().getSide_pot_count() > 0) {
 
             Helpers.GUIRun(() -> {
                 sec_pot_win_label.setBackground(Color.BLACK);
@@ -980,7 +980,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             setStack(stack - (bet - old_bet));
         }
 
-        GameFrame.getInstance().getCrupier().getBote().addPlayer(this);
+        GameFrame.getInstance().getCrupier().getGamePot().addPlayerController(this);
 
         Helpers.GUIRunAndWait(() -> {
             // If the action is about to throw a chip (defer), it does NOT roll here: the bet
@@ -1013,7 +1013,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         playerState.setPotContribution(this.bote);
         setStack(stack - real);
 
-        GameFrame.getInstance().getCrupier().getBote().addPlayer(this);
+        GameFrame.getInstance().getCrupier().getGamePot().addPlayerController(this);
 
         Helpers.GUIRunAndWait(() -> {
             // If the ante chip is about to fly to the pot (defer), it does NOT roll here: it's

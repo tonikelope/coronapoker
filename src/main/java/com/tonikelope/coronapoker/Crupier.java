@@ -64,6 +64,8 @@ import com.tonikelope.coronapoker.core.game.GameIdentity;
 import com.tonikelope.coronapoker.core.game.GameIdentityVerifier;
 import com.tonikelope.coronapoker.core.game.GamePeerController;
 import com.tonikelope.coronapoker.core.game.GamePlayerController;
+import com.tonikelope.coronapoker.core.game.GamePot;
+import com.tonikelope.coronapoker.core.game.GamePotFactory;
 import com.tonikelope.coronapoker.core.BlindStructureRules;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
 
@@ -133,6 +135,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GameUiExecutor game_ui;
     private final GameAudioSink game_audio;
     private final GamePresentationSettings presentation_settings;
+    private final GamePotFactory pot_factory;
     private final TableEventBridge table_events;
     private volatile boolean voluntary_show_visible;
 
@@ -142,7 +145,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 TableDisplaySink.noop(),
                 GameWindowSink.noop(),
                 GameUiExecutor.direct(),
-                GameAudioSink.silent(), GamePresentationSettings.defaults(),
+                GameAudioSink.silent(), GamePresentationSettings.defaults(), GamePotFactory.unavailable(),
                 new TableEventBridge());
     }
 
@@ -150,7 +153,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this(null, null, null, null, null, GameIdentity.unavailable(), GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), HostGameConfigurationSource.unavailable(), GameStateMirror.noop(), RecoveredSettingsSynchronizer.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(), TableDisplaySink.noop(),
                 GameWindowSink.noop(), GameUiExecutor.direct(), GameAudioSink.silent(),
-                GamePresentationSettings.defaults(),
+                GamePresentationSettings.defaults(), GamePotFactory.unavailable(),
                 tableEvents);
     }
 
@@ -173,6 +176,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameUiExecutor gameUi,
             GameAudioSink gameAudio,
             GamePresentationSettings presentationSettings,
+            GamePotFactory potFactory,
             TableEventBridge tableEvents) {
         this.game_session = gameSession;
         this.player_controllers = controllerView(playerControllers);
@@ -200,6 +204,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.game_audio = java.util.Objects.requireNonNull(gameAudio, "gameAudio");
         this.presentation_settings = java.util.Objects.requireNonNull(
                 presentationSettings, "presentationSettings");
+        this.pot_factory = java.util.Objects.requireNonNull(potFactory, "potFactory");
         this.table_events = java.util.Objects.requireNonNull(tableEvents, "tableEvents");
         if (gameSession != null && gameSession.hasConfiguration()) {
             this.ciega_pequeña = gameSession.configuration().smallBlind();
@@ -2295,7 +2300,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean flop_revealed = false;
     private volatile boolean turn_revealed = false;
     private volatile boolean river_revealed = false;
-    private volatile HandPot bote = null;
+    private volatile GamePot bote = null;
     private volatile boolean cartas_resistencia = false;
     private volatile int ciegas_double = 0;
     private volatile long turno = System.currentTimeMillis();
@@ -6186,7 +6191,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return street;
     }
 
-    public HandPot getBote() {
+    public GamePot getGamePot() {
         return bote;
     }
 
@@ -9096,7 +9101,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.bote_total = 0f;
 
             // Note: bote_sobrante is kept intact by design (it belongs to the global game, not the aborted hand)
-            this.bote = new HandPot(0f);
+            this.bote = pot_factory.create(0f);
 
             // Last, and still inside the lock: from here on the hand's money is back in the
             // stacks, so anything that settles afterwards must not distribute anything.
@@ -10585,7 +10590,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.rabbit_open_hand_id = null;
             this.rabbit_fee_ledger = null;
         }
-        this.bote = new HandPot(0f);
+        this.bote = pot_factory.create(0f);
         this.beneficio_bote_principal = null;
 
         HashSet<String> rebuys_about_to_apply = new HashSet<>();
@@ -15646,7 +15651,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // rows).
         //
         // Snapshot over ALL players, not just resisten: the main pot pays resisten, but
-        // side pots pay HandPot.getPlayers(), and a player who went all-in and then
+        // side pots pay GamePot.getPlayerControllers(), and a player who went all-in and then
         // EXITED is filtered out of resisten before genSidePots but stays eligible in
         // their side pot and can collect on SIDE-A. Snapshotting/reverting only
         // resisten would leave their half-pot unreverted. For players the settle
@@ -15674,7 +15679,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // creation). Mirrors the normal showdown, which ALWAYS rewrites bote_sobrante.
         // Captures the total of ALL pots (main + remainder + side pots) before paying out.
         double ritPotTotal = this.bote.getTotal() + this.bote_sobrante;
-        for (HandPot sp = this.bote.getSidePot(); sp != null; sp = sp.getSidePot()) {
+        for (GamePot sp = this.bote.getSidePot(); sp != null; sp = sp.getSidePot()) {
             ritPotTotal += sp.getTotal();
         }
 
@@ -15929,9 +15934,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // can be auto-mucked before their actual winning result is known.
         java.util.ArrayList<HashMap<GamePlayerController, Hand>> sideHands = new java.util.ArrayList<>();
         java.util.ArrayList<HashMap<GamePlayerController, Hand>> sideWinners = new java.util.ArrayList<>();
-        for (HandPot side = this.bote.getSidePot(); side != null; side = side.getSidePot()) {
-            if (side.getPlayers().size() > 1) {
-                HashMap<GamePlayerController, Hand> hands = this.calcularJugadas(side.getPlayers());
+        for (GamePot side = this.bote.getSidePot(); side != null; side = side.getSidePot()) {
+            if (side.getPlayerControllers().size() > 1) {
+                HashMap<GamePlayerController, Hand> hands = this.calcularJugadas(side.getPlayerControllers());
                 sideHands.add(hands);
                 sideWinners.add(this.calcularGanadores(new HashMap<>(hands)));
             } else {
@@ -15970,17 +15975,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         String bote_tapete = "#1{" + Helpers.money2String(splitPotForRunItTwice(this.bote.getTotal())[board]) + "}";
 
         // ---- Side pots ----
-        HandPot current_pot = this.bote.getSidePot();
+        GamePot current_pot = this.bote.getSidePot();
         int sec = 2;
         int sideIndex = 0;
         while (current_pot != null) {
-            if (current_pot.getPlayers().size() == 1) {
+            if (current_pot.getPlayerControllers().size() == 1) {
                 // Undisputed side pot: full refund, ONCE only (SIDE-A); not split
                 // between boards (nothing to compete for).
                 if (board == 0) {
                     // Only appears in SIDE-A's breakdown (not paid on SIDE-B).
                     bote_tapete = bote_tapete + " + #" + String.valueOf(sec) + "{" + Helpers.money2String(current_pot.getTotal()) + "}";
-                    GamePlayerController only = current_pot.getPlayers().get(0);
+                    GamePlayerController only = current_pot.getPlayerControllers().get(0);
                     only.pagar(current_pot.getTotal(), null);
                     only.marcarBotePot(sec);
                     paidThisBoard += current_pot.getTotal();
@@ -23315,8 +23320,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             java.util.ArrayList<HashMap<GamePlayerController, Hand>> jugadas_por_lateral = new java.util.ArrayList<>();
                                             java.util.ArrayList<HashMap<GamePlayerController, Hand>> ganadores_por_lateral = new java.util.ArrayList<>();
 
-                                            for (HandPot lateral = this.bote.getSidePot(); lateral != null; lateral = lateral.getSidePot()) {
-                                                HashMap<GamePlayerController, Hand> jugadas_lateral = this.calcularJugadas(lateral.getPlayers());
+                                            for (GamePot lateral = this.bote.getSidePot(); lateral != null; lateral = lateral.getSidePot()) {
+                                                HashMap<GamePlayerController, Hand> jugadas_lateral = this.calcularJugadas(lateral.getPlayerControllers());
                                                 HashMap<GamePlayerController, Hand> ganadores_lateral = this.calcularGanadores(new HashMap<>(jugadas_lateral));
                                                 jugadas_por_lateral.add(jugadas_lateral);
                                                 ganadores_por_lateral.add(ganadores_lateral);
@@ -23327,7 +23332,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 // painted the winner border, added a won hand, and stored
                                                 // it as such, even if they'd lost everything else. The
                                                 // run-it-twice path already treats it this way.
-                                                if (lateral.getPlayers().size() > 1) {
+                                                if (lateral.getPlayerControllers().size() > 1) {
                                                     ganadores_todos.putAll(ganadores_lateral);
                                                 }
                                             }
@@ -23342,17 +23347,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 ganador_principal.marcarBotePot(1);
                                             }
 
-                                            HandPot current_pot = this.bote.getSidePot();
+                                            GamePot current_pot = this.bote.getSidePot();
                                             int conta_bote_secundario = 2;
                                             int indice_lateral = 0;
 
                                             while (current_pot != null) {
-                                                if (current_pot.getPlayers().size() == 1) {
+                                                if (current_pot.getPlayerControllers().size() == 1) {
                                                     bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + Helpers.money2String(current_pot.getTotal()) + "}";
-                                                    current_pot.getPlayers().get(0).pagar(current_pot.getTotal(), conta_bote_secundario);
+                                                    current_pot.getPlayerControllers().get(0).pagar(current_pot.getTotal(), conta_bote_secundario);
                                                     this.bote_total -= current_pot.getTotal();
-                                                    game_log.print(current_pot.getPlayers().get(0).getNickname() + " " + Translator.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(current_pot.getTotal()) + ")");
-                                                    this.sqlUpdateShowdownPay(current_pot.getPlayers().get(0));
+                                                    game_log.print(current_pot.getPlayerControllers().get(0).getNickname() + " " + Translator.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(current_pot.getTotal()) + ")");
+                                                    this.sqlUpdateShowdownPay(current_pot.getPlayerControllers().get(0));
                                                 } else {
                                                     // Reuse what was already computed above: recomputing here
                                                     // would walk the hands again for nothing.

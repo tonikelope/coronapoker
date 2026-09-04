@@ -5714,8 +5714,7 @@ public class Helpers {
 
     // Compares two money amounts (double) at cent resolution.
     public static int doubleSecureCompare(double val1, double val2) {
-
-        return Double.compare(doubleClean(val1), doubleClean(val2));
+        return com.tonikelope.coronapoker.core.game.MoneyMath.compare(val1, val2);
     }
 
     private Helpers() {

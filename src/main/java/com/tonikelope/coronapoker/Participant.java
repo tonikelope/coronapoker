@@ -32,6 +32,7 @@ import com.tonikelope.coronapoker.core.network.ConfirmationTracker;
 import com.tonikelope.coronapoker.core.network.GameCommandGate;
 import com.tonikelope.coronapoker.core.network.GameCommandType;
 import com.tonikelope.coronapoker.core.network.SessionOutbox;
+import com.tonikelope.coronapoker.core.game.GamePeerController;
 
 import static com.tonikelope.coronapoker.GameFrame.WAIT_QUEUES;
 import static com.tonikelope.coronapoker.WaitingRoomFrame.PING_INTERVAL_MS;
@@ -57,7 +58,7 @@ import javax.swing.ImageIcon;
  * per-peer anti-DoS rate limiting, and dispatches incoming GAME subcommands
  * into the Crupier's command queue.
  */
-public class Participant implements Runnable {
+public class Participant implements Runnable, GamePeerController {
 
     private static final Logger LOGGER = Logger.getLogger(Participant.class.getName());
     private static final AtomicLong NEXT_REBUY_SOURCE_ID = new AtomicLong();

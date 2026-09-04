@@ -59,6 +59,7 @@ import com.tonikelope.coronapoker.core.game.HostGameConfigurationSource;
 import com.tonikelope.coronapoker.core.game.RecoveredSettingsSynchronizer;
 import com.tonikelope.coronapoker.core.game.ActionControlState;
 import com.tonikelope.coronapoker.core.game.GameCardController;
+import com.tonikelope.coronapoker.core.game.GamePeerController;
 import com.tonikelope.coronapoker.core.game.GamePlayerController;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
 
@@ -108,7 +109,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GameSession game_session;
     private final java.util.ArrayList<GamePlayerController> player_controllers;
     private final GamePlayerController local_player_controller;
-    private final java.util.Map<String, Participant> peer_controllers;
+    private final java.util.Map<String, GamePeerController> peer_controllers;
     private final Card[] community_card_controllers;
     private final GameLogSink game_log;
     private final GameDialogSink game_dialogs;
@@ -151,7 +152,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     Crupier(GameSession gameSession,
             java.util.ArrayList<? extends GamePlayerController> playerControllers,
             GamePlayerController localPlayerController,
-            java.util.Map<String, Participant> peerControllers,
+            java.util.Map<String, ? extends GamePeerController> peerControllers,
             Card[] communityCardControllers,
             GameLogSink gameLog, GameDialogSink gameDialogs, GameDecisionSink gameDecisions,
             GameDatabase gameDatabase,
@@ -170,7 +171,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.game_session = gameSession;
         this.player_controllers = controllerView(playerControllers);
         this.local_player_controller = localPlayerController;
-        this.peer_controllers = peerControllers;
+        this.peer_controllers = peerControllerView(peerControllers);
         this.community_card_controllers = communityCardControllers;
         this.game_log = java.util.Objects.requireNonNull(gameLog, "gameLog");
         this.game_dialogs = java.util.Objects.requireNonNull(gameDialogs, "gameDialogs");
@@ -211,6 +212,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             java.util.ArrayList<? extends GamePlayerController> controllers) {
         return controllers == null ? null
                 : (java.util.ArrayList<GamePlayerController>) (java.util.ArrayList<?>) controllers;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static java.util.Map<String, GamePeerController> peerControllerView(
+            java.util.Map<String, ? extends GamePeerController> controllers) {
+        return controllers == null ? null
+                : (java.util.Map<String, GamePeerController>) (java.util.Map<?, ?>) controllers;
     }
 
     private static Card classicCard(GameCardController card) {
@@ -303,7 +311,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         throw new IllegalStateException("Crupier has no bound local player controller");
     }
 
-    private java.util.Map<String, Participant> peers() {
+    private java.util.Map<String, GamePeerController> peers() {
         if (peer_controllers == null) {
             throw new IllegalStateException("Crupier has no bound peer repository");
         }
@@ -1299,7 +1307,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.WARNING, "ZERO-TRUST: deal refusal strike {0}/{1} for peer {2}",
                     new Object[]{strikes, MAX_DEAL_REFUSAL_STRIKES, nick});
             if (strikes >= MAX_DEAL_REFUSAL_STRIKES) {
-                Participant pp = peers().get(nick);
+                GamePeerController pp = peers().get(nick);
                 if (pp != null && !pp.isExit() && !pp.isCpu()) {
                     LOGGER.log(Level.SEVERE,
                             "ZERO-TRUST DoS: peer {0} forced {1} deal refusals (cascade/rotation) — AUTO-EXPEL, table continues",
@@ -2568,7 +2576,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return collected;
     }
 
-    private byte[] requestRemoteCascade(String nick, byte[] currentDeck, Participant p) {
+    private byte[] requestRemoteCascade(String nick, byte[] currentDeck, GamePeerController p) {
         int id = GameCommandId.next();
         byte[] iv = new byte[16];
         Helpers.CSPRNG_GENERATOR.nextBytes(iv);
@@ -2756,7 +2764,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return sb.toString();
     }
 
-    private byte[] requestRemoteRotation(String nick, byte[] communityPieces, Participant p) {
+    private byte[] requestRemoteRotation(String nick, byte[] communityPieces, GamePeerController p) {
         int id = GameCommandId.next();
         byte[] iv = new byte[16];
         Helpers.CSPRNG_GENERATOR.nextBytes(iv);
@@ -2866,7 +2874,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * @return the RespItem list per nick, or null on failure/timeout.
      */
     private java.util.List<UnlockChainWire.RespItem> requestRemoteUnlockChain(
-            String nick, Participant p, int phase, java.util.List<UnlockChainWire.ReqItem> items) {
+            String nick, GamePeerController p, int phase, java.util.List<UnlockChainWire.ReqItem> items) {
         int id = GameCommandId.next();
         byte[] iv = new byte[16];
         Helpers.CSPRNG_GENERATOR.nextBytes(iv);
@@ -2948,7 +2956,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Unicasts a critical GAME command to ONE participant and requires its ACK.
     // Used by the blind straddle for POCKET_DEFERRED and for the later delivery
     // of its POCKET_CARDS. Missing delivery closes that peer and aborts safely.
-    private boolean sendGAMECommandToParticipant(Participant p, String command) {
+    private boolean sendGAMECommandToParticipant(GamePeerController p, String command) {
         if (p == null || p.isExit()) {
             return false;
         }
@@ -3062,7 +3070,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private boolean enviarCartasJugadoresRemotos() {
-        for (Participant p : peers().values()) {
+        for (GamePeerController p : peers().values()) {
             if (p != null) {
                 p.setReceived_token(null); // Used to hold the bots' key
                 p.setSra_unlock_community(null); // Dual-lock: bot's community pair
@@ -3093,7 +3101,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         while (true) {
             // Reset any partial state left by an aborted previous attempt.
-            for (Participant p : peers().values()) {
+            for (GamePeerController p : peers().values()) {
                 if (p != null) {
                     p.setReceived_token(null);
                     p.setSra_unlock_community(null);
@@ -3167,7 +3175,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // consensus. Host emits in RING order (goes around the table).
                 emitShuffleTurn(currNick);
                 if (!currNick.equals(gameSession().localNickname())) {
-                    Participant p = peers().get(currNick);
+                    GamePeerController p = peers().get(currNick);
                     if (p != null && p.isCpu()) {
                         byte[] botLock = RistrettoSRA.generateLockScalar();
                         byte[] botUnlock = RistrettoSRA.getUnlockScalar(botLock);
@@ -3314,7 +3322,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L);
                 communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, RistrettoSRA.scalarToBytes(stepScalar));
             } else {
-                Participant p = peers().get(currNick);
+                GamePeerController p = peers().get(currNick);
                 if (p != null && p.isCpu()) {
                     byte[] botUnlock = p.getReceived_token();
                     byte[] botCommunityLock = this.bot_community_locks.get(currNick);
@@ -3462,7 +3470,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         // Bots: the host strips each bot's lock (with proof) from every slot except that bot's own.
         for (String bNick : currentRing) {
-            Participant pb = peers().get(bNick);
+            GamePeerController pb = peers().get(bNick);
             if (pb != null && pb.isCpu() && pb.getReceived_token() != null) {
                 int botSlot = -1;
                 for (int i = 0; i < ringLen; i++) {
@@ -3486,7 +3494,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (hNick.equals(hostNick)) {
                 continue;
             }
-            Participant ph = peers().get(hNick);
+            GamePeerController ph = peers().get(hNick);
             if (ph == null || ph.isCpu()) {
                 continue;
             }
@@ -3581,7 +3589,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // recibirMisCartas blind; the host straddler needs no such notice (it doesn't run
                 // recibirMisCartas) and resolves its cards locally after deciding.
                 if (!targetNick.equals(hostNick)) {
-                    Participant sp = peers().get(targetNick);
+                    GamePeerController sp = peers().get(targetNick);
                     if (!sendGAMECommandToParticipant(sp, "POCKET_DEFERRED#"
                             + Base64.getEncoder().encodeToString(targetNick.getBytes(java.nio.charset.StandardCharsets.UTF_8)))) {
                         LOGGER.log(Level.SEVERE, "Failed to deliver POCKET_DEFERRED to {0}", targetNick);
@@ -3615,7 +3623,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.local_original_cards[0] = (byte) RistrettoSRA.resolveCardIndex(c1);
                 this.local_original_cards[1] = (byte) RistrettoSRA.resolveCardIndex(c2);
             } else {
-                Participant pTarget = peers().get(targetNick);
+                GamePeerController pTarget = peers().get(targetNick);
                 if (pTarget != null && pTarget.isCpu()) {
                     byte[] botPocket = RistrettoSRA.applyCommutativeLock(pocketCards, pTarget.getReceived_token());
                     byte[] c1 = Arrays.copyOfRange(botPocket, 0, 32);
@@ -3863,7 +3871,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     if (this.local_mega_packet == null) {
                                         throw new IllegalArgumentException("POCKET_CARDS received before MEGAPACKET");
                                     }
-                                    Participant localParticipant = peers()
+                                    GamePeerController localParticipant = peers()
                                             .get(gameSession().localNickname());
                                     this.local_sra_unlock = localParticipant == null ? null : localParticipant.getSra_unlock();
                                     if (!RistrettoSRA.isValidScalar(this.local_sra_unlock)) {
@@ -4026,7 +4034,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (nick.equals(gameSession().localNickname())) {
                 testament = this.local_sra_unlock_community;
             } else if (testament == null) {
-                Participant p = peers().get(nick);
+                GamePeerController p = peers().get(nick);
                 if (p != null) {
                     // For both bots and humans, the community unlock lives in
                     // sra_unlock_community: the host set it during the cascade for bots;
@@ -4038,7 +4046,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Fallback for a remote client that hasn't set local_sra_unlock_community yet
             // but has it on its local Participant.
             if (testament == null && nick.equals(gameSession().localNickname())) {
-                Participant p = peers().get(gameSession().localNickname());
+                GamePeerController p = peers().get(gameSession().localNickname());
                 if (p != null) {
                     testament = p.getSra_unlock_community();
                 }
@@ -4066,7 +4074,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         exit_community_testaments.put(nick, decoded.clone());
     }
 
-    private byte[] exitCommunityTestament(String nick, Participant participant) {
+    private byte[] exitCommunityTestament(String nick, GamePeerController participant) {
         byte[] retained = nick == null ? null : exit_community_testaments.get(nick);
         if (retained != null) {
             return retained.clone();
@@ -4125,13 +4133,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (pocketKey == null) {
                     // Fallback for a remote client: the Crupier may not have copied the
                     // unlock from the Participant yet (copied while processing POCKET_CARDS).
-                    Participant p = peers().get(nick);
+                    GamePeerController p = peers().get(nick);
                     if (p != null) {
                         pocketKey = p.getSra_unlock();
                     }
                 }
             } else {
-                Participant p = peers().get(nick);
+                GamePeerController p = peers().get(nick);
                 if (p != null) {
                     if (p.isCpu()) {
                         pocketKey = p.getReceived_token();
@@ -4199,7 +4207,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public boolean unlockPlayerCardsWithSRAKey(GamePlayerController target) {
-        Participant p = peers().get(target.getNickname());
+        GamePeerController p = peers().get(target.getNickname());
         if (p != null && p.getSra_unlock() != null) {
             byte[] pocketCards = this.single_locked_pocket_cards.get(target.getNickname());
             if (pocketCards != null && pocketCards.length == 64) {
@@ -6484,7 +6492,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private void startRebuyingVisuals(ArrayList<String> nicks) {
         for (String nick : nicks) {
             GamePlayerController jugador = nick2player.get(nick);
-            Participant participante = peers().get(nick);
+            GamePeerController participante = peers().get(nick);
             if (jugador != localPlayer() && !jugador.isExit()
                     && participante != null && !participante.isCpu()) {
                 table_display.setRebuyWaiting(jugador.getNickname(), true, false);
@@ -6841,7 +6849,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         if (jugador == local || jugador.isExit()) {
                             continue;
                         }
-                        Participant p = peers().get(jugador.getNickname());
+                        GamePeerController p = peers().get(jugador.getNickname());
                         if (p != null && p.isCpu()) {
                             int botbuy = buyinDefault();
                             aplicarBuyinInicial(jugador.getNickname(), botbuy);
@@ -7010,7 +7018,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 jugador.setExit();
             }
             if (gameSession().isHost()) {
-                Participant participante = peers().get(nick);
+                GamePeerController participante = peers().get(nick);
                 if (participante != null) {
                     participante.exitAndCloseSocket();
                 }
@@ -7039,7 +7047,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // On clients the Participant for an exiting peer is only a local
                 // shell, so keep its runtime/UI state synchronized. Receipt eligibility
                 // is decided separately from the validated voluntary-EXIT set.
-                Participant participante = peers().get(nick);
+                GamePeerController participante = peers().get(nick);
                 if (participante != null) {
                     participante.setExit(true);
                 }
@@ -7222,7 +7230,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Only decrypt if remote and values are still missing.
             if (!isLocal && (jugador.getHoleCard1().getValor() == null || jugador.getHoleCard1().getValor().isEmpty())) {
                 // Zero-trust: if the player has sent their testament (sra_unlock), decrypt their hand.
-                Participant p = peers().get(jugador.getNickname());
+                GamePeerController p = peers().get(jugador.getNickname());
                 if (p != null && p.getSra_unlock() != null && p.getSra_unlock().length == 32) {
                     unlockPlayerCardsWithSRAKey(jugador);
                     jugador.ordenarCartas();
@@ -7799,7 +7807,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                     nick);
                                         }
                                     } else {
-                                        Participant p = peers().get(nick);
+                                        GamePeerController p = peers().get(nick);
                                         if (p != null) {
                                             p.setSra_unlock(sraKey);
                                         }
@@ -7993,7 +8001,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // lobby. The loop below also creates dummy bot participants required to
         // replay old cryptographic material; those dummies are not new buy-ins.
         java.util.Set<String> recoveryLobbyBots = new java.util.LinkedHashSet<>();
-        for (java.util.Map.Entry<String, Participant> entry
+        for (java.util.Map.Entry<String, GamePeerController> entry
                 : peers().entrySet()) {
             if (entry.getValue() != null && entry.getValue().isCpu()) {
                 recoveryLobbyBots.add(entry.getKey());
@@ -8002,7 +8010,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         for (GamePlayerController j : players()) {
             if (j.getNickname().startsWith("CoronaBot$") && !peers().containsKey(j.getNickname())) {
-                Participant dummy = Participant.recoveryBot(j.getNickname());
+                GamePeerController dummy = GamePeerController.recoveryBot(j.getNickname());
                 peers().put(j.getNickname(), dummy);
             }
         }
@@ -8120,13 +8128,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 // guardarFosilSRA. Restoring it is what lets cascadeAndDealCommunityPieces
                                 // keep working post-recovery.
                                 this.local_sra_unlock_community = Base64.getDecoder().decode(part.substring("SRAKEYS_COMMUNITY@".length()));
-                                Participant myP = peers().get(gameSession().localNickname());
+                                GamePeerController myP = peers().get(gameSession().localNickname());
                                 if (myP != null) {
                                     myP.setSra_unlock_community(this.local_sra_unlock_community);
                                 }
                             } else if (part.startsWith("SRAKEYS@")) {
                                 this.local_sra_unlock = Base64.getDecoder().decode(part.substring("SRAKEYS@".length()));
-                                Participant myP = peers().get(gameSession().localNickname());
+                                GamePeerController myP = peers().get(gameSession().localNickname());
                                 if (myP != null) {
                                     myP.setSra_unlock(this.local_sra_unlock);
                                 }
@@ -8149,7 +8157,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     try {
                                         String bNick = new String(Base64.getDecoder().decode(pair[0]), "UTF-8");
                                         byte[] bUnlockCommunity = Base64.getDecoder().decode(pair[1]);
-                                        Participant pBot = peers().get(bNick);
+                                        GamePeerController pBot = peers().get(bNick);
                                         if (pBot != null) {
                                             pBot.setSra_unlock_community(bUnlockCommunity);
                                         }
@@ -8166,7 +8174,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     try {
                                         String bNick = new String(Base64.getDecoder().decode(pair[0]), "UTF-8");
                                         byte[] bUnlock = Base64.getDecoder().decode(pair[1]);
-                                        Participant pBot = peers().get(bNick);
+                                        GamePeerController pBot = peers().get(bNick);
                                         if (pBot != null) {
                                             pBot.setReceived_token(bUnlock);
                                         }
@@ -8506,13 +8514,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         } else if (part.startsWith("SRAKEYS_COMMUNITY@")) {
                             // Dual-lock: the community half persisted by guardarFosilSRA.
                             this.local_sra_unlock_community = Base64.getDecoder().decode(part.substring("SRAKEYS_COMMUNITY@".length()));
-                            Participant myP = peers().get(gameSession().localNickname());
+                            GamePeerController myP = peers().get(gameSession().localNickname());
                             if (myP != null) {
                                 myP.setSra_unlock_community(this.local_sra_unlock_community);
                             }
                         } else if (part.startsWith("SRAKEYS@")) {
                             this.local_sra_unlock = Base64.getDecoder().decode(part.substring("SRAKEYS@".length()));
-                            Participant myP = peers().get(gameSession().localNickname());
+                            GamePeerController myP = peers().get(gameSession().localNickname());
                             if (myP != null) {
                                 myP.setSra_unlock(this.local_sra_unlock);
                             }
@@ -8532,7 +8540,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 try {
                                     String bNick = new String(Base64.getDecoder().decode(pair[0]), "UTF-8");
                                     byte[] bUnlockCommunity = Base64.getDecoder().decode(pair[1]);
-                                    Participant pBot = peers().get(bNick);
+                                    GamePeerController pBot = peers().get(bNick);
                                     if (pBot != null) {
                                         pBot.setSra_unlock_community(bUnlockCommunity);
                                     }
@@ -8549,7 +8557,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 try {
                                     String bNick = new String(Base64.getDecoder().decode(pair[0]), "UTF-8");
                                     byte[] bUnlock = Base64.getDecoder().decode(pair[1]);
-                                    Participant pBot = peers().get(bNick);
+                                    GamePeerController pBot = peers().get(bNick);
                                     if (pBot != null) {
                                         pBot.setReceived_token(bUnlock);
                                     }
@@ -9702,7 +9710,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // markExitAndNotify nests other monitors that must not nest under lock_nueva_mano.
             boolean allReady = false;
             while (!allReady && !isFin_de_la_transmision()) {
-                Participant expel = null;
+                GamePeerController expel = null;
                 synchronized (lock_nueva_mano) {
                     long deadlineMs = System.currentTimeMillis() + HAND_READY_PROGRESS_TIMEOUT_MS;
                     long hardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
@@ -9728,9 +9736,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         } else if (someTimeout && System.currentTimeMillis() < hardCapMs) {
                             deadlineMs = System.currentTimeMillis() + HAND_READY_PROGRESS_TIMEOUT_MS;
                         }
-                        Participant stalling = null;
-                        for (Map.Entry<String, Participant> entry : peers().entrySet()) {
-                            Participant p = entry.getValue();
+                        GamePeerController stalling = null;
+                        for (Map.Entry<String, GamePeerController> entry : peers().entrySet()) {
+                            GamePeerController p = entry.getValue();
                             if (p != null && !p.getNick().equals(gameSession().localNickname())
                                     && !p.isCpu() && !p.isExit() && p.getNew_hand_ready() <= this.conta_mano) {
                                 stalling = p;
@@ -10213,7 +10221,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // B) Bots: Since they live in the Host's memory, the Server Host forces them to show
                         if (gameSession().isHost()) {
                             for (GamePlayerController rp : remotePlayers()) {
-                                Participant p = peers().get(rp.getNickname());
+                                GamePeerController p = peers().get(rp.getNickname());
                                 if (p != null && p.isCpu() && rp.isIwtsthCandidate() && rp.getHoleCard1().isTapada()) {
                                     showAndBroadcastPlayerCards(rp.getNickname());
                                 }
@@ -12773,10 +12781,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private Set<String> computeExpectedConsensusSigners() {
         Set<String> botNicks = new HashSet<>();
         Set<String> exitedNicks = new HashSet<>(this.exited_consensus_participants);
-        java.util.Map<String, Participant> participantes = peers();
+        java.util.Map<String, GamePeerController> participantes = peers();
         if (participantes != null) {
-            for (java.util.Map.Entry<String, Participant> entry : participantes.entrySet()) {
-                Participant participant = entry.getValue();
+            for (java.util.Map.Entry<String, GamePeerController> entry : participantes.entrySet()) {
+                GamePeerController participant = entry.getValue();
                 if (entry.getKey() != null && participant != null && participant.isCpu()) {
                     botNicks.add(entry.getKey());
                 }
@@ -12996,7 +13004,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (nick == null || nick.equals(localNick)) {
                     continue;
                 }
-                Participant par = peers().get(nick);
+                GamePeerController par = peers().get(nick);
                 if (par == null) {
                     continue;
                 }
@@ -13038,7 +13046,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (nick.equals(gameSession().localNickname())) {
             return IdentityManager.getInstance().getPublicKey();
         }
-        Participant par = peers().get(nick);
+        GamePeerController par = peers().get(nick);
         return par != null ? par.getIdentity_pubkey() : null;
     }
 
@@ -13266,7 +13274,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         boolean anyPendingReconnecting = false;
         try {
             for (String pnick : pendientes) {
-                Participant pep = peers().get(pnick);
+                GamePeerController pep = peers().get(pnick);
                 if (pep != null && pep.isSocketDownOrReconnecting()) {
                     anyPendingReconnecting = true;
                     break;
@@ -13291,7 +13299,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         if (now >= recoverDeadlineMs) {
             for (String nick : new ArrayList<>(pendientes)) {
-                Participant pp = peers().get(nick);
+                GamePeerController pp = peers().get(nick);
                 if (pp != null && !pp.isExit() && !pp.isCpu()) {
                     LOGGER.log(Level.SEVERE,
                             "ZERO-TRUST DoS: peer {0} withheld recovery ACK past {1}ms (game running, answering PING) — expelling, table continues",
@@ -13338,7 +13346,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 for (GamePlayerController jugador : players()) {
                     if (pendientes.contains(jugador.getNickname())) {
-                        Participant p = peers().get(jugador.getNickname());
+                        GamePeerController p = peers().get(jugador.getNickname());
                         if (p != null && !p.isCpu()) {
                             p.writeCommandFromServer(Helpers.encryptCommand(command, p.getAes_key(), iv, p.getHmac_key()));
                         }
@@ -13400,7 +13408,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 for (GamePlayerController jugador : players()) {
                     if (pendientes.contains(jugador.getNickname())) {
-                        Participant p = peers().get(jugador.getNickname());
+                        GamePeerController p = peers().get(jugador.getNickname());
                         if (p != null && !p.isCpu()) {
                             p.writeCommandFromServer(Helpers.encryptCommand(command, p.getAes_key(), iv, p.getHmac_key()));
                         }
@@ -13572,7 +13580,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // deadline — unlimited thinking is by design, and kicking there is manual. We expel
         // on timeout rather than forcing a FOLD, so we never overwrite a decision that
         // arrives just within the limit.
-        Participant actor = peers().get(jugador.getNickname());
+        GamePeerController actor = peers().get(jugador.getNickname());
         boolean thinkTimeEnforced = configuration().thinkTimeEnabled() && actor != null && !actor.isCpu();
         long actionBudgetMs = (long) configuration().thinkTime() * 1000L + 60000L;
         long actionDeadlineMs = System.currentTimeMillis() + actionBudgetMs;
@@ -13977,7 +13985,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // via RIT_VOTE_REQ; collects replies by draining received_commands (same
     // pattern as requestRemoteCascade), rebroadcasts RIT_VOTE_TALLY live, and
     // sends RIT_VOTE_CLOSE on close.
-    private void sendRitVoteReq(Participant p, int timeout, int totalVoters) {
+    private void sendRitVoteReq(GamePeerController p, int timeout, int totalVoters) {
         try {
             int id = GameCommandId.next();
             byte[] iv = new byte[16];
@@ -14028,7 +14036,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         boolean localIsVoter = false;
         ArrayList<String> remoteVoterNicks = new ArrayList<>();
-        HashMap<String, Participant> remoteVoterParts = new HashMap<>();
+        HashMap<String, GamePeerController> remoteVoterParts = new HashMap<>();
 
         for (GamePlayerController pl : resisten) {
             String nick = pl.getNickname();
@@ -14039,7 +14047,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // Host's own seat: human (the host is never a bot).
                 localIsVoter = true;
             } else {
-                Participant p = peers().get(nick);
+                GamePeerController p = peers().get(nick);
                 if (p != null && !p.isCpu() && !p.isExit()) {
                     remoteVoterNicks.add(nick);
                     remoteVoterParts.put(nick, p);
@@ -14297,7 +14305,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // same straddler as the host, protecting neither too much (bot-UTG) nor too
         // little (human-UTG). LocalPlayer is always human (absent participant or
         // isCpu()==false).
-        Participant utgPar = peers().get(this.utg_nick);
+        GamePeerController utgPar = peers().get(this.utg_nick);
         if (utgPar != null && utgPar.isCpu()) {
             return null;
         }
@@ -15020,7 +15028,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (i == straddlerSlot) {
                 continue;
             }
-            Participant pb = peers().get(ring[i]);
+            GamePeerController pb = peers().get(ring[i]);
             if (pb != null && pb.isCpu() && pb.getReceived_token() != null) {
                 byte[] botLock = RistrettoSRA.getUnlockScalar(pb.getReceived_token());
                 if (!extendStraddlerChain(chainS, straddlerSlot, ring[i], botLock)) {
@@ -15039,7 +15047,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (hNick.equals(hostNick)) {
                 continue;
             }
-            Participant ph = peers().get(hNick);
+            GamePeerController ph = peers().get(hNick);
             if (ph == null || ph.isCpu()) {
                 continue;
             }
@@ -15242,7 +15250,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                     byte[] myUnlock = this.local_sra_unlock;
                     if (myUnlock == null) {
-                        Participant p = peers().get(myNick);
+                        GamePeerController p = peers().get(myNick);
                         if (p != null) {
                             myUnlock = p.getSra_unlock();
                         }
@@ -16108,7 +16116,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (nick.equals(hostNick)) {
                 continue;
             }
-            Participant p = peers().get(nick);
+            GamePeerController p = peers().get(nick);
             if ((p != null && !p.isCpu())
                     || (p == null && exit_community_testaments.containsKey(nick))) {
                 remoteHumans.add(nick);
@@ -16157,7 +16165,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         // Bots strip their community-lock from ALL copies (they aren't recipients).
         for (String nick : this.active_crypto_ring) {
-            Participant pp = peers().get(nick);
+            GamePeerController pp = peers().get(nick);
             if (pp != null && pp.isCpu()) {
                 if (pp.getSra_unlock_community() == null) {
                     if (abortOnFail) {
@@ -16179,7 +16187,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // with a proof, via REQ_SRA_UNLOCK_CHAIN (live) or extended locally from their
         // testament (exited).
         for (String h : remoteHumans) {
-            Participant ph = peers().get(h);
+            GamePeerController ph = peers().get(h);
             if (ph == null) {
                 byte[] retainedTestament = exitCommunityTestament(h, null);
                 if (retainedTestament != null) {
@@ -16722,7 +16730,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
                 byte[] hostPubkey = null;
                 if (hostNick != null) {
-                    Participant hostPar = peers().get(hostNick);
+                    GamePeerController hostPar = peers().get(hostNick);
                     if (hostPar != null) {
                         hostPubkey = hostPar.getIdentity_pubkey();
                     }
@@ -17190,7 +17198,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         && !canPlayerRaise(current_player.getNickname()))) {
                     LOGGER.log(Level.SEVERE, "Raise without entitlement rejected for {0}",
                             current_player.getNickname());
-                    Participant currentParticipant = peers().get(current_player.getNickname());
+                    GamePeerController currentParticipant = peers().get(current_player.getNickname());
                     boolean locallyControlledProducer
                             = current_player == localPlayer()
                             || (gameSession().isHost()
@@ -17576,7 +17584,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             byte[] unlockToSave = this.local_sra_unlock;
             if (unlockToSave == null) {
-                Participant p = peers().get(gameSession().localNickname());
+                GamePeerController p = peers().get(gameSession().localNickname());
                 if (p != null) {
                     unlockToSave = p.getSra_unlock();
                 }
@@ -17591,7 +17599,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // and the hand would stall at FLOP.
             byte[] unlockCommunityToSave = this.local_sra_unlock_community;
             if (unlockCommunityToSave == null) {
-                Participant p = peers().get(gameSession().localNickname());
+                GamePeerController p = peers().get(gameSession().localNickname());
                 if (p != null) {
                     unlockCommunityToSave = p.getSra_unlock_community();
                 }
@@ -17613,7 +17621,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             StringBuilder botKeysCommunity = new StringBuilder();
             StringBuilder botVisuals = new StringBuilder();
             for (String nick : this.active_crypto_ring) {
-                Participant p = peers().get(nick);
+                GamePeerController p = peers().get(nick);
                 GamePlayerController botPlayer = nick2player.get(nick);
 
                 if (p != null && p.isCpu()) {
@@ -17811,7 +17819,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             String nick = p.getNickname();
             boolean isHost = nick.equals(hostNick);
-            Participant part = peers().get(nick);
+            GamePeerController part = peers().get(nick);
             boolean isBot = part != null && part.isCpu();
             if (isHost || isBot) {
                 String localKey = getShowdownPocketKey(nick);
@@ -17831,7 +17839,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (GamePlayerController p : resisten) {
             if (!p.getNickname().equals(hostNick)
                     && requiresShowdownProof(p.isExit(), p.getDecision())) {
-                Participant part = peers().get(p.getNickname());
+                GamePeerController part = peers().get(p.getNickname());
                 if (part != null && !part.isCpu()) {
                     if (part.isExit()) {
                         if (!reuseExitedShowdownProof(p.getNickname(), part,
@@ -17859,7 +17867,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Helpers.CSPRNG_GENERATOR.nextBytes(iv);
             String reqCmd = "GAME#" + id + "#REQ_SHOWDOWN_KEY";
             for (String nick : pendientes) {
-                Participant p = peers().get(nick);
+                GamePeerController p = peers().get(nick);
                 if (p != null) {
                     p.writeCommandFromServer(Helpers.encryptCommand(reqCmd, p.getAes_key(), iv, p.getHmac_key()));
                 }
@@ -17910,7 +17918,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 for (String nick : pendientes) {
-                    Participant participant = peers().get(nick);
+                    GamePeerController participant = peers().get(nick);
                     if (participant == null || participant.isExit()) {
                         LOGGER.log(Level.WARNING,
                                 "Showdown contender {0} disconnected while its proof was pending; cancelling hand for recovery",
@@ -18067,7 +18075,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             // Persist the verified key to the Participant + update the host's local UI.
-            Participant p = peers().get(nick);
+            GamePeerController p = peers().get(nick);
             if (p != null) {
                 p.setSra_unlock(key);
             }
@@ -18084,7 +18092,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    private boolean reuseExitedShowdownProof(String nick, Participant participant,
+    private boolean reuseExitedShowdownProof(String nick, GamePeerController participant,
             HashMap<String, String> nick2key, HashMap<String, String> nick2sig) {
         if (participant == null || participant.getSra_unlock() == null) {
             return false;
@@ -18750,14 +18758,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         IdentityManager identity = IdentityManager.getInstance();
         byte[] localPubkey = identity.isReady() ? identity.getPublicKey() : null;
         boolean actorIsLocal = actorNick != null && actorNick.equals(gameSession().localNickname());
-        Participant actor = actorNick != null ? peers().get(actorNick) : null;
+        GamePeerController actor = actorNick != null ? peers().get(actorNick) : null;
 
         byte[] hostPubkey;
         if (gameSession().isHost()) {
             hostPubkey = localPubkey;
         } else {
             String hostNick = game_transport.hostNickname();
-            Participant host = hostNick != null ? peers().get(hostNick) : null;
+            GamePeerController host = hostNick != null ? peers().get(hostNick) : null;
             hostPubkey = host != null ? host.getIdentity_pubkey() : null;
         }
 
@@ -18799,14 +18807,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         IdentityManager identity = IdentityManager.getInstance();
         byte[] localPubkey = identity.isReady() ? identity.getPublicKey() : null;
         boolean revealerIsLocal = revealNick != null && revealNick.equals(gameSession().localNickname());
-        Participant revealer = revealNick != null ? peers().get(revealNick) : null;
+        GamePeerController revealer = revealNick != null ? peers().get(revealNick) : null;
 
         byte[] hostPubkey;
         if (gameSession().isHost()) {
             hostPubkey = localPubkey;
         } else {
             String hostNick = game_transport.hostNickname();
-            Participant host = hostNick != null ? peers().get(hostNick) : null;
+            GamePeerController host = hostNick != null ? peers().get(hostNick) : null;
             hostPubkey = host != null ? host.getIdentity_pubkey() : null;
         }
 
@@ -18975,12 +18983,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             boolean confirmation) {
 
         ArrayList<String> pendientes = new ArrayList<>();
-        ArrayList<Participant> targets = new ArrayList<>();
+        ArrayList<GamePeerController> targets = new ArrayList<>();
 
-        Map<String, Participant> participantes_map = peers();
+        Map<String, GamePeerController> participantes_map = peers();
         synchronized (participantes_map) {
-            for (Map.Entry<String, Participant> entry : participantes_map.entrySet()) {
-                Participant p = entry.getValue();
+            for (Map.Entry<String, GamePeerController> entry : participantes_map.entrySet()) {
+                GamePeerController p = entry.getValue();
                 if (p != null && !p.isCpu() && !p.getNick().equals(skip_nick) && !p.isExit()) {
                     pendientes.add(p.getNick());
                     targets.add(p);
@@ -19019,7 +19027,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             do {
                 String full_command = "GAME#" + String.valueOf(id) + "#" + command;
 
-                for (Participant p : targets) {
+                for (GamePeerController p : targets) {
                     if (pendientes.contains(p.getNick())) {
                         p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), iv, p.getHmac_key()));
                     }
@@ -19028,7 +19036,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (confirmation) {
                     this.waitSyncConfirmations(pendientes, tracker, request);
 
-                    for (Participant p : targets) {
+                    for (GamePeerController p : targets) {
                         if (!p.getNick().equals(skip_nick) && p.isExit()) {
                             pendientes.remove(p.getNick());
                             if (nick2player.containsKey(p.getNick())) {
@@ -19061,7 +19069,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             if (pendiente_jugador != null) {
                                 pendiente_jugador.setTimeout(true);
                             }
-                            Participant pendiente_participante = peers().get(nick);
+                            GamePeerController pendiente_participante = peers().get(nick);
                             if (pendiente_participante != null && !pendiente_participante.isForce_reset_socket()) {
                                 try {
                                     this.broadcastGAMECommandFromServer(
@@ -19090,7 +19098,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // expelled) from one that's reconnecting (dead socket, gets its grace
                             // period respected).
                             for (String pnick : pendientes) {
-                                Participant pep = peers().get(pnick);
+                                GamePeerController pep = peers().get(pnick);
                                 if (pep != null && pep.isSocketDownOrReconnecting()) {
                                     anyPendingReconnecting = true;
                                     break;
@@ -19111,7 +19119,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             broadcastDeadlineMs = System.currentTimeMillis() + BROADCAST_PROGRESS_TIMEOUT_MS;
                         } else if (System.currentTimeMillis() >= broadcastDeadlineMs) {
                             for (String nick : new ArrayList<>(pendientes)) {
-                                Participant pp = peers().get(nick);
+                                GamePeerController pp = peers().get(nick);
                                 if (pp != null && !pp.isExit() && !pp.isCpu()) {
                                     LOGGER.log(Level.SEVERE,
                                             "ZERO-TRUST DoS: peer {0} withheld broadcast ACK past {1}ms (game running, answering PING) — expelling, table continues",
@@ -19173,7 +19181,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      */
     public void broadcastTelemetryFrame() {
         try {
-            java.util.Map<String, com.tonikelope.coronapoker.Participant> parts
+            java.util.Map<String, GamePeerController> parts
                     = peers();
             if (parts == null || parts.isEmpty()) {
                 return;
@@ -19181,8 +19189,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             java.util.Map<String, int[]> perPeer = new java.util.HashMap<>(parts.size() + 1);
             // Guarded iteration — participantes is a synchronizedMap.
             synchronized (parts) {
-                for (java.util.Map.Entry<String, com.tonikelope.coronapoker.Participant> e : parts.entrySet()) {
-                    com.tonikelope.coronapoker.Participant p = e.getValue();
+                for (java.util.Map.Entry<String, GamePeerController> e : parts.entrySet()) {
+                    GamePeerController p = e.getValue();
                     if (p == null) {
                         continue;
                     }
@@ -19465,7 +19473,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             ArrayList<String> actuales = new ArrayList<>();
 
-            for (Map.Entry<String, Participant> entry : peers().entrySet()) {
+            for (Map.Entry<String, GamePeerController> entry : peers().entrySet()) {
 
                 actuales.add(entry.getKey());
             }
@@ -20515,7 +20523,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // A pending contributor that genuinely left prunes the roster -> restart.
             boolean rosterChanged = false;
             for (String nick : new ArrayList<>(pending)) {
-                Participant pp = peers().get(nick);
+                GamePeerController pp = peers().get(nick);
                 if (pp == null || pp.isExit()) {
                     pending.remove(nick);
                     rosterChanged = true;
@@ -20528,7 +20536,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (System.currentTimeMillis() >= deadline) {
                 // Alive but withholding past the deadline -> expel, then restart over the reduced roster.
                 for (String nick : new ArrayList<>(pending)) {
-                    Participant pp = peers().get(nick);
+                    GamePeerController pp = peers().get(nick);
                     if (pp != null && !pp.isExit() && !pp.isCpu()) {
                         LOGGER.log(Level.SEVERE,
                                 "ZERO-TRUST DoS: peer {0} withheld {1} past {2}ms during the seat draw — expelling, restarting draw",
@@ -20664,7 +20672,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                             if (nonceB64 == null) {
                                 ArrayList<String> knownParticipants;
-                                Map<String, Participant> participants = peers();
+                                Map<String, GamePeerController> participants = peers();
                                 synchronized (participants) {
                                     knownParticipants = new ArrayList<>(participants.keySet());
                                 }
@@ -20861,10 +20869,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private ArrayList<String> liveRemoteHumanNicks() {
         ArrayList<String> out = new ArrayList<>();
         String localNick = gameSession().localNickname();
-        Map<String, Participant> map = peers();
+        Map<String, GamePeerController> map = peers();
         synchronized (map) {
-            for (Map.Entry<String, Participant> e : map.entrySet()) {
-                Participant pp = e.getValue();
+            for (Map.Entry<String, GamePeerController> e : map.entrySet()) {
+                GamePeerController pp = e.getValue();
                 if (pp != null && !pp.isCpu() && !pp.isExit() && !pp.getNick().equals(localNick)) {
                     out.add(pp.getNick());
                 }
@@ -20879,10 +20887,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         HashSet<String> expected = new HashSet<>();
         String localNick = gameSession().localNickname();
-        Map<String, Participant> participants = peers();
+        Map<String, GamePeerController> participants = peers();
         synchronized (participants) {
             for (String nick : roster) {
-                Participant participant = participants.get(nick);
+                GamePeerController participant = participants.get(nick);
                 if (nick.equals(localNick) || (participant != null && !participant.isCpu())) {
                     expected.add(nick);
                 }
@@ -20900,7 +20908,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             IdentityManager im = IdentityManager.getInstance();
             return im.isReady() ? im.getPublicKey() : null;
         }
-        Participant pp = peers().get(nick);
+        GamePeerController pp = peers().get(nick);
         return pp != null ? pp.getIdentity_pubkey() : null;
     }
 
@@ -21759,7 +21767,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
         for (PotCardsEnvelope.Entry entry : envelope.entries()) {
-            Participant participant = peers().get(entry.nick());
+            GamePeerController participant = peers().get(entry.nick());
             if (participant != null) {
                 participant.setSra_unlock(entry.pocketKey());
             }
@@ -21830,7 +21838,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     try {
                                         byte[] myKey = this.local_sra_unlock;
                                         if (myKey == null) {
-                                            Participant me = peers().get(localNick);
+                                            GamePeerController me = peers().get(localNick);
                                             if (me != null) {
                                                 myKey = me.getSra_unlock();
                                             }
@@ -22067,7 +22075,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             for (GamePlayerController jugador : players()) {
 
-                Participant participante = peers()
+                GamePeerController participante = peers()
                         .get(jugador.getNickname());
                 boolean rebuyQueued;
                 synchronized (lock_rebuynow) {
@@ -23656,7 +23664,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 + Helpers.doubleClean(jugador.getPagar())) != 0) {
                     continue;
                 }
-                Participant participante = peers()
+                GamePeerController participante = peers()
                         .get(jugador.getNickname());
                 boolean bot = participante != null && participante.isCpu();
                 if (configuration().rebuy() && (!bot || configuration().botRebuy())
@@ -23687,7 +23695,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             Helpers.doubleClean(jugador.getStack()) + Helpers.doubleClean(jugador.getPagar())) == 0) {
 
                 String nick = jugador.getNickname();
-                Participant participante = peers().get(nick);
+                GamePeerController participante = peers().get(nick);
                 boolean isBot = participante != null && participante.isCpu();
 
                 if (!configuration().rebuy() || (isBot && !configuration().botRebuy()) || atRebuyLimit(nick)) {

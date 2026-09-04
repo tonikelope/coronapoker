@@ -40,7 +40,20 @@ public interface GameDecisionSink {
     record RebuyResult(boolean accepted, int amount) {
     }
 
-    record GameOverRequest(boolean direct) {
+    record GameOverRequest(boolean direct, int minimum, int maximum,
+            int defaultAmount, int timeoutSeconds) {
+
+        public GameOverRequest(boolean direct) {
+            this(direct, 0, 0, 0, 0);
+        }
+
+        public GameOverRequest {
+            if (minimum < 0 || maximum < minimum
+                    || defaultAmount < minimum || defaultAmount > maximum
+                    || timeoutSeconds < 0) {
+                throw new IllegalArgumentException("invalid game-over request");
+            }
+        }
     }
 
     record GameOverResult(boolean continuePlaying, int rebuyAmount) {

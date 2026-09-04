@@ -23634,9 +23634,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             } else if (configuration().rebuy() && !atRebuyLimit(localPlayer().getNickname())) {
 
+                int gameOverMin = configuration().fixedBuyin()
+                        ? 1 : buyinRange().min();
+                int gameOverMax = Math.max(gameOverMin, buyinCap());
+                int gameOverDefault = Math.min(gameOverMax,
+                        Math.max(gameOverMin, configuration().fixedBuyin()
+                                ? configuration().buyin() : buyinDefault()));
                 GameDecisionSink.GameOverResult gameOver = awaitGameOverResult(
                         game_decisions.showGameOver(
-                                new GameDecisionSink.GameOverRequest(false)));
+                                new GameDecisionSink.GameOverRequest(false,
+                                        gameOverMin, gameOverMax,
+                                        gameOverDefault, 10)));
 
                 if (gameOver.continuePlaying()) {
 

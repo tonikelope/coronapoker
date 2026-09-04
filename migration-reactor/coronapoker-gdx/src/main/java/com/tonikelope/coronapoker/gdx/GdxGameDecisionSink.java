@@ -47,7 +47,27 @@ final class GdxGameDecisionSink implements GameDecisionSink {
 
     @Override
     public CompletionStage<GameOverResult> showGameOver(GameOverRequest request) {
-        return fallback.showGameOver(request);
+        Objects.requireNonNull(request, "request");
+        if (request.direct()) {
+            GdxTableDialog finalDialog = new GdxTableDialog(
+                    GdxTableDialog.Kind.INFO, "GAME OVER", "",
+                    GameDialogSink.Icon.STOP, 860, 0, true, "", "CERRAR");
+            CompletableFuture<GameOverResult> result = new CompletableFuture<>();
+            finalDialog.result().thenAccept(ignored -> result.complete(
+                    new GameOverResult(false, 0)));
+            present(finalDialog);
+            return result;
+        }
+        GdxTableDialog choice = new GdxTableDialog("GAME OVER",
+                text.translate("rebuy.recompra_3"), 900,
+                request.timeoutSeconds(), false, "ESPECTADOR",
+                request.minimum(), request.maximum(), request.defaultAmount());
+        CompletableFuture<GameOverResult> result = new CompletableFuture<>();
+        choice.result().thenAccept(continuePlaying -> result.complete(
+                new GameOverResult(continuePlaying,
+                        continuePlaying ? choice.amount() : 0)));
+        present(choice);
+        return result;
     }
 
     @Override

@@ -5527,6 +5527,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 gameTransport, lobbyTransition, tableDisplay, gameWindow, gameUi,
                 new SwingGameAudio(),
                 new SwingGamePresentationSettings(),
+                TOFUResolver::isVerified,
                 HandPot::new,
                 table_events);
 

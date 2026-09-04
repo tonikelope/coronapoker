@@ -61,6 +61,7 @@ import com.tonikelope.coronapoker.core.game.ActionControlState;
 import com.tonikelope.coronapoker.core.game.CardCode;
 import com.tonikelope.coronapoker.core.game.GameCardController;
 import com.tonikelope.coronapoker.core.game.GameIdentity;
+import com.tonikelope.coronapoker.core.game.GameIdentityTrust;
 import com.tonikelope.coronapoker.core.game.GameIdentityVerifier;
 import com.tonikelope.coronapoker.core.game.GamePeerController;
 import com.tonikelope.coronapoker.core.game.GamePlayerController;
@@ -135,6 +136,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GameUiExecutor game_ui;
     private final GameAudioSink game_audio;
     private final GamePresentationSettings presentation_settings;
+    private final GameIdentityTrust identity_trust;
     private final GamePotFactory pot_factory;
     private final TableEventBridge table_events;
     private volatile boolean voluntary_show_visible;
@@ -145,7 +147,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 TableDisplaySink.noop(),
                 GameWindowSink.noop(),
                 GameUiExecutor.direct(),
-                GameAudioSink.silent(), GamePresentationSettings.defaults(), GamePotFactory.unavailable(),
+                GameAudioSink.silent(), GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GamePotFactory.unavailable(),
                 new TableEventBridge());
     }
 
@@ -153,7 +155,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this(null, null, null, null, null, GameIdentity.unavailable(), GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), HostGameConfigurationSource.unavailable(), GameStateMirror.noop(), RecoveredSettingsSynchronizer.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(), TableDisplaySink.noop(),
                 GameWindowSink.noop(), GameUiExecutor.direct(), GameAudioSink.silent(),
-                GamePresentationSettings.defaults(), GamePotFactory.unavailable(),
+                GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GamePotFactory.unavailable(),
                 tableEvents);
     }
 
@@ -176,6 +178,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameUiExecutor gameUi,
             GameAudioSink gameAudio,
             GamePresentationSettings presentationSettings,
+            GameIdentityTrust identityTrust,
             GamePotFactory potFactory,
             TableEventBridge tableEvents) {
         this.game_session = gameSession;
@@ -204,6 +207,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.game_audio = java.util.Objects.requireNonNull(gameAudio, "gameAudio");
         this.presentation_settings = java.util.Objects.requireNonNull(
                 presentationSettings, "presentationSettings");
+        this.identity_trust = java.util.Objects.requireNonNull(identityTrust, "identityTrust");
         this.pot_factory = java.util.Objects.requireNonNull(potFactory, "potFactory");
         this.table_events = java.util.Objects.requireNonNull(tableEvents, "tableEvents");
         if (gameSession != null && gameSession.hasConfiguration()) {
@@ -13041,7 +13045,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     unverifiedTofu.add(nick + "(no_pubkey)");
                     continue;
                 }
-                if (!TOFUResolver.isVerified(nick, pubkey)) {
+                if (!identity_trust.isVerified(nick, pubkey)) {
                     unverifiedTofu.add(nick);
                 }
             }

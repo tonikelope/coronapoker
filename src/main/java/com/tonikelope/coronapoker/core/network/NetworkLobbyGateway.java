@@ -653,30 +653,35 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             connection.enqueueGame(body);
         }
 
-        private synchronized void sendGameTo(String nickname, String body) throws IOException {
+        private synchronized java.util.concurrent.CompletionStage<Void> sendGameTo(
+                String nickname, String body) throws IOException {
             if (!host) throw new IllegalStateException("Only the host can send to a peer");
             Peer peer = findNormalized(nickname);
             if (peer == null || peer.connection == null || peer.local || peer.bot) {
                 throw new IOException("Game peer is unavailable: " + nickname);
             }
-            peer.connection.enqueueGame(body);
+            return peer.connection.enqueueGame(body);
         }
 
-        private synchronized void sendGameToHost(String body) throws IOException {
+        private synchronized java.util.concurrent.CompletionStage<Void> sendGameToHost(
+                String body) throws IOException {
             if (host) throw new IllegalStateException("The host cannot send to itself");
             if (serverConnection == null) throw new IOException("Host connection is unavailable");
-            serverConnection.enqueueGame(body);
+            return serverConnection.enqueueGame(body);
         }
 
-        private synchronized void broadcastGameFromChannel(String body,
+        private synchronized java.util.concurrent.CompletionStage<Void> broadcastGameFromChannel(String body,
                 String skipNickname) throws IOException {
             if (!host) throw new IllegalStateException("Only the host can broadcast");
+            List<java.util.concurrent.CompletableFuture<Void>> deliveries = new ArrayList<>();
             for (Peer peer : List.copyOf(peers.values())) {
                 if (peer.connection != null
                         && (skipNickname == null || !peer.nickname.equals(skipNickname))) {
-                    peer.connection.enqueueGame(body);
+                    deliveries.add(peer.connection.enqueueGame(body).toCompletableFuture());
                 }
             }
+            return java.util.concurrent.CompletableFuture.allOf(
+                    deliveries.toArray(java.util.concurrent.CompletableFuture[]::new));
         }
 
         private void broadcastDirect(String body, Connection except) throws Exception {
@@ -826,17 +831,20 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             }
         }
 
-        @Override public void sendToHost(String command) throws IOException {
-            transport.sendGameToHost(requireCommand(command));
-        }
-
-        @Override public void broadcastFromHost(String command, String skipNickname)
+        @Override public java.util.concurrent.CompletionStage<Void> sendToHost(String command)
                 throws IOException {
-            transport.broadcastGameFromChannel(requireCommand(command), skipNickname);
+            return transport.sendGameToHost(requireCommand(command));
         }
 
-        @Override public void sendFromHost(String nickname, String command) throws IOException {
-            transport.sendGameTo(Objects.requireNonNull(nickname, "nickname"),
+        @Override public java.util.concurrent.CompletionStage<Void> broadcastFromHost(
+                String command, String skipNickname)
+                throws IOException {
+            return transport.broadcastGameFromChannel(requireCommand(command), skipNickname);
+        }
+
+        @Override public java.util.concurrent.CompletionStage<Void> sendFromHost(
+                String nickname, String command) throws IOException {
+            return transport.sendGameTo(Objects.requireNonNull(nickname, "nickname"),
                     requireCommand(command));
         }
 
@@ -865,6 +873,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private final GameCommandGate gameCommandGate;
         private final SessionOutbox gameOutbox = new SessionOutbox(
                 GAME_OUTBOX_MAX_ELEMENTS, GAME_OUTBOX_MAX_BYTES);
+        private final java.util.ArrayDeque<java.util.concurrent.CompletableFuture<Void>>
+                gameDeliveries = new java.util.ArrayDeque<>();
         private final Object confirmationLock = new Object();
         private final AtomicBoolean closed = new AtomicBoolean();
         private volatile Integer expectedConfirmation;
@@ -896,15 +906,24 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 }
             }
         }
-        void enqueueGame(String body) throws IOException {
-            if (closed.get() || !gameOutbox.offer(body)) {
-                close();
-                throw new IOException("Critical GAME outbox is closed or full");
+        java.util.concurrent.CompletionStage<Void> enqueueGame(String body) throws IOException {
+            java.util.concurrent.CompletableFuture<Void> delivery
+                    = new java.util.concurrent.CompletableFuture<>();
+            synchronized (gameOutbox) {
+                if (closed.get() || !gameOutbox.offer(body)) {
+                    close();
+                    throw new IOException("Critical GAME outbox is closed or full");
+                }
+                gameDeliveries.addLast(delivery);
             }
+            return delivery;
         }
         private void runGameOutbox() {
             while (!closed.get()) {
-                SessionOutbox.Entry entry = gameOutbox.peek();
+                SessionOutbox.Entry entry;
+                synchronized (gameOutbox) {
+                    entry = gameOutbox.peek();
+                }
                 if (entry == null) {
                     synchronized (gameOutbox) {
                         if (gameOutbox.isEmpty() && !closed.get()) {
@@ -938,8 +957,15 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         }
                         confirmed = confirmationReceived;
                     }
-                    if (confirmed && gameOutbox.isCurrent(entry)) {
-                        gameOutbox.removeIfHead(entry);
+                    if (confirmed) {
+                        synchronized (gameOutbox) {
+                            if (gameOutbox.isCurrent(entry)
+                                    && gameOutbox.removeIfHead(entry)) {
+                                java.util.concurrent.CompletableFuture<Void> completed
+                                        = gameDeliveries.removeFirst();
+                                completed.complete(null);
+                            }
+                        }
                     }
                 } catch (InterruptedException interrupted) {
                     Thread.currentThread().interrupt();
@@ -974,7 +1000,13 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         }
         @Override public void close() {
             if (!closed.compareAndSet(false, true)) return;
-            gameOutbox.advanceGeneration();
+            synchronized (gameOutbox) {
+                gameOutbox.advanceGeneration();
+                IOException failure = new IOException("Game connection closed before delivery");
+                while (!gameDeliveries.isEmpty()) {
+                    gameDeliveries.removeFirst().completeExceptionally(failure);
+                }
+            }
             synchronized (confirmationLock) { confirmationLock.notifyAll(); }
             try { socket.close(); } catch (IOException ignored) { }
         }

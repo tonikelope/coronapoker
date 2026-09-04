@@ -89,7 +89,8 @@ class NetworkLobbyGatewayTest {
                     events, () -> {
                         if (context.lobby().host()) {
                             try {
-                                context.channel().broadcastFromHost("INIT#native-handoff", null);
+                                return context.channel().broadcastFromHost(
+                                        "INIT#native-handoff", null);
                             } catch (java.io.IOException failure) {
                                 return CompletableFuture.failedFuture(failure);
                             }
@@ -129,10 +130,12 @@ class NetworkLobbyGatewayTest {
                 AtomicReference<String> hostInbound = new AtomicReference<>();
                 hostContext.get().channel().subscribe(inbound ->
                         hostInbound.set(inbound.peerNickname() + ":" + inbound.command()));
-                clientContext.get().channel().sendToHost("ACTION#payload");
+                clientContext.get().channel().sendToHost("ACTION#payload")
+                        .toCompletableFuture().get(2, TimeUnit.SECONDS);
                 await(() -> "Invitado:ACTION#payload".equals(hostInbound.get()));
 
-                hostContext.get().channel().sendFromHost("Invitado", "PAUSE#0#host");
+                hostContext.get().channel().sendFromHost("Invitado", "PAUSE#0#host")
+                        .toCompletableFuture().get(2, TimeUnit.SECONDS);
                 await(() -> "PAUSE#0#host".equals(bufferedInit.get()));
             } finally {
                 client.close();

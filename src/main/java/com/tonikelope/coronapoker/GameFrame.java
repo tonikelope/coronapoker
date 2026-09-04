@@ -5528,6 +5528,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 new SwingGameAudio(),
                 new SwingGamePresentationSettings(),
                 TOFUResolver::isVerified,
+                Hand::fromControllers,
                 HandPot::new,
                 table_events);
 

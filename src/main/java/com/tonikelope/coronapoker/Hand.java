@@ -29,6 +29,7 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.core.game.GameHandResult;
+import com.tonikelope.coronapoker.core.game.GameCardController;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -40,6 +41,14 @@ import java.util.HashMap;
  * @author tonikelope
  */
 public class Hand implements GameHandResult {
+
+    public static Hand fromControllers(java.util.List<? extends GameCardController> cards) {
+        ArrayList<Card> classic = new ArrayList<>(cards.size());
+        for (GameCardController card : cards) {
+            classic.add((Card) card);
+        }
+        return new Hand(classic);
+    }
 
     private static final String[] HAND_KEYS = new String[]{
         "hand.high_card", "hand.one_pair", "hand.two_pair", "hand.three_of_a_kind",

@@ -62,6 +62,8 @@ import com.tonikelope.coronapoker.core.game.CardCode;
 import com.tonikelope.coronapoker.core.game.GameCardController;
 import com.tonikelope.coronapoker.core.game.GameIdentity;
 import com.tonikelope.coronapoker.core.game.GameIdentityTrust;
+import com.tonikelope.coronapoker.core.game.GameHandFactory;
+import com.tonikelope.coronapoker.core.game.GameHandResult;
 import com.tonikelope.coronapoker.core.game.GameIdentityVerifier;
 import com.tonikelope.coronapoker.core.game.GamePeerController;
 import com.tonikelope.coronapoker.core.game.GamePlayerController;
@@ -137,6 +139,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GameAudioSink game_audio;
     private final GamePresentationSettings presentation_settings;
     private final GameIdentityTrust identity_trust;
+    private final GameHandFactory hand_factory;
     private final GamePotFactory pot_factory;
     private final TableEventBridge table_events;
     private volatile boolean voluntary_show_visible;
@@ -147,7 +150,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 TableDisplaySink.noop(),
                 GameWindowSink.noop(),
                 GameUiExecutor.direct(),
-                GameAudioSink.silent(), GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GamePotFactory.unavailable(),
+                GameAudioSink.silent(), GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GameHandFactory.unavailable(), GamePotFactory.unavailable(),
                 new TableEventBridge());
     }
 
@@ -155,7 +158,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this(null, null, null, null, null, GameIdentity.unavailable(), GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), HostGameConfigurationSource.unavailable(), GameStateMirror.noop(), RecoveredSettingsSynchronizer.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(), TableDisplaySink.noop(),
                 GameWindowSink.noop(), GameUiExecutor.direct(), GameAudioSink.silent(),
-                GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GamePotFactory.unavailable(),
+                GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GameHandFactory.unavailable(), GamePotFactory.unavailable(),
                 tableEvents);
     }
 
@@ -179,6 +182,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameAudioSink gameAudio,
             GamePresentationSettings presentationSettings,
             GameIdentityTrust identityTrust,
+            GameHandFactory handFactory,
             GamePotFactory potFactory,
             TableEventBridge tableEvents) {
         this.game_session = gameSession;
@@ -208,6 +212,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.presentation_settings = java.util.Objects.requireNonNull(
                 presentationSettings, "presentationSettings");
         this.identity_trust = java.util.Objects.requireNonNull(identityTrust, "identityTrust");
+        this.hand_factory = java.util.Objects.requireNonNull(handFactory, "handFactory");
         this.pot_factory = java.util.Objects.requireNonNull(potFactory, "potFactory");
         this.table_events = java.util.Objects.requireNonNull(tableEvents, "tableEvents");
         if (gameSession != null && gameSession.hasConfiguration()) {
@@ -961,7 +966,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int CARD_ANIMATION_DELAY = 100;
     // Diagnostic confirmation (once per session) of which engine renders the card flips
     private static volatile boolean PRE_RENDERED_ENGINE_LOGGED = false;
-    public static final int MIN_ULTIMA_CARTA_JUGADA = Hand.TRIO;
+    public static final int MIN_ULTIMA_CARTA_JUGADA = GameHandResult.TRIO;
     public static volatile boolean FUSION_MOD_SOUNDS = true;
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
     public static final int NEW_HAND_READY_WAIT = 1000;
@@ -2241,7 +2246,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // can continue is a separate card-unlock decision: a valid community testament
     // permits later streets; without it, the next required unlock is MISDEAL/refund.
     private final java.util.Set<String> exited_consensus_participants = ConcurrentHashMap.newKeySet();
-    private final ConcurrentHashMap<GamePlayerController, Hand> perdedores = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<GamePlayerController, GameHandResult> perdedores = new ConcurrentHashMap<>();
     private final ConcurrentLinkedQueue<GamePlayerController> flop_players = new ConcurrentLinkedQueue<>();
 
     private byte[] activeHandId;
@@ -6105,7 +6110,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         game_audio.unmuteAllLoopMp3();
                     }
                 });
-            } else if (jugada_ganadora >= Hand.POKER && presentation_settings.language().equals(presentation_settings.defaultLanguage())) {
+            } else if (jugada_ganadora >= GameHandResult.POKER && presentation_settings.language().equals(presentation_settings.defaultLanguage())) {
 
                 Helpers.threadRun(() -> {
                     game_audio.muteAllLoopMp3();
@@ -6130,7 +6135,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void soundWinner(int jugada, boolean ultima_carta) {
         if (!this.sincronizando_mano && presentation_settings.sillySounds() && !fold_sound_playing) {
 
-            if ((jugada >= Hand.POKER || badbeat) && presentation_settings.language().equals(presentation_settings.defaultLanguage())) {
+            if ((jugada >= GameHandResult.POKER || badbeat) && presentation_settings.language().equals(presentation_settings.defaultLanguage())) {
 
                 Helpers.threadRun(() -> {
                     game_audio.muteAllLoopMp3();
@@ -6176,7 +6181,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         game_audio.unmuteAllLoopMp3();
                     }
                 });
-            } else if (jugada >= Hand.FULL && presentation_settings.language().equals(presentation_settings.defaultLanguage())) {
+            } else if (jugada >= GameHandResult.FULL && presentation_settings.language().equals(presentation_settings.defaultLanguage())) {
 
                 Map.Entry<String, String[]> WTF_SOUNDS = new HashMap.SimpleEntry<>("joke/es/loser/", new String[]{
                     "encargado.wav",
@@ -7333,12 +7338,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             try {
-                Hand jugada = new Hand(evalList);
+                GameHandResult jugada = hand_factory.evaluate(evalList);
                 table_display.showPlayerCards(jugador.getNickname(), jugada.getName());
                 // Enables hover highlighting for the hand just revealed (forced IWTSTH or the
                 // voluntary SHOW button): no kickers, same as a winner. Showdown only sets this
                 // for players who were already showing; here it's done for the late reveal.
-                setShowdownHighlight(jugador, jugada.getWinners());
+                setShowdownHighlight(jugador, classicCards(jugada.getWinners()));
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Error evaluating Hand while showing cards of " + nick, e);
             }
@@ -7349,7 +7354,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    public ConcurrentHashMap<GamePlayerController, Hand> getPerdedores() {
+    public ConcurrentHashMap<GamePlayerController, GameHandResult> getPerdedores() {
         return perdedores;
     }
 
@@ -7891,14 +7896,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     }
                                 }
 
-                                Hand jugada = null;
+                                GameHandResult jugada = null;
                                 try {
-                                    jugada = new Hand(evaluationList);
+                                    jugada = hand_factory.evaluate(evaluationList);
                                     table_display.showPlayerCards(fjugador.getNickname(), jugada.getName());
                                     // Enables hover highlighting for the hand just revealed (received
                                     // SHOWCARDS: forced IWTSTH or a peer's voluntary SHOW): no kickers,
                                     // same as a winner. Set on the late reveal, not just at showdown.
-                                    setShowdownHighlight(fjugador, jugada.getWinners());
+                                    setShowdownHighlight(fjugador, classicCards(jugada.getWinners()));
                                 } catch (Exception e) {
                                 }
 
@@ -10095,14 +10100,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 }
                             }
 
-                            Hand jugada = new Hand(cartas);
+                            GameHandResult jugada = hand_factory.evaluate(cartas);
 
                             localPlayer().setRabbitJugada(
                                     jugada.getName(), jugada.getWinners());
 
                             game_log
                                     .print(Translator.translate("rabbit.rabbit_hunting_mejor_hipotetica_jugada")
-                                            + " " + Card.collection2String(jugada.getWinners()) + " (" + jugada.getName() + ")");
+                                            + " " + Card.collection2String(classicCards(jugada.getWinners())) + " (" + jugada.getName() + ")");
 
                         }
 
@@ -11222,7 +11227,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     }
 
-    private void sqlUpdateShowdownHand(GamePlayerController jugador, Hand jugada) {
+    private void sqlUpdateShowdownHand(GamePlayerController jugador, GameHandResult jugada) {
 
         synchronized (game_database.lock()) {
 
@@ -11233,7 +11238,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         : jugador.getHoleCard1().toShortString() + "#" + jugador.getHoleCard2().toShortString());
 
                 statement.setString(2, (jugador.getHoleCard1().isTapada() || jugada == null) ? null
-                        : Card.collection2ShortString(jugada.getMano()));
+                        : Card.collection2ShortString(classicCards(jugada.getMano())));
 
                 statement.setInt(3, (jugador.getHoleCard1().isTapada() || jugada == null) ? -1 : jugada.getValue());
 
@@ -11306,7 +11311,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    private void sqlNewShowdown(GamePlayerController jugador, Hand jugada, boolean win, boolean tapadas) {
+    private void sqlNewShowdown(GamePlayerController jugador, GameHandResult jugada, boolean win, boolean tapadas) {
 
         // Run-it-twice: each board's showdown() is suppressed; the consolidated row (one per
         // player/hand) is written at the end by resolverRunItTwiceShowdown calling this method
@@ -11328,7 +11333,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         : jugador.getHoleCard1().toShortString() + "#" + jugador.getHoleCard2().toShortString());
 
                 statement.setString(4, (jugador == null || tapadas || jugada == null) ? null
-                        : Card.collection2ShortString(jugada.getMano()));
+                        : Card.collection2ShortString(classicCards(jugada.getMano())));
 
                 statement.setInt(5, (jugador == null || tapadas || jugada == null) ? -1 : jugada.getValue());
 
@@ -15673,7 +15678,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // first board's. From here we suppress both boards' showdown SQL; the
         // consolidated row is written at the end with the total pay and
         // winner = won some side.
-        HashMap<GamePlayerController, Hand> ritShowdownHands = this.calcularJugadas(resisten);
+        HashMap<GamePlayerController, GameHandResult> ritShowdownHands = this.calcularJugadas(resisten);
         this.rit_suppress_showdown_sql = true;
 
         // Money conservation: bote_sobrante (the indivisible remainder inherited from
@@ -15866,8 +15871,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         double paidThisBoard = 0;
 
         // ---- Main pot (eligible = resisten); includes bote_sobrante ----
-        HashMap<GamePlayerController, Hand> jugadas = this.calcularJugadas(resisten);
-        HashMap<GamePlayerController, Hand> ganadores = this.calcularGanadores(new HashMap<>(jugadas));
+        HashMap<GamePlayerController, GameHandResult> jugadas = this.calcularJugadas(resisten);
+        HashMap<GamePlayerController, GameHandResult> ganadores = this.calcularGanadores(new HashMap<>(jugadas));
         double mainHalf = splitPotForRunItTwice(this.bote.getTotal() + this.bote_sobrante)[board];
         double[] cantidad = this.calcularBoteParaGanador(mainHalf, ganadores.size());
         // Main pot winner's profit for THIS board (cosmetic, the green number on the
@@ -15881,14 +15886,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         ArrayList<Card> cartas_usadas_jugadas = new ArrayList<>();
         GamePlayerController unganador = null;
 
-        for (Map.Entry<GamePlayerController, Hand> e : ganadores.entrySet()) {
+        for (Map.Entry<GamePlayerController, GameHandResult> e : ganadores.entrySet()) {
             GamePlayerController ganador = e.getKey();
-            Hand jugada = e.getValue();
+            GameHandResult jugada = e.getValue();
             wonAnySide.add(ganador);
             unganador = ganador;
             // Highlights the winning hand (same as the normal showdown): collects the
             // cards used and dims the winner's UNUSED hole cards.
-            ArrayList<Card> cartas = ganadores.size() == 1 ? jugada.getWinners() : jugada.getMano();
+            ArrayList<Card> cartas = classicCards(ganadores.size() == 1 ? jugada.getWinners() : jugada.getMano());
             for (Card carta : cartas) {
                 if (!cartas_usadas_jugadas.contains(carta)) {
                     cartas_usadas_jugadas.add(carta);
@@ -15927,7 +15932,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // because soundWinner/soundLoser (inside showdown) read it to play
         // badbeat.wav. Reset per board: SIDE-A doesn't leak into SIDE-B.
         this.badbeat = false;
-        for (Map.Entry<GamePlayerController, Hand> e : jugadas.entrySet()) {
+        for (Map.Entry<GamePlayerController, GameHandResult> e : jugadas.entrySet()) {
             if (badbeat(e.getKey(), unganador)) {
                 this.badbeat = true;
             }
@@ -15936,11 +15941,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Compute every contested side pot BEFORE presenting the board. Otherwise a
         // player who loses the main pot but wins a side pot is painted as a loser and
         // can be auto-mucked before their actual winning result is known.
-        java.util.ArrayList<HashMap<GamePlayerController, Hand>> sideHands = new java.util.ArrayList<>();
-        java.util.ArrayList<HashMap<GamePlayerController, Hand>> sideWinners = new java.util.ArrayList<>();
+        java.util.ArrayList<HashMap<GamePlayerController, GameHandResult>> sideHands = new java.util.ArrayList<>();
+        java.util.ArrayList<HashMap<GamePlayerController, GameHandResult>> sideWinners = new java.util.ArrayList<>();
         for (GamePot side = this.bote.getSidePot(); side != null; side = side.getSidePot()) {
             if (side.getPlayerControllers().size() > 1) {
-                HashMap<GamePlayerController, Hand> hands = this.calcularJugadas(side.getPlayerControllers());
+                HashMap<GamePlayerController, GameHandResult> hands = this.calcularJugadas(side.getPlayerControllers());
                 sideHands.add(hands);
                 sideWinners.add(this.calcularGanadores(new HashMap<>(hands)));
             } else {
@@ -15948,7 +15953,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 sideWinners.add(new HashMap<>());
             }
         }
-        SettlementPresentation.Plan<GamePlayerController, Hand> presentation = SettlementPresentation.plan(
+        SettlementPresentation.Plan<GamePlayerController, GameHandResult> presentation = SettlementPresentation.plan(
                 jugadas, ganadores, sideHands, sideWinners);
 
         // Visual board update uses the complete immutable result. Null for the
@@ -15964,7 +15969,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        for (Map.Entry<GamePlayerController, Hand> e : jugadas.entrySet()) {
+        for (Map.Entry<GamePlayerController, GameHandResult> e : jugadas.entrySet()) {
             game_log.print(e.getKey().getNickname() + " " + Translator.translate("game.pierde_bote") + Helpers.money2String(cantidad[0]) + ")");
             if (isSideB) {
                 this.perdedores.put(e.getKey(), e.getValue());
@@ -15997,14 +16002,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     this.sqlUpdateShowdownPay(only);
                 }
             } else {
-                HashMap<GamePlayerController, Hand> sjugadas = sideHands.get(sideIndex);
-                HashMap<GamePlayerController, Hand> sganadores = sideWinners.get(sideIndex);
+                HashMap<GamePlayerController, GameHandResult> sjugadas = sideHands.get(sideIndex);
+                HashMap<GamePlayerController, GameHandResult> sganadores = sideWinners.get(sideIndex);
                 double sHalf = splitPotForRunItTwice(current_pot.getTotal())[board];
                 double[] sCantidad = this.calcularBoteParaGanador(sHalf, sganadores.size());
                 bote_tapete = bote_tapete + " + #" + String.valueOf(sec) + "{" + Helpers.money2String(sHalf) + "}";
-                for (Map.Entry<GamePlayerController, Hand> e : sganadores.entrySet()) {
+                for (Map.Entry<GamePlayerController, GameHandResult> e : sganadores.entrySet()) {
                     GamePlayerController ganador = e.getKey();
-                    Hand jugada = e.getValue();
+                    GameHandResult jugada = e.getValue();
                     wonAnySide.add(ganador);
                     sjugadas.remove(ganador);
                     ganador.pagar(sCantidad[0], null);
@@ -16013,7 +16018,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             game_log.print(ganador.getNickname() + " (" + Card.collection2String(classicCards(ganador.getHoleCards())) + Translator.translate("game.gana_bote_secundario") + String.valueOf(sec) + " (" + Helpers.money2String(sCantidad[0]) + ") -> " + jugada);
                     this.sqlUpdateShowdownPay(ganador);
                 }
-                for (Map.Entry<GamePlayerController, Hand> e : sjugadas.entrySet()) {
+                for (Map.Entry<GamePlayerController, GameHandResult> e : sjugadas.entrySet()) {
                     game_log.print(e.getKey().getNickname() + " " + Translator.translate("game.pierde_bote_secundario") + String.valueOf(sec) + " (" + Helpers.money2String(sCantidad[0]) + ")");
                     if (isSideB) {
                         perdedores.put(e.getKey(), e.getValue());
@@ -18157,8 +18162,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (this.destapar_resistencia && this.street != Crupier.RIVER) {
 
-            HashMap<GamePlayerController, Hand> jugadas = calcularJugadas(resisten);
-            HashMap<GamePlayerController, Hand> ganadores = calcularGanadores(new HashMap<>(jugadas));
+            HashMap<GamePlayerController, GameHandResult> jugadas = calcularJugadas(resisten);
+            HashMap<GamePlayerController, GameHandResult> ganadores = calcularGanadores(new HashMap<>(jugadas));
 
             // Null-safety guard
             for (GamePlayerController p : resisten) {
@@ -18240,7 +18245,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             for (Object[] s : stats_ordenadas) {
                 GamePlayerController p = (GamePlayerController) s[0];
                 Integer[] stats = (Integer[]) s[1];
-                Hand manoParcial = jugadas.get(p);
+                GameHandResult manoParcial = jugadas.get(p);
 
                 p.setJugadaParcial(manoParcial, ganadores.containsKey(p),
                         Helpers.floatClean(((float) (stats[1] + stats[3]) / stats[0]) * 100));
@@ -22171,7 +22176,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    public boolean ganaPorUltimaCarta(GamePlayerController jugador, Hand jugada, int MIN) {
+    public boolean ganaPorUltimaCarta(GamePlayerController jugador, GameHandResult jugada, int MIN) {
 
         if (!communityCard(4).isTapada()
                 && jugada.getWinners().contains(communityCard(4)) && jugada.getValue() >= MIN
@@ -22183,7 +22188,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         cartas.add(classicCard(jugador.getHoleCard2()));
             cartas.remove(communityCard(4));
 
-            Hand nueva_jugada = new Hand(cartas);
+            GameHandResult nueva_jugada = hand_factory.evaluate(cartas);
 
             return (nueva_jugada.getValue() != jugada.getValue());
         }
@@ -22213,7 +22218,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             cartas.remove(communityCard(4));
 
-            Hand jugada_perdedor_turn = new Hand(cartas);
+            GameHandResult jugada_perdedor_turn = hand_factory.evaluate(cartas);
 
             cartas.remove(perdedor.getHoleCard1());
 
@@ -22223,9 +22228,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             cartas.add(classicCard(ganador.getHoleCard2()));
 
-            Hand jugada_ganador_turn = new Hand(cartas);
+            GameHandResult jugada_ganador_turn = hand_factory.evaluate(cartas);
 
-            return (jugada_perdedor_turn.getValue() >= Hand.TRIO
+            return (jugada_perdedor_turn.getValue() >= GameHandResult.TRIO
                     && (jugada_perdedor_turn.getValue() > jugada_ganador_turn.getValue()));
         } else {
             return false;
@@ -22589,7 +22594,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    public void showdown(HashMap<GamePlayerController, Hand> perdedores, HashMap<GamePlayerController, Hand> ganadores, java.util.List<Card> diferir_desenfoque) {
+    public void showdown(HashMap<GamePlayerController, GameHandResult> perdedores, HashMap<GamePlayerController, GameHandResult> ganadores, java.util.List<Card> diferir_desenfoque) {
         int pivote;
 
         // 1. Determine who shows first (last aggressor, or the seat after the dealer)
@@ -22633,7 +22638,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (perdedores.containsKey(jugador_actual) || ganadores.containsKey(jugador_actual)) {
 
                 boolean isWinner = ganadores.containsKey(jugador_actual);
-                Hand jugada = isWinner ? ganadores.get(jugador_actual) : perdedores.get(jugador_actual);
+                GameHandResult jugada = isWinner ? ganadores.get(jugador_actual) : perdedores.get(jugador_actual);
 
                 // AUTO-MUCK logic (IWTSTH):
                 // Cards are uncovered ONLY if:
@@ -22708,7 +22713,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 boolean isLocal = jugador_actual.equals(localPlayer());
                 boolean isWinner = ganadores.containsKey(jugador_actual);
-                Hand jugada = isWinner ? ganadores.get(jugador_actual) : perdedores.get(jugador_actual);
+                GameHandResult jugada = isWinner ? ganadores.get(jugador_actual) : perdedores.get(jugador_actual);
                 boolean mustShow = must_show.get(jugador_actual);
 
                 if (isWinner) {
@@ -22721,7 +22726,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // showed). Without this, no winner had showdown_hand_cards and hover
                     // did nothing on their label.
                     setShowdownHighlight(jugador_actual,
-                            (isLocal || mustShow) ? jugada.getWinners() : null);
+                            (isLocal || mustShow) ? classicCards(jugada.getWinners()) : null);
 
                     this.sqlNewShowdown(jugador_actual, jugada, true, !mustShow);
 
@@ -22763,7 +22768,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // didn't show (muck/IWTSTH) keeps its hand hidden and nothing is
                     // highlighted.
                     setShowdownHighlight(jugador_actual,
-                            (isLocal || mustShow) ? jugada.getWinners() : null);
+                            (isLocal || mustShow) ? classicCards(jugada.getWinners()) : null);
 
                     this.sqlNewShowdown(jugador_actual, jugada, false, !mustShow);
 
@@ -23092,8 +23097,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             lock_mostrar.notifyAll();
                         }
 
-                        HashMap<GamePlayerController, Hand> jugadas;
-                        HashMap<GamePlayerController, Hand> ganadores;
+                        HashMap<GamePlayerController, GameHandResult> jugadas;
+                        HashMap<GamePlayerController, GameHandResult> ganadores;
 
                         synchronized (getLock_contabilidad()) {
                             java.util.Iterator<GamePlayerController> iterator = resisten.iterator();
@@ -23217,10 +23222,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             ArrayList<Card> diferir_dim = new ArrayList<>();
                                             GamePlayerController unganador = null;
 
-                                            for (Map.Entry<GamePlayerController, Hand> entry : ganadores.entrySet()) {
+                                            for (Map.Entry<GamePlayerController, GameHandResult> entry : ganadores.entrySet()) {
                                                 GamePlayerController ganador = entry.getKey();
-                                                Hand jugada = entry.getValue();
-                                                ArrayList<Card> cartas = ganadores.size() == 1 ? jugada.getWinners() : jugada.getMano();
+                                                GameHandResult jugada = entry.getValue();
+                                                ArrayList<Card> cartas = classicCards(ganadores.size() == 1 ? jugada.getWinners() : jugada.getMano());
                                                 for (Card carta : cartas) {
                                                     if (!cartas_usadas_jugadas.contains(carta)) {
                                                         cartas_usadas_jugadas.add(carta);
@@ -23246,7 +23251,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 }
                                             }
 
-                                            for (Map.Entry<GamePlayerController, Hand> entry : jugadas.entrySet()) {
+                                            for (Map.Entry<GamePlayerController, GameHandResult> entry : jugadas.entrySet()) {
                                                 GamePlayerController perdedor = entry.getKey();
                                                 badbeat |= badbeat(perdedor, unganador);
                                                 perdedores.put(perdedor, entry.getValue());
@@ -23270,10 +23275,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             ArrayList<Card> diferir_dim = new ArrayList<>();
                                             GamePlayerController unganador = null;
 
-                                            for (Map.Entry<GamePlayerController, Hand> entry : ganadores.entrySet()) {
+                                            for (Map.Entry<GamePlayerController, GameHandResult> entry : ganadores.entrySet()) {
                                                 GamePlayerController ganador = entry.getKey();
-                                                Hand jugada = entry.getValue();
-                                                ArrayList<Card> cartas = ganadores.size() == 1 ? jugada.getWinners() : jugada.getMano();
+                                                GameHandResult jugada = entry.getValue();
+                                                ArrayList<Card> cartas = classicCards(ganadores.size() == 1 ? jugada.getWinners() : jugada.getMano());
                                                 for (Card carta : cartas) {
                                                     if (!cartas_usadas_jugadas.contains(carta)) {
                                                         cartas_usadas_jugadas.add(carta);
@@ -23305,7 +23310,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 }
                                             }
 
-                                            for (Map.Entry<GamePlayerController, Hand> entry : jugadas.entrySet()) {
+                                            for (Map.Entry<GamePlayerController, GameHandResult> entry : jugadas.entrySet()) {
                                                 GamePlayerController perdedor = entry.getKey();
                                                 badbeat |= badbeat(perdedor, unganador);
                                                 perdedores.put(perdedor, entry.getValue());
@@ -23320,13 +23325,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             // just won mucked. The computation doesn't touch game state
                                             // (calcularGanadores only drains the copy passed to it), so
                                             // doing it early is harmless and the payout loop below reuses it.
-                                            HashMap<GamePlayerController, Hand> ganadores_todos = new HashMap<>(ganadores);
-                                            java.util.ArrayList<HashMap<GamePlayerController, Hand>> jugadas_por_lateral = new java.util.ArrayList<>();
-                                            java.util.ArrayList<HashMap<GamePlayerController, Hand>> ganadores_por_lateral = new java.util.ArrayList<>();
+                                            HashMap<GamePlayerController, GameHandResult> ganadores_todos = new HashMap<>(ganadores);
+                                            java.util.ArrayList<HashMap<GamePlayerController, GameHandResult>> jugadas_por_lateral = new java.util.ArrayList<>();
+                                            java.util.ArrayList<HashMap<GamePlayerController, GameHandResult>> ganadores_por_lateral = new java.util.ArrayList<>();
 
                                             for (GamePot lateral = this.bote.getSidePot(); lateral != null; lateral = lateral.getSidePot()) {
-                                                HashMap<GamePlayerController, Hand> jugadas_lateral = this.calcularJugadas(lateral.getPlayerControllers());
-                                                HashMap<GamePlayerController, Hand> ganadores_lateral = this.calcularGanadores(new HashMap<>(jugadas_lateral));
+                                                HashMap<GamePlayerController, GameHandResult> jugadas_lateral = this.calcularJugadas(lateral.getPlayerControllers());
+                                                HashMap<GamePlayerController, GameHandResult> ganadores_lateral = this.calcularGanadores(new HashMap<>(jugadas_lateral));
                                                 jugadas_por_lateral.add(jugadas_lateral);
                                                 ganadores_por_lateral.add(ganadores_lateral);
 
@@ -23369,16 +23374,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                     ganadores = ganadores_por_lateral.get(indice_lateral);
                                                     cantidad_pagar_ganador = this.calcularBoteParaGanador(current_pot.getTotal(), ganadores.size());
                                                     bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + Helpers.money2String(current_pot.getTotal()) + "}";
-                                                    for (Map.Entry<GamePlayerController, Hand> entry : ganadores.entrySet()) {
+                                                    for (Map.Entry<GamePlayerController, GameHandResult> entry : ganadores.entrySet()) {
                                                         GamePlayerController ganador = entry.getKey();
                                                         jugadas.remove(entry.getKey());
                                                         ganador.pagar(cantidad_pagar_ganador[0], conta_bote_secundario);
                                                         this.bote_total -= cantidad_pagar_ganador[0];
-                                                        Hand jugada = entry.getValue();
+                                                        GameHandResult jugada = entry.getValue();
                                                         game_log.print(ganador.getNickname() + " (" + Card.collection2String(classicCards(ganador.getHoleCards())) + Translator.translate("game.gana_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
                                                         this.sqlUpdateShowdownPay(ganador);
                                                     }
-                                                    for (Map.Entry<GamePlayerController, Hand> entry : jugadas.entrySet()) {
+                                                    for (Map.Entry<GamePlayerController, GameHandResult> entry : jugadas.entrySet()) {
                                                         GamePlayerController perdedor = entry.getKey();
                                                         perdedores.put(perdedor, entry.getValue());
                                                         game_log.print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
@@ -23990,8 +23995,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 && !carta.getValor().equals("null");
     }
 
-    public HashMap<GamePlayerController, Hand> calcularJugadas(java.util.List<? extends GamePlayerController> jugadores) {
-        HashMap<GamePlayerController, Hand> jugadas = new HashMap<>();
+    public HashMap<GamePlayerController, GameHandResult> calcularJugadas(java.util.List<? extends GamePlayerController> jugadores) {
+        HashMap<GamePlayerController, GameHandResult> jugadas = new HashMap<>();
 
         for (GamePlayerController jugador : jugadores) {
 
@@ -24015,7 +24020,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             cartas_utilizables.add(classicCard(jugador.getHoleCard1()));
             cartas_utilizables.add(classicCard(jugador.getHoleCard2()));
             try {
-                jugadas.put(jugador, new Hand(cartas_utilizables));
+                jugadas.put(jugador, hand_factory.evaluate(cartas_utilizables));
             } catch (Exception e) {
                 // Being left out of the map means losing the pot, so a failure here
                 // must NOT pass silently: without a trace, a player would go unpaid
@@ -24028,12 +24033,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return jugadas;
     }
 
-    public HashMap<GamePlayerController, Hand> calcularGanadores(HashMap<GamePlayerController, Hand> candidatos) {
+    public HashMap<GamePlayerController, GameHandResult> calcularGanadores(HashMap<GamePlayerController, GameHandResult> candidatos) {
 
-        int jugada_max = Hand.CARTA_ALTA;
+        int jugada_max = GameHandResult.CARTA_ALTA;
 
         // Find the best hand among all players
-        for (Map.Entry<GamePlayerController, Hand> entry : candidatos.entrySet()) {
+        for (Map.Entry<GamePlayerController, GameHandResult> entry : candidatos.entrySet()) {
 
             if (entry.getValue().getValue() > jugada_max) {
                 jugada_max = entry.getValue().getValue();
@@ -24041,16 +24046,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         // Drop players whose hand is below the best one
-        for (Iterator<Map.Entry<GamePlayerController, Hand>> it = candidatos.entrySet().iterator(); it.hasNext();) {
+        for (Iterator<Map.Entry<GamePlayerController, GameHandResult>> it = candidatos.entrySet().iterator(); it.hasNext();) {
 
-            Map.Entry<GamePlayerController, Hand> entry = it.next();
+            Map.Entry<GamePlayerController, GameHandResult> entry = it.next();
 
             if (entry.getValue().getValue() < jugada_max) {
                 it.remove();
             }
         }
 
-        if (candidatos.size() == 1 || jugada_max == Hand.ESCALERA_COLOR_REAL) {
+        if (candidatos.size() == 1 || jugada_max == GameHandResult.ESCALERA_COLOR_REAL) {
 
             return candidatos;
 
@@ -24058,21 +24063,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             // If several share the best hand, try to break the tie
             switch (jugada_max) {
-                case Hand.ESCALERA_COLOR:
+                case GameHandResult.ESCALERA_COLOR:
                     return desempatarEscalera(candidatos);
-                case Hand.POKER:
+                case GameHandResult.POKER:
                     return desempatarRepetidas(candidatos, CARTAS_POKER);
-                case Hand.FULL:
+                case GameHandResult.FULL:
                     return desempatarFull(candidatos);
-                case Hand.COLOR:
+                case GameHandResult.COLOR:
                     return desempatarCartaAlta(candidatos, 0);
-                case Hand.ESCALERA:
+                case GameHandResult.ESCALERA:
                     return desempatarEscalera(candidatos);
-                case Hand.TRIO:
+                case GameHandResult.TRIO:
                     return desempatarRepetidas(candidatos, CARTAS_TRIO);
-                case Hand.DOBLE_PAREJA:
+                case GameHandResult.DOBLE_PAREJA:
                     return desempatarDoblePareja(candidatos);
-                case Hand.PAREJA:
+                case GameHandResult.PAREJA:
                     return desempatarRepetidas(candidatos, CARTAS_PAREJA);
                 default:
                     return desempatarCartaAlta(candidatos, 0);
@@ -24080,22 +24085,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    private HashMap<GamePlayerController, Hand> desempatarDoblePareja(HashMap<GamePlayerController, Hand> jugadores) {
+    private HashMap<GamePlayerController, GameHandResult> desempatarDoblePareja(HashMap<GamePlayerController, GameHandResult> jugadores) {
 
         int carta_alta = 1;
 
         // Find the highest card of the first (bigger) pair
-        for (Map.Entry<GamePlayerController, Hand> entry : jugadores.entrySet()) {
-            Hand jugada = entry.getValue();
+        for (Map.Entry<GamePlayerController, GameHandResult> entry : jugadores.entrySet()) {
+            GameHandResult jugada = entry.getValue();
             if (jugada.getMano().get(0).getValorNumerico() > carta_alta) {
                 carta_alta = jugada.getMano().get(0).getValorNumerico();
             }
         }
 
         // Drop everyone with a lower big pair
-        for (Iterator<Map.Entry<GamePlayerController, Hand>> it = jugadores.entrySet().iterator(); it.hasNext();) {
-            Map.Entry<GamePlayerController, Hand> entry = it.next();
-            Hand jugada = entry.getValue();
+        for (Iterator<Map.Entry<GamePlayerController, GameHandResult>> it = jugadores.entrySet().iterator(); it.hasNext();) {
+            Map.Entry<GamePlayerController, GameHandResult> entry = it.next();
+            GameHandResult jugada = entry.getValue();
             if (jugada.getMano().get(0).getValorNumerico() < carta_alta) {
                 it.remove();
             }
@@ -24110,17 +24115,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             carta_alta = 1;
 
             // Find the highest card of the second pair
-            for (Map.Entry<GamePlayerController, Hand> entry : jugadores.entrySet()) {
-                Hand jugada = entry.getValue();
+            for (Map.Entry<GamePlayerController, GameHandResult> entry : jugadores.entrySet()) {
+                GameHandResult jugada = entry.getValue();
                 if (jugada.getMano().get(2).getValorNumerico() > carta_alta) {
                     carta_alta = jugada.getMano().get(2).getValorNumerico();
                 }
             }
 
             // Drop everyone with a lower second pair
-            for (Iterator<Map.Entry<GamePlayerController, Hand>> it = jugadores.entrySet().iterator(); it.hasNext();) {
-                Map.Entry<GamePlayerController, Hand> entry = it.next();
-                Hand jugada = entry.getValue();
+            for (Iterator<Map.Entry<GamePlayerController, GameHandResult>> it = jugadores.entrySet().iterator(); it.hasNext();) {
+                Map.Entry<GamePlayerController, GameHandResult> entry = it.next();
+                GameHandResult jugada = entry.getValue();
                 if (jugada.getMano().get(2).getValorNumerico() < carta_alta) {
                     it.remove();
                 }
@@ -24138,22 +24143,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     }
 
-    private HashMap<GamePlayerController, Hand> desempatarFull(HashMap<GamePlayerController, Hand> jugadores) {
+    private HashMap<GamePlayerController, GameHandResult> desempatarFull(HashMap<GamePlayerController, GameHandResult> jugadores) {
 
         int carta_alta = 1;
 
         // Find the highest card of the FULL house's trip
-        for (Map.Entry<GamePlayerController, Hand> entry : jugadores.entrySet()) {
-            Hand jugada = entry.getValue();
+        for (Map.Entry<GamePlayerController, GameHandResult> entry : jugadores.entrySet()) {
+            GameHandResult jugada = entry.getValue();
             if (jugada.getMano().get(0).getValorNumerico() > carta_alta) {
                 carta_alta = jugada.getMano().get(0).getValorNumerico();
             }
         }
 
         // Drop everyone with a lower trip
-        for (Iterator<Map.Entry<GamePlayerController, Hand>> it = jugadores.entrySet().iterator(); it.hasNext();) {
-            Map.Entry<GamePlayerController, Hand> entry = it.next();
-            Hand jugada = entry.getValue();
+        for (Iterator<Map.Entry<GamePlayerController, GameHandResult>> it = jugadores.entrySet().iterator(); it.hasNext();) {
+            Map.Entry<GamePlayerController, GameHandResult> entry = it.next();
+            GameHandResult jugada = entry.getValue();
             if (jugada.getMano().get(0).getValorNumerico() < carta_alta) {
                 it.remove();
             }
@@ -24168,17 +24173,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             carta_alta = 1;
 
             // Find the highest card of the FULL house's pair
-            for (Map.Entry<GamePlayerController, Hand> entry : jugadores.entrySet()) {
-                Hand jugada = entry.getValue();
+            for (Map.Entry<GamePlayerController, GameHandResult> entry : jugadores.entrySet()) {
+                GameHandResult jugada = entry.getValue();
                 if (jugada.getMano().get(3).getValorNumerico() > carta_alta) {
                     carta_alta = jugada.getMano().get(3).getValorNumerico();
                 }
             }
 
             // Drop everyone with a lower pair
-            for (Iterator<Map.Entry<GamePlayerController, Hand>> it = jugadores.entrySet().iterator(); it.hasNext();) {
-                Map.Entry<GamePlayerController, Hand> entry = it.next();
-                Hand jugada = entry.getValue();
+            for (Iterator<Map.Entry<GamePlayerController, GameHandResult>> it = jugadores.entrySet().iterator(); it.hasNext();) {
+                Map.Entry<GamePlayerController, GameHandResult> entry = it.next();
+                GameHandResult jugada = entry.getValue();
                 if (jugada.getMano().get(3).getValorNumerico() < carta_alta) {
                     it.remove();
                 }
@@ -24190,22 +24195,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     }
 
-    private HashMap<GamePlayerController, Hand> desempatarRepetidas(HashMap<GamePlayerController, Hand> jugadores, int repetidas) {
+    private HashMap<GamePlayerController, GameHandResult> desempatarRepetidas(HashMap<GamePlayerController, GameHandResult> jugadores, int repetidas) {
 
         int carta_alta = 1;
 
         // Find the highest card of the QUADS/TRIPS/PAIR
-        for (Map.Entry<GamePlayerController, Hand> entry : jugadores.entrySet()) {
-            Hand jugada = entry.getValue();
+        for (Map.Entry<GamePlayerController, GameHandResult> entry : jugadores.entrySet()) {
+            GameHandResult jugada = entry.getValue();
             if (jugada.getMano().get(0).getValorNumerico() > carta_alta) {
                 carta_alta = jugada.getMano().get(0).getValorNumerico();
             }
         }
 
         // Drop everyone with a lower QUADS/TRIPS/PAIR
-        for (Iterator<Map.Entry<GamePlayerController, Hand>> it = jugadores.entrySet().iterator(); it.hasNext();) {
-            Map.Entry<GamePlayerController, Hand> entry = it.next();
-            Hand jugada = entry.getValue();
+        for (Iterator<Map.Entry<GamePlayerController, GameHandResult>> it = jugadores.entrySet().iterator(); it.hasNext();) {
+            Map.Entry<GamePlayerController, GameHandResult> entry = it.next();
+            GameHandResult jugada = entry.getValue();
             if (jugada.getMano().get(0).getValorNumerico() < carta_alta) {
                 it.remove();
             }
@@ -24222,13 +24227,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     }
 
-    private HashMap<GamePlayerController, Hand> desempatarEscalera(HashMap<GamePlayerController, Hand> jugadores) {
+    private HashMap<GamePlayerController, GameHandResult> desempatarEscalera(HashMap<GamePlayerController, GameHandResult> jugadores) {
 
         int carta_alta = 0;
 
-        for (Map.Entry<GamePlayerController, Hand> entry : jugadores.entrySet()) {
+        for (Map.Entry<GamePlayerController, GameHandResult> entry : jugadores.entrySet()) {
 
-            Hand jugada = entry.getValue();
+            GameHandResult jugada = entry.getValue();
 
             if (jugada.getMano().get(0).getValorNumerico() > carta_alta) {
                 carta_alta = jugada.getMano().get(0).getValorNumerico();
@@ -24236,11 +24241,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         // Drop everyone with a straight lower than the best one
-        for (Iterator<Map.Entry<GamePlayerController, Hand>> it = jugadores.entrySet().iterator(); it.hasNext();) {
+        for (Iterator<Map.Entry<GamePlayerController, GameHandResult>> it = jugadores.entrySet().iterator(); it.hasNext();) {
 
-            Map.Entry<GamePlayerController, Hand> entry = it.next();
+            Map.Entry<GamePlayerController, GameHandResult> entry = it.next();
 
-            Hand jugada = entry.getValue();
+            GameHandResult jugada = entry.getValue();
 
             if (jugada.getMano().get(0).getValorNumerico() < carta_alta) {
                 it.remove();
@@ -24250,13 +24255,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return jugadores;
     }
 
-    private HashMap<GamePlayerController, Hand> desempatarCartaAlta(HashMap<GamePlayerController, Hand> jugadores, int start_card) {
+    private HashMap<GamePlayerController, GameHandResult> desempatarCartaAlta(HashMap<GamePlayerController, GameHandResult> jugadores, int start_card) {
 
         int cartas_max = CARTAS_MAX;
 
-        for (Map.Entry<GamePlayerController, Hand> entry : jugadores.entrySet()) {
+        for (Map.Entry<GamePlayerController, GameHandResult> entry : jugadores.entrySet()) {
 
-            Hand jugada = entry.getValue();
+            GameHandResult jugada = entry.getValue();
 
             cartas_max = Math.min(cartas_max, jugada.getMano().size());
         }
@@ -24266,17 +24271,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int carta_alta = 1;
 
             // Find the highest card
-            for (Map.Entry<GamePlayerController, Hand> entry : jugadores.entrySet()) {
-                Hand jugada = entry.getValue();
+            for (Map.Entry<GamePlayerController, GameHandResult> entry : jugadores.entrySet()) {
+                GameHandResult jugada = entry.getValue();
                 if (jugada.getMano().get(i).getValorNumerico() > carta_alta) {
                     carta_alta = jugada.getMano().get(i).getValorNumerico();
                 }
             }
 
             // Drop everyone with a lower card
-            for (Iterator<Map.Entry<GamePlayerController, Hand>> it = jugadores.entrySet().iterator(); it.hasNext();) {
-                Map.Entry<GamePlayerController, Hand> entry = it.next();
-                Hand jugada = entry.getValue();
+            for (Iterator<Map.Entry<GamePlayerController, GameHandResult>> it = jugadores.entrySet().iterator(); it.hasNext();) {
+                Map.Entry<GamePlayerController, GameHandResult> entry = it.next();
+                GameHandResult jugada = entry.getValue();
                 if (jugada.getMano().get(i).getValorNumerico() < carta_alta) {
                     it.remove();
                 }

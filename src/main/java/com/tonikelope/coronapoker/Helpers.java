@@ -2312,8 +2312,8 @@ public class Helpers {
     }
 
     public static String encryptCommand(String command, SecretKeySpec aes_key, byte[] iv, SecretKeySpec hmac_key) {
-
-        return ("*" + Helpers.encryptString(command, aes_key, iv, hmac_key));
+        return com.tonikelope.coronapoker.crypto.AuthenticatedCommandCodec.encrypt(
+                command, aes_key, iv, hmac_key);
 
     }
 

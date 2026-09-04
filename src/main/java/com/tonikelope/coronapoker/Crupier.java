@@ -29,6 +29,8 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.crypto.RistrettoSRA;
+import com.tonikelope.coronapoker.crypto.AuthenticatedCommandCodec;
+import com.tonikelope.coronapoker.crypto.CryptoRandom;
 import com.tonikelope.coronapoker.crypto.UnlockChainWire;
 import com.tonikelope.coronapoker.crypto.DealChain;
 import com.tonikelope.coronapoker.table.TableEventBridge;
@@ -2639,10 +2641,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private byte[] requestRemoteCascade(String nick, byte[] currentDeck, GamePeerController p) {
         int id = GameCommandId.next();
         byte[] iv = new byte[16];
-        Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+        CryptoRandom.fill(iv);
         String deckB64 = Base64.getEncoder().encodeToString(currentDeck);
         try {
-            p.writeCommandFromServer(Helpers.encryptCommand("GAME#" + id + "#DECK_CASCADE_REQ#" + deckB64, p.getAes_key(), iv, p.getHmac_key()));
+            p.writeCommandFromServer(AuthenticatedCommandCodec.encrypt("GAME#" + id + "#DECK_CASCADE_REQ#" + deckB64, p.getAes_key(), iv, p.getHmac_key()));
         } catch (Exception e) {
             return null;
         }
@@ -2827,10 +2829,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private byte[] requestRemoteRotation(String nick, byte[] communityPieces, GamePeerController p) {
         int id = GameCommandId.next();
         byte[] iv = new byte[16];
-        Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+        CryptoRandom.fill(iv);
         String piecesB64 = Base64.getEncoder().encodeToString(communityPieces);
         try {
-            p.writeCommandFromServer(Helpers.encryptCommand("GAME#" + id + "#DECK_ROTATION_REQ#" + piecesB64, p.getAes_key(), iv, p.getHmac_key()));
+            p.writeCommandFromServer(AuthenticatedCommandCodec.encrypt("GAME#" + id + "#DECK_ROTATION_REQ#" + piecesB64, p.getAes_key(), iv, p.getHmac_key()));
         } catch (Exception e) {
             return null;
         }
@@ -2937,11 +2939,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             String nick, GamePeerController p, int phase, java.util.List<UnlockChainWire.ReqItem> items) {
         int id = GameCommandId.next();
         byte[] iv = new byte[16];
-        Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+        CryptoRandom.fill(iv);
         String payload = UnlockChainWire.serializeReq(items);
         try {
             String cmd = "GAME#" + id + "#REQ_SRA_UNLOCK_CHAIN#" + phase + "#" + this.conta_mano + "#" + payload;
-            p.writeCommandFromServer(Helpers.encryptCommand(cmd, p.getAes_key(), iv, p.getHmac_key()));
+            p.writeCommandFromServer(AuthenticatedCommandCodec.encrypt(cmd, p.getAes_key(), iv, p.getHmac_key()));
         } catch (Exception e) {
             return null;
         }
@@ -3027,9 +3029,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         try {
             int id = GameCommandId.next();
             byte[] iv = new byte[16];
-            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+            CryptoRandom.fill(iv);
             request = tracker.register(id + 1, pending);
-            boolean writeFailed = p.writeCommandFromServer(Helpers.encryptCommand(
+            boolean writeFailed = p.writeCommandFromServer(AuthenticatedCommandCodec.encrypt(
                     "GAME#" + id + "#" + command, p.getAes_key(), iv, p.getHmac_key()));
             if (writeFailed) {
                 p.markExitAndNotify("critical unicast write failed");
@@ -3145,9 +3147,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // this id + the sorted player ids of the crypto-ring + the cascaded deck, so
         // H_0 is byte-identical across the table.
         this.current_hand_id = new byte[CanonicalActionRecord.HAND_ID_BYTES];
-        if (Helpers.CSPRNG_GENERATOR != null) {
-            Helpers.CSPRNG_GENERATOR.nextBytes(this.current_hand_id);
-        }
+        CryptoRandom.fill(this.current_hand_id);
 
         // ENCRYPTION AND SHUFFLE CASCADE
         //
@@ -3240,9 +3240,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         byte[] botLock = RistrettoSRA.generateLockScalar();
                         byte[] botUnlock = RistrettoSRA.getUnlockScalar(botLock);
                         byte[] botSeed = new byte[48];
-                        if (Helpers.CSPRNG_GENERATOR != null) {
-                            Helpers.CSPRNG_GENERATOR.nextBytes(botSeed);
-                        }
+                        CryptoRandom.fill(botSeed);
                         p.setReceived_token(botUnlock);
                         // Dual-lock: bot's community scalars. The lock will be used during
                         // rotation; the unlock is stored on the Participant so
@@ -5672,12 +5670,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             for (int i = 0; i < total; i++) {
                 this.allin_cinematic_bag.add(i);
             }
-            Collections.shuffle(this.allin_cinematic_bag, Helpers.CSPRNG_GENERATOR);
+            CryptoRandom.shuffle(this.allin_cinematic_bag);
             // Consumed from the end (O(1) remove): if the first draw after a reshuffle would
             // repeat the last one shown, swap it with a random position (only possible with
             // 2+ animations).
             if (total > 1 && this.allin_cinematic_bag.get(total - 1) == this.last_allin_cinematic) {
-                Collections.swap(this.allin_cinematic_bag, total - 1, Helpers.CSPRNG_GENERATOR.nextInt(total - 1));
+                Collections.swap(this.allin_cinematic_bag, total - 1, CryptoRandom.nextInt(total - 1));
             }
         }
         this.last_allin_cinematic = this.allin_cinematic_bag.remove(this.allin_cinematic_bag.size() - 1);
@@ -9533,10 +9531,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Local entropy for our SRA shuffle (never leaves this process). 48 bytes:
         // first 32 feed the AES-256 key, last 16 feed the CTR IV.
         byte[] jvm_entropy = new byte[48];
-
-        if (Helpers.CSPRNG_GENERATOR != null) {
-            Helpers.CSPRNG_GENERATOR.nextBytes(jvm_entropy);
-        }
+        CryptoRandom.fill(jvm_entropy);
 
         this.local_hand_seed = jvm_entropy;
 
@@ -13188,7 +13183,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         int id = GameCommandId.next();
         byte[] iv = new byte[16];
-        Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+        CryptoRandom.fill(iv);
         ConfirmationTracker tracker = game_transport.confirmations();
         ConfirmationTracker.Request request = tracker.register(id + 1, pendientes);
 
@@ -13204,7 +13199,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (pendientes.contains(jugador.getNickname())) {
                         GamePeerController p = peers().get(jugador.getNickname());
                         if (p != null && !p.isCpu()) {
-                            p.writeCommandFromServer(Helpers.encryptCommand(command, p.getAes_key(), iv, p.getHmac_key()));
+                            p.writeCommandFromServer(AuthenticatedCommandCodec.encrypt(command, p.getAes_key(), iv, p.getHmac_key()));
                         }
                     }
                 }
@@ -13249,7 +13244,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         int id = GameCommandId.next();
         byte[] iv = new byte[16];
-        Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+        CryptoRandom.fill(iv);
         ConfirmationTracker tracker = game_transport.confirmations();
         ConfirmationTracker.Request request = tracker.register(id + 1, pendientes);
 
@@ -13266,7 +13261,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (pendientes.contains(jugador.getNickname())) {
                         GamePeerController p = peers().get(jugador.getNickname());
                         if (p != null && !p.isCpu()) {
-                            p.writeCommandFromServer(Helpers.encryptCommand(command, p.getAes_key(), iv, p.getHmac_key()));
+                            p.writeCommandFromServer(AuthenticatedCommandCodec.encrypt(command, p.getAes_key(), iv, p.getHmac_key()));
                         }
                     }
                 }
@@ -13845,10 +13840,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         try {
             int id = GameCommandId.next();
             byte[] iv = new byte[16];
-            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+            CryptoRandom.fill(iv);
             // The pot travels as a raw double: each client formats it with its own
             // locale (money2String depends on presentation_settings.language()).
-            p.writeCommandFromServer(Helpers.encryptCommand("GAME#" + id + "#RIT_VOTE_REQ#" + timeout + "#" + totalVoters + "#" + this.bote_total, p.getAes_key(), iv, p.getHmac_key()));
+            p.writeCommandFromServer(AuthenticatedCommandCodec.encrypt("GAME#" + id + "#RIT_VOTE_REQ#" + timeout + "#" + totalVoters + "#" + this.bote_total, p.getAes_key(), iv, p.getHmac_key()));
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Failed to send RIT_VOTE_REQ", e);
         }
@@ -14479,7 +14474,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (MoneyMath.compare(bot.getStack(), 5 * amount) < 0) {
             return GameDecisionSink.NO_STRADDLE;
         }
-        return (Helpers.CSPRNG_GENERATOR.nextDouble() < BOT_STRADDLE_PROBABILITY)
+        return (CryptoRandom.nextDouble() < BOT_STRADDLE_PROBABILITY)
                 ? GameDecisionSink.POST_STRADDLE : GameDecisionSink.NO_STRADDLE;
     }
 
@@ -17722,12 +17717,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (!pendientes.isEmpty()) {
             int id = GameCommandId.next();
             byte[] iv = new byte[16];
-            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+            CryptoRandom.fill(iv);
             String reqCmd = "GAME#" + id + "#REQ_SHOWDOWN_KEY";
             for (String nick : pendientes) {
                 GamePeerController p = peers().get(nick);
                 if (p != null) {
-                    p.writeCommandFromServer(Helpers.encryptCommand(reqCmd, p.getAes_key(), iv, p.getHmac_key()));
+                    p.writeCommandFromServer(AuthenticatedCommandCodec.encrypt(reqCmd, p.getAes_key(), iv, p.getHmac_key()));
                 }
             }
 
@@ -18858,7 +18853,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             int id = GameCommandId.next();
             byte[] iv = new byte[16];
-            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+            CryptoRandom.fill(iv);
             ConfirmationTracker tracker = game_transport.confirmations();
             ConfirmationTracker.Request request = confirmation
                     ? tracker.register(id + 1, pendientes) : null;
@@ -18887,7 +18882,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 for (GamePeerController p : targets) {
                     if (pendientes.contains(p.getNick())) {
-                        p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), iv, p.getHmac_key()));
+                        p.writeCommandFromServer(AuthenticatedCommandCodec.encrypt(full_command, p.getAes_key(), iv, p.getHmac_key()));
                     }
                 }
 
@@ -19389,7 +19384,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (nick.equals(grande)) {
 
                         // New players are placed right after the CURRENT BIG BLIND
-                        Collections.shuffle(actuales, Helpers.CSPRNG_GENERATOR);
+                        CryptoRandom.shuffle(actuales);
                         permutados_aux.addAll(actuales);
                         actuales.clear();
                     }
@@ -20174,12 +20169,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             final ArrayList<String> remoteHumans = liveRemoteHumanNicks();
 
             final byte[] nonce = new byte[SeatDraw.NONCE_BYTES];
-            Helpers.CSPRNG_GENERATOR.nextBytes(nonce);
+            CryptoRandom.fill(nonce);
             final String nonceB64 = Base64.getEncoder().encodeToString(nonce);
 
             // Host's own contribution — its reveal is fixed HERE, before any reveal is exchanged.
             byte[] localReveal = new byte[SeatDraw.REVEAL_BYTES];
-            Helpers.CSPRNG_GENERATOR.nextBytes(localReveal);
+            CryptoRandom.fill(localReveal);
             byte[] localCommit = SeatDraw.commit(nonce, localNick, localReveal);
             byte[] localSig = signSeatCommitLocal(nonce, localNick, localCommit);
             if (localSig == null) {
@@ -20561,7 +20556,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 nonce = Base64.getDecoder().decode(nonceB64);
                                 roster = newRoster;
                                 myReveal = new byte[SeatDraw.REVEAL_BYTES];
-                                Helpers.CSPRNG_GENERATOR.nextBytes(myReveal);
+                                CryptoRandom.fill(myReveal);
                                 myCommit = SeatDraw.commit(nonce, myNick, myReveal);
                                 commitTable = null;
                             }
@@ -24209,7 +24204,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             ArrayList<Integer> deck_iteration = new ArrayList<>(deck);
 
             // Monte Carlo odds shuffle (DISPLAY ONLY): a fast PRNG instead of the
-            // cryptographic DRBG (Helpers.CSPRNG_GENERATOR). The % is an estimate over
+            // process cryptographic DRBG. The % is an estimate over
             // N samples; cryptographic randomness quality is statistically irrelevant
             // here, and the DRBG cost ~45k draws per deal on the game thread (a stutter
             // on slow PCs' all-ins). Does NOT affect the fair, verifiable deal, which

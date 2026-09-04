@@ -86,7 +86,8 @@ public final class GdxLauncher {
         CoreGameTableFactory gameTables = new CoreGameTableFactory(
                 application.service(DatabaseService.class),
                 new GdxGameText(preferences.properties()
-                        .getProperty("lenguaje", "es")));
+                        .getProperty("lenguaje", "es")),
+                new GdxGameDialogSink());
         try (NetworkLobbyGateway lobbyGateway
                 = NetworkLobbyGateway.forCurrentUser(gameTables)) {
             NewGameSessionGateway sessions = lobbyGateway;

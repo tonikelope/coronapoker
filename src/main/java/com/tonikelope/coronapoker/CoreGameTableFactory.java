@@ -63,14 +63,21 @@ public final class CoreGameTableFactory implements GameTableFactory {
 
     private final DatabaseService database;
     private final GameText gameText;
+    private final GameDialogSink gameDialogs;
 
     public CoreGameTableFactory(DatabaseService database) {
-        this(database, GameText.keys());
+        this(database, GameText.keys(), GameDialogSink.noop());
     }
 
     public CoreGameTableFactory(DatabaseService database, GameText gameText) {
+        this(database, gameText, GameDialogSink.noop());
+    }
+
+    public CoreGameTableFactory(DatabaseService database, GameText gameText,
+            GameDialogSink gameDialogs) {
         this.database = Objects.requireNonNull(database, "database");
         this.gameText = Objects.requireNonNull(gameText, "gameText");
+        this.gameDialogs = Objects.requireNonNull(gameDialogs, "gameDialogs");
     }
 
     @Override
@@ -144,7 +151,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                     new GameCinematicSink.Result(true, false));
         };
         Crupier dealer = new Crupier(game, players, local, peers, community,
-                context.identity(), GameLogSink.noop(), GameDialogSink.noop(),
+                context.identity(), GameLogSink.noop(), gameDialogs,
                 GameDecisionSink.noop(), new CoreGameDatabase(database),
                 hostConfiguration, GameStateMirror.noop(),
                 RecoveredSettingsSynchronizer.noop(), cinematics,

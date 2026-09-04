@@ -170,6 +170,18 @@ final class GdxApplicationShell extends ApplicationAdapter {
         });
     }
 
+    void showDialog(GdxTableDialog request) {
+        Objects.requireNonNull(request, "request");
+        Gdx.app.postRunnable(() -> {
+            CoronaPokerGdxTable current = table;
+            if (current == null) {
+                request.dismiss();
+            } else {
+                current.showDialog(request);
+            }
+        });
+    }
+
     @Override
     public void dispose() {
         CoronaPokerGdxTable current = table;

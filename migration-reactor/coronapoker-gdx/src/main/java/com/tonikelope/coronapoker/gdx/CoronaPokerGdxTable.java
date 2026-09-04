@@ -31,6 +31,7 @@ import com.badlogic.gdx.math.Interpolation;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.RandomXS128;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.ExtendViewport;
 import com.tonikelope.coronapoker.table.TableSnapshot;
@@ -38,6 +39,7 @@ import com.tonikelope.coronapoker.table.TableCommand;
 import com.tonikelope.coronapoker.table.TableCommandSink;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
 import com.tonikelope.coronapoker.core.game.ActionControlState;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -337,6 +339,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final float[] frameScratch = new float[FRAME_SAMPLE_COUNT];
     private final GlyphLayout glyph = new GlyphLayout();
     private final Vector2 pointer = new Vector2();
+    private final ArrayDeque<GdxTableDialog> dialogQueue = new ArrayDeque<>();
+    private GdxTableDialog activeDialog;
 
     private int uiLayer = UI_NONE;
     private float contextMenuX;
@@ -1267,6 +1271,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateLiveHoleReveal();
         updateLiveHoleFold();
         recordFrame(delta);
+        updateDialog();
         handleInput();
         updateStars(delta);
 
@@ -1292,16 +1297,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawTableScene();
         }
         drawUiLayer();
+        drawActiveDialog();
     }
 
     private void handleInput() {
+        if (activeDialog != null) {
+            handleDialogInput();
+            if (Gdx.input.isKeyJustPressed(Input.Keys.F11)
+                    || (Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
+                    && Gdx.input.isKeyJustPressed(Input.Keys.ENTER))) {
+                toggleFullscreen();
+            }
+            return;
+        }
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
             if (uiLayer == UI_SETTINGS || uiLayer == UI_GAME_LOG) {
                 openUiLayer(UI_CONTEXT_MENU);
             } else if (uiLayer == UI_CONTEXT_MENU) {
                 uiLayer = UI_NONE;
             } else if (liveState != null) {
-                submit(new TableCommand.ExitGame());
+                requestExit();
             } else {
                 Gdx.app.exit();
             }
@@ -1350,6 +1365,74 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             viewport.unproject(pointer);
             burstClock = 0f;
         }
+    }
+
+    void showDialog(GdxTableDialog request) {
+        Objects.requireNonNull(request, "request");
+        if (activeDialog == null) {
+            activeDialog = request;
+            request.opened(totalTime);
+        } else {
+            dialogQueue.addLast(request);
+        }
+    }
+
+    private void requestExit() {
+        if (liveState == null) {
+            Gdx.app.exit();
+            return;
+        }
+        GdxTableDialog confirmation = new GdxTableDialog(
+                GdxTableDialog.Kind.CONFIRM, "¿SALIR DE LA TIMBA?",
+                com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.EXIT,
+                760, 0);
+        confirmation.result().thenAccept(accepted -> {
+            if (accepted) submit(new TableCommand.ExitGame());
+        });
+        showDialog(confirmation);
+    }
+
+    private void updateDialog() {
+        if (activeDialog != null
+                && (activeDialog.complete() || activeDialog.expired(totalTime))) {
+            if (!activeDialog.complete()) activeDialog.accept();
+            activeDialog = dialogQueue.pollFirst();
+            if (activeDialog != null) activeDialog.opened(totalTime);
+        }
+    }
+
+    private void handleDialogInput() {
+        GdxTableDialog dialog = activeDialog;
+        if (dialog == null) return;
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            dialog.dismiss();
+            return;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
+                || Gdx.input.isKeyJustPressed(Input.Keys.NUMPAD_ENTER)) {
+            dialog.accept();
+            return;
+        }
+        if (!Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) return;
+        pointer.set(Gdx.input.getX(), Gdx.input.getY());
+        viewport.unproject(pointer);
+        float panelW = dialogWidth(dialog);
+        float panelH = 390f;
+        float panelX = (viewport.getWorldWidth() - panelW) / 2f;
+        float panelY = (viewport.getWorldHeight() - panelH) / 2f;
+        if (dialog.kind() == GdxTableDialog.Kind.CONFIRM
+                && contains(pointer.x, pointer.y, panelX + 42f,
+                        panelY + 34f, 230f, 64f)) {
+            dialog.dismiss();
+        } else if (contains(pointer.x, pointer.y,
+                panelX + panelW - 272f, panelY + 34f, 230f, 64f)) {
+            dialog.accept();
+        }
+    }
+
+    private static float dialogWidth(GdxTableDialog dialog) {
+        return MathUtils.clamp(dialog.preferredWidth() > 0
+                ? dialog.preferredWidth() : 860f, 620f, 1200f);
     }
 
     private void handleLiveTableInput() {
@@ -4385,8 +4468,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     uiLayer = UI_NONE;
                 }
                 case 12 -> {
-                    if (liveState != null) submit(new TableCommand.ExitGame());
-                    else Gdx.app.exit();
+                    requestExit();
                     uiLayer = UI_NONE;
                 }
                 default -> {
@@ -4456,6 +4538,90 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             default -> {
             }
         }
+    }
+
+    private void drawActiveDialog() {
+        GdxTableDialog dialog = activeDialog;
+        if (dialog == null) return;
+        pointer.set(Gdx.input.getX(), Gdx.input.getY());
+        viewport.unproject(pointer);
+        float width = viewport.getWorldWidth();
+        float height = viewport.getWorldHeight();
+        float panelW = dialogWidth(dialog);
+        float panelH = 390f;
+        float panelX = (width - panelW) / 2f;
+        float panelY = (height - panelH) / 2f;
+        float acceptX = panelX + panelW - 272f;
+        boolean confirm = dialog.kind() == GdxTableDialog.Kind.CONFIRM;
+        Color accent = switch (dialog.kind()) {
+            case ERROR -> FOLD_RED;
+            case INFO -> CYAN;
+            case CONFIRM, TIMED_WARNING -> POT_GOLD;
+        };
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapes.setColor(0f, 0f, 0f, 0.68f);
+        shapes.rect(0f, 0f, width, height);
+        shapes.setColor(0f, 0f, 0f, 0.58f);
+        roundedRect(panelX + 10f, panelY - 11f, panelW, panelH, 20f);
+        shapes.setColor(accent.r, accent.g, accent.b, 0.90f);
+        roundedRect(panelX - 2f, panelY - 2f, panelW + 4f, panelH + 4f, 20f);
+        shapes.setColor(0.012f, 0.027f, 0.047f, 0.97f);
+        roundedRect(panelX, panelY, panelW, panelH, 18f);
+        shapes.setColor(accent.r, accent.g, accent.b, 0.72f);
+        shapes.rect(panelX + 24f, panelY + panelH - 9f, panelW - 48f, 3f);
+        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.045f);
+        roundedRect(panelX + 28f, panelY + 125f,
+                panelW - 56f, panelH - 222f, 12f);
+        if (confirm) {
+            drawDialogButton(panelX + 42f, panelY + 34f, 230f, 64f,
+                    BUTTON_LINE, contains(pointer.x, pointer.y,
+                            panelX + 42f, panelY + 34f, 230f, 64f), 1f);
+        }
+        drawDialogButton(acceptX, panelY + 34f, 230f, 64f, accent,
+                contains(pointer.x, pointer.y, acceptX,
+                        panelY + 34f, 230f, 64f), 1f);
+        shapes.end();
+
+        String title = switch (dialog.kind()) {
+            case ERROR -> "ERROR";
+            case INFO -> "INFORMACIÓN";
+            case CONFIRM -> "CONFIRMACIÓN";
+            case TIMED_WARNING -> "AVISO";
+        };
+        batch.begin();
+        drawLeftInBox(uiFont, title, panelX + 42f,
+                panelY + panelH - 80f, panelW - 84f, 46f,
+                accent, 1f);
+        BitmapFont.BitmapFontData dialogFontData = uiFont.getData();
+        float originalScaleX = dialogFontData.scaleX;
+        float originalScaleY = dialogFontData.scaleY;
+        float messageW = panelW - 112f;
+        float messageH = panelH - 240f;
+        glyph.setText(uiFont, dialog.message(), Color.WHITE,
+                messageW, Align.center, true);
+        if (glyph.height > messageH) {
+            float fit = messageH / glyph.height;
+            dialogFontData.setScale(originalScaleX * fit, originalScaleY * fit);
+            glyph.setText(uiFont, dialog.message(), Color.WHITE,
+                    messageW, Align.center, true);
+        }
+        uiFont.setColor(Color.WHITE);
+        uiFont.draw(batch, glyph, panelX + 56f,
+                panelY + 125f + (panelH - 222f + glyph.height) / 2f);
+        uiFont.setColor(Color.WHITE);
+        dialogFontData.setScale(originalScaleX, originalScaleY);
+        if (confirm) {
+            drawFittedCenteredInBox(actionFont, "CANCELAR",
+                    panelX + 42f, panelY + 34f, 230f, 64f,
+                    Color.WHITE, 1f);
+        }
+        drawFittedCenteredInBox(actionFont,
+                confirm ? "ACEPTAR" : "CERRAR",
+                acceptX, panelY + 34f, 230f, 64f,
+                Color.WHITE, 1f);
+        batch.end();
     }
 
     private float uiFade() {
@@ -4829,6 +4995,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     @Override
     public void dispose() {
+        if (activeDialog != null) {
+            activeDialog.dismiss();
+            activeDialog = null;
+        }
+        while (!dialogQueue.isEmpty()) dialogQueue.removeFirst().dismiss();
         if (backgroundMusic != null) {
             backgroundMusic.stop();
             backgroundMusic.dispose();

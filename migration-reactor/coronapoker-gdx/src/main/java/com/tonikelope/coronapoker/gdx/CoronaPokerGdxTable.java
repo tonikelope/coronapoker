@@ -150,21 +150,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final String[] SETTINGS_TABS = {
         "AUDIO", "APARIENCIA", "JUEGO", "ATAJOS"
     };
-    private static final String[] GAME_LOG_PREVIEW = {
-        "[CoronaPoker // REGISTRO DE LA TIMBA]",
-        "Mano #2  ·  Ciegas 50 / 100  ·  Baraja PepsiMan HQ",
-        "CoronaBot$1 pone la ciega pequeña: 50",
-        "CoronaBot$2 pone la ciega grande: 100",
-        "CoronaBot$6 sube a 300",
-        "CoronaBot$8 iguala 300",
-        "TONIKELOPE no va",
-        "Flop: Q♥  10♦  7♠",
-        "CoronaBot$6 apuesta 600",
-        "CoronaBot$8 iguala 600",
-        "Turn: 5♥    River: 3♣",
-        "Bote final: 9.200",
-        "CoronaBot$2 gana con TRÍO"
-    };
     private static final String[] HUD_ACTIONS = {"NO IR", "IR +300", "APOSTAR", "ALL-IN"};
     private static final int[][] LOCAL_CARD_RANKS = {{11, 12}, {14, 13}};
     private static final int[] SHOWDOWN_SEATS = {1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -330,6 +315,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxTableViewState liveState;
     private final TableCommandSink commands;
     private final Runnable onReady;
+    private final GdxGameLogSink gameLog;
     private final Star[] stars = new Star[STAR_COUNT];
     private final Seat[] seats = new Seat[SEAT_COUNT];
     private final float[] thinkDurations = new float[ACTIONS.length];
@@ -352,6 +338,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean confirmActions = true;
     private boolean autoRebuy;
     private boolean lastHand;
+    private int gameLogScroll;
 
     private OrthographicCamera camera;
     private ExtendViewport viewport;
@@ -436,15 +423,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     CoronaPokerGdxTable(int detectedRefreshRate) {
         this(detectedRefreshRate, null, command -> { }, () -> {
-        });
+        }, new GdxGameLogSink());
     }
 
     CoronaPokerGdxTable(int detectedRefreshRate, GdxTableViewState liveState,
-            TableCommandSink commands, Runnable onReady) {
+            TableCommandSink commands, Runnable onReady,
+            GdxGameLogSink gameLog) {
         this.detectedRefreshRate = detectedRefreshRate;
         this.liveState = liveState;
         this.commands = Objects.requireNonNull(commands, "commands");
         this.onReady = Objects.requireNonNull(onReady, "onReady");
+        this.gameLog = Objects.requireNonNull(gameLog, "gameLog");
     }
 
     @Override
@@ -4461,6 +4450,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
                 case 2 -> {
                     if (liveState != null) submit(new TableCommand.OpenLog());
+                    gameLogScroll = 0;
                     openUiLayer(UI_GAME_LOG);
                 }
                 case 5 -> {
@@ -4526,10 +4516,40 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float panelH = Math.min(720f, height - 70f);
         float panelX = (width - panelW) / 2f;
         float panelY = (height - panelH) / 2f;
+        int page = gameLogVisibleRows(panelH) - 1;
+        int maximum = Math.max(0, gameLogLines().size()
+                - gameLogVisibleRows(panelH));
+        if (contains(x, y, panelX + 34f, panelY + 24f, 194f, 58f)) {
+            gameLogScroll = Math.min(maximum, gameLogScroll + page);
+            return;
+        }
+        if (contains(x, y, panelX + 244f, panelY + 24f, 194f, 58f)) {
+            gameLogScroll = Math.max(0, gameLogScroll - page);
+            return;
+        }
         if (contains(x, y, panelX + panelW - 224f,
                 panelY + 24f, 194f, 58f)) {
             openUiLayer(UI_CONTEXT_MENU);
         }
+    }
+
+    private int gameLogVisibleRows(float panelHeight) {
+        return Math.max(1, (int) ((panelHeight - 230f - 28f) / 31f));
+    }
+
+    private List<String> gameLogLines() {
+        GdxGameLogSink.Snapshot snapshot = gameLog.snapshot();
+        ArrayList<String> result = new ArrayList<>(snapshot.lines());
+        if (!snapshot.showdown().isEmpty()) {
+            result.add("SHOWDOWN");
+            for (var entry : snapshot.showdown()) {
+                result.add(entry.revealed()
+                        ? entry.nickname() + "  ·  " + entry.holeCards()
+                                + "  ·  " + entry.hand()
+                        : entry.nickname());
+            }
+        }
+        return result;
     }
 
     private static boolean contains(float px, float py, float x, float y,
@@ -4853,6 +4873,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float logY = panelY + 105f;
         float logW = panelW - 68f;
         float logH = panelH - 230f;
+        List<String> logLines = gameLogLines();
+        if (logLines.isEmpty()) logLines = List.of("—");
+        int visibleRows = gameLogVisibleRows(panelH);
+        int maximumScroll = Math.max(0, logLines.size() - visibleRows);
+        gameLogScroll = MathUtils.clamp(gameLogScroll, 0, maximumScroll);
+        int firstLine = Math.max(0,
+                logLines.size() - visibleRows - gameLogScroll);
+        int lastLine = Math.min(logLines.size(), firstLine + visibleRows);
+        float trackHeight = logH - 28f;
+        float thumbHeight = maximumScroll == 0 ? trackHeight
+                : Math.max(44f, trackHeight * visibleRows / logLines.size());
+        float thumbY = logY + 14f + (trackHeight - thumbHeight)
+                * (maximumScroll == 0 ? 0f
+                        : (float) gameLogScroll / maximumScroll);
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -4869,8 +4903,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.setColor(BUTTON_LINE.r, BUTTON_LINE.g, BUTTON_LINE.b, 0.85f * alpha);
         roundedRect(logX + logW - 15f, logY + 14f, 5f, logH - 28f, 3f);
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.88f * alpha);
-        roundedRect(logX + logW - 16f, logY + logH - 118f,
-                7f, 88f, 3f);
+        roundedRect(logX + logW - 16f, thumbY, 7f, thumbHeight, 3f);
+        drawDialogButton(panelX + 34f, panelY + 24f,
+                194f, 58f, CYAN,
+                contains(pointer.x, pointer.y, panelX + 34f,
+                        panelY + 24f, 194f, 58f), alpha);
+        drawDialogButton(panelX + 244f, panelY + 24f,
+                194f, 58f, CYAN,
+                contains(pointer.x, pointer.y, panelX + 244f,
+                        panelY + 24f, 194f, 58f), alpha);
         drawDialogButton(panelX + panelW - 224f, panelY + 24f,
                 194f, 58f, POT_GOLD,
                 contains(pointer.x, pointer.y, panelX + panelW - 224f,
@@ -4881,19 +4922,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawLeftInBox(uiFont, "REGISTRO DE LA TIMBA",
                 panelX + 34f, panelY + panelH - 72f,
                 panelW - 68f, 42f, Color.WHITE, alpha);
-        drawLeftInBox(smallFont, "VISTA GDX · LA FUENTE REAL SEGUIRÁ SIENDO EL CORE",
+        drawLeftInBox(smallFont, "FUENTE REAL · CRUPIER / CORE",
                 panelX + 35f, panelY + panelH - 103f,
                 panelW - 70f, 24f, POT_GOLD, alpha);
         float baseline = logY + logH - 42f;
-        for (int i = 0; i < GAME_LOG_PREVIEW.length; i++) {
-            Color lineColor = i == 0 ? CYAN
-                    : i == GAME_LOG_PREVIEW.length - 1
-                            ? STACK_GREEN : Color.LIGHT_GRAY;
-            drawLeftInBox(i == 0 ? actionFont : smallFont,
-                    GAME_LOG_PREVIEW[i],
-                    logX + 24f, baseline - i * 31f,
+        for (int line = firstLine; line < lastLine; line++) {
+            String value = logLines.get(line);
+            Color lineColor = "SHOWDOWN".equals(value)
+                    ? POT_GOLD : Color.LIGHT_GRAY;
+            drawLeftInBox("SHOWDOWN".equals(value) ? actionFont : smallFont,
+                    value,
+                    logX + 24f, baseline - (line - firstLine) * 31f,
                     logW - 64f, 27f, lineColor, alpha);
         }
+        drawFittedCenteredInBox(actionFont, "MÁS ANTIGUO",
+                panelX + 34f, panelY + 24f,
+                194f, 58f, Color.WHITE, alpha);
+        drawFittedCenteredInBox(actionFont, "MÁS RECIENTE",
+                panelX + 244f, panelY + 24f,
+                194f, 58f, Color.WHITE, alpha);
         drawFittedCenteredInBox(actionFont, "CERRAR",
                 panelX + panelW - 224f, panelY + 24f,
                 194f, 58f, Color.WHITE, alpha);

@@ -85,14 +85,15 @@ public final class GdxLauncher {
         PreferencesService preferences = application.service(PreferencesService.class);
         GdxGameText gameText = new GdxGameText(preferences.properties()
                 .getProperty("lenguaje", "es"));
+        GdxGameLogSink gameLog = new GdxGameLogSink();
         CoreGameTableFactory gameTables = new CoreGameTableFactory(
-                application.service(DatabaseService.class), gameText,
+                application.service(DatabaseService.class), gameText, gameLog,
                 new GdxGameDialogSink(), new GdxGameDecisionSink(gameText));
         try (NetworkLobbyGateway lobbyGateway
                 = NetworkLobbyGateway.forCurrentUser(gameTables)) {
             NewGameSessionGateway sessions = lobbyGateway;
             new Lwjgl3Application(new GdxApplicationShell(
-                    display.refreshRate, application, sessions), config);
+                    display.refreshRate, application, sessions, gameLog), config);
         }
     }
 

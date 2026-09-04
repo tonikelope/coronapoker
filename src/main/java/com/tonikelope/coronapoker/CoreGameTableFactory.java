@@ -63,28 +63,38 @@ public final class CoreGameTableFactory implements GameTableFactory {
 
     private final DatabaseService database;
     private final GameText gameText;
+    private final GameLogSink gameLog;
     private final GameDialogSink gameDialogs;
     private final GameDecisionSink gameDecisions;
 
     public CoreGameTableFactory(DatabaseService database) {
-        this(database, GameText.keys(), GameDialogSink.noop(),
+        this(database, GameText.keys(), GameLogSink.noop(), GameDialogSink.noop(),
                 GameDecisionSink.noop());
     }
 
     public CoreGameTableFactory(DatabaseService database, GameText gameText) {
-        this(database, gameText, GameDialogSink.noop(),
+        this(database, gameText, GameLogSink.noop(), GameDialogSink.noop(),
                 GameDecisionSink.noop());
     }
 
     public CoreGameTableFactory(DatabaseService database, GameText gameText,
             GameDialogSink gameDialogs) {
-        this(database, gameText, gameDialogs, GameDecisionSink.noop());
+        this(database, gameText, GameLogSink.noop(), gameDialogs,
+                GameDecisionSink.noop());
     }
 
     public CoreGameTableFactory(DatabaseService database, GameText gameText,
             GameDialogSink gameDialogs, GameDecisionSink gameDecisions) {
+        this(database, gameText, GameLogSink.noop(), gameDialogs,
+                gameDecisions);
+    }
+
+    public CoreGameTableFactory(DatabaseService database, GameText gameText,
+            GameLogSink gameLog, GameDialogSink gameDialogs,
+            GameDecisionSink gameDecisions) {
         this.database = Objects.requireNonNull(database, "database");
         this.gameText = Objects.requireNonNull(gameText, "gameText");
+        this.gameLog = Objects.requireNonNull(gameLog, "gameLog");
         this.gameDialogs = Objects.requireNonNull(gameDialogs, "gameDialogs");
         this.gameDecisions = Objects.requireNonNull(gameDecisions,
                 "gameDecisions");
@@ -161,7 +171,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                     new GameCinematicSink.Result(true, false));
         };
         Crupier dealer = new Crupier(game, players, local, peers, community,
-                context.identity(), GameLogSink.noop(), gameDialogs,
+                context.identity(), gameLog, gameDialogs,
                 gameDecisions, new CoreGameDatabase(database),
                 hostConfiguration, GameStateMirror.noop(),
                 RecoveredSettingsSynchronizer.noop(), cinematics,

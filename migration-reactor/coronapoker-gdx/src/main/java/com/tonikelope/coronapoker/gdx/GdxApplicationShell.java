@@ -23,15 +23,17 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private final int refreshRate;
     private final CoronaPokerApplication application;
     private final NewGameSessionGateway sessionGateway;
+    private final GdxGameLogSink gameLog;
     private GdxFrontendScreen menu;
     private LobbySession lobby;
     private CoronaPokerGdxTable table;
 
     GdxApplicationShell(int refreshRate, CoronaPokerApplication application,
-            NewGameSessionGateway sessionGateway) {
+            NewGameSessionGateway sessionGateway, GdxGameLogSink gameLog) {
         this.refreshRate = refreshRate;
         this.application = Objects.requireNonNull(application, "application");
         this.sessionGateway = Objects.requireNonNull(sessionGateway, "sessionGateway");
+        this.gameLog = Objects.requireNonNull(gameLog, "gameLog");
     }
 
     static GdxApplicationShell active() {
@@ -143,9 +145,10 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 return;
             }
             try {
+                gameLog.reset();
                 CoronaPokerGdxTable candidate = new CoronaPokerGdxTable(
                         refreshRate, new GdxTableViewState(initialState), commands,
-                        () -> opened.accept(table));
+                        () -> opened.accept(table), gameLog);
                 table = candidate;
                 candidate.create();
                 candidate.resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());

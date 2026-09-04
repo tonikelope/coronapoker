@@ -77,7 +77,10 @@
                         <exclude>com/tonikelope/coronapoker/MoneyCents.java</exclude>
                         <exclude>com/tonikelope/coronapoker/PositionWireV1.java</exclude>
                         <exclude>com/tonikelope/coronapoker/PotMath.java</exclude>
+                        <exclude>com/tonikelope/coronapoker/PotCardsEnvelope.java</exclude>
                         <exclude>com/tonikelope/coronapoker/RabbitFeeLedger.java</exclude>
+                        <exclude>com/tonikelope/coronapoker/RecoveredActionBatch.java</exclude>
+                        <exclude>com/tonikelope/coronapoker/RecoveredActionCodec.java</exclude>
                         <exclude>com/tonikelope/coronapoker/RecoveryActionReceiveState.java</exclude>
                         <exclude>com/tonikelope/coronapoker/RecoveryBalanceReconciler.java</exclude>
                         <exclude>com/tonikelope/coronapoker/RecoveryReceiveState.java</exclude>

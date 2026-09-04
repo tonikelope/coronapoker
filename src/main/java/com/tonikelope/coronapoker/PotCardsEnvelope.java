@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.game.CardCode;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
@@ -98,7 +99,7 @@ public final class PotCardsEnvelope {
             throw new IllegalArgumentException("missing POTCARDS card");
         }
         for (int i = 0; i < 52; i++) {
-            if (shortString.equals(Card.shortStringFromIndex(i))) {
+            if (shortString.equals(CardCode.shortCodeFromIndex(i))) {
                 return i;
             }
         }

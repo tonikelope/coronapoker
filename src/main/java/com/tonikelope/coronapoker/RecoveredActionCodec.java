@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.game.GamePlayerController;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
@@ -116,7 +117,7 @@ public final class RecoveredActionCodec {
             if (parsedCents == null) {
                 return error(Error.BAD_AMOUNT);
             }
-            long amountCents = decision == Player.BET ? parsedCents : 0L;
+            long amountCents = decision == GamePlayerController.BET ? parsedCents : 0L;
 
             byte[] record = null;
             byte[] signature = null;
@@ -192,8 +193,9 @@ public final class RecoveredActionCodec {
             return null;
         }
         int parsed = Integer.parseInt(value);
-        return parsed == Player.FOLD || parsed == Player.CHECK
-                || parsed == Player.BET || parsed == Player.ALLIN ? parsed : null;
+        return parsed == GamePlayerController.FOLD || parsed == GamePlayerController.CHECK
+                || parsed == GamePlayerController.BET || parsed == GamePlayerController.ALLIN
+                ? parsed : null;
     }
 
     private static Long parseIntegerCents(String value) {

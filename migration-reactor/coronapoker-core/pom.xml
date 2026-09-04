@@ -50,7 +50,10 @@
                         <include>com/tonikelope/coronapoker/MoneyCents.java</include>
                         <include>com/tonikelope/coronapoker/PositionWireV1.java</include>
                         <include>com/tonikelope/coronapoker/PotMath.java</include>
+                        <include>com/tonikelope/coronapoker/PotCardsEnvelope.java</include>
                         <include>com/tonikelope/coronapoker/RabbitFeeLedger.java</include>
+                        <include>com/tonikelope/coronapoker/RecoveredActionBatch.java</include>
+                        <include>com/tonikelope/coronapoker/RecoveredActionCodec.java</include>
                         <include>com/tonikelope/coronapoker/RecoveryActionReceiveState.java</include>
                         <include>com/tonikelope/coronapoker/RecoveryBalanceReconciler.java</include>
                         <include>com/tonikelope/coronapoker/RecoveryReceiveState.java</include>

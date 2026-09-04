@@ -98,6 +98,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final int SHUFFLE_AUDIO_STOP_FRAME = 53;
     private static final float CHIP_FLIGHT_DELAY = 0.12f;
     private static final float CHIP_FLIGHT_SECONDS = 0.92f;
+    private static final float PAYOUT_SECONDS = 1.90f;
     private static final int BLIND_FLIGHT_COUNT = 3;
     private static final float DEAL_START = SHUFFLE_END + 0.16f;
     private static final float DEAL_CARD_GAP = 0.14f;
@@ -394,7 +395,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean readySignalled;
     private String statsText = "Midiendo frame pacing...";
     private LivePositionRotation livePositionRotation;
+    private LiveActionChip liveActionChip;
     private LiveChipBatch liveChipBatch;
+    private LivePayout livePayout;
     private LiveShuffle liveShuffle;
     private final List<LiveCardFlight> liveCardFlights = new ArrayList<>();
     private int liveHoleDealCount;
@@ -738,6 +741,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             liveChipBatch = new LiveChipBatch(collect, System.nanoTime(),
                     barrier, liveState.snapshot());
+        } else if (event instanceof TableVisualEvent.PlayerAction action
+                && action.potContribution() > 0d) {
+            if (liveActionChip != null) {
+                throw new IllegalStateException("A GDX action-chip flight is already active");
+            }
+            liveActionChip = new LiveActionChip(action, System.nanoTime(), barrier);
+        } else if (event instanceof TableVisualEvent.Payout payout) {
+            if (livePayout != null) {
+                throw new IllegalStateException("A GDX payout is already active");
+            }
+            livePayout = new LivePayout(payout, System.nanoTime(), barrier);
         } else if (event instanceof TableVisualEvent.Shuffle shuffle) {
             acceptLiveShuffle(shuffle, barrier);
         } else if (event instanceof TableVisualEvent.DealHoleCard deal) {
@@ -1199,7 +1213,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         totalTime += delta;
         sceneTime += delta;
         updateLivePositionRotation();
+        updateLiveActionChip();
         updateLiveChipBatch();
+        updateLivePayout();
         updateLiveShuffle();
         updateLiveCardFlight();
         updateLiveHoleSwap();
@@ -1716,7 +1732,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     && seat.index == seatForHand(thinkingAction.seat);
             boolean folded = isFolded(seat.index, handTime())
                     && handTime() < SHOWDOWN_START;
-            boolean settledShowdown = handTime() >= WINNER_START
+            boolean settledShowdown = liveState != null
+                    ? winnerSeat() >= 0 && isShowdownContender(seat.index)
+                    : handTime() >= WINNER_START
                     && isShowdownContender(seat.index);
             if (liveState == null) {
                 seat.updateStack(handTime(), flights, demoHandIndex(), winnerSeat());
@@ -2708,6 +2726,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
+    private void updateLiveActionChip() {
+        LiveActionChip active = liveActionChip;
+        if (active == null || active.progress() < 1f) {
+            return;
+        }
+        try {
+            play(betSound, 0.42f, 0.98f);
+            liveState.apply(active.event);
+            syncSeatsFromLiveState();
+            active.barrier.complete(null);
+        } catch (Throwable error) {
+            active.barrier.completeExceptionally(error);
+        } finally {
+            liveActionChip = null;
+        }
+    }
+
     private void drawLivePositionChips() {
         LivePositionRotation active = livePositionRotation;
         batch.begin();
@@ -3295,6 +3330,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (isLayoutShowcase()) {
             return;
         }
+        if (liveState != null) {
+            drawLiveWinnerGlow();
+            return;
+        }
         float time = handTime();
         if (time < SHOWDOWN_START) {
             return;
@@ -3356,6 +3395,43 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
     }
 
+    private void drawLiveWinnerGlow() {
+        int winnerIndex = winnerSeat();
+        if (winnerIndex < 0) {
+            return;
+        }
+        Seat winner = seats[winnerIndex];
+        float winnerProgress = livePayout == null ? 1f
+                : MathUtils.clamp(livePayout.elapsedSeconds() / 1.2f, 0f, 1f);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
+        for (int ring = 7; ring >= 1; ring--) {
+            float radius = 48f + ring * 16f
+                    + MathUtils.sin(totalTime * 4f + ring) * 5f;
+            shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
+                    winnerProgress * (0.018f + (8 - ring) * 0.006f));
+            shapes.circle(winner.x, winner.y, radius, 64);
+        }
+        for (int particle = 0; particle < 72; particle++) {
+            float phase = particle * 1.731f;
+            float travel = (winnerProgress * 1.4f
+                    + particle * 0.019f) % 1f;
+            float angle = phase + totalTime
+                    * (particle % 2 == 0 ? 0.35f : -0.28f);
+            float radius = 55f + Interpolation.circleOut.apply(travel)
+                    * (90f + particle % 8 * 18f);
+            Color color = particle % 3 == 0 ? CYAN : POT_GOLD;
+            shapes.setColor(color.r, color.g, color.b,
+                    (1f - travel) * 0.62f);
+            shapes.circle(winner.x + MathUtils.cos(angle) * radius,
+                    winner.y + MathUtils.sin(angle) * radius,
+                    2f + particle % 4, 10);
+        }
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapes.end();
+    }
+
     private void updateLiveChipBatch() {
         LiveChipBatch active = liveChipBatch;
         if (active == null) {
@@ -3383,6 +3459,33 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
+    private void updateLivePayout() {
+        LivePayout active = livePayout;
+        if (active == null) {
+            return;
+        }
+        float elapsed = active.elapsedSeconds();
+        for (LivePayoutChip chip : active.chips) {
+            if (!chip.soundPlayed && chip.progress(elapsed) >= 1f) {
+                chip.soundPlayed = true;
+                play(betSound, chip.index % 4 == 0 ? 0.30f : 0.12f,
+                        1.02f + chip.color * 0.045f);
+            }
+        }
+        if (elapsed < PAYOUT_SECONDS) {
+            return;
+        }
+        try {
+            liveState.apply(active.event);
+            syncSeatsFromLiveState();
+            active.barrier.complete(null);
+        } catch (Throwable error) {
+            active.barrier.completeExceptionally(error);
+        } finally {
+            livePayout = null;
+        }
+    }
+
     private void updateLiveSeatAmounts(Seat seat) {
         TableSnapshot.PlayerSnapshot player = liveState.snapshot().players().stream()
                 .filter(candidate -> candidate.nickname().equals(seat.name))
@@ -3390,102 +3493,189 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (player == null) {
             return;
         }
-        double landed = liveChipBatch == null ? 0d
+        double collected = liveChipBatch == null ? 0d
                 : liveChipBatch.landedContribution(seat.name,
                         liveChipBatch.elapsedSeconds());
-        double stack = Math.max(0d, player.stack() - landed);
-        double invested = Math.max(0d, player.streetBet());
+        double paid = livePayout == null
+                || !livePayout.event.nickname().equals(seat.name) ? 0d
+                : livePayout.landedContribution(livePayout.elapsedSeconds());
+        double stack = Math.max(0d, player.stack() + paid);
+        double invested = Math.max(0d, player.streetBet() - collected);
         seat.stackText = formatAmount(stack);
         seat.investedText = formatAmount(invested);
     }
 
     private double livePot() {
-        LiveChipBatch active = liveChipBatch;
-        return active == null ? liveState.snapshot().pot()
-                : active.event.potBefore()
-                + active.landedContribution(null, active.elapsedSeconds());
+        if (livePayout != null) {
+            return Math.max(0d, liveState.snapshot().pot()
+                    - livePayout.landedContribution(livePayout.elapsedSeconds()));
+        }
+        return liveChipBatch == null ? liveState.snapshot().pot()
+                : liveChipBatch.event.potBefore()
+                + liveChipBatch.landedContribution(null,
+                        liveChipBatch.elapsedSeconds());
     }
 
     private void drawLiveChipTrails(float targetX, float targetY) {
         LiveChipBatch active = liveChipBatch;
-        if (active == null) {
+        LiveActionChip action = liveActionChip;
+        LivePayout payout = livePayout;
+        if (active == null && action == null && payout == null) {
             return;
         }
-        float elapsed = active.elapsedSeconds();
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
-        for (LiveChip chip : active.chips) {
-            Seat from = seatByNickname(chip.nickname);
-            if (from == null) {
-                continue;
+        if (action != null) {
+            Seat from = seatByNickname(action.event.nickname());
+            if (from != null) {
+                float progress = action.progress();
+                float toX = streetBetX(from);
+                float toY = streetBetY(from);
+                drawLiveTrail(from.stackX, from.stackY, toX, toY,
+                        action.rotation, progress, action.impactAge());
             }
-            float impactAge = elapsed - chip.startSeconds - chip.durationSeconds;
-            if (impactAge >= 0f && impactAge < 0.34f) {
-                float impact = impactAge / 0.34f;
-                shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
-                        (1f - impact) * 0.24f);
-                shapes.circle(targetX, targetY, 24f + impact * 82f, 36);
+        }
+        if (active != null) {
+            float elapsed = active.elapsedSeconds();
+            for (LiveChip chip : active.chips) {
+                Seat from = seatByNickname(chip.nickname);
+                if (from == null) {
+                    continue;
+                }
+                float fromX = streetBetX(from);
+                float fromY = streetBetY(from);
+                drawLiveTrail(fromX, fromY, targetX, targetY, chip.rotation,
+                        chip.progress(elapsed),
+                        elapsed - chip.startSeconds - chip.durationSeconds);
             }
-            float progress = chip.progress(elapsed);
-            if (progress < 0f || progress >= 1f) {
-                continue;
-            }
-            shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
-                    (1f - progress) * 0.22f);
-            shapes.circle(from.stackX, from.stackY, 18f + progress * 28f, 24);
-            for (int tail = 1; tail <= 5; tail++) {
-                float t = Math.max(0f, progress - tail * 0.025f);
-                float x = bezier(from.stackX,
-                        liveStackControlX(from, targetX, chip.rotation), targetX, t);
-                float y = bezier(from.stackY,
-                        liveControlY(from.stackY, targetY, chip.rotation), targetY, t);
-                shapes.setColor(ORANGE.r, ORANGE.g, ORANGE.b,
-                        (6 - tail) * 0.028f);
-                shapes.circle(x, y, 15f - tail * 1.7f, 12);
+        }
+        if (payout != null) {
+            Seat winner = seatByNickname(payout.event.nickname());
+            if (winner != null) {
+                float elapsed = payout.elapsedSeconds();
+                for (LivePayoutChip chip : payout.chips) {
+                    drawLiveTrail(targetX, targetY,
+                            payoutTargetX(winner, chip.index),
+                            payoutTargetY(winner, chip.index), chip.rotation,
+                            chip.progress(elapsed),
+                            elapsed - chip.startSeconds - chip.durationSeconds);
+                }
             }
         }
         shapes.end();
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
     }
 
-    private void drawLiveFlyingChips(float targetX, float targetY) {
-        LiveChipBatch active = liveChipBatch;
-        if (active == null) {
+    private void drawLiveTrail(float fromX, float fromY, float toX, float toY,
+            float rotation, float progress, float impactAge) {
+        if (impactAge >= 0f && impactAge < 0.34f) {
+            float impact = impactAge / 0.34f;
+            shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
+                    (1f - impact) * 0.24f);
+            shapes.circle(toX, toY, 24f + impact * 82f, 36);
+        }
+        if (progress < 0f || progress >= 1f) {
             return;
         }
-        float elapsed = active.elapsedSeconds();
+        shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
+                (1f - progress) * 0.22f);
+        shapes.circle(fromX, fromY, 18f + progress * 28f, 24);
+        for (int tail = 1; tail <= 5; tail++) {
+            float t = Math.max(0f, progress - tail * 0.025f);
+            float x = bezier(fromX,
+                    liveControlX(fromX, toX, rotation), toX, t);
+            float y = bezier(fromY,
+                    liveControlY(fromY, toY, rotation), toY, t);
+            shapes.setColor(ORANGE.r, ORANGE.g, ORANGE.b,
+                    (6 - tail) * 0.028f);
+            shapes.circle(x, y, 15f - tail * 1.7f, 12);
+        }
+    }
+
+    private void drawLiveFlyingChips(float targetX, float targetY) {
+        LiveChipBatch active = liveChipBatch;
+        LiveActionChip action = liveActionChip;
+        LivePayout payout = livePayout;
+        if (active == null && action == null && payout == null) {
+            return;
+        }
         batch.begin();
-        for (LiveChip chip : active.chips) {
-            Seat from = seatByNickname(chip.nickname);
-            float progress = chip.progress(elapsed);
-            if (from == null || progress < 0f || progress >= 1f) {
-                continue;
+        if (action != null) {
+            Seat from = seatByNickname(action.event.nickname());
+            if (from != null) {
+                drawLiveFlyingChip(from.stackX, from.stackY,
+                        streetBetX(from), streetBetY(from), action.rotation,
+                        action.color, action.progress());
             }
-            float x = bezier(from.stackX,
-                    liveStackControlX(from, targetX, chip.rotation),
-                    targetX, progress);
-            float y = bezier(from.stackY,
-                    liveControlY(from.stackY, targetY, chip.rotation),
-                    targetY, progress);
-            float landing = Interpolation.pow3In.apply(progress);
-            float size = (45f + MathUtils.sin(progress * MathUtils.PI) * 9f)
-                    * (1f - landing * 0.28f);
-            Texture texture = flyingChips[chip.color];
-            batch.setColor(Color.WHITE);
-            batch.draw(texture, x - size / 2f, y - size / 2f,
-                    size / 2f, size / 2f, size, size, 1f, 1f,
-                    chip.rotation + progress * 360f,
-                    0, 0, texture.getWidth(), texture.getHeight(), false, false);
+        }
+        if (active != null) {
+            float elapsed = active.elapsedSeconds();
+            for (LiveChip chip : active.chips) {
+                Seat from = seatByNickname(chip.nickname);
+                if (from != null) {
+                    drawLiveFlyingChip(streetBetX(from), streetBetY(from),
+                            targetX, targetY, chip.rotation, chip.color,
+                            chip.progress(elapsed));
+                }
+            }
+        }
+        if (payout != null) {
+            Seat winner = seatByNickname(payout.event.nickname());
+            if (winner != null) {
+                float elapsed = payout.elapsedSeconds();
+                for (LivePayoutChip chip : payout.chips) {
+                    drawLiveFlyingChip(targetX, targetY,
+                            payoutTargetX(winner, chip.index),
+                            payoutTargetY(winner, chip.index), chip.rotation,
+                            chip.color, chip.progress(elapsed));
+                }
+            }
         }
         batch.setColor(Color.WHITE);
         batch.end();
     }
 
-    private float liveStackControlX(Seat from, float to, float rotation) {
-        float outward = from.stackX < tableCenterX ? -1f : 1f;
-        return (from.stackX + to) * 0.5f + outward * 175f
+    private void drawLiveFlyingChip(float fromX, float fromY, float toX,
+            float toY, float rotation, int color, float progress) {
+        if (progress < 0f || progress >= 1f) {
+            return;
+        }
+        float x = bezier(fromX, liveControlX(fromX, toX, rotation),
+                toX, progress);
+        float y = bezier(fromY, liveControlY(fromY, toY, rotation),
+                toY, progress);
+        float landing = Interpolation.pow3In.apply(progress);
+        float size = (45f + MathUtils.sin(progress * MathUtils.PI) * 9f)
+                * (1f - landing * 0.28f);
+        Texture texture = flyingChips[color];
+        batch.setColor(Color.WHITE);
+        batch.draw(texture, x - size / 2f, y - size / 2f,
+                size / 2f, size / 2f, size, size, 1f, 1f,
+                rotation + progress * 360f,
+                0, 0, texture.getWidth(), texture.getHeight(), false, false);
+    }
+
+    private float liveControlX(float from, float to, float rotation) {
+        float outward = from < tableCenterX ? -1f : 1f;
+        return (from + to) * 0.5f + outward * 175f
                 + MathUtils.cos(rotation) * 35f;
+    }
+
+    private float streetBetX(Seat seat) {
+        return MathUtils.lerp(seat.stackX, tableCenterX, 0.34f);
+    }
+
+    private float streetBetY(Seat seat) {
+        return MathUtils.lerp(seat.stackY, tableCenterY, 0.34f);
+    }
+
+    private static float payoutTargetX(Seat winner, int chip) {
+        return winner.stackX + (chip % 5 - 2) * 9f;
+    }
+
+    private static float payoutTargetY(Seat winner, int chip) {
+        return winner.stackY + 8f + (chip % 4) * 6f;
     }
 
     private static float liveControlY(float from, float to, float rotation) {
@@ -3742,8 +3932,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : controls.raiseAction() != ActionControlState.RaiseAction.DISABLED;
         boolean allInEnabled = liveState == null ? localTurn
                 : controls.allInEnabled() || controls.showCards();
-        boolean settledShowdown = handTime() >= WINNER_START
-                && isShowdownContender(0);
+        boolean settledShowdown = liveState != null
+                ? winnerSeat() >= 0 && isShowdownContender(0)
+                : handTime() >= WINNER_START && isShowdownContender(0);
         String lastLocalActionLabel = lastActionLabelForSeat(0, handTime());
         Color lastLocalActionColor = lastActionColorForSeat(0, handTime());
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
@@ -4710,6 +4901,109 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float elapsedSeconds() {
             return Math.max(0L, System.nanoTime() - startedAtNanos)
                     / 1_000_000_000f;
+        }
+    }
+
+    private static final class LiveActionChip {
+
+        final TableVisualEvent.PlayerAction event;
+        final long startedAtNanos;
+        final CompletableFuture<Void> barrier;
+        final float rotation;
+        final int color;
+
+        LiveActionChip(TableVisualEvent.PlayerAction event,
+                long startedAtNanos, CompletableFuture<Void> barrier) {
+            this.event = event;
+            this.startedAtNanos = startedAtNanos;
+            this.barrier = barrier;
+            rotation = Math.floorMod(event.nickname().hashCode(), 360);
+            color = switch (event.kind()) {
+                case ALL_IN -> 3;
+                case BET, RAISE -> 2;
+                case CALL -> 1;
+                default -> 0;
+            };
+        }
+
+        float elapsedSeconds() {
+            return Math.max(0L, System.nanoTime() - startedAtNanos)
+                    / 1_000_000_000f;
+        }
+
+        float progress() {
+            return Math.min(1f, elapsedSeconds() / CHIP_FLIGHT_SECONDS);
+        }
+
+        float impactAge() {
+            return elapsedSeconds() - CHIP_FLIGHT_SECONDS;
+        }
+    }
+
+    private static final class LivePayout {
+
+        final TableVisualEvent.Payout event;
+        final long startedAtNanos;
+        final CompletableFuture<Void> barrier;
+        final List<LivePayoutChip> chips;
+
+        LivePayout(TableVisualEvent.Payout event, long startedAtNanos,
+                CompletableFuture<Void> barrier) {
+            this.event = event;
+            this.startedAtNanos = startedAtNanos;
+            this.barrier = barrier;
+            List<LivePayoutChip> created = new ArrayList<>(18);
+            double base = event.amount() / 18d;
+            for (int index = 0; index < 18; index++) {
+                double amount = index == 17
+                        ? event.amount() - base * 17d : base;
+                created.add(new LivePayoutChip(index,
+                        0.18f + index * 0.035f, 1.05f,
+                        (event.potIndex() * 71f + index * 29f) % 360f,
+                        index % 4, amount));
+            }
+            chips = List.copyOf(created);
+        }
+
+        float elapsedSeconds() {
+            return Math.max(0L, System.nanoTime() - startedAtNanos)
+                    / 1_000_000_000f;
+        }
+
+        double landedContribution(float elapsed) {
+            double total = 0d;
+            for (LivePayoutChip chip : chips) {
+                if (chip.progress(elapsed) >= 1f) {
+                    total += chip.amount;
+                }
+            }
+            return total;
+        }
+    }
+
+    private static final class LivePayoutChip {
+
+        final int index;
+        final float startSeconds;
+        final float durationSeconds;
+        final float rotation;
+        final int color;
+        final double amount;
+        boolean soundPlayed;
+
+        LivePayoutChip(int index, float startSeconds, float durationSeconds,
+                float rotation, int color, double amount) {
+            this.index = index;
+            this.startSeconds = startSeconds;
+            this.durationSeconds = durationSeconds;
+            this.rotation = rotation;
+            this.color = color;
+            this.amount = amount;
+        }
+
+        float progress(float elapsed) {
+            return MathUtils.clamp((elapsed - startSeconds) / durationSeconds,
+                    0f, 1f);
         }
     }
 

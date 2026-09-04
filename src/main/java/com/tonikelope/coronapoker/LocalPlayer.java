@@ -211,6 +211,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
      * Telemetry: updates the LatencyDot widget. No-op if it hasn't been wired
      * up yet via setLatencyDot.
      */
+    @Override
     public void applyTelemetry(int lat1, int lat2, int reconnectionCount) {
         LatencyDot dot = this.latency_dot;
         if (dot == null) {

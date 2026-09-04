@@ -230,6 +230,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
      * @param reconnectionCount reconnection count to display alongside the
      * latency
      */
+    @Override
     public void applyTelemetry(int lat1, int lat2, int reconnectionCount) {
         LatencyDot dot = this.latency_dot;
         if (dot == null) {
@@ -727,6 +728,34 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public void resetAutomatedDecisionState() {
         if (bot != null) {
             bot.resetBot();
+        }
+    }
+
+    @Override
+    public boolean hasAutomatedDecisionProvider() {
+        return bot != null;
+    }
+
+    @Override
+    public int calculateAutomatedDecision(int opponentCount) {
+        if (bot == null) {
+            return Player.super.calculateAutomatedDecision(opponentCount);
+        }
+        return bot.calculateBotDecision(opponentCount);
+    }
+
+    @Override
+    public double automatedBetSize() {
+        if (bot == null) {
+            return Player.super.automatedBetSize();
+        }
+        return bot.getBetSize();
+    }
+
+    @Override
+    public void recordAutomatedHandResult(boolean winner) {
+        if (bot != null) {
+            bot.recordHandResult(winner);
         }
     }
 
@@ -1623,6 +1652,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         };
     }
 
+    @Override
+    public void applyRemoteDecision(int decision, double bet) {
+        setDecisionFromRemotePlayer(decision, bet);
+    }
+
     private void setDecisionState(int value) {
         playerState.setDecision(switch (value) {
             case Player.FOLD -> com.tonikelope.coronapoker.core.game.PlayerState.Decision.FOLD;
@@ -2336,6 +2370,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JLabel utg_icon;
     // End of variables declaration//GEN-END:variables
 
+    @Override
     public boolean isIwtsthCandidate() {
         return isLoser() && isActivo() && getHoleCard1().isVisible_card() && getHoleCard1().isTapada();
     }
@@ -3344,6 +3379,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private final Object destape_animado_lock = new Object();
 
     public Object getDestape_animado_lock() {
+        return destape_animado_lock;
+    }
+
+    @Override
+    public Object revealLock() {
         return destape_animado_lock;
     }
 

@@ -321,11 +321,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return communityCards()[index];
     }
 
-    private java.util.List<RemotePlayer> remotePlayers() {
-        return players().stream()
-                .filter(RemotePlayer.class::isInstance)
-                .map(RemotePlayer.class::cast)
-                .toList();
+    private java.util.List<GamePlayerController> remotePlayers() {
+        GamePlayerController local = localPlayer();
+        return players().stream().filter(player -> player != local).toList();
     }
 
     public TableEventBridge getTableEventBridge() {
@@ -6487,7 +6485,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (String nick : nicks) {
             GamePlayerController jugador = nick2player.get(nick);
             Participant participante = peers().get(nick);
-            if (jugador instanceof RemotePlayer && !jugador.isExit()
+            if (jugador != localPlayer() && !jugador.isExit()
                     && participante != null && !participante.isCpu()) {
                 table_display.setRebuyWaiting(jugador.getNickname(), true, false);
             }
@@ -6650,7 +6648,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 String.valueOf(parsed.requestedAmount()), headroom, deniedByLimit);
                         int safeRebuy = Integer.parseInt(canonicalRebuy);
                         boolean recompra = safeRebuy > 0 && !deniedByLimit;
-                        if (jugador instanceof RemotePlayer) {
+                        if (jugador != localPlayer()) {
                             if (skip_countdown) {
                                 // No remote countdown was started (local player also
                                 // busted): just reflect the outcome.
@@ -6720,7 +6718,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (jp != null && jp.isExit()) {
                         // Left mid-rebuy (closed/disconnected): drop from the wait and clear
                         // the countdown visual (setRebuying's exit guard leaves the LEFT visual alone).
-                        if (jp instanceof RemotePlayer) {
+                        if (jp != localPlayer()) {
                             table_display.setRebuyWaiting(jp.getNickname(), false, false);
                         }
                         iterator.remove();
@@ -6749,7 +6747,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                             // Stop the countdown visual; with spectator already set, the
                             // restore is skipped and setSpectator's repaint takes over.
-                            if (jpk instanceof RemotePlayer) {
+                            if (jpk != null && jpk != localPlayer()) {
                                 table_display.setRebuyWaiting(jpk.getNickname(), false, false);
                             }
                         }
@@ -7834,8 +7832,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // duplicate would repeat the label and sqlNewShowcards. With the
                             // instant (non-animated) reveal that window was milliseconds; with
                             // the animation, it isn't.
-                            Object destape_lock = (fjugador instanceof RemotePlayer)
-                                    ? ((RemotePlayer) fjugador).getDestape_animado_lock() : new Object();
+                            Object destape_lock = fjugador.revealLock();
 
                             synchronized (destape_lock) {
 
@@ -10021,7 +10018,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             destaparRabbitCards();
                         }
 
-                        if (jugador instanceof RemotePlayer) {
+                        if (jugador != localPlayer()) {
                             table_display.showRabbitNotice(jugador.getNickname(),
                                     RABBIT_LABEL_TIMEOUT);
 
@@ -10215,7 +10212,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         // B) Bots: Since they live in the Host's memory, the Server Host forces them to show
                         if (gameSession().isHost()) {
-                            for (RemotePlayer rp : remotePlayers()) {
+                            for (GamePlayerController rp : remotePlayers()) {
                                 Participant p = peers().get(rp.getNickname());
                                 if (p != null && p.isCpu() && rp.isIwtsthCandidate() && rp.getHoleCard1().isTapada()) {
                                     showAndBroadcastPlayerCards(rp.getNickname());
@@ -14410,7 +14407,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Fresh hand: visual feedback while deciding (thinking icon on the UTG seat for
             // everyone else + a community bar counting down 5s). Recover doesn't ask (the
             // host restores from the fossil and rebroadcasts), so there's no wait.
-            if (fresh && !local_is_straddler && straddler instanceof RemotePlayer) {
+            if (fresh && !local_is_straddler) {
                 table_display.setStraddleThinking(straddler_f.getNickname(), true);
             }
             if (fresh) {
@@ -14428,7 +14425,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         decision = promptStraddleLocal(straddler_f);
                         this.local_signed_straddle_decision = decision; // the host straddler governs its own amount via its own signature
                         straddler_sig = signLocalStraddleDecision(decision); // the host signs its own decision
-                    } else if (straddler instanceof RemotePlayer && ((RemotePlayer) straddler).getBot() != null) {
+                    } else if (straddler.hasAutomatedDecisionProvider()) {
                         decision = botStraddleDecision(straddler_f); // bot: no blinding (no deferred slot)
                     } else {
                         decision = waitStraddleRespFromRemote(straddler.getNickname());
@@ -14483,7 +14480,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.straddle_recovered_posted = (decision == GameDecisionSink.POST_STRADDLE);
                 guardarFosilSRA();
                 stopStraddleCountdownBar();
-                if (!local_is_straddler && straddler instanceof RemotePlayer) {
+                if (!local_is_straddler) {
                     table_display.setStraddleThinking(straddler_f.getNickname(), false);
                 }
             }
@@ -17114,7 +17111,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         if (!eraSincronizacion || (accion_recuperada = siguienteAccionLocalRecuperada(current_player.getNickname())) == null) {
                             long start = System.currentTimeMillis();
                             double call_required = getApuesta_actual() - current_player.getBet();
-                            int decision_loki = ((RemotePlayer) current_player).getBot().calculateBotDecision(resisten.size() - 1);
+                            int decision_loki = current_player.calculateAutomatedDecision(resisten.size() - 1);
                             action = new Object[]{decision_loki, 0d, null};
 
                             switch (decision_loki) {
@@ -17132,7 +17129,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     if (Helpers.doubleSecureCompare(current_player.getStack(), call_required) <= 0) {
                                         action = new Object[]{GamePlayerController.ALLIN, 0d, null};
                                     } else {
-                                        double b = ((RemotePlayer) current_player).getBot().getBetSize();
+                                        double b = current_player.automatedBetSize();
                                         if (Helpers.doubleSecureCompare(current_player.getStack() * 0.75f, b - current_player.getBet()) <= 0) {
                                             action = new Object[]{GamePlayerController.ALLIN, 0d, null};
                                         } else if (puedenApostar(players()) <= 1) {
@@ -17302,7 +17299,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         this.sendGAMECommandToServer(comando);
                     }
                 } else {
-                    ((RemotePlayer) current_player).setDecisionFromRemotePlayer(decision, (double) action[1]);
+                    current_player.applyRemoteDecision(decision, (double) action[1]);
                     // No wire broadcast for exit-synth — the EXIT command already went
                     // out immediately when the peer left, and no peer has a record to
                     // absorb for this slot. Every receiver hits its own readActionFromRemotePlayer's
@@ -19244,11 +19241,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (p == null || v == null || v.length < 3) {
                 continue;
             }
-            if (p instanceof RemotePlayer) {
-                ((RemotePlayer) p).applyTelemetry(v[0], v[1], v[2]);
-            } else if (p instanceof LocalPlayer) {
-                ((LocalPlayer) p).applyTelemetry(v[0], v[1], v[2]);
-            }
+            p.applyTelemetry(v[0], v[1], v[2]);
         }
     }
 
@@ -21186,12 +21179,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // keep showdown snappy, same rule as the animated flip. Same lock and
     // anti-duplicate re-check as the animated path (reentrant when reached from its
     // internal fallbacks).
-    private void destaparCartasJugadorSeco(RemotePlayer jugador) {
+    private void destaparCartasJugadorSeco(GamePlayerController jugador) {
 
-        synchronized (jugador.getDestape_animado_lock()) {
+        synchronized (jugador.revealLock()) {
 
-            Card c1 = jugador.getHoleCard1();
-            Card c2 = jugador.getHoleCard2();
+            Card c1 = classicCard(jugador.getHoleCard1());
+            Card c2 = classicCard(jugador.getHoleCard2());
 
             if (!c1.isTapada() || !c2.isTapada()) {
                 return;
@@ -21226,7 +21219,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Card c1 = classicCard(jugador.getHoleCard1());
         Card c2 = classicCard(jugador.getHoleCard2());
 
-        boolean destapable = jugador instanceof RemotePlayer
+        boolean destapable = jugador != localPlayer()
                 && c1.isIniciadaConValor() && c1.isTapada()
                 && c2.isIniciadaConValor() && c2.isTapada();
 
@@ -21237,14 +21230,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        RemotePlayer rp = (RemotePlayer) jugador;
-
         if (!presentation_settings.flipAnimation()) {
-            destaparCartasJugadorSeco(rp);
+            destaparCartasJugadorSeco(jugador);
             return;
         }
 
-        synchronized (rp.getDestape_animado_lock()) {
+        synchronized (jugador.revealLock()) {
 
             // Re-check under the lock: a concurrent uncover of the same player
             // (duplicate/echo SHOWCARDS) may have beaten us here while we waited.
@@ -21274,7 +21265,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (anim1 == null || anim2 == null) {
-                    destaparCartasJugadorSeco(rp);
+                    destaparCartasJugadorSeco(jugador);
                     return;
                 }
 
@@ -21285,11 +21276,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // doesn't match the card landing underneath it.
                 if (!anim1.card.equals(c1.toShortString()) || !anim2.card.equals(c2.toShortString())) {
                     LOGGER.log(Level.WARNING, "Card values changed between flip GIF decode and playback (plain uncover fallback)");
-                    destaparCartasJugadorSeco(rp);
+                    destaparCartasJugadorSeco(jugador);
                     return;
                 }
 
-                table_display.preparePlayerReveal(rp.getNickname());
+                table_display.preparePlayerReveal(jugador.getNickname());
 
                 // The player's TWO hole cards flip AT ONCE in a single call
                 // (playCardFlipOverlays already animates several cards in parallel,
@@ -22642,7 +22633,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // Hand name on the NEUTRAL label (the label's resting gray,
                         // not the SHOW button's blue): shows WHAT they hold without
                         // giving away whether they win.
-                        if (!table_events.isAttached() && jugador_actual instanceof RemotePlayer) {
+                        if (!table_events.isAttached() && jugador_actual != localPlayer()) {
                             table_display.showNeutralHand(jugador_actual.getNickname(), jugada.getName());
                         }
 
@@ -22753,13 +22744,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             // Record history to simulate bot "Tilt"
-            if (gameSession().isHost()
-                    && jugador_actual != localPlayer()
-                    && jugador_actual instanceof RemotePlayer) {
-                Bot bot = ((RemotePlayer) jugador_actual).getBot();
-                if (bot != null) {
-                    bot.recordHandResult(ganadores.containsKey(jugador_actual));
-                }
+            if (gameSession().isHost() && jugador_actual != localPlayer()) {
+                jugador_actual.recordAutomatedHandResult(
+                        ganadores.containsKey(jugador_actual));
             }
 
             pos = (pos + 1) % players().size();

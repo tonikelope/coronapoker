@@ -92,6 +92,44 @@ public interface GamePlayerController
     default void resetAutomatedDecisionState() {
     }
 
+    /** Whether this seat has an in-process automated decision provider. */
+    default boolean hasAutomatedDecisionProvider() {
+        return false;
+    }
+
+    /** Requests one decision from the seat's automated provider. */
+    default int calculateAutomatedDecision(int opponentCount) {
+        throw new IllegalStateException("Player has no automated decision provider");
+    }
+
+    /** Bet size selected by the last automated decision. */
+    default double automatedBetSize() {
+        throw new IllegalStateException("Player has no automated decision provider");
+    }
+
+    /** Feeds the settled hand result back to an automated provider, if present. */
+    default void recordAutomatedHandResult(boolean winner) {
+    }
+
+    /** Applies the host-authoritative decision for a non-local seat. */
+    default void applyRemoteDecision(int decision, double bet) {
+        throw new IllegalStateException("Player cannot apply a remote decision");
+    }
+
+    /** Per-seat monitor that serializes late card reveals. */
+    default Object revealLock() {
+        return this;
+    }
+
+    /** Updates optional connection telemetry without coupling the engine to a widget. */
+    default void applyTelemetry(int latency1, int latency2, int reconnectionCount) {
+    }
+
+    /** Whether this seat may be force-revealed by the IWTSTH rule. */
+    default boolean isIwtsthCandidate() {
+        return false;
+    }
+
     boolean isSpectator();
 
     boolean isExit();

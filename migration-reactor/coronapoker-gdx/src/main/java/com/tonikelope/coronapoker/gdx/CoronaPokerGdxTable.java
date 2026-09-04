@@ -142,40 +142,40 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float CONTEXT_ROW_HEIGHT = 42f;
     private static final String[] CONTEXT_ITEMS = {
         "AJUSTES", "", "VER REGISTRO", "VISOR DE CAPTURAS", "",
-        "BOTONES AUTO", "CONFIRMAR ACCIONES", "RECOMPRA AUTOMÃTICA", "",
-        "AYUDA", "ÃšLTIMA MANO", "DETENER TIMBA", "SALIR DE LA DEMO"
+        "BOTONES AUTO", "CONFIRMAR ACCIONES", "RECOMPRA AUTOMÁTICA", "",
+        "AYUDA", "ÚLTIMA MANO", "DETENER TIMBA", "SALIR DE LA TIMBA"
     };
     private static final String[] SETTINGS_TABS = {
         "AUDIO", "APARIENCIA", "JUEGO", "ATAJOS"
     };
     private static final String[] GAME_LOG_PREVIEW = {
         "[CoronaPoker // REGISTRO DE LA TIMBA]",
-        "Mano #2  Â·  Ciegas 50 / 100  Â·  Baraja PepsiMan HQ",
-        "CoronaBot$1 pone la ciega pequeÃ±a: 50",
+        "Mano #2  ·  Ciegas 50 / 100  ·  Baraja PepsiMan HQ",
+        "CoronaBot$1 pone la ciega pequeña: 50",
         "CoronaBot$2 pone la ciega grande: 100",
         "CoronaBot$6 sube a 300",
         "CoronaBot$8 iguala 300",
         "TONIKELOPE no va",
-        "Flop: Qâ™¥  10â™¦  7â™ ",
+        "Flop: Q♥  10♦  7♠",
         "CoronaBot$6 apuesta 600",
         "CoronaBot$8 iguala 600",
-        "Turn: 5â™¥    River: 3â™£",
+        "Turn: 5♥    River: 3♣",
         "Bote final: 9.200",
-        "CoronaBot$2 gana con TRÃO"
+        "CoronaBot$2 gana con TRÍO"
     };
     private static final String[] HUD_ACTIONS = {"NO IR", "IR +300", "APOSTAR", "ALL-IN"};
     private static final int[][] LOCAL_CARD_RANKS = {{11, 12}, {14, 13}};
     private static final int[] SHOWDOWN_SEATS = {1, 2, 3, 4, 5, 6, 7, 8, 9};
     private static final String[][] SHOWDOWN_RESULTS = {
         {
-            "CARTA ALTA", "ESCALERA", "TRÃO",
+            "CARTA ALTA", "ESCALERA", "TRÍO",
             "CARTA ALTA", "CARTA ALTA", "CARTA ALTA",
-            "TRÃO", "TRÃO", "TRÃO", "TRÃO"
+            "TRÍO", "TRÍO", "TRÍO", "TRÍO"
         },
         {
-            "CARTA ALTA", "PAREJA", "TRÃO",
-            "TRÃO", "TRÃO", "TRÃO",
-            "TRÃO", "PAREJA", "CARTA ALTA", "PAREJA"
+            "CARTA ALTA", "PAREJA", "TRÍO",
+            "TRÍO", "TRÍO", "TRÍO",
+            "TRÍO", "PAREJA", "CARTA ALTA", "PAREJA"
         }
     };
     private static final float[][][] SEAT_LAYOUTS = createSeatLayouts();
@@ -4592,7 +4592,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawLeftInBox(uiFont, "AJUSTES", panelX + 34f,
                 panelY + panelH - 70f, panelW - 68f, 42f,
                 Color.WHITE, alpha);
-        drawLeftInBox(smallFont, "CONFIGURACIÃ“N DE CORONAPOKER",
+        drawLeftInBox(smallFont, "CONFIGURACIÓN DE CORONAPOKER",
                 panelX + 35f, panelY + panelH - 100f,
                 panelW - 70f, 24f, CYAN, alpha);
         for (int i = 0; i < SETTINGS_TABS.length; i++) {
@@ -4604,7 +4604,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawLeftInBox(uiFont, "SONIDO", contentX,
                 panelY + panelH - 126f, panelW - 330f, 36f,
                 Color.WHITE, alpha);
-        drawLeftInBox(actionFont, "MÃšSICA", contentX,
+        drawLeftInBox(actionFont, "MÚSICA", contentX,
                 musicY + 28f, 260f, 32f, Color.WHITE, alpha);
         drawFittedCenteredInBox(actionFont,
                 Math.round(musicVolume * 100f) + "%",
@@ -4618,7 +4618,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 Math.round(effectsVolume * 100f) + "%",
                 contentX + sliderW - 80f, effectsY + 28f,
                 80f, 32f, POT_GOLD, alpha);
-        drawLeftInBox(smallFont, "Cartas, fichas, acciones y cinemÃ¡ticas",
+        drawLeftInBox(smallFont, "Cartas, fichas, acciones y cinemáticas",
                 contentX, effectsY - 50f, sliderW, 28f, Color.LIGHT_GRAY, alpha);
         drawFittedCenteredInBox(actionFont, "VOLVER",
                 panelX + 30f, panelY + 24f, 190f, 58f,
@@ -4669,7 +4669,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawLeftInBox(uiFont, "REGISTRO DE LA TIMBA",
                 panelX + 34f, panelY + panelH - 72f,
                 panelW - 68f, 42f, Color.WHITE, alpha);
-        drawLeftInBox(smallFont, "VISTA GDX Â· LA FUENTE REAL SEGUIRÃ SIENDO EL CORE",
+        drawLeftInBox(smallFont, "VISTA GDX · LA FUENTE REAL SEGUIRÁ SIENDO EL CORE",
                 panelX + 35f, panelY + panelH - 103f,
                 panelW - 70f, 24f, POT_GOLD, alpha);
         float baseline = logY + logH - 42f;

@@ -39,6 +39,8 @@ import com.tonikelope.coronapoker.table.TableVisualEvent;
 import com.tonikelope.coronapoker.core.network.ConfirmationTracker;
 import com.tonikelope.coronapoker.core.network.GameCommandId;
 import com.tonikelope.coronapoker.core.network.GameTransport;
+import com.tonikelope.coronapoker.core.network.TelemetryCodec;
+import com.tonikelope.coronapoker.core.network.TelemetryFrame;
 import com.tonikelope.coronapoker.core.game.GameSession;
 import com.tonikelope.coronapoker.core.game.GameSessionIds;
 import com.tonikelope.coronapoker.core.game.GameStateMirror;
@@ -19062,9 +19064,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (localNick != null && !localNick.isEmpty()) {
                 perPeer.put(localNick, new int[]{0, 0, 0});
             }
-            Helpers.TelemetryFrame frame = new Helpers.TelemetryFrame(
+            TelemetryFrame frame = new TelemetryFrame(
                     System.currentTimeMillis(), perPeer);
-            String payload = Helpers.encodeTelemetry(frame);
+            String payload = TelemetryCodec.encode(frame);
             // NOTE: broadcastGAMECommandFromServer ALREADY wraps the command as
             // "GAME#<id>#" + command — only pass "TELEMETRY#<payload>" here, or the
             // client sees a doubled GAME#GAME wrapper and the TELEMETRY case never
@@ -19088,7 +19090,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * receive its own broadcast). - the client's "TELEMETRY" case (on receiving
      * the host's broadcast).
      */
-    public void applyTelemetryFrameLocally(Helpers.TelemetryFrame frame) {
+    public void applyTelemetryFrameLocally(TelemetryFrame frame) {
         if (frame == null || frame.perPeer == null) {
             return;
         }

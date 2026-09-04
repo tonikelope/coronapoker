@@ -2474,20 +2474,11 @@ public class Helpers {
      * Telemetry: payload of a latency/reconnections snapshot that the host
      * emits periodically to all clients. Immutable.
      */
-    public static final class TelemetryFrame {
-
-        /**
-         * Host's timestamp when emitted (System.currentTimeMillis).
-         */
-        public final long serverTimestampMs;
-        /**
-         * nick (canonical, NFC) -> [lat1_ms, lat2_ms, reconnection_count].
-         */
-        public final java.util.Map<String, int[]> perPeer;
+    public static final class TelemetryFrame
+            extends com.tonikelope.coronapoker.core.network.TelemetryFrame {
 
         public TelemetryFrame(long serverTimestampMs, java.util.Map<String, int[]> perPeer) {
-            this.serverTimestampMs = serverTimestampMs;
-            this.perPeer = java.util.Collections.unmodifiableMap(new java.util.HashMap<>(perPeer));
+            super(serverTimestampMs, perPeer);
         }
     }
 
@@ -2508,32 +2499,7 @@ public class Helpers {
      * usual encryptCommand.
      */
     public static String encodeTelemetry(Helpers.TelemetryFrame frame) {
-        if (frame == null) {
-            throw new IllegalArgumentException("frame must not be null");
-        }
-        StringBuilder sb = new StringBuilder(64 + frame.perPeer.size() * 32);
-        sb.append(frame.serverTimestampMs);
-        sb.append('#');
-        boolean first = true;
-        for (java.util.Map.Entry<String, int[]> e : frame.perPeer.entrySet()) {
-            int[] v = e.getValue();
-            if (v == null || v.length < 3) {
-                continue;
-            }
-            if (!first) {
-                sb.append('@');
-            }
-            first = false;
-            try {
-                sb.append(java.util.Base64.getEncoder().encodeToString(e.getKey().getBytes("UTF-8")));
-            } catch (java.io.UnsupportedEncodingException uee) {
-                // UTF-8 is guaranteed by Java; this catch is defensive.
-                sb.append(java.util.Base64.getEncoder().encodeToString(e.getKey().getBytes()));
-            }
-            sb.append('|');
-            sb.append(v[0]).append('/').append(v[1]).append('/').append(v[2]);
-        }
-        return sb.toString();
+        return com.tonikelope.coronapoker.core.network.TelemetryCodec.encode(frame);
     }
 
     /**
@@ -2544,66 +2510,9 @@ public class Helpers {
      * Returns null if the payload doesn't even have the leading ts.
      */
     public static Helpers.TelemetryFrame decodeTelemetry(String payload) {
-        if (payload == null || payload.isEmpty()) {
-            return null;
-        }
-        int firstHash = payload.indexOf('#');
-        long ts;
-        String entries;
-        if (firstHash < 0) {
-            // Just ts with no entries (empty broadcast).
-            try {
-                ts = Long.parseLong(payload);
-            } catch (NumberFormatException ex) {
-                return null;
-            }
-            return new TelemetryFrame(ts, new java.util.HashMap<>());
-        }
-        try {
-            ts = Long.parseLong(payload.substring(0, firstHash));
-        } catch (NumberFormatException ex) {
-            return null;
-        }
-        entries = payload.substring(firstHash + 1);
-        java.util.Map<String, int[]> map = new java.util.HashMap<>();
-        if (!entries.isEmpty()) {
-            String[] tuples = entries.split("@");
-            for (String t : tuples) {
-                // The nick/values separator is '|', NOT '='. Reason: '=' is Base64
-                // padding and mixing it in would confuse the parser.
-                int pipe = t.indexOf('|');
-                if (pipe <= 0 || pipe >= t.length() - 1) {
-                    continue;
-                }
-                String b64nick = t.substring(0, pipe);
-                String numbers = t.substring(pipe + 1);
-                String[] parts = numbers.split("/");
-                if (parts.length < 3) {
-                    continue;
-                }
-                String nick;
-                try {
-                    nick = new String(java.util.Base64.getDecoder().decode(b64nick), "UTF-8");
-                } catch (Exception ex) {
-                    continue;
-                }
-                if (nick.isEmpty()) {
-                    continue;
-                }
-                int lat1;
-                int lat2;
-                int recon;
-                try {
-                    lat1 = Integer.parseInt(parts[0]);
-                    lat2 = Integer.parseInt(parts[1]);
-                    recon = Integer.parseInt(parts[2]);
-                } catch (NumberFormatException ex) {
-                    continue;
-                }
-                map.put(nick, new int[]{lat1, lat2, recon});
-            }
-        }
-        return new TelemetryFrame(ts, map);
+        com.tonikelope.coronapoker.core.network.TelemetryFrame frame
+                = com.tonikelope.coronapoker.core.network.TelemetryCodec.decode(payload);
+        return frame == null ? null : new TelemetryFrame(frame.serverTimestampMs, frame.perPeer);
     }
 
     /**

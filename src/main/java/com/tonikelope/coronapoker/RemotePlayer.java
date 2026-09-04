@@ -745,6 +745,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     @Override
+    public void bindDealer(com.tonikelope.coronapoker.bot.context.DealerView dealer) {
+        if (bot != null) {
+            bot.setContext(dealer, null);
+        }
+    }
+
+    @Override
     public double automatedBetSize() {
         if (bot == null) {
             return Player.super.automatedBetSize();

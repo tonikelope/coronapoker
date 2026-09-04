@@ -7,6 +7,10 @@ import java.util.List;
 public interface GamePlayerController
         extends com.tonikelope.coronapoker.bot.context.BotPlayerView {
 
+    /** Binds an automated seat to the canonical dealer after table assembly. */
+    default void bindDealer(com.tonikelope.coronapoker.bot.context.DealerView dealer) {
+    }
+
     int NODEC = -1;
     int FOLD = 1;
     int CHECK = 2;

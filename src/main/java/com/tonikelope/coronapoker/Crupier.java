@@ -253,6 +253,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.value_formatter = java.util.Objects.requireNonNull(valueFormatter, "valueFormatter");
         this.bot_service = java.util.Objects.requireNonNull(botService, "botService");
         this.table_events = java.util.Objects.requireNonNull(tableEvents, "tableEvents");
+        if (this.player_controllers != null) {
+            this.player_controllers.forEach(player -> player.bindDealer(this));
+        }
         if (gameSession != null && gameSession.hasConfiguration()) {
             this.ciega_pequeña = gameSession.configuration().smallBlind();
             this.ciega_grande = gameSession.configuration().bigBlind();
@@ -20890,6 +20893,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public double getCiega_pequeña() {
         return ciega_pequeña;
+    }
+
+    @Override
+    public double getInitialSmallBlind() {
+        java.util.List<GameConfigCodecV1.BlindLevel> levels
+                = configuration().blindStructure();
+        return levels.isEmpty() ? ciega_pequeña : levels.get(0).smallBlind();
     }
 
     // In-flight pre-decode of flip GIFs (one Future per card, see

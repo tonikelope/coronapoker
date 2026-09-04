@@ -36,6 +36,9 @@ import com.tonikelope.coronapoker.bot.eval.Potential;
 import com.tonikelope.coronapoker.core.game.CardCode;
 import com.tonikelope.coronapoker.core.game.GameCardController;
 import com.tonikelope.coronapoker.core.game.GameOpponentStats;
+import com.tonikelope.coronapoker.core.game.GamePlayerController;
+import com.tonikelope.coronapoker.core.game.MoneyMath;
+import com.tonikelope.coronapoker.crypto.CryptoRandom;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
@@ -266,14 +269,6 @@ public class Bot {
     private static final Logger LOGGER = Logger.getLogger(Bot.class.getName());
 
     /**
-     * Attaches this AI to a {@link RemotePlayer} seat and rolls its skill/style
-     * personality.
-     */
-    public Bot(RemotePlayer player) {
-        this((BotPlayerView) player);
-    }
-
-    /**
      * Attaches this AI to any {@link BotPlayerView} seat and rolls its
      * skill/style personality.
      */
@@ -295,7 +290,7 @@ public class Bot {
 
     /**
      * Inject a seeded RNG for deterministic replay; passing null restores the
-     * shared {@link Helpers#CSPRNG_GENERATOR} default.
+     * shared cryptographic random source.
      */
     public void setRng(java.util.Random rng) {
         this.rng = rng;
@@ -319,24 +314,23 @@ public class Bot {
 
     private int randInt(int bound) {
         java.util.Random r = rng;
-        return (r != null ? r : Helpers.CSPRNG_GENERATOR).nextInt(bound);
+        return r != null ? r.nextInt(bound) : CryptoRandom.nextInt(bound);
     }
 
     private float randFloat() {
         java.util.Random r = rng;
-        return (r != null ? r : Helpers.CSPRNG_GENERATOR).nextFloat();
+        return r != null ? r.nextFloat() : (float) CryptoRandom.nextDouble();
     }
 
     private double randDouble() {
         java.util.Random r = rng;
-        return (r != null ? r : Helpers.CSPRNG_GENERATOR).nextDouble();
+        return r != null ? r.nextDouble() : CryptoRandom.nextDouble();
     }
 
     protected DealerView dealer() {
         DealerView d = dealer;
         if (d == null) {
-            d = GameFrame.getInstance().getCrupier();
-            dealer = d;
+            throw new IllegalStateException("Bot has no bound canonical dealer");
         }
         return d;
     }
@@ -591,7 +585,7 @@ public class Bot {
         // double money output on return.
         float pot = (float) dealer.getBote_total();
         float currentBet = (float) dealer.getApuesta_actual();
-        float minRaise = (float) (Helpers.doubleSecureCompare(0, dealer.getUltimo_raise()) < 0 ? dealer.getUltimo_raise() : dealer.getCiega_grande());
+        float minRaise = (float) (MoneyMath.compare(0, dealer.getUltimo_raise()) < 0 ? dealer.getUltimo_raise() : dealer.getCiega_grande());
         float bb = (float) dealer.getCiega_grande();
         float targetBet;
 
@@ -641,11 +635,11 @@ public class Bot {
         // reflect doblarCiegas or recovery).
         float sb = (float) dealer.getCiega_pequeña();
         if (sb <= 0f) {
-            sb = (float) GameFrame.CIEGA_PEQUEÑA;
+            sb = (float) dealer.getInitialSmallBlind();
         }
-        targetBet = (float) (Math.ceil(Helpers.floatClean(targetBet) / sb) * sb);
+        targetBet = (float) (Math.ceil(MoneyMath.clean(targetBet) / sb) * sb);
 
-        if (Helpers.float1DSecureCompare(currentBet, 0f) == 0 || (dealer.getStreet() == Crupier.PREFLOP && Helpers.float1DSecureCompare(currentBet, bb) == 0)) {
+        if (MoneyMath.compare(currentBet, 0f) == 0 || (dealer.getStreet() == Crupier.PREFLOP && MoneyMath.compare(currentBet, bb) == 0)) {
             // Opening bet: bb and targetBet are already sb multiples (in the default
             // ladder bb = 2*sb, and targetBet is aligned by the Math.ceil above), so
             // the final max keeps the alignment.
@@ -660,7 +654,7 @@ public class Bot {
             // the caller's stack > 75% check, which converts the bet to ALLIN if the
             // raise ends up close to the full stack.
             float raw_result = Math.max(currentBet + minRaise, currentBet + targetBet);
-            return (float) (Math.ceil(Helpers.floatClean(raw_result) / sb) * sb);
+            return (float) (Math.ceil(MoneyMath.clean(raw_result) / sb) * sb);
         }
     }
 
@@ -712,11 +706,11 @@ public class Bot {
 
     private static String decisionName(int d) {
         switch (d) {
-            case Player.BET:
+            case GamePlayerController.BET:
                 return "BET";
-            case Player.CHECK:
+            case GamePlayerController.CHECK:
                 return "CHECK/CALL";
-            case Player.FOLD:
+            case GamePlayerController.FOLD:
                 return "FOLD";
             default:
                 return "?";
@@ -738,33 +732,33 @@ public class Bot {
         double strength = previousStrength > 0 ? previousStrength : lastEffectiveStrength;
 
         // 1. Sticky calldown: weak made hand calls bet instead of folding.
-        if (planned == Player.FOLD && toCall > 0f
+        if (planned == GamePlayerController.FOLD && toCall > 0f
                 && strength > 0.10 && strength < 0.55
                 && toCall < pot * 1.5f) {
-            return Player.CHECK;
+            return GamePlayerController.CHECK;
         }
 
         // 2. Hero fold: strong hand folds to a bet that should be called
         // or raised. Direct equity surrender on a value spot.
-        if (planned == Player.CHECK && toCall > 0f && strength > 0.62) {
-            return Player.FOLD;
+        if (planned == GamePlayerController.CHECK && toCall > 0f && strength > 0.62) {
+            return GamePlayerController.FOLD;
         }
-        if (planned == Player.BET && toCall > 0f && strength > 0.70) {
-            return Player.FOLD;
+        if (planned == GamePlayerController.BET && toCall > 0f && strength > 0.70) {
+            return GamePlayerController.FOLD;
         }
 
         // 3. Missed value bet: strong made hand passes on the chance to
         // grow the pot when checked to.
-        if (planned == Player.BET && toCall <= 0f && strength > 0.62
+        if (planned == GamePlayerController.BET && toCall <= 0f && strength > 0.62
                 && street >= Crupier.FLOP) {
-            return Player.CHECK;
+            return GamePlayerController.CHECK;
         }
 
         // 4. Spewy preflop call: marginal holding calls a raise it
         // should fold. "Just gonna see a flop" leak.
-        if (planned == Player.FOLD && street == Crupier.PREFLOP
+        if (planned == GamePlayerController.FOLD && street == Crupier.PREFLOP
                 && toCall > 0f && strength > 0.10 && strength < 0.50) {
-            return Player.CHECK;
+            return GamePlayerController.CHECK;
         }
 
         return planned;
@@ -778,7 +772,7 @@ public class Bot {
 
         if (street == Crupier.PREFLOP) {
             int decision = calculatePreflopAction(betCount, activePlayers);
-            if (decision == Player.BET) {
+            if (decision == GamePlayerController.BET) {
                 if (currentProfile != Profile.STATION) {
                     cBetInitiative = true;
                 }
@@ -940,14 +934,14 @@ public class Bot {
         double raiseCost = raiseAmount - cpuPlayer.getBet();
         double evRaise = (foldEquity * pot) + ((1.0 - foldEquity) * ((winProb * (pot + raiseCost)) - ((1.0 - winProb) * raiseCost)));
 
-        int decision = Player.FOLD;
+        int decision = GamePlayerController.FOLD;
         if (betCount == 0) {
             decision = decisionWhenCheckedTo(effectiveStrength, evCall, evRaise, ppot, npot, foldEquity, street, activePlayers, boardTexture, betCount);
         } else {
             decision = decisionWhenFacingBet(effectiveStrength, evCall, evRaise, ppot, npot, foldEquity, pot, callCost, spr, street, betCount, activePlayers, potCommitted, safeDraw, boardTexture, targetStats);
         }
 
-        if (decision == Player.BET) {
+        if (decision == GamePlayerController.BET) {
             aggressiveLine = true;
         }
         lastEffectiveStrength = effectiveStrength;
@@ -959,7 +953,7 @@ public class Bot {
         if (floatPlay && street == Crupier.TURN) {
             logVerbose("Executing Float Bluff follow-through on Turn.");
             floatPlay = false;
-            return Player.BET;
+            return GamePlayerController.BET;
         }
 
         if (slowPlay && effectiveStrength >= STRENGTH_NUT_TRAP && street < Crupier.RIVER) {
@@ -968,20 +962,20 @@ public class Bot {
                 slowPlay = false;
             } else {
                 logVerbose("Executing slowplay trap (Check).");
-                return Player.CHECK;
+                return GamePlayerController.CHECK;
             }
         }
 
         if (street == Crupier.RIVER) {
             if (effectiveStrength >= STRENGTH_RIVER_VALUE) {
                 logVerbose("River Value Bet.");
-                return Player.BET;
+                return GamePlayerController.BET;
             }
             if (skillLevel == Skill.SHARK && effectiveStrength >= STRENGTH_VALUE_BET
                     && boardTexture.totalScore <= 2 && isInPositionPostflop()
                     && activePlayers <= 2 && randInt(100) < 55) {
                 logVerbose("River thin value bet (small).");
-                return Player.BET;
+                return GamePlayerController.BET;
             }
             // Polarized river bluff. With no showdown value (air) and genuine
             // fold equity against a single foldable opponent, represent the value
@@ -1003,10 +997,10 @@ public class Bot {
                 }
                 if (randInt(100) < chance) {
                     logVerbose("River polarized bluff.");
-                    return Player.BET;
+                    return GamePlayerController.BET;
                 }
             }
-            return Player.CHECK;
+            return GamePlayerController.CHECK;
         }
 
         if (cBetInitiative && street == Crupier.FLOP) {
@@ -1032,7 +1026,7 @@ public class Bot {
             cBetInitiative = false;
             if (randInt(100) < cbetChance) {
                 logVerbose("Executing C-Bet.");
-                return Player.BET;
+                return GamePlayerController.BET;
             }
         }
 
@@ -1048,7 +1042,7 @@ public class Bot {
                 && foldEquity > 0.18 && boardTexture.totalScore <= 3
                 && randInt(100) < (skillLevel == Skill.SHARK ? 45 : 28)) {
             logVerbose("Semi-bluff with strong draw.");
-            return Player.BET;
+            return GamePlayerController.BET;
         }
 
         if (streetPlan != PLAN_NONE && skillLevel != Skill.RECREATIONAL) {
@@ -1057,23 +1051,23 @@ public class Bot {
                 case PLAN_BET_BET_BET:
                     if (effectiveStrength > STRENGTH_VALUE_BET_DRAW || (foldEquity > 0.20 && effectiveStrength < 0.30)) {
                         logVerbose("Executing PLAN_BET_BET_BET.");
-                        return Player.BET;
+                        return GamePlayerController.BET;
                     }
                     break;
                 case PLAN_BET_CHECK_BET:
                     if (streetsInPlan == 0 || streetsInPlan == 2) {
                         if (effectiveStrength > 0.45) {
                             logVerbose("Executing active phase of PLAN_BET_CHECK_BET.");
-                            return Player.BET;
+                            return GamePlayerController.BET;
                         }
                     } else {
                         logVerbose("Executing check phase of PLAN_BET_CHECK_BET.");
-                        return Player.CHECK;
+                        return GamePlayerController.CHECK;
                     }
                     break;
                 case PLAN_CHECK_CALL:
                     logVerbose("Executing check phase of PLAN_CHECK_CALL trap.");
-                    return Player.CHECK;
+                    return GamePlayerController.CHECK;
             }
         }
 
@@ -1081,18 +1075,18 @@ public class Bot {
         double valueThreshold = activePlayers >= 4 ? STRENGTH_VALUE_BET + 0.10 : STRENGTH_VALUE_BET;
         if (evRaise > 0 && effectiveStrength > valueThreshold && !boardTooScary) {
             logVerbose("Standard Value Bet based on EV.");
-            return Player.BET;
+            return GamePlayerController.BET;
         } else if (boardTooScary && evRaise > 0) {
             logVerbose("Value bet blocked: Board texture too dangerous for current strength.");
         }
 
         if (skillLevel == Skill.RECREATIONAL && onTilt && effectiveStrength > 0.35) {
             logVerbose("Tilt Bet (Recreational overriding EV).");
-            return Player.BET;
+            return GamePlayerController.BET;
         }
 
         logVerbose("No profitable bet found. Checking.");
-        return Player.CHECK;
+        return GamePlayerController.CHECK;
     }
 
     private int decisionWhenFacingBet(double effectiveStrength, double evCall, double evRaise, double ppot, double npot, double foldEquity, double pot, double callCost, float spr, int street, int betCount, int activePlayers, boolean potCommitted, boolean safeDraw, BoardTexture boardTexture, OpponentTracker targetStats) {
@@ -1117,7 +1111,7 @@ public class Bot {
 
             if (effectiveStrength >= 0.82 && betRatio < 0.75 && boardTexture.totalScore <= 3 && !hasOvercards) {
                 logVerbose("Dynamic Check-Raise executed. Favorable hand and texture.");
-                return Player.BET;
+                return GamePlayerController.BET;
             }
         }
 
@@ -1125,13 +1119,13 @@ public class Bot {
             floatPlay = false;
             if (callCost <= pot * 0.6) {
                 logVerbose("Calling bet to float the Flop.");
-                return Player.CHECK;
+                return GamePlayerController.CHECK;
             }
         }
         if (!floatPlay && activePlayers <= 2 && callCost <= pot * 0.6 && canFloat(effectiveStrength, betCount, street, boardTexture)) {
             floatPlay = true;
             logVerbose("Initiating Float Strategy (Calling to bluff later).");
-            return Player.CHECK;
+            return GamePlayerController.CHECK;
         }
 
         double adjustedEvCall = evCall;
@@ -1151,10 +1145,10 @@ public class Bot {
         if (potCommitted) {
             if (effectiveStrength >= STRENGTH_NUT_TRAP && evRaise > 0 && currentProfile != Profile.STATION) {
                 logVerbose("Pot committed and very strong. Shoving (Re-raising).");
-                return Player.BET;
+                return GamePlayerController.BET;
             }
             logVerbose("Pot committed. Calling down.");
-            return Player.CHECK;
+            return GamePlayerController.CHECK;
         }
 
         // Threshold for raise-for-value drops on HARD so sharks generate the
@@ -1165,7 +1159,7 @@ public class Bot {
         }
         if (evRaise > adjustedEvCall && evRaise > 0 && effectiveStrength > valueRaiseThreshold && currentProfile != Profile.STATION && betCount < MAX_BET_COUNT) {
             logVerbose("Raising for value. High EV.");
-            return Player.BET;
+            return GamePlayerController.BET;
         }
 
         // Medium-strength raise band: aggressive aggression-factor booster.
@@ -1198,13 +1192,13 @@ public class Bot {
             }
             if (chance > 0 && randInt(100) < chance) {
                 logVerbose("Medium-strength raise (AF booster).");
-                return Player.BET;
+                return GamePlayerController.BET;
             }
         }
 
         if (skillLevel == Skill.SHARK && betCount == 1 && activePlayers > 3 && effectiveStrength > 0.60 && foldEquity > 0.25 && randInt(100) < 20) {
             logVerbose("Executing Squeeze Play against multiple callers.");
-            return Player.BET;
+            return GamePlayerController.BET;
         }
 
         if (streetPlan == PLAN_CHECK_CALL) {
@@ -1216,23 +1210,23 @@ public class Bot {
                 streetPlan = PLAN_NONE;
             } else if (effectiveStrength > STRENGTH_CALLDOWN_TRAP && skillLevel != Skill.RECREATIONAL) {
                 logVerbose("Executing trap call from PLAN_CHECK_CALL.");
-                return Player.CHECK;
+                return GamePlayerController.CHECK;
             }
         }
 
         if (adjustedEvCall > 0) {
             logVerbose("Calling due to positive adjusted EV.");
-            return Player.CHECK;
+            return GamePlayerController.CHECK;
         }
 
         if (ppot > 1.5 * potOdds() && safeDraw && street < Crupier.RIVER) {
             logVerbose("Calling based on implied draw odds.");
-            return Player.CHECK;
+            return GamePlayerController.CHECK;
         }
 
         if (skillLevel == Skill.RECREATIONAL && currentProfile == Profile.STATION && effectiveStrength > 0.25) {
             logVerbose("Station calling out of profile habit despite negative EV.");
-            return Player.CHECK;
+            return GamePlayerController.CHECK;
         }
 
         // MDF (Minimum Defense Frequency) bluffcatch guard. Only HARD sharks defend
@@ -1248,12 +1242,12 @@ public class Bot {
             double mdf = pot / (pot + callCost);
             if (effectiveStrength > mdf * 0.45) {
                 logVerbose("MDF bluffcatch: raw call EV positive, defending despite profile adjustment.");
-                return Player.CHECK;
+                return GamePlayerController.CHECK;
             }
         }
 
         logVerbose("Folding. No profitable action.");
-        return Player.FOLD;
+        return GamePlayerController.FOLD;
     }
 
     private double calculateFoldEquity(OpponentTracker targetStats, BoardTexture boardTexture, int betCount, int street) {
@@ -1419,7 +1413,7 @@ public class Bot {
 
         if (currentProfile == Profile.STATION && handTier <= 4 && betCount < 2) {
             logVerbose("Preflop Station limp/call.");
-            return Player.CHECK;
+            return GamePlayerController.CHECK;
         }
 
         DealerView crupier = dealer();
@@ -1431,34 +1425,34 @@ public class Bot {
             int squeezeChance = (pos == Position.LATE || pos == Position.BLINDS) ? 35 : 25;
             if (randInt(100) < squeezeChance) {
                 logVerbose("Preflop Squeeze.");
-                return Player.BET;
+                return GamePlayerController.BET;
             }
         }
 
         if (betCount >= 3) {
             if (handTier == 1 && low >= 10) {
                 logVerbose("Preflop 5-Bet (premium only).");
-                return Player.BET;
+                return GamePlayerController.BET;
             }
             logVerbose("Preflop Fold vs 4-Bet.");
-            return Player.FOLD;
+            return GamePlayerController.FOLD;
         }
 
         if (betCount == 2) {
             if (handTier == 1) {
                 logVerbose("Preflop 4-Bet for value.");
-                return Player.BET;
+                return GamePlayerController.BET;
             }
             if (handTier == 2) {
                 logVerbose("Preflop Call vs 3-Bet (TT/JJ/AQ/KQs).");
-                return Player.CHECK;
+                return GamePlayerController.CHECK;
             }
             if (handTier == 3 && skillLevel != Skill.RECREATIONAL && isPair && high <= 4) {
                 logVerbose("Preflop Set-mine call vs 3-Bet (small pair).");
-                return Player.CHECK;
+                return GamePlayerController.CHECK;
             }
             logVerbose("Preflop Fold vs 3-Bet.");
-            return Player.FOLD;
+            return GamePlayerController.FOLD;
         }
 
         boolean headsUp = (activePlayers == 2);
@@ -1466,7 +1460,7 @@ public class Bot {
         if (betCount == 1) {
             if (handTier == 1) {
                 logVerbose("Preflop 3-Bet for value.");
-                return Player.BET;
+                return GamePlayerController.BET;
             }
             boolean threeBetBluffCandidate = (high == 12 && low <= 3 && suited)
                     || (high == 11 && low == 10 && !suited);
@@ -1475,19 +1469,19 @@ public class Bot {
                     && (pos == Position.LATE || pos == Position.BLINDS)
                     && randInt(100) < 30) {
                 logVerbose("Preflop 3-Bet bluff (blocker).");
-                return Player.BET;
+                return GamePlayerController.BET;
             }
             if (handTier <= 3) {
                 logVerbose("Preflop Standard Call.");
-                return Player.CHECK;
+                return GamePlayerController.CHECK;
             }
             if (isBB && handTier == 4) {
                 logVerbose("Preflop BB defend vs steal.");
-                return Player.CHECK;
+                return GamePlayerController.CHECK;
             }
             if (handTier == 4 && currentProfile == Profile.LAG && (pos == Position.LATE || pos == Position.BLINDS)) {
                 logVerbose("Preflop LAG loose call in position.");
-                return Player.CHECK;
+                return GamePlayerController.CHECK;
             }
             // Heads-up BB defends wider than full-ring. Iteration 6 adds an
             // explicit difficulty offset on top of the profile rates so the
@@ -1512,11 +1506,11 @@ public class Bot {
                 defendChance = clampPct(defendChance + difficultyLoosenessOffset());
                 if (randInt(100) < defendChance) {
                     logVerbose("Preflop HU BB defend vs button raise.");
-                    return Player.CHECK;
+                    return GamePlayerController.CHECK;
                 }
             }
             logVerbose("Preflop Fold vs Raise.");
-            return Player.FOLD;
+            return GamePlayerController.FOLD;
         }
 
         if (isSB && betCount == 0) {
@@ -1529,11 +1523,11 @@ public class Bot {
                     int foldChance = 33;
                     if (randInt(100) < foldChance) {
                         logVerbose("Preflop HU SB tier-4 selective fold.");
-                        return Player.FOLD;
+                        return GamePlayerController.FOLD;
                     }
                 }
                 logVerbose("Preflop SB folded-to: open wide.");
-                return Player.BET;
+                return GamePlayerController.BET;
             }
             // Heads-up button opens trash wider than full-ring cutoff/button but
             // not freely. HU button open rates land roughly at: NIT 45%, TAG 60%,
@@ -1555,79 +1549,79 @@ public class Bot {
                 stealChance = clampPct(stealChance + difficultyLoosenessOffset());
                 if (randInt(100) < stealChance) {
                     logVerbose("Preflop HU SB steal (tier 5 wide).");
-                    return Player.BET;
+                    return GamePlayerController.BET;
                 }
             }
             if (handTier == 5 && (currentProfile == Profile.LAG || skillLevel == Skill.SHARK)) {
                 int fallbackChance = clampPct(25 + difficultyLoosenessOffset());
                 if (fallbackChance > 0 && randInt(100) < fallbackChance) {
                     logVerbose("Preflop SB folded-to: trash steal.");
-                    return Player.BET;
+                    return GamePlayerController.BET;
                 }
             }
             if (currentProfile == Profile.STATION && handTier == 5
                     && randInt(100) < 40) {
                 logVerbose("Preflop SB limp-complete.");
-                return Player.CHECK;
+                return GamePlayerController.CHECK;
             }
             logVerbose("Preflop SB fold.");
-            return Player.FOLD;
+            return GamePlayerController.FOLD;
         }
 
         switch (pos) {
             case EARLY:
                 if (handTier <= 2) {
                     logVerbose("Preflop Early Open.");
-                    return Player.BET;
+                    return GamePlayerController.BET;
                 }
                 if (handTier == 3 && currentProfile != Profile.NIT) {
                     logVerbose("Preflop Early Loose Open.");
-                    return Player.BET;
+                    return GamePlayerController.BET;
                 }
                 if (skillLevel == Skill.RECREATIONAL && handTier <= 4 && randInt(100) < 30) {
                     logVerbose("Preflop Rec open limp.");
-                    return Player.CHECK;
+                    return GamePlayerController.CHECK;
                 }
-                return Player.FOLD;
+                return GamePlayerController.FOLD;
             case MIDDLE:
                 if (handTier <= 3) {
                     logVerbose("Preflop Middle Open.");
-                    return Player.BET;
+                    return GamePlayerController.BET;
                 }
                 if (handTier == 4 && currentProfile == Profile.LAG) {
                     logVerbose("Preflop Middle LAG Open.");
-                    return Player.BET;
+                    return GamePlayerController.BET;
                 }
-                return Player.FOLD;
+                return GamePlayerController.FOLD;
             case LATE:
                 if (handTier <= 4 && currentProfile != Profile.NIT) {
                     logVerbose("Preflop Steal/Open.");
-                    return Player.BET;
+                    return GamePlayerController.BET;
                 }
                 if (currentProfile == Profile.NIT && handTier <= 3) {
                     logVerbose("Preflop Nit Open.");
-                    return Player.BET;
+                    return GamePlayerController.BET;
                 }
                 if (handTier == 5 && activePlayers <= 2
                         && (currentProfile == Profile.LAG || skillLevel == Skill.SHARK)
                         && randInt(100) < 20) {
                     logVerbose("Preflop Trash Steal (Bluff).");
-                    return Player.BET;
+                    return GamePlayerController.BET;
                 }
-                return Player.FOLD;
+                return GamePlayerController.FOLD;
             case BLINDS:
                 if (handTier <= 3 && currentProfile != Profile.NIT) {
                     logVerbose("Preflop BB iso-raise vs limpers.");
-                    return Player.BET;
+                    return GamePlayerController.BET;
                 }
                 if (handTier == 4 && currentProfile == Profile.LAG) {
                     logVerbose("Preflop BB LAG iso-raise.");
-                    return Player.BET;
+                    return GamePlayerController.BET;
                 }
                 logVerbose("Preflop BB check option.");
-                return Player.CHECK;
+                return GamePlayerController.CHECK;
             default:
-                return Player.FOLD;
+                return GamePlayerController.FOLD;
         }
     }
 

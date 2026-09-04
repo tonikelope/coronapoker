@@ -65,6 +65,7 @@
                         <exclude>org/alberta/**</exclude>
                         <exclude>com/tonikelope/coronapoker/BetRules.java</exclude>
                         <exclude>com/tonikelope/coronapoker/BettingRoundState.java</exclude>
+                        <exclude>com/tonikelope/coronapoker/Bot.java</exclude>
                         <exclude>com/tonikelope/coronapoker/BuyinCount.java</exclude>
                         <exclude>com/tonikelope/coronapoker/BuyinRules.java</exclude>
                         <exclude>com/tonikelope/coronapoker/CanonicalActionRecord.java</exclude>

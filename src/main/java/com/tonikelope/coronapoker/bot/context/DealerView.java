@@ -38,6 +38,11 @@ public interface DealerView {
 
     double getCiega_pequeña();
 
+    /** Initial chip denomination used for legacy bet-size rounding. */
+    default double getInitialSmallBlind() {
+        return getCiega_pequeña();
+    }
+
     int getConta_bet();
 
     int getLimpersCount();

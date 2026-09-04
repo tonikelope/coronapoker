@@ -58,6 +58,7 @@ import com.tonikelope.coronapoker.core.game.TableDisplaySink;
 import com.tonikelope.coronapoker.core.game.HostGameConfigurationSource;
 import com.tonikelope.coronapoker.core.game.RecoveredSettingsSynchronizer;
 import com.tonikelope.coronapoker.core.game.ActionControlState;
+import com.tonikelope.coronapoker.core.game.CardCode;
 import com.tonikelope.coronapoker.core.game.GameCardController;
 import com.tonikelope.coronapoker.core.game.GameIdentity;
 import com.tonikelope.coronapoker.core.game.GameIdentityVerifier;
@@ -113,7 +114,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GamePlayerController local_player_controller;
     private final java.util.Map<String, GamePeerController> peer_controllers;
     private final GameIdentity game_identity;
-    private final Card[] community_card_controllers;
+    private final GameCardController[] community_card_controllers;
     private final GameLogSink game_log;
     private final GameDialogSink game_dialogs;
     private final GameDecisionSink game_decisions;
@@ -156,7 +157,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             java.util.ArrayList<? extends GamePlayerController> playerControllers,
             GamePlayerController localPlayerController,
             java.util.Map<String, ? extends GamePeerController> peerControllers,
-            Card[] communityCardControllers,
+            GameCardController[] communityCardControllers,
             GameIdentity gameIdentity,
             GameLogSink gameLog, GameDialogSink gameDialogs, GameDecisionSink gameDecisions,
             GameDatabase gameDatabase,
@@ -323,15 +324,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return peer_controllers;
     }
 
-    private Card[] communityCards() {
+    private GameCardController[] communityCardControllers() {
         if (community_card_controllers == null || community_card_controllers.length != 5) {
             throw new IllegalStateException("Crupier has no complete community-card repository");
         }
         return community_card_controllers;
     }
 
-    private Card communityCard(int index) {
-        return communityCards()[index];
+    private Card[] communityCards() {
+        GameCardController[] controllers = communityCardControllers();
+        if (controllers instanceof Card[] classicCards) {
+            return classicCards;
+        }
+        Card[] result = new Card[controllers.length];
+        for (int index = 0; index < result.length; index++) {
+            result[index] = classicCard(controllers[index]);
+        }
+        return result;
+    }
+
+    private GameCardController communityCard(int index) {
+        return communityCardControllers()[index];
+    }
+
+    private Card classicCommunityCard(int index) {
+        return classicCard(communityCard(index));
     }
 
     private java.util.List<GamePlayerController> remotePlayers() {
@@ -3895,8 +3912,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     }
                                     this.local_original_cards[0] = (byte) id1;
                                     this.local_original_cards[1] = (byte) id2;
-                                    cartas[0] = Card.VALORES[id1 % 13] + "_" + Card.PALOS[id1 / 13];
-                                    cartas[1] = Card.VALORES[id2 % 13] + "_" + Card.PALOS[id2 / 13];
+                                    cartas[0] = CardCode.fromIndex(id1).shortCode();
+                                    cartas[1] = CardCode.fromIndex(id2).shortCode();
                                     ok = true;
                                 }
                             } catch (Exception e) {
@@ -11670,8 +11687,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Future<?> prefetch_flip_hc2 = null;
         if (!attached_deal_presentation && !defer_straddle_reveal && presentation_settings.flipAnimation()
                 && localPlayer().isActivo()) {
-            final String sp1 = Card.shortStringFromIndex(this.local_original_cards[0] & 0xFF);
-            final String sp2 = Card.shortStringFromIndex(this.local_original_cards[1] & 0xFF);
+            final String sp1 = CardCode.shortCodeFromIndex(this.local_original_cards[0] & 0xFF);
+            final String sp2 = CardCode.shortCodeFromIndex(this.local_original_cards[1] & 0xFF);
             // The local player's hole cards are split (half-height) ONLY at compact-view level
             // 3, so the flip is pre-decoded already cropped for that level. If the view changes
             // before the reveal, takePrefetchedHoleCardFlip detects it and decodes inline instead.
@@ -11940,7 +11957,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (player.isActivo()) {
                     boolean localFaceUp = player == local && !deferStraddleReveal;
                     String code = localFaceUp
-                            ? Card.shortStringFromIndex(this.local_original_cards[slot] & 0xFF)
+                            ? CardCode.shortCodeFromIndex(this.local_original_cards[slot] & 0xFF)
                             : "";
                     TableSnapshot.CardSnapshot snapshot = new TableSnapshot.CardSnapshot(
                             code, localFaceUp, false);
@@ -15477,25 +15494,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         ArrayList<Card> compartidas = new ArrayList<>();
 
         if (rit_allin_street < FLOP) {
-            corridas.add(communityCard(0));
-            corridas.add(communityCard(1));
-            corridas.add(communityCard(2));
+            corridas.add(classicCommunityCard(0));
+            corridas.add(classicCommunityCard(1));
+            corridas.add(classicCommunityCard(2));
         } else {
-            compartidas.add(communityCard(0));
-            compartidas.add(communityCard(1));
-            compartidas.add(communityCard(2));
+            compartidas.add(classicCommunityCard(0));
+            compartidas.add(classicCommunityCard(1));
+            compartidas.add(classicCommunityCard(2));
         }
 
         if (rit_allin_street < TURN) {
-            corridas.add(communityCard(3));
+            corridas.add(classicCommunityCard(3));
         } else {
-            compartidas.add(communityCard(3));
+            compartidas.add(classicCommunityCard(3));
         }
 
         if (rit_allin_street < RIVER) {
-            corridas.add(communityCard(4));
+            corridas.add(classicCommunityCard(4));
         } else {
-            compartidas.add(communityCard(4));
+            compartidas.add(classicCommunityCard(4));
         }
 
         // With the local player already out of the game, the rewind switches to the dry
@@ -21546,9 +21563,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void destaparFlop(ArrayList<GamePlayerController> resisten) {
 
-        Card flop1 = communityCard(0);
-        Card flop2 = communityCard(1);
-        Card flop3 = communityCard(2);
+        Card flop1 = classicCommunityCard(0);
+        Card flop2 = classicCommunityCard(1);
+        Card flop3 = classicCommunityCard(2);
         if (!presentCommunityRevealToAttachedRenderer(0, flop1, flop2, flop3)) {
             // The 2nd and 3rd cards chain with no long pause: their flip GIF is
             // pre-decoded in background while the first pays its pause and animation,
@@ -21568,9 +21585,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         ArrayList<Card> flop = new ArrayList<>();
-        flop.add(communityCard(0));
-        flop.add(communityCard(1));
-        flop.add(communityCard(2));
+        flop.add(classicCommunityCard(0));
+        flop.add(classicCommunityCard(1));
+        flop.add(classicCommunityCard(2));
 
         game_log.print("FLOP -> " + Card.collection2String(flop));
 
@@ -21579,7 +21596,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void destaparTurn(ArrayList<GamePlayerController> resisten) {
 
-        Card turn = communityCard(3);
+        Card turn = classicCommunityCard(3);
         if (!presentCommunityRevealToAttachedRenderer(3, turn)) {
             mostrarAnimacionDestaparCartaComunitaria(turn);
         }
@@ -21589,10 +21606,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         ArrayList<Card> com = new ArrayList<>();
-        com.add(communityCard(0));
-        com.add(communityCard(1));
-        com.add(communityCard(2));
-        com.add(communityCard(3));
+        com.add(classicCommunityCard(0));
+        com.add(classicCommunityCard(1));
+        com.add(classicCommunityCard(2));
+        com.add(classicCommunityCard(3));
 
         game_log.print("TURN -> " + Card.collection2String(com));
 
@@ -21601,7 +21618,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void destaparRiver(ArrayList<GamePlayerController> resisten) {
 
-        Card river = communityCard(4);
+        Card river = classicCommunityCard(4);
         if (!presentCommunityRevealToAttachedRenderer(4, river)) {
             mostrarAnimacionDestaparCartaComunitaria(river);
         }
@@ -21611,11 +21628,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         ArrayList<Card> com = new ArrayList<>();
-        com.add(communityCard(0));
-        com.add(communityCard(1));
-        com.add(communityCard(2));
-        com.add(communityCard(3));
-        com.add(communityCard(4));
+        com.add(classicCommunityCard(0));
+        com.add(classicCommunityCard(1));
+        com.add(classicCommunityCard(2));
+        com.add(classicCommunityCard(3));
+        com.add(classicCommunityCard(4));
 
         game_log.print("RIVER -> " + Card.collection2String(com));
     }

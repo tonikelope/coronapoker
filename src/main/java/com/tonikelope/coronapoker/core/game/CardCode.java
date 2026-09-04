@@ -76,6 +76,16 @@ public record CardCode(Rank rank, Suit suit) {
         return fromIndex(value - 1);
     }
 
+    /** Compatibility form for legacy callers that use {@code null} on bad input. */
+    public static String shortCodeFromIndex(int index) {
+        return index >= 0 && index < 52 ? fromIndex(index).shortCode() : null;
+    }
+
+    /** Compatibility form for the classic 1..52 domain, or -1 when unset. */
+    public static int indexFromOneBased(int value) {
+        return value >= 1 && value <= 52 ? value - 1 : -1;
+    }
+
     public static CardCode parseShortCode(String shortCode) {
         String normalized = Objects.requireNonNull(shortCode, "shortCode").trim();
         int separator = normalized.lastIndexOf('_');

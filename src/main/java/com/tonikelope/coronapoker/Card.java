@@ -880,10 +880,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable,
      * range
      */
     public static String shortStringFromIndex(int id) {
-        if (id < 0 || id > 51) {
-            return null;
-        }
-        return VALORES[id % 13] + "_" + PALOS[id / 13];
+        return CardCode.shortCodeFromIndex(id);
     }
 
     public void iniciarConValorPalo(String valor, String palo) {
@@ -983,7 +980,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable,
      * 0-51 domain, or returns -1 outside the source domain.
      */
     public static int cardIndexFromOneBased(int oneBased) {
-        return oneBased >= 1 && oneBased <= 52 ? oneBased - 1 : -1;
+        return CardCode.indexFromOneBased(oneBased);
     }
 
     /**

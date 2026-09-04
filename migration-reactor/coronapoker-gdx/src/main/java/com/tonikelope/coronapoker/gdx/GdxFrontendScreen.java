@@ -1210,10 +1210,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     w + 8f * hoverAmount, h + 8f * hoverAmount, 18f);
         }
         Color border = !enabled ? LINE : primary ? GOLD : hover ? CYAN : CYAN_DARK;
-        Color fill = enabled && pressed(x, y, w, h)
-                ? new Color(0x07111fd9)
-                : primary ? new Color(ORANGE.r, ORANGE.g, ORANGE.b, 0.84f)
-                : new Color(PANEL_LIGHT);
+        boolean down = enabled && pressed(x, y, w, h);
+        Color fill = !enabled
+                ? new Color(PANEL_LIGHT)
+                : primary
+                        ? down ? new Color(0xd88416f2)
+                                : new Color(ORANGE.r, ORANGE.g, ORANGE.b, 0.84f)
+                        : down ? new Color(0x07111fd9)
+                                : new Color(PANEL_LIGHT);
         outerBox(x, y, w, h, border, fill);
         if (primary) {
             shapes.setColor(new Color(0xffe07aaa));

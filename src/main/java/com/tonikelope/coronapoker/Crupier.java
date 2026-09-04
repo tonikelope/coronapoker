@@ -11822,9 +11822,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 decision, contribution, this.apuesta_actual);
         double actionAmount = decision == GamePlayerController.FOLD || kind == TableVisualEvent.PlayerAction.ActionKind.CHECK
                 ? 0d : MoneyMath.clean(player.getBet());
+        String labelKey = switch (kind) {
+            case FOLD -> "action.label.fold2";
+            case CHECK -> "action.label.check2";
+            case CALL -> "action.label.call2";
+            case BET -> "action.label.bet2";
+            case RAISE -> "action.label.raise2";
+            case ALL_IN -> "action.label.allin";
+            default -> throw new IllegalStateException(
+                    "Unexpected accepted action kind: " + kind);
+        };
 
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.PlayerAction(
-                sequence, player.getNickname(), kind, kind.name(),
+                sequence, player.getNickname(), kind,
+                game_text.translate(labelKey),
                 actionAmount, contribution),
                 "GamePlayerController-action presentation barrier failed");
         if (decision == GamePlayerController.FOLD) {

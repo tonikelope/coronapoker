@@ -249,6 +249,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "uniform float u_perspective;\n"
             + "uniform float u_flipAngle;\n"
             + "uniform float u_cardAspect;\n"
+            + "uniform vec4 u_overlay;\n"
             + "void main() {\n"
             + "    vec2 sourceUv = v_texCoords;\n"
             + "    if (u_perspective > 0.5) {\n"
@@ -275,6 +276,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "    vec4 backPixel = texture2D(u_texture, sourceUv);\n"
             + "    vec4 frontPixel = texture2D(u_frontTexture, sourceUv);\n"
             + "    vec4 pixel = (u_flipAngle > 1.5707963 ? frontPixel : backPixel) * v_color;\n"
+            + "    pixel.rgb = mix(pixel.rgb, u_overlay.rgb, u_overlay.a);\n"
             + "    pixel.a *= mask;\n"
             + "    if (pixel.a <= 0.001) discard;\n"
             + "    gl_FragColor = pixel;\n"
@@ -423,6 +425,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private LiveCommunityReveal liveCommunityReveal;
     private LiveHoleReveal liveHoleReveal;
     private LiveHoleFold liveHoleFold;
+    private String liveShowdownHoverNickname;
     private final Map<String, Texture> liveCardFaces = new HashMap<>();
     private String liveDeck = "goliat";
     private double liveBetAmount = 1d;
@@ -1573,6 +1576,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         potCenterY = boardTopY + POT_BOARD_GAP + POT_PANEL_HEIGHT / 2f;
 
         updateSeatPositions(width, height);
+        updateLiveShowdownHover(width);
         drawTableBranding(height);
         if (isLayoutShowcase()) {
             // This is deliberately the interval between two hands. Players may
@@ -1603,6 +1607,44 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             burstClock += Math.min(Gdx.graphics.getDeltaTime(), 0.05f);
             if (burstClock > 1.2f) {
                 burstClock = -10f;
+            }
+        }
+    }
+
+    private void updateLiveShowdownHover(float worldWidth) {
+        liveShowdownHoverNickname = null;
+        if (liveState == null || uiLayer != UI_NONE
+                || !liveState.hasShowdownHighlights()) {
+            return;
+        }
+        pointer.set(Gdx.input.getX(), Gdx.input.getY());
+        viewport.unproject(pointer);
+        for (Seat seat : seats) {
+            TableVisualEvent.ShowdownHighlight highlight
+                    = liveState.showdownHighlight(seat.name);
+            if (highlight == null || !highlight.enabled()) {
+                continue;
+            }
+            TableSnapshot.PlayerSnapshot player = livePlayer(seat);
+            if (player == null || player.spectator()
+                    || player.handName().isBlank()) {
+                continue;
+            }
+            boolean hovering;
+            if (seat.index == 0) {
+                float hudWidth = Math.min(1110f, worldWidth - 620f);
+                float hudX = worldWidth / 2f - hudWidth / 2f;
+                hovering = contains(pointer.x, pointer.y,
+                        hudX + 14f, LOCAL_HUD_Y + 37f,
+                        202f, 24f);
+            } else {
+                hovering = contains(pointer.x, pointer.y,
+                        seat.podX + 7f, seat.podY + 7f,
+                        PLAYER_POD_WIDTH - 14f, 44f);
+            }
+            if (hovering) {
+                liveShowdownHoverNickname = seat.name;
+                return;
             }
         }
     }
@@ -1921,7 +1963,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     }
                     TableSnapshot.CardSnapshot card = player.holeCards().get(slot);
                     LiveCardPlacement placement = liveHolePlacement(seat, slot);
-                    drawLiveRestingCard(card, placement, cardBack);
+                    drawLiveRestingCard(card, placement, cardBack,
+                            player.nickname(), slot, false);
                 }
             }
         } else {
@@ -2098,7 +2141,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             LiveCardPlacement placement, Texture cardBack) {
         float tint = card.disabled() ? 0.34f : 1f;
         float alpha = card.disabled() ? 0.52f : 1f;
-        drawLiveRestingCard(card, placement, cardBack, tint, alpha);
+        drawLiveRestingCard(card, placement, cardBack, tint, alpha, false);
+    }
+
+    private void drawLiveRestingCard(TableSnapshot.CardSnapshot card,
+            LiveCardPlacement placement, Texture cardBack, String nickname,
+            int slot, boolean communityCard) {
+        TableVisualEvent.ShowdownHighlight highlight = liveShowdownHoverNickname == null
+                ? null : liveState.showdownHighlight(liveShowdownHoverNickname);
+        if (highlight == null || !card.faceUp()) {
+            drawLiveRestingCard(card, placement, cardBack);
+            return;
+        }
+        boolean selected = communityCard
+                ? highlight.communityCardSlots().contains(slot)
+                : highlight.nickname().equals(nickname)
+                && highlight.holeCardSlots().contains(slot);
+        drawLiveRestingCard(card, placement, cardBack,
+                selected ? 1f : 0.34f, selected ? 1f : 0.52f, selected);
     }
 
     private void drawLiveHoleFold(TableSnapshot.PlayerSnapshot player,
@@ -2108,18 +2168,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float alpha = MathUtils.lerp(1f, 0.52f, disabled);
         for (int slot = 0; slot < player.holeCards().size() && slot < 2; slot++) {
             drawLiveRestingCard(player.holeCards().get(slot),
-                    liveHolePlacement(seat, slot), cardBack, tint, alpha);
+                    liveHolePlacement(seat, slot), cardBack, tint, alpha, false);
         }
     }
 
     private void drawLiveRestingCard(TableSnapshot.CardSnapshot card,
             LiveCardPlacement placement, Texture cardBack,
-            float tint, float alpha) {
+            float tint, float alpha, boolean showdownTint) {
         batch.setColor(tint, tint, tint, alpha);
         if (card.faceUp() && !card.code().isBlank()) {
             Texture face = liveCardFace(card.code());
             usePerspectiveCardShader(face, MathUtils.PI,
                     placement.height / placement.width);
+            setCardShowdownOverlay(showdownTint);
             float canvasWidth = placement.width * 1.5f;
             float canvasHeight = placement.height * 1.5f;
             batch.draw(cardBack, placement.x - canvasWidth / 2f,
@@ -2366,7 +2427,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     && liveCommunityReveal.containsSlot(slot)) {
                 drawLiveCommunityRevealCard(slot, placement, cardBack);
             } else if (slot < board.size() && !hasActiveCommunityFlight(slot)) {
-                drawLiveRestingCard(board.get(slot), placement, cardBack);
+                drawLiveRestingCard(board.get(slot), placement, cardBack,
+                        "", slot, true);
             }
         }
         for (LiveCardFlight flight : liveCardFlights) {
@@ -2547,6 +2609,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         roundedCardShader.setUniformf("u_perspective", perspective ? 1f : 0f);
         roundedCardShader.setUniformf("u_flipAngle", angle);
         roundedCardShader.setUniformf("u_cardAspect", aspect);
+        roundedCardShader.setUniformf("u_overlay", 1f, 0.925f, 0f, 0f);
+    }
+
+    private void setCardShowdownOverlay(boolean highlighted) {
+        roundedCardShader.setUniformf("u_overlay", 1f, 0.925f, 0f,
+                highlighted ? 0.31f : 0f);
     }
 
     private float handTime() {
@@ -3202,10 +3270,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (liveState != null) {
             TableSnapshot.PlayerSnapshot player = livePlayer(seats[seat]);
             if (player == null) return LEGACY_BET;
+            if (player.nickname().equals(liveShowdownHoverNickname)) {
+                return POT_GOLD;
+            }
             if (!player.handName().isBlank()) {
                 return player.winner() ? LEGACY_WINNER : LEGACY_LOSER;
             }
-            return LEGACY_BET;
+            return liveActionColor(liveState.actionKind(player.nickname()));
         }
         if (time >= SHOWDOWN_START && isShowdownContender(seat)) {
             if (time >= WINNER_START) {
@@ -3220,7 +3291,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Color lastActionTextColorForSeat(int seat, float time) {
         if (liveState != null) {
             TableSnapshot.PlayerSnapshot player = livePlayer(seats[seat]);
-            return player != null && player.winner() ? Color.BLACK : Color.WHITE;
+            if (player != null
+                    && player.nickname().equals(liveShowdownHoverNickname)) {
+                return Color.BLACK;
+            }
+            if (player == null) {
+                return Color.WHITE;
+            }
+            if (!player.handName().isBlank()) {
+                return player.winner() ? Color.BLACK : Color.WHITE;
+            }
+            return liveActionTextColor(liveState.actionKind(player.nickname()));
         }
         if (time >= SHOWDOWN_START && isShowdownContender(seat)) {
             return time >= WINNER_START && seat == winnerSeat()
@@ -3244,6 +3325,30 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return LEGACY_ALL_IN;
         }
         return action.label.startsWith("RESUBE") ? LEGACY_RERAISE : LEGACY_BET;
+    }
+
+    private static Color liveActionColor(
+            TableVisualEvent.PlayerAction.ActionKind kind) {
+        if (kind == null) {
+            return LEGACY_BET;
+        }
+        return switch (kind) {
+            case FOLD -> LEGACY_FOLD;
+            case CHECK -> LEGACY_CHECK;
+            case CALL -> LEGACY_CALL;
+            case ALL_IN -> LEGACY_ALL_IN;
+            case BET, RAISE -> LEGACY_BET;
+            case SMALL_BLIND, BIG_BLIND, STRADDLE -> POT_GOLD;
+            case WAITING -> SEAT_RIM;
+        };
+    }
+
+    private static Color liveActionTextColor(
+            TableVisualEvent.PlayerAction.ActionKind kind) {
+        return kind == TableVisualEvent.PlayerAction.ActionKind.CALL
+                || kind == TableVisualEvent.PlayerAction.ActionKind.BET
+                || kind == TableVisualEvent.PlayerAction.ActionKind.RAISE
+                ? Color.BLACK : Color.WHITE;
     }
 
     private static Color actionTextColor(ActionEvent action) {

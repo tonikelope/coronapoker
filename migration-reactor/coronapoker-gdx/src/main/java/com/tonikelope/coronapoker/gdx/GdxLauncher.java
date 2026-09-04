@@ -8,6 +8,7 @@ import com.tonikelope.coronapoker.core.CoronaPokerApplication;
 import com.tonikelope.coronapoker.core.CoronaPokerBootstrap;
 import com.tonikelope.coronapoker.core.DatabaseService;
 import com.tonikelope.coronapoker.core.NewGameSessionGateway;
+import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.core.network.NetworkLobbyGateway;
 import com.tonikelope.coronapoker.CoreGameTableFactory;
 
@@ -81,8 +82,11 @@ public final class GdxLauncher {
             config.setFullscreenMode(display);
         }
 
+        PreferencesService preferences = application.service(PreferencesService.class);
         CoreGameTableFactory gameTables = new CoreGameTableFactory(
-                application.service(DatabaseService.class));
+                application.service(DatabaseService.class),
+                new GdxGameText(preferences.properties()
+                        .getProperty("lenguaje", "es")));
         try (NetworkLobbyGateway lobbyGateway
                 = NetworkLobbyGateway.forCurrentUser(gameTables)) {
             NewGameSessionGateway sessions = lobbyGateway;

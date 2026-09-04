@@ -4,7 +4,9 @@ import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
 import com.tonikelope.coronapoker.core.game.ActionControlState;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /** Render-thread-owned projection. It contains no rules and never reads Swing. */
@@ -19,6 +21,10 @@ final class GdxTableViewState {
     private long turnRemainingMillis;
     private long turnTimerUpdatedNanos;
     private ActionControlState actionControls = ActionControlState.disabled();
+    private final Map<String, TableVisualEvent.ShowdownHighlight>
+            showdownHighlights = new HashMap<>();
+    private final Map<String, TableVisualEvent.PlayerAction.ActionKind>
+            actionKinds = new HashMap<>();
 
     GdxTableViewState(TableSnapshot initialState) {
         snapshot = Objects.requireNonNull(initialState, "initialState");
@@ -49,6 +55,18 @@ final class GdxTableViewState {
         return actionControls;
     }
 
+    TableVisualEvent.ShowdownHighlight showdownHighlight(String nickname) {
+        return showdownHighlights.get(nickname);
+    }
+
+    boolean hasShowdownHighlights() {
+        return !showdownHighlights.isEmpty();
+    }
+
+    TableVisualEvent.PlayerAction.ActionKind actionKind(String nickname) {
+        return actionKinds.get(nickname);
+    }
+
     void apply(TableVisualEvent event) {
         Objects.requireNonNull(event, "event");
         if (event.sequence() <= lastSequence) {
@@ -59,6 +77,8 @@ final class GdxTableViewState {
 
         if (event instanceof TableVisualEvent.Synchronize synchronize) {
             snapshot = synchronize.snapshot();
+            showdownHighlights.clear();
+            actionKinds.clear();
         } else if (event instanceof TableVisualEvent.SeatRoster roster) {
             snapshot = roster.snapshot();
         } else if (event instanceof TableVisualEvent.HandBoundary boundary) {
@@ -145,6 +165,7 @@ final class GdxTableViewState {
         } else if (event instanceof TableVisualEvent.ActionControls controls) {
             actionControls = controls.state();
         } else if (event instanceof TableVisualEvent.PlayerAction action) {
+            actionKinds.put(action.nickname(), action.kind());
             replacePlayer(action.nickname(), player -> copyPlayer(player,
                     Math.max(0d, player.stack() - action.potContribution()),
                     player.streetBet() + action.potContribution(),
@@ -163,6 +184,12 @@ final class GdxTableViewState {
                     player.stack(), player.streetBet(), player.potContribution(),
                     player.active(), result.winner(), player.position(),
                     player.lastAction(), result.handName(), player.holeCards()));
+        } else if (event instanceof TableVisualEvent.ShowdownHighlight highlight) {
+            if (highlight.enabled()) {
+                showdownHighlights.put(highlight.nickname(), highlight);
+            } else {
+                showdownHighlights.remove(highlight.nickname());
+            }
         } else if (event instanceof TableVisualEvent.Payout payout) {
             replacePlayer(payout.nickname(), player -> copyPlayer(player,
                     player.stack() + payout.amount(), player.streetBet(),
@@ -175,7 +202,6 @@ final class GdxTableViewState {
                     snapshot.communityCards());
         } else if (event instanceof TableVisualEvent.DeckChanged
                 || event instanceof TableVisualEvent.Cinematic
-                || event instanceof TableVisualEvent.ShowdownHighlight
                 || event instanceof TableVisualEvent.CloseTable
                 || event instanceof TableVisualEvent.Shuffle) {
             // Transient presentation-only events still consume their sequence.
@@ -192,6 +218,8 @@ final class GdxTableViewState {
                 player.active(), false, player.position(), "", "", List.of()))
                 .toList();
         snapshot = copySnapshot(snapshot, 0d, "", players, List.of());
+        showdownHighlights.clear();
+        actionKinds.clear();
         stopTurn();
     }
 

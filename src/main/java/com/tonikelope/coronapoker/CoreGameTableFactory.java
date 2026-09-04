@@ -62,9 +62,15 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class CoreGameTableFactory implements GameTableFactory {
 
     private final DatabaseService database;
+    private final GameText gameText;
 
     public CoreGameTableFactory(DatabaseService database) {
+        this(database, GameText.keys());
+    }
+
+    public CoreGameTableFactory(DatabaseService database, GameText gameText) {
         this.database = Objects.requireNonNull(database, "database");
+        this.gameText = Objects.requireNonNull(gameText, "gameText");
     }
 
     @Override
@@ -115,7 +121,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
         HostGameConfigurationSource hostConfiguration = sessionId
                 -> GameConfigCodecV1.fromSettings(lobby.tableSettings(),
                         lobby.recovering(), sessionId);
-        GameText text = GameText.keys();
+        GameText text = gameText;
         GameWindowSink window = gameWindow(game, windowOpen);
         GameCinematicAssets cinematicAssets =
                 new ClasspathGameCinematicAssets("cinematics/allin");

@@ -13,6 +13,16 @@ import org.junit.jupiter.api.Test;
 final class GdxTableViewStateTest {
 
     @Test
+    void gameTextResolvesShowdownKeysWithoutSwing() {
+        assertEquals("DOBLE PAREJA",
+                new GdxGameText("es").translate("hand.two_pair"));
+        assertEquals("TWO PAIRS",
+                new GdxGameText("en").translate("hand.two_pair"));
+        assertEquals("NO VA",
+                new GdxGameText("es").translate("action.label.fold2"));
+    }
+
+    @Test
     void liveHudHitMapRoutesEveryCanonicalPokerAction() {
         assertEquals(1, CoronaPokerGdxTable.hudTarget(700f, 70f, 1920f));
         assertEquals(2, CoronaPokerGdxTable.hudTarget(900f, 70f, 1920f));
@@ -38,6 +48,8 @@ final class GdxTableViewStateTest {
         state.apply(new TableVisualEvent.PlayerAction(3, "borja",
                 TableVisualEvent.PlayerAction.ActionKind.CALL,
                 "CALL", 100d, 100d));
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.CALL,
+                state.actionKind("borja"));
         state.apply(new TableVisualEvent.CollectBets(4,
                 List.of(new TableVisualEvent.ChipTransfer("borja", 100d)),
                 100d, 200d));
@@ -95,10 +107,15 @@ final class GdxTableViewStateTest {
         state.apply(new TableVisualEvent.DealCommunityCard(3, 0));
         assertEquals(1, state.snapshot().communityCards().size());
 
-        state.apply(new TableVisualEvent.HandBoundary(4, 2,
+        state.apply(new TableVisualEvent.ShowdownHighlight(4, "ana", true,
+                List.of(0, 1), List.of(0)));
+        assertTrue(state.hasShowdownHighlights());
+
+        state.apply(new TableVisualEvent.HandBoundary(5, 2,
                 TableVisualEvent.HandBoundary.Phase.PREPARE));
         assertEquals(0, player(state, "ana").holeCards().size());
         assertEquals(0, state.snapshot().communityCards().size());
+        assertTrue(!state.hasShowdownHighlights());
     }
 
     @Test
@@ -113,6 +130,8 @@ final class GdxTableViewStateTest {
         state.apply(new TableVisualEvent.HandResult(4, "ana", "COLOR", true));
         state.apply(new TableVisualEvent.ShowdownHighlight(5, "ana", true,
                 List.of(0, 1), List.of(0, 1, 2)));
+        assertEquals(List.of(0, 1),
+                state.showdownHighlight("ana").holeCardSlots());
         state.apply(new TableVisualEvent.Payout(6, "ana", 40, 0));
         state.apply(new TableVisualEvent.DeckChanged(7, "goliat"));
         state.apply(new TableVisualEvent.Cinematic(8,

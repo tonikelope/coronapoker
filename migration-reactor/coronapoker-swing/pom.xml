@@ -60,7 +60,9 @@
                         <exclude>com/tonikelope/coronapoker/core/**</exclude>
                         <exclude>com/tonikelope/coronapoker/table/**</exclude>
                         <exclude>com/tonikelope/coronapoker/bot/context/**</exclude>
+                        <exclude>com/tonikelope/coronapoker/bot/eval/**</exclude>
                         <exclude>com/tonikelope/coronapoker/crypto/**</exclude>
+                        <exclude>org/alberta/**</exclude>
                         <exclude>com/tonikelope/coronapoker/BetRules.java</exclude>
                         <exclude>com/tonikelope/coronapoker/BettingRoundState.java</exclude>
                         <exclude>com/tonikelope/coronapoker/BuyinCount.java</exclude>

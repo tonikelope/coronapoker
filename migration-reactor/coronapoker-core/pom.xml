@@ -33,7 +33,9 @@
                         <include>com/tonikelope/coronapoker/core/**/*.java</include>
                         <include>com/tonikelope/coronapoker/table/**/*.java</include>
                         <include>com/tonikelope/coronapoker/bot/context/**/*.java</include>
+                        <include>com/tonikelope/coronapoker/bot/eval/**/*.java</include>
                         <include>com/tonikelope/coronapoker/crypto/**/*.java</include>
+                        <include>org/alberta/**/*.java</include>
                         <include>com/tonikelope/coronapoker/BetRules.java</include>
                         <include>com/tonikelope/coronapoker/BettingRoundState.java</include>
                         <include>com/tonikelope/coronapoker/BuyinCount.java</include>

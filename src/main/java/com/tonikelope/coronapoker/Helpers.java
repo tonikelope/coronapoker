@@ -5107,7 +5107,8 @@ public class Helpers {
      * restored before the throw, so any catch site that explicitly wants to
      * react can still observe it. NOT a real error — never logged as SEVERE.
      */
-    public static class CooperativeCancellationException extends Error {
+    public static class CooperativeCancellationException
+            extends com.tonikelope.coronapoker.core.game.GameCancellationException {
 
         private static final long serialVersionUID = 1L;
 
@@ -5116,11 +5117,11 @@ public class Helpers {
         // means any rare catch (Throwable) that prints the throwable produces
         // a single short line instead of a noisy multi-frame dump.
         public CooperativeCancellationException() {
-            super("cooperative cancellation", null, false, false);
+            super();
         }
 
         public CooperativeCancellationException(InterruptedException cause) {
-            super("cooperative cancellation", cause, false, false);
+            super(cause);
         }
     }
 

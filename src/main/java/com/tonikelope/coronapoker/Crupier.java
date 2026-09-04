@@ -49,6 +49,9 @@ import com.tonikelope.coronapoker.core.game.GameDatabase;
 import com.tonikelope.coronapoker.core.game.GameCinematicSink;
 import com.tonikelope.coronapoker.core.game.GameCinematicState;
 import com.tonikelope.coronapoker.core.game.GameAudioSink;
+import com.tonikelope.coronapoker.core.game.GameAsync;
+import com.tonikelope.coronapoker.core.game.GameCancellation;
+import com.tonikelope.coronapoker.core.game.GameCancellationException;
 import com.tonikelope.coronapoker.core.game.GameWindowSink;
 import com.tonikelope.coronapoker.core.game.GameUiExecutor;
 import com.tonikelope.coronapoker.core.game.GameLogSink;
@@ -142,6 +145,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GameWindowSink game_window;
     private final GameUiExecutor game_ui;
     private final GameAudioSink game_audio;
+    private final GameAsync game_async;
     private final GamePresentationSettings presentation_settings;
     private final GameIdentityTrust identity_trust;
     private final GameText game_text;
@@ -158,14 +162,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 TableDisplaySink.noop(),
                 GameWindowSink.noop(),
                 GameUiExecutor.direct(),
-                GameAudioSink.silent(), GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GameText.keys(), GameHandFactory.unavailable(), GamePotFactory.unavailable(), GameRuntimeEnvironment.defaults(), GameCinematicState.idle(), GameValueFormatter.plain(),
+                GameAudioSink.silent(), GameAsync.standalone(), GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GameText.keys(), GameHandFactory.unavailable(), GamePotFactory.unavailable(), GameRuntimeEnvironment.defaults(), GameCinematicState.idle(), GameValueFormatter.plain(),
                 new TableEventBridge());
     }
 
     Crupier(TableEventBridge tableEvents) {
         this(null, null, null, null, null, GameIdentity.unavailable(), GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), HostGameConfigurationSource.unavailable(), GameStateMirror.noop(), RecoveredSettingsSynchronizer.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
                 GameTransport.unavailable(), LobbyTransitionSink.noop(), TableDisplaySink.noop(),
-                GameWindowSink.noop(), GameUiExecutor.direct(), GameAudioSink.silent(),
+                GameWindowSink.noop(), GameUiExecutor.direct(), GameAudioSink.silent(), GameAsync.standalone(),
                 GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GameText.keys(), GameHandFactory.unavailable(), GamePotFactory.unavailable(), GameRuntimeEnvironment.defaults(), GameCinematicState.idle(), GameValueFormatter.plain(),
                 tableEvents);
     }
@@ -188,6 +192,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameWindowSink gameWindow,
             GameUiExecutor gameUi,
             GameAudioSink gameAudio,
+            GameAsync gameAsync,
             GamePresentationSettings presentationSettings,
             GameIdentityTrust identityTrust,
             GameText gameText,
@@ -221,6 +226,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.game_window = java.util.Objects.requireNonNull(gameWindow, "gameWindow");
         this.game_ui = java.util.Objects.requireNonNull(gameUi, "gameUi");
         this.game_audio = java.util.Objects.requireNonNull(gameAudio, "gameAudio");
+        this.game_async = java.util.Objects.requireNonNull(gameAsync, "gameAsync");
         this.presentation_settings = java.util.Objects.requireNonNull(
                 presentationSettings, "presentationSettings");
         this.identity_trust = java.util.Objects.requireNonNull(identityTrust, "identityTrust");
@@ -1214,7 +1220,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             game_log.print(game_text.translate("zero_trust.suspicious_alert") + " " + fullReason);
         } catch (Exception ignored) {
         }
-        Helpers.threadRun(() -> {
+        game_async.execute(() -> {
             // Modal: blocks this background thread until the user clicks OK.
             awaitDialog(game_dialogs.showError(
                     game_text.translate("zero_trust.suspicious_header")
@@ -1336,7 +1342,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 game_log.print(game_text.translate("zero_trust.peer_alert") + " " + line);
             } catch (Exception ignored) {
             }
-            Helpers.threadRun(() -> {
+            game_async.execute(() -> {
                 try {
                     awaitDialog(game_dialogs.showError(
                             game_text.translate("zero_trust.peer_suspicious_header")
@@ -1412,7 +1418,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     + MessageFormat.format(game_text.translate("zero_trust.deck_unverified"), hostNick));
         } catch (Exception ignored) {
         }
-        Helpers.threadRun(() -> {
+        game_async.execute(() -> {
             awaitDialog(game_dialogs.showError(
                     game_text.translate("zero_trust.suspicious_header")
                     + MessageFormat.format(game_text.translate("zero_trust.deck_unverified"), hostNick) + "\n\n"
@@ -1702,7 +1708,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            Helpers.threadRun(() -> {
+            game_async.execute(() -> {
                 awaitDialog(game_dialogs.showError(
                         game_text.translate("zero_trust.critical_alert_header")
                         + fullReason + "\n\n"
@@ -3720,13 +3726,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final java.util.List<java.math.BigInteger> bgRotScalars = this.cascade_rotation_scalars;
         final java.util.List<byte[]> bgRotRemoteProofs = this.cascade_rotation_remote_proofs;
         if (bgDecks != null && bgPerm != null) {
-            Helpers.threadRun(() -> {
+            game_async.execute(() -> {
                 final Thread bgVerifyThread = Thread.currentThread();
                 final int bgVerifyPrio = bgVerifyThread.getPriority();
                 // Lower priority while the background prove/verify runs: it shouldn't compete
                 // evenly with the EDT during the early betting rounds on 1-2 core machines.
                 // Restored in finally since the thread comes from the cached pool
-                // (Helpers.threadRun) and gets reused for other tasks.
+                // (game_async.execute) and gets reused for other tasks.
                 bgVerifyThread.setPriority(Math.max(Thread.MIN_PRIORITY, Thread.NORM_PRIORITY - 2));
                 try {
                     // B1: collect the ASYNC shuffle proofs from remote steps first. A client sends
@@ -4964,7 +4970,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 try {
                     shuffleLock.wait(1000);
                 } catch (InterruptedException ex) {
-                    Helpers.logCooperativeCancellation(LOGGER, waitContext, ex);
+                    GameCancellation.log(LOGGER, waitContext, ex);
                     break;
                 }
             }
@@ -5608,7 +5614,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void playAllInCinematic(String filename, long durationMillis,
             boolean enabled) {
-        Helpers.threadRun(() -> {
+        game_async.execute(() -> {
             long started = System.currentTimeMillis();
             try {
                 GameCinematicSink.Result result = enabled
@@ -5620,12 +5626,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     long remaining = started + durationMillis
                             - System.currentTimeMillis();
                     if (remaining > 0L) {
-                        Helpers.pausar(remaining);
+                        game_async.pause(remaining);
                     }
                 }
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
-                Helpers.logCooperativeCancellation(LOGGER,
+                GameCancellation.log(LOGGER,
                         "all-in cinematic playback", ex);
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE,
@@ -5900,7 +5906,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void soundFold() {
         if (!this.sincronizando_mano && presentation_settings.sillySounds() && !fold_sound_playing) {
             this.fold_sound_playing = true;
-            Helpers.threadRun(() -> {
+            game_async.execute(() -> {
                 game_audio.playRandomWavResourceAndWait(runtime_environment.modActive() ? Map.ofEntries(Crupier.FOLD_SOUNDS_MOD)
                         : Map.ofEntries(Crupier.FOLD_SOUNDS.get(presentation_settings.language())));
                 fold_sound_playing = false;
@@ -5912,7 +5918,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (!this.sincronizando_mano && presentation_settings.sillySounds() && !fold_sound_playing) {
 
             if (badbeat) {
-                Helpers.threadRun(() -> {
+                game_async.execute(() -> {
                     game_audio.muteAllLoopMp3();
                     try {
                         game_audio.playWavResourceAndWait("misc/badbeat.wav");
@@ -5922,7 +5928,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 });
             } else if (jugada_ganadora >= GameHandResult.POKER && presentation_settings.language().equals(presentation_settings.defaultLanguage())) {
 
-                Helpers.threadRun(() -> {
+                game_async.execute(() -> {
                     game_audio.muteAllLoopMp3();
                     try {
                         game_audio.playWavResourceAndWait("misc/youarelucky.wav");
@@ -5947,7 +5953,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if ((jugada >= GameHandResult.POKER || badbeat) && presentation_settings.language().equals(presentation_settings.defaultLanguage())) {
 
-                Helpers.threadRun(() -> {
+                game_async.execute(() -> {
                     game_audio.muteAllLoopMp3();
                     try {
                         game_audio.playWavResourceAndWait("misc/youarelucky.wav");
@@ -5983,7 +5989,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (!this.sincronizando_mano && presentation_settings.sillySounds() && !fold_sound_playing) {
 
             if (badbeat) {
-                Helpers.threadRun(() -> {
+                game_async.execute(() -> {
                     game_audio.muteAllLoopMp3();
                     try {
                         game_audio.playWavResourceAndWait("misc/badbeat.wav");
@@ -7679,7 +7685,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // method's finally even if the animation itself fails.
                         final GamePlayerController fjugador = jugador;
 
-                        Helpers.threadRun(() -> {
+                        game_async.execute(() -> {
                             // Serialized under the player's destape_animado_lock (reentrant for
                             // the inner animation), with a re-check of isTapada(): the method
                             // entry's isTapada() check lets a duplicate SHOWCARDS through while
@@ -9076,7 +9082,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // game can continue fresh.
         LOGGER.log(Level.WARNING, "RECOVERY: abortAndRecover engaged — broadcasting SERVEREXITRECOVER and routing everyone to main menu with recover dialog");
         setForce_recover(true);
-        Helpers.threadRun(() -> {
+        game_async.execute(() -> {
             try {
                 String passSuffix = "";
                 if (game_transport.tablePassword() != null) {
@@ -9118,7 +9124,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         LOGGER.log(Level.WARNING, "ZERO-TRUST: abortAndExit engaged — broadcasting SERVEREXIT and routing everyone to BalanceScreen (game over)");
         // Deliberately NOT calling setForce_recover(true): finTransmision must see
         // force_recover=false to take the BalanceScreen branch.
-        Helpers.threadRun(() -> {
+        game_async.execute(() -> {
             try {
                 broadcastTerminationFromServer("SERVEREXIT");
             } catch (Exception ex) {
@@ -9208,7 +9214,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         try {
                             this.received_commands.wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
-                            Helpers.logCooperativeCancellation(LOGGER, "received commands wait", ex);
+                            GameCancellation.log(LOGGER, "received commands wait", ex);
                             failed = true;
                             break;
                         }
@@ -9783,7 +9789,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 request.requesterSignature())) {
             throw new IllegalArgumentException("invalid Rabbit requester signature");
         }
-        Helpers.threadRun(() -> {
+        game_async.execute(() -> {
             RabbitFeeLedger.Result<RabbitFeeLedger.Authorization> result;
             synchronized (lock_rabbit) {
                 if (rabbit_fee_ledger == null || !rabbitFeeMayApply(request.handId(),
@@ -9959,7 +9965,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (!iwtsth) {
             this.iwtsthing_request = true;
         }
-        Helpers.threadRun(() -> {
+        game_async.execute(() -> {
             synchronized (lock_iwtsth) {
                 if (iwtsthing || iwtsth) {
                     return;
@@ -9996,7 +10002,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     playAuxiliaryCinematic(
                             GameCinematicSink.Type.IWTSTH_REQUEST,
                             "iwtsth.gif");
-                    Helpers.pausar(500);
+                    game_async.pause(500);
                     game_audio.playWavResourceAndWait("misc/iwtsth.wav", true, false, !presentation_settings.iwtsthSound());
                 } else {
                     game_audio.playWavResourceAndWait("misc/iwtsth.wav", true, false, !presentation_settings.iwtsthSound());
@@ -10022,7 +10028,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // No longer gated on iwtsthing: the caller (the host's IWTSTH_HANDLER after
         // authorizing, or WaitingRoomFrame's "IWTSTHSHOW" case on clients) has already decided
         // this must run, so it must not depend on a flag that might not have been set in time.
-        Helpers.threadRun(() -> {
+        game_async.execute(() -> {
             synchronized (lock_iwtsth) {
                 {
 
@@ -10161,7 +10167,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (hay_rabbits_tapadas) {
                 if (presentation_settings.flipSound()) {
-                    Helpers.threadRun(() -> game_audio.playPreloadedWav("misc/uncover.wav"));
+                    game_async.execute(() -> game_audio.playPreloadedWav("misc/uncover.wav"));
                 }
                 for (Card carta : communityCards()) {
                     carta.destaparRabbit();
@@ -10226,7 +10232,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 actualizarContadoresTapete();
                 game_log
                         .print(game_text.translate("blinds.la_configuracion_de_la_partida"));
-                Helpers.threadRun(() -> {
+                game_async.execute(() -> {
                     awaitDialog(game_dialogs.showInfo(
                             game_text.translate("blinds.la_configuracion_de_la_partida"),
                             GameDialogSink.Icon.BLINDS));
@@ -11522,10 +11528,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // before the reveal, takePrefetchedHoleCardFlip detects it and decodes inline instead.
             final boolean local_top_half = (presentation_settings.compactView() == 3);
             if (sp1 != null) {
-                prefetch_flip_hc1 = Helpers.futureRun(() -> decodeCardFlipAnim(sp1, local_top_half));
+                prefetch_flip_hc1 = game_async.submit(() -> decodeCardFlipAnim(sp1, local_top_half));
             }
             if (sp2 != null) {
-                prefetch_flip_hc2 = Helpers.futureRun(() -> decodeCardFlipAnim(sp2, local_top_half));
+                prefetch_flip_hc2 = game_async.submit(() -> decodeCardFlipAnim(sp2, local_top_half));
             }
         }
 
@@ -11648,7 +11654,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // pre-decoded flip, so the reveal has no render stall.
                 if (flip_local) {
                     final Future<?> pf = prefetch_flip_hc1;
-                    Helpers.threadRun(() -> revelarHoleCardLocalAnimada(hc1, pf));
+                    game_async.execute(() -> revelarHoleCardLocalAnimada(hc1, pf));
                 }
 
             } else if (jugador.isActivo() && jugador == localPlayer()) {
@@ -11664,7 +11670,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 final Card lhc1 = classicCard(jugador.getHoleCard1());
                     lhc1.iniciarConValorNumerico((this.local_original_cards[0] & 0xFF) + 1);
                     final Future<?> pf = prefetch_flip_hc1;
-                    Helpers.threadRun(() -> revelarHoleCardLocalAnimada(lhc1, pf));
+                    game_async.execute(() -> revelarHoleCardLocalAnimada(lhc1, pf));
                 } else {
                     jugador.getHoleCard1().iniciarConValorNumerico((this.local_original_cards[0] & 0xFF) + 1);
                     jugador.getHoleCard1().destapar(false);
@@ -11674,7 +11680,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             // In animation mode the (blocking) flight already consumed the time.
             if (jugador.isActivo() && !animacion) {
-                Helpers.pausar(pausa);
+                game_async.pause(pausa);
             }
 
             j = (j + 1) % players().size();
@@ -11716,7 +11722,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (flip_local) {
                     final Future<?> pf = prefetch_flip_hc2;
-                    Helpers.threadRun(() -> revelarHoleCardLocalAnimada(hc2, pf));
+                    game_async.execute(() -> revelarHoleCardLocalAnimada(hc2, pf));
                 }
 
             } else if (jugador.isActivo() && jugador == localPlayer()) {
@@ -11731,7 +11737,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 final Card lhc2 = classicCard(jugador.getHoleCard2());
                     lhc2.iniciarConValorNumerico((this.local_original_cards[1] & 0xFF) + 1);
                     final Future<?> pf = prefetch_flip_hc2;
-                    Helpers.threadRun(() -> revelarHoleCardLocalAnimada(lhc2, pf));
+                    game_async.execute(() -> revelarHoleCardLocalAnimada(lhc2, pf));
                 } else {
                     jugador.getHoleCard2().iniciarConValorNumerico((this.local_original_cards[1] & 0xFF) + 1);
                     jugador.getHoleCard2().destapar(false);
@@ -11741,7 +11747,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             // In animation mode the (blocking) flight already consumed the time.
             if (jugador.isActivo() && !animacion) {
-                Helpers.pausar(pausa);
+                game_async.pause(pausa);
             }
 
             j = (j + 1) % players().size();
@@ -11762,7 +11768,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         flight_dur, presentation_settings.dealSound(),
                         () -> cc.iniciarCarta());
             } else {
-                Helpers.pausar(pausa);
+                game_async.pause(pausa);
             }
         }
 
@@ -11968,7 +11974,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // position) and applies the logical swap at the end. Otherwise sorts instantly
     // (ordenarCartas), the default behaviour.
     //
-    // The crossing animation runs on ANOTHER thread (Helpers.threadRun) and doesn't block the
+    // The crossing animation runs on ANOTHER thread (game_async.execute) and doesn't block the
     // dealer: hand order is purely visual (evaluation reads both hole cards as a set,
     // hc1/hc2 order doesn't matter), so nothing downstream needs the swap applied before
     // continuing. The logical swap is applied at the end of the animation, a few hundred ms
@@ -12000,7 +12006,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // large position chip stays VISIBLE and the cards cross BENEATH it — playHoleCardSwap
         // puts a chip overlay on a layer above the swapping cards, so it isn't hidden here (it
         // already reappeared after hc1's reveal).
-        Helpers.threadRun(() -> {
+        game_async.execute(() -> {
             try {
                 table_display.swapHoleCards(local.getNickname(),
                         presentation_settings.swapAnimationDuration(), presentation_settings.swapAnimationArc(),
@@ -13018,7 +13024,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         try {
                             this.received_commands.wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
-                            Helpers.logCooperativeCancellation(LOGGER, "received commands wait", ex);
+                            GameCancellation.log(LOGGER, "received commands wait", ex);
                             receiveState.rejectInterrupted();
                             break;
                         }
@@ -13088,7 +13094,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         try {
                             this.received_commands.wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
-                            Helpers.logCooperativeCancellation(LOGGER, "received commands wait", ex);
+                            GameCancellation.log(LOGGER, "received commands wait", ex);
                             receiveState.rejectInterrupted();
                             break;
                         }
@@ -13386,7 +13392,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
 
                     } catch (InterruptedException ex) {
-                        Helpers.logCooperativeCancellation(LOGGER, "received confirmations wait", ex);
+                        GameCancellation.log(LOGGER, "received confirmations wait", ex);
                         break;
                     }
 
@@ -14038,7 +14044,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void showRitClientVoteDialog(int timeout, int totalVoters, double pot) {
         this.rit_client_dialog = game_decisions.showRunItTwice(
                 timeout, totalVoters, value_formatter.money(pot),
-                (v) -> Helpers.threadRun(() -> {
+                (v) -> game_async.execute(() -> {
                 try {
                     String myNickB64 = Base64.getEncoder().encodeToString(gameSession().localNickname().getBytes("UTF-8"));
                     sendGAMECommandToServer("RIT_VOTE_RESP#" + myNickB64 + "#" + v, false);
@@ -14767,11 +14773,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // (covers the network delay between the 5s expiring and the host's STRADDLE_RESULT).
     private void startStraddleCountdownBar() {
         this.straddle_bar_active = true;
-        Helpers.threadRun(() -> {
+        game_async.execute(() -> {
             game_ui.run(() -> game_progress.countdown(STRADDLE_DECISION_TIMEOUT));
             int t = STRADDLE_DECISION_TIMEOUT;
             while (t > 0 && this.straddle_bar_active && !isFin_de_la_transmision()) {
-                Helpers.pausar(1000);
+                game_async.pause(1000);
                 if (!gameSession().isPaused()) {
                     --t;
                 }
@@ -15379,7 +15385,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         float vel = presentation_settings.dealSpeed() / 100f;
         int pausa = Math.max(60, Math.round(pausa_base * vel));
         int flight_dur = Math.max(80, Math.round(flight_base * vel));
-        Helpers.pausar(pausa);
+        game_async.pause(pausa);
 
         for (Card carta : corridas) {
             pause_gate.await();
@@ -17010,7 +17016,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                             long bot_elapsed_time = System.currentTimeMillis() - start;
                             if (Bot.BOT_THINK_TIME - bot_elapsed_time > 0L) {
-                                Helpers.pausar(Bot.BOT_THINK_TIME - bot_elapsed_time);
+                                game_async.pause(Bot.BOT_THINK_TIME - bot_elapsed_time);
                             }
                         } else {
                             action = accion_recuperada;
@@ -18167,7 +18173,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     try {
                         lock_rabbit.wait(Math.min(1000, remaining));
                     } catch (InterruptedException ex) {
-                        Helpers.logCooperativeCancellation(LOGGER, "rabbit hunting wait", ex);
+                        GameCancellation.log(LOGGER, "rabbit hunting wait", ex);
                         break;
                     }
                 }
@@ -20409,7 +20415,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 try {
                     this.getReceived_commands().wait(WAIT_QUEUES);
                 } catch (InterruptedException ex) {
-                    Helpers.logCooperativeCancellation(LOGGER, "seat draw collect wait", ex);
+                    GameCancellation.log(LOGGER, "seat draw collect wait", ex);
                     return SEAT_COLLECT_ABORT;
                 }
             }
@@ -20708,7 +20714,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 try {
                     this.received_commands.wait(WAIT_QUEUES);
                 } catch (InterruptedException ex) {
-                    Helpers.logCooperativeCancellation(LOGGER, "seat draw client wait", ex);
+                    GameCancellation.log(LOGGER, "seat draw client wait", ex);
                     return null;
                 }
             }
@@ -20856,7 +20862,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     + MessageFormat.format(game_text.translate("zero_trust.seat_redraw"), host));
         } catch (Exception ignored) {
         }
-        Helpers.threadRun(() -> {
+        game_async.execute(() -> {
             try {
                 awaitDialog(game_dialogs.showError(
                         MessageFormat.format(game_text.translate("zero_trust.seat_redraw"), host)
@@ -20915,7 +20921,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     + MessageFormat.format(game_text.translate("zero_trust.seat_recover_mismatch"), host));
         } catch (Exception ignored) {
         }
-        Helpers.threadRun(() -> {
+        game_async.execute(() -> {
             try {
                 awaitDialog(game_dialogs.showError(
                         MessageFormat.format(game_text.translate("zero_trust.seat_recover_mismatch"), host)
@@ -21001,7 +21007,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private void prefetchAnimacionDestaparCarta(Card carta) {
 
         if (presentation_settings.flipAnimation()) {
-            flip_anim_prefetch.put(carta, Helpers.futureRun(() -> decodeCardFlipAnim(carta)));
+            flip_anim_prefetch.put(carta, game_async.submit(() -> decodeCardFlipAnim(carta)));
         }
     }
 
@@ -21026,7 +21032,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            throw new Helpers.CooperativeCancellationException(ex);
+            throw new GameCancellationException(ex);
         } catch (Exception ex) {
             LOGGER.log(Level.WARNING, "Prefetched card flip GIF unavailable (decoding inline)", ex);
         }
@@ -21110,7 +21116,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // while the first runs inline.
                 final Card fc2 = c2;
 
-                Future<?> decode2 = Helpers.futureRun(() -> decodeCardFlipAnim(fc2));
+                Future<?> decode2 = game_async.submit(() -> decodeCardFlipAnim(fc2));
 
                 FlipAnim anim1 = decodeCardFlipAnim(c1);
 
@@ -21120,7 +21126,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     anim2 = (FlipAnim) decode2.get();
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
-                    throw new Helpers.CooperativeCancellationException(ex);
+                    throw new GameCancellationException(ex);
                 } catch (Exception ex) {
                     LOGGER.log(Level.WARNING, "Card flip GIF pre-decode failed (classic uncover fallback)", ex);
                 }
@@ -21193,7 +21199,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile Future<?> straddle_prefetch_flip_hc2;
 
     // ASYNCHRONOUS uncover of ONE freshly-landed local hole card, without blocking
-    // the crupier: repartir() launches it on another thread (Helpers.threadRun)
+    // the crupier: repartir() launches it on another thread (game_async.execute)
     // right after the card lands, so dealing continues immediately with the rest.
     // The card stays FACE-DOWN for an instant, then opens with the same flip engine
     // as community/opponent cards (playCardFlipOverlays, gapless handoffs). Only
@@ -21229,7 +21235,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final boolean chip_on_card = (carta == local.getHoleCard1());
 
         try {
-            Helpers.parkThreadMillis(pre_delay_ms);
+            game_async.park(pre_delay_ms);
 
             if (!presentation_settings.flipAnimation() || !carta.isIniciadaConValor() || !carta.isTapada()
                     || local.isExit() || isFin_de_la_transmision()) {
@@ -21301,7 +21307,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            throw new Helpers.CooperativeCancellationException(ex);
+            throw new GameCancellationException(ex);
         } catch (Exception ex) {
             LOGGER.log(Level.WARNING, "Prefetched hole-card flip unavailable (decoding inline)", ex);
         }
@@ -21343,7 +21349,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (anim == null) {
                     // Render unavailable: plain uncover with the usual pause.
-                    Helpers.pausar(
+                    game_async.pause(
                             (carta == communityCard(1) || carta == communityCard(2)) ? 0
                             : (this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA_ALLIN : PAUSA_DESTAPAR_CARTA));
                     carta.destapar();
@@ -21357,7 +21363,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     long lapsed = System.currentTimeMillis() - start;
 
-                    Helpers.pausar(
+                    game_async.pause(
                             (carta == communityCard(1) || carta == communityCard(2)) ? 0
                             : (this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA_ALLIN - lapsed
                                     : PAUSA_DESTAPAR_CARTA - lapsed));
@@ -21382,7 +21388,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
         } else {
-            Helpers.pausar(this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA_ALLIN : PAUSA_DESTAPAR_CARTA);
+            game_async.pause(this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA_ALLIN : PAUSA_DESTAPAR_CARTA);
             carta.destapar();
         }
 
@@ -21687,7 +21693,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 // proves to the host (and everyone else via rebroadcast) that the
                                 // key was authorized by OUR OWN privkey — the host can't substitute
                                 // it. Asynchronous so it doesn't block the polling loop.
-                                Helpers.threadRun(() -> {
+                                game_async.execute(() -> {
                                     try {
                                         byte[] myKey = this.local_sra_unlock;
                                         if (myKey == null) {
@@ -22395,7 +22401,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // nor decrement.
 
                 } catch (InterruptedException ex) {
-                    Helpers.logCooperativeCancellation(LOGGER, "pause progress bar loop", ex);
+                    GameCancellation.log(LOGGER, "pause progress bar loop", ex);
                     break;
                 }
             }
@@ -22479,7 +22485,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // multiway all-in.
                     if (estaba_tapada && alguno_destapado && !presentation_settings.testMode()
                             && !table_events.isAttached()) {
-                        Helpers.pausar(PAUSA_ENTRE_DESTAPES_SHOWDOWN);
+                        game_async.pause(PAUSA_ENTRE_DESTAPES_SHOWDOWN);
                     }
 
                     // Blocks until the flip finishes (crupier thread, like community
@@ -23019,7 +23025,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             continue;
                                         }
                                         if (!this.destapar_resistencia) {
-                                            Helpers.pausar(Crupier.PAUSA_ANTES_DE_SHOWDOWN * 1000);
+                                            game_async.pause(Crupier.PAUSA_ANTES_DE_SHOWDOWN * 1000);
                                         }
 
                                         if (this.bote.getSidePot() == null) {

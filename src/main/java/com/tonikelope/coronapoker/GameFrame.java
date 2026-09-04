@@ -5526,6 +5526,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 gameProgress, this::checkPause,
                 gameTransport, lobbyTransition, tableDisplay, gameWindow, gameUi,
                 new SwingGameAudio(),
+                new SwingGameAsync(),
                 new SwingGamePresentationSettings(),
                 TOFUResolver::isVerified,
                 Translator::translate,
@@ -6372,7 +6373,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     static void pauseBeforeRecoveryTeardown(long millis) {
         try {
             Helpers.pausar(millis);
-        } catch (Helpers.CooperativeCancellationException cancelled) {
+        } catch (com.tonikelope.coronapoker.core.game.GameCancellationException cancelled) {
             // This thread owns the remaining deterministic teardown. Consume
             // the executor's cancellation signal so later blocking GUI/SQL
             // boundaries can finish before RESET_GAME creates the fresh pool.
@@ -6637,7 +6638,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     if (crupier != null && !crupier.isFin_de_la_transmision()) {
                         crupier.broadcastTelemetryFrame();
                     }
-                } catch (Helpers.CooperativeCancellationException ex) {
+                } catch (com.tonikelope.coronapoker.core.game.GameCancellationException ex) {
                     return;
                 } catch (Exception ex) {
                     Logger.getLogger(GameFrame.class.getName()).log(

@@ -27,6 +27,7 @@ public final class CorePlayerController implements GamePlayerController {
     private volatile int parguelaCount;
     private volatile Runnable turnCompletionSignal = () -> { };
     private volatile Runnable potRegistration = () -> { };
+    private volatile Runnable acceptedLocalAllInSignal = () -> { };
 
     private CorePlayerController(String nickname, boolean local, boolean automated) {
         this.local = local;
@@ -70,6 +71,11 @@ public final class CorePlayerController implements GamePlayerController {
         potRegistration = Objects.requireNonNull(registration, "registration");
     }
 
+    /** Runs the frontend-neutral all-in presentation before releasing the dealer. */
+    public void bindAcceptedLocalAllInSignal(Runnable signal) {
+        acceptedLocalAllInSignal = Objects.requireNonNull(signal, "signal");
+    }
+
     @Override
     public void bindDealer(DealerView dealer) {
         this.dealer = Objects.requireNonNull(dealer, "dealer");
@@ -103,6 +109,7 @@ public final class CorePlayerController implements GamePlayerController {
                 if (MoneyMath.compare(getStack(), 0d) <= 0) return false;
                 setBet(MoneyMath.clean(getBet() + getStack()));
                 setDecision(ALLIN, "ALL IN");
+                acceptedLocalAllInSignal.run();
             }
             default -> { return false; }
         }

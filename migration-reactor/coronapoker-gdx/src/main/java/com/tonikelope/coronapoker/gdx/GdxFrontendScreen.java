@@ -14,6 +14,7 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator.FreeTypeFontParameter;
+import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
@@ -49,6 +50,32 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private static final float WIDTH = 1920f;
     private static final float HEIGHT = 1080f;
+    private static final String SPRITE_VERTEX_SHADER = "attribute vec4 a_position;\n"
+            + "attribute vec4 a_color;\n"
+            + "attribute vec2 a_texCoord0;\n"
+            + "uniform mat4 u_projTrans;\n"
+            + "varying vec4 v_color;\n"
+            + "varying vec2 v_texCoords;\n"
+            + "void main() {\n"
+            + "    v_color = a_color;\n"
+            + "    v_color.a = v_color.a * (255.0 / 254.0);\n"
+            + "    v_texCoords = a_texCoord0;\n"
+            + "    gl_Position = u_projTrans * a_position;\n"
+            + "}\n";
+    private static final String AVATAR_FRAGMENT_SHADER = "#ifdef GL_ES\n"
+            + "precision mediump float;\n"
+            + "#endif\n"
+            + "varying vec4 v_color;\n"
+            + "varying vec2 v_texCoords;\n"
+            + "uniform sampler2D u_texture;\n"
+            + "void main() {\n"
+            + "    vec2 radial = (v_texCoords - vec2(0.5)) * 2.0;\n"
+            + "    float mask = 1.0 - smoothstep(0.92, 1.0, length(radial));\n"
+            + "    vec4 pixel = texture2D(u_texture, v_texCoords) * v_color;\n"
+            + "    pixel.a *= mask;\n"
+            + "    if (pixel.a <= 0.001) discard;\n"
+            + "    gl_FragColor = pixel;\n"
+            + "}\n";
     private static final Color BACKGROUND = new Color(0x031a14ff);
     private static final Color PANEL = new Color(0x101a2ecc);
     private static final Color PANEL_LIGHT = new Color(0x111a2add);
@@ -62,7 +89,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private final FitViewport viewport = new FitViewport(WIDTH, HEIGHT);
     private final List<TextItem> texts = new ArrayList<>();
+    private final List<LobbyAvatarItem> lobbyAvatars = new ArrayList<>();
     private final List<Hit> hits = new ArrayList<>();
+    private final Map<String, Texture> lobbyAvatarTextures = new HashMap<>();
     private final Map<String, Float> toggleAnimations = new HashMap<>();
     private final Map<String, Float> hoverAnimations = new HashMap<>();
     private final GlyphLayout glyph = new GlyphLayout();
@@ -77,6 +106,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private ShapeRenderer shapes;
     private Texture feltTexture;
     private Texture logo;
+    private Texture avatarDefault;
+    private Texture avatarBot;
+    private ShaderProgram avatarShader;
     private BitmapFont titleFont;
     private BitmapFont headingFont;
     private BitmapFont actionFont;
@@ -176,6 +208,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         feltTexture.setWrap(TextureWrap.Repeat, TextureWrap.Repeat);
         logo = new Texture(Gdx.files.internal("images/corona_poker_splash.png"));
         logo.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+        avatarDefault = filteredTexture("images/avatar_default.png");
+        avatarBot = filteredTexture("images/avatar_bot.png");
+        avatarShader = new ShaderProgram(SPRITE_VERTEX_SHADER,
+                AVATAR_FRAGMENT_SHADER);
+        if (!avatarShader.isCompiled()) {
+            throw new IllegalStateException("Avatar shader: "
+                    + avatarShader.getLog());
+        }
         FreeTypeFontGenerator titleGenerator = new FreeTypeFontGenerator(
                 Gdx.files.internal("fonts/Montserrat-Bold.ttf"));
         titleFont = font(titleGenerator, 58, 0.35f);
@@ -219,6 +259,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.setProjectionMatrix(viewport.getCamera().combined);
         batch.setProjectionMatrix(viewport.getCamera().combined);
         texts.clear();
+        lobbyAvatars.clear();
         hits.clear();
 
         drawFeltBackground();
@@ -247,6 +288,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.end();
 
         batch.begin();
+        if (!lobbyAvatars.isEmpty()) {
+            batch.setShader(avatarShader);
+            batch.setColor(Color.WHITE);
+            for (LobbyAvatarItem item : lobbyAvatars) {
+                batch.draw(item.texture, item.x, item.y, item.size, item.size);
+            }
+            batch.flush();
+            batch.setShader(null);
+        }
         for (TextItem item : texts) {
             item.font.setColor(item.color);
             glyph.setText(item.font, item.text);
@@ -284,10 +334,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         batch.draw(feltTexture, 0f, 0f, WIDTH, HEIGHT,
                 0f, 0f, WIDTH / feltTexture.getWidth(),
                 HEIGHT / feltTexture.getHeight());
-        if (surface == Surface.MENU) {
-            float logoWidth = 320f;
+        if (surface == Surface.MENU || surface == Surface.LOBBY) {
+            float logoWidth = surface == Surface.MENU ? 320f : 240f;
             float logoHeight = logoWidth * logo.getHeight() / logo.getWidth();
-            batch.draw(logo, 42f, HEIGHT - 32f - logoHeight,
+            float topInset = surface == Surface.MENU ? 32f : 18f;
+            batch.draw(logo, 42f, HEIGHT - topInset - logoHeight,
                     logoWidth, logoHeight);
         }
         batch.setColor(Color.WHITE);
@@ -324,13 +375,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         shapes.setColor(new Color(0x31445f99));
         shapes.rect(0f, 989f, WIDTH, 1f);
-        text(smallFont, "CORONAPOKER  /", 55f, 1041f, MUTED, false);
-        text(smallFont, "SALA DE ESPERA", 225f, 1041f, GOLD, false);
         text(tinyFont, lobbyPhaseText(state), 1860f, 1039f,
                 state.phase() == LobbySnapshot.Phase.ERROR ? ORANGE : CYAN, true);
-        text(titleFont, "SALA DE ESPERA", 59f, 935f,
+        text(titleFont, "SALA DE ESPERA", 59f, 890f,
                 new Color(0x000000aa), false);
-        text(titleFont, "SALA DE ESPERA", 55f, 939f, GOLD, false);
+        text(titleFont, "SALA DE ESPERA", 55f, 894f, GOLD, false);
 
         panel(35f, 180f, 430f, 650f, "PARTICIPANTES");
         text(smallFont, state.participants().size() + "/"
@@ -398,17 +447,44 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Color border = selected ? GOLD : participant.secure() ? LINE : ORANGE;
         outerBox(x, y, w, h, border,
                 selected ? new Color(0x20324cee) : PANEL_LIGHT);
+        lobbyAvatars.add(new LobbyAvatarItem(lobbyAvatar(participant),
+                x + 10f, y + 6f, 36f));
         shapes.setColor(participant.connected() ? CYAN : ORANGE);
-        shapes.circle(x + 23f, y + h / 2f, 7f, 20);
-        textFit(smallFont, participant.nickname(), x + 43f, y + 31f,
+        shapes.circle(x + 51f, y + h / 2f, 4f, 20);
+        textFit(smallFont, participant.nickname(), x + 64f, y + 31f,
                 participant.asyncWaiting() ? DISABLED : Color.WHITE,
-                false, 230f);
+                false, 210f);
         if (participant.latencyAvailable()) {
             text(tinyFont, (participant.latency() >= 0
                     ? participant.latency() : "-") + " ms",
                     x + w - 22f, y + 30f, MUTED, true);
         }
         hit(x, y, w, h, () -> selectedParticipant = participant.nickname());
+    }
+
+    private Texture lobbyAvatar(LobbyParticipant participant) {
+        if (participant.avatar() == null) {
+            return participant.bot() ? avatarBot : avatarDefault;
+        }
+        String key = participant.avatar().toString();
+        Texture cached = lobbyAvatarTextures.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        try {
+            Texture loaded = new Texture(Gdx.files.absolute(key));
+            loaded.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+            lobbyAvatarTextures.put(key, loaded);
+            return loaded;
+        } catch (RuntimeException failure) {
+            return participant.bot() ? avatarBot : avatarDefault;
+        }
+    }
+
+    private static Texture filteredTexture(String asset) {
+        Texture texture = new Texture(Gdx.files.internal(asset));
+        texture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+        return texture;
     }
 
     private void drawLobbyMessages(List<LobbyChatMessage> messages, float x,
@@ -1138,7 +1214,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             shapes.setColor(new Color(0x6d4300aa));
             shapes.rect(x + 18f, y + 6f, w - 36f, 3f);
         }
-        Color labelColor = enabled ? GOLD : DISABLED;
+        Color labelColor = enabled
+                ? primary ? new Color(0x07111fff) : GOLD
+                : DISABLED;
         textFit(actionFont, label, x + w / 2f, y + h / 2f + 8f,
                 labelColor, true, w - 30f);
         if (enabled) {
@@ -1513,6 +1591,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.dispose();
         feltTexture.dispose();
         logo.dispose();
+        avatarDefault.dispose();
+        avatarBot.dispose();
+        for (Texture texture : lobbyAvatarTextures.values()) {
+            texture.dispose();
+        }
+        lobbyAvatarTextures.clear();
+        avatarShader.dispose();
         titleFont.dispose();
         headingFont.dispose();
         actionFont.dispose();
@@ -1533,6 +1618,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private record TextItem(BitmapFont font, String text, float x, float y,
             Color color, boolean centered) {
+    }
+
+    private record LobbyAvatarItem(Texture texture, float x, float y,
+            float size) {
     }
 
     private enum Surface {

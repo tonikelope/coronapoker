@@ -154,6 +154,11 @@ public final class CoreGameTableFactory implements GameTableFactory {
 
         players.forEach(player -> player.bindPotRegistration(
                 () -> dealer.getGamePot().addPlayerController(player)));
+        local.bindAcceptedLocalAllInSignal(() -> {
+            if (!dealer.localCinematicAllin()) {
+                dealer.soundAllin();
+            }
+        });
         local.bindTurnCompletionSignal(() -> notifyBettingWait(dealer));
         AtomicBoolean started = new AtomicBoolean();
         AtomicBoolean closing = new AtomicBoolean();

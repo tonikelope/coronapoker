@@ -280,6 +280,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "    gl_FragColor = pixel;\n"
             + "}\n";
 
+    private static final String AVATAR_FRAGMENT_SHADER = "#ifdef GL_ES\n"
+            + "precision mediump float;\n"
+            + "#endif\n"
+            + "varying vec4 v_color;\n"
+            + "varying vec2 v_texCoords;\n"
+            + "uniform sampler2D u_texture;\n"
+            + "void main() {\n"
+            + "    vec2 radial = (v_texCoords - vec2(0.5)) * 2.0;\n"
+            + "    float mask = 1.0 - smoothstep(0.94, 1.0, length(radial));\n"
+            + "    vec4 pixel = texture2D(u_texture, v_texCoords) * v_color;\n"
+            + "    pixel.a *= mask;\n"
+            + "    if (pixel.a <= 0.001) discard;\n"
+            + "    gl_FragColor = pixel;\n"
+            + "}\n";
+
     private static final Color BACKGROUND_TOP = new Color(0x07111fff);
     private static final Color BACKGROUND_BOTTOM = new Color(0x02050cff);
     private static final Color FELT_SHADE_TOP = new Color(0x07111f1f);
@@ -337,6 +352,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private ShapeRenderer shapes;
     private SpriteBatch batch;
     private ShaderProgram roundedCardShader;
+    private ShaderProgram avatarShader;
 
     private BitmapFont uiFont;
     private BitmapFont smallFont;
@@ -433,6 +449,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         roundedCardShader = new ShaderProgram(CARD_VERTEX_SHADER, CARD_FRAGMENT_SHADER);
         if (!roundedCardShader.isCompiled()) {
             throw new IllegalStateException("Rounded-card shader: " + roundedCardShader.getLog());
+        }
+        avatarShader = new ShaderProgram(CARD_VERTEX_SHADER,
+                AVATAR_FRAGMENT_SHADER);
+        if (!avatarShader.isCompiled()) {
+            throw new IllegalStateException("Avatar shader: "
+                    + avatarShader.getLog());
         }
 
         logo = texture("images/corona_poker_splash.png");
@@ -701,7 +723,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private static String formatAmount(double amount) {
-        return java.math.BigDecimal.valueOf(amount).stripTrailingZeros()
+        return java.math.BigDecimal.valueOf(amount)
+                .setScale(2, java.math.RoundingMode.HALF_UP)
+                .stripTrailingZeros()
                 .toPlainString();
     }
 
@@ -1824,8 +1848,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Color avatarTint = folded ? FOLDED_AVATAR : Color.WHITE;
             batch.setColor(avatarTint.r, avatarTint.g, avatarTint.b,
                     avatarTint.a * presence);
+            batch.flush();
+            batch.setShader(avatarShader);
             batch.draw(avatar, seat.x - AVATAR_SIZE / 2f,
                     seat.y - AVATAR_SIZE / 2f, AVATAR_SIZE, AVATAR_SIZE);
+            batch.flush();
+            batch.setShader(null);
             batch.setColor(1f, 1f, 1f, presence);
             batch.setColor(avatarTint.r, avatarTint.g, avatarTint.b,
                     avatarTint.a * presence);
@@ -3335,6 +3363,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 .map(TableSnapshot.PlayerSnapshot::nickname)
                 .findFirst().orElse("ALL IN");
 
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         shapes.setColor(0f, 0f, 0f, 0.34f);
         shapes.rect(0f, 0f, worldWidth, worldHeight);
@@ -3370,6 +3400,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float labelX = worldWidth / 2f - labelWidth / 2f;
         float labelY = y - 66f;
 
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         shapes.setColor(0f, 0f, 0f, 0.34f);
         shapes.rect(0f, 0f, worldWidth, worldHeight);
@@ -4699,6 +4731,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.dispose();
         shapes.dispose();
         roundedCardShader.dispose();
+        avatarShader.dispose();
         uiFont.dispose();
         smallFont.dispose();
         playerNameFont.dispose();

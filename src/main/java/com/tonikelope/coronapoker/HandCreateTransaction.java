@@ -16,6 +16,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.game.MoneyMath;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -96,7 +97,7 @@ public final class HandCreateTransaction {
                 statement.setQueryTimeout(30);
                 statement.setInt(1, hand.gameId);
                 statement.setInt(2, hand.counter);
-                statement.setDouble(3, Helpers.doubleClean(hand.smallBlind));
+                statement.setDouble(3, MoneyMath.clean(hand.smallBlind));
                 statement.setInt(4, hand.blindsDouble);
                 statement.setString(5, hand.dealer);
                 statement.setString(6, hand.smallBlindNick);
@@ -122,7 +123,7 @@ public final class HandCreateTransaction {
                 for (BalanceRow row : balances) {
                     statement.setInt(1, createdId[0]);
                     statement.setString(2, row.nick);
-                    statement.setDouble(3, Helpers.doubleClean(row.stack));
+                    statement.setDouble(3, MoneyMath.clean(row.stack));
                     statement.setInt(4, row.buyin);
                     statement.setInt(5, row.rebuyCount);
                     requireOne(statement.executeUpdate(), "balance insert", row.nick);

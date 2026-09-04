@@ -16,6 +16,8 @@
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.game.MoneyMath;
+
 /**
  * Pure buy-in arithmetic shared by the new-game spinner, the table-entry buy-in
  * dialog and the rebuy dialogs. Deliberately free of any GameFrame/Swing state
@@ -100,7 +102,7 @@ public final class BuyinRules {
         // CIEGA_GRANDE historically travels through float-typed call sites. Clean the
         // widened binary artifact (for example 0.20f -> 0.20000000298d) before the
         // exact cent conversion; validated blinds themselves have at most two decimals.
-        return Math.multiplyExact(MoneyCents.fromDouble(Helpers.doubleClean(bigBlind)).cents(),
+        return Math.multiplyExact(MoneyCents.fromDouble(MoneyMath.clean(bigBlind)).cents(),
                 (long) bigBlinds);
     }
 

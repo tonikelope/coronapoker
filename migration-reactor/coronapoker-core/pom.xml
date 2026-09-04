@@ -36,6 +36,7 @@
                         <include>com/tonikelope/coronapoker/BetRules.java</include>
                         <include>com/tonikelope/coronapoker/BettingRoundState.java</include>
                         <include>com/tonikelope/coronapoker/BuyinCount.java</include>
+                        <include>com/tonikelope/coronapoker/BuyinRules.java</include>
                         <include>com/tonikelope/coronapoker/CanonicalActionRecord.java</include>
                         <include>com/tonikelope/coronapoker/CriticalVoteEnvelope.java</include>
                         <include>com/tonikelope/coronapoker/DeterministicShuffle.java</include>
@@ -43,6 +44,7 @@
                         <include>com/tonikelope/coronapoker/GameCommandMailbox.java</include>
                         <include>com/tonikelope/coronapoker/HandBalanceRoster.java</include>
                         <include>com/tonikelope/coronapoker/HandCloseTransaction.java</include>
+                        <include>com/tonikelope/coronapoker/HandCreateTransaction.java</include>
                         <include>com/tonikelope/coronapoker/HandPotCents.java</include>
                         <include>com/tonikelope/coronapoker/HandStateChain.java</include>
                         <include>com/tonikelope/coronapoker/HandverifyReceiptEnvelope.java</include>

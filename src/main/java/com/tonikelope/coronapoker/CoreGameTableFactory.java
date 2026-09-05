@@ -64,6 +64,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
     private final DatabaseService database;
     private final GameText gameText;
     private final GameLogSink gameLog;
+    private final GamePresentationSettings presentationSettings;
     private final GameDialogSink gameDialogs;
     private final GameDecisionSink gameDecisions;
 
@@ -92,9 +93,19 @@ public final class CoreGameTableFactory implements GameTableFactory {
     public CoreGameTableFactory(DatabaseService database, GameText gameText,
             GameLogSink gameLog, GameDialogSink gameDialogs,
             GameDecisionSink gameDecisions) {
+        this(database, gameText, gameLog, gameDialogs, gameDecisions,
+                GamePresentationSettings.defaults());
+    }
+
+    public CoreGameTableFactory(DatabaseService database, GameText gameText,
+            GameLogSink gameLog, GameDialogSink gameDialogs,
+            GameDecisionSink gameDecisions,
+            GamePresentationSettings presentationSettings) {
         this.database = Objects.requireNonNull(database, "database");
         this.gameText = Objects.requireNonNull(gameText, "gameText");
         this.gameLog = Objects.requireNonNull(gameLog, "gameLog");
+        this.presentationSettings = Objects.requireNonNull(
+                presentationSettings, "presentationSettings");
         this.gameDialogs = Objects.requireNonNull(gameDialogs, "gameDialogs");
         this.gameDecisions = Objects.requireNonNull(gameDecisions,
                 "gameDecisions");
@@ -178,7 +189,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 GameProgressSink.noop(), pause, transport,
                 LobbyTransitionSink.noop(), TableDisplaySink.noop(), window,
                 GameUiExecutor.direct(), GameAudioSink.silent(),
-                GameAsync.standalone(), GamePresentationSettings.defaults(),
+                GameAsync.standalone(), presentationSettings,
                 GameIdentityTrust.unverified(), text,
                 cards -> new CoreGameHand(cards, text), CoreGamePot::new,
                 GameRuntimeEnvironment.defaults(), GameCinematicState.idle(),

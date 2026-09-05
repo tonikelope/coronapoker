@@ -86,9 +86,12 @@ public final class GdxLauncher {
         GdxGameText gameText = new GdxGameText(preferences.properties()
                 .getProperty("lenguaje", "es"));
         GdxGameLogSink gameLog = new GdxGameLogSink();
+        GdxGamePresentationSettings presentationSettings =
+                new GdxGamePresentationSettings(preferences);
         CoreGameTableFactory gameTables = new CoreGameTableFactory(
                 application.service(DatabaseService.class), gameText, gameLog,
-                new GdxGameDialogSink(), new GdxGameDecisionSink(gameText));
+                new GdxGameDialogSink(), new GdxGameDecisionSink(gameText),
+                presentationSettings);
         try (NetworkLobbyGateway lobbyGateway
                 = NetworkLobbyGateway.forCurrentUser(gameTables)) {
             NewGameSessionGateway sessions = lobbyGateway;

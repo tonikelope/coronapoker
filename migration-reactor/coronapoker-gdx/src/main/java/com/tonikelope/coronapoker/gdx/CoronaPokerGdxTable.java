@@ -1677,8 +1677,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float transitionAlpha = sceneTime > INTRO_SECONDS - 0.42f
                 ? MathUtils.clamp((INTRO_SECONDS - sceneTime) / 0.42f, 0f, 1f)
                 : 1f;
-        float reveal = Interpolation.smoother.apply(MathUtils.clamp(
-                (sceneTime - INTRO_CARD_CLEAR_START) / 1.05f, 0f, 1f));
         float pulseTime = Math.max(0f, sceneTime - 2.28f);
         float pulse = pulseTime <= 0f ? 0f
                 : (float) Math.pow(Math.max(0f,
@@ -1688,23 +1686,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float logoHeight = logoWidth * logo.getHeight() / logo.getWidth();
         float logoX = width / 2f;
         float logoY = height / 2f + 85f;
-
-        if (reveal > 0f) {
-            Gdx.gl.glEnable(GL20.GL_BLEND);
-            Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
-            shapes.begin(ShapeRenderer.ShapeType.Filled);
-            for (int ring = 8; ring >= 1; ring--) {
-                float ringPulse = 1f + MathUtils.sin(totalTime * 4.2f + ring) * 0.035f;
-                float radius = logoWidth * (0.18f + ring * 0.045f)
-                        * ringPulse * (1f + pulse * 0.09f);
-                shapes.setColor(CYAN.r, CYAN.g, CYAN.b,
-                        reveal * transitionAlpha * (0.006f
-                                + (9 - ring) * 0.004f + pulse * 0.014f));
-                shapes.circle(logoX, logoY, radius, 72);
-            }
-            shapes.end();
-            Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-        }
 
         batch.begin();
         float logoScale = (0.90f + appear * 0.10f) * (1f + pulse * 0.075f);
@@ -1727,7 +1708,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float transitionAlpha) {
         Texture cardBack = cardBacks[0];
         Texture cardFace = introCardFaces[card];
-        float cardW = MathUtils.clamp(width * 0.063f, 92f, 148f);
+        float cardW = MathUtils.clamp(width * 0.069f, 100f, 162f);
         float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
         float targetX = logoX + (introHash(card, 2f) - 0.5f)
                 * logoWidth * 0.94f;

@@ -24,6 +24,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private final CoronaPokerApplication application;
     private final NewGameSessionGateway sessionGateway;
     private final GdxGameLogSink gameLog;
+    private PreferencesService preferences;
     private GdxFrontendScreen menu;
     private LobbySession lobby;
     private CoronaPokerGdxTable startupIntro;
@@ -54,8 +55,9 @@ final class GdxApplicationShell extends ApplicationAdapter {
         if (!ACTIVE.compareAndSet(null, this)) {
             throw new IllegalStateException("Only one GDX application shell may be active");
         }
+        preferences = application.service(PreferencesService.class);
         menu = new GdxFrontendScreen(
-                application.service(PreferencesService.class), sessionGateway,
+                preferences, sessionGateway,
                 opened -> {
                     application.sessionOpened();
                     lobby = opened.lobby();
@@ -164,7 +166,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 gameLog.reset();
                 CoronaPokerGdxTable candidate = new CoronaPokerGdxTable(
                         refreshRate, new GdxTableViewState(initialState), commands,
-                        () -> opened.accept(table), gameLog);
+                        () -> opened.accept(table), gameLog, preferences);
                 table = candidate;
                 candidate.create();
                 candidate.resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());

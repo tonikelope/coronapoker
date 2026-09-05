@@ -34,6 +34,7 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.ExtendViewport;
+import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableCommand;
 import com.tonikelope.coronapoker.table.TableCommandSink;
@@ -47,6 +48,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -316,6 +318,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final TableCommandSink commands;
     private final Runnable onReady;
     private final GdxGameLogSink gameLog;
+    private final PreferencesService preferences;
     private final boolean startupIntroOnly;
     private final Star[] stars = new Star[STAR_COUNT];
     private final Seat[] seats = new Seat[SEAT_COUNT];
@@ -336,7 +339,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float musicVolume = 0.40f;
     private float effectsVolume = 1.0f;
     private boolean autoButtons;
-    private boolean confirmActions = true;
+    private boolean confirmActions;
     private boolean autoRebuy;
     private boolean lastHand;
     private int gameLogScroll;
@@ -425,31 +428,60 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     CoronaPokerGdxTable(int detectedRefreshRate) {
         this(detectedRefreshRate, null, command -> { }, () -> {
-        }, new GdxGameLogSink(), false);
+        }, new GdxGameLogSink(), null, false);
     }
 
     CoronaPokerGdxTable(int detectedRefreshRate, Runnable onReady) {
         this(detectedRefreshRate, null, command -> { }, onReady,
-                new GdxGameLogSink(), true);
+                new GdxGameLogSink(), null, true);
     }
 
     CoronaPokerGdxTable(int detectedRefreshRate, GdxTableViewState liveState,
             TableCommandSink commands, Runnable onReady,
-            GdxGameLogSink gameLog) {
-        this(detectedRefreshRate, liveState, commands, onReady, gameLog, false);
+            GdxGameLogSink gameLog, PreferencesService preferences) {
+        this(detectedRefreshRate, liveState, commands, onReady, gameLog,
+                preferences, false);
     }
 
     private CoronaPokerGdxTable(int detectedRefreshRate,
             GdxTableViewState liveState, TableCommandSink commands,
             Runnable onReady, GdxGameLogSink gameLog,
-            boolean startupIntroOnly) {
+            PreferencesService preferences, boolean startupIntroOnly) {
         this.detectedRefreshRate = detectedRefreshRate;
         this.liveState = liveState;
         this.commands = Objects.requireNonNull(commands, "commands");
         this.onReady = Objects.requireNonNull(onReady, "onReady");
         this.gameLog = Objects.requireNonNull(gameLog, "gameLog");
+        this.preferences = preferences;
         this.startupIntroOnly = startupIntroOnly;
         intro = liveState == null;
+        if (preferences != null) {
+            Properties persisted = preferences.properties();
+            autoButtons = booleanPreference(persisted,
+                    "auto_action_buttons", false) && !isTestMode();
+            confirmActions = booleanPreference(persisted,
+                    "confirmar_todo", false) && !isTestMode();
+        }
+    }
+
+    static boolean booleanPreference(Properties properties, String key,
+            boolean fallback) {
+        Objects.requireNonNull(properties, "properties");
+        Objects.requireNonNull(key, "key");
+        return Boolean.parseBoolean(properties.getProperty(key,
+                Boolean.toString(fallback)));
+    }
+
+    private static boolean isTestMode() {
+        return Boolean.getBoolean("coronapoker.testMode");
+    }
+
+    private void persistBooleanPreference(String key, boolean value) {
+        if (preferences == null) {
+            return;
+        }
+        preferences.properties().setProperty(key, Boolean.toString(value));
+        preferences.saveDeferred();
     }
 
     @Override
@@ -807,10 +839,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else if (event instanceof TableVisualEvent.Shuffle shuffle) {
             acceptLiveShuffle(shuffle, barrier);
         } else if (event instanceof TableVisualEvent.DealHoleCard deal) {
-            if (deal.slot() == 0 && liveState.snapshot().players().stream()
-                    .allMatch(player -> player.holeCards().isEmpty())) {
-                liveHoleDealCount = 0;
-            }
             int dealOrder = liveHoleDealCount++;
             long dealtPlayers = liveState.snapshot().players().stream()
                     .filter(player -> player.active() && !player.spectator()
@@ -875,8 +903,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             barrier.complete(null);
         } else {
             if (event instanceof TableVisualEvent.HandBoundary boundary
-                    && boundary.phase() == TableVisualEvent.HandBoundary.Phase.START) {
+                    && boundary.phase() != TableVisualEvent.HandBoundary.Phase.END) {
                 livePotContributions.clear();
+                liveHoleDealCount = 0;
+                liveShowdownHoverNickname = null;
             }
             liveState.apply(event);
             if (event instanceof TableVisualEvent.ActionControls controls) {
@@ -3396,7 +3426,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (liveState != null) {
             TableSnapshot.PlayerSnapshot player = livePlayer(seats[seat]);
             if (player == null) return LEGACY_BET;
-            if (isLiveThinkingSeat(seats[seat])) return POT_GOLD;
+            if (isLiveThinkingSeat(seats[seat])) return CYAN;
             if (player.nickname().equals(liveShowdownHoverNickname)) {
                 return POT_GOLD;
             }
@@ -4530,10 +4560,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
                 case 5 -> {
                     autoButtons = !autoButtons;
+                    persistBooleanPreference("auto_action_buttons", autoButtons);
                     uiLayer = UI_NONE;
                 }
                 case 6 -> {
                     confirmActions = !confirmActions;
+                    persistBooleanPreference("confirmar_todo", confirmActions);
                     uiLayer = UI_NONE;
                 }
                 case 7 -> {

@@ -215,7 +215,8 @@ final class GdxTableViewState {
         }
         List<TableSnapshot.PlayerSnapshot> players = snapshot.players().stream()
                 .map(player -> copyPlayer(player, player.stack(), 0d, 0d,
-                player.active(), false, player.position(), "", "", List.of()))
+                !player.spectator() && !player.exited(), false,
+                player.position(), "", "", List.of()))
                 .toList();
         snapshot = copySnapshot(snapshot, 0d, "", players, List.of());
         showdownHighlights.clear();

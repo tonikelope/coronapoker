@@ -8,6 +8,7 @@ import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
 import com.tonikelope.coronapoker.core.game.ActionControlState;
 import java.util.List;
+import java.util.Properties;
 import org.junit.jupiter.api.Test;
 
 final class GdxTableViewStateTest {
@@ -116,6 +117,28 @@ final class GdxTableViewStateTest {
         assertEquals(0, player(state, "ana").holeCards().size());
         assertEquals(0, state.snapshot().communityCards().size());
         assertTrue(!state.hasShowdownHighlights());
+    }
+
+    @Test
+    void newHandReactivatesAPlayerWhoOnlyFoldedThePreviousHand() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+        state.apply(new TableVisualEvent.FoldHoleCards(1, "borja"));
+        assertTrue(!player(state, "borja").active());
+
+        state.apply(new TableVisualEvent.HandBoundary(2, 2,
+                TableVisualEvent.HandBoundary.Phase.PREPARE));
+
+        assertTrue(player(state, "borja").active());
+    }
+
+    @Test
+    void confirmActionsUsesThePersistedSwingDefaultInsteadOfAnInventedCheck() {
+        Properties properties = new Properties();
+        assertTrue(!CoronaPokerGdxTable.booleanPreference(properties,
+                "confirmar_todo", false));
+        properties.setProperty("confirmar_todo", "true");
+        assertTrue(CoronaPokerGdxTable.booleanPreference(properties,
+                "confirmar_todo", false));
     }
 
     @Test

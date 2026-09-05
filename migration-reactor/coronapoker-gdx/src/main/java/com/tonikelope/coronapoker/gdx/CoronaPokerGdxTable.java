@@ -867,10 +867,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     .count();
             int expectedCards = Math.max(1, Math.toIntExact(dealtPlayers * 2));
             boolean lastHoleCard = dealOrder + 1 >= expectedCards;
+            boolean completesLocalHand = deal.slot() == 1
+                    && deal.nickname().equals(
+                            liveState.snapshot().localNickname());
             float barrierDelay = lastHoleCard
                     ? DEAL_CARD_SECONDS + (deal.card().faceUp()
                             ? CARD_FLIP_SECONDS : 0f)
-                    : DEAL_CARD_GAP;
+                    // The local swap consumes both authoritative cards. Do
+                    // not release its producer before slot 1 has landed and
+                    // therefore been applied to the live snapshot.
+                    : completesLocalHand ? DEAL_CARD_SECONDS : DEAL_CARD_GAP;
             long startedAtNanos = System.nanoTime();
             String dealKey = holeDealKey(deal.nickname(), deal.slot());
             liveHoleDealStarts.put(dealKey, startedAtNanos);
@@ -2153,6 +2159,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     continue;
                 }
                 if (liveHoleSwap != null
+                        && liveHoleSwap.cards.size() >= 2
                         && liveHoleSwap.event.nickname().equals(player.nickname())) {
                     drawLiveHoleSwap(seat, cardBack);
                     continue;

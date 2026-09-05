@@ -211,8 +211,18 @@ public final class CoreGameTableFactory implements GameTableFactory {
                         context.channel()::close));
 
         TableSession table = new TableSession(initialSnapshot(lobby,
-                initialConfiguration.buyin()), command -> submit(command, dealer,
-                        local, game, pause), events, () -> {
+                initialConfiguration.buyin()), command -> {
+                    submit(command, dealer, local, game, pause);
+                    if (command instanceof TableCommand.ExitGame) {
+                        TableSession active = tableReference.get();
+                        if (active != null) {
+                            Thread cleanup = new Thread(active::close,
+                                    "CoronaPoker-GDX-exit");
+                            cleanup.setDaemon(true);
+                            cleanup.start();
+                        }
+                    }
+                }, events, () -> {
                     if (!started.compareAndSet(false, true)) {
                         return CompletableFuture.failedFuture(
                                 new IllegalStateException("La mesa GDX ya esta iniciada"));

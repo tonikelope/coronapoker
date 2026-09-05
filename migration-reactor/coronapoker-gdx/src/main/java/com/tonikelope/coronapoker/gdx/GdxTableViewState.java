@@ -5,6 +5,7 @@ import com.tonikelope.coronapoker.table.TableVisualEvent;
 import com.tonikelope.coronapoker.core.game.ActionControlState;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -25,6 +26,7 @@ final class GdxTableViewState {
             showdownHighlights = new HashMap<>();
     private final Map<String, TableVisualEvent.PlayerAction.ActionKind>
             actionKinds = new HashMap<>();
+    private final java.util.Set<String> resolvedHandResults = new HashSet<>();
 
     GdxTableViewState(TableSnapshot initialState) {
         snapshot = Objects.requireNonNull(initialState, "initialState");
@@ -63,6 +65,10 @@ final class GdxTableViewState {
         return !showdownHighlights.isEmpty();
     }
 
+    boolean hasHandResult(String nickname) {
+        return resolvedHandResults.contains(nickname);
+    }
+
     TableVisualEvent.PlayerAction.ActionKind actionKind(String nickname) {
         return actionKinds.get(nickname);
     }
@@ -79,6 +85,7 @@ final class GdxTableViewState {
             snapshot = synchronize.snapshot();
             showdownHighlights.clear();
             actionKinds.clear();
+            resolvedHandResults.clear();
         } else if (event instanceof TableVisualEvent.SeatRoster roster) {
             snapshot = roster.snapshot();
         } else if (event instanceof TableVisualEvent.HandBoundary boundary) {
@@ -177,9 +184,10 @@ final class GdxTableViewState {
             replacePlayer(reveal.nickname(), player -> copyPlayer(player,
                     player.stack(), player.streetBet(), player.potContribution(),
                     player.active(), player.winner(), player.position(),
-                    player.lastAction(), player.handName(),
+                    player.lastAction(), reveal.handName(),
                     List.of(reveal.left(), reveal.right())));
         } else if (event instanceof TableVisualEvent.HandResult result) {
+            resolvedHandResults.add(result.nickname());
             replacePlayer(result.nickname(), player -> copyPlayer(player,
                     player.stack(), player.streetBet(), player.potContribution(),
                     player.active(), result.winner(), player.position(),
@@ -221,6 +229,7 @@ final class GdxTableViewState {
         snapshot = copySnapshot(snapshot, 0d, "", players, List.of());
         showdownHighlights.clear();
         actionKinds.clear();
+        resolvedHandResults.clear();
         stopTurn();
     }
 

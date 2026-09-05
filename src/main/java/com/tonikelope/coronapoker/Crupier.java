@@ -21480,7 +21480,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return true;
     }
 
-    private boolean presentHoleCardsToAttachedRenderer(GamePlayerController player) {
+    private boolean presentHoleCardsToAttachedRenderer(GamePlayerController player,
+            String handName) {
         if (!table_events.isAttached()) {
             return false;
         }
@@ -21491,7 +21492,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         TableSnapshot.CardSnapshot rightSnapshot = new TableSnapshot.CardSnapshot(
                 right.toShortString(), true, right.isDesenfocada());
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.RevealHoleCards(
-                sequence, player.getNickname(), leftSnapshot, rightSnapshot),
+                sequence, player.getNickname(), leftSnapshot, rightSnapshot,
+                handName),
                 "Showdown hole-card presentation barrier failed");
         table_display.revealPlayerCards(player.getNickname(), false);
         player.getHoleCard1().destapar(false);
@@ -22481,7 +22483,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     // Blocks until the flip finishes (crupier thread, like community
                     // cards).
-                    if (!presentHoleCardsToAttachedRenderer(jugador_actual)) {
+                    if (!presentHoleCardsToAttachedRenderer(
+                            jugador_actual, jugada.getName())) {
                         mostrarAnimacionDestaparCartasJugador(jugador_actual, false);
                     }
 

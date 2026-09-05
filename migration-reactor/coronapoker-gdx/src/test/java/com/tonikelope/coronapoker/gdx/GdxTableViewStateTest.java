@@ -1,6 +1,7 @@
 package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -129,6 +130,19 @@ final class GdxTableViewStateTest {
                 TableVisualEvent.HandBoundary.Phase.PREPARE));
 
         assertTrue(player(state, "borja").active());
+    }
+
+    @Test
+    void revealedHandStaysNeutralUntilItsResultArrives() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+        state.apply(new TableVisualEvent.RevealHoleCards(1, "borja",
+                card("A_C"), card("K_C"), "COLOR"));
+
+        assertEquals("COLOR", player(state, "borja").handName());
+        assertFalse(state.hasHandResult("borja"));
+
+        state.apply(new TableVisualEvent.HandResult(2, "borja", "COLOR", false));
+        assertTrue(state.hasHandResult("borja"));
     }
 
     @Test

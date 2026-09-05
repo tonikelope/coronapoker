@@ -275,12 +275,20 @@ public sealed interface TableVisualEvent permits TableVisualEvent.Synchronize,
 
     record RevealHoleCards(long sequence, String nickname,
             TableSnapshot.CardSnapshot left,
-            TableSnapshot.CardSnapshot right) implements TableVisualEvent {
+            TableSnapshot.CardSnapshot right,
+            String handName) implements TableVisualEvent {
+
+        public RevealHoleCards(long sequence, String nickname,
+                TableSnapshot.CardSnapshot left,
+                TableSnapshot.CardSnapshot right) {
+            this(sequence, nickname, left, right, "");
+        }
 
         public RevealHoleCards {
             Objects.requireNonNull(nickname, "nickname");
             Objects.requireNonNull(left, "left");
             Objects.requireNonNull(right, "right");
+            handName = handName == null ? "" : handName;
         }
     }
 

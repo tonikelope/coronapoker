@@ -40,7 +40,6 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         }
     }
 
-    private boolean animations() { return bool("animaciones", true); }
     private boolean effects() { return bool("sonido_efectos", true); }
 
     @Override public String language() {
@@ -63,7 +62,7 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     @Override public boolean autoRebuyOnBroke() { return false; }
     @Override public boolean autoFullscreen() { return bool("auto_fullscreen", true); }
     @Override public boolean cinematics() {
-        return animations() && bool("cinematicas", true);
+        return bool("cinematicas", true);
     }
     @Override public boolean allInCinematics() {
         return cinematics() && bool("cinematicas_allin", true);
@@ -72,25 +71,25 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         return cinematics() && bool("cinematicas_gameover", true);
     }
     @Override public boolean blindDealerAnimation() {
-        return animations() && bool("animacion_ciegas_dealer", true);
+        return true;
     }
     @Override public boolean betAnimation() {
-        return animations() && bool("animacion_apuestas", true);
+        return true;
     }
     @Override public boolean counterAnimation() {
-        return animations() && bool("animacion_contadores", true);
+        return true;
     }
     @Override public boolean shuffleAnimation() {
-        return animations() && bool("animacion_barajado", true);
+        return true;
     }
     @Override public boolean dealAnimation() {
-        return animations() && bool("animacion_reparto", true);
+        return true;
     }
     @Override public boolean flipAnimation() {
-        return animations() && bool("animacion_destape", true);
+        return true;
     }
     @Override public boolean swapAnimation() {
-        return animations() && bool("animacion_swap", true);
+        return true;
     }
     @Override public boolean callSound() { return effects() && bool("sonido_igualar", true); }
     @Override public boolean betSound() { return effects() && bool("sonido_apostar", true); }

@@ -62,7 +62,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float BASE_HEIGHT = 1080f;
     private static final float INTRO_SECONDS = 4.8f;
     private static final int INTRO_CARD_COUNT = 52;
-    private static final float INTRO_CARD_CLEAR_START = 2.05f;
+    private static final float INTRO_CARD_CLEAR_START = 1.25f;
     private static final String[] INTRO_CARD_RANKS = {
         "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"
     };
@@ -1678,7 +1678,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 ? MathUtils.clamp((INTRO_SECONDS - sceneTime) / 0.42f, 0f, 1f)
                 : 1f;
         float reveal = Interpolation.smoother.apply(MathUtils.clamp(
-                (sceneTime - INTRO_CARD_CLEAR_START) / 1.62f, 0f, 1f));
+                (sceneTime - INTRO_CARD_CLEAR_START) / 1.05f, 0f, 1f));
+        float pulseTime = Math.max(0f, sceneTime - 2.28f);
+        float pulse = pulseTime <= 0f ? 0f
+                : (float) Math.pow(Math.max(0f,
+                        MathUtils.sin(pulseTime * MathUtils.PI2 * 1.55f)), 3d)
+                * MathUtils.clamp(1f - pulseTime / 2.25f, 0f, 1f);
         float logoWidth = Math.min(760f, width * 0.48f);
         float logoHeight = logoWidth * logo.getHeight() / logo.getWidth();
         float logoX = width / 2f;
@@ -1689,10 +1694,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
             shapes.begin(ShapeRenderer.ShapeType.Filled);
             for (int ring = 8; ring >= 1; ring--) {
-                float pulse = 1f + MathUtils.sin(totalTime * 4.2f + ring) * 0.035f;
-                float radius = logoWidth * (0.18f + ring * 0.045f) * pulse;
+                float ringPulse = 1f + MathUtils.sin(totalTime * 4.2f + ring) * 0.035f;
+                float radius = logoWidth * (0.18f + ring * 0.045f)
+                        * ringPulse * (1f + pulse * 0.09f);
                 shapes.setColor(CYAN.r, CYAN.g, CYAN.b,
-                        reveal * transitionAlpha * (0.006f + (9 - ring) * 0.004f));
+                        reveal * transitionAlpha * (0.006f
+                                + (9 - ring) * 0.004f + pulse * 0.014f));
                 shapes.circle(logoX, logoY, radius, 72);
             }
             shapes.end();
@@ -1700,8 +1707,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
 
         batch.begin();
-        float logoScale = (0.90f + appear * 0.10f)
-                * (1f + MathUtils.sin(reveal * MathUtils.PI) * 0.035f);
+        float logoScale = (0.90f + appear * 0.10f) * (1f + pulse * 0.075f);
         batch.setColor(1f, 1f, 1f, appear * transitionAlpha);
         batch.draw(logo, logoX - logoWidth * logoScale / 2f,
                 logoY - logoHeight * logoScale / 2f,
@@ -1721,52 +1727,38 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float transitionAlpha) {
         Texture cardBack = cardBacks[0];
         Texture cardFace = introCardFaces[card];
-        float arrivalDelay = 0.08f + introHash(card, 1f) * 0.72f;
-        float arrivalRaw = MathUtils.clamp(
-                (sceneTime - arrivalDelay) / 0.82f, 0f, 1f);
-        if (arrivalRaw <= 0f) {
-            return;
-        }
-        float arrival = Interpolation.pow3Out.apply(arrivalRaw);
-        float cardW = MathUtils.clamp(width * 0.041f, 64f, 106f);
+        float cardW = MathUtils.clamp(width * 0.063f, 92f, 148f);
         float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
         float targetX = logoX + (introHash(card, 2f) - 0.5f)
                 * logoWidth * 0.94f;
         float targetY = logoY + (introHash(card, 3f) - 0.5f)
                 * Math.max(logoHeight * 0.90f, cardH * 1.32f);
-        float entryAngle = MathUtils.PI2 * introHash(card, 4f);
-        float entryRadius = Math.max(width, height) * 0.70f;
-        float startX = logoX + MathUtils.cos(entryAngle) * entryRadius;
-        float startY = logoY + MathUtils.sin(entryAngle) * entryRadius;
-        float x = MathUtils.lerp(startX, targetX, arrival);
-        float y = MathUtils.lerp(startY, targetY, arrival)
-                + MathUtils.sin(arrivalRaw * MathUtils.PI)
-                * (90f + introHash(card, 5f) * 130f);
+        float x = targetX;
+        float y = targetY;
         float targetRotation = (introHash(card, 6f) - 0.5f) * 72f;
-        float spin = (card % 2 == 0 ? 1f : -1f)
-                * (540f + introHash(card, 7f) * 720f);
-        float rotation = MathUtils.lerp(targetRotation + spin,
-                targetRotation, arrival);
-        float scale = 0.48f + arrival * 0.52f;
+        float rotation = targetRotation;
+        float scale = 0.94f + introHash(card, 5f) * 0.12f;
         float alpha = transitionAlpha;
 
         float clearDelay = INTRO_CARD_CLEAR_START
-                + (INTRO_CARD_COUNT - 1 - card) * 0.016f;
-        float clearRaw = MathUtils.clamp((sceneTime - clearDelay) / 0.88f, 0f, 1f);
+                + introHash(card, 9f) * 0.34f;
+        float clearRaw = MathUtils.clamp((sceneTime - clearDelay) / 0.78f, 0f, 1f);
         if (clearRaw > 0f) {
             float clear = Interpolation.pow2In.apply(clearRaw);
-            float awayX = targetX - logoX;
-            float awayY = targetY - logoY;
-            float awayLength = Math.max(1f,
-                    (float) Math.sqrt(awayX * awayX + awayY * awayY));
-            awayX /= awayLength;
-            awayY /= awayLength;
+            float exitAngle = MathUtils.PI2 * introHash(card, 4f);
+            float awayX = MathUtils.cos(exitAngle);
+            float awayY = MathUtils.sin(exitAngle);
+            float tangentX = -awayY;
+            float tangentY = awayX;
             float sweep = Math.max(width, height) * (0.78f + introHash(card, 8f) * 0.28f);
-            x += awayX * sweep * clear;
-            y += awayY * sweep * clear + clear * clear * height * 0.22f;
+            float arc = MathUtils.sin(clearRaw * MathUtils.PI)
+                    * (introHash(card, 1f) - 0.5f) * 240f;
+            x += awayX * sweep * clear + tangentX * arc;
+            y += awayY * sweep * clear + tangentY * arc;
             rotation += (card % 2 == 0 ? 1f : -1f) * clear * 520f;
-            scale *= 1f - clear * 0.18f;
-            alpha *= 1f - Interpolation.pow2In.apply(clearRaw);
+            scale *= 1f - clear * 0.12f;
+            alpha *= 1f - Interpolation.pow2In.apply(
+                    MathUtils.clamp((clearRaw - 0.72f) / 0.28f, 0f, 1f));
         }
 
         float canvasW = cardW * 1.5f;

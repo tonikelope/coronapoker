@@ -1708,7 +1708,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float transitionAlpha) {
         Texture cardBack = cardBacks[0];
         Texture cardFace = introCardFaces[card];
-        float cardW = MathUtils.clamp(width * 0.069f, 100f, 162f);
+        float cardW = MathUtils.clamp(width * 0.082f, 118f, 192f);
         float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
         float targetX = logoX + (introHash(card, 2f) - 0.5f)
                 * logoWidth * 0.94f;

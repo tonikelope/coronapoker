@@ -32,6 +32,10 @@ final class GdxGameTextTest {
                 text.translate("gdx.newgame.blind_editor.help"));
         assertEquals("3 raises · 1 / 2",
                 text.translate("gdx.settings.game.value.raises", 3, "1 / 2"));
+        assertEquals("Confirm all actions",
+                text.translate("gdx.settings.game.row.confirm_actions"));
+        assertEquals("Force players to reconnect",
+                text.translate("gdx.settings.game.session.action.force_reconnect"));
 
         assertEquals("es", text.setLanguage("not-a-language"));
         assertEquals("CREAR TIMBA", text.translate("game.crear_timba"));
@@ -41,6 +45,10 @@ final class GdxGameTextTest {
                 text.translate("gdx.settings.game.row.minimum_range_bb"));
         assertEquals("Máximo de recompras",
                 text.translate("gdx.settings.game.row.maximum_rebuys"));
+        assertEquals("Confirmar todas las acciones",
+                text.translate("gdx.settings.game.row.confirm_actions"));
+        assertEquals("Forzar reconexión de jugadores",
+                text.translate("gdx.settings.game.session.action.force_reconnect"));
         assertEquals("No se pueden guardar más de 10 perfiles",
                 text.translate("gdx.newgame.profile_limit", 10));
         assertEquals("2 de 5",

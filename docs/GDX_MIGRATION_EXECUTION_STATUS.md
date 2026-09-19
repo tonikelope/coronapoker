@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 19:14 (Europe/Madrid)
+Última actualización: 2026-09-19 19:30 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -18,6 +18,13 @@ visual archivada en `reference/gdx-demo` y únicos ejecutables en `target`.
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Unificado el idioma visible de Ajustes entre menú y mesa para Controles,
+  Timba, Ciegas, Bots, Sesión y Atajos. Las acciones operativas y los estados
+  del editor de teclas ya no dependen de literales españoles; consumen el mismo
+  catálogo ES/EN, incluidos valores calculados como dificultad, unidad, límites
+  y antialiasing. Pruebas focalizadas de Ajustes y atajos: **24/24**. JAR GDX:
+  266.249.045 bytes, SHA-256
+  `59A12E551086603C04D2CC6D536A1E36853B8A490B2245BA4B3AEB89CDB60C88`.
 - Los resúmenes de Ajustes dentro de una partida ya consumen el idioma activo:
   tiempos de timba, compra/recompra y los cuatro niveles de Rabbit Hunting no
   conservan textos españoles al cambiar a inglés. El mismo formateador se usa

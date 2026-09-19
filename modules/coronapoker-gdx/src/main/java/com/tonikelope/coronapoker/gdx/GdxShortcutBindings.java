@@ -221,13 +221,46 @@ final class GdxShortcutBindings {
     }
 
     List<ShortcutEntry> editableEntries() {
+        return editableEntries(null);
+    }
+
+    List<ShortcutEntry> editableEntries(GdxGameText text) {
         ArrayList<ShortcutEntry> entries = new ArrayList<>();
         for (Definition definition : definitions.values()) {
             entries.add(new ShortcutEntry(definition.id,
-                    shortcutDescription(definition.id),
+                    text == null ? shortcutDescription(definition.id)
+                            : shortcutDescription(definition.id, text),
                     display(current.get(definition.id))));
         }
         return List.copyOf(entries);
+    }
+
+    private static String shortcutDescription(String id, GdxGameText text) {
+        String suffix = switch (id) {
+            case PAUSE -> "pause";
+            case FULLSCREEN -> "fullscreen";
+            case LIGHTS -> "lights";
+            case HALT -> "halt";
+            case LOG -> "log";
+            case BUYIN -> "buyin";
+            case QUIT -> "quit";
+            case FORCE_EXIT -> "force_exit";
+            case CHECK -> "check";
+            case FOLD -> "fold";
+            case BET_UP -> "bet_up";
+            case BET_DOWN -> "bet_down";
+            case BET -> "bet";
+            case ALL_IN -> "all_in";
+            case MUTE -> "mute";
+            case VOLUME_UP -> "volume_up";
+            case VOLUME_DOWN -> "volume_down";
+            case VOICE_RECORD -> "voice_record";
+            case FASTCHAT_IMAGE -> "fastchat_image";
+            case SCREENSHOT -> "screenshot";
+            default -> null;
+        };
+        return suffix == null ? id
+                : text.translate("gdx.settings.shortcut.action." + suffix);
     }
 
     private static boolean conflicts(Binding left, boolean leftKeycodeOnly,

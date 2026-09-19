@@ -2087,8 +2087,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case SHORTCUTS -> {
                 shortcutBindings.resetAllEdits();
                 settingsShortcutCaptureId = null;
-                settingsShortcutStatus =
-                        "ATAJOS PREDETERMINADOS RESTAURADOS";
+                settingsShortcutStatus = "restored";
             }
             case GAME, DEBUG -> {
             }
@@ -2860,7 +2859,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawShortcutSettings(float x, float y, float w, float h) {
         List<GdxShortcutBindings.ShortcutEntry> entries =
-                shortcutBindings.editableEntries();
+                shortcutBindings.editableEntries(gameText);
         int pages = Math.max(1, (entries.size()
                 + SETTINGS_SHORTCUT_ROWS_PER_PAGE - 1)
                 / SETTINGS_SHORTCUT_ROWS_PER_PAGE);
@@ -2876,18 +2875,22 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             GdxShortcutBindings.ShortcutEntry entry = entries.get(first + row);
             boolean capturing = entry.id().equals(settingsShortcutCaptureId);
             shortcutRow(x + 34f, firstY - row * 70f, w - 68f,
-                    capturing ? "PULSA UNA TECLA" : entry.display(),
-                    entry.description(), capturing);
+                    capturing ? uppercase(gameText.translate(
+                            "gdx.settings.shortcut.press_key"))
+                            : entry.display(),
+                    uppercase(entry.description()), capturing);
             hit(x + 34f, firstY - row * 70f, w - 68f, 62f, () -> {
                 settingsShortcutCaptureId = entry.id();
-                settingsShortcutStatus = "PULSA LA NUEVA COMBINACIÓN";
+                settingsShortcutStatus = "prompt";
             });
         }
         if (!settingsShortcutStatus.isBlank()) {
-            Color color = settingsShortcutStatus.contains("USO")
-                    || settingsShortcutStatus.contains("NO COMPATIBLE")
+            Color color = settingsShortcutStatus.equals("conflict")
+                    || settingsShortcutStatus.equals("unsupported")
                             ? ORANGE : CYAN;
-            textFit(tinyFont, settingsShortcutStatus, x + w / 2f,
+            textFit(tinyFont, uppercase(gameText.translate(
+                    "gdx.settings.shortcut.status."
+                            + settingsShortcutStatus)), x + w / 2f,
                     y + 62f, color, true, w - 68f);
         }
     }
@@ -5145,13 +5148,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     settingsShortcutCaptureId, keycode, alt, control, shift);
             if (assignment == GdxShortcutBindings.Assignment.ASSIGNED) {
                 settingsShortcutCaptureId = null;
-                settingsShortcutStatus =
-                        "ATAJO ACTUALIZADO · GUARDA PARA CONFIRMAR";
+                settingsShortcutStatus = "updated";
             } else if (assignment == GdxShortcutBindings.Assignment.CONFLICT) {
-                settingsShortcutStatus = "ESA COMBINACIÓN YA ESTÁ EN USO";
+                settingsShortcutStatus = "conflict";
             } else {
-                settingsShortcutStatus =
-                        "TECLA NO COMPATIBLE · PRUEBA OTRA";
+                settingsShortcutStatus = "unsupported";
             }
             return true;
         }

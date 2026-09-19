@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 01:26 (Europe/Madrid)
+Última actualización: 2026-09-20 01:37 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,17 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Corregido el bloque visual de chat/fin de timba observado en la prueba
+  interactiva: enviar una imagen cierra la galería tras la confirmación tanto
+  en sala como en mesa; las imágenes y el icono de conversación se ajustan al
+  HUD del remitente y ya no cubren ni hacen parecer ausentes sus cartas. La
+  duración del aviso de texto calcula el contenido limpio igual que Swing, sin
+  alargarlo por los códigos internos de emojis. El resultado único `NI GANAS
+  NI PIERDES` queda centrado verticalmente en el hueco entre cabecera y
+  tarjetas, mientras los resultados con importe conservan su bloque de dos
+  líneas. Pruebas focalizadas: **113/113**. JAR GDX: 266.267.326 bytes,
+  SHA-256
+  `4F006E5BC4DFF328A341F011921C831120C234F330FB84E8D1729B4D77DF33D0`.
 - El reproductor asíncrono de notas de voz ya propaga al consumidor los fallos
   de decodificación o del dispositivo de salida en vez de silenciarlos. El
   botón de reproducción de la sala muestra el error traducido sin bloquear el

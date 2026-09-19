@@ -4263,6 +4263,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void closeTableChat() {
         uiLayer = UI_NONE;
+        chatImageMode = false;
         emojiPickerOpen = false;
         chatEditMenuOpen = false;
         quickChatPendingDraft = chatDraft;
@@ -5743,36 +5744,33 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private Rectangle seatChatNoticeBounds(Seat seat, Texture icon) {
-        LiveCardPlacement firstCard = liveHolePlacement(seat, 0);
-        LiveCardPlacement secondCard = liveHolePlacement(seat, 1);
-        float left = Math.min(firstCard.x - firstCard.width / 2f,
-                secondCard.x - secondCard.width / 2f);
-        float right = Math.max(firstCard.x + firstCard.width / 2f,
-                secondCard.x + secondCard.width / 2f);
-        // Swing uses half a local hole-card height for the sender's own
-        // confirmation and a full rival-card height for remote notices.
-        float iconH = seatChatNoticeMaxHeight(seat.index == 0,
-                firstCard.height);
-        float iconW = iconH * icon.getWidth() / (float) icon.getHeight();
-        float maxW = right - left;
-        if (iconW > maxW) {
-            iconH *= maxW / iconW;
-            iconW = maxW;
-        }
-        float centerX;
-        float centerY;
+        Rectangle target;
         if (seat.index == 0) {
-            centerX = right - iconW / 2f;
-            float cardBottom = Math.min(
-                    firstCard.y - firstCard.height / 2f,
-                    secondCard.y - secondCard.height / 2f);
-            centerY = cardBottom + iconH / 2f;
+            float width = viewport.getWorldWidth();
+            float hudWidth = Math.min(1110f, width - 620f);
+            float hudX = width / 2f - hudWidth / 2f;
+            target = new Rectangle(hudX, LOCAL_HUD_Y,
+                    230f, LOCAL_HUD_HEIGHT);
         } else {
-            centerX = (firstCard.x + secondCard.x) / 2f;
-            centerY = (firstCard.y + secondCard.y) / 2f;
+            target = new Rectangle(seat.podX, seat.podY,
+                    PLAYER_POD_WIDTH, PLAYER_POD_HEIGHT);
         }
-        return new Rectangle(centerX - iconW / 2f,
-                centerY - iconH / 2f, iconW, iconH);
+        // Media belongs to the player's HUD, never to the physical cards.
+        // Covering the hole-card envelope made an intact hand look absent.
+        return fitSeatChatNoticeBounds(target, icon.getWidth(),
+                icon.getHeight());
+    }
+
+    static Rectangle fitSeatChatNoticeBounds(Rectangle target,
+            float sourceWidth, float sourceHeight) {
+        float availableW = Math.max(1f, target.width - 12f);
+        float availableH = Math.max(1f, target.height - 12f);
+        float scale = Math.min(availableW / Math.max(1f, sourceWidth),
+                availableH / Math.max(1f, sourceHeight));
+        float width = Math.max(1f, sourceWidth * scale);
+        float height = Math.max(1f, sourceHeight * scale);
+        return new Rectangle(target.x + (target.width - width) / 2f,
+                target.y + (target.height - height) / 2f, width, height);
     }
 
     private boolean handleSeatChatNoticeClick(float x, float y,
@@ -10383,6 +10381,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             tableGalleryMedia.refresh(tableImageHistory, 8,
                                     "table-history");
                             if (preferences != null) preferences.saveDeferred();
+                            closeTableChat();
                         }
                         if (quickChat && quickChatAutoClose) {
                             uiLayer = UI_NONE;
@@ -12724,17 +12723,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return message.nickname() + ": " + content;
     }
 
-    static float seatChatNoticeMaxHeight(boolean localPlayer,
-            float holeCardHeight) {
-        return localPlayer ? holeCardHeight / 2f : holeCardHeight;
-    }
-
     static float seatChatNoticeDuration(LobbyChatMessage.Type type,
             String content) {
         if (type == LobbyChatMessage.Type.IMAGE) return 9f;
         if (type == LobbyChatMessage.Type.VOICE) return 60f;
-        int length = content == null ? 0
-                : content.codePointCount(0, content.length());
+        String spoken = GdxTextToSpeechPlayback.cleanChatMessage(content);
+        int length = spoken.codePointCount(0, spoken.length());
         return Math.max(3f, (float) Math.ceil(length / 25d));
     }
 
@@ -13237,13 +13231,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         ? "gdx.final.hand" : "gdx.final.hands") + "]";
         drawFittedCentered(finalDetailFont, details, centerX,
                 height - 222f, width - 180f, Color.WHITE, 0.94f * reveal);
+        boolean moneyCounterVisible = local != null
+                && summary.reason()
+                        != TableSessionSummary.CloseReason.RECOVERABLE_STOP
+                && summary.reason()
+                        != TableSessionSummary.CloseReason.FAILURE
+                && finalMoneyCounterVisible(net);
         drawFittedCentered(finalHeroFont,
                 finalSummaryHero(summary.reason(), net, gameText), centerX,
-                height - 325f, width - 100f, resultColor, reveal);
-        if (local != null && summary.reason()
-                != TableSessionSummary.CloseReason.RECOVERABLE_STOP
-                && summary.reason() != TableSessionSummary.CloseReason.FAILURE
-                && finalMoneyCounterVisible(net)) {
+                finalSummaryHeroY(height, moneyCounterVisible),
+                width - 100f, resultColor, reveal);
+        if (moneyCounterVisible) {
             boolean animated = finalCounterAnimationEnabled();
             if (!animated || finalAmountVisible(elapsed)) {
                 double value = animated
@@ -13436,6 +13434,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static Color finalSummaryResultColor(double net) {
         return net > 0d ? FINAL_WINNER
                 : net < 0d ? FINAL_LOSER : new Color(0x8b9098ff);
+    }
+
+    static float finalSummaryHeroY(float height,
+            boolean moneyCounterVisible) {
+        // With no amount below it (break-even or non-economic closure), the
+        // hero is the only element in the large gap between the header and
+        // player cards. Centre that single line in the useful vertical area;
+        // retaining the two-line origin would leave it visibly top-heavy.
+        return height - (moneyCounterVisible ? 325f : 490f);
     }
 
     /** A neutral result has a headline, never a redundant giant zero. */

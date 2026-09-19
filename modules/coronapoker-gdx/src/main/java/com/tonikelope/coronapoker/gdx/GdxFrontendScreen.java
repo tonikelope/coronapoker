@@ -1542,6 +1542,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     initialProperties, url, true);
             if (preferences != null) preferences.saveDeferred();
             refreshLobbyHistoryMedia();
+            lobbyImageMode = false;
+            activateField("lobbyChat");
         });
     }
 

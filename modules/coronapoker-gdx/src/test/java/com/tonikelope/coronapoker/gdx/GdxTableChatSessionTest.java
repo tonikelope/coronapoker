@@ -99,11 +99,19 @@ final class GdxTableChatSessionTest {
     }
 
     @Test
-    void localMediaConfirmationUsesHalfCardHeightLikeSwing() {
-        assertEquals(90f,
-                CoronaPokerGdxTable.seatChatNoticeMaxHeight(true, 180f));
-        assertEquals(180f,
-                CoronaPokerGdxTable.seatChatNoticeMaxHeight(false, 180f));
+    void mediaConfirmationFitsInsideThePlayerHudInsteadOfHidingCards() {
+        com.badlogic.gdx.math.Rectangle target =
+                new com.badlogic.gdx.math.Rectangle(100f, 200f, 286f, 120f);
+
+        com.badlogic.gdx.math.Rectangle wide = CoronaPokerGdxTable
+                .fitSeatChatNoticeBounds(target, 800f, 200f);
+        com.badlogic.gdx.math.Rectangle tall = CoronaPokerGdxTable
+                .fitSeatChatNoticeBounds(target, 200f, 600f);
+
+        assertTrue(target.contains(wide));
+        assertTrue(target.contains(tall));
+        assertEquals(274f, wide.width, 0.001f);
+        assertEquals(108f, tall.height, 0.001f);
     }
 
     @Test
@@ -112,6 +120,8 @@ final class GdxTableChatSessionTest {
                 LobbyChatMessage.Type.TEXT, "#12#"));
         assertEquals(4f, CoronaPokerGdxTable.seatChatNoticeDuration(
                 LobbyChatMessage.Type.TEXT, "x".repeat(76)));
+        assertEquals(3f, CoronaPokerGdxTable.seatChatNoticeDuration(
+                LobbyChatMessage.Type.TEXT, "#12# ".repeat(30)));
         assertEquals(60f, CoronaPokerGdxTable.seatChatNoticeDuration(
                 LobbyChatMessage.Type.VOICE, "UklGRg=="));
     }

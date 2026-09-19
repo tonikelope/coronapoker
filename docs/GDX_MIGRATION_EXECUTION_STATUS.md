@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 20:58 (Europe/Madrid)
+Última actualización: 2026-09-19 21:07 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -18,6 +18,12 @@ visual archivada en `reference/gdx-demo` y únicos ejecutables en `target`.
 
 ## Checkpoint de consolidación 2026-09-19
 
+- La barra rápida y los atajos ya comparten disponibilidad real: recompra no
+  ofrece ni envía una orden cuando la timba la prohíbe, e imágenes no abre un
+  compositor inservible cuando falta chat o el ajuste las bloquea. Estado y
+  atajos GDX pasan **111/111** pruebas focalizadas. JAR GDX: 266.250.438
+  bytes, SHA-256
+  `660C6808D6CD12F2DAC62F3F1E2E4A240876DF8614F400B67C4EAD736344A245`.
 - Cerrada la recuperación de una apertura de mesa fallida: el frontend vuelve
   a activar la pista propia de la pantalla de origen sin reiniciar el decoder y
   libera cualquier mesa GDX que hubiera quedado creada parcialmente. Compila y

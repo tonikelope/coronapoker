@@ -3166,13 +3166,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return;
             }
             if (GdxShortcutBindings.BUYIN.equals(shortcutAction)) {
-                submit(new TableCommand.ToggleImmediateRebuy());
+                if (canToggleImmediateRebuy()) {
+                    submit(new TableCommand.ToggleImmediateRebuy());
+                }
                 return;
             }
             if (GdxShortcutBindings.FASTCHAT_IMAGE.equals(shortcutAction)) {
-                chatImageMode = true;
-                emojiPickerOpen = false;
-                openUiLayer(UI_CHAT);
+                if (canUseTableImages()) {
+                    chatImageMode = true;
+                    emojiPickerOpen = false;
+                    openUiLayer(UI_CHAT);
+                }
                 return;
             }
         }
@@ -4118,10 +4122,28 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean fastButtonEnabled(int index) {
         return index == 0
                 || (index == 1 && tableChat != null)
-                || (index == 3 && tableChat != null
-                && tablePreference("chat_images_ingame", true))
+                || (index == 3 && canUseTableImages())
                 || (index == 2 && canUseTableVoice())
-                || index == 4 || index == 5 || index == 6 || index == 7;
+                || (index == 4 && canToggleImmediateRebuy())
+                || index == 5 || index == 6 || index == 7;
+    }
+
+    private boolean canToggleImmediateRebuy() {
+        return immediateRebuyControlEnabled(tableRebuyAllowed);
+    }
+
+    private boolean canUseTableImages() {
+        return tableImageControlEnabled(tableChat != null,
+                tablePreference("chat_images_ingame", true));
+    }
+
+    static boolean immediateRebuyControlEnabled(boolean rebuyAllowed) {
+        return rebuyAllowed;
+    }
+
+    static boolean tableImageControlEnabled(boolean chatAvailable,
+            boolean imagesEnabled) {
+        return chatAvailable && imagesEnabled;
     }
 
     private int fastButtonAt(float x, float y) {

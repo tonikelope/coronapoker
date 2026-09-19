@@ -14,6 +14,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class GdxTableShortcutTest {
 
     @Test
+    void quickActionsDoNotAdvertiseUnavailableTableFeatures() {
+        assertFalse(CoronaPokerGdxTable.immediateRebuyControlEnabled(false));
+        assertTrue(CoronaPokerGdxTable.immediateRebuyControlEnabled(true));
+        assertFalse(CoronaPokerGdxTable.tableImageControlEnabled(false, true));
+        assertFalse(CoronaPokerGdxTable.tableImageControlEnabled(true, false));
+        assertTrue(CoronaPokerGdxTable.tableImageControlEnabled(true, true));
+    }
+
+    @Test
     void usesTheCanonicalSwingPokerActionDefaults() {
         GdxShortcutBindings bindings = bindings();
         assertEquals(GdxShortcutBindings.FOLD,

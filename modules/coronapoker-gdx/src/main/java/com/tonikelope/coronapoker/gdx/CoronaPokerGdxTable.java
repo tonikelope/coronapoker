@@ -3490,9 +3490,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return terminationConfirmation;
         }
         GdxTableDialog confirmation = new GdxTableDialog(
-                GdxTableDialog.Kind.CONFIRM, "¿SALIR DE LA TIMBA?",
+                GdxTableDialog.Kind.CONFIRM,
+                uppercase(gameText.translate("gdx.dialog.confirmation")),
+                uppercase(gameText.translate(
+                        "exit.salir_de_la_timba_pregunta")),
                 com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.EXIT,
-                760, 0);
+                760, 0, false,
+                uppercase(gameText.translate("ui.cancelar")),
+                uppercase(gameText.translate("ui.aceptar")));
         terminationConfirmation = confirmation;
         confirmation.result().thenAccept(accepted -> {
             if (terminationConfirmation == confirmation) {
@@ -3527,9 +3532,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         GdxTableDialog confirmation = new GdxTableDialog(
                 GdxTableDialog.Kind.CONFIRM,
-                "¿DETENER LA TIMBA PARA RECUPERARLA?",
+                uppercase(gameText.translate("exit.detener_la_timba")),
+                uppercase(gameText.translate("gdx.stop_for_recovery")),
                 com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.EXIT,
-                820, 0);
+                820, 0, false,
+                uppercase(gameText.translate("ui.cancelar")),
+                uppercase(gameText.translate("ui.aceptar")));
         terminationConfirmation = confirmation;
         confirmation.result().thenAccept(accepted -> {
             if (terminationConfirmation == confirmation) {
@@ -3547,10 +3555,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         GdxTableDialog confirmation = new GdxTableDialog(
-                GdxTableDialog.Kind.CONFIRM, "¿MARCAR ÚLTIMA MANO?",
-                "LA TIMBA TERMINARÁ AL FINALIZAR ESTA MANO",
+                GdxTableDialog.Kind.CONFIRM,
+                uppercase(gameText.translate("game.ultima_mano_2")),
+                uppercase(gameText.translate("gdx.last_hand_detail")),
                 com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.NONE,
-                820, 0, false, "CANCELAR", "ÚLTIMA MANO");
+                820, 0, false,
+                uppercase(gameText.translate("ui.cancelar")),
+                uppercase(gameText.translate("game.ultima_mano_3")));
         confirmation.result().thenAccept(accepted -> {
             if (accepted) submit(new TableCommand.SetLastHand(true));
         });
@@ -3567,10 +3578,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         GdxTableDialog confirmation = new GdxTableDialog(
                 GdxTableDialog.Kind.CONFIRM,
-                "¿FORZAR RECONEXIÓN DE LOS JUGADORES?",
-                "LAS CONEXIONES HUMANAS SE RESTABLECERÁN SIN CERRAR LA TIMBA",
+                uppercase(gameText.translate(
+                        "conn.forzar_reconexion_de_todos_los")),
+                uppercase(gameText.translate("gdx.force_reconnect_detail")),
                 com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.MAINTENANCE,
-                900, 0, false, "CANCELAR", "RECONECTAR");
+                900, 0, false,
+                uppercase(gameText.translate("ui.cancelar")),
+                uppercase(gameText.translate("conn.reconectar")));
         forceReconnectConfirmation = confirmation;
         confirmation.result().thenAccept(accepted -> {
             if (forceReconnectConfirmation == confirmation) {
@@ -4588,7 +4602,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             recoverableTerminationRequested = false;
             String detail = failure.getMessage();
             showDialog(new GdxTableDialog(GdxTableDialog.Kind.ERROR,
-                    "NO SE PUDO CERRAR LA TIMBA"
+                    uppercase(gameText.translate(
+                            "gdx.termination_failed"))
                     + (detail == null || detail.isBlank()
                             ? "" : "\n" + detail),
                     com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.EXIT,
@@ -6377,7 +6392,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float potH = basePotH * pulse;
         double currentPot = Math.max(0d, livePot());
         String currentPotPrefix = liveState.runItTwicePotPrefix().isBlank()
-                ? "BOTE:" : liveState.runItTwicePotPrefix();
+                ? uppercase(gameText.translate("game.bote"))
+                : liveState.runItTwicePotPrefix();
         if (Double.compare(currentPot, lastPotValue) != 0
                 || !currentPotPrefix.equals(lastPotPrefix)) {
             lastPotValue = currentPot;
@@ -6610,7 +6626,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (((long) totalTime & 1L) != 0L) {
             return;
         }
-        String text = "TIMBA PAUSADA";
+        String text = uppercase(gameText.translate("game.timba_pausada"));
         BitmapFont.BitmapFontData data = pauseFont.getData();
         float oldX = data.scaleX;
         float oldY = data.scaleY;
@@ -6682,8 +6698,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.begin();
         drawFittedCenteredInBox(actionFont,
                 recoverableTerminationRequested
-                        ? "DETENIENDO Y GUARDANDO LA TIMBA..."
-                        : "SALIENDO DE LA TIMBA...",
+                        ? uppercase(gameText.translate(
+                                "gdx.stopping_and_saving"))
+                        : uppercase(gameText.translate(
+                                "gdx.leaving_game")),
                 panelX + 34f, panelY + 46f, panelW - 68f, 66f,
                 Color.WHITE, 1f);
         batch.end();
@@ -6830,24 +6848,29 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         shapes.end();
 
+        String blindsLabel = uppercase(gameText.translate(
+                "blinds.ciegas_titulo"));
         String blinds = liveState.smallBlind() > 0d
                 && liveState.bigBlind() > 0d
-                ? "CIEGAS  " + formatAmount(liveState.smallBlind())
+                ? blindsLabel + "  " + formatAmount(liveState.smallBlind())
                 + " / " + formatAmount(liveState.bigBlind())
-                : "CIEGAS  —";
+                : blindsLabel + "  —";
         if (tablePreference("show_time", false)) {
             blinds += "   " + formatPlayTime(liveState.playTimeSeconds());
         }
         String hand;
         if (liveState.lastHand()) {
-            hand = "ÚLTIMA MANO";
+            hand = uppercase(gameText.translate("game.ultima_mano"));
         } else if (liveState.handNumber() > 0
                 && liveState.maximumHands() > 0) {
-            hand = "MANO  " + liveState.handNumber()
+            hand = uppercase(gameText.translate("game.mano_2")) + "  "
+                    + liveState.handNumber()
                     + " / " + liveState.maximumHands();
         } else {
             hand = liveState.handNumber() > 0
-                    ? "MANO  " + liveState.handNumber() : "MANO  —";
+                    ? uppercase(gameText.translate("game.mano_2")) + "  "
+                            + liveState.handNumber()
+                    : uppercase(gameText.translate("game.mano_2")) + "  —";
         }
         batch.begin();
         drawFittedCenteredInBox(actionFont, blinds,
@@ -12359,7 +12382,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.end();
 
         batch.begin();
-        drawLeftInBox(uiFont, "REGISTRO DE LA TIMBA",
+        drawLeftInBox(uiFont, uppercase(gameText.translate(
+                "log.registro_de_la_timba")),
                 panelX + 34f, panelY + panelH - 72f,
                 panelW - 68f, 42f, Color.WHITE, alpha);
         float baseline = logY + logH - 42f;
@@ -12386,7 +12410,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         gameLogFont.setColor(Color.WHITE);
-        drawFittedCenteredInBox(actionFont, "CERRAR",
+        drawFittedCenteredInBox(actionFont, uppercase(gameText.translate(
+                "ui.cerrar")),
                 panelX + panelW - 224f, panelY + 24f,
                 194f, 58f, Color.WHITE, alpha);
         batch.end();
@@ -13230,19 +13255,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     : balance.netResult() < 0d ? FINAL_LOSER
                             : new Color(0x707070ff);
             String result = balance.netResult() > 0d
-                    ? "GANA " + formatAmount(balance.netResult())
+                    ? uppercase(gameText.translate("ui.gana_4")) + " "
+                            + formatAmount(balance.netResult())
                     : balance.netResult() < 0d
-                            ? "PIERDE " + formatAmount(-balance.netResult())
-                            : "NI GANA NI PIERDE";
+                            ? uppercase(gameText.translate("ui.pierde_2"))
+                                    + " "
+                                    + formatAmount(-balance.netResult())
+                            : uppercase(gameText.translate(
+                                    "ui.ni_gana_ni_pierde"));
             drawFittedCenteredInBox(finalCardBoldFont, result,
                     x + 10f, cardY + 82f, cardW - 20f, 32f,
                     cardResult, cardsReveal);
             drawFittedCenteredInBox(finalCardFont,
-                    "FICHAS " + formatAmount(balance.finalStack()),
+                    uppercase(gameText.translate("balance.fichas")) + " "
+                            + formatAmount(balance.finalStack()),
                     x + 10f, cardY + 46f, cardW - 20f, 26f,
                     new Color(0x2c3138ff), 0.92f * cardsReveal);
             drawFittedCenteredInBox(finalCardFont,
-                    "BUYIN " + formatAmount(balance.totalBuyin()),
+                    uppercase(gameText.translate("stats.buyin")) + " "
+                            + formatAmount(balance.totalBuyin()),
                     x + 10f, cardY + 16f, cardW - 20f, 25f,
                     new Color(0x4e555eff), 0.90f * cardsReveal);
         }

@@ -252,8 +252,10 @@ final class GdxGameDecisionSink implements GameDecisionSink {
             this.potText = potText;
             this.voteListener = voteListener;
             dialog = new GdxTableDialog(GdxTableDialog.Kind.CONFIRM,
-                    "RUN IT TWICE", message(), GameDialogSink.Icon.NONE,
-                    820, timeoutSeconds, false, "UNA VEZ", "DOS VECES");
+                    tr("runittwice.dialog_title", "RUN IT TWICE"), message(),
+                    GameDialogSink.Icon.NONE, 820, timeoutSeconds, false,
+                    tr("gdx.runittwice.once", "UNA VEZ"),
+                    tr("gdx.runittwice.twice", "DOS VECES"));
             dialog.result().thenAccept(answer -> choose(answer
                     ? VOTE_RUN_IT_TWICE : VOTE_NORMAL));
             presenter.accept(dialog);
@@ -269,9 +271,11 @@ final class GdxGameDecisionSink implements GameDecisionSink {
         }
 
         private String message() {
-            return "BOTE: " + potText + "\nVOTOS: " + normal
-                    + " UNA VEZ  ·  " + twice + " DOS VECES\n"
-                    + "SE NECESITA UNANIMIDAD (" + totalVoters + ")";
+            return tr("gdx.runittwice.tally",
+                    "BOTE: " + potText + "\nVOTOS: " + normal
+                            + " UNA VEZ  ·  " + twice + " DOS VECES\n"
+                            + "SE NECESITA UNANIMIDAD (" + totalVoters + ")",
+                    potText, normal, twice, totalVoters);
         }
 
         private void choose(int selected) {
@@ -291,9 +295,13 @@ final class GdxGameDecisionSink implements GameDecisionSink {
 
         NativeStraddleHandle(int timeoutSeconds, String amountText) {
             dialog = new GdxTableDialog(GdxTableDialog.Kind.CONFIRM,
-                    "STRADDLE", "¿PONER STRADDLE DE " + amountText + "?",
-                    GameDialogSink.Icon.NONE, 780, timeoutSeconds, false,
-                    "NO", "STRADDLE");
+                    tr("straddle.dialog_titulo", "STRADDLE"),
+                    tr("gdx.straddle.question",
+                            "¿PONER STRADDLE DE " + amountText + "?",
+                            amountText), GameDialogSink.Icon.NONE, 780,
+                    timeoutSeconds, false,
+                    tr("straddle.dialog_no", "NO"),
+                    tr("straddle.dialog_poner", "PONER"));
             dialog.result().thenAccept(answer -> decision.complete(answer
                     ? POST_STRADDLE : NO_STRADDLE));
             presenter.accept(dialog);
@@ -316,7 +324,8 @@ final class GdxGameDecisionSink implements GameDecisionSink {
                     || request.automatic();
             dialog = new GdxTableDialog(text.translate(request.headerKey()),
                     "", 820, request.timeoutSeconds(),
-                    !request.cancelAllowed(), cancelVisible ? "CANCELAR" : "",
+                    !request.cancelAllowed(), cancelVisible
+                            ? tr("ui.cancelar", "CANCELAR") : "",
                     request.minimum(), request.maximum(),
                     request.defaultAmount());
             dialog.result().thenAccept(accepted -> result.complete(
@@ -330,5 +339,11 @@ final class GdxGameDecisionSink implements GameDecisionSink {
         public void close() {
             if (!result.isDone()) dialog.dismiss();
         }
+    }
+
+    /** Keeps key-only test doubles readable while production uses i18n. */
+    private String tr(String key, String fallback, Object... arguments) {
+        String translated = text.translate(key, arguments);
+        return key.equals(translated) ? fallback : translated;
     }
 }

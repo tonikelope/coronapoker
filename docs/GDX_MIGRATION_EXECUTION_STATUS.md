@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 00:09 (Europe/Madrid)
+Última actualización: 2026-09-20 00:45 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,13 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Cerrado otro bloque de idioma funcional dentro de la mesa: votación RIT,
+  straddle, recompra, salida, parada recuperable, última mano, reconexión
+  forzada, pausa, bote y estados de terminación ya consumen el idioma activo.
+  Se eliminó además el mojibake del texto de straddle y se añadió una regresión
+  inglesa del voto RIT y del straddle. Pruebas focalizadas de decisiones, texto
+  y proyección: **110/110**. JAR GDX: 266.263.236 bytes, SHA-256
+  `5AA9D1C39C74604DDEACA83E82F08D2D0D27FDAC256E21C38A47ECDDBF26A687`.
 - Corregida una incompatibilidad real entre Ajustes GDX y CoronaPoker Swing:
   las notificaciones de chat durante la partida vuelven a usar la clave
   canónica compartida `chat_game_notifications`. GDX migra una sola vez la

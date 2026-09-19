@@ -97,7 +97,7 @@ final class GdxGameDecisionSinkTest {
         assertEquals("STRADDLE", dialog.title());
         assertEquals("¿PONER STRADDLE DE 0.4?", dialog.message());
         assertEquals("NO", dialog.negativeLabel());
-        assertEquals("STRADDLE", dialog.positiveLabel());
+        assertEquals("PONER", dialog.positiveLabel());
         assertEquals(10, dialog.seconds());
         assertTrue(accepted.isOpen());
         accepted.accept();
@@ -111,6 +111,26 @@ final class GdxGameDecisionSinkTest {
         assertEquals(GameDecisionSink.NO_STRADDLE,
                 timedOut.decision().toCompletableFuture().join());
         assertFalse(timedOut.isOpen());
+    }
+
+    @Test
+    void timedPokerDecisionsFollowTheSelectedLanguage() {
+        List<GdxTableDialog> shown = new ArrayList<>();
+        GdxGameDecisionSink decisions = new GdxGameDecisionSink(
+                new GdxGameText("en"), shown::add);
+
+        decisions.showRunItTwice(12, 3, "4.5", null)
+                .updateTally(1, 2);
+        GdxTableDialog rit = shown.get(0);
+        assertEquals("ONCE", rit.negativeLabel());
+        assertEquals("TWICE", rit.positiveLabel());
+        assertTrue(rit.message().contains("POT: 4.5"));
+        assertTrue(rit.message().contains("UNANIMOUS VOTE REQUIRED (3)"));
+
+        decisions.showStraddle(8, "0.8");
+        GdxTableDialog straddle = shown.get(1);
+        assertEquals("POST A 0.8 STRADDLE?", straddle.message());
+        assertEquals("POST", straddle.positiveLabel());
     }
 
     @Test

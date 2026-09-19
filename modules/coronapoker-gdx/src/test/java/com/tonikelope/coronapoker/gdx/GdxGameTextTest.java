@@ -38,6 +38,16 @@ final class GdxGameTextTest {
                 text.translate("gdx.settings.game.session.action.force_reconnect"));
         assertEquals("Unsaved changes",
                 text.translate("gdx.settings.unsaved.title"));
+        assertEquals("Waiting room", text.translate("gdx.lobby.title"));
+        assertEquals("Room closed", text.translate("gdx.lobby.closed"));
+        assertEquals("Paste an image or GIF URL",
+                text.translate("gdx.lobby.image_url_placeholder"));
+        assertEquals("Page 2 / 58",
+                text.translate("gdx.lobby.page", 2, 58));
+        assertEquals("Recording - press stop to send",
+                text.translate("gdx.lobby.voice_recording"));
+        assertEquals("The voice message could not be played",
+                text.translate("gdx.lobby.voice_playback_failed"));
 
         assertEquals("es", text.setLanguage("not-a-language"));
         assertEquals("CREAR TIMBA", text.translate("game.crear_timba"));

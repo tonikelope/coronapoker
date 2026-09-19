@@ -773,13 +773,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             drawLobbyMessages(state.chat(), 525f, 744f, 840f);
         }
         drawLobbyChatInput(525f, 215f, 440f);
-        button(965f, 215f, 85f, 70f, "EMOJI", false,
+        button(965f, 215f, 85f, 70f,
+                uppercase(gameText.translate("gdx.lobby.emoji")), false,
                 () -> {
                     lobbyImageMode = false;
                     lobbyEmojiPickerOpen = !lobbyEmojiPickerOpen;
                     activateField("lobbyChat");
                 });
-        button(1060f, 215f, 85f, 70f, "IMAGEN", false,
+        button(1060f, 215f, 85f, 70f,
+                uppercase(gameText.translate("gdx.lobby.image")), false,
                 () -> {
                     lobbyEmojiPickerOpen = false;
                     lobbyImageMode = !lobbyImageMode;
@@ -787,10 +789,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     if (lobbyImageMode) refreshLobbyHistoryMedia();
                 });
         button(1155f, 215f, 85f, 70f,
-                lobbyVoiceLive || lobbyVoiceOpening ? "PARAR" : "VOZ", false,
+                uppercase(gameText.translate(lobbyVoiceLive || lobbyVoiceOpening
+                        ? "audio.preview_parar" : "gdx.lobby.voice")), false,
                 this::toggleLobbyVoiceRecording, canUseLobbyVoice()
                         && !lobbyCommandPending && !lobbyVoiceStopping);
-        button(1250f, 215f, 115f, 70f, "ENVIAR", true,
+        button(1250f, 215f, 115f, 70f,
+                uppercase(gameText.translate("ui.enviar")), true,
                 this::sendLobbyComposer,
                 !lobbyCommandPending && !(lobbyImageMode
                         ? lobbyImageDraft : lobbyChatDraft).isBlank());
@@ -944,7 +948,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         y + 12f, bodyWidth, messageHeight - 55f,
                         Color.WHITE);
             } else if (message.type() == LobbyChatMessage.Type.VOICE) {
-                textFit(smallFont, "▶  NOTA DE VOZ", bodyX,
+                textFit(smallFont, "▶  " + uppercase(gameText.translate(
+                        "audio.notas_de_voz")), bodyX,
                         y + 23f, Color.WHITE, false, bodyWidth);
                 hit(bubbleX, y, bubbleW, messageHeight,
                         () -> playLobbyVoice(message));
@@ -1002,8 +1007,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawLobbyPresenceMessage(LobbyChatMessage message, float x,
             float y, float width, float height) {
-        String action = message.type() == LobbyChatMessage.Type.PLAYER_JOINED
-                ? " SE UNE A LA TIMBA" : " ABANDONA LA TIMBA";
+        String action = " " + uppercase(gameText.translate(
+                message.type() == LobbyChatMessage.Type.PLAYER_JOINED
+                        ? "gdx.lobby.player_joined"
+                        : "gdx.lobby.player_left"));
         String time = " (" + CHAT_TIME.format(message.timestamp()) + ")";
         float nickWidth = textWidth(tinyFont, message.nickname());
         float actionWidth = textWidth(tinyFont, action);
@@ -1107,16 +1114,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
     }
 
-    private static String lobbyMessageText(LobbyChatMessage message) {
-        return switch (message.type()) {
-            case PLAYER_JOINED -> message.nickname() + " se une a la timba";
-            case PLAYER_LEFT -> message.nickname() + " abandona la timba";
-            case VOICE -> message.nickname() + ": [Nota de voz]";
-            case IMAGE -> message.nickname() + ": " + message.content();
-            case TEXT -> message.nickname() + ": " + message.content();
-        };
-    }
-
     private void drawLobbyChatInput(float x, float y, float w) {
         String fieldId = lobbyImageMode ? "lobbyImage" : "lobbyChat";
         String draft = lobbyImageMode ? lobbyImageDraft : lobbyChatDraft;
@@ -1124,8 +1121,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         outerBox(x, y, w, 70f,
                 focused || hovered(x, y, w, 70f) ? CYAN : LINE,
                 pressed(x, y, w, 70f) ? new Color(0x0b1424ff) : PANEL_LIGHT);
-        String placeholder = lobbyImageMode ? "Pega una URL de imagen o GIF"
-                : "Escribe un mensaje";
+        String placeholder = gameText.translate(lobbyImageMode
+                ? "gdx.lobby.image_url_placeholder"
+                : "gdx.lobby.message_placeholder");
         if (!lobbyImageMode && !draft.isEmpty()) {
             drawLobbyComposerValue(draft, x + 22f, y, w - 44f,
                     focused);
@@ -1251,20 +1249,26 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawLobbyGameInfo(LobbySnapshot state, float x, float y) {
         NewGameTableDraft.Settings settings = state.tableSettings();
         if (settings == null) {
-            textFit(smallFont, "Recibiendo información del servidor…",
+            textFit(smallFont, gameText.translate(
+                    "status.recibiendo_info_servidor"),
                     x, y, MUTED, false, 390f);
             return;
         }
         NewGameTableDraft.BlindLevel blind = settings.blindLevels()
                 .get(settings.blindLevelIndex());
-        lobbyInfoRow(x, y, "Compra:", settings.fixedBuyin()
-                ? Integer.toString(settings.buyin()) : "Variable");
-        lobbyInfoRow(x, y - 70f, "Ciegas:", money(blind.smallBlind())
+        lobbyInfoRow(x, y, gameText.translate("ui.compra"),
+                settings.fixedBuyin() ? Integer.toString(settings.buyin())
+                        : gameText.translate(
+                                "gdx.settings.game.summary.value.variable"));
+        lobbyInfoRow(x, y - 70f, gameText.translate("blinds.ciegas"),
+                money(blind.smallBlind())
                 + " / " + money(blind.bigBlind()));
-        lobbyInfoRow(x, y - 140f, "Manos:", settings.handLimit()
+        lobbyInfoRow(x, y - 140f, gameText.translate("game.manos"),
+                settings.handLimit()
                 ? Integer.toString(settings.handLimitCount()) : "—");
         if (state.recovering()) {
-            textFit(tinyFont, "CONTINUANDO TIMBA ANTERIOR", x, y - 205f,
+            textFit(tinyFont, uppercase(gameText.translate(
+                    "gdx.newgame.recover_previous")), x, y - 205f,
                     ORANGE, false, 390f);
         }
     }
@@ -1281,18 +1285,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return String.format(Locale.ROOT, "%.2f", amount);
     }
 
-    private static String lobbyPhaseText(LobbySnapshot state) {
+    private String lobbyPhaseText(LobbySnapshot state) {
         return switch (state.phase()) {
-            case CONNECTING -> "Conectando…";
-            case KEY_EXCHANGE -> "Intercambio de claves…";
-            case RECEIVING_SERVER_INFO -> "Recibiendo información del servidor…";
-            case CONNECTED -> "Conectado";
-            case WAITING_FOR_PLAYERS -> "Esperando jugadores…";
-            case INITIALIZING_GAME -> "Inicializando timba…";
-            case RECONNECTING -> "Reconectando…";
-            case IN_GAME -> "Timba en curso";
-            case ERROR -> state.statusDetail().isBlank() ? "Error" : state.statusDetail();
-            case CLOSED -> "Sala cerrada";
+            case CONNECTING -> gameText.translate("status.conectando");
+            case KEY_EXCHANGE -> gameText.translate("status.intercambio_claves");
+            case RECEIVING_SERVER_INFO -> gameText.translate(
+                    "status.recibiendo_info_servidor");
+            case CONNECTED -> gameText.translate("status.conectado");
+            case WAITING_FOR_PLAYERS -> gameText.translate(
+                    "status.esperando_jugadores");
+            case INITIALIZING_GAME -> gameText.translate(
+                    "status.inicializando_juego");
+            case RECONNECTING -> gameText.translate("conn.reconectando");
+            case IN_GAME -> gameText.translate("game.timba_en_curso");
+            case ERROR -> state.statusDetail().isBlank()
+                    ? gameText.translate("gdx.lobby.error")
+                    : state.statusDetail();
+            case CLOSED -> gameText.translate("gdx.lobby.closed");
         };
     }
 
@@ -1310,9 +1319,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         hits.clear();
         shapes.setColor(new Color(0x02050cbb));
         shapes.rect(0f, 0f, WIDTH, HEIGHT);
-        String prompt = lobbyConfirmation == LobbyConfirmation.START
-                ? "¿SEGURO QUE QUIERES EMPEZAR YA?"
-                : "¿SEGURO QUE QUIERES SALIR AHORA?";
+        String prompt = uppercase(gameText.translate(
+                lobbyConfirmation == LobbyConfirmation.START
+                        ? "ui.seguro_que_quieres_empezar_ya"
+                        : "ui.seguro_que_quieres_salir_ahora"));
         // A confirmation is a true modal surface: underlying chat content must
         // never bleed through and compete with the decision text.
         shapes.setColor(new Color(0x00000099));
@@ -1324,10 +1334,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.setColor(new Color(0x36d9ffb8));
         shapes.rect(586f, 665f, 748f, 3f);
         textFit(headingFont, prompt, 960f, 560f, Color.WHITE, true, 700f);
-        button(635f, 405f, 300f, 75f, "CANCELAR", false,
+        button(635f, 405f, 300f, 75f,
+                uppercase(gameText.translate("ui.cancelar")), false,
                 () -> lobbyConfirmation = null);
         themedButton(985f, 405f, 300f, 75f,
-                lobbyConfirmation == LobbyConfirmation.START ? "¡A JUGAR!" : "SALIR",
+                uppercase(gameText.translate(
+                        lobbyConfirmation == LobbyConfirmation.START
+                                ? "ui.a_jugar" : "ui.salir")),
                 lobbyConfirmation == LobbyConfirmation.START
                         ? ButtonTone.POSITIVE : ButtonTone.DANGER,
                 this::confirmLobbyAction, true);
@@ -1415,7 +1428,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void kickSelectedParticipant() {
         LobbyParticipant target = selectedRemoteParticipant(lobby);
         if (target == null) {
-            showToast("Tienes que seleccionar algún participante");
+            showToast(gameText.translate(
+                    "ui.tienes_que_seleccionar_algun_participante"));
             return;
         }
         submitLobbyCommand(new LobbyCommand.Kick(target.nickname()),
@@ -1438,11 +1452,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void sendLobbyImage(String rawUrl) {
         String url = rawUrl == null ? "" : rawUrl.trim();
         if (!GdxChatImageHistory.isHttpUrl(url)) {
-            showToast("Introduce una URL HTTP o HTTPS de imagen o GIF");
+            showToast(gameText.translate("gdx.lobby.invalid_image_url"));
             return;
         }
         if (elapsed < lobbyImageSendAllowedAt) {
-            showToast("Espera un momento antes de enviar otra imagen");
+            showToast(gameText.translate("gdx.lobby.image_cooldown"));
             return;
         }
         submitLobbyCommand(new LobbyCommand.SendImage(url), () -> {
@@ -1457,9 +1471,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawLobbyImageGallery(float x, float y, float w, float h) {
         outerBox(x, y, w, h, CYAN_DARK, new Color(0x061321f5));
-        textFit(smallFont, "GALERÍA DE IMÁGENES Y GIF", x + 24f,
+        textFit(smallFont, uppercase(gameText.translate(
+                "gdx.lobby.image_gallery")), x + 24f,
                 y + h - 28f, GOLD, false, w - 410f);
-        textFit(tinyFont, "Selecciona una miniatura para enviarla",
+        textFit(tinyFont, gameText.translate("gdx.lobby.image_gallery_help"),
                 x + 24f, y + h - 58f, MUTED, false, w - 410f);
         boolean autoReceive = GdxChatImageHistory.autoReceive(
                 initialProperties);
@@ -1476,10 +1491,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 !lobbyImageHistory.isEmpty());
 
         if (lobbyImageHistory.isEmpty()) {
-            textFit(headingFont, "TU GALERÍA ESTÁ VACÍA", x + w / 2f,
+            textFit(headingFont, uppercase(gameText.translate(
+                    "gdx.lobby.image_gallery_empty")), x + w / 2f,
                     y + 225f, MUTED, true, w - 80f);
             textFit(smallFont,
-                    "Pega una URL abajo. Las imágenes usadas aparecerán aquí.",
+                    gameText.translate("gdx.lobby.image_gallery_empty_help"),
                     x + w / 2f, y + 175f, DISABLED, true, w - 100f);
             return;
         }
@@ -1537,7 +1553,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         int pageCount = (EMOJI_COUNT + EMOJI_PAGE_SIZE - 1) / EMOJI_PAGE_SIZE;
         textFit(smallFont, "EMOJIS " + first + " - " + last,
                 x + 28f, y + h - 30f, GOLD, false, 350f);
-        textFit(tinyFont, "PAGINA " + (lobbyEmojiPage + 1) + " / " + pageCount,
+        textFit(tinyFont, uppercase(gameText.translate("gdx.lobby.page",
+                lobbyEmojiPage + 1, pageCount)),
                 x + w - 330f, y + h - 30f, MUTED, false, 300f);
         float cellW = 82f;
         float cellH = 62f;
@@ -1560,13 +1577,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 replaceActiveSelection(" #" + number + "# ");
             });
         }
-        button(x + 30f, y + 18f, 155f, 52f, "ANTERIOR", false,
+        button(x + 30f, y + 18f, 155f, 52f,
+                uppercase(gameText.translate("ui.imagen_anterior")), false,
                 () -> lobbyEmojiPage = Math.max(0, lobbyEmojiPage - 1),
                 lobbyEmojiPage > 0);
-        button(x + w - 185f, y + 18f, 155f, 52f, "SIGUIENTE", false,
+        button(x + w - 185f, y + 18f, 155f, 52f,
+                uppercase(gameText.translate("ui.imagen_siguiente")), false,
                 () -> lobbyEmojiPage = Math.min(pageCount - 1,
                         lobbyEmojiPage + 1), lobbyEmojiPage + 1 < pageCount);
-        button(x + w / 2f - 80f, y + 18f, 160f, 52f, "CERRAR", false,
+        button(x + w / 2f - 80f, y + 18f, 160f, 52f,
+                uppercase(gameText.translate("ui.cerrar")), false,
                 () -> lobbyEmojiPickerOpen = false);
     }
 
@@ -1597,7 +1617,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyVoiceRecorder = recorder;
         lobbyVoiceOpening = true;
         lobbyVoiceLive = false;
-        lobbyVoiceStatus = "ABRIENDO MICROFONO...";
+        lobbyVoiceStatus = uppercase(gameText.translate(
+                "gdx.lobby.voice_opening"));
         lobbyVoiceStatusAt = elapsed;
         CompletableFuture.supplyAsync(() -> recorder.start(
                 () -> Gdx.app.postRunnable(() -> {
@@ -1605,7 +1626,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     lobbyVoiceOpening = false;
                     lobbyVoiceLive = true;
                     lobbyVoiceLiveAt = elapsed;
-                    lobbyVoiceStatus = "GRABANDO - PULSA PARAR PARA ENVIAR";
+                    lobbyVoiceStatus = uppercase(gameText.translate(
+                            "gdx.lobby.voice_recording"));
                     lobbyVoiceStatusAt = elapsed;
                 }), () -> Gdx.app.postRunnable(() -> {
                     if (!disposed && lobbyVoiceRecorder == recorder) {
@@ -1619,7 +1641,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                 lobbyVoiceOpening = false;
                                 lobbyVoiceLive = false;
                                 lobbyVoiceRecorder = null;
-                                lobbyVoiceStatus = "MICROFONO NO DISPONIBLE";
+                                lobbyVoiceStatus = uppercase(gameText.translate(
+                                        "gdx.lobby.voice_unavailable"));
                                 lobbyVoiceStatusAt = elapsed;
                             }
                         }));
@@ -1631,7 +1654,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyVoiceStopping = true;
         lobbyVoiceOpening = false;
         lobbyVoiceLive = false;
-        lobbyVoiceStatus = discard ? "NOTA CANCELADA" : "PROCESANDO NOTA...";
+        lobbyVoiceStatus = uppercase(gameText.translate(discard
+                ? "gdx.lobby.voice_cancelled"
+                : "gdx.lobby.voice_processing"));
         lobbyVoiceStatusAt = elapsed;
         if (discard) recorder.abort();
         CompletableFuture.supplyAsync(() -> discard
@@ -1643,14 +1668,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             lobbyVoiceStopping = false;
                             if (disposed || discard) return;
                             if (failure != null || wav == null) {
-                                lobbyVoiceStatus = "NOTA DESCARTADA";
+                                lobbyVoiceStatus = uppercase(gameText.translate(
+                                        "gdx.lobby.voice_discarded"));
                                 lobbyVoiceStatusAt = elapsed;
                                 return;
                             }
-                            lobbyVoiceStatus = "ENVIANDO NOTA...";
+                            lobbyVoiceStatus = uppercase(gameText.translate(
+                                    "gdx.lobby.voice_sending"));
                             lobbyVoiceStatusAt = elapsed;
                             submitLobbyCommand(new LobbyCommand.SendVoice(wav), () -> {
-                                lobbyVoiceStatus = "NOTA ENVIADA";
+                                lobbyVoiceStatus = uppercase(gameText.translate(
+                                        "gdx.lobby.voice_sent"));
                                 lobbyVoiceStatusAt = elapsed;
                             });
                         }));
@@ -1784,19 +1812,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void playLobbyVoice(LobbyChatMessage message) {
         if (!audioControl.enabled()
                 || preferenceBoolean("audio_block_voice_messages", false)) {
-            showToast("La reproducción de notas de voz está desactivada");
+            showToast(gameText.translate("gdx.lobby.voice_playback_disabled"));
             return;
         }
         try {
             byte[] wav = Base64.getDecoder().decode(message.content());
             if (!com.tonikelope.coronapoker.core.audio.VoiceWavContract
                     .isValid(wav)) {
-                showToast("La nota de voz no es válida");
+                showToast(gameText.translate("gdx.lobby.voice_invalid"));
                 return;
             }
             GdxVoicePlayback.play(wav);
         } catch (IllegalArgumentException malformed) {
-            showToast("La nota de voz no se puede reproducir");
+            showToast(gameText.translate("gdx.lobby.voice_playback_failed"));
         }
     }
 

@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 22:04 (Europe/Madrid)
+Última actualización: 2026-09-19 22:22 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,14 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Cerrado un bloque funcional del cambio de idioma en la sala de espera: los
+  controles de chat, placeholders, presencia de jugadores, galería, paginación
+  de emojis y estados/errores de notas de voz ya se resuelven en vivo mediante
+  el diccionario común ES/EN. Se eliminó además un formateador de mensajes
+  antiguo sin consumidores. Pruebas focalizadas de idioma y geometría del chat:
+  **6/6**; compilación y empaquetado correctos. JAR GDX: 266.257.199 bytes,
+  SHA-256
+  `7B0E30956D95C587415B09307231A0036948F5E2B9DD46D7F98B831DAB114020`.
 - Eliminada la causa estructural de la congelación al salir desde Fin de
   timba: completar su barrera visual ya no ejecuta en el hilo de render el
   cierre potencialmente bloqueante del crupier, red y ejecutores. La pantalla

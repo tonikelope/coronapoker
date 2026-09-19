@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 23:04 (Europe/Madrid)
+Última actualización: 2026-09-19 23:22 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,18 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Unificado el ritmo visual del mismo Ajustes GDX en menú, sala y mesa: las
+  filas ordinarias usan ahora una geometría común de 68 px y un avance de
+  70 px, incluidas sus áreas clicables. Se elimina la divergencia 76/84 que
+  podía provocar distinta densidad, desbordes y alineación según el contexto.
+  Pruebas focalizadas de layout, contrato, cableado y transacción: **31/31**;
+  empaquetado correcto. JAR GDX: 266.258.844 bytes, SHA-256
+  `468494A72839EA0639321D138811705B5270D71AA37237C90077600549DC07B8`.
+  La validación visual OpenGL real sigue pendiente y no se da por certificada.
+- Decisión de prioridad: Estadísticas GDX queda expresamente aplazada hasta
+  el final. Antes se cerrarán la calidad visual y el cableado funcional de
+  Ajustes, Nueva/Unirse a timba, sala de espera, mesa y pantalla final, junto
+  con la certificación de una timba completa.
 - La pantalla final y los menús de edición nativos de chat/registro ya usan
   el idioma activo para títulos, resultado, recuento de manos, navegación y
   acciones del portapapeles. La navegación conserva Estadísticas deshabilitada
@@ -1167,6 +1179,10 @@ interactiva multiproceso y pulido de estados visibles.
 
 ### P2.2 — Estadísticas GDX
 
+Prioridad explícita: **último bloque funcional**, una vez que el resto de GDX
+esté fino, jugable y certificado. No debe desplazar trabajo de interfaz,
+cableado o estabilidad de la timba.
+
 - Acceso desde menú principal y fin de timba.
 - Tablas, filtros, gráficas e historial.
 - Sincronización aplicable.
@@ -1212,9 +1228,10 @@ GDX correspondiente, como ya hace `GAME OVER -> ESPECTADOR`.
 
 ## Siguiente trabajo exacto
 
-Prioridad vigente acordada el 2026-09-07: antes de pulir Ajustes, demostrar una
-partida de red completa con humanos y combinaciones mixtas de frontend. El
-renderer no puede alterar reglas, barreras, locks, protocolo ni criptografía.
+Prioridad vigente actualizada el 2026-09-19: con la partida de red y los P0
+automatizados ya cerrados, terminar primero la superficie GDX funcional y
+visual completa. El renderer no puede alterar reglas, barreras, locks,
+protocolo ni criptografía. Estadísticas queda para el final.
 
 1. CERRADO: partida completa y saldo consensuado con host Swing + clientes
    Swing/GDX y con host GDX + clientes Swing/GDX; pausa/reanudación y ALL-IN
@@ -1239,7 +1256,8 @@ renderer no puede alterar reglas, barreras, locks, protocolo ni criptografía.
 7. EN CURSO: chat/medios. La galería compartida lobby/mesa y su persistencia ya
    están cerradas en pruebas focalizadas; sigue QA visual/multiproceso, voz y
    notificaciones. Después: pantalla final, registro/navegación, lobby,
-   estadísticas, rendimiento y certificación final FAST/BALANCED.
+   rendimiento y certificación final FAST/BALANCED. Estadísticas se abordará
+   sólo al final, por decisión expresa.
 
 ## Protocolo de actualización
 

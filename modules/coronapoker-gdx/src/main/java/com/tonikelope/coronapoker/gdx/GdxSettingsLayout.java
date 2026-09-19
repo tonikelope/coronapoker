@@ -20,6 +20,9 @@ final class GdxSettingsLayout {
     static final float CONTENT_TOTAL_VERTICAL_INSET = 362f;
     static final float FOOTER_BOTTOM_INSET = 24f;
     static final float FOOTER_BUTTON_HEIGHT = 58f;
+    /** Common row geometry for menu, waiting-room and live-table settings. */
+    static final float ROW_HEIGHT = 68f;
+    static final float ROW_STRIDE = 70f;
 
     private GdxSettingsLayout() {
     }
@@ -94,10 +97,10 @@ final class GdxSettingsLayout {
     static float rowStride(float contentHeight, int rowCount) {
         if (rowCount <= 1) return 0f;
         float firstRowBottomInset = 158f;
-        float lastRowBottomInset = 16f;
+        float lastRowBottomInset = 8f;
         float available = contentHeight - firstRowBottomInset
                 - lastRowBottomInset;
-        return Math.min(84f, Math.max(66f,
+        return Math.min(ROW_STRIDE, Math.max(62f,
                 available / (rowCount - 1)));
     }
 

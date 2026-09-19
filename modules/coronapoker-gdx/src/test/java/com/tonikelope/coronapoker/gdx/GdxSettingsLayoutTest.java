@@ -102,10 +102,11 @@ final class GdxSettingsLayoutTest {
         float stride = GdxSettingsLayout.rowStride(contentHeight, 6);
         float lastRowY = firstRowY - stride * 5f;
 
-        assertTrue(stride < 84f,
-                "six rows must close the gaps instead of crossing the footer");
-        assertTrue(lastRowY >= 16f,
+        assertEquals(GdxSettingsLayout.ROW_STRIDE, stride,
+                "both settings renderers must use the same row rhythm");
+        assertTrue(lastRowY >= 8f,
                 "the final settings row must remain inside content bounds");
-        assertEquals(84f, GdxSettingsLayout.rowStride(contentHeight, 5));
+        assertEquals(GdxSettingsLayout.ROW_STRIDE,
+                GdxSettingsLayout.rowStride(contentHeight, 5));
     }
 }

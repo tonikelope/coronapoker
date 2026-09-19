@@ -2287,7 +2287,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     : () -> togglePreference(option.key(), option.fallback());
             toggle(x + 34f, rowY, w - 68f, option.label(gameText), value,
                     action, enabled);
-            rowY -= 84f;
+            rowY -= GdxSettingsLayout.ROW_STRIDE;
         }
         if (GdxSettingsContract.hasVoiceRetention(page)) {
             settingsStepper(x + 34f, rowY, w - 68f, 70f,
@@ -2572,19 +2572,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         : settingsTable.structureName(),
                 () -> adjustSettingsBlindStructure(-1),
                 () -> adjustSettingsBlindStructure(1), enabled);
-        settingsStepper(leftX, y - 84f, columnWidth, 70f,
+        settingsStepper(leftX, y - GdxSettingsLayout.ROW_STRIDE, columnWidth, 70f,
                 settingsGameText("row.initial_blinds"), settingsBlindLevel(),
                 () -> adjustSettingsBlindLevel(-1),
                 () -> adjustSettingsBlindLevel(1), enabled);
-        toggle(leftX, y - 168f, columnWidth,
+        toggle(leftX, y - 2f * GdxSettingsLayout.ROW_STRIDE, columnWidth,
                 settingsGameText("row.ante"),
                 settingsTable.ante(), () -> settingsTable
                         .setAnte(!settingsTable.ante()), enabled);
-        toggle(leftX, y - 252f, columnWidth,
+        toggle(leftX, y - 3f * GdxSettingsLayout.ROW_STRIDE, columnWidth,
                 settingsGameText("row.straddle"),
                 settingsTable.straddle(), () -> settingsTable
                         .setStraddle(!settingsTable.straddle()), enabled);
-        button(leftX, y - 336f, columnWidth, 70f,
+        button(leftX, y - 4f * GdxSettingsLayout.ROW_STRIDE, columnWidth, 70f,
                 settingsGameText("row.manage_structures"), false,
                 this::openSettingsBlindStructureEditor, enabled);
         toggle(rightX, y, columnWidth,
@@ -2592,23 +2592,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 settingsTable.increaseBlinds(), () -> settingsTable
                         .setIncreaseBlinds(!settingsTable.increaseBlinds()),
                 enabled);
-        settingsStepper(rightX, y - 84f, columnWidth, 70f,
+        settingsStepper(rightX, y - GdxSettingsLayout.ROW_STRIDE, columnWidth, 70f,
                 settingsGameText("row.unit"),
                 settingsBlindUnit(), this::toggleSettingsBlindIncreaseType,
                 this::toggleSettingsBlindIncreaseType,
                 enabled && settingsTable.increaseBlinds());
-        settingsStepper(rightX, y - 168f, columnWidth, 70f,
+        settingsStepper(rightX, y - 2f * GdxSettingsLayout.ROW_STRIDE, columnWidth, 70f,
                 settingsGameText("row.interval"),
                 settingsBlindInterval(),
                 () -> adjustSettingsBlindInterval(-1),
                 () -> adjustSettingsBlindInterval(1),
                 enabled && settingsTable.increaseBlinds());
-        toggle(rightX, y - 252f, columnWidth,
+        toggle(rightX, y - 3f * GdxSettingsLayout.ROW_STRIDE, columnWidth,
                 settingsGameText("row.blind_cap"),
                 settingsTable.blindCap(), () -> settingsTable
                         .setBlindCap(!settingsTable.blindCap()),
                 enabled && settingsTable.blindCapControlEnabled());
-        settingsStepper(rightX, y - 336f, columnWidth, 70f,
+        settingsStepper(rightX, y - 4f * GdxSettingsLayout.ROW_STRIDE, columnWidth, 70f,
                 settingsGameText("row.cap"), settingsBlindCap(),
                 () -> adjustSettingsBlindCap(-1),
                 () -> adjustSettingsBlindCap(1),
@@ -2622,25 +2622,25 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 settingsTable.fixedBuyin(), () -> settingsTable
                         .setFixedBuyin(!settingsTable.fixedBuyin()),
                 economyEditable);
-        settingsStepper(x + 34f, y - 84f, w - 68f,
+        settingsStepper(x + 34f, y - GdxSettingsLayout.ROW_STRIDE, w - 68f,
                 settingsGameText("row.initial_buyin"),
                 settingsTable.buyin(),
                 () -> settingsTable.setBuyin(settingsTable.buyin() - 1),
                 () -> settingsTable.setBuyin(settingsTable.buyin() + 1),
                 economyEditable && settingsTable.fixedBuyin());
-        settingsStepper(x + 34f, y - 168f, w - 68f,
+        settingsStepper(x + 34f, y - 2f * GdxSettingsLayout.ROW_STRIDE, w - 68f,
                 settingsGameText("row.minimum_range_bb"),
                 settingsTable.minBuyinBb(), () -> settingsTable
                         .setMinBuyinBb(settingsTable.minBuyinBb() - 5),
                 () -> settingsTable.setMinBuyinBb(
                         settingsTable.minBuyinBb() + 5), economyEditable);
-        settingsStepper(x + 34f, y - 252f, w - 68f,
+        settingsStepper(x + 34f, y - 3f * GdxSettingsLayout.ROW_STRIDE, w - 68f,
                 settingsGameText("row.maximum_range_bb"),
                 settingsTable.maxBuyinBb(), () -> settingsTable
                         .setMaxBuyinBb(settingsTable.maxBuyinBb() - 5),
                 () -> settingsTable.setMaxBuyinBb(
                         settingsTable.maxBuyinBb() + 5), economyEditable);
-        settingsStepper(x + 34f, y - 336f, w - 68f, 70f,
+        settingsStepper(x + 34f, y - 4f * GdxSettingsLayout.ROW_STRIDE, w - 68f, 70f,
                 settingsGameText("row.rebuy_cap"),
                 settingsTable.rebuyCapPolicy()
                         == NewGameTableDraft.RebuyCapPolicy.BUY_IN
@@ -2657,12 +2657,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 settingsTable.rebuy(),
                 () -> settingsTable.setRebuy(!settingsTable.rebuy()),
                 editable);
-        toggle(x + 34f, y - 84f, w - 68f,
+        toggle(x + 34f, y - GdxSettingsLayout.ROW_STRIDE, w - 68f,
                 settingsGameText("row.player_limit"),
                 settingsTable.rebuyLimit(), () -> settingsTable
                         .setRebuyLimit(!settingsTable.rebuyLimit()),
                 editable && settingsTable.rebuy());
-        settingsStepper(x + 34f, y - 168f, w - 68f,
+        settingsStepper(x + 34f, y - 2f * GdxSettingsLayout.ROW_STRIDE, w - 68f,
                 settingsGameText("row.maximum_rebuys"),
                 settingsTable.rebuyLimitCount(),
                 () -> settingsTable.setRebuyLimitCount(
@@ -2680,12 +2680,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> adjustSettingsBotDifficulty(-1),
                 () -> adjustSettingsBotDifficulty(1),
                 editable);
-        toggle(x + 34f, y - 84f, w - 68f,
+        toggle(x + 34f, y - GdxSettingsLayout.ROW_STRIDE, w - 68f,
                 settingsGameText("row.bot_rebuy"),
                 settingsTable.botRebuy(), () -> settingsTable
                         .setBotRebuy(!settingsTable.botRebuy()),
                 editable && settingsTable.botRebuyEnabled());
-        toggle(x + 34f, y - 168f, w - 68f,
+        toggle(x + 34f, y - 2f * GdxSettingsLayout.ROW_STRIDE, w - 68f,
                 settingsGameText("row.bot_balance"),
                 settingsTable.botBalanceToHumans(), () -> settingsTable
                         .setBotBalanceToHumans(
@@ -2698,18 +2698,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 settingsGameText("row.hand_limit"),
                 settingsTable.handLimit(), () -> settingsTable
                         .setHandLimit(!settingsTable.handLimit()), editable);
-        settingsStepper(x + 34f, y - 84f, w - 68f,
+        settingsStepper(x + 34f, y - GdxSettingsLayout.ROW_STRIDE, w - 68f,
                 settingsGameText("row.hand_count"),
                 settingsTable.handLimitCount(), () -> settingsTable
                         .setHandLimitCount(settingsTable.handLimitCount() - 1),
                 () -> settingsTable.setHandLimitCount(
                         settingsTable.handLimitCount() + 1),
                 editable && settingsTable.handLimit());
-        toggle(x + 34f, y - 168f, w - 68f,
+        toggle(x + 34f, y - 2f * GdxSettingsLayout.ROW_STRIDE, w - 68f,
                 settingsGameText("row.think_time"),
                 settingsTable.thinkTime(), () -> settingsTable
                         .setThinkTime(!settingsTable.thinkTime()), editable);
-        settingsStepper(x + 34f, y - 252f, w - 68f,
+        settingsStepper(x + 34f, y - 3f * GdxSettingsLayout.ROW_STRIDE, w - 68f,
                 settingsGameText("row.think_seconds"),
                 settingsTable.thinkSeconds(),
                 () -> settingsTable.setThinkSeconds(
@@ -2717,7 +2717,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> settingsTable.setThinkSeconds(
                         settingsTable.thinkSeconds() + 5),
                 editable && settingsTable.thinkTime());
-        settingsStepper(x + 34f, y - 336f, w - 68f,
+        settingsStepper(x + 34f, y - 4f * GdxSettingsLayout.ROW_STRIDE, w - 68f,
                 settingsGameText("row.showdown_seconds"),
                 settingsTable.showdownSeconds(),
                 () -> settingsTable.setShowdownSeconds(
@@ -2731,10 +2731,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         toggle(x + 34f, y, w - 68f, "IWTSTH",
                 settingsTable.iwtsth(), () -> settingsTable
                         .setIwtsth(!settingsTable.iwtsth()), editable);
-        toggle(x + 34f, y - 84f, w - 68f, "RUN IT TWICE",
+        toggle(x + 34f, y - GdxSettingsLayout.ROW_STRIDE, w - 68f, "RUN IT TWICE",
                 settingsTable.runItTwice(), () -> settingsTable
                         .setRunItTwice(!settingsTable.runItTwice()), editable);
-        settingsStepper(x + 34f, y - 168f, w - 68f, 70f,
+        settingsStepper(x + 34f, y - 2f * GdxSettingsLayout.ROW_STRIDE, w - 68f, 70f,
                 settingsGameText("row.rabbit_hunting"), settingsRabbitText(),
                 () -> adjustSettingsRabbit(-1),
                 () -> adjustSettingsRabbit(1), editable);
@@ -4521,12 +4521,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void toggle(float x, float y, float w, String label,
             boolean value, Runnable action, boolean enabled) {
-        Color border = enabled && hovered(x, y, w, 76f)
+        Color border = enabled && hovered(x, y, w, GdxSettingsLayout.ROW_HEIGHT)
                 ? CYAN : enabled ? LINE : new Color(0x253044ff);
-        Color fill = enabled && pressed(x, y, w, 76f)
+        Color fill = enabled && pressed(x, y, w, GdxSettingsLayout.ROW_HEIGHT)
                 ? new Color(0x0b1424ff) : enabled ? PANEL_LIGHT : new Color(0x0b111ddd);
-        outerBox(x, y, w, 76f, border, fill);
-        textFit(smallFont, label, x + 22f, y + 47f,
+        outerBox(x, y, w, GdxSettingsLayout.ROW_HEIGHT, border, fill);
+        textFit(smallFont, label, x + 22f, y + 43f,
                 enabled ? Color.WHITE : DISABLED, false, w - 132f);
         float tx = x + w - 88f;
         float target = value && enabled ? 1f : 0f;
@@ -4536,12 +4536,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Color track = new Color(0x253248ff).lerp(
                 new Color(0x20c765ff), animation);
         shapes.setColor(track);
-        roundedRect(tx, y + 19f, 66f, 38f, 19f);
+        roundedRect(tx, y + 15f, 66f, 38f, 19f);
         shapes.setColor(new Color(0x8290a4ff).lerp(
                 new Color(0xb8ffc5ff), animation));
-        shapes.circle(tx + 19f + 28f * animation, y + 38f, 14f, 32);
+        shapes.circle(tx + 19f + 28f * animation, y + 34f, 14f, 32);
         if (enabled) {
-            hit(x, y, w, 76f, action);
+            hit(x, y, w, GdxSettingsLayout.ROW_HEIGHT, action);
         }
     }
 

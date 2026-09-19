@@ -217,6 +217,8 @@ final class GdxSettingsContract {
                     option("sonido_visor", "VISOR DE CARTAS", true,
                             Gate.EFFECTS),
                     option("sonido_volumen", "CAMBIAR VOLUMEN", true,
+                            Gate.EFFECTS),
+                    option("sonido_arranque", "ARRANQUE DE LA APP", true,
                             Gate.EFFECTS)),
             page("AVISOS Y CHAT",
                     option("sonido_aviso", "ADVERTENCIA", true,

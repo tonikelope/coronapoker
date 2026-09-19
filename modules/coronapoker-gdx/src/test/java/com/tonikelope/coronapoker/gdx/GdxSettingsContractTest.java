@@ -143,7 +143,8 @@ final class GdxSettingsContractTest {
                 "sonido_ultima_mano", "sonido_pausa", "sonido_tu_turno",
                 "sonido_aviso_tiempo", "sonido_fin_partida",
                 "sonido_entra", "sonido_sale",
-                "sonido_tapete", "sonido_visor", "tts_server",
+                "sonido_tapete", "sonido_visor", "sonido_arranque",
+                "tts_server",
                 "voice_messages", "audio_mic_enabled",
                 "audio_block_voice_messages", "audio_play_own_voice",
                 "audio_block_tts_local")));
@@ -157,7 +158,6 @@ final class GdxSettingsContractTest {
         // consumers land.
         assertFalse(keys.contains("musica_about"));
         assertFalse(keys.contains("musica_stats"));
-        assertFalse(keys.contains("sonido_arranque"));
         assertFalse(keys.contains("sonido_entrar_sala"));
     }
 

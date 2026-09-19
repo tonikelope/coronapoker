@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 18:15 (Europe/Madrid)
+Última actualización: 2026-09-19 18:38 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -18,6 +18,14 @@ visual archivada en `reference/gdx-demo` y únicos ejecutables en `target`.
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Cerrada una carencia real de paridad en Ajustes/arranque: la intro GDX ya no
+  usa el sonido genérico de interruptor, sino el mismo `misc/init.wav` de Swing
+  en el instante en que se enciende la intro. Respeta `sonido_arranque`, el
+  maestro de efectos, el mute global y el volumen general. La opción aparece en
+  el catálogo compartido de Audio tanto en menú como en mesa y se traduce en
+  español e inglés. El contrato focalizado pasa **17/17**. JAR GDX:
+  266.244.885 bytes, SHA-256
+  `9FEABF3BACFA432BDC44618008F1B4C57CEA405EA21F90FCD0C4F8617AA2CA58`.
 - Corregido un P0 confirmado en el log GDX real: rotación de posiciones,
   recogida de apuestas, pagos, recompras y cierre de barajado podían conservar
   su evento canónico hasta el final de la animación y ser adelantados por reloj

@@ -359,11 +359,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         startupAudioHeld = true;
     }
 
-    /** Starts the existing menu stream at the intro light-switch cue, exactly once. */
+    /** Starts the menu audio at the intro light-up boundary, exactly once. */
     void releaseStartupAudio() {
         if (!startupAudioHeld) return;
         startupAudioHeld = false;
-        playFrontendSwitchSound(true);
+        // Keep parity with the classic frontend: application startup has its
+        // own cue and preference.  It is not a settings-switch interaction.
+        playPreferenceSound("misc/init.wav", "sonido_arranque", 1f);
         syncMusicForSurface();
     }
 

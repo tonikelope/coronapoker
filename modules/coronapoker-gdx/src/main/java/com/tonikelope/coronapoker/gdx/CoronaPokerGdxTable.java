@@ -10200,7 +10200,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         String clipboard = Gdx.app.getClipboard().getContents();
         boolean[] enabled = { !chatDraft.isEmpty(),
             clipboard != null && !clipboard.isEmpty(), selected, selected };
-        String[] labels = { "SELECCIONAR TODO", "PEGAR", "COPIAR", "CORTAR" };
+        String[] labels = {
+            uppercase(gameText.translate("ui.seleccionar_todo")),
+            uppercase(gameText.translate("ui.pegar")),
+            uppercase(gameText.translate("ui.copiar")),
+            uppercase(gameText.translate("ui.cortar"))
+        };
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         shapes.setColor(0f, 0f, 0f, 0.58f * alpha);
@@ -10463,7 +10468,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final float width = 270f;
         final float height = 112f;
         final float rowHeight = 48f;
-        String[] labels = { "SELECCIONAR TODO", "COPIAR" };
+        String[] labels = {
+            uppercase(gameText.translate("ui.seleccionar_todo")),
+            uppercase(gameText.translate("ui.copiar"))
+        };
         boolean[] enabled = { !gameLogLines().isEmpty(),
             gameLogSelectionAnchor >= 0 && gameLogSelectionCaret >= 0 };
         shapes.begin(ShapeRenderer.ShapeType.Filled);
@@ -13117,9 +13125,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.begin();
         Texture[] navIcons = {finalMenuIcon, finalLogIcon,
             finalStatsIcon, finalContinueIcon};
-        String[] navLabels = {"MENÚ PRINCIPAL", "REGISTRO DE LA TIMBA",
-            "ESTADÍSTICAS", tableHost ? "CONTINUAR ESTA TIMBA"
-                    : "RECONECTAR AL SERVIDOR"};
+        String[] navLabels = {
+            uppercase(gameText.translate("ui.menu_principal")),
+            uppercase(gameText.translate("log.registro_de_la_timba")),
+            uppercase(gameText.translate("stats.estadisticas")),
+            uppercase(gameText.translate(tableHost
+                    ? "game.continuar_esta_timba"
+                    : "gdx.final.reconnect_server"))
+        };
         for (int index = 0; index < 4; index++) {
             float x = navStart + index * (navWidth + navGap);
             boolean enabled = finalSummaryNavEnabled(index);
@@ -13138,16 +13151,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.setColor(1f, 1f, 1f, reveal);
         batch.draw(speaker, width - 66f, height - 70f, 30f, 30f);
 
-        drawFittedCentered(finalTitleFont, finalSummaryTitle(summary.reason()),
+        drawFittedCentered(finalTitleFont,
+                finalSummaryTitle(summary.reason(), gameText),
                 centerX, height - 168f, width - 150f, Color.WHITE, reveal);
         String details = finalSummaryDate(summary.endedAtMillis())
                 + "   (" + finalSummaryDuration(summary.durationSeconds())
                 + ")   [" + summary.handCount() + " "
-                + (summary.handCount() == 1 ? "mano" : "manos") + "]";
+                + gameText.translate(summary.handCount() == 1
+                        ? "gdx.final.hand" : "gdx.final.hands") + "]";
         drawFittedCentered(finalDetailFont, details, centerX,
                 height - 222f, width - 180f, Color.WHITE, 0.94f * reveal);
         drawFittedCentered(finalHeroFont,
-                finalSummaryHero(summary.reason(), net), centerX,
+                finalSummaryHero(summary.reason(), net, gameText), centerX,
                 height - 325f, width - 100f, resultColor, reveal);
         if (local != null && summary.reason()
                 != TableSessionSummary.CloseReason.RECOVERABLE_STOP
@@ -13355,25 +13370,31 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private static String finalSummaryTitle(
-            TableSessionSummary.CloseReason reason) {
-        return switch (reason) {
-            case COMPLETED -> "LA TIMBA HA TERMINADO";
-            case EXITED -> "HAS SALIDO DE LA TIMBA";
-            case RECOVERABLE_STOP -> "TIMBA DETENIDA PARA RECUPERACIÓN";
-            case FAILURE -> "TIMBA INTERRUMPIDA";
+            TableSessionSummary.CloseReason reason, GdxGameText gameText) {
+        String suffix = switch (reason) {
+            case COMPLETED -> "completed";
+            case EXITED -> "exited";
+            case RECOVERABLE_STOP -> "recoverable_stop";
+            case FAILURE -> "failure";
         };
+        return gameText.translate("gdx.final.title." + suffix).toUpperCase(
+                Locale.forLanguageTag(gameText.language()));
     }
 
     static String finalSummaryHero(
-            TableSessionSummary.CloseReason reason, double net) {
+            TableSessionSummary.CloseReason reason, double net,
+            GdxGameText gameText) {
+        String key;
         if (reason == TableSessionSummary.CloseReason.RECOVERABLE_STOP) {
-            return "PUEDES CONTINUARLA DESDE EL MENÚ";
+            key = "gdx.final.hero.recoverable_stop";
+        } else if (reason == TableSessionSummary.CloseReason.FAILURE) {
+            key = "gdx.final.hero.failure";
+        } else {
+            key = net > 0d ? "gdx.final.hero.win" : net < 0d
+                    ? "gdx.final.hero.loss" : "gdx.final.hero.even";
         }
-        if (reason == TableSessionSummary.CloseReason.FAILURE) {
-            return "LA PARTIDA SE HA CONSERVADO";
-        }
-        return net > 0d ? "GANAS" : net < 0d
-                ? "PIERDES" : "NI GANAS NI PIERDES";
+        return gameText.translate(key).toUpperCase(
+                Locale.forLanguageTag(gameText.language()));
     }
 
     private static String finalSummaryDate(long endedAtMillis) {

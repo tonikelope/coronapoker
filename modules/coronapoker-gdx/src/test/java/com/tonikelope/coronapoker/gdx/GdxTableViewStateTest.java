@@ -456,7 +456,11 @@ final class GdxTableViewStateTest {
                 new TableSessionSummary.PlayerBalance("server", 14.7d, 10d, 0);
 
         assertEquals("NI GANAS NI PIERDES", CoronaPokerGdxTable
-                .finalSummaryHero(TableSessionSummary.CloseReason.COMPLETED, 0d));
+                .finalSummaryHero(TableSessionSummary.CloseReason.COMPLETED,
+                        0d, new GdxGameText("es")));
+        assertEquals("YOU BREAK EVEN", CoronaPokerGdxTable
+                .finalSummaryHero(TableSessionSummary.CloseReason.COMPLETED,
+                        0d, new GdxGameText("en")));
         assertFalse(CoronaPokerGdxTable.finalSummaryScreenshotReady(0.59f,
                 tie, TableSessionSummary.CloseReason.COMPLETED, true));
         assertTrue(CoronaPokerGdxTable.finalSummaryScreenshotReady(0.60f,

@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 22:58 (Europe/Madrid)
+Última actualización: 2026-09-19 23:04 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,13 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- La pantalla final y los menús de edición nativos de chat/registro ya usan
+  el idioma activo para títulos, resultado, recuento de manos, navegación y
+  acciones del portapapeles. La navegación conserva Estadísticas deshabilitada
+  hasta que exista su pantalla GDX real, sin presentar una acción falsa.
+  Pruebas focalizadas de proyección: **96/96**; compilación y empaquetado
+  correctos. JAR GDX: 266.258.813 bytes, SHA-256
+  `FE88E897D88679209C6F83C393CB79C471978BFEC23CAD3E863F23028E825E57`.
 - El chat y las notas de voz dentro de la mesa ya consumen el mismo diccionario
   ES/EN que la sala: placeholders, galería, errores de URL/envío, estados de
   micrófono, grabación y confirmaciones de medios cambian inmediatamente con

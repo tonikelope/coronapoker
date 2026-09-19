@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 22:51 (Europe/Madrid)
+Última actualización: 2026-09-19 22:58 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,13 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- El chat y las notas de voz dentro de la mesa ya consumen el mismo diccionario
+  ES/EN que la sala: placeholders, galería, errores de URL/envío, estados de
+  micrófono, grabación y confirmaciones de medios cambian inmediatamente con
+  el idioma activo. La preferencia de notificaciones sigue perteneciendo al
+  contrato común de Ajustes. Pruebas focalizadas: **10/10**; compilación y
+  empaquetado correctos. JAR GDX: 266.258.375 bytes, SHA-256
+  `603AB948CA312149B178F2AAD1DC648FDA9467971E59C6CD01DD89D4D4C35EF3`.
 - La barra rápida de la mesa ya obtiene todas sus etiquetas y el estado no
   disponible del idioma activo; se elimina el falso texto técnico
   `PENDIENTE`. Prueba focalizada de diccionario: **1/1**; compilación y

@@ -4276,7 +4276,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         voiceRecorder = recorder;
         voiceOpening = true;
         voiceLive = false;
-        voiceStatus = "ABRIENDO MICRÓFONO…";
+        voiceStatus = uppercase(gameText.translate("gdx.lobby.voice_opening"));
         voiceStatusAt = totalTime;
         stopShuffleSound();
         backgroundMusic.pause();
@@ -4294,7 +4294,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     voiceOpening = false;
                     voiceLive = true;
                     voiceLiveAt = totalTime;
-                    voiceStatus = "GRABANDO · SUELTA PARA ENVIAR";
+                    voiceStatus = uppercase(gameText.translate(
+                            "gdx.table.chat.voice_recording"));
                     voiceStatusAt = totalTime;
                 }),
                 () -> Gdx.app.postRunnable(() -> {
@@ -4309,7 +4310,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 voiceOpening = false;
                                 voiceLive = false;
                                 voiceRecorder = null;
-                                voiceStatus = "MICRÓFONO NO DISPONIBLE";
+                                voiceStatus = uppercase(gameText.translate(
+                                        "gdx.lobby.voice_unavailable"));
                                 voiceStatusAt = totalTime;
                                 resumeBackgroundAfterVoice();
                             }
@@ -4322,7 +4324,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         voiceStopping = true;
         voiceOpening = false;
         voiceLive = false;
-        voiceStatus = discard ? "NOTA CANCELADA" : "PROCESANDO NOTA…";
+        voiceStatus = uppercase(gameText.translate(discard
+                ? "gdx.lobby.voice_cancelled"
+                : "gdx.lobby.voice_processing"));
         voiceStatusAt = totalTime;
         if (discard) recorder.abort();
         CompletableFuture.supplyAsync(() -> discard
@@ -4334,17 +4338,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             resumeBackgroundAfterVoice();
                             if (discard) return;
                             if (failure != null || wav == null) {
-                                voiceStatus = voiceFailureLabel(recorder.outcome());
+                                voiceStatus = voiceFailureLabel(
+                                        recorder.outcome(), gameText);
                                 voiceStatusAt = totalTime;
                                 return;
                             }
-                            voiceStatus = "ENVIANDO NOTA…";
+                            voiceStatus = uppercase(gameText.translate(
+                                    "gdx.lobby.voice_sending"));
                             voiceStatusAt = totalTime;
                             tableChat.sendVoice(wav).whenComplete((ignored, sendFailure) ->
                                     Gdx.app.postRunnable(() -> {
-                                        voiceStatus = sendFailure == null
-                                                ? "NOTA ENVIADA"
-                                                : "NO SE PUDO ENVIAR";
+                                        voiceStatus = uppercase(gameText.translate(
+                                                sendFailure == null
+                                                        ? "gdx.lobby.voice_sent"
+                                                        : "gdx.table.chat.send_failed"));
                                         voiceStatusAt = totalTime;
                                     }));
                         }));
@@ -4361,13 +4368,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private static String voiceFailureLabel(GdxVoiceRecorder.Outcome outcome) {
-        return switch (outcome) {
-            case SILENT -> "NO SE DETECTÓ AUDIO";
-            case NO_LINE -> "MICRÓFONO NO DISPONIBLE";
-            case LOST -> "SE PERDIÓ EL MICRÓFONO";
-            default -> "NOTA DESCARTADA";
+    private static String voiceFailureLabel(GdxVoiceRecorder.Outcome outcome,
+            GdxGameText gameText) {
+        String key = switch (outcome) {
+            case SILENT -> "gdx.table.chat.voice_silent";
+            case NO_LINE -> "gdx.lobby.voice_unavailable";
+            case LOST -> "gdx.table.chat.voice_lost";
+            default -> "gdx.lobby.voice_discarded";
         };
+        return gameText.translate(key).toUpperCase(
+                Locale.forLanguageTag(gameText.language()));
     }
 
     private void updatePointerButtonTransitions() {
@@ -10277,7 +10287,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         String message = chatDraft.trim();
         if (message.isEmpty()) return;
         if (chatImageMode && totalTime < tableImageSendAllowedAt) {
-            chatError = "ESPERA UN MOMENTO ANTES DE ENVIAR OTRA IMAGEN";
+            chatError = uppercase(gameText.translate(
+                    "gdx.lobby.image_cooldown"));
             return;
         }
         chatSending = true;
@@ -10291,7 +10302,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 String scheme = uri.getScheme();
                 if (scheme == null || (!("http".equalsIgnoreCase(scheme))
                         && !("https".equalsIgnoreCase(scheme)))) {
-                    throw new IllegalArgumentException("USA UNA URL HTTP O HTTPS");
+                    throw new IllegalArgumentException(uppercase(
+                            gameText.translate("gdx.lobby.invalid_image_url")));
                 }
                 delivery = tableChat.sendImage(message);
             } else {
@@ -10301,7 +10313,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } catch (RuntimeException invalid) {
             chatSending = false;
             chatError = invalid.getMessage() == null
-                    ? "MENSAJE NO VÁLIDO" : invalid.getMessage();
+                    ? uppercase(gameText.translate(
+                            "gdx.table.chat.invalid_message"))
+                    : invalid.getMessage();
             return;
         }
         delivery.whenComplete((ignored, failure) ->
@@ -10329,7 +10343,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 && failure.getCause() != null
                                 ? failure.getCause() : failure;
                         chatError = root.getMessage() == null
-                                ? "NO SE PUDO ENVIAR" : root.getMessage();
+                                ? uppercase(gameText.translate(
+                                        "gdx.table.chat.send_failed"))
+                                : root.getMessage();
                     }
                 }));
     }
@@ -12493,7 +12509,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 } else {
                     drawFittedCenteredInBox(smallFont,
                             media != null && media.failed()
-                                    ? "NO DISPONIBLE" : "CARGANDO…",
+                                    ? uppercase(gameText.translate(
+                                            "gdx.lobby.media_unavailable"))
+                                    : uppercase(gameText.translate(
+                                            "gdx.lobby.media_loading")),
                             cell.x + 10f, cell.y + cell.height / 2f - 12f,
                             cell.width - 20f, 24f,
                             media != null && media.failed()
@@ -12502,16 +12521,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         String draft = chatDraft.isEmpty()
-                ? (chatImageMode ? "PEGA UNA URL HTTP O HTTPS…"
-                        : "ESCRIBE UN MENSAJE…") : visibleDraft.text();
+                ? gameText.translate(chatImageMode
+                        ? "gdx.lobby.image_url_placeholder"
+                        : "gdx.lobby.message_placeholder")
+                : visibleDraft.text();
         drawLeftInBox(smallFont, draft, panelX + 54f, inputY + 10f,
                 panelW - 456f, 40f,
                 chatDraft.isEmpty() ? Color.GRAY : Color.WHITE, alpha);
         drawFittedCenteredInBox(actionFont,
-                chatImageMode ? "TEXTO" : "EMOJI", emojiX, inputY,
+                uppercase(gameText.translate(chatImageMode
+                        ? "gdx.table.chat.text" : "gdx.lobby.emoji")),
+                emojiX, inputY,
                 132f, 60f, POT_GOLD, alpha);
         drawFittedCenteredInBox(actionFont,
-                chatSending ? "ENVIANDO…" : "ENVIAR URL", sendX, inputY,
+                uppercase(gameText.translate(chatSending
+                        ? "gdx.table.chat.sending"
+                        : "gdx.table.chat.send_url")), sendX, inputY,
                 180f, 60f, Color.WHITE, alpha);
         if (!chatError.isBlank()) {
             drawLeftInBox(smallFont, chatError, panelX + 38f,
@@ -12582,7 +12607,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float baseline = historyY + historyH - 18f;
             for (int line = first; line < messages.size(); line++) {
                 LobbyChatMessage message = messages.get(line);
-                String text = quickChatHistoryText(message);
+                String text = quickChatHistoryText(message, gameText);
                 drawLeftInBox(smallFont, text, historyX + 12f,
                         baseline - (line - first) * 30f - 22f,
                         historyW - 24f, 28f, Color.WHITE, alpha);
@@ -12591,7 +12616,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawLeftInBox(smallFont, "CERRAR AL ENVIAR",
                 panelX + 18f, panelY + 58f,
                 panelW - 92f, 34f, Color.LIGHT_GRAY, alpha);
-        String draft = chatDraft.isEmpty() ? "ESCRIBE Y PULSA ENTER…"
+        String draft = chatDraft.isEmpty()
+                ? gameText.translate("gdx.table.chat.quick_placeholder")
                 : visibleDraft.text();
         drawLeftInBox(smallFont, draft, panelX + 27f, inputY + 3f,
                 panelW - 54f, 36f,
@@ -12604,10 +12630,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
     }
 
-    static String quickChatHistoryText(LobbyChatMessage message) {
+    static String quickChatHistoryText(LobbyChatMessage message,
+            GdxGameText gameText) {
         String content = switch (message.type()) {
-            case IMAGE -> "[IMAGEN]";
-            case VOICE -> "[NOTA DE VOZ]";
+            case IMAGE -> gameText.translate("gdx.table.chat.image_label");
+            case VOICE -> gameText.translate("gdx.table.chat.voice_label");
             default -> message.content();
         };
         return message.nickname() + ": " + content;
@@ -12757,12 +12784,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 POT_GOLD, alpha);
         float limit = x + maxWidth;
         if (message.type() == LobbyChatMessage.Type.IMAGE) {
-            drawInlineText("[IMAGEN / GIF]", cursor, baseline,
+            drawInlineText(gameText.translate("gdx.table.chat.image_gif_label"),
+                    cursor, baseline,
                     limit - cursor, CYAN, alpha);
             return;
         }
         if (message.type() == LobbyChatMessage.Type.VOICE) {
-            drawInlineText("[NOTA DE VOZ]", cursor, baseline,
+            drawInlineText(gameText.translate("gdx.table.chat.voice_label"),
+                    cursor, baseline,
                     limit - cursor, CYAN, alpha);
             return;
         }

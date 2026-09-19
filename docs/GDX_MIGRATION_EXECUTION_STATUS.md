@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 20:37 (Europe/Madrid)
+Última actualización: 2026-09-19 20:50 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -18,6 +18,13 @@ visual archivada en `reference/gdx-demo` y únicos ejecutables en `target`.
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Revalidado el recorrido P0 de Run It Twice sobre dos procesos GDX reales:
+  aceptación unánime, publicación de ambos tableros, conservación de saldos y
+  rechazo con retorno autoritativo a un solo tablero. Se fija además la
+  presentación del ganador exclusivo de un side pot: un veredicto perdedor del
+  bote principal no puede sobrevivir al `Payout` posterior que lo declara
+  ganador. Pruebas focalizadas de red/proyección: **98/98**. Es una ampliación
+  de certificación; no modifica el JAR de producción del punto siguiente.
 - Unificada la geometría real de Ajustes entre menú y mesa: título, contenido
   y primera fila ya comparten el mismo cálculo. Las secciones densas (Audio y
   Apariencia) distribuyen sus subsecciones en dos filas equilibradas en vez de

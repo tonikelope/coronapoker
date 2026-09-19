@@ -960,6 +960,26 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void sidePotPayoutOverridesAnEarlierMainPotLoss() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+
+        state.apply(new TableVisualEvent.HandResult(
+                1, "borja", "PAREJA", false,
+                TableSnapshot.Street.SHOWDOWN));
+        assertEquals(Boolean.FALSE, state.resolvedHandWinner("borja"));
+
+        state.apply(new TableVisualEvent.Payout(
+                2, "borja", 30d, 1, 1_030d, 0d));
+
+        assertTrue(player(state, "borja").winner());
+        assertEquals(Boolean.TRUE, state.resolvedHandWinner("borja"),
+                "a side-pot winner must never retain the loser presentation");
+        assertTrue(CoronaPokerGdxTable.hasSettledPresentation(
+                state.hasHandResult("borja"),
+                state.resolvedHandWinner("borja")));
+    }
+
+    @Test
     void rejectsChipCollectionForAPlayerAbsentFromTheCanonicalSnapshot() {
         GdxTableViewState state = new GdxTableViewState(snapshot());
 

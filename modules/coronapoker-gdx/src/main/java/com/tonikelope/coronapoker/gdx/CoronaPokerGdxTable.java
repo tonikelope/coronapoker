@@ -5066,7 +5066,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 continue;
             }
             boolean active = isSeatActive(seat);
-            boolean settledShowdown = liveState.hasHandResult(seat.name);
+            Boolean settledWinner = liveState.resolvedHandWinner(seat.name);
+            boolean settledShowdown = hasSettledPresentation(
+                    liveState.hasHandResult(seat.name), settledWinner);
             TableSnapshot.PlayerSnapshot livePlayer = livePlayer(seat);
             // END snapshots may already mark every player inactive.  A player
             // with an ordered HandResult is nevertheless in the settled
@@ -5075,7 +5077,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             boolean folded = shouldDimSeat(livePlayer == null
                     || livePlayer.active(), settledShowdown,
                     liveState.foldedThisHand(seat.name));
-            Boolean settledWinner = liveState.resolvedHandWinner(seat.name);
             boolean timedOut = livePlayer != null && livePlayer.timedOut();
             updateLiveSeatAmounts(seat);
             if (seat.index != 0) {
@@ -5160,7 +5161,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Texture avatar = tableAvatar(seat.name);
             TableSnapshot.PlayerSnapshot player = livePlayer(seat);
             boolean folded = shouldDimSeat(player == null || player.active(),
-                    liveState.hasHandResult(seat.name),
+                    hasSettledPresentation(liveState.hasHandResult(seat.name),
+                            liveState.resolvedHandWinner(seat.name)),
                     liveState.foldedThisHand(seat.name));
             Color avatarTint = folded ? FOLDED_AVATAR : Color.WHITE;
             batch.setColor(avatarTint.r, avatarTint.g, avatarTint.b,
@@ -7866,9 +7868,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return player != null && !player.active();
     }
 
+    static boolean hasSettledPresentation(boolean hasHandResult,
+            Boolean resolvedWinner) {
+        return hasHandResult || resolvedWinner != null;
+    }
+
     static boolean shouldDimSeat(boolean playerActive,
-            boolean hasSettledHandResult, boolean foldedThisHand) {
-        return foldedThisHand || !playerActive && !hasSettledHandResult;
+            boolean hasSettledPresentation, boolean foldedThisHand) {
+        return foldedThisHand || !playerActive && !hasSettledPresentation;
     }
 
     static float seatActionSurfaceAlpha(boolean folded,
@@ -7894,6 +7901,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // displays the generic loser verdict instead of leaking the hand.
             return resolvedName.isBlank()
                     ? gameText.translate("ui.pierde_3") : resolvedName;
+        }
+        // A hand won because everybody else folded has no HandResult by
+        // design. Swing still replaces the previous action (often ALL IN)
+        // with GANA/GANAS and paints the whole player frame as settled. The
+        // canonical Payout is the only winner fact needed for that case.
+        if (Boolean.TRUE.equals(
+                liveState.resolvedHandWinner(player.nickname()))) {
+            return gameText.translate(seat == 0 ? "ui.ganas_3" : "ui.gana_3");
         }
         if (!player.handName().isBlank()) {
             Float percentage = liveState.partialHandPercentage(player.nickname());
@@ -8837,12 +8852,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         != ActionControlState.RaiseAction.DISABLED;
         boolean allInEnabled = !autoActionVeto && localTurn
                 && (controls.allInEnabled() || controls.showCards());
-        boolean settledShowdown = liveState.hasHandResult(seats[0].name);
+        Boolean settledLocalWinner = liveState.resolvedHandWinner(seats[0].name);
+        boolean settledShowdown = hasSettledPresentation(
+                liveState.hasHandResult(seats[0].name), settledLocalWinner);
         TableSnapshot.PlayerSnapshot liveLocalPlayer = livePlayer(seats[0]);
         boolean localFolded = shouldDimSeat(liveLocalPlayer == null
                 || liveLocalPlayer.active(), settledShowdown,
                 liveState.foldedThisHand(seats[0].name));
-        Boolean settledLocalWinner = liveState.resolvedHandWinner(seats[0].name);
         boolean localTimedOut = liveLocalPlayer != null
                 && liveLocalPlayer.timedOut();
         String lastLocalActionLabel = lastActionLabelForSeat(0);

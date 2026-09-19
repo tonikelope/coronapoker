@@ -18,6 +18,13 @@ visual archivada en `reference/gdx-demo` y únicos ejecutables en `target`.
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Corregida después del checkpoint la presentación del ganador sin showdown:
+  el `Payout` canónico pinta ahora el marco completo de ganador (también en el
+  HUD local), evita la atenuación incorrecta y reemplaza la acción previa por
+  `GANA/GANAS`, sin fabricar un `HandResult` ni destapar cartas. La familia
+  focalizada de estado/render pasa **94/94**. JAR GDX: 266.244.411 bytes,
+  SHA-256
+  `61CCE19E88E81B5BDCA7974E4ED71B161253BF0BC101EE0D1B60085FF10779AB`.
 - No se abre funcionalidad nueva en este corte. El objetivo es asegurar el
   trabajo existente, fijar un artefacto reproducible y volver a una ejecución
   por bloques cerrados.

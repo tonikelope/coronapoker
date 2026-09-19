@@ -53,6 +53,13 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void uncontestedPayoutGetsTheSameSettledFrameAsAShowdownWinner() {
+        assertTrue(CoronaPokerGdxTable.hasSettledPresentation(false, true));
+        assertTrue(CoronaPokerGdxTable.hasSettledPresentation(true, false));
+        assertFalse(CoronaPokerGdxTable.hasSettledPresentation(false, null));
+    }
+
+    @Test
     void foldedActionLabelRemainsAttenuatedEvenAfterShowdownSettles() {
         assertEquals(0.34f,
                 CoronaPokerGdxTable.seatActionSurfaceAlpha(true, true),

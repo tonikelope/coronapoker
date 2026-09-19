@@ -546,6 +546,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private BitmapFont finalDetailFont;
     private BitmapFont finalButtonFont;
     private BitmapFont finalCardFont;
+    private BitmapFont finalCardBoldFont;
     private BitmapFont gameLogFont;
 
     private Texture logo;
@@ -1826,22 +1827,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         FreeTypeFontGenerator balanceGenerator = new FreeTypeFontGenerator(
                 Gdx.files.internal("fonts/Montserrat-Bold.ttf"));
         finalTitleFont = font(balanceGenerator, 66, 0f);
-        finalHeroFont = font(balanceGenerator, 142, 5.5f,
+        finalHeroFont = font(balanceGenerator, 173, 5.5f,
                 Color.WHITE, new Color(0x000000ef));
-        finalAmountFont = font(balanceGenerator, 132, 5.5f,
+        finalAmountFont = font(balanceGenerator, 162, 5.5f,
                 Color.WHITE, new Color(0x000000ef));
+        finalCardBoldFont = font(balanceGenerator, 24, 0f);
         balanceGenerator.dispose();
         FreeTypeFontGenerator balanceDetailGenerator
                 = new FreeTypeFontGenerator(
                         Gdx.files.internal("fonts/Inter-Medium.ttf"));
         finalDetailFont = font(balanceDetailGenerator, 38, 0f);
-        finalButtonFont = font(balanceDetailGenerator, 27, 0f);
+        finalCardFont = font(balanceDetailGenerator, 23, 0f);
         balanceDetailGenerator.dispose();
-        // The white balance cards already provide maximum contrast.  Their
-        // labels must stay clean like Swing's BalanceScreen; using smallFont
-        // here inherited its dark outline and made every glyph look falsely
-        // bold, especially when nine seats fit on one row.
-        finalCardFont = font(generator, 23, 0f);
+        // Navigation is part of the shared game chrome, not of the balance
+        // report typography.  Keep it identical to the McLaren action buttons
+        // used by the main menu and the rest of the GDX interface.
+        finalButtonFont = font(generator, 26, 0.2f);
         generator.dispose();
         FreeTypeFontGenerator logGenerator = new FreeTypeFontGenerator(
                 Gdx.files.internal("fonts/Inter-Medium.ttf"));
@@ -7105,12 +7106,29 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private Texture positionTexture(TableSnapshot.Position position) {
-        return switch (position) {
-            case DEALER, DEAD_DEALER, DEALER_STRADDLE -> dealerChip;
+        return switch (positionChipKind(position)) {
+            case DEALER -> dealerChip;
             case SMALL_BLIND -> smallBlindChip;
-            case BIG_BLIND, STRADDLE -> bigBlindChip;
-            default -> null;
+            case BIG_BLIND -> bigBlindChip;
+            case STRADDLE -> logStraddleIcon;
+            case DEALER_STRADDLE -> logDealerStraddleIcon;
+            case NONE -> null;
         };
+    }
+
+    static PositionChipKind positionChipKind(TableSnapshot.Position position) {
+        return switch (position) {
+            case DEALER, DEAD_DEALER -> PositionChipKind.DEALER;
+            case SMALL_BLIND -> PositionChipKind.SMALL_BLIND;
+            case BIG_BLIND -> PositionChipKind.BIG_BLIND;
+            case STRADDLE -> PositionChipKind.STRADDLE;
+            case DEALER_STRADDLE -> PositionChipKind.DEALER_STRADDLE;
+            default -> PositionChipKind.NONE;
+        };
+    }
+
+    enum PositionChipKind {
+        NONE, DEALER, SMALL_BLIND, BIG_BLIND, STRADDLE, DEALER_STRADDLE
     }
 
     private Seat seatByNickname(String nickname) {
@@ -13204,7 +13222,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         cardY + 157f, 90f, 90f);
                 batch.setShader(null);
             }
-            drawFittedCenteredInBox(finalCardFont, balance.nickname(),
+            drawFittedCenteredInBox(finalCardBoldFont, balance.nickname(),
                     x + 10f, cardY + 127f, cardW - 20f, 28f,
                     new Color(0x11151bff), cardsReveal);
             Color cardResult = balance.netResult() > 0d ? FINAL_WINNER
@@ -13215,7 +13233,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     : balance.netResult() < 0d
                             ? "PIERDE " + formatAmount(-balance.netResult())
                             : "NI GANA NI PIERDE";
-            drawFittedCenteredInBox(finalCardFont, result,
+            drawFittedCenteredInBox(finalCardBoldFont, result,
                     x + 10f, cardY + 82f, cardW - 20f, 32f,
                     cardResult, cardsReveal);
             drawFittedCenteredInBox(finalCardFont,
@@ -13641,6 +13659,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         finalDetailFont.dispose();
         finalButtonFont.dispose();
         finalCardFont.dispose();
+        finalCardBoldFont.dispose();
         gameLogFont.dispose();
         logo.dispose();
         feltTexture.dispose();

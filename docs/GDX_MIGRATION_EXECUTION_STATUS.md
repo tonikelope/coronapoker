@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 23:34 (Europe/Madrid)
+Última actualización: 2026-09-19 23:59 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,22 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Verificado en ejecución real que el straddle voluntario sí recorre Nueva
+  timba → configuración → crupier → diálogo GDX: requiere tres o más jugadores
+  activos y sólo pregunta al humano cuando ocupa UTG; en heads-up se omite y
+  un bot UTG decide automáticamente. Corregida la representación de mesa para
+  que `STRADDLE` use `straddle.png` y `DEALER_STRADDLE` la ficha combinada
+  `dealer_straddle.png`, en vez de degradarlas a BB/dealer. La regresión fija
+  expresamente ambas posiciones. Ante continúa siendo automático y sin diálogo:
+  cada activo aporta una SB como dinero muerto al bote.
+- Nueva Timba separa ahora `PERFIL DE TIMBA` de `CONEXIÓN`: es una sexta sección
+  global que deja claro que cargar/guardar afecta ciegas, compra, partida y bots.
+  En el menú raíz, ESC ya no termina el proceso; la salida sigue siendo una
+  acción explícita. La navegación de Fin de timba usa la misma McLaren que los
+  botones del menú inicial, mientras título, resultado, cantidad, detalle y
+  tarjetas conservan pesos y proporciones de `BalanceScreen` Swing. Pruebas
+  focalizadas: **111/111**. JAR GDX: 266.260.675 bytes, SHA-256
+  `C5430254431BDCC2AAE91E0A6ACF5AFB0F4C8F44534C6FF34F424B5393B25F23`.
 - Corregida la desalineación denunciada en Nueva Timba entre los interruptores
   de `Límite de manos`/`Tiempo de pensar` y sus contadores: las dos mitades
   comparten ahora la fila de 68 px, el contador no repite una etiqueta flotante

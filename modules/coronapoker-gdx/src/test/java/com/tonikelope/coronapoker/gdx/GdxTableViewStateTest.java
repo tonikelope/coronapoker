@@ -22,6 +22,22 @@ import org.junit.jupiter.api.Test;
 final class GdxTableViewStateTest {
 
     @Test
+    void straddlePositionsKeepTheirDedicatedTableChips() {
+        assertEquals(CoronaPokerGdxTable.PositionChipKind.STRADDLE,
+                CoronaPokerGdxTable.positionChipKind(
+                        TableSnapshot.Position.STRADDLE));
+        assertEquals(CoronaPokerGdxTable.PositionChipKind.DEALER_STRADDLE,
+                CoronaPokerGdxTable.positionChipKind(
+                        TableSnapshot.Position.DEALER_STRADDLE));
+        assertEquals(CoronaPokerGdxTable.PositionChipKind.DEALER,
+                CoronaPokerGdxTable.positionChipKind(
+                        TableSnapshot.Position.DEALER));
+        assertEquals(CoronaPokerGdxTable.PositionChipKind.BIG_BLIND,
+                CoronaPokerGdxTable.positionChipKind(
+                        TableSnapshot.Position.BIG_BLIND));
+    }
+
+    @Test
     void preparationMilestonesConsumeTheirSequenceWithoutMutatingTheTable() {
         GdxTableViewState state = new GdxTableViewState(snapshot());
         TableSnapshot before = state.snapshot();

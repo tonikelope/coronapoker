@@ -433,7 +433,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 case 1 -> drawBlindsPage();
                 case 2 -> drawPurchasePage();
                 case 3 -> drawGamePage();
-                default -> drawBotsPage();
+                case 4 -> drawBotsPage();
+                default -> drawProfilePage();
             }
             drawFooter();
         }
@@ -3262,7 +3263,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     uppercase(gameText.translate("newgame.grupo_ciegas")),
                     uppercase(gameText.translate("newgame.grupo_compra")),
                     uppercase(gameText.translate("newgame.grupo_partida")),
-                    uppercase(gameText.translate("newgame.grupo_bots"))};
+                    uppercase(gameText.translate("newgame.grupo_bots")),
+                    uppercase(gameText.translate(
+                            "gdx.newgame.profile_title"))};
         for (int i = 0; i < names.length; i++) {
             final int targetPage = i;
             float x = 35f;
@@ -3341,25 +3344,35 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } else {
             toggle(1170f, 475f, 635f, "UPnP", connection.upnp(),
                     () -> connection.setUpnp(!connection.upnp()), true);
-            outerBox(1150f, 198f, 675f, 244f, new Color(0x31445fbb),
-                    new Color(0x07132188));
-            textFit(smallFont, uppercase(gameText.translate(
-                    "gdx.newgame.profile_title")), 1174f, 416f, GOLD,
-                    false, 620f);
-            textFit(tinyFont, gameText.translate("gdx.newgame.profile_help"),
-                    1174f, 386f, MUTED, false, 620f);
-            boolean profileEditable = !connection.recoverRequested();
-            bidirectionalChoice(1170f, 275f, 635f, "",
-                    selectedPresetLabel(), this::previousGamePreset,
-                    this::nextGamePreset, profileEditable);
-            button(1170f, 202f, 300f, 58f,
-                    gameText.translate("newgame.preset_guardar"), false,
-                    this::openPresetNameDialog, profileEditable);
-            button(1500f, 202f, 305f, 58f,
-                    gameText.translate("newgame.preset_borrar"), false,
-                    this::requestDeletePreset,
-                    profileEditable && selectedGamePreset >= 0);
         }
+    }
+
+    /** Global presets cover the complete table setup, never just networking. */
+    private void drawProfilePage() {
+        panel(430f, 185f, 1425f, 625f,
+                uppercase(gameText.translate("gdx.newgame.profile_title")));
+        textFit(actionFont, gameText.translate("gdx.newgame.profile_help"),
+                500f, 700f, MUTED, false, 1285f);
+        textFit(smallFont,
+                uppercase(gameText.translate("newgame.grupo_ciegas"))
+                        + "  ·  "
+                        + uppercase(gameText.translate("newgame.grupo_compra"))
+                        + "  ·  "
+                        + uppercase(gameText.translate("newgame.grupo_partida"))
+                        + "  ·  "
+                        + uppercase(gameText.translate("newgame.grupo_bots")),
+                500f, 650f, CYAN, false, 1285f);
+        boolean profileEditable = !connection.recoverRequested();
+        bidirectionalChoice(500f, 470f, 1285f, "",
+                selectedPresetLabel(), this::previousGamePreset,
+                this::nextGamePreset, profileEditable);
+        button(500f, 350f, 615f, 70f,
+                gameText.translate("newgame.preset_guardar"), false,
+                this::openPresetNameDialog, profileEditable);
+        button(1170f, 350f, 615f, 70f,
+                gameText.translate("newgame.preset_borrar"), false,
+                this::requestDeletePreset,
+                profileEditable && selectedGamePreset >= 0);
     }
 
     private String selectedPresetLabel() {
@@ -4853,7 +4866,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 shapes.setColor(cutout);
                 roundedRect(cx + 3f, cy - 14f, 15f, 23f, 2f);
             }
-            default -> {
+            case 4 -> {
                 roundedRect(cx - 18f, cy - 14f, 36f, 28f, 6f);
                 shapes.rect(cx - 3f, cy + 14f, 6f, 8f);
                 shapes.circle(cx, cy + 23f, 3.5f, 16);
@@ -4861,6 +4874,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 shapes.circle(cx - 8f, cy, 3.5f, 16);
                 shapes.circle(cx + 8f, cy, 3.5f, 16);
                 shapes.rect(cx - 9f, cy - 8f, 18f, 3f);
+            }
+            default -> {
+                // Complete-table preset: a compact stack of saved sheets.
+                roundedRect(cx - 16f, cy - 17f, 30f, 34f, 3f);
+                shapes.setColor(cutout);
+                roundedRect(cx - 11f, cy - 12f, 20f, 24f, 2f);
+                shapes.setColor(color);
+                shapes.rect(cx - 6f, cy + 5f, 12f, 2.5f);
+                shapes.rect(cx - 6f, cy, 12f, 2.5f);
+                shapes.rect(cx - 6f, cy - 5f, 9f, 2.5f);
             }
         }
     }
@@ -5269,9 +5292,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 }
             } else if (surface == Surface.SETTINGS) {
                 requestCancelSettings();
-            } else {
-                Gdx.app.exit();
             }
+            // The root menu is already the navigation endpoint.  ESC must not
+            // terminate the process there: exiting is an explicit, confirmed
+            // action owned by the SALIR button (and by the window-close flow).
             return true;
         }
         if ((keycode == Input.Keys.ENTER || keycode == Input.Keys.NUMPAD_ENTER)
@@ -5320,13 +5344,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             page--;
             return true;
         }
-        if (hostPages && activeField == null && keycode == Input.Keys.RIGHT && page < 4) {
+        if (hostPages && activeField == null && keycode == Input.Keys.RIGHT && page < 5) {
             page++;
             return true;
         }
         if (hostPages && keycode == Input.Keys.TAB) {
             clearActiveField();
-            page = (page + 1) % 5;
+            page = (page + 1) % 6;
             return true;
         }
         return false;

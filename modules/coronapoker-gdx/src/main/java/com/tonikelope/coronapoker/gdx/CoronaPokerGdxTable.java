@@ -1253,8 +1253,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         intro = startupIntroOnly;
         if (preferences != null) {
             Properties persisted = preferences.properties();
-            effectsVolume = MathUtils.clamp((float) doublePreference(
-                    persisted, "master_volume", 1d), 0f, 1f);
+            effectsVolume = GdxSettingsContract.masterVolume(persisted);
             musicVolume = 0.40f * effectsVolume;
             autoButtons = booleanPreference(persisted,
                     "auto_action_buttons", false) && !isTestMode();
@@ -1521,8 +1520,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             autoModeConfirm = tablePreference("modo_auto_confirm", true);
             autoCallEnabled = tablePreference("auto_call_enabled", false);
             autoCallMax = doublePreference(properties, "auto_call_max", 0d);
-            effectsVolume = (float) MathUtils.clamp(doublePreference(
-                    properties, "master_volume", 0.8d), 0d, 1d);
+            effectsVolume = GdxSettingsContract.masterVolume(properties);
             musicVolume = 0.40f * effectsVolume;
             if (presentationSettings != null) {
                 liveDeck = availableDeck(presentationSettings.deck());

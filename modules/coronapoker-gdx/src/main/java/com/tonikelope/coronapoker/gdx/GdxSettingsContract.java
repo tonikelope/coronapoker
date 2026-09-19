@@ -17,6 +17,8 @@ import java.util.Properties;
  */
 final class GdxSettingsContract {
 
+    static final float DEFAULT_MASTER_VOLUME = 0.8f;
+
     enum Gate {
         NONE, SOUND, MUSIC, EFFECTS, ANIMATIONS, CINEMATICS
     }
@@ -362,6 +364,18 @@ final class GdxSettingsContract {
         return page == AUDIO_DEVICE_PAGE;
     }
 
+    /** One validated volume contract for the menu, lobby and live table. */
+    static float masterVolume(Properties properties) {
+        try {
+            float value = Float.parseFloat(properties.getProperty(
+                    "master_volume", Float.toString(DEFAULT_MASTER_VOLUME)));
+            return Float.isFinite(value) && value >= 0f && value <= 1f
+                    ? value : DEFAULT_MASTER_VOLUME;
+        } catch (NumberFormatException invalid) {
+            return DEFAULT_MASTER_VOLUME;
+        }
+    }
+
     /** Host-authoritative communication rules, unlike local audio choices. */
     static boolean isGlobalCommunicationOption(ToggleOption option) {
         return option != null && ("tts_server".equals(option.key())
@@ -414,7 +428,8 @@ final class GdxSettingsContract {
      */
     static void restoreAudioDefaults(Properties properties,
             boolean includeGlobalRules, boolean microphoneAvailable) {
-        properties.setProperty("master_volume", "0.8");
+        properties.setProperty("master_volume",
+                Float.toString(DEFAULT_MASTER_VOLUME));
         for (TogglePage page : AUDIO_PAGES) {
             for (ToggleOption option : page.options()) {
                 if (!includeGlobalRules

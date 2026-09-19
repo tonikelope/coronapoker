@@ -2975,12 +2975,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private float masterVolume() {
-        try {
-            return MathUtils.clamp(Float.parseFloat(initialProperties
-                    .getProperty("master_volume", "0.8")), 0f, 1f);
-        } catch (NumberFormatException invalid) {
-            return 0.8f;
-        }
+        return GdxSettingsContract.masterVolume(initialProperties);
     }
 
     private void togglePreference(String key, boolean fallback) {

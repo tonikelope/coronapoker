@@ -12,6 +12,22 @@ import org.junit.jupiter.api.Test;
 final class GdxSettingsContractTest {
 
     @Test
+    void masterVolumeHasOneValidatedDefaultAcrossEverySettingsSurface() {
+        Properties properties = new Properties();
+        assertEquals(0.8f, GdxSettingsContract.masterVolume(properties));
+
+        properties.setProperty("master_volume", "0.35");
+        assertEquals(0.35f, GdxSettingsContract.masterVolume(properties));
+
+        for (String invalid : java.util.List.of("-0.1", "1.1", "NaN",
+                "Infinity", "not-a-number")) {
+            properties.setProperty("master_volume", invalid);
+            assertEquals(0.8f, GdxSettingsContract.masterVolume(properties),
+                    invalid);
+        }
+    }
+
+    @Test
     void menuUsesTheCanonicalSwingTabOrder() {
         assertEquals(java.util.List.of(
                 GdxSettingsContract.Section.APPEARANCE,

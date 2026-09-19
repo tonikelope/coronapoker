@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 18:38 (Europe/Madrid)
+Última actualización: 2026-09-19 18:45 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -18,6 +18,14 @@ visual archivada en `reference/gdx-demo` y únicos ejecutables en `target`.
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Unificado el volumen general entre todas las superficies GDX. En una
+  instalación sin `master_volume`, el menú y Swing usaban 80 %, pero la mesa
+  GDX usaba 100 % y podía introducir un salto al entrar en partida. Menú, lobby,
+  mesa, Cancelar y Restaurar consumen ahora un único lector validado con el
+  valor canónico 80 %; valores no numéricos, infinitos o fuera de rango vuelven
+  también a ese valor. El contrato focalizado pasa **18/18**. JAR GDX:
+  266.245.070 bytes, SHA-256
+  `414E700023E70730324411CE5B6360A0FA5619B9D93C4E2D6018B0AC6DCD9FFC`.
 - Cerrada una carencia real de paridad en Ajustes/arranque: la intro GDX ya no
   usa el sonido genérico de interruptor, sino el mismo `misc/init.wav` de Swing
   en el instante en que se enciende la intro. Respeta `sonido_arranque`, el

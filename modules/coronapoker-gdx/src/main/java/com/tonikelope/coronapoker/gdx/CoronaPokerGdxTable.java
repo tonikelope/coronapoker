@@ -180,9 +180,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final long FELT_DOUBLE_CLICK_NANOS = 500_000_000L;
     private static final float FELT_CLICK_DRIFT = 14f;
     private static final float FELT_DOUBLE_CLICK_DRIFT = 32f;
-    private static final String[] FAST_BUTTON_LABELS = {
-        "AJUSTES", "CHAT RÁPIDO", "NOTA DE VOZ", "ENVIAR IMAGEN",
-        "RECOMPRAR", "REGISTRO", "PANTALLA COMPLETA", "SALIR DE LA TIMBA"
+    private static final String[] FAST_BUTTON_TEXT_KEYS = {
+        "settings.ajustes", "chat.chat_rapido", "audio.nota_de_voz",
+        "chat.enviar_imagen", "rebuy.recomprar_2",
+        "log.registro_de_la_timba", "view.pantalla_completa",
+        "game.salir_de_la_timba_2"
     };
     private static final float LOCAL_HOLE_CENTER_DISTANCE = 102f;
     private static final float RIVAL_REVEAL_HUD_GAP = 20f;
@@ -4118,8 +4120,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private static float fastExpandedWidth() {
         return 2f * FAST_BAR_PADDING
-                + FAST_BUTTON_LABELS.length * FAST_BUTTON_SIZE
-                + (FAST_BUTTON_LABELS.length - 1) * FAST_BUTTON_GAP;
+                + FAST_BUTTON_TEXT_KEYS.length * FAST_BUTTON_SIZE
+                + (FAST_BUTTON_TEXT_KEYS.length - 1) * FAST_BUTTON_GAP;
     }
 
     private boolean fastButtonEnabled(int index) {
@@ -4164,7 +4166,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return -1;
         }
         float firstX = FAST_BAR_X + FAST_BAR_PADDING;
-        for (int index = 0; index < FAST_BUTTON_LABELS.length; index++) {
+        for (int index = 0; index < FAST_BUTTON_TEXT_KEYS.length; index++) {
             float buttonX = firstX + index * (FAST_BUTTON_SIZE + FAST_BUTTON_GAP);
             if (contains(x, y, buttonX, FAST_BAR_Y + FAST_BAR_PADDING,
                     FAST_BUTTON_SIZE, FAST_BUTTON_SIZE)) {
@@ -4876,14 +4878,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 panelW + 3f, panelH + 3f, 13f);
         shapes.setColor(0.006f, 0.028f, 0.040f, 0.88f * alpha);
         roundedRect(FAST_BAR_X, FAST_BAR_Y, panelW, panelH, 12f);
-        int count = fastBarExpanded ? FAST_BUTTON_LABELS.length : 1;
+        int count = fastBarExpanded ? FAST_BUTTON_TEXT_KEYS.length : 1;
         for (int index = 0; index < count; index++) {
             float buttonX = FAST_BAR_X + FAST_BAR_PADDING
                     + index * (FAST_BUTTON_SIZE + FAST_BUTTON_GAP);
             boolean enabled = !fastBarExpanded || fastButtonEnabled(index);
             boolean hover = fastBarExpanded && hovered == index;
             Color accent = hover && enabled
-                    ? index == FAST_BUTTON_LABELS.length - 1
+                    ? index == FAST_BUTTON_TEXT_KEYS.length - 1
                             ? FOLD_RED : CYAN
                     : BUTTON_LINE;
             shapes.setColor(accent.r, accent.g, accent.b,
@@ -4897,8 +4899,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     FAST_BUTTON_SIZE - 8f, 7f, 3f);
         }
         if (fastBarExpanded && hovered >= 0) {
+            String hoveredLabel = fastButtonLabel(hovered);
             float tipW = Math.max(180f,
-                    Math.min(260f, FAST_BUTTON_LABELS[hovered].length() * 13f));
+                    Math.min(260f, hoveredLabel.length() * 13f));
             float tipX = MathUtils.clamp(pointer.x - tipW / 2f, 8f,
                     viewport.getWorldWidth() - tipW - 8f);
             shapes.setColor(0.005f, 0.020f, 0.032f, 0.96f * alpha);
@@ -4913,7 +4916,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         batch.begin();
         if (fastBarExpanded) {
-            for (int index = 0; index < FAST_BUTTON_LABELS.length; index++) {
+            for (int index = 0; index < FAST_BUTTON_TEXT_KEYS.length; index++) {
                 float buttonX = FAST_BAR_X + FAST_BAR_PADDING
                         + index * (FAST_BUTTON_SIZE + FAST_BUTTON_GAP);
                 float tint = fastButtonEnabled(index) ? 1f : 0.36f;
@@ -4923,14 +4926,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         FAST_BUTTON_SIZE - 10f, FAST_BUTTON_SIZE - 10f);
             }
             if (hovered >= 0) {
+                String hoveredLabel = fastButtonLabel(hovered);
                 float tipW = Math.max(180f,
-                        Math.min(260f, FAST_BUTTON_LABELS[hovered].length() * 13f));
+                        Math.min(260f, hoveredLabel.length() * 13f));
                 float tipX = MathUtils.clamp(pointer.x - tipW / 2f, 8f,
                         viewport.getWorldWidth() - tipW - 8f);
                 drawFittedCenteredInBox(smallFont,
                         fastButtonEnabled(hovered)
-                                ? FAST_BUTTON_LABELS[hovered]
-                                : FAST_BUTTON_LABELS[hovered] + " · PENDIENTE",
+                                ? hoveredLabel
+                                : hoveredLabel + " · " + uppercase(
+                                        gameText.translate(
+                                                "gdx.quick.unavailable")),
                         tipX + 8f, FAST_BAR_Y + panelH + 10f,
                         tipW - 16f, 30f,
                         fastButtonEnabled(hovered) ? Color.WHITE : Color.GRAY,
@@ -4957,6 +4963,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && totalTime - voiceStatusAt > 2.8f) {
             voiceStatus = "";
         }
+    }
+
+    private String fastButtonLabel(int index) {
+        return uppercase(gameText.translate(FAST_BUTTON_TEXT_KEYS[index]));
     }
 
     private void drawVoiceRecordingOverlay(float width, float height) {

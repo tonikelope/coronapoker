@@ -55,6 +55,8 @@ final class GdxGameTextTest {
                 text.translate("gdx.newgame.no_previous_servers"));
         assertEquals("The table could not be opened",
                 text.translate("gdx.table.open_failed"));
+        assertEquals("Fast chat", text.translate("chat.chat_rapido"));
+        assertEquals("Unavailable", text.translate("gdx.quick.unavailable"));
 
         assertEquals("es", text.setLanguage("not-a-language"));
         assertEquals("CREAR TIMBA", text.translate("game.crear_timba"));

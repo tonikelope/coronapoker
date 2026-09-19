@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 22:47 (Europe/Madrid)
+Última actualización: 2026-09-19 22:51 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,11 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- La barra rápida de la mesa ya obtiene todas sus etiquetas y el estado no
+  disponible del idioma activo; se elimina el falso texto técnico
+  `PENDIENTE`. Prueba focalizada de diccionario: **1/1**; compilación y
+  empaquetado correctos. JAR GDX: 266.257.920 bytes, SHA-256
+  `A1BEE43800AF2943E3CF29D7C16D0B5D4AC5FA70CFD62B392C169382E4119AF4`.
 - Los estados reales de preparación de mesa y los errores del shell al abrir
   una mesa ya responden al idioma activo; se eliminan así textos españoles
   residuales durante el salto sala-mesa. Pruebas focalizadas de proyección y

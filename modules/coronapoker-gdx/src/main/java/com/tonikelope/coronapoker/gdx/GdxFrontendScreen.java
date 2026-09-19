@@ -4166,8 +4166,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.translate("gdx.settings.game.row.hand_limit"),
                 table.handLimit(),
                 () -> table.setHandLimit(!table.handLimit()), true);
-        stepper(780f, 625f, 280f,
-                settingsGameText("row.hand_count"),
+        inlineStepper(780f, 625f, 280f,
                 table.handLimitCount(), 1, Integer.MAX_VALUE,
                 () -> table.setHandLimitCount(table.handLimitCount() - 1),
                 () -> table.setHandLimitCount(table.handLimitCount() + 1),
@@ -4176,8 +4175,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.translate("gdx.settings.game.row.think_time"),
                 table.thinkTime(),
                 () -> table.setThinkTime(!table.thinkTime()), true);
-        stepper(780f, 495f, 280f,
-                settingsGameText("row.think_seconds"),
+        inlineStepper(780f, 495f, 280f,
                 table.thinkSeconds(), 10, 120,
                 () -> table.setThinkSeconds(table.thinkSeconds() - 5),
                 () -> table.setThinkSeconds(table.thinkSeconds() + 5), table.thinkTime());
@@ -4570,6 +4568,44 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (enabled) {
             hit(x, y, side + 6f, 72f, minus);
             hit(x + w - side - 6f, y, side + 6f, 72f, plus);
+        }
+    }
+
+    /**
+     * Counter paired horizontally with a labelled toggle. The toggle owns the
+     * row label, so this control must not add a second label above itself or
+     * use a different height. Keeping both halves on the shared settings row
+     * geometry prevents the visibly staggered controls previously present in
+     * Nueva Timba.
+     */
+    private void inlineStepper(float x, float y, float w, int value,
+            int min, int max, Runnable minus, Runnable plus,
+            boolean enabled) {
+        float height = GdxSettingsLayout.ROW_HEIGHT;
+        Color border = enabled && hovered(x, y, w, height)
+                ? CYAN : enabled ? LINE : new Color(0x253044ff);
+        Color fill = enabled && pressed(x, y, w, height)
+                ? new Color(0x0b1424ff)
+                : enabled ? PANEL_LIGHT : new Color(0x0b111ddd);
+        outerBox(x, y, w, height, border, fill);
+        float side = 66f;
+        shapes.setColor(enabled ? new Color(0x20324cff)
+                : new Color(0x141c2aff));
+        roundedRect(x + 3f, y + 3f, side, height - 6f, 10f);
+        roundedRect(x + w - side - 3f, y + 3f,
+                side, height - 6f, 10f);
+        textFit(headingFont, "-", x + 3f + side / 2f,
+                y + 45f, enabled ? Color.WHITE : DISABLED,
+                true, side - 18f);
+        textFit(headingFont, "+", x + w - 3f - side / 2f,
+                y + 45f, enabled ? Color.WHITE : DISABLED,
+                true, side - 18f);
+        textFit(headingFont, Integer.toString(value), x + w / 2f,
+                y + 46f, enabled ? GOLD : DISABLED, true,
+                Math.max(0f, w - side * 2f - 24f));
+        if (enabled) {
+            hit(x, y, side + 6f, height, minus);
+            hit(x + w - side - 6f, y, side + 6f, height, plus);
         }
     }
 

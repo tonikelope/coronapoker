@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 23:22 (Europe/Madrid)
+Última actualización: 2026-09-19 23:34 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,13 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Corregida la desalineación denunciada en Nueva Timba entre los interruptores
+  de `Límite de manos`/`Tiempo de pensar` y sus contadores: las dos mitades
+  comparten ahora la fila de 68 px, el contador no repite una etiqueta flotante
+  y su valor se ajusta al ancho disponible. El bloque focalizado de layout,
+  contrato, cableado y transacción continúa en **31/31**. JAR GDX:
+  266.259.202 bytes, SHA-256
+  `391241FA7D416365A32E1E9AE7D17CE916DBB460C9144AB434AEA0440F6F3E4B`.
 - Unificado el ritmo visual del mismo Ajustes GDX en menú, sala y mesa: las
   filas ordinarias usan ahora una geometría común de 68 px y un avance de
   70 px, incluidas sus áreas clicables. Se elimina la divergencia 76/84 que

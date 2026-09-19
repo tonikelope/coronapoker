@@ -1,6 +1,8 @@
 package com.tonikelope.coronapoker.core;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -282,6 +284,10 @@ public final class NewGameTableDraft {
             return "SB=" + selected.smallBlind()
                     + "#BG=" + selected.bigBlind()
                     + "#STRUCT=" + structure
+                    + (structureName == null ? "" : "#SNAME="
+                            + Base64.getUrlEncoder().withoutPadding()
+                                    .encodeToString(structureName.getBytes(
+                                            StandardCharsets.UTF_8)))
                     + "#BUYIN=" + buyin
                     + "#FIXED=" + bool(fixedBuyin)
                     + "#BMIN=" + minBuyinBb
@@ -320,7 +326,12 @@ public final class NewGameTableDraft {
                 NewGameTableDraft draft = new NewGameTableDraft();
                 String structure = values.getOrDefault("STRUCT", "");
                 if (!structure.isEmpty()) {
-                    draft.setBlindStructure("wire", parseLevels(structure), 0);
+                    String encodedName = values.get("SNAME");
+                    String structureName = encodedName == null
+                            ? "wire" : new String(Base64.getUrlDecoder()
+                                    .decode(encodedName), StandardCharsets.UTF_8);
+                    draft.setBlindStructure(structureName,
+                            parseLevels(structure), 0);
                 }
                 double small = Double.parseDouble(required(values, "SB"));
                 double big = Double.parseDouble(required(values, "BG"));

@@ -86,6 +86,10 @@ class NetworkLobbyGatewayTest {
                 assertEquals(host.snapshot().tableSettings(), client.snapshot().tableSettings());
                 NewGameTableDraft changedDraft = NewGameTableDraft.from(
                         host.snapshot().tableSettings());
+                changedDraft.setBlindStructure("Turbo amigos",
+                        List.of(new NewGameTableDraft.BlindLevel(0.1, 0.2),
+                                new NewGameTableDraft.BlindLevel(0.2, 0.4),
+                                new NewGameTableDraft.BlindLevel(0.5, 1)), 1);
                 changedDraft.setAnte(true);
                 changedDraft.setStraddle(true);
                 changedDraft.setHandLimit(true);

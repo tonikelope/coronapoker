@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 19:39 (Europe/Madrid)
+Última actualización: 2026-09-19 20:00 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -18,6 +18,14 @@ visual archivada en `reference/gdx-demo` y únicos ejecutables en `target`.
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Corregida la propagación de estructuras de ciegas personalizadas entre el
+  anfitrión GDX y los invitados: el espejo `GAMECONFIG` preserva ahora también
+  el nombre UTF-8 de la estructura, sin romper clientes anteriores que ignoran
+  claves desconocidas. Se añadió un round-trip con todos los valores editables
+  no predeterminados y una integración host/cliente con estructura
+  personalizada. Pruebas focalizadas de modelo y red: **12/12**. JAR GDX:
+  266.249.532 bytes, SHA-256
+  `D2201FD25BE71050B7977CF5E643AB3732C9458AB3B27EFA29264336DE98AF30`.
 - Unificado el idioma visible de Ajustes entre menú y mesa para Controles,
   Timba, Ciegas, Bots, Sesión y Atajos. Las acciones operativas y los estados
   del editor de teclas ya no dependen de literales españoles; consumen el mismo

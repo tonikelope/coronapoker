@@ -221,10 +221,7 @@ class NetworkLobbyGatewayTest {
         try (ServerSocket reservation = new ServerSocket(0)) { port = reservation.getLocalPort(); }
         AtomicReference<GameLaunchContext> hostContext = new AtomicReference<>();
         AtomicReference<GameLaunchContext> clientContext = new AtomicReference<>();
-        String initCommand = "INIT#" + GameConfigCodecV1.encodeBase64(
-                GameConfigCodecV1.fromSettings(
-                        new NewGameTableDraft().snapshot(), false,
-                        "native-handoff"));
+        AtomicReference<String> hostInitCommand = new AtomicReference<>();
         GameTableFactory tables = context -> {
             (context.lobby().host() ? hostContext : clientContext).set(context);
             TableEventBridge events = new TableEventBridge();
@@ -232,6 +229,12 @@ class NetworkLobbyGatewayTest {
                     events, () -> {
                         if (context.lobby().host()) {
                             try {
+                                String initCommand = "INIT#"
+                                        + GameConfigCodecV1.encodeBase64(
+                                                GameConfigCodecV1.fromSettings(
+                                                        context.lobby().tableSettings(),
+                                                        false, "native-handoff"));
+                                hostInitCommand.set(initCommand);
                                 return context.channel().broadcastFromHost(
                                         initCommand, null);
                             } catch (java.io.IOException failure) {
@@ -251,6 +254,16 @@ class NetworkLobbyGatewayTest {
                     .get(5, TimeUnit.SECONDS);
             try {
                 await(() -> host.snapshot().participants().size() == 2);
+                NewGameTableDraft updated = NewGameTableDraft.from(
+                        host.snapshot().tableSettings());
+                updated.setAnte(true);
+                updated.setRunItTwice(true);
+                updated.setThinkSeconds(55);
+                NewGameTableDraft.Settings expectedSettings = updated.snapshot();
+                host.submit(new LobbyCommand.UpdateTableSettings(expectedSettings))
+                        .toCompletableFuture().get(2, TimeUnit.SECONDS);
+                await(() -> expectedSettings.equals(
+                        client.snapshot().tableSettings()));
                 host.submit(new LobbyCommand.StartGame()).toCompletableFuture()
                         .get(2, TimeUnit.SECONDS);
                 TableSession hostTable = host.tableSession().toCompletableFuture()
@@ -267,10 +280,19 @@ class NetworkLobbyGatewayTest {
                 AtomicReference<String> bufferedInit = new AtomicReference<>();
                 clientContext.get().channel().subscribe(inbound ->
                         bufferedInit.set(inbound.command()));
-                await(() -> initCommand.equals(bufferedInit.get()));
+                await(() -> hostInitCommand.get() != null
+                        && hostInitCommand.get().equals(bufferedInit.get()));
                 assertTrue(hostContext.get().lobby().host());
+                assertEquals(expectedSettings,
+                        hostContext.get().lobby().tableSettings());
+                assertEquals(expectedSettings,
+                        clientContext.get().lobby().tableSettings());
                 assertEquals("native-handoff",
                         clientContext.get().initialConfiguration().sessionId());
+                assertTrue(clientContext.get().initialConfiguration().ante());
+                assertTrue(clientContext.get().initialConfiguration().runItTwice());
+                assertEquals(55,
+                        clientContext.get().initialConfiguration().thinkTime());
 
                 AtomicReference<String> hostInbound = new AtomicReference<>();
                 hostContext.get().channel().subscribe(inbound ->

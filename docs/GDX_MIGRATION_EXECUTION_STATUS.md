@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 20:00 (Europe/Madrid)
+Última actualización: 2026-09-19 20:06 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -18,6 +18,13 @@ visual archivada en `reference/gdx-demo` y únicos ejecutables en `target`.
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Cerrado con evidencia el recorrido de configuración Nueva timba → sala de
+  espera → arranque autoritativo. Una prueba de integración modifica reglas en
+  la sala antes de iniciar y exige que anfitrión e invitado abran la mesa con
+  ese snapshot actualizado; otra prueba verifica campo por campo que todas las
+  reglas editables llegan al paquete estricto del crupier. Pruebas focalizadas
+  de codec y red: **9/9**. Este corte solo amplía certificación y no cambia el
+  JAR de producción indicado en el punto siguiente.
 - Corregida la propagación de estructuras de ciegas personalizadas entre el
   anfitrión GDX y los invitados: el espejo `GAMECONFIG` preserva ahora también
   el nombre UTF-8 de la estructura, sin romper clientes anteriores que ignoran

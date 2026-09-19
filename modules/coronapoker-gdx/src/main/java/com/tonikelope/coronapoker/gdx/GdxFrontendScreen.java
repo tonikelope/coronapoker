@@ -2869,7 +2869,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsShortcutPage = MathUtils.clamp(settingsShortcutPage,
                 0, pages - 1);
         settingsHeading(x, y, w, h,
-                GdxSettingsContract.Section.SHORTCUTS.label());
+                GdxSettingsContract.Section.SHORTCUTS.label(gameText));
         int first = settingsShortcutPage * SETTINGS_SHORTCUT_ROWS_PER_PAGE;
         int visible = Math.min(SETTINGS_SHORTCUT_ROWS_PER_PAGE,
                 entries.size() - first);

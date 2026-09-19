@@ -924,10 +924,15 @@ Estado: límite y controles manuales principales funcionales en core/GDX.
 
 ### P1.1 — Una única pantalla de Ajustes GDX
 
-Estado: parcial; menú y mesa todavía tienen implementaciones de dibujo
-separadas que deben converger en un componente/modelo común.
+Estado: funcionalmente cableado sobre un contrato, sesión transaccional,
+navegación y geometría comunes. Menú, sala y mesa conservan renderizadores
+propios porque son superficies GDX distintas, pero ya no mantienen catálogos ni
+semántica independientes. El bloque focalizado de contrato, layout, audio,
+apariencia, dispositivos, estructuras de ciegas, resumen, permisos y merge en
+vivo pasa **57/57**. Queda QA interactiva completa y corregir únicamente los
+defectos de consumidor que aparezcan; no se reescribirá otra pantalla paralela.
 
-Audio pendiente o incompleto:
+Cobertura de audio cableada que debe conservarse (QA interactiva pendiente):
 
 - Volumen maestro.
 - Música y pistas aplicables.
@@ -938,7 +943,7 @@ Audio pendiente o incompleto:
 - Captura, reproducción propia y volumen de voz.
 - Estado correcto del icono de sonido en todas las pantallas.
 
-Apariencia aplicable a GDX:
+Apariencia GDX cableada que debe conservarse (QA interactiva pendiente):
 
 - Baraja y trasera.
 - Tapete y nivel de luz.
@@ -946,10 +951,12 @@ Apariencia aplicable a GDX:
 - Imágenes del chat y captura final.
 - HECHO en código: resaltado de avatares con hover, límite adaptativo y
   protección contra click-through; falta QA visual.
-- Pantalla completa/borderless.
-- VSync, monitor activo, antialiasing y calidad gráfica.
+- Pantalla completa exclusiva, sin bordes y ventana, aplicables en vivo.
+- Antialiasing y calidad gráfica; VSync permanece siempre activo y el monitor
+  se detecta automáticamente, por lo que no se inventan interruptores que el
+  producto original no tenía.
 
-Juego durante la partida:
+Juego durante la partida cableado y sujeto a permisos (QA interactiva pendiente):
 
 - Número máximo de manos.
 - Nivel y estructura de ciegas.
@@ -961,7 +968,7 @@ Juego durante la partida:
 - Host editable, cliente sólo lectura.
 - Guardado transaccional y propagación real por red.
 
-Automatismos:
+Automatismos cableados (QA interactiva pendiente):
 
 - Botones AUTO.
 - Auto Call y máximo.
@@ -970,10 +977,10 @@ Automatismos:
 - Recompra automática.
 - Persistencia entre manos.
 
-Otros:
+Otros contratos vigentes:
 
 - Atajos configurables.
-- Idioma aplicado inmediatamente.
+- Idioma aplicado inmediatamente desde el selector común del menú principal.
 - Sin textos solapados, cortados o fuera de panel.
 
 Exclusiones GDX acordadas: zoom Swing, vista compacta y desactivar todas las
@@ -1147,11 +1154,13 @@ renderer no puede alterar reglas, barreras, locks, protocolo ni criptografía.
 3. CERRADO para los defectos encontrados: se corrigieron sólo dos transiciones
    del controlador neutral GDX y Swing queda protegido actualmente con
    1.120/1.120 FAST.
-4. EN CURSO: cerrar la superficie funcional normal de mesa. El menú contextual
-   ya reproduce las acciones de Swing y su submenú Ayuda; falta la QA visual y
-   revisar los últimos consumidores de una partida humana ordinaria.
-5. Después cerrar Ajustes GDX como superficie única de menú y mesa, con
-   Apariencia, Audio, Atajos, Debug y Juego completamente cableados.
+4. CERRADO en auditoría automática para los consumidores ordinarios conocidos:
+   acciones, barra rápida y atajos respetan estado, permisos y disponibilidad.
+   Queda QA visual interactiva, no un bloqueo funcional identificado.
+5. EN CURSO: cierre de Ajustes GDX como superficie única de menú, sala y mesa.
+   Apariencia, Audio, Atajos, Debug y Juego comparten contrato y transacción;
+   el bloque focalizado pasa 57/57. Falta la pasada interactiva completa y
+   resolver cualquier defecto real que revele, sin duplicar implementaciones.
 6. En paralelo, reforzar los escenarios GDX cuando aparezca una regresión P0:
    la prueba debe recorrer el consumidor de producto responsable, no resolver
    directamente el modelo ni limitarse a comprobar el core.

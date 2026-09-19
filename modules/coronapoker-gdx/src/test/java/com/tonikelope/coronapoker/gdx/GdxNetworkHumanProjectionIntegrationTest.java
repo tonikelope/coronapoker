@@ -40,6 +40,7 @@ import java.net.Socket;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
@@ -112,7 +113,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
     }
 
     @Test
-    void tableChatTextAndImagesCrossTheRealNetworkDuringAGame()
+    void tableChatMediaCrossTheRealNetworkDuringAGame()
             throws Exception {
         int port;
         try (ServerSocket reservation = new ServerSocket(0)) {
@@ -156,10 +157,18 @@ class GdxNetworkHumanProjectionIntegrationTest {
                         new GdxTableChatSession(client)) {
                     String image = "https://example.invalid/reaccion.gif";
                     String wireImage = "imgs://example.invalid/reaccion.gif";
+                    byte[] voice = validGdxVoiceWav();
+                    String wireVoice = Base64.getEncoder().encodeToString(voice);
                     hostChat.sendText("hola #12#").toCompletableFuture()
                             .get(5, TimeUnit.SECONDS);
                     clientChat.sendImage(image).toCompletableFuture()
                             .get(5, TimeUnit.SECONDS);
+                    hostChat.sendVoice(voice).toCompletableFuture()
+                            .get(5, TimeUnit.SECONDS);
+                    assertThrows(java.util.concurrent.ExecutionException.class,
+                            () -> clientChat.sendVoice(new byte[]{1, 2, 3})
+                                    .toCompletableFuture()
+                                    .get(5, TimeUnit.SECONDS));
 
                     await(() -> containsChat(hostChat,
                                     LobbyChatMessage.Type.TEXT, "hola #12#")
@@ -168,7 +177,11 @@ class GdxNetworkHumanProjectionIntegrationTest {
                             && containsChat(hostChat,
                                     LobbyChatMessage.Type.IMAGE, wireImage)
                             && containsChat(clientChat,
-                                    LobbyChatMessage.Type.IMAGE, wireImage),
+                                    LobbyChatMessage.Type.IMAGE, wireImage)
+                            && containsChat(hostChat,
+                                    LobbyChatMessage.Type.VOICE, wireVoice)
+                            && containsChat(clientChat,
+                                    LobbyChatMessage.Type.VOICE, wireVoice),
                             Duration.ofSeconds(5));
                 }
                 hostRenderer.releaseHeldAction();
@@ -178,6 +191,16 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 host.close();
             }
         }
+    }
+
+    private static byte[] validGdxVoiceWav() throws Exception {
+        byte[] pcm = new byte[(int) GdxVoiceRecorder.SAMPLE_RATE * 2 / 5];
+        for (int index = 0; index + 1 < pcm.length; index += 2) {
+            short sample = (short) (Math.sin(index / 11d) * 10_000);
+            pcm[index] = (byte) sample;
+            pcm[index + 1] = (byte) (sample >>> 8);
+        }
+        return GdxVoiceRecorder.encodePcm(pcm);
     }
 
     private static boolean containsChat(GdxTableChatSession chat,

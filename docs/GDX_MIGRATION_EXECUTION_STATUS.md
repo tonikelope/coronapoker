@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 01:09 (Europe/Madrid)
+Última actualización: 2026-09-20 01:14 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,12 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Certificado el chat de mesa sobre dos sesiones de red reales y el consumidor
+  GDX: texto, URL de imagen/GIF y una nota de voz WAV generada por el propio
+  códec GDX llegan idénticos a host y cliente; una carga de voz inválida es
+  rechazada por el contrato autoritativo. Integración focalizada: **1/1**. Es
+  un incremento de certificación sin cambio de runtime; el JAR vigente sigue
+  siendo el del checkpoint de código inmediatamente anterior.
 - Corregida la paridad del registro final: las filas de resultados en inglés
   (`WINS`, `LOSES`, `BREAK EVEN`) reciben la misma paleta que sus equivalentes
   españoles, sin inferir el resultado desde el nick, y la rejilla conserva el

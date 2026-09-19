@@ -33,6 +33,8 @@ final class GdxGameLogFormatter {
             "\\[[^\\[\\]]*[♠♥♦♣]\\]");
     private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile(
             "\\((?:---|\\*\\*\\*)\\)");
+    private static final Pattern GRID_PATTERN = Pattern.compile(
+            "[\\u2500-\\u257f]+");
 
     private GdxGameLogFormatter() {
     }
@@ -62,6 +64,9 @@ final class GdxGameLogFormatter {
         Color base = lineColor(value);
         Color[] colors = new Color[visible.length()];
         Arrays.fill(colors, base);
+        if (marker(value) != Marker.NONE) {
+            overlay(colors, visible, GRID_PATTERN, DIM);
+        }
         if (base != HEADER && base != BOARD && base != LOSS) {
             int arrow = visible.indexOf(" -> ");
             if (arrow >= 0) {
@@ -113,9 +118,12 @@ final class GdxGameLogFormatter {
         Marker marker = marker(value);
         String visible = visibleText(value);
         if (marker == Marker.GRID || marker == Marker.MULTIVERSE) return DIM;
+        Color balanceResult = balanceResultColor(marker, visible);
+        if (balanceResult != null) return balanceResult;
         String upper = visible.toUpperCase(Locale.ROOT);
         String stripped = upper.stripLeading();
-        if (upper.contains("NI GANA NI PIERDE")) return DEFAULT;
+        if (upper.contains("NI GANA NI PIERDE")
+                || upper.contains("BREAK EVEN")) return DEFAULT;
         if (upper.contains("ERROR") || upper.contains("PIERDE")
                 || upper.contains("LOSES POT") || upper.contains("FALLO")) {
             return LOSS;
@@ -132,6 +140,28 @@ final class GdxGameLogFormatter {
             return DIM;
         }
         return DEFAULT;
+    }
+
+    /** Mirrors Swing's final-result table without matching words in nicknames. */
+    private static Color balanceResultColor(Marker marker, String visible) {
+        if (marker != Marker.BLANK) return null;
+        int last = visible.lastIndexOf('│');
+        if (last <= 0) return null;
+        int previous = visible.lastIndexOf('│', last - 1);
+        if (previous < 0) return null;
+        String result = visible.substring(previous + 1, last)
+                .strip().toUpperCase(Locale.ROOT);
+        if (result.equals("NI GANA NI PIERDE")
+                || result.equals("BREAK EVEN")) return DEFAULT;
+        if (result.equals("GANA") || result.startsWith("GANA ")
+                || result.equals("WINS") || result.startsWith("WINS ")) {
+            return WIN;
+        }
+        if (result.equals("PIERDE") || result.startsWith("PIERDE ")
+                || result.equals("LOSES") || result.startsWith("LOSES ")) {
+            return LOSS;
+        }
+        return null;
     }
 
     private static void overlay(Color[] colors, String value,

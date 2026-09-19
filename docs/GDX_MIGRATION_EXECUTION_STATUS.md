@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 01:04 (Europe/Madrid)
+Última actualización: 2026-09-20 01:09 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,12 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Corregida la paridad del registro final: las filas de resultados en inglés
+  (`WINS`, `LOSES`, `BREAK EVEN`) reciben la misma paleta que sus equivalentes
+  españoles, sin inferir el resultado desde el nick, y la rejilla conserva el
+  tono atenuado de Swing. Pruebas focalizadas de estado/formato: **98/98**;
+  empaquetado correcto. JAR GDX: 266.267.200 bytes, SHA-256
+  `97C5C0B69B3E5A9A32A229707A1E5E3EBC6261D54F036C6F666116947EAD5A33`.
 - Cerrada la pasada residual de idioma visible en mesa: Pausar/Reanudar y el
   generador de jugadas (título, probabilidad y navegación) consumen ahora el
   diccionario común y conservan el ajuste automático al contenedor. Prueba

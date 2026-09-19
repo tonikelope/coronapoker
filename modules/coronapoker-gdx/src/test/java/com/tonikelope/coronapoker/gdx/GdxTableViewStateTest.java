@@ -843,6 +843,30 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void gameLogFinalResultsMatchSwingInSpanishAndEnglish() {
+        assertRunColor("(  ) │ GANA_BOT │ BREAK EVEN │",
+                "BREAK EVEN", 0xff, 0xff, 0xff, 0xff);
+        assertRunColor("(  ) │ player │ WINS 2.5 │",
+                "WINS 2.5", 0x78, 0xe6, 0x78, 0xff);
+        assertRunColor("(  ) │ player │ LOSES 1.5 │",
+                "LOSES 1.5", 0xeb, 0x78, 0x78, 0xff);
+        assertRunColor("(  ) │ player │ GANA 2,5 │",
+                "GANA 2,5", 0x78, 0xe6, 0x78, 0xff);
+        assertRunColor("(  ) │ player │ PIERDE 1,5 │",
+                "PIERDE 1,5", 0xeb, 0x78, 0x78, 0xff);
+        assertRunColor("(  ) │ player │ WINS 2.5 │",
+                "│", 0xaa, 0xaa, 0xaa, 0xff);
+    }
+
+    private static void assertRunColor(String line, String token,
+            int red, int green, int blue, int alpha) {
+        GdxGameLogFormatter.Run run = GdxGameLogFormatter.runs(line).stream()
+                .filter(candidate -> candidate.text().contains(token))
+                .findFirst().orElseThrow();
+        assertColor(red, green, blue, alpha, run.color());
+    }
+
+    @Test
     void thinkingSurfacePreservesSwingTransparency() {
         assertColor(0xcc, 0xcc, 0xcc, 0x4b,
                 CoronaPokerGdxTable.LEGACY_THINKING);

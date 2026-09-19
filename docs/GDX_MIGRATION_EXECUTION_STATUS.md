@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 21:07 (Europe/Madrid)
+Última actualización: 2026-09-19 21:16 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -16,8 +16,26 @@ Documentos relacionados:
 Estructura canónica actual: código de producto en `src` y `modules`, referencia
 visual archivada en `reference/gdx-demo` y únicos ejecutables en `target`.
 
+Disciplina del repositorio durante la migración:
+
+- este documento es el único diario vivo; los informes de fases anteriores son
+  evidencia histórica y no se duplican con nuevas notas de avance;
+- `reference/gdx-demo` es referencia archivada, nunca una fuente que el producto
+  GDX cargue o compile en ejecución;
+- no se crean JARs, capturas, volcados ni resultados de pruebas fuera de sus
+  directorios canónicos;
+- ningún archivo no versionado se elimina por intuición: primero se hace
+  inventario, y se preservan expresamente mods, barajas, sonidos y cinematics
+  del usuario.
+
 ## Checkpoint de consolidación 2026-09-19
 
+- El acceso rápido al chat ya exige simultáneamente una sesión de chat y una
+  mesa viva. El botón y la tecla rápida no pueden abrir un compositor huérfano
+  durante una inicialización incompleta o una mesa sin lobby. La regresión se
+  incorpora al mismo bloque focalizado de mesa: **111/111**. JAR GDX:
+  266.250.552 bytes, SHA-256
+  `4DB9AD7E7D6414BFEA6456886EFC3C68FAE5F56386E935D54080C7F53C73EA91`.
 - La barra rápida y los atajos ya comparten disponibilidad real: recompra no
   ofrece ni envía una orden cuando la timba la prohíbe, e imágenes no abre un
   compositor inservible cuando falta chat o el ajuste las bloquea. Estado y

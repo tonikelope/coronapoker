@@ -17,6 +17,9 @@ final class GdxTableShortcutTest {
     void quickActionsDoNotAdvertiseUnavailableTableFeatures() {
         assertFalse(CoronaPokerGdxTable.immediateRebuyControlEnabled(false));
         assertTrue(CoronaPokerGdxTable.immediateRebuyControlEnabled(true));
+        assertFalse(CoronaPokerGdxTable.tableChatControlEnabled(false, true));
+        assertFalse(CoronaPokerGdxTable.tableChatControlEnabled(true, false));
+        assertTrue(CoronaPokerGdxTable.tableChatControlEnabled(true, true));
         assertFalse(CoronaPokerGdxTable.tableImageControlEnabled(false, true));
         assertFalse(CoronaPokerGdxTable.tableImageControlEnabled(true, false));
         assertTrue(CoronaPokerGdxTable.tableImageControlEnabled(true, true));

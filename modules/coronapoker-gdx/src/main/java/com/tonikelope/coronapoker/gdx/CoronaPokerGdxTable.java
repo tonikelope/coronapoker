@@ -827,7 +827,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     && activeDialog == null && liveState != null) {
                 if (uiLayer == UI_CHAT && !chatImageMode) {
                     closeTableChat();
-                } else if (uiLayer == UI_NONE) {
+                } else if (uiLayer == UI_NONE && canUseTableChat()) {
                     openQuickChat();
                 }
                 // Always consume the unmodified quick-chat key while a live
@@ -4121,7 +4121,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private boolean fastButtonEnabled(int index) {
         return index == 0
-                || (index == 1 && tableChat != null)
+                || (index == 1 && canUseTableChat())
                 || (index == 3 && canUseTableImages())
                 || (index == 2 && canUseTableVoice())
                 || (index == 4 && canToggleImmediateRebuy())
@@ -4132,6 +4132,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return immediateRebuyControlEnabled(tableRebuyAllowed);
     }
 
+    private boolean canUseTableChat() {
+        return tableChatControlEnabled(tableChat != null, liveState != null);
+    }
+
     private boolean canUseTableImages() {
         return tableImageControlEnabled(tableChat != null,
                 tablePreference("chat_images_ingame", true));
@@ -4139,6 +4143,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static boolean immediateRebuyControlEnabled(boolean rebuyAllowed) {
         return rebuyAllowed;
+    }
+
+    static boolean tableChatControlEnabled(boolean chatAvailable,
+            boolean tableLive) {
+        return chatAvailable && tableLive;
     }
 
     static boolean tableImageControlEnabled(boolean chatAvailable,
@@ -4212,6 +4221,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void openQuickChat() {
+        if (!canUseTableChat()) return;
         chatError = "";
         chatImageMode = false;
         emojiPickerOpen = false;

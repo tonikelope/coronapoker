@@ -6900,7 +6900,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 lightsIconWidth, lightsIconHeight);
         batch.setColor(Color.WHITE);
         drawFittedCenteredInBox(actionFont,
-                paused ? "REANUDAR" : "PAUSAR",
+                uppercase(gameText.translate(paused
+                        ? "gdx.table.resume" : "gdx.table.pause")),
                 communityPauseX + 46f, communityPauseY + 5f,
                 communityPauseWidth - 54f, communityPauseHeight - 10f,
                 paused ? Color.WHITE : Color.BLACK, 1f);
@@ -10639,20 +10640,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             batch.setShader(null);
         }
         String handName = gameText.translate(example.translationKey());
-        drawFittedCenteredInBox(uiFont, "GENERADOR DE JUGADAS",
+        drawFittedCenteredInBox(uiFont,
+                uppercase(gameText.translate("gdx.hand_generator.title")),
                 panel.x + 90f, panel.y + panel.height - 75f,
                 panel.width - 180f, 48f, POT_GOLD, alpha);
         drawFittedCenteredInBox(actionFont, handName,
                 panel.x + 100f, panel.y + panel.height - 126f,
                 panel.width - 200f, 46f, Color.WHITE, alpha);
         drawFittedCenteredInBox(smallFont,
-                "PROBABILIDAD  1 ENTRE " + example.probability(),
+                uppercase(gameText.translate(
+                        "gdx.hand_generator.probability",
+                        example.probability())),
                 probability.x, probability.y, probability.width,
                 probability.height, POT_GOLD, alpha);
-        drawFittedCenteredInBox(actionFont, "‹  ANTERIOR",
+        drawFittedCenteredInBox(actionFont,
+                "‹  " + uppercase(gameText.translate(
+                        "gdx.hand_generator.previous")),
                 previous.x, previous.y, previous.width, previous.height,
                 Color.WHITE, previousEnabled ? alpha : 0.28f * alpha);
-        drawFittedCenteredInBox(actionFont, "SIGUIENTE  ›",
+        drawFittedCenteredInBox(actionFont,
+                uppercase(gameText.translate("gdx.hand_generator.next"))
+                        + "  ›",
                 next.x, next.y, next.width, next.height,
                 Color.WHITE, nextEnabled ? alpha : 0.28f * alpha);
         drawFittedCenteredInBox(actionFont, "×", close.x, close.y,

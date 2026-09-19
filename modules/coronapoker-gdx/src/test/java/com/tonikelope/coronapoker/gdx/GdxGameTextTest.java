@@ -63,6 +63,11 @@ final class GdxGameTextTest {
                 text.translate("gdx.screenshot.folder_failed"));
         assertEquals("CLOSE AFTER SENDING",
                 text.translate("gdx.table.chat.close_on_send"));
+        assertEquals("RESUME", text.translate("gdx.table.resume"));
+        assertEquals("Probability  1 in 46",
+                text.translate("gdx.hand_generator.probability", 46));
+        assertEquals("Previous",
+                text.translate("gdx.hand_generator.previous"));
 
         assertEquals("es", text.setLanguage("not-a-language"));
         assertEquals("CREAR TIMBA", text.translate("game.crear_timba"));
@@ -85,5 +90,8 @@ final class GdxGameTextTest {
         assertEquals("MÍNIMO", text.translate("gdx.dialog.minimum"));
         assertEquals("SIN MENSAJES",
                 text.translate("gdx.table.chat.no_messages"));
+        assertEquals("REANUDAR", text.translate("gdx.table.resume"));
+        assertEquals("Probabilidad  1 entre 46",
+                text.translate("gdx.hand_generator.probability", 46));
     }
 }

@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 00:56 (Europe/Madrid)
+Última actualización: 2026-09-20 01:04 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,12 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Cerrada la pasada residual de idioma visible en mesa: Pausar/Reanudar y el
+  generador de jugadas (título, probabilidad y navegación) consumen ahora el
+  diccionario común y conservan el ajuste automático al contenedor. Prueba
+  focalizada: **1/1**; empaquetado correcto. JAR GDX: 266.266.781 bytes,
+  SHA-256
+  `D666FB259AC9BBCF44B9CA20FADC01E1CF026F14537FF9505AC91D24180EC6F3`.
 - Completada la pasada de idioma por las superficies auxiliares de mesa:
   visor de cartas, capturas, galería, chat rápido y etiquetas internas de los
   selectores numéricos ya usan el diccionario común. También el sink genérico

@@ -1346,15 +1346,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         roundedRect(560f, 350f, 800f, 330f, 16f);
         shapes.setColor(new Color(0x36d9ffb8));
         shapes.rect(586f, 665f, 748f, 3f);
-        textFit(headingFont, "CAMBIOS SIN GUARDAR", 960f, 578f,
+        textFit(headingFont, uppercase(gameText.translate(
+                "gdx.settings.unsaved.title")), 960f, 578f,
                 GOLD, true, 700f);
         textFit(actionFont,
-                "¿DESCARTAR LOS CAMBIOS REALIZADOS EN AJUSTES?",
+                uppercase(gameText.translate("gdx.settings.unsaved.message")),
                 960f, 526f, Color.WHITE, true, 700f);
-        themedButton(635f, 405f, 300f, 75f, "SEGUIR EDITANDO",
+        themedButton(635f, 405f, 300f, 75f, uppercase(gameText.translate(
+                "gdx.settings.unsaved.continue")),
                 ButtonTone.NEUTRAL,
                 () -> settingsDiscardConfirmation = false, true);
-        themedButton(985f, 405f, 300f, 75f, "DESCARTAR",
+        themedButton(985f, 405f, 300f, 75f, uppercase(gameText.translate(
+                "gdx.settings.unsaved.discard")),
                 ButtonTone.DANGER, () -> finishClosingSettings(false), true);
     }
 

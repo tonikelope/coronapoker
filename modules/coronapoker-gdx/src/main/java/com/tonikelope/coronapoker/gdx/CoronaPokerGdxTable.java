@@ -1618,10 +1618,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         GdxTableDialog confirmation = new GdxTableDialog(
-                GdxTableDialog.Kind.CONFIRM, "CAMBIOS SIN GUARDAR",
-                "¿DESCARTAR LOS CAMBIOS REALIZADOS EN AJUSTES?",
+                GdxTableDialog.Kind.CONFIRM,
+                gameText.translate("gdx.settings.unsaved.title"),
+                gameText.translate("gdx.settings.unsaved.message"),
                 com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.STOP,
-                780, 0, false, "SEGUIR EDITANDO", "DESCARTAR");
+                780, 0, false,
+                gameText.translate("gdx.settings.unsaved.continue"),
+                gameText.translate("gdx.settings.unsaved.discard"));
         settingsDiscardConfirmation = confirmation;
         settingsDiscardAfterClose = afterClose;
         confirmation.result().thenAccept(discard -> {

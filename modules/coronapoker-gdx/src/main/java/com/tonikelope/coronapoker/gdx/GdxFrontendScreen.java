@@ -4034,40 +4034,48 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         panel(430f, 185f, 670f, 625f, settingsGameText("buyin"));
         panel(1130f, 185f, 725f, 625f, settingsGameText("rebuy"));
 
-        toggle(470f, 625f, 590f, "Buy-in fijo", table.fixedBuyin(),
+        toggle(470f, 625f, 590f,
+                settingsGameText("row.fixed_buyin"), table.fixedBuyin(),
                 () -> table.setFixedBuyin(!table.fixedBuyin()), !table.economyLocked());
         stepper(470f, 480f, 590f,
-                gameText.translate("gdx.settings.game.row.initial_buyin"),
+                settingsGameText("row.initial_buyin"),
                 table.buyin(),
                 table.minimumBuyin(), table.maximumBuyin(),
                 () -> table.setBuyin(table.buyin() - 1),
                 () -> table.setBuyin(table.buyin() + 1),
                 table.fixedBuyin() && !table.economyLocked());
         stepper(470f, 315f, 280f,
-                gameText.translate("gdx.settings.game.row.buyin_range"),
-                table.minBuyinBb(), 10, 500,
+                settingsGameText("row.minimum_range_bb"),
+                table.minBuyinBb(), NewGameTableDraft.MIN_BUYIN_BB,
+                NewGameTableDraft.MAX_BUYIN_BB,
                 () -> table.setMinBuyinBb(table.minBuyinBb() - 5),
                 () -> table.setMinBuyinBb(table.minBuyinBb() + 5),
                 !table.economyLocked());
-        stepper(780f, 315f, 280f, "→", table.maxBuyinBb(), 10, 500,
+        stepper(780f, 315f, 280f,
+                settingsGameText("row.maximum_range_bb"),
+                table.maxBuyinBb(), NewGameTableDraft.MIN_BUYIN_BB,
+                NewGameTableDraft.MAX_BUYIN_BB,
                 () -> table.setMaxBuyinBb(table.maxBuyinBb() - 5),
                 () -> table.setMaxBuyinBb(table.maxBuyinBb() + 5),
                 !table.economyLocked());
 
-        toggle(1170f, 625f, 645f, "Recomprar", table.rebuy(),
+        toggle(1170f, 625f, 645f,
+                settingsGameText("row.rebuy"), table.rebuy(),
                 () -> table.setRebuy(!table.rebuy()), true);
-        toggle(1170f, 505f, 645f, "Límite recompra por jugador", table.rebuyLimit(),
+        toggle(1170f, 505f, 645f,
+                settingsGameText("row.player_limit"), table.rebuyLimit(),
                 () -> table.setRebuyLimit(!table.rebuyLimit()), table.rebuyLimitEnabled());
-        stepper(1170f, 365f, 645f, "", table.rebuyLimitCount(), 1, Integer.MAX_VALUE,
+        stepper(1170f, 365f, 645f,
+                settingsGameText("row.maximum_rebuys"),
+                table.rebuyLimitCount(), 1, Integer.MAX_VALUE,
                 () -> table.setRebuyLimitCount(table.rebuyLimitCount() - 1),
                 () -> table.setRebuyLimitCount(table.rebuyLimitCount() + 1),
                 table.rebuyLimitCountEnabled());
         bidirectionalChoice(1170f, 225f, 645f,
-                gameText.translate("gdx.settings.game.row.rebuy_cap"),
+                settingsGameText("row.rebuy_cap"),
                 table.rebuyCapPolicy() == NewGameTableDraft.RebuyCapPolicy.BUY_IN
                         ? "BUY-IN"
-                        : gameText.translate(
-                                "gdx.settings.game.value.highest_stack"),
+                        : settingsGameText("value.highest_stack"),
                 () -> table.setRebuyCapPolicy(
                         table.rebuyCapPolicy() == NewGameTableDraft.RebuyCapPolicy.BUY_IN
                                 ? NewGameTableDraft.RebuyCapPolicy.HIGHEST_STACK
@@ -4115,10 +4123,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private String rabbitText() {
         return switch (table.rabbitHunting()) {
-            case FREE -> "Gratis";
-            case FREE_SMALL_BLIND -> "Gratis + SB";
-            case FREE_SMALL_AND_BIG_BLIND -> "Gratis + SB + BB";
-            case OFF -> "Desactivado";
+            case FREE -> gameText.translate("menu.free");
+            case FREE_SMALL_BLIND -> gameText.translate("menu.free_sb");
+            case FREE_SMALL_AND_BIG_BLIND -> gameText.translate("menu.free_sb_bb");
+            case OFF -> gameText.translate("menu.off");
         };
     }
 

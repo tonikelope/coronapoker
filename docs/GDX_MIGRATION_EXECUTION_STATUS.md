@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 18:45 (Europe/Madrid)
+Última actualización: 2026-09-19 18:55 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -18,6 +18,14 @@ visual archivada en `reference/gdx-demo` y únicos ejecutables en `target`.
 
 ## Checkpoint de consolidación 2026-09-19
 
+- La página Compra/Recompra de Nueva timba ya consume el mismo catálogo ES/EN
+  que Ajustes: buy-in fijo, compra inicial, extremos mínimo/máximo del rango,
+  recompra, límite por jugador, máximo y tope dejan de estar escritos
+  directamente en español. Rabbit hunting usa también las traducciones
+  existentes y el segundo extremo del rango deja de mostrarse como una flecha
+  sin significado. Prueba focalizada de idioma: **1/1**. JAR GDX:
+  266.245.030 bytes, SHA-256
+  `9F7A6DE7B9581BC17B8AD9D200B6867D98115A3104A1FDA592127172B40C57C8`.
 - Unificado el volumen general entre todas las superficies GDX. En una
   instalación sin `master_volume`, el menú y Swing usaban 80 %, pero la mesa
   GDX usaba 100 % y podía introducir un salto al entrar en partida. Menú, lobby,

@@ -3181,6 +3181,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (waitingRoomMusic != null) waitingRoomMusic.pause();
     }
 
+    void resumeMusic() {
+        syncMusicForSurface();
+    }
+
     void resumeBackgroundMusicAt(float positionSeconds) {
         if (backgroundMusic == null) return;
         if (Float.isFinite(positionSeconds) && positionSeconds >= 0f) {

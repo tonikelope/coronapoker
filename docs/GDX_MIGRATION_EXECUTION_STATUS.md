@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 20:50 (Europe/Madrid)
+Última actualización: 2026-09-19 20:58 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -18,6 +18,12 @@ visual archivada en `reference/gdx-demo` y únicos ejecutables en `target`.
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Cerrada la recuperación de una apertura de mesa fallida: el frontend vuelve
+  a activar la pista propia de la pantalla de origen sin reiniciar el decoder y
+  libera cualquier mesa GDX que hubiera quedado creada parcialmente. Compila y
+  supera el bloque focalizado de audio, game-over y terminación: **20/20**. JAR
+  GDX: 266.250.204 bytes, SHA-256
+  `6961C2670523BAE228901A73095F50E89119746C92F38983332EC7EB7EEA8C00`.
 - Revalidado el recorrido P0 de Run It Twice sobre dos procesos GDX reales:
   aceptación unánime, publicación de ambos tableros, conservación de saldos y
   rechazo con retorno autoritativo a un solo tablero. Se fija además la

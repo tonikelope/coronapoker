@@ -221,10 +221,11 @@ final class GdxApplicationShell extends ApplicationAdapter {
                         new IllegalStateException("A GDX table scene is already open"));
                 return;
             }
+            CoronaPokerGdxTable candidate = null;
             try {
                 gameLog.reset();
                 menu.pauseMusic();
-                CoronaPokerGdxTable candidate = new CoronaPokerGdxTable(
+                candidate = new CoronaPokerGdxTable(
                         refreshRate, new GdxTableViewState(initialState), commands,
                         () -> opened.accept(table), gameLog, preferences, lobby,
                         presentationSettings);
@@ -237,8 +238,19 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 Gdx.input.setInputProcessor(candidate.inputProcessor());
             } catch (Throwable error) {
                 error.printStackTrace(System.err);
+                if (candidate != null) {
+                    try {
+                        candidate.dispose();
+                    } catch (Throwable cleanupError) {
+                        error.addSuppressed(cleanupError);
+                    }
+                }
                 table = null;
                 Gdx.input.setInputProcessor(menu);
+                // Opening paused whichever menu/lobby track was active. If
+                // table creation fails, restore that same surface without
+                // restarting or replacing its decoder.
+                menu.resumeMusic();
                 menu.showSessionError("No se pudo abrir la mesa: "
                         + rootMessage(error));
                 openingBarrier.completeExceptionally(error);

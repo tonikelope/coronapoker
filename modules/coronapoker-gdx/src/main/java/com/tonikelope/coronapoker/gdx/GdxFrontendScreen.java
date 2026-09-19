@@ -2846,7 +2846,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private String settingsRabbitText() {
         return GdxLiveSettingsSummary.rabbitHuntingLabel(
-                settingsTable.rabbitHunting().ordinal());
+                settingsTable.rabbitHunting().ordinal(), gameText);
     }
 
     private void adjustSettingsRabbit(int direction) {

@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 19:03 (Europe/Madrid)
+Última actualización: 2026-09-19 19:14 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -18,6 +18,12 @@ visual archivada en `reference/gdx-demo` y únicos ejecutables en `target`.
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Los resúmenes de Ajustes dentro de una partida ya consumen el idioma activo:
+  tiempos de timba, compra/recompra y los cuatro niveles de Rabbit Hunting no
+  conservan textos españoles al cambiar a inglés. El mismo formateador se usa
+  tanto en menú como en mesa, sin duplicar reglas. Pruebas focalizadas de
+  catálogo y resumen: **7/7**. JAR GDX: 266.246.617 bytes, SHA-256
+  `C9F1F5598B6213492AD0296CC6B04DFAA8D86EDC32451E0F3D77E99B642C0A6F`.
 - Completado el segundo corte de idioma y claridad funcional de Nueva timba:
   perfiles, carga/cancelación de recuperación y todo el editor de estructuras
   de ciegas responden ahora al idioma activo. Los controles de escalado de

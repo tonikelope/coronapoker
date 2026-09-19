@@ -11653,7 +11653,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             } else {
                 List<String> timingLabels =
                         GdxLiveSettingsSummary.timingLabels(
-                                liveSettingsDraft);
+                                liveSettingsDraft, gameText);
                 drawCompactSettingsRowText(x, firstY - 280f, width,
                         timingLabels.get(0), alpha);
                 drawCompactSettingsRowText(x, firstY - 332f, width,
@@ -11706,13 +11706,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else if (contentPage == 5) {
             float compactGap = 58f;
             drawFittedCenteredInBox(smallFont,
-                    GdxLiveSettingsSummary.purchaseHeading(),
+                    GdxLiveSettingsSummary.purchaseHeading(gameText),
                     x, firstY + 48f, width, 28f,
                     Color.LIGHT_GRAY, alpha * 0.78f);
             List<String> purchaseLabels = liveSettingsDraft == null
-                    ? GdxLiveSettingsSummary.unavailablePurchaseLabels()
+                    ? GdxLiveSettingsSummary.unavailablePurchaseLabels(
+                            gameText)
                     : GdxLiveSettingsSummary.purchaseLabels(
-                            liveSettingsDraft);
+                            liveSettingsDraft, gameText);
             for (int row = 0; row < purchaseLabels.size(); row++) {
                 drawCompactSettingsRowText(x,
                         firstY - row * compactGap, width,
@@ -11856,9 +11857,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private String rabbitRuleLabel() {
-        if (liveSettingsDraft == null) return "NO DISPONIBLE";
+        if (liveSettingsDraft == null) {
+            return GdxLiveSettingsSummary.rabbitHuntingLabel(-1, gameText);
+        }
         return GdxLiveSettingsSummary.rabbitHuntingLabel(
-                liveSettingsDraft.rabbitHunting());
+                liveSettingsDraft.rabbitHunting(), gameText);
     }
 
     private String botDifficultyText() {

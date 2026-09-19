@@ -35,8 +35,8 @@ final class GdxSettingsLayoutTest {
         assertEquals(menu.cancelButton(), table.cancelButton());
         assertEquals(menu.restoreButton(), table.restoreButton());
         assertEquals(menu.saveButton(), table.saveButton());
-        assertEquals(menu.panel().y + menu.panel().height
-                - GdxSettingsLayout.FIRST_ROW_TOP_INSET,
+        assertEquals(menu.content().y + menu.content().height
+                - GdxSettingsLayout.CONTENT_ROW_TOP_INSET,
                 menu.firstRowY());
         Rectangle firstMainTab = menu.mainTab(0);
         assertTrue(firstMainTab.y + firstMainTab.height
@@ -45,6 +45,25 @@ final class GdxSettingsLayoutTest {
         Rectangle firstSubTab = menu.subTab(0);
         assertTrue(firstSubTab.y + firstSubTab.height < firstMainTab.y,
                 "main and secondary tab labels must never overlap");
+    }
+
+    @Test
+    void crowdedSubsectionsWrapIntoBalancedRowsWithoutOverlappingContent() {
+        GdxSettingsLayout.Frame audio = GdxSettingsLayout.frame(
+                1920f, 1080f, 4, 11);
+
+        assertEquals(6, audio.subTabColumns());
+        assertEquals(audio.subTab(0).x, audio.subTab(6).x);
+        assertEquals(audio.subTab(0).y - GdxSettingsLayout.SUB_TAB_ROW_GAP,
+                audio.subTab(6).y);
+        assertTrue(audio.subTab(5).x + audio.subTab(5).width
+                <= audio.panel().x + audio.panel().width
+                - GdxSettingsLayout.HORIZONTAL_INSET);
+        Rectangle lowestTab = audio.subTab(10);
+        float headingBottom = audio.firstRowY() + 66f;
+        float headingTop = headingBottom + 28f;
+        assertTrue(headingTop < lowestTab.y,
+                "the content heading must stay clear of wrapped tabs");
     }
 
     @Test
@@ -77,8 +96,9 @@ final class GdxSettingsLayoutTest {
     @Test
     void denseTogglePagesKeepTheirLastRowInsideTheContentPanel() {
         float contentHeight = GdxSettingsLayout.frame(
-                1920f, 1080f, 4, 7).content().height;
-        float firstRowY = contentHeight - 158f;
+                1920f, 1080f, 4, 8).content().height;
+        float firstRowY = contentHeight
+                - GdxSettingsLayout.CONTENT_ROW_TOP_INSET;
         float stride = GdxSettingsLayout.rowStride(contentHeight, 6);
         float lastRowY = firstRowY - stride * 5f;
 

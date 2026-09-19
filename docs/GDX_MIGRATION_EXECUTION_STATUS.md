@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 20:18 (Europe/Madrid)
+Última actualización: 2026-09-19 20:37 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -18,6 +18,14 @@ visual archivada en `reference/gdx-demo` y únicos ejecutables en `target`.
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Unificada la geometría real de Ajustes entre menú y mesa: título, contenido
+  y primera fila ya comparten el mismo cálculo. Las secciones densas (Audio y
+  Apariencia) distribuyen sus subsecciones en dos filas equilibradas en vez de
+  comprimir o solapar etiquetas, y las páginas de seis controles reducen su
+  separación sin sacar la última caja del panel. Pruebas focalizadas de
+  geometría, estado de mesa y contrato: **120/120**. JAR GDX: 266.250.043
+  bytes, SHA-256
+  `2A841C5DB485E695DAB34D48AFB59F4B571835608A904861E3A8AFFC8223B9E1`.
 - Corregido otro literal divergente de Ajustes: el dispositivo de salida y el
   micrófono predeterminados ya se muestran en el idioma activo tanto en menú
   como durante la partida, sin renombrar dispositivos reales. Pruebas

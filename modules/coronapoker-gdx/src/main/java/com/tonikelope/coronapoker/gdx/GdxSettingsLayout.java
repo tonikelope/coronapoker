@@ -13,7 +13,9 @@ final class GdxSettingsLayout {
     // text line between the header and the first row of controls.
     static final float MAIN_TAB_TOP_INSET = 196f;
     static final float SUB_TAB_TOP_INSET = 254f;
-    static final float FIRST_ROW_TOP_INSET = 330f;
+    static final int MAX_SUB_TABS_PER_ROW = 7;
+    static final float SUB_TAB_ROW_GAP = 42f;
+    static final float CONTENT_ROW_TOP_INSET = 158f;
     static final float CONTENT_BOTTOM_INSET = 112f;
     static final float CONTENT_TOTAL_VERTICAL_INSET = 362f;
     static final float FOOTER_BOTTOM_INSET = 24f;
@@ -44,17 +46,24 @@ final class GdxSettingsLayout {
         }
         Rectangle panel = panelBounds(worldWidth, worldHeight);
         float innerWidth = panel.width - 2f * HORIZONTAL_INSET;
+        int subTabRows = (subpageCount + MAX_SUB_TABS_PER_ROW - 1)
+                / MAX_SUB_TABS_PER_ROW;
+        int subTabColumns = (subpageCount + subTabRows - 1)
+                / subTabRows;
+        float extraSubTabHeight = (subTabRows - 1) * SUB_TAB_ROW_GAP;
         Rectangle content = new Rectangle(
                 panel.x + HORIZONTAL_INSET,
                 panel.y + CONTENT_BOTTOM_INSET,
                 innerWidth,
-                panel.height - CONTENT_TOTAL_VERTICAL_INSET);
+                panel.height - CONTENT_TOTAL_VERTICAL_INSET
+                - extraSubTabHeight);
         return new Frame(panel, content,
                 panel.y + panel.height - MAIN_TAB_TOP_INSET,
                 innerWidth / sectionCount,
                 panel.y + panel.height - SUB_TAB_TOP_INSET,
-                innerWidth / subpageCount,
-                panel.y + panel.height - FIRST_ROW_TOP_INSET);
+                innerWidth / subTabColumns,
+                subTabColumns,
+                content.y + content.height - CONTENT_ROW_TOP_INSET);
     }
 
     /**
@@ -88,13 +97,13 @@ final class GdxSettingsLayout {
         float lastRowBottomInset = 16f;
         float available = contentHeight - firstRowBottomInset
                 - lastRowBottomInset;
-        return Math.min(84f, Math.max(70f,
+        return Math.min(84f, Math.max(66f,
                 available / (rowCount - 1)));
     }
 
     record Frame(Rectangle panel, Rectangle content, float mainTabY,
             float mainTabWidth, float subTabY, float subTabWidth,
-            float firstRowY) {
+            int subTabColumns, float firstRowY) {
 
         Rectangle mainTab(int index) {
             return new Rectangle(panel.x + HORIZONTAL_INSET
@@ -103,8 +112,11 @@ final class GdxSettingsLayout {
         }
 
         Rectangle subTab(int index) {
+            int row = index / subTabColumns;
+            int column = index % subTabColumns;
             return new Rectangle(panel.x + HORIZONTAL_INSET
-                    + index * subTabWidth, subTabY,
+                    + column * subTabWidth,
+                    subTabY - row * SUB_TAB_ROW_GAP,
                     subTabWidth - 3f, 38f);
         }
 

@@ -2360,32 +2360,33 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 w - 68f);
         float rowY = y + h - 158f;
         if (settingsAppearancePage == 0) {
+            float rowStride = GdxSettingsLayout.rowStride(h, 6);
             settingsStepper(x + 34f, rowY, w - 68f, 70f,
                     uppercase(gameText.translate("gdx.settings.row.deck")),
                     GdxAppearanceOptions.deckLabel(configuredDeck(), gameText),
                     this::selectPreviousDeck, this::selectNextDeck);
-            settingsStepper(x + 34f, rowY - 78f, w - 68f, 70f,
+            settingsStepper(x + 34f, rowY - rowStride, w - 68f, 70f,
                     uppercase(gameText.translate(
                             "gdx.settings.row.card_back")),
                     GdxAppearanceOptions.cardBackLabel(configuredBack(),
                             gameText),
                     this::selectPreviousBack, this::selectNextBack);
-            settingsStepper(x + 34f, rowY - 156f, w - 68f, 70f,
+            settingsStepper(x + 34f, rowY - 2f * rowStride, w - 68f, 70f,
                     uppercase(gameText.translate("gdx.settings.row.felt")),
                     GdxAppearanceOptions.feltLabel(configuredFelt(), gameText),
                     this::selectPreviousFelt, this::selectNextFelt);
-            settingsStepper(x + 34f, rowY - 234f, w - 68f, 70f,
+            settingsStepper(x + 34f, rowY - 3f * rowStride, w - 68f, 70f,
                     uppercase(gameText.translate(
                             "gdx.settings.row.light_off")),
                     GdxAppearanceOptions.lightLevelLabel(initialProperties),
                     () -> adjustLightLevel(-1),
                     () -> adjustLightLevel(1));
-            settingsStepper(x + 34f, rowY - 312f, w - 68f, 70f,
+            settingsStepper(x + 34f, rowY - 4f * rowStride, w - 68f, 70f,
                     uppercase(gameText.translate(
                             "gdx.settings.row.window_mode")),
                     windowModeSettingLabel(), this::selectPreviousWindowMode,
                     this::selectNextWindowMode);
-            settingsStepper(x + 34f, rowY - 390f, w - 68f, 70f,
+            settingsStepper(x + 34f, rowY - 5f * rowStride, w - 68f, 70f,
                     uppercase(gameText.translate(
                             "gdx.settings.row.antialiasing")),
                     msaaSettingLabel(),

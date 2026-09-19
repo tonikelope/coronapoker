@@ -11865,8 +11865,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static float settingsContentTitleY(float firstRowY) {
-        // The first content row ends at firstRowY + 64 and the sub-tabs begin
-        // above firstRowY + 104. Keep the heading wholly inside that gap.
+        // The first content row ends at firstRowY + 64. Keep the heading
+        // immediately above it; GdxSettingsLayout reserves the clearance to
+        // either one or two rows of subsection tabs.
         return firstRowY + 66f;
     }
 

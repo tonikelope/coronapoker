@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 21:52 (Europe/Madrid)
+Última actualización: 2026-09-19 22:04 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,14 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Eliminada la causa estructural de la congelación al salir desde Fin de
+  timba: completar su barrera visual ya no ejecuta en el hilo de render el
+  cierre potencialmente bloqueante del crupier, red y ejecutores. La pantalla
+  continúa dibujándose en estado de salida hasta que acaba el cierre
+  autoritativo, y tanto éxito como error conservan la misma secuencia. Pruebas
+  focalizadas de terminación: **10/10**; falta confirmar la transición y la
+  continuidad musical en OpenGL real. JAR GDX: 266.256.552 bytes, SHA-256
+  `1A2386022B1C09330C6F41BBBF20DB39F29F48DAC9D440A1332C49FB57AF0638`.
 - Guardar Ajustes desde la sala de espera ya sincroniza con la sesión los
   cambios reales: el anfitrión publica la configuración autoritativa de mesa y
   cada participante publica su preferencia de notificaciones de chat. No se
@@ -250,10 +258,10 @@ de Swing.
 - JAR que contiene este corte: `target/CoronaPoker-24.11-gdx.jar`
   (266.243.353 bytes, SHA-256
   `66630A0D61488E3EAA3DA1C49C76DE322CEF10A604489CCE89A7FE985262E17D`).
-- Siguiente bloqueo concreto: hacer inequívoca y no aparentemente congelada la
-  transición de Fin de timba al menú sin adelantar el cierre autoritativo ni
-  mover barreras de red; después continuar la auditoría funcional de Ajustes,
-  Nueva Timba y sala de espera.
+- CERRADO en código el bloqueo del hilo gráfico al volver desde Fin de timba,
+  sin adelantar el cierre autoritativo ni mover barreras de red. Siguiente
+  bloqueo concreto: continuar la auditoría funcional de Ajustes, Nueva Timba y
+  sala de espera, empezando por controles visibles sin consumidor efectivo.
 
 - Corte consolidado verde del checkout actual, sin reusar artefactos de una
   compilación anterior:

@@ -6,14 +6,48 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.table.TableCommand;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 final class GdxTableTerminationWiringTest {
+
+    @Test
+    void finalBarrierDefersPotentiallyBlockingCleanupOffTheRenderThread() {
+        CompletableFuture<Void> visualBarrier = new CompletableFuture<>();
+        CompletableFuture<Void> controllerBarrier = new CompletableFuture<>();
+        AtomicReference<Runnable> queued = new AtomicReference<>();
+
+        GdxTableRenderer.transferCompletionAsync(visualBarrier,
+                controllerBarrier, queued::set);
+        visualBarrier.complete(null);
+
+        assertFalse(controllerBarrier.isDone());
+        assertNotNull(queued.get());
+        queued.get().run();
+        assertTrue(controllerBarrier.isDone());
+        assertFalse(controllerBarrier.isCompletedExceptionally());
+    }
+
+    @Test
+    void deferredFinalBarrierPreservesFailures() {
+        CompletableFuture<Void> visualBarrier = new CompletableFuture<>();
+        CompletableFuture<Void> controllerBarrier = new CompletableFuture<>();
+        AtomicReference<Runnable> queued = new AtomicReference<>();
+
+        GdxTableRenderer.transferCompletionAsync(visualBarrier,
+                controllerBarrier, queued::set);
+        visualBarrier.completeExceptionally(new IllegalStateException("boom"));
+        queued.get().run();
+
+        assertTrue(controllerBarrier.isCompletedExceptionally());
+    }
 
     @Test
     void acceptingExitDialogSubmitsExactlyOneCanonicalExitCommand() {

@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 17:19 (Europe/Madrid)
+Última actualización: 2026-09-19 18:15 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -18,6 +18,19 @@ visual archivada en `reference/gdx-demo` y únicos ejecutables en `target`.
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Corregido un P0 confirmado en el log GDX real: rotación de posiciones,
+  recogida de apuestas, pagos, recompras y cierre de barajado podían conservar
+  su evento canónico hasta el final de la animación y ser adelantados por reloj
+  o telemetría (`24 after 25`, `283 after 285`, `293 after 294`). Ahora el
+  estado ordenado se consume al aceptar el evento y sólo la barrera visual
+  espera el aterrizaje o fin real. La presentación conserva su snapshot previo
+  y reconstruye stack/bote durante el vuelo, incluidos cobros que esperan una
+  apuesta todavía en el aire. Regresión directa del renderer y estado:
+  **101/101**, sin fallos ni errores. JAR GDX: 266.244.821 bytes, SHA-256
+  `35C94A9D90E497E06C655E55082F4E653D0509DB8F5DAD673B0C4D29910A6389`.
+  Una integración de red real host/cliente recorrió además preflop, flop, turn,
+  river, showdown, consenso y pago con saldo final concordante (**1/1**).
+  Sigue pendiente la QA OpenGL del flujo completo.
 - Corregida después del checkpoint la presentación del ganador sin showdown:
   el `Payout` canónico pinta ahora el marco completo de ganador (también en el
   HUD local), evita la atenuación incorrecta y reemplaza la acción previa por

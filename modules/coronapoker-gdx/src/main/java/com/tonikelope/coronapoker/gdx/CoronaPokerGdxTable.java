@@ -2201,20 +2201,30 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (livePositionRotation != null) {
                 throw new IllegalStateException("A GDX position rotation is already active");
             }
+            // Presentation-only events still own an ordered sequence number.
+            // Consume it on acceptance so auxiliary clock/telemetry events
+            // cannot overtake the animation and make its completion stale.
+            liveState.apply(event);
             livePositionRotation = new LivePositionRotation(rotation,
                     System.nanoTime(), barrier);
         } else if (event instanceof TableVisualEvent.CollectBets collect) {
             if (liveChipBatch != null || pendingCollectBets != null) {
                 throw new IllegalStateException("A GDX chip batch is already active");
             }
+            TableSnapshot presentationSnapshot = liveState.snapshot();
             if (liveActionChips.isEmpty()) {
                 liveChipBatch = new LiveChipBatch(collect, System.nanoTime(),
-                        barrier, liveState.snapshot(), livePotContributions);
+                        barrier, presentationSnapshot, livePotContributions);
             } else {
                 // Swing lets action chips fly without holding the next turn,
                 // but never duplicates them when the street is collected.
-                pendingCollectBets = new PendingCollectBets(collect, barrier);
+                pendingCollectBets = new PendingCollectBets(collect, barrier,
+                        presentationSnapshot);
             }
+            // The flight owns its captured pre-collection presentation. Move
+            // canonical balances forward now; only the visual barrier waits.
+            liveState.apply(event);
+            syncSeatsFromLiveState();
         } else if (event instanceof TableVisualEvent.PlayerAction action
                 && action.contributionDelta() > 0d) {
             if (!liveBetAnimationEnabled()) {
@@ -2253,7 +2263,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 barrier.complete(null);
                 return;
             }
+            liveState.apply(event);
             livePayout = new LivePayout(payout, System.nanoTime(), barrier);
+            syncSeatsFromLiveState();
         } else if (event instanceof TableVisualEvent.Rebuy rebuy) {
             if (liveRebuy != null) {
                 throw new IllegalStateException("A GDX rebuy is already active");
@@ -2266,8 +2278,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 barrier.complete(null);
                 return;
             }
+            liveState.apply(event);
             liveRebuy = new LiveRebuy(rebuy, System.nanoTime(), barrier,
                     cashSoundResource);
+            syncSeatsFromLiveState();
         } else if (event instanceof TableVisualEvent.InitialStackFill fill) {
             if (liveInitialStackFill != null) {
                 throw new IllegalStateException(
@@ -6905,8 +6919,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         try {
-            liveState.apply(active.event);
-            syncSeatsFromLiveState();
             active.barrier.complete(null);
         } catch (Throwable error) {
             active.barrier.completeExceptionally(error);
@@ -6951,7 +6963,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             PendingCollectBets pending = pendingCollectBets;
             pendingCollectBets = null;
             liveChipBatch = new LiveChipBatch(pending.event,
-                    System.nanoTime(), pending.barrier, liveState.snapshot(),
+                    System.nanoTime(), pending.barrier,
+                    pending.presentationSnapshot,
                     livePotContributions);
         }
     }
@@ -7566,6 +7579,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         active.finishEvent = event;
         active.finishBarrier = barrier;
+        // FINISH is presentation-only. Consume it immediately while retaining
+        // the real GIF/audio boundary below.
+        liveState.apply(event);
         float elapsed = active.elapsedSeconds();
         float duration = active.cycleSeconds;
         active.stopAtSeconds = Math.max(duration,
@@ -7599,7 +7615,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         stopShuffleSound();
         try {
-            liveState.apply(active.finishEvent);
             active.finishBarrier.complete(null);
         } catch (Throwable error) {
             active.finishBarrier.completeExceptionally(error);
@@ -8256,9 +8271,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         try {
-            liveState.apply(active.event);
             livePotContributions.clear();
-            syncSeatsFromLiveState();
             active.barrier.complete(null);
         } catch (Throwable error) {
             active.barrier.completeExceptionally(error);
@@ -8288,10 +8301,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         try {
-            liveState.apply(active.event);
             liveWinnerStarts.putIfAbsent(active.event.nickname(),
                     System.nanoTime());
-            syncSeatsFromLiveState();
             active.barrier.complete(null);
         } catch (Throwable error) {
             active.barrier.completeExceptionally(error);
@@ -8318,8 +8329,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         try {
-            liveState.apply(active.event);
-            syncSeatsFromLiveState();
             active.barrier.complete(null);
         } catch (Throwable error) {
             active.barrier.completeExceptionally(error);
@@ -8377,17 +8386,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         - action.landedContribution(action.elapsedSeconds());
             }
         }
+        double payoutTotal = livePayout == null
+                || !livePayout.event.nickname().equals(seat.name) ? 0d
+                : livePayout.event.amount();
         double paid = livePayout == null
                 || !livePayout.event.nickname().equals(seat.name) ? 0d
                 : livePayout.landedContribution(livePayout.elapsedSeconds());
+        double rebuyTotal = liveRebuy == null ? 0d
+                : liveRebuy.totalContribution(seat.name);
         double rebought = liveRebuy == null ? 0d
                 : liveRebuy.landedContribution(seat.name,
                         liveRebuy.elapsedSeconds());
         double initialFillRemaining = liveInitialStackFill == null ? 0d
                 : liveInitialStackFill.remaining(seat.name);
-        double stack = Math.max(0d,
-                player.stack() + actionRemaining + paid + rebought
-                        - initialFillRemaining);
+        double stack = displayedIncomingStack(player.stack()
+                + actionRemaining - initialFillRemaining,
+                payoutTotal + rebuyTotal, paid + rebought);
         // Swing's per-player pot box displays Player.getBote(): the amount
         // accumulated by this player over the whole hand. Moving the street's
         // chips into the central pot must never erase that counter. Only hold
@@ -8415,10 +8429,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return firstChipProgress >= 1f;
     }
 
+    static double displayedIncomingStack(double canonicalStackAfter,
+            double totalIncoming, double landedIncoming) {
+        double incoming = Math.max(0d, totalIncoming);
+        double landed = Math.min(incoming, Math.max(0d, landedIncoming));
+        return Math.max(0d, canonicalStackAfter - incoming + landed);
+    }
+
+    static double displayedPayoutPot(double canonicalPotAfter,
+            double payoutAmount, double landedAmount) {
+        double payout = Math.max(0d, payoutAmount);
+        double landed = Math.min(payout, Math.max(0d, landedAmount));
+        return Math.max(0d, canonicalPotAfter + payout - landed);
+    }
+
     private double livePot() {
         if (livePayout != null) {
-            return Math.max(0d, liveState.snapshot().pot()
-                    - livePayout.landedContribution(livePayout.elapsedSeconds()));
+            return displayedPayoutPot(livePayout.event.potAfter(),
+                    livePayout.event.amount(), livePayout.landedContribution(
+                            livePayout.elapsedSeconds()));
         }
         double pending = 0d;
         for (double contribution : livePotContributions.values()) {
@@ -13888,11 +13917,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         final TableVisualEvent.CollectBets event;
         final CompletableFuture<Void> barrier;
+        final TableSnapshot presentationSnapshot;
 
         PendingCollectBets(TableVisualEvent.CollectBets event,
-                CompletableFuture<Void> barrier) {
+                CompletableFuture<Void> barrier,
+                TableSnapshot presentationSnapshot) {
             this.event = event;
             this.barrier = barrier;
+            this.presentationSnapshot = presentationSnapshot;
         }
     }
 
@@ -14015,6 +14047,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         && chip.progress(elapsed) >= 1f) {
                     total += chip.amount;
                 }
+            }
+            return total;
+        }
+
+        double totalContribution(String nickname) {
+            double total = 0d;
+            for (LiveRebuyChip chip : chips) {
+                if (chip.nickname.equals(nickname)) total += chip.amount;
             }
             return total;
         }

@@ -175,6 +175,27 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void canonicalIncomingMoneyRemainsVisuallyCausalDuringItsFlight() {
+        assertEquals(8d, CoronaPokerGdxTable.displayedIncomingStack(
+                18d, 10d, 0d));
+        assertEquals(12d, CoronaPokerGdxTable.displayedIncomingStack(
+                18d, 10d, 4d));
+        assertEquals(18d, CoronaPokerGdxTable.displayedIncomingStack(
+                18d, 10d, 10d));
+        assertEquals(18d, CoronaPokerGdxTable.displayedIncomingStack(
+                18d, 10d, 11d));
+
+        assertEquals(10d, CoronaPokerGdxTable.displayedPayoutPot(
+                0d, 10d, 0d));
+        assertEquals(6d, CoronaPokerGdxTable.displayedPayoutPot(
+                0d, 10d, 4d));
+        assertEquals(0d, CoronaPokerGdxTable.displayedPayoutPot(
+                0d, 10d, 10d));
+        assertEquals(0d, CoronaPokerGdxTable.displayedPayoutPot(
+                0d, 10d, 11d));
+    }
+
+    @Test
     void settingsContentHeadingSitsAboveTheFirstRowWithoutTouchingIt() {
         float firstRowY = 500f;
         float headingY = CoronaPokerGdxTable.settingsContentTitleY(firstRowY);

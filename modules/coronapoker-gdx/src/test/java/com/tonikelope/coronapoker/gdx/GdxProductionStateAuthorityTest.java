@@ -144,6 +144,73 @@ final class GdxProductionStateAuthorityTest {
         assertEquals(10L, projection.lastSequence());
     }
 
+    @Test
+    void animatedMoneyAndPositionEventsCommitBeforeTelemetryCanOvertakeThem(
+            @TempDir Path temporary) {
+        assertAnimatedEventCommitsBeforeTelemetry(temporary.resolve("position"),
+                new TableVisualEvent.PositionRotation(1L, List.of(
+                        new TableVisualEvent.PositionTransfer("remote", "human",
+                                TableSnapshot.Position.DEALER, true)), 240L));
+        assertAnimatedEventCommitsBeforeTelemetry(temporary.resolve("collect"),
+                new TableVisualEvent.CollectBets(1L, List.of(
+                        new TableVisualEvent.ChipTransfer("remote", 1d, 9d,
+                                0d, 1d)), 0.3d, 1.3d));
+        assertAnimatedEventCommitsBeforeTelemetry(temporary.resolve("payout"),
+                new TableVisualEvent.Payout(1L, "human", 0.3d, 0,
+                        10.3d, 0d));
+        assertAnimatedEventCommitsBeforeTelemetry(temporary.resolve("rebuy"),
+                new TableVisualEvent.Rebuy(1L, List.of(
+                        new TableVisualEvent.ChipTransfer("human", 2d, 12d,
+                                0d, 0d)), 240L));
+
+        TableSnapshot input = new TableSnapshot(1L, "human",
+                TableSnapshot.Street.PREFLOP, 0.3d, "remote", false,
+                List.of(player("human"), player("remote")), List.of());
+        GdxTableViewState projection = new GdxTableViewState(input);
+        CoronaPokerGdxTable table = animatedTable(
+                temporary.resolve("pending-collect"), projection);
+        table.acceptEvent(new TableVisualEvent.PlayerAction(1L, "remote",
+                TableVisualEvent.PlayerAction.ActionKind.CALL, "CALL", 1d,
+                1d, 9d, 1d, 1d), new CompletableFuture<>());
+        CompletableFuture<Void> collection = new CompletableFuture<>();
+        table.acceptEvent(new TableVisualEvent.CollectBets(2L, List.of(
+                new TableVisualEvent.ChipTransfer("remote", 1d, 9d, 0d,
+                        1d)), 0.3d, 1.3d), collection);
+        assertFalse(collection.isDone());
+        table.acceptEvent(telemetry(3L), new CompletableFuture<>());
+        assertEquals(3L, projection.lastSequence());
+    }
+
+    private static void assertAnimatedEventCommitsBeforeTelemetry(Path file,
+            TableVisualEvent animatedEvent) {
+        TableSnapshot input = new TableSnapshot(1L, "human",
+                TableSnapshot.Street.PREFLOP, 0.3d, "remote", false,
+                List.of(player("human"), player("remote")), List.of());
+        GdxTableViewState projection = new GdxTableViewState(input);
+        CoronaPokerGdxTable table = animatedTable(file, projection);
+
+        CompletableFuture<Void> visualBarrier = new CompletableFuture<>();
+        table.acceptEvent(animatedEvent, visualBarrier);
+        assertFalse(visualBarrier.isDone(),
+                "the real presentation barrier must remain in flight");
+        table.acceptEvent(telemetry(2L), new CompletableFuture<>());
+        assertEquals(2L, projection.lastSequence(),
+                "telemetry must not overtake an uncommitted visual event");
+    }
+
+    private static CoronaPokerGdxTable animatedTable(Path file,
+            GdxTableViewState projection) {
+        PreferencesService preferences = new PreferencesService(
+                file.resolve("coronapoker.properties"));
+        preferences.properties().setProperty("sonido_efectos", "false");
+        preferences.properties().setProperty("animaciones", "true");
+        preferences.properties().setProperty("animacion_apuestas", "true");
+        preferences.properties().setProperty("animacion_contadores", "true");
+        return new CoronaPokerGdxTable(240, projection,
+                command -> { }, () -> { }, new GdxGameLogSink(), preferences,
+                null, new GdxGamePresentationSettings(preferences));
+    }
+
     private static TableVisualEvent.TelemetryStatus telemetry(long sequence) {
         return new TableVisualEvent.TelemetryStatus(sequence, List.of(
                 new TableVisualEvent.PlayerTelemetry("remote", 12, 14, 0,

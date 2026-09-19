@@ -90,6 +90,29 @@
     </dependencyManagement>
 
     <build>
+        <plugins>
+            <!-- The repository root target/ is the product distribution, not
+            another module output. Clean it once from the reactor parent so a
+            build can never leave stale versioned JARs beside the current pair. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>3.2.0</version>
+                <inherited>false</inherited>
+                <configuration>
+                    <filesets>
+                        <fileset>
+                            <directory>${distribution.directory}</directory>
+                            <includes>
+                                <include>CoronaPoker-*.jar</include>
+                                <include>gdx-jar-smoke.*.log</include>
+                            </includes>
+                            <followSymlinks>false</followSymlinks>
+                        </fileset>
+                    </filesets>
+                </configuration>
+            </plugin>
+        </plugins>
         <pluginManagement>
             <plugins>
                 <plugin>

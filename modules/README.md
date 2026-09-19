@@ -36,6 +36,11 @@ target/CoronaPoker-24.11-swing.jar
 target/CoronaPoker-24.11-gdx.jar
 ```
 
+La fase `clean` del reactor elimina primero cualquier JAR versionado o log de
+smoke antiguo de ese directorio. Debe conservarse en el comando: ejecutar sólo
+un módulo con `package` actualiza su JAR, pero no constituye un build limpio de
+la distribución completa.
+
 El JAR GDX se construye exclusivamente desde el frontend real. La demo archivada
 es un contrato visual y de animaciones, no código del producto.
 

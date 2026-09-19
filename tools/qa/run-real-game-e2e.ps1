@@ -379,6 +379,8 @@ try {
         "-Dqa.user.home=$qaUserHome" `
         $mavenGoal `
         -P qa-real-game-e2e `
+        '-Dtest=com.tonikelope.coronapoker.e2e.RealGameLoopbackE2EIT' `
+        '-Dsurefire.failIfNoSpecifiedTests=false' `
         "-Dqa.e2e.clients=$Clients" `
         "-Dqa.e2e.bots=$Bots" `
         "-Dqa.e2e.hands=$Hands" `

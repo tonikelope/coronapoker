@@ -142,13 +142,15 @@ $RECYCLE.BIN/
 # maven-surefire fork/state temp files (never version these)
 .surefire-*
 
+# Runtime balance snapshots (also emitted by integration tests)
+balance_backup*.txt
+
 # Repository-local Maven cache used by the self-contained QA runners
 /.m2/
-/prototype-gdx/.m2/
-/renderer-gdx/.m2/
+/reference/gdx-demo/.m2/
 
 # Runtime acknowledgement written beside user-supplied prototype mods
-/prototype-gdx/mod/.pegi18_warning
+/reference/gdx-demo/mod/.pegi18_warning
 
 # draw.io desktop backup files (created when a .drawio is opened)
 .$*.bkp

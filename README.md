@@ -15,6 +15,16 @@ I hope you enjoy playing it as much as I have enjoyed building it.
 
 **Carpe diem.**
 
+## Repository layout
+
+- `src/`: shared game code, core and Swing frontend.
+- `modules/coronapoker-gdx/`: active GDX application code.
+- `modules/coronapoker-qa/` and `tools/qa/`: automated tests and scenarios.
+- `reference/gdx-demo/`: archived visual reference; never compiled into the product.
+- `target/`: the only directory containing the Swing and GDX product JARs.
+- `coronaupdater.jar`: special root-level updater artifact required by the
+  GitHub self-update mechanism.
+
 
 <p align="center"><a href="https://github.com/tonikelope/coronapoker/releases/latest" target="_blank"><img src="https://raw.githubusercontent.com/tonikelope/megabasterd/master/src/main/resources/images/linux-mac-windows.png"></a></p>
 
@@ -212,8 +222,9 @@ Every visual and audio asset is replaceable through redistributable MOD packs:
 
 - **Java 17+** for both building and running
 - **Single-version protocol**: Every participant in a game must run the exact same CoronaPoker version; the host refuses mismatched versions instead of enabling compatibility modes.
-- **Swing** UI with NetBeans Matisse forms
-- **Maven** build, single self-contained assembly fat JAR
+- **Swing** UI with NetBeans Matisse forms and the active **LibGDX** frontend
+- **Maven** multi-module build producing two self-contained product JARs over
+  the same shared core and assets
 - **Alberta** poker hand evaluator for true equity computation
 - **SQLite** (via `sqlite-jdbc`) for local hand history
 - Pure-Java **SRA / Ristretto255** implementation (RFC 9496) with DLEQ-proof verifiable dealing and a zero-knowledge **Bayer-Groth verifiable shuffle**, no native crypto dependencies
@@ -238,19 +249,32 @@ The complete QA model, test lanes, real-game simulator, certification profiles a
 
 Requirements: JDK 17 or newer for both building and running, and Apache Maven 3.x. Maven compiles against the Java 17 API baseline, and CI builds and tests on JDK 17.
 
-For an ordinary build from a clean clone:
+For an ordinary build from a clean clone, use the product reactor. It builds
+the shared core/assets once and then packages both frontends:
 
 ```bash
 git clone https://github.com/tonikelope/coronapoker.git
 cd coronapoker
-mvn clean package
+mvn -f modules/pom.xml clean package
 ```
 
-The runnable jar is generated at `target/CoronaPoker-<version>-jar-with-dependencies.jar`. Launch it with:
+The only product-artifact directory is the repository-root `target/`. The build
+generates these two runnable JARs:
+
+```text
+target/CoronaPoker-<version>-swing.jar
+target/CoronaPoker-<version>-gdx.jar
+```
+
+Launch the classic Swing frontend or the active GDX frontend respectively:
 
 ```bash
-java -jar target/CoronaPoker-<version>-jar-with-dependencies.jar
+java -jar target/CoronaPoker-<version>-swing.jar
+java -jar target/CoronaPoker-<version>-gdx.jar
 ```
+
+`coronaupdater.jar` is intentionally the only JAR outside `target/`: the
+self-update mechanism requires that special helper at the repository root.
 
 For a release-certified build on Windows, clone the repository and run the
 public certifier from its root. It builds the current checkout, runs the normal
@@ -290,6 +314,22 @@ replayable seed unless `-Seed` is supplied:
 .\tools\qa\certify.cmd -Mode fast
 .\tools\qa\certify.cmd -Mode stress
 ```
+
+During GDX migration work, the native homologues and the mixed Swing/GDX
+matrix can be run independently. The native runner first removes only the
+validated generated module outputs and compiles the current reactor; the mixed
+runner installs the current checkout into the checkout-local Maven repository.
+Both then launch every selected scenario in a fresh JVM and retain individual
+logs below `target/`. This prevents a stale JAR or stale `.class` file from
+producing a false green result:
+
+```powershell
+.\tools\qa\gdx-scenarios.cmd -Mode fast
+.\tools\qa\gdx-mixed-scenarios.cmd -Mode fast
+```
+
+Use `-ListOnly`, `-Scenario <name>` or `-StartAt <name>` for targeted work.
+`balanced` remains the final repetition gate rather than the normal inner loop.
 
 Statistical bot-quality tests remain opt-in. See **[Testing and certification](docs/TESTING.md)**
 for every lane, simulator scenario, option, example, report format and

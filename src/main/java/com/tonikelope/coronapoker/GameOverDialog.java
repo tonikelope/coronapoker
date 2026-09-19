@@ -47,7 +47,9 @@ public class GameOverDialog extends JDialog {
     // the mid-game rebuy and the initial buy-in choice when joining the table. Also the visual
     // "REBUY? (N)" countdown other players see on the busted player's RemotePlayer
     // (RemotePlayer.setRebuying), and how long the host waits for replies (Crupier.recibirRebuys).
-    public static final int REBUY_DIALOG_COUNTDOWN = 15;
+    public static final int REBUY_DIALOG_COUNTDOWN
+            = com.tonikelope.coronapoker.core.game.GameTiming
+                    .REBUY_DIALOG_COUNTDOWN_SECONDS;
     private volatile boolean continua = false;
     private volatile String last_mp3_loop = null;
     private volatile boolean direct_gameover = false;

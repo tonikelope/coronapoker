@@ -7,6 +7,11 @@ import com.tonikelope.coronapoker.core.game.GameCinematicState;
 final class SwingGameCinematicState implements GameCinematicState {
 
     @Override
+    public void start() {
+        Init.PLAYING_CINEMATIC = true;
+    }
+
+    @Override
     public boolean isPlaying() {
         return Init.PLAYING_CINEMATIC;
     }

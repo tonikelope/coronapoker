@@ -46,8 +46,16 @@ final class LastHandWire {
                 requireLength(parts, 4);
                 return new Command(false, false, null);
             case "1":
-                requireLength(parts, 4);
-                return new Command(true, false, null);
+                // Classic Swing has always appended the table password when
+                // the host marks the ordinary last hand, even though clients
+                // only install that password for recovery mode (2).  Accept
+                // and validate that established wire form so renderer-neutral
+                // clients remain interoperable with protected Swing tables.
+                if (parts.length != 4 && parts.length != 5) {
+                    throw new IllegalArgumentException("LASTHAND final requires 4 or 5 fields");
+                }
+                return new Command(true, false,
+                        parts.length == 5 ? decodePassword(parts[4]) : null);
             case "2":
                 if (parts.length != 4 && parts.length != 5) {
                     throw new IllegalArgumentException("LASTHAND recover requires 4 or 5 fields");

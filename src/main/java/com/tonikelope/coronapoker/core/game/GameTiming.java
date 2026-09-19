@@ -8,6 +8,8 @@ public final class GameTiming {
     public static final int CLIENT_RECEPTION_TIMEOUT_MILLIS = 10_000;
     public static final int CONFIRMATION_TIMEOUT_MILLIS = 10_000;
     public static final int REBUY_TIMEOUT_MILLIS = 25_000;
+    /** Countdown shared by every frontend and remote rebuy indicator. */
+    public static final int REBUY_DIALOG_COUNTDOWN_SECONDS = 15;
 
     private GameTiming() {
     }

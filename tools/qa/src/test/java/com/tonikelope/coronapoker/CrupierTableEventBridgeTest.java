@@ -14,6 +14,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,6 +23,94 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class CrupierTableEventBridgeTest {
+
+    @Test
+    void foldedLocalPlayerCanKeepAutoChoiceForTheNextHand() {
+        assertTrue(Crupier.localPreActionsEligible(false, Player.FOLD,
+                false, false, false));
+        assertFalse(Crupier.localPreActionsEligible(true, Player.FOLD,
+                false, false, false));
+        assertTrue(Crupier.shouldPresentLocalPreActions(true, false,
+                Player.FOLD, false, false, false));
+        assertTrue(Crupier.shouldPresentLocalPreActions(true, false,
+                Player.NODEC, false, false, false));
+
+        assertFalse(Crupier.shouldPresentLocalPreActions(false, false,
+                Player.FOLD, false, false, false));
+        assertFalse(Crupier.shouldPresentLocalPreActions(true, true,
+                Player.FOLD, false, false, false));
+        assertFalse(Crupier.shouldPresentLocalPreActions(true, false,
+                Player.ALLIN, false, false, false));
+        assertFalse(Crupier.shouldPresentLocalPreActions(true, false,
+                Player.FOLD, true, false, false));
+        assertFalse(Crupier.shouldPresentLocalPreActions(true, false,
+                Player.FOLD, false, true, false));
+        assertFalse(Crupier.shouldPresentLocalPreActions(true, false,
+                Player.FOLD, false, false, true));
+    }
+
+    @Test
+    void rendererBarrierStopsWaitingAsSoonAsTableTerminationIsRequested()
+            throws Exception {
+        CompletableFuture<Void> animation = new CompletableFuture<>();
+        AtomicInteger cancellationPolls = new AtomicInteger();
+
+        long started = System.nanoTime();
+        boolean completed = Crupier.awaitPresentationBarrier(animation,
+                () -> cancellationPolls.incrementAndGet() >= 2, 4_000L);
+        long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(
+                System.nanoTime() - started);
+
+        assertFalse(completed);
+        assertFalse(animation.isDone());
+        assertTrue(elapsedMillis < 500L,
+                "Exit waited for the renderer timeout instead of cancelling");
+    }
+
+    @Test
+    void rendererBarrierStillBlocksNormalPlayUntilAnimationCompletes()
+            throws Exception {
+        CompletableFuture<Void> animation = new CompletableFuture<>();
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<Boolean> wait = executor.submit(() ->
+                    Crupier.awaitPresentationBarrier(animation,
+                            () -> false, 4_000L));
+
+            assertFalse(wait.isDone());
+            animation.complete(null);
+            assertTrue(wait.get(1, TimeUnit.SECONDS));
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void ordinaryHoleCardSortingNeverBlocksTheDealer() throws Exception {
+        TableEventBridge bridge = new TableEventBridge();
+        BlockingRenderer renderer = new BlockingRenderer();
+        bridge.attach(renderer, emptyTable()).toCompletableFuture().join();
+        Crupier dealer = new Crupier(bridge);
+
+        try {
+            long started = System.nanoTime();
+            assertTrue(dealer.presentHoleCardSwapToAttachedRenderer(
+                    "local", false));
+            long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(
+                    System.nanoTime() - started);
+
+            assertTrue(renderer.eventReceived.await(1, TimeUnit.SECONDS));
+            TableVisualEvent.SwapHoleCards event = assertInstanceOf(
+                    TableVisualEvent.SwapHoleCards.class, renderer.event);
+            assertFalse(event.blocking());
+            assertFalse(renderer.animation.isDone());
+            assertTrue(elapsedMillis < 250L,
+                    "Cosmetic hole-card sorting blocked the dealer");
+        } finally {
+            renderer.animation.complete(null);
+            bridge.close();
+        }
+    }
 
     @Test
     void positionRotationIsAlsoARealDealerBarrier() throws Exception {
@@ -77,8 +166,10 @@ final class CrupierTableEventBridgeTest {
             TableVisualEvent.CollectBets event = assertInstanceOf(
                     TableVisualEvent.CollectBets.class, renderer.event);
             assertEquals(List.of(
-                    new TableVisualEvent.ChipTransfer("small", 50d),
-                    new TableVisualEvent.ChipTransfer("big", 100d)), event.transfers());
+                    new TableVisualEvent.ChipTransfer("small", 50d,
+                            0d, 0d, 50d),
+                    new TableVisualEvent.ChipTransfer("big", 100d,
+                            0d, 0d, 100d)), event.transfers());
             assertEquals(0d, event.potBefore());
             assertEquals(150d, event.potAfterLanding());
 
@@ -127,6 +218,7 @@ final class CrupierTableEventBridgeTest {
                 (proxy, method, args) -> switch (method.getName()) {
                     case "getNickname" -> nickname;
                     case "getBote" -> pot;
+                    case "getStack", "getBet" -> 0d;
                     case "setCounterRollDeferred" -> {
                         counterDeferred.set((boolean) args[0]);
                         yield null;
@@ -147,6 +239,21 @@ final class CrupierTableEventBridgeTest {
         }
         if (type == char.class) {
             return '\0';
+        }
+        if (type == double.class) {
+            return 0d;
+        }
+        if (type == float.class) {
+            return 0f;
+        }
+        if (type == long.class) {
+            return 0L;
+        }
+        if (type == short.class) {
+            return (short) 0;
+        }
+        if (type == byte.class) {
+            return (byte) 0;
         }
         return 0;
     }

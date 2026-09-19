@@ -59,6 +59,25 @@ class UnlockHandBoundaryGateTest {
                         Crupier.UNLOCK_PHASE_POCKET, 44, TimeUnit.SECONDS.toMillis(2)));
     }
 
+    @Test
+    void tableTerminationCancelsAnInFlightUnlockWaitImmediately()
+            throws Exception {
+        Crupier crupier = new Crupier();
+        setHand(crupier, 41);
+
+        Future<Crupier.UnlockWaitResult> result = executor.submit(() ->
+                crupier.awaitStreetForUnlockPhase(
+                        Crupier.UNLOCK_PHASE_POCKET, 42,
+                        TimeUnit.MINUTES.toMillis(1)));
+        assertThrows(TimeoutException.class,
+                () -> result.get(150, TimeUnit.MILLISECONDS));
+
+        crupier.setTerminationPending();
+
+        assertEquals(Crupier.UnlockWaitResult.STALE_HAND,
+                result.get(1, TimeUnit.SECONDS));
+    }
+
     private static void setHand(Crupier crupier, int hand) throws Exception {
         Method method = Crupier.class.getDeclaredMethod("setContaManoLocal", int.class);
         method.setAccessible(true);

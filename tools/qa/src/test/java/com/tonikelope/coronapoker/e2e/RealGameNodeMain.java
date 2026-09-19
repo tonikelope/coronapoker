@@ -3,18 +3,22 @@ package com.tonikelope.coronapoker.e2e;
 import com.tonikelope.coronapoker.Crupier;
 import com.tonikelope.coronapoker.EmojiPanel;
 import com.tonikelope.coronapoker.GameFrame;
+import com.tonikelope.coronapoker.GamePreset;
 import com.tonikelope.coronapoker.Helpers;
 import com.tonikelope.coronapoker.IdentityManager;
 import com.tonikelope.coronapoker.Init;
 import com.tonikelope.coronapoker.LocalPlayer;
 import com.tonikelope.coronapoker.NewGameDialog;
 import com.tonikelope.coronapoker.Player;
+import com.tonikelope.coronapoker.RebuyDialog;
 import com.tonikelope.coronapoker.RunItTwiceDialog;
 import com.tonikelope.coronapoker.core.game.GameDecisionSink;
 import com.tonikelope.coronapoker.WaitingRoomFrame;
 import com.tonikelope.coronapoker.core.CoronaPokerApplication;
 import com.tonikelope.coronapoker.core.CoronaPokerBootstrap;
 import com.tonikelope.coronapoker.core.DatabaseService;
+import com.tonikelope.coronapoker.core.NewGameTableDraft;
+import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
 import com.tonikelope.coronapoker.swing.SwingServiceBridge;
 import java.awt.EventQueue;
 import java.awt.Frame;
@@ -68,6 +72,8 @@ public final class RealGameNodeMain {
     private static final Set<GameDecisionSink.StraddleHandle> STRADDLE_DIALOGS_ACCEPTED
             = java.util.Collections.newSetFromMap(new WeakHashMap<>());
     private static final Set<NewGameDialog> RECOVERY_DIALOGS_SUBMITTED
+            = java.util.Collections.newSetFromMap(new WeakHashMap<>());
+    private static final Set<RebuyDialog> REBUY_DIALOGS_ACCEPTED
             = java.util.Collections.newSetFromMap(new WeakHashMap<>());
     private static final AtomicReference<RunItTwiceDialog> GATED_RIT_DIALOG
             = new AtomicReference<>();
@@ -137,7 +143,7 @@ public final class RealGameNodeMain {
                     config.nick,
                     "127.0.0.1:" + config.port,
                     null,
-                    null,
+                    System.getProperty("coronapoker.qa.password"),
                     false));
             // Establish the requested monitor before the production game frame
             // derives its monitor from the waiting room. This also prevents a
@@ -321,6 +327,11 @@ public final class RealGameNodeMain {
                 || SCENARIO.equals("straddle-network-cut");
         GameFrame.RECOVER = false;
         GameFrame.REBUY = true;
+        // The mixed-frontend rebuy campaign deliberately runs the production
+        // (non test-mode) decision path.  Keep Swing's local choice deterministic
+        // without bypassing GameOver/Rebuy handling: automatic rebuy still opens
+        // the real timed RebuyDialog and accepts its configured amount on expiry.
+        GameFrame.AUTO_REBUY_ON_BROKE = SCENARIO.equals("allin-rebuy");
         GameFrame.BOT_REBUY = !(SCENARIO.equals("bot-bust-recover-regrow")
                 || SCENARIO.equals("bot-bust-recover-drop"));
         SPECTATOR_SETUP_ACTIVE.set(
@@ -456,6 +467,9 @@ public final class RealGameNodeMain {
                         EXPECTED_LOCAL_EXIT.set(true);
                         invokeControlledClientExit();
                         marker("CONTROLLED_EXIT_SENT", "role=client");
+                    } else if (command.equals("EXPECT_REMOTE_EXIT")) {
+                        EXPECTED_LOCAL_EXIT.set(true);
+                        marker("REMOTE_EXIT_ARMED", "role=client");
                     } else if (command.equals("ALLIN_THEN_CONTROLLED_EXIT")) {
                         EXPECTED_LOCAL_EXIT.set(true);
                         invokeAllInThen(PostAction.CONTROLLED_EXIT);
@@ -502,6 +516,14 @@ public final class RealGameNodeMain {
                                 + " participants=" + room.getParticipantes().size());
                     } else if (command.equals("REPORT_STATE")) {
                         reportPlayerState();
+                    } else if (command.equals("APPLY_LIVE_CONFIG")) {
+                        applyLiveConfiguration();
+                    } else if (command.equals("DUMP_CONFIG")) {
+                        reportGameConfiguration();
+                    } else if (command.equals("DUMP_LOBBY_CONFIG")) {
+                        reportLobbyConfiguration();
+                    } else if (command.equals("APPLY_LOBBY_CONFIG")) {
+                        applyLobbyConfiguration();
                     } else if (command.equals("PAUSE_TOGGLE")) {
                         invokePauseToggle();
                     } else if (command.equals("DROP_SOCKET")) {
@@ -547,6 +569,100 @@ public final class RealGameNodeMain {
         }, "qa-real-game-parent-controls");
         controls.setDaemon(true);
         controls.start();
+    }
+
+    private static void applyLiveConfiguration() {
+        GameFrame frame = GameFrame.getInstance();
+        if (frame == null || !frame.getGameSession().isHost()) {
+            throw new IllegalStateException(
+                    "APPLY_LIVE_CONFIG requires an active host table");
+        }
+        GameConfigCodecV1.Configuration current = frame.getGameSession()
+                .configuration();
+        GameConfigCodecV1.Configuration requested = current.withHands(3)
+                .withBlindSettings(0.2d, 0.4d, 0, 1, 1.0d,
+                        java.util.List.of(
+                                new GameConfigCodecV1.BlindLevel(0.2d, 0.4d),
+                                new GameConfigCodecV1.BlindLevel(0.3d, 0.6d),
+                                new GameConfigCodecV1.BlindLevel(0.5d, 1.0d)))
+                .withAnte(true)
+                .withIwtsth(true)
+                .withRunItTwice(true)
+                .withRabbitHunting(2)
+                .withBotRebuy(true)
+                .withBotBalanceToHumans(true);
+        frame.getCrupier().requestGameConfiguration(requested);
+        marker("LIVE_CONFIG_APPLIED", configurationDetail(
+                frame.getGameSession().configuration()));
+    }
+
+    private static void reportGameConfiguration() {
+        GameFrame frame = GameFrame.getInstance();
+        if (frame == null) {
+            throw new IllegalStateException(
+                    "DUMP_CONFIG requires an active table");
+        }
+        marker("GAME_CONFIG", configurationDetail(
+                frame.getGameSession().configuration()));
+    }
+
+    private static void reportLobbyConfiguration() {
+        String mirror = WaitingRoomFrame.GAMECONFIG_MIRROR;
+        NewGameTableDraft.Settings settings =
+                NewGameTableDraft.Settings.parseWire(mirror);
+        marker("LOBBY_CONFIG", "hands="
+                + (settings.handLimit() ? settings.handLimitCount() : -1)
+                + " ante=" + settings.ante()
+                + " straddle=" + settings.straddle()
+                + " blinds=" + settings.selectedBlindLevel().smallBlind()
+                + "/" + settings.selectedBlindLevel().bigBlind()
+                + " think=" + settings.thinkSeconds()
+                + " showdown=" + settings.showdownSeconds()
+                + " difficulty=" + settings.botDifficulty());
+    }
+
+    private static void applyLobbyConfiguration() {
+        WaitingRoomFrame room = WaitingRoomFrame.getInstance();
+        if (room == null || !room.isServer()) {
+            throw new IllegalStateException(
+                    "APPLY_LOBBY_CONFIG requires the host lobby");
+        }
+        GamePreset.Settings requested = GamePreset.Settings.fromGameFrame();
+        requested.smallBlind = 0.25d;
+        requested.bigBlind = 0.50d;
+        requested.structure = new double[][]{
+            {0.25d, 0.50d},
+            {0.50d, 1.00d}
+        };
+        requested.handLimit = 1;
+        requested.ante = true;
+        requested.straddle = false;
+        requested.thinkTimeEnabled = true;
+        requested.thinkTime = 47;
+        requested.showdownTime = 12;
+        requested.difficulty = com.tonikelope.coronapoker.Bot.Difficulty.HARD;
+        requested.applyToGameFrame(true);
+        room.broadcastGameConfigAndLabels();
+        marker("LOBBY_CONFIG_APPLIED", "hands=1 ante=true straddle=false"
+                + " blinds=0.25/0.5 think=47 showdown=12 difficulty=HARD");
+    }
+
+    private static String configurationDetail(
+            GameConfigCodecV1.Configuration configuration) {
+        return "hands=" + configuration.hands()
+                + " iwtsth=" + configuration.iwtsth()
+                + " rit=" + configuration.runItTwice()
+                + " rabbit=" + configuration.rabbitHunting()
+                + " botRebuy=" + configuration.botRebuy()
+                + " botBalance=" + configuration.botBalanceToHumans()
+                + " blinds=" + configuration.smallBlind() + "/"
+                + configuration.bigBlind()
+                + " blindInterval=" + configuration.blindsDouble() + "/"
+                + configuration.blindsDoubleType()
+                + " blindCap=" + configuration.blindCap()
+                + " ante=" + configuration.ante()
+                + " straddle=" + configuration.straddle()
+                + " blindLevels=" + configuration.blindStructure().size();
     }
 
     private static void dumpThreads() {
@@ -852,6 +968,7 @@ public final class RealGameNodeMain {
         if (EventQueue.isDispatchThread()) {
             for (Window window : Window.getWindows()) {
                 applyWindowPolicy(window);
+                acceptHiddenRebuyIfNeeded(window);
             }
             observeScenarioStateOnEdt();
             return;
@@ -859,9 +976,22 @@ public final class RealGameNodeMain {
         EventQueue.invokeAndWait(() -> {
             for (Window window : Window.getWindows()) {
                 applyWindowPolicy(window);
+                acceptHiddenRebuyIfNeeded(window);
             }
             observeScenarioStateOnEdt();
         });
+    }
+
+    private static void acceptHiddenRebuyIfNeeded(Window window) {
+        // A modal owned by the deliberately hidden Swing table may defer
+        // WINDOW_OPENED until its modal loop exits.  The keeper can still see
+        // the fully constructed dialog in Window#getWindows while that loop is
+        // active.  Drive the same production OK handler there; the identity set
+        // keeps this exactly once per rebuy request.
+        if (SCENARIO.equals("allin-rebuy")
+                && window instanceof RebuyDialog dialog) {
+            applyScenarioWindowAction(dialog);
+        }
     }
 
     private static void observeScenarioStateOnEdt() {
@@ -941,7 +1071,17 @@ public final class RealGameNodeMain {
         // display before the window is made invisible again.
         placeOnRequestedScreen(window);
         switch (WINDOW_MODE) {
-            case HIDDEN -> window.setVisible(false);
+            case HIDDEN -> {
+                // allin-rebuy drives the production modal's own OK handler from
+                // WINDOW_OPENED.  Hiding a modal first makes setVisible return
+                // and races its fallback result against that semantic click.
+                // The handler below disposes it in the same AWT event, on the
+                // requested secondary screen, without exposing a usable window.
+                if (!(SCENARIO.equals("allin-rebuy")
+                        && window instanceof RebuyDialog)) {
+                    window.setVisible(false);
+                }
+            }
             case MINIMIZED -> {
                 if (window instanceof Frame frame) {
                     frame.setExtendedState(frame.getExtendedState() | Frame.ICONIFIED);
@@ -956,6 +1096,19 @@ public final class RealGameNodeMain {
     }
 
     private static void applyScenarioWindowAction(Window window) {
+        if (SCENARIO.equals("allin-rebuy")
+                && window instanceof RebuyDialog dialog
+                && REBUY_DIALOGS_ACCEPTED.add(dialog)) {
+            // WINDOW_OPENED is the semantic boundary used by the harness for a
+            // real user's click.  Do not wait for Component#isVisible here:
+            // Swing may keep that flag false when both a modal and its owner are
+            // deliberately hidden by the E2E window policy.  The production OK
+            // handler already publishes the decision before disposing, so
+            // invoking it here preserves the real decision path and cannot race
+            // GameFrame's post-modal fallback result.
+            acceptRebuyDialog(dialog);
+            return;
+        }
         if (isRitScenario() && window instanceof RunItTwiceDialog dialog
                 && RIT_DIALOGS_VOTED.add(dialog)) {
             GameFrame frame = GameFrame.getInstance();
@@ -974,6 +1127,41 @@ public final class RealGameNodeMain {
         if (isForceRecoverScenario() && window instanceof NewGameDialog dialog
                 && RECOVERY_DIALOGS_SUBMITTED.add(dialog)) {
             submitRecoveryDialog(dialog);
+        }
+    }
+
+    /**
+     * The hidden-window policy necessarily dismisses a modal dialog as soon as
+     * AWT opens it.  Exercise the production OK handler first so the real Swing
+     * decision sink emits an accepted rebuy instead of manufacturing a cancel.
+     */
+    private static void acceptRebuyDialog(RebuyDialog dialog) {
+        try {
+            java.lang.reflect.Field cancelledField
+                    = RebuyDialog.class.getDeclaredField("cancelled");
+            java.lang.reflect.Field emittedField
+                    = RebuyDialog.class.getDeclaredField("decision_emitted");
+            cancelledField.setAccessible(true);
+            emittedField.setAccessible(true);
+            AtomicBoolean emitted = (AtomicBoolean) emittedField.get(dialog);
+            marker("REBUY_DIALOG_BEFORE_ACCEPT", "rebuy=" + dialog.isRebuy()
+                    + " cancelled=" + cancelledField.getBoolean(dialog)
+                    + " emitted=" + emitted.get()
+                    + " showing=" + dialog.isShowing());
+            Method accept = RebuyDialog.class.getDeclaredMethod(
+                    "ok_buttonActionPerformed", java.awt.event.ActionEvent.class);
+            accept.setAccessible(true);
+            accept.invoke(dialog, new Object[]{null});
+            GameFrame frame = GameFrame.getInstance();
+            marker("REBUY_ACCEPTED", "nick="
+                    + (frame == null ? "unmounted" : frame.getNick_local())
+                    + " amount=" + dialog.getRebuy_spinner().getValue()
+                    + " rebuy=" + dialog.isRebuy()
+                    + " cancelled=" + cancelledField.getBoolean(dialog)
+                    + " emitted=" + emitted.get());
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException(
+                    "cannot accept production Swing rebuy dialog", failure);
         }
     }
 
@@ -1260,7 +1448,8 @@ public final class RealGameNodeMain {
     }
 
     static boolean expectsPermanentLocalExit(NodeConfig config) {
-        return (!config.host && "client1".equals(config.nick)
+        return (!config.host && EXPECTED_LOCAL_EXIT.get())
+                || (!config.host && "client1".equals(config.nick)
                 && (SCENARIO.equals("controlled-exit")
                 || SCENARIO.equals("allin-controlled-exit")))
                 || (!config.host && SCENARIO.equals("human-bust-exit-rejoin-rebuy")

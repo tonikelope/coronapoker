@@ -30,6 +30,7 @@ package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.core.game.LocalPlayerState;
 import com.tonikelope.coronapoker.core.game.GameHandResult;
+import com.tonikelope.coronapoker.core.game.AutoActionResolver;
 
 import static com.tonikelope.coronapoker.GameFrame.GUI_RENDER_WAIT;
 import static com.tonikelope.coronapoker.GameFrame.NOTIFY_INGAME_GIF_REPEAT;
@@ -1853,30 +1854,42 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         JButton target = null;
                         String action_key = null;
 
-                        if (pre_pulsado == Player.FOLD) {
-
-                            if (player_check_button.isEnabled() && Helpers.doubleSecureCompare(0f, call_required) == 0) {
-                                target = player_check_button;
-                                action_key = "modo_auto.pasar";
-                            } else if (player_fold_button.isEnabled()) {
+                        AutoActionResolver.QueuedAction queued =
+                                pre_pulsado == Player.FOLD
+                                ? AutoActionResolver.QueuedAction.FOLD_OR_CHECK
+                                : pre_pulsado == Player.CHECK
+                                ? AutoActionResolver.QueuedAction.CHECK_OR_CALL
+                                : AutoActionResolver.QueuedAction.NONE;
+                        Crupier dealer = GameFrame.getInstance().getCrupier();
+                        AutoActionResolver.Target resolved =
+                                AutoActionResolver.resolve(queued,
+                                        call_required,
+                                        player_check_button.isEnabled(),
+                                        player_fold_button.isEnabled(),
+                                        player_allin_button.isEnabled(),
+                                        dealer.getStreet() == Crupier.PREFLOP,
+                                        dealer.getApuesta_actual(),
+                                        dealer.getCiega_grande(),
+                                        GameFrame.AUTO_CALL_ENABLED,
+                                        GameFrame.AUTO_CALL_MAX, getStack());
+                        switch (resolved) {
+                            case FOLD -> {
                                 target = player_fold_button;
                                 action_key = "modo_auto.tirar";
                             }
-
-            } else if (pre_pulsado == Player.CHECK && (Helpers.doubleSecureCompare(0f, call_required) == 0 || (GameFrame.getInstance().getCrupier().getStreet() == Crupier.PREFLOP && Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), GameFrame.getInstance().getCrupier().getCiega_grande()) == 0) || (GameFrame.AUTO_CALL_ENABLED && (Helpers.doubleSecureCompare(0f, GameFrame.AUTO_CALL_MAX) == 0 || Helpers.doubleSecureCompare(Math.min(call_required, getStack()), GameFrame.AUTO_CALL_MAX) <= 0)))) {
-
-                            if (player_check_button.isEnabled()) {
+                            case CHECK_OR_CALL -> {
                                 target = player_check_button;
-                                action_key = (Helpers.doubleSecureCompare(0f, call_required) == 0) ? "modo_auto.pasar" : "modo_auto.igualar";
-                            } else if (player_allin_button.isEnabled()) {
-                                // Calling requires all-in (cost to call >= stack, check is
-                                // disabled): the only way to call is to go all-in. The cap was
-                                // already evaluated against what's actually committed —
-                                // min(cost, stack), which here equals the stack — so
-                                // stack <= AUTO_CALL_MAX and never more than the cap is risked.
-                                // Same amount shown by the "call cost" overlay.
+                                action_key = Helpers.doubleSecureCompare(0f,
+                                        call_required) == 0
+                                        ? "modo_auto.pasar"
+                                        : "modo_auto.igualar";
+                            }
+                            case ALL_IN -> {
                                 target = player_allin_button;
                                 action_key = "modo_auto.igualar";
+                            }
+                            case NONE -> {
+                                // No legal automatic action for this turn.
                             }
                         }
 
@@ -2028,6 +2041,22 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
 
         });
+    }
+
+    @Override
+    public void cancelTurnWithoutDecision() {
+        stopActionTimer();
+        Audio.stopWavResource("misc/hurryup.wav");
+        action_button_colors.clear();
+        Helpers.GUIRunAndWait(() -> {
+            playerState.setTurn(false);
+            synchronized (GameFrame.getInstance().getCrupier()
+                    .getLock_apuestas()) {
+                GameFrame.getInstance().getCrupier().getLock_apuestas()
+                        .notifyAll();
+            }
+        });
+        desactivarControles();
     }
 
     public void desactivarControles() {
@@ -2428,6 +2457,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         playerState.setPendingPayment(0f);
 
+        applyCurrentHandPosition();
+    }
+
+    @Override
+    public void applyCurrentHandPosition() {
         // If about to post a blind (BB/SB) whose chip will fly to the pot, its stack/bet does
         // NOT roll in the posting (setPosition->setBet(blind), right below): it's deferred, and
         // when its chip LANDS (flyForcedBetsToPot.onLand -> rollCountersToModel) it rolls along

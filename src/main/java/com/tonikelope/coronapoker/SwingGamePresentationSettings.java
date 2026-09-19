@@ -36,6 +36,7 @@ final class SwingGamePresentationSettings implements GamePresentationSettings {
     @Override public boolean iwtsthSound() { return GameFrame.iwtsthSonidoOn(); }
     @Override public boolean startSound() { return GameFrame.inicioSonidoOn(); }
     @Override public boolean warningSound() { return GameFrame.avisoSonidoOn(); }
+    @Override public boolean turnWarningSound() { return GameFrame.avisoTiempoSonidoOn(); }
     @Override public boolean errorSound() { return GameFrame.errorSonidoOn(); }
     @Override public String initialStackFillSound() { return GameFrame.initialStackFillSound(); }
     @Override public String cashRegisterSound() { return GameFrame.cashRegisterSound(); }

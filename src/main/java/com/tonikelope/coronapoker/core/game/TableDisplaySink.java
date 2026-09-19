@@ -85,7 +85,11 @@ public interface TableDisplaySink {
 
     void prepareRunItTwiceSideB();
 
-    void requestHandLimitAction();
+    /**
+     * Requests the frontend-specific visual activation of the configured last
+     * hand. Returns whether a frontend handled the state transition itself.
+     */
+    boolean requestHandLimitAction();
 
     void repaintCommunity();
 
@@ -255,7 +259,8 @@ public interface TableDisplaySink {
             }
 
             @Override
-            public void requestHandLimitAction() {
+            public boolean requestHandLimitAction() {
+                return false;
             }
 
             @Override

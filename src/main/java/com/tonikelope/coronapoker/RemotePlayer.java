@@ -122,6 +122,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile double call_required;
     private volatile boolean turno = false;
     private volatile Bot bot = null;
+    // The canonical dealer may be bound before Swing discovers from the final
+    // seat nickname that this RemotePlayer is a bot. Preserve the binding here
+    // so a Bot created later cannot start its first hand without context.
+    private volatile com.tonikelope.coronapoker.bot.context.DealerView canonicalDealer = null;
     private volatile int response_counter;
     private volatile boolean spectator_bb = false;
     private volatile Color border_color = null;
@@ -746,8 +750,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public void bindDealer(com.tonikelope.coronapoker.bot.context.DealerView dealer) {
-        if (bot != null) {
-            bot.setContext(dealer, null);
+        canonicalDealer = dealer;
+        Bot currentBot = bot;
+        if (currentBot != null) {
+            currentBot.setContext(dealer, null);
         }
     }
 
@@ -1633,7 +1639,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         Init.PLAYING_CINEMATIC = true;
 
         Helpers.threadRun(() -> {
-            if (!GameFrame.getInstance().getCrupier().remoteCinematicAllin()) {
+            if (!GameFrame.getInstance().getCrupier()
+                    .remoteCinematicAllin(getNickname())) {
                 GameFrame.getInstance().getCrupier().soundAllin();
             }
         });
@@ -1897,6 +1904,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         if (GameFrame.getInstance().isPartida_local() && GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu()) {
             this.bot = new Bot(this);
+            com.tonikelope.coronapoker.bot.context.DealerView dealer = canonicalDealer;
+            if (dealer != null) {
+                this.bot.setContext(dealer, null);
+            }
             playerState.setBot(true);
         }
     }
@@ -2933,6 +2944,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         pagar = 0f;
         playerState.setPendingPayment(0f);
 
+        applyCurrentHandPosition();
+    }
+
+    @Override
+    public void applyCurrentHandPosition() {
         // If about to post a blind (BB/SB) whose chip will fly to the pot, don't roll its
         // stack/bet at posting time (setPosition->setBet(blind), right below): it's deferred and,
         // when its chip LANDS (flyForcedBetsToPot.onLand -> rollCountersToModel), it rolls

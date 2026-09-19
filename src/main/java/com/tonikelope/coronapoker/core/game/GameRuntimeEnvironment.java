@@ -2,6 +2,7 @@
 package com.tonikelope.coronapoker.core.game;
 
 import java.nio.file.Path;
+import java.util.Objects;
 
 /** Frontend-owned process environment used by the canonical game controller. */
 public interface GameRuntimeEnvironment {
@@ -11,6 +12,16 @@ public interface GameRuntimeEnvironment {
     boolean developmentMode();
 
     boolean modActive();
+
+    static GameRuntimeEnvironment at(Path dataDirectory) {
+        return at(dataDirectory, false);
+    }
+
+    static GameRuntimeEnvironment at(Path dataDirectory, boolean modActive) {
+        return new ConfiguredEnvironment(Objects.requireNonNull(dataDirectory,
+                "dataDirectory").toAbsolutePath().normalize(), false,
+                modActive);
+    }
 
     static GameRuntimeEnvironment defaults() {
         return DefaultEnvironment.INSTANCE;
@@ -36,5 +47,9 @@ public interface GameRuntimeEnvironment {
         public boolean modActive() {
             return false;
         }
+    }
+
+    record ConfiguredEnvironment(Path dataDirectory, boolean developmentMode,
+            boolean modActive) implements GameRuntimeEnvironment {
     }
 }

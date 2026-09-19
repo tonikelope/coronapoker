@@ -70,7 +70,46 @@ public interface GamePlayerController
 
     void nuevaMano();
 
+    /**
+     * Applies the already resolved dealer/blind position for the hand and posts
+     * its forced blind. Recovery resolves positions after the ordinary hand
+     * reset, so it must be possible to repeat only this narrow step without
+     * consuming a rebuy or pending winnings twice.
+     */
+    default void applyCurrentHandPosition() {
+        // Lightweight/testing controllers that do not model forced-position
+        // presentation have nothing to apply. Real Swing and core controllers
+        // override this hook with the canonical blind/dealer update.
+    }
+
     void esTuTurno();
+
+    /**
+     * Releases a displayed local turn without manufacturing a poker action.
+     * This is used when every opponent has already left the hand while the
+     * local player was deciding, so the pot can be awarded immediately.
+     */
+    default void cancelTurnWithoutDecision() {
+        stopActionTimer();
+    }
+
+    /**
+     * Whether the canonical dealer must enforce this local controller's turn
+     * deadline. Swing owns its countdown in {@code LocalPlayer}; native/core
+     * controllers deliberately do not have a widget timer and opt in here.
+     */
+    default boolean requiresDealerManagedTurnTimeout() {
+        return false;
+    }
+
+    /**
+     * Atomically applies the canonical timeout action for the current turn.
+     * Implementations must reject stale calls after a manual decision or turn
+     * change. The default keeps legacy/Swing controllers completely untouched.
+     */
+    default boolean submitTurnTimeoutDecision() {
+        return false;
+    }
 
     int getDecision();
 
@@ -118,6 +157,14 @@ public interface GamePlayerController
     /** Applies the host-authoritative decision for a non-local seat. */
     default void applyRemoteDecision(int decision, double bet) {
         throw new IllegalStateException("Player cannot apply a remote decision");
+    }
+
+    /**
+     * Neutral players have no widget-owned remote all-in hook, so the dealer
+     * must start their cinematic. Swing RemotePlayer already owns that hook.
+     */
+    default boolean requiresDealerRemoteAllInCinematic() {
+        return false;
     }
 
     /** Per-seat monitor that serializes late card reveals. */

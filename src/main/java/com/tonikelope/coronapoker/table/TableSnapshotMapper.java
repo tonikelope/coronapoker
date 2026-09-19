@@ -28,6 +28,8 @@ public final class TableSnapshotMapper {
         return new TableSnapshot.PlayerSnapshot(state.nickname(), state.stack(),
                 state.bet(), state.potContribution(), state.active(),
                 state.spectator(), state.exited(), state.timedOut(),
+                state.latency(), state.previousLatency(),
+                state.reconnectionCount(), state.telemetryAt(),
                 state.winner(), position(state.position()), state.lastAction(),
                 state.handName(), state.holeCards().stream()
                         .map(TableSnapshotMapper::card).toList());
@@ -38,7 +40,8 @@ public final class TableSnapshotMapper {
         String code = state.initialized() && state.code() != null
                 ? state.code().shortCode() : "";
         return new TableSnapshot.CardSnapshot(code,
-                state.visible() && state.faceUp(), state.disabled());
+                state.visible() && state.faceUp(), state.disabled(),
+                state.initialized() && state.visible());
     }
 
     private static TableSnapshot.Street street(HandState.Street street,

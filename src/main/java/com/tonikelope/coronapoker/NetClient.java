@@ -192,6 +192,10 @@ public class NetClient {
         return local_client_socket;
     }
 
+    public boolean isClientSocketTeardownStarted() {
+        return client_socket_teardown_started;
+    }
+
     public void setLocal_client_socket(Socket s) {
         if (s != null && client_socket_teardown_started) {
             closeStalledSocket(s);
@@ -442,6 +446,9 @@ public class NetClient {
      * @param command the plaintext command to send
      */
     public void writeCommand(String command) {
+        if (client_socket_teardown_started) {
+            return;
+        }
         // While reconnecting, wait for it to finish before writing.
         while (reconnecting) {
             synchronized (local_client_socket_lock) {
@@ -467,6 +474,9 @@ public class NetClient {
         // sense. The interruptible wait(1000) above handles the flag-controlled wait; this
         // lock handles atomic consistency.
         synchronized (local_client_socket_lock) {
+            if (client_socket_teardown_started) {
+                return;
+            }
             Socket s = local_client_socket;
             if (s == null) {
                 LOGGER.log(Level.WARNING, "Client write skipped — socket not yet available");
@@ -539,7 +549,9 @@ public class NetClient {
             } catch (Exception ex) {
                 // Channel failures no longer reach here: they're dropped per-frame inside the
                 // loop. What's left is real I/O, and that does mean end of read.
-                LOGGER.log(Level.SEVERE, null, ex);
+                if (!client_socket_teardown_started) {
+                    LOGGER.log(Level.SEVERE, null, ex);
+                }
             }
         }
 

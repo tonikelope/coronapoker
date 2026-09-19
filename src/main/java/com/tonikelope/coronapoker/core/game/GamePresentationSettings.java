@@ -11,6 +11,10 @@ public interface GamePresentationSettings {
     String language();
     String defaultLanguage();
     String deck();
+    /** Selects the next installed presentation deck and returns its identifier. */
+    default String selectNextDeck() { return deck(); }
+    /** Selects one concrete installed presentation deck and returns its identifier. */
+    default String selectDeck(String deck) { return this.deck(); }
     boolean testMode();
     boolean sillySounds();
     boolean ambientMusic();
@@ -39,6 +43,8 @@ public interface GamePresentationSettings {
     boolean iwtsthSound();
     boolean startSound();
     boolean warningSound();
+    /** Hurry-up and timeout horn preference for the local turn clock. */
+    default boolean turnWarningSound() { return warningSound(); }
     boolean errorSound();
     String initialStackFillSound();
     String cashRegisterSound();

@@ -347,6 +347,7 @@
                             </systemPropertyVariables>
                             <includes combine.self="override">
                                 <include>**/RealGameLoopbackE2EIT.java</include>
+                                <include>**/MixedFrontendNetworkE2EIT.java</include>
                             </includes>
                         </configuration>
                     </plugin>

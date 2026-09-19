@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.tonikelope</groupId>
+        <artifactId>coronapoker-modules</artifactId>
+        <version>24.11-SNAPSHOT</version>
+    </parent>
+    <artifactId>coronapoker-assets</artifactId>
+    <name>CoronaPoker shared assets</name>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>${project.basedir}/../../src/main/resources</directory>
+            </resource>
+        </resources>
+    </build>
+</project>

@@ -4,16 +4,23 @@ package com.tonikelope.coronapoker.core.game;
 import com.tonikelope.coronapoker.HandCreateTransaction;
 import com.tonikelope.coronapoker.core.DatabaseService;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Objects;
+import java.util.function.Supplier;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /** Game persistence adapter backed by the process-owned database service. */
 public final class CoreGameDatabase implements GameDatabase {
 
+    private static final Logger LOGGER = Logger.getLogger(
+            CoreGameDatabase.class.getName());
     private final DatabaseService database;
     private final Object lock = new Object();
     private final int recoveryGameId;
+    private final Supplier<String> recoverySettings;
 
     public CoreGameDatabase(DatabaseService database) throws SQLException {
         this(database, -1);
@@ -21,8 +28,14 @@ public final class CoreGameDatabase implements GameDatabase {
 
     public CoreGameDatabase(DatabaseService database, int recoveryGameId)
             throws SQLException {
+        this(database, recoveryGameId, null);
+    }
+
+    public CoreGameDatabase(DatabaseService database, int recoveryGameId,
+            Supplier<String> recoverySettings) throws SQLException {
         this.database = Objects.requireNonNull(database, "database");
         this.recoveryGameId = recoveryGameId;
+        this.recoverySettings = recoverySettings;
         ensureSchema(database.connection());
     }
 
@@ -34,9 +47,19 @@ public final class CoreGameDatabase implements GameDatabase {
 
     @Override
     public void persistRecoverySettings(int gameId) {
-        // The neutral configuration is already durable in the game/session
-        // records. Importing the classic Swing-only preferences mirror belongs
-        // to the dedicated recovery migration, not the live hand transaction.
+        if (gameId <= 0 || recoverySettings == null) return;
+        synchronized (lock) {
+            try (PreparedStatement statement = connection().prepareStatement(
+                    "UPDATE game SET recover_settings=? WHERE id=?")) {
+                statement.setQueryTimeout(30);
+                statement.setString(1, recoverySettings.get());
+                statement.setInt(2, gameId);
+                statement.executeUpdate();
+            } catch (RuntimeException | SQLException failure) {
+                LOGGER.log(Level.SEVERE,
+                        "Failed to persist neutral recovery settings", failure);
+            }
+        }
     }
 
     private static void ensureSchema(Connection connection) throws SQLException {

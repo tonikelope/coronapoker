@@ -6,7 +6,8 @@ import java.util.Objects;
 /** Renderer-neutral row in the waiting-room participant list. */
 public record LobbyParticipant(String nickname, Path avatar, boolean local,
         boolean host, boolean bot, boolean connected, boolean asyncWaiting,
-        boolean secure, int latency, int previousLatency) {
+        boolean secure, int latency, int previousLatency,
+        byte[] identityPublicKey) {
 
     public static final int NO_LATENCY = -2;
 
@@ -25,6 +26,21 @@ public record LobbyParticipant(String nickname, Path avatar, boolean local,
         if (latency < NO_LATENCY || previousLatency < NO_LATENCY) {
             throw new IllegalArgumentException("Invalid latency sentinel");
         }
+        identityPublicKey = identityPublicKey == null
+                ? null : identityPublicKey.clone();
+    }
+
+    /** Backwards-compatible constructor for non-network and test lobbies. */
+    public LobbyParticipant(String nickname, Path avatar, boolean local,
+            boolean host, boolean bot, boolean connected, boolean asyncWaiting,
+            boolean secure, int latency, int previousLatency) {
+        this(nickname, avatar, local, host, bot, connected, asyncWaiting,
+                secure, latency, previousLatency, null);
+    }
+
+    @Override
+    public byte[] identityPublicKey() {
+        return identityPublicKey == null ? null : identityPublicKey.clone();
     }
 
     public boolean latencyAvailable() {

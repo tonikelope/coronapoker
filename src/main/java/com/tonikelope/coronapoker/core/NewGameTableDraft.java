@@ -66,6 +66,41 @@ public final class NewGameTableDraft {
         setBlindStructure(null, levels(BlindStructureRules.defaultLevels()), 0);
     }
 
+    /** Rehydrates an editable draft from an immutable frontend/core handoff. */
+    public static NewGameTableDraft from(Settings settings) {
+        Objects.requireNonNull(settings, "settings");
+        NewGameTableDraft draft = new NewGameTableDraft();
+        draft.setBlindStructure(settings.structureName(), settings.blindLevels(),
+                settings.blindLevelIndex());
+        draft.setIncreaseBlinds(settings.increaseBlinds());
+        draft.setBlindIncreaseType(settings.blindIncreaseType());
+        draft.setBlindInterval(settings.blindInterval());
+        draft.setBlindCap(settings.blindCap());
+        draft.setBlindCapRaises(settings.blindCapRaises());
+        draft.setMaxBuyinBb(settings.maxBuyinBb());
+        draft.setMinBuyinBb(settings.minBuyinBb());
+        draft.setFixedBuyin(settings.fixedBuyin());
+        draft.setBuyin(settings.buyin());
+        draft.setRebuy(settings.rebuy());
+        draft.setRebuyLimit(settings.rebuyLimit());
+        draft.setRebuyLimitCount(settings.rebuyLimitCount());
+        draft.setBotRebuy(settings.botRebuy());
+        draft.setBotBalanceToHumans(settings.botBalanceToHumans());
+        draft.setRebuyCapPolicy(settings.rebuyCapPolicy());
+        draft.setHandLimit(settings.handLimit());
+        draft.setHandLimitCount(settings.handLimitCount());
+        draft.setThinkTime(settings.thinkTime());
+        draft.setThinkSeconds(settings.thinkSeconds());
+        draft.setShowdownSeconds(settings.showdownSeconds());
+        draft.setAnte(settings.ante());
+        draft.setStraddle(settings.straddle());
+        draft.setIwtsth(settings.iwtsth());
+        draft.setRunItTwice(settings.runItTwice());
+        draft.setRabbitHunting(settings.rabbitHunting());
+        draft.setBotDifficulty(settings.botDifficulty());
+        return draft;
+    }
+
     public String structureName() { return structureName; }
     public List<BlindLevel> blindLevels() { return blindLevels; }
     public int blindLevelIndex() { return blindLevelIndex; }

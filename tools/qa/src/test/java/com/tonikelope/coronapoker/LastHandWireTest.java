@@ -25,6 +25,12 @@ public class LastHandWireTest {
         assertNull(last.password());
 
         String encoded = Base64.getEncoder().encodeToString("secret".getBytes(StandardCharsets.UTF_8));
+        LastHandWire.Command protectedLast = LastHandWire.parse(
+                new String[]{"GAME", "2", "LASTHAND", "1", encoded});
+        assertTrue(protectedLast.enabled());
+        assertFalse(protectedLast.recover());
+        assertEquals("secret", protectedLast.password());
+
         LastHandWire.Command recover = LastHandWire.parse(
                 new String[]{"GAME", "3", "LASTHAND", "2", encoded});
         assertTrue(recover.enabled());
@@ -39,7 +45,7 @@ public class LastHandWireTest {
         assertThrows(IllegalArgumentException.class, () -> LastHandWire.parse(
                 new String[]{"GAME", "1", "LASTHAND", "0", "ignored"}));
         assertThrows(IllegalArgumentException.class, () -> LastHandWire.parse(
-                new String[]{"GAME", "1", "LASTHAND", "1", "ignored"}));
+                new String[]{"GAME", "1", "LASTHAND", "1", "%%%"}));
         assertThrows(IllegalArgumentException.class, () -> LastHandWire.parse(
                 new String[]{"GAME", "1", "LASTHAND", "2", "%%%"}));
         assertThrows(IllegalArgumentException.class, () -> LastHandWire.parse(

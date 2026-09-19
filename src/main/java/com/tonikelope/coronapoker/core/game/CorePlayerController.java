@@ -5,6 +5,7 @@ import com.tonikelope.coronapoker.Bot;
 import com.tonikelope.coronapoker.bot.context.DealerView;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /** Headless player controller shared by the canonical engine and GDX. */
 public final class CorePlayerController implements GamePlayerController {
@@ -28,6 +29,7 @@ public final class CorePlayerController implements GamePlayerController {
     private volatile Runnable turnCompletionSignal = () -> { };
     private volatile Runnable potRegistration = () -> { };
     private volatile Runnable acceptedLocalAllInSignal = () -> { };
+    private volatile Supplier<Integer> committedRebuy = () -> null;
 
     private CorePlayerController(String nickname, boolean local, boolean automated) {
         this.local = local;
@@ -76,6 +78,14 @@ public final class CorePlayerController implements GamePlayerController {
         acceptedLocalAllInSignal = Objects.requireNonNull(signal, "signal");
     }
 
+    /**
+     * Binds the dealer-owned rebuy generation for the hand being opened.
+     * The supplier must consume at most one already validated amount.
+     */
+    public void bindCommittedRebuy(Supplier<Integer> supplier) {
+        committedRebuy = Objects.requireNonNull(supplier, "supplier");
+    }
+
     @Override
     public void bindDealer(DealerView dealer) {
         this.dealer = Objects.requireNonNull(dealer, "dealer");
@@ -84,6 +94,11 @@ public final class CorePlayerController implements GamePlayerController {
 
     /** Applies one already validated local renderer decision. */
     public synchronized boolean submitDecision(int decision, double raiseAmount) {
+        return submitDecision(decision, raiseAmount, false);
+    }
+
+    private synchronized boolean submitDecision(int decision,
+            double raiseAmount, boolean timedOut) {
         if (!local || !isTurno() || getDecision() != NODEC || isExit()
                 || isSpectator()) return false;
         DealerView currentDealer = requireDealer();
@@ -113,6 +128,7 @@ public final class CorePlayerController implements GamePlayerController {
             }
             default -> { return false; }
         }
+        state.setTimedOut(timedOut);
         setTurn(false);
         turnCompletionSignal.run();
         return true;
@@ -212,13 +228,24 @@ public final class CorePlayerController implements GamePlayerController {
         state.setLastAction("");
         loser = false;
         resetBote();
+        Integer rebuy = committedRebuy.get();
+        if (rebuy != null && rebuy > 0) {
+            setStack(getStack() + rebuy);
+            setBuyin(getBuyin() + rebuy);
+        }
         double winnings = getPagar();
         if (MoneyMath.compare(winnings, 0d) > 0) setStack(getStack() + winnings);
         state.setPendingPayment(0d);
         firstCard.resetearCarta();
         secondCard.resetearCarta();
+        applyCurrentHandPosition();
+    }
+
+    @Override
+    public synchronized void applyCurrentHandPosition() {
         DealerView current = dealer;
         PlayerState.Position position = PlayerState.Position.NONE;
+        underTheGun = false;
         if (current != null) {
             String nickname = getNickname();
             if (nickname.equals(current.getDealer_nick())) position = PlayerState.Position.DEALER;
@@ -262,7 +289,30 @@ public final class CorePlayerController implements GamePlayerController {
     }
 
     @Override public void esTuTurno() {
-        if (!isExit()) setTurn(true);
+        if (!isExit()) {
+            state.setTimedOut(false);
+            setTurn(true);
+        }
+    }
+
+    @Override
+    public synchronized void cancelTurnWithoutDecision() {
+        stopActionTimer();
+        setTurn(false);
+        turnCompletionSignal.run();
+    }
+
+    @Override
+    public boolean requiresDealerManagedTurnTimeout() {
+        return local;
+    }
+
+    @Override
+    public boolean submitTurnTimeoutDecision() {
+        DealerView current = requireDealer();
+        boolean checkIsFree = MoneyMath.compare(
+                current.getApuesta_actual(), getBet()) == 0;
+        return submitDecision(checkIsFree ? CHECK : FOLD, 0d, true);
     }
     @Override public int getDecision() { return decisionValue(state.decision()); }
     @Override public void markFoldedOnRecover() { setDecision(FOLD, "FOLD"); }
@@ -358,9 +408,16 @@ public final class CorePlayerController implements GamePlayerController {
         setTurn(false);
     }
 
+    @Override
+    public boolean requiresDealerRemoteAllInCinematic() {
+        return !local;
+    }
+
     @Override public Object revealLock() { return revealLock; }
     @Override public void applyTelemetry(int latency1, int latency2, int reconnectionCount) {
-        int response = Math.max(0, latency1);
+        int response = latency1 < 0 ? latency2 < 0 ? 0 : latency2
+                : latency2 < 0 ? latency1 : Math.min(latency1, latency2);
+        state.setTelemetry(latency1, latency2, reconnectionCount);
         if (state instanceof LocalPlayerState value) value.setResponseTime(response);
         else ((RemotePlayerState) state).setResponseTime(response);
     }
@@ -370,6 +427,18 @@ public final class CorePlayerController implements GamePlayerController {
     @Override public boolean isSpectator() { return state.spectator(); }
     @Override public boolean isExit() { return state.exited(); }
     @Override public void setExit() {
+        // A host removes a broke bot only after publishing its spectator
+        // transition.  A native client can receive that ordered EXIT while its
+        // own dealer is still finishing the hand, before checkRebuyTime has
+        // applied the same transition locally. Preserve the canonical role so
+        // every renderer converges even under that legitimate interleaving.
+        if (bot != null && MoneyMath.compare(
+                MoneyMath.clean(getStack()) + MoneyMath.clean(getPagar()),
+                0d) == 0) {
+            state.setSpectator(true);
+            state.setDecision(PlayerState.Decision.FOLD);
+            state.setPotContribution(0d);
+        }
         state.setExited(true);
         state.setTimedOut(false);
         state.setActive(false);
@@ -383,10 +452,17 @@ public final class CorePlayerController implements GamePlayerController {
         state.setPendingPayment(MoneyMath.clean(payment));
     }
     @Override public void setSpectator(String message) {
-        state.setSpectator(true);
-        state.setActive(false);
-        state.setLastAction(message);
-        setTurn(false);
+        if (!isExit()) {
+            state.setSpectator(true);
+            state.setActive(false);
+            // Match both Swing controllers: an ALL_IN from the completed hand
+            // must not keep an inactive spectator in later betting/showdown
+            // rosters, and their previous pot contribution is no longer live.
+            state.setDecision(PlayerState.Decision.FOLD);
+            state.setPotContribution(0d);
+            state.setLastAction(message);
+            setTurn(false);
+        }
     }
     @Override public void unsetSpectator() {
         state.setSpectator(false);

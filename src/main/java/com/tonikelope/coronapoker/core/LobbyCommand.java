@@ -7,7 +7,8 @@ import java.util.Objects;
 public sealed interface LobbyCommand permits LobbyCommand.SendText,
         LobbyCommand.SendImage, LobbyCommand.SendVoice, LobbyCommand.AddBot,
         LobbyCommand.Kick, LobbyCommand.StartGame, LobbyCommand.Leave,
-        LobbyCommand.ChangePassword, LobbyCommand.SetChatNotifications {
+        LobbyCommand.ChangePassword, LobbyCommand.UpdateTableSettings,
+        LobbyCommand.SetChatNotifications {
 
     record SendText(String text) implements LobbyCommand {
         public SendText {
@@ -54,6 +55,14 @@ public sealed interface LobbyCommand permits LobbyCommand.SendText,
     record ChangePassword(String password) implements LobbyCommand {
         public ChangePassword {
             password = Objects.requireNonNullElse(password, "");
+        }
+    }
+
+    /** Replaces the authoritative pre-game configuration for every lobby peer. */
+    record UpdateTableSettings(NewGameTableDraft.Settings settings)
+            implements LobbyCommand {
+        public UpdateTableSettings {
+            Objects.requireNonNull(settings, "settings");
         }
     }
 

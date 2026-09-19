@@ -54,7 +54,12 @@ public record TableSnapshot(
         DEALER_STRADDLE
     }
 
-    public record CardSnapshot(String code, boolean faceUp, boolean disabled) {
+    public record CardSnapshot(String code, boolean faceUp, boolean disabled,
+            boolean visible) {
+
+        public CardSnapshot(String code, boolean faceUp, boolean disabled) {
+            this(code, faceUp, disabled, true);
+        }
 
         public CardSnapshot {
             code = code == null ? "" : code;
@@ -70,6 +75,10 @@ public record TableSnapshot(
             boolean spectator,
             boolean exited,
             boolean timedOut,
+            int latency,
+            int previousLatency,
+            int reconnectionCount,
+            long telemetryAt,
             boolean winner,
             Position position,
             String lastAction,

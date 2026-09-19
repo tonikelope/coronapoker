@@ -1,5 +1,8 @@
 # Fase 1 — Reactor Maven y builds reproducibles
 
+> Documento histórico. La estructura actual usa `modules/` para el producto,
+> `reference/gdx-demo/` para la demo archivada y `target/` para los ejecutables.
+
 Fecha: 2026-09-02<br>
 Rama: `feature/gdx-full-migration`<br>
 Referencia visual: `627c71e4f`

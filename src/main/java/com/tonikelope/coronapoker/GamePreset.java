@@ -16,7 +16,7 @@
  */
 package com.tonikelope.coronapoker;
 
-import java.util.ArrayList;
+import com.tonikelope.coronapoker.core.GamePresetCatalog;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Properties;
@@ -55,9 +55,9 @@ public final class GamePreset {
 
     private static final Logger LOGGER = Logger.getLogger(GamePreset.class.getName());
 
-    public static final String PROP_COUNT = "game_presets.count";
-    public static final String PROP_PREFIX = "game_preset.";
-    public static final int MAX_PRESETS = 100;
+    public static final String PROP_COUNT = GamePresetCatalog.PROP_COUNT;
+    public static final String PROP_PREFIX = GamePresetCatalog.PROP_PREFIX;
+    public static final int MAX_PRESETS = GamePresetCatalog.MAX_PRESETS;
 
     private final String name;
     private final String settings;
@@ -340,27 +340,8 @@ public final class GamePreset {
      */
     public static LinkedHashMap<String, GamePreset> readFrom(Properties props) {
         LinkedHashMap<String, GamePreset> out = new LinkedHashMap<>();
-        if (props == null) {
-            return out;
-        }
-        int count;
-        try {
-            count = Integer.parseInt(props.getProperty(PROP_COUNT, "0").trim());
-        } catch (NumberFormatException ex) {
-            return out;
-        }
-        count = Math.max(0, Math.min(count, MAX_PRESETS));
-        for (int i = 0; i < count; i++) {
-            String name = props.getProperty(PROP_PREFIX + i + ".name");
-            String settings = props.getProperty(PROP_PREFIX + i + ".settings");
-            if (name == null || name.trim().isEmpty() || settings == null) {
-                continue;
-            }
-            GamePreset p = new GamePreset(name, settings);
-            if (!out.containsKey(p.getName())) {
-                out.put(p.getName(), p);
-            }
-        }
+        GamePresetCatalog.readFrom(props).values().forEach(entry ->
+            out.put(entry.name(), new GamePreset(entry.name(), entry.settings())));
         return out;
     }
 
@@ -369,29 +350,12 @@ public final class GamePreset {
      * stored set (so renames and deletions persist). Does NOT flush to disk.
      */
     public static void writeTo(Properties props, Collection<GamePreset> presets) {
-        if (props == null) {
-            return;
-        }
-        ArrayList<String> stale = new ArrayList<>();
-        for (String key : props.stringPropertyNames()) {
-            if (key.startsWith(PROP_PREFIX) || key.equals(PROP_COUNT)) {
-                stale.add(key);
-            }
-        }
-        for (String key : stale) {
-            props.remove(key);
-        }
-        int i = 0;
-        for (GamePreset p : presets) {
-            if (i >= MAX_PRESETS) {
-                LOGGER.log(Level.WARNING, "Truncating stored game presets to the {0} cap", MAX_PRESETS);
-                break;
-            }
-            props.setProperty(PROP_PREFIX + i + ".name", p.getName());
-            props.setProperty(PROP_PREFIX + i + ".settings", p.getSettings());
-            i++;
-        }
-        props.setProperty(PROP_COUNT, String.valueOf(i));
+        Collection<GamePresetCatalog.Entry> entries = presets == null
+                ? java.util.List.of() : presets.stream()
+                        .map(preset -> new GamePresetCatalog.Entry(
+                                preset.getName(), preset.getSettings()))
+                        .toList();
+        GamePresetCatalog.writeTo(props, entries);
     }
 
     /**

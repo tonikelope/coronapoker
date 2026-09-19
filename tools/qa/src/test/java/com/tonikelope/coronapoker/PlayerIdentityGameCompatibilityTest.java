@@ -11,7 +11,12 @@ final class PlayerIdentityGameCompatibilityTest {
 
     @Test
     void everyGameDomainIsCompatibleInBothDirections() throws Exception {
-        String nickname = "identity-contract";
+        // A previous interrupted Windows run may leave an owner-only key file
+        // temporarily inaccessible to the next Surefire process. This test is
+        // about Swing/Core wire compatibility, not persistence across JVMs, so
+        // give each execution its own identity while both implementations still
+        // load exactly the same files within this test.
+        String nickname = "identity-contract-" + Long.toUnsignedString(System.nanoTime());
         Path coronaDirectory = Path.of(System.getProperty("user.home"), ".coronapoker");
         PlayerIdentity core = PlayerIdentity.loadOrCreate(coronaDirectory, nickname);
         IdentityManager swing = IdentityManager.initializeForNick(nickname);

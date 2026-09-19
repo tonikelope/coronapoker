@@ -337,7 +337,7 @@ coronapoker/
 │  ├─ pom.xml
 │  └─ src/test/java/
 ├─ docs/
-└─ dist/
+└─ target/
 ```
 
 `coronapoker-assets` evita mantener copias divergentes de cartas, sonidos, música, GIF y cinematics. Los ensamblados finales podrán incluir físicamente los recursos que necesiten, pero habrá una sola fuente en el repositorio.
@@ -358,9 +358,9 @@ Así se evita dejar el proyecto sin un JAR clásico compilable durante la reorga
 ### 6.3 Artefactos finales
 
 ```text
-dist/CoronaPoker-24.11-swing.jar
-dist/CoronaPoker-24.11-gdx.jar
-dist/chilean_mod.zip
+target/CoronaPoker-24.11-swing.jar
+target/CoronaPoker-24.11-gdx.jar
+target/chilean_mod.zip
 ```
 
 Ambos JAR formarán la versión CoronaPoker 24.11 y compartirán:
@@ -471,7 +471,7 @@ La fuente de referencia es:
 
 ```text
 commit 627c71e4f
-prototype-gdx/src/main/java/com/tonikelope/coronapoker/gdxdemo/CoronaPokerGdxDemo.java
+reference/gdx-demo/src/main/java/com/tonikelope/coronapoker/gdxdemo/CoronaPokerGdxDemo.java
 ```
 
 La rama de la demo se conservará íntegra como referencia ejecutable. Las correcciones posteriores que mejoran la demo también se conservarán cuando estén verificadas. La estrategia no será copiar fragmentos a una clase nueva ni reinterpretar su diseño: el renderer aprobado se refactorizará internamente para recibir estado real sin alterar primero su resultado visual.
@@ -875,8 +875,8 @@ Objetivo: producir artefactos transportables y mantenibles.
 
 Tareas:
 
-- fat JAR `CoronaPoker-24.11-swing.jar`;
-- fat JAR `CoronaPoker-24.11-gdx.jar` con nativos;
+- fat JAR `target/CoronaPoker-24.11-swing.jar`;
+- fat JAR `target/CoronaPoker-24.11-gdx.jar` con nativos;
 - scripts de lanzamiento Windows;
 - versionado y manifests;
 - mods y assets verificables;

@@ -15,7 +15,9 @@ public class PlayerState {
             double potContribution, double pendingPayment, Decision decision,
             Position position, boolean active, boolean spectator, boolean exited,
             boolean timedOut, boolean winner, boolean showingCards,
-            List<CardState.Snapshot> holeCards, String lastAction, String handName) { }
+            int latency, int previousLatency, int reconnectionCount,
+            long telemetryAt, List<CardState.Snapshot> holeCards,
+            String lastAction, String handName) { }
 
     private volatile String nickname;
     private volatile int buyIn;
@@ -31,6 +33,10 @@ public class PlayerState {
     private volatile boolean timedOut;
     private volatile boolean winner;
     private volatile boolean showingCards;
+    private volatile int latency = -2;
+    private volatile int previousLatency = -2;
+    private volatile int reconnectionCount;
+    private volatile long telemetryAt;
     private volatile String lastAction = "";
     private volatile String handName = "";
     private volatile CardState firstCard = new CardState();
@@ -60,6 +66,10 @@ public class PlayerState {
     public boolean showingCards() { return showingCards; }
     public String lastAction() { return lastAction; }
     public String handName() { return handName; }
+    public int latency() { return latency; }
+    public int previousLatency() { return previousLatency; }
+    public int reconnectionCount() { return reconnectionCount; }
+    public long telemetryAt() { return telemetryAt; }
     public CardState firstCard() { return firstCard; }
     public CardState secondCard() { return secondCard; }
 
@@ -92,11 +102,21 @@ public class PlayerState {
     public void setShowingCards(boolean value) { showingCards = value; }
     public void setLastAction(String value) { lastAction = Objects.requireNonNullElse(value, ""); }
     public void setHandName(String value) { handName = Objects.requireNonNullElse(value, ""); }
+    public void setTelemetry(int current, int previous, int reconnections) {
+        if (current < -1 || previous < -1 || reconnections < 0) {
+            throw new IllegalArgumentException("Invalid player telemetry");
+        }
+        latency = current;
+        previousLatency = previous;
+        reconnectionCount = reconnections;
+        telemetryAt = System.currentTimeMillis();
+    }
 
     public synchronized Snapshot snapshot() {
         return new Snapshot(nickname, buyIn, stack, bet, potContribution,
                 pendingPayment, decision, position, active, spectator, exited,
                 timedOut, winner, showingCards,
+                latency, previousLatency, reconnectionCount, telemetryAt,
                 List.of(firstCard.snapshot(), secondCard.snapshot()),
                 lastAction, handName);
     }

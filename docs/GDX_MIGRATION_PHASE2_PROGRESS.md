@@ -1,5 +1,8 @@
 # GDX full migration - phase 2 progress
 
+> Historical snapshot. Current paths are `modules/` for product code,
+> `reference/gdx-demo/` for the archived demo and `target/` for executables.
+
 Date: 2026-09-02
 
 Branch: `feature/gdx-full-migration`

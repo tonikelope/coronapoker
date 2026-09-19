@@ -1565,6 +1565,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // and shouldn't open its context menu.
     private volatile javax.swing.JPopupMenu balance_saved_tapete_popup = null;
     private volatile boolean fin = false;
+    // finTransmision can be requested concurrently by the UI/socket path and by
+    // Crupier.run's final tail.  The old `fin` check lived after the auditor
+    // snapshot and therefore did not protect those pre-SQL side effects: two
+    // callers could write the same atomic log temporary file at once.  Claim
+    // the whole teardown before doing any work; one GameFrame has exactly one
+    // teardown owner.
+    private final java.util.concurrent.atomic.AtomicBoolean fin_transmission_started
+            = new java.util.concurrent.atomic.AtomicBoolean(false);
     private volatile InGameNotifyDialog notify_dialog = null;
     private volatile GraphicsDevice device = null;
     private volatile boolean latency_stats = false;
@@ -2996,6 +3004,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 selectNextDeck();
                 return;
             }
+            if (command instanceof TableCommand.SelectDeck selectDeck) {
+                selectDeck(selectDeck.deck());
+                return;
+            }
             if (command instanceof TableCommand.OpenSettings) {
                 openSettingsDialog();
                 return;
@@ -3076,6 +3088,19 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             selected++;
         }
         menu_barajas.getItem((selected + 1) % menu_barajas.getItemCount()).doClick();
+    }
+
+    private void selectDeck(String deck) {
+        if (deck == null || deck.equals(GameFrame.BARAJA)) {
+            return;
+        }
+        for (int index = 0; index < menu_barajas.getItemCount(); index++) {
+            javax.swing.JMenuItem item = menu_barajas.getItem(index);
+            if (item != null && deck.equals(item.getText())) {
+                item.doClick();
+                return;
+            }
+        }
     }
 
     private WaitingRoomFrame sala_espera;
@@ -3323,6 +3348,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             GameFrame.getInstance().getJugadores().clear();
 
             GameFrame.getInstance().getJugadores().addAll(Arrays.asList(nuevo_tapete.getPlayers()));
+
+            // Rebuilding the Swing table replaces every Player controller. Remote bot seats
+            // create their Bot instance while TablePanelFactory copies the nickname, before
+            // those new controllers belong to this GameFrame. Restore the same canonical
+            // dealer binding established by Crupier's constructor/sentarParticipantes before
+            // the next betting round can reset or query a surviving bot.
+            if (crupier != null) {
+                GameFrame.getInstance().getJugadores().forEach(player -> player.bindDealer(crupier));
+            }
 
             Helpers.GUIRunAndWait(() -> {
                 GameFrame.getInstance().getContentPane().remove(tapete);
@@ -4582,7 +4616,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             @Override
             public void closeHostConnection() {
-                sala_espera.closeClientSocket();
+                sala_espera.closeClientSocketForTeardown();
             }
         };
         LobbyTransitionSink lobbyTransition = new LobbyTransitionSink() {
@@ -4732,8 +4766,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
 
             @Override
-            public void requestHandLimitAction() {
+            public boolean requestHandLimitAction() {
                 Helpers.GUIRun(tapete.getCommunityCards()::hand_label_left_click);
+                return true;
             }
 
             @Override
@@ -6003,6 +6038,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         qaTeardownStage("START");
 
+        if (!fin_transmission_started.compareAndSet(false, true)) {
+            qaTeardownStage("ALREADY_OWNED");
+            return;
+        }
+
         // Tell the crupier's community-card network waits to bail NOW -- BEFORE we grab
         // lock_contabilidad for the auditor snapshot below. A run-it-twice SIDE-B deal in flight
         // holds that lock while blocking on the peers' unlock chains; those waits only watch
@@ -6219,6 +6259,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Helpers.logFlush();
 
                 try {
+
+                    // Fresh portable/test profiles may not have produced any
+                    // previous log yet. The atomic writer deliberately does
+                    // not invent parent directories, so establish CoronaPoker's
+                    // owned Logs directory at the persistence boundary.
+                    Files.createDirectories(Paths.get(Init.LOGS_DIR));
 
                     String previous_log_data = "";
 
@@ -7301,15 +7347,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
      * testament/send/teardown sequence without automating Swing prompts.
      */
     private void performControlledClientExit() {
-        final String exitCommand = crupier.buildLocalExitCommand();
-        getLocalPlayer().setExit();
-
         Helpers.threadRun(() -> {
             if (!getSala_espera().isReconnecting()) {
-                crupier.sendGAMECommandToServer(exitCommand, false);
+                // One canonical transition shared with renderer-neutral/GDX:
+                // arm cancellation, deliver and confirm the cryptographic EXIT,
+                // retire the channel, then dismantle this Swing table.
+                crupier.requestTableExit(false);
+            } else {
+                // There is no live channel on which an EXIT testament can be
+                // confirmed. Preserve the established local teardown path.
+                getLocalPlayer().setExit();
+                finTransmision(false);
             }
-
-            finTransmision(false);
         });
     }
 

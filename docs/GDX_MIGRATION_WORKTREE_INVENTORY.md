@@ -1,5 +1,8 @@
 # Inventario inicial de la migración completa a libGDX
 
+> Inventario histórico anterior a la reorganización. Las rutas actuales son
+> `modules/`, `reference/gdx-demo/` y `target/`.
+
 Fecha del inventario: 2026-09-02<br>
 Rama protegida de producto: `master` en `9497f1e25974fc9da349cc5ec2c1dab626918cab`<br>
 Referencia visual aprobada: `feature/libgdx-prototype` en `627c71e4fff2c223ab594e880ab6fa8551703c48`<br>

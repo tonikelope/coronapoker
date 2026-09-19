@@ -223,13 +223,19 @@ public final class ShuffleVerificationQueue {
                 // Verification can be CPU/native work that does not honor an
                 // interrupt. If teardown happened while it was running, never
                 // deliver its late verdict into a replacement GameFrame.
-                if (!running) {
-                    break;
-                }
-                if (verified) {
-                    sink.onVerified(job.megapacket, job.handId);
-                } else {
-                    sink.onDishonest(job.megapacket, job.handId);
+                synchronized (this) {
+                    if (!running) {
+                        break;
+                    }
+                    // Serialize the final lifecycle check and callback with
+                    // shutdown(). Once shutdown returns, no late verdict can
+                    // reach a database or table graph that its owner may now
+                    // safely close.
+                    if (verified) {
+                        sink.onVerified(job.megapacket, job.handId);
+                    } else {
+                        sink.onDishonest(job.megapacket, job.handId);
+                    }
                 }
             } catch (Exception e) {
                 if (!running) {

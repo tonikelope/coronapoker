@@ -21,12 +21,15 @@ public interface GameCinematicSink {
         IWTSTH_DENIED
     }
 
-    record Request(Type type, String assetName, long durationMillis) {
+    record Request(Type type, String nickname, String assetName,
+            long durationMillis) {
 
         public Request {
             Objects.requireNonNull(type, "type");
+            Objects.requireNonNull(nickname, "nickname");
             Objects.requireNonNull(assetName, "assetName");
-            if (assetName.isBlank() || durationMillis < 0L) {
+            if (nickname.isBlank() || assetName.isBlank()
+                    || durationMillis < 0L) {
                 throw new IllegalArgumentException("invalid cinematic request");
             }
         }

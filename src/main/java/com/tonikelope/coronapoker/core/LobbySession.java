@@ -97,7 +97,8 @@ public final class LobbySession implements AutoCloseable {
         boolean hostOnly = command instanceof LobbyCommand.AddBot
                 || command instanceof LobbyCommand.Kick
                 || command instanceof LobbyCommand.StartGame
-                || command instanceof LobbyCommand.ChangePassword;
+                || command instanceof LobbyCommand.ChangePassword
+                || command instanceof LobbyCommand.UpdateTableSettings;
         if (hostOnly && !state.host()) {
             throw new IllegalStateException("Only the host can execute this lobby command");
         }

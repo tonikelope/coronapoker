@@ -11,14 +11,14 @@ class VoluntaryExitShowdownProofTest {
     @Test
     void allInClientPublishesItsSignedPocketBeforeLeaving() throws Exception {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/GameFrame.java"));
+                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         String exitHandler = slice(source,
-                "private void exit_menuActionPerformed(",
-                "private void acerca_menuActionPerformed(");
+                "public void requestTableExit(",
+                "private void sendLocalExitOnce(boolean confirmation)");
 
         int reveal = exitHandler.indexOf("buildLocalExitCommand()");
-        int markExit = exitHandler.indexOf("getLocalPlayer().setExit()", reveal);
-        int sendExit = exitHandler.indexOf("sendGAMECommandToServer(exitCommand", reveal);
+        int markExit = exitHandler.indexOf("local.setExit()", reveal);
+        int sendExit = exitHandler.indexOf("sendLocalExitOnce(localExitCommand, true)", reveal);
 
         assertTrue(reveal >= 0,
                 "voluntary client exit must publish an all-in showdown proof");

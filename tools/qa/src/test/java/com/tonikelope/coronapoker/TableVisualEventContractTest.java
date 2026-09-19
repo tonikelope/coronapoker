@@ -19,10 +19,17 @@ final class TableVisualEventContractTest {
                 new TableVisualEvent.RevealCommunityCards(1L, 0, List.of(CARD, CARD, CARD));
 
         assertEquals(3, flop.cards().size());
+        TableVisualEvent.RevealCommunityCards resistedFlop
+                = new TableVisualEvent.RevealCommunityCards(4L, 0,
+                        List.of(CARD, CARD, CARD), 2_000L);
+        assertEquals(2_000L, resistedFlop.leadInMillis());
         assertThrows(IllegalArgumentException.class,
                 () -> new TableVisualEvent.RevealCommunityCards(2L, 1, List.of(CARD, CARD, CARD)));
         assertThrows(IllegalArgumentException.class,
                 () -> new TableVisualEvent.RevealCommunityCards(3L, 0, List.of(CARD, CARD)));
+        assertThrows(IllegalArgumentException.class,
+                () -> new TableVisualEvent.RevealCommunityCards(5L, 0,
+                        List.of(CARD, CARD, CARD), -1L));
     }
 
     @Test
@@ -34,10 +41,11 @@ final class TableVisualEventContractTest {
     @Test
     void monetaryEventsRejectImpossibleValues() {
         assertThrows(IllegalArgumentException.class,
-                () -> new TableVisualEvent.PostChips(1L, "CoronaBot$1", -1d,
-                        TableVisualEvent.PostChips.Destination.POT));
+                () -> new TableVisualEvent.ChipTransfer(
+                        "CoronaBot$1", -1d, 10d, 0d, 0d));
         assertThrows(IllegalArgumentException.class,
-                () -> new TableVisualEvent.Payout(2L, "CoronaBot$1", Double.NaN, 0));
+                () -> new TableVisualEvent.Payout(2L, "CoronaBot$1",
+                        Double.NaN, 0, 10d, 0d));
     }
 
     @Test
@@ -48,6 +56,25 @@ final class TableVisualEventContractTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new TableVisualEvent.TurnTimer(2L, "CoronaBot$1", 10_000L, 10_001L,
                         TableVisualEvent.TurnTimer.Phase.UPDATE));
+    }
+
+    @Test
+    void initialStackFillRequiresPlayersAndPositiveDuration() {
+        TableVisualEvent.ChipTransfer transfer
+                = new TableVisualEvent.ChipTransfer(
+                        "server", 10d, 90d, 10d, 10d);
+        TableVisualEvent.InitialStackFill fill
+                = new TableVisualEvent.InitialStackFill(1L,
+                        List.of(transfer), 1_000L,
+                        "misc/balance_count.wav");
+        assertEquals(1_000L, fill.durationMillis());
+        assertEquals("misc/balance_count.wav", fill.soundResource());
+        assertThrows(IllegalArgumentException.class,
+                () -> new TableVisualEvent.InitialStackFill(2L,
+                        List.of(), 1_000L, null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new TableVisualEvent.InitialStackFill(3L,
+                        List.of(transfer), 0L, null));
     }
 
     @Test

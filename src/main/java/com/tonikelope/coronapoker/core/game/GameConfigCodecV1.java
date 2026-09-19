@@ -328,6 +328,14 @@ public final class GameConfigCodecV1 {
                     value);
         }
 
+        public Configuration withAnte(boolean value) {
+            return withBlindFlags(value, straddle);
+        }
+
+        public Configuration withStraddle(boolean value) {
+            return withBlindFlags(ante, value);
+        }
+
         public Configuration withBlindUpdate(Configuration source) {
             Objects.requireNonNull(source, "source");
             return new Configuration(buyin, source.smallBlind, source.bigBlind,
@@ -337,6 +345,25 @@ public final class GameConfigCodecV1 {
                     rebuyCapPolicy, source.ante, source.straddle, iwtsth,
                     runItTwice, rabbitHunting, thinkTime, thinkTimeEnabled,
                     showdownTime, botBalanceToHumans, source.blindStructure);
+        }
+
+        /**
+         * Returns a live-table blind update while preserving every unrelated
+         * session rule. The supplied ladder is the authoritative structure
+         * used for subsequent automatic increases.
+         */
+        public Configuration withBlindSettings(double nextSmallBlind,
+                double nextBigBlind, int nextBlindsDouble,
+                int nextBlindsDoubleType, double nextBlindCap,
+                List<BlindLevel> nextBlindStructure) {
+            return new Configuration(buyin, nextSmallBlind, nextBigBlind,
+                    nextBlindsDouble, nextBlindsDoubleType, recover, sessionId,
+                    rebuy, hands, nextBlindCap, rebuyLimit, botRebuy,
+                    fixedBuyin, buyinMinBb, buyinMaxBb, rebuyCapPolicy, ante,
+                    straddle, iwtsth, runItTwice, rabbitHunting, thinkTime,
+                    thinkTimeEnabled, showdownTime, botBalanceToHumans,
+                    Objects.requireNonNull(nextBlindStructure,
+                            "nextBlindStructure"));
         }
 
         public Configuration withHands(int value) {
@@ -367,6 +394,17 @@ public final class GameConfigCodecV1 {
                     rebuyCapPolicy, ante, straddle, nextIwtsth, nextRunItTwice,
                     nextRabbitHunting, thinkTime, thinkTimeEnabled, showdownTime,
                     nextBotBalanceToHumans, blindStructure);
+        }
+
+        private Configuration withBlindFlags(boolean nextAnte,
+                boolean nextStraddle) {
+            return new Configuration(buyin, smallBlind, bigBlind,
+                    blindsDouble, blindsDoubleType, recover, sessionId, rebuy,
+                    hands, blindCap, rebuyLimit, botRebuy, fixedBuyin,
+                    buyinMinBb, buyinMaxBb, rebuyCapPolicy, nextAnte,
+                    nextStraddle, iwtsth, runItTwice, rabbitHunting,
+                    thinkTime, thinkTimeEnabled, showdownTime,
+                    botBalanceToHumans, blindStructure);
         }
     }
 

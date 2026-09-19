@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.core.game;
 
+import com.tonikelope.coronapoker.crypto.AuthenticatedCommandCodec;
 import javax.crypto.spec.SecretKeySpec;
 
 /** Authenticated game peer behavior consumed by the canonical dealer. */
@@ -19,6 +20,8 @@ public interface GamePeerController {
     boolean isSocketDownOrReconnecting();
 
     int getNew_hand_ready();
+
+    void setNew_hand_ready(int value);
 
     int getLatency();
 
@@ -46,6 +49,16 @@ public interface GamePeerController {
 
     /** Legacy encrypted-frame write; true means the write failed. */
     boolean writeCommandFromServer(String encryptedCommand);
+
+    /**
+     * Sends one canonical GAME envelope. Classic Swing peers retain their
+     * per-socket AES/HMAC frame; a renderer-neutral channel peer can override
+     * this seam because its channel is already authenticated and encrypted.
+     */
+    default boolean writeGameCommandFromServer(String clearCommand, byte[] iv) {
+        return writeCommandFromServer(AuthenticatedCommandCodec.encrypt(
+                clearCommand, getAes_key(), iv, getHmac_key()));
+    }
 
     void markExitAndNotify(String reason);
 
@@ -76,6 +89,7 @@ public interface GamePeerController {
         @Override public boolean isForce_reset_socket() { return false; }
         @Override public boolean isSocketDownOrReconnecting() { return false; }
         @Override public int getNew_hand_ready() { return 0; }
+        @Override public void setNew_hand_ready(int value) { }
         @Override public int getLatency() { return 0; }
         @Override public int getLatency2() { return 0; }
         @Override public int getReconnectionCount() { return 0; }

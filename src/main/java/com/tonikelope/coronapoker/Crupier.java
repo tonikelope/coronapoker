@@ -29,7 +29,6 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.crypto.RistrettoSRA;
-import com.tonikelope.coronapoker.crypto.AuthenticatedCommandCodec;
 import com.tonikelope.coronapoker.crypto.CryptoRandom;
 import com.tonikelope.coronapoker.crypto.UnlockChainWire;
 import com.tonikelope.coronapoker.crypto.DealChain;
@@ -68,6 +67,7 @@ import com.tonikelope.coronapoker.core.game.GamePresentationSettings;
 import com.tonikelope.coronapoker.core.game.LobbyTransitionSink;
 import com.tonikelope.coronapoker.core.game.PauseGate;
 import com.tonikelope.coronapoker.core.game.TableDisplaySink;
+import com.tonikelope.coronapoker.core.game.TurnTimeoutCoordinator;
 import com.tonikelope.coronapoker.core.game.HostGameConfigurationSource;
 import com.tonikelope.coronapoker.core.game.RecoveredSettingsSynchronizer;
 import com.tonikelope.coronapoker.core.game.ActionControlState;
@@ -165,6 +165,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GameValueFormatter value_formatter;
     private final GameBotService bot_service;
     private final TableEventBridge table_events;
+    private volatile boolean communication_tts = true;
+    private volatile boolean communication_voice_messages = true;
     private volatile boolean voluntary_show_visible;
 
     public Crupier() {
@@ -394,6 +396,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private GameCardController communityCard(int index) {
         return communityCardControllers()[index];
+    }
+
+    /**
+     * Samples the exact controller state at an ordered hand boundary.  The
+     * neutral TableState hand aggregate is intentionally not used for street,
+     * pot or board here: those fields are owned by this dealer flow and are
+     * updated through its established controllers/events.  Supplying them at
+     * the source keeps every renderer passive and prevents GDX from rebuilding
+     * a plausible-looking hand of its own.
+     */
+    private TableSnapshot handBoundarySnapshot(TableSnapshot.Street street) {
+        TableSnapshot base = TableSnapshotMapper.from(
+                gameSession().table().snapshot());
+        java.util.List<TableSnapshot.CardSnapshot> board
+                = java.util.Arrays.stream(communityCards())
+                        .map(GameCardController::getState)
+                        .map(state -> state.snapshot())
+                        .map(TableSnapshotMapper::card)
+                        .toList();
+        return new TableSnapshot(base.revision(), base.localNickname(), street,
+                MoneyMath.clean(this.bote_total), "", base.paused(),
+                base.players(), board);
     }
 
     private java.util.List<GamePlayerController> remotePlayers() {
@@ -1080,7 +1104,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int IWTSTH_TIMEOUT = 15000;
     public static final int RIT_VOTE_TIMEOUT = 15; // Seconds the run-it-twice vote lasts (timeout = NORMAL)
     public static final int STRADDLE_DECISION_TIMEOUT = 10; // Seconds UTG has to decide on a voluntary straddle (timeout = no straddle). Declining, with no straddle UTG speaks first -> rondaApuestas starts their normal turn (esTuTurno: think-time + "your turn" / thinking)
-    public static final int REBUY_DIALOG_COUNTDOWN = 15;
+    public static final int REBUY_DIALOG_COUNTDOWN
+            = GameTiming.REBUY_DIALOG_COUNTDOWN_SECONDS;
     public static final int STRADDLE_RESULT_WAIT_TIMEOUT = 20; // Cap (s) the client waits for the host's STRADDLE_RESULT before assuming NO (covers the host's worst case ~9s + network slack; avoids hanging if the host early-returned without broadcasting)
     private static final double BOT_STRADDLE_PROBABILITY = 0.12; // Probability a bot UTG places a voluntary straddle (tunable)
     public static final int MONTECARLO_ITERATIONS = 1000;// Enough for a speed/accuracy tradeoff
@@ -1155,11 +1180,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                         localHandId = rs.getInt("id");
                         handIdB64 = rs.getString("hand_id_b64");
-                        byte[] handId = Base64.getDecoder().decode(handIdB64);
-                        if (handId.length != CanonicalActionRecord.HAND_ID_BYTES) {
-                            throw new IllegalArgumentException("invalid local recovery HAND_ID");
+                        if (handIdB64 != null) {
+                            byte[] handId = Base64.getDecoder().decode(handIdB64);
+                            if (handId.length != CanonicalActionRecord.HAND_ID_BYTES) {
+                                throw new IllegalArgumentException("invalid local recovery HAND_ID");
+                            }
+                            roster = RecoveryBalanceReconciler.decodeRoster(
+                                    rs.getString("preflop_players"));
+                        } else {
+                            // A late passive observer receives a local SQL shell
+                            // for the recovered hand, but never owned that hand's
+                            // cryptographic identity or opening balances.
+                            roster = java.util.Collections.emptySet();
                         }
-                        roster = RecoveryBalanceReconciler.decodeRoster(rs.getString("preflop_players"));
                     }
                 }
 
@@ -1177,6 +1210,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                         }
                     }
+                }
+                if (handIdB64 == null) {
+                    if (!balances.isEmpty()) {
+                        throw new IllegalArgumentException(
+                                "local recovery shell has balances without HAND_ID");
+                    }
+                    return new LocalRecoveryBalanceEvidence(true, null,
+                            java.util.Collections.emptySet(),
+                            java.util.Collections.emptyMap());
                 }
                 return new LocalRecoveryBalanceEvidence(true, handIdB64, roster,
                         java.util.Collections.unmodifiableMap(balances));
@@ -1542,6 +1584,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (shuffleProofStartDecision(proof) == ShuffleProofStartDecision.START_BETTING) {
             return true;
         }
+        // A voluntary/authoritative table shutdown may interrupt the proof
+        // wait before its background verifier publishes a verdict. That is a
+        // cancelled hand, not a failed cryptographic proof, and must not emit a
+        // false ZERO-TRUST alarm or run the misdeal settlement path.
+        if (isFin_de_la_transmision() || this.termination_pending) {
+            return false;
+        }
         LOGGER.log(Level.SEVERE,
                 "ZERO-TRUST: refusing to start betting without a verified honest-shuffle proof");
         cancelarManoYDevolverApuestas("zero_trust.host_shuffle_proof_failed");
@@ -1626,7 +1675,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     dual_lock_failed_megapacket = null;
                                     shuffle_proof_gate_lock.notifyAll();
                                 }
-                                guardarFosilSRA();
+                                if (guardarFosilSRA()) {
+                                    markShuffleProofPersisted(megapacket);
+                                }
                             }
                             LOGGER.log(Level.INFO, "SHUFFLE-VERIFY: deck verified OK (hand {0})", handId);
                             // Log: shuffle verified (possibly LATE, even for a hand that's
@@ -1685,6 +1736,67 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         ShuffleVerificationQueue q = this.shuffle_verify_queue;
         if (q != null) {
             q.shutdown();
+        }
+    }
+
+    /**
+     * Gives the current immutable shuffle-proof job a bounded chance to finish
+     * before a recoverable table replacement disposes its verifier. Recovery
+     * must never mark an unverified deck as valid; this only waits for the
+     * existing verifier to publish its real verdict and persist that verdict in
+     * the local fossil.
+     */
+    public boolean awaitCurrentShuffleProofForRecoverableShutdown(
+            long timeoutMs) {
+        if (!localParticipatesInCurrentCryptoHand()
+                || this.local_mega_packet == null) {
+            return true;
+        }
+        // finishTransmission() deliberately interrupts the dealer to release
+        // presentation/betting waits.  The recoverable-close finally block
+        // still has to drain the independent verifier before it advertises
+        // CloseTable; otherwise Object.wait observes that stale interrupt and
+        // returns REJECT immediately instead of giving the proof a chance to
+        // reach the fossil. Preserve the caller's interrupt contract around
+        // this narrowly-scoped durability drain.
+        boolean interruptedBeforeDrain = Thread.interrupted();
+        long deadline = System.currentTimeMillis() + Math.max(0L, timeoutMs);
+        try {
+            if (awaitShuffleProofGate(UNLOCK_PHASE_POCKET, timeoutMs)
+                    != ShuffleProofGateDecision.ALLOW) {
+                return false;
+            }
+            synchronized (shuffle_proof_gate_lock) {
+                while (!java.util.Arrays.equals(this.local_mega_packet,
+                        this.dual_lock_persisted_megapacket)) {
+                    long remaining = deadline - System.currentTimeMillis();
+                    if (remaining <= 0L) {
+                        return false;
+                    }
+                    try {
+                        shuffle_proof_gate_lock.wait(Math.min(remaining, 1000L));
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                        return false;
+                    }
+                }
+                return true;
+            }
+        } finally {
+            if (interruptedBeforeDrain) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    private void markShuffleProofPersisted(byte[] megapacket) {
+        synchronized (shuffle_proof_gate_lock) {
+            if (java.util.Arrays.equals(megapacket, this.local_mega_packet)
+                    && java.util.Arrays.equals(megapacket,
+                            this.dual_lock_verified_megapacket)) {
+                this.dual_lock_persisted_megapacket = megapacket;
+            }
+            shuffle_proof_gate_lock.notifyAll();
         }
     }
 
@@ -1949,6 +2061,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.local_mega_packet = parsed.deck.clone();
         this.current_hand_id = parsed.handId.clone();
         this.dual_lock_expect_bundle_for = this.local_mega_packet;
+        this.dual_lock_persisted_megapacket = null;
         this.peer_k_pocket.clear();
         this.peer_k_community.clear();
         parsed.pocketCommitments.forEach((nick, key) -> this.peer_k_pocket.put(nick, key.clone()));
@@ -2087,6 +2200,613 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         acceptCriticalDealPhaseOnce(this.cascade_request_received, "DECK_CASCADE_REQ");
     }
 
+    /**
+     * Handles critical host requests that must be answered immediately by a
+     * network client instead of being consumed later by the dealer queue.
+     *
+     * <p>The classic Swing socket used to perform this work in
+     * {@code WaitingRoomFrame}. Keeping the canonical implementation here is
+     * essential for renderer-neutral clients: the SRA secrets belong to this
+     * dealer/hand, not to a window.</p>
+     *
+     * @return {@code true} when the command was claimed for asynchronous
+     * processing; {@code false} when it is an ordinary queued GAME command
+     */
+    public boolean handleClientCriticalHostCommand(String command) {
+        if (command == null || gameSession().isHost()) {
+            return false;
+        }
+        String[] parts = command.split("#", -1);
+        switch (parts[0]) {
+            case "MISDEAL":
+                try {
+                    if (parts.length != 2) {
+                        throw new IllegalArgumentException(
+                                "MISDEAL has invalid arity");
+                    }
+                    String reason = decodeStrictUtf8(
+                            Base64.getDecoder().decode(parts[1]));
+                    if (reason.isBlank()) {
+                        throw new IllegalArgumentException(
+                                "MISDEAL has an empty reason");
+                    }
+                    // The native channel callback is not the dealer thread.
+                    // Publish the abort immediately so betting waits wake, but
+                    // also keep the frame in the dealer mailbox (return false):
+                    // community/showdown consumers retain their ordered protocol
+                    // handling while ordinary betting consumes the pending flag.
+                    requestDealerThreadMisdeal(reason);
+                    return false;
+                } catch (Exception failure) {
+                    failClientCriticalHostCommand("MISDEAL", failure);
+                    return true;
+                }
+            case "MEGAPACKET":
+                try {
+                    installMegaPacketFromHost(parseMegaPacketWire(
+                            ("GAME#0#" + command).split("#", -1)));
+                    return false;
+                } catch (Exception failure) {
+                    failClientCriticalHostCommand("MEGAPACKET", failure);
+                    return true;
+                }
+            case "POCKET_CARDS":
+                try {
+                    ParsedPocketCards parsed = parsePocketCardsWire(
+                            ("GAME#0#" + command).split("#", -1),
+                            this.active_crypto_ring);
+                    byte[] installed = this.single_locked_pocket_cards.get(
+                            parsed.targetNick);
+                    if (installed == null) {
+                        installPocketCardsOnce(this.single_locked_pocket_cards,
+                                parsed);
+                    } else if (!java.util.Arrays.equals(installed,
+                            parsed.residue)) {
+                        throw new IllegalArgumentException(
+                                "POCKET_CARDS differs from installed delivery");
+                    }
+                    // Keep the command in the dealer queue: recibirMisCartas still
+                    // owns the local pocket reveal and its visual sequencing.  The
+                    // synchronous installation above merely guarantees that pockets
+                    // for every seat survive even when our own delivery arrives first.
+                    return false;
+                } catch (Exception failure) {
+                    failClientCriticalHostCommand("POCKET_CARDS", failure);
+                    return true;
+                }
+            case "LASTHAND":
+                try {
+                    LastHandWire.Command lastHand = LastHandWire.parse(
+                            ("GAME#0#" + command).split("#", -1));
+                    applyLastHandState(lastHand.enabled(),
+                            lastHand.recover());
+                    return true;
+                } catch (Exception failure) {
+                    failClientCriticalHostCommand("LASTHAND", failure);
+                    return true;
+                }
+            case "MAXHANDS":
+                try {
+                    int maximumHands = LiveRuleWire.parseMaxHands(
+                            ("GAME#0#" + command).split("#", -1));
+                    applyHandLimitState(maximumHands);
+                    return true;
+                } catch (Exception failure) {
+                    failClientCriticalHostCommand("MAXHANDS", failure);
+                    return true;
+                }
+            case "UPDATEBLINDS":
+                try {
+                    if (parts.length != 2) {
+                        throw new IllegalArgumentException(
+                                "UPDATEBLINDS has invalid arity");
+                    }
+                    GameConfigCodecV1.Result decoded
+                            = GameConfigCodecV1.decodeBase64(parts[1]);
+                    if (!decoded.isOk()) {
+                        throw new IllegalArgumentException(decoded.error());
+                    }
+                    applyBlindConfigurationState(decoded.value());
+                    return true;
+                } catch (Exception failure) {
+                    failClientCriticalHostCommand("UPDATEBLINDS", failure);
+                    return true;
+                }
+            case "IWTSTHRULE":
+            case "RUNITWICERULE":
+            case "BOTBALRULE":
+            case "BOTREBUYRULE":
+                try {
+                    boolean value = LiveRuleWire.parseBoolean(
+                            ("GAME#0#" + command).split("#", -1), parts[0]);
+                    applyBooleanLiveRule(parts[0], value);
+                    return true;
+                } catch (Exception failure) {
+                    failClientCriticalHostCommand(parts[0], failure);
+                    return true;
+                }
+            case "RABBITRULE":
+                try {
+                    int value = LiveRuleWire.parseRabbit(
+                            ("GAME#0#" + command).split("#", -1));
+                    gameSession().setRabbitHunting(value);
+                    publishGameConfigurationStatus();
+                    return true;
+                } catch (Exception failure) {
+                    failClientCriticalHostCommand("RABBITRULE", failure);
+                    return true;
+                }
+            case "TTS":
+                try {
+                    boolean value = LiveRuleWire.parseBoolean(
+                            ("GAME#0#" + command).split("#", -1), "TTS");
+                    applyCommunicationRulesState(value,
+                            communication_voice_messages);
+                    return true;
+                } catch (Exception failure) {
+                    failClientCriticalHostCommand("TTS", failure);
+                    return true;
+                }
+            case "VOICEMSGRULE":
+                try {
+                    boolean value = LiveRuleWire.parseBoolean(
+                            ("GAME#0#" + command).split("#", -1),
+                            "VOICEMSGRULE");
+                    applyCommunicationRulesState(communication_tts, value);
+                    return true;
+                } catch (Exception failure) {
+                    failClientCriticalHostCommand("VOICEMSGRULE", failure);
+                    return true;
+                }
+            case "RIT_VOTE_REQ":
+                try {
+                    if (parts.length != 4) {
+                        throw new IllegalArgumentException(
+                                "RIT_VOTE_REQ has invalid arity");
+                    }
+                    int timeout = Integer.parseInt(parts[1]);
+                    int totalVoters = Integer.parseInt(parts[2]);
+                    double pot = Double.parseDouble(parts[3]);
+                    if (timeout <= 0 || totalVoters <= 0
+                            || !Double.isFinite(pot) || pot < 0d) {
+                        throw new IllegalArgumentException(
+                                "RIT_VOTE_REQ has invalid values");
+                    }
+                    game_async.execute(() -> showRitClientVoteDialog(
+                            timeout, totalVoters, pot));
+                    return true;
+                } catch (Exception failure) {
+                    failClientCriticalHostCommand("RIT_VOTE_REQ", failure);
+                    return true;
+                }
+            case "RIT_VOTE_TALLY":
+                try {
+                    if (parts.length != 3) {
+                        throw new IllegalArgumentException(
+                                "RIT_VOTE_TALLY has invalid arity");
+                    }
+                    int normal = Integer.parseInt(parts[1]);
+                    int twice = Integer.parseInt(parts[2]);
+                    if (normal < 0 || twice < 0) {
+                        throw new IllegalArgumentException(
+                                "RIT_VOTE_TALLY has invalid values");
+                    }
+                    updateRitClientTally(normal, twice);
+                    return true;
+                } catch (Exception failure) {
+                    failClientCriticalHostCommand("RIT_VOTE_TALLY", failure);
+                    return true;
+                }
+            case "RIT_VOTE_CLOSE":
+                try {
+                    RitVoteCloseEnvelope.Result result
+                            = RitVoteCloseEnvelope.parse(
+                                    ("GAME#0#" + command).split("#", -1));
+                    if (!result.isOk()) {
+                        throw new IllegalArgumentException(result.error());
+                    }
+                    acceptRitVoteCloseOnce(result.agreed());
+                    return true;
+                } catch (Exception failure) {
+                    failClientCriticalHostCommand("RIT_VOTE_CLOSE", failure);
+                    return true;
+                }
+            case "DECK_CASCADE_REQ":
+                game_async.execute(() -> processClientCascadeRequest(parts));
+                return true;
+            case "DECK_ROTATION_REQ":
+                game_async.execute(() -> processClientRotationRequest(parts));
+                return true;
+            case "STRADDLE_DECISION":
+                // The signed decision is the authorization gate for the
+                // deferred pocket unlock. It must be verified on the channel
+                // reader before a following REQ_SRA_UNLOCK_CHAIN is dispatched;
+                // queueing it for the dealer can deadlock that very request.
+                // This is the renderer-neutral equivalent of WaitingRoomFrame's
+                // established immediate critical-command path.
+                onStraddleDecisionCommand(
+                        ("GAME#0#" + command).split("#", -1));
+                return true;
+            case "REQ_SRA_UNLOCK_CHAIN":
+                game_async.execute(() -> processClientUnlockChainRequest(parts));
+                return true;
+            case "DUALLOCK_BUNDLE":
+                game_async.execute(() -> processClientDualLockBundle(parts));
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private void processClientCascadeRequest(String[] parts) {
+        try {
+            if (SECURITY_LOCKDOWN) {
+                throw new IllegalStateException("security lockdown active");
+            }
+            if (this.local_mega_packet != null) {
+                triggerSecurityLockdown(game_text.translate(
+                        "zero_trust.host_cascade_mid_hand"));
+                throw new IllegalArgumentException(
+                        "DECK_CASCADE_REQ received mid-hand");
+            }
+            if (parts.length != 2) {
+                throw new IllegalArgumentException(
+                        "malformed DECK_CASCADE_REQ");
+            }
+            acceptCascadeRequestOnce();
+            byte[] incomingDeck = Base64.getDecoder().decode(parts[1]);
+            com.tonikelope.coronapoker.crypto.EdwardsPoint[] incomingPoints
+                    = incomingDeck.length == 1664
+                    ? com.tonikelope.coronapoker.crypto.ShuffleCascade
+                            .decodeDeck(incomingDeck) : null;
+            if (incomingPoints == null) {
+                triggerSecurityLockdown(game_text.translate(
+                        "zero_trust.host_bad_wire"));
+                throw new IllegalArgumentException(
+                        "invalid curve deck in DECK_CASCADE_REQ");
+            }
+
+            byte[] pocketLock = RistrettoSRA.generateLockScalar();
+            this.local_sra_unlock = RistrettoSRA.getUnlockScalar(pocketLock);
+            this.local_sra_lock_community = RistrettoSRA.generateLockScalar();
+            this.local_sra_unlock_community = RistrettoSRA.getUnlockScalar(
+                    this.local_sra_lock_community);
+
+            byte[] locked = com.tonikelope.coronapoker.crypto.ShuffleCascade
+                    .encodeDeck(RistrettoSRA.lockPoints(incomingPoints,
+                            pocketLock));
+            byte[] seed = new byte[48];
+            CryptoRandom.fill(seed);
+            byte[] shuffled = DeterministicShuffle.shuffleDeck(locked, seed);
+            String nick = Base64.getEncoder().encodeToString(
+                    gameSession().localNickname()
+                            .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            String deck = Base64.getEncoder().encodeToString(shuffled);
+            String pocketCommitment = Base64.getEncoder().encodeToString(
+                    RistrettoSRA.commitment(pocketLock));
+            String communityCommitment = Base64.getEncoder().encodeToString(
+                    RistrettoSRA.commitment(this.local_sra_lock_community));
+            sendGAMECommandToServer("DECK_CASCADE_RESP#" + nick + "#"
+                    + deck + "#" + pocketCommitment + "#"
+                    + communityCommitment, false);
+
+            int[] permutation = DeterministicShuffle.shufflePermutation(
+                    incomingDeck.length / 32, seed);
+            byte[] proof = com.tonikelope.coronapoker.crypto.ShuffleCascade
+                    .proveStepWire(incomingDeck, shuffled, permutation,
+                            pocketLock);
+            if (proof == null) {
+                throw new IllegalStateException(
+                        "cascade proof generation returned null");
+            }
+            String deckHash = Base64.getEncoder().encodeToString(
+                    java.security.MessageDigest.getInstance("SHA-256")
+                            .digest(shuffled));
+            sendGAMECommandToServer("DECK_CASCADE_PROOF#" + nick + "#"
+                    + deckHash + "#"
+                    + Base64.getEncoder().encodeToString(proof), false);
+        } catch (Exception failure) {
+            failClientCriticalHostCommand("DECK_CASCADE_REQ", failure);
+        }
+    }
+
+    private void processClientRotationRequest(String[] parts) {
+        try {
+            if (SECURITY_LOCKDOWN) {
+                throw new IllegalStateException("security lockdown active");
+            }
+            if (this.local_sra_lock_community == null
+                    || this.local_sra_unlock == null) {
+                throw new IllegalStateException(
+                        "DECK_ROTATION_REQ without local SRA keys");
+            }
+            if (parts.length != 2) {
+                throw new IllegalArgumentException(
+                        "malformed DECK_ROTATION_REQ");
+            }
+            acceptRotationRequestOnce();
+            byte[] incoming = Base64.getDecoder().decode(parts[1]);
+            com.tonikelope.coronapoker.crypto.EdwardsPoint[] inputPoints
+                    = com.tonikelope.coronapoker.crypto.ShuffleCascade
+                            .decodeDeck(incoming);
+            if (inputPoints == null) {
+                triggerSecurityLockdown(game_text.translate(
+                        "zero_trust.host_bad_wire"));
+                throw new IllegalArgumentException(
+                        "invalid curve block in DECK_ROTATION_REQ");
+            }
+            java.math.BigInteger rotationScalar = RistrettoSRA
+                    .bytesToScalar(this.local_sra_unlock)
+                    .multiply(RistrettoSRA.bytesToScalar(
+                            this.local_sra_lock_community))
+                    .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L);
+            com.tonikelope.coronapoker.crypto.EdwardsPoint[] outputPoints
+                    = RistrettoSRA.lockPoints(inputPoints,
+                            RistrettoSRA.scalarToBytes(rotationScalar));
+            byte[] rotated = com.tonikelope.coronapoker.crypto.ShuffleCascade
+                    .encodeDeck(outputPoints);
+            byte[] proof = com.tonikelope.coronapoker.crypto.DualLockWire
+                    .encodeRotationProof(
+                            com.tonikelope.coronapoker.crypto.RotationProof
+                                    .prove(rotationScalar, inputPoints,
+                                            outputPoints));
+            if (proof == null) {
+                throw new IllegalStateException(
+                        "rotation proof generation returned null");
+            }
+            String nick = Base64.getEncoder().encodeToString(
+                    gameSession().localNickname()
+                            .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            sendGAMECommandToServer("DECK_ROTATION_RESP#" + nick + "#"
+                    + Base64.getEncoder().encodeToString(rotated) + "#"
+                    + Base64.getEncoder().encodeToString(proof), false);
+        } catch (Exception failure) {
+            failClientCriticalHostCommand("DECK_ROTATION_REQ", failure);
+        }
+    }
+
+    private void processClientUnlockChainRequest(String[] parts) {
+        try {
+            if (SECURITY_LOCKDOWN) {
+                throw new IllegalStateException("security lockdown active");
+            }
+            if (parts.length != 4) {
+                throw new IllegalArgumentException(
+                        "malformed REQ_SRA_UNLOCK_CHAIN");
+            }
+            int phase = Integer.parseInt(parts[1]);
+            int handId = Integer.parseInt(parts[2]);
+            UnlockWaitResult waitResult = awaitStreetForUnlockPhase(phase,
+                    handId, UNLOCK_WAIT_TIMEOUT_MS);
+            if (waitResult != UnlockWaitResult.READY || handId != getMano()) {
+                // A critical request can already be in flight when this client
+                // confirms EXIT.  Once the teardown fence is armed there is no
+                // table state left to serve, but that ordinary wire race must
+                // not be escalated into a hostile-host failure or keep the old
+                // table executor alive for UNLOCK_WAIT_TIMEOUT_MS.
+                if (isFin_de_la_transmision() || this.termination_pending) {
+                    return;
+                }
+                if (waitResult == UnlockWaitResult.TIMEOUT) {
+                    warnSuspiciousHost(game_text.translate(
+                            "zero_trust.host_unlock_out_of_order"));
+                }
+                throw new IllegalStateException(
+                        "unlock request is stale or out of order"
+                        + " (result=" + waitResult
+                        + ", phase=" + phase
+                        + ", requestedHand=" + handId
+                        + ", localHand=" + getMano()
+                        + ", localStreet=" + getStreet() + ")");
+            }
+
+            boolean pocketPhase = phase == UNLOCK_PHASE_POCKET
+                    || phase == UNLOCK_PHASE_POCKET_STRADDLE;
+            byte[] unlock = pocketPhase ? this.local_sra_unlock
+                    : this.local_sra_unlock_community;
+            if (!RistrettoSRA.isValidScalar(unlock)) {
+                throw new IllegalStateException(
+                        "missing local unlock for phase " + phase);
+            }
+            byte[] lock = RistrettoSRA.getUnlockScalar(unlock);
+            Map<String, byte[]> commitments = pocketPhase
+                    ? this.peer_k_pocket : this.peer_k_community;
+            byte[] megapacket = this.local_mega_packet;
+            String[] ring = this.active_crypto_ring;
+            if (megapacket == null || ring == null) {
+                throw new IllegalStateException(
+                        "unlock request received before MEGAPACKET");
+            }
+            if (phase != UNLOCK_PHASE_POCKET
+                    && awaitShuffleProofGate(phase,
+                            SHUFFLE_PROOF_GATE_TIMEOUT_MS)
+                    != ShuffleProofGateDecision.ALLOW) {
+                markShuffleProofFailed(megapacket);
+                throw securityViolation(
+                        "zero_trust.host_shuffle_proof_failed",
+                        "community unlock requested without verified shuffle");
+            }
+            java.util.List<UnlockChainWire.ReqItem> items
+                    = UnlockChainWire.parseReq(parts[3]);
+            if (items == null) {
+                throw new IllegalArgumentException(
+                        "malformed unlock-chain items");
+            }
+
+            String localNick = gameSession().localNickname();
+            int mySlot = -1;
+            for (int slot = 0; slot < ring.length; slot++) {
+                if (ring[slot].equals(localNick)) {
+                    mySlot = slot;
+                    break;
+                }
+            }
+            int[] communityRange = communitySlotRange(phase, ring.length);
+            int straddlePocketSlot = -1;
+            if (phase == UNLOCK_PHASE_POCKET_STRADDLE) {
+                String straddler = getStraddleDecisionVerifiedNick();
+                for (int slot = 0; slot < ring.length; slot++) {
+                    if (ring[slot].equals(straddler)) {
+                        straddlePocketSlot = slot;
+                        break;
+                    }
+                }
+                if (straddlePocketSlot < 0) {
+                    throw securityViolation(
+                            "zero_trust.host_pocket_extraction",
+                            "straddle unlock has no verified straddler");
+                }
+            }
+            int blindStraddlerSlot = blindStraddlerSlot();
+            java.util.List<UnlockChainWire.RespItem> response
+                    = new java.util.ArrayList<>();
+            for (UnlockChainWire.ReqItem item : items) {
+                if (item.peerIdx >= 0 && item.peerIdx < ring.length
+                        && ring[item.peerIdx].equals(localNick)) {
+                    throw securityViolation(
+                            "zero_trust.host_pocket_extraction",
+                            "host asked peer to unlock its own slot");
+                }
+                long requestedLast = (long) item.offsetBase
+                        + item.chains.size() - 1L;
+                if (communityRange != null
+                        && (item.chains.isEmpty()
+                        || item.offsetBase < communityRange[0]
+                        || requestedLast >= (long) communityRange[0]
+                                + communityRange[1])) {
+                    throw securityViolation("zero_trust.host_board_peek",
+                            "unlock request is outside the street window");
+                }
+                java.util.List<String> chains = new java.util.ArrayList<>();
+                for (int index = 0; index < item.chains.size(); index++) {
+                    long pointIndex = (long) item.offsetBase + index;
+                    if (pointIndex < 0
+                            || (pointIndex + 1L) * 32L > megapacket.length) {
+                        throw securityViolation("zero_trust.host_bad_wire",
+                                "unlock offset is outside MEGAPACKET");
+                    }
+                    boolean ownPocket = pocketPhase && mySlot >= 0
+                            && (pointIndex == mySlot * 2L
+                            || pointIndex == mySlot * 2L + 1L);
+                    if (ownPocket) {
+                        throw securityViolation(
+                                "zero_trust.host_pocket_extraction",
+                                "host asked peer to strip its own pocket");
+                    }
+                    if (phase == UNLOCK_PHASE_POCKET_STRADDLE
+                            && pointIndex != straddlePocketSlot * 2L
+                            && pointIndex != straddlePocketSlot * 2L + 1L) {
+                        throw securityViolation(
+                                "zero_trust.host_pocket_extraction",
+                                "straddle unlock targets another pocket");
+                    }
+                    if (phase == UNLOCK_PHASE_POCKET
+                            && blindStraddlerSlot >= 0
+                            && (pointIndex == blindStraddlerSlot * 2L
+                            || pointIndex == blindStraddlerSlot * 2L + 1L)) {
+                        throw securityViolation(
+                                "zero_trust.host_pocket_extraction",
+                                "normal pocket phase targets blind straddler");
+                    }
+                    byte[] point = Arrays.copyOfRange(megapacket,
+                            (int) (pointIndex * 32L),
+                            (int) ((pointIndex + 1L) * 32L));
+                    DealChain.Extended extended = DealChain.extend(point,
+                            item.chains.get(index), commitments, localNick,
+                            lock);
+                    if (extended == null) {
+                        throw securityViolation(
+                                "zero_trust.host_pocket_extraction",
+                                "unlock chain is not anchored");
+                    }
+                    if (phase != UNLOCK_PHASE_POCKET
+                            && RistrettoSRA.resolveCardIndex(
+                                    extended.residual) >= 0) {
+                        throw securityViolation(
+                                "zero_trust.host_community_extraction",
+                                "community strip reveals a genesis card");
+                    }
+                    chains.add(extended.wire);
+                }
+                response.add(new UnlockChainWire.RespItem(item.peerIdx,
+                        chains));
+            }
+            String nick = Base64.getEncoder().encodeToString(
+                    localNick.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            sendGAMECommandToServer("RESP_SRA_UNLOCK_CHAIN#" + nick + "#"
+                    + UnlockChainWire.serializeResp(response), false);
+        } catch (Exception failure) {
+            if (isFin_de_la_transmision() || this.termination_pending) {
+                return;
+            }
+            failClientCriticalHostCommand("REQ_SRA_UNLOCK_CHAIN", failure);
+        }
+    }
+
+    private void processClientDualLockBundle(String[] parts) {
+        byte[] megapacket = this.local_mega_packet;
+        try {
+            if (megapacket == null || this.active_crypto_ring == null) {
+                throw new IllegalStateException(
+                        "DUALLOCK_BUNDLE received before MEGAPACKET");
+            }
+            acceptDualLockBundleOnce();
+            this.dual_lock_bundle_received_for = megapacket;
+            if (parts.length != 5) {
+                markShuffleProofFailed(megapacket);
+                throw securityViolation(
+                        "zero_trust.host_shuffle_proof_failed",
+                        "malformed DUALLOCK_BUNDLE");
+            }
+            byte[] genesis = contextBoundShuffleGenesis(
+                    configuration().sessionId(), this.current_hand_id,
+                    this.active_crypto_ring);
+            ShuffleVerificationQueue.Job job
+                    = new ShuffleVerificationQueue.Job(genesis,
+                            decodeBase64Csv(parts[1]),
+                            decodeBase64Csv(parts[2]),
+                            this.active_crypto_ring.length * 2,
+                            megapacket, decodeBase64Csv(parts[3]),
+                            decodeBase64Csv(parts[4]), getMano());
+            if (!getShuffleVerifyQueue().enqueue(job)) {
+                markShuffleProofFailed(megapacket);
+                throw securityViolation(
+                        "zero_trust.host_shuffle_proof_failed",
+                        "shuffle verification queue rejected bundle");
+            }
+        } catch (Exception failure) {
+            markShuffleProofFailed(megapacket);
+            failClientCriticalHostCommand("DUALLOCK_BUNDLE", failure);
+        }
+    }
+
+    private static java.util.List<byte[]> decodeBase64Csv(String csv) {
+        java.util.List<byte[]> values = new java.util.ArrayList<>();
+        if (csv == null || csv.isEmpty()) {
+            return values;
+        }
+        for (String encoded : csv.split(",", -1)) {
+            if (!encoded.isEmpty()) {
+                values.add(Base64.getDecoder().decode(encoded));
+            }
+        }
+        return values;
+    }
+
+    private IllegalArgumentException securityViolation(String translationKey,
+            String detail) {
+        triggerSecurityLockdown(game_text.translate(translationKey));
+        return new IllegalArgumentException(detail);
+    }
+
+    private void failClientCriticalHostCommand(String phase,
+            Exception failure) {
+        LOGGER.log(Level.SEVERE, "Failed to process critical " + phase
+                + "; closing host channel", failure);
+        setFin_de_la_transmision(true);
+        game_transport.closeHostConnection();
+    }
+
     void acceptRotationRequestOnce() {
         acceptCriticalDealPhaseOnce(this.rotation_request_received, "DECK_ROTATION_REQ");
     }
@@ -2148,7 +2868,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public volatile byte[] dual_lock_expect_bundle_for = null;
     public volatile byte[] dual_lock_verified_megapacket = null;
     public volatile byte[] dual_lock_failed_megapacket = null;
+    // Verification is enough to enter betting, but a recoverable CloseTable
+    // must also know that the marker reached the durable local fossil. Keep a
+    // separate deck-keyed marker so shutdown cannot race guardarFosilSRA().
+    private volatile byte[] dual_lock_persisted_megapacket = null;
     private final Object shuffle_proof_gate_lock = new Object();
+    // The dealer and the asynchronous shuffle verifier both refresh the same
+    // durable recovery fossil.  Serialise the complete snapshot+write so an
+    // older snapshot built before verification cannot overtake and replace a
+    // later SHUFFLE_VERIFIED fossil under load.
+    private final Object hand_state_fossil_lock = new Object();
     // Marks "a DUALLOCK_BUNDLE for this deck ARRIVED from the host" (set on receipt, before
     // parsing/verifying). Distinguishes a SLOW peer (bundle received but queue not drained yet ->
     // benign) from a host that never sent the proof (received != live deck -> suspicious). Keyed by megapacket.
@@ -2199,6 +2928,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // it first.
     private final ConcurrentHashMap<String, Integer> rebuy_committed = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Integer> rebuy_counts = new ConcurrentHashMap<>();
+    private final java.util.concurrent.atomic.AtomicBoolean immediate_rebuy_dialog_open
+            = new java.util.concurrent.atomic.AtomicBoolean();
     // REBUYNOW is deliberately dispatched off the socket reader: the host may wait for
     // confirmations while broadcasting, and an incoming relay may wait on this same lock.
     // That avoids the reader-thread deadlock, but a cached pool can then execute two toggles
@@ -2276,6 +3007,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // can continue is a separate card-unlock decision: a valid community testament
     // permits later streets; without it, the next required unlock is MISDEAL/refund.
     private final java.util.Set<String> exited_consensus_participants = ConcurrentHashMap.newKeySet();
+    // A definitive transport loss is detected by the reconnect watchdog, not by
+    // the dealer thread. The watchdog must never refund the hand directly: it
+    // can race the dealer while an accepted action is still being committed to
+    // the player's accumulated pot. It only publishes the lost seat here and
+    // wakes the dealer; rondaApuestas consumes the signal at a safe boundary and
+    // performs the canonical MISDEAL/refund itself.
+    private final java.util.concurrent.atomic.AtomicReference<String> pending_dealer_abort_reason
+            = new java.util.concurrent.atomic.AtomicReference<>();
     private final ConcurrentHashMap<GamePlayerController, GameHandResult> perdedores = new ConcurrentHashMap<>();
     private final ConcurrentLinkedQueue<GamePlayerController> flop_players = new ConcurrentLinkedQueue<>();
 
@@ -2456,6 +3195,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // thing those waits watch is fin_de_la_transmision, which finTransmision can't set until it
     // gets the very lock the crupier is holding.
     private volatile boolean termination_pending = false;
+    // A voluntary client EXIT carries the cryptographic testament and must be
+    // emitted exactly once. The explicit UI/GDX exit path and run()'s final
+    // safety tail can race; without this gate the tail writes to an already
+    // retired channel and may start a bogus reconnect during teardown.
+    private final java.util.concurrent.atomic.AtomicBoolean local_exit_sent
+            = new java.util.concurrent.atomic.AtomicBoolean(false);
     // Set when the SIDE-B deal is cut short by termination (stop / disconnect) instead of by a
     // MISDEAL: the hand is LEFT in progress on purpose (hand.end stays 0, no showdown/close
     // written), so the recover replays the whole run-it-twice from the fossil. Reset per hand.
@@ -2649,7 +3394,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         CryptoRandom.fill(iv);
         String deckB64 = Base64.getEncoder().encodeToString(currentDeck);
         try {
-            p.writeCommandFromServer(AuthenticatedCommandCodec.encrypt("GAME#" + id + "#DECK_CASCADE_REQ#" + deckB64, p.getAes_key(), iv, p.getHmac_key()));
+            p.writeGameCommandFromServer("GAME#" + id + "#DECK_CASCADE_REQ#" + deckB64, iv);
         } catch (Exception e) {
             return null;
         }
@@ -2837,7 +3582,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         CryptoRandom.fill(iv);
         String piecesB64 = Base64.getEncoder().encodeToString(communityPieces);
         try {
-            p.writeCommandFromServer(AuthenticatedCommandCodec.encrypt("GAME#" + id + "#DECK_ROTATION_REQ#" + piecesB64, p.getAes_key(), iv, p.getHmac_key()));
+            p.writeGameCommandFromServer("GAME#" + id + "#DECK_ROTATION_REQ#" + piecesB64, iv);
         } catch (Exception e) {
             return null;
         }
@@ -2948,7 +3693,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         String payload = UnlockChainWire.serializeReq(items);
         try {
             String cmd = "GAME#" + id + "#REQ_SRA_UNLOCK_CHAIN#" + phase + "#" + this.conta_mano + "#" + payload;
-            p.writeCommandFromServer(AuthenticatedCommandCodec.encrypt(cmd, p.getAes_key(), iv, p.getHmac_key()));
+            p.writeGameCommandFromServer(cmd, iv);
         } catch (Exception e) {
             return null;
         }
@@ -3036,8 +3781,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             byte[] iv = new byte[16];
             CryptoRandom.fill(iv);
             request = tracker.register(id + 1, pending);
-            boolean writeFailed = p.writeCommandFromServer(AuthenticatedCommandCodec.encrypt(
-                    "GAME#" + id + "#" + command, p.getAes_key(), iv, p.getHmac_key()));
+            boolean writeFailed = writeCriticalGameCommandToParticipant(p,
+                    "GAME#" + id + "#" + command, iv);
             if (writeFailed) {
                 p.markExitAndNotify("critical unicast write failed");
                 try {
@@ -3070,6 +3815,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 tracker.close(request);
             }
         }
+    }
+
+    /**
+     * Preserves the authenticated legacy wire used by Swing participants while
+     * allowing a native {@link com.tonikelope.coronapoker.core.game.GameChannel}
+     * peer to own its already-authenticated framing. Both paths keep the
+     * historical convention that {@code true} means the write failed.
+     */
+    private boolean writeCriticalGameCommandToParticipant(GamePeerController p,
+            String clearCommand, byte[] iv) {
+        if (p.getAes_key() == null || p.getHmac_key() == null) {
+            return p.writeGameCommandFromServer(clearCommand, iv);
+        }
+        boolean writeFailed = p.writeCommandFromServer(
+                com.tonikelope.coronapoker.crypto.AuthenticatedCommandCodec.encrypt(
+                        clearCommand, p.getAes_key(), iv, p.getHmac_key()));
+        return writeFailed;
     }
 
     /**
@@ -3465,6 +4227,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // The host must wait, just like every client, until the background
         // full-chain verification authenticates this exact deck.
         this.dual_lock_expect_bundle_for = workingDeck;
+        this.dual_lock_persisted_megapacket = null;
         String megaPacketB64 = Base64.getEncoder().encodeToString(this.local_mega_packet);
         String orderB64 = "";
         try {
@@ -3804,6 +4567,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             before = after;
                         }
                     }
+                    if (backgroundShuffleVerificationCancelled()) {
+                        return;
+                    }
                     // Only proceed if ALL cascade proofs are present. A null is terminal for this
                     // deck; never broadcast a bundle that every peer would reject.
                     if (rotComplete && !rotProofsBg.isEmpty() && !proofs.contains(null)) {
@@ -3815,6 +4581,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 "SHUFFLE-VERIFY: background dual-lock full-chain self-check (cascade+rotation) = {0} ({1} rotation steps)",
                                 new Object[]{fullOk, rotProofsBg.size()});
                         if (fullOk) {
+                            if (backgroundShuffleVerificationCancelled()) {
+                                return;
+                            }
                             // Broadcast the bundle so EVERY peer verifies it independently (the host
                             // verifying itself protects nobody). Each peer derives pocketCount locally
                             // and recomputes the genesis; we never send pocketCount (don't trust the
@@ -3837,7 +4606,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     this.dual_lock_failed_megapacket = null;
                                     shuffle_proof_gate_lock.notifyAll();
                                 }
-                                guardarFosilSRA();
+                                if (guardarFosilSRA()) {
+                                    markShuffleProofPersisted(bgMega);
+                                }
                                 game_log.print(MessageFormat.format(
                                         game_text.translate("game.barajado_verificado"),
                                         String.valueOf(bgHandOrdinal)));
@@ -3858,6 +4629,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 "SHUFFLE-VERIFY: mandatory full-chain proof incomplete; deck rejected before betting");
                     }
                 } catch (Exception bgEx) {
+                    if (backgroundShuffleVerificationCancelled()) {
+                        return;
+                    }
                     markShuffleProofFailed(bgMega);
                     LOGGER.log(Level.SEVERE,
                             "SHUFFLE-VERIFY: background cascade self-check threw; deck rejected before betting",
@@ -3936,7 +4710,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     }
                                     GamePeerController localParticipant = peers()
                                             .get(gameSession().localNickname());
-                                    this.local_sra_unlock = localParticipant == null ? null : localParticipant.getSra_unlock();
+                                    if (localParticipant != null
+                                            && localParticipant.getSra_unlock() != null) {
+                                        this.local_sra_unlock = localParticipant.getSra_unlock();
+                                    }
                                     if (!RistrettoSRA.isValidScalar(this.local_sra_unlock)) {
                                         throw new IllegalArgumentException("missing local pocket unlock");
                                     }
@@ -4174,6 +4951,109 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
+     * Executes the renderer-neutral equivalent of Swing's confirmed table exit.
+     * The wire transition is delivered before the local transport is allowed to
+     * close, including the cryptographic testament required from a client.
+     */
+    public void requestTableExit(boolean recover) {
+        if (!game_window.isOpen()) {
+            return;
+        }
+        boolean host = gameSession().isHost();
+        if (recover && !host) {
+            throw new IllegalStateException(
+                    "Only the host can stop a table for recovery");
+        }
+
+        // An all-in EXIT must capture its card-bound showdown proof while the
+        // canonical player still carries the ALLIN decision. setExit() retires
+        // that player from the hand, so building this body afterwards can lose
+        // the mandatory private-card proof and force an avoidable MISDEAL.
+        String localExitCommand = host ? null : buildLocalExitCommand();
+
+        // Swing raises this at the very start of GameFrame.finTransmision().
+        // The renderer-neutral/GDX path bypasses that Swing method, so it must
+        // establish the same cancellation fence here before a confirmed wire
+        // send can wait. Otherwise the dealer may remain blocked in a turn,
+        // card or renderer barrier while the user has already confirmed exit.
+        setTerminationPending();
+
+        GamePlayerController local = localPlayer();
+        // A recoverable stop terminates this renderer/session, not the
+        // player's membership of the poker table.  Marking the local player
+        // as EXIT here races the dealer's atomic hand-open transaction on a
+        // slightly slower peer: sqlNewHand() can then persist the same HAND_ID
+        // with a preflop roster that omits that peer, making the next
+        // zero-trust recovery reject an otherwise honest host.  The
+        // termination fence above and fin_de_la_transmision below already
+        // cancel every live wait.  EXIT remains correct for a genuine leave.
+        if (local != null && !recover) {
+            local.setExit();
+        }
+        setForce_recover(recover);
+
+        if (host) {
+            String command = recover ? "SERVEREXITRECOVER" : "SERVEREXIT";
+            if (recover && game_transport.tablePassword() != null) {
+                command += "#" + Base64.getEncoder().encodeToString(
+                        game_transport.tablePassword().getBytes(
+                                java.nio.charset.StandardCharsets.UTF_8));
+            }
+            broadcastTerminationFromServer(command);
+        } else {
+            // Unlike the legacy fire-and-forget socket call, the renderer-neutral
+            // channel owns an asynchronous outbox. Request confirmation so closing
+            // the TableSession cannot overtake the EXIT testament on the wire.
+            sendLocalExitOnce(localExitCommand, true);
+            // The confirmed EXIT is already durable at the host. Retire the
+            // client channel now so a legacy Swing socket-reader cannot survive
+            // into RESET_GAME, and so no host request that was concurrently in
+            // flight is processed against a dismantled local hand.
+            game_transport.closeHostConnection();
+        }
+
+        setFin_de_la_transmision(true);
+        game_window.finishTransmission(host);
+    }
+
+    private void sendLocalExitOnce(boolean confirmation) {
+        sendLocalExitOnce(buildLocalExitCommand(), confirmation);
+    }
+
+    private void sendLocalExitOnce(String exitCommand, boolean confirmation) {
+        if (!local_exit_sent.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            sendGAMECommandToServer(exitCommand, confirmation);
+        } catch (RuntimeException | Error failure) {
+            // No successful delivery was established. Let a later recovery or
+            // final safety path retry instead of permanently suppressing EXIT.
+            local_exit_sent.set(false);
+            throw failure;
+        }
+    }
+
+    /** Applies an authenticated host termination on a renderer-neutral client. */
+    public void acceptAuthoritativeTableExit(String command) {
+        if (gameSession().isHost()) {
+            throw new IllegalStateException(
+                    "The host cannot accept its own termination frame");
+        }
+        TableTerminationWire.ExitCommand termination = TableTerminationWire.parse(
+                ("GAME#0#" + command).split("#", -1));
+        setForce_recover(termination.recover());
+        GamePlayerController local = localPlayer();
+        // SERVEREXITRECOVER preserves the table roster for the next recovery;
+        // SERVEREXIT is an actual final exit and retires the local player.
+        if (local != null && !termination.recover()) {
+            local.setExit();
+        }
+        setFin_de_la_transmision(true);
+        game_window.finishTransmission(true);
+    }
+
+    /**
      * Dual-lock (option G): the key carried in SHOWCARDS when voluntarily
      * revealing a player's private cards at showdown. This is the POCKET half —
      * the receiver uses it with applyCommutativeLock on the encrypted pocket
@@ -4349,7 +5229,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // community-card network waits stop blocking on peers that are tearing down with us. See
     // the field comment; one-shot per game (a fresh Crupier is built on recover).
     public void setTerminationPending() {
-        this.termination_pending = true;
+        synchronized (protocol_state_lock) {
+            this.termination_pending = true;
+            protocol_state_lock.notifyAll();
+        }
     }
 
     public Object getLock_rabbit() {
@@ -4583,6 +5466,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return true;
     }
 
+    private boolean backgroundShuffleVerificationCancelled() {
+        return isFin_de_la_transmision()
+                || Thread.currentThread().isInterrupted();
+    }
+
     // Returns the nick that shows its chip, or null if that role isn't painted
     // because it shares a seat with a higher-priority one (BB > SB > DEALER),
     // mirroring refreshPositionChipIcons.
@@ -4688,14 +5576,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private void animateShowdownPayout() {
 
         if (table_events.isAttached()) {
+            double remainingPayout = players().stream()
+                    .filter(java.util.Objects::nonNull)
+                    .mapToDouble(player -> MoneyMath.clean(player.getPagar()))
+                    .filter(pay -> MoneyMath.compare(0f, pay) < 0)
+                    .sum();
             for (GamePlayerController player : players()) {
                 if (player == null) {
                     continue;
                 }
                 double pay = MoneyMath.clean(player.getPagar());
                 if (MoneyMath.compare(0f, pay) < 0) {
+                    remainingPayout = MoneyMath.clean(remainingPayout - pay);
+                    if (MoneyMath.compare(remainingPayout, 0d) < 0) {
+                        throw new IllegalStateException(
+                                "Negative canonical payout remainder");
+                    }
+                    final double potAfter = remainingPayout;
                     awaitAttachedTableEvent(sequence -> new TableVisualEvent.Payout(
-                            sequence, player.getNickname(), pay, 0),
+                            sequence, player.getNickname(), pay, 0,
+                            MoneyMath.clean(player.getStack() + pay), potAfter),
                             "Showdown payout presentation barrier failed");
                 }
             }
@@ -4915,7 +5815,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             double potBefore, double potAfterLanding) {
         java.util.List<TableVisualEvent.ChipTransfer> transfers = contributors.stream()
                 .map(player -> new TableVisualEvent.ChipTransfer(
-                        player.getNickname(), MoneyMath.clean(player.getBote())))
+                        player.getNickname(), MoneyMath.clean(player.getBote()),
+                        MoneyMath.clean(player.getStack()),
+                        MoneyMath.clean(player.getBet()),
+                        MoneyMath.clean(player.getBote())))
                 .toList();
 
         java.util.Optional<java.util.concurrent.CompletionStage<Void>> barrier
@@ -5127,6 +6030,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             to[i] = players.get(i).getStack();
         }
 
+        if (table_events.isAttached()) {
+            java.util.List<TableVisualEvent.ChipTransfer> transfers
+                    = new java.util.ArrayList<>(players.size());
+            for (int index = 0; index < players.size(); index++) {
+                transfers.add(new TableVisualEvent.ChipTransfer(
+                        players.get(index).getNickname(), to[index], to[index],
+                        MoneyMath.clean(players.get(index).getBet()),
+                        MoneyMath.clean(players.get(index).getBote())));
+            }
+            awaitAttachedTableEvent(sequence
+                    -> new TableVisualEvent.InitialStackFill(sequence,
+                            transfers, STACK_FILL_MS,
+                            presentation_settings.initialStackFillSound()),
+                    "Initial stack-fill presentation barrier failed");
+            return;
+        }
+
         animateStackFill(players, from, to, presentation_settings.initialStackFillSound());
         awaitInitialStackFill();
     }
@@ -5140,7 +6060,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Not animated by default: each reComprar plays its own sound. Only set true if we
         // actually run the fill (which plays the till sound), so reComprar stays silent.
         this.rebuy_fill_animated = false;
-        if (!isStackFillAnimated() || rebuy_nicks == null || rebuy_nicks.isEmpty()) {
+        boolean attachedRenderer = table_events.isAttached();
+        if ((!attachedRenderer && !isStackFillAnimated())
+                || rebuy_nicks == null || rebuy_nicks.isEmpty()) {
             return;
         }
 
@@ -5173,6 +6095,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (int i = 0; i < players.size(); i++) {
             from[i] = froms.get(i);
             to[i] = tos.get(i);
+        }
+
+        if (attachedRenderer) {
+            java.util.List<TableVisualEvent.ChipTransfer> transfers
+                    = new java.util.ArrayList<>(players.size());
+            for (int index = 0; index < players.size(); index++) {
+                transfers.add(new TableVisualEvent.ChipTransfer(
+                        players.get(index).getNickname(),
+                        to[index] - from[index], to[index],
+                        MoneyMath.clean(players.get(index).getBet()),
+                        MoneyMath.clean(players.get(index).getBote())));
+            }
+            this.rebuy_fill_animated = true;
+            awaitAttachedTableEvent(sequence -> new TableVisualEvent.Rebuy(
+                    sequence, transfers, STACK_FILL_MS),
+                    "Rebuy-chip presentation barrier failed");
+            return;
         }
 
         this.rebuy_fill_animated = true;
@@ -5222,6 +6161,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return nick == null ? null : rebuy_committed.remove(nick);
     }
 
+    /**
+     * Consumes and applies the same final headroom clamp used by the Swing
+     * players when a frontend-neutral player opens the next hand.
+     */
+    public Integer consumeCommittedRebuy(String nick, double currentStack) {
+        Integer amount = consumeCommittedRebuy(nick);
+        return amount == null ? null : Math.min(amount, rebuyHeadroom(currentStack));
+    }
+
     static void commitPendingRebuys(Map<String, Integer> pending,
             Map<String, Integer> committed) {
         if (pending == null || committed == null || pending == committed) {
@@ -5252,7 +6200,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         synchronized (lock_rebuynow) {
             Map<String, Integer> pendingBefore = presentation_settings.testMode()
                     ? new LinkedHashMap<>(rebuy_now) : null;
+            java.util.Set<String> committedNicks
+                    = new java.util.LinkedHashSet<>(rebuy_now.keySet());
             commitPendingRebuys(rebuy_now, rebuy_committed);
+            for (String nick : committedNicks) {
+                publishImmediateRebuyStatus(nick, 0);
+            }
             if (presentation_settings.testMode() && !pendingBefore.isEmpty()) {
                 LOGGER.log(Level.INFO,
                         "QA REBUY_BOUNDARY_COMMIT hand={0} entries={1}",
@@ -5287,12 +6240,273 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    /**
+     * Applies the host's authenticated last-hand state to the canonical game
+     * and its optional renderer projection. This contains no Swing behavior.
+     */
+    private void applyLastHandState(boolean enabled, boolean recover) {
+        if (!enabled && recover) {
+            throw new IllegalArgumentException(
+                    "A cancelled last hand cannot request recovery");
+        }
+        setForce_recover(enabled && recover);
+        setLast_hand(enabled);
+        table_events.publishIfAttached(sequence
+                -> new TableVisualEvent.LastHandStatus(sequence, enabled));
+    }
+
+    /** Host-only renderer-neutral equivalent of Swing's Last hand action. */
+    public void requestLastHand(boolean enabled) {
+        if (!gameSession().isHost()) {
+            throw new IllegalStateException(
+                    "Only the host can schedule the last hand");
+        }
+        broadcastGAMECommandFromServer(
+                enabled ? "LASTHAND#1" : "LASTHAND#0", null);
+        applyLastHandState(enabled, false);
+    }
+
+    private void applyHandLimitState(int maximumHands) {
+        if (maximumHands != -1 && maximumHands <= getMano()) {
+            throw new IllegalArgumentException(
+                    "Maximum hands must exceed the current hand");
+        }
+        gameSession().setHands(maximumHands);
+        table_events.publishIfAttached(sequence
+                -> new TableVisualEvent.HandLimitStatus(
+                        sequence, maximumHands));
+        publishGameConfigurationStatus();
+    }
+
+    /** Host-only renderer-neutral equivalent of Swing's hand-limit action. */
+    public void requestHandLimit(int maximumHands) {
+        if (!gameSession().isHost()) {
+            throw new IllegalStateException(
+                    "Only the host can change the hand limit");
+        }
+        if (maximumHands != -1 && maximumHands <= getMano()) {
+            throw new IllegalArgumentException(
+                    "Maximum hands must exceed the current hand");
+        }
+        broadcastGAMECommandFromServer("MAXHANDS#" + maximumHands, null);
+        applyHandLimitState(maximumHands);
+    }
+
+    private void applyBlindConfigurationState(
+            GameConfigCodecV1.Configuration update) {
+        GameConfigCodecV1.Configuration current = configuration();
+        if (current.ante() != update.ante()
+                || current.straddle() != update.straddle()) {
+            marcarCambioAnteStraddle();
+        }
+        actualizarCiegasManualmente(update.smallBlind(), update.bigBlind(),
+                update.blindsDouble(), update.blindsDoubleType());
+        gameSession().applyBlindUpdate(update);
+        publishGameConfigurationStatus();
+    }
+
+    private void applyBooleanLiveRule(String command, boolean value) {
+        switch (command) {
+            case "IWTSTHRULE" -> gameSession().setIwtsth(value);
+            case "RUNITWICERULE" -> gameSession().setRunItTwice(value);
+            case "BOTBALRULE" -> gameSession().setBotBalanceToHumans(value);
+            case "BOTREBUYRULE" -> gameSession().setBotRebuy(value);
+            default -> throw new IllegalArgumentException(
+                    "Unsupported live rule " + command);
+        }
+        publishGameConfigurationStatus();
+    }
+
+    private void publishGameConfigurationStatus() {
+        table_events.publishIfAttached(sequence
+                -> new TableVisualEvent.GameConfigurationStatus(
+                        sequence, configuration()));
+    }
+
+    private void setRunItTwiceLocked(boolean locked) {
+        gameSession().setRunItTwiceLocked(locked);
+        table_events.publishIfAttached(sequence
+                -> new TableVisualEvent.RunItTwiceLockStatus(sequence,
+                        locked));
+    }
+
+    private void publishRunItTwiceLockStatus() {
+        table_events.publishIfAttached(sequence
+                -> new TableVisualEvent.RunItTwiceLockStatus(sequence,
+                        gameSession().isRunItTwiceLocked()));
+    }
+
+    /** Installs the frontend-selected defaults before the dealer starts. */
+    public void initializeCommunicationRules(boolean textToSpeech,
+            boolean voiceMessages) {
+        if (gameSession().phase()
+                != com.tonikelope.coronapoker.core.game.GameSession.Phase.CREATED) {
+            throw new IllegalStateException(
+                    "Communication rules must be initialized before start");
+        }
+        communication_tts = textToSpeech;
+        communication_voice_messages = voiceMessages;
+    }
+
+    private void applyCommunicationRulesState(boolean textToSpeech,
+            boolean voiceMessages) {
+        communication_tts = textToSpeech;
+        communication_voice_messages = voiceMessages;
+        table_events.publishIfAttached(sequence
+                -> new TableVisualEvent.CommunicationRulesStatus(sequence,
+                        textToSpeech, voiceMessages));
+    }
+
+    /** Host-only update using the exact commands consumed by Swing clients. */
+    public void requestCommunicationRules(boolean textToSpeech,
+            boolean voiceMessages) {
+        if (!gameSession().isHost()) {
+            throw new IllegalStateException(
+                    "Only the host can change global communication rules");
+        }
+        if (communication_tts != textToSpeech) {
+            broadcastGAMECommandFromServer("TTS#"
+                    + (textToSpeech ? "1" : "0"), null);
+        }
+        if (communication_voice_messages != voiceMessages) {
+            broadcastGAMECommandFromServer("VOICEMSGRULE#"
+                    + (voiceMessages ? "1" : "0"), null);
+        }
+        applyCommunicationRulesState(textToSpeech, voiceMessages);
+        game_database.persistRecoverySettings(sqlite_id_game);
+    }
+
+    /**
+     * Applies every rule editable during a running game and sends the exact
+     * commands already understood by the classic Swing client.
+     */
+    public void requestGameConfiguration(
+            GameConfigCodecV1.Configuration requested) {
+        if (!gameSession().isHost()) {
+            throw new IllegalStateException(
+                    "Only the host can change live table settings");
+        }
+        synchronized (getLock_fin_mano()) {
+            GameConfigCodecV1.Configuration current = configuration();
+            GameConfigCodecV1.Configuration accepted
+                    = validateLiveConfiguration(current, requested, getMano(),
+                            gameSession().isRunItTwiceLocked());
+
+            boolean blindsChanged = !current.withBlindUpdate(accepted)
+                    .equals(current);
+            if (blindsChanged) {
+                applyBlindConfigurationState(accepted);
+                broadcastGAMECommandFromServer("UPDATEBLINDS#"
+                        + GameConfigCodecV1.encodeBase64(accepted), null);
+            }
+            if (current.hands() != accepted.hands()) {
+                broadcastGAMECommandFromServer("MAXHANDS#"
+                        + accepted.hands(), null);
+                applyHandLimitState(accepted.hands());
+            }
+            if (current.iwtsth() != accepted.iwtsth()) {
+                gameSession().setIwtsth(accepted.iwtsth());
+                broadcastGAMECommandFromServer("IWTSTHRULE#"
+                        + (accepted.iwtsth() ? "1" : "0"), null);
+            }
+            if (current.runItTwice() != accepted.runItTwice()) {
+                gameSession().setRunItTwice(accepted.runItTwice());
+                broadcastGAMECommandFromServer("RUNITWICERULE#"
+                        + (accepted.runItTwice() ? "1" : "0"), null);
+            }
+            if (current.rabbitHunting() != accepted.rabbitHunting()) {
+                gameSession().setRabbitHunting(accepted.rabbitHunting());
+                broadcastGAMECommandFromServer("RABBITRULE#"
+                        + accepted.rabbitHunting(), null);
+            }
+            if (current.botRebuy() != accepted.botRebuy()) {
+                gameSession().setBotRebuy(accepted.botRebuy());
+                broadcastGAMECommandFromServer("BOTREBUYRULE#"
+                        + (accepted.botRebuy() ? "1" : "0"), null);
+            }
+            if (current.botBalanceToHumans()
+                    != accepted.botBalanceToHumans()) {
+                gameSession().setBotBalanceToHumans(
+                        accepted.botBalanceToHumans());
+                broadcastGAMECommandFromServer("BOTBALRULE#"
+                        + (accepted.botBalanceToHumans() ? "1" : "0"), null);
+            }
+            publishGameConfigurationStatus();
+            game_database.persistRecoverySettings(sqlite_id_game);
+        }
+    }
+
+    /** Applies the server-local bot strength and persists it for recovery. */
+    public void requestBotDifficulty(Bot.Difficulty difficulty) {
+        if (!gameSession().isHost()) {
+            throw new IllegalStateException(
+                    "Only the host can change bot difficulty");
+        }
+        synchronized (getLock_fin_mano()) {
+            Bot.DIFFICULTY = java.util.Objects.requireNonNull(
+                    difficulty, "difficulty");
+            game_database.persistRecoverySettings(sqlite_id_game);
+        }
+    }
+
+    static GameConfigCodecV1.Configuration validateLiveConfiguration(
+            GameConfigCodecV1.Configuration current,
+            GameConfigCodecV1.Configuration requested, int currentHand,
+            boolean runItTwiceLocked) {
+        GameConfigCodecV1.Configuration base
+                = GameConfigCodecV1.requireValid(current);
+        GameConfigCodecV1.Configuration valid
+                = GameConfigCodecV1.requireValid(requested);
+        GameConfigCodecV1.Configuration accepted = base
+                .withBlindUpdate(valid)
+                .withHands(valid.hands())
+                .withIwtsth(valid.iwtsth())
+                .withRunItTwice(valid.runItTwice())
+                .withRabbitHunting(valid.rabbitHunting())
+                .withBotRebuy(valid.botRebuy())
+                .withBotBalanceToHumans(valid.botBalanceToHumans());
+        if (!accepted.equals(valid)) {
+            throw new IllegalArgumentException(
+                    "Running-table settings cannot change immutable game fields");
+        }
+        if (accepted.hands() != -1 && accepted.hands() <= currentHand) {
+            throw new IllegalArgumentException(
+                    "Maximum hands must exceed the current hand");
+        }
+        if (runItTwiceLocked
+                && base.runItTwice() != accepted.runItTwice()) {
+            throw new IllegalStateException(
+                    "Run It Twice is locked during the current run-out");
+        }
+        return accepted;
+    }
+
     public boolean isRebuy_time() {
         return rebuy_time;
     }
 
     public Object getLock_nueva_mano() {
         return lock_nueva_mano;
+    }
+
+    /** Accepts the authenticated client readiness barrier without a Swing Participant. */
+    public void acceptRemoteHandReady(String authenticatedNick,
+            String gameEnvelope) {
+        String[] fields = gameEnvelope == null
+                ? null : gameEnvelope.split("#", -1);
+        if (!handReadyMatchesNextHand(fields, getMano())) {
+            throw new IllegalArgumentException(
+                    "HAND_READY does not name the immediate next hand");
+        }
+        GamePeerController peer = peers().get(authenticatedNick);
+        if (peer == null || peer.isCpu() || peer.isExit()) {
+            throw new IllegalArgumentException(
+                    "HAND_READY peer is not an active remote human");
+        }
+        peer.setNew_hand_ready(getMano() + 1);
+        synchronized (lock_nueva_mano) {
+            lock_nueva_mano.notifyAll();
+        }
     }
 
     public double getApuestas() {
@@ -5392,6 +6606,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.rebuy_now.remove(nick);
         }
 
+        if (!denied_by_limit) {
+            // Publish the canonical local mutation before a host waits for
+            // peer confirmations. The host still owns lock_game_broadcast,
+            // so a released poker action cannot let the next-hand balance
+            // seal overtake the matching relay.
+            publishImmediateRebuyStatus(nick,
+                    rebuy_now.getOrDefault(nick, 0));
+        }
+
         if (host) {
             try {
                 if (denied_by_limit) {
@@ -5417,6 +6640,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    private void publishImmediateRebuyStatus(String nick, int amount) {
+        table_events.publishIfAttached(sequence
+                -> new TableVisualEvent.ImmediateRebuyStatus(
+                        sequence, nick, Math.max(0, amount)));
+    }
+
     /**
      * Applies the host's canonical immediate-rebuy relay on a client. This is
      * deliberately separate from {@link #rebuyNow(String, int)}, whose local UI
@@ -5434,6 +6663,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * deterministic instead of relying on cached-pool scheduling order.
      */
     public void applyRemoteRebuyNow(String nick, int canonicalAmount, long arrivalSequence) {
+        int appliedAmount = 0;
+        boolean appliedStatus = false;
         try {
             synchronized (lock_rebuynow) {
                 if (nick == null) {
@@ -5454,8 +6685,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 } else {
                     rebuy_now.remove(nick);
                 }
+                appliedAmount = safeAmount;
+                appliedStatus = true;
             }
         } finally {
+            if (appliedStatus) {
+                publishImmediateRebuyStatus(nick, appliedAmount);
+            }
             remote_rebuy_barrier.complete(arrivalSequence);
         }
     }
@@ -5615,15 +6851,73 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         cinematic_state.stop();
     }
 
-    private void playAllInCinematic(String filename, long durationMillis,
-            boolean enabled) {
+    /**
+     * Frontend-neutral equivalent of Swing's "recomprar siguiente mano".
+     * Range, cap, limit and final mutation remain dealer-owned; a frontend only
+     * requests the operation and renders the existing typed rebuy decision.
+     */
+    public void requestImmediateRebuy() {
+        if (!immediate_rebuy_dialog_open.compareAndSet(false, true)) {
+            return;
+        }
+        game_async.execute(() -> {
+            GameDecisionSink.RebuyHandle dialog = null;
+            try {
+                GamePlayerController local = localPlayer();
+                if (local == null || tableWaitCancelled()) return;
+                String nickname = local.getNickname();
+                if (rebuy_now.containsKey(nickname)) {
+                    rebuyNow(nickname, -1);
+                    return;
+                }
+                if (!configuration().rebuy()) {
+                    awaitDialog(game_dialogs.showError(
+                            game_text.translate("rebuy.no_se_puede_recomprar_en")));
+                    return;
+                }
+                if (atRebuyLimit(nickname)) {
+                    awaitDialog(game_dialogs.showError(game_text.translate(
+                            "rebuy.limite_alcanzado",
+                            configuration().rebuyLimit())));
+                    return;
+                }
+                int headroom = rebuyHeadroom(local.getStack());
+                int minimum = configuration().fixedBuyin()
+                        ? 1 : buyinRange().min();
+                if (headroom < minimum) {
+                    awaitDialog(game_dialogs.showError(
+                            game_text.translate("rebuy.sin_margen")));
+                    return;
+                }
+                int suggested = Math.min(configuration().fixedBuyin()
+                        ? configuration().buyin() : buyinDefault(), headroom);
+                dialog = game_decisions.showRebuy(
+                        new GameDecisionSink.RebuyRequest(true, 0,
+                                minimum, headroom, suggested,
+                                "rebuy.recomprar_3", false, false));
+                GameDecisionSink.RebuyResult selected = awaitRebuyResult(
+                        dialog.result(), this::tableWaitCancelled);
+                if (selected != null && selected.accepted()
+                        && !tableWaitCancelled()) {
+                    rebuyNow(nickname, selected.amount());
+                }
+            } finally {
+                if (dialog != null) dialog.close();
+                immediate_rebuy_dialog_open.set(false);
+            }
+        });
+    }
+
+    private void playAllInCinematic(String nickname, String filename,
+            long durationMillis, boolean enabled) {
         game_async.execute(() -> {
             long started = System.currentTimeMillis();
             try {
                 GameCinematicSink.Result result = enabled
                         ? game_cinematics.play(new GameCinematicSink.Request(
-                                GameCinematicSink.Type.ALL_IN, filename,
-                                durationMillis)).toCompletableFuture().get()
+                                GameCinematicSink.Type.ALL_IN, nickname,
+                                filename, durationMillis))
+                                .toCompletableFuture().get()
                         : new GameCinematicSink.Result(false, false);
                 if (!result.shown() || result.skipped()) {
                     long remaining = started + durationMillis
@@ -5651,8 +6945,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void playAuxiliaryCinematic(GameCinematicSink.Type type,
-            String assetName) {
-        game_cinematics.play(new GameCinematicSink.Request(type, assetName, 0L))
+            String nickname, String assetName) {
+        game_cinematics.play(new GameCinematicSink.Request(type, nickname,
+                assetName, 0L))
                 .whenComplete((ignored, failure) -> {
                     if (failure != null) {
                         LOGGER.log(Level.WARNING,
@@ -5702,14 +6997,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public boolean localCinematicAllin() {
+        Object[][] allin_cinematics = availableAllInCinematics();
 
-        Map<String, Object[][]> map = runtime_environment.modActive() ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD)
-                : Map.ofEntries(Crupier.ALLIN_CINEMATICS);
-
-        if (!this.sincronizando_mano && presentation_settings.allInCinematics() && map.containsKey("allin/")
-                && map.get("allin/").length > 0) {
-
-            Object[][] allin_cinematics = map.get("allin/");
+        if (!this.sincronizando_mano && presentation_settings.allInCinematics()
+                && allin_cinematics.length > 0) {
 
             int r = nextAllinCinematic(allin_cinematics.length);
 
@@ -5735,7 +7026,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         game_audio.playWavResource("allin/" + filename.replaceAll("\\.gif$", ".wav"));
                     }
 
-                    return _cinematicAllin(filename, pausa);
+                    return _cinematicAllin(localPlayer().getNickname(),
+                            filename, pausa);
 
                 } catch (Exception ex) {
                     LOGGER.log(Level.SEVERE, null, ex);
@@ -5755,7 +7047,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     }
 
-    public boolean remoteCinematicAllin() {
+    public boolean remoteCinematicAllin(String nickname) {
 
         if (getCurrent_remote_cinematic_b64() != null) {
 
@@ -5766,7 +7058,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 String[] partes = animationb64.split("#");
 
-                return _cinematicAllin(new String(Base64.getDecoder().decode(partes[0]), "UTF-8"),
+                return _cinematicAllin(nickname,
+                        new String(Base64.getDecoder().decode(partes[0]), "UTF-8"),
                         Long.parseLong(partes[1]));
 
             } catch (Exception ex) {
@@ -5789,7 +7082,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     }
 
-    private boolean _cinematicAllin(String announced_filename, long announced_pausa) {
+    private boolean _cinematicAllin(String nickname, String announced_filename,
+            long announced_pausa) {
+
+        // Arm the gate synchronously. The visual sink completes only when the
+        // GIF actually ends (or is skipped), so the following player cannot be
+        // activated behind the cinematic. Swing used to arm its global flag in
+        // the widget; GDX has no Swing widget and therefore needs this neutral
+        // dealer-owned transition.
+        cinematic_state.start();
 
         // Mods: the GIF announced in the ACTION comes from the actor's own catalog, which
         // this machine may not have. If it can't be resolved locally and we have our own
@@ -5802,12 +7103,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (!this.sincronizando_mano && presentation_settings.allInCinematics()
                 && !cinematic_assets.hasCinematic(announced_filename)) {
 
-            Map<String, Object[][]> map = runtime_environment.modActive() ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD)
-                    : Map.ofEntries(Crupier.ALLIN_CINEMATICS);
+            Object[][] allin_cinematics = availableAllInCinematics();
 
-            if (map.containsKey("allin/") && map.get("allin/").length > 0) {
-
-                Object[][] allin_cinematics = map.get("allin/");
+            if (allin_cinematics.length > 0) {
 
                 Object[] sustituta = allin_cinematics[nextAllinCinematic(allin_cinematics.length)];
 
@@ -5838,7 +7136,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             game_progress.indeterminate();
 
-            playAllInCinematic(filename, pausa,
+            playAllInCinematic(nickname, filename, pausa,
                     presentation_settings.allInCinematics()
                     && cinematic_assets.hasCinematic(filename));
 
@@ -5846,6 +7144,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         return cinematic_assets.hasCompanionAudio(filename);
 
+    }
+
+    private Object[][] availableAllInCinematics() {
+        java.util.List<String> frontendCatalog = cinematic_assets.filenames();
+        if (!frontendCatalog.isEmpty()) {
+            return frontendCatalog.stream()
+                    .map(filename -> new Object[]{filename})
+                    .toArray(Object[][]::new);
+        }
+        Map.Entry<String, Object[][]> legacy = runtime_environment.modActive()
+                && Crupier.ALLIN_CINEMATICS_MOD != null
+                ? Crupier.ALLIN_CINEMATICS_MOD : Crupier.ALLIN_CINEMATICS;
+        return legacy == null ? new Object[0][] : legacy.getValue();
     }
 
     public void soundAllin() {
@@ -6880,6 +8191,67 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         remotePlayerQuit(nick, null, null, null);
     }
 
+    /**
+     * Publishes an unauthenticated definitive transport loss to the dealer.
+     *
+     * Unlike {@link #remotePlayerQuit(String)}, this is not a voluntary EXIT:
+     * there is no community testament and no EXIT frame to relay. The hand
+     * therefore has to be voided for recovery. The actual refund deliberately
+     * remains on the dealer thread (see cancelPendingDealerMisdeal).
+     */
+    public void requestDefinitivePeerLossAbort(String nick) {
+        if (nick == null || nick.isBlank() || isFin_de_la_transmision()) {
+            return;
+        }
+        GamePlayerController jugador = nick2player.get(nick);
+        if (jugador == null) {
+            return;
+        }
+
+        // Publish the abort before marking the seat out. A dealer observing
+        // either state therefore sees the abort too and cannot incorrectly use
+        // getJugadoresActivos() <= 1 to award the pot as a normal fold win.
+        requestDealerThreadMisdeal("peer.community_unlock_no_testament");
+        if (!jugador.isExit()) {
+            jugador.setExit();
+        }
+        GamePeerController participante = peers().get(nick);
+        if (participante != null) {
+            participante.setExit(true);
+        }
+
+    }
+
+    private boolean hasPendingDealerMisdeal() {
+        return pending_dealer_abort_reason.get() != null;
+    }
+
+    private boolean cancelPendingDealerMisdeal() {
+        String reason = pending_dealer_abort_reason.getAndSet(null);
+        if (reason == null) {
+            return false;
+        }
+        LOGGER.log(Level.WARNING,
+                "Pending MISDEAL ({0}); aborting the hand on the dealer thread",
+                reason);
+        cancelarManoYDevolverApuestas(reason, gameSession().isHost());
+        return true;
+    }
+
+    private void requestDealerThreadMisdeal(String reason) {
+        if (reason == null || reason.isBlank() || isFin_de_la_transmision()) {
+            return;
+        }
+        pending_dealer_abort_reason.compareAndSet(null, reason);
+        synchronized (this.getReceived_commands()) {
+            this.getReceived_commands().notifyAll();
+        }
+        synchronized (this.getLock_apuestas()) {
+            this.getLock_apuestas().notifyAll();
+        }
+        game_transport.confirmations().wakeAll();
+    }
+
     public Object getLock_apuestas() {
         return lock_apuestas;
     }
@@ -6940,6 +8312,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         table_display.showBlinds(this.ciega_pequeña, this.ciega_grande);
         table_display.showHandNumber(this.conta_mano);
+        table_events.publishIfAttached(sequence -> new TableVisualEvent.TableInfo(
+                sequence, this.ciega_pequeña, this.ciega_grande,
+                this.conta_mano));
 
         refreshCallCostOverlay();
     }
@@ -6956,19 +8331,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 || this.show_time || this.destapar_resistencia
                 || lp == null || !lp.isActivo() || lp.isExit()
                 || lp.getDecision() == GamePlayerController.FOLD || lp.getDecision() == GamePlayerController.ALLIN) {
-            table_display.hideCallCost();
+            hideCallCost();
             return;
         }
 
         double cost = MoneyMath.clean(this.apuesta_actual - lp.getBet());
 
         if (MoneyMath.compare(0f, cost) >= 0) {
-            table_display.hideCallCost();
+            hideCallCost();
             return;
         }
 
         double shown = Math.min(cost, MoneyMath.clean(lp.getStack()));
-        table_display.showCallCost("+" + value_formatter.money(shown));
+        String text = "+" + value_formatter.money(shown);
+        table_display.showCallCost(text);
+        String aggressor = this.last_aggressor == null
+                ? "" : this.last_aggressor.getNickname();
+        table_events.publishIfAttached(sequence -> new TableVisualEvent.CallCost(
+                sequence, text, aggressor));
+    }
+
+    private void hideCallCost() {
+        table_display.hideCallCost();
+        table_events.publishIfAttached(sequence -> new TableVisualEvent.CallCost(
+                sequence, "", ""));
     }
 
     private void updateShowdownCardsInLog() {
@@ -7017,6 +8403,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public Object getLock_mostrar() {
         return lock_mostrar;
+    }
+
+    /**
+     * Consumes the local voluntary-show opportunity without relying on a Swing
+     * button. The request is scheduled off the renderer thread because hiding
+     * the action is an acknowledged table event and therefore may wait for the
+     * next GDX frame.
+     */
+    public void requestVoluntaryShowCards(String nick) {
+        game_async.execute(() -> {
+            GamePlayerController player;
+            synchronized (lock_mostrar) {
+                player = nick2player.get(nick);
+                if (!show_time || !voluntary_show_visible || player == null
+                        || player != localPlayer() || player.isMuestra()) {
+                    return;
+                }
+                player.setMuestra(true);
+            }
+            setVoluntaryShowAction(false, false);
+            showAndBroadcastPlayerCards(nick);
+        });
     }
 
     public void showAndBroadcastPlayerCards(String nick) {
@@ -7369,6 +8777,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (isFin_de_la_transmision()) {
                     return UnlockWaitResult.STALE_HAND;
                 }
+                if (termination_pending) {
+                    return UnlockWaitResult.STALE_HAND;
+                }
                 if (hand_id < this.conta_mano) {
                     return UnlockWaitResult.STALE_HAND;
                 }
@@ -7386,7 +8797,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     protocol_state_lock.wait(remaining);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
-                    return UnlockWaitResult.TIMEOUT;
+                    return isFin_de_la_transmision() || termination_pending
+                            ? UnlockWaitResult.STALE_HAND
+                            : UnlockWaitResult.TIMEOUT;
                 }
             }
         }
@@ -8072,6 +9485,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             this.dual_lock_expect_bundle_for = megaPacket;
                             if (shuffleVerifiedInFossil && shuffleContextV1InFossil) {
                                 this.dual_lock_verified_megapacket = megaPacket;
+                                this.dual_lock_persisted_megapacket = megaPacket;
                             } else {
                                 this.dual_lock_failed_megapacket = megaPacket;
                             }
@@ -8454,6 +9868,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         this.dual_lock_expect_bundle_for = megaPacket;
                         if (shuffleVerifiedInFossil && shuffleContextV1InFossil) {
                             this.dual_lock_verified_megapacket = megaPacket;
+                            this.dual_lock_persisted_megapacket = megaPacket;
                         } else {
                             this.dual_lock_failed_megapacket = megaPacket;
                         }
@@ -8742,6 +10157,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             actualizarContadoresTapete();
+            // Recovery has just replaced provisional lobby values with the
+            // authoritative persisted stacks, spectator flags and positions.
+            // Swing refreshes those widgets through table_display.refresh()
+            // below, but a renderer-neutral table has no widget tree behind
+            // that legacy hook. Publish the recovered roster before replaying
+            // any action so a freshly attached GDX renderer cannot display a
+            // busted spectator as active until the next hand boundary.
+            awaitAttachedTableEvent(sequence -> new TableVisualEvent.SeatRoster(
+                    sequence, TableSnapshotMapper.from(
+                            gameSession().table().snapshot()).players()),
+                    "Recovered seat-roster presentation barrier failed");
         }
 
         if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
@@ -8928,6 +10354,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (!rollbackAbortedHand()) {
             LOGGER.log(Level.SEVERE,
                     "Aborted hand remains open for recovery because its atomic close failed");
+        }
+        // A non-host can reach the same non-malicious MISDEAL locally a few
+        // milliseconds before the host's confirmed SERVEREXITRECOVER relay.
+        // Mark the intended destination now so a renderer-neutral frontend
+        // cannot publish a false COMPLETED summary while that terminal frame
+        // is still crossing the channel. Swing reaches the same recover state
+        // when its socket reader consumes the relay; this only closes the
+        // headless/native timing window and never grants the client authority
+        // to terminate or recover the table on its own.
+        if (!gameSession().isHost() && !peligro_grave) {
+            setForce_recover(true);
         }
         setFin_de_la_transmision(true);
 
@@ -9737,7 +11174,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         byte[] requesterPubkey = request == null
                 ? null : resolveReceiptSignerPubkey(request.playerId());
-        if (requesterPubkey == null || !game_identity.verifyRabbitRequestSignature(
+        if (requesterPubkey == null || !verifyRabbitRequest(
                 requesterPubkey, request.handId(), request.playerId(), request.nonce(),
                 request.requesterSignature())) {
             throw new IllegalArgumentException("invalid Rabbit requester signature");
@@ -9769,7 +11206,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final String nick = authorization.request().playerId();
         final int conta_rabbit = authorization.count();
         final byte[] requesterPubkey = resolveReceiptSignerPubkey(nick);
-        if (requesterPubkey == null || !game_identity.verifyRabbitRequestSignature(
+        if (requesterPubkey == null || !verifyRabbitRequest(
                 requesterPubkey, requestedHandId, nick, authorization.request().nonce(),
                 authorization.request().requesterSignature())) {
             throw new IllegalArgumentException("invalid Rabbit requester signature");
@@ -9954,7 +11391,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (presentation_settings.cinematics()) {
                     playAuxiliaryCinematic(
                             GameCinematicSink.Type.IWTSTH_REQUEST,
-                            "iwtsth.gif");
+                            iwtsther, "iwtsth.gif");
                     game_async.pause(500);
                     game_audio.playWavResourceAndWait("misc/iwtsth.wav", true, false, !presentation_settings.iwtsthSound());
                 } else {
@@ -10039,7 +11476,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         if (presentation_settings.cinematics()) {
                             playAuxiliaryCinematic(
                                     GameCinematicSink.Type.IWTSTH_DENIED,
-                                    "iwtsth_no.gif");
+                                    iwtsther, "iwtsth_no.gif");
                         }
                         if (localPlayer().getNickname().equals(iwtsther)) {
                             this.last_iwtsth_rejected = System.currentTimeMillis();
@@ -10149,6 +11586,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.local_sra_lock_community = null;
         this.local_sra_unlock_community = null;
         this.local_mega_packet = null;
+        this.dual_lock_persisted_megapacket = null;
         this.exit_community_testaments.clear();
         this.exited_consensus_participants.clear();
 
@@ -10203,6 +11641,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.acciones_locales_recuperadas.clear();
         this.recover_action_order = null;
 
+        boolean spectatorReactivated = false;
         for (GamePlayerController jugador : players()) {
             if (!jugador.isExit() && jugador.isSpectator() && (MoneyMath.compare(0f, jugador.getStack()) < 0
                     || rebuy_committed.containsKey(jugador.getNickname()))) {
@@ -10213,10 +11652,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 rebuy_committed.get(jugador.getNickname())});
                 }
                 jugador.unsetSpectator();
+                spectatorReactivated = true;
                 if (rebuy_committed.containsKey(jugador.getNickname())) {
                     jugador.setSpectatorBB(true);
                 }
             }
+        }
+        if (spectatorReactivated) {
+            awaitAttachedTableEvent(sequence -> new TableVisualEvent.SeatRoster(
+                    sequence, TableSnapshotMapper.from(
+                            gameSession().table().snapshot()).players()),
+                    "Reactivated-spectator roster presentation failed");
         }
 
         // nicks_permutados must reflect newly-joined players. They're appended to the queue, but
@@ -10293,7 +11739,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         // The run-out has ended: allow toggling RUN_IT_TWICE again (locked while the all-in
         // run-out was in progress).
-        gameSession().setRunItTwiceLocked(false);
+        setRunItTwiceLocked(false);
 
         this.run_it_twice_side_b = false;
 
@@ -10484,14 +11930,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // POCKET_CARDS the host never deals in game_recovered=1, blocking the main
                 // thread. The next fresh NUEVA_MANO (game_recovered=0) rescues it naturally.
                 if (saltar_primera_mano && this.game_recovered == 0) {
+                    boolean spectatorRosterChanged = false;
                     try {
                         for (GamePlayerController j : players()) {
                             if (j != null && !j.isExit() && j.isSpectator()
                                     && MoneyMath.compare(0f, j.getStack()) < 0) {
                                 j.unsetSpectator();
+                                spectatorRosterChanged = true;
                             }
                         }
                     } catch (Exception ignored) {
+                    }
+                    if (spectatorRosterChanged) {
+                        // recuperarDatosClavePartida publishes the persisted
+                        // roster before this fresh-hand rescue. Swing mutates
+                        // its widgets directly, but an attached renderer would
+                        // otherwise keep that pre-rescue spectator snapshot
+                        // even though the canonical controllers already admit
+                        // these funded newcomers into the new crypto ring.
+                        awaitAttachedTableEvent(sequence
+                                -> new TableVisualEvent.SeatRoster(sequence,
+                                        TableSnapshotMapper.from(gameSession()
+                                                .table().snapshot()).players()),
+                                "Recovered spectator-rescue roster presentation failed");
                     }
                 }
             }
@@ -10502,6 +11963,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // validation had already terminated the transmission.
         if (isFin_de_la_transmision()) {
             return false;
+        }
+
+        // RECOVER learns dealer/SB/BB only inside recuperarDatosClavePartida,
+        // after nuevaMano already cleared the players. Apply just the resolved
+        // position and forced blind now. Calling nuevaMano again would be
+        // financially unsafe because it would consume committed rebuys and
+        // pending winnings twice. This narrow replay is required both for an
+        // open-hand recovery (blinds are not ACTION rows) and for continuing a
+        // previously closed game into a genuinely new hand.
+        if (recoveryRequestedForThisHand && !this.passive_recovery_observer) {
+            for (GamePlayerController jugador : players()) {
+                if (jugador.isActivo()) {
+                    jugador.applyCurrentHandPosition();
+                }
+            }
         }
 
         // Do this only AFTER recovery has classified the latest persisted hand.  Previously the
@@ -10525,7 +12001,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.HandBoundary(
                 sequence, this.conta_mano,
-                TableVisualEvent.HandBoundary.Phase.PREPARE),
+                TableVisualEvent.HandBoundary.Phase.PREPARE,
+                handBoundarySnapshot(TableSnapshot.Street.PREFLOP)),
                 "New-hand presentation barrier failed");
 
         if (this.passive_recovery_observer) {
@@ -10542,7 +12019,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (configuration().hands() == conta_mano && gameSession().isHost()) {
-            table_display.requestHandLimitAction();
+            if (!table_display.requestHandLimitAction()) {
+                // Renderer-neutral tables do not have the Swing hand counter to
+                // click. The rule belongs to the game state, so enforce it here.
+                broadcastGAMECommandFromServer("LASTHAND#1", null);
+                applyLastHandState(true, false);
+            }
         }
 
         // Framed hand header is emitted only after the definitive recovery counter is known.
@@ -11737,6 +13219,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.community_cards_dealt = true;
     }
 
+    /** Every Rabbit fee boundary verifies the requester's signed authorship. */
+    private boolean verifyRabbitRequest(byte[] requesterPubkey, byte[] handId,
+            String nickname, byte[] nonce, byte[] signature) {
+        return game_identity.verifyRabbitRequestSignature(requesterPubkey, handId,
+                nickname, nonce, signature);
+    }
+
     private void repartirToAttachedRenderer(int pivot, boolean deferStraddleReveal) {
         java.util.List<GamePlayerController> players = players();
         GamePlayerController local = localPlayer();
@@ -11767,15 +13256,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     } else {
                         card.iniciarCarta();
                     }
-                    if (player == local && slot == 1 && !deferStraddleReveal
-                            && local.getHoleCard1().getValorNumerico() != -1
-                            && local.getHoleCard2().getValorNumerico() != -1
-                            && local.getHoleCard1().getValorNumerico()
-                            < local.getHoleCard2().getValorNumerico()) {
-                        awaitAttachedTableEvent(sequence
-                                -> new TableVisualEvent.SwapHoleCards(
-                                sequence, local.getNickname()),
-                                "Local hole-card swap presentation barrier failed");
+                    if (player == local && slot == 1
+                            && !deferStraddleReveal) {
+                        boolean localNeedsVisualSwap
+                                = local.getHoleCard1().getValorNumerico() != -1
+                                && local.getHoleCard2().getValorNumerico() != -1
+                                && local.getHoleCard1().getValorNumerico()
+                                < local.getHoleCard2().getValorNumerico();
+                        // Both local cards have landed: start their cosmetic
+                        // ordering now. It must overlap the remaining second
+                        // hole cards and the five community backs, just as the
+                        // local reveal overlaps the deal in Swing.
+                        if (localNeedsVisualSwap) {
+                            presentHoleCardSwapToAttachedRenderer(
+                                    local.getNickname(), false);
+                        }
+                        local.ordenarCartas();
                     }
                 }
                 index = (index + 1) % players.size();
@@ -11791,7 +13287,37 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             community[slot].iniciarCarta();
         }
 
-        local.ordenarCartas();
+        // The ordinary local hand was already sorted as soon as its second
+        // card landed. A blind straddler remains intentionally deferred until
+        // the post-decision reveal, where its swap is a real barrier.
+    }
+
+    /**
+     * Publishes an ordinary cosmetic swap without joining its animation.  The
+     * deferred-straddle variant is the only caller allowed to request a real
+     * dealer barrier.
+     */
+    boolean presentHoleCardSwapToAttachedRenderer(String nickname,
+            boolean blocking) {
+        if (blocking) {
+            return awaitAttachedTableEvent(sequence
+                    -> new TableVisualEvent.SwapHoleCards(sequence,
+                            nickname, true),
+                    "Local straddler-card swap presentation barrier failed");
+        }
+        java.util.Optional<java.util.concurrent.CompletionStage<Void>> stage
+                = table_events.publishIfAttached(sequence
+                        -> new TableVisualEvent.SwapHoleCards(sequence,
+                                nickname, false));
+        stage.ifPresent(completion -> completion.whenComplete(
+                (ignored, error) -> {
+                    if (error != null && !tableWaitCancelled()) {
+                        LOGGER.log(Level.WARNING,
+                                "Local hole-card swap presentation failed",
+                                error);
+                    }
+                }));
+        return stage.isPresent();
     }
 
     private boolean awaitAttachedTableEvent(
@@ -11803,13 +13329,51 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return false;
         }
         try {
-            barrier.orElseThrow().toCompletableFuture().get(4, TimeUnit.SECONDS);
+            awaitPresentationBarrier(barrier.orElseThrow().toCompletableFuture(),
+                    this::tableWaitCancelled, 4_000L);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         } catch (Exception ex) {
             LOGGER.log(Level.WARNING, failureMessage, ex);
         }
         return true;
+    }
+
+    /**
+     * Waits for a renderer barrier without making table termination wait for
+     * the visual timeout. Presentation ordering remains strict during normal
+     * play, while an exit/stop can cancel the wait cooperatively.
+     */
+    static boolean awaitPresentationBarrier(
+            java.util.concurrent.CompletableFuture<Void> barrier,
+            BooleanSupplier cancelled, long timeoutMillis)
+            throws InterruptedException, java.util.concurrent.ExecutionException,
+            java.util.concurrent.TimeoutException {
+        java.util.Objects.requireNonNull(barrier, "barrier");
+        java.util.Objects.requireNonNull(cancelled, "cancelled");
+        if (timeoutMillis < 0L) {
+            throw new IllegalArgumentException("negative presentation timeout");
+        }
+        long deadline = System.nanoTime()
+                + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+        while (!cancelled.getAsBoolean()) {
+            long remaining = deadline - System.nanoTime();
+            if (remaining <= 0L) {
+                throw new java.util.concurrent.TimeoutException(
+                        "presentation barrier timed out");
+            }
+            try {
+                barrier.get(Math.min(remaining,
+                        TimeUnit.MILLISECONDS.toNanos(50L)),
+                        TimeUnit.NANOSECONDS);
+                return true;
+            } catch (java.util.concurrent.TimeoutException ex) {
+                if (System.nanoTime() >= deadline) {
+                    throw ex;
+                }
+            }
+        }
+        return false;
     }
 
     private void presentAcceptedActionToAttachedRenderer(GamePlayerController player, int decision,
@@ -11841,7 +13405,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.PlayerAction(
                 sequence, player.getNickname(), kind,
                 actionLabel,
-                actionAmount, contribution),
+                actionAmount, contribution,
+                MoneyMath.clean(player.getStack()),
+                MoneyMath.clean(player.getBet()),
+                MoneyMath.clean(player.getBote())),
                 "GamePlayerController-action presentation barrier failed");
         if (decision == GamePlayerController.FOLD) {
             awaitAttachedTableEvent(sequence -> new TableVisualEvent.FoldHoleCards(
@@ -11900,6 +13467,66 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 "Turn-timer presentation barrier failed");
     }
 
+    /**
+     * Core/GDX local seats have no Swing Timer behind their HUD. Arm the same
+     * deadline here, where pause, audio and the canonical turn generation are
+     * all available. Swing controllers do not opt in and retain their proven
+     * LocalPlayer timer unchanged.
+     */
+    private void armDealerManagedLocalTurnTimeout(
+            GamePlayerController player, long turnGeneration) {
+        GameConfigCodecV1.Configuration config = configuration();
+        if (!player.requiresDealerManagedTurnTimeout()
+                || !config.thinkTimeEnabled()) {
+            return;
+        }
+        final long timeoutNanos = TimeUnit.SECONDS.toNanos(config.thinkTime());
+        final long hurryNanos = TimeUnit.SECONDS.toNanos(Math.min(10,
+                (int) Math.round(config.thinkTime() * 0.25d)));
+        game_async.execute(() -> TurnTimeoutCoordinator.run(
+                        timeoutNanos, hurryNanos,
+                        () -> isSameActiveTurn(player, turnGeneration),
+                        () -> gameSession().isPaused(),
+                        () -> pause_gate.await(), System::nanoTime,
+                        game_async::pause,
+                        () -> {
+                            if (presentation_settings.turnWarningSound()) {
+                                game_audio.playWavResource("misc/hurryup.wav");
+                            }
+                        },
+                        () -> {
+                            // As in Swing, the player may still act while the
+                            // timeout horn is playing. Muting suppresses audio,
+                            // not this causal wait; a late manual action wins.
+                            game_audio.playWavResourceAndWait(
+                                    "misc/timeout.wav", true, false,
+                                    !presentation_settings.turnWarningSound());
+                            pause_gate.await();
+                            if (isSameActiveTurn(player, turnGeneration)) {
+                                player.submitTurnTimeoutDecision();
+                            }
+                        },
+                        () -> {
+                            // Swing's finTurno() always stops the 14.7 s dog
+                            // sample. The native timeout worker must own the
+                            // same cleanup on every exit path too: timeout,
+                            // manual action during the horn, table shutdown,
+                            // pause cancellation or stale turn generation.
+                            // TurnTimer.STOP remains a renderer-side safety
+                            // net, but cleanup no longer depends on that later
+                            // UI event.
+                            game_audio.stopWavResource("misc/hurryup.wav");
+                        }));
+    }
+
+    private boolean isSameActiveTurn(GamePlayerController player,
+            long turnGeneration) {
+        return turno == turnGeneration && player.isTurno()
+                && player.getDecision() == GamePlayerController.NODEC
+                && !player.isExit() && !player.isSpectator()
+                && !isFin_de_la_transmision() && !termination_pending;
+    }
+
     private void presentLocalActionControlsToAttachedRenderer() {
         if (!table_events.isAttached()) {
             return;
@@ -11912,6 +13539,39 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.conta_raise);
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.ActionControls(
                 sequence, controls), "Action-control presentation barrier failed");
+    }
+
+    private void setLocalPreActionsPresented(boolean active,
+            boolean clearSelection) {
+        if (table_events.isAttached()) {
+            table_events.publishIfAttached(sequence
+                    -> new TableVisualEvent.PreActionControls(sequence,
+                            active, clearSelection));
+        } else if (active) {
+            table_display.activateLocalPreActions();
+        } else {
+            table_display.deactivateLocalPreActions(clearSelection);
+        }
+    }
+
+    /**
+     * Mirrors {@link LocalPlayer#activarPreBotones()} for an attached renderer.
+     * A folded player is intentionally still eligible: the choice is queued for
+     * a later hand because that player will receive no more turns in this one.
+     */
+    static boolean shouldPresentLocalPreActions(boolean enabled,
+            boolean currentIsLocal, int localDecision, boolean spectator,
+            boolean exit, boolean showdown) {
+        return enabled && localPreActionsEligible(currentIsLocal,
+                localDecision, spectator, exit, showdown);
+    }
+
+    static boolean localPreActionsEligible(boolean currentIsLocal,
+            int localDecision, boolean spectator, boolean exit,
+            boolean showdown) {
+        return !currentIsLocal
+                && localDecision != GamePlayerController.ALLIN
+                && !spectator && !exit && !showdown;
     }
 
     private void setVoluntaryShowAction(boolean visible, boolean countdown) {
@@ -12232,6 +13892,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         BettingRoundState.Transition transition = state.apply(player.getNickname(), action,
                 CanonicalActionRecord.amountToCents(player.getBet()));
         if (!transition.isAccepted()) {
+            // EXIT is applied by the ordered channel thread so later protocol
+            // frames cannot overtake it. It can therefore land in the narrow
+            // interval between rondaApuestas filtering resisten and building
+            // the immutable reducer genesis. In that case the exited seat is
+            // deliberately absent from the reducer, while the dealer may still
+            // finish the already-selected seat with its synthetic fold. That
+            // fold is already represented by the omission and is an idempotent
+            // no-op, not state divergence. Never relax any other rejection.
+            if (decision == GamePlayerController.FOLD && player.isExit()
+                    && (transition.error() == BettingRoundState.Error.UNKNOWN_SEAT
+                    || transition.error() == BettingRoundState.Error.INACTIVE_SEAT)) {
+                LOGGER.log(Level.INFO,
+                        "Exited seat {0} already absent/inactive in betting reducer; synthetic fold is an idempotent no-op",
+                        player.getNickname());
+                return true;
+            }
             LOGGER.log(Level.SEVERE, "Betting reducer rejected applied action for {0}: {1}",
                     new Object[]{player.getNickname(), transition.error()});
             return false;
@@ -13185,7 +14861,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (pendientes.contains(jugador.getNickname())) {
                         GamePeerController p = peers().get(jugador.getNickname());
                         if (p != null && !p.isCpu()) {
-                            p.writeCommandFromServer(AuthenticatedCommandCodec.encrypt(command, p.getAes_key(), iv, p.getHmac_key()));
+                            p.writeGameCommandFromServer(command, iv);
                         }
                     }
                 }
@@ -13247,7 +14923,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (pendientes.contains(jugador.getNickname())) {
                         GamePeerController p = peers().get(jugador.getNickname());
                         if (p != null && !p.isCpu()) {
-                            p.writeCommandFromServer(AuthenticatedCommandCodec.encrypt(command, p.getAes_key(), iv, p.getHmac_key()));
+                            p.writeGameCommandFromServer(command, iv);
                         }
                     }
                 }
@@ -13769,9 +15445,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
             }
-        } while (!ok && !jugador.isExit() && !tableWaitCancelled());
+        } while (!ok && !jugador.isExit() && !tableWaitCancelled()
+                && !hasPendingDealerMisdeal());
 
-        if (tableWaitCancelled()) {
+        if (tableWaitCancelled() || hasPendingDealerMisdeal()) {
             return null;
         }
 
@@ -13829,7 +15506,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             CryptoRandom.fill(iv);
             // The pot travels as a raw double: each client formats it with its own
             // locale (money2String depends on presentation_settings.language()).
-            p.writeCommandFromServer(AuthenticatedCommandCodec.encrypt("GAME#" + id + "#RIT_VOTE_REQ#" + timeout + "#" + totalVoters + "#" + this.bote_total, p.getAes_key(), iv, p.getHmac_key()));
+            p.writeGameCommandFromServer("GAME#" + id + "#RIT_VOTE_REQ#" + timeout + "#" + totalVoters + "#" + this.bote_total, iv);
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Failed to send RIT_VOTE_REQ", e);
         }
@@ -14110,6 +15787,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // (RIT_VOTE_CLOSE): from here the run-out is already SIDE-A, and
             // pot_label reflects that until the rewind flips it to SIDE-B.
             this.rit_pot_board_tag = game_text.translate("runittwice.pot_label_a");
+            presentRunItTwiceBoard(TableVisualEvent.RunItTwiceBoard.Side.A,
+                    java.util.List.of());
         }
         game_log.print(game_text.translate(agreed ? "runittwice.log_accepted" : "runittwice.log_rejected"));
     }
@@ -14795,6 +16474,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.straddle_prefetch_flip_hc1 = null;
         this.straddle_prefetch_flip_hc2 = null;
 
+        // The renderer-neutral table does not observe mutations on the legacy
+        // card controllers. Publish the two now-resolved cards explicitly and
+        // wait for the GDX flip to finish before the betting round can start.
+        // This is the straddle equivalent of the normal deal/reveal barrier:
+        // the player decided while blind, then (and only then) sees the hand.
+        if (table_events.isAttached()) {
+            TableSnapshot.CardSnapshot left = new TableSnapshot.CardSnapshot(
+                    CardCode.shortCodeFromIndex(v1 - 1), true, false);
+            TableSnapshot.CardSnapshot right = new TableSnapshot.CardSnapshot(
+                    CardCode.shortCodeFromIndex(v2 - 1), true, false);
+            awaitAttachedTableEvent(sequence -> new TableVisualEvent.RevealHoleCards(
+                    sequence, local.getNickname(), left, right),
+                    "Local straddler-card reveal presentation barrier failed");
+            game_ui.runAndWait(() -> {
+                c1.iniciarConValorNumerico(v1);
+                c1.destapar(false);
+                c2.iniciarConValorNumerico(v2);
+                c2.destapar(false);
+            });
+            if (v1 < v2) {
+                presentHoleCardSwapToAttachedRenderer(
+                        local.getNickname(), true);
+            }
+            local.ordenarCartas();
+            return;
+        }
+
         // Without flip animation (or local already out / transmission ended): reveals
         // FLAT, exactly as usual.
         if (!presentation_settings.flipAnimation() || local.isExit() || isFin_de_la_transmision()) {
@@ -15293,6 +16999,36 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return PotMath.splitForRunItTwice(pot);
     }
 
+    private java.util.List<Integer> runItTwiceRedealSlots() {
+        java.util.ArrayList<Integer> slots = new java.util.ArrayList<>(5);
+        if (this.rit_allin_street < FLOP) {
+            slots.add(0);
+            slots.add(1);
+            slots.add(2);
+        }
+        if (this.rit_allin_street < TURN) {
+            slots.add(3);
+        }
+        if (this.rit_allin_street < RIVER) {
+            slots.add(4);
+        }
+        return java.util.List.copyOf(slots);
+    }
+
+    private void presentRunItTwiceBoard(
+            TableVisualEvent.RunItTwiceBoard.Side side,
+            java.util.List<Integer> redealSlots) {
+        if (!table_events.isAttached()) {
+            return;
+        }
+        String prefix = game_text.translate("runittwice.pot_label_full",
+                this.rit_pot_board_tag);
+        double displayedHalf = splitPotForRunItTwice(this.bote_total)[0];
+        awaitAttachedTableEvent(sequence -> new TableVisualEvent.RunItTwiceBoard(
+                sequence, side, prefix, displayedHalf, redealSlots),
+                "Run-it-twice board presentation barrier failed");
+    }
+
     // Run-it-twice rewind (community part): puts the "run" community cards (streets
     // after the all-in run-out) face down (initialized+covered+visible, showing the
     // back) without SIDE-A's showdown blur — exactly the state a live deal reveals a
@@ -15371,10 +17107,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (GameCardController carta : corridas) {
             pause_gate.await();
             final GameCardController cc = carta;
-            table_display.dealCommunityCard(
-                    java.util.Arrays.asList(communityCards()).indexOf(cc),
-                    flight_dur, presentation_settings.dealSound(),
-                    () -> cc.iniciarCarta());
+            final int slot = java.util.Arrays.asList(communityCards())
+                    .indexOf(cc);
+            if (table_events.isAttached()) {
+                awaitAttachedTableEvent(sequence
+                        -> new TableVisualEvent.DealCommunityCard(sequence,
+                                slot),
+                        "Run-it-twice community-card deal presentation barrier failed");
+                cc.iniciarCarta();
+            } else {
+                table_display.dealCommunityCard(slot, flight_dur,
+                        presentation_settings.dealSound(),
+                        () -> cc.iniciarCarta());
+            }
         }
     }
 
@@ -15532,6 +17277,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // SIDE-A tag) through the whole redeal animation and until SIDE-B's first
         // street completes.
         this.rit_pot_board_tag = game_text.translate("runittwice.pot_label_b");
+        presentRunItTwiceBoard(TableVisualEvent.RunItTwiceBoard.Side.B,
+                runItTwiceRedealSlots());
         table_display.showPot(splitPotForRunItTwice(this.bote_total)[0], this.beneficio_bote_principal);
         for (GamePlayerController p : resisten) {
             p.repaintLastAction();
@@ -16627,6 +18374,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return resisten;
         }
 
+        if (cancelPendingDealerMisdeal()) {
+            return resisten;
+        }
+
         LOGGER.log(Level.INFO, "HAND {0}: betting round {1}",
                 new Object[]{String.valueOf(getMano()), STREETS[street - 1]});
 
@@ -16761,8 +18512,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             actualizarContadoresTapete();
 
             do {
+                if (cancelPendingDealerMisdeal()) {
+                    return resisten;
+                }
                 pause_gate.await();
-                turno = System.currentTimeMillis();
+                if (cancelPendingDealerMisdeal()) {
+                    return resisten;
+                }
                 Object[] accion_recuperada = null;
                 Object[] action = null;
 
@@ -16850,6 +18606,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     continue;
                 }
 
+                // If every opponent left before this seat started, there is no
+                // poker decision to request or sign. End the round immediately
+                // and let the ordinary single-winner settlement award the pot.
+                if (getJugadoresActivos() <= 1) {
+                    resisten.removeIf(player -> !player.isActivo());
+                    return resisten;
+                }
+
+                // A non-blocking frontend must not let the next real seat
+                // begin behind an all-in GIF. This canonical gate covers local
+                // and remote humans as well as bots; Swing's modal used to
+                // provide part of this ordering only as a UI side effect.
+                esperarFinCinematicaAllin();
+                pause_gate.await();
+                if (tableWaitCancelled()) {
+                    return resisten;
+                }
+                turno = System.currentTimeMillis();
+
                 // Dead branch: the two reads above are consecutive and never disagree
                 // in single-threaded execution, so (!era && now) cannot fire. Kept here
                 // for archaeology only; the real dragon-close after the replay ends
@@ -16879,18 +18654,35 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 double old_player_bet = current_player.getBet();
                 LOGGER.log(Level.INFO, "Read DECISION from {0}", current_player.getNickname());
 
-                if (presentation_settings.autoActionButtons() && current_player != localPlayer()
-                        && localPlayer().getDecision() != GamePlayerController.FOLD
-                        && localPlayer().getDecision() != GamePlayerController.ALLIN) {
-                    table_display.activateLocalPreActions();
+                boolean localPreActionsEligible = localPreActionsEligible(
+                        current_player == localPlayer(),
+                        localPlayer().getDecision(),
+                        localPlayer().isSpectator(), localPlayer().isExit(),
+                        isShow_time());
+                if (table_events.isAttached()) {
+                    // This event describes canonical eligibility. Whether the
+                    // frontend preference exposes the controls is a renderer
+                    // concern; publishing it independently also makes a
+                    // mid-turn preference change deterministic.
+                    setLocalPreActionsPresented(localPreActionsEligible,
+                            false);
+                } else if (presentation_settings.autoActionButtons()
+                        && localPreActionsEligible) {
+                    setLocalPreActionsPresented(true, false);
                 }
 
                 presentTurnTimerToAttachedRenderer(current_player,
                         TableVisualEvent.TurnTimer.Phase.START);
 
                 if (current_player == localPlayer()) {
-                    presentLocalActionControlsToAttachedRenderer();
                     current_player.esTuTurno();
+                    // Publish enabled controls only after the canonical player
+                    // state owns the turn. A synchronous renderer (including
+                    // GDX and the headless network verifier) may submit from
+                    // this event; publishing first made that valid click race
+                    // against isTurno()==false and get silently rejected.
+                    presentLocalActionControlsToAttachedRenderer();
+                    armDealerManagedLocalTurnTimeout(current_player, turno);
                     if (eraSincronizacion && (accion_recuperada = siguienteAccionLocalRecuperada(current_player.getNickname())) != null) {
                         game_decisions.replayRecoveredAction(
                                 playerStateDecision((int) accion_recuperada[0]),
@@ -16898,9 +18690,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
 
                     final GamePlayerController awaitedLocalPlayer = current_player;
-                    if (!awaitPlayerTurnCompletion(getLock_apuestas(), awaitedLocalPlayer::isTurno,
-                            this::isFin_de_la_transmision, () -> this.termination_pending,
+                    if (!awaitPlayerTurnCompletion(getLock_apuestas(),
+                            () -> awaitedLocalPlayer.isTurno()
+                            && getJugadoresActivos() > 1,
+                            this::isFin_de_la_transmision,
+                            () -> this.termination_pending || hasPendingDealerMisdeal(),
                             WAIT_QUEUES)) {
+                        presentTurnTimerToAttachedRenderer(current_player,
+                                TableVisualEvent.TurnTimer.Phase.STOP);
+                        cancelPendingDealerMisdeal();
+                        return resisten;
+                    }
+
+                    if (getJugadoresActivos() <= 1) {
+                        current_player.cancelTurnWithoutDecision();
+                        presentTurnTimerToAttachedRenderer(current_player,
+                                TableVisualEvent.TurnTimer.Phase.STOP);
+                        table_display.deactivateLocalControls();
+                        resisten.removeIf(player -> !player.isActivo());
+                        return resisten;
+                    }
+
+                    // A controlled local EXIT clears the turn before its confirmed
+                    // terminal frame finishes crossing the native channel. That is
+                    // a shutdown wake-up, not a poker decision: NODEC must never be
+                    // signed or emitted as ACTION while the table is closing.
+                    if (current_player.isExit()) {
                         presentTurnTimerToAttachedRenderer(current_player,
                                 TableVisualEvent.TurnTimer.Phase.STOP);
                         return resisten;
@@ -16935,17 +18750,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     final boolean bot_del_host = gameSession().isHost()
                             && peers().get(current_player.getNickname()) != null
                             && peers().get(current_player.getNickname()).isCpu();
-
-                    // While an all-in animation is playing (local player's or a remote
-                    // human's), a BOT's turn is held back (esTuTurno: orange border, bar,
-                    // decision) until the animation finishes on this machine. The all-in
-                    // action itself already traveled/was drawn at button-press time; over
-                    // the network humans are held by their own modal, but the bot runs on
-                    // this thread and used to race ahead, getting the turn and acting
-                    // behind the animation.
-                    if (bot_del_host) {
-                        esperarFinCinematicaAllin();
-                    }
 
                     current_player.esTuTurno();
                     // Identity: no longer skip
@@ -17007,6 +18811,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     } else {
                         action = this.readActionFromRemotePlayer(current_player);
                     }
+                }
+
+                if (cancelPendingDealerMisdeal()) {
+                    presentTurnTimerToAttachedRenderer(current_player,
+                            TableVisualEvent.TurnTimer.Phase.STOP);
+                    return resisten;
                 }
 
                 if (tableWaitCancelled()) {
@@ -17149,6 +18959,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 } else {
                     current_player.applyRemoteDecision(decision, (double) action[1]);
+                    if (decision == GamePlayerController.ALLIN
+                            && current_player.requiresDealerRemoteAllInCinematic()) {
+                        if (!remoteCinematicAllin(current_player.getNickname())) {
+                            soundAllin();
+                        }
+                    }
                     // No wire broadcast for exit-synth — the EXIT command already went
                     // out immediately when the peer left, and no peer has a record to
                     // absorb for this slot. Every receiver hits its own readActionFromRemotePlayer's
@@ -17166,10 +18982,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 final GamePlayerController awaitedPlayer = current_player;
                 if (!awaitPlayerTurnCompletion(getLock_apuestas(), awaitedPlayer::isTurno,
-                        this::isFin_de_la_transmision, () -> this.termination_pending,
+                        this::isFin_de_la_transmision,
+                        () -> this.termination_pending || hasPendingDealerMisdeal(),
                         WAIT_QUEUES)) {
                     presentTurnTimerToAttachedRenderer(current_player,
                             TableVisualEvent.TurnTimer.Phase.STOP);
+                    cancelPendingDealerMisdeal();
                     return resisten;
                 }
                 presentTurnTimerToAttachedRenderer(current_player,
@@ -17287,6 +19105,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     current_player.rollCountersToModel();
                 }
                 actualizarContadoresTapete();
+                if (cancelPendingDealerMisdeal()) {
+                    return resisten;
+                }
                 conta_pos++;
                 if (conta_pos >= players().size()) {
                     conta_pos %= players().size();
@@ -17317,7 +19138,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (firstResistencia && gameSession().isHost()) {
                     // Freeze RUN_IT_TWICE for the run-out: the vote decision below reads
                     // the flag without a lock, so it must not change until NUEVA_MANO.
-                    gameSession().setRunItTwiceLocked(true);
+                    setRunItTwiceLocked(true);
                 }
                 this.destapar_resistencia = true;
                 // Start the run-out: hide bet_label and center the pot now
@@ -17401,11 +19222,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 : resisten;
     }
 
-    public void guardarFosilSRA() {
+    public boolean guardarFosilSRA() {
+        synchronized (hand_state_fossil_lock) {
+            return guardarFosilSRALocked();
+        }
+    }
+
+    private boolean guardarFosilSRALocked() {
         if (this.local_mega_packet == null || this.active_crypto_ring == null
                 || this.current_hand_id == null
                 || this.current_hand_id.length != CanonicalActionRecord.HAND_ID_BYTES) {
-            return;
+            return false;
         }
         try {
             StringBuilder fosil = new StringBuilder();
@@ -17548,8 +19375,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             fosil.append("#STRADDLE@").append(this.straddle_recovered_posted);
 
             hand_state_repository.save(this.sqlite_id_game, fosil.toString());
+            return true;
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Error saving SRA fossil to disk", e);
+            return false;
         }
     }
 
@@ -17581,6 +19410,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private boolean enviarRabbitComunitarias(int targetStreet) {
+        // Rabbit pieces use the same authenticated, verifiable community
+        // cascade as the live board. Only the host owns that orchestration;
+        // clients receive their addressed RABBIT_*_PIECE asynchronously and
+        // remove their own final community lock in the channel handler.
+        // Letting a client enter the host path makes it address its synthetic
+        // host peer without server-side channel keys and can also duplicate
+        // the reveal protocol.
+        if (!gameSession().isHost()) {
+            return false;
+        }
         // Dual-lock: rabbit hunting uses cascadeAndDealCommunityPieces, which
         // applies the local community unlock. Without the community half we can't
         // reveal the unplayed cards; fail silently (rabbit hunting is non-critical,
@@ -17711,7 +19550,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             for (String nick : pendientes) {
                 GamePeerController p = peers().get(nick);
                 if (p != null) {
-                    p.writeCommandFromServer(AuthenticatedCommandCodec.encrypt(reqCmd, p.getAes_key(), iv, p.getHmac_key()));
+                    p.writeGameCommandFromServer(reqCmd, iv);
                 }
             }
 
@@ -17759,9 +19598,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     return;
                 }
 
-                for (String nick : pendientes) {
+                Iterator<String> pendingIterator = pendientes.iterator();
+                while (pendingIterator.hasNext()) {
+                    String nick = pendingIterator.next();
                     GamePeerController participant = peers().get(nick);
-                    if (participant == null || participant.isExit()) {
+                    if (participant != null && participant.isExit()
+                            && reuseExitedShowdownProof(nick, participant,
+                                    nick2key, nick2sig)) {
+                        // A voluntary all-in EXIT can cross this wait after the
+                        // REQ_SHOWDOWN_KEY was sent. Its atomic EXIT already
+                        // carried and verified the mandatory pocket proof, so
+                        // consume that retained evidence instead of mistaking
+                        // the orderly departure for an unauthenticated crash.
+                        pendingIterator.remove();
+                    } else if (participant == null || participant.isExit()) {
                         LOGGER.log(Level.WARNING,
                                 "Showdown contender {0} disconnected while its proof was pending; cancelling hand for recovery",
                                 nick);
@@ -17974,7 +19824,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Null-safety guard
             for (GamePlayerController p : resisten) {
                 if (jugadas.containsKey(p)) {
-                    p.setJugadaParcial(jugadas.get(p), ganadores.containsKey(p), -1);
+                    presentPartialHand(p, jugadas.get(p),
+                            ganadores.containsKey(p), -1f);
                 }
             }
 
@@ -18050,8 +19901,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 Integer[] stats = (Integer[]) s[1];
                 GameHandResult manoParcial = jugadas.get(p);
 
-                p.setJugadaParcial(manoParcial, ganadores.containsKey(p),
-                        value_formatter.decimal(((float) (stats[1] + stats[3]) / stats[0]) * 100));
+                presentPartialHand(p, manoParcial, ganadores.containsKey(p),
+                        value_formatter.decimal(
+                                ((float) (stats[1] + stats[3]) / stats[0]) * 100));
 
                 String jugada_s = manoParcial.getName() != null ? manoParcial.getName() : "";
                 String gana_s = multiversePct(((float) stats[1] / stats[0]) * 100);
@@ -18112,6 +19964,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 game_log.print(mv_tabla.toString());
             }
         }
+    }
+
+    /**
+     * Keeps the long-established Swing update intact and mirrors only its
+     * semantic result to an attached renderer. Monte Carlo is dealer work, so
+     * this publication deliberately has no visual barrier.
+     */
+    private void presentPartialHand(GamePlayerController player,
+            GameHandResult hand, boolean winner, float winPercentage) {
+        player.setJugadaParcial(hand, winner, winPercentage);
+        table_events.publishIfAttached(sequence -> new TableVisualEvent.PartialHand(
+                sequence, player.getNickname(), hand.getName(), winner,
+                winPercentage));
     }
 
     // Formats a [0..100] percentage to 2 decimals with a "%" suffix for the MULTIVERSE
@@ -18787,6 +20652,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             GamePlayerController seatedPlayer = players().get(j);
             seatedPlayer.setNickname(this.nicks_permutados[(j + i) % this.nicks_permutados.length]);
+            // Swing remote seats discover whether they are bots from the nickname's
+            // Participant inside setNickname(), so their automated provider does not
+            // exist yet when the Crupier constructor performs its initial binding.
+            // Bind again after seating, which is the first point where every frontend
+            // has finished constructing the controller behind this canonical seat.
+            seatedPlayer.bindDealer(this);
             gameSession().table().putPlayer(seatedPlayer.getState());
             try {
                 sentados_msg += Base64.getEncoder().encodeToString(
@@ -18871,7 +20742,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 for (GamePeerController p : targets) {
                     if (pendientes.contains(p.getNick())) {
-                        p.writeCommandFromServer(AuthenticatedCommandCodec.encrypt(full_command, p.getAes_key(), iv, p.getHmac_key()));
+                        p.writeGameCommandFromServer(full_command, iv);
                     }
                 }
 
@@ -19093,6 +20964,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             p.applyTelemetry(v[0], v[1], v[2]);
         }
+        java.util.List<TableVisualEvent.PlayerTelemetry> telemetry = players().stream()
+                .map(GamePlayerController::getState)
+                .map(com.tonikelope.coronapoker.core.game.PlayerState::snapshot)
+                .map(player -> new TableVisualEvent.PlayerTelemetry(
+                player.nickname(), player.latency(), player.previousLatency(),
+                player.reconnectionCount(), player.telemetryAt()))
+                .toList();
+        table_events.publishIfAttached(sequence
+                -> new TableVisualEvent.TelemetryStatus(sequence, telemetry));
     }
 
     private int permutadoNick2Pos(String nick) {
@@ -21384,6 +23264,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         table_display.playSpecialCardSound(carta.toShortString());
+        table_events.publishIfAttached(sequence
+                -> new TableVisualEvent.SpecialCardSound(sequence,
+                        carta.toShortString()));
         pause_gate.await();
     }
 
@@ -21472,7 +23355,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         card.toShortString(), true, card.isDesenfocada()))
                 .toList();
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.RevealCommunityCards(
-                sequence, firstSlot, snapshots),
+                sequence, firstSlot, snapshots,
+                localPlayer().isExit() || isFin_de_la_transmision()
+                        ? 0L
+                        : this.destapar_resistencia
+                                ? PAUSA_DESTAPAR_CARTA_ALLIN
+                                : PAUSA_DESTAPAR_CARTA),
                 "Community-card reveal presentation barrier failed");
         for (GameCardController card : cards) {
             card.destapar(false);
@@ -21972,6 +23860,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (exit > 0) {
             table_display.downgradeAndRefreshSeats();
+            // Swing rebuilds its TablePanel above.  A renderer-neutral table
+            // has no widget tree to rebuild, so publish the same authoritative
+            // post-exit roster at this exact hand boundary.  Exited players
+            // intentionally remain in the game model/auditor; the GDX view
+            // filters those seats without mutating dealer state.
+            awaitAttachedTableEvent(sequence -> new TableVisualEvent.SeatRoster(
+                    sequence, TableSnapshotMapper.from(
+                            gameSession().table().snapshot()).players()),
+                    "Post-exit seat-roster presentation barrier failed");
             nick2player.clear();
             for (GamePlayerController jugador : players()) {
                 nick2player.put(jugador.getNickname(), jugador);
@@ -22598,7 +24495,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 awaitAttachedTableEvent(sequence -> new TableVisualEvent.HandResult(
                         sequence, jugador_actual.getNickname(),
-                        mustShow || isLocal ? jugada.getName() : "", isWinner),
+                        mustShow || isLocal ? jugada.getName() : "", isWinner,
+                        TableSnapshot.Street.SHOWDOWN),
                         "Showdown-result presentation barrier failed");
             }
 
@@ -22713,7 +24611,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 return ret;
             } else {
-                return GameSessionIds.random();
+                return gameSession().hasConfiguration()
+                        ? configuration().sessionId()
+                        : GameSessionIds.random();
             }
         }
     }
@@ -22738,7 +24638,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             gameSession().updateConfiguration(config);
             broadcastGAMECommandFromServer("INIT#"
                     + GameConfigCodecV1.encodeBase64(config), null);
+            // Unlike local audio preferences, these two are authoritative
+            // table rules and must be established for mixed Swing/GDX clients
+            // at every start, not only after somebody edits Settings.
+            broadcastGAMECommandFromServer("TTS#"
+                    + (communication_tts ? "1" : "0"), null);
+            broadcastGAMECommandFromServer("VOICEMSGRULE#"
+                    + (communication_voice_messages ? "1" : "0"), null);
         }
+
+        // Publish only after the host has installed the definitive INIT
+        // configuration. Recovery may replace values from the earlier lobby
+        // context; exposing that provisional snapshot creates a race in native
+        // settings dialogs and commands.
+        table_events.publishIfAttached(sequence
+                -> new TableVisualEvent.HandLimitStatus(
+                        sequence, configuration().hands()));
+        publishGameConfigurationStatus();
+        publishRunItTwiceLockStatus();
+        applyCommunicationRulesState(communication_tts,
+                communication_voice_messages);
 
         this.ciega_pequeña = configuration().smallBlind();
         this.ciega_grande = configuration().bigBlind();
@@ -22764,6 +24683,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         game_ui.run(lobby_transition::seatingPlayers);
 
         this.nicks_permutados = sortearSitios();
+        if (this.nicks_permutados == null
+                || this.nicks_permutados.length == 0) {
+            if (!isFin_de_la_transmision()) {
+                LOGGER.severe("Seat draw ended without a canonical seat ring; "
+                        + "closing the table before seating players");
+                setFin_de_la_transmision(true);
+                if (!gameSession().isHost()) {
+                    game_transport.closeHostConnection();
+                }
+            }
+            return;
+        }
         sentarParticipantes();
 
         for (GamePlayerController jugador : players()) {
@@ -22777,7 +24708,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // authoritative roster before any hand event so every later nickname
         // resolves to the same clockwise seat used by rondaApuestas/dealing.
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.SeatRoster(
-                sequence, TableSnapshotMapper.from(gameSession().table().snapshot())),
+                sequence, TableSnapshotMapper.from(gameSession().table().snapshot())
+                        .players()),
                 "Canonical seat-roster presentation barrier failed");
 
         if (create_client_recovery_game && !sqlNewGame()) {
@@ -22876,7 +24808,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         if (presentation_settings.autoActionButtons()) {
                             // Persist mode keeps the queued pre-press across the hand
                             // boundary (hides the buttons but does not clear pre_pulsado).
-                            table_display.deactivateLocalPreActions(
+                            setLocalPreActionsPresented(false,
                                     !presentation_settings.autoActionPersist());
                         }
 
@@ -23291,6 +25223,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                         }
 
+                        awaitAttachedTableEvent(sequence
+                                -> new TableVisualEvent.HandBoundary(
+                                sequence, this.conta_mano,
+                                TableVisualEvent.HandBoundary.Phase.END,
+                                handBoundarySnapshot(TableSnapshot.Street.SHOWDOWN)),
+                                "End-hand presentation barrier failed");
+
                         disableAllPlayersTimeout();
 
                         synchronized (lock_fin_mano) {
@@ -23360,6 +25299,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                                 if (!this.isLast_hand()) {
                                     checkRebuyTime();
+                                    logQueuedRebuyContinuation();
                                     exitSpectatorBots();
                                     updateExitPlayers();
                                     if (gameSession().configuration().rabbitHunting() != 0) {
@@ -23370,6 +25310,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     fin_de_la_transmision = true;
                                 }
                             } else {
+                                // Test mode removes Swing dwell/animation time, but an attached
+                                // renderer still requires the canonical payout events. Skipping
+                                // them made headless GDX scenarios blind to the final pot flight
+                                // and allowed product payout regressions to pass unnoticed.
+                                if (table_events.isAttached()) {
+                                    this.animateShowdownPayout();
+                                }
                                 this.pausaConBarra(Crupier.PAUSA_ENTRE_MANOS_TEST);
                                 synchronized (lock_mostrar) {
                                     setShowTime(false);
@@ -23378,6 +25325,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 updateShowdownCardsInLog();
                                 if (!this.isLast_hand()) {
                                     checkRebuyTime();
+                                    logQueuedRebuyContinuation();
                                     exitSpectatorBots();
                                     updateExitPlayers();
                                     if (gameSession().configuration().rabbitHunting() != 0) {
@@ -23422,6 +25370,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     game_window.stopGameClock();
 
+                    LOGGER.log(Level.INFO,
+                            "Table cannot open another hand: {0}",
+                            continuationRosterDiagnostic());
+
                     // Defense in depth: see comment above.
                     cerrarRecoverDialogYSync();
 
@@ -23461,8 +25413,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // that connection before this old Crupier reaches its tail. Normal
         // voluntary/final client exits still send their testament.
         if (!localHost && !force_recover) {
-            String exitCmd = buildLocalExitCommand();
-            sendGAMECommandToServer(exitCmd, false);
+            sendLocalExitOnce(false);
         }
 
         game_window.finishTransmission(fin_de_la_transmision);
@@ -23497,6 +25448,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         awaitDialog(game_dialogs.showError(game_text.translate("error.crupier_fatal")));
     }
 
+    /**
+     * Routes a failure from a renderer-neutral command executor through the
+     * same fail-closed table path used by the dealer thread.  The wrapper is
+     * package-private on purpose: frontends still cannot mutate dealer state.
+     */
+    void containExternalTableFailure(RuntimeException cause) {
+        containTableFailure(java.util.Objects.requireNonNull(cause, "cause"));
+    }
+
     static boolean shouldRemoveExitedPlayerFromShowdown(boolean exited, int decision) {
         return exited && decision != GamePlayerController.ALLIN;
     }
@@ -23518,6 +25478,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Apply the configured rebuy/spectator policy deterministically on every peer; the
         // next NUEVA_MANO consumes rebuy_now through the normal accounting path.
         if (presentation_settings.testMode()) {
+            boolean spectatorChanged = false;
             for (GamePlayerController jugador : players()) {
                 if (!jugador.isActivo()
                         || MoneyMath.compare(0f,
@@ -23538,10 +25499,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     rebuy_now.put(jugador.getNickname(), amount);
                 } else {
                     jugador.setSpectator(null);
+                    spectatorChanged = true;
                     LOGGER.log(Level.INFO,
                             "QA SPECTATOR_ENTERED nick={0} hand={1} cpu={2}",
                             new Object[]{jugador.getNickname(), this.getMano(), bot});
                 }
+            }
+            if (spectatorChanged) {
+                awaitAttachedTableEvent(sequence -> new TableVisualEvent.SeatRoster(
+                        sequence, TableSnapshotMapper.from(
+                                gameSession().table().snapshot()).players()),
+                        "Busted-spectator roster presentation failed");
             }
             this.rebuy_time = false;
             return;
@@ -23577,6 +25545,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         boolean local_ruined = localPlayer().isActivo()
                 && MoneyMath.compare(MoneyMath.clean(localPlayer().getStack())
                         + MoneyMath.clean(localPlayer().getPagar()), 0f) == 0;
+        boolean rebuyRosterMayChange = local_ruined
+                || !rebuy_players.isEmpty();
 
         if (local_ruined) {
 
@@ -23600,6 +25570,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 GameDecisionSink.RebuyResult autoDecision = awaitRebuyResult(
                         autoRebuy.result(), this::tableWaitCancelled);
                 autoRebuy.close();
+
+                LOGGER.log(Level.INFO,
+                        "Automatic rebuy decision: nick={0} result={1} cancelled={2} interrupted={3}",
+                        new Object[]{localPlayer().getNickname(), autoDecision,
+                            tableWaitCancelled(), Thread.currentThread().isInterrupted()});
 
                 if (autoDecision != null && autoDecision.accepted()) {
 
@@ -23779,6 +25754,44 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         this.rebuy_time = false;
 
+        // Swing mutates its player widgets directly. A renderer-neutral table
+        // needs the authoritative spectator flags after every normal rebuy/
+        // game-over decision, before the next hand can rebuild its active ring.
+        if (rebuyRosterMayChange) {
+            awaitAttachedTableEvent(sequence -> new TableVisualEvent.SeatRoster(
+                    sequence, TableSnapshotMapper.from(
+                            gameSession().table().snapshot()).players()),
+                    "Post-rebuy spectator roster presentation failed");
+        }
+
+    }
+
+    private void logQueuedRebuyContinuation() {
+        if (!rebuy_now.isEmpty()) {
+            LOGGER.log(Level.INFO,
+                    "Rebuy accepted for next hand: pending={0}; {1}",
+                    new Object[]{new java.util.TreeMap<>(rebuy_now),
+                        continuationRosterDiagnostic()});
+        }
+    }
+
+    private String continuationRosterDiagnostic() {
+        StringBuilder out = new StringBuilder("active=")
+                .append(getJugadoresActivos()).append(" warming=")
+                .append(getJugadoresCalentando()).append(" players=[");
+        boolean first = true;
+        for (GamePlayerController player : players()) {
+            if (!first) out.append(", ");
+            first = false;
+            out.append(player.getNickname())
+                    .append("{stack=").append(player.getStack())
+                    .append(",pay=").append(player.getPagar())
+                    .append(",active=").append(player.isActivo())
+                    .append(",spectator=").append(player.isSpectator())
+                    .append(",exit=").append(player.isExit())
+                    .append('}');
+        }
+        return out.append(']').toString();
     }
 
     /**

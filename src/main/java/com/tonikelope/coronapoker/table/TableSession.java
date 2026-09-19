@@ -94,11 +94,15 @@ public final class TableSession implements AutoCloseable {
     @Override
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
-        events.close();
         try {
             resource.close();
         } catch (Exception ignored) {
             // The table is closed even if its transport/controller cleanup failed.
+        } finally {
+            // Closing the renderer is the externally observable end-of-table
+            // signal. Publish it only after the owned controller/network work
+            // has been stopped, so a following table cannot overlap this one.
+            events.close();
         }
     }
 }

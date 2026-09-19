@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 23:59 (Europe/Madrid)
+Última actualización: 2026-09-20 00:09 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,12 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Corregida una incompatibilidad real entre Ajustes GDX y CoronaPoker Swing:
+  las notificaciones de chat durante la partida vuelven a usar la clave
+  canónica compartida `chat_game_notifications`. GDX migra una sola vez la
+  clave temporal `chat_notifications_ingame`, conserva su valor y la elimina;
+  lobby, mesa y Swing vuelven a observar exactamente el mismo ajuste. El
+  bloque contractual afectado compila y pasa **123/123** pruebas focalizadas.
 - Verificado en ejecución real que el straddle voluntario sí recorre Nueva
   timba → configuración → crupier → diálogo GDX: requiere tres o más jugadores
   activos y sólo pregunta al humano cuando ocupa UTG; en heads-up se omite y

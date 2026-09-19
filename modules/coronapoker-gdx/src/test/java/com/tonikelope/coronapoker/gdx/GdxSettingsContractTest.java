@@ -271,7 +271,8 @@ final class GdxSettingsContractTest {
                 "animacion_swap",
                 "animacion_contador_final", "gdx_show_fps",
                 "mostrar_coste_igualar",
-                "chat_images_ingame", "resaltar_jugada_showdown",
+                "chat_images_ingame", "chat_game_notifications",
+                "resaltar_jugada_showdown",
                 "resaltar_avatares")));
         assertTrue(GdxSettingsContract.APPEARANCE_PAGES.stream()
                 .allMatch(page -> page.options().size() <= 6));
@@ -280,6 +281,30 @@ final class GdxSettingsContractTest {
         assertFalse(keys.contains("cinematicas_accion"));
         assertFalse(keys.contains("animacion_cascada_overlay"));
         assertFalse(keys.contains("animacion_downgrade"));
+    }
+
+    @Test
+    void chatNotificationsShareSwingsCanonicalPreferenceAndMigrateGdxAlias() {
+        Properties properties = new Properties();
+        properties.setProperty("chat_notifications_ingame", "false");
+
+        assertFalse(GdxSettingsContract.chatNotificationsEnabled(
+                properties, true));
+        assertTrue(GdxSettingsContract
+                .migrateLegacyChatNotificationPreference(properties));
+        assertEquals("false", properties.getProperty(
+                GdxSettingsContract.CHAT_GAME_NOTIFICATIONS_KEY));
+        assertFalse(properties.containsKey("chat_notifications_ingame"));
+        assertFalse(GdxSettingsContract.chatNotificationsEnabled(
+                properties, true));
+
+        properties.setProperty("chat_notifications_ingame", "false");
+        properties.setProperty(
+                GdxSettingsContract.CHAT_GAME_NOTIFICATIONS_KEY, "true");
+        assertTrue(GdxSettingsContract
+                .migrateLegacyChatNotificationPreference(properties));
+        assertTrue(GdxSettingsContract.chatNotificationsEnabled(
+                properties, false));
     }
 
     @Test

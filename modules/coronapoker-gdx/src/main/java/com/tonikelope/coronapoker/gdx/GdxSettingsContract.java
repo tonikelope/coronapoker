@@ -18,6 +18,10 @@ import java.util.Properties;
 final class GdxSettingsContract {
 
     static final float DEFAULT_MASTER_VOLUME = 0.8f;
+    static final String CHAT_GAME_NOTIFICATIONS_KEY =
+            "chat_game_notifications";
+    private static final String LEGACY_GDX_CHAT_NOTIFICATIONS_KEY =
+            "chat_notifications_ingame";
 
     enum Gate {
         NONE, SOUND, MUSIC, EFFECTS, ANIMATIONS, CINEMATICS
@@ -272,7 +276,7 @@ final class GdxSettingsContract {
                     option("resaltar_avatares", "RESALTAR AVATARES", false,
                             Gate.NONE)),
             page("CHAT",
-                    option("chat_notifications_ingame",
+                    option(CHAT_GAME_NOTIFICATIONS_KEY,
                             "NOTIFICACIONES DURANTE LA PARTIDA", true,
                             Gate.NONE),
                     option("chat_images_ingame", "IMÁGENES DEL CHAT", true,
@@ -312,7 +316,7 @@ final class GdxSettingsContract {
             "audio_voice_note_retention_days",
             "baraja", "trasera", "color_tapete", "nivel_luz",
             "show_time", "gdx_show_fps", "mostrar_coste_igualar",
-            "chat_images_ingame", "chat_notifications_ingame",
+            "chat_images_ingame", CHAT_GAME_NOTIFICATIONS_KEY,
             "resaltar_jugada_showdown", "resaltar_avatares",
             "screenshot_fin_timba", "animacion_contador_final",
             "animaciones", "cinematicas", "cinematicas_accion",
@@ -594,6 +598,33 @@ final class GdxSettingsContract {
             }
         }
         return snapshot;
+    }
+
+    /**
+     * Migrates the temporary GDX-only key to CoronaPoker's canonical Swing
+     * preference. Both frontends must observe the same value.
+     */
+    static boolean migrateLegacyChatNotificationPreference(
+            Properties properties) {
+        if (properties == null
+                || !properties.containsKey(LEGACY_GDX_CHAT_NOTIFICATIONS_KEY)) {
+            return false;
+        }
+        if (!properties.containsKey(CHAT_GAME_NOTIFICATIONS_KEY)) {
+            properties.setProperty(CHAT_GAME_NOTIFICATIONS_KEY,
+                    properties.getProperty(LEGACY_GDX_CHAT_NOTIFICATIONS_KEY));
+        }
+        properties.remove(LEGACY_GDX_CHAT_NOTIFICATIONS_KEY);
+        return true;
+    }
+
+    static boolean chatNotificationsEnabled(Properties properties,
+            boolean fallback) {
+        if (properties == null) return fallback;
+        String value = properties.getProperty(CHAT_GAME_NOTIFICATIONS_KEY,
+                properties.getProperty(LEGACY_GDX_CHAT_NOTIFICATIONS_KEY,
+                        Boolean.toString(fallback)));
+        return Boolean.parseBoolean(value);
     }
 
     static void restore(Properties properties, Map<String, String> snapshot) {

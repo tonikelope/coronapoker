@@ -5572,8 +5572,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             seatChatBlockHand = liveState.handNumber();
             blockedSeatMediaNotices.clear();
         }
-        boolean notifications = tablePreference(
-                "chat_notifications_ingame", true);
+        boolean notifications = preferences == null ||
+                GdxSettingsContract.chatNotificationsEnabled(
+                        preferences.properties(), true);
         for (LobbyChatMessage message : tableChat.drainIncoming()) {
             boolean ownMessage = message.nickname().equals(
                     tableChat.snapshot().localNickname());

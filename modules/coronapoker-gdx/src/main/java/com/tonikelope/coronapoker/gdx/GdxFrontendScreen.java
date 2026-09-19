@@ -269,6 +269,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             GdxGameText gameText, Consumer<String> languageChanged) {
         this.preferences = Objects.requireNonNull(preferences, "preferences");
         initialProperties = this.preferences.properties();
+        if (GdxSettingsContract.migrateLegacyChatNotificationPreference(
+                initialProperties)) {
+            this.preferences.saveDeferred();
+        }
         this.connection = defaultConnection(initialProperties,
                 NewGameConnectionDraft.Mode.CREATE);
         audioControl = new GdxAudioControl(initialProperties, this.preferences);
@@ -1989,8 +1993,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             NewGameTableDraft.Settings requested = settingsTable == null
                     ? null : settingsTable.snapshot();
             List<LobbyCommand> commands = lobbySettingsCommands(lobby,
-                    requested, preferenceBoolean(
-                            "chat_notifications_ingame", true));
+                    requested, GdxSettingsContract.chatNotificationsEnabled(
+                            initialProperties, true));
             if (!commands.isEmpty()) {
                 submitLobbySettingsCommands(commands, 0);
                 return;

@@ -11549,12 +11549,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         uppercase(gameText.translate(
                                 "gdx.settings.row.game_output")),
                         GdxAudioDevices.outputLabel(
-                                tableSettingsProperties()), alpha);
+                                tableSettingsProperties(), gameText), alpha);
                 drawSettingsStepperText(x, audioFirstY - 70f, width,
                         uppercase(gameText.translate(
                                 "gdx.settings.row.microphone")),
                         GdxAudioDevices.captureLabel(
-                                tableSettingsProperties()), alpha);
+                                tableSettingsProperties(), gameText), alpha);
             }
         } else if (contentPage == 1) {
             if (settingsAppearancePage == 0) {

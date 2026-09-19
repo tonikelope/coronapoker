@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 20:12 (Europe/Madrid)
+Última actualización: 2026-09-19 20:18 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -18,6 +18,12 @@ visual archivada en `reference/gdx-demo` y únicos ejecutables en `target`.
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Corregido otro literal divergente de Ajustes: el dispositivo de salida y el
+  micrófono predeterminados ya se muestran en el idioma activo tanto en menú
+  como durante la partida, sin renombrar dispositivos reales. Pruebas
+  focalizadas de dispositivos y contrato de Ajustes: **22/22**. JAR GDX:
+  266.249.770 bytes, SHA-256
+  `2919DDFDE9AD7C25D4F05B1397942F934839DE3FDACD7F2180F8DB145F6BB38F`.
 - Unificado el resumen de antialiasing de Ajustes: menú principal y mesa
   consumen ahora el mismo formateador y el idioma activo, incluido el estado
   de cambio pendiente de reinicio y el valor realmente aplicado. Se elimina

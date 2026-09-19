@@ -2289,7 +2289,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             settingsStepper(x + 34f, rowY, w - 68f, 70f,
                     uppercase(gameText.translate(
                             "gdx.settings.row.game_output")),
-                    GdxAudioDevices.outputLabel(initialProperties), () -> {
+                    GdxAudioDevices.outputLabel(initialProperties, gameText), () -> {
                         GdxAudioDevices.adjustOutput(initialProperties, -1);
                     }, () -> {
                         GdxAudioDevices.adjustOutput(initialProperties, 1);
@@ -2297,7 +2297,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             settingsStepper(x + 34f, rowY - 84f, w - 68f, 70f,
                     uppercase(gameText.translate(
                             "gdx.settings.row.microphone")),
-                    GdxAudioDevices.captureLabel(initialProperties), () -> {
+                    GdxAudioDevices.captureLabel(initialProperties, gameText), () -> {
                         GdxAudioDevices.adjustCapture(initialProperties, -1);
                     }, () -> {
                         GdxAudioDevices.adjustCapture(initialProperties, 1);

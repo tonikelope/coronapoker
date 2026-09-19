@@ -19,7 +19,6 @@ final class GdxAudioDevices {
     static final String OUTPUT_KEY = "gdx_audio_output_device";
     static final String CAPTURE_KEY = "audio_capture_device";
     private static final String DEFAULT = "";
-    private static final String DEFAULT_LABEL = "PREDETERMINADO DEL SISTEMA";
     private static volatile List<String> captureDevices = List.of();
 
     static {
@@ -38,12 +37,12 @@ final class GdxAudioDevices {
         return !captureDevices.isEmpty();
     }
 
-    static String outputLabel(Properties properties) {
-        return label(properties.getProperty(OUTPUT_KEY, DEFAULT));
+    static String outputLabel(Properties properties, GdxGameText text) {
+        return label(properties.getProperty(OUTPUT_KEY, DEFAULT), text);
     }
 
-    static String captureLabel(Properties properties) {
-        return label(properties.getProperty(CAPTURE_KEY, DEFAULT));
+    static String captureLabel(Properties properties, GdxGameText text) {
+        return label(properties.getProperty(CAPTURE_KEY, DEFAULT), text);
     }
 
     static boolean cycleOutput(Properties properties) {
@@ -139,8 +138,11 @@ final class GdxAudioDevices {
         return device == null ? DEFAULT : device.strip();
     }
 
-    private static String label(String device) {
-        return device == null || device.isBlank() ? DEFAULT_LABEL : device;
+    private static String label(String device, GdxGameText text) {
+        return device == null || device.isBlank()
+                ? text.translate("gdx.settings.value.system_default")
+                        .toUpperCase(java.util.Locale.ROOT)
+                : device;
     }
 
     private static List<String> availableOutputDevices() {

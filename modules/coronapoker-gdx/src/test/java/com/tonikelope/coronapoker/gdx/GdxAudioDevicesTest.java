@@ -5,9 +5,24 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Properties;
 import org.junit.jupiter.api.Test;
 
 final class GdxAudioDevicesTest {
+
+    @Test
+    void defaultDeviceLabelFollowsTheLiveLanguage() {
+        Properties properties = new Properties();
+        assertEquals("PREDETERMINADO DEL SISTEMA",
+                GdxAudioDevices.outputLabel(properties,
+                        new GdxGameText("es")));
+        assertEquals("SYSTEM DEFAULT",
+                GdxAudioDevices.captureLabel(properties,
+                        new GdxGameText("en")));
+        properties.setProperty(GdxAudioDevices.OUTPUT_KEY, "Altavoces USB");
+        assertEquals("Altavoces USB", GdxAudioDevices.outputLabel(properties,
+                new GdxGameText("en")));
+    }
 
     @Test
     void cancelOnlyReopensOpenAlWhenTheOutputSelectionReallyChanged() {

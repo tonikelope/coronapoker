@@ -64,12 +64,15 @@ final class GdxTextToSpeechPlayback implements AutoCloseable {
         this.ducking = Objects.requireNonNull(ducking, "ducking");
     }
 
-    void enqueue(String chatMessage, String language) {
+    CompletableFuture<Boolean> enqueue(String chatMessage, String language) {
         String speech = serviceText(cleanChatMessage(chatMessage));
         if (speech.isEmpty() || speech.length() > MAX_TTS_LENGTH
-                || closed.get()) return;
+                || closed.get()) return CompletableFuture.completedFuture(false);
         String speechLanguage = "es".equalsIgnoreCase(language) ? "es" : "en";
-        worker.execute(() -> fetchAndPlay(speech, speechLanguage));
+        CompletableFuture<Boolean> result = new CompletableFuture<>();
+        worker.execute(() -> result.complete(fetchAndPlay(
+                speech, speechLanguage)));
+        return result;
     }
 
     /** Re-applies Swing's live master-volume law to the current voice. */
@@ -84,18 +87,18 @@ final class GdxTextToSpeechPlayback implements AutoCloseable {
         return (float) Math.max(0d, Math.min(1d, masterVolume * 2d));
     }
 
-    private void fetchAndPlay(String speech, String language) {
+    private boolean fetchAndPlay(String speech, String language) {
         Path mp3 = null;
         try {
             byte[] audio = download(speech, language);
             if (audio.length == 0 || closed.get()
-                    || Thread.currentThread().isInterrupted()) return;
+                    || Thread.currentThread().isInterrupted()) return false;
             mp3 = Files.createTempFile("coronapoker-gdx-tts-", ".mp3");
             Files.write(mp3, audio);
-            CompletableFuture<Void> finished = new CompletableFuture<>();
+            CompletableFuture<Boolean> finished = new CompletableFuture<>();
             Path playbackFile = mp3;
             Gdx.app.postRunnable(() -> startPlayback(playbackFile, finished));
-            finished.get(2, TimeUnit.MINUTES);
+            return finished.get(2, TimeUnit.MINUTES);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         } catch (Exception ignored) {
@@ -109,11 +112,12 @@ final class GdxTextToSpeechPlayback implements AutoCloseable {
                 }
             }
         }
+        return false;
     }
 
-    private void startPlayback(Path mp3, CompletableFuture<Void> finished) {
+    private void startPlayback(Path mp3, CompletableFuture<Boolean> finished) {
         if (closed.get()) {
-            finished.complete(null);
+            finished.complete(false);
             return;
         }
         try {
@@ -129,11 +133,12 @@ final class GdxTextToSpeechPlayback implements AutoCloseable {
         } catch (RuntimeException failure) {
             activeMusic = null;
             ducking.accept(false);
-            finished.complete(null);
+            finished.complete(false);
         }
     }
 
-    private void finishPlayback(Music music, CompletableFuture<Void> finished,
+    private void finishPlayback(Music music,
+            CompletableFuture<Boolean> finished,
             AtomicBoolean ended) {
         if (!ended.compareAndSet(false, true)) return;
         if (activeMusic == music) activeMusic = null;
@@ -142,7 +147,7 @@ final class GdxTextToSpeechPlayback implements AutoCloseable {
             music.dispose();
         } finally {
             ducking.accept(false);
-            finished.complete(null);
+            finished.complete(true);
         }
     }
 

@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 01:37 (Europe/Madrid)
+Última actualización: 2026-09-20 01:56 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,13 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Ajustada la duración del icono amarillo de conversación de la mesa: cuando
+  el TTS se reproduce correctamente, GDX lo retira 500 ms después de terminar
+  la voz, igual que Swing, en lugar de mantener siempre el mínimo fijo de tres
+  segundos. Si el TTS no llega a reproducirse se conserva ese respaldo de tres
+  segundos. Pruebas focalizadas de chat/mesa: **108/108**. JAR GDX:
+  266.267.680 bytes, SHA-256
+  `899475D294A283B2EEB3DDC1CA9BC5F2DF6870C30262DEA74E4D3F0E3BD986E1`.
 - Corregido el bloque visual de chat/fin de timba observado en la prueba
   interactiva: enviar una imagen cierra la galería tras la confirmación tanto
   en sala como en mesa; las imágenes y el icono de conversación se ajustan al

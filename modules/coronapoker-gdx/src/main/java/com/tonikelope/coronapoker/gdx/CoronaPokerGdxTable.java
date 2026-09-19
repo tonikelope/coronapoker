@@ -5648,7 +5648,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 textToSpeech.enqueue(message.content(),
                         presentationSettings == null
                                 ? tablePreferenceText("lenguaje", "es")
-                                : presentationSettings.language());
+                                : presentationSettings.language())
+                        .thenAccept(played -> {
+                            if (!played || Gdx.app == null) return;
+                            Gdx.app.postRunnable(() -> {
+                                if (!disposed
+                                        && seatChatNotices.get(
+                                                message.nickname()) == notice) {
+                                    // Swing hides talk.png 500 ms after the
+                                    // spoken line ends. Do not keep GDX's
+                                    // three-second fallback alive longer when
+                                    // a short TTS line has already finished.
+                                    notice.expiresAt = Math.min(
+                                            notice.expiresAt,
+                                            totalTime + 0.5f);
+                                }
+                            });
+                        });
             }
         }
         var iterator = seatChatNotices.entrySet().iterator();

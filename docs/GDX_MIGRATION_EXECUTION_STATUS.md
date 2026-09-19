@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 18:55 (Europe/Madrid)
+Última actualización: 2026-09-19 19:03 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -18,6 +18,13 @@ visual archivada en `reference/gdx-demo` y únicos ejecutables en `target`.
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Completado el segundo corte de idioma y claridad funcional de Nueva timba:
+  perfiles, carga/cancelación de recuperación y todo el editor de estructuras
+  de ciegas responden ahora al idioma activo. Los controles de escalado de
+  ciegas y Partida ya muestran explícitamente unidad, intervalo, tope, número
+  de manos y segundos, eliminando contadores mudos. Prueba focalizada de
+  catálogo y formato: **1/1**. JAR GDX: 266.245.826 bytes, SHA-256
+  `3AD36B36A665F73B8ACD0894D1B82D5F3CE9AD6B3DD4D0DAFCBB1CE11E933E68`.
 - La página Compra/Recompra de Nueva timba ya consume el mismo catálogo ES/EN
   que Ajustes: buy-in fijo, compra inicial, extremos mínimo/máximo del rango,
   recompra, límite por jugador, máximo y tope dejan de estar escritos

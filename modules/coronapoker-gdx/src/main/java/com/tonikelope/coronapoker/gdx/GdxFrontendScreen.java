@@ -3369,7 +3369,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gamePresets.size(), direction);
         if (selectedGamePreset < 0) {
             table = new NewGameTableDraft();
-            showToast("Perfil por defecto cargado");
+            showToast(gameText.translate(
+                    "gdx.newgame.profile_default_loaded"));
             return;
         }
         GamePresetCatalog.Entry preset = gamePresets.get(selectedGamePreset);
@@ -3379,7 +3380,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             showToast(gameText.translate("gdx.newgame.profile_loaded",
                     preset.name()));
         } catch (IllegalArgumentException invalid) {
-            showToast("El perfil está dañado y no se puede cargar");
+            showToast(gameText.translate("gdx.newgame.profile_invalid"));
         }
     }
 
@@ -3420,7 +3421,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         try {
             name = GamePresetCatalog.normalizeName(presetNameDraft);
         } catch (IllegalArgumentException invalid) {
-            showToast("Escribe un nombre para el perfil");
+            showToast(gameText.translate(
+                    "gdx.newgame.profile_name_required"));
             return;
         }
         LinkedHashMap<String, GamePresetCatalog.Entry> all =
@@ -3432,8 +3434,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return;
         }
         if (all.size() >= GamePresetCatalog.MAX_PRESETS) {
-            showToast("No se pueden guardar más de "
-                    + GamePresetCatalog.MAX_PRESETS + " perfiles");
+            showToast(gameText.translate("gdx.newgame.profile_limit",
+                    GamePresetCatalog.MAX_PRESETS));
             return;
         }
         saveCurrentPreset(name, all);
@@ -3575,7 +3577,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (!connection.recoverRequested()) return;
         if (!connection.beginRecoverLoad()) return;
         long generation = ++recoveryLoadGeneration;
-        showToast("Cargando la última timba recuperable…");
+        showToast(gameText.translate("gdx.newgame.recover_loading"));
         CompletableFuture.supplyAsync(() -> {
             try {
                 return recoverableGames.latestLocal();
@@ -3598,9 +3600,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             connection.failRecoverLoad();
             connection.setRecoverRequested(false);
             table.setEconomyLocked(false);
-            showToast(cause == null ? "No hay ninguna timba recuperable"
-                    : "No se pudo cargar la timba anterior: "
-                            + submissionError(cause));
+            showToast(cause == null
+                    ? gameText.translate("gdx.newgame.recover_none")
+                    : gameText.translate("gdx.newgame.recover_failed",
+                            submissionError(cause)));
             return;
         }
         RecoverableGameRepository.RecoverableGame game = recovered.orElseThrow();
@@ -3615,17 +3618,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         table = NewGameTableDraft.from(game.settings());
         table.setEconomyLocked(true);
         connection.completeRecoverLoad(game.id());
-        showToast("Timba anterior cargada · " + recoveredDescription(game));
+        showToast(gameText.translate("gdx.newgame.recover_loaded",
+                recoveredDescription(game)));
         if (autoSubmitRecovery) {
             autoSubmitRecovery = false;
             submitNewGame();
         }
     }
 
-    private static String recoveredDescription(
+    private String recoveredDescription(
             RecoverableGameRepository.RecoverableGame game) {
         String server = game.server();
-        return server.isBlank() ? "partida " + game.id() : server;
+        return server.isBlank()
+                ? gameText.translate("gdx.newgame.recovered_game", game.id())
+                : server;
     }
 
     private void drawBlindsPage() {
@@ -3662,7 +3668,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.translate("gdx.settings.game.row.increase_blinds"),
                 table.increaseBlinds(),
                 () -> table.setIncreaseBlinds(!table.increaseBlinds()), !table.economyLocked());
-        bidirectionalChoice(1170f, 460f, 305f, "",
+        bidirectionalChoice(1170f, 460f, 305f,
+                settingsGameText("row.unit"),
                 table.blindIncreaseType() == NewGameTableDraft.BlindIncreaseType.MINUTES
                         ? gameText.translate("gdx.settings.game.value.minutes")
                         : gameText.translate("gdx.settings.game.value.hands"),
@@ -3675,14 +3682,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                 ? NewGameTableDraft.BlindIncreaseType.HANDS
                                 : NewGameTableDraft.BlindIncreaseType.MINUTES),
                 table.increaseBlinds() && !table.economyLocked());
-        stepper(1510f, 460f, 305f, "", table.blindInterval(), 1, Integer.MAX_VALUE,
+        stepper(1510f, 460f, 305f,
+                settingsGameText("row.interval"),
+                table.blindInterval(), 1, Integer.MAX_VALUE,
                 () -> table.setBlindInterval(table.blindInterval() - 1),
                 () -> table.setBlindInterval(table.blindInterval() + 1),
                 table.increaseBlinds() && !table.economyLocked());
-        toggle(1170f, 325f, 645f, "Tope de aumentos", table.blindCap(),
+        toggle(1170f, 325f, 645f,
+                settingsGameText("row.blind_cap"), table.blindCap(),
                 () -> table.setBlindCap(!table.blindCap()),
                 table.blindCapControlEnabled() && !table.economyLocked());
-        stepper(1170f, 205f, 645f, "", table.blindCapRaises(),
+        stepper(1170f, 205f, 645f,
+                settingsGameText("row.cap"), table.blindCapRaises(),
                 1, table.maxBlindCapRaises(),
                 () -> table.setBlindCapRaises(table.blindCapRaises() - 1),
                 () -> table.setBlindCapRaises(table.blindCapRaises() + 1),
@@ -3787,7 +3798,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         try {
             blindStructureEditor.save(initialProperties);
         } catch (IllegalArgumentException invalid) {
-            showToast("Revisa los nombres y niveles de las estructuras");
+            showToast(gameText.translate(
+                    "gdx.newgame.blind_editor.review"));
             return;
         }
         BlindStructureCatalog.Entry selected = blindStructureEditor.selected();
@@ -3813,7 +3825,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             preferences.saveDeferred();
         }
         closeBlindStructureEditor();
-        showToast("Estructuras de ciegas guardadas");
+        showToast(gameText.translate("gdx.newgame.blind_editor.saved"));
     }
 
     private void openBlindStructureNameDialog(
@@ -3840,7 +3852,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             default -> false;
         };
         if (!accepted) {
-            showToast("Nombre vacío, repetido o no válido");
+            showToast(gameText.translate(
+                    "gdx.newgame.blind_editor.name_invalid"));
             return;
         }
         blindStructureDialog = BlindStructureDialog.EDITOR;
@@ -3869,30 +3882,36 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 new Color(0x071321ff));
         shapes.setColor(new Color(0x36d9ffb8));
         shapes.rect(250f, 944f, 1420f, 3f);
-        textFit(headingFont, "ESTRUCTURAS DE CIEGAS", 275f, 905f,
+        textFit(headingFont, uppercase(gameText.translate(
+                "blinds.gestionar_estructuras")), 275f, 905f,
                 GOLD, false, 1100f);
         textFit(smallFont,
-                "Crea y ajusta las escaleras disponibles para esta timba",
+                gameText.translate("gdx.newgame.blind_editor.help"),
                 275f, 858f, MUTED, false, 1100f);
 
         BlindStructureCatalog.Entry selected = blindStructureEditor.selected();
         boolean hasSelection = selected != null;
         String structureLabel = hasSelection ? selected.name()
-                : "No hay estructuras personalizadas";
-        bidirectionalChoice(275f, 710f, 580f, "Estructura:",
+                : gameText.translate("gdx.newgame.blind_editor.none");
+        bidirectionalChoice(275f, 710f, 580f,
+                gameText.translate("blinds.estructura"),
                 structureLabel, () -> blindStructureEditor.selectStructure(-1),
                 () -> blindStructureEditor.selectStructure(1),
                 !blindStructureEditor.entries().isEmpty());
-        button(275f, 610f, 180f, 62f, "NUEVA", false,
+        button(275f, 610f, 180f, 62f,
+                uppercase(gameText.translate("blinds.nueva")), false,
                 () -> openBlindStructureNameDialog(
                         BlindStructureDialog.NAME_NEW), true);
-        button(475f, 610f, 180f, 62f, "DUPLICAR", false,
+        button(475f, 610f, 180f, 62f,
+                uppercase(gameText.translate("blinds.duplicar")), false,
                 () -> openBlindStructureNameDialog(
                         BlindStructureDialog.NAME_DUPLICATE), hasSelection);
-        button(675f, 610f, 180f, 62f, "RENOMBRAR", false,
+        button(675f, 610f, 180f, 62f,
+                uppercase(gameText.translate("blinds.renombrar")), false,
                 () -> openBlindStructureNameDialog(
                         BlindStructureDialog.NAME_RENAME), hasSelection);
-        button(275f, 515f, 580f, 62f, "BORRAR ESTRUCTURA", false,
+        button(275f, 515f, 580f, 62f, uppercase(gameText.translate(
+                "gdx.newgame.blind_editor.delete_structure")), false,
                 () -> {
                     blindStructureDialog = BlindStructureDialog.DELETE;
                     clearActiveField();
@@ -3902,42 +3921,55 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             int levelIndex = blindStructureEditor.selectedLevelIndex();
             BlindStructureCatalog.BlindLevel level =
                     blindStructureEditor.selectedLevel();
-            bidirectionalChoice(930f, 710f, 690f, "Nivel:",
-                    (levelIndex + 1) + " de " + selected.levels().size(),
+            bidirectionalChoice(930f, 710f, 690f,
+                    gameText.translate("gdx.newgame.blind_editor.level"),
+                    gameText.translate(
+                            "gdx.newgame.blind_editor.level_count",
+                            levelIndex + 1, selected.levels().size()),
                     () -> blindStructureEditor.selectLevel(-1),
                     () -> blindStructureEditor.selectLevel(1), true);
-            blindAmountStepper(930f, 565f, 330f, "Ciega pequeña:",
+            blindAmountStepper(930f, 565f, 330f,
+                    gameText.translate("blinds.ciega_pequena"),
                     level.smallBlind(),
                     () -> adjustEditorBlind(true, -1),
                     () -> adjustEditorBlind(true, 1));
-            blindAmountStepper(1290f, 565f, 330f, "Ciega grande:",
+            blindAmountStepper(1290f, 565f, 330f,
+                    gameText.translate("blinds.ciega_grande_col"),
                     level.bigBlind(),
                     () -> adjustEditorBlind(false, -1),
                     () -> adjustEditorBlind(false, 1));
-            button(930f, 455f, 330f, 62f, "AÑADIR NIVEL", false,
+            button(930f, 455f, 330f, 62f,
+                    uppercase(gameText.translate("blinds.anadir_nivel")), false,
                     () -> {
                         if (!blindStructureEditor.addLevel()) {
-                            showToast("No se puede añadir otro nivel");
+                            showToast(gameText.translate(
+                                    "gdx.newgame.blind_editor.max_levels"));
                         }
                     }, selected.levels().size()
                             < BlindStructureRules.MAX_LEVELS);
-            button(1290f, 455f, 330f, 62f, "QUITAR NIVEL", false,
+            button(1290f, 455f, 330f, 62f,
+                    uppercase(gameText.translate("blinds.quitar_nivel")), false,
                     () -> {
                         if (!blindStructureEditor.removeSelectedLevel()) {
-                            showToast("La estructura necesita al menos un nivel");
+                            showToast(gameText.translate(
+                                    "gdx.newgame.blind_editor.min_levels"));
                         }
                     }, selected.levels().size() > 1);
             textFit(tinyFont,
-                    "Los cambios que rompan el orden de la escalera se rechazan",
+                    gameText.translate(
+                            "gdx.newgame.blind_editor.order_help"),
                     1275f, 405f, MUTED, true, 690f);
         } else {
-            textFit(actionFont, "CREA LA PRIMERA ESTRUCTURA",
+            textFit(actionFont, uppercase(gameText.translate(
+                    "gdx.newgame.blind_editor.create_first")),
                     1275f, 650f, MUTED, true, 650f);
         }
 
-        button(275f, 155f, 300f, 66f, "CANCELAR", false,
+        button(275f, 155f, 300f, 66f,
+                gameText.translate("ui.cancelar"), false,
                 this::closeBlindStructureEditor, true);
-        themedButton(1320f, 155f, 300f, 66f, "GUARDAR",
+        themedButton(1320f, 155f, 300f, 66f,
+                gameText.translate("ui.guardar"),
                 ButtonTone.POSITIVE, this::saveBlindStructures,
                 blindStructureEditor.dirty());
     }
@@ -3952,7 +3984,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 ? blindStructureEditor.adjustSmallBlind(stepCount)
                 : blindStructureEditor.adjustBigBlind(stepCount);
         if (!accepted) {
-            showToast("Ese valor rompe el orden de la estructura");
+            showToast(gameText.translate(
+                    "gdx.newgame.blind_editor.order_error"));
         }
     }
 
@@ -3990,20 +4023,27 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.setColor(new Color(0x36d9ffb8));
         shapes.rect(590f, 683f, 740f, 3f);
         String title = switch (blindStructureDialog) {
-            case NAME_NEW -> "NUEVA ESTRUCTURA";
-            case NAME_DUPLICATE -> "DUPLICAR ESTRUCTURA";
-            case NAME_RENAME -> "RENOMBRAR ESTRUCTURA";
-            default -> "ESTRUCTURA DE CIEGAS";
+            case NAME_NEW -> gameText.translate(
+                    "gdx.newgame.blind_editor.new_title");
+            case NAME_DUPLICATE -> gameText.translate(
+                    "gdx.newgame.blind_editor.duplicate_title");
+            case NAME_RENAME -> gameText.translate(
+                    "gdx.newgame.blind_editor.rename_title");
+            default -> gameText.translate("blinds.gestionar_estructuras");
         };
-        textFit(headingFont, title, 960f, 635f, GOLD, true, 700f);
-        field(660f, 475f, 600f, "Nombre:", blindStructureNameDraft,
+        textFit(headingFont, uppercase(title), 960f, 635f, GOLD, true, 700f);
+        field(660f, 475f, 600f,
+                gameText.translate("blinds.nombre_estructura"),
+                blindStructureNameDraft,
                 "blindStructureName", false);
-        themedButton(660f, 385f, 270f, 64f, "VOLVER",
+        themedButton(660f, 385f, 270f, 64f,
+                gameText.translate("ui.volver"),
                 ButtonTone.NEUTRAL, () -> {
                     blindStructureDialog = BlindStructureDialog.EDITOR;
                     clearActiveField();
                 }, true);
-        themedButton(990f, 385f, 270f, 64f, "ACEPTAR",
+        themedButton(990f, 385f, 270f, 64f,
+                gameText.translate("ui.aceptar"),
                 ButtonTone.POSITIVE, this::submitBlindStructureName,
                 !blindStructureNameDraft.isBlank());
     }
@@ -4013,17 +4053,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 new Color(0x071321ff));
         shapes.setColor(new Color(0x36d9ffb8));
         shapes.rect(590f, 683f, 740f, 3f);
-        textFit(headingFont, "BORRAR ESTRUCTURA", 960f, 625f,
+        textFit(headingFont, uppercase(gameText.translate(
+                "gdx.newgame.blind_editor.delete_structure")), 960f, 625f,
                 GOLD, true, 700f);
         String name = blindStructureEditor.selected() == null ? ""
                 : blindStructureEditor.selected().name();
-        textFit(actionFont, "BORRAR '" + name + "'?", 960f, 535f,
+        textFit(actionFont, uppercase(gameText.translate(
+                "blinds.confirmar_borrar", name)), 960f, 535f,
                 Color.WHITE, true, 700f);
-        themedButton(660f, 405f, 270f, 64f, "VOLVER",
+        themedButton(660f, 405f, 270f, 64f,
+                gameText.translate("ui.volver"),
                 ButtonTone.NEUTRAL,
                 () -> blindStructureDialog = BlindStructureDialog.EDITOR,
                 true);
-        themedButton(990f, 405f, 270f, 64f, "BORRAR",
+        themedButton(990f, 405f, 270f, 64f,
+                gameText.translate("blinds.borrar"),
                 ButtonTone.DANGER, () -> {
                     blindStructureEditor.deleteSelected();
                     blindStructureDialog = BlindStructureDialog.EDITOR;
@@ -4095,7 +4139,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.translate("gdx.settings.game.row.hand_limit"),
                 table.handLimit(),
                 () -> table.setHandLimit(!table.handLimit()), true);
-        stepper(780f, 625f, 280f, "", table.handLimitCount(), 1, Integer.MAX_VALUE,
+        stepper(780f, 625f, 280f,
+                settingsGameText("row.hand_count"),
+                table.handLimitCount(), 1, Integer.MAX_VALUE,
                 () -> table.setHandLimitCount(table.handLimitCount() - 1),
                 () -> table.setHandLimitCount(table.handLimitCount() + 1),
                 table.handLimit());
@@ -4103,7 +4149,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.translate("gdx.settings.game.row.think_time"),
                 table.thinkTime(),
                 () -> table.setThinkTime(!table.thinkTime()), true);
-        stepper(780f, 495f, 280f, "", table.thinkSeconds(), 10, 120,
+        stepper(780f, 495f, 280f,
+                settingsGameText("row.think_seconds"),
+                table.thinkSeconds(), 10, 120,
                 () -> table.setThinkSeconds(table.thinkSeconds() - 5),
                 () -> table.setThinkSeconds(table.thinkSeconds() + 5), table.thinkTime());
         stepper(470f, 325f, 590f,
@@ -4237,7 +4285,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void cancelOrReturnToMenu() {
         if (submissions.submitting()) {
             if (submissions.cancel()) {
-                showToast("Cancelando conexión…");
+                showToast(gameText.translate(
+                        "gdx.newgame.canceling_connection"));
             }
             return;
         }

@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 21:43 (Europe/Madrid)
+Última actualización: 2026-09-19 21:52 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,13 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Guardar Ajustes desde la sala de espera ya sincroniza con la sesión los
+  cambios reales: el anfitrión publica la configuración autoritativa de mesa y
+  cada participante publica su preferencia de notificaciones de chat. No se
+  envían comandos redundantes y un cliente nunca intenta modificar los ajustes
+  reservados al anfitrión. Contrato focalizado de Ajustes y sesión: **25/25**.
+  JAR GDX: 266.255.807 bytes, SHA-256
+  `4CB2F376C1353CD4DAB5627D444049324C69F0F6456C109994785F96F71E43E3`.
 - La selección de imágenes durante la partida ya no reutiliza un historial de
   chat con URLs: abre la misma galería de ocho miniaturas grandes que la sala de
   espera, permite enviar con un clic, vaciar el historial y añadir una URL

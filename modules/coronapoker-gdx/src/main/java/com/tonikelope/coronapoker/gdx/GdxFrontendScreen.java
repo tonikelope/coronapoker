@@ -1947,14 +1947,44 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void closeSettings(boolean save) {
         settingsShortcutCaptureId = null;
         settingsShortcutStatus = "";
-        if (save && settingsReturnSurface == Surface.LOBBY
-                && lobby != null && lobby.host() && settingsTable != null) {
-            NewGameTableDraft.Settings requested = settingsTable.snapshot();
-            submitLobbyCommand(new LobbyCommand.UpdateTableSettings(requested),
-                    () -> finishClosingSettings(true));
-            return;
+        if (save && settingsReturnSurface == Surface.LOBBY && lobby != null) {
+            NewGameTableDraft.Settings requested = settingsTable == null
+                    ? null : settingsTable.snapshot();
+            List<LobbyCommand> commands = lobbySettingsCommands(lobby,
+                    requested, preferenceBoolean(
+                            "chat_notifications_ingame", true));
+            if (!commands.isEmpty()) {
+                submitLobbySettingsCommands(commands, 0);
+                return;
+            }
         }
         finishClosingSettings(save);
+    }
+
+    private void submitLobbySettingsCommands(List<LobbyCommand> commands,
+            int index) {
+        if (index >= commands.size()) {
+            finishClosingSettings(true);
+            return;
+        }
+        submitLobbyCommand(commands.get(index),
+                () -> submitLobbySettingsCommands(commands, index + 1));
+    }
+
+    static List<LobbyCommand> lobbySettingsCommands(LobbySnapshot state,
+            NewGameTableDraft.Settings requested,
+            boolean chatNotifications) {
+        if (state == null) return List.of();
+        List<LobbyCommand> commands = new ArrayList<>(2);
+        if (state.host() && requested != null
+                && !requested.equals(state.tableSettings())) {
+            commands.add(new LobbyCommand.UpdateTableSettings(requested));
+        }
+        if (chatNotifications != state.chatNotifications()) {
+            commands.add(new LobbyCommand.SetChatNotifications(
+                    chatNotifications));
+        }
+        return List.copyOf(commands);
     }
 
     private void finishClosingSettings(boolean save) {

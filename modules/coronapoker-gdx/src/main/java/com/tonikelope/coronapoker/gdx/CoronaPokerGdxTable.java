@@ -10707,7 +10707,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.flush();
         batch.setShader(null);
         batch.setColor(Color.WHITE);
-        drawFittedCenteredInBox(smallFont, "CLIC O ESC PARA CERRAR",
+        drawFittedCenteredInBox(smallFont, uppercase(gameText.translate(
+                "gdx.card_viewer.close_hint")),
                 width / 2f - 220f, Math.max(18f, card.y - 62f),
                 440f, 40f, new Color(0xe8edf4ff), alpha);
         batch.end();
@@ -10738,6 +10739,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 0, 0, width, height, true);
         Path file = screenshotDirectory().resolve(
                 screenshotFilename(System.currentTimeMillis()));
+        String savedText = uppercase(gameText.translate(
+                "gdx.screenshot.saved"));
+        String failedText = uppercase(gameText.translate(
+                "gdx.screenshot.save_failed"));
         Thread writer = new Thread(() -> {
             String result;
             try {
@@ -10750,9 +10755,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 } finally {
                     pixmap.dispose();
                 }
-                result = "CAPTURA GUARDADA";
+                result = savedText;
             } catch (RuntimeException | IOException failure) {
-                result = "NO SE PUDO GUARDAR LA CAPTURA";
+                result = failedText;
             }
             String notice = result;
             if (Gdx.app != null) {
@@ -10799,7 +10804,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             screenshotError = "";
         } catch (IOException failure) {
             screenshotFiles = List.of();
-            screenshotError = "NO SE PUDO LEER LA CARPETA DE CAPTURAS";
+            screenshotError = uppercase(gameText.translate(
+                    "gdx.screenshot.folder_failed"));
         }
         screenshotIndex = 0;
         loadScreenshotTexture();
@@ -10832,7 +10838,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     TextureFilter.Linear);
             screenshotError = "";
         } catch (RuntimeException failure) {
-            screenshotError = "NO SE PUDO ABRIR ESTA CAPTURA";
+            screenshotError = uppercase(gameText.translate(
+                    "gdx.screenshot.open_failed"));
         }
     }
 
@@ -10896,14 +10903,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             batch.draw(screenshotTexture, bounds.x, bounds.y,
                     bounds.width, bounds.height);
         }
+        String viewerTitle = uppercase(gameText.translate(
+                "menu.visor_capturas"));
         String title = screenshotFiles.isEmpty()
-                ? "VISOR DE CAPTURAS"
-                : "VISOR DE CAPTURAS  ·  " + (screenshotIndex + 1)
+                ? viewerTitle
+                : viewerTitle + "  ·  " + (screenshotIndex + 1)
                         + " / " + screenshotFiles.size();
         drawFittedCenteredInBox(uiFont, title, 150f, height - 80f,
                 width - 300f, 62f, POT_GOLD, alpha);
         String message = !screenshotError.isBlank() ? screenshotError
-                : screenshotFiles.isEmpty() ? "NO HAY CAPTURAS TODAVÍA" : "";
+                : screenshotFiles.isEmpty()
+                        ? uppercase(gameText.translate("ui.no_capturas")) : "";
         if (!message.isBlank()) {
             drawFittedCenteredInBox(uiFont, message,
                     width / 2f - 360f, height / 2f - 45f,
@@ -11088,7 +11098,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     panelX + panelW / 2f - 190f, panelY + 155f,
                     72f, 64f, Color.WHITE, 1f);
             String amountText = dialog.isHandLimit() && dialog.noLimit()
-                    ? "SIN LÍMITE"
+                    ? uppercase(gameText.translate("auto_call.sin_limite"))
                     : dialog.isAutoCall() ? dialog.amountText()
                     : Integer.toString(dialog.amount());
             if (dialog.isAutoCall() && dialog.autoCallAmountEditable()
@@ -11105,8 +11115,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (!dialog.isRebuy()) {
                 drawFittedCenteredInBox(smallFont,
                         dialog.isHandLimit()
-                                ? "MÍNIMO " + dialog.minimumAmount()
-                                : "MÍNIMO "
+                                ? uppercase(gameText.translate(
+                                        "gdx.dialog.minimum")) + " "
+                                        + dialog.minimumAmount()
+                                : uppercase(gameText.translate(
+                                        "gdx.dialog.minimum")) + " "
                                         + formatAmount(dialog.minimumAmount() / 100d),
                         panelX + panelW / 2f - 190f, panelY + 135f,
                         380f, 24f, Color.LIGHT_GRAY, 1f);
@@ -11115,13 +11128,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (dialog.isAutoCall()) {
             drawSettingsRowText(panelX + 56f, panelY + 318f,
                     panelW - 112f, dialog.optionEnabled()
-                            ? "ACTIVADO" : "DESACTIVADO", 1f);
+                            ? uppercase(gameText.translate("auto_call.activado"))
+                            : uppercase(gameText.translate(
+                                    "auto_call.desactivado")), 1f);
             drawSettingsRowText(panelX + 56f, panelY + 244f,
-                    panelW - 112f, "SIN LÍMITE",
+                    panelW - 112f, uppercase(gameText.translate(
+                            "auto_call.sin_limite")),
                     dialog.optionEnabled() ? 1f : 0.36f);
         } else if (dialog.isHandLimit()) {
             drawSettingsRowText(panelX + 56f, panelY + 244f,
-                    panelW - 112f, "SIN LÍMITE", 1f);
+                    panelW - 112f, uppercase(gameText.translate(
+                            "auto_call.sin_limite")), 1f);
         }
         if (dialog.showsNegative()) {
             drawFittedCenteredInBox(actionFont, dialog.negativeLabel(),
@@ -12521,20 +12538,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.end();
 
         batch.begin();
-        drawLeftInBox(uiFont, "GALERÍA DE IMÁGENES Y GIF", panelX + 34f,
+        drawLeftInBox(uiFont, uppercase(gameText.translate(
+                "gdx.lobby.image_gallery")), panelX + 34f,
                 panelY + panelH - 72f, panelW - 320f, 42f,
                 Color.WHITE, alpha);
-        drawLeftInBox(smallFont, "SELECCIONA UNA MINIATURA PARA ENVIARLA",
+        drawLeftInBox(smallFont, uppercase(gameText.translate(
+                "gdx.lobby.image_gallery_help")),
                 panelX + 35f, panelY + panelH - 103f,
                 panelW - 280f, 24f, CYAN, alpha);
         drawFittedCenteredInBox(actionFont, "×",
                 panelX + panelW - 62f, panelY + panelH - 62f,
                 34f, 34f, Color.WHITE, alpha);
-        drawFittedCenteredInBox(smallFont, "VACIAR",
+        drawFittedCenteredInBox(smallFont, uppercase(gameText.translate(
+                "gdx.lobby.clear")),
                 panelX + panelW - 216f, panelY + panelH - 62f,
                 136f, 34f, Color.WHITE, alpha);
         if (tableImageHistory.isEmpty()) {
-            drawFittedCenteredInBox(smallFont, "TU GALERÍA ESTÁ VACÍA",
+            drawFittedCenteredInBox(smallFont, uppercase(gameText.translate(
+                    "gdx.lobby.image_gallery_empty")),
                     historyX + 20f, historyY + historyH / 2f - 18f,
                     historyW - 40f, 36f, Color.GRAY, alpha);
         } else {
@@ -12653,7 +12674,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         batch.begin();
         if (messages.isEmpty()) {
-            drawFittedCenteredInBox(smallFont, "SIN MENSAJES",
+            drawFittedCenteredInBox(smallFont, uppercase(gameText.translate(
+                    "gdx.table.chat.no_messages")),
                     historyX + 12f, historyY + historyH / 2f - 14f,
                     historyW - 24f, 28f, Color.GRAY, alpha);
         } else {
@@ -12666,7 +12688,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         historyW - 24f, 28f, Color.WHITE, alpha);
             }
         }
-        drawLeftInBox(smallFont, "CERRAR AL ENVIAR",
+        drawLeftInBox(smallFont, uppercase(gameText.translate(
+                "gdx.table.chat.close_on_send")),
                 panelX + 18f, panelY + 58f,
                 panelW - 92f, 34f, Color.LIGHT_GRAY, alpha);
         String draft = chatDraft.isEmpty()

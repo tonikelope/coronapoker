@@ -57,6 +57,12 @@ final class GdxGameTextTest {
                 text.translate("gdx.table.open_failed"));
         assertEquals("Fast chat", text.translate("chat.chat_rapido"));
         assertEquals("Unavailable", text.translate("gdx.quick.unavailable"));
+        assertEquals("CLICK OR PRESS ESC TO CLOSE",
+                text.translate("gdx.card_viewer.close_hint"));
+        assertEquals("THE SCREENSHOT FOLDER COULD NOT BE READ",
+                text.translate("gdx.screenshot.folder_failed"));
+        assertEquals("CLOSE AFTER SENDING",
+                text.translate("gdx.table.chat.close_on_send"));
 
         assertEquals("es", text.setLanguage("not-a-language"));
         assertEquals("CREAR TIMBA", text.translate("game.crear_timba"));
@@ -76,5 +82,8 @@ final class GdxGameTextTest {
                 text.translate("gdx.newgame.profile_limit", 10));
         assertEquals("2 de 5",
                 text.translate("gdx.newgame.blind_editor.level_count", 2, 5));
+        assertEquals("MÍNIMO", text.translate("gdx.dialog.minimum"));
+        assertEquals("SIN MENSAJES",
+                text.translate("gdx.table.chat.no_messages"));
     }
 }

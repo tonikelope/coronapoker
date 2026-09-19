@@ -135,7 +135,8 @@ public final class GdxLauncher {
                 : bundledCinematics;
         CoreGameTableFactory gameTables = new CoreGameTableFactory(
                 application.service(DatabaseService.class), gameText, gameLog,
-                new GdxGameDialogSink(), new GdxGameDecisionSink(gameText),
+                new GdxGameDialogSink(gameText),
+                new GdxGameDecisionSink(gameText),
                 presentationSettings, cinematics, modMedia.installed(),
                 preferences.properties());
         RecoverableGameRepository recoverableGames

@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 00:51 (Europe/Madrid)
+Última actualización: 2026-09-20 00:56 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,13 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Completada la pasada de idioma por las superficies auxiliares de mesa:
+  visor de cartas, capturas, galería, chat rápido y etiquetas internas de los
+  selectores numéricos ya usan el diccionario común. También el sink genérico
+  del crupier recibe el idioma activo para errores, avisos, información y
+  confirmaciones. Pruebas focalizadas: **16/16**. JAR GDX: 266.266.653 bytes,
+  SHA-256
+  `A8E84A77526DA04815676DFD94CC112EAAB4A9E9B6289826D4C7EFD37DD6BF1F`.
 - Los diálogos nativos de auto-igualar, límite de manos, modo auto,
   recuperación, recompra y elección tras game-over comparten ahora fábricas
   localizadas y consumen el idioma activo sin duplicar su lógica ni alterar

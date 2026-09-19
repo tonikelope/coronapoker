@@ -2,6 +2,7 @@
 package com.tonikelope.coronapoker.gdx;
 
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
+import com.tonikelope.coronapoker.core.game.GameText;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Objects;
@@ -67,20 +68,38 @@ final class GdxTableDialog {
     GdxTableDialog(String title, String message, int preferredWidth,
             int seconds, boolean timeoutAccepts, String negativeLabel,
             int minimumAmount, int maximumAmount, int defaultAmount) {
+        this(title, message, preferredWidth, seconds, timeoutAccepts,
+                negativeLabel, "ACEPTAR", minimumAmount, maximumAmount,
+                defaultAmount);
+    }
+
+    GdxTableDialog(String title, String message, int preferredWidth,
+            int seconds, boolean timeoutAccepts, String negativeLabel,
+            String positiveLabel, int minimumAmount, int maximumAmount,
+            int defaultAmount) {
         this(Kind.REBUY, title, message, GameDialogSink.Icon.NONE,
                 preferredWidth, seconds, timeoutAccepts, negativeLabel,
-                "ACEPTAR", minimumAmount, maximumAmount, defaultAmount);
+                positiveLabel, minimumAmount, maximumAmount, defaultAmount);
     }
 
     static GdxTableDialog autoCall(boolean enabled, double maximum) {
+        return autoCall(enabled, maximum, GameText.keys());
+    }
+
+    static GdxTableDialog autoCall(boolean enabled, double maximum,
+            GameText text) {
         boolean unlimited = maximum <= 0d;
         BigDecimal initial = BigDecimal.valueOf(unlimited ? 0.05d : maximum)
                 .max(AUTO_CALL_STEP).setScale(2, RoundingMode.HALF_UP);
         int cents = centsForLegacyAmount(initial);
         GdxTableDialog dialog = new GdxTableDialog(Kind.AUTO_CALL,
-                "AUTO IGUALAR", "IMPORTE MÁXIMO QUE SE IGUALARÁ AUTOMÁTICAMENTE",
-                GameDialogSink.Icon.NONE, 820, 0, false, "CANCELAR",
-                "ACEPTAR", 5, Integer.MAX_VALUE, cents);
+                tr(text, "gdx.auto_call.title", "AUTO IGUALAR"),
+                tr(text, "auto_call.nota",
+                        "IMPORTE MÁXIMO QUE SE IGUALARÁ AUTOMÁTICAMENTE"),
+                GameDialogSink.Icon.NONE, 820, 0, false,
+                tr(text, "ui.cancelar", "CANCELAR"),
+                tr(text, "ui.aceptar", "ACEPTAR"), 5,
+                Integer.MAX_VALUE, cents);
         dialog.optionEnabled = enabled;
         dialog.noLimit = unlimited;
         dialog.autoCallCommittedAmount = initial;
@@ -89,28 +108,46 @@ final class GdxTableDialog {
     }
 
     static GdxTableDialog handLimit(int currentHand, int maximumHands) {
+        return handLimit(currentHand, maximumHands, GameText.keys());
+    }
+
+    static GdxTableDialog handLimit(int currentHand, int maximumHands,
+            GameText text) {
         int minimum = Math.max(1, currentHand + 1);
         int selected = maximumHands > currentHand
                 ? maximumHands : minimum;
         GdxTableDialog dialog = new GdxTableDialog(Kind.HAND_LIMIT,
-                "L\u00cdMITE DE MANOS",
-                "LA TIMBA TERMINA AL ALCANZAR ESTE N\u00daMERO DE MANOS",
-                GameDialogSink.Icon.NONE, 820, 0, false, "CANCELAR",
-                "GUARDAR", minimum, 1_000_000, selected);
+                tr(text, "game.limite_de_manos_2", "LÍMITE DE MANOS"),
+                tr(text, "gdx.hand_limit.detail",
+                        "LA TIMBA TERMINA AL ALCANZAR ESTE NÚMERO DE MANOS"),
+                GameDialogSink.Icon.NONE, 820, 0, false,
+                tr(text, "ui.cancelar", "CANCELAR"),
+                tr(text, "ui.guardar", "GUARDAR"), minimum,
+                1_000_000, selected);
         dialog.noLimit = maximumHands == -1;
         return dialog;
     }
 
     static GdxTableDialog autoAction(String action) {
-        return new GdxTableDialog(Kind.AUTO_ACTION, "MODO AUTO", action,
-                GameDialogSink.Icon.NONE, 720, 5, true, "CANCELAR",
-                "");
+        return autoAction(action, GameText.keys());
+    }
+
+    static GdxTableDialog autoAction(String action, GameText text) {
+        return new GdxTableDialog(Kind.AUTO_ACTION,
+                tr(text, "modo_auto.titulo", "MODO AUTO"), action,
+                GameDialogSink.Icon.NONE, 720, 5, true,
+                tr(text, "ui.cancelar", "CANCELAR"), "");
     }
 
     static GdxTableDialog gameOverChoice(int seconds) {
+        return gameOverChoice(seconds, GameText.keys());
+    }
+
+    static GdxTableDialog gameOverChoice(int seconds, GameText text) {
         return new GdxTableDialog(Kind.GAME_OVER, "GAME OVER", "",
                 GameDialogSink.Icon.STOP, 900, seconds, false,
-                "ESPECTADOR", "CONTINUAR", 0, 0, 0);
+                tr(text, "player.espectador", "ESPECTADOR"),
+                tr(text, "ui.continuar", "CONTINUAR"), 0, 0, 0);
     }
 
     static GdxTableDialog gameOverFinal(float dwellSeconds) {
@@ -141,8 +178,14 @@ final class GdxTableDialog {
      * Only the dealer's {@link GameDecisionSink.CloseHandle} may close it.
      */
     static GdxTableDialog recovery() {
+        return recovery(GameText.keys());
+    }
+
+    static GdxTableDialog recovery(GameText text) {
         GdxTableDialog dialog = new GdxTableDialog(Kind.INFO,
-                "RECUPERANDO TIMBA", "RECONSTRUYENDO LA MANO EN CURSO...",
+                tr(text, "game.recuperando_timba_2", "RECUPERANDO TIMBA"),
+                tr(text, "gdx.recovery.detail",
+                        "RECONSTRUYENDO LA MANO EN CURSO…"),
                 GameDialogSink.Icon.NONE, 820, 0, false, "", "");
         dialog.externallyControlled = true;
         return dialog;
@@ -367,5 +410,11 @@ final class GdxTableDialog {
             case AUTO_CALL -> "AUTO IGUALAR";
             case HAND_LIMIT -> "L\u00cdMITE DE MANOS";
         };
+    }
+
+    private static String tr(GameText text, String key, String fallback) {
+        Objects.requireNonNull(text, "text");
+        String translated = text.translate(key);
+        return key.equals(translated) ? fallback : translated;
     }
 }

@@ -192,6 +192,33 @@ final class GdxTableDialogTest {
         assertEquals(20, limited.amount());
     }
 
+    @Test
+    void nativeFactoriesUseTheActiveLanguageWithoutDuplicatingBehavior() {
+        GdxGameText english = new GdxGameText("en");
+
+        GdxTableDialog autoCall = GdxTableDialog.autoCall(true, 1d, english);
+        assertEquals("AUTO CALL", autoCall.title());
+        assertEquals("CANCEL", autoCall.negativeLabel());
+        assertEquals("OK", autoCall.positiveLabel());
+
+        GdxTableDialog handLimit = GdxTableDialog.handLimit(4, 10, english);
+        assertEquals("Hand limit", handLimit.title());
+        assertTrue(handLimit.message().startsWith("THE GAME ENDS"));
+        assertEquals("SAVE", handLimit.positiveLabel());
+
+        GdxTableDialog autoAction = GdxTableDialog.autoAction("CALL", english);
+        assertEquals("AUTO MODE", autoAction.title());
+        assertEquals("CANCEL", autoAction.negativeLabel());
+
+        GdxTableDialog gameOver = GdxTableDialog.gameOverChoice(10, english);
+        assertEquals("SPECTATOR", gameOver.negativeLabel());
+        assertEquals("CONTINUE", gameOver.positiveLabel());
+
+        GdxTableDialog recovery = GdxTableDialog.recovery(english);
+        assertEquals("RECOVERING GAME", recovery.title());
+        assertTrue(recovery.message().startsWith("REBUILDING"));
+    }
+
     private static GdxTableDialog dialog(GdxTableDialog.Kind kind, int seconds) {
         return new GdxTableDialog(kind, "mensaje", GameDialogSink.Icon.NONE,
                 0, seconds);

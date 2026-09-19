@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 00:45 (Europe/Madrid)
+Última actualización: 2026-09-20 00:51 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,12 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Los diálogos nativos de auto-igualar, límite de manos, modo auto,
+  recuperación, recompra y elección tras game-over comparten ahora fábricas
+  localizadas y consumen el idioma activo sin duplicar su lógica ni alterar
+  temporizadores o decisiones. Pruebas focalizadas: **27/27**. JAR GDX:
+  266.264.308 bytes, SHA-256
+  `09BB4513F8FDB161F0C954A0C3E7219C0142ED1BE253979ACDD38E4D5CD509E6`.
 - Cerrado otro bloque de idioma funcional dentro de la mesa: votación RIT,
   straddle, recompra, salida, parada recuperable, última mano, reconexión
   forzada, pausa, bote y estados de terminación ya consumen el idioma activo.

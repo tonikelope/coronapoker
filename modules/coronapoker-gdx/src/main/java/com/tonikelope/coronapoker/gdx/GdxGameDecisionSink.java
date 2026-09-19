@@ -124,7 +124,7 @@ final class GdxGameDecisionSink implements GameDecisionSink {
         // RebuyDialog.  Combining both in one modal used the wrong timeout and
         // could commit an amount before the player had actually chosen rebuy.
         GdxTableDialog choice = GdxTableDialog.gameOverChoice(
-                request.timeoutSeconds());
+                request.timeoutSeconds(), text);
         CompletableFuture<GameOverResult> result = new CompletableFuture<>();
         choice.result().thenAccept(continuePlaying -> {
             if (!continuePlaying) {
@@ -140,6 +140,7 @@ final class GdxGameDecisionSink implements GameDecisionSink {
                 GdxTableDialog rebuy = new GdxTableDialog(
                         text.translate("rebuy.recomprar_3"), "", 820,
                         GameTiming.REBUY_DIALOG_COUNTDOWN_SECONDS, true, "",
+                        tr("ui.aceptar", "ACEPTAR"),
                         request.minimum(), request.maximum(),
                         request.defaultAmount());
                 rebuy.result().thenAccept(accepted -> result.complete(
@@ -160,7 +161,7 @@ final class GdxGameDecisionSink implements GameDecisionSink {
 
     @Override
     public CloseHandle showRecovery() {
-        GdxTableDialog dialog = GdxTableDialog.recovery();
+        GdxTableDialog dialog = GdxTableDialog.recovery(text);
         presenter.accept(dialog);
         return dialog::dismiss;
     }
@@ -326,6 +327,7 @@ final class GdxGameDecisionSink implements GameDecisionSink {
                     "", 820, request.timeoutSeconds(),
                     !request.cancelAllowed(), cancelVisible
                             ? tr("ui.cancelar", "CANCELAR") : "",
+                    tr("ui.aceptar", "ACEPTAR"),
                     request.minimum(), request.maximum(),
                     request.defaultAmount());
             dialog.result().thenAccept(accepted -> result.complete(

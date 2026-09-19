@@ -3600,7 +3600,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!tableHost || liveSettingsDraft == null) return;
         GdxTableDialog dialog = GdxTableDialog.handLimit(
                 liveState == null ? 0 : liveState.handNumber(),
-                liveSettingsDraft.hands());
+                liveSettingsDraft.hands(), gameText);
         dialog.result().thenAccept(accepted -> {
             if (accepted && liveSettingsDraft != null) {
                 liveSettingsDraft = liveSettingsDraft.withHands(
@@ -4010,7 +4010,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         String action = target == 1 ? "NO IR"
                 : controls.callAction() == ActionControlState.CallAction.CHECK
                         ? "PASAR" : "IGUALAR";
-        GdxTableDialog confirmation = GdxTableDialog.autoAction(action);
+        GdxTableDialog confirmation = GdxTableDialog.autoAction(action,
+                gameText);
         confirmation.result().thenAccept(accepted -> {
             if (accepted && hasActiveLocalTurn()) {
                 // See the direct path above: a synchronous hand boundary must
@@ -9945,7 +9946,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         queuedPreAction = preActionAfterOpeningAutoCallSettings(
                 queuedPreAction, localTurn);
         GdxTableDialog dialog = GdxTableDialog.autoCall(
-                autoCallEnabled, autoCallMax);
+                autoCallEnabled, autoCallMax, gameText);
         dialog.result().thenAccept(saved -> {
             if (!saved) return;
             autoCallEnabled = dialog.optionEnabled();

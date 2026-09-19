@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 19:36 (Europe/Madrid)
+Última actualización: 2026-09-19 19:39 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -25,8 +25,8 @@ visual archivada en `reference/gdx-demo` y únicos ejecutables en `target`.
   y antialiasing. El aviso transaccional al cancelar con cambios pendientes
   también es común y traducible. Pruebas focalizadas de idioma/atajos:
   **24/24**; contrato de snapshot, restauración y transacción: **36/36**.
-  JAR GDX: 266.249.150 bytes, SHA-256
-  `1574E96CDD056465CC261AF7D897F5B0E950EEA0EAC1524D781361816D7C6E16`.
+  JAR GDX: 266.249.123 bytes, SHA-256
+  `A73FFBE63CC433F82A11110BF89F90B03EE583F32DB75FD4E9CA350735F33920`.
 - Los resúmenes de Ajustes dentro de una partida ya consumen el idioma activo:
   tiempos de timba, compra/recompra y los cuatro niveles de Rabbit Hunting no
   conservan textos españoles al cambiar a inglés. El mismo formateador se usa

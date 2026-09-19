@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 01:14 (Europe/Madrid)
+Última actualización: 2026-09-20 01:38 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,14 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Corregida la reproducción de notas de voz en la sala GDX: mientras la sala
+  está visible, las notas quedan como mensajes reproducibles mediante su botón,
+  igual que en Swing, y ya no irrumpen automáticamente al recibirse. La
+  reproducción automática sigue reservada a las notificaciones de la mesa
+  activa y conserva sus ajustes de bloqueo/voz propia. Transporte de voz y
+  validación WAV permanecen cubiertos por la integración real de dos sesiones;
+  bloque focalizado: **7/7**. JAR GDX: 266.267.053 bytes, SHA-256
+  `E4E606C782852B3DBFCBDC135339C8C04FCD7BDD6C5035BCC4B2CC2EEADD06DD`.
 - Certificado el chat de mesa sobre dos sesiones de red reales y el consumidor
   GDX: texto, URL de imagen/GIF y una nota de voz WAV generada por el propio
   códec GDX llegan idénticos a host y cliente; una carga de voz inválida es
@@ -1320,9 +1328,11 @@ protocolo ni criptografía. Estadísticas queda para el final.
 6. En paralelo, reforzar los escenarios GDX cuando aparezca una regresión P0:
    la prueba debe recorrer el consumidor de producto responsable, no resolver
    directamente el modelo ni limitarse a comprobar el core.
-7. EN CURSO: chat/medios. La galería compartida lobby/mesa y su persistencia ya
-   están cerradas en pruebas focalizadas; sigue QA visual/multiproceso, voz y
-   notificaciones. Después: pantalla final, registro/navegación, lobby,
+7. EN CURSO: chat/medios. La galería compartida lobby/mesa y su persistencia,
+   el transporte de voz real y la separación entre reproducción manual en sala
+   y notificación automática en mesa ya están cerrados; sigue QA
+   visual/multiproceso y la certificación interactiva del dispositivo de voz y
+   las notificaciones. Después: pantalla final, registro/navegación, lobby,
    rendimiento y certificación final FAST/BALANCED. Estadísticas se abordará
    sólo al final, por decisión expresa.
 

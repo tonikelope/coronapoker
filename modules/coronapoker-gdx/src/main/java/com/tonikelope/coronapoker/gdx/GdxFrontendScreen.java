@@ -1808,6 +1808,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void handleLobbyMedia(LobbySnapshot next) {
         Set<Long> retained = new HashSet<>();
+        // Match the established Swing flow: while the waiting room is
+        // visible, voice notes are passive chat entries and play only after
+        // the user presses their playback control. Automatic voice
+        // notification belongs exclusively to the active table.
         for (LobbyChatMessage message : next.chat()) {
             if (message.type() == LobbyChatMessage.Type.IMAGE) {
                 retained.add(message.sequence());
@@ -1834,23 +1838,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     refreshLobbyHistoryMedia();
                 }
                 loadLobbyImage(message);
-                continue;
-            }
-            if (message.type() != LobbyChatMessage.Type.VOICE
-                    || !audioControl.enabled()
-                    || preferenceBoolean("audio_block_voice_messages", false)
-                    || (message.nickname().equals(next.localNickname())
-                    && !preferenceBoolean("audio_play_own_voice", true))) {
-                continue;
-            }
-            try {
-                byte[] wav = Base64.getDecoder().decode(message.content());
-                if (com.tonikelope.coronapoker.core.audio.VoiceWavContract
-                        .isValid(wav)) {
-                    GdxVoicePlayback.play(wav);
-                }
-            } catch (IllegalArgumentException malformed) {
-                // Invalid remote audio remains an inert history item.
             }
         }
     }

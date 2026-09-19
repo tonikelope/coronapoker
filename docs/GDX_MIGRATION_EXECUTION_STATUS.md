@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 22:22 (Europe/Madrid)
+Última actualización: 2026-09-19 22:42 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,17 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- La distribución canónica ya limpia automáticamente JARs versionados y logs
+  de humo obsoletos antes de empaquetar. Un `clean package` completo deja
+  exclusivamente `CoronaPoker-24.11-gdx.jar` y
+  `CoronaPoker-24.11-swing.jar` en `target`; no se ha tocado ningún mod ni
+  recurso del usuario.
+- Completada otra pasada de internacionalización del frontend GDX: estados de
+  carga y error de sala/mesa, menú de edición, selector de avatar, galería de
+  imágenes recibidas y ausencia de servidores recientes ya usan el diccionario
+  común ES/EN. Pruebas focalizadas de texto, chat y avatar: **8/8**; compilación
+  y empaquetado correctos. JAR GDX: 266.257.596 bytes, SHA-256
+  `7A70F3E8AFD325A7199397D1555310260D0D75C165E6CE895F67FC7AB833B865`.
 - Cerrado un bloque funcional del cambio de idioma en la sala de espera: los
   controles de chat, placeholders, presencia de jugadores, galería, paginación
   de emojis y estados/errores de notas de voz ya se resuelven en vivo mediante

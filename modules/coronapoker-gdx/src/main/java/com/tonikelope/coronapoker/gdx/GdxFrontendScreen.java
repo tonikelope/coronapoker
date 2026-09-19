@@ -626,7 +626,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         playPreferenceSound("misc/network_error_" + localized + ".wav",
                 "sonido_error_red", 0.88f);
         showToast(detail == null || detail.isBlank()
-                ? "No se pudo abrir la mesa" : detail);
+                ? gameText.translate("gdx.table.open_failed") : detail);
     }
 
     private void drawFeltBackground() {
@@ -1079,7 +1079,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     drawnWidth, drawnHeight));
         } else {
             String state = media != null && media.failed
-                    ? "[Imagen no disponible]" : "[Cargando imagen...]";
+                    ? gameText.translate("gdx.lobby.image_unavailable")
+                    : gameText.translate("gdx.lobby.image_loading");
             textFit(tinyFont, state, x + width / 2f,
                     y + height / 2f + 6f, color, true, width);
         }
@@ -1399,9 +1400,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.setColor(new Color(0x36d9ffb8));
         shapes.rect(586f, 641f, 748f, 3f);
 
-        textFit(headingFont, "INICIALIZANDO TIMBA...",
+        textFit(headingFont, uppercase(gameText.translate(
+                "game.inicializando_timba")),
                 960f, 560f, GOLD, true, 680f);
-        textFit(smallFont, "PREPARANDO LA MESA",
+        textFit(smallFont, uppercase(gameText.translate(
+                "gdx.lobby.preparing_table")),
                 960f, 508f, MUTED, true, 620f);
 
         float trackX = 660f;
@@ -1479,7 +1482,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         boolean autoReceive = GdxChatImageHistory.autoReceive(
                 initialProperties);
         themedButton(x + w - 382f, y + h - 68f, 220f, 48f,
-                autoReceive ? "RECIBIDAS: SÍ" : "RECIBIDAS: NO",
+                uppercase(gameText.translate(autoReceive
+                        ? "gdx.lobby.received_images_on"
+                        : "gdx.lobby.received_images_off")),
                 autoReceive ? ButtonTone.POSITIVE : ButtonTone.NEUTRAL,
                 () -> {
                     GdxChatImageHistory.setAutoReceive(initialProperties,
@@ -1487,7 +1492,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     if (preferences != null) preferences.saveDeferred();
                 }, true);
         themedButton(x + w - 152f, y + h - 68f, 128f, 48f,
-                "VACIAR", ButtonTone.NEUTRAL, this::clearLobbyImageHistory,
+                uppercase(gameText.translate("gdx.lobby.clear")),
+                ButtonTone.NEUTRAL, this::clearLobbyImageHistory,
                 !lobbyImageHistory.isEmpty());
 
         if (lobbyImageHistory.isEmpty()) {
@@ -1529,7 +1535,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         cellY + (cellH - imageH) / 2f, imageW, imageH));
             } else {
                 String state = media != null && media.failed()
-                        ? "NO DISPONIBLE" : "CARGANDO...";
+                        ? uppercase(gameText.translate(
+                                "gdx.lobby.media_unavailable"))
+                        : uppercase(gameText.translate(
+                                "gdx.lobby.media_loading"));
                 textFit(tinyFont, state, cellX + cellW / 2f,
                         cellY + cellH / 2f + 7f,
                         media != null && media.failed() ? ORANGE : MUTED,
@@ -3123,7 +3132,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawSoundControl(float x, float y, float w, float h,
             boolean showLabel) {
         if (showLabel) {
-            text(smallFont, "SONIDO", x, y + h * 0.66f, MUTED, false);
+            text(smallFont, uppercase(gameText.translate("audio.sonidos")),
+                    x, y + h * 0.66f, MUTED, false);
         }
         float iconSize = Math.min(52f, h);
         float iconX = showLabel ? x + w - iconSize
@@ -3321,7 +3331,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 connection.port(), "port", false);
         if (connection.mode() == NewGameConnectionDraft.Mode.JOIN) {
             String history = connection.serverHistory().isEmpty()
-                    ? "Sin servidores anteriores"
+                    ? gameText.translate("gdx.newgame.no_previous_servers")
                     : connection.serverHistory().get(historyIndex < 0
                             ? connection.serverHistory().size() - 1 : historyIndex);
             bidirectionalChoice(1170f, 475f, 635f,
@@ -4320,10 +4330,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && completion.getCause() != null ? completion.getCause() : failure;
     }
 
-    private static String submissionError(Throwable failure) {
+    private String submissionError(Throwable failure) {
         String message = failure.getMessage();
         return message == null || message.isBlank()
-                ? "No se pudo abrir la sala de espera" : message;
+                ? gameText.translate("gdx.lobby.open_failed") : message;
     }
 
     private void drawToast() {
@@ -4467,21 +4477,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         outerBox(x, y, w, editMenu.bounds.height, CYAN_DARK,
                 new Color(0x071221fc));
         editMenuItem(x + 8f, y + 152f, w - 16f, row,
-                "CORTAR", selected, () -> {
+                uppercase(gameText.translate("ui.cortar")), selected, () -> {
                     String current = activeValue();
                     copyActiveSelection(current);
                     setActiveValue(textEdit.delete(current));
                 });
         editMenuItem(x + 8f, y + 104f, w - 16f, row,
-                "COPIAR", selected,
+                uppercase(gameText.translate("ui.copiar")), selected,
                 () -> copyActiveSelection(activeValue()));
         editMenuItem(x + 8f, y + 56f, w - 16f, row,
-                "PEGAR", clipboard != null && !clipboard.isEmpty(),
+                uppercase(gameText.translate("ui.pegar")),
+                clipboard != null && !clipboard.isEmpty(),
                 () -> replaceActiveSelection(
                         Objects.requireNonNullElse(
                                 Gdx.app.getClipboard().getContents(), "")));
         editMenuItem(x + 8f, y + 8f, w - 16f, row,
-                "SELECCIONAR TODO", !value.isEmpty(),
+                uppercase(gameText.translate("ui.seleccionar_todo")),
+                !value.isEmpty(),
                 () -> textEdit.selectAll(activeValue()));
     }
 
@@ -4834,7 +4846,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (avatarSelectionPending || connection == null) return;
         avatarSelectionPending = true;
         NewGameConnectionDraft target = connection;
-        CompletableFuture.supplyAsync(GdxFrontendScreen::openAvatarFileDialog,
+        String title = gameText.translate("gdx.avatar.select");
+        CompletableFuture.supplyAsync(() -> openAvatarFileDialog(title),
                 recoveryExecutor).whenComplete((selected, failure) ->
                 Gdx.app.postRunnable(() -> completeAvatarSelection(target,
                         selected, failure)));
@@ -4846,13 +4859,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (disposed || connection != target) return;
         Throwable cause = unwrap(failure);
         if (cause != null) {
-            showToast("No se pudo abrir el selector de avatar");
+            showToast(gameText.translate("gdx.avatar.select_failed"));
             LOGGER.log(Level.WARNING, "GDX avatar selector failed", cause);
             return;
         }
         if (selected == null) return;
         if (!isSupportedAvatar(selected) || !connection.setAvatar(selected)) {
-            showToast("Avatar no valido o mayor de 256 KB");
+            showToast(gameText.translate("gdx.avatar.invalid"));
             return;
         }
         refreshSelectedAvatarTexture();
@@ -4897,9 +4910,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
     }
 
-    private static Path openAvatarFileDialog() {
+    private static Path openAvatarFileDialog(String title) {
         FileDialog dialog = new FileDialog((Frame) null,
-                "Seleccionar avatar", FileDialog.LOAD);
+                title, FileDialog.LOAD);
         dialog.setMultipleMode(false);
         dialog.setDirectory(System.getProperty("user.home"));
         dialog.setFilenameFilter((directory, name) -> {

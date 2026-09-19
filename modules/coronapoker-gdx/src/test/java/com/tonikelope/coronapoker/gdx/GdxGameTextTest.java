@@ -48,6 +48,13 @@ final class GdxGameTextTest {
                 text.translate("gdx.lobby.voice_recording"));
         assertEquals("The voice message could not be played",
                 text.translate("gdx.lobby.voice_playback_failed"));
+        assertEquals("Preparing the table",
+                text.translate("gdx.lobby.preparing_table"));
+        assertEquals("Select avatar", text.translate("gdx.avatar.select"));
+        assertEquals("No previous servers",
+                text.translate("gdx.newgame.no_previous_servers"));
+        assertEquals("The table could not be opened",
+                text.translate("gdx.table.open_failed"));
 
         assertEquals("es", text.setLanguage("not-a-language"));
         assertEquals("CREAR TIMBA", text.translate("game.crear_timba"));

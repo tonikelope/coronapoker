@@ -3,6 +3,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import java.io.ByteArrayInputStream;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
@@ -41,8 +42,10 @@ final class GdxVoicePlayback {
                     line.close();
                 }
             }
-        } catch (Exception ignored) {
-            // A missing/occupied output device must never block the game loop.
+        } catch (Exception failure) {
+            // Playback stays off the render thread, but callers still need to
+            // distinguish a completed note from an unavailable output device.
+            throw new CompletionException(failure);
         }
     }
 

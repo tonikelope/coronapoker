@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 01:38 (Europe/Madrid)
+Última actualización: 2026-09-20 01:26 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,13 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- El reproductor asíncrono de notas de voz ya propaga al consumidor los fallos
+  de decodificación o del dispositivo de salida en vez de silenciarlos. El
+  botón de reproducción de la sala muestra el error traducido sin bloquear el
+  hilo de render; la mesa conserva el cierre seguro de su aviso. Pruebas
+  focalizadas de voz/chat/texto: **17/17**. JAR GDX: 266.267.235 bytes,
+  SHA-256
+  `791DF8F6BC1A2149B7C05970D8EBF82007FBA21115AA3EEF5A55FF01B03146B3`.
 - Corregida la reproducción de notas de voz en la sala GDX: mientras la sala
   está visible, las notas quedan como mensajes reproducibles mediante su botón,
   igual que en Swing, y ya no irrumpen automáticamente al recibirse. La

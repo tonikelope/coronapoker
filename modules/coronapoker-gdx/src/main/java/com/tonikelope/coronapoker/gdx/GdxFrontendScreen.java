@@ -1891,7 +1891,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 showToast(gameText.translate("gdx.lobby.voice_invalid"));
                 return;
             }
-            GdxVoicePlayback.play(wav);
+            GdxVoicePlayback.play(wav).whenComplete((ignored, failure) -> {
+                if (failure == null || Gdx.app == null) return;
+                Gdx.app.postRunnable(() -> {
+                    if (!disposed) {
+                        showToast(gameText.translate(
+                                "gdx.lobby.voice_playback_failed"));
+                    }
+                });
+            });
         } catch (IllegalArgumentException malformed) {
             showToast(gameText.translate("gdx.lobby.voice_playback_failed"));
         }

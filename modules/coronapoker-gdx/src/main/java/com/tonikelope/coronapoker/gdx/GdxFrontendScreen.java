@@ -234,6 +234,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean lobbyCommandPending;
     private boolean lobbyGameStarting;
     private LobbyConfirmation lobbyConfirmation;
+    private boolean lobbyPasswordDialog;
+    private String lobbyPasswordDraft = "";
     private PresetDialog presetDialog = PresetDialog.NONE;
     private final GdxBlindStructureEditor blindStructureEditor =
             new GdxBlindStructureEditor();
@@ -446,6 +448,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             drawToast();
         }
         if (editMenu != null && lobbyConfirmation == null
+                && !lobbyPasswordDialog
                 && presetDialog == PresetDialog.NONE
                 && blindStructureDialog == BlindStructureDialog.NONE
                 && !settingsDiscardConfirmation
@@ -482,7 +485,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // are batched separately from shapes, so drawing the modal inside
         // drawLobby would otherwise let the lobby chat glyphs bleed over it.
         if ((surface == Surface.LOBBY
-                && (lobbyConfirmation != null || lobbyGameStarting))
+                && (lobbyConfirmation != null || lobbyPasswordDialog
+                        || lobbyGameStarting))
                 || (surface == Surface.SETTINGS
                 && (settingsDiscardConfirmation
                         || blindStructureDialog
@@ -509,6 +513,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 } else {
                     drawPresetDialog();
                 }
+            } else if (lobbyPasswordDialog) {
+                drawLobbyPasswordDialog();
             } else if (lobbyConfirmation != null) {
                 drawLobbyConfirmation();
             } else {
@@ -558,6 +564,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyCommandPending = false;
         lobbyGameStarting = false;
         lobbyConfirmation = null;
+        lobbyPasswordDialog = false;
+        lobbyPasswordDraft = "";
         clearActiveField();
         surface = Surface.LOBBY;
         if (connection != null
@@ -744,8 +752,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 70f, 748f, MUTED, false);
         textFit(smallFont, state.serverAddress(), 70f, 718f,
                 Color.WHITE, false, 360f);
-        drawLobbyGameInfo(state, 70f, 645f);
+        drawLobbyGameInfo(state, 70f, state.host() ? 605f : 645f);
         if (state.host()) {
+            button(70f, 650f, 360f, 46f,
+                    uppercase(gameText.translate("auth.menu_cambiar_password")),
+                    false, this::openLobbyPasswordDialog,
+                    !lobbyCommandPending && !state.startingOrStarted());
             button(70f, 392f, 360f, 64f,
                     uppercase(gameText.translate("ui.anadir_bot")), false,
                     () -> submitLobbyCommand(new LobbyCommand.AddBot(), null),
@@ -1352,6 +1364,62 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 this::confirmLobbyAction, true);
     }
 
+    private void openLobbyPasswordDialog() {
+        LobbySnapshot state = lobby;
+        if (state == null || !state.host() || state.startingOrStarted()) return;
+        lobbyPasswordDraft = connection == null ? "" : connection.password();
+        lobbyPasswordDialog = true;
+        activateField("lobbyPassword");
+    }
+
+    private void closeLobbyPasswordDialog() {
+        lobbyPasswordDialog = false;
+        lobbyPasswordDraft = "";
+        clearActiveField();
+    }
+
+    private void drawLobbyPasswordDialog() {
+        hits.clear();
+        textFieldHits.clear();
+        editMenuHits.clear();
+        shapes.setColor(new Color(0x02050cdd));
+        shapes.rect(0f, 0f, WIDTH, HEIGHT);
+        outerBox(560f, 335f, 800f, 390f, CYAN_DARK,
+                new Color(0x071321ff));
+        shapes.setColor(new Color(0x36d9ffb8));
+        shapes.rect(590f, 698f, 740f, 3f);
+        textFit(headingFont, uppercase(gameText.translate(
+                "auth.menu_cambiar_password")), 960f, 650f, GOLD,
+                true, 700f);
+        field(660f, 490f, 600f,
+                gameText.translate("auth.input_nueva_password"),
+                lobbyPasswordDraft, "lobbyPassword", true);
+        textFit(tinyFont, gameText.translate("gdx.lobby.password_hint"),
+                960f, 455f, MUTED, true, 650f);
+        themedButton(660f, 370f, 270f, 64f,
+                gameText.translate("ui.cancelar"), ButtonTone.NEUTRAL,
+                this::closeLobbyPasswordDialog, !lobbyCommandPending);
+        themedButton(990f, 370f, 270f, 64f,
+                gameText.translate("ui.guardar"), ButtonTone.POSITIVE,
+                this::submitLobbyPassword, !lobbyCommandPending);
+    }
+
+    private void submitLobbyPassword() {
+        LobbySnapshot state = lobby;
+        if (state == null || !state.host() || state.startingOrStarted()) {
+            closeLobbyPasswordDialog();
+            return;
+        }
+        String next = Objects.requireNonNullElse(lobbyPasswordDraft, "");
+        submitLobbyCommand(new LobbyCommand.ChangePassword(next), () -> {
+            if (connection != null) connection.setPassword(next);
+            closeLobbyPasswordDialog();
+            showToast(gameText.translate(next.isEmpty()
+                    ? "auth.password_eliminada"
+                    : "gdx.lobby.password_updated"));
+        });
+    }
+
     private void drawSettingsDiscardConfirmation() {
         hits.clear();
         textFieldHits.clear();
@@ -1898,6 +1966,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbySession = null;
         lobby = null;
         selectedParticipant = null;
+        lobbyPasswordDialog = false;
+        lobbyPasswordDraft = "";
         clearActiveField();
         surface = Surface.MENU;
         sessionReturnedToMenu.run();
@@ -5286,6 +5356,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 activateField("lobbyChat");
                 return true;
             }
+            if (surface == Surface.LOBBY && lobbyPasswordDialog) {
+                closeLobbyPasswordDialog();
+                return true;
+            }
             if (surface == Surface.NEW_GAME) {
                 cancelOrReturnToMenu();
             } else if (surface == Surface.LOBBY) {
@@ -5306,6 +5380,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && ("lobbyChat".equals(activeField)
                         || "lobbyImage".equals(activeField))) {
             sendLobbyComposer();
+            return true;
+        }
+        if ((keycode == Input.Keys.ENTER || keycode == Input.Keys.NUMPAD_ENTER)
+                && lobbyPasswordDialog
+                && "lobbyPassword".equals(activeField)) {
+            submitLobbyPassword();
             return true;
         }
         if ((keycode == Input.Keys.ENTER || keycode == Input.Keys.NUMPAD_ENTER)
@@ -5495,7 +5575,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private int activeFieldLimit() {
         return switch (activeField) {
             case "nick" -> 15;
-            case "password" -> 30;
+            case "password", "lobbyPassword" -> 30;
             case "port" -> 5;
             case "lobbyChat" -> 16 * 1024 * 1024;
             case "presetName" -> GamePresetCatalog.MAX_NAME_LENGTH;
@@ -5527,6 +5607,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case "port" -> connection.port();
             case "lobbyChat" -> lobbyChatDraft;
             case "lobbyImage" -> lobbyImageDraft;
+            case "lobbyPassword" -> lobbyPasswordDraft;
             case "presetName" -> presetNameDraft;
             case "blindStructureName" -> blindStructureNameDraft;
             default -> "";
@@ -5541,6 +5622,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case "port" -> connection.setPort(value);
             case "lobbyChat" -> lobbyChatDraft = value;
             case "lobbyImage" -> lobbyImageDraft = value;
+            case "lobbyPassword" -> lobbyPasswordDraft = value;
             case "presetName" -> presetNameDraft = value;
             case "blindStructureName" -> blindStructureNameDraft = value;
             default -> {
@@ -5569,7 +5651,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     index -> nextComposerBoundary(value, index),
                     index -> composerWidth(value.substring(start, index)));
         } else {
-            boolean masked = "password".equals(field.id);
+            boolean masked = "password".equals(field.id)
+                    || "lobbyPassword".equals(field.id);
             String display = masked
                     ? "\u2022".repeat(value.codePointCount(0, value.length()))
                     : value;

@@ -137,7 +137,8 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private void attachTable(TableSession session) {
         if (table != null) {
             session.close();
-            menu.showSessionError("Ya hay una mesa GDX abierta");
+            menu.showSessionError(gameText.translate(
+                    "gdx.table.already_open"));
             return;
         }
         GdxTableRenderer renderer = new GdxTableRenderer(session.commands());
@@ -251,8 +252,8 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 // table creation fails, restore that same surface without
                 // restarting or replacing its decoder.
                 menu.resumeMusic();
-                menu.showSessionError("No se pudo abrir la mesa: "
-                        + rootMessage(error));
+                menu.showSessionError(gameText.translate(
+                        "gdx.table.open_failed_detail", rootMessage(error)));
                 openingBarrier.completeExceptionally(error);
             }
         });

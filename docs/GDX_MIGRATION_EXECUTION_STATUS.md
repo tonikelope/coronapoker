@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 22:42 (Europe/Madrid)
+Última actualización: 2026-09-19 22:47 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,11 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Los estados reales de preparación de mesa y los errores del shell al abrir
+  una mesa ya responden al idioma activo; se eliminan así textos españoles
+  residuales durante el salto sala-mesa. Pruebas focalizadas de proyección y
+  texto: **97/97**. JAR GDX: 266.257.742 bytes, SHA-256
+  `210A6541E9698463D5E9181B798AF292143E61F9ACBF2CFB0A7ECA87785997D5`.
 - La distribución canónica ya limpia automáticamente JARs versionados y logs
   de humo obsoletos antes de empaquetar. Un `clean package` completo deja
   exclusivamente `CoronaPoker-24.11-gdx.jar` y

@@ -6529,22 +6529,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.end();
 
         batch.begin();
-        drawFittedCenteredInBox(actionFont, "PREPARANDO LA MESA",
+        drawFittedCenteredInBox(actionFont,
+                uppercase(gameText.translate("gdx.lobby.preparing_table")),
                 panelX + 44f, panelY + 142f, panelW - 88f, 58f,
                 POT_GOLD, 1f);
         drawFittedCenteredInBox(uiFont,
-                preparationStatusText(preparationPhase),
+                preparationStatusText(preparationPhase, gameText),
                 panelX + 44f, panelY + 91f, panelW - 88f, 42f,
                 Color.WHITE, 1f);
         batch.end();
     }
 
     static String preparationStatusText(
-            TableVisualEvent.PreparationStatus.Phase phase) {
+            TableVisualEvent.PreparationStatus.Phase phase,
+            GdxGameText gameText) {
         return switch (Objects.requireNonNull(phase, "phase")) {
-            case STARTING_DEALER -> "Iniciando crupier…";
-            case DRAWING_SEATS -> "Sorteando sitios…";
-            case READY -> "Mesa preparada";
+            case STARTING_DEALER -> gameText.translate(
+                    "gdx.table.preparation.starting_dealer");
+            case DRAWING_SEATS -> gameText.translate("ui.sorteando_sitios");
+            case READY -> gameText.translate("gdx.table.preparation.ready");
         };
     }
 

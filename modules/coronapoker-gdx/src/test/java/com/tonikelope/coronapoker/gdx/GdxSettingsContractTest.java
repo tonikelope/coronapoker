@@ -28,6 +28,17 @@ final class GdxSettingsContractTest {
     }
 
     @Test
+    void msaaSummaryIsSharedAndFollowsTheLiveLanguage() {
+        assertEquals("4X  ·  ACTIVO", GdxSettingsContract.msaaStatusLabel(
+                4, 4, new GdxGameText("es")));
+        assertEquals("4X  ·  ACTIVE", GdxSettingsContract.msaaStatusLabel(
+                4, 4, new GdxGameText("en")));
+        assertEquals("4X  ·  RESTART (CURRENT DISABLED)",
+                GdxSettingsContract.msaaStatusLabel(4, 0,
+                        new GdxGameText("en")));
+    }
+
+    @Test
     void menuUsesTheCanonicalSwingTabOrder() {
         assertEquals(java.util.List.of(
                 GdxSettingsContract.Section.APPEARANCE,

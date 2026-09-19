@@ -4570,20 +4570,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return uppercase(gameText.translate(
                     "gdx.settings.value.unavailable"));
         }
-        int requested = presentationSettings.requestedMsaaSamples();
-        int actual = presentationSettings.actualMsaaSamples();
-        String requestedText = requested == 0
-                ? uppercase(gameText.translate("gdx.settings.value.disabled"))
-                : requested + "X";
-        if (actual == requested) {
-            return requestedText + "  ·  " + uppercase(gameText.translate(
-                    "gdx.settings.value.active"));
-        }
-        String actualText = actual == 0
-                ? uppercase(gameText.translate("gdx.settings.value.disabled"))
-                : actual + "X";
-        return requestedText + "  ·  " + uppercase(gameText.translate(
-                "gdx.settings.value.restart_current", actualText));
+        return GdxSettingsContract.msaaStatusLabel(
+                presentationSettings.requestedMsaaSamples(),
+                presentationSettings.actualMsaaSamples(), gameText);
     }
 
     private void updateStars(float delta) {

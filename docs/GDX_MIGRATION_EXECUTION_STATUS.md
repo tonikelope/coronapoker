@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 20:06 (Europe/Madrid)
+Última actualización: 2026-09-19 20:12 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -18,6 +18,12 @@ visual archivada en `reference/gdx-demo` y únicos ejecutables en `target`.
 
 ## Checkpoint de consolidación 2026-09-19
 
+- Unificado el resumen de antialiasing de Ajustes: menú principal y mesa
+  consumen ahora el mismo formateador y el idioma activo, incluido el estado
+  de cambio pendiente de reinicio y el valor realmente aplicado. Se elimina
+  así la implementación española duplicada del menú. Contrato focalizado de
+  Ajustes: **19/19**. JAR GDX: 266.249.583 bytes, SHA-256
+  `2DFA22F827A7D92A12047E63AE13B58A0765B1D475CBD816996E3E905072D9F2`.
 - Cerrado con evidencia el recorrido de configuración Nueva timba → sala de
   espera → arranque autoritativo. Una prueba de integración modifica reglas en
   la sala antes de iniciar y exige que anfitrión e invitado abran la mesa con

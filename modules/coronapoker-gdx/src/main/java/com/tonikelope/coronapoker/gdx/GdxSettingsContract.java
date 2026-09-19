@@ -376,6 +376,26 @@ final class GdxSettingsContract {
         }
     }
 
+    /** Shared localized MSAA summary for every GDX settings entry point. */
+    static String msaaStatusLabel(int requested, int actual,
+            GdxGameText text) {
+        String requestedText = msaaValue(requested, text);
+        if (actual == requested) {
+            return requestedText + "  \u00b7  " + translatedUpper(text,
+                    "gdx.settings.value.active", "ACTIVO");
+        }
+        return requestedText + "  \u00b7  " + translatedUpper(text,
+                "gdx.settings.value.restart_current",
+                "REINICIAR (ACTUAL " + msaaValue(actual, text) + ")",
+                msaaValue(actual, text));
+    }
+
+    private static String msaaValue(int samples, GdxGameText text) {
+        return samples == 0 ? translatedUpper(text,
+                "gdx.settings.value.disabled", "DESACTIVADO")
+                : samples + "X";
+    }
+
     /** Host-authoritative communication rules, unlike local audio choices. */
     static boolean isGlobalCommunicationOption(ToggleOption option) {
         return option != null && ("tts_server".equals(option.key())

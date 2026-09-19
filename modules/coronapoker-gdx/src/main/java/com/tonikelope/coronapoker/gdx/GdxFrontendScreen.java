@@ -3067,12 +3067,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private String msaaSettingLabel() {
-        int requested = presentationSettings.requestedMsaaSamples();
-        int actual = presentationSettings.actualMsaaSamples();
-        String requestedText = requested == 0 ? "DESACTIVADO" : requested + "X";
-        if (actual == requested) return requestedText + "  ·  ACTIVO";
-        String actualText = actual == 0 ? "DESACTIVADO" : actual + "X";
-        return requestedText + "  ·  REINICIAR (ACTUAL " + actualText + ")";
+        return GdxSettingsContract.msaaStatusLabel(
+                presentationSettings.requestedMsaaSamples(),
+                presentationSettings.actualMsaaSamples(), gameText);
     }
 
     private void selectNextMsaa() {

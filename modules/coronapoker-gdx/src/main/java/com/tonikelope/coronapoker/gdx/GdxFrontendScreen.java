@@ -149,7 +149,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final Map<String, Texture> lobbyAvatarTextures = new HashMap<>();
     private final Map<Integer, Texture> emojiTextures = new HashMap<>();
     private final Map<Long, LobbyMedia> lobbyMedia = new HashMap<>();
-    private final Map<String, LobbyMedia> lobbyHistoryMedia = new HashMap<>();
+    private final GdxChatGalleryMedia lobbyHistoryMedia =
+            new GdxChatGalleryMedia();
     private final Map<String, Float> toggleAnimations = new HashMap<>();
     private final Map<String, Float> hoverAnimations = new HashMap<>();
     private final GlyphLayout glyph = new GlyphLayout();
@@ -1498,10 +1499,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             boolean over = hovered(cellX, cellY, cellW, cellH);
             outerBox(cellX, cellY, cellW, cellH,
                     over ? CYAN : LINE, new Color(0x030911ff));
-            LobbyMedia media = lobbyHistoryMedia.get(url);
-            Texture thumbnail = media == null ? null
-                    : media.gif != null ? media.gif.frameAt(elapsed, true)
-                            : media.image;
+            GdxChatGalleryMedia.Entry media = lobbyHistoryMedia.get(url);
+            Texture thumbnail = media == null ? null : media.frameAt(elapsed);
             if (thumbnail != null) {
                 float availableW = cellW - 14f;
                 float availableH = cellH - 14f;
@@ -1513,11 +1512,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         cellX + (cellW - imageW) / 2f,
                         cellY + (cellH - imageH) / 2f, imageW, imageH));
             } else {
-                String state = media != null && media.failed
+                String state = media != null && media.failed()
                         ? "NO DISPONIBLE" : "CARGANDO...";
                 textFit(tinyFont, state, cellX + cellW / 2f,
                         cellY + cellH / 2f + 7f,
-                        media != null && media.failed ? ORANGE : MUTED,
+                        media != null && media.failed() ? ORANGE : MUTED,
                         true, cellW - 24f);
             }
             hit(cellX, cellY, cellW, cellH, () -> sendLobbyImage(url));
@@ -1802,52 +1801,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void refreshLobbyHistoryMedia() {
-        Set<String> retained = new HashSet<>(lobbyImageHistory);
-        var iterator = lobbyHistoryMedia.entrySet().iterator();
-        while (iterator.hasNext()) {
-            Map.Entry<String, LobbyMedia> entry = iterator.next();
-            if (!retained.contains(entry.getKey())) {
-                entry.getValue().dispose();
-                iterator.remove();
-            }
-        }
-        for (int index = 0; index < Math.min(8,
-                lobbyImageHistory.size()); index++) {
-            loadLobbyHistoryImage(lobbyImageHistory.get(index));
-        }
-    }
-
-    private void loadLobbyHistoryImage(String url) {
-        if (lobbyHistoryMedia.containsKey(url)) return;
-        LobbyMedia media = new LobbyMedia();
-        lobbyHistoryMedia.put(url, media);
-        CompletableFuture.supplyAsync(() -> GdxChatImageLoader.download(url))
-                .whenComplete((data, failure) -> Gdx.app.postRunnable(() -> {
-                    if (disposed || lobbyHistoryMedia.get(url) != media) return;
-                    media.loading = false;
-                    if (failure != null || data == null || data.length == 0) {
-                        media.failed = true;
-                        return;
-                    }
-                    try {
-                        if (GdxChatImageLoader.isGif(data)) {
-                            media.gif = GifTextureAnimation.load(data,
-                                    "lobby-history:" + url.hashCode(), 320);
-                        } else {
-                            Pixmap pixmap = new Pixmap(data, 0, data.length);
-                            try {
-                                media.image = new Texture(pixmap, true);
-                                media.image.setFilter(
-                                        TextureFilter.MipMapLinearLinear,
-                                        TextureFilter.Linear);
-                            } finally {
-                                pixmap.dispose();
-                            }
-                        }
-                    } catch (RuntimeException | java.io.IOException invalid) {
-                        media.failed = true;
-                    }
-                }));
+        lobbyHistoryMedia.refresh(lobbyImageHistory, 8, "lobby-history");
     }
 
     private void clearLobbyMedia() {
@@ -1859,9 +1813,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void clearLobbyHistoryMedia() {
-        for (LobbyMedia media : lobbyHistoryMedia.values()) {
-            media.dispose();
-        }
         lobbyHistoryMedia.clear();
     }
 
@@ -5530,6 +5481,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         recoveryExecutor.shutdownNow();
         cancelLobbyVoiceRecording();
         clearLobbyMedia();
+        lobbyHistoryMedia.dispose();
         submissions.cancel();
         closeLobbySubscription();
         if (lobbySession != null) {

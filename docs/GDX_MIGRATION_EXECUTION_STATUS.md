@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-19 21:16 (Europe/Madrid)
+Última actualización: 2026-09-19 21:43 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,17 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19
 
+- La selección de imágenes durante la partida ya no reutiliza un historial de
+  chat con URLs: abre la misma galería de ocho miniaturas grandes que la sala de
+  espera, permite enviar con un clic, vaciar el historial y añadir una URL
+  nueva. Lobby y mesa comparten un único cargador/caché GPU; descarga fuera del
+  hilo de render, crea y destruye texturas dentro de él y conserva GIF animado,
+  filtrado mipmap y preferencias de imágenes recibidas. Las celdas tienen una
+  regresión geométrica que exige contención y ausencia de solapes. Bloque
+  focalizado de historial, geometría, sesión de chat y atajos: **32/32**. La QA
+  visual OpenGL y la compatibilidad multiproceso Swing/GDX siguen pendientes.
+  JAR GDX: 266.255.382 bytes, SHA-256
+  `4E41DE966BF69FE4C4F856D38149F035615270270F53F6F6C49AC3AF7AF1CD36`.
 - El acceso rápido al chat ya exige simultáneamente una sesión de chat y una
   mesa viva. El botón y la tecla rápida no pueden abrir un compositor huérfano
   durante una inicialización incompleta o una mesa sin lobby. La regresión se
@@ -1019,6 +1030,9 @@ completa.
 - HECHO en medios: caché de memoria LRU y caché persistente compartida con
   Swing en `ChatImagesCache`, identidad MD5 compatible, límite de 16 MiB y
   escritura atómica. Falta la certificación visual y cruzada de todo el flujo.
+- HECHO en galería: lobby y mesa comparten historial, caché GPU y una cuadrícula
+  4x2 de miniaturas contenidas; la URL es una vía secundaria para incorporar
+  imágenes nuevas, no un falso chat paralelo. Falta QA visual y multiproceso.
 
 ### P1.4 — Interacciones y utilidades del tapete
 
@@ -1164,7 +1178,9 @@ renderer no puede alterar reglas, barreras, locks, protocolo ni criptografía.
 6. En paralelo, reforzar los escenarios GDX cuando aparezca una regresión P0:
    la prueba debe recorrer el consumidor de producto responsable, no resolver
    directamente el modelo ni limitarse a comprobar el core.
-7. Después continuar chat/medios, pantalla final, registro/navegación, lobby,
+7. EN CURSO: chat/medios. La galería compartida lobby/mesa y su persistencia ya
+   están cerradas en pruebas focalizadas; sigue QA visual/multiproceso, voz y
+   notificaciones. Después: pantalla final, registro/navegación, lobby,
    estadísticas, rendimiento y certificación final FAST/BALANCED.
 
 ## Protocolo de actualización

@@ -3,6 +3,7 @@ package com.tonikelope.coronapoker.gdx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.badlogic.gdx.math.Rectangle;
 import com.tonikelope.coronapoker.core.LobbyChatMessage;
 import java.time.Instant;
 import java.util.List;
@@ -59,6 +60,22 @@ final class GdxLobbyChatLayoutTest {
                 messages, 420f, 3));
         assertEquals(2, GdxFrontendScreen.lobbyMessageStartIndex(
                 messages, 150f, 4));
+    }
+
+    @Test
+    void inTableGalleryKeepsEightLargeThumbnailsInsideItsPanel() {
+        Rectangle panel = new Rectangle(80f, 120f, 1072f, 500f);
+        Rectangle[] cells = new Rectangle[8];
+        for (int index = 0; index < cells.length; index++) {
+            cells[index] = CoronaPokerGdxTable.tableGalleryCellBounds(index,
+                    panel.x, panel.y, panel.width, panel.height);
+            assertTrue(panel.contains(cells[index]));
+            assertTrue(cells[index].width > 240f);
+            assertTrue(cells[index].height > 220f);
+            for (int previous = 0; previous < index; previous++) {
+                assertTrue(!cells[index].overlaps(cells[previous]));
+            }
+        }
     }
 
     private static LobbyChatMessage joined(long sequence) {

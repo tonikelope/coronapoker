@@ -175,6 +175,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final int QUICK_CHAT_HISTORY_LIMIT = 200;
     private static final float QUICK_CHAT_WIDTH_RATIO = 0.30f;
     private static final float QUICK_CHAT_SCREEN_MARGIN = 18f;
+    private static final float IMAGE_SEND_COOLDOWN_SECONDS = 2f;
     private static final float VOICE_RECORD_MAX_SECONDS = 15f;
     private static final long FELT_DOUBLE_CLICK_NANOS = 500_000_000L;
     private static final float FELT_CLICK_DRIFT = 14f;
@@ -413,6 +414,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final Map<String, Texture> tableAvatarTextures = new HashMap<>();
     private final Set<String> blockedSeatMediaNotices = new HashSet<>();
     private final Map<Integer, Texture> emojiTextures = new HashMap<>();
+    private final GdxChatGalleryMedia tableGalleryMedia =
+            new GdxChatGalleryMedia();
     private GdxTableDialog activeDialog;
     private GdxTableDialog terminationConfirmation;
     private GdxTableDialog settingsDiscardConfirmation;
@@ -476,6 +479,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean emojiPickerOpen;
     private boolean chatImageMode;
     private boolean chatSending;
+    private List<String> tableImageHistory = List.of();
+    private float tableImageSendAllowedAt;
     private String chatDraft = "";
     private final GdxTextEditState chatEdit = new GdxTextEditState();
     private final GdxTextEditState dialogAmountEdit = new GdxTextEditState();
@@ -3173,9 +3178,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             if (GdxShortcutBindings.FASTCHAT_IMAGE.equals(shortcutAction)) {
                 if (canUseTableImages()) {
-                    chatImageMode = true;
-                    emojiPickerOpen = false;
-                    openUiLayer(UI_CHAT);
+                    openTableImageGallery();
                 }
                 return;
             }
@@ -4201,12 +4204,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else if (button == 1) {
             openQuickChat();
         } else if (button == 3) {
-            chatError = "";
-            chatImageMode = true;
-            emojiPickerOpen = false;
-            chatEdit.focus("tableChat", chatDraft);
-            chatEdit.end(chatDraft, false);
-            openUiLayer(UI_CHAT);
+            openTableImageGallery();
         } else if (button == 4) {
             submit(new TableCommand.ToggleImmediateRebuy());
         } else if (button == 5) {
@@ -4227,6 +4225,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         emojiPickerOpen = false;
         quickChatHistoryIndex = quickChatHistory.size();
         quickChatPendingDraft = chatDraft;
+        chatEdit.focus("tableChat", chatDraft);
+        chatEdit.end(chatDraft, false);
+        openUiLayer(UI_CHAT);
+    }
+
+    private void openTableImageGallery() {
+        if (!canUseTableImages() || !canUseTableChat()) return;
+        chatError = "";
+        chatImageMode = true;
+        emojiPickerOpen = false;
+        tableImageHistory = preferences == null ? List.of()
+                : GdxChatImageHistory.read(preferences.properties());
+        tableGalleryMedia.refresh(tableImageHistory, 8, "table-history");
         chatEdit.focus("tableChat", chatDraft);
         chatEdit.end(chatDraft, false);
         openUiLayer(UI_CHAT);
@@ -5545,6 +5556,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         for (LobbyChatMessage message : tableChat.drainIncoming()) {
             boolean ownMessage = message.nickname().equals(
                     tableChat.snapshot().localNickname());
+            if (preferences != null
+                    && message.type() == LobbyChatMessage.Type.IMAGE
+                    && !ownMessage
+                    && GdxChatImageHistory.autoReceive(
+                            preferences.properties())) {
+                tableImageHistory = GdxChatImageHistory.remember(
+                        preferences.properties(), message.content(), false);
+                tableGalleryMedia.refresh(tableImageHistory, 8,
+                        "table-history");
+                if (preferences != null) preferences.saveDeferred();
+            }
             boolean senderBlocked = blockedSeatMediaNotices.contains(
                     message.nickname());
             boolean voiceNotice = shouldShowVoiceSeatNotice(
@@ -9959,18 +9981,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float emojiX = sendX - 150f;
         float historyY = panelY + 118f;
         float historyH = panelH - 220f;
+        if (contains(x, y, panelX + panelW - 216f,
+                panelY + panelH - 62f, 136f, 34f)) {
+            if (preferences != null) {
+                GdxChatImageHistory.clear(preferences.properties());
+            }
+            tableImageHistory = List.of();
+            tableGalleryMedia.clear();
+            if (preferences != null) preferences.saveDeferred();
+            chatError = "";
+            return;
+        }
         if (contains(x, y, panelX + 34f, historyY,
                 panelW - 68f, historyH)) {
-            List<LobbyChatMessage> messages = visibleTableChatMessages();
-            int rowCount = Math.max(1, (int) ((historyH - 26f) / 37f));
-            int first = Math.max(0, messages.size() - rowCount);
-            int row = (int) ((historyY + historyH - 15f - y) / 37f);
-            int index = first + row;
-            if (row >= 0 && index >= first && index < messages.size()) {
-                LobbyChatMessage selected = messages.get(index);
-                if (selected.type() == LobbyChatMessage.Type.VOICE) {
-                    playTableVoice(selected);
-                    chatError = "REPRODUCIENDO NOTA DE VOZ";
+            int visible = Math.min(8, tableImageHistory.size());
+            for (int index = 0; index < visible; index++) {
+                if (tableGalleryCellBounds(index, panelX + 34f, historyY,
+                        panelW - 68f, historyH).contains(x, y)) {
+                    chatDraft = tableImageHistory.get(index);
+                    sendTableChat();
+                    return;
                 }
             }
             return;
@@ -10027,6 +10057,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
         }
+    }
+
+    static Rectangle tableGalleryCellBounds(int index, float x, float y,
+            float width, float height) {
+        float padding = 14f;
+        float gap = 12f;
+        float cellWidth = (width - 2f * padding - 3f * gap) / 4f;
+        float cellHeight = (height - 2f * padding - gap) / 2f;
+        int column = index % 4;
+        int row = index / 4;
+        return new Rectangle(x + padding + column * (cellWidth + gap),
+                y + height - padding - cellHeight
+                        - row * (cellHeight + gap),
+                cellWidth, cellHeight);
     }
 
     private float quickChatWidth() {
@@ -10219,10 +10263,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (tableChat == null || chatSending) return;
         String message = chatDraft.trim();
         if (message.isEmpty()) return;
+        if (chatImageMode && totalTime < tableImageSendAllowedAt) {
+            chatError = "ESPERA UN MOMENTO ANTES DE ENVIAR OTRA IMAGEN";
+            return;
+        }
         chatSending = true;
         chatError = "";
         java.util.concurrent.CompletionStage<Void> delivery;
         boolean quickChat = !chatImageMode;
+        String submittedImage = chatImageMode ? message : null;
         try {
             if (chatImageMode) {
                 URI uri = URI.create(message);
@@ -10247,6 +10296,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     chatSending = false;
                     if (failure == null) {
                         chatDraft = "";
+                        if (submittedImage != null) {
+                            tableImageSendAllowedAt = totalTime
+                                    + IMAGE_SEND_COOLDOWN_SECONDS;
+                            tableImageHistory = preferences == null
+                                    ? List.of(submittedImage)
+                                    : GdxChatImageHistory.remember(
+                                            preferences.properties(),
+                                            submittedImage, true);
+                            tableGalleryMedia.refresh(tableImageHistory, 8,
+                                    "table-history");
+                            if (preferences != null) preferences.saveDeferred();
+                        }
                         if (quickChat && quickChatAutoClose) {
                             uiLayer = UI_NONE;
                         }
@@ -12320,10 +12381,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float historyH = panelH - 220f;
         if (emojiPickerOpen && !chatImageMode) ensureEmojiPageTextures();
 
-        List<LobbyChatMessage> messages = visibleTableChatMessages();
-        int rowCount = Math.max(1, (int) ((historyH - 26f) / 37f));
-        int first = Math.max(0, messages.size() - rowCount);
-        preloadVisibleChatEmojiTextures(messages, first);
+        int visibleImages = Math.min(8, tableImageHistory.size());
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -12337,14 +12395,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         roundedRect(panelX, panelY, panelW, panelH, 18f);
         shapes.setColor(0.002f, 0.012f, 0.019f, 0.92f * alpha);
         roundedRect(historyX, historyY, historyW, historyH, 12f);
-        for (int line = first; line < messages.size(); line++) {
-            float rowY = historyY + historyH - 48f
-                    - (line - first) * 37f;
-            if (((line - first) & 1) == 0) {
-                shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.045f * alpha);
-                roundedRect(historyX + 10f, rowY - 6f,
-                        historyW - 20f, 33f, 5f);
-            }
+        for (int index = 0; index < visibleImages; index++) {
+            Rectangle cell = tableGalleryCellBounds(index, historyX,
+                    historyY, historyW, historyH);
+            boolean over = cell.contains(pointer);
+            shapes.setColor(over ? CYAN : BUTTON_LINE);
+            roundedRect(cell.x, cell.y, cell.width, cell.height, 9f);
+            shapes.setColor(0.010f, 0.024f, 0.041f, 0.98f * alpha);
+            roundedRect(cell.x + 2f, cell.y + 2f,
+                    cell.width - 4f, cell.height - 4f, 8f);
         }
         shapes.setColor(BUTTON_LINE.r, BUTTON_LINE.g, BUTTON_LINE.b,
                 0.92f * alpha);
@@ -12364,6 +12423,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 chatSending ? BUTTON_LINE : STACK_GREEN,
                 !chatSending && contains(pointer.x, pointer.y,
                         sendX, inputY, 180f, 60f), alpha);
+        drawDialogButton(panelX + panelW - 216f,
+                panelY + panelH - 62f, 136f, 34f, BUTTON_LINE,
+                contains(pointer.x, pointer.y, panelX + panelW - 216f,
+                        panelY + panelH - 62f, 136f, 34f), alpha);
         shapes.setColor(FOLD_RED.r, FOLD_RED.g, FOLD_RED.b,
                 contains(pointer.x, pointer.y, panelX + panelW - 62f,
                         panelY + panelH - 62f, 34f, 34f)
@@ -12376,26 +12439,53 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.end();
 
         batch.begin();
-        drawLeftInBox(uiFont, chatImageMode
-                ? "ENVIAR IMAGEN / GIF" : "CHAT DE LA TIMBA", panelX + 34f,
-                panelY + panelH - 72f, panelW - 110f, 42f,
+        drawLeftInBox(uiFont, "GALERÍA DE IMÁGENES Y GIF", panelX + 34f,
+                panelY + panelH - 72f, panelW - 320f, 42f,
                 Color.WHITE, alpha);
-        drawLeftInBox(smallFont, "CANAL REAL DE LA PARTIDA",
+        drawLeftInBox(smallFont, "SELECCIONA UNA MINIATURA PARA ENVIARLA",
                 panelX + 35f, panelY + panelH - 103f,
-                panelW - 105f, 24f, CYAN, alpha);
+                panelW - 280f, 24f, CYAN, alpha);
         drawFittedCenteredInBox(actionFont, "×",
                 panelX + panelW - 62f, panelY + panelH - 62f,
                 34f, 34f, Color.WHITE, alpha);
-        if (messages.isEmpty()) {
-            drawFittedCenteredInBox(smallFont, "SIN MENSAJES",
+        drawFittedCenteredInBox(smallFont, "VACIAR",
+                panelX + panelW - 216f, panelY + panelH - 62f,
+                136f, 34f, Color.WHITE, alpha);
+        if (tableImageHistory.isEmpty()) {
+            drawFittedCenteredInBox(smallFont, "TU GALERÍA ESTÁ VACÍA",
                     historyX + 20f, historyY + historyH / 2f - 18f,
                     historyW - 40f, 36f, Color.GRAY, alpha);
         } else {
-            for (int line = first; line < messages.size(); line++) {
-                float baseline = historyY + historyH - 25f
-                        - (line - first) * 37f;
-                drawInlineChatMessage(messages.get(line), historyX + 20f,
-                        baseline, historyW - 40f, alpha);
+            for (int index = 0; index < visibleImages; index++) {
+                String url = tableImageHistory.get(index);
+                Rectangle cell = tableGalleryCellBounds(index, historyX,
+                        historyY, historyW, historyH);
+                GdxChatGalleryMedia.Entry media = tableGalleryMedia.get(url);
+                Texture thumbnail = media == null ? null
+                        : media.frameAt(totalTime);
+                if (thumbnail != null) {
+                    float availableW = cell.width - 14f;
+                    float availableH = cell.height - 14f;
+                    float scale = Math.min(availableW / thumbnail.getWidth(),
+                            availableH / thumbnail.getHeight());
+                    float imageW = Math.max(1f,
+                            thumbnail.getWidth() * scale);
+                    float imageH = Math.max(1f,
+                            thumbnail.getHeight() * scale);
+                    batch.setColor(1f, 1f, 1f, alpha);
+                    batch.draw(thumbnail,
+                            cell.x + (cell.width - imageW) / 2f,
+                            cell.y + (cell.height - imageH) / 2f,
+                            imageW, imageH);
+                } else {
+                    drawFittedCenteredInBox(smallFont,
+                            media != null && media.failed()
+                                    ? "NO DISPONIBLE" : "CARGANDO…",
+                            cell.x + 10f, cell.y + cell.height / 2f - 12f,
+                            cell.width - 20f, 24f,
+                            media != null && media.failed()
+                                    ? FOLD_RED : Color.GRAY, alpha);
+                }
             }
         }
         String draft = chatDraft.isEmpty()
@@ -12408,7 +12498,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 chatImageMode ? "TEXTO" : "EMOJI", emojiX, inputY,
                 132f, 60f, POT_GOLD, alpha);
         drawFittedCenteredInBox(actionFont,
-                chatSending ? "ENVIANDO…" : "ENVIAR", sendX, inputY,
+                chatSending ? "ENVIANDO…" : "ENVIAR URL", sendX, inputY,
                 180f, 60f, Color.WHITE, alpha);
         if (!chatError.isBlank()) {
             drawLeftInBox(smallFont, chatError, panelX + 38f,
@@ -13563,6 +13653,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             emojiTexture.dispose();
         }
         emojiTextures.clear();
+        tableGalleryMedia.dispose();
         for (Texture avatarTexture : tableAvatarTextures.values()) {
             avatarTexture.dispose();
         }

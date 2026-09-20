@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 03:47 (Europe/Madrid)
+Última actualización: 2026-09-20 09:44 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -40,9 +40,11 @@ Disciplina del repositorio durante la migración:
   anterior. Se revalidó además contra Swing que el icono
   amarillo de conversación aparece al comenzar realmente el TTS, permanece
   durante la voz y desaparece 500 ms después; el JAR anterior era previo a esa
-  corrección. Pruebas focalizadas de estado/texto: **102/102**. JAR GDX:
-  266.277.224 bytes, SHA-256
-  `4E23925447C98747A09F6858C8623B934E1EDD5D439FB3DB36EECCE2139E8514`.
+  corrección. Pruebas focalizadas de estado/texto: **102/102**. La barrera
+  arquitectónica confirma 5/5 que producto GDX no compila la demo ni fabrica
+  reglas, eventos o reconciliaciones de juego en el renderer. JAR GDX:
+  266.278.849 bytes, SHA-256
+  `D969E383061D97422769D567554D037E87A81FED533B1DF0ACEDABD9D4A7A10A`.
 - Sustituido el aviso provisional de `ACERCA DE` por un diálogo GDX nativo:
   muestra versión, marca, dedicatoria, agradecimientos y créditos musicales
   traducidos, envuelve las líneas dentro de sus columnas y cierra mediante

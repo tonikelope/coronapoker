@@ -13044,10 +13044,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 SETTINGS_DEBUG_VIEWPORT_HEIGHT, 7f);
         List<String> lines = settingsDebugLines();
         float maximum = settingsDebugMaximumPixelScroll(lines.size());
-        if (lines.size() > settingsDebugLineCount && settingsDebugScroll > 0f) {
-            settingsDebugScroll += (lines.size() - settingsDebugLineCount)
-                    * SETTINGS_DEBUG_LINE_HEIGHT;
-        }
+        settingsDebugScroll = preservePixelScrollOnAppend(
+                settingsDebugScroll, settingsDebugLineCount, lines.size(),
+                SETTINGS_DEBUG_LINE_HEIGHT);
         settingsDebugLineCount = lines.size();
         settingsDebugScroll = MathUtils.clamp(settingsDebugScroll, 0f,
                 maximum);
@@ -13517,6 +13516,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static float settingsDebugMaximumPixelScroll(int lineCount) {
         return Math.max(0f, lineCount * SETTINGS_DEBUG_LINE_HEIGHT
                 - SETTINGS_DEBUG_VIEWPORT_HEIGHT);
+    }
+
+    static float preservePixelScrollOnAppend(float currentScroll,
+            int previousLineCount, int currentLineCount, float lineHeight) {
+        if (currentScroll <= 0f || currentLineCount <= previousLineCount) {
+            return Math.max(0f, currentScroll);
+        }
+        return currentScroll
+                + (currentLineCount - previousLineCount) * lineHeight;
     }
 
     private static float settingsDebugThumbHeight(int lineCount) {

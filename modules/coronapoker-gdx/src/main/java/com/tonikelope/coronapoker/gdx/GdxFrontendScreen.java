@@ -291,6 +291,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private int settingsGamePage;
     private int settingsShortcutPage;
     private float settingsDebugScroll;
+    private int settingsDebugLineCount;
     private final Rectangle settingsDebugScrollTrack = new Rectangle();
     private float settingsDebugScrollThumbHeight;
     private float settingsDebugScrollMaximum;
@@ -3161,6 +3162,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsGamePage = 0;
         settingsShortcutPage = 0;
         settingsDebugScroll = 0;
+        settingsDebugLineCount = 0;
         settingsShortcutCaptureId = null;
         settingsShortcutStatus = "";
         shortcutBindings.beginEdit();
@@ -4139,6 +4141,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         List<String> lines = debugLines();
         float viewportHeight = Math.max(0f, consoleH - 16f);
         float maximum = Math.max(0f, lines.size() * 25f - viewportHeight);
+        settingsDebugScroll = CoronaPokerGdxTable
+                .preservePixelScrollOnAppend(settingsDebugScroll,
+                        settingsDebugLineCount, lines.size(), 25f);
+        settingsDebugLineCount = lines.size();
         settingsDebugScroll = MathUtils.clamp(settingsDebugScroll, 0, maximum);
         for (int i = 0; i < lines.size(); i++) {
             float lineY = CoronaPokerGdxTable.anchoredPixelRowY(lines.size(),

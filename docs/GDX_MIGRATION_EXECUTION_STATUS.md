@@ -1832,6 +1832,18 @@ protocolo ni criptografía. Estadísticas queda para el final.
 - JAR GDX: `target/CoronaPoker-24.11-gdx.jar`, 266.361.608 bytes, SHA-256
   `EA8006759F2B458E65EAC26944D76F59C2905A1B4A610617345EA916D0CF9D27`.
 
+### Corte 2026-09-20 - scroll vivo del Debug unificado
+
+- El registro Debug abierto desde menú o sala conserva ahora la misma ancla
+  por píxeles que el abierto durante la mesa. Si llegan líneas mientras el
+  usuario está leyendo una zona anterior, el contenido no salta; si estaba
+  siguiendo el final, continúa siguiéndolo.
+- Menú y mesa comparten un único cálculo probado para mantener el offset al
+  crecer el registro. Verificación focalizada: **117/117** en
+  `GdxTableViewStateTest`; compilación y empaquetado GDX correctos.
+- JAR GDX: `target/CoronaPoker-24.11-gdx.jar`, 266.361.801 bytes, SHA-256
+  `D2CDBEF9D67B7DFE18E39DCDDBBBCA6A8BC938646C9378953A349BE996D81A90`.
+
 Al cerrar cada bloque se debe registrar aquí:
 
 - Qué consumidor real se añadió o corrigió.

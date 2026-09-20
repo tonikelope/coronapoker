@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 10:45 (Europe/Madrid)
+Última actualización: 2026-09-20 10:05 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,10 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19/20
 
+- JAR de checkpoint posterior a los arreglos de icono TTS/voz, scroll y
+  composición de `Acerca de`: `target/CoronaPoker-24.11-gdx.jar`,
+  266.281.645 bytes, SHA-256
+  `9C046AC4DAD8301610CFCE692A01FBB02FA04866B077AD905A5625499AC98FBE`.
 - Recompuesto el diálogo nativo `Acerca de`: la versión deja de montarse sobre
   el logotipo, el logo ocupa una banda propia y los agradecimientos/créditos se
   agrupan en dos paneles equilibrados antes del bloque legal y el cierre.

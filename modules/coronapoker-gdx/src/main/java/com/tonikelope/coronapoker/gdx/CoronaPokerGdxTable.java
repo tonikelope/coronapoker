@@ -1972,8 +1972,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         logGenerator.dispose();
 
         initialiseSeats();
-        validateRivalCardGeometry();
-        validateLocalCenterLane();
         backgroundMusic = gameMusic("misc/background_music.mp3");
         backgroundMusic.setLooping(true);
         // Same ambient-music attenuation used by CoronaPoker's Audio subsystem.
@@ -2929,17 +2927,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 right - left, rotatedHalfHeight * 2f);
     }
 
-    private void validateRivalCardGeometry() {
-        Rectangle envelope = rivalHandEnvelope(defaultCardBack.getHeight()
-                / (float) defaultCardBack.getWidth());
+    static boolean rivalCardGeometryFits(float cardAspect) {
+        Rectangle envelope = rivalHandEnvelope(cardAspect);
         // Edge pods themselves retain 8 px to the viewport, so the hand may
         // extend at most 4 px beyond the HUD while preserving a 4 px screen gap.
-        if (envelope.x < 4f
-                || envelope.x + envelope.width > PLAYER_POD_WIDTH + 4f) {
-            throw new IllegalStateException(
-                    "Las cartas rivales no caben dentro de su asiento: "
-                    + envelope.x + ".." + (envelope.x + envelope.width));
-        }
+        return envelope.x >= 4f
+                && envelope.x + envelope.width <= PLAYER_POD_WIDTH + 4f;
     }
 
     /**
@@ -2947,9 +2940,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      * private cards keep their canonical size; the community timer and HUD are
      * packed into the real space between those cards and the board.
      */
-    private void validateLocalCenterLane() {
-        float aspect = defaultCardBack.getHeight()
-                / (float) defaultCardBack.getWidth();
+    static boolean localCenterLaneHasClearance(float aspect) {
+        if (!Float.isFinite(aspect) || aspect <= 0f) return false;
         float boardCardHeight = COMMUNITY_CARD_MAX_WIDTH * aspect;
         float boardBottom = BASE_HEIGHT * 0.52f
                 - boardCardHeight * 0.36f;
@@ -2969,13 +2961,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float localCardTop = localCenter + rotatedHalfHeight;
         float localHudVisualTop = LOCAL_HUD_Y + LOCAL_HUD_HEIGHT + 17f;
 
-        if (communityHudBottom - localCardTop < 7f
-                || timerBottom - communityHudTop < 0f
-                || boardBottom - (timerBottom + COMMUNITY_TIMER_HEIGHT) < 4f
-                || localCardBottom - localHudVisualTop < 4f) {
-            throw new IllegalStateException(
-                    "El carril central invade cartas o HUD locales");
-        }
+        return communityHudBottom - localCardTop >= 7f
+                && timerBottom - communityHudTop >= 0f
+                && boardBottom - (timerBottom + COMMUNITY_TIMER_HEIGHT) >= 4f
+                && localCardBottom - localHudVisualTop >= 4f;
     }
 
     @Override

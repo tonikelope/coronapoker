@@ -153,6 +153,7 @@ final class GdxTableViewStateTest {
 
         for (float aspect : new float[]{0.75f, officialAspect, 2f, 3f}) {
             Rectangle envelope = CoronaPokerGdxTable.rivalHandEnvelope(aspect);
+            assertTrue(CoronaPokerGdxTable.rivalCardGeometryFits(aspect));
             assertTrue(envelope.x >= 4f,
                     "left edge for aspect " + aspect);
             assertTrue(envelope.x + envelope.width <= 290.000_1f,
@@ -165,6 +166,18 @@ final class GdxTableViewStateTest {
             assertTrue(adjusted + envelope.y + envelope.height <= 1072.000_1f,
                     "top clearance for aspect " + aspect);
         }
+    }
+
+    @Test
+    void officialDeckKeepsTheLocalCenterLaneClearWithoutRuntimeAssertions() {
+        float officialAspect = 1242f / 923f;
+
+        assertTrue(CoronaPokerGdxTable.localCenterLaneHasClearance(
+                officialAspect));
+        org.junit.jupiter.api.Assertions.assertFalse(
+                CoronaPokerGdxTable.localCenterLaneHasClearance(0f));
+        org.junit.jupiter.api.Assertions.assertFalse(
+                CoronaPokerGdxTable.localCenterLaneHasClearance(Float.NaN));
     }
 
     @Test

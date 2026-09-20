@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 12:35 (Europe/Madrid)
+Última actualización: 2026-09-20 13:02 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -29,6 +29,20 @@ Disciplina del repositorio durante la migración:
   del usuario.
 
 ## Checkpoint de consolidación 2026-09-19/20
+
+- Cerrada la regresión crítica observada al pulsar `¡A JUGAR!`: una aserción
+  geométrica de desarrollo evaluaba una envolvente vacía entre avatar y panel
+  como si fuese parte del asiento y abortaba `CoronaPokerGdxTable.create()` en
+  la disposición de ocho jugadores. Ninguna validación heurística de asientos,
+  cartas rivales o carril central se ejecuta ya al abrir una mesa real; esas
+  invariantes quedan como pruebas y no pueden derribar una timba. Geometría y
+  estado de mesa GDX: **107/107**. JAR GDX: 266.288.348 bytes, SHA-256
+  `B6BD482A49F9464433E797ABE956EDEEFFB701BDF2E35044DC371B4B59E1EFCF`.
+- Acotado el último recurso del icono amarillo de TTS/voz: la terminación real
+  sigue retirándolo 500 ms después de acabar el audio, pero una callback perdida
+  ya no puede mantenerlo dos minutos sobre el asiento. El límite de fallo es de
+  16 s para la nota de voz (contrato máximo de 15 s) y de 4..18 s para TTS.
+  Chat de mesa: **12/12**.
 
 - Cerrado un falso estado válido de Nueva timba/Unirme: el botón principal ya
   reutiliza `NewGameConnectionDraft.canSubmit()` y permanece deshabilitado

@@ -185,6 +185,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private final PlayerIdentity identity;
         private volatile GameConfigCodecV1.Configuration launchConfiguration;
         private final Map<String, Peer> peers = new LinkedHashMap<>();
+        private final Set<String> lateJoinWarnings = new java.util.LinkedHashSet<>();
         private final List<LobbyChatMessage> chat = new ArrayList<>();
         private final AtomicLong chatSequence = new AtomicLong();
         private final AtomicBoolean closed = new AtomicBoolean();
@@ -492,6 +493,21 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 if (!PlayerIdentity.verifyJoin(sessionId, nickname, publicKey, signature)) return;
                 synchronized (this) {
                     if (closed.get()) return;
+                    LobbySession active = session;
+                    if (active != null && active.snapshot().startingOrStarted()) {
+                        connection.writeEncrypted("YOUARELATE");
+                        String origin = Base64.getEncoder().encodeToString(
+                                MessageDigest.getInstance("SHA-256").digest(
+                                        socket.getInetAddress().getHostAddress()
+                                                .getBytes(StandardCharsets.UTF_8)));
+                        if (lateJoinWarnings.add(origin)) {
+                            String warning = "YOUARELATE#" + b64(nickname)
+                                    + "#" + origin;
+                            gameChannel.receive(localNickname, warning);
+                            broadcastGame(warning, null);
+                        }
+                        return;
+                    }
                     if (peers.size() >= LobbySnapshot.MAX_PARTICIPANTS) {
                         connection.writeEncrypted("NOSPACE");
                         return;

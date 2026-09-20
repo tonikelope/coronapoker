@@ -839,6 +839,17 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void lateJoinRequestAdvancesPresentationSequenceWithoutChangingTable() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+        TableSnapshot before = state.snapshot();
+
+        state.apply(new TableVisualEvent.LateJoinRequest(1L, "Tardio"));
+
+        assertEquals(1L, state.lastSequence());
+        assertEquals(before, state.snapshot());
+    }
+
+    @Test
     void actionVisualContractMatchesTheCanonicalSwingPalette() {
         assertColor(0x64, 0x75, 0x94, 0xff,
                 CoronaPokerGdxTable.liveActionColor(null));

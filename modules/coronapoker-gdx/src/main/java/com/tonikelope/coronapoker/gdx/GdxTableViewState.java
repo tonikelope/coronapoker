@@ -503,6 +503,7 @@ final class GdxTableViewState {
                 || event instanceof TableVisualEvent.Cinematic
                 || event instanceof TableVisualEvent.AudioCue
                 || event instanceof TableVisualEvent.SpecialCardSound
+                || event instanceof TableVisualEvent.LateJoinRequest
                 || event instanceof TableVisualEvent.Shuffle) {
             // Transient presentation-only events still consume their sequence.
         } else {

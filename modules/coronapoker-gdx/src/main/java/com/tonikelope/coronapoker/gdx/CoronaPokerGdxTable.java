@@ -2377,6 +2377,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     && tablePreference("sonido_conteo", true)) {
                 play(balanceCountSound, 0.74f, 1f);
             }
+        } else if (event instanceof TableVisualEvent.LateJoinRequest request) {
+            liveState.apply(event);
+            screenshotToast = "[" + request.nickname() + "] "
+                    + gameText.translate("game.quiere_entrar_en_la_timba");
+            screenshotToastUntil = totalTime + 4f;
+            playPreferenceSound("misc/new_user.wav",
+                    "sonido_entrar_sala", 0.82f);
+            barrier.complete(null);
         } else if (event instanceof TableVisualEvent.AudioCue cue) {
             liveState.apply(event);
             acceptAudioCue(cue, barrier);

@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 16:11 (Europe/Madrid)
+Última actualización: 2026-09-20 16:38 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -68,6 +68,13 @@ Disciplina del repositorio durante la migración:
   por esta instancia y la libera al cerrar sin tocar mapeos preexistentes. El
   resultado permanece visible en la sala como `UPnP activo/no disponible`
   aunque cambie su contenido. Pruebas focalizadas de concesión y texto: **4/4**.
+- Corregida una violación de admisión del host GDX: una identidad humana que
+  intenta conectarse después de arrancar ya recibe `YOUARELATE` antes de tocar
+  roster o fase, en vez de ser añadida y devolver el lobby a espera. El primer
+  intento de cada origen se anuncia de forma ordenada al host y a los clientes;
+  la mesa GDX muestra el nick y reproduce `misc/new_user.wav` sólo si efectos y
+  el ajuste independiente `sonido_entrar_sala` están activos. Red real,
+  Ajustes y proyección GDX: **135/135** pruebas focalizadas.
 - Rehecho el fuego persistente de ALL-IN sin los halos circulares anteriores ni
   la silueta triangular de punta única: tres mantos asimétricos alimentan una
   base irregular y cuatro lenguas internas con alturas, curvatura, ruptura y
@@ -91,10 +98,10 @@ Disciplina del repositorio durante la migración:
   texto, imágenes y filas de presencia; no ofrecen scroll si todo cabe ni
   permiten terminar sobre espacio vacío. Pruebas focalizadas de voz, chat,
   scroll y terminación: **32/32**.
-- JAR GDX actual con handoff musical blindado, barajado en streaming y fuego
-  ALL-IN multi-lengua: 266.315.999 bytes,
+- JAR GDX actual con handoff musical blindado, barajado en streaming, fuego
+  ALL-IN multi-lengua y rechazo seguro de conexiones tardías: 266.318.419 bytes,
   SHA-256
-  `B2440291171AB88682387784A431F8D04E3793E60D218A65D2FA9F9C4FC53684`.
+  `A7F624A0C4C1B265DC3A26391FDDAFCBFB0571E2CCD91BB9B7E655025AEE7772`.
 - Auditadas las claves visibles de la pantalla unificada de Ajustes contra sus
   consumidores GDX directos y el adaptador `GamePresentationSettings` que usa
   el crupier: no queda detectado ningún control mostrado que se limite a
@@ -1072,8 +1079,8 @@ de Swing.
   los loops del crupier y el volumen TTS. Antes sólo cambiaba la propiedad y
   podía discrepar de lo que realmente sonaba. La señal `sonido_entra` conserva
   ahora su semántica Swing de crear partida/nuevo jugador y no se confunde con
-  la solicitud de admisión pendiente (`sonido_entrar_sala`), cuyo flujo GDX aún
-  no existe y por ello no se anuncia como ajuste operativo.
+  la solicitud de admisión tardía (`sonido_entrar_sala`), que ya tiene evento,
+  aviso, sonido y control GDX independientes.
 - Estructura del diálogo de Ajustes contrastada directamente con Swing:
   Apariencia, Audio, Atajos y Debug son comunes; la misma pantalla añade
   Partida únicamente dentro de una mesa. GDX conserva ya ese orden y esa

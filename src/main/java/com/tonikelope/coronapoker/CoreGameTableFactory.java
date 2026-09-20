@@ -362,6 +362,34 @@ public final class CoreGameTableFactory implements GameTableFactory {
                         TableSessionSummary.CloseReason.COMPLETED);
         AutoCloseable inbound = context.channel().subscribe(command -> {
             String envelope = transport.inboundEnvelope(command);
+            if (command.command().startsWith("YOUARELATE#")) {
+                try {
+                    if (!command.peerNickname().equals(lobby.serverNickname())) {
+                        throw new IllegalArgumentException(
+                                "YOUARELATE source is not the table host");
+                    }
+                    String[] fields = command.command().split("#", -1);
+                    if (fields.length != 3) {
+                        throw new IllegalArgumentException(
+                                "Malformed YOUARELATE notification");
+                    }
+                    String nickname = new String(Base64.getDecoder().decode(
+                            fields[1]), StandardCharsets.UTF_8).trim();
+                    if (nickname.isEmpty()) {
+                        throw new IllegalArgumentException(
+                                "Blank YOUARELATE nickname");
+                    }
+                    events.publish(sequence
+                            -> new TableVisualEvent.LateJoinRequest(
+                                    sequence, nickname))
+                            .whenComplete((ignored, failure) -> {
+                                if (failure != null) context.channel().close();
+                            });
+                } catch (RuntimeException invalid) {
+                    context.channel().close();
+                }
+                return;
+            }
             if (!lobby.host()
                     && (command.command().equals("SERVEREXIT")
                     || command.command().startsWith("SERVEREXITRECOVER"))) {

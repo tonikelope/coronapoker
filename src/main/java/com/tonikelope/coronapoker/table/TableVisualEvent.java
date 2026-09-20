@@ -40,6 +40,7 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
         TableVisualEvent.GameConfigurationStatus,
         TableVisualEvent.RunItTwiceLockStatus,
         TableVisualEvent.CommunicationRulesStatus,
+        TableVisualEvent.LateJoinRequest,
         TableVisualEvent.GameClock,
         TableVisualEvent.CloseTable {
 
@@ -728,6 +729,18 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
     /** Global host-owned chat rules reflected by every table renderer. */
     record CommunicationRulesStatus(long sequence, boolean textToSpeech,
             boolean voiceMessages) implements TableVisualEvent {
+    }
+
+    /** A verified player tried to enter after the table had already started. */
+    record LateJoinRequest(long sequence, String nickname)
+            implements TableVisualEvent {
+
+        public LateJoinRequest {
+            nickname = Objects.requireNonNull(nickname, "nickname").trim();
+            if (nickname.isEmpty()) {
+                throw new IllegalArgumentException("nickname must not be blank");
+            }
+        }
     }
 
     /** Renderer-neutral elapsed table time, excluding canonical pauses. */

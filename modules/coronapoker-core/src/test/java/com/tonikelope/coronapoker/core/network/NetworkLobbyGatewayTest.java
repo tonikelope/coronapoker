@@ -321,6 +321,89 @@ class NetworkLobbyGatewayTest {
         }
     }
 
+    @Test void startedNativeTableRejectsAndAnnouncesLateJoin() throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        AtomicReference<GameLaunchContext> hostContext = new AtomicReference<>();
+        AtomicReference<GameLaunchContext> clientContext = new AtomicReference<>();
+        GameTableFactory tables = context -> {
+            (context.lobby().host() ? hostContext : clientContext).set(context);
+            TableEventBridge events = new TableEventBridge();
+            return new TableSession(emptyTable(
+                    context.lobby().localNickname()), command -> { }, events,
+                    () -> {
+                        if (!context.lobby().host()) {
+                            return CompletableFuture.completedFuture(null);
+                        }
+                        try {
+                            return context.channel().broadcastFromHost(
+                                    "INIT#" + GameConfigCodecV1.encodeBase64(
+                                            GameConfigCodecV1.fromSettings(
+                                                    context.lobby()
+                                                            .tableSettings(),
+                                                    false,
+                                                    "native-late-join")),
+                                    null);
+                        } catch (java.io.IOException failure) {
+                            return CompletableFuture.failedFuture(failure);
+                        }
+                    });
+        };
+        try (NetworkLobbyGateway hostGateway = new NetworkLobbyGateway(
+                    temporary.resolve("late-host"), tables);
+             NetworkLobbyGateway clientGateway = new NetworkLobbyGateway(
+                    temporary.resolve("late-client"), tables);
+             NetworkLobbyGateway lateGateway = new NetworkLobbyGateway(
+                    temporary.resolve("late-rejected"), tables)) {
+            LobbySession host = hostGateway.open(
+                    request(false, "Anfitrion", port)).get(5, TimeUnit.SECONDS);
+            LobbySession client = clientGateway.open(
+                    request(true, "Invitado", port)).get(5, TimeUnit.SECONDS);
+            try {
+                await(() -> host.snapshot().participants().size() == 2);
+                host.submit(new LobbyCommand.StartGame()).toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS);
+                host.tableSession().toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS)
+                        .attach(immediateRenderer()).toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS);
+                client.tableSession().toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS);
+
+                AtomicReference<String> hostWarning = new AtomicReference<>();
+                AtomicReference<String> clientWarning = new AtomicReference<>();
+                hostContext.get().channel().subscribe(inbound
+                        -> hostWarning.set(inbound.command()));
+                clientContext.get().channel().subscribe(inbound
+                        -> clientWarning.set(inbound.command()));
+
+                java.util.concurrent.ExecutionException rejected = assertThrows(
+                        java.util.concurrent.ExecutionException.class,
+                        () -> lateGateway.open(request(true, "Tardio", port))
+                                .get(5, TimeUnit.SECONDS));
+                assertTrue(rejected.getCause().getMessage()
+                        .contains("La timba ya ha empezado"));
+                String encodedNickname = Base64.getEncoder().encodeToString(
+                        "Tardio".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                String warningPrefix = "YOUARELATE#" + encodedNickname + "#";
+                await(() -> hostWarning.get() != null
+                        && hostWarning.get().startsWith(warningPrefix)
+                        && clientWarning.get() != null
+                        && clientWarning.get().startsWith(warningPrefix));
+                assertTrue(hostWarning.get().startsWith(
+                        warningPrefix));
+                assertEquals(hostWarning.get(), clientWarning.get());
+                assertEquals(2, host.snapshot().participants().size());
+                assertTrue(host.snapshot().startingOrStarted());
+            } finally {
+                client.close();
+                host.close();
+            }
+        }
+    }
+
     @Test void recoveryIdReachesOnlyTheRecoveringHostLaunchContext() throws Exception {
         int port;
         try (ServerSocket reservation = new ServerSocket(0)) {

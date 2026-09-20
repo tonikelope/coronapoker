@@ -169,7 +169,7 @@ final class GdxSettingsContractTest {
                 "sonido_destape_mis_cartas", "sonido_ciegas",
                 "sonido_ultima_mano", "sonido_pausa", "sonido_tu_turno",
                 "sonido_aviso_tiempo", "sonido_fin_partida",
-                "sonido_entra", "sonido_sale",
+                "sonido_entra", "sonido_entrar_sala", "sonido_sale",
                 "sonido_tapete", "sonido_visor", "sonido_arranque",
                 "musica_about",
                 "tts_server",
@@ -185,7 +185,7 @@ final class GdxSettingsContractTest {
         // transactional snapshot and can be exposed when their real GDX
         // consumers land.
         assertFalse(keys.contains("musica_stats"));
-        assertFalse(keys.contains("sonido_entrar_sala"));
+        assertTrue(keys.contains("sonido_entrar_sala"));
     }
 
     @Test

@@ -210,6 +210,8 @@ final class GdxSettingsContract {
             page("SALA",
                     option("sonido_entra", "CREAR PARTIDA / NUEVO JUGADOR", true,
                             Gate.EFFECTS),
+                    option("sonido_entrar_sala", "JUGADOR QUIERE ENTRAR", true,
+                            Gate.EFFECTS),
                     option("sonido_conexion", "CONEXIÓN AL SERVIDOR", true,
                             Gate.EFFECTS),
                     option("sonido_sale", "JUGADOR SALE / EXPULSAR", true,

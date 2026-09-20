@@ -123,6 +123,12 @@ Disciplina del repositorio durante la migración:
   handoff musical blindado, barajado en streaming, fuego ALL-IN orgánico y
   rechazo seguro de conexiones tardías: 266.333.323 bytes, SHA-256
   `092E5912B106B87536901E4B79498F043C7B083534F9B8829C107B4A5D54B569`.
+- Protección acumulada posterior al cableado de confianza: **1.245/1.245**
+  pruebas `qa-fast` y **3/3** de la lane `qa-network`, sin fallos, errores ni
+  omitidas. Se ejecutaron por separado porque el perfil de red sustituye la
+  selección Surefire y combinar ambos perfiles no suma sus coberturas. Esta
+  evidencia protege core, Swing, persistencia y framing; no sustituye la QA
+  visual OpenGL del modal y del mosaico GDX.
 - Auditadas las claves visibles de la pantalla unificada de Ajustes contra sus
   consumidores GDX directos y el adaptador `GamePresentationSettings` que usa
   el crupier: no queda detectado ningún control mostrado que se limite a

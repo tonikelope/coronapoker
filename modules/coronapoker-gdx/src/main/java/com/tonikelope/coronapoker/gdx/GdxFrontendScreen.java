@@ -462,7 +462,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (System.currentTimeMillis() < toastUntil) {
             drawToast();
         }
-        if (elapsed < volumeOverlayUntil) drawVolumeOverlay();
         if (editMenu != null && !aboutOpen && lobbyConfirmation == null
                 && !lobbyPasswordDialog
                 && presetDialog == PresetDialog.NONE
@@ -557,6 +556,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             batch.end();
         }
+        // This feedback must be the final composited layer. Drawing only its
+        // shapes in the first pass lets the already queued page glyphs and
+        // images bleed through the panel when SpriteBatch runs afterwards.
+        if (elapsed < volumeOverlayUntil) drawVolumeOverlayTopLayer();
     }
 
     void beginStartupReveal() {
@@ -4595,16 +4598,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(uiFont, toast, WIDTH / 2f, 193f, Color.WHITE, true, w - 52f);
     }
 
-    private void drawVolumeOverlay() {
+    private void drawVolumeOverlayTopLayer() {
         float width = 520f;
         float height = 100f;
         float x = (WIDTH - width) / 2f;
         float y = (HEIGHT - height) / 2f;
         float volume = masterVolume();
         Color accent = volume > 0f ? CYAN : LATENCY_RED;
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
         outerBox(x, y, width, height, accent, PANEL_LIGHT);
-        uiImages.add(new UiImageItem(volume > 0f ? soundIcon : muteIcon,
-                x + 22f, y + 21f, 58f, 58f));
         float barX = x + 104f;
         float barY = y + 37f;
         float barW = width - 132f;
@@ -4614,9 +4618,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             shapes.setColor(accent);
             roundedRect(barX, barY, barW * volume, 26f, 7f);
         }
-        textFit(uiFont, Math.round(volume * 100f) + "%",
-                barX + barW / 2f, barY + 23f, Color.WHITE, true,
-                barW - 20f);
+        shapes.end();
+
+        batch.begin();
+        batch.setColor(Color.WHITE);
+        batch.draw(volume > 0f ? soundIcon : muteIcon,
+                x + 22f, y + 21f, 58f, 58f);
+        String label = Math.round(volume * 100f) + "%";
+        uiFont.setColor(Color.WHITE);
+        glyph.setText(uiFont, label);
+        uiFont.draw(batch, label, barX + (barW - glyph.width) / 2f,
+                barY + 23f);
+        batch.end();
     }
 
     private void panel(float x, float y, float w, float h, String title) {

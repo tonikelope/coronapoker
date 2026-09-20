@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 11:15 (Europe/Madrid)
+Última actualización: 2026-09-20 11:21 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -40,6 +40,14 @@ Disciplina del repositorio durante la migración:
   mantienen vivo el juego y el overlay. Contrato de atajos y recurso de audio:
   **16/16**. JAR GDX: 266.285.031 bytes, SHA-256
   `C15A4859012975C4484A350565FF0574B016F48D96E241CE440B7EE1CCA2968D`.
+- Corregida inmediatamente después la composición visual del mismo overlay en
+  menú, Nueva timba, sala y Ajustes: su fondo se dibujaba en la pasada de
+  formas, pero los textos e imágenes de la pantalla se procesaban después y
+  atravesaban el panel. Ahora el overlay completo (panel, icono, barra y
+  porcentaje) es la última capa nativa del frame, incluso sobre otros modales.
+  Compilación y pruebas focalizadas de recurso/layout: **7/7**. JAR GDX:
+  266.285.136 bytes, SHA-256
+  `6E6D5DA56A16D67CB7339B385221F3BE32ADDBDF04B16B14D3A769A8033A8909`.
 
 - Cerrado un hueco funcional de Apariencia: `auto_fullscreen` ya no es una
   preferencia consumida por el crupier pero imposible de editar en GDX. El

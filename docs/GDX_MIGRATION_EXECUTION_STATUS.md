@@ -82,8 +82,11 @@ Disciplina del repositorio durante la migración:
   advectan verticalmente y 25 brasas con aceleración y deriva no uniforme
   sustituyen las 38 estelas repetitivas. Una primera pasada aditiva aporta un
   resplandor contenido y la segunda conserva núcleo y bordes sin recuperar
-  rayos radiales. El shader sigue siendo opcional para que ningún driver pueda
-  impedir abrir la mesa. Geometría/estado de mesa: **107/107**; queda QA visual
+  rayos radiales. La segunda revisión elimina también el estrechamiento lineal
+  hasta un ápice: cada lengua conserva un cuello respirante, erosiona sus
+  bordes y termina en horquillas redondeadas e irregulares que cambian con la
+  convección. El shader sigue siendo opcional para que ningún driver pueda
+  impedir abrir la mesa. Geometría/estado de mesa: **108/108**; queda QA visual
   OpenGL de esta revisión.
 - Cerrado un hueco de ciclo de vida del lobby: al comenzar la mesa se conserva
   la posición del hilo musical, pero ahora se cancela una grabación en curso y
@@ -99,9 +102,9 @@ Disciplina del repositorio durante la migración:
   permiten terminar sobre espacio vacío. Pruebas focalizadas de voz, chat,
   scroll y terminación: **32/32**.
 - JAR GDX actual con handoff musical blindado, barajado en streaming, fuego
-  ALL-IN multi-lengua y rechazo seguro de conexiones tardías: 266.318.419 bytes,
+  ALL-IN orgánico y rechazo seguro de conexiones tardías: 266.318.725 bytes,
   SHA-256
-  `A7F624A0C4C1B265DC3A26391FDDAFCBFB0571E2CCD91BB9B7E655025AEE7772`.
+  `3576B53A0574A4C0C86ACEAAABCD4209275FC46CE394E62B29EE3557A128824A`.
 - Auditadas las claves visibles de la pantalla unificada de Ajustes contra sus
   consumidores GDX directos y el adaptador `GamePresentationSettings` que usa
   el crupier: no queda detectado ningún control mostrado que se limite a

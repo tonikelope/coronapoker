@@ -367,27 +367,46 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float plume(float x, float y, float centre, float width,
                     float height, float phase) {
                 float relativeY = clamp(y / height, 0.0, 1.35);
-                float slowBend = sin(relativeY * 5.2 - u_time * 1.35 + phase)
-                        * (0.025 + relativeY * 0.105);
-                float turbulentBend = (fbm(vec2(relativeY * 2.8
-                        - u_time * 0.72, phase + u_seed)) - 0.5)
-                        * (0.045 + relativeY * 0.24);
-                float breathing = 0.84 + 0.22 * noise(vec2(relativeY * 4.1
-                        - u_time * 1.65, phase * 2.7));
-                float radius = width * pow(max(0.0, 1.0 - relativeY), 0.58)
-                        * breathing;
-                float distanceFromCore = abs(x - centre - slowBend
-                        - turbulentBend);
-                float edge = 1.0 - smoothstep(radius * 0.58,
-                        radius + 0.045, distanceFromCore);
-                float raggedCap = height + (fbm(vec2(x * 4.6 + phase,
-                        -u_time * 1.7 + phase)) - 0.5) * 0.20;
-                float cap = 1.0 - smoothstep(raggedCap - 0.13,
-                        raggedCap + 0.025, y);
-                float breakup = mix(1.0, smoothstep(0.28, 0.70,
-                        noise(vec2(x * 7.2 + phase,
-                                y * 8.8 - u_time * 2.8))),
-                        smoothstep(0.42, 0.94, relativeY));
+                float slowBend = sin(relativeY * 4.7 - u_time * 1.28 + phase)
+                        * (0.022 + relativeY * 0.112);
+                float turbulentBend = (fbm(vec2(relativeY * 3.1
+                        - u_time * 0.76, phase + u_seed)) - 0.5)
+                        * (0.042 + relativeY * 0.27);
+                float spine = centre + slowBend + turbulentBend;
+
+                // Real flames do not converge towards a geometric apex. The
+                // neck keeps a small, breathing radius and the noisy cap
+                // erodes it into changing rounded forks instead of a triangle.
+                float breathing = 0.82 + 0.25 * noise(vec2(relativeY * 4.4
+                        - u_time * 1.72, phase * 2.7));
+                float neck = 0.17 + 0.83
+                        * pow(max(0.0, 1.0 - relativeY), 0.64);
+                float scallop = 0.88 + 0.14 * sin(relativeY * 15.0
+                        - u_time * 2.05 + phase * 1.9);
+                float radius = width * neck * breathing * scallop;
+                float distanceFromCore = abs(x - spine);
+                float edgeNoise = fbm(vec2(x * 8.2 + phase,
+                        y * 9.7 - u_time * 2.55));
+                float edge = 1.0 - smoothstep(radius * (0.52
+                        + edgeNoise * 0.13), radius + 0.035,
+                        distanceFromCore);
+
+                float capNoise = fbm(vec2(x * 5.8 + phase,
+                        -u_time * 1.86 + phase));
+                float raggedCap = height + (capNoise - 0.5) * 0.23
+                        - 0.075 * pow(distanceFromCore
+                                / max(width, 0.01), 2.0);
+                float cap = 1.0 - smoothstep(raggedCap - 0.105,
+                        raggedCap + 0.035, y);
+
+                float upper = smoothstep(0.54, 0.96, relativeY);
+                float forkSide = sin((x - spine) * 15.0 + phase
+                        + edgeNoise * 4.0);
+                float fork = smoothstep(0.18, 0.82,
+                        noise(vec2(x * 9.3 + phase,
+                                y * 10.6 - u_time * 3.05))
+                                + forkSide * 0.12);
+                float breakup = mix(1.0, fork, upper * 0.78);
                 return edge * cap * breakup;
             }
 

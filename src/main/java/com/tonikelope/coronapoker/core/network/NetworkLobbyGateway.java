@@ -191,6 +191,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private final AtomicBoolean clientReconnectRunning = new AtomicBoolean();
         private volatile String password;
         private volatile ServerSocket serverSocket;
+        private volatile UpnpPortMapping upnpMapping;
         private volatile Connection serverConnection;
         private volatile LobbySession session;
         private String serverNickname;
@@ -231,6 +232,22 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             server.setReuseAddress(true);
             server.bind(new InetSocketAddress(port));
             transport.serverSocket = server;
+            String initialDetail = "";
+            if (request.connection().upnp()) {
+                UpnpPortMapping.Attempt attempt =
+                        UpnpPortMapping.openSystemTcp(port);
+                if (attempt.opened()) {
+                    transport.upnpMapping = attempt.lease();
+                    initialDetail = "UPNP_OK";
+                    LOGGER.log(Level.INFO,
+                            "UPnP mapping opened for TCP port {0}", port);
+                } else {
+                    initialDetail = "UPNP_ERROR";
+                    LOGGER.log(Level.WARNING,
+                            "UPnP mapping failed for TCP port {0}: {1}",
+                            new Object[]{port, attempt.status()});
+                }
+            }
             transport.peers.put(transport.localNickname,
                     Peer.local(transport.localNickname, request.connection().avatar(), true,
                             identity.publicKey(), identity.signJoin(sessionId)));
@@ -250,7 +267,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 }
             }
             LobbySession session = new LobbySession(transport.snapshot(
-                    LobbySnapshot.Phase.WAITING_FOR_PLAYERS, ""), transport::submit, transport);
+                    LobbySnapshot.Phase.WAITING_FOR_PLAYERS, initialDetail),
+                    transport::submit, transport);
             transport.session = session;
             executor.execute(transport::acceptLoop);
             return session;
@@ -705,6 +723,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private void closeAfterGracefulExit() {
             if (!closed.compareAndSet(false, true)) return;
             gameChannel.close();
+            closeUpnpMappingAsync();
             try {
                 if (serverSocket != null) serverSocket.close();
             } catch (IOException ignored) { }
@@ -1257,8 +1276,23 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         @Override public void close() {
             if (!closed.compareAndSet(false, true)) return;
             gameChannel.close();
+            closeUpnpMappingAsync();
             try { if (serverSocket != null) serverSocket.close(); } catch (IOException ignored) { }
             closeConnections();
+        }
+
+        private void closeUpnpMappingAsync() {
+            UpnpPortMapping mapping = upnpMapping;
+            upnpMapping = null;
+            if (mapping == null) return;
+            try {
+                executor.execute(mapping::close);
+            } catch (RejectedExecutionException rejected) {
+                Thread cleanup = new Thread(mapping::close,
+                        "CoronaPoker-UPnP-close");
+                cleanup.setDaemon(true);
+                cleanup.start();
+            }
         }
 
         private void closeConnections() {

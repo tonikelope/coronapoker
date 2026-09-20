@@ -34,9 +34,10 @@ Disciplina del repositorio durante la migración:
   muestra versión, marca, dedicatoria, agradecimientos y créditos musicales
   traducidos, envuelve las líneas dentro de sus columnas y cierra mediante
   botón o `ESC`. No cambia ni reinicia el hilo musical del menú. Compilación y
-  empaquetado GDX correctos; contrato focalizado de textos: **1/1**. JAR GDX:
-  266.276.536 bytes, SHA-256
-  `3CEF5AE4169655238605825433F7107F2FD161ABCD3FBCCADDEA832B46F18198`.
+  empaquetado GDX correctos; contrato focalizado de textos: **1/1**. El JAR
+  actual que incluye también la temporización de chat descrita abajo mide
+  266.276.979 bytes, SHA-256
+  `CA9888EA0541CBC51FD03548B125408B8B84A149216F57D5B9FADF82B63EB169`.
 - Corregida la paridad del registro al cerrar un showdown: GDX ya sustituye
   `(---)` por las cartas/jugada reveladas o por `(***)` en la línea original,
   como Swing, en vez de añadir un bloque `SHOWDOWN` separado y duplicado al
@@ -53,13 +54,12 @@ Disciplina del repositorio durante la migración:
   borrar fuera de `.coronapoker/Screenshots`. Junto con la regresión del chat,
   pruebas focalizadas: **108/108**. JAR GDX: 266.272.240 bytes, SHA-256
   `2C2444C6A7175AE005C7BB0E06E752FB25AC59F2F17701C7061B7B71290A7773`.
-- Ajustada la duración del icono amarillo de conversación de la mesa: cuando
-  el TTS se reproduce correctamente, GDX lo retira 500 ms después de terminar
-  la voz, igual que Swing, en lugar de mantener siempre el mínimo fijo de tres
-  segundos. Si el TTS no llega a reproducirse se conserva ese respaldo de tres
-  segundos. Pruebas focalizadas de chat/mesa: **108/108**. JAR GDX:
-  266.267.680 bytes, SHA-256
-  `899475D294A283B2EEB3DDC1CA9BC5F2DF6870C30262DEA74E4D3F0E3BD986E1`.
+- Ajustado el ciclo completo del icono amarillo de conversación de la mesa:
+  cuando hay TTS, GDX ya lo muestra sólo al comenzar realmente la reproducción,
+  lo conserva durante toda la voz y lo retira 500 ms después de terminar,
+  igual que Swing. Un fallo de descarga/reproducción no deja un icono de voz
+  engañoso; el aviso sin TTS conserva su duración legible independiente.
+  Pruebas focalizadas de chat y textos: **10/10**.
 - Corregido el bloque visual de chat/fin de timba observado en la prueba
   interactiva: enviar una imagen cierra la galería tras la confirmación tanto
   en sala como en mesa; las imágenes y el icono de conversación se ajustan al

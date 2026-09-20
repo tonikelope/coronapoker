@@ -5643,12 +5643,48 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     || seatByNickname(message.nickname()) == null) {
                 continue;
             }
-            SeatChatNotice previous = seatChatNotices.remove(message.nickname());
-            if (previous != null) previous.dispose();
+            boolean spokenText = shouldSpeakTableChat(message.type(),
+                    notifications, audioControl.enabled(),
+                    globalTextToSpeechEnabled(),
+                    tablePreference("audio_block_tts_local", false),
+                    senderBlocked);
             SeatChatNotice notice = new SeatChatNotice(message.type(),
                     message.content(), totalTime,
                     totalTime + seatChatNoticeDuration(message.type(),
                             message.content()));
+            if (spokenText) {
+                textToSpeech.enqueue(message.content(),
+                        presentationSettings == null
+                                ? tablePreferenceText("lenguaje", "es")
+                                : presentationSettings.language(),
+                        () -> {
+                            if (disposed || seatByNickname(
+                                    message.nickname()) == null) return;
+                            SeatChatNotice previous = seatChatNotices.remove(
+                                    message.nickname());
+                            if (previous != null) previous.dispose();
+                            // Swing only makes talk.png visible once playback
+                            // really starts. Keep a bounded watchdog here; the
+                            // normal completion replaces it with the 500 ms
+                            // Swing tail below.
+                            notice.startedAt = totalTime;
+                            notice.expiresAt = totalTime + 121f;
+                            seatChatNotices.put(message.nickname(), notice);
+                        })
+                        .thenAccept(played -> {
+                            if (!played || Gdx.app == null) return;
+                            Gdx.app.postRunnable(() -> {
+                                if (!disposed
+                                        && seatChatNotices.get(
+                                                message.nickname()) == notice) {
+                                    notice.expiresAt = totalTime + 0.5f;
+                                }
+                            });
+                        });
+                continue;
+            }
+            SeatChatNotice previous = seatChatNotices.remove(message.nickname());
+            if (previous != null) previous.dispose();
             seatChatNotices.put(message.nickname(), notice);
             if (message.type() == LobbyChatMessage.Type.IMAGE) {
                 loadSeatChatImage(message.nickname(), notice);
@@ -5664,31 +5700,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         }
                     });
                 });
-            } else if (shouldSpeakTableChat(message.type(), notifications,
-                    audioControl.enabled(),
-                    globalTextToSpeechEnabled(),
-                    tablePreference("audio_block_tts_local", false),
-                    senderBlocked)) {
-                textToSpeech.enqueue(message.content(),
-                        presentationSettings == null
-                                ? tablePreferenceText("lenguaje", "es")
-                                : presentationSettings.language())
-                        .thenAccept(played -> {
-                            if (!played || Gdx.app == null) return;
-                            Gdx.app.postRunnable(() -> {
-                                if (!disposed
-                                        && seatChatNotices.get(
-                                                message.nickname()) == notice) {
-                                    // Swing hides talk.png 500 ms after the
-                                    // spoken line ends. Do not keep GDX's
-                                    // three-second fallback alive longer when
-                                    // a short TTS line has already finished.
-                                    notice.expiresAt = Math.min(
-                                            notice.expiresAt,
-                                            totalTime + 0.5f);
-                                }
-                            });
-                        });
             }
         }
         var iterator = seatChatNotices.entrySet().iterator();
@@ -14007,7 +14018,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         final LobbyChatMessage.Type type;
         final String content;
-        final float startedAt;
+        float startedAt;
         float expiresAt;
         boolean loading = true;
         boolean failed;

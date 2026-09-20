@@ -65,13 +65,19 @@ final class GdxTextToSpeechPlayback implements AutoCloseable {
     }
 
     CompletableFuture<Boolean> enqueue(String chatMessage, String language) {
+        return enqueue(chatMessage, language, () -> { });
+    }
+
+    CompletableFuture<Boolean> enqueue(String chatMessage, String language,
+            Runnable playbackStarted) {
+        Objects.requireNonNull(playbackStarted, "playbackStarted");
         String speech = serviceText(cleanChatMessage(chatMessage));
         if (speech.isEmpty() || speech.length() > MAX_TTS_LENGTH
                 || closed.get()) return CompletableFuture.completedFuture(false);
         String speechLanguage = "es".equalsIgnoreCase(language) ? "es" : "en";
         CompletableFuture<Boolean> result = new CompletableFuture<>();
         worker.execute(() -> result.complete(fetchAndPlay(
-                speech, speechLanguage)));
+                speech, speechLanguage, playbackStarted)));
         return result;
     }
 
@@ -87,7 +93,8 @@ final class GdxTextToSpeechPlayback implements AutoCloseable {
         return (float) Math.max(0d, Math.min(1d, masterVolume * 2d));
     }
 
-    private boolean fetchAndPlay(String speech, String language) {
+    private boolean fetchAndPlay(String speech, String language,
+            Runnable playbackStarted) {
         Path mp3 = null;
         try {
             byte[] audio = download(speech, language);
@@ -97,7 +104,8 @@ final class GdxTextToSpeechPlayback implements AutoCloseable {
             Files.write(mp3, audio);
             CompletableFuture<Boolean> finished = new CompletableFuture<>();
             Path playbackFile = mp3;
-            Gdx.app.postRunnable(() -> startPlayback(playbackFile, finished));
+            Gdx.app.postRunnable(() -> startPlayback(playbackFile, finished,
+                    playbackStarted));
             return finished.get(2, TimeUnit.MINUTES);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
@@ -115,7 +123,8 @@ final class GdxTextToSpeechPlayback implements AutoCloseable {
         return false;
     }
 
-    private void startPlayback(Path mp3, CompletableFuture<Boolean> finished) {
+    private void startPlayback(Path mp3, CompletableFuture<Boolean> finished,
+            Runnable playbackStarted) {
         if (closed.get()) {
             finished.complete(false);
             return;
@@ -130,6 +139,11 @@ final class GdxTextToSpeechPlayback implements AutoCloseable {
             music.setOnCompletionListener(ignored -> finishPlayback(
                     music, finished, ended));
             music.play();
+            try {
+                playbackStarted.run();
+            } catch (RuntimeException ignored) {
+                // A visual notification must never abort audible playback.
+            }
         } catch (RuntimeException failure) {
             activeMusic = null;
             ducking.accept(false);

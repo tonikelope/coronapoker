@@ -545,7 +545,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         || blindStructureDialog
                                 != BlindStructureDialog.NONE))
                 || (surface == Surface.NEW_GAME
-                && (presetDialog != PresetDialog.NONE
+                && (submissions.submitting()
+                        || presetDialog != PresetDialog.NONE
                         || blindStructureDialog != BlindStructureDialog.NONE))) {
             texts.clear();
             // A visual modal must also own the complete interaction map.
@@ -571,7 +572,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             } else if (surface == Surface.SETTINGS) {
                 drawSettingsDiscardConfirmation();
             } else if (surface == Surface.NEW_GAME) {
-                if (blindStructureDialog != BlindStructureDialog.NONE) {
+                if (submissions.submitting()) {
+                    drawNewGameSubmissionOverlay();
+                } else if (blindStructureDialog != BlindStructureDialog.NONE) {
                     drawBlindStructureDialog();
                 } else {
                     drawPresetDialog();
@@ -2094,6 +2097,54 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.setColor(CYAN);
         roundedRect(segmentX, trackY + 4f, segmentW,
                 trackH - 8f, 5f);
+    }
+
+    private void drawNewGameSubmissionOverlay() {
+        shapes.setColor(new Color(0x02050ce6));
+        shapes.rect(0f, 0f, WIDTH, HEIGHT);
+
+        float panelX = 610f;
+        float panelY = 384f;
+        float panelW = 700f;
+        float panelH = 270f;
+        shapes.setColor(new Color(0x00000099));
+        roundedRect(panelX + 8f, panelY - 10f, panelW, panelH, 18f);
+        shapes.setColor(CYAN_DARK);
+        roundedRect(panelX - 2f, panelY - 2f, panelW + 4f,
+                panelH + 4f, 18f);
+        shapes.setColor(new Color(0x071321ff));
+        roundedRect(panelX, panelY, panelW, panelH, 16f);
+        shapes.setColor(new Color(0x36d9ffb8));
+        shapes.rect(panelX + 28f, panelY + panelH - 15f,
+                panelW - 56f, 3f);
+
+        String statusKey = connection.mode()
+                == NewGameConnectionDraft.Mode.CREATE
+                        ? "gdx.newgame.preparing_waiting_room"
+                        : "gdx.newgame.connecting_waiting_room";
+        textFit(headingFont, uppercase(gameText.translate(statusKey)),
+                WIDTH / 2f, panelY + 190f, GOLD, true, panelW - 80f);
+
+        float trackX = panelX + 80f;
+        float trackY = panelY + 116f;
+        float trackW = panelW - 160f;
+        float trackH = 16f;
+        shapes.setColor(new Color(0x020813ff));
+        roundedRect(trackX, trackY, trackW, trackH, 8f);
+        shapes.setColor(LINE);
+        roundedRect(trackX + 2f, trackY + 2f, trackW - 4f,
+                trackH - 4f, 6f);
+        float segmentW = 150f;
+        float travel = trackW - segmentW - 8f;
+        float phase = (elapsed * 0.58f) % 2f;
+        float eased = phase <= 1f ? phase : 2f - phase;
+        shapes.setColor(CYAN);
+        roundedRect(trackX + 4f + travel * eased, trackY + 4f,
+                segmentW, trackH - 8f, 4f);
+
+        themedButton(panelX + 200f, panelY + 28f, 300f, 62f,
+                uppercase(gameText.translate("ui.cancelar")),
+                ButtonTone.NEUTRAL, this::cancelOrReturnToMenu, true);
     }
 
     private void kickSelectedParticipant() {
@@ -5039,8 +5090,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         try {
             submissions.submit(connection, table).whenComplete((request, failure) ->
                     Gdx.app.postRunnable(() -> completeSubmission(request, failure)));
-            showToast(gameText.translate(
-                    "gdx.newgame.connecting_waiting_room"));
         } catch (RuntimeException failure) {
             showToast(submissionError(failure));
         }

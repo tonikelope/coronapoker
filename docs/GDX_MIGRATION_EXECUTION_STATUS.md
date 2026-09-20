@@ -1719,6 +1719,23 @@ protocolo ni criptografía. Estadísticas queda para el final.
 
 ## Protocolo de actualización
 
+### Corte 2026-09-20 - entrada a sala y veto AUTO
+
+- Nueva timba ya no presenta al anfitrion como si se conectara a una sala
+  ajena: CREATE muestra `PREPARANDO LA SALA DE ESPERA` y JOIN conserva
+  `CONECTANDO CON LA SALA DE ESPERA`.
+- La espera de ambos recorridos se compone como modal centrado, oscurece la
+  pantalla inferior, elimina los controles interactivos subyacentes y deja
+  disponible unicamente Cancelar hasta completar o fallar la operacion.
+- El dialogo de veto AUTO se ha reducido y centrado sobre la botonera local;
+  sus textos, progreso y boton se recolocaron dentro del nuevo contenedor.
+- Verificacion focalizada: 113/113 pruebas GDX (`GdxTableViewStateTest`,
+  `GdxGameTextTest` y `GdxFrontendSettingsWiringTest`). Sigue pendiente la
+  comprobacion visual OpenGL y la prueba interactiva host/remoto en dos PCs.
+- JAR GDX de este corte: `target/CoronaPoker-24.11-gdx.jar`, 266.337.066
+  bytes, SHA-256
+  `0786DC8884E158DC9AFC6A0E9CEE319589F4F369993FE06D7D05417BD6AC7EB8`.
+
 Al cerrar cada bloque se debe registrar aquí:
 
 - Qué consumidor real se añadió o corrigió.

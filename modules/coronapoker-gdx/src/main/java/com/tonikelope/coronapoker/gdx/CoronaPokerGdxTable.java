@@ -3838,13 +3838,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float panelH = dialogHeight(dialog);
         float panelX = dialogX(dialog, panelW);
         float panelY = dialogY(dialog, panelH);
-        float negativeX = dialog.isAutoAction()
-                ? panelX + 42f : panelX + 42f;
+        float negativeX = panelX + (dialog.isAutoAction() ? 30f : 42f);
         float negativeW = dialog.isAutoAction()
-                ? panelW - 84f : 230f;
+                ? panelW - 60f : 230f;
+        float buttonY = panelY + (dialog.isAutoAction() ? 22f : 34f);
+        float buttonH = dialog.isAutoAction() ? 52f : 64f;
         if (dialog.showsNegative()
                 && contains(pointer.x, pointer.y, negativeX,
-                        panelY + 34f, negativeW, 64f)) {
+                        buttonY, negativeW, buttonH)) {
             resolveActiveDialogChoice(false);
         } else if (dialog.isAutoCall()
                 && contains(pointer.x, pointer.y, panelX + 56f,
@@ -3932,19 +3933,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private float dialogWidth(GdxTableDialog dialog) {
         if (dialog.isAutoAction()) {
-            // Swing anchors the veto to LocalPlayer.botonera rather than to
-            // the screen.  This is the exact GDX width occupied by the action
-            // row to the right of the local information pod.
             float hudWidth = Math.min(1110f,
                     viewport.getWorldWidth() - 620f);
-            return hudWidth - 230f - 12f;
+            float actionWidth = hudWidth - 230f - 12f;
+            return Math.min(620f, actionWidth);
         }
         return MathUtils.clamp(dialog.preferredWidth() > 0
                 ? dialog.preferredWidth() : 860f, 620f, 1200f);
     }
 
     private static float dialogHeight(GdxTableDialog dialog) {
-        return dialog.isAutoAction() ? 300f
+        return dialog.isAutoAction() ? 230f
                 : dialog.isGameOver()
                         ? (dialog.showsPositive() ? 570f : 390f)
                 : dialog.isAutoCall() || dialog.isHandLimit() ? 540f
@@ -3957,7 +3956,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float hudWidth = Math.min(1110f,
                     viewport.getWorldWidth() - 620f);
             float hudX = viewport.getWorldWidth() / 2f - hudWidth / 2f;
-            return hudX + 230f + 12f;
+            float actionX = hudX + 230f + 12f;
+            float actionW = hudWidth - 230f - 12f;
+            return actionX + (actionW - panelW) / 2f;
         }
         return (viewport.getWorldWidth() - panelW) / 2f;
     }
@@ -11711,8 +11712,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         float acceptX = panelX + panelW - 272f;
-        float negativeX = panelX + 42f;
-        float negativeW = dialog.isAutoAction() ? panelW - 84f : 230f;
+        float negativeX = panelX + (dialog.isAutoAction() ? 30f : 42f);
+        float negativeW = dialog.isAutoAction() ? panelW - 60f : 230f;
+        float buttonY = panelY + (dialog.isAutoAction() ? 22f : 34f);
+        float buttonH = dialog.isAutoAction() ? 52f : 64f;
         Color accent = switch (dialog.kind()) {
             case ERROR -> FOLD_RED;
             case INFO -> CYAN;
@@ -11735,12 +11738,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.setColor(accent.r, accent.g, accent.b, 0.72f);
         shapes.rect(panelX + 24f, panelY + panelH - 9f, panelW - 48f, 3f);
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.045f);
-        roundedRect(panelX + 28f, panelY + 125f,
-                panelW - 56f, panelH - 222f, 12f);
+        float contentY = panelY + (dialog.isAutoAction() ? 88f : 125f);
+        float contentH = dialog.isAutoAction() ? 70f : panelH - 222f;
+        roundedRect(panelX + 28f, contentY,
+                panelW - 56f, contentH, 12f);
         if (dialog.showsNegative()) {
-            drawDialogButton(negativeX, panelY + 34f, negativeW, 64f,
+            drawDialogButton(negativeX, buttonY, negativeW, buttonH,
                     BUTTON_LINE, contains(pointer.x, pointer.y,
-                            negativeX, panelY + 34f, negativeW, 64f), 1f);
+                            negativeX, buttonY, negativeW, buttonH), 1f);
         }
         if (dialog.showsPositive()) {
             drawDialogButton(acceptX, panelY + 34f, 230f, 64f, accent,
@@ -11775,15 +11780,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (dialog.seconds() > 0) {
             float progressW = panelW - 84f;
-            float progressH = dialog.isAutoAction() ? 20f : 8f;
+            float progressH = dialog.isAutoAction() ? 14f : 8f;
+            float progressY = panelY + (dialog.isAutoAction() ? 78f : 116f);
             shapes.setColor(BUTTON_LINE.r, BUTTON_LINE.g,
                     BUTTON_LINE.b, 0.80f);
-            roundedRect(panelX + 42f, panelY + 116f,
+            roundedRect(panelX + 42f, progressY,
                     progressW, progressH, progressH / 2f);
             float remaining = progressW * dialog.remainingFraction(totalTime);
             if (remaining > 0f) {
                 shapes.setColor(accent.r, accent.g, accent.b, 0.94f);
-                roundedRect(panelX + 42f, panelY + 116f,
+                roundedRect(panelX + 42f, progressY,
                         remaining, progressH, progressH / 2f);
             }
         }
@@ -11791,13 +11797,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         batch.begin();
         drawLeftInBox(uiFont, dialog.title(), panelX + 42f,
-                panelY + panelH - 80f, panelW - 84f, 46f,
+                panelY + panelH - (dialog.isAutoAction() ? 58f : 80f),
+                panelW - 84f, 46f,
                 accent, 1f);
         BitmapFont.BitmapFontData dialogFontData = uiFont.getData();
         float originalScaleX = dialogFontData.scaleX;
         float originalScaleY = dialogFontData.scaleY;
         float messageW = panelW - 112f;
-        float messageH = dialog.hasAmount() ? 86f : panelH - 240f;
+        float messageH = dialog.isAutoAction() ? 54f
+                : dialog.hasAmount() ? 86f : panelH - 240f;
         glyph.setText(uiFont, dialog.message(), Color.WHITE,
                 messageW, Align.center, true);
         if (glyph.height > messageH) {
@@ -11810,7 +11818,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         uiFont.draw(batch, glyph, panelX + 56f,
                 dialog.isAutoCall() || dialog.isHandLimit() ? panelY + 414f
                         : dialog.hasAmount() ? panelY + 286f
-                        : panelY + 125f + (panelH - 222f + glyph.height) / 2f);
+                        : dialog.isAutoAction()
+                                ? panelY + 96f + glyph.height / 2f
+                                : panelY + 125f
+                                        + (panelH - 222f + glyph.height) / 2f);
         uiFont.setColor(Color.WHITE);
         dialogFontData.setScale(originalScaleX, originalScaleY);
         if (dialog.hasAmount()) {
@@ -11862,7 +11873,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (dialog.showsNegative()) {
             drawFittedCenteredInBox(actionFont, dialog.negativeLabel(),
-                    negativeX, panelY + 34f, negativeW, 64f,
+                    negativeX, buttonY, negativeW, buttonH,
                     Color.WHITE, 1f);
         }
         if (dialog.showsPositive()) {

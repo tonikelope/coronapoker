@@ -58,6 +58,10 @@ final class GdxGameTextTest {
                 text.translate("gdx.lobby.voice_playback_failed"));
         assertEquals("Preparing the table",
                 text.translate("gdx.lobby.preparing_table"));
+        assertEquals("Preparing the waiting room…",
+                text.translate("gdx.newgame.preparing_waiting_room"));
+        assertEquals("Connecting to the waiting room…",
+                text.translate("gdx.newgame.connecting_waiting_room"));
         assertEquals("Select avatar", text.translate("gdx.avatar.select"));
         assertEquals("No previous servers",
                 text.translate("gdx.newgame.no_previous_servers"));
@@ -97,6 +101,10 @@ final class GdxGameTextTest {
                 text.translate("gdx.settings.unsaved.title"));
         assertEquals("No se pueden guardar más de 10 perfiles",
                 text.translate("gdx.newgame.profile_limit", 10));
+        assertEquals("Preparando la sala de espera…",
+                text.translate("gdx.newgame.preparing_waiting_room"));
+        assertEquals("Conectando con la sala de espera…",
+                text.translate("gdx.newgame.connecting_waiting_room"));
         assertEquals("2 de 5",
                 text.translate("gdx.newgame.blind_editor.level_count", 2, 5));
         assertEquals("MÍNIMO", text.translate("gdx.dialog.minimum"));

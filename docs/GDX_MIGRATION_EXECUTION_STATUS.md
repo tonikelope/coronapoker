@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 11:21 (Europe/Madrid)
+Última actualización: 2026-09-20 11:31 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,16 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19/20
 
+- Corregida la desaparición del icono amarillo de voz en el jugador local:
+  GDX creaba y temporizaba correctamente el aviso al comenzar la reproducción,
+  pero lo pintaba antes del HUD local y este lo cubría. Los avisos de TTS/nota
+  de voz e imagen se componen ahora, como el `JLayeredPane` de Swing, después
+  de todos los HUD de jugadores; funcionan tanto para el emisor local como
+  para el asiento remoto. Además, `talk.png` ya no aparece para un mensaje de
+  texto cuando TTS está silenciado, desactivado o bloqueado: como en Swing, el
+  icono significa que la voz ha comenzado realmente. Pruebas focalizadas de
+  chat/voz y audio: **11/11**. JAR GDX: 266.285.235 bytes, SHA-256
+  `63B43CC649A3CF23B4B1D90A34D1725EB4633D6FFCDAC633E3E321A2D9E8592E`.
 - Corregido un cierre crítico descubierto en la prueba interactiva del overlay
   de volumen: `Mayús + Arriba/Abajo` alcanzaba correctamente la acción GDX,
   pero `volume_change.wav` contenía metadatos WAV que el lector de libGDX no

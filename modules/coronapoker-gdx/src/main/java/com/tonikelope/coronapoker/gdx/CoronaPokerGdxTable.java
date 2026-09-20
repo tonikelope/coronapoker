@@ -4937,7 +4937,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawSeats();
         drawCardsAndPot(tableCx, tableCy, tableW);
         drawHoleCards(true);
-        drawSeatChatNotices();
         // The physical chip flies above the table contents; only its light
         // trail stays below. This preserves a believable foreground collision.
         drawFlyingChips(potCenterX, potCenterY);
@@ -4945,6 +4944,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawHandOverlay();
         drawShowdownOverlay();
         drawLocalHud(width, height);
+        // Swing puts chat_notify_label in the player's topmost layered-pane
+        // band.  Draw notices only after every remote and local HUD; otherwise
+        // the local HUD repaints over talk.png and makes an own voice note look
+        // as if it never produced its speaking indicator.
+        drawSeatChatNotices();
         drawFastAccessBar();
         drawVoiceRecordingOverlay(width, height);
         drawAvatarZoomOverlay(width, height);
@@ -5679,17 +5683,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     tablePreference("audio_block_voice_messages", false),
                     ownMessage,
                     tablePreference("audio_play_own_voice", true));
-            if (!shouldShowSeatNotice(message.type(), notifications,
-                    tablePreference("chat_images_ingame", true), voiceNotice,
-                    senderBlocked, ownMessage)
-                    || seatByNickname(message.nickname()) == null) {
-                continue;
-            }
             boolean spokenText = shouldSpeakTableChat(message.type(),
                     notifications, audioControl.enabled(),
                     globalTextToSpeechEnabled(),
                     tablePreference("audio_block_tts_local", false),
                     senderBlocked);
+            boolean eligibleNotice = shouldShowSeatNotice(message.type(),
+                    notifications,
+                    tablePreference("chat_images_ingame", true), voiceNotice,
+                    senderBlocked, ownMessage);
+            if (!shouldDisplaySeatNotice(message.type(), eligibleNotice,
+                    spokenText)
+                    || seatByNickname(message.nickname()) == null) {
+                continue;
+            }
             SeatChatNotice notice = new SeatChatNotice(message.type(),
                     message.content(), totalTime,
                     totalTime + seatChatNoticeDuration(message.type(),
@@ -13162,6 +13169,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     && !senderMediaBlocked;
             case PLAYER_JOINED, PLAYER_LEFT -> false;
         };
+    }
+
+    static boolean shouldDisplaySeatNotice(LobbyChatMessage.Type type,
+            boolean eligibleNotice, boolean spokenText) {
+        // Swing prepares talk.png for every text notification but only makes
+        // it visible from Audio.TTS once playback really starts. A muted,
+        // disabled or blocked TTS message stays in chat without impersonating
+        // active speech on its seat. Voice notes have their own playback gate
+        // in shouldShowVoiceSeatNotice.
+        return eligibleNotice
+                && (type != LobbyChatMessage.Type.TEXT || spokenText);
     }
 
     /** Same gates evaluated by Swing's in-game TTS watchdog. */

@@ -144,6 +144,20 @@ final class GdxTableChatSessionTest {
     }
 
     @Test
+    void textSeatIconOnlyExistsWhileTtsActuallyPlays() {
+        assertTrue(CoronaPokerGdxTable.shouldDisplaySeatNotice(
+                LobbyChatMessage.Type.TEXT, true, true));
+        org.junit.jupiter.api.Assertions.assertFalse(
+                CoronaPokerGdxTable.shouldDisplaySeatNotice(
+                        LobbyChatMessage.Type.TEXT, true, false));
+        assertTrue(CoronaPokerGdxTable.shouldDisplaySeatNotice(
+                LobbyChatMessage.Type.VOICE, true, false));
+        org.junit.jupiter.api.Assertions.assertFalse(
+                CoronaPokerGdxTable.shouldDisplaySeatNotice(
+                        LobbyChatMessage.Type.TEXT, false, true));
+    }
+
+    @Test
     void seatNoticesRespectTheSwingChatImagePreference() {
         assertTrue(CoronaPokerGdxTable.shouldShowSeatNotice(
                 LobbyChatMessage.Type.TEXT, true, false, false, true,

@@ -37,7 +37,12 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private LobbySession lobby;
     private CoronaPokerGdxTable startupIntro;
     private volatile CoronaPokerGdxTable table;
+    private PendingTableOpen pendingTableOpen;
     private boolean splashCloseScheduled;
+
+    private record PendingTableOpen(CoronaPokerGdxTable candidate,
+            CompletableFuture<Void> openingBarrier) {
+    }
 
     GdxApplicationShell(int refreshRate, CoronaPokerApplication application,
             NewGameSessionGateway sessionGateway, GdxGameLogSink gameLog,
@@ -170,6 +175,10 @@ final class GdxApplicationShell extends ApplicationAdapter {
         CoronaPokerGdxTable current = table;
         if (current == null) {
             menu.render();
+            // Create one bounded group of table resources after each rendered
+            // lobby frame. PREPARANDO LA MESA therefore keeps reaching the
+            // swap chain instead of freezing during one monolithic create().
+            advancePendingTableOpen();
         } else {
             current.render();
         }
@@ -217,7 +226,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
         Objects.requireNonNull(opened, "opened");
         Objects.requireNonNull(openingBarrier, "openingBarrier");
         Gdx.app.postRunnable(() -> {
-            if (table != null) {
+            if (table != null || pendingTableOpen != null) {
                 openingBarrier.completeExceptionally(
                         new IllegalStateException("A GDX table scene is already open"));
                 return;
@@ -230,33 +239,54 @@ final class GdxApplicationShell extends ApplicationAdapter {
                         refreshRate, new GdxTableViewState(initialState), commands,
                         () -> opened.accept(table), gameLog, preferences, lobby,
                         presentationSettings);
-                candidate.create();
-                candidate.resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-                table = candidate;
-                // The lobby keeps its last hit map while the table is visible.
-                // Leaving it installed would make one table click reach the raw
-                // table input on press and a hidden lobby control on release.
-                Gdx.input.setInputProcessor(candidate.inputProcessor());
+                candidate.beginIncrementalCreate();
+                pendingTableOpen = new PendingTableOpen(candidate,
+                        openingBarrier);
             } catch (Throwable error) {
-                error.printStackTrace(System.err);
-                if (candidate != null) {
-                    try {
-                        candidate.dispose();
-                    } catch (Throwable cleanupError) {
-                        error.addSuppressed(cleanupError);
-                    }
-                }
-                table = null;
-                Gdx.input.setInputProcessor(menu);
-                // Opening paused whichever menu/lobby track was active. If
-                // table creation fails, restore that same surface without
-                // restarting or replacing its decoder.
-                menu.resumeMusic();
-                menu.showSessionError(gameText.translate(
-                        "gdx.table.open_failed_detail", rootMessage(error)));
-                openingBarrier.completeExceptionally(error);
+                failPendingTableOpen(candidate, openingBarrier, error);
             }
         });
+    }
+
+    private void advancePendingTableOpen() {
+        PendingTableOpen pending = pendingTableOpen;
+        if (pending == null) return;
+        try {
+            if (!pending.candidate().advanceIncrementalCreate()) return;
+            pending.candidate().resize(Gdx.graphics.getWidth(),
+                    Gdx.graphics.getHeight());
+            table = pending.candidate();
+            pendingTableOpen = null;
+            // The lobby keeps its last hit map while the table is visible.
+            // Leaving it installed would make one table click reach the raw
+            // table input on press and a hidden lobby control on release.
+            Gdx.input.setInputProcessor(table.inputProcessor());
+        } catch (Throwable error) {
+            pendingTableOpen = null;
+            failPendingTableOpen(pending.candidate(),
+                    pending.openingBarrier(), error);
+        }
+    }
+
+    private void failPendingTableOpen(CoronaPokerGdxTable candidate,
+            CompletableFuture<Void> openingBarrier, Throwable error) {
+        error.printStackTrace(System.err);
+        if (candidate != null) {
+            try {
+                candidate.dispose();
+            } catch (Throwable cleanupError) {
+                error.addSuppressed(cleanupError);
+            }
+        }
+        table = null;
+        Gdx.input.setInputProcessor(menu);
+        // Opening paused whichever menu/lobby track was active. If table
+        // creation fails, restore that same surface without restarting or
+        // replacing its decoder.
+        menu.resumeMusic();
+        menu.showSessionError(gameText.translate(
+                "gdx.table.open_failed_detail", rootMessage(error)));
+        openingBarrier.completeExceptionally(error);
     }
 
     void closeTable(CoronaPokerGdxTable expected) {

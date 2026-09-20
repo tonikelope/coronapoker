@@ -788,6 +788,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private int frameCount;
     private boolean intro = true;
     private boolean readySignalled;
+    private int createStep = -1;
+    private boolean createComplete;
     private boolean introVisibleSignalled;
     private boolean introLightsSignalled;
     private String statsText = "Midiendo frame pacing...";
@@ -1865,6 +1867,45 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     @Override
     public void create() {
+        beginIncrementalCreate();
+        while (!advanceIncrementalCreate()) {
+            // Synchronous creation remains available to the startup intro and
+            // focused render tests. Product table entry uses one step per
+            // frame through GdxApplicationShell so its loading animation keeps
+            // reaching the swap chain.
+        }
+    }
+
+    void beginIncrementalCreate() {
+        if (createStep >= 0 || createComplete) {
+            throw new IllegalStateException("GDX table resources are already being created");
+        }
+        createStep = 0;
+    }
+
+    boolean advanceIncrementalCreate() {
+        if (createComplete) return true;
+        if (createStep < 0) {
+            throw new IllegalStateException("GDX table resource creation was not started");
+        }
+        switch (createStep++) {
+            case 0 -> createBaseGraphics();
+            case 1 -> createTableIdentityAssets();
+            case 2 -> createSeatAssets();
+            case 3 -> createTableControlAssets();
+            case 4 -> createFastAccessAssets();
+            case 5 -> createCardAndChipAssets();
+            case 6 -> createShuffleAssets();
+            case 7 -> createTableSounds();
+            case 8 -> createTableFonts();
+            case 9 -> createFinalSummaryFonts();
+            case 10 -> finishTableResourceCreation();
+            default -> createComplete = true;
+        }
+        return createComplete;
+    }
+
+    private void createBaseGraphics() {
         camera = new OrthographicCamera();
         viewport = new ExtendViewport(BASE_WIDTH, BASE_HEIGHT, 2560f, 1440f, camera);
         shapes = new ShapeRenderer();
@@ -1896,7 +1937,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         + backdropBlurShader.getLog());
             }
         }
+    }
 
+    private void createTableIdentityAssets() {
         // The intro enlarges the official logo substantially. Use its exact
         // 2x source there so the dock animation never magnifies the 525 px
         // menu asset and exposes jagged/pixelated edges.
@@ -1915,8 +1958,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             initialiseStars();
             Gdx.input.setCursorCatched(false);
+            createComplete = true;
             return;
         }
+    }
+
+    private void createSeatAssets() {
         avatarDefault = texture("images/avatar_default.png");
         avatarBot = texture("images/avatar_bot.png");
         dealerChip = texture("images/dealer.png");
@@ -1925,6 +1972,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         logMoneyIcon = texture("images/chips.png");
         logStraddleIcon = texture("images/straddle.png");
         logDealerStraddleIcon = texture("images/dealer_straddle.png");
+    }
+
+    private void createTableControlAssets() {
         soundIcon = texture("images/sound.png");
         muteIcon = texture("images/mute.png");
         blockedSoundIcon = texture("images/sound_b.png");
@@ -1940,6 +1990,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         finalStatsIcon = texture("images/stats.png");
         finalContinueIcon = texture("images/continue.png");
         fastMenuIcon = texture("images/fast_panel/menu.png");
+    }
+
+    private void createFastAccessAssets() {
         fastButtonIcons = new Texture[]{
             texture("images/menu/gear.png"),
             texture("images/fast_panel/chat.png"),
@@ -1950,6 +2003,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             texture("images/fast_panel/fullscreen.png"),
             silhouetteTexture("images/exit2.png", Color.WHITE)
         };
+    }
+
+    private void createCardAndChipAssets() {
         defaultCardBack = cardTexture("images/decks/goliat/hq/trasera.jpg");
         flyingChips = new Texture[]{
             createChipTexture(new Color(0xd72d3bff), new Color(0x7f101bff)),
@@ -1958,6 +2014,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             createChipTexture(new Color(0xe2a72fff), new Color(0x936312ff))
         };
         pot = texture("images/pot.png");
+    }
+
+    private void createShuffleAssets() {
         defaultShuffleGif = gif(
                 "images/decks/goliat/gif/shuffle.gif", 960);
         shuffleAudioStopTime = defaultShuffleGif.frameStartSeconds(
@@ -1968,6 +2027,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shuffleSoundDurationSeconds = wavDurationSeconds(shuffleAudio,
                 SHUFFLE_AUDIO_FALLBACK_SECONDS);
         shuffleSound = Gdx.audio.newSound(shuffleAudio);
+    }
+
+    private void createTableSounds() {
         dealSound = gameSound("misc/deal.wav");
         uncoverSound = gameSound("misc/uncover.wav");
         checkSound = gameSound("misc/check.wav");
@@ -1981,7 +2043,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         cardViewerSound = gameSound("misc/card_visor.wav");
         screenshotSound = gameSound("misc/screenshot.wav");
         feltChangeSound = gameSound("misc/mat.wav");
+    }
 
+    private void createTableFonts() {
         FreeTypeFontGenerator generator = new FreeTypeFontGenerator(
                 Gdx.files.internal("fonts/McLaren-Regular.ttf"));
         uiFont = font(generator, 31, 1.2f);
@@ -1999,6 +2063,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 new Color(1f, 1f, 0f, 0.80f));
         pauseFont = font(generator, 76, 0f,
                 PAUSE_RED, new Color(0x640000cc));
+        finalButtonFont = font(generator, 26, 0.2f);
+        generator.dispose();
+    }
+
+    private void createFinalSummaryFonts() {
         // BalanceScreen uses a bold Dialog face. Generate the GDX equivalents
         // natively at display size: enlarging uiFont's 31 px atlas made the
         // final title visibly pixelated at 1080p and above.
@@ -2017,16 +2086,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         finalDetailFont = font(balanceDetailGenerator, 38, 0f);
         finalCardFont = font(balanceDetailGenerator, 23, 0f);
         balanceDetailGenerator.dispose();
-        // Navigation is part of the shared game chrome, not of the balance
-        // report typography.  Keep it identical to the McLaren action buttons
-        // used by the main menu and the rest of the GDX interface.
-        finalButtonFont = font(generator, 26, 0.2f);
-        generator.dispose();
         FreeTypeFontGenerator logGenerator = new FreeTypeFontGenerator(
                 Gdx.files.internal("fonts/Inter-Medium.ttf"));
         gameLogFont = font(logGenerator, 21, 0f);
         logGenerator.dispose();
+    }
 
+    private void finishTableResourceCreation() {
         initialiseSeats();
         backgroundMusic = gameMusic("misc/background_music.mp3");
         backgroundMusic.setLooping(true);
@@ -2036,6 +2102,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             backgroundMusic.play();
         }
         Gdx.input.setCursorCatched(false);
+        createComplete = true;
     }
 
     private static Texture texture(String path) {

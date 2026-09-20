@@ -1708,7 +1708,11 @@ protocolo ni criptografía. Estadísticas queda para el final.
 2. CERRADO automáticamente: timeout, cierre/salida (también estando pausado),
    straddle, RIT, recompra, desconexión/reconexión y recuperación; 54/54 en la
    certificación agregada. Queda QA visual multiproceso, no una carencia de core
-   conocida.
+   conocida. Revalidado el 2026-09-20 sobre el checkout actual: pasan 2/2 los
+   escenarios focalizados que recuperan una timba e incorporan respectivamente
+   uno y dos jugadores GDX nuevos. Los recién llegados observan pasivamente la
+   mano recuperada, entran en la siguiente y todos los peers cierran con consenso
+   y saldos idénticos.
 3. CERRADO para los defectos encontrados: se corrigieron sólo dos transiciones
    del controlador neutral GDX y Swing queda protegido actualmente con
    1.120/1.120 FAST.

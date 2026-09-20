@@ -131,7 +131,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final Color LATENCY_ORANGE = new Color(0xff9800ff);
     private static final Color LATENCY_RED = new Color(0xf44336ff);
     private static final Color LATENCY_STALE = new Color(0x9e9e9eff);
-    private static final int SETTINGS_DEBUG_VISIBLE_LINES = 15;
     private static final int SETTINGS_SHORTCUT_ROWS_PER_PAGE = 5;
     private static final int EMOJI_COUNT = 1826;
     private static final int EMOJI_COLUMNS = 8;
@@ -286,10 +285,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private int settingsAudioPage;
     private int settingsGamePage;
     private int settingsShortcutPage;
-    private int settingsDebugScroll;
+    private float settingsDebugScroll;
     private final Rectangle settingsDebugScrollTrack = new Rectangle();
     private float settingsDebugScrollThumbHeight;
-    private int settingsDebugScrollMaximum;
+    private float settingsDebugScrollMaximum;
+    private final Rectangle settingsDebugViewport = new Rectangle();
+    private final List<TextItem> settingsDebugTexts = new ArrayList<>();
     private ScrollDrag scrollDrag = ScrollDrag.NONE;
     private String settingsShortcutCaptureId;
     private String settingsShortcutStatus = "";
@@ -480,6 +481,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyChatAvatars.clear();
         lobbyChatImages.clear();
         lobbyChatBubbles.clear();
+        settingsDebugTexts.clear();
+        settingsDebugViewport.set(0f, 0f, 0f, 0f);
         // The clipped chat layer belongs only to the message history. Clear
         // its previous-frame viewport before drawing a gallery or emoji
         // picker, otherwise that stale layer is composed over the dialog.
@@ -548,6 +551,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         batch.end();
 
         drawLobbyChatLayer();
+        drawSettingsDebugLayer();
 
         drawStartupMenuReveal();
 
@@ -1572,6 +1576,33 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             batch.draw(item.texture, item.x, item.y, item.width, item.height);
         }
         for (TextItem item : lobbyChatTexts) {
+            item.font.setColor(item.color);
+            glyph.setText(item.font, item.text);
+            float x = item.centered ? item.x - glyph.width / 2f : item.x;
+            item.font.draw(batch, item.text, x, item.y);
+        }
+        batch.end();
+        Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+    }
+
+    private void drawSettingsDebugLayer() {
+        if (surface != Surface.SETTINGS
+                || settingsSession.section()
+                        != GdxSettingsContract.Section.DEBUG
+                || settingsDebugViewport.width <= 0f
+                || settingsDebugViewport.height <= 0f) return;
+        int screenX = Math.round(viewport.getScreenX()
+                + settingsDebugViewport.x * viewport.getScreenWidth() / WIDTH);
+        int screenY = Math.round(viewport.getScreenY()
+                + settingsDebugViewport.y * viewport.getScreenHeight() / HEIGHT);
+        int screenWidth = Math.max(1, Math.round(settingsDebugViewport.width
+                * viewport.getScreenWidth() / WIDTH));
+        int screenHeight = Math.max(1, Math.round(settingsDebugViewport.height
+                * viewport.getScreenHeight() / HEIGHT));
+        Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
+        Gdx.gl.glScissor(screenX, screenY, screenWidth, screenHeight);
+        batch.begin();
+        for (TextItem item : settingsDebugTexts) {
             item.font.setColor(item.color);
             glyph.setText(item.font, item.text);
             float x = item.centered ? item.x - glyph.width / 2f : item.x;
@@ -3781,20 +3812,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 new Color(0x03070cff));
 
         List<String> lines = debugLines();
-        int maximum = Math.max(0,
-                lines.size() - SETTINGS_DEBUG_VISIBLE_LINES);
+        float viewportHeight = Math.max(0f, consoleH - 16f);
+        float maximum = Math.max(0f, lines.size() * 25f - viewportHeight);
         settingsDebugScroll = MathUtils.clamp(settingsDebugScroll, 0, maximum);
-        int first = Math.max(0, lines.size() - SETTINGS_DEBUG_VISIBLE_LINES
-                - settingsDebugScroll);
-        int last = Math.min(lines.size(),
-                first + SETTINGS_DEBUG_VISIBLE_LINES);
-        float lineY = consoleY + consoleH - 25f;
-        for (int i = first; i < last; i++) {
+        for (int i = 0; i < lines.size(); i++) {
+            float lineY = CoronaPokerGdxTable.anchoredPixelRowY(lines.size(),
+                    i, 25f, consoleY + 8f, viewportHeight,
+                    settingsDebugScroll, maximum) + 25f;
+            if (lineY < consoleY || lineY > consoleY + consoleH + 25f) {
+                continue;
+            }
             String line = lines.get(i);
-            textFit(tinyFont, line, consoleX + 14f, lineY,
-                    debugLineColor(line), false, consoleW - 42f);
-            lineY -= 25f;
+            settingsDebugTexts.add(fittedTextItem(tinyFont, line,
+                    consoleX + 14f, lineY, debugLineColor(line), false,
+                    consoleW - 50f));
         }
+        settingsDebugViewport.set(consoleX + 8f, consoleY + 8f,
+                consoleW - 36f, viewportHeight);
 
         float trackX = consoleX + consoleW - 16f;
         settingsDebugScrollTrack.set(trackX - 6f, consoleY + 8f,
@@ -3804,11 +3838,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         roundedRect(trackX, consoleY + 8f, 10f, consoleH - 16f, 5f);
         float thumbH = maximum == 0 ? consoleH - 16f
                 : Math.max(32f, (consoleH - 16f)
-                        * SETTINGS_DEBUG_VISIBLE_LINES / lines.size());
+                        * viewportHeight
+                        / Math.max(1f, lines.size() * 25f));
         settingsDebugScrollThumbHeight = thumbH;
         float travel = Math.max(0f, consoleH - 16f - thumbH);
         float ratio = maximum == 0 ? 0f
-                : (float) settingsDebugScroll / maximum;
+                : settingsDebugScroll / maximum;
         shapes.setColor(CYAN_DARK);
         roundedRect(trackX, consoleY + 8f + travel * ratio,
                 10f, thumbH, 5f);
@@ -6039,6 +6074,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void textFit(BitmapFont preferred, String value, float x, float y,
             Color color, boolean centered, float maxWidth) {
+        texts.add(fittedTextItem(preferred, value, x, y, color, centered,
+                maxWidth));
+    }
+
+    private TextItem fittedTextItem(BitmapFont preferred, String value,
+            float x, float y, Color color, boolean centered, float maxWidth) {
         BitmapFont selected = preferred;
         if (!fits(selected, value, maxWidth) && selected != smallFont) {
             selected = smallFont;
@@ -6046,7 +6087,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (!fits(selected, value, maxWidth)) {
             selected = tinyFont;
         }
-        text(selected, ellipsize(selected, value, maxWidth), x, y, color, centered);
+        return new TextItem(selected, ellipsize(selected, value, maxWidth),
+                x, y, new Color(color), centered);
     }
 
     private boolean fits(BitmapFont font, String value, float maxWidth) {
@@ -6230,7 +6272,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     - lobbyChatScrollThumbHeight / 2f) / travel, 0f, 1f);
             lobbyChatScroll = progress * lobbyChatScrollMaximum;
         } else if (scrollDrag == ScrollDrag.SETTINGS_DEBUG) {
-            settingsDebugScroll = CoronaPokerGdxTable.anchoredScrollFromTrack(
+            settingsDebugScroll = CoronaPokerGdxTable
+                    .quickChatPixelScrollFromTrack(
                     y, settingsDebugScrollTrack.y,
                     settingsDebugScrollTrack.height,
                     settingsDebugScrollThumbHeight,
@@ -6750,16 +6793,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (surface == Surface.SETTINGS && amountY != 0f
                 && settingsSession.section()
                 == GdxSettingsContract.Section.DEBUG) {
-            int maximum = Math.max(0,
-                    debugLines().size() - SETTINGS_DEBUG_VISIBLE_LINES);
-            // The console is anchored at the newest line when its offset is
-            // zero. Keep the same natural wheel direction as the in-table
-            // Debug tab and the game log: wheel-up travels into older output,
-            // wheel-down returns towards the newest output.
-            settingsDebugScroll = CoronaPokerGdxTable
-                    .anchoredScrollAfterWheel(settingsDebugScroll, maximum,
-                            amountY);
-            return true;
+            pointer.set(Gdx.input.getX(), Gdx.input.getY());
+            viewport.unproject(pointer);
+            if (settingsDebugViewport.contains(pointer)) {
+                settingsDebugScroll = lobbyPixelScrollAfterWheel(
+                        settingsDebugScroll, settingsDebugScrollMaximum,
+                        amountY);
+                return true;
+            }
         }
         return false;
     }

@@ -1037,6 +1037,14 @@ final class GdxTableViewStateTest {
                 120f, 20f, 200f, 40f, 180f));
         assertEquals(180f, CoronaPokerGdxTable.quickChatPixelScrollFromTrack(
                 220f, 20f, 200f, 40f, 180f));
+        assertEquals(0f, CoronaPokerGdxTable.anchoredPixelRowY(
+                10, 9, 30f, 0f, 120f, 0f, 180f));
+        assertEquals(90f, CoronaPokerGdxTable.anchoredPixelRowY(
+                10, 0, 30f, 0f, 120f, 180f, 180f));
+        assertTrue(CoronaPokerGdxTable.anchoredPixelRowY(
+                10, 0, 30f, 0f, 120f, 36f, 180f)
+                < CoronaPokerGdxTable.anchoredPixelRowY(
+                        10, 0, 30f, 0f, 120f, 0f, 180f));
     }
 
     @Test

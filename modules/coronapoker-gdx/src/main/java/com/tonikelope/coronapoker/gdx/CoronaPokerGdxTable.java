@@ -9900,6 +9900,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return ratio * maximum;
     }
 
+    static float anchoredPixelRowY(int rowCount, int rowIndex,
+            float rowHeight, float viewportBottom, float viewportHeight,
+            float scroll, float maximum) {
+        float contentBottom = maximum > 0f
+                ? viewportBottom - scroll
+                : viewportBottom + viewportHeight - rowCount * rowHeight;
+        return contentBottom + (rowCount - 1 - rowIndex) * rowHeight;
+    }
+
     private void openUiLayer(int layer) {
         uiLayer = layer;
         if (layer != UI_CHAT) chatEditMenuOpen = false;
@@ -13557,13 +13566,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     historyX + 12f, historyY + historyH / 2f - 14f,
                     historyW - 24f, 28f, Color.GRAY, alpha);
         } else {
-            float contentBottom = quickChatScrollMaximum > 0f
-                    ? historyY + 8f + quickChatScroll
-                    : historyY + 8f + historyViewportH
-                            - messages.size() * 30f;
             for (int line = 0; line < messages.size(); line++) {
-                float rowY = contentBottom
-                        + (messages.size() - 1 - line) * 30f;
+                float rowY = anchoredPixelRowY(messages.size(), line, 30f,
+                        historyY + 8f, historyViewportH, quickChatScroll,
+                        quickChatScrollMaximum);
                 if (rowY + 30f < historyY + 8f
                         || rowY > historyY + historyH - 8f) continue;
                 LobbyChatMessage message = messages.get(line);

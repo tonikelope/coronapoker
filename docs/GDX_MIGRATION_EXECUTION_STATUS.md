@@ -1496,6 +1496,9 @@ Otros contratos vigentes:
 - Atajos configurables.
 - Idioma aplicado inmediatamente desde el selector común del menú principal.
 - Sin textos solapados, cortados o fuera de panel.
+- HECHO en menú: la consola Debug usa desplazamiento real por píxeles,
+  recorte al panel y una barra gruesa arrastrable; la rueda sólo actúa cuando
+  el puntero está sobre el historial.
 
 Exclusiones GDX acordadas: zoom Swing, vista compacta y desactivar todas las
 animaciones.
@@ -1539,6 +1542,10 @@ completa.
 - HECHO en galería: lobby y mesa comparten historial, caché GPU y una cuadrícula
   4x2 de miniaturas contenidas; la URL es una vía secundaria para incorporar
   imágenes nuevas, no un falso chat paralelo. Falta QA visual y multiproceso.
+- HECHO en chat rápido: el historial deja de saltar por filas completas; usa
+  offset por píxeles, recorte real, rueda suave y barra gruesa arrastrable.
+  Si llega un mensaje mientras se consulta contenido antiguo, conserva la
+  misma ventana en vez de forzar el salto al final.
 
 ### P1.4 — Interacciones y utilidades del tapete
 

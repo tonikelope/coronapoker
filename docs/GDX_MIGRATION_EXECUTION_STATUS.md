@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 09:44 (Europe/Madrid)
+Última actualización: 2026-09-20 10:10 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -69,12 +69,13 @@ Disciplina del repositorio durante la migración:
   borrar fuera de `.coronapoker/Screenshots`. Junto con la regresión del chat,
   pruebas focalizadas: **108/108**. JAR GDX: 266.272.240 bytes, SHA-256
   `2C2444C6A7175AE005C7BB0E06E752FB25AC59F2F17701C7061B7B71290A7773`.
-- Ajustado el ciclo completo del icono amarillo de conversación de la mesa:
-  cuando hay TTS, GDX ya lo muestra sólo al comenzar realmente la reproducción,
-  lo conserva durante toda la voz y lo retira 500 ms después de terminar,
-  igual que Swing. Un fallo de descarga/reproducción no deja un icono de voz
-  engañoso; el aviso sin TTS conserva su duración legible independiente.
-  Pruebas focalizadas de chat y textos: **10/10**.
+- Ajustado el ciclo completo del icono amarillo de conversación de la mesa en
+  sus dos usos: TTS y notas de voz. En ambos, GDX lo muestra sólo al comenzar
+  realmente la reproducción, lo conserva durante toda la voz y lo retira 500
+  ms después de terminar, igual que Swing. La espera de cola/dispositivo y los
+  audios vacíos o inválidos no muestran un icono engañoso; el aviso sin TTS
+  conserva su duración legible independiente. Pruebas focalizadas de chat y
+  reproducción de voz: **11/11**.
 - Corregido el bloque visual de chat/fin de timba observado en la prueba
   interactiva: enviar una imagen cierra la galería tras la confirmación tanto
   en sala como en mesa; las imágenes y el icono de conversación se ajustan al

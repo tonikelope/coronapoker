@@ -14,10 +14,16 @@ import javax.sound.sampled.SourceDataLine;
 final class GdxVoicePlayback {
 
     static CompletableFuture<Void> play(byte[] wav) {
-        return CompletableFuture.runAsync(() -> playBlocking(wav));
+        return play(wav, () -> { });
     }
 
-    private static void playBlocking(byte[] wav) {
+    static CompletableFuture<Void> play(byte[] wav, Runnable playbackStarted) {
+        Runnable started = playbackStarted == null ? () -> { }
+                : playbackStarted;
+        return CompletableFuture.runAsync(() -> playBlocking(wav, started));
+    }
+
+    private static void playBlocking(byte[] wav, Runnable playbackStarted) {
         if (wav == null || wav.length == 0) return;
         try (AudioInputStream encoded = AudioSystem.getAudioInputStream(
                 new ByteArrayInputStream(wav))) {
@@ -32,6 +38,7 @@ final class GdxVoicePlayback {
                 try {
                     line.open(pcm);
                     line.start();
+                    playbackStarted.run();
                     byte[] buffer = new byte[4096];
                     for (int count; (count = decoded.read(buffer)) >= 0;) {
                         if (count > 0) line.write(buffer, 0, count);

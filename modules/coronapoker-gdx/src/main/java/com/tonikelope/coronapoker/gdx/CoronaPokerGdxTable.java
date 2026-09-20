@@ -5700,23 +5700,38 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         });
                 continue;
             }
-            SeatChatNotice previous = seatChatNotices.remove(message.nickname());
-            if (previous != null) previous.dispose();
-            seatChatNotices.put(message.nickname(), notice);
-            if (message.type() == LobbyChatMessage.Type.IMAGE) {
-                loadSeatChatImage(message.nickname(), notice);
-            } else if (message.type() == LobbyChatMessage.Type.VOICE) {
-                playTableVoice(message).whenComplete((ignored, failure) -> {
+            if (message.type() == LobbyChatMessage.Type.VOICE) {
+                playTableVoice(message, () -> {
+                    if (Gdx.app == null) return;
+                    Gdx.app.postRunnable(() -> {
+                        if (disposed || seatByNickname(
+                                message.nickname()) == null) return;
+                        SeatChatNotice previous = seatChatNotices.remove(
+                                message.nickname());
+                        if (previous != null) previous.dispose();
+                        notice.startedAt = totalTime;
+                        // Bounded only as a fail-safe. Normal completion uses
+                        // Swing's exact 500 ms tail below.
+                        notice.expiresAt = totalTime + 121f;
+                        seatChatNotices.put(message.nickname(), notice);
+                    });
+                }).whenComplete((ignored, failure) -> {
                     if (Gdx.app == null) return;
                     Gdx.app.postRunnable(() -> {
                         if (!disposed
                                 && seatChatNotices.get(message.nickname())
                                         == notice) {
-                            notice.expiresAt = Math.min(notice.expiresAt,
-                                    totalTime + 0.25f);
+                            notice.expiresAt = totalTime + 0.5f;
                         }
                     });
                 });
+                continue;
+            }
+            SeatChatNotice previous = seatChatNotices.remove(message.nickname());
+            if (previous != null) previous.dispose();
+            seatChatNotices.put(message.nickname(), notice);
+            if (message.type() == LobbyChatMessage.Type.IMAGE) {
+                loadSeatChatImage(message.nickname(), notice);
             }
         }
         var iterator = seatChatNotices.entrySet().iterator();
@@ -5730,7 +5745,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private CompletableFuture<Void> playTableVoice(LobbyChatMessage message) {
+    private CompletableFuture<Void> playTableVoice(LobbyChatMessage message,
+            Runnable playbackStarted) {
         if (!audioControl.enabled()
                 || tablePreference("audio_block_voice_messages", false)
                 || (message.nickname().equals(tableChat.snapshot().localNickname())
@@ -5740,7 +5756,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         try {
             byte[] wav = Base64.getDecoder().decode(message.content());
             if (VoiceWavContract.isValid(wav)) {
-                return GdxVoicePlayback.play(wav);
+                return GdxVoicePlayback.play(wav, playbackStarted);
             }
         } catch (IllegalArgumentException malformed) {
             // The typed chat event remains visible, but malformed audio is inert.

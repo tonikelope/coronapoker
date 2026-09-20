@@ -516,6 +516,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && (presetDialog != PresetDialog.NONE
                         || blindStructureDialog != BlindStructureDialog.NONE))) {
             texts.clear();
+            // A visual modal must also own the complete interaction map.
+            // Keeping the underlying page hits allowed invisible lobby/menu
+            // controls to fire through confirmations and the table-loading
+            // overlay.
+            hits.clear();
+            textFieldHits.clear();
+            editMenuHits.clear();
             // SpriteBatch changes the current OpenGL pipeline. Restore alpha
             // blending before composing the modal shape pass; otherwise the
             // glass highlights/shadows (and the dimmer itself) become fully
@@ -5663,6 +5670,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
         pressedHit = null;
+        if (surface == Surface.LOBBY && lobbyGameStarting) return true;
         if (button == Input.Buttons.LEFT
                 && beginScrollDrag(pointer.x, pointer.y)) {
             return true;
@@ -5728,6 +5736,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Hit released = pressedHit;
         pressedHit = null;
         pointerSelectionField = null;
+        if (surface == Surface.LOBBY && lobbyGameStarting) return true;
         if (scrollDrag != ScrollDrag.NONE) {
             scrollDrag = ScrollDrag.NONE;
             return true;
@@ -5812,6 +5821,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             toggleFullscreenMode();
             return true;
         }
+        // Table creation owns this frontend until it either succeeds or
+        // restores the lobby.  F11 above remains available, but no hidden
+        // lobby field/action may be triggered through the loading overlay.
+        if (surface == Surface.LOBBY && lobbyGameStarting) {
+            return true;
+        }
         if (keycode == Input.Keys.ESCAPE) {
             if (aboutOpen) {
                 closeAboutDialog();
@@ -5864,6 +5879,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             // The root menu is already the navigation endpoint.  ESC must not
             // terminate the process there: exiting is an explicit, confirmed
             // action owned by the SALIR button (and by the window-close flow).
+            return true;
+        }
+        if (aboutOpen || lobbyConfirmation != null
+                || settingsDiscardConfirmation) {
+            // These decision surfaces have no editable field. Do not let
+            // ENTER or a configured shortcut operate on the obscured page.
             return true;
         }
         if ((keycode == Input.Keys.ENTER || keycode == Input.Keys.NUMPAD_ENTER)

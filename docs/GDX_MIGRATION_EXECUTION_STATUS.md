@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 10:05 (Europe/Madrid)
+Última actualización: 2026-09-20 10:42 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -29,6 +29,14 @@ Disciplina del repositorio durante la migración:
   del usuario.
 
 ## Checkpoint de consolidación 2026-09-19/20
+
+- Cerrada la paridad musical del diálogo `Acerca de`: al abrirlo desde el menú
+  GDX se pausa la pista ambiental y se reproduce en bucle
+  `sounds/misc/about_music.mp3`; al cerrarlo se recupera la pista anterior. La
+  opción `musica_about` ya figura en la página Música del contrato común de
+  Ajustes, respeta sonido/música/volumen maestro y dispone de textos ES/EN.
+  Pruebas focalizadas de contrato, cableado e idioma: **24/24**. Falta QA
+  auditiva interactiva de la transición real.
 
 - Cerrada una discrepancia funcional de Audio/Ajustes: las notas de voz ya no
   salen por Java Sound al margen de GDX. Ahora se reproducen en cola mediante

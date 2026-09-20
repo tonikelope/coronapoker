@@ -191,6 +191,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final Map<String, Sound> preferenceSoundCues = new HashMap<>();
     private Music backgroundMusic;
     private Music waitingRoomMusic;
+    private Music aboutMusic;
     private ShaderProgram avatarShader;
     private BitmapFont titleFont;
     private BitmapFont headingFont;
@@ -344,6 +345,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 Gdx.files.internal("sounds/misc/toilet.wav"));
         backgroundMusic = music("sounds/misc/background_music.mp3", 0.40f);
         waitingRoomMusic = music("sounds/misc/waiting_room.mp3", 0.90f);
+        aboutMusic = music("sounds/misc/about_music.mp3", 0.90f);
         avatarShader = new ShaderProgram(SPRITE_VERTEX_SHADER,
                 AVATAR_FRAGMENT_SHADER);
         if (!avatarShader.isCompiled()) {
@@ -735,13 +737,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         aboutOpen = true;
         clearActiveField();
         editMenu = null;
+        syncMusicForSurface();
     }
 
     private void closeAboutDialog() {
         aboutOpen = false;
+        syncMusicForSurface();
     }
 
-    /** Native GDX counterpart of Swing's AboutDialog; music keeps playing. */
+    /** Native GDX counterpart of Swing's AboutDialog, including its music. */
     private void drawAboutDialog() {
         hits.clear();
         shapes.setColor(new Color(0x01040bd8));
@@ -3226,7 +3230,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         boolean next = !preferenceBoolean(key, fallback);
         initialProperties.setProperty(key, Boolean.toString(next));
         if ("musica".equals(key) || "sonido_ascensor".equals(key)
-                || "musica_sala_espera".equals(key)) {
+                || "musica_sala_espera".equals(key)
+                || "musica_about".equals(key)) {
             syncMusicForSurface();
         }
         if ("sonido_efectos".equals(key)
@@ -3391,21 +3396,27 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void syncMusicForSurface() {
-        if (backgroundMusic == null || waitingRoomMusic == null) return;
+        if (backgroundMusic == null || waitingRoomMusic == null
+                || aboutMusic == null) return;
         float volume = masterVolume();
         GdxVoicePlayback.refreshVolume(volume);
         backgroundMusic.setVolume(0.40f * volume);
         waitingRoomMusic.setVolume(0.90f * volume);
+        aboutMusic.setVolume(0.90f * volume);
         boolean lobbyMusic = surface == Surface.LOBBY
                 || (surface == Surface.SETTINGS
                 && settingsReturnSurface == Surface.LOBBY);
+        boolean aboutDialogMusic = surface == Surface.MENU && aboutOpen;
         boolean playBackground = !startupAudioHeld
-                && musicMasterEnabled() && !lobbyMusic
+                && musicMasterEnabled() && !lobbyMusic && !aboutDialogMusic
                 && preferenceBoolean("sonido_ascensor", true);
         boolean playWaitingRoom = musicMasterEnabled() && lobbyMusic
                 && preferenceBoolean("musica_sala_espera", true);
+        boolean playAbout = musicMasterEnabled() && aboutDialogMusic
+                && preferenceBoolean("musica_about", true);
         syncTrack(backgroundMusic, playBackground);
         syncTrack(waitingRoomMusic, playWaitingRoom);
+        syncTrack(aboutMusic, playAbout);
     }
 
     private static void syncTrack(Music music, boolean play) {
@@ -3419,6 +3430,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     void pauseMusic() {
         if (backgroundMusic != null) backgroundMusic.pause();
         if (waitingRoomMusic != null) waitingRoomMusic.pause();
+        if (aboutMusic != null) aboutMusic.pause();
     }
 
     void resumeMusic() {
@@ -5948,6 +5960,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         backgroundMusic.dispose();
         waitingRoomMusic.stop();
         waitingRoomMusic.dispose();
+        aboutMusic.stop();
+        aboutMusic.dispose();
         for (Texture texture : lobbyAvatarTextures.values()) {
             texture.dispose();
         }

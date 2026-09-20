@@ -171,6 +171,7 @@ final class GdxSettingsContractTest {
                 "sonido_aviso_tiempo", "sonido_fin_partida",
                 "sonido_entra", "sonido_sale",
                 "sonido_tapete", "sonido_visor", "sonido_arranque",
+                "musica_about",
                 "tts_server",
                 "voice_messages", "audio_mic_enabled",
                 "audio_block_voice_messages", "audio_play_own_voice",
@@ -183,7 +184,6 @@ final class GdxSettingsContractTest {
         // exist yet. The persisted Swing values remain untouched in the
         // transactional snapshot and can be exposed when their real GDX
         // consumers land.
-        assertFalse(keys.contains("musica_about"));
         assertFalse(keys.contains("musica_stats"));
         assertFalse(keys.contains("sonido_entrar_sala"));
     }

@@ -225,7 +225,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
             CoronaPokerGdxTable candidate = null;
             try {
                 gameLog.reset();
-                menu.pauseMusic();
+                menu.suspendForTable();
                 candidate = new CoronaPokerGdxTable(
                         refreshRate, new GdxTableViewState(initialState), commands,
                         () -> opened.accept(table), gameLog, preferences, lobby,

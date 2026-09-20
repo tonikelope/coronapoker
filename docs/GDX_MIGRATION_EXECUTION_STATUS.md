@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 13:55 (Europe/Madrid)
+Última actualización: 2026-09-20 14:21 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -37,13 +37,20 @@ Disciplina del repositorio durante la migración:
   aunque cambie su contenido. Pruebas focalizadas de concesión y texto: **4/4**.
 - Rehecho el fuego persistente de ALL-IN sin los halos circulares anteriores:
   cuatro capas procedurales asimétricas producen una base amplia, lenguas
-  bifurcadas con cavidades, núcleo blanco/amarillo, borde rojizo, humo
-  contenido y 28 brasas con estela. Una primera pasada aditiva aporta
+  bifurcadas y secundarias con cavidades, pulsación/turbulencia no uniforme,
+  núcleo blanco/amarillo, borde rojizo, humo contenido y 38 brasas con estela.
+  Una primera pasada aditiva aporta
   resplandor térmico y la segunda conserva la definición de la llama, sin
   recuperar rayos radiales. El shader sigue siendo opcional para que ningún
   driver pueda impedir abrir la mesa. Geometría/estado de mesa: **107/107**;
-  queda QA visual OpenGL. JAR GDX agrupado: 266.306.067 bytes, SHA-256
-  `CDC769685F3E22E7441268B2922EBE44BD54F7B4ADB26FC24822C38D22C0309E`.
+  queda QA visual OpenGL.
+- Cerrado un hueco de ciclo de vida del lobby: al comenzar la mesa se conserva
+  la posición del hilo musical, pero ahora se cancela una grabación en curso y
+  se invalida/detiene cualquier nota de voz del lobby. Esos audios transitorios
+  ya no pueden sobrevivir dentro de una mano ni competir con el chat de mesa.
+  Pruebas focalizadas de voz, chat, scroll y terminación: **29/29**.
+- JAR GDX agrupado con ambos cambios: 266.306.434 bytes, SHA-256
+  `4CA7DBD98EB3009129BCDE0EEB14E6F7EB063B892ABF3A47C78D0E28317E0A20`.
 - Auditadas las claves visibles de la pantalla unificada de Ajustes contra sus
   consumidores GDX directos y el adaptador `GamePresentationSettings` que usa
   el crupier: no queda detectado ningún control mostrado que se limite a

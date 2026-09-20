@@ -3461,7 +3461,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
     }
 
-    void pauseMusic() {
+    /**
+     * Suspends the persistent frontend before the table takes input/audio.
+     * Background tracks are only paused so the table can continue their
+     * decoder position. Lobby voice notes and an unfinished recording are
+     * transient, however, and must never leak into the active hand.
+     */
+    void suspendForTable() {
+        cancelLobbyVoiceRecording();
+        GdxVoicePlayback.stop();
         if (backgroundMusic != null) backgroundMusic.pause();
         if (waitingRoomMusic != null) waitingRoomMusic.pause();
         if (aboutMusic != null) aboutMusic.pause();

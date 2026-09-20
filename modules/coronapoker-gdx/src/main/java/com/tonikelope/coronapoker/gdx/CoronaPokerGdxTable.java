@@ -156,8 +156,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float AVATAR_OUTER_RADIUS = 52f;
     private static final float AVATAR_RIM_RADIUS = 45f;
     private static final float AVATAR_INNER_RADIUS = 40f;
-    private static final float ALL_IN_FIRE_WIDTH = 116f;
-    private static final float ALL_IN_FIRE_HEIGHT = 144f;
+    private static final float ALL_IN_FIRE_WIDTH = 132f;
+    private static final float ALL_IN_FIRE_HEIGHT = 158f;
     private static final float AVATAR_ZOOM_HOVER_SECONDS = 0.250f;
     private static final float AVATAR_ZOOM_FACTOR = 2f;
     private static final float AVATAR_ZOOM_MAX_HEIGHT_RATIO = 0.45f;
@@ -327,7 +327,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "    gl_FragColor = pixel;\n"
             + "}\n";
 
-    /** Procedural, soft-edged fire used only for the persistent ALL-IN state. */
+    /** Organic layered fire used only for the persistent ALL-IN state. */
     private static final String ALL_IN_FIRE_FRAGMENT_SHADER = "#ifdef GL_ES\n"
             + "precision mediump float;\n"
             + "#endif\n"
@@ -361,29 +361,54 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "void main() {\n"
             + "    vec2 uv = vec2(v_texCoords.x, 1.0 - v_texCoords.y);\n"
             + "    float y = clamp(uv.y, 0.0, 1.0);\n"
-            + "    float n = fbm(vec2(uv.x * 3.4 + u_seed,\n"
-            + "            y * 4.8 - u_time * 1.85));\n"
-            + "    float gust = (noise(vec2(y * 2.6 - u_time * 0.92,\n"
-            + "            u_seed)) - 0.5) * 0.34 * y;\n"
-            + "    float x = (uv.x - 0.5) * 2.0 + gust;\n"
-            + "    float width = mix(0.90, 0.035, pow(y, 0.76));\n"
-            + "    float tongues = sin((x + u_seed) * 11.0\n"
-            + "            + y * 5.0 - u_time * 4.8) * 0.10 * y * y;\n"
-            + "    float edge = width + tongues + (n - 0.5)\n"
-            + "            * (0.13 + y * 0.18);\n"
-            + "    float body = 1.0 - smoothstep(edge - 0.075,\n"
+            + "    float coarse = fbm(vec2(uv.x * 3.15 + u_seed,\n"
+            + "            y * 4.4 - u_time * 1.58));\n"
+            + "    float fine = noise(vec2(uv.x * 8.3 - u_seed * 0.7,\n"
+            + "            y * 9.1 - u_time * 2.95));\n"
+            + "    float wind = sin(y * 6.2 - u_time * 1.35 + u_seed)\n"
+            + "            * 0.075 * y;\n"
+            + "    wind += (noise(vec2(y * 2.1 - u_time * 0.61, u_seed))\n"
+            + "            - 0.5) * 0.23 * y;\n"
+            + "    float x = (uv.x - 0.5) * 2.0 + wind;\n"
+            + "    float profile = mix(0.86, 0.035, pow(y, 0.68));\n"
+            + "    float licking = sin(x * 12.5 + y * 7.0\n"
+            + "            - u_time * 4.1 + u_seed) * 0.055 * y;\n"
+            + "    float edge = profile + licking + (coarse - 0.5)\n"
+            + "            * (0.15 + y * 0.25) + (fine - 0.5) * 0.055;\n"
+            + "    float body = 1.0 - smoothstep(edge - 0.055,\n"
             + "            edge + 0.055, abs(x));\n"
-            + "    float top = 1.0 - smoothstep(0.76 + n * 0.20, 1.0, y);\n"
-            + "    float base = smoothstep(0.0, 0.075, y);\n"
-            + "    float alpha = body * top * base;\n"
-            + "    float core = 1.0 - smoothstep(0.05, max(0.08, edge),\n"
-            + "            abs(x));\n"
-            + "    vec3 colour = mix(vec3(1.0, 0.92, 0.24),\n"
-            + "            vec3(1.0, 0.055, 0.006), smoothstep(0.10, 0.92, y));\n"
-            + "    colour = mix(colour, vec3(1.0, 0.98, 0.70),\n"
-            + "            core * (1.0 - y) * 0.72);\n"
+            + "    float fork = smoothstep(0.50, 0.90, y)\n"
+            + "            * (1.0 - smoothstep(0.015, 0.19,\n"
+            + "                    abs(x + sin(u_time * 2.0 + u_seed) * 0.08)));\n"
+            + "    body *= 1.0 - fork * 0.72;\n"
+            + "    float top = 1.0 - smoothstep(0.75 + coarse * 0.19,\n"
+            + "            1.015, y);\n"
+            + "    float base = smoothstep(0.0, 0.055, y);\n"
+            + "    float flame = body * top * base;\n"
+            + "    float relativeEdge = clamp(abs(x) / max(edge, 0.04),\n"
+            + "            0.0, 1.0);\n"
+            + "    float heat = (1.0 - relativeEdge) * (1.0 - y * 0.68);\n"
+            + "    vec3 colour = mix(vec3(0.58, 0.008, 0.001),\n"
+            + "            vec3(1.0, 0.19, 0.008),\n"
+            + "            1.0 - smoothstep(0.34, 1.0, relativeEdge));\n"
+            + "    colour = mix(colour, vec3(1.0, 0.72, 0.045),\n"
+            + "            smoothstep(0.24, 0.70, heat));\n"
+            + "    colour = mix(colour, vec3(1.0, 0.985, 0.72),\n"
+            + "            smoothstep(0.72, 0.96, heat));\n"
+            + "    float smokeNoise = fbm(vec2(uv.x * 4.0 + u_seed * 2.1,\n"
+            + "            y * 3.2 - u_time * 0.72));\n"
+            + "    float smoke = smoothstep(0.54, 0.84, smokeNoise)\n"
+            + "            * smoothstep(0.61, 0.84, y)\n"
+            + "            * (1.0 - smoothstep(0.93, 1.0, y))\n"
+            + "            * (1.0 - flame);\n"
+            + "    vec3 smokeColour = mix(vec3(0.10, 0.075, 0.06),\n"
+            + "            vec3(0.24, 0.18, 0.13), smokeNoise);\n"
+            + "    float alpha = max(flame * mix(0.78, 1.0, coarse),\n"
+            + "            smoke * 0.22);\n"
+            + "    colour = mix(smokeColour, colour,\n"
+            + "            smoothstep(0.0, 0.16, flame));\n"
             + "    alpha *= texture2D(u_texture, v_texCoords).a\n"
-            + "            * mix(0.72, 1.0, n) * v_color.a * u_alpha;\n"
+            + "            * v_color.a * u_alpha;\n"
             + "    if (alpha <= 0.006) discard;\n"
             + "    gl_FragColor = vec4(colour, alpha);\n"
             + "}\n";
@@ -5484,31 +5509,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      */
     private void drawAllInSeatFlames() {
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
-        // Low-frequency light belongs behind the fire and avatar. It is a
-        // glow, not a ring of spikes, and never competes with the turn rim.
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        for (Seat seat : seats) {
-            float presence = seatPresenceAlpha(seat.index);
-            if (presence <= 0f || liveState.actionKind(seat.name)
-                    != TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
-                continue;
-            }
-            float pulse = 0.5f + 0.5f * MathUtils.sin(
-                    totalTime * 6.1f + seat.index * 0.91f);
-            shapes.setColor(1f, 0.10f, 0.01f,
-                    (0.12f + pulse * 0.06f) * presence);
-            shapes.circle(seat.x, seat.y + 5f, 69f + pulse * 4f, 56);
-            shapes.setColor(1f, 0.48f, 0.025f,
-                    (0.18f + pulse * 0.08f) * presence);
-            shapes.circle(seat.x, seat.y + 2f, 55f + pulse * 2f, 48);
-        }
-        shapes.end();
-
-        // Three independently seeded shader layers form irregular, soft fire
-        // with turbulent edges and a hot core. The avatar is rendered after
-        // this pass, so it remains crisp while genuinely appearing to burn.
+        // Three independently seeded sheets create a broad base and separate
+        // licking tongues. The shader also contributes restrained smoke;
+        // there are deliberately no radial rays or circular halo sprites.
         if (allInFireShader != null) {
             batch.setShader(allInFireShader);
             batch.begin();
@@ -5526,7 +5531,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     allInFireShader.setUniformf("u_seed",
                             seat.index * 1.713f + layer * 4.129f);
                     allInFireShader.setUniformf("u_alpha",
-                            (layer == 0 ? 0.92f : 0.66f) * presence);
+                            (layer == 0 ? 0.96f : 0.72f) * presence);
                     batch.setColor(1f, 1f, 1f, 1f);
                     batch.draw(allInFireCanvas, fire.x, fire.y,
                             fire.width, fire.height);
@@ -5536,7 +5541,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             batch.setShader(null);
         }
 
-        // Sparse embers follow buoyancy instead of firing away radially.
+        // Embers rise with buoyancy and lateral turbulence. Their staggered
+        // size/colour avoids the former uniform particle-ring appearance.
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (Seat seat : seats) {
             float presence = seatPresenceAlpha(seat.index);
@@ -5544,17 +5551,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     != TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
                 continue;
             }
-            for (int ember = 0; ember < 14; ember++) {
-                float life = (totalTime * (0.46f + (ember % 3) * 0.07f)
-                        + ember * 0.173f + seat.index * 0.11f) % 1f;
+            for (int ember = 0; ember < 20; ember++) {
+                float speed = 0.40f + (ember % 5) * 0.035f;
+                float life = (totalTime * speed + ember * 0.137f
+                        + seat.index * 0.11f) % 1f;
                 float drift = MathUtils.sin(ember * 2.37f
-                        + life * 5.2f + totalTime * 0.8f);
-                float emberX = seat.x + drift * (22f + life * 18f);
-                float emberY = seat.y + 31f + life * 82f;
-                shapes.setColor(1f, 0.82f, 0.18f,
-                        (1f - life) * 0.58f * presence);
+                        + life * 5.8f + totalTime * 0.65f);
+                float spread = 17f + life * 31f;
+                float emberX = seat.x + drift * spread;
+                float emberY = seat.y + 24f + life * 104f;
+                float hot = 1f - life;
+                shapes.setColor(1f, 0.30f + hot * 0.52f,
+                        0.025f + hot * 0.12f,
+                        hot * hot * 0.70f * presence);
                 shapes.circle(emberX, emberY,
-                        2.2f - life * 1.0f, 8);
+                        0.7f + hot * (1.15f + (ember % 3) * 0.32f), 8);
             }
         }
         shapes.end();
@@ -5565,11 +5576,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             int layer) {
         return switch (layer) {
             case 0 -> new Rectangle(centerX - ALL_IN_FIRE_WIDTH / 2f,
-                    centerY - 43f, ALL_IN_FIRE_WIDTH, ALL_IN_FIRE_HEIGHT);
-            case 1 -> new Rectangle(centerX - 69f, centerY - 38f,
-                    76f, 112f);
-            case 2 -> new Rectangle(centerX - 7f, centerY - 38f,
-                    76f, 112f);
+                    centerY - 46f, ALL_IN_FIRE_WIDTH, ALL_IN_FIRE_HEIGHT);
+            case 1 -> new Rectangle(centerX - 78f, centerY - 41f,
+                    86f, 126f);
+            case 2 -> new Rectangle(centerX - 8f, centerY - 41f,
+                    86f, 126f);
             default -> throw new IllegalArgumentException(
                     "Invalid ALL-IN fire layer: " + layer);
         };

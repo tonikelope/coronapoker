@@ -2102,11 +2102,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyInfoRow(x, y - 140f, gameText.translate("game.manos"),
                 settings.handLimit()
                 ? Integer.toString(settings.handLimitCount()) : "—");
-        if (state.recovering()) {
-            textFit(tinyFont, uppercase(gameText.translate(
-                    "gdx.newgame.recover_previous")), x, y - 205f,
-                    ORANGE, false, 390f);
-        }
     }
 
     private void lobbyInfoRow(float x, float y, String label, String value) {

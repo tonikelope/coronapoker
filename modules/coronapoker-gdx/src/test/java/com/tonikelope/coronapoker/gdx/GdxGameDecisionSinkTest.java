@@ -77,6 +77,7 @@ final class GdxGameDecisionSinkTest {
         GameDecisionSink.CloseHandle handle = decisions.showRecovery();
         GdxTableDialog dialog = shown.get();
         assertEquals("RECUPERANDO TIMBA", dialog.title());
+        assertTrue(dialog.isRecovery());
         assertTrue(dialog.isExternallyControlled());
         assertFalse(dialog.complete());
 

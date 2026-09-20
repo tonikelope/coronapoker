@@ -799,6 +799,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private StreamingGifTextureAnimation gameOverAnimation;
     private GdxTableDialog gameOverAnimationDialog;
     private boolean gameOverAnimationFailureReported;
+    private StreamingGifTextureAnimation recoveryAnimation;
+    private GdxTableDialog recoveryAnimationDialog;
+    private boolean recoveryAnimationFailureReported;
     private final Map<String, Sound> liveCinematicSounds = new HashMap<>();
     private final Map<String, Sound> liveAudioCueSounds = new HashMap<>();
     private final Set<String> failedPreferenceSoundCues = new HashSet<>();
@@ -3900,6 +3903,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             activeDialog = dialogQueue.pollFirst();
             if (completed == gameOverAnimationDialog) {
                 releaseGameOverAnimation();
+            }
+            if (completed == recoveryAnimationDialog) {
+                releaseRecoveryAnimation();
             }
             dialogAmountEdit.blur();
             if (activeDialog != null) {
@@ -12059,6 +12065,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     width, height);
             return;
         }
+        if (dialog.isRecovery()) {
+            drawRecoveryDialog(dialog, width, height);
+            return;
+        }
         float acceptX = panelX + panelW - 272f;
         float negativeX = panelX + (dialog.isAutoAction() ? 30f : 42f);
         float negativeW = dialog.isAutoAction() ? panelW - 60f : 230f;
@@ -12434,6 +12444,73 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawSettingsDebugTextLayer(contentX, firstRowY, contentW, alpha);
         }
         if (voiceNotesOpen) drawTableVoiceNotesDialog();
+    }
+
+    /**
+     * Exact GDX counterpart of Swing's undecorated RecoverDialog: while the
+     * core replays the interrupted hand, the table lights are lowered and the
+     * localized recovery GIF is the only foreground element.  The core owns
+     * the matching recovering.mp3/background-music swap.
+     */
+    private void drawRecoveryDialog(GdxTableDialog dialog, float worldW,
+            float worldH) {
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapes.setColor(0f, 0f, 0f, 0.72f);
+        shapes.rect(0f, 0f, worldW, worldH);
+        shapes.end();
+
+        StreamingGifTextureAnimation animation = recoveryAnimation(dialog);
+        Texture frame = animation == null ? null
+                : animation.frameAt(dialog.elapsedSeconds(totalTime));
+        if (animation != null && animation.failed()
+                && !recoveryAnimationFailureReported) {
+            recoveryAnimationFailureReported = true;
+            Gdx.app.error("CoronaPoker GDX",
+                    "Recovery GIF decode failed", animation.failure());
+        }
+        if (frame == null || animation.width() <= 0
+                || animation.height() <= 0) return;
+
+        float imageW = animation.width();
+        float imageH = animation.height();
+        float fit = Math.min(1f, Math.min(
+                (worldW - 48f) / imageW, (worldH - 48f) / imageH));
+        imageW *= fit;
+        imageH *= fit;
+        batch.begin();
+        batch.setColor(Color.WHITE);
+        batch.draw(frame, (worldW - imageW) / 2f,
+                (worldH - imageH) / 2f, imageW, imageH);
+        batch.end();
+    }
+
+    private StreamingGifTextureAnimation recoveryAnimation(
+            GdxTableDialog dialog) {
+        if (recoveryAnimationDialog != dialog) {
+            releaseRecoveryAnimation();
+            recoveryAnimationDialog = dialog;
+            String language = gameText.language().toLowerCase(Locale.ROOT);
+            String localized = "cinematics/misc/recover_" + language + ".gif";
+            String path = Gdx.files.internal(localized).exists()
+                    ? localized : "cinematics/misc/recover.gif";
+            try {
+                recoveryAnimation = StreamingGifTextureAnimation.loadLooping(
+                        path, 1600);
+            } catch (IOException | RuntimeException missing) {
+                recoveryAnimationFailureReported = true;
+                Gdx.app.error("CoronaPoker GDX",
+                        "Recovery GIF unavailable", missing);
+            }
+        }
+        return recoveryAnimation;
+    }
+
+    private void releaseRecoveryAnimation() {
+        if (recoveryAnimation != null) recoveryAnimation.dispose();
+        recoveryAnimation = null;
+        recoveryAnimationDialog = null;
+        recoveryAnimationFailureReported = false;
     }
 
     private void openTableVoiceNotes(boolean purgeConfirmation) {
@@ -15317,6 +15394,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             liveCinematic = null;
         }
         releaseGameOverAnimation();
+        releaseRecoveryAnimation();
         for (Sound cinematicSound : liveCinematicSounds.values()) {
             cinematicSound.dispose();
         }

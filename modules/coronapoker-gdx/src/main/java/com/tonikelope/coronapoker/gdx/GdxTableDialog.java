@@ -48,6 +48,7 @@ final class GdxTableDialog {
     private boolean optionEnabled;
     private boolean noLimit;
     private boolean externallyControlled;
+    private boolean recovery;
 
     GdxTableDialog(Kind kind, String message, GameDialogSink.Icon icon,
             int preferredWidth, int seconds) {
@@ -188,6 +189,7 @@ final class GdxTableDialog {
                         "RECONSTRUYENDO LA MANO EN CURSO…"),
                 GameDialogSink.Icon.NONE, 820, 0, false, "", "");
         dialog.externallyControlled = true;
+        dialog.recovery = true;
         return dialog;
     }
 
@@ -231,6 +233,7 @@ final class GdxTableDialog {
     boolean isAutoCall() { return kind == Kind.AUTO_CALL; }
     boolean isAutoAction() { return kind == Kind.AUTO_ACTION; }
     boolean isGameOver() { return kind == Kind.GAME_OVER; }
+    boolean isRecovery() { return recovery; }
     boolean isRebuy() { return kind == Kind.REBUY; }
     boolean isHandLimit() { return kind == Kind.HAND_LIMIT; }
     boolean isExternallyControlled() { return externallyControlled; }

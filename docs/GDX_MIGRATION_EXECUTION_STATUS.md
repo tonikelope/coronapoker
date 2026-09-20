@@ -1677,7 +1677,11 @@ interactiva multiproceso y pulido de estados visibles.
   mipmaps con `MipMapLinearNearest`: filtrado bilineal dentro de un solo nivel,
   sin la mezcla entre dos niveles del trilineal que las emborronaba. El contrato
   focalizado de mesa y Acerca de pasa 117/117 pruebas; queda QA visual OpenGL.
-- Splash oficial durante cualquier arranque negro evitable.
+- HECHO: el JAR GDX declara el `images/splash.gif` oficial mediante
+  `SplashScreen-Image` y conserva esa imagen visible durante la inicialización
+  nativa; el shell la cierra en el siguiente ciclo del render, después de que
+  el primer frame haya alcanzado el swap chain. Verificado también dentro del
+  artefacto final actual, no sólo en el POM.
 - Certificar intro y movimiento final del logo a la esquina.
 - Música e icono de sonido.
 - Selector de idioma con tamaño coherente.

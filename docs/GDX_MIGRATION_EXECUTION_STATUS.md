@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 15:20 (Europe/Madrid)
+Última actualización: 2026-09-20 15:28 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,15 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19/20
 
+- Blindado el traspaso musical lobby/mesa tras retirar la primera solución
+  progresiva regresiva: desde `suspendForTable()` ninguna sincronización por
+  superficie puede volver a iniciar las pistas de menú, sala o Acerca de hasta
+  una ruta explícita de retorno o error. No recupera la creación por etapas ni
+  modifica core, barreras o crupier. Control y exclusión de audio: **4/4**
+  pruebas focalizadas. El último log real confirma además que el retorno desde
+  la mesa no está retenido por su limpieza (`2,3 ms` menú, `8,8 ms` sesión y
+  `2,9 ms` recursos); la congelación antigua de esa salida no se atribuye a
+  `dispose()` sin nueva evidencia.
 - Los overlays del frontend ya son modales también en interacción, no sólo en
   dibujo: limpian el mapa de controles subyacente y bloquean ratón/teclado
   durante confirmaciones y `PREPARANDO LA MESA`, conservando F11. Esto evita
@@ -67,9 +76,9 @@ Disciplina del repositorio durante la migración:
   texto, imágenes y filas de presencia; no ofrecen scroll si todo cabe ni
   permiten terminar sobre espacio vacío. Pruebas focalizadas de voz, chat,
   scroll y terminación: **32/32**.
-- JAR GDX estable regenerado tras retirar la carga incremental regresiva:
-  266.311.676 bytes, SHA-256
-  `BFD143CC342C367859B0EBFC65F588A4AC0D2D426B559F10E94DA36B307CD9BA`.
+- JAR GDX estable con el handoff musical blindado: 266.311.851 bytes,
+  SHA-256
+  `88C6DFCB814C6C66E10CCACB37B9D3B846C65ECDFC05A3F473241790AC81CA51`.
 - Auditadas las claves visibles de la pantalla unificada de Ajustes contra sus
   consumidores GDX directos y el adaptador `GamePresentationSettings` que usa
   el crupier: no queda detectado ningún control mostrado que se limite a

@@ -22,4 +22,12 @@ final class GdxAudioControlTest {
         assertTrue(control.enabled());
         assertEquals("true", properties.getProperty("sonidos"));
     }
+
+    @Test
+    void tableHandoffAlwaysSuppressesEveryFrontendTrack() {
+        assertFalse(GdxFrontendScreen.frontendTrackAllowed(true, true));
+        assertFalse(GdxFrontendScreen.frontendTrackAllowed(true, false));
+        assertTrue(GdxFrontendScreen.frontendTrackAllowed(false, true));
+        assertFalse(GdxFrontendScreen.frontendTrackAllowed(false, false));
+    }
 }

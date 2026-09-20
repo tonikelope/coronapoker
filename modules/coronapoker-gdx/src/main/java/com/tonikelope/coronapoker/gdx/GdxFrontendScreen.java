@@ -213,6 +213,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private float frameDelta;
     private float menuRevealStartedAt = Float.NaN;
     private boolean startupAudioHeld;
+    private boolean tableAudioSuspended;
     private Hit pressedHit;
     private EditMenu editMenu;
     private String pointerSelectionField;
@@ -3621,13 +3622,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || (surface == Surface.SETTINGS
                 && settingsReturnSurface == Surface.LOBBY);
         boolean aboutDialogMusic = surface == Surface.MENU && aboutOpen;
-        boolean playBackground = !startupAudioHeld
+        boolean playBackground = frontendTrackAllowed(tableAudioSuspended,
+                !startupAudioHeld
                 && musicMasterEnabled() && !lobbyMusic && !aboutDialogMusic
-                && preferenceBoolean("sonido_ascensor", true);
-        boolean playWaitingRoom = musicMasterEnabled() && lobbyMusic
-                && preferenceBoolean("musica_sala_espera", true);
-        boolean playAbout = musicMasterEnabled() && aboutDialogMusic
-                && preferenceBoolean("musica_about", true);
+                && preferenceBoolean("sonido_ascensor", true));
+        boolean playWaitingRoom = frontendTrackAllowed(tableAudioSuspended,
+                musicMasterEnabled() && lobbyMusic
+                && preferenceBoolean("musica_sala_espera", true));
+        boolean playAbout = frontendTrackAllowed(tableAudioSuspended,
+                musicMasterEnabled() && aboutDialogMusic
+                && preferenceBoolean("musica_about", true));
         syncTrack(backgroundMusic, playBackground);
         syncTrack(waitingRoomMusic, playWaitingRoom);
         syncTrack(aboutMusic, playAbout);
@@ -3641,6 +3645,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
     }
 
+    static boolean frontendTrackAllowed(boolean tableAudioSuspended,
+            boolean requestedBySurface) {
+        return requestedBySurface && !tableAudioSuspended;
+    }
+
     /**
      * Suspends the persistent frontend before the table takes input/audio.
      * Background tracks are only paused so the table can continue their
@@ -3648,6 +3657,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
      * transient, however, and must never leak into the active hand.
      */
     void suspendForTable() {
+        tableAudioSuspended = true;
         stopLobbyTransientAudio();
         if (backgroundMusic != null) backgroundMusic.pause();
         if (waitingRoomMusic != null) waitingRoomMusic.pause();
@@ -3660,10 +3670,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     void resumeMusic() {
+        tableAudioSuspended = false;
         syncMusicForSurface();
     }
 
     void resumeBackgroundMusicAt(float positionSeconds) {
+        tableAudioSuspended = false;
         if (backgroundMusic == null) return;
         if (Float.isFinite(positionSeconds) && positionSeconds >= 0f) {
             backgroundMusic.setPosition(positionSeconds);

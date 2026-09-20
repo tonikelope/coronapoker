@@ -5793,11 +5793,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                     message.nickname());
                             if (previous != null) previous.dispose();
                             // Swing only makes talk.png visible once playback
-                            // really starts. Keep a bounded watchdog here; the
-                            // normal completion replaces it with the 500 ms
-                            // Swing tail below.
+                            // really starts. The normal completion replaces
+                            // this bounded backend-failure guard with Swing's
+                            // 500 ms tail below.
                             notice.startedAt = totalTime;
-                            notice.expiresAt = totalTime + 121f;
+                            notice.expiresAt = totalTime
+                                    + seatChatPlaybackWatchdog(
+                                            message.type(), message.content());
                             seatChatNotices.put(message.nickname(), notice);
                         })
                         .thenAccept(played -> {
@@ -5822,9 +5824,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 message.nickname());
                         if (previous != null) previous.dispose();
                         notice.startedAt = totalTime;
-                        // Bounded only as a fail-safe. Normal completion uses
-                        // Swing's exact 500 ms tail below.
-                        notice.expiresAt = totalTime + 121f;
+                        // Bounded only as a backend-failure guard. Normal
+                        // completion uses Swing's exact 500 ms tail below.
+                        notice.expiresAt = totalTime
+                                + seatChatPlaybackWatchdog(
+                                        message.type(), message.content());
                         seatChatNotices.put(message.nickname(), notice);
                     });
                 }).whenComplete((ignored, failure) -> {
@@ -13293,6 +13297,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         String spoken = GdxTextToSpeechPlayback.cleanChatMessage(content);
         int length = spoken.codePointCount(0, spoken.length());
         return Math.max(3f, (float) Math.ceil(length / 25d));
+    }
+
+    /**
+     * Last-resort visual timeout when an OpenAL completion callback is lost.
+     * It is not the normal icon duration: successful TTS/voice playback still
+     * removes the indicator 500 ms after the real audio completion.  Voice
+     * notes are contractually capped at 15 seconds; text gets a conservative
+     * allowance derived from the same length estimate used by Swing.
+     */
+    static float seatChatPlaybackWatchdog(LobbyChatMessage.Type type,
+            String content) {
+        if (type == LobbyChatMessage.Type.VOICE) {
+            return VoiceWavContract.MAX_SECONDS + 1f;
+        }
+        if (type == LobbyChatMessage.Type.TEXT) {
+            return MathUtils.clamp(seatChatNoticeDuration(type, content) * 2.5f,
+                    4f, 18f);
+        }
+        return seatChatNoticeDuration(type, content);
     }
 
     /** Mirrors the Swing TTS watchdog rule for voice-note seat notices. */

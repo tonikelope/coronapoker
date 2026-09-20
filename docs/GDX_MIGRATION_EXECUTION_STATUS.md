@@ -526,6 +526,14 @@ Disciplina del repositorio durante la migración:
   JAR corregido: `target/CoronaPoker-24.11-gdx.jar`, 266.288.423 bytes,
   SHA-256
   `3133D29E4D6CE2CEFC31C227A89539F0ED5EAA922F2434813842DFDEAEA2F5FF`.
+- Acotado el salvavidas visual de `talk.png`: la ruta normal continúa mostrando
+  el icono únicamente desde el inicio real de TTS/nota de voz hasta 500 ms tras
+  finalizar el audio, pero la pérdida excepcional del callback OpenAL ya no
+  puede dejarlo visible 121 segundos. El límite de respaldo es 16 s para notas
+  (el contrato WAV permite hasta 15 s) y una estimación conservadora de 4–18 s
+  para TTS. Pruebas focalizadas de chat de mesa: **12/12**. JAR GDX:
+  266.288.565 bytes, SHA-256
+  `9E19BABC8A75CE075ADA59F53D2F69F13DECDE88A184384EAED7E2652B7E7B11`.
 - Estrategia desde este checkpoint: primero una beta GDX jugable de extremo a
   extremo; después chat/medios y pantalla final; finalmente pulido visual,
   rendimiento, estadísticas y certificación BALANCED. Las suites amplias se

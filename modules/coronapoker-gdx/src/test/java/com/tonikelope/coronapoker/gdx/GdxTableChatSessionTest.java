@@ -127,6 +127,16 @@ final class GdxTableChatSessionTest {
     }
 
     @Test
+    void lostAudioCallbackCannotLeaveTheTalkIconForTwoMinutes() {
+        assertEquals(7.5f, CoronaPokerGdxTable.seatChatPlaybackWatchdog(
+                LobbyChatMessage.Type.TEXT, "hola"));
+        assertEquals(10f, CoronaPokerGdxTable.seatChatPlaybackWatchdog(
+                LobbyChatMessage.Type.TEXT, "x".repeat(76)));
+        assertEquals(16f, CoronaPokerGdxTable.seatChatPlaybackWatchdog(
+                LobbyChatMessage.Type.VOICE, "UklGRg=="));
+    }
+
+    @Test
     void voiceSeatIconFollowsSwingPlaybackGuards() {
         assertTrue(CoronaPokerGdxTable.shouldShowVoiceSeatNotice(
                 true, false, false, true));

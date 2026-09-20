@@ -62,6 +62,8 @@ final class GdxGameTextTest {
                 text.translate("gdx.newgame.preparing_waiting_room"));
         assertEquals("Connecting to the waiting room…",
                 text.translate("gdx.newgame.connecting_waiting_room"));
+        assertEquals("New version 24.12",
+                text.translate("gdx.update.available", "24.12"));
         assertEquals("Select avatar", text.translate("gdx.avatar.select"));
         assertEquals("No previous servers",
                 text.translate("gdx.newgame.no_previous_servers"));
@@ -105,6 +107,8 @@ final class GdxGameTextTest {
                 text.translate("gdx.newgame.preparing_waiting_room"));
         assertEquals("Conectando con la sala de espera…",
                 text.translate("gdx.newgame.connecting_waiting_room"));
+        assertEquals("Nueva versión 24.12",
+                text.translate("gdx.update.available", "24.12"));
         assertEquals("2 de 5",
                 text.translate("gdx.newgame.blind_editor.level_count", 2, 5));
         assertEquals("MÍNIMO", text.translate("gdx.dialog.minimum"));

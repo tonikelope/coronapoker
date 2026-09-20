@@ -1600,6 +1600,19 @@ interactiva multiproceso y pulido de estados visibles.
 
 ### P1.7 — Shell, inicio e idioma
 
+- HECHO en código: el arranque GDX consulta asincronamente la ultima release
+  con el `UpdateService` compartido, sin bloquear la intro ni el render. Una
+  version nueva abre un modal nativo; `Acerca de` muestra comprobacion,
+  version actual, nueva version o reintento. La descarga abre la release
+  oficial para escoger el JAR GDX y no delega en el actualizador legacy, que
+  todavia no distingue los artefactos Swing/GDX.
+- HECHO: los productos modulares cargan su identidad de protocolo y
+  actualizacion desde `coronapoker-version.properties` (`24.11`), mientras el
+  proyecto raiz legacy conserva su identidad `24.10`. Esto evita que los JAR
+  24.11 anuncien 24.10 en About, handshake o comprobacion de releases.
+  Verificado dentro del artefacto final: `target/CoronaPoker-24.11-gdx.jar`,
+  266.340.627 bytes, SHA-256
+  `5EF62E833BFE982AAC23D6B4FF1247B7191B58FF8D87A53FBC648AA82087AE0A`.
 - HECHO en código: `ACERCA DE` abre un diálogo GDX real, localizado y
   contenido, sin depender de Swing; pausa la pista ambiental, reproduce su
   música propia configurable y recupera la anterior al cerrar. Falta QA visual

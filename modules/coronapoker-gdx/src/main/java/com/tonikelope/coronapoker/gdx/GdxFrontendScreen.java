@@ -41,9 +41,11 @@ import com.tonikelope.coronapoker.core.BlindStructureCatalog;
 import com.tonikelope.coronapoker.core.BlindStructureRules;
 import com.tonikelope.coronapoker.core.GamePresetCatalog;
 import com.tonikelope.coronapoker.core.RecoverableGameRepository;
+import com.tonikelope.coronapoker.core.UpdateService;
 import com.tonikelope.coronapoker.DebugLog;
 import java.awt.FileDialog;
 import java.awt.Frame;
+import java.awt.Desktop;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -183,6 +185,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final GdxGamePresentationSettings presentationSettings;
     private final GdxGameText gameText;
     private final Consumer<String> languageChanged;
+    private final UpdateService updateService;
     private final NewGameSubmissionCoordinator submissions;
     private final RecoverableGameRepository recoverableGames;
     private final ExecutorService recoveryExecutor;
@@ -295,6 +298,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private NewGameTableDraft.Settings settingsTableSnapshot;
     private boolean settingsDiscardConfirmation;
     private boolean aboutOpen;
+    private boolean updateCheckInFlight;
+    private UpdateService.CheckResult updateResult;
+    private boolean updatePromptOpen;
+    private boolean updatePromptDismissed;
     private long recoveryLoadGeneration;
     private boolean autoSubmitRecovery;
 
@@ -304,7 +311,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Consumer<NewGameSubmissionCoordinator.OpenedSession> sessionAccepted,
             Runnable sessionReturnedToMenu,
             GdxGamePresentationSettings presentationSettings,
-            GdxGameText gameText, Consumer<String> languageChanged) {
+            GdxGameText gameText, Consumer<String> languageChanged,
+            UpdateService updateService) {
         this.preferences = Objects.requireNonNull(preferences, "preferences");
         this.identityTrust = Objects.requireNonNull(identityTrust,
                 "identityTrust");
@@ -337,6 +345,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         this.gameText = Objects.requireNonNull(gameText, "gameText");
         this.languageChanged = Objects.requireNonNull(languageChanged,
                 "languageChanged");
+        this.updateService = Objects.requireNonNull(updateService,
+                "updateService");
         surface = Surface.MENU;
     }
 
@@ -379,6 +389,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             throw new IllegalStateException("Avatar shader: "
                     + avatarShader.getLog());
         }
+        checkForUpdates();
         FreeTypeFontGenerator titleGenerator = new FreeTypeFontGenerator(
                 Gdx.files.internal("fonts/McLaren-Regular.ttf"));
         titleFont = font(titleGenerator, 58, 0.35f);
@@ -447,6 +458,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public void render() {
         frameDelta = Math.min(Gdx.graphics.getDeltaTime(), 1f / 20f);
         elapsed += frameDelta;
+        if (surface == Surface.MENU
+                && !updatePromptDismissed && !updatePromptOpen
+                && updateResult != null
+                && updateResult.status()
+                        == UpdateService.Status.UPDATE_AVAILABLE) {
+            updatePromptOpen = true;
+        }
         updateTextDeleteRepeat();
         updateLobbyVoiceRecording();
         syncMusicForSurface();
@@ -536,7 +554,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // Modal surfaces must be composed after every underlying glyph. Texts
         // are batched separately from shapes, so drawing the modal inside
         // drawLobby would otherwise let the lobby chat glyphs bleed over it.
-        if ((surface == Surface.MENU && aboutOpen)
+        if ((surface == Surface.MENU && (aboutOpen || updatePromptOpen))
                 || (surface == Surface.LOBBY
                 && (lobbyConfirmation != null || lobbyPasswordDialog
                         || lobbyGameStarting || fingerprintDialog != null))
@@ -567,6 +585,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             shapes.begin(ShapeRenderer.ShapeType.Filled);
             if (aboutOpen) {
                 drawAboutDialog();
+            } else if (updatePromptOpen) {
+                drawUpdateDialog();
             } else if (blindStructureDialog != BlindStructureDialog.NONE) {
                 drawBlindStructureDialog();
             } else if (surface == Surface.SETTINGS) {
@@ -803,6 +823,93 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         syncMusicForSurface();
     }
 
+    private void checkForUpdates() {
+        if (updateCheckInFlight || disposed) return;
+        updateCheckInFlight = true;
+        updateResult = null;
+        try {
+            updateService.checkLatest().whenComplete((result, failure) -> {
+                if (disposed) return;
+                Gdx.app.postRunnable(() -> {
+                    if (disposed) return;
+                    updateCheckInFlight = false;
+                    if (failure != null) {
+                        LOGGER.log(Level.WARNING,
+                                "GDX update check failed", failure);
+                        updateResult = new UpdateService.CheckResult(
+                                UpdateService.Status.UNAVAILABLE, null);
+                    } else {
+                        updateResult = result;
+                    }
+                });
+            });
+        } catch (RuntimeException failure) {
+            updateCheckInFlight = false;
+            updateResult = new UpdateService.CheckResult(
+                    UpdateService.Status.UNAVAILABLE, null);
+            LOGGER.log(Level.WARNING, "GDX update check failed", failure);
+        }
+    }
+
+    private void showUpdatePrompt() {
+        if (updateResult == null || updateResult.status()
+                != UpdateService.Status.UPDATE_AVAILABLE) return;
+        aboutOpen = false;
+        updatePromptDismissed = false;
+        updatePromptOpen = true;
+        syncMusicForSurface();
+    }
+
+    private void dismissUpdatePrompt() {
+        updatePromptOpen = false;
+        updatePromptDismissed = true;
+    }
+
+    private void openLatestRelease() {
+        dismissUpdatePrompt();
+        try {
+            if (!Desktop.isDesktopSupported()
+                    || !Desktop.getDesktop().isSupported(
+                            Desktop.Action.BROWSE)) {
+                throw new IOException("Desktop browsing is unavailable");
+            }
+            Desktop.getDesktop().browse(ApplicationMetadata.LATEST_RELEASE_URI);
+        } catch (IOException | RuntimeException failure) {
+            LOGGER.log(Level.WARNING, "Could not open latest release", failure);
+            showToast(gameText.translate("gdx.update.open_failed"));
+        }
+    }
+
+    private void drawUpdateDialog() {
+        hits.clear();
+        shapes.setColor(new Color(0x01040be8));
+        shapes.rect(0f, 0f, WIDTH, HEIGHT);
+        float x = 540f;
+        float y = 345f;
+        float w = 840f;
+        float h = 390f;
+        panel(x, y, w, h, "");
+        textFit(headingFont, uppercase(gameText.translate(
+                "gdx.update.title")), WIDTH / 2f, y + h - 76f,
+                GOLD, true, w - 100f);
+        String version = updateResult == null ? ""
+                : Objects.requireNonNullElse(updateResult.version(), "");
+        List<String> lines = wrapText(smallFont, gameText.translate(
+                "gdx.update.message", version), w - 130f, 3);
+        float lineY = y + 230f;
+        for (String line : lines) {
+            textFit(smallFont, line, WIDTH / 2f, lineY,
+                    Color.WHITE, true, w - 130f);
+            lineY -= 30f;
+        }
+        themedButton(x + 70f, y + 42f, 320f, 72f,
+                uppercase(gameText.translate("gdx.update.later")),
+                ButtonTone.NEUTRAL, this::dismissUpdatePrompt, true);
+        themedButton(x + w - 390f, y + 42f, 320f, 72f,
+                uppercase(gameText.translate("gdx.update.open")),
+                ButtonTone.FEATURED, this::openLatestRelease, true);
+    }
+
     /** Native GDX counterpart of Swing's AboutDialog, including its music. */
     private void drawAboutDialog() {
         hits.clear();
@@ -856,7 +963,28 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 x + 62f, y + 205f, w - 124f, 21f, 3, MUTED);
         textFit(smallFont, gameText.translate("about.hecho_a_mano"),
                 WIDTH / 2f, y + 138f, Color.WHITE, true, w - 150f);
-        themedButton(WIDTH / 2f - 155f, y + 34f, 310f, 70f,
+        String updateLabel;
+        Runnable updateAction = this::checkForUpdates;
+        boolean updateEnabled = false;
+        if (updateCheckInFlight) {
+            updateLabel = gameText.translate("gdx.update.checking");
+        } else if (updateResult == null
+                || updateResult.status() == UpdateService.Status.UNAVAILABLE) {
+            updateLabel = gameText.translate("gdx.update.retry");
+            updateEnabled = true;
+        } else if (updateResult.status()
+                == UpdateService.Status.UPDATE_AVAILABLE) {
+            updateLabel = gameText.translate("gdx.update.available",
+                    updateResult.version());
+            updateAction = this::showUpdatePrompt;
+            updateEnabled = true;
+        } else {
+            updateLabel = gameText.translate("gdx.update.current");
+        }
+        themedButton(WIDTH / 2f - 330f, y + 34f, 310f, 70f,
+                uppercase(updateLabel), ButtonTone.NEUTRAL,
+                updateAction, updateEnabled);
+        themedButton(WIDTH / 2f + 20f, y + 34f, 310f, 70f,
                 uppercase(gameText.translate("ui.cerrar")),
                 ButtonTone.NEUTRAL, this::closeAboutDialog, true);
     }
@@ -6156,6 +6284,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 closeAboutDialog();
                 return true;
             }
+            if (updatePromptOpen) {
+                dismissUpdatePrompt();
+                return true;
+            }
             if (fingerprintDialog != null) {
                 fingerprintDialog = null;
                 return true;
@@ -6209,7 +6341,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             // action owned by the SALIR button (and by the window-close flow).
             return true;
         }
-        if (aboutOpen || lobbyConfirmation != null || fingerprintDialog != null
+        if (aboutOpen || updatePromptOpen || lobbyConfirmation != null
+                || fingerprintDialog != null
                 || settingsDiscardConfirmation) {
             // These decision surfaces have no editable field. Do not let
             // ENTER or a configured shortcut operate on the obscured page.

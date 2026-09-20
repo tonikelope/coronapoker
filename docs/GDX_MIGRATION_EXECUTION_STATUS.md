@@ -1641,6 +1641,11 @@ interactiva multiproceso y pulido de estados visibles.
   resolución nativa cuando caben, con muestreo nearest y sin corrección de
   gamma, recoloreado ni shader; el pie reserva bandas separadas para la
   información del sistema y los botones.
+- Corregida la composición para reproducir la jerarquía del diálogo Swing en
+  una única columna: lema, logotipo, agradecimientos, memorial, créditos,
+  copyright, firma y datos técnicos. GDX vuelve a usar los recursos originales
+  `luto.png`, `open-book.png` y `cruz.png`; el homenaje a las víctimas conserva
+  expresamente el lazo negro y no se sustituye por decoración genérica.
 - Splash oficial durante cualquier arranque negro evitable.
 - Certificar intro y movimiento final del logo a la esquina.
 - Música e icono de sonido.

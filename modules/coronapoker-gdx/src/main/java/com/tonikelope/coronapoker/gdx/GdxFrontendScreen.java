@@ -148,8 +148,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             .ofPattern("HH:mm").withZone(ZoneId.systemDefault());
     private static final float IMAGE_SEND_COOLDOWN_SECONDS = 2f;
     private static final float TEXT_SEND_COOLDOWN_SECONDS = 0.5f;
-    private static final float ABOUT_LOGO_WIDTH = 220f;
-    private static final float ABOUT_LOGO_Y = 660f;
+    private static final float ABOUT_LOGO_WIDTH = 180f;
+    private static final float ABOUT_LOGO_Y = 758f;
 
     private final FitViewport viewport = new FitViewport(WIDTH, HEIGHT);
     private final List<TextItem> texts = new ArrayList<>();
@@ -202,6 +202,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private Texture soundIcon;
     private Texture muteIcon;
     private Texture talkIcon;
+    private Texture aboutMourningIcon;
+    private Texture aboutBookIcon;
+    private Texture aboutCrossIcon;
     private Sound soundEnabledCue;
     private Sound soundDisabledCue;
     private Sound participantJoinedCue;
@@ -375,6 +378,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         soundIcon = filteredTexture("images/sound.png");
         muteIcon = filteredTexture("images/mute.png");
         talkIcon = filteredTexture("images/talk.png");
+        aboutMourningIcon = filteredTexture("images/luto.png");
+        aboutBookIcon = filteredTexture("images/open-book.png");
+        aboutCrossIcon = filteredTexture("images/cruz.png");
         soundEnabledCue = Gdx.audio.newSound(
                 Gdx.files.internal("sounds/misc/button_on.wav"));
         soundDisabledCue = Gdx.audio.newSound(
@@ -623,6 +629,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 batch.setColor(Color.WHITE);
                 batch.draw(logo, WIDTH / 2f - ABOUT_LOGO_WIDTH / 2f,
                         ABOUT_LOGO_Y, ABOUT_LOGO_WIDTH, logoHeight);
+                batch.draw(aboutMourningIcon, 392f, 452f, 82f, 82f);
+                batch.draw(aboutBookIcon, WIDTH / 2f - 16f, 245f,
+                        32f, 32f);
+                batch.draw(aboutCrossIcon, WIDTH / 2f - 338f, 214f,
+                        23f, 15f);
             } else if (aboutEasterEggTexture != null) {
                 float maximumWidth = 1180f;
                 float maximumHeight = 760f;
@@ -995,68 +1006,57 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
 
         float x = 310f;
-        float y = 92f;
+        float y = 58f;
         float w = 1300f;
-        float h = 896f;
+        float h = 964f;
         outerBox(x, y, w, h, CYAN_DARK, new Color(0x071321fc));
         shapes.setColor(new Color(0x36d9ffb8));
         shapes.rect(x + 28f, y + h - 10f, w - 56f, 3f);
-
-        float cardY = y + 198f;
-        float cardH = 360f;
-        float cardW = w / 2f - 78f;
-        outerBox(x + 44f, cardY, cardW, cardH, LINE,
-                new Color(0x0a1828ff));
-        outerBox(x + w / 2f + 34f, cardY, cardW, cardH, LINE,
-                new Color(0x0a1828ff));
         textFit(titleFont, uppercase(gameText.translate("about.titulo")),
-                WIDTH / 2f, y + h - 56f, GOLD, true, w - 120f);
+                WIDTH / 2f, y + h - 58f, GOLD, true, w - 120f);
         textFit(smallFont, "CORONAPOKER  " + ApplicationMetadata.VERSION,
                 WIDTH / 2f, y + h - 112f, CYAN, true, w - 120f);
 
-        // Both text columns use the same inner padding. The former right
-        // origin started outside its panel and made the copy look displaced.
-        float leftX = x + 66f;
-        float rightX = x + w / 2f + 56f;
-        float columnW = cardW - 44f;
-        float contentTop = cardY + cardH - 42f;
-        float leftY = contentTop;
-        leftY = wrappedText(smallFont, gameText.translate("about.merecemos"),
-                leftX, leftY, columnW, 25f, 2, Color.WHITE);
-        leftY -= 12f;
-        leftY = wrappedText(tinyFont, gameText.translate("about.gracias_1"),
-                leftX, leftY, columnW, 22f, 3, MUTED);
-        leftY = wrappedText(tinyFont, gameText.translate("about.gracias_2"),
-                leftX, leftY - 5f, columnW, 22f, 3, MUTED);
-        leftY = wrappedText(tinyFont, gameText.translate("about.centimos"),
-                leftX, leftY - 5f, columnW, 20f, 2, MUTED);
-        leftY -= 8f;
-        wrappedText(smallFont, gameText.translate("about.dedicado"),
-                leftX, leftY, columnW, 25f, 2, GOLD);
+        centeredWrappedText(smallFont,
+                gameText.translate("about.merecemos"), WIDTH / 2f,
+                730f, w - 150f, 25f, 2, Color.WHITE);
+        centeredWrappedText(tinyFont,
+                gameText.translate("about.gracias_1"), WIDTH / 2f,
+                674f, w - 130f, 21f, 2, MUTED);
+        centeredWrappedText(tinyFont,
+                gameText.translate("about.gracias_2"), WIDTH / 2f,
+                644f, w - 130f, 21f, 2, MUTED);
+        centeredWrappedText(tinyFont,
+                gameText.translate("about.centimos"), WIDTH / 2f,
+                612f, w - 130f, 21f, 2, MUTED);
 
-        float rightY = contentTop;
+        textFit(headingFont, gameText.translate("about.dedicado"),
+                1040f, 505f, Color.WHITE, true, 900f);
+
+        float musicY = 436f;
         String[] musicKeys = {
             "about.musica_juego", "about.musica_espera",
             "about.musica_stats", "about.musica_about"
         };
         for (String key : musicKeys) {
-            rightY = wrappedText(tinyFont, gameText.translate(key), rightX,
-                    rightY, columnW, 21f, 3, MUTED) - 5f;
+            centeredWrappedText(tinyFont, gameText.translate(key),
+                    WIDTH / 2f, musicY, w - 150f, 20f, 2, MUTED);
+            musicY -= 27f;
         }
 
-        wrappedText(tinyFont, gameText.translate("about.copyright"),
-                x + 62f, y + 176f, w - 124f, 21f, 2, MUTED);
+        centeredWrappedText(tinyFont, gameText.translate("about.copyright"),
+                WIDTH / 2f, 316f, w - 120f, 20f, 2, MUTED);
         textFit(smallFont, gameText.translate("about.hecho_a_mano"),
-                WIDTH / 2f, y + 132f, Color.WHITE, true, w - 150f);
-        text(tinyFont, "Jn 8:32", x + 62f, y + 100f, MUTED, false);
+                WIDTH / 2f, 228f, Color.WHITE, true, w - 150f);
+        text(tinyFont, "Jn 8:32", x + 62f, 178f, MUTED, false);
         String runtime = aboutRuntimeText() + " "
                 + gameText.translate("ui.hilos");
-        textFit(tinyFont, runtime, x + 310f, y + 100f, MUTED, true, 300f);
+        textFit(tinyFont, runtime, x + 350f, 178f, MUTED, true, 420f);
         String system = aboutSystemText();
-        textFit(tinyFont, system, x + 880f, y + 100f, MUTED, true, 760f);
-        hit(x + 500f, y + 78f, 760f, 32f,
+        textFit(tinyFont, system, x + 930f, 178f, MUTED, true, 650f);
+        hit(x + 605f, 156f, 650f, 32f,
                 () -> activateAboutEasterEgg(false));
-        secondaryHit(x + 500f, y + 78f, 760f, 32f,
+        secondaryHit(x + 605f, 156f, 650f, 32f,
                 () -> activateAboutEasterEgg(true));
         String updateLabel;
         Runnable updateAction = this::checkForUpdates;
@@ -1076,10 +1076,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } else {
             updateLabel = gameText.translate("gdx.update.current");
         }
-        themedButton(WIDTH / 2f - 330f, y + 8f, 310f, 54f,
+        themedButton(WIDTH / 2f - 330f, y + 14f, 310f, 54f,
                 uppercase(updateLabel), ButtonTone.NEUTRAL,
                 updateAction, updateEnabled);
-        themedButton(WIDTH / 2f + 20f, y + 8f, 310f, 54f,
+        themedButton(WIDTH / 2f + 20f, y + 14f, 310f, 54f,
                 uppercase(gameText.translate("ui.cerrar")),
                 ButtonTone.NEUTRAL, this::closeAboutDialog, true);
     }
@@ -1106,6 +1106,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float y = topY;
         for (String line : lines) {
             text(font, line, x, y, color, false);
+            y -= lineHeight;
+        }
+        return y;
+    }
+
+    private float centeredWrappedText(BitmapFont font, String value,
+            float centerX, float topY, float maxWidth, float lineHeight,
+            int maxLines, Color color) {
+        List<String> lines = wrapText(font, value, maxWidth, maxLines);
+        float y = topY;
+        for (String line : lines) {
+            textFit(font, line, centerX, y, color, true, maxWidth);
             y -= lineHeight;
         }
         return y;
@@ -6851,6 +6863,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         soundIcon.dispose();
         muteIcon.dispose();
         talkIcon.dispose();
+        aboutMourningIcon.dispose();
+        aboutBookIcon.dispose();
+        aboutCrossIcon.dispose();
         soundEnabledCue.dispose();
         soundDisabledCue.dispose();
         participantJoinedCue.dispose();

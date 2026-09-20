@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 10:32 (Europe/Madrid)
+Última actualización: 2026-09-20 10:45 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,11 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19/20
 
+- Recompuesto el diálogo nativo `Acerca de`: la versión deja de montarse sobre
+  el logotipo, el logo ocupa una banda propia y los agradecimientos/créditos se
+  agrupan en dos paneles equilibrados antes del bloque legal y el cierre.
+  Pruebas focalizadas de textos y cableado de ajustes: **4/4**; queda pendiente
+  la comprobación visual interactiva de esta nueva composición.
 - Unificado el comportamiento de las barras de desplazamiento GDX que existen
   actualmente: chat de sala, registro de timba y consolas de depuración de
   ajustes admiten rueda fina (una unidad lógica por paso) y arrastre directo

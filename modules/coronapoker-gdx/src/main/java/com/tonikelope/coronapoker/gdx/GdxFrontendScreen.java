@@ -139,8 +139,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final DateTimeFormatter CHAT_TIME = DateTimeFormatter
             .ofPattern("HH:mm").withZone(ZoneId.systemDefault());
     private static final float IMAGE_SEND_COOLDOWN_SECONDS = 2f;
-    private static final float ABOUT_LOGO_WIDTH = 330f;
-    private static final float ABOUT_LOGO_Y = 683f;
+    private static final float ABOUT_LOGO_WIDTH = 260f;
+    private static final float ABOUT_LOGO_Y = 680f;
 
     private final FitViewport viewport = new FitViewport(WIDTH, HEIGHT);
     private final List<TextItem> texts = new ArrayList<>();
@@ -750,15 +750,22 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float w = 1300f;
         float h = 896f;
         panel(x, y, w, h, "");
+        float cardY = y + 300f;
+        float cardH = 286f;
+        float cardW = w / 2f - 78f;
+        outerBox(x + 44f, cardY, cardW, cardH, LINE,
+                new Color(0x071321d9));
+        outerBox(x + w / 2f + 34f, cardY, cardW, cardH, LINE,
+                new Color(0x071321d9));
         textFit(titleFont, uppercase(gameText.translate("about.titulo")),
                 WIDTH / 2f, y + h - 62f, GOLD, true, w - 120f);
         textFit(smallFont, "CORONAPOKER  " + ApplicationMetadata.VERSION,
-                WIDTH / 2f, y + h - 108f, CYAN, true, w - 120f);
+                WIDTH / 2f, y + h - 122f, CYAN, true, w - 120f);
 
         float leftX = x + 62f;
         float rightX = x + w / 2f + 28f;
         float columnW = w / 2f - 92f;
-        float contentTop = y + h - 344f;
+        float contentTop = cardY + cardH - 54f;
         float leftY = contentTop;
         leftY = wrappedText(smallFont, gameText.translate("about.merecemos"),
                 leftX, leftY, columnW, 25f, 3, Color.WHITE);

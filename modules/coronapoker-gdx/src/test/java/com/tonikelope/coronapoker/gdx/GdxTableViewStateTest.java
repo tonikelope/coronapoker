@@ -169,6 +169,13 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void cardOnTheRightAlwaysOwnsTheUpperLayerDuringASwap() {
+        assertEquals(1, CoronaPokerGdxTable.upperHoleCardSlot(410f, 520f));
+        assertEquals(0, CoronaPokerGdxTable.upperHoleCardSlot(520f, 410f));
+        assertEquals(1, CoronaPokerGdxTable.upperHoleCardSlot(465f, 465f));
+    }
+
+    @Test
     void officialDeckKeepsTheLocalCenterLaneClearWithoutRuntimeAssertions() {
         float officialAspect = 1242f / 923f;
 

@@ -4227,6 +4227,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return !active && clearSelection ? 0 : selection;
     }
 
+    /**
+     * Returns the card slot that must be painted last for a screen-space fan.
+     * The card physically on the right always owns the upper layer, including
+     * the second half of a swap animation after both cards have crossed.
+     */
+    static int upperHoleCardSlot(float firstCenterX, float secondCenterX) {
+        return firstCenterX > secondCenterX ? 0 : 1;
+    }
+
     static boolean autoActionControlsReadyAfterPreAction(boolean ready,
             boolean active) {
         return active && ready;
@@ -6366,19 +6375,38 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         towardX /= length;
         towardY /= length;
 
+        LiveCardPlacement firstPlacement = null;
+        LiveCardPlacement secondPlacement = null;
         for (int slot = 0; slot < 2; slot++) {
-            if (hasActiveHoleFlight(liveHoleSwap.event.nickname(), slot)) {
-                continue;
-            }
             LiveCardPlacement from = liveHolePlacement(seat, slot);
             LiveCardPlacement to = liveHolePlacement(seat, 1 - slot);
             float lane = slot == 0 ? -30f : 46f;
-            LiveCardPlacement animated = new LiveCardPlacement(
+            LiveCardPlacement placement = new LiveCardPlacement(
                     MathUtils.lerp(from.x, to.x, motion) + towardX * arc * lane,
                     MathUtils.lerp(from.y, to.y, motion) + towardY * arc * lane,
                     from.width, from.height,
                     MathUtils.lerp(from.rotation, to.rotation, motion));
-            drawLiveRestingCard(liveHoleSwap.cards.get(slot), animated, cardBack);
+            if (slot == 0) {
+                firstPlacement = placement;
+            } else {
+                secondPlacement = placement;
+            }
+        }
+        int upperSlot = upperHoleCardSlot(firstPlacement.x, secondPlacement.x);
+        if (upperSlot == 0) {
+            drawLiveHoleSwapCard(1, secondPlacement, cardBack);
+            drawLiveHoleSwapCard(0, firstPlacement, cardBack);
+        } else {
+            drawLiveHoleSwapCard(0, firstPlacement, cardBack);
+            drawLiveHoleSwapCard(1, secondPlacement, cardBack);
+        }
+    }
+
+    private void drawLiveHoleSwapCard(int slot, LiveCardPlacement placement,
+            Texture cardBack) {
+        if (!hasActiveHoleFlight(liveHoleSwap.event.nickname(), slot)) {
+            drawLiveRestingCard(liveHoleSwap.cards.get(slot), placement,
+                    cardBack);
         }
     }
 

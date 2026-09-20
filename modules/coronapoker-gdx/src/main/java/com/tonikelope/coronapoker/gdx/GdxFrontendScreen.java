@@ -148,8 +148,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             .ofPattern("HH:mm").withZone(ZoneId.systemDefault());
     private static final float IMAGE_SEND_COOLDOWN_SECONDS = 2f;
     private static final float TEXT_SEND_COOLDOWN_SECONDS = 0.5f;
-    private static final float ABOUT_LOGO_WIDTH = 260f;
-    private static final float ABOUT_LOGO_Y = 680f;
+    private static final float ABOUT_LOGO_WIDTH = 220f;
+    private static final float ABOUT_LOGO_Y = 660f;
 
     private final FitViewport viewport = new FitViewport(WIDTH, HEIGHT);
     private final List<TextItem> texts = new ArrayList<>();
@@ -299,6 +299,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private NewGameTableDraft.Settings settingsTableSnapshot;
     private boolean settingsDiscardConfirmation;
     private boolean aboutOpen;
+    private int aboutEasterEggClicks;
+    private Texture aboutEasterEggTexture;
     private boolean updateCheckInFlight;
     private UpdateService.CheckResult updateResult;
     private boolean updatePromptOpen;
@@ -615,12 +617,25 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             shapes.end();
             batch.begin();
-            if (aboutOpen) {
+            if (aboutOpen && aboutEasterEggTexture == null) {
                 float logoHeight = ABOUT_LOGO_WIDTH * logo.getHeight()
                         / logo.getWidth();
                 batch.setColor(Color.WHITE);
                 batch.draw(logo, WIDTH / 2f - ABOUT_LOGO_WIDTH / 2f,
                         ABOUT_LOGO_Y, ABOUT_LOGO_WIDTH, logoHeight);
+            } else if (aboutEasterEggTexture != null) {
+                float maximumWidth = 1180f;
+                float maximumHeight = 760f;
+                float scale = Math.min(maximumWidth
+                        / aboutEasterEggTexture.getWidth(), maximumHeight
+                        / aboutEasterEggTexture.getHeight());
+                float imageWidth = aboutEasterEggTexture.getWidth() * scale;
+                float imageHeight = aboutEasterEggTexture.getHeight() * scale;
+                batch.setColor(Color.WHITE);
+                batch.draw(aboutEasterEggTexture,
+                        WIDTH / 2f - imageWidth / 2f,
+                        HEIGHT / 2f - imageHeight / 2f,
+                        imageWidth, imageHeight);
             }
             for (TextItem item : texts) {
                 item.font.setColor(item.color);
@@ -823,14 +838,53 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void openAboutDialog() {
         aboutOpen = true;
+        aboutEasterEggClicks = 0;
+        disposeAboutEasterEgg();
         clearActiveField();
         editMenu = null;
         syncMusicForSurface();
     }
 
     private void closeAboutDialog() {
+        disposeAboutEasterEgg();
+        aboutEasterEggClicks = 0;
         aboutOpen = false;
         syncMusicForSurface();
+    }
+
+    private void closeAboutEasterEgg() {
+        disposeAboutEasterEgg();
+        aboutEasterEggClicks = 0;
+    }
+
+    private void activateAboutEasterEgg(boolean alternate) {
+        if (++aboutEasterEggClicks < 5) return;
+        aboutEasterEggClicks = 0;
+        disposeAboutEasterEgg();
+        String resource = alternate ? "g" : "c";
+        try (var splash = Gdx.files.internal("images/splash.gif").read();
+                var encrypted = Gdx.files.internal("images/" + resource)
+                        .read()) {
+            byte[] decoded = GdxAboutEasterEgg.decode(splash, encrypted);
+            Pixmap pixmap = new Pixmap(decoded, 0, decoded.length);
+            try {
+                aboutEasterEggTexture = new Texture(pixmap);
+                aboutEasterEggTexture.setFilter(TextureFilter.Linear,
+                        TextureFilter.Linear);
+            } finally {
+                pixmap.dispose();
+            }
+        } catch (Exception failure) {
+            LOGGER.log(Level.WARNING, "Could not decode About easter egg",
+                    failure);
+        }
+    }
+
+    private void disposeAboutEasterEgg() {
+        if (aboutEasterEggTexture != null) {
+            aboutEasterEggTexture.dispose();
+            aboutEasterEggTexture = null;
+        }
     }
 
     private void checkForUpdates() {
@@ -923,39 +977,54 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     /** Native GDX counterpart of Swing's AboutDialog, including its music. */
     private void drawAboutDialog() {
         hits.clear();
+        secondaryHits.clear();
         shapes.setColor(new Color(0x01040bd8));
         shapes.rect(0f, 0f, WIDTH, HEIGHT);
+
+        if (aboutEasterEggTexture != null) {
+            outerBox(330f, 115f, 1260f, 850f, CYAN_DARK,
+                    new Color(0x02060dff));
+            textFit(tinyFont, gameText.translate("ui.cerrar"), WIDTH / 2f,
+                    142f, MUTED, true, 600f);
+            hit(0f, 0f, WIDTH, HEIGHT, this::closeAboutEasterEgg);
+            return;
+        }
 
         float x = 310f;
         float y = 92f;
         float w = 1300f;
         float h = 896f;
-        panel(x, y, w, h, "");
-        float cardY = y + 300f;
-        float cardH = 286f;
+        outerBox(x, y, w, h, CYAN_DARK, new Color(0x071321fc));
+        shapes.setColor(new Color(0x36d9ffb8));
+        shapes.rect(x + 28f, y + h - 10f, w - 56f, 3f);
+
+        float cardY = y + 198f;
+        float cardH = 360f;
         float cardW = w / 2f - 78f;
         outerBox(x + 44f, cardY, cardW, cardH, LINE,
-                new Color(0x071321d9));
+                new Color(0x0a1828ff));
         outerBox(x + w / 2f + 34f, cardY, cardW, cardH, LINE,
-                new Color(0x071321d9));
+                new Color(0x0a1828ff));
         textFit(titleFont, uppercase(gameText.translate("about.titulo")),
-                WIDTH / 2f, y + h - 62f, GOLD, true, w - 120f);
+                WIDTH / 2f, y + h - 56f, GOLD, true, w - 120f);
         textFit(smallFont, "CORONAPOKER  " + ApplicationMetadata.VERSION,
-                WIDTH / 2f, y + h - 122f, CYAN, true, w - 120f);
+                WIDTH / 2f, y + h - 112f, CYAN, true, w - 120f);
 
         float leftX = x + 62f;
         float rightX = x + w / 2f + 28f;
         float columnW = w / 2f - 92f;
-        float contentTop = cardY + cardH - 54f;
+        float contentTop = cardY + cardH - 42f;
         float leftY = contentTop;
         leftY = wrappedText(smallFont, gameText.translate("about.merecemos"),
-                leftX, leftY, columnW, 25f, 3, Color.WHITE);
-        leftY -= 16f;
+                leftX, leftY, columnW, 25f, 2, Color.WHITE);
+        leftY -= 12f;
         leftY = wrappedText(tinyFont, gameText.translate("about.gracias_1"),
                 leftX, leftY, columnW, 22f, 3, MUTED);
         leftY = wrappedText(tinyFont, gameText.translate("about.gracias_2"),
                 leftX, leftY - 5f, columnW, 22f, 3, MUTED);
-        leftY -= 18f;
+        leftY = wrappedText(tinyFont, gameText.translate("about.centimos"),
+                leftX, leftY - 5f, columnW, 20f, 2, MUTED);
+        leftY -= 8f;
         wrappedText(smallFont, gameText.translate("about.dedicado"),
                 leftX, leftY, columnW, 25f, 2, GOLD);
 
@@ -966,13 +1035,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         };
         for (String key : musicKeys) {
             rightY = wrappedText(tinyFont, gameText.translate(key), rightX,
-                    rightY, columnW, 21f, 3, MUTED) - 8f;
+                    rightY, columnW, 21f, 3, MUTED) - 5f;
         }
 
         wrappedText(tinyFont, gameText.translate("about.copyright"),
-                x + 62f, y + 205f, w - 124f, 21f, 3, MUTED);
+                x + 62f, y + 176f, w - 124f, 21f, 2, MUTED);
         textFit(smallFont, gameText.translate("about.hecho_a_mano"),
-                WIDTH / 2f, y + 138f, Color.WHITE, true, w - 150f);
+                WIDTH / 2f, y + 128f, Color.WHITE, true, w - 150f);
+        text(tinyFont, "Jn 8:32", x + 62f, y + 93f, MUTED, false);
+        String runtime = aboutRuntimeText() + " "
+                + gameText.translate("ui.hilos");
+        textFit(tinyFont, runtime, x + 310f, y + 93f, MUTED, true, 300f);
+        String system = aboutSystemText();
+        textFit(tinyFont, system, x + 880f, y + 93f, MUTED, true, 760f);
+        hit(x + 500f, y + 71f, 760f, 32f,
+                () -> activateAboutEasterEgg(false));
+        secondaryHit(x + 500f, y + 71f, 760f, 32f,
+                () -> activateAboutEasterEgg(true));
         String updateLabel;
         Runnable updateAction = this::checkForUpdates;
         boolean updateEnabled = false;
@@ -991,12 +1070,27 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } else {
             updateLabel = gameText.translate("gdx.update.current");
         }
-        themedButton(WIDTH / 2f - 330f, y + 34f, 310f, 70f,
+        themedButton(WIDTH / 2f - 330f, y + 18f, 310f, 58f,
                 uppercase(updateLabel), ButtonTone.NEUTRAL,
                 updateAction, updateEnabled);
-        themedButton(WIDTH / 2f + 20f, y + 34f, 310f, 70f,
+        themedButton(WIDTH / 2f + 20f, y + 18f, 310f, 58f,
                 uppercase(gameText.translate("ui.cerrar")),
                 ButtonTone.NEUTRAL, this::closeAboutDialog, true);
+    }
+
+    static String aboutSystemText() {
+        return System.getProperty("os.name", "") + " "
+                + System.getProperty("os.version", "") + " "
+                + System.getProperty("os.arch", "") + " / "
+                + System.getProperty("java.vm.name", "") + " "
+                + System.getProperty("java.version", "");
+    }
+
+    static String aboutRuntimeText() {
+        Runtime runtime = Runtime.getRuntime();
+        long usedMiB = (runtime.totalMemory() - runtime.freeMemory())
+                / (1024L * 1024L);
+        return usedMiB + " MiB  ·  " + Thread.activeCount();
     }
 
     private float wrappedText(BitmapFont font, String value, float x,
@@ -6337,7 +6431,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         if (keycode == Input.Keys.ESCAPE) {
             if (aboutOpen) {
-                closeAboutDialog();
+                if (aboutEasterEggTexture != null) {
+                    closeAboutEasterEgg();
+                } else {
+                    closeAboutDialog();
+                }
                 return true;
             }
             if (updatePromptOpen) {
@@ -6729,6 +6827,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         cancelLobbyVoiceRecording();
         GdxVoicePlayback.stop();
         clearLobbyMedia();
+        disposeAboutEasterEgg();
         lobbyHistoryMedia.dispose();
         submissions.cancel();
         closeLobbySubscription();

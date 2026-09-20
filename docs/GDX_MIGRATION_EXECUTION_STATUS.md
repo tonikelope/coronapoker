@@ -1632,6 +1632,12 @@ interactiva multiproceso y pulido de estados visibles.
   contenido, sin depender de Swing; pausa la pista ambiental, reproduce su
   música propia configurable y recupera la anterior al cerrar. Falta QA visual
   y auditiva.
+- HECHO en código: recompuesta la jerarquía visual de `ACERCA DE` para separar
+  título, versión, logotipo, créditos, información del sistema y acciones sin
+  solapes. Recuperadas las etiquetas inferiores del original y sus easter eggs:
+  el quinto clic izquierdo/derecho sobre la información del sistema descifra y
+  muestra respectivamente los recursos originales `images/c` y `images/g` en
+  un modal GDX nativo, sin widgets Swing ocultos.
 - Splash oficial durante cualquier arranque negro evitable.
 - Certificar intro y movimiento final del logo a la esquina.
 - Música e icono de sonido.

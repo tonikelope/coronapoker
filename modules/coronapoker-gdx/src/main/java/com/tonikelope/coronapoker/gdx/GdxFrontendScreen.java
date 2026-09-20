@@ -229,6 +229,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final Rectangle lobbyChatScrollTrack = new Rectangle();
     private float lobbyChatScrollThumbHeight;
     private int lobbyChatScrollMaximum;
+    private List<Float> lobbyChatScrollHeights = List.of();
     private String lobbyImageDraft = "";
     private List<String> lobbyImageHistory = List.of();
     private float lobbyImageSendAllowedAt;
@@ -1073,9 +1074,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             lobbyChatScroll += messages.size() - lobbyChatMessageCount;
         }
         lobbyChatMessageCount = messages.size();
-        int maximumScroll = Math.max(0, messages.size() - 1);
-        lobbyChatScroll = MathUtils.clamp(lobbyChatScroll, 0, maximumScroll);
-        int end = Math.max(0, messages.size() - lobbyChatScroll);
         List<LobbyMessageLayout> layouts = new ArrayList<>(messages.size());
         List<Float> heights = new ArrayList<>(messages.size());
         for (LobbyChatMessage message : messages) {
@@ -1084,6 +1082,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             layouts.add(layout);
             heights.add(layout.height());
         }
+        lobbyChatScrollHeights = List.copyOf(heights);
+        int maximumScroll = lobbyMaximumScrollOffset(heights, 420f);
+        lobbyChatScroll = MathUtils.clamp(lobbyChatScroll, 0, maximumScroll);
+        int end = Math.max(0, messages.size() - lobbyChatScroll);
         int first = lobbyMessageStartIndexForHeights(heights, 420f, end);
         float cursorTop = top;
         for (int i = first; i < end; i++) {
@@ -1144,22 +1146,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             cursorTop = y - 10f;
         }
         drawLobbyChatScrollbar(x + width - 12f, top - 420f, 420f,
-                messages.size(), first, end, maximumScroll);
+                heights, maximumScroll);
     }
 
     private void drawLobbyChatScrollbar(float x, float y, float height,
-            int total, int first, int end, int maximumScroll) {
+            List<Float> heights, int maximumScroll) {
         lobbyChatScrollTrack.set(x - 5f, y, 22f, height);
         lobbyChatScrollMaximum = maximumScroll;
-        if (maximumScroll <= 0 || total <= 0) {
+        if (maximumScroll <= 0 || heights.isEmpty()) {
             lobbyChatScrollThumbHeight = height;
             return;
         }
-        int visible = Math.max(1, end - first);
+        float contentHeight = 10f * Math.max(0, heights.size() - 1);
+        for (float itemHeight : heights) contentHeight += itemHeight;
         float thumbHeight = Math.min(height,
-                Math.max(34f, height * visible / total));
+                Math.max(34f, height * height / contentHeight));
         lobbyChatScrollThumbHeight = thumbHeight;
-        float progress = lobbyChatScroll / (float) maximumScroll;
+        float progress = lobbyScrollProgress(heights, lobbyChatScroll,
+                maximumScroll);
         float thumbY = y + progress * (height - thumbHeight);
         shapes.setColor(new Color(0x1a2c44cc));
         roundedRect(x, y, 12f, height, 6f);
@@ -1340,6 +1344,63 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             first--;
         }
         return first;
+    }
+
+    static float lobbyScrollProgress(List<Float> heights, int offset,
+            int maximumOffset) {
+        if (heights == null || heights.size() <= 1 || offset <= 0
+                || maximumOffset <= 0) return 0f;
+        int maximum = MathUtils.clamp(maximumOffset, 0,
+                heights.size() - 1);
+        int selected = MathUtils.clamp(offset, 0, maximum);
+        float skipped = 0f;
+        float skippable = 0f;
+        for (int step = 1; step <= maximum; step++) {
+            float extent = heights.get(heights.size() - step) + 10f;
+            skippable += extent;
+            if (step <= selected) skipped += extent;
+        }
+        return skippable <= 0f ? 0f : skipped / skippable;
+    }
+
+    static int lobbyMaximumScrollOffset(List<Float> heights,
+            float availableHeight) {
+        if (heights == null || heights.isEmpty()) return 0;
+        float used = 0f;
+        int visibleFromTop = 0;
+        while (visibleFromTop < heights.size()) {
+            float gap = visibleFromTop == 0 ? 0f : 10f;
+            float next = heights.get(visibleFromTop);
+            if (visibleFromTop > 0
+                    && used + gap + next > availableHeight) break;
+            used += gap + next;
+            visibleFromTop++;
+        }
+        return Math.max(0, heights.size() - visibleFromTop);
+    }
+
+    static int lobbyScrollOffsetForProgress(List<Float> heights,
+            float progress, int maximumOffset) {
+        if (heights == null || heights.size() <= 1
+                || maximumOffset <= 0) return 0;
+        int maximum = MathUtils.clamp(maximumOffset, 0,
+                heights.size() - 1);
+        float total = 0f;
+        for (int step = 1; step <= maximum; step++) {
+            total += heights.get(heights.size() - step) + 10f;
+        }
+        float target = MathUtils.clamp(progress, 0f, 1f) * total;
+        float previous = 0f;
+        for (int step = 1; step <= maximum; step++) {
+            float current = previous
+                    + heights.get(heights.size() - step) + 10f;
+            if (target <= current) {
+                return target - previous <= current - target
+                        ? step - 1 : step;
+            }
+            previous = current;
+        }
+        return maximum;
     }
 
     private Texture lobbyMessageAvatar(LobbyChatMessage message) {
@@ -5700,9 +5761,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void updateScrollDrag(float y) {
         if (scrollDrag == ScrollDrag.LOBBY_CHAT) {
-            lobbyChatScroll = CoronaPokerGdxTable.anchoredScrollFromTrack(y,
-                    lobbyChatScrollTrack.y, lobbyChatScrollTrack.height,
-                    lobbyChatScrollThumbHeight, lobbyChatScrollMaximum);
+            float travel = Math.max(1f, lobbyChatScrollTrack.height
+                    - lobbyChatScrollThumbHeight);
+            float progress = MathUtils.clamp((y - lobbyChatScrollTrack.y
+                    - lobbyChatScrollThumbHeight / 2f) / travel, 0f, 1f);
+            lobbyChatScroll = lobbyScrollOffsetForProgress(
+                    lobbyChatScrollHeights, progress,
+                    lobbyChatScrollMaximum);
         } else if (scrollDrag == ScrollDrag.SETTINGS_DEBUG) {
             settingsDebugScroll = CoronaPokerGdxTable.anchoredScrollFromTrack(
                     y, settingsDebugScrollTrack.y,
@@ -6195,11 +6260,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             viewport.unproject(pointer);
             if (pointer.x >= 525f && pointer.x <= 1365f
                     && pointer.y >= 315f && pointer.y <= 744f) {
-                int maximum = lobby == null ? 0
-                        : Math.max(0, lobby.chat().size() - 1);
                 lobbyChatScroll = CoronaPokerGdxTable
-                        .anchoredScrollAfterWheel(lobbyChatScroll, maximum,
-                                amountY);
+                        .anchoredScrollAfterWheel(lobbyChatScroll,
+                                lobbyChatScrollMaximum, amountY);
                 return true;
             }
         }

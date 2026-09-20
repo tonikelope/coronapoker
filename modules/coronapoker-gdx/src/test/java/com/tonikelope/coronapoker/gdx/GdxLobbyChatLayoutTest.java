@@ -81,6 +81,32 @@ final class GdxLobbyChatLayoutTest {
     }
 
     @Test
+    void chatScrollUsesRealBubbleHeightAndNeverScrollsIntoBlankSpace() {
+        List<Float> heights = List.of(44f, 130f, 280f);
+        assertEquals(1, GdxFrontendScreen.lobbyMaximumScrollOffset(
+                heights, 420f));
+        assertEquals(0, GdxFrontendScreen.lobbyMaximumScrollOffset(
+                List.of(44f, 44f), 420f));
+        assertEquals(0f, GdxFrontendScreen.lobbyScrollProgress(
+                heights, 0, 1));
+        assertEquals(1f, GdxFrontendScreen.lobbyScrollProgress(
+                heights, 1, 1));
+        assertEquals(1, GdxFrontendScreen.lobbyScrollOffsetForProgress(
+                heights, 0.75f, 1));
+
+        List<Float> tallerHistory = List.of(44f, 70f, 280f, 100f, 70f);
+        int maximum = GdxFrontendScreen.lobbyMaximumScrollOffset(
+                tallerHistory, 300f);
+        for (int offset = 0; offset <= maximum; offset++) {
+            float progress = GdxFrontendScreen.lobbyScrollProgress(
+                    tallerHistory, offset, maximum);
+            assertEquals(offset,
+                    GdxFrontendScreen.lobbyScrollOffsetForProgress(
+                            tallerHistory, progress, maximum));
+        }
+    }
+
+    @Test
     void inTableGalleryKeepsEightLargeThumbnailsInsideItsPanel() {
         Rectangle panel = new Rectangle(80f, 120f, 1072f, 500f);
         Rectangle[] cells = new Rectangle[8];

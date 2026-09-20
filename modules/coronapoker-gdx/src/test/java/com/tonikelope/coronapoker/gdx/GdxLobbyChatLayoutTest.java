@@ -1,6 +1,7 @@
 package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.badlogic.gdx.math.Rectangle;
@@ -69,6 +70,18 @@ final class GdxLobbyChatLayoutTest {
                 20f, 162f, 1f));
         assertEquals(162f, GdxFrontendScreen.lobbyPixelScrollAfterWheel(
                 150f, 162f, -1f));
+    }
+
+    @Test
+    void historyLayerNeverCoversTheImageOrEmojiDialogs() {
+        assertTrue(GdxFrontendScreen.shouldDrawLobbyChatLayer(
+                true, false, false, 806f, 420f));
+        assertFalse(GdxFrontendScreen.shouldDrawLobbyChatLayer(
+                true, true, false, 806f, 420f));
+        assertFalse(GdxFrontendScreen.shouldDrawLobbyChatLayer(
+                true, false, true, 806f, 420f));
+        assertFalse(GdxFrontendScreen.shouldDrawLobbyChatLayer(
+                true, false, false, 0f, 420f));
     }
 
     @Test

@@ -129,9 +129,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final Color LATENCY_ORANGE = new Color(0xff9800ff);
     private static final Color LATENCY_RED = new Color(0xf44336ff);
     private static final Color LATENCY_STALE = new Color(0x9e9e9eff);
-    private static final Color CHAT_MINE = new Color(0xd9fdd3ff);
-    private static final Color CHAT_OTHER = Color.WHITE;
-    private static final Color CHAT_TEXT = new Color(0x111111ff);
     private static final int SETTINGS_DEBUG_VISIBLE_LINES = 15;
     private static final int SETTINGS_SHORTCUT_ROWS_PER_PAGE = 5;
     private static final int EMOJI_COUNT = 1826;
@@ -197,7 +194,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private ShapeRenderer shapes;
     private Texture feltTexture;
     private Texture logo;
-    private Texture lobbyChatBackground;
     private Texture avatarDefault;
     private Texture avatarBot;
     private Texture selectedAvatarTexture;
@@ -361,7 +357,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         feltTexture.setWrap(TextureWrap.Repeat, TextureWrap.Repeat);
         logo = new Texture(Gdx.files.internal("images/corona_poker_splash.png"));
         logo.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-        lobbyChatBackground = filteredTexture("images/chat_bg.jpg");
         avatarDefault = filteredTexture("images/avatar_default.png");
         avatarBot = filteredTexture("images/avatar_bot.png");
         soundIcon = filteredTexture("images/sound.png");
@@ -467,6 +462,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyChatAvatars.clear();
         lobbyChatImages.clear();
         lobbyChatBubbles.clear();
+        // The clipped chat layer belongs only to the message history. Clear
+        // its previous-frame viewport before drawing a gallery or emoji
+        // picker, otherwise that stale layer is composed over the dialog.
+        lobbyChatViewport.set(0f, 0f, 0f, 0f);
         hits.clear();
         secondaryHits.clear();
         textFieldHits.clear();
@@ -1314,36 +1313,44 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             String header = message.nickname() + "  ·  "
                     + CHAT_TIME.format(message.timestamp());
             float bubbleW = layout.width();
-            float bubbleX = local ? x + contentWidth - bubbleW : x + 8f;
-            Color fill = local ? CHAT_MINE : CHAT_OTHER;
+            float bubbleX = local ? x + contentWidth - bubbleW : x + 48f;
+            Color border = local ? CYAN_DARK : LINE;
+            Color fill = local ? new Color(0x0d2638e8)
+                    : new Color(0x09131fe8);
             lobbyChatBubbles.add(new LobbyChatBubbleItem(bubbleX, y,
-                    bubbleW, messageHeight, fill));
+                    bubbleW, messageHeight, border, fill));
             float headerX = bubbleX + 14f;
             float bodyX = bubbleX + 14f;
             float bodyWidth = bubbleW - 28f;
-            lobbyAvatars.add(new LobbyAvatarItem(
-                    lobbyMessageAvatar(message), bubbleX + 10f,
-                    y + messageHeight - 42f, 30f));
-            headerX += 38f;
+            if (local) {
+                lobbyAvatars.add(new LobbyAvatarItem(
+                        lobbyMessageAvatar(message), bubbleX + 10f,
+                        y + messageHeight - 42f, 30f));
+                headerX += 38f;
+            } else {
+                lobbyAvatars.add(new LobbyAvatarItem(
+                        lobbyMessageAvatar(message), x + 4f,
+                        y + messageHeight - 39f, 34f));
+            }
             textFit(tinyFont, header, headerX,
                     y + messageHeight - 12f,
-                    CHAT_TEXT, false,
+                    local ? CYAN : GOLD, false,
                     bubbleX + bubbleW - 14f - headerX);
             if (message.type() == LobbyChatMessage.Type.TEXT) {
                 float lineY = y + messageHeight - 52f;
                 for (String line : layout.lines()) {
                     drawLobbyEmojiText(line, bodyX, lineY,
-                            bodyWidth, CHAT_TEXT);
+                            bodyWidth, Color.WHITE);
                     lineY -= 32f;
                 }
             } else if (message.type() == LobbyChatMessage.Type.IMAGE) {
                 drawLobbyImageMessage(message, bodyX,
                         y + 12f, bodyWidth, messageHeight - 55f,
-                        CHAT_TEXT);
+                        Color.WHITE);
             } else if (message.type() == LobbyChatMessage.Type.VOICE) {
                 textFit(smallFont, "▶  " + uppercase(gameText.translate(
                         "audio.notas_de_voz")), bodyX,
-                        y + 23f, CHAT_TEXT, false, bodyWidth);
+                        y + 23f, Color.WHITE, false, bodyWidth);
                 hit(bubbleX, y, bubbleW, messageHeight,
                         () -> playLobbyVoice(message));
             }
@@ -1401,8 +1408,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawLobbyChatLayer() {
-        if (surface != Surface.LOBBY || lobbyChatViewport.width <= 0f
-                || lobbyChatViewport.height <= 0f) return;
+        if (!shouldDrawLobbyChatLayer(surface == Surface.LOBBY,
+                lobbyImageMode, lobbyEmojiPickerOpen,
+                lobbyChatViewport.width, lobbyChatViewport.height)) return;
         int screenX = Math.round(viewport.getScreenX()
                 + lobbyChatViewport.x * viewport.getScreenWidth() / WIDTH);
         int screenY = Math.round(viewport.getScreenY()
@@ -1415,16 +1423,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Gdx.gl.glScissor(screenX, screenY, screenWidth, screenHeight);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-        batch.begin();
-        batch.setColor(Color.WHITE);
-        batch.draw(lobbyChatBackground, lobbyChatViewport.x,
-                lobbyChatViewport.y, lobbyChatViewport.width,
-                lobbyChatViewport.height);
-        batch.end();
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (LobbyChatBubbleItem item : lobbyChatBubbles) {
-            shapes.setColor(item.fill);
-            roundedRect(item.x, item.y, item.width, item.height, 12f);
+            outerBox(item.x, item.y, item.width, item.height,
+                    item.border, item.fill);
         }
         shapes.end();
         batch.begin();
@@ -1446,6 +1448,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         batch.end();
         Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+    }
+
+    static boolean shouldDrawLobbyChatLayer(boolean lobbySurface,
+            boolean imageGalleryOpen, boolean emojiPickerOpen,
+            float viewportWidth, float viewportHeight) {
+        return lobbySurface && !imageGalleryOpen && !emojiPickerOpen
+                && viewportWidth > 0f && viewportHeight > 0f;
     }
 
     static float lobbyMessageHeight(LobbyChatMessage.Type type) {
@@ -1582,14 +1591,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 startX, y + (height - 30f) / 2f, 30f));
         float textX = startX + 42f;
         text(tinyFont, message.nickname(), textX, y + 28f,
-                CHAT_TEXT, false);
+                Color.WHITE, false);
         textX += nickWidth;
         text(tinyFont, action, textX, y + 28f,
                 message.type() == LobbyChatMessage.Type.PLAYER_JOINED
                         ? new Color(0x58d67aff) : new Color(0xf07b72ff),
                 false);
         textX += actionWidth;
-        text(tinyFont, time, textX, y + 28f, CHAT_TEXT, false);
+        text(tinyFont, time, textX, y + 28f, MUTED, false);
     }
 
     private Texture lobbyMessageAvatar(LobbyChatMessage message) {
@@ -6493,7 +6502,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.dispose();
         feltTexture.dispose();
         logo.dispose();
-        lobbyChatBackground.dispose();
         avatarDefault.dispose();
         avatarBot.dispose();
         disposeSelectedAvatarTexture();
@@ -6587,7 +6595,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private record LobbyChatBubbleItem(float x, float y, float width,
-            float height, Color fill) {
+            float height, Color border, Color fill) {
     }
 
     private record UiImageItem(Texture texture, float x, float y,

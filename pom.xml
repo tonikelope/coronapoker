@@ -6,6 +6,11 @@
     <version>24.10</version>
     <packaging>jar</packaging>
     <build>
+        <!-- This legacy root project is retained as an input to the classic
+        QA reactor. Current runnable products are published exclusively by
+        modules/pom.xml, so its intermediate 24.10 archives must never pollute
+        the repository-root target/ distribution directory. -->
+        <directory>${project.basedir}/build/legacy-root</directory>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

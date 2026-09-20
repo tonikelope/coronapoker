@@ -270,6 +270,9 @@ Both frontends are shaded into a module-local staging JAR first and published
 to `target/` only after that archive is complete.  `clean package` deliberately
 keeps the previous runnable pair available until its replacements are ready;
 this prevents a running table from reading a partially rewritten JAR.
+The legacy root project used by the opt-in QA reactor writes its temporary
+24.10 dependency archives under `build/legacy-root/`, never into the product
+`target/` directory.
 
 Launch the classic Swing frontend or the active GDX frontend respectively:
 

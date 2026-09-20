@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 18:04 (Europe/Madrid)
+Última actualización: 2026-09-20 18:57 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -44,12 +44,19 @@ Disciplina del repositorio durante la migración:
   conexión focalizado pasa **11/11**; queda QA visual del estado deshabilitado.
 - El historial de la sala ya no avanza por mensajes completos: usa offset
   continuo por píxeles, arrastre proporcional, recorte de burbujas y un canal
-  independiente para que la barra no tape sus bordes. Recupera además el fondo
-  `chat_bg.jpg` y los colores de burbuja originales de Swing, dejando intacto
-  el aspecto del chat rápido de mesa. El bloque focalizado pasa **6/6**; queda
-  QA visual OpenGL real del recorte y del gesto de rueda/touchpad. JAR del
-  checkpoint: `target/CoronaPoker-24.11-gdx.jar` (266.335.922 bytes, SHA-256
-  `24B2973E70651F0D1ADD3BFF55223AF755FAA0C961F94231A5006F2260ADD1F2`).
+  independiente para que la barra no tape sus bordes. Conserva el fondo oscuro
+  y los colores originales de GDX, dejando intacto el aspecto del chat rápido
+  de mesa. La capa recortada del historial se invalida al abrir la galería o el
+  selector de emojis, por lo que ya no puede quedar dibujada por encima y
+  ocultarlos. El bloque focalizado pasa **7/7**; queda QA visual OpenGL real del
+  recorte y del gesto de rueda/touchpad. JAR del checkpoint:
+  `target/CoronaPoker-24.11-gdx.jar` (266.335.999 bytes, SHA-256
+  `F16FB23AD75F511A68992FE888AEFB0D7CFEFF1A7ACE262DE97C2A7B035CA71D`).
+- El reactor clásico de QA conserva la versión interna 24.10 que necesita para
+  sus pruebas, pero ahora genera sus artefactos intermedios en
+  `build/legacy-root/`. La carpeta de producto `target/` queda reservada de
+  forma estable a los dos ejecutables 24.11 Swing/GDX. Verificación focalizada
+  del reactor: **10/10** y `BUILD SUCCESS`.
 - Eliminado el pico principal medido al abrir la mesa: el GIF canónico de
   barajado ya no crea de golpe 86 texturas de 960x540 durante
   `CoronaPokerGdxTable.create()`. Usa el reproductor acotado a una textura,

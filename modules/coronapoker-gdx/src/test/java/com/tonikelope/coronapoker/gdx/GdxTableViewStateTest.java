@@ -1056,6 +1056,20 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void gameLogPixelScrollKeepsHitTestingAlignedWithPartialRows() {
+        assertEquals(62f, CoronaPokerGdxTable
+                .gameLogMaximumPixelScroll(4, 62f));
+        assertEquals(3, CoronaPokerGdxTable.anchoredPixelRowAt(
+                4, 31f, 0f, 62f, 0f, 62f, 15f));
+        assertEquals(2, CoronaPokerGdxTable.anchoredPixelRowAt(
+                4, 31f, 0f, 62f, 31f, 62f, 15f));
+        assertEquals(0, CoronaPokerGdxTable.anchoredPixelRowAt(
+                4, 31f, 0f, 62f, 62f, 62f, 45f));
+        assertEquals(-1, CoronaPokerGdxTable.anchoredPixelRowAt(
+                1, 31f, 0f, 62f, 0f, 0f, 15f));
+    }
+
+    @Test
     void gameLogKeepsSwingStyleAmountsAndRanksInsteadOfFlatWhiteText() {
         List<GdxGameLogFormatter.Run> runs = GdxGameLogFormatter
                 .runs("CoronaBot$3 SUBE (+0,50) -> Pareja");

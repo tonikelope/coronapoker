@@ -1567,6 +1567,9 @@ completa.
   seleccionar todo y menú contextual nativo. Las sustituciones de cartas y
   jugada del showdown ya son idénticas a Swing y no duplican contenido. Falta
   QA visual completa de estructura, colores y acciones durante una timba.
+- HECHO en código: el registro desplaza el contenido por píxeles, recorta las
+  filas parciales, conserva alineada la selección y permite rueda suave y
+  arrastre proporcional mediante una barra más gruesa.
 - Ayudas aplicables y generador de jugadas.
 
 ### P1.5 — Red humana y compatibilidad cruzada

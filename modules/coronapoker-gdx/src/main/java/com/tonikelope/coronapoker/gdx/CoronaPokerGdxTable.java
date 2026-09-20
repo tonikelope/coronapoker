@@ -234,6 +234,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     };
     private static final float SETTINGS_DEBUG_LINE_HEIGHT = 25f;
     private static final float SETTINGS_DEBUG_VIEWPORT_HEIGHT = 394f;
+    private static final float GAME_LOG_LINE_HEIGHT = 31f;
     /**
      * The settings backdrop is deliberately rendered below native resolution.
      * It is going to be blurred and darkened anyway, so processing every 4K
@@ -651,7 +652,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      */
     private boolean autoActionControlsReady;
     private float autoActionEligibleAt = Float.POSITIVE_INFINITY;
-    private int gameLogScroll;
+    private float gameLogScroll;
+    private int gameLogLineCount;
     private final Map<String, List<GdxGameLogFormatter.Run>> gameLogRunCache
             = new HashMap<>();
     private boolean gameLogScrollDragging;
@@ -970,19 +972,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     gameLogEditMenuOpen = false;
                     return true;
                 }
-                int page = Math.max(1, gameLogVisibleRows(gameLogPanelHeight()) - 1);
-                int maximum = gameLogMaximumScroll();
+                Rectangle content = gameLogContentBounds();
+                float page = Math.max(GAME_LOG_LINE_HEIGHT,
+                        content.height - GAME_LOG_LINE_HEIGHT);
+                float maximum = gameLogMaximumScroll();
                 switch (keycode) {
                     case Input.Keys.HOME -> gameLogScroll = maximum;
                     case Input.Keys.END -> gameLogScroll = 0;
                     case Input.Keys.PAGE_UP -> gameLogScroll = Math.min(maximum,
                             gameLogScroll + page);
-                    case Input.Keys.PAGE_DOWN -> gameLogScroll = Math.max(0,
+                    case Input.Keys.PAGE_DOWN -> gameLogScroll = Math.max(0f,
                             gameLogScroll - page);
                     case Input.Keys.UP -> gameLogScroll = Math.min(maximum,
-                            gameLogScroll + 1);
-                    case Input.Keys.DOWN -> gameLogScroll = Math.max(0,
-                            gameLogScroll - 1);
+                            gameLogScroll + GAME_LOG_LINE_HEIGHT);
+                    case Input.Keys.DOWN -> gameLogScroll = Math.max(0f,
+                            gameLogScroll - GAME_LOG_LINE_HEIGHT);
                     default -> {
                         // Let the remaining table shortcuts continue below.
                     }
@@ -1087,7 +1091,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
             if (uiLayer != UI_GAME_LOG || amountY == 0f) return false;
-            gameLogScroll = anchoredScrollAfterWheel(gameLogScroll,
+            pointer.set(Gdx.input.getX(), Gdx.input.getY());
+            viewport.unproject(pointer);
+            if (!gameLogContentBounds().contains(pointer)) return true;
+            gameLogScroll = quickChatPixelScrollAfterWheel(gameLogScroll,
                     gameLogMaximumScroll(), amountY);
             return true;
         }
@@ -10609,13 +10616,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private float gameLogPanelHeight() {
-        return Math.min(720f, viewport.getWorldHeight() - 70f);
-    }
-
-    private int gameLogMaximumScroll() {
-        return Math.max(0, gameLogLines().size()
-                - gameLogVisibleRows(gameLogPanelHeight()));
+    private float gameLogMaximumScroll() {
+        return gameLogMaximumPixelScroll(gameLogLines().size(),
+                gameLogContentBounds().height);
     }
 
     private boolean gameLogTrackContains(float x, float y) {
@@ -10641,20 +10644,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float logH = panelH - 230f;
         float trackY = logY + 14f;
         float trackHeight = logH - 28f;
-        int maximum = gameLogMaximumScroll();
-        if (maximum == 0) {
+        float maximum = gameLogMaximumScroll();
+        if (maximum == 0f) {
             gameLogScroll = 0;
             return;
         }
-        int visibleRows = gameLogVisibleRows(panelH);
         int lineCount = gameLogLines().size();
-        float thumbHeight = Math.max(44f,
-                trackHeight * visibleRows / lineCount);
-        float ratio = MathUtils.clamp(
-                (y - trackY - thumbHeight / 2f)
-                        / Math.max(1f, trackHeight - thumbHeight),
-                0f, 1f);
-        gameLogScroll = Math.round(ratio * maximum);
+        float contentHeight = lineCount * GAME_LOG_LINE_HEIGHT;
+        float thumbHeight = Math.max(44f, trackHeight
+                * gameLogContentBounds().height
+                / Math.max(1f, contentHeight));
+        gameLogScroll = quickChatPixelScrollFromTrack(y, trackY,
+                trackHeight, thumbHeight, maximum);
     }
 
     private boolean settingsDebugTrackContains(float x, float y) {
@@ -11093,10 +11094,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }));
     }
 
-    private int gameLogVisibleRows(float panelHeight) {
-        return Math.max(1, (int) ((panelHeight - 230f - 28f) / 31f));
-    }
-
     private List<String> gameLogLines() {
         GdxGameLogSink.Snapshot snapshot = gameLog.snapshot();
         ArrayList<String> source = new ArrayList<>(snapshot.lines());
@@ -11127,15 +11124,31 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!content.contains(x, y)) return -1;
         List<String> lines = gameLogLines();
         if (lines.isEmpty()) return -1;
-        int visibleRows = gameLogVisibleRows(gameLogPanelHeight());
-        int maximumScroll = Math.max(0, lines.size() - visibleRows);
-        int scroll = MathUtils.clamp(gameLogScroll, 0, maximumScroll);
-        int firstLine = Math.max(0, lines.size() - visibleRows - scroll);
-        float firstRowTop = content.y + content.height - 6f;
-        int row = (int) Math.floor((firstRowTop - y) / 31f);
-        if (row < 0 || row >= visibleRows) return -1;
-        int line = firstLine + row;
-        return line < lines.size() ? line : -1;
+        float maximum = gameLogMaximumPixelScroll(lines.size(),
+                content.height);
+        return anchoredPixelRowAt(lines.size(), GAME_LOG_LINE_HEIGHT,
+                content.y, content.height, gameLogScroll, maximum, y);
+    }
+
+    static float gameLogMaximumPixelScroll(int lineCount,
+            float viewportHeight) {
+        return Math.max(0f, lineCount * GAME_LOG_LINE_HEIGHT
+                - Math.max(0f, viewportHeight));
+    }
+
+    static int anchoredPixelRowAt(int rowCount, float rowHeight,
+            float viewportBottom, float viewportHeight, float scroll,
+            float maximum, float pointerY) {
+        if (rowCount <= 0 || rowHeight <= 0f
+                || pointerY < viewportBottom
+                || pointerY >= viewportBottom + viewportHeight) return -1;
+        float contentBottom = maximum > 0f
+                ? viewportBottom - MathUtils.clamp(scroll, 0f, maximum)
+                : viewportBottom + viewportHeight - rowCount * rowHeight;
+        int fromBottom = (int) Math.floor(
+                (pointerY - contentBottom) / rowHeight);
+        if (fromBottom < 0 || fromBottom >= rowCount) return -1;
+        return rowCount - 1 - fromBottom;
     }
 
     private void copySelectedGameLogLines() {
@@ -13253,18 +13266,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float logH = panelH - 230f;
         List<String> logLines = gameLogLines();
         if (logLines.isEmpty()) logLines = List.of("—");
-        int visibleRows = gameLogVisibleRows(panelH);
-        int maximumScroll = Math.max(0, logLines.size() - visibleRows);
-        gameLogScroll = MathUtils.clamp(gameLogScroll, 0, maximumScroll);
-        int firstLine = Math.max(0,
-                logLines.size() - visibleRows - gameLogScroll);
-        int lastLine = Math.min(logLines.size(), firstLine + visibleRows);
+        Rectangle content = gameLogContentBounds();
+        float maximumScroll = gameLogMaximumPixelScroll(logLines.size(),
+                content.height);
+        if (logLines.size() > gameLogLineCount && gameLogScroll > 0f) {
+            gameLogScroll += (logLines.size() - gameLogLineCount)
+                    * GAME_LOG_LINE_HEIGHT;
+        }
+        gameLogLineCount = logLines.size();
+        gameLogScroll = MathUtils.clamp(gameLogScroll, 0f, maximumScroll);
         float trackHeight = logH - 28f;
         float thumbHeight = maximumScroll == 0 ? trackHeight
-                : Math.max(44f, trackHeight * visibleRows / logLines.size());
+                : Math.max(44f, trackHeight * content.height
+                        / (logLines.size() * GAME_LOG_LINE_HEIGHT));
         float thumbY = logY + 14f + (trackHeight - thumbHeight)
                 * (maximumScroll == 0 ? 0f
-                        : (float) gameLogScroll / maximumScroll);
+                        : gameLogScroll / maximumScroll);
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -13282,20 +13299,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 gameLogSelectionCaret);
         int selectedLast = Math.max(gameLogSelectionAnchor,
                 gameLogSelectionCaret);
-        for (int line = firstLine; line < lastLine; line++) {
+        for (int line = 0; line < logLines.size(); line++) {
             if (selectedFirst >= 0 && line >= selectedFirst
                     && line <= selectedLast) {
-                float rowY = logY + logH - 65f
-                        - (line - firstLine) * 31f;
+                float rowY = anchoredPixelRowY(logLines.size(), line,
+                        GAME_LOG_LINE_HEIGHT, content.y, content.height,
+                        gameLogScroll, maximumScroll);
+                float clippedY = Math.max(rowY, content.y);
+                float clippedTop = Math.min(rowY + GAME_LOG_LINE_HEIGHT,
+                        content.y + content.height);
+                if (clippedTop <= clippedY) continue;
                 shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.22f * alpha);
-                shapes.rect(logX + 14f, rowY, logW - 44f, 31f);
+                shapes.rect(content.x, clippedY, content.width,
+                        clippedTop - clippedY);
             }
         }
         shapes.setColor(BUTTON_LINE.r, BUTTON_LINE.g, BUTTON_LINE.b, 0.85f * alpha);
-        roundedRect(logX + logW - 20f, logY + 14f, 10f,
-                logH - 28f, 5f);
+        roundedRect(logX + logW - 24f, logY + 14f, 14f,
+                logH - 28f, 7f);
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.88f * alpha);
-        roundedRect(logX + logW - 20f, thumbY, 10f, thumbHeight, 5f);
+        roundedRect(logX + logW - 24f, thumbY, 14f, thumbHeight, 7f);
         drawDialogButton(panelX + panelW - 224f, panelY + 24f,
                 194f, 58f, POT_GOLD,
                 contains(pointer.x, pointer.y, panelX + panelW - 224f,
@@ -13307,13 +13330,36 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 "log.registro_de_la_timba")),
                 panelX + 34f, panelY + panelH - 72f,
                 panelW - 68f, 42f, Color.WHITE, alpha);
-        float baseline = logY + logH - 42f;
-        for (int line = firstLine; line < lastLine; line++) {
+        drawFittedCenteredInBox(actionFont, uppercase(gameText.translate(
+                "ui.cerrar")),
+                panelX + panelW - 224f, panelY + 24f,
+                194f, 58f, Color.WHITE, alpha);
+        batch.end();
+
+        int screenX = Math.round(viewport.getScreenX()
+                + content.x * viewport.getScreenWidth()
+                / viewport.getWorldWidth());
+        int screenY = Math.round(viewport.getScreenY()
+                + content.y * viewport.getScreenHeight()
+                / viewport.getWorldHeight());
+        int screenWidth = Math.max(1, Math.round(content.width
+                * viewport.getScreenWidth() / viewport.getWorldWidth()));
+        int screenHeight = Math.max(1, Math.round(content.height
+                * viewport.getScreenHeight() / viewport.getWorldHeight()));
+        Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
+        Gdx.gl.glScissor(screenX, screenY, screenWidth, screenHeight);
+        batch.begin();
+        for (int line = 0; line < logLines.size(); line++) {
+            float rowY = anchoredPixelRowY(logLines.size(), line,
+                    GAME_LOG_LINE_HEIGHT, content.y, content.height,
+                    gameLogScroll, maximumScroll);
+            if (rowY + GAME_LOG_LINE_HEIGHT < content.y
+                    || rowY > content.y + content.height) continue;
             String value = logLines.get(line);
             GdxGameLogFormatter.Marker marker = GdxGameLogFormatter.marker(value);
             float runX = logX + (marker == GdxGameLogFormatter.Marker.NONE
                     ? 24f : 58f);
-            float runY = baseline - (line - firstLine) * 31f;
+            float runY = rowY + 23f;
             drawGameLogMarker(marker, logX + 22f, runY - 20f, alpha);
             float contentRight = logX + logW - 34f;
             for (GdxGameLogFormatter.Run run : cachedGameLogRuns(value)) {
@@ -13331,11 +13377,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         gameLogFont.setColor(Color.WHITE);
-        drawFittedCenteredInBox(actionFont, uppercase(gameText.translate(
-                "ui.cerrar")),
-                panelX + panelW - 224f, panelY + 24f,
-                194f, 58f, Color.WHITE, alpha);
         batch.end();
+        Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
     }
 
     private void drawGameLogMarker(GdxGameLogFormatter.Marker marker,

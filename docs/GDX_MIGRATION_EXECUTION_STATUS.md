@@ -50,9 +50,9 @@ Disciplina del repositorio durante la migración:
   auditiva y visual interactiva con dos dispositivos físicos.
 
 - JAR de checkpoint posterior a los arreglos de voz, overlay de volumen,
-  icono TTS/voz, scroll y composición de `Acerca de`:
-  `target/CoronaPoker-24.11-gdx.jar`, 266.284.544 bytes, SHA-256
-  `2C74C754CCFB0381A14ABA8573CD2B4788007967158D2CFCFADCBA1BF12C9342`.
+  icono TTS/voz, scroll, composición y música propia de `Acerca de`:
+  `target/CoronaPoker-24.11-gdx.jar`, 266.284.768 bytes, SHA-256
+  `2C96D2CA1DD09E3A7EF8634E877F52ABC581F28B18650C723C3C6B5A3D02248C`.
 - Recompuesto el diálogo nativo `Acerca de`: la versión deja de montarse sobre
   el logotipo, el logo ocupa una banda propia y los agradecimientos/créditos se
   agrupan en dos paneles equilibrados antes del bloque legal y el cierre.

@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 15:14 (Europe/Madrid)
+Última actualización: 2026-09-20 14:56 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,14 +30,6 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19/20
 
-- La entrada a mesa ya no ejecuta toda la creación de recursos en una única
-  llamada que bloqueaba el render. Shaders, identidad, asientos, controles,
-  accesos rápidos, cartas/fichas, GIF, audio y fuentes se inicializan en pasos
-  separados entre fotogramas del lobby. La barra indeterminada de
-  `PREPARANDO LA MESA` puede seguir llegando al swap chain hasta que la mesa
-  está realmente lista; no se inventan porcentajes ni se modifica ninguna
-  barrera del core. Compilación del módulo y pruebas focalizadas de autoridad
-  y transición: **8/8**. Falta confirmar visualmente la fluidez en OpenGL real.
 - Los overlays del frontend ya son modales también en interacción, no sólo en
   dibujo: limpian el mapa de controles subyacente y bloquean ratón/teclado
   durante confirmaciones y `PREPARANDO LA MESA`, conservando F11. Esto evita
@@ -75,8 +67,8 @@ Disciplina del repositorio durante la migración:
   texto, imágenes y filas de presencia; no ofrecen scroll si todo cabe ni
   permiten terminar sobre espacio vacío. Pruebas focalizadas de voz, chat,
   scroll y terminación: **32/32**.
-- JAR GDX agrupado con estos cambios: 266.314.050 bytes, SHA-256
-  `263B364F056AF2D69F07F2B5BFA5A3644CDFEE59AD97A65D510DD73EE6733B46`.
+- JAR GDX agrupado con estos cambios: 266.311.676 bytes, SHA-256
+  `0D5834140EE1B768A9128AEFB660372C04C201FC9DE93E14808D440AFDAF4576`.
 - Auditadas las claves visibles de la pantalla unificada de Ajustes contra sus
   consumidores GDX directos y el adaptador `GamePresentationSettings` que usa
   el crupier: no queda detectado ningún control mostrado que se limite a
@@ -1509,11 +1501,12 @@ interactiva multiproceso y pulido de estados visibles.
 - Estados de espera/conexión/arranque.
 - Barra de carga con progreso real.
 - Entrada a mesa sin congelación ni carga duplicada.
-- HECHO en código: la animación de `PREPARANDO LA MESA` conserva fotogramas
-  durante la creación de la mesa mediante fases reales de inicialización GDX.
-  No muestra porcentajes falsos ni introduce barreras nuevas en el core. Falta
-  QA visual OpenGL para medir si algún recurso individual todavía produce un
-  salto perceptible en un equipo lento.
+- NO PRIORITARIO: la animación de `PREPARANDO LA MESA` todavía puede quedar
+  visiblemente parada justo antes de mostrar el tapete porque
+  `CoronaPokerGdxTable.create()` crea shaders, texturas, fuentes, GIF y audio
+  de forma síncrona en el hilo de render. Resolver más adelante mediante fases
+  reales de inicialización GDX repartidas entre frames; no simular porcentajes
+  ni introducir barreras nuevas en el core.
 
 ### P1.7 — Shell, inicio e idioma
 

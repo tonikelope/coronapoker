@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 14:21 (Europe/Madrid)
+Última actualización: 2026-09-20 14:28 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -47,10 +47,16 @@ Disciplina del repositorio durante la migración:
 - Cerrado un hueco de ciclo de vida del lobby: al comenzar la mesa se conserva
   la posición del hilo musical, pero ahora se cancela una grabación en curso y
   se invalida/detiene cualquier nota de voz del lobby. Esos audios transitorios
-  ya no pueden sobrevivir dentro de una mano ni competir con el chat de mesa.
-  Pruebas focalizadas de voz, chat, scroll y terminación: **29/29**.
-- JAR GDX agrupado con ambos cambios: 266.306.434 bytes, SHA-256
-  `4CA7DBD98EB3009129BCDE0EEB14E6F7EB063B892ABF3A47C78D0E28317E0A20`.
+  tampoco sobreviven al salir, reconectar o reemplazar la sesión de espera, y
+  no pueden competir con el chat de mesa.
+- Corregido el recorte silencioso de mensajes largos en el chat del lobby. Las
+  burbujas de texto ajustan palabras y emojis atómicos hasta ocho líneas,
+  crecen sin salir de la conversación y el anclaje del scroll usa la altura
+  real de cada burbuja. El límite visible termina en elipsis en vez de invadir
+  otros mensajes. Pruebas focalizadas de voz, chat, scroll y terminación:
+  **31/31**.
+- JAR GDX agrupado con estos cambios: 266.309.266 bytes, SHA-256
+  `4C75B7D03041EA023FC65A0C8F319CCF34A947F2277651D845BC010E171B3B2F`.
 - Auditadas las claves visibles de la pantalla unificada de Ajustes contra sus
   consumidores GDX directos y el adaptador `GamePresentationSettings` que usa
   el crupier: no queda detectado ningún control mostrado que se limite a

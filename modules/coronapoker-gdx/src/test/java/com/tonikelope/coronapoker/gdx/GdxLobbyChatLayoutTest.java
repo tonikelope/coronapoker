@@ -24,6 +24,16 @@ final class GdxLobbyChatLayoutTest {
     }
 
     @Test
+    void wrappedTextGrowsInsideTheConversationInsteadOfOverlapping() {
+        assertEquals(70f, GdxFrontendScreen.lobbyMessageHeight(
+                LobbyChatMessage.Type.TEXT, 1));
+        assertEquals(130f, GdxFrontendScreen.lobbyMessageHeight(
+                LobbyChatMessage.Type.TEXT, 3));
+        assertEquals(280f, GdxFrontendScreen.lobbyMessageHeight(
+                LobbyChatMessage.Type.TEXT, 8));
+    }
+
+    @Test
     void bubblesAreContentSizedButNeverEscapeTheConversationColumn() {
         assertEquals(300f, GdxFrontendScreen.lobbyMessageWidth(
                 LobbyChatMessage.Type.TEXT, 300f, 792f));
@@ -60,6 +70,14 @@ final class GdxLobbyChatLayoutTest {
                 messages, 420f, 3));
         assertEquals(2, GdxFrontendScreen.lobbyMessageStartIndex(
                 messages, 150f, 4));
+    }
+
+    @Test
+    void variableHeightBubblesAreAccountedForByTheScrollAnchor() {
+        assertEquals(2, GdxFrontendScreen.lobbyMessageStartIndexForHeights(
+                List.of(44f, 130f, 280f), 419f, 3));
+        assertEquals(1, GdxFrontendScreen.lobbyMessageStartIndexForHeights(
+                List.of(44f, 130f, 280f), 430f, 3));
     }
 
     @Test

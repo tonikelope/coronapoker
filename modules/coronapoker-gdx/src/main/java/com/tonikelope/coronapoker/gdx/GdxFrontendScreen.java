@@ -133,6 +133,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final int EMOJI_ROWS = 4;
     private static final int EMOJI_PAGE_SIZE = EMOJI_COLUMNS * EMOJI_ROWS;
     private static final Pattern EMOJI_TOKEN = Pattern.compile("#([0-9]{1,4})#");
+    private static final Pattern CHAT_WRAP_TOKEN = Pattern.compile(
+            "#[0-9]{1,4}#|\\s+|[^\\s#]+|#");
+    private static final int CHAT_TEXT_MAX_LINES = 8;
     private static final float VOICE_RECORD_MAX_SECONDS = 15f;
     private static final float INPUT_CARET_HALF_PERIOD_SECONDS = 0.50f;
     private static final float COMPOSER_EMOJI_SIZE = 32f;
@@ -569,6 +572,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     void openLobby(LobbySession session) {
+        stopLobbyTransientAudio();
         closeLobbySubscription();
         lobbySession = Objects.requireNonNull(session, "session");
         lobby = session.snapshot();
@@ -1072,11 +1076,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         int maximumScroll = Math.max(0, messages.size() - 1);
         lobbyChatScroll = MathUtils.clamp(lobbyChatScroll, 0, maximumScroll);
         int end = Math.max(0, messages.size() - lobbyChatScroll);
-        int first = lobbyMessageStartIndex(messages, 420f, end);
+        List<LobbyMessageLayout> layouts = new ArrayList<>(messages.size());
+        List<Float> heights = new ArrayList<>(messages.size());
+        for (LobbyChatMessage message : messages) {
+            LobbyMessageLayout layout = lobbyMessageLayout(message,
+                    width - 48f);
+            layouts.add(layout);
+            heights.add(layout.height());
+        }
+        int first = lobbyMessageStartIndexForHeights(heights, 420f, end);
         float cursorTop = top;
         for (int i = first; i < end; i++) {
             LobbyChatMessage message = messages.get(i);
-            float messageHeight = lobbyMessageHeight(message.type());
+            LobbyMessageLayout layout = layouts.get(i);
+            float messageHeight = layout.height();
             float y = cursorTop - messageHeight;
             boolean local = message.nickname().equals(lobby.localNickname());
             if (message.type() == LobbyChatMessage.Type.PLAYER_JOINED
@@ -1087,9 +1100,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             String header = message.nickname() + "  ·  "
                     + CHAT_TIME.format(message.timestamp());
-            float desiredWidth = lobbyDesiredBubbleWidth(message, header);
-            float bubbleW = lobbyMessageWidth(message.type(), desiredWidth,
-                    width - 48f);
+            float bubbleW = layout.width();
             float bubbleX = local ? x + width - bubbleW : x + 48f;
             Color border = local ? CYAN_DARK : LINE;
             Color fill = local ? new Color(0x0d2638e8)
@@ -1113,8 +1124,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     local ? CYAN : GOLD, false,
                     bubbleX + bubbleW - 14f - headerX);
             if (message.type() == LobbyChatMessage.Type.TEXT) {
-                drawLobbyEmojiText(message.content(), bodyX,
-                        y + 22f, bodyWidth, Color.WHITE);
+                float lineY = y + messageHeight - 48f;
+                for (String line : layout.lines()) {
+                    drawLobbyEmojiText(line, bodyX, lineY,
+                            bodyWidth, Color.WHITE);
+                    lineY -= 30f;
+                }
             } else if (message.type() == LobbyChatMessage.Type.IMAGE) {
                 drawLobbyImageMessage(message, bodyX,
                         y + 12f, bodyWidth, messageHeight - 55f,
@@ -1153,9 +1168,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     static float lobbyMessageHeight(LobbyChatMessage.Type type) {
+        return lobbyMessageHeight(type, 1);
+    }
+
+    static float lobbyMessageHeight(LobbyChatMessage.Type type,
+            int textLineCount) {
         return switch (type) {
             case IMAGE -> 280f;
             case PLAYER_JOINED, PLAYER_LEFT -> 44f;
+            case TEXT -> 70f + Math.max(0, textLineCount - 1) * 30f;
             default -> 70f;
         };
     }
@@ -1181,6 +1202,89 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float contentWidth = message.type() == LobbyChatMessage.Type.TEXT
                 ? composerWidth(message.content()) + 34f : 0f;
         return Math.max(headerWidth, contentWidth);
+    }
+
+    private LobbyMessageLayout lobbyMessageLayout(LobbyChatMessage message,
+            float availableWidth) {
+        if (message.type() == LobbyChatMessage.Type.PLAYER_JOINED
+                || message.type() == LobbyChatMessage.Type.PLAYER_LEFT) {
+            return new LobbyMessageLayout(availableWidth,
+                    lobbyMessageHeight(message.type()), List.of());
+        }
+        String header = message.nickname() + "  ·  "
+                + CHAT_TIME.format(message.timestamp());
+        float width = lobbyMessageWidth(message.type(),
+                lobbyDesiredBubbleWidth(message, header), availableWidth);
+        List<String> lines = message.type() == LobbyChatMessage.Type.TEXT
+                ? wrapLobbyEmojiText(message.content(), width - 28f)
+                : List.of();
+        return new LobbyMessageLayout(width,
+                lobbyMessageHeight(message.type(), lines.size()), lines);
+    }
+
+    private List<String> wrapLobbyEmojiText(String content, float maxWidth) {
+        String value = Objects.requireNonNullElse(content, "").strip();
+        if (value.isEmpty()) return List.of("");
+        List<String> lines = new ArrayList<>();
+        StringBuilder line = new StringBuilder();
+        Matcher matcher = CHAT_WRAP_TOKEN.matcher(value);
+        while (matcher.find()) {
+            String token = matcher.group();
+            if (token.isBlank()) token = " ";
+            if (line.isEmpty() && token.isBlank()) continue;
+            if (composerWidth(line + token) <= maxWidth) {
+                line.append(token);
+                continue;
+            }
+            if (!line.isEmpty()) {
+                lines.add(line.toString().stripTrailing());
+                line.setLength(0);
+            }
+            if (token.isBlank()) continue;
+            if (composerWidth(token) <= maxWidth || EMOJI_TOKEN.matcher(token)
+                    .matches()) {
+                line.append(token);
+                continue;
+            }
+            for (int offset = 0; offset < token.length();) {
+                int next = token.offsetByCodePoints(offset, 1);
+                String glyph = token.substring(offset, next);
+                if (!line.isEmpty()
+                        && composerWidth(line + glyph) > maxWidth) {
+                    lines.add(line.toString());
+                    line.setLength(0);
+                }
+                line.append(glyph);
+                offset = next;
+            }
+        }
+        if (!line.isEmpty()) lines.add(line.toString().stripTrailing());
+        if (lines.isEmpty()) lines.add("");
+        if (lines.size() <= CHAT_TEXT_MAX_LINES) return List.copyOf(lines);
+        List<String> visible = new ArrayList<>(
+                lines.subList(0, CHAT_TEXT_MAX_LINES));
+        visible.set(CHAT_TEXT_MAX_LINES - 1,
+                lobbyEllipsizedLine(visible.get(CHAT_TEXT_MAX_LINES - 1),
+                        maxWidth));
+        return List.copyOf(visible);
+    }
+
+    private String lobbyEllipsizedLine(String line, float maxWidth) {
+        String value = line.stripTrailing();
+        String suffix = " …";
+        while (!value.isEmpty()
+                && composerWidth(value + suffix) > maxWidth) {
+            Matcher matcher = EMOJI_TOKEN.matcher(value);
+            int emojiStart = -1;
+            while (matcher.find()) {
+                if (matcher.end() == value.length()) emojiStart = matcher.start();
+            }
+            value = emojiStart >= 0 ? value.substring(0, emojiStart)
+                    : value.substring(0, value.offsetByCodePoints(
+                            value.length(), -1));
+            value = value.stripTrailing();
+        }
+        return value + suffix;
     }
 
     private void drawLobbyPresenceMessage(LobbyChatMessage message, float x,
@@ -1217,11 +1321,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     static int lobbyMessageStartIndex(List<LobbyChatMessage> messages,
             float availableHeight, int endExclusive) {
+        List<Float> heights = messages.stream()
+                .map(message -> lobbyMessageHeight(message.type())).toList();
+        return lobbyMessageStartIndexForHeights(heights, availableHeight,
+                endExclusive);
+    }
+
+    static int lobbyMessageStartIndexForHeights(List<Float> heights,
+            float availableHeight, int endExclusive) {
         float used = 0f;
-        int first = MathUtils.clamp(endExclusive, 0, messages.size());
+        int first = MathUtils.clamp(endExclusive, 0, heights.size());
         int end = first;
         while (first > 0) {
-            float height = lobbyMessageHeight(messages.get(first - 1).type());
+            float height = heights.get(first - 1);
             float gap = first == end ? 0f : 10f;
             if (used + gap + height > availableHeight) break;
             used += gap + height;
@@ -2126,7 +2238,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void returnFromLobby() {
-        cancelLobbyVoiceRecording();
+        stopLobbyTransientAudio();
         clearLobbyMedia();
         closeLobbySubscription();
         if (lobbySession != null) {
@@ -3468,11 +3580,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
      * transient, however, and must never leak into the active hand.
      */
     void suspendForTable() {
-        cancelLobbyVoiceRecording();
-        GdxVoicePlayback.stop();
+        stopLobbyTransientAudio();
         if (backgroundMusic != null) backgroundMusic.pause();
         if (waitingRoomMusic != null) waitingRoomMusic.pause();
         if (aboutMusic != null) aboutMusic.pause();
+    }
+
+    private void stopLobbyTransientAudio() {
+        cancelLobbyVoiceRecording();
+        GdxVoicePlayback.stop();
     }
 
     void resumeMusic() {
@@ -6110,6 +6226,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private record LobbyAvatarItem(Texture texture, float x, float y,
             float size) {
+    }
+
+    private record LobbyMessageLayout(float width, float height,
+            List<String> lines) {
     }
 
     private record UiImageItem(Texture texture, float x, float y,

@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 13:02 (Europe/Madrid)
+Última actualización: 2026-09-20 13:35 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,18 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19/20
 
+- El interruptor UPnP de Nueva timba ya no es una opción decorativa: el core
+  intenta abrir el puerto TCP del anfitrión, conserva sólo la concesión creada
+  por esta instancia y la libera al cerrar sin tocar mapeos preexistentes. El
+  resultado permanece visible en la sala como `UPnP activo/no disponible`
+  aunque cambie su contenido. Pruebas focalizadas de concesión y texto: **4/4**.
+- Rehecho el fuego persistente de ALL-IN sin los halos circulares anteriores:
+  tres capas procedurales producen base, lenguas bifurcadas, núcleo térmico,
+  borde rojizo, humo contenido y brasas de tamaño/trayectoria variables. El
+  shader sigue siendo opcional para que ningún driver pueda impedir abrir la
+  mesa. Geometría/estado de mesa: **107/107**; queda QA visual OpenGL. JAR GDX
+  agrupado: 266.305.580 bytes, SHA-256
+  `D4A75F70D6B2E95A9EA4B18BA5C5DEFE7EE1A27816FE77CE64B1A9D602D9AE41`.
 - Cerrada la regresión crítica observada al pulsar `¡A JUGAR!`: una aserción
   geométrica de desarrollo evaluaba una envolvente vacía entre avatar y panel
   como si fuese parte del asiento y abortaba `CoronaPokerGdxTable.create()` en

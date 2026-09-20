@@ -671,11 +671,22 @@ final class GdxTableViewStateTest {
 
     @Test
     void resolvedHandNeverClaimsTheLocalPlayerIsWaitingForATurn() {
-        assertEquals("", CoronaPokerGdxTable.localHudTurnStatus(false, true));
+        GdxGameText spanish = new GdxGameText("es");
+        GdxGameText english = new GdxGameText("en");
+        assertEquals("", CoronaPokerGdxTable.localHudTurnStatus(
+                false, true, spanish));
         assertEquals("TU TURNO",
-                CoronaPokerGdxTable.localHudTurnStatus(true, false));
+                CoronaPokerGdxTable.localHudTurnStatus(
+                        true, false, spanish));
         assertEquals("ESPERANDO TURNO",
-                CoronaPokerGdxTable.localHudTurnStatus(false, false));
+                CoronaPokerGdxTable.localHudTurnStatus(
+                        false, false, spanish));
+        assertEquals("YOUR TURN",
+                CoronaPokerGdxTable.localHudTurnStatus(
+                        true, false, english));
+        assertEquals("WAITING FOR TURN",
+                CoronaPokerGdxTable.localHudTurnStatus(
+                        false, false, english));
     }
 
     @Test
@@ -813,6 +824,8 @@ final class GdxTableViewStateTest {
 
     @Test
     void disabledCallNeverBecomesAnUnlabelledWhiteButton() {
+        GdxGameText spanish = new GdxGameText("es");
+        GdxGameText english = new GdxGameText("en");
         ActionControlState disabledWithCall = new ActionControlState(true,
                 ActionControlState.CallAction.DISABLED, 0.2d,
                 ActionControlState.RaiseAction.DISABLED,
@@ -823,8 +836,13 @@ final class GdxTableViewStateTest {
                 0d, 0d, 0d, 0d, false, false, 0d, 10d);
 
         assertEquals("IR (+0.2)",
-                CoronaPokerGdxTable.callLabel(disabledWithCall));
-        assertEquals("PASAR", CoronaPokerGdxTable.callLabel(disabledCheck));
+                CoronaPokerGdxTable.callLabel(disabledWithCall, spanish));
+        assertEquals("PASAR", CoronaPokerGdxTable.callLabel(
+                disabledCheck, spanish));
+        assertEquals("CALL (+0.2)",
+                CoronaPokerGdxTable.callLabel(disabledWithCall, english));
+        assertEquals("CHECK", CoronaPokerGdxTable.callLabel(
+                disabledCheck, english));
     }
 
     @Test

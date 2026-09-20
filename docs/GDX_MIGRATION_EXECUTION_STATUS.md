@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 02:47 (Europe/Madrid)
+Última actualización: 2026-09-20 03:17 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,14 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19/20
 
+- Cerrada otra fuga visible de idioma en el HUD de la mesa: turno/espera,
+  pensar, pasar/ir/apostar/subir/resubir, no ir, modo auto, mostrar y all-in
+  consumen el idioma activo. Se revalidó además contra Swing que el icono
+  amarillo de conversación aparece al comenzar realmente el TTS, permanece
+  durante la voz y desaparece 500 ms después; el JAR anterior era previo a esa
+  corrección. Pruebas focalizadas de estado/texto: **100/100**. JAR GDX:
+  266.277.224 bytes, SHA-256
+  `4E23925447C98747A09F6858C8623B934E1EDD5D439FB3DB36EECCE2139E8514`.
 - Sustituido el aviso provisional de `ACERCA DE` por un diálogo GDX nativo:
   muestra versión, marca, dedicatoria, agradecimientos y créditos musicales
   traducidos, envuelve las líneas dentro de sus columnas y cierra mediante
@@ -1102,9 +1110,10 @@ Estado: límite y controles manuales principales funcionales en core/GDX.
 - HECHO en core: `CONTINUAR ESTA TIMBA` del anfitrión reabre la recuperación
   local real usando el formato compartido Swing/GDX y una integración completa
   termina la mano recuperada.
-- PARCIAL en frontend: el cliente muestra `RECONECTAR AL SERVIDOR` y reutiliza
-  nick, servidor, puerto, contraseña y avatar para una conexión JOIN real. Falta
-  certificar visualmente ambos botones y la reconexión con dos procesos GDX.
+- HECHO en frontend: el cliente muestra `RECONECTAR AL SERVIDOR`, conserva
+  nick, servidor, puerto, contraseña y avatar y envía de nuevo una conexión
+  JOIN real. La reconexión de transporte está cubierta por los escenarios GDX;
+  falta QA interactiva de ambos botones y de sus errores con dos procesos GDX.
 - HECHO en frontend/transporte: el host dispone de `Forzar reconexión de
   jugadores`, con confirmación idempotente y una orden tipada que reemplaza los
   sockets humanos remotos sin destruir sus peers lógicos ni sus colas. La acción
@@ -1301,11 +1310,19 @@ interactiva multiproceso y pulido de estados visibles.
 
 ### P2.1 — Pantalla de fin de timba
 
-- Clonar toda la información funcional de Swing.
-- Ganancias/pérdidas, buy-in, rebuys, saldos y bote sobrante.
-- Tratamiento configurado de los bots.
-- Acceso a estadísticas, menú y salida.
-- Animación GDX de calidad sin ocultar información.
+Estado: paridad funcional de `BalanceScreen` cerrada en código; QA visual
+interactiva pendiente. Estadísticas permanece expresamente aplazada a P2.2.
+
+- HECHO: resultado y contador local, fecha, duración, manos, tarjetas paginadas,
+  stack final y buy-in total (que ya incorpora las recompras), con los mismos
+  balances oficiales reales que muestra Swing. El bote sobrante pertenece al
+  cierre contable de cada mano, no es una fila de `BalanceScreen`.
+- HECHO: bots incluidos en el balance oficial igual que Swing; la opción de
+  repartir su saldo entre humanos genera una liquidación secundaria en el
+  registro y no sustituye el resultado oficial de la pantalla.
+- HECHO: menú principal, registro, continuar/reconectar, sonido, captura final,
+  salida causal y animación sin ocultar información. Estadísticas se muestra
+  deshabilitada hasta que exista su pantalla GDX real, sin acción ficticia.
 
 ### P2.2 — Estadísticas GDX
 

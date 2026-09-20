@@ -1170,6 +1170,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 Locale.forLanguageTag(gameText.language()));
     }
 
+    private static String uppercase(String value, GdxGameText text) {
+        return value == null ? "" : value.toUpperCase(
+                Locale.forLanguageTag(text.language()));
+    }
+
     private String settingsGameText(String suffix, Object... arguments) {
         return uppercase(gameText.translate("gdx.settings.game." + suffix,
                 arguments));
@@ -2128,24 +2133,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 .toPlainString();
     }
 
-    static String callLabel(ActionControlState controls) {
+    static String callLabel(ActionControlState controls, GdxGameText text) {
         return switch (controls.callAction()) {
-            case CHECK -> "PASAR";
-            case CALL -> "IR (+" + formatAmount(controls.callAmount()) + ")";
+            case CHECK -> uppercase(text.translate("action.pasar"), text);
+            case CALL -> uppercase(text.translate("ui.ir"), text) + " (+"
+                    + formatAmount(controls.callAmount()) + ")";
             // Swing leaves a readable caption while the control is disabled.
             // An empty caption produced the apparently broken white button
             // during short state transitions and between automatic actions.
             case DISABLED -> controls.callAmount() > 0d
-                    ? "IR (+" + formatAmount(controls.callAmount()) + ")"
-                    : "PASAR";
+                    ? uppercase(text.translate("ui.ir"), text) + " (+"
+                            + formatAmount(controls.callAmount()) + ")"
+                    : uppercase(text.translate("action.pasar"), text);
         };
     }
 
-    private static String raiseLabel(ActionControlState controls) {
+    static String raiseLabel(ActionControlState controls, GdxGameText text) {
         return switch (controls.raiseAction()) {
-            case BET -> "APOSTAR";
-            case RAISE -> "SUBIR";
-            case RERAISE -> "RESUBIR";
+            case BET -> uppercase(text.translate("action.apostar"), text);
+            case RAISE -> uppercase(text.translate("action.subir"), text);
+            case RERAISE -> uppercase(text.translate("action.resubir"), text);
             case DISABLED -> "";
         };
     }
@@ -4023,9 +4030,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             submit(command);
             return;
         }
-        String action = target == 1 ? "NO IR"
+        String action = target == 1
+                ? uppercase(gameText.translate("action.no_ir"))
                 : controls.callAction() == ActionControlState.CallAction.CHECK
-                        ? "PASAR" : "IGUALAR";
+                        ? uppercase(gameText.translate("action.pasar"))
+                        : uppercase(gameText.translate("ui.ir"));
         GdxTableDialog confirmation = GdxTableDialog.autoAction(action,
                 gameText);
         confirmation.result().thenAccept(accepted -> {
@@ -8088,7 +8097,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (isLiveReconnectingPlayer(player.nickname())) {
             return gameText.translate("table.player_reconnecting");
         }
-        if (isLiveThinkingSeat(seats[seat])) return "PENSANDO...";
+        if (isLiveThinkingSeat(seats[seat])) {
+            return uppercase(gameText.translate("ui.pensando")) + "...";
+        }
         if (liveState.hasHandResult(player.nickname())) {
             String resolvedName = liveState.resolvedHandName(player.nickname());
             // A blank HandResult is the canonical IWTSTH/muck case: Swing
@@ -9191,7 +9202,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         batch.begin();
         Seat local = seats[0];
-        String turnStatus = localHudTurnStatus(localTurn, settledShowdown);
+        String turnStatus = localHudTurnStatus(localTurn, settledShowdown,
+                gameText);
         if (!turnStatus.isEmpty()) {
             drawFittedCenteredInBox(localTurn ? actionFont : smallFont,
                     turnStatus, hudX + 12f, hudY + 96f,
@@ -9222,17 +9234,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         : lastActionTextColorForSeat(0), 1f);
 
         drawHudActionContent(foldThumbIcon,
-                preActions ? "MODO AUTO" : "NO IR",
+                preActions ? uppercase(gameText.translate("modo_auto.titulo"))
+                        : uppercase(gameText.translate("action.no_ir")),
                 foldX, actionY, foldWidth, actionHeight,
                 foldVisualText, foldContentAlpha);
         drawHudActionContent(callThumbIcon,
-                preActions ? "MODO AUTO"
-                        : callLabel(controls),
+                preActions ? uppercase(gameText.translate("modo_auto.titulo"))
+                        : callLabel(controls, gameText),
                 checkX, actionY, checkWidth, actionHeight,
                 checkVisualText, checkContentAlpha);
-        drawHudActionContent(raiseLabel(controls), betX, actionY,
+        drawHudActionContent(raiseLabel(controls, gameText), betX, actionY,
                 betWidth, actionHeight, betVisualText, betContentAlpha);
-        drawHudActionContent(controls.showCards() ? "MOSTRAR" : "ALL-IN",
+        drawHudActionContent(controls.showCards()
+                        ? uppercase(gameText.translate("action.mostrar"))
+                        : uppercase(gameText.translate("action.all_in")),
                 allInX, actionY, allInWidth, actionHeight,
                 allInVisualText, allInContentAlpha);
         batch.setColor(Color.WHITE);
@@ -9306,11 +9321,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static String localHudTurnStatus(boolean localTurn,
-            boolean settledShowdown) {
+            boolean settledShowdown, GdxGameText text) {
         if (settledShowdown) {
             return "";
         }
-        return localTurn ? "TU TURNO" : "ESPERANDO TURNO";
+        return uppercase(text.translate(localTurn
+                ? "gdx.table.hud.your_turn"
+                : "gdx.table.hud.waiting_turn"), text);
     }
 
     static float localHudIdleFrameAlpha(boolean folded) {

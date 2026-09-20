@@ -25,6 +25,7 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.tonikelope.coronapoker.core.ApplicationMetadata;
+import com.tonikelope.coronapoker.core.IdenticonFingerprint;
 import com.tonikelope.coronapoker.core.LobbyChatMessage;
 import com.tonikelope.coronapoker.core.LobbyCommand;
 import com.tonikelope.coronapoker.core.LobbyParticipant;
@@ -151,6 +152,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final List<LobbyAvatarItem> lobbyAvatars = new ArrayList<>();
     private final List<UiImageItem> uiImages = new ArrayList<>();
     private final List<Hit> hits = new ArrayList<>();
+    private final List<Hit> secondaryHits = new ArrayList<>();
     private final List<TextFieldHit> textFieldHits = new ArrayList<>();
     private final List<Hit> editMenuHits = new ArrayList<>();
     private final Map<String, Texture> lobbyAvatarTextures = new HashMap<>();
@@ -246,6 +248,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private float lobbyVoiceStatusAt;
     private long lastLobbyMediaSequence = -1L;
     private String selectedParticipant;
+    private FingerprintDialog fingerprintDialog;
     private boolean lobbyCommandPending;
     private boolean lobbyGameStarting;
     private LobbyConfirmation lobbyConfirmation;
@@ -439,6 +442,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyAvatars.clear();
         uiImages.clear();
         hits.clear();
+        secondaryHits.clear();
         textFieldHits.clear();
         editMenuHits.clear();
 
@@ -508,7 +512,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if ((surface == Surface.MENU && aboutOpen)
                 || (surface == Surface.LOBBY
                 && (lobbyConfirmation != null || lobbyPasswordDialog
-                        || lobbyGameStarting))
+                        || lobbyGameStarting || fingerprintDialog != null))
                 || (surface == Surface.SETTINGS
                 && (settingsDiscardConfirmation
                         || blindStructureDialog
@@ -522,6 +526,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             // controls to fire through confirmations and the table-loading
             // overlay.
             hits.clear();
+            secondaryHits.clear();
             textFieldHits.clear();
             editMenuHits.clear();
             // SpriteBatch changes the current OpenGL pipeline. Restore alpha
@@ -546,6 +551,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 }
             } else if (lobbyPasswordDialog) {
                 drawLobbyPasswordDialog();
+            } else if (fingerprintDialog != null) {
+                drawFingerprintDialog();
             } else if (lobbyConfirmation != null) {
                 drawLobbyConfirmation();
             } else {
@@ -607,6 +614,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyCommandPending = false;
         lobbyGameStarting = false;
         lobbyConfirmation = null;
+        fingerprintDialog = null;
         lobbyPasswordDialog = false;
         lobbyPasswordDraft = "";
         clearActiveField();
@@ -1035,6 +1043,87 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     x + w - 28f, y + 17f, MUTED, true);
         }
         hit(x, y, w, h, () -> selectedParticipant = participant.nickname());
+        if (!participant.bot() && (participant.identityPublicKey() != null
+                || participant.sessionFingerprint() != null)) {
+            secondaryHit(x, y, w, h, () -> openFingerprintDialog(participant));
+        }
+    }
+
+    private void openFingerprintDialog(LobbyParticipant participant) {
+        byte[] identity = participant.identityPublicKey();
+        byte[] session = participant.sessionFingerprint();
+        FingerprintMode mode = identity != null
+                ? FingerprintMode.IDENTITY : FingerprintMode.SESSION;
+        fingerprintDialog = new FingerprintDialog(participant.nickname(),
+                identity == null ? null : IdenticonFingerprint.fromSeed(identity),
+                session == null ? null : IdenticonFingerprint.fromDigest(session),
+                mode);
+        clearActiveField();
+    }
+
+    private void drawFingerprintDialog() {
+        FingerprintDialog dialog = fingerprintDialog;
+        if (dialog == null) return;
+        IdenticonFingerprint fingerprint = dialog.active();
+        hits.clear();
+        secondaryHits.clear();
+        shapes.setColor(new Color(0x02050cdd));
+        shapes.rect(0f, 0f, WIDTH, HEIGHT);
+        outerBox(535f, 165f, 850f, 750f, CYAN,
+                new Color(0x071321ff));
+        textFit(titleFont, dialog.nickname(), 960f, 842f, GOLD, true, 720f);
+
+        if (dialog.identity() != null && dialog.session() != null) {
+            themedButton(610f, 760f, 330f, 58f,
+                    uppercase(gameText.translate("gdx.identicon.identity")),
+                    dialog.mode() == FingerprintMode.IDENTITY
+                            ? ButtonTone.FEATURED : ButtonTone.NEUTRAL,
+                    () -> fingerprintDialog = dialog.withMode(
+                            FingerprintMode.IDENTITY), true);
+            themedButton(980f, 760f, 330f, 58f,
+                    uppercase(gameText.translate("gdx.identicon.session")),
+                    dialog.mode() == FingerprintMode.SESSION
+                            ? ButtonTone.FEATURED : ButtonTone.NEUTRAL,
+                    () -> fingerprintDialog = dialog.withMode(
+                            FingerprintMode.SESSION), true);
+        } else {
+            textFit(headingFont, uppercase(gameText.translate(
+                    dialog.mode() == FingerprintMode.IDENTITY
+                            ? "gdx.identicon.identity"
+                            : "gdx.identicon.session")),
+                    960f, 800f, CYAN, true, 650f);
+        }
+
+        float cell = 52f;
+        float iconSize = cell * IdenticonFingerprint.GRID_SIZE;
+        float iconX = WIDTH / 2f - iconSize / 2f;
+        float iconY = 342f;
+        shapes.setColor(Color.WHITE);
+        shapes.rect(iconX - 8f, iconY - 8f, iconSize + 16f, iconSize + 16f);
+        for (int column = 0; column < IdenticonFingerprint.GRID_SIZE; column++) {
+            for (int row = 0; row < IdenticonFingerprint.GRID_SIZE; row++) {
+                if (!fingerprint.filled(column, row)) continue;
+                shapes.setColor(identiconColor(fingerprint.foregroundArgb(row)));
+                shapes.rect(iconX + column * cell, iconY + row * cell,
+                        cell, cell);
+            }
+        }
+        textFit(uiFont, fingerprint.formatted(), 960f, 305f,
+                Color.WHITE, true, 760f);
+        textFit(smallFont, gameText.translate(
+                dialog.mode() == FingerprintMode.IDENTITY
+                        ? "gdx.identicon.identity_help"
+                        : "gdx.identicon.session_help"),
+                960f, 255f, MUTED, true, 760f);
+        button(780f, 185f, 360f, 58f,
+                uppercase(gameText.translate("ui.cerrar")), false,
+                () -> fingerprintDialog = null);
+    }
+
+    private static Color identiconColor(int argb) {
+        return new Color((argb >> 16 & 0xff) / 255f,
+                (argb >> 8 & 0xff) / 255f,
+                (argb & 0xff) / 255f, 1f);
     }
 
     private Texture lobbyAvatar(LobbyParticipant participant) {
@@ -5650,6 +5739,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         hits.add(new Hit(new Rectangle(x, y, w, h), action));
     }
 
+    private void secondaryHit(float x, float y, float w, float h,
+            Runnable action) {
+        secondaryHits.add(new Hit(new Rectangle(x, y, w, h), action));
+    }
+
     private boolean hovered(float x, float y, float w, float h) {
         if (surface == Surface.MENU && menuRevealProgress() < 0.98f) {
             return false;
@@ -5710,6 +5804,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 }
                 return true;
             }
+        }
+        if (button == Input.Buttons.RIGHT) {
+            for (int i = secondaryHits.size() - 1; i >= 0; i--) {
+                Hit hit = secondaryHits.get(i);
+                if (hit.bounds.contains(pointer)) {
+                    pressedHit = hit;
+                    return true;
+                }
+            }
+            return false;
         }
         for (int i = hits.size() - 1; i >= 0; i--) {
             Hit hit = hits.get(i);
@@ -5844,6 +5948,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 closeAboutDialog();
                 return true;
             }
+            if (fingerprintDialog != null) {
+                fingerprintDialog = null;
+                return true;
+            }
             if (blindStructureDialog != BlindStructureDialog.NONE) {
                 if (blindStructureDialog == BlindStructureDialog.EDITOR) {
                     closeBlindStructureEditor();
@@ -5893,7 +6001,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             // action owned by the SALIR button (and by the window-close flow).
             return true;
         }
-        if (aboutOpen || lobbyConfirmation != null
+        if (aboutOpen || lobbyConfirmation != null || fingerprintDialog != null
                 || settingsDiscardConfirmation) {
             // These decision surfaces have no editable field. Do not let
             // ENTER or a configured shortcut operate on the obscured page.
@@ -6369,6 +6477,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private enum LobbyConfirmation {
         START, LEAVE
+    }
+
+    private enum FingerprintMode {
+        IDENTITY, SESSION
+    }
+
+    private record FingerprintDialog(String nickname,
+            IdenticonFingerprint identity, IdenticonFingerprint session,
+            FingerprintMode mode) {
+
+        private IdenticonFingerprint active() {
+            return mode == FingerprintMode.IDENTITY ? identity : session;
+        }
+
+        private FingerprintDialog withMode(FingerprintMode next) {
+            return new FingerprintDialog(nickname, identity, session, next);
+        }
     }
 
     private enum PresetDialog {

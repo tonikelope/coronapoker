@@ -65,8 +65,8 @@ filas siguientes deben seguir siendo accesibles y conservar su semántica.
 | `GameOverDialog` | Fin de partida | pendiente | Pantalla/overlay GDX. |
 | `GifAnimationDialog` | Animación GIF | pendiente | Overlay GDX. |
 | `HandGeneratorDialog` | Generador de manos | pendiente | Pantalla/overlay GDX. |
-| `IdenticonDialog` | Identicon de identidad/sesión | pendiente | Debe conservar la función de verificación fuera de banda. |
-| `SessionIdenticonMosaicDialog` | Mosaico de identicons | pendiente | Debe conservar la vista por pares del host. |
+| `IdenticonDialog` | Identicon de identidad/sesión | parcial nativo | Clic derecho en participante muestra ambas huellas; falta persistir el marcado OOB verificado. |
+| `SessionIdenticonMosaicDialog` | Mosaico de identicons | parcial nativo | Cada canal se puede inspeccionar por participante; falta la vista simultánea del host. |
 | `InGameNotifyDialog` | Notificación en partida | pendiente | Overlay GDX no bloqueante según el comportamiento real. |
 | `PauseDialog` | Pausa | pendiente | Overlay GDX. |
 | `RecoverDialog` | Recuperación | pendiente | Overlay GDX. |
@@ -89,7 +89,7 @@ hace a continuación con `NewGameDialog`.
 |---|---|---|
 | `status` / `barra` | Conectando, intercambio de claves, recepción de información, conectado, espera, reconexión, error e inicialización sin bloquear el render. | pendiente |
 | `conectados` / `tot_conectados` | Lista ordenada de 1–10 participantes con avatar, latencias, bot, espera asíncrona y aviso de canal inseguro. | pendiente |
-| clic derecho en participantes | Identicon de canal para cliente o mosaico completo para host. | pendiente |
+| clic derecho en participantes | Identicon de identidad y canal cifrado por participante; mosaico completo para host aún pendiente. | parcial nativo |
 | `new_bot_button` | Sólo host; añade `CoronaBot$N`, vuelve a comprobar aforo bajo el mismo turno de admisión y difunde el alta. | pendiente |
 | `kick_user` | Sólo host y participante remoto seleccionado; expulsa, rota contraseña cuando corresponde y actualiza el resto de canales. | pendiente |
 | `empezar_timba` | Sólo host, mínimo dos participantes, confirmación previa, protección contra doble inicio, recuperación de ausentes y transición asíncrona a mesa. | pendiente |

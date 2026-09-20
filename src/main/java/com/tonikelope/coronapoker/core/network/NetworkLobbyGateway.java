@@ -7,6 +7,7 @@ import com.tonikelope.coronapoker.core.LobbyCommand;
 import com.tonikelope.coronapoker.core.LobbyParticipant;
 import com.tonikelope.coronapoker.core.LobbySession;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
+import com.tonikelope.coronapoker.core.IdenticonFingerprint;
 import com.tonikelope.coronapoker.core.NewGameRequest;
 import com.tonikelope.coronapoker.core.NewGameSessionGateway;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
@@ -1235,7 +1236,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                                     : peer.connection.latency(),
                             peer.connection == null ? LobbyParticipant.NO_LATENCY
                                     : peer.connection.secondaryLatency(),
-                            peer.identityPublicKey)).toList();
+                            peer.identityPublicKey,
+                            peer.connection == null ? null
+                                    : peer.connection.sessionFingerprint())).toList();
             return new LobbySnapshot(localNickname, serverNickname, endpoint,
                     host, phase, effectiveDetail == null ? "" : effectiveDetail,
                     participants, List.copyOf(chat), tableSettings, recovering, chatNotifications);
@@ -1571,6 +1574,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private final AtomicBoolean gameOutboxStarted = new AtomicBoolean();
         private final AtomicLong generationSequence = new AtomicLong(1L);
         private final SecretKeySpec originalHmac;
+        private final byte[] sessionFingerprint;
         private volatile Generation generation;
         private volatile boolean reconnecting;
         private volatile int reconnectionCount;
@@ -1604,6 +1608,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             this.generation = new Generation(0L, socket, input, output,
                     aes, hmac);
             this.originalHmac = copyKey(hmac);
+            this.sessionFingerprint = IdenticonFingerprint
+                    .fromSeed(aes.getEncoded()).digest();
             this.gameCommandGate = new GameCommandGate(inboundGameDirection);
             this.executor = executor;
             if (startGameOutbox) startGameOutbox();
@@ -1647,6 +1653,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         }
 
         SecretKeySpec originalHmac() { return copyKey(originalHmac); }
+        byte[] sessionFingerprint() { return sessionFingerprint.clone(); }
 
         long markGenerationDown(Generation expected) {
             if (expected == null) return -1L;

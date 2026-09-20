@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 17:00 (Europe/Madrid)
+Última actualización: 2026-09-20 17:21 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -108,10 +108,19 @@ Disciplina del repositorio durante la migración:
   texto, imágenes y filas de presencia; no ofrecen scroll si todo cabe ni
   permiten terminar sobre espacio vacío. Pruebas focalizadas de voz, chat,
   scroll y terminación: **32/32**.
-- JAR GDX actual con handoff musical blindado, barajado en streaming, fuego
-  ALL-IN orgánico y rechazo seguro de conexiones tardías: 266.318.874 bytes,
+- La sala GDX ya recupera las huellas visuales de seguridad sin acoplarse a
+  Swing/AWT ni publicar claves: clic derecho sobre un participante humano abre
+  un modal nativo con el identicon de identidad Ed25519 y, cuando existe, el
+  del canal cifrado. El transporte sólo proyecta el SHA-256 irreversible de la
+  clave AES original y lo conserva estable durante reconexiones. Los dos
+  extremos del canal han producido la misma huella y bots/filas locales no
+  reciben material de sesión: **8/8** pruebas focalizadas. Quedan por portar el
+  marcado OOB como verificado y la vista mosaico simultánea del anfitrión.
+- JAR GDX actual con identicons nativos, handoff musical blindado, barajado en
+  streaming, fuego ALL-IN orgánico y rechazo seguro de conexiones tardías:
+  266.325.172 bytes,
   SHA-256
-  `430AA96F8658712921FC868D758E2771B88EC85ECA21D7875F606A6719FC3832`.
+  `E24F311A7D53CDF3233774E137B24908B46F3700E568027B468E103160F2ACD7`.
 - Auditadas las claves visibles de la pantalla unificada de Ajustes contra sus
   consumidores GDX directos y el adaptador `GamePresentationSettings` que usa
   el crupier: no queda detectado ningún control mostrado que se limite a

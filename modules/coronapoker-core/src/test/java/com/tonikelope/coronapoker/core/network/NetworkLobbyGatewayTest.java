@@ -120,6 +120,19 @@ class NetworkLobbyGatewayTest {
                                 && !participant.bot())
                         .allMatch(participant -> participant.identityPublicKey()
                                 != null));
+                byte[] hostView = host.snapshot().participants().stream()
+                        .filter(participant -> participant.nickname().equals("Invitado"))
+                        .findFirst().orElseThrow().sessionFingerprint();
+                byte[] clientView = client.snapshot().participants().stream()
+                        .filter(participant -> participant.nickname().equals("Anfitrion"))
+                        .findFirst().orElseThrow().sessionFingerprint();
+                assertEquals(32, hostView.length);
+                assertArrayEquals(hostView, clientView,
+                        "both encrypted-channel ends must publish the same irreversible fingerprint");
+                assertTrue(host.snapshot().participants().stream()
+                        .filter(participant -> participant.local()
+                                || participant.bot())
+                        .allMatch(participant -> participant.sessionFingerprint() == null));
 
                 LobbySession late = lateGateway.open(request(true, "Ultimo", port))
                         .get(5, TimeUnit.SECONDS);

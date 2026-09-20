@@ -3842,8 +3842,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && fastBarExpanded) {
             pointer.set(Gdx.input.getX(), Gdx.input.getY());
             viewport.unproject(pointer);
-            if (fastButtonAt(pointer.x, pointer.y) == 2
-                    && fastButtonEnabled(2)) {
+            int fastIndex = fastButtonAt(pointer.x, pointer.y);
+            if (fastAccessActionAt(fastIndex) == FastAccessAction.VOICE
+                    && fastButtonEnabled(fastIndex)) {
                 micPointerHeld = true;
                 beginVoiceRecording();
                 return;
@@ -3962,6 +3963,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         BET_UP,
         BET,
         ALL_IN
+    }
+
+    enum FastAccessAction {
+        SETTINGS,
+        CHAT,
+        VOICE,
+        IMAGE,
+        REBUY,
+        GAME_LOG,
+        FULLSCREEN,
+        EXIT,
+        NONE
     }
 
     private void maybeExecuteQueuedPreAction(boolean localTurn,
@@ -4144,12 +4157,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean fastButtonEnabled(int index) {
-        return index == 0
-                || (index == 1 && canUseTableChat())
-                || (index == 3 && canUseTableImages())
-                || (index == 2 && canUseTableVoice())
-                || (index == 4 && canToggleImmediateRebuy())
-                || index == 5 || index == 6 || index == 7;
+        return switch (fastAccessActionAt(index)) {
+            case SETTINGS, GAME_LOG, FULLSCREEN, EXIT -> true;
+            case CHAT -> canUseTableChat();
+            case VOICE -> canUseTableVoice();
+            case IMAGE -> canUseTableImages();
+            case REBUY -> canToggleImmediateRebuy();
+            case NONE -> false;
+        };
+    }
+
+    static FastAccessAction fastAccessActionAt(int index) {
+        FastAccessAction[] actions = FastAccessAction.values();
+        return index >= 0 && index < actions.length - 1
+                ? actions[index] : FastAccessAction.NONE;
     }
 
     private boolean canToggleImmediateRebuy() {
@@ -4220,21 +4241,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return true;
         }
         fastBarExpanded = false;
-        if (button == 0) {
-            openSettingsSection(GdxSettingsContract.Section.GAME);
-        } else if (button == 1) {
-            openQuickChat();
-        } else if (button == 3) {
-            openTableImageGallery();
-        } else if (button == 4) {
-            submit(new TableCommand.ToggleImmediateRebuy());
-        } else if (button == 5) {
-            gameLogScroll = 0;
-            openUiLayer(UI_GAME_LOG);
-        } else if (button == 6) {
-            toggleFullscreen();
-        } else if (button == 7) {
-            requestExit();
+        switch (fastAccessActionAt(button)) {
+            case SETTINGS -> openSettingsSection(
+                    GdxSettingsContract.Section.GAME);
+            case CHAT -> openQuickChat();
+            case IMAGE -> openTableImageGallery();
+            case REBUY -> submit(new TableCommand.ToggleImmediateRebuy());
+            case GAME_LOG -> {
+                gameLogScroll = 0;
+                openUiLayer(UI_GAME_LOG);
+            }
+            case FULLSCREEN -> toggleFullscreen();
+            case EXIT -> requestExit();
+            case VOICE, NONE -> {
+                // Voice is press-and-hold and is handled before button release.
+            }
         }
         return true;
     }

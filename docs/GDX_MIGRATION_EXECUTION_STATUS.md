@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 02:16 (Europe/Madrid)
+Última actualización: 2026-09-20 02:24 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,10 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19/20
 
+- Consolidado el cableado de la barra rápida sin índices mágicos: sus ocho
+  botones tienen una acción tipada única (Ajustes, chat, voz, imagen, recompra,
+  registro, pantalla completa y salir), y voz conserva su semántica de mantener
+  pulsado. Contrato de navegación y regresión visual: **103/103**.
 - Cerrada la funcionalidad pendiente del visor GDX de capturas: botones nativos
   para copiar la imagen al portapapeles y borrarla con confirmación, E/S fuera
   del hilo gráfico, refresco conservando la posición y validación que impide
@@ -1175,12 +1179,15 @@ animaciones.
 
 ### P1.2 — Menú contextual y barra rápida
 
-- Reconstruir jerarquía y submenús completos.
-- Estados seleccionados, permitidos y deshabilitados reales.
-- Ajustes, Registro, visores, automatismos, confirmación, recompra, baraja,
-  última mano, pausa, detener, salir y ayudas aplicables.
-- Certificar barra rápida: chat, voz, imagen, recompra, registro y pantalla
-  completa.
+Estado: funcionalmente cerrado en código. La jerarquía operativa vive en la
+pantalla unificada de Ajustes de mesa, no en un segundo menú contextual que
+duplique estado. Sus páginas aplican permisos reales de anfitrión/cliente y
+exponen Ajustes, registro, visores, automatismos, confirmación, recompra,
+baraja, última mano, pausa, detener, salir y ayudas aplicables.
+
+- HECHO: la barra rápida cablea de forma tipada Ajustes, chat, voz mantenida,
+  imagen, recompra, registro, pantalla completa y salir; los controles no
+  disponibles se deshabilitan según sesión y preferencias.
 - HECHO: pausa, luces, salir, detener, registro, sonido/volumen y pantalla
   completa usan las combinaciones canónicas de Swing, y el editor GDX persiste
   y aplica sus reasignaciones sin permitir conflictos.

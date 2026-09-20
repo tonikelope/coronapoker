@@ -33,4 +33,24 @@ final class GdxSettingsNavigationContractTest {
                 "Salir de la timba"),
                 CoronaPokerGdxTable.settingsSessionActionLabels());
     }
+
+    @Test
+    void fastAccessBarRoutesEveryVisibleButtonToOneTypedAction() {
+        assertEquals(List.of(
+                CoronaPokerGdxTable.FastAccessAction.SETTINGS,
+                CoronaPokerGdxTable.FastAccessAction.CHAT,
+                CoronaPokerGdxTable.FastAccessAction.VOICE,
+                CoronaPokerGdxTable.FastAccessAction.IMAGE,
+                CoronaPokerGdxTable.FastAccessAction.REBUY,
+                CoronaPokerGdxTable.FastAccessAction.GAME_LOG,
+                CoronaPokerGdxTable.FastAccessAction.FULLSCREEN,
+                CoronaPokerGdxTable.FastAccessAction.EXIT),
+                java.util.stream.IntStream.range(0, 8)
+                        .mapToObj(CoronaPokerGdxTable::fastAccessActionAt)
+                        .toList());
+        assertEquals(CoronaPokerGdxTable.FastAccessAction.NONE,
+                CoronaPokerGdxTable.fastAccessActionAt(-1));
+        assertEquals(CoronaPokerGdxTable.FastAccessAction.NONE,
+                CoronaPokerGdxTable.fastAccessActionAt(8));
+    }
 }

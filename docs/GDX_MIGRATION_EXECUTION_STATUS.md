@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 16:00 (Europe/Madrid)
+Última actualización: 2026-09-20 16:11 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -68,15 +68,16 @@ Disciplina del repositorio durante la migración:
   por esta instancia y la libera al cerrar sin tocar mapeos preexistentes. El
   resultado permanece visible en la sala como `UPnP activo/no disponible`
   aunque cambie su contenido. Pruebas focalizadas de concesión y texto: **4/4**.
-- Rehecho el fuego persistente de ALL-IN sin los halos circulares anteriores:
-  cuatro capas procedurales asimétricas producen una base amplia, lenguas
-  bifurcadas y secundarias con cavidades, pulsación/turbulencia no uniforme,
-  núcleo blanco/amarillo, borde rojizo, humo contenido y 38 brasas con estela.
-  Una primera pasada aditiva aporta
-  resplandor térmico y la segunda conserva la definición de la llama, sin
-  recuperar rayos radiales. El shader sigue siendo opcional para que ningún
-  driver pueda impedir abrir la mesa. Geometría/estado de mesa: **107/107**;
-  queda QA visual OpenGL.
+- Rehecho el fuego persistente de ALL-IN sin los halos circulares anteriores ni
+  la silueta triangular de punta única: tres mantos asimétricos alimentan una
+  base irregular y cuatro lenguas internas con alturas, curvatura, ruptura y
+  extinción independientes. La turbulencia aumenta al ascender, las cavidades
+  advectan verticalmente y 25 brasas con aceleración y deriva no uniforme
+  sustituyen las 38 estelas repetitivas. Una primera pasada aditiva aporta un
+  resplandor contenido y la segunda conserva núcleo y bordes sin recuperar
+  rayos radiales. El shader sigue siendo opcional para que ningún driver pueda
+  impedir abrir la mesa. Geometría/estado de mesa: **107/107**; queda QA visual
+  OpenGL de esta revisión.
 - Cerrado un hueco de ciclo de vida del lobby: al comenzar la mesa se conserva
   la posición del hilo musical, pero ahora se cancela una grabación en curso y
   se invalida/detiene cualquier nota de voz del lobby. Esos audios transitorios
@@ -90,10 +91,10 @@ Disciplina del repositorio durante la migración:
   texto, imágenes y filas de presencia; no ofrecen scroll si todo cabe ni
   permiten terminar sobre espacio vacío. Pruebas focalizadas de voz, chat,
   scroll y terminación: **32/32**.
-- JAR GDX actual con handoff musical blindado y barajado en streaming:
-  266.315.749 bytes,
+- JAR GDX actual con handoff musical blindado, barajado en streaming y fuego
+  ALL-IN multi-lengua: 266.315.999 bytes,
   SHA-256
-  `5838EDE66702682179D6CE2A6D3BD6E34E325C4DA65D630831774170AD8332D9`.
+  `B2440291171AB88682387784A431F8D04E3793E60D218A65D2FA9F9C4FC53684`.
 - Auditadas las claves visibles de la pantalla unificada de Ajustes contra sus
   consumidores GDX directos y el adaptador `GamePresentationSettings` que usa
   el crupier: no queda detectado ningún control mostrado que se limite a

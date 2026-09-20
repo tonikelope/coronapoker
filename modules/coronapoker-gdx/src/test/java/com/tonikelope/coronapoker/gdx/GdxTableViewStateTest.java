@@ -824,22 +824,18 @@ final class GdxTableViewStateTest {
                 500f, 400f, 1);
         Rectangle right = CoronaPokerGdxTable.allInFireLayerBounds(
                 500f, 400f, 2);
-        Rectangle crown = CoronaPokerGdxTable.allInFireLayerBounds(
-                500f, 400f, 3);
-
         assertEquals(500f, centre.x + centre.width / 2f, 0.000_001f);
         assertTrue(centre.y < 400f);
         assertTrue(centre.y + centre.height > 400f + 90f);
-        assertEquals(500f, (left.x + left.width / 2f
-                + right.x + right.width / 2f) / 2f, 0.000_001f);
-        assertEquals(left.y, right.y, 0.000_001f);
-        assertEquals(left.width, right.width, 0.000_001f);
-        assertEquals(left.height, right.height, 0.000_001f);
-        assertEquals(500f, crown.x + crown.width / 2f, 0.000_001f);
-        assertTrue(crown.y + crown.height > left.y + left.height);
+        assertTrue(left.x + left.width / 2f < 500f);
+        assertTrue(right.x + right.width / 2f > 500f);
+        assertTrue(left.y != right.y);
+        assertTrue(left.width != right.width);
+        assertTrue(left.height != right.height);
+        assertTrue(left.y + left.height > centre.y + centre.height);
         assertThrows(IllegalArgumentException.class,
                 () -> CoronaPokerGdxTable.allInFireLayerBounds(
-                        500f, 400f, 4));
+                        500f, 400f, 3));
     }
 
     @Test

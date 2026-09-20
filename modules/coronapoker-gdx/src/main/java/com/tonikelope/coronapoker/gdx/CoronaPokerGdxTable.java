@@ -327,120 +327,147 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "    gl_FragColor = pixel;\n"
             + "}\n";
 
-    /** Organic layered fire used only for the persistent ALL-IN state. */
-    private static final String ALL_IN_FIRE_FRAGMENT_SHADER = "#ifdef GL_ES\n"
-            + "precision mediump float;\n"
-            + "#endif\n"
-            + "varying vec4 v_color;\n"
-            + "varying vec2 v_texCoords;\n"
-            + "uniform sampler2D u_texture;\n"
-            + "uniform float u_time;\n"
-            + "uniform float u_seed;\n"
-            + "uniform float u_alpha;\n"
-            + "uniform float u_bloom;\n"
-            + "float hash(vec2 p) {\n"
-            + "    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);\n"
-            + "}\n"
-            + "float noise(vec2 p) {\n"
-            + "    vec2 i = floor(p);\n"
-            + "    vec2 f = fract(p);\n"
-            + "    f = f * f * (3.0 - 2.0 * f);\n"
-            + "    return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),\n"
-            + "            mix(hash(i + vec2(0.0, 1.0)),\n"
-            + "                    hash(i + vec2(1.0, 1.0)), f.x), f.y);\n"
-            + "}\n"
-            + "float fbm(vec2 p) {\n"
-            + "    float value = 0.0;\n"
-            + "    float amplitude = 0.5;\n"
-            + "    for (int octave = 0; octave < 4; octave++) {\n"
-            + "        value += noise(p) * amplitude;\n"
-            + "        p = p * 2.03 + vec2(17.7, 9.2);\n"
-            + "        amplitude *= 0.5;\n"
-            + "    }\n"
-            + "    return value;\n"
-            + "}\n"
-            + "void main() {\n"
-            + "    vec2 uv = vec2(v_texCoords.x, 1.0 - v_texCoords.y);\n"
-            + "    float y = clamp(uv.y, 0.0, 1.0);\n"
-            + "    float surge = 0.86 + 0.14 * sin(u_time * 2.17 + u_seed\n"
-            + "            + sin(u_time * 0.73 + u_seed * 1.9));\n"
-            + "    float rise = y * 4.7 - u_time * (1.60 + surge * 0.24);\n"
-            + "    float warp = fbm(vec2(y * 2.15 - u_time * 0.61,\n"
-            + "            u_seed * 0.81)) - 0.5;\n"
-            + "    float coarse = fbm(vec2(uv.x * 3.35 + u_seed\n"
-            + "            + warp * 0.48, rise));\n"
-            + "    float fine = fbm(vec2(uv.x * 8.7 - u_seed * 0.7,\n"
-            + "            y * 10.4 - u_time * 3.15));\n"
-            + "    float wind = sin(y * 7.1 - u_time * 1.47 + u_seed)\n"
-            + "            * 0.085 * y;\n"
-            + "    wind += (fbm(vec2(y * 2.4 - u_time * 0.68,\n"
-            + "            u_seed * 0.73)) - 0.5) * 0.29 * y;\n"
-            + "    float x = (uv.x - 0.5) * 2.0 + wind;\n"
-            + "    float profile = mix(0.98, 0.018, pow(y, 0.70));\n"
-            + "    float edgeNoise = (coarse - 0.5) * (0.23 + y * 0.34)\n"
-            + "            + (fine - 0.5) * 0.12;\n"
-            + "    float licking = sin(x * 11.8 + y * 8.4\n"
-            + "            - u_time * 4.45 + u_seed) * 0.075 * y;\n"
-            + "    float flameWidth = profile * surge + edgeNoise + licking;\n"
-            + "    float signedBody = flameWidth - abs(x);\n"
-            + "    float softness = 0.045 + u_bloom * 0.12;\n"
-            + "    float body = smoothstep(-softness, softness,\n"
-            + "            signedBody + u_bloom * 0.10);\n"
-            + "    float splitX = x + sin(u_time * 2.15 + u_seed) * 0.09;\n"
-            + "    float fork = smoothstep(0.47, 0.91, y)\n"
-            + "            * (1.0 - smoothstep(0.025, 0.21, abs(splitX)));\n"
-            + "    body *= 1.0 - fork * (0.78 - u_bloom * 0.38);\n"
-            + "    float tongueCentre = sin(u_seed * 3.7 + u_time * 1.31)\n"
-            + "            * 0.31;\n"
-            + "    float tongueWidth = mix(0.24, 0.055,\n"
-            + "            smoothstep(0.34, 0.98, y));\n"
-            + "    float tongue = 1.0 - smoothstep(tongueWidth,\n"
-            + "            tongueWidth + 0.075, abs(x - tongueCentre));\n"
-            + "    tongue *= smoothstep(0.31, 0.49, y)\n"
-            + "            * (1.0 - smoothstep(0.79 + coarse * 0.19,\n"
-            + "                    1.02, y));\n"
-            + "    body = max(body, tongue * (0.78 + surge * 0.22));\n"
-            + "    float cavities = smoothstep(0.76, 0.91, fine)\n"
-            + "            * smoothstep(0.13, 0.72, y);\n"
-            + "    body *= 1.0 - cavities * (0.57 - u_bloom * 0.22);\n"
-            + "    float top = 1.0 - smoothstep(0.72 + coarse * 0.24,\n"
-            + "            1.025, y);\n"
-            + "    float base = smoothstep(0.0, 0.055, y);\n"
-            + "    float flame = body * top * base;\n"
-            + "    float relativeEdge = clamp(abs(x) / max(flameWidth, 0.04),\n"
-            + "            0.0, 1.0);\n"
-            + "    float heat = (1.0 - relativeEdge) * (1.0 - y * 0.68)\n"
-            + "            * (0.91 + surge * 0.09);\n"
-            + "    vec3 colour = mix(vec3(0.46, 0.006, 0.001),\n"
-            + "            vec3(1.0, 0.15, 0.004),\n"
-            + "            1.0 - smoothstep(0.34, 1.0, relativeEdge));\n"
-            + "    colour = mix(colour, vec3(1.0, 0.61, 0.018),\n"
-            + "            smoothstep(0.18, 0.66, heat));\n"
-            + "    colour = mix(colour, vec3(1.0, 0.98, 0.69),\n"
-            + "            smoothstep(0.68, 0.94, heat));\n"
-            + "    colour = mix(colour, vec3(1.0, 0.19, 0.006),\n"
-            + "            u_bloom * 0.68);\n"
-            + "    float smokeNoise = fbm(vec2(uv.x * 4.0 + u_seed * 2.1,\n"
-            + "            y * 3.2 - u_time * 0.72));\n"
-            + "    float smoke = smoothstep(0.54, 0.84, smokeNoise)\n"
-            + "            * smoothstep(0.61, 0.84, y)\n"
-            + "            * (1.0 - smoothstep(0.93, 1.0, y))\n"
-            + "            * (1.0 - flame);\n"
-            + "    vec3 smokeColour = mix(vec3(0.10, 0.075, 0.06),\n"
-            + "            vec3(0.24, 0.18, 0.13), smokeNoise);\n"
-            + "    float baseGlow = (1.0 - smoothstep(0.0, 0.82, abs(x)))\n"
-            + "            * (1.0 - smoothstep(0.0, 0.20, y)) * 0.54;\n"
-            + "    flame = max(flame, baseGlow * (0.76 + surge * 0.24));\n"
-            + "    float alpha = max(flame * mix(0.84, 1.0, coarse),\n"
-            + "            smoke * 0.18 * (1.0 - u_bloom));\n"
-            + "    alpha *= mix(1.0, 0.24, u_bloom);\n"
-            + "    colour = mix(smokeColour, colour,\n"
-            + "            smoothstep(0.0, 0.16, flame));\n"
-            + "    alpha *= texture2D(u_texture, v_texCoords).a\n"
-            + "            * v_color.a * u_alpha;\n"
-            + "    if (alpha <= 0.006) discard;\n"
-            + "    gl_FragColor = vec4(colour, alpha);\n"
-            + "}\n";
+    /** Buoyant multi-plume fire used only for the persistent ALL-IN state. */
+    private static final String ALL_IN_FIRE_FRAGMENT_SHADER = """
+            #ifdef GL_ES
+            precision mediump float;
+            #endif
+            varying vec4 v_color;
+            varying vec2 v_texCoords;
+            uniform sampler2D u_texture;
+            uniform float u_time;
+            uniform float u_seed;
+            uniform float u_alpha;
+            uniform float u_bloom;
+
+            float hash(vec2 p) {
+                return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+            }
+
+            float noise(vec2 p) {
+                vec2 i = floor(p);
+                vec2 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+                        mix(hash(i + vec2(0.0, 1.0)),
+                                hash(i + vec2(1.0, 1.0)), f.x), f.y);
+            }
+
+            float fbm(vec2 p) {
+                float value = 0.0;
+                float amplitude = 0.5;
+                for (int octave = 0; octave < 4; octave++) {
+                    value += noise(p) * amplitude;
+                    p = p * 2.03 + vec2(17.7, 9.2);
+                    amplitude *= 0.5;
+                }
+                return value;
+            }
+
+            float plume(float x, float y, float centre, float width,
+                    float height, float phase) {
+                float relativeY = clamp(y / height, 0.0, 1.35);
+                float slowBend = sin(relativeY * 5.2 - u_time * 1.35 + phase)
+                        * (0.025 + relativeY * 0.105);
+                float turbulentBend = (fbm(vec2(relativeY * 2.8
+                        - u_time * 0.72, phase + u_seed)) - 0.5)
+                        * (0.045 + relativeY * 0.24);
+                float breathing = 0.84 + 0.22 * noise(vec2(relativeY * 4.1
+                        - u_time * 1.65, phase * 2.7));
+                float radius = width * pow(max(0.0, 1.0 - relativeY), 0.58)
+                        * breathing;
+                float distanceFromCore = abs(x - centre - slowBend
+                        - turbulentBend);
+                float edge = 1.0 - smoothstep(radius * 0.58,
+                        radius + 0.045, distanceFromCore);
+                float raggedCap = height + (fbm(vec2(x * 4.6 + phase,
+                        -u_time * 1.7 + phase)) - 0.5) * 0.20;
+                float cap = 1.0 - smoothstep(raggedCap - 0.13,
+                        raggedCap + 0.025, y);
+                float breakup = mix(1.0, smoothstep(0.28, 0.70,
+                        noise(vec2(x * 7.2 + phase,
+                                y * 8.8 - u_time * 2.8))),
+                        smoothstep(0.42, 0.94, relativeY));
+                return edge * cap * breakup;
+            }
+
+            void main() {
+                vec2 uv = vec2(v_texCoords.x, 1.0 - v_texCoords.y);
+                float y = clamp(uv.y, 0.0, 1.0);
+                float x = (uv.x - 0.5) * 2.0;
+                float seedA = sin(u_seed * 1.71);
+                float seedB = sin(u_seed * 2.93 + 1.4);
+                float seedC = sin(u_seed * 4.17 + 3.1);
+
+                float leftHeight = 0.58 + 0.20 * (0.5 + 0.5
+                        * sin(u_time * 1.21 + u_seed * 2.1));
+                float centreHeight = 0.70 + 0.24 * (0.5 + 0.5
+                        * sin(u_time * 0.93 + u_seed * 3.7));
+                float rightHeight = 0.52 + 0.27 * (0.5 + 0.5
+                        * sin(u_time * 1.47 + u_seed * 1.3));
+                float left = plume(x, y, -0.43 + seedA * 0.07, 0.50,
+                        leftHeight, 1.2 + u_seed);
+                float centre = plume(x, y, seedB * 0.08, 0.56,
+                        centreHeight, 5.4 + u_seed * 0.7);
+                float right = plume(x, y, 0.42 + seedC * 0.06, 0.46,
+                        rightHeight, 9.1 + u_seed * 1.3);
+                float sideTongue = plume(x, y, -0.13 + seedC * 0.18,
+                        0.24, 0.88 + seedA * 0.07,
+                        13.7 + u_seed * 0.5);
+
+                float bedNoise = fbm(vec2(x * 3.1 + u_seed,
+                        y * 5.0 - u_time * 2.15));
+                float bed = (1.0 - smoothstep(0.68 + bedNoise * 0.17,
+                        1.03, abs(x)))
+                        * (1.0 - smoothstep(0.08, 0.32, y));
+                float flame = max(max(left, centre), max(right, sideTongue));
+                flame = max(flame, bed * (0.78 + bedNoise * 0.22));
+                flame *= smoothstep(0.0, 0.045, y);
+
+                float upwardNoise = fbm(vec2(x * 5.3 + u_seed * 0.8,
+                        y * 7.6 - u_time * 3.25));
+                float holes = smoothstep(0.73, 0.91, upwardNoise)
+                        * smoothstep(0.18, 0.82, y);
+                flame *= 1.0 - holes * (0.52 - u_bloom * 0.30);
+
+                float localFuel = max(max(left, centre), max(right,
+                        sideTongue));
+                float heat = clamp(localFuel * (1.16 - y * 0.70)
+                        + bed * 0.48, 0.0, 1.0);
+                vec3 colour = mix(vec3(0.34, 0.004, 0.001),
+                        vec3(0.98, 0.075, 0.002),
+                        smoothstep(0.04, 0.34, flame));
+                colour = mix(colour, vec3(1.0, 0.48, 0.008),
+                        smoothstep(0.24, 0.68, heat));
+                colour = mix(colour, vec3(1.0, 0.88, 0.31),
+                        smoothstep(0.62, 0.91, heat));
+                colour = mix(colour, vec3(1.0, 0.97, 0.76),
+                        smoothstep(0.88, 1.0, heat) * (1.0 - y));
+
+                float smokeNoise = fbm(vec2(x * 2.7 + u_seed * 1.9,
+                        y * 3.7 - u_time * 0.62));
+                float smoke = smoothstep(0.57, 0.83, smokeNoise)
+                        * smoothstep(0.57, 0.82, y)
+                        * (1.0 - smoothstep(0.94, 1.0, y))
+                        * (1.0 - smoothstep(0.08, 0.38, flame));
+                vec3 smokeColour = mix(vec3(0.075, 0.057, 0.048),
+                        vec3(0.19, 0.13, 0.09), smokeNoise);
+
+                float alpha = max(flame * (0.82 + upwardNoise * 0.18),
+                        smoke * 0.14 * (1.0 - u_bloom));
+                if (u_bloom > 0.5) {
+                    colour = vec3(1.0, 0.17, 0.006);
+                    alpha = smoothstep(0.03, 0.55, flame) * 0.19;
+                } else {
+                    colour = mix(smokeColour, colour,
+                            smoothstep(0.0, 0.14, flame));
+                }
+                alpha *= texture2D(u_texture, v_texCoords).a
+                        * v_color.a * u_alpha;
+                if (alpha <= 0.006) discard;
+                gl_FragColor = vec4(colour, alpha);
+            }
+            """;
 
     private static final String BACKDROP_VERTEX_SHADER =
             "attribute vec4 a_position;\n"
@@ -5513,7 +5540,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
-        // Four independently seeded sheets create a broad bed of fire and
+        // Three independently seeded sheets create a low combustion bed plus
         // asymmetrical licking tongues. A soft additive pass supplies heat
         // bloom before the opaque flame pass; there are deliberately no
         // radial rays or circular halo sprites.
@@ -5530,7 +5557,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             != TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
                         continue;
                     }
-                    for (int layer = 0; layer < 4; layer++) {
+                    for (int layer = 0; layer < 3; layer++) {
                         Rectangle fire = allInFireLayerBounds(seat.x, seat.y,
                                 layer);
                         float expansion = bloom ? 12f : 0f;
@@ -5540,7 +5567,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         allInFireShader.setUniformf("u_seed",
                                 seat.index * 1.713f + layer * 4.129f);
                         allInFireShader.setUniformf("u_alpha",
-                                (layer == 0 ? 0.98f : 0.76f) * presence);
+                                (layer == 0 ? 0.96f : 0.58f) * presence);
                         allInFireShader.setUniformf("u_bloom",
                                 bloom ? 1f : 0f);
                         batch.setColor(1f, 1f, 1f, 1f);
@@ -5569,28 +5596,32 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     != TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
                 continue;
             }
-            for (int ember = 0; ember < 38; ember++) {
-                float speed = 0.34f + (ember % 9) * 0.029f;
-                float life = (totalTime * speed + ember * 0.137f
-                        + seat.index * 0.11f) % 1f;
-                float drift = MathUtils.sin(ember * 2.37f
-                        + life * 5.8f + totalTime * 0.65f);
-                float spread = 22f + life * 46f;
-                float emberX = seat.x + drift * spread;
-                float emberY = seat.y + 13f + life * 151f;
+            for (int ember = 0; ember < 25; ember++) {
+                float speed = 0.27f + (ember % 7) * 0.033f;
+                float life = (totalTime * speed + ember * 0.173f
+                        + seat.index * 0.113f) % 1f;
+                float buoyantLife = (float) Math.pow(life, 0.78f);
+                float origin = (((ember * 37) % 101) / 100f - 0.5f) * 70f;
+                float curl = MathUtils.sin(ember * 2.37f
+                        + buoyantLife * 7.4f + totalTime * 0.41f)
+                        * (4f + buoyantLife * 19f);
+                curl += MathUtils.sin(ember * 0.91f
+                        - buoyantLife * 3.1f + totalTime * 0.23f)
+                        * buoyantLife * 8f;
+                float emberX = seat.x + origin * (1f - life * 0.18f) + curl;
+                float emberY = seat.y + 8f + buoyantLife * 162f;
                 float hot = 1f - life;
-                float ignition = MathUtils.clamp(life * 8f, 0f, 1f);
-                shapes.setColor(1f, 0.30f + hot * 0.52f,
-                        0.025f + hot * 0.12f,
-                        ignition * hot * hot * 0.78f * presence);
-                float radius = 0.65f
-                        + hot * (1.25f + (ember % 3) * 0.34f);
-                // Two fading samples below the head turn the fastest sparks
-                // into tiny incandescent streaks instead of static dots.
-                shapes.circle(emberX - drift * 1.4f,
-                        emberY - 5.2f, radius * 0.42f, 8);
-                shapes.circle(emberX - drift * 0.7f,
-                        emberY - 2.6f, radius * 0.68f, 8);
+                float ignition = MathUtils.clamp(life * 11f, 0f, 1f);
+                float extinction = hot * hot * (3f - 2f * hot);
+                shapes.setColor(1f, 0.24f + hot * 0.60f,
+                        0.012f + hot * 0.11f,
+                        ignition * extinction * 0.72f * presence);
+                float radius = 0.55f
+                        + hot * (0.85f + (ember % 4) * 0.22f);
+                // A single faint wake reads as a rising spark without turning
+                // every ember into the same dotted line.
+                shapes.circle(emberX - curl * 0.025f,
+                        emberY - 3.4f, radius * 0.48f, 7);
                 shapes.circle(emberX, emberY, radius, 8);
             }
         }
@@ -5602,13 +5633,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             int layer) {
         return switch (layer) {
             case 0 -> new Rectangle(centerX - ALL_IN_FIRE_WIDTH / 2f,
-                    centerY - 58f, ALL_IN_FIRE_WIDTH, ALL_IN_FIRE_HEIGHT + 12f);
-            case 1 -> new Rectangle(centerX - 102f, centerY - 50f,
-                    118f, 166f);
-            case 2 -> new Rectangle(centerX - 16f, centerY - 50f,
-                    118f, 166f);
-            case 3 -> new Rectangle(centerX - 49f, centerY - 47f,
-                    98f, 205f);
+                    centerY - 57f, ALL_IN_FIRE_WIDTH, 158f);
+            case 1 -> new Rectangle(centerX - 94f, centerY - 51f,
+                    120f, ALL_IN_FIRE_HEIGHT + 10f);
+            case 2 -> new Rectangle(centerX - 22f, centerY - 49f,
+                    116f, ALL_IN_FIRE_HEIGHT - 4f);
             default -> throw new IllegalArgumentException(
                     "Invalid ALL-IN fire layer: " + layer);
         };

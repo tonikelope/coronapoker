@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 13:35 (Europe/Madrid)
+Última actualización: 2026-09-20 13:55 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -36,12 +36,20 @@ Disciplina del repositorio durante la migración:
   resultado permanece visible en la sala como `UPnP activo/no disponible`
   aunque cambie su contenido. Pruebas focalizadas de concesión y texto: **4/4**.
 - Rehecho el fuego persistente de ALL-IN sin los halos circulares anteriores:
-  tres capas procedurales producen base, lenguas bifurcadas, núcleo térmico,
-  borde rojizo, humo contenido y brasas de tamaño/trayectoria variables. El
-  shader sigue siendo opcional para que ningún driver pueda impedir abrir la
-  mesa. Geometría/estado de mesa: **107/107**; queda QA visual OpenGL. JAR GDX
-  agrupado: 266.305.580 bytes, SHA-256
-  `D4A75F70D6B2E95A9EA4B18BA5C5DEFE7EE1A27816FE77CE64B1A9D602D9AE41`.
+  cuatro capas procedurales asimétricas producen una base amplia, lenguas
+  bifurcadas con cavidades, núcleo blanco/amarillo, borde rojizo, humo
+  contenido y 28 brasas con estela. Una primera pasada aditiva aporta
+  resplandor térmico y la segunda conserva la definición de la llama, sin
+  recuperar rayos radiales. El shader sigue siendo opcional para que ningún
+  driver pueda impedir abrir la mesa. Geometría/estado de mesa: **107/107**;
+  queda QA visual OpenGL. JAR GDX agrupado: 266.306.067 bytes, SHA-256
+  `CDC769685F3E22E7441268B2922EBE44BD54F7B4ADB26FC24822C38D22C0309E`.
+- Auditadas las claves visibles de la pantalla unificada de Ajustes contra sus
+  consumidores GDX directos y el adaptador `GamePresentationSettings` que usa
+  el crupier: no queda detectado ningún control mostrado que se limite a
+  persistir sin modificar su consumidor. Las exclusiones Swing continúan
+  expresas y no se presentan como falsos controles GDX. Esta auditoría es
+  estática; no sustituye la pasada interactiva de cada página.
 - Cerrada la regresión crítica observada al pulsar `¡A JUGAR!`: una aserción
   geométrica de desarrollo evaluaba una envolvente vacía entre avatar y panel
   como si fuese parte del asiento y abortaba `CoronaPokerGdxTable.create()` en

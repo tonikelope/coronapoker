@@ -626,9 +626,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             } else if (aboutEasterEggTexture != null) {
                 float maximumWidth = 1180f;
                 float maximumHeight = 760f;
-                float scale = Math.min(maximumWidth
+                // Keep the decoded pixels at 1:1 whenever they fit. Only
+                // shrink an oversized original so the modal remains usable.
+                float scale = Math.min(1f, Math.min(maximumWidth
                         / aboutEasterEggTexture.getWidth(), maximumHeight
-                        / aboutEasterEggTexture.getHeight());
+                        / aboutEasterEggTexture.getHeight()));
                 float imageWidth = aboutEasterEggTexture.getWidth() * scale;
                 float imageHeight = aboutEasterEggTexture.getHeight() * scale;
                 batch.setColor(Color.WHITE);
@@ -869,8 +871,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Pixmap pixmap = new Pixmap(decoded, 0, decoded.length);
             try {
                 aboutEasterEggTexture = new Texture(pixmap);
-                aboutEasterEggTexture.setFilter(TextureFilter.Linear,
-                        TextureFilter.Linear);
+                // The originals are intentionally pixel-authored: no
+                // smoothing, recolouring or gamma-correction is applied.
+                aboutEasterEggTexture.setFilter(TextureFilter.Nearest,
+                        TextureFilter.Nearest);
             } finally {
                 pixmap.dispose();
             }
@@ -1010,9 +1014,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(smallFont, "CORONAPOKER  " + ApplicationMetadata.VERSION,
                 WIDTH / 2f, y + h - 112f, CYAN, true, w - 120f);
 
-        float leftX = x + 62f;
-        float rightX = x + w / 2f + 28f;
-        float columnW = w / 2f - 92f;
+        // Both text columns use the same inner padding. The former right
+        // origin started outside its panel and made the copy look displaced.
+        float leftX = x + 66f;
+        float rightX = x + w / 2f + 56f;
+        float columnW = cardW - 44f;
         float contentTop = cardY + cardH - 42f;
         float leftY = contentTop;
         leftY = wrappedText(smallFont, gameText.translate("about.merecemos"),
@@ -1041,16 +1047,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         wrappedText(tinyFont, gameText.translate("about.copyright"),
                 x + 62f, y + 176f, w - 124f, 21f, 2, MUTED);
         textFit(smallFont, gameText.translate("about.hecho_a_mano"),
-                WIDTH / 2f, y + 128f, Color.WHITE, true, w - 150f);
-        text(tinyFont, "Jn 8:32", x + 62f, y + 93f, MUTED, false);
+                WIDTH / 2f, y + 132f, Color.WHITE, true, w - 150f);
+        text(tinyFont, "Jn 8:32", x + 62f, y + 100f, MUTED, false);
         String runtime = aboutRuntimeText() + " "
                 + gameText.translate("ui.hilos");
-        textFit(tinyFont, runtime, x + 310f, y + 93f, MUTED, true, 300f);
+        textFit(tinyFont, runtime, x + 310f, y + 100f, MUTED, true, 300f);
         String system = aboutSystemText();
-        textFit(tinyFont, system, x + 880f, y + 93f, MUTED, true, 760f);
-        hit(x + 500f, y + 71f, 760f, 32f,
+        textFit(tinyFont, system, x + 880f, y + 100f, MUTED, true, 760f);
+        hit(x + 500f, y + 78f, 760f, 32f,
                 () -> activateAboutEasterEgg(false));
-        secondaryHit(x + 500f, y + 71f, 760f, 32f,
+        secondaryHit(x + 500f, y + 78f, 760f, 32f,
                 () -> activateAboutEasterEgg(true));
         String updateLabel;
         Runnable updateAction = this::checkForUpdates;
@@ -1070,10 +1076,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } else {
             updateLabel = gameText.translate("gdx.update.current");
         }
-        themedButton(WIDTH / 2f - 330f, y + 18f, 310f, 58f,
+        themedButton(WIDTH / 2f - 330f, y + 8f, 310f, 54f,
                 uppercase(updateLabel), ButtonTone.NEUTRAL,
                 updateAction, updateEnabled);
-        themedButton(WIDTH / 2f + 20f, y + 18f, 310f, 58f,
+        themedButton(WIDTH / 2f + 20f, y + 8f, 310f, 54f,
                 uppercase(gameText.translate("ui.cerrar")),
                 ButtonTone.NEUTRAL, this::closeAboutDialog, true);
     }

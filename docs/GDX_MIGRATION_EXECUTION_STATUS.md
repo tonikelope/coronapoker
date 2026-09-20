@@ -1637,7 +1637,10 @@ interactiva multiproceso y pulido de estados visibles.
   solapes. Recuperadas las etiquetas inferiores del original y sus easter eggs:
   el quinto clic izquierdo/derecho sobre la información del sistema descifra y
   muestra respectivamente los recursos originales `images/c` y `images/g` en
-  un modal GDX nativo, sin widgets Swing ocultos.
+  un modal GDX nativo, sin widgets Swing ocultos. Las imágenes se muestran a
+  resolución nativa cuando caben, con muestreo nearest y sin corrección de
+  gamma, recoloreado ni shader; el pie reserva bandas separadas para la
+  información del sistema y los botones.
 - Splash oficial durante cualquier arranque negro evitable.
 - Certificar intro y movimiento final del logo a la esquina.
 - Música e icono de sonido.

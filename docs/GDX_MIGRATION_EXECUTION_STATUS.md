@@ -1813,6 +1813,25 @@ protocolo ni criptografía. Estadísticas queda para el final.
   bytes, SHA-256
   `0786DC8884E158DC9AFC6A0E9CEE319589F4F369993FE06D7D05417BD6AC7EB8`.
 
+### Corte 2026-09-20 - parada recuperable y reconstrucción visual
+
+- DETENER TIMBA vuelve directamente a la sala de recuperación del anfitrión;
+  los clientes conservan el aviso temporizado antes de reconectar y no se abre
+  la pantalla final ordinaria.
+- La sala recuperada conserva internamente el bloqueo de economía, pero ya no
+  filtra la etiqueta técnica `CONTINUAR TIMBA ANTERIOR` bajo Añadir bot.
+- Al reconstruir una mano en curso, GDX replica `RecoverDialog`: apaga las
+  luces, muestra solamente `recover_<idioma>.gif` (con `recover.gif` de
+  respaldo), mantiene su tamaño nativo salvo que la pantalla obligue a
+  reducirlo y deja al core el cambio simétrico entre `background_music.mp3` y
+  `recovering.mp3`.
+- Verificación focalizada: **12/12** en `GdxGameDecisionSinkTest`; compilación,
+  sombreado y publicación GDX correctos. La secuencia core/red de recuperación
+  ya estaba cubierta por el escenario multiproceso de recuperación y dos manos.
+  Queda QA visual y auditiva OpenGL del GIF y la transición musical reales.
+- JAR GDX: `target/CoronaPoker-24.11-gdx.jar`, 266.361.608 bytes, SHA-256
+  `EA8006759F2B458E65EAC26944D76F59C2905A1B4A610617345EA916D0CF9D27`.
+
 Al cerrar cada bloque se debe registrar aquí:
 
 - Qué consumidor real se añadió o corrigió.

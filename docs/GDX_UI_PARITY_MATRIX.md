@@ -69,7 +69,7 @@ filas siguientes deben seguir siendo accesibles y conservar su semántica.
 | `SessionIdenticonMosaicDialog` | Mosaico de identicons | implementado nativo | El anfitrión dispone de vista simultánea de hasta nueve canales y conserva la inspección individual. Pendiente QA visual OpenGL. |
 | `InGameNotifyDialog` | Notificación en partida | pendiente | Overlay GDX no bloqueante según el comportamiento real. |
 | `PauseDialog` | Pausa | pendiente | Overlay GDX. |
-| `RecoverDialog` | Recuperación | pendiente | Overlay GDX. |
+| `RecoverDialog` | Recuperación | implementado nativo; pendiente QA visual OpenGL | Modal no descartable controlado por el crupier: oscurece la mesa y reproduce el GIF localizado original mientras el core sustituye la música de fondo por `recovering.mp3`. |
 | `Reconnect2ServerDialog` | Reconexión | pendiente | Overlay GDX y ciclo asíncrono real. |
 | `RebuyDialog` | Recompra | pendiente | Overlay GDX conectado a las reglas reales de recompra. |
 | `RunItTwiceDialog` | Run It Twice | pendiente | Overlay GDX conectado al protocolo real. |
@@ -98,7 +98,7 @@ hace a continuación con `NewGameDialog`.
 | `game_info_buyin` | Buy-in fijo o variable real; ayuda contextual sin permitir al cliente modificarlo. | implementado nativo; pendiente QA visual |
 | `game_info_blinds` | Ciegas e intervalo de subida reales. | implementado nativo; pendiente QA visual |
 | `game_info_hands` | Límite de manos cuando existe. | implementado nativo; pendiente QA visual |
-| `game_info_recover` | Indica explícitamente que se continúa una timba anterior. | implementado nativo; pendiente QA visual |
+| estado de recuperación | Conserva internamente el bloqueo de la economía y la semántica de continuación sin filtrar etiquetas técnicas en la sala. | implementado nativo; pendiente QA visual |
 | `settings_icon` | Abre Ajustes dentro de la misma ventana GDX. | implementado nativo; pendiente QA visual |
 | `sound_icon` | Alterna sonido y persiste la preferencia compartida. | implementado nativo; pendiente QA auditiva |
 | cierre de sala | Confirmación, salida de red ordenada y retorno al menú sin terminar por la fuerza el proceso. | implementado nativo; pendiente QA multiproceso |

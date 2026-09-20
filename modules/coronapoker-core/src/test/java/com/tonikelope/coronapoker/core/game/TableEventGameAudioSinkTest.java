@@ -40,6 +40,37 @@ final class TableEventGameAudioSinkTest {
         assertTrue(warning.waitForCompletion());
     }
 
+    @Test
+    void preservesTheRecoveryMusicSwapAsOrderedLoopEvents() {
+        TableEventBridge bridge = new TableEventBridge();
+        RecordingRenderer renderer = new RecordingRenderer();
+        bridge.attach(renderer, emptySnapshot()).toCompletableFuture().join();
+        TableEventGameAudioSink audio = new TableEventGameAudioSink(bridge,
+                Set.of());
+
+        audio.stopLoopMp3("misc/background_music.mp3");
+        audio.playLoopMp3Resource("misc/recovering.mp3");
+        audio.stopLoopMp3("misc/recovering.mp3");
+        audio.playLoopMp3Resource("misc/background_music.mp3");
+
+        assertEquals(List.of(
+                TableVisualEvent.AudioCue.Operation.STOP_LOOP,
+                TableVisualEvent.AudioCue.Operation.PLAY_LOOP,
+                TableVisualEvent.AudioCue.Operation.STOP_LOOP,
+                TableVisualEvent.AudioCue.Operation.PLAY_LOOP),
+                renderer.events.stream()
+                        .map(TableVisualEvent.AudioCue.class::cast)
+                        .map(TableVisualEvent.AudioCue::operation)
+                        .toList());
+        assertEquals(List.of("misc/background_music.mp3",
+                "misc/recovering.mp3", "misc/recovering.mp3",
+                "misc/background_music.mp3"),
+                renderer.events.stream()
+                        .map(TableVisualEvent.AudioCue.class::cast)
+                        .map(TableVisualEvent.AudioCue::resource)
+                        .toList());
+    }
+
     private static TableSnapshot emptySnapshot() {
         return new TableSnapshot(0L, "local", TableSnapshot.Street.WAITING,
                 0d, "", false, List.of(), List.of());

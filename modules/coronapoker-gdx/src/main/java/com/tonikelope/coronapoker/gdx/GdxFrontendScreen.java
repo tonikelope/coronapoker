@@ -24,6 +24,7 @@ import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.tonikelope.coronapoker.core.ApplicationMetadata;
 import com.tonikelope.coronapoker.core.LobbyChatMessage;
 import com.tonikelope.coronapoker.core.LobbyCommand;
 import com.tonikelope.coronapoker.core.LobbyParticipant;
@@ -138,6 +139,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final DateTimeFormatter CHAT_TIME = DateTimeFormatter
             .ofPattern("HH:mm").withZone(ZoneId.systemDefault());
     private static final float IMAGE_SEND_COOLDOWN_SECONDS = 2f;
+    private static final float ABOUT_LOGO_WIDTH = 330f;
+    private static final float ABOUT_LOGO_Y = 683f;
 
     private final FitViewport viewport = new FitViewport(WIDTH, HEIGHT);
     private final List<TextItem> texts = new ArrayList<>();
@@ -260,6 +263,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private NewGameTableDraft settingsTable;
     private NewGameTableDraft.Settings settingsTableSnapshot;
     private boolean settingsDiscardConfirmation;
+    private boolean aboutOpen;
     private long recoveryLoadGeneration;
     private boolean autoSubmitRecovery;
 
@@ -447,7 +451,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (System.currentTimeMillis() < toastUntil) {
             drawToast();
         }
-        if (editMenu != null && lobbyConfirmation == null
+        if (editMenu != null && !aboutOpen && lobbyConfirmation == null
                 && !lobbyPasswordDialog
                 && presetDialog == PresetDialog.NONE
                 && blindStructureDialog == BlindStructureDialog.NONE
@@ -484,7 +488,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // Modal surfaces must be composed after every underlying glyph. Texts
         // are batched separately from shapes, so drawing the modal inside
         // drawLobby would otherwise let the lobby chat glyphs bleed over it.
-        if ((surface == Surface.LOBBY
+        if ((surface == Surface.MENU && aboutOpen)
+                || (surface == Surface.LOBBY
                 && (lobbyConfirmation != null || lobbyPasswordDialog
                         || lobbyGameStarting))
                 || (surface == Surface.SETTINGS
@@ -503,7 +508,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
                     GL20.GL_ONE_MINUS_SRC_ALPHA);
             shapes.begin(ShapeRenderer.ShapeType.Filled);
-            if (blindStructureDialog != BlindStructureDialog.NONE) {
+            if (aboutOpen) {
+                drawAboutDialog();
+            } else if (blindStructureDialog != BlindStructureDialog.NONE) {
                 drawBlindStructureDialog();
             } else if (surface == Surface.SETTINGS) {
                 drawSettingsDiscardConfirmation();
@@ -522,6 +529,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             shapes.end();
             batch.begin();
+            if (aboutOpen) {
+                float logoHeight = ABOUT_LOGO_WIDTH * logo.getHeight()
+                        / logo.getWidth();
+                batch.setColor(Color.WHITE);
+                batch.draw(logo, WIDTH / 2f - ABOUT_LOGO_WIDTH / 2f,
+                        ABOUT_LOGO_Y, ABOUT_LOGO_WIDTH, logoHeight);
+            }
             for (TextItem item : texts) {
                 item.font.setColor(item.color);
                 glyph.setText(item.font, item.text);
@@ -679,7 +693,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 this::toggleLanguage);
         mainMenuButton(595f, 205f, 350f, 82f,
                 uppercase(gameText.translate("menu.acerca_de")), 4, false,
-                () -> showToast(gameText.translate("about.titulo")));
+                this::openAboutDialog);
         mainMenuButton(975f, 205f, 350f, 82f,
                 gameText.translate("ui.salir"), 5, false,
                 Gdx.app::exit);
@@ -706,6 +720,112 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         languageChanged.accept(next);
         if (preferences != null) preferences.saveDeferred();
         showToast(gameText.translate("gdx.language_changed"));
+    }
+
+    private void openAboutDialog() {
+        aboutOpen = true;
+        clearActiveField();
+        editMenu = null;
+    }
+
+    private void closeAboutDialog() {
+        aboutOpen = false;
+    }
+
+    /** Native GDX counterpart of Swing's AboutDialog; music keeps playing. */
+    private void drawAboutDialog() {
+        hits.clear();
+        shapes.setColor(new Color(0x01040bd8));
+        shapes.rect(0f, 0f, WIDTH, HEIGHT);
+
+        float x = 310f;
+        float y = 92f;
+        float w = 1300f;
+        float h = 896f;
+        panel(x, y, w, h, "");
+        textFit(titleFont, uppercase(gameText.translate("about.titulo")),
+                WIDTH / 2f, y + h - 62f, GOLD, true, w - 120f);
+        textFit(smallFont, "CORONAPOKER  " + ApplicationMetadata.VERSION,
+                WIDTH / 2f, y + h - 108f, CYAN, true, w - 120f);
+
+        float leftX = x + 62f;
+        float rightX = x + w / 2f + 28f;
+        float columnW = w / 2f - 92f;
+        float contentTop = y + h - 344f;
+        float leftY = contentTop;
+        leftY = wrappedText(smallFont, gameText.translate("about.merecemos"),
+                leftX, leftY, columnW, 25f, 3, Color.WHITE);
+        leftY -= 16f;
+        leftY = wrappedText(tinyFont, gameText.translate("about.gracias_1"),
+                leftX, leftY, columnW, 22f, 3, MUTED);
+        leftY = wrappedText(tinyFont, gameText.translate("about.gracias_2"),
+                leftX, leftY - 5f, columnW, 22f, 3, MUTED);
+        leftY -= 18f;
+        wrappedText(smallFont, gameText.translate("about.dedicado"),
+                leftX, leftY, columnW, 25f, 2, GOLD);
+
+        float rightY = contentTop;
+        String[] musicKeys = {
+            "about.musica_juego", "about.musica_espera",
+            "about.musica_stats", "about.musica_about"
+        };
+        for (String key : musicKeys) {
+            rightY = wrappedText(tinyFont, gameText.translate(key), rightX,
+                    rightY, columnW, 21f, 3, MUTED) - 8f;
+        }
+
+        wrappedText(tinyFont, gameText.translate("about.copyright"),
+                x + 62f, y + 205f, w - 124f, 21f, 3, MUTED);
+        textFit(smallFont, gameText.translate("about.hecho_a_mano"),
+                WIDTH / 2f, y + 138f, Color.WHITE, true, w - 150f);
+        themedButton(WIDTH / 2f - 155f, y + 34f, 310f, 70f,
+                uppercase(gameText.translate("ui.cerrar")),
+                ButtonTone.NEUTRAL, this::closeAboutDialog, true);
+    }
+
+    private float wrappedText(BitmapFont font, String value, float x,
+            float topY, float maxWidth, float lineHeight, int maxLines,
+            Color color) {
+        List<String> lines = wrapText(font, value, maxWidth, maxLines);
+        float y = topY;
+        for (String line : lines) {
+            text(font, line, x, y, color, false);
+            y -= lineHeight;
+        }
+        return y;
+    }
+
+    private List<String> wrapText(BitmapFont font, String value,
+            float maxWidth, int maxLines) {
+        String normalized = Objects.requireNonNullElse(value, "").trim();
+        if (normalized.isEmpty() || maxLines <= 0) return List.of();
+        List<String> lines = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        String[] words = normalized.split("\\s+");
+        for (int index = 0; index < words.length; index++) {
+            String word = words[index];
+            String candidate = current.isEmpty()
+                    ? word : current + " " + word;
+            if (fits(font, candidate, maxWidth) || current.isEmpty()) {
+                current.setLength(0);
+                current.append(candidate);
+                continue;
+            }
+            if (lines.size() == maxLines - 1) {
+                for (int rest = index; rest < words.length; rest++) {
+                    current.append(' ').append(words[rest]);
+                }
+                lines.add(ellipsize(font, current.toString(), maxWidth));
+                return lines;
+            }
+            lines.add(current.toString());
+            current.setLength(0);
+            current.append(word);
+        }
+        if (lines.size() < maxLines && !current.isEmpty()) {
+            lines.add(ellipsize(font, current.toString(), maxWidth));
+        }
+        return lines;
     }
 
     private void drawStartupMenuReveal() {
@@ -5324,6 +5444,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return true;
         }
         if (keycode == Input.Keys.ESCAPE) {
+            if (aboutOpen) {
+                closeAboutDialog();
+                return true;
+            }
             if (blindStructureDialog != BlindStructureDialog.NONE) {
                 if (blindStructureDialog == BlindStructureDialog.EDITOR) {
                     closeBlindStructureEditor();

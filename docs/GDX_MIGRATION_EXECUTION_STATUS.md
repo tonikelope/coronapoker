@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 02:30 (Europe/Madrid)
+Última actualización: 2026-09-20 02:47 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,13 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19/20
 
+- Sustituido el aviso provisional de `ACERCA DE` por un diálogo GDX nativo:
+  muestra versión, marca, dedicatoria, agradecimientos y créditos musicales
+  traducidos, envuelve las líneas dentro de sus columnas y cierra mediante
+  botón o `ESC`. No cambia ni reinicia el hilo musical del menú. Compilación y
+  empaquetado GDX correctos; contrato focalizado de textos: **1/1**. JAR GDX:
+  266.276.536 bytes, SHA-256
+  `3CEF5AE4169655238605825433F7107F2FD161ABCD3FBCCADDEA832B46F18198`.
 - Corregida la paridad del registro al cerrar un showdown: GDX ya sustituye
   `(---)` por las cartas/jugada reveladas o por `(***)` en la línea original,
   como Swing, en vez de añadir un bloque `SHOWDOWN` separado y duplicado al
@@ -1283,6 +1290,8 @@ interactiva multiproceso y pulido de estados visibles.
 
 ### P1.7 — Shell, inicio e idioma
 
+- HECHO en código: `ACERCA DE` abre un diálogo GDX real, localizado y
+  contenido, sin depender de Swing ni interrumpir la música. Falta QA visual.
 - Splash oficial durante cualquier arranque negro evitable.
 - Certificar intro y movimiento final del logo a la esquina.
 - Música e icono de sonido.

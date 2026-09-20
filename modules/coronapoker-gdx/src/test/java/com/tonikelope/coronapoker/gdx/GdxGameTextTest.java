@@ -68,6 +68,10 @@ final class GdxGameTextTest {
                 text.translate("gdx.hand_generator.probability", 46));
         assertEquals("Previous",
                 text.translate("gdx.hand_generator.previous"));
+        assertEquals("Where did this come from?",
+                text.translate("about.titulo"));
+        assertEquals("Handmade in Spain and with love by tonikelope (c) 2020",
+                text.translate("about.hecho_a_mano"));
 
         assertEquals("es", text.setLanguage("not-a-language"));
         assertEquals("CREAR TIMBA", text.translate("game.crear_timba"));
@@ -93,5 +97,9 @@ final class GdxGameTextTest {
         assertEquals("REANUDAR", text.translate("gdx.table.resume"));
         assertEquals("Probabilidad  1 entre 46",
                 text.translate("gdx.hand_generator.probability", 46));
+        assertEquals("¿De dónde ha salido esto?",
+                text.translate("about.titulo"));
+        assertEquals("Hecho a mano en España y con amor por tonikelope (c) 2020",
+                text.translate("about.hecho_a_mano"));
     }
 }

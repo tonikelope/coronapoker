@@ -517,6 +517,15 @@ Disciplina del repositorio durante la migración:
 - JAR de checkpoint con ambos cambios: `target/CoronaPoker-24.11-gdx.jar`,
   266.288.496 bytes, SHA-256
   `8BE7CF91A07691A0C8CDE3291CADF987162450B0B0F32CC08508ACCDBB0246D5`.
+- Corregida una regresión crítica detectada en la prueba OpenGL del usuario:
+  al abrir una mesa de 8 jugadores, la comprobación de desarrollo envolvía
+  avatar y PlayerPod en un gran rectángulo con una esquina vacía y abortaba la
+  escena por un falso solape entre los asientos 2 y 3. La apertura de producción
+  ya no ejecuta ese validador heurístico; la suite focalizada valida los nueve
+  aforos sobre los rectángulos reales de los pods y pasa **106/106**.
+  JAR corregido: `target/CoronaPoker-24.11-gdx.jar`, 266.288.423 bytes,
+  SHA-256
+  `3133D29E4D6CE2CEFC31C227A89539F0ED5EAA922F2434813842DFDEAEA2F5FF`.
 - Estrategia desde este checkpoint: primero una beta GDX jugable de extremo a
   extremo; después chat/medios y pantalla final; finalmente pulido visual,
   rendimiento, estadísticas y certificación BALANCED. Las suites amplias se

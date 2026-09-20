@@ -1972,7 +1972,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         logGenerator.dispose();
 
         initialiseSeats();
-        validateAdaptiveSeatLayouts();
         validateRivalCardGeometry();
         validateLocalCenterLane();
         backgroundMusic = gameMusic("misc/background_music.mp3");
@@ -2795,7 +2794,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return anchors;
     }
 
-    private static void validateAdaptiveSeatLayouts() {
+    /**
+     * Build-time geometry guard for the fixed adaptive layouts.
+     *
+     * This deliberately validates the actual PlayerPod rectangles.  The avatar
+     * sits above the left side of its pod, so wrapping both in one large axis
+     * aligned rectangle creates an empty upper-right corner and reports false
+     * collisions for valid diagonal neighbours (notably seats 2/3 with eight
+     * players).  Keep this guard in the focused test suite; a development
+     * heuristic must never abort opening a production table.
+     */
+    static void validateAdaptiveSeatLayouts() {
         for (int playerCount = 2; playerCount <= SEAT_COUNT; playerCount++) {
             float[][] anchors = SEAT_LAYOUTS[playerCount];
             float minimumDistance = Float.POSITIVE_INFINITY;
@@ -2817,9 +2826,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 throw new IllegalStateException("Asientos demasiado juntos para "
                         + playerCount + " jugadores: " + minimumDistance);
             }
-            // Validate the complete centered rival units, not just avatar
-            // centres. This catches HUD collisions before the animated reflow
-            // can expose them on screen.
+            // Validate the visible PlayerPod rectangles. Avatar/card clearance
+            // is covered independently by the centre-distance and rival-card
+            // envelope invariants above/below.
             for (int a = 1; a < anchors.length; a++) {
                 float ax = centeredRivalX(anchors[a][0], BASE_WIDTH);
                 float ay = anchors[a][1] * BASE_HEIGHT;
@@ -2829,8 +2838,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 float aLeft = ax - PLAYER_POD_WIDTH / 2f - 4f;
                 float aRight = ax + PLAYER_POD_WIDTH / 2f + 4f;
                 float aBottom = apodY - 4f;
-                float aTop = Math.max(apodY + PLAYER_POD_HEIGHT + 4f,
-                        ay + AVATAR_OUTER_RADIUS + 2f);
+                float aTop = apodY + PLAYER_POD_HEIGHT + 4f;
                 if (aLeft < 0f || aRight > BASE_WIDTH) {
                     throw new IllegalStateException(
                             "PlayerPod fuera de pantalla para "
@@ -2845,8 +2853,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     float bLeft = bx - PLAYER_POD_WIDTH / 2f - 4f;
                     float bRight = bx + PLAYER_POD_WIDTH / 2f + 4f;
                     float bBottom = bpodY - 4f;
-                    float bTop = Math.max(bpodY + PLAYER_POD_HEIGHT + 4f,
-                            by + AVATAR_OUTER_RADIUS + 2f);
+                    float bTop = bpodY + PLAYER_POD_HEIGHT + 4f;
                     boolean horizontalOverlap = aLeft < bRight + 8f
                             && aRight + 8f > bLeft;
                     boolean verticalOverlap = aBottom < bTop + 8f

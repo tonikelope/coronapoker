@@ -2,6 +2,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -236,6 +237,11 @@ final class GdxTableViewStateTest {
             assertEquals(expected[seat][0], anchors[seat][0], 0.000_001f);
             assertEquals(expected[seat][1], anchors[seat][1], 0.000_001f);
         }
+    }
+
+    @Test
+    void everyAdaptiveLayoutPassesTheProductionPodGeometryGuard() {
+        assertDoesNotThrow(CoronaPokerGdxTable::validateAdaptiveSeatLayouts);
     }
 
     @Test

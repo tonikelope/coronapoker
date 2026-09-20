@@ -362,8 +362,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "void main() {\n"
             + "    vec2 uv = vec2(v_texCoords.x, 1.0 - v_texCoords.y);\n"
             + "    float y = clamp(uv.y, 0.0, 1.0);\n"
-            + "    float rise = y * 4.7 - u_time * 1.72;\n"
-            + "    float coarse = fbm(vec2(uv.x * 3.35 + u_seed, rise));\n"
+            + "    float surge = 0.86 + 0.14 * sin(u_time * 2.17 + u_seed\n"
+            + "            + sin(u_time * 0.73 + u_seed * 1.9));\n"
+            + "    float rise = y * 4.7 - u_time * (1.60 + surge * 0.24);\n"
+            + "    float warp = fbm(vec2(y * 2.15 - u_time * 0.61,\n"
+            + "            u_seed * 0.81)) - 0.5;\n"
+            + "    float coarse = fbm(vec2(uv.x * 3.35 + u_seed\n"
+            + "            + warp * 0.48, rise));\n"
             + "    float fine = fbm(vec2(uv.x * 8.7 - u_seed * 0.7,\n"
             + "            y * 10.4 - u_time * 3.15));\n"
             + "    float wind = sin(y * 7.1 - u_time * 1.47 + u_seed)\n"
@@ -371,12 +376,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "    wind += (fbm(vec2(y * 2.4 - u_time * 0.68,\n"
             + "            u_seed * 0.73)) - 0.5) * 0.29 * y;\n"
             + "    float x = (uv.x - 0.5) * 2.0 + wind;\n"
-            + "    float profile = mix(0.94, 0.025, pow(y, 0.74));\n"
+            + "    float profile = mix(0.98, 0.018, pow(y, 0.70));\n"
             + "    float edgeNoise = (coarse - 0.5) * (0.23 + y * 0.34)\n"
             + "            + (fine - 0.5) * 0.12;\n"
             + "    float licking = sin(x * 11.8 + y * 8.4\n"
             + "            - u_time * 4.45 + u_seed) * 0.075 * y;\n"
-            + "    float flameWidth = profile + edgeNoise + licking;\n"
+            + "    float flameWidth = profile * surge + edgeNoise + licking;\n"
             + "    float signedBody = flameWidth - abs(x);\n"
             + "    float softness = 0.045 + u_bloom * 0.12;\n"
             + "    float body = smoothstep(-softness, softness,\n"
@@ -385,6 +390,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "    float fork = smoothstep(0.47, 0.91, y)\n"
             + "            * (1.0 - smoothstep(0.025, 0.21, abs(splitX)));\n"
             + "    body *= 1.0 - fork * (0.78 - u_bloom * 0.38);\n"
+            + "    float tongueCentre = sin(u_seed * 3.7 + u_time * 1.31)\n"
+            + "            * 0.31;\n"
+            + "    float tongueWidth = mix(0.24, 0.055,\n"
+            + "            smoothstep(0.34, 0.98, y));\n"
+            + "    float tongue = 1.0 - smoothstep(tongueWidth,\n"
+            + "            tongueWidth + 0.075, abs(x - tongueCentre));\n"
+            + "    tongue *= smoothstep(0.31, 0.49, y)\n"
+            + "            * (1.0 - smoothstep(0.79 + coarse * 0.19,\n"
+            + "                    1.02, y));\n"
+            + "    body = max(body, tongue * (0.78 + surge * 0.22));\n"
             + "    float cavities = smoothstep(0.76, 0.91, fine)\n"
             + "            * smoothstep(0.13, 0.72, y);\n"
             + "    body *= 1.0 - cavities * (0.57 - u_bloom * 0.22);\n"
@@ -394,7 +409,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "    float flame = body * top * base;\n"
             + "    float relativeEdge = clamp(abs(x) / max(flameWidth, 0.04),\n"
             + "            0.0, 1.0);\n"
-            + "    float heat = (1.0 - relativeEdge) * (1.0 - y * 0.68);\n"
+            + "    float heat = (1.0 - relativeEdge) * (1.0 - y * 0.68)\n"
+            + "            * (0.91 + surge * 0.09);\n"
             + "    vec3 colour = mix(vec3(0.46, 0.006, 0.001),\n"
             + "            vec3(1.0, 0.15, 0.004),\n"
             + "            1.0 - smoothstep(0.34, 1.0, relativeEdge));\n"
@@ -412,7 +428,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "            * (1.0 - flame);\n"
             + "    vec3 smokeColour = mix(vec3(0.10, 0.075, 0.06),\n"
             + "            vec3(0.24, 0.18, 0.13), smokeNoise);\n"
-            + "    float alpha = max(flame * mix(0.80, 1.0, coarse),\n"
+            + "    float baseGlow = (1.0 - smoothstep(0.0, 0.82, abs(x)))\n"
+            + "            * (1.0 - smoothstep(0.0, 0.20, y)) * 0.54;\n"
+            + "    flame = max(flame, baseGlow * (0.76 + surge * 0.24));\n"
+            + "    float alpha = max(flame * mix(0.84, 1.0, coarse),\n"
             + "            smoke * 0.18 * (1.0 - u_bloom));\n"
             + "    alpha *= mix(1.0, 0.24, u_bloom);\n"
             + "    colour = mix(smokeColour, colour,\n"
@@ -5567,7 +5586,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
 
         // Embers rise with buoyancy and lateral turbulence. Their staggered
-        // size/colour avoids the former uniform particle-ring appearance.
+        // size/colour and intermittent ignition avoid a uniform particle ring
+        // and make the fire read as a hot, living combustion bed.
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (Seat seat : seats) {
@@ -5576,19 +5596,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     != TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
                 continue;
             }
-            for (int ember = 0; ember < 28; ember++) {
-                float speed = 0.38f + (ember % 7) * 0.032f;
+            for (int ember = 0; ember < 38; ember++) {
+                float speed = 0.34f + (ember % 9) * 0.029f;
                 float life = (totalTime * speed + ember * 0.137f
                         + seat.index * 0.11f) % 1f;
                 float drift = MathUtils.sin(ember * 2.37f
                         + life * 5.8f + totalTime * 0.65f);
-                float spread = 19f + life * 38f;
+                float spread = 22f + life * 46f;
                 float emberX = seat.x + drift * spread;
-                float emberY = seat.y + 19f + life * 132f;
+                float emberY = seat.y + 13f + life * 151f;
                 float hot = 1f - life;
+                float ignition = MathUtils.clamp(life * 8f, 0f, 1f);
                 shapes.setColor(1f, 0.30f + hot * 0.52f,
                         0.025f + hot * 0.12f,
-                        hot * hot * 0.70f * presence);
+                        ignition * hot * hot * 0.78f * presence);
                 float radius = 0.65f
                         + hot * (1.25f + (ember % 3) * 0.34f);
                 // Two fading samples below the head turn the fastest sparks
@@ -5608,13 +5629,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             int layer) {
         return switch (layer) {
             case 0 -> new Rectangle(centerX - ALL_IN_FIRE_WIDTH / 2f,
-                    centerY - 52f, ALL_IN_FIRE_WIDTH, ALL_IN_FIRE_HEIGHT);
-            case 1 -> new Rectangle(centerX - 88f, centerY - 45f,
-                    100f, 150f);
-            case 2 -> new Rectangle(centerX - 12f, centerY - 45f,
-                    100f, 150f);
-            case 3 -> new Rectangle(centerX - 44f, centerY - 43f,
-                    88f, 176f);
+                    centerY - 58f, ALL_IN_FIRE_WIDTH, ALL_IN_FIRE_HEIGHT + 12f);
+            case 1 -> new Rectangle(centerX - 102f, centerY - 50f,
+                    118f, 166f);
+            case 2 -> new Rectangle(centerX - 16f, centerY - 50f,
+                    118f, 166f);
+            case 3 -> new Rectangle(centerX - 49f, centerY - 47f,
+                    98f, 205f);
             default -> throw new IllegalArgumentException(
                     "Invalid ALL-IN fire layer: " + layer);
         };

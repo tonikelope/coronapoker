@@ -2169,13 +2169,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return cardTexture(Gdx.files.internal(path));
     }
 
+    static boolean cardMipMapsEnabled() {
+        return true;
+    }
+
+    static TextureFilter cardMinificationFilter() {
+        return TextureFilter.MipMapLinearNearest;
+    }
+
     private static Texture cardTexture(FileHandle file) {
-        // Cards are flat 2D UI art. Trilinear mipmap selection blended the HQ
-        // source with a smaller level and visibly softened ranks and suits.
-        // Keep the original HQ level and use bilinear sampling at the exact
-        // screen size instead.
-        Texture texture = new Texture(file, false);
-        texture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+        // Cards are rotated and usually minified. Sampling only the HQ base
+        // level keeps ranks sharp but aliases thin diagonal artwork; full
+        // trilinear filtering blends adjacent levels and softens ranks/suits.
+        // Select one mip level and filter within it: antialiased interior art
+        // without the additional cross-level blur.
+        Texture texture = new Texture(file, cardMipMapsEnabled());
+        texture.setFilter(cardMinificationFilter(),
+                TextureFilter.Linear);
         return texture;
     }
 

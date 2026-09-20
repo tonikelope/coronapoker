@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Texture.TextureFilter;
 import com.badlogic.gdx.math.Rectangle;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableSessionSummary;
@@ -21,6 +22,13 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
 
 final class GdxTableViewStateTest {
+
+    @Test
+    void cardsUseOneBilinearMipLevelWithoutTrilinearBlur() {
+        assertTrue(CoronaPokerGdxTable.cardMipMapsEnabled());
+        assertEquals(TextureFilter.MipMapLinearNearest,
+                CoronaPokerGdxTable.cardMinificationFilter());
+    }
 
     @Test
     void straddlePositionsKeepTheirDedicatedTableChips() {

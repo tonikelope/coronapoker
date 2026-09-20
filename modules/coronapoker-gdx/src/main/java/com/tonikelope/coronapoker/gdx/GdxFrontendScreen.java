@@ -1064,28 +1064,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> activateAboutEasterEgg(false));
         secondaryHit(x + 605f, 156f, 650f, 32f,
                 () -> activateAboutEasterEgg(true));
-        String updateLabel;
-        Runnable updateAction = this::checkForUpdates;
-        boolean updateEnabled = false;
-        if (updateCheckInFlight) {
-            updateLabel = gameText.translate("gdx.update.checking");
-        } else if (updateResult == null
-                || updateResult.status() == UpdateService.Status.UNAVAILABLE) {
-            updateLabel = gameText.translate("gdx.update.retry");
-            updateEnabled = true;
-        } else if (updateResult.status()
-                == UpdateService.Status.UPDATE_AVAILABLE) {
-            updateLabel = gameText.translate("gdx.update.available",
-                    updateResult.version());
-            updateAction = this::showUpdatePrompt;
-            updateEnabled = true;
-        } else {
-            updateLabel = gameText.translate("gdx.update.current");
-        }
-        themedButton(WIDTH / 2f - 330f, y + 14f, 310f, 54f,
-                uppercase(updateLabel), ButtonTone.NEUTRAL,
-                updateAction, updateEnabled);
-        themedButton(WIDTH / 2f + 20f, y + 14f, 310f, 54f,
+        themedButton(WIDTH / 2f - 155f, y + 14f, 310f, 54f,
                 uppercase(gameText.translate("ui.cerrar")),
                 ButtonTone.NEUTRAL, this::closeAboutDialog, true);
     }

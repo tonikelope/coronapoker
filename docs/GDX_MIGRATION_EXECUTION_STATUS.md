@@ -1649,12 +1649,14 @@ interactiva multiproceso y pulido de estados visibles.
 - Las imágenes descifradas de los easter eggs ya no pasan por el `FitViewport`:
   se dibujan en píxeles físicos 1:1 (1024x673 y 1280x640), centradas y con
   `Nearest`; sólo se reducen proporcionalmente si el backbuffer no dispone del
-  tamaño necesario. El botón `VERSIÓN ACTUAL` se conserva como en Swing y
-  permanece desactivado cuando no existe una actualización.
-- Las cartas continúan cargándose desde los recursos HQ, pero dejan de mezclar
-  niveles mipmap trilineales: al ser arte 2D frontal usan ahora el nivel HQ
-  original con filtrado bilineal, evitando el emborronado visible de rangos y
-  palos sin introducir una opción de Ajustes innecesaria.
+  tamaño necesario. El pie de `Acerca de` elimina el botón redundante
+  `VERSIÓN ACTUAL` y centra su única acción de cierre; la comprobación de
+  actualizaciones sigue siendo automática y mantiene su modal independiente.
+- Las cartas continúan cargándose desde los recursos HQ. Para equilibrar la
+  nitidez de rangos/palos con las diagonales finas del dibujo interior usan
+  mipmaps con `MipMapLinearNearest`: filtrado bilineal dentro de un solo nivel,
+  sin la mezcla entre dos niveles del trilineal que las emborronaba. El contrato
+  focalizado de mesa y Acerca de pasa 117/117 pruebas; queda QA visual OpenGL.
 - Splash oficial durante cualquier arranque negro evitable.
 - Certificar intro y movimiento final del logo a la esquina.
 - Música e icono de sonido.

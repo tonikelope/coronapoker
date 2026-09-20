@@ -156,8 +156,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float AVATAR_OUTER_RADIUS = 52f;
     private static final float AVATAR_RIM_RADIUS = 45f;
     private static final float AVATAR_INNER_RADIUS = 40f;
-    private static final int ALL_IN_FLAME_TONGUES = 24;
-    private static final float ALL_IN_FLAME_BASE_RADIUS = 49f;
+    private static final float ALL_IN_FIRE_WIDTH = 116f;
+    private static final float ALL_IN_FIRE_HEIGHT = 144f;
     private static final float AVATAR_ZOOM_HOVER_SECONDS = 0.250f;
     private static final float AVATAR_ZOOM_FACTOR = 2f;
     private static final float AVATAR_ZOOM_MAX_HEIGHT_RATIO = 0.45f;
@@ -325,6 +325,67 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "    pixel.a *= mask;\n"
             + "    if (pixel.a <= 0.001) discard;\n"
             + "    gl_FragColor = pixel;\n"
+            + "}\n";
+
+    /** Procedural, soft-edged fire used only for the persistent ALL-IN state. */
+    private static final String ALL_IN_FIRE_FRAGMENT_SHADER = "#ifdef GL_ES\n"
+            + "precision mediump float;\n"
+            + "#endif\n"
+            + "varying vec4 v_color;\n"
+            + "varying vec2 v_texCoords;\n"
+            + "uniform sampler2D u_texture;\n"
+            + "uniform float u_time;\n"
+            + "uniform float u_seed;\n"
+            + "uniform float u_alpha;\n"
+            + "float hash(vec2 p) {\n"
+            + "    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);\n"
+            + "}\n"
+            + "float noise(vec2 p) {\n"
+            + "    vec2 i = floor(p);\n"
+            + "    vec2 f = fract(p);\n"
+            + "    f = f * f * (3.0 - 2.0 * f);\n"
+            + "    return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),\n"
+            + "            mix(hash(i + vec2(0.0, 1.0)),\n"
+            + "                    hash(i + vec2(1.0, 1.0)), f.x), f.y);\n"
+            + "}\n"
+            + "float fbm(vec2 p) {\n"
+            + "    float value = 0.0;\n"
+            + "    float amplitude = 0.5;\n"
+            + "    for (int octave = 0; octave < 4; octave++) {\n"
+            + "        value += noise(p) * amplitude;\n"
+            + "        p = p * 2.03 + vec2(17.7, 9.2);\n"
+            + "        amplitude *= 0.5;\n"
+            + "    }\n"
+            + "    return value;\n"
+            + "}\n"
+            + "void main() {\n"
+            + "    vec2 uv = vec2(v_texCoords.x, 1.0 - v_texCoords.y);\n"
+            + "    float y = clamp(uv.y, 0.0, 1.0);\n"
+            + "    float n = fbm(vec2(uv.x * 3.4 + u_seed,\n"
+            + "            y * 4.8 - u_time * 1.85));\n"
+            + "    float gust = (noise(vec2(y * 2.6 - u_time * 0.92,\n"
+            + "            u_seed)) - 0.5) * 0.34 * y;\n"
+            + "    float x = (uv.x - 0.5) * 2.0 + gust;\n"
+            + "    float width = mix(0.90, 0.035, pow(y, 0.76));\n"
+            + "    float tongues = sin((x + u_seed) * 11.0\n"
+            + "            + y * 5.0 - u_time * 4.8) * 0.10 * y * y;\n"
+            + "    float edge = width + tongues + (n - 0.5)\n"
+            + "            * (0.13 + y * 0.18);\n"
+            + "    float body = 1.0 - smoothstep(edge - 0.075,\n"
+            + "            edge + 0.055, abs(x));\n"
+            + "    float top = 1.0 - smoothstep(0.76 + n * 0.20, 1.0, y);\n"
+            + "    float base = smoothstep(0.0, 0.075, y);\n"
+            + "    float alpha = body * top * base;\n"
+            + "    float core = 1.0 - smoothstep(0.05, max(0.08, edge),\n"
+            + "            abs(x));\n"
+            + "    vec3 colour = mix(vec3(1.0, 0.92, 0.24),\n"
+            + "            vec3(1.0, 0.055, 0.006), smoothstep(0.10, 0.92, y));\n"
+            + "    colour = mix(colour, vec3(1.0, 0.98, 0.70),\n"
+            + "            core * (1.0 - y) * 0.72);\n"
+            + "    alpha *= texture2D(u_texture, v_texCoords).a\n"
+            + "            * mix(0.72, 1.0, n) * v_color.a * u_alpha;\n"
+            + "    if (alpha <= 0.006) discard;\n"
+            + "    gl_FragColor = vec4(colour, alpha);\n"
             + "}\n";
 
     private static final String BACKDROP_VERTEX_SHADER =
@@ -553,6 +614,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private SpriteBatch batch;
     private ShaderProgram roundedCardShader;
     private ShaderProgram avatarShader;
+    private ShaderProgram allInFireShader;
     private ShaderProgram backdropBlurShader;
     private FrameBuffer settingsBackdrop;
     private FrameBuffer settingsBlurScratch;
@@ -579,6 +641,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Texture feltTexture;
     private Texture avatarDefault;
     private Texture avatarBot;
+    private Texture allInFireCanvas;
     private Texture dealerChip;
     private Texture smallBlindChip;
     private Texture bigBlindChip;
@@ -1763,6 +1826,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 throw new IllegalStateException("Avatar shader: "
                         + avatarShader.getLog());
             }
+            allInFireShader = new ShaderProgram(CARD_VERTEX_SHADER,
+                    ALL_IN_FIRE_FRAGMENT_SHADER);
+            if (!allInFireShader.isCompiled()) {
+                throw new IllegalStateException("ALL-IN fire shader: "
+                        + allInFireShader.getLog());
+            }
+            allInFireCanvas = createSolidTexture(Color.WHITE);
             backdropBlurShader = new ShaderProgram(BACKDROP_VERTEX_SHADER,
                     BACKDROP_BLUR_FRAGMENT_SHADER);
             if (!backdropBlurShader.isCompiled()) {
@@ -2027,6 +2097,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             throw new IllegalStateException(
                     "Could not load external CoronaPoker GIF " + path, ex);
         }
+    }
+
+    private static Texture createSolidTexture(Color color) {
+        Pixmap pixels = new Pixmap(2, 2, Pixmap.Format.RGBA8888);
+        pixels.setColor(color);
+        pixels.fill();
+        Texture texture = new Texture(pixels);
+        texture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+        pixels.dispose();
+        return texture;
     }
 
     private static Texture createChipTexture(Color base, Color dark) {
@@ -5407,6 +5487,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawAllInSeatFlames() {
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
+
+        // Low-frequency light belongs behind the fire and avatar. It is a
+        // glow, not a ring of spikes, and never competes with the turn rim.
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (Seat seat : seats) {
             float presence = seatPresenceAlpha(seat.index);
@@ -5414,64 +5497,82 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     != TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
                 continue;
             }
-
             float pulse = 0.5f + 0.5f * MathUtils.sin(
-                    totalTime * 7.2f + seat.index * 0.91f);
-            shapes.setColor(1f, 0.16f, 0.015f,
-                    (0.17f + pulse * 0.08f) * presence);
-            shapes.circle(seat.x, seat.y, 72f + pulse * 5f, 56);
-            shapes.setColor(1f, 0.58f, 0.04f,
-                    (0.20f + pulse * 0.10f) * presence);
-            shapes.circle(seat.x, seat.y, 58f + pulse * 3f, 48);
+                    totalTime * 6.1f + seat.index * 0.91f);
+            shapes.setColor(1f, 0.10f, 0.01f,
+                    (0.12f + pulse * 0.06f) * presence);
+            shapes.circle(seat.x, seat.y + 5f, 69f + pulse * 4f, 56);
+            shapes.setColor(1f, 0.48f, 0.025f,
+                    (0.18f + pulse * 0.08f) * presence);
+            shapes.circle(seat.x, seat.y + 2f, 55f + pulse * 2f, 48);
+        }
+        shapes.end();
 
-            for (int flame = 0; flame < ALL_IN_FLAME_TONGUES; flame++) {
-                float angle = MathUtils.PI2 * flame / ALL_IN_FLAME_TONGUES;
-                float phase = totalTime * (6.2f + (flame % 4) * 0.37f)
-                        + flame * 1.73f + seat.index * 0.63f;
-                float tangentX = -MathUtils.sin(angle);
-                float tangentY = MathUtils.cos(angle);
-                float radialX = MathUtils.cos(angle);
-                float radialY = MathUtils.sin(angle);
-                float baseRadius = ALL_IN_FLAME_BASE_RADIUS
-                        + MathUtils.sin(phase * 0.71f) * 2f;
-                float halfWidth = 4.5f + (flame % 3) * 0.8f;
-                float height = 17f + (flame % 5) * 2.8f
-                        + (0.5f + 0.5f * MathUtils.sin(phase)) * 13f;
-                float baseX = seat.x + radialX * baseRadius;
-                float baseY = seat.y + radialY * baseRadius;
-                float tipX = seat.x + radialX * (baseRadius + height)
-                        + tangentX * MathUtils.sin(phase * 1.19f) * 5f;
-                float tipY = seat.y + radialY * (baseRadius + height)
-                        + 5f + MathUtils.sin(phase * 0.83f) * 3f;
+        // Three independently seeded shader layers form irregular, soft fire
+        // with turbulent edges and a hot core. The avatar is rendered after
+        // this pass, so it remains crisp while genuinely appearing to burn.
+        batch.setShader(allInFireShader);
+        batch.begin();
+        for (Seat seat : seats) {
+            float presence = seatPresenceAlpha(seat.index);
+            if (presence <= 0f || liveState.actionKind(seat.name)
+                    != TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
+                continue;
+            }
+            for (int layer = 0; layer < 3; layer++) {
+                Rectangle fire = allInFireLayerBounds(seat.x, seat.y, layer);
+                batch.flush();
+                allInFireShader.setUniformf("u_time",
+                        totalTime * (1f + layer * 0.07f));
+                allInFireShader.setUniformf("u_seed",
+                        seat.index * 1.713f + layer * 4.129f);
+                allInFireShader.setUniformf("u_alpha",
+                        (layer == 0 ? 0.92f : 0.66f) * presence);
+                batch.setColor(1f, 1f, 1f, 1f);
+                batch.draw(allInFireCanvas, fire.x, fire.y,
+                        fire.width, fire.height);
+            }
+        }
+        batch.end();
+        batch.setShader(null);
 
-                shapes.setColor(1f, 0.12f, 0.01f,
-                        (0.46f + pulse * 0.18f) * presence);
-                shapes.triangle(baseX + tangentX * halfWidth,
-                        baseY + tangentY * halfWidth,
-                        baseX - tangentX * halfWidth,
-                        baseY - tangentY * halfWidth, tipX, tipY);
-                shapes.setColor(1f, 0.72f, 0.05f,
-                        (0.55f + pulse * 0.22f) * presence);
-                shapes.triangle(baseX + tangentX * halfWidth * 0.48f,
-                        baseY + tangentY * halfWidth * 0.48f,
-                        baseX - tangentX * halfWidth * 0.48f,
-                        baseY - tangentY * halfWidth * 0.48f,
-                        MathUtils.lerp(baseX, tipX, 0.72f),
-                        MathUtils.lerp(baseY, tipY, 0.72f));
-
-                float emberLife = (totalTime * 0.72f
-                        + flame * 0.137f + seat.index * 0.09f) % 1f;
-                float emberX = seat.x + radialX * (55f + emberLife * 20f)
-                        + tangentX * MathUtils.sin(phase) * 7f;
-                float emberY = seat.y + radialY * (55f + emberLife * 20f)
-                        + emberLife * 26f;
+        // Sparse embers follow buoyancy instead of firing away radially.
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        for (Seat seat : seats) {
+            float presence = seatPresenceAlpha(seat.index);
+            if (presence <= 0f || liveState.actionKind(seat.name)
+                    != TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
+                continue;
+            }
+            for (int ember = 0; ember < 14; ember++) {
+                float life = (totalTime * (0.46f + (ember % 3) * 0.07f)
+                        + ember * 0.173f + seat.index * 0.11f) % 1f;
+                float drift = MathUtils.sin(ember * 2.37f
+                        + life * 5.2f + totalTime * 0.8f);
+                float emberX = seat.x + drift * (22f + life * 18f);
+                float emberY = seat.y + 31f + life * 82f;
                 shapes.setColor(1f, 0.82f, 0.18f,
-                        (1f - emberLife) * 0.72f * presence);
-                shapes.circle(emberX, emberY, 2.6f - emberLife * 1.2f, 8);
+                        (1f - life) * 0.58f * presence);
+                shapes.circle(emberX, emberY,
+                        2.2f - life * 1.0f, 8);
             }
         }
         shapes.end();
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+    }
+
+    static Rectangle allInFireLayerBounds(float centerX, float centerY,
+            int layer) {
+        return switch (layer) {
+            case 0 -> new Rectangle(centerX - ALL_IN_FIRE_WIDTH / 2f,
+                    centerY - 43f, ALL_IN_FIRE_WIDTH, ALL_IN_FIRE_HEIGHT);
+            case 1 -> new Rectangle(centerX - 69f, centerY - 38f,
+                    76f, 112f);
+            case 2 -> new Rectangle(centerX - 7f, centerY - 38f,
+                    76f, 112f);
+            default -> throw new IllegalArgumentException(
+                    "Invalid ALL-IN fire layer: " + layer);
+        };
     }
 
     static float avatarZoomSize(float avatarSize, float worldHeight) {
@@ -8206,7 +8307,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 liveState.resolvedHandWinner(player.nickname()))) {
             return gameText.translate(seat == 0 ? "ui.ganas_3" : "ui.gana_3");
         }
-        if (!player.handName().isBlank()) {
+        if (liveHandLabelVisible(player)) {
             String handName = localizedHandName(player.handName(), gameText);
             Float percentage = liveState.partialHandPercentage(player.nickname());
             if (percentage != null) {
@@ -8226,6 +8327,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 ? canonicalLabel : player.lastAction();
         return localizedActionLabel(liveState.actionKind(player.nickname()),
                 fallback, gameText);
+    }
+
+    private boolean liveHandLabelVisible(
+            TableSnapshot.PlayerSnapshot player) {
+        LiveHoleReveal reveal = liveHoleReveal;
+        return !player.handName().isBlank()
+                && showdownHandLabelVisible(player.nickname(),
+                        reveal == null ? null : reveal.event.nickname(),
+                        reveal == null || reveal.finished());
+    }
+
+    /**
+     * The reveal event is installed immediately to preserve canonical sequence
+     * ordering, but its evaluated hand must not visually overtake the cards.
+     * Other players remain unaffected while a cascade reveals one seat.
+     */
+    static boolean showdownHandLabelVisible(String playerNickname,
+            String revealingNickname, boolean revealFinished) {
+        return revealingNickname == null
+                || !revealingNickname.equals(playerNickname)
+                || revealFinished;
     }
 
     /**
@@ -8319,7 +8441,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (resolvedWinner != null) {
             return resolvedWinner ? LEGACY_WINNER : LEGACY_LOSER;
         }
-        if (!player.handName().isBlank()) {
+        if (liveHandLabelVisible(player)) {
             if (liveState.partialHandPercentage(player.nickname()) != null) {
                 return player.winner() ? PARTIAL_HAND_WINNER : PARTIAL_HAND_LOSER;
             }
@@ -8350,7 +8472,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (resolvedWinner != null) {
             return resolvedWinner ? Color.BLACK : Color.WHITE;
         }
-        if (!player.handName().isBlank()) {
+        if (liveHandLabelVisible(player)) {
             if (liveState.partialHandPercentage(player.nickname()) != null) {
                 return player.winner() ? Color.BLACK : Color.WHITE;
             }
@@ -14165,6 +14287,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.dispose();
         roundedCardShader.dispose();
         if (avatarShader != null) avatarShader.dispose();
+        if (allInFireShader != null) allInFireShader.dispose();
         if (backdropBlurShader != null) backdropBlurShader.dispose();
         if (settingsBackdrop != null) settingsBackdrop.dispose();
         if (settingsBlurScratch != null) settingsBlurScratch.dispose();
@@ -14189,6 +14312,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         feltTexture.dispose();
         avatarDefault.dispose();
         avatarBot.dispose();
+        allInFireCanvas.dispose();
         dealerChip.dispose();
         smallBlindChip.dispose();
         bigBlindChip.dispose();

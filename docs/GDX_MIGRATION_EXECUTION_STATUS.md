@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 12:17 (Europe/Madrid)
+Última actualización: 2026-09-20 12:35 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -502,6 +502,21 @@ Disciplina del repositorio durante la migración:
 - JAR de checkpoint con la persistencia de perfiles y la nueva geometría de
   asientos: `target/CoronaPoker-24.11-gdx.jar`, 266.287.139 bytes, SHA-256
   `3055589BFA8BA73728A5435522FD119432D72050598CD8DD39B81BE67326463C`.
+- Corregido el orden visual del destape en showdown: el evento autoritativo se
+  instala al aceptarlo para proteger su secuencia, pero la jugada y su paleta
+  no se dibujan para ese jugador hasta que ambas cartas han terminado de
+  girarse. Los asientos ya destapados conservan su resultado durante la
+  cascada, y los casos sin animación o con cartas previamente visibles no
+  sufren espera artificial. El renderer focalizado pasa **105/105**.
+- Sustituido el efecto radial provisional de ALL-IN. Ya no hay rayos alrededor
+  del avatar: una pasada GDX dedicada compone tres capas de fuego procedural
+  ascendente con turbulencia, bordes suaves, núcleo caliente, halo contenido y
+  brasas con flotación; el avatar y el HUD se pintan nítidos encima. Compila y
+  su geometría está cubierta, pero falta QA OpenGL visual del shader antes de
+  considerarlo niquelado.
+- JAR de checkpoint con ambos cambios: `target/CoronaPoker-24.11-gdx.jar`,
+  266.288.496 bytes, SHA-256
+  `8BE7CF91A07691A0C8CDE3291CADF987162450B0B0F32CC08508ACCDBB0246D5`.
 - Estrategia desde este checkpoint: primero una beta GDX jugable de extremo a
   extremo; después chat/medios y pantalla final; finalmente pulido visual,
   rendimiento, estadísticas y certificación BALANCED. Las suites amplias se
@@ -1457,6 +1472,12 @@ cableado o estabilidad de la timba.
 
 - Comparación completa contra la demo `627c71e4f`.
 - Auditoría de textos, recortes y solapes.
+- Pasada visual AAA obligatoria sobre todos los efectos GDX: ALL-IN, ganador,
+  destapes, fichas, transiciones, overlays y partículas. Deben tener capas,
+  curvas suaves, profundidad, temporización y jerarquía visual coherentes; no
+  se aceptan starbursts, primitivas provisionales ni partículas genéricas como
+  acabado final. Cada efecto requiere QA visual OpenGL además de pruebas de
+  estado y geometría.
 - Ratios, DPI y escalado de Windows.
 - 75 Hz y 240 Hz.
 - Actualización del límite/VSync al mover la ventana de monitor.

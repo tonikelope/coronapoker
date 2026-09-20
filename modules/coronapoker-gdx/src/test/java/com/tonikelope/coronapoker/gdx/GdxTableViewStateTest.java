@@ -783,6 +783,43 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void showdownHandLabelWaitsUntilBothCardsAreVisiblyRevealed() {
+        assertFalse(CoronaPokerGdxTable.showdownHandLabelVisible(
+                "ana", "ana", false));
+        assertTrue(CoronaPokerGdxTable.showdownHandLabelVisible(
+                "ana", "ana", true));
+
+        // A reveal cascade owns only one seat. The already revealed players
+        // must retain their labels while the next player turns their cards.
+        assertTrue(CoronaPokerGdxTable.showdownHandLabelVisible(
+                "borja", "ana", false));
+        assertTrue(CoronaPokerGdxTable.showdownHandLabelVisible(
+                "ana", null, false));
+    }
+
+    @Test
+    void allInFireRisesBehindTheAvatarWithoutRadialRays() {
+        Rectangle centre = CoronaPokerGdxTable.allInFireLayerBounds(
+                500f, 400f, 0);
+        Rectangle left = CoronaPokerGdxTable.allInFireLayerBounds(
+                500f, 400f, 1);
+        Rectangle right = CoronaPokerGdxTable.allInFireLayerBounds(
+                500f, 400f, 2);
+
+        assertEquals(500f, centre.x + centre.width / 2f, 0.000_001f);
+        assertTrue(centre.y < 400f);
+        assertTrue(centre.y + centre.height > 400f + 90f);
+        assertEquals(500f, (left.x + left.width / 2f
+                + right.x + right.width / 2f) / 2f, 0.000_001f);
+        assertEquals(left.y, right.y, 0.000_001f);
+        assertEquals(left.width, right.width, 0.000_001f);
+        assertEquals(left.height, right.height, 0.000_001f);
+        assertThrows(IllegalArgumentException.class,
+                () -> CoronaPokerGdxTable.allInFireLayerBounds(
+                        500f, 400f, 3));
+    }
+
+    @Test
     void actionVisualContractMatchesTheCanonicalSwingPalette() {
         assertColor(0x64, 0x75, 0x94, 0xff,
                 CoronaPokerGdxTable.liveActionColor(null));

@@ -189,6 +189,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private Sound participantJoinedCue;
     private Sound participantLeftCue;
     private final Map<String, Sound> preferenceSoundCues = new HashMap<>();
+    private final Set<String> failedPreferenceSoundCues = new HashSet<>();
     private Music backgroundMusic;
     private Music waitingRoomMusic;
     private Music aboutMusic;
@@ -3253,10 +3254,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void playPreferenceSound(String resource, String preferenceKey,
             float volume) {
-        if (!preferenceBoolean(preferenceKey, true)) return;
-        Sound sound = preferenceSoundCues.computeIfAbsent(resource,
-                path -> Gdx.audio.newSound(Gdx.files.internal("sounds/" + path)));
-        playFrontendSound(sound, volume);
+        if (!preferenceBoolean(preferenceKey, true)
+                || failedPreferenceSoundCues.contains(resource)) return;
+        try {
+            Sound sound = preferenceSoundCues.computeIfAbsent(resource,
+                    path -> Gdx.audio.newSound(
+                            Gdx.files.internal("sounds/" + path)));
+            playFrontendSound(sound, volume);
+        } catch (RuntimeException failure) {
+            failedPreferenceSoundCues.add(resource);
+            LOGGER.log(Level.WARNING,
+                    "GDX optional sound could not be loaded: " + resource,
+                    failure);
+        }
     }
 
     private void playFrontendSound(Sound sound, float volume) {
@@ -5956,6 +5966,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         participantLeftCue.dispose();
         for (Sound cue : preferenceSoundCues.values()) cue.dispose();
         preferenceSoundCues.clear();
+        failedPreferenceSoundCues.clear();
         backgroundMusic.stop();
         backgroundMusic.dispose();
         waitingRoomMusic.stop();

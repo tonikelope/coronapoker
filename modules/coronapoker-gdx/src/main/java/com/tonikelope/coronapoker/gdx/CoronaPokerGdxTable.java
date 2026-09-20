@@ -80,6 +80,8 @@ import java.util.Base64;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.imageio.ImageIO;
@@ -92,6 +94,9 @@ import javax.sound.sampled.AudioSystem;
  * contract; this class owns GPU presentation and user-command forwarding only.
  */
 final class CoronaPokerGdxTable extends ApplicationAdapter {
+
+    private static final Logger LOGGER = Logger.getLogger(
+            CoronaPokerGdxTable.class.getName());
 
     private static final float BASE_WIDTH = 1920f;
     private static final float BASE_HEIGHT = 1080f;
@@ -595,6 +600,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean gameOverAnimationFailureReported;
     private final Map<String, Sound> liveCinematicSounds = new HashMap<>();
     private final Map<String, Sound> liveAudioCueSounds = new HashMap<>();
+    private final Set<String> failedPreferenceSoundCues = new HashSet<>();
     private final Map<String, Music> liveAudioCueLoops = new HashMap<>();
     private final List<LiveAudioPlayback> liveAudioCueWaits = new ArrayList<>();
     private Sound liveDangerAlertSound;
@@ -7296,12 +7302,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void playPreferenceSound(String resource, String preferenceKey,
             float volume) {
-        if (!tablePreference(preferenceKey, true)) return;
+        if (!tablePreference(preferenceKey, true)
+                || failedPreferenceSoundCues.contains(resource)) return;
         FileHandle file = gameAudioResource(resource);
         if (file == null) return;
-        Sound sound = liveAudioCueSounds.computeIfAbsent(resource,
-                ignored -> Gdx.audio.newSound(file));
-        play(sound, volume, 1f);
+        try {
+            Sound sound = liveAudioCueSounds.computeIfAbsent(resource,
+                    ignored -> Gdx.audio.newSound(file));
+            play(sound, volume, 1f);
+        } catch (RuntimeException failure) {
+            failedPreferenceSoundCues.add(resource);
+            LOGGER.log(Level.WARNING,
+                    "GDX optional sound could not be loaded: " + resource,
+                    failure);
+        }
     }
 
     CompletionStage<Void> playGameOverAudio(
@@ -14092,6 +14106,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         stopDangerAudioLoop();
         for (Sound cue : liveAudioCueSounds.values()) cue.dispose();
         liveAudioCueSounds.clear();
+        failedPreferenceSoundCues.clear();
         for (Music loop : liveAudioCueLoops.values()) {
             loop.stop();
             loop.dispose();

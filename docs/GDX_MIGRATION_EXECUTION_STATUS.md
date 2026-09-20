@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 11:02 (Europe/Madrid)
+Última actualización: 2026-09-20 11:15 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -29,6 +29,17 @@ Disciplina del repositorio durante la migración:
   del usuario.
 
 ## Checkpoint de consolidación 2026-09-19/20
+
+- Corregido un cierre crítico descubierto en la prueba interactiva del overlay
+  de volumen: `Mayús + Arriba/Abajo` alcanzaba correctamente la acción GDX,
+  pero `volume_change.wav` contenía metadatos WAV que el lector de libGDX no
+  podía recorrer y la excepción terminaba el bucle principal. El recurso se ha
+  normalizado a PCM RIFF canónico conservando exactamente sus muestras de
+  audio. Además, tanto menú/sala como mesa aíslan desde ahora cualquier fallo
+  de carga de un sonido opcional, lo registran en Debug una sola vez y
+  mantienen vivo el juego y el overlay. Contrato de atajos y recurso de audio:
+  **16/16**. JAR GDX: 266.285.031 bytes, SHA-256
+  `C15A4859012975C4484A350565FF0574B016F48D96E241CE440B7EE1CCA2968D`.
 
 - Cerrado un hueco funcional de Apariencia: `auto_fullscreen` ya no es una
   preferencia consumida por el crupier pero imposible de editar en GDX. El

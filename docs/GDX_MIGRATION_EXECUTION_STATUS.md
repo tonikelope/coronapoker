@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 11:48 (Europe/Madrid)
+Última actualización: 2026-09-20 11:58 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -48,6 +48,17 @@ Disciplina del repositorio durante la migración:
   icono significa que la voz ha comenzado realmente. Pruebas focalizadas de
   chat/voz y audio: **11/11**. JAR GDX: 266.285.235 bytes, SHA-256
   `63B43CC649A3CF23B4B1D90A34D1725EB4633D6FFCDAC633E3E321A2D9E8592E`.
+- Completada la paridad Swing del mismo aviso cuando no puede reproducirse
+  TTS: el icono amarillo `talk.png` sigue reservado exclusivamente al tiempo
+  de reproducción real de TTS o nota de voz y se pinta sobre el emisor local o
+  remoto; si el sonido/TTS está desactivado, el texto pasa por el aviso de
+  silencio (rojo, o amarillo para un emisor bloqueado) sin fingir que el
+  jugador habla. Una nota de voz silenciada no se reproduce ni muestra el
+  icono, pero permanece disponible en el chat. Los avisos silenciosos se
+  encolan, ajustan el texto a su contenedor y respetan la duración de Swing.
+  Prueba focalizada de chat/voz GDX: **11/11**. JAR GDX: 266.287.173
+  bytes, SHA-256
+  `37E465FF130C308D1EB393F9C496C3CE556E955D05116D5237E885BA93B7D6AD`.
 - Corregido un cierre crítico descubierto en la prueba interactiva del overlay
   de volumen: `Mayús + Arriba/Abajo` alcanzaba correctamente la acción GDX,
   pero `volume_change.wav` contenía metadatos WAV que el lector de libGDX no

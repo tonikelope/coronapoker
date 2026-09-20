@@ -158,6 +158,21 @@ final class GdxTableChatSessionTest {
     }
 
     @Test
+    void mutedOrBlockedTextUsesSilentNoticeInsteadOfTalkIcon() {
+        assertTrue(CoronaPokerGdxTable.shouldShowSilentTextNotice(
+                LobbyChatMessage.Type.TEXT, true, false));
+        org.junit.jupiter.api.Assertions.assertFalse(
+                CoronaPokerGdxTable.shouldShowSilentTextNotice(
+                        LobbyChatMessage.Type.TEXT, true, true));
+        org.junit.jupiter.api.Assertions.assertFalse(
+                CoronaPokerGdxTable.shouldShowSilentTextNotice(
+                        LobbyChatMessage.Type.VOICE, true, false));
+        org.junit.jupiter.api.Assertions.assertFalse(
+                CoronaPokerGdxTable.shouldShowSilentTextNotice(
+                        LobbyChatMessage.Type.TEXT, false, false));
+    }
+
+    @Test
     void seatNoticesRespectTheSwingChatImagePreference() {
         assertTrue(CoronaPokerGdxTable.shouldShowSeatNotice(
                 LobbyChatMessage.Type.TEXT, true, false, false, true,

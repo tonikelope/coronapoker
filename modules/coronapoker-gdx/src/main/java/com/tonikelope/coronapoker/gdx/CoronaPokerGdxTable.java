@@ -428,6 +428,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final Vector2 pointer = new Vector2();
     private final ArrayDeque<GdxTableDialog> dialogQueue = new ArrayDeque<>();
     private final Map<String, SeatChatNotice> seatChatNotices = new HashMap<>();
+    private final ArrayDeque<SilentChatNotice> silentChatNotices =
+            new ArrayDeque<>();
     private final Map<String, Texture> tableAvatarTextures = new HashMap<>();
     private final Set<String> blockedSeatMediaNotices = new HashSet<>();
     private final Map<Integer, Texture> emojiTextures = new HashMap<>();
@@ -577,6 +579,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Texture logDealerStraddleIcon;
     private Texture soundIcon;
     private Texture muteIcon;
+    private Texture blockedSoundIcon;
     private Texture lightsOnIcon;
     private Texture lightsOffIcon;
     private Texture pauseIcon;
@@ -1790,6 +1793,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         logDealerStraddleIcon = texture("images/dealer_straddle.png");
         soundIcon = texture("images/sound.png");
         muteIcon = texture("images/mute.png");
+        blockedSoundIcon = texture("images/sound_b.png");
         lightsOnIcon = texture("images/lights_on.png");
         lightsOffIcon = texture("images/lights_off.png");
         pauseIcon = texture("images/pause.png");
@@ -4949,6 +4953,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // the local HUD repaints over talk.png and makes an own voice note look
         // as if it never produced its speaking indicator.
         drawSeatChatNotices();
+        drawSilentChatNotice();
         drawFastAccessBar();
         drawVoiceRecordingOverlay(width, height);
         drawAvatarZoomOverlay(width, height);
@@ -5692,6 +5697,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     notifications,
                     tablePreference("chat_images_ingame", true), voiceNotice,
                     senderBlocked, ownMessage);
+            if (shouldShowSilentTextNotice(message.type(), eligibleNotice,
+                    spokenText)
+                    && seatByNickname(message.nickname()) != null) {
+                silentChatNotices.addLast(new SilentChatNotice(
+                        message.nickname(),
+                        GdxTextToSpeechPlayback.cleanChatMessage(
+                                message.content()), senderBlocked,
+                        seatChatNoticeDuration(message.type(),
+                                message.content())));
+                continue;
+            }
             if (!shouldDisplaySeatNotice(message.type(), eligibleNotice,
                     spokenText)
                     || seatByNickname(message.nickname()) == null) {
@@ -5775,6 +5791,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 iterator.remove();
             }
         }
+        updateSilentChatNotice();
+    }
+
+    private void updateSilentChatNotice() {
+        SilentChatNotice active = silentChatNotices.peekFirst();
+        if (active != null && active.startedAt >= 0f
+                && active.expiresAt <= totalTime) {
+            silentChatNotices.removeFirst();
+            active = silentChatNotices.peekFirst();
+        }
+        if (active != null && active.startedAt < 0f) {
+            active.startedAt = totalTime;
+            active.expiresAt = totalTime + active.duration;
+        }
     }
 
     private CompletableFuture<Void> playTableVoice(LobbyChatMessage message,
@@ -5847,6 +5877,41 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             batch.setColor(1f, 1f, 1f, alpha);
             batch.draw(icon, bounds.x, bounds.y, bounds.width, bounds.height);
         }
+        batch.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    /** Swing uses a mute/blocked dialog instead of talk.png when TTS cannot play. */
+    private void drawSilentChatNotice() {
+        SilentChatNotice notice = silentChatNotices.peekFirst();
+        if (notice == null || notice.startedAt < 0f) return;
+        float appeared = MathUtils.clamp(
+                (totalTime - notice.startedAt) / 0.16f, 0f, 1f);
+        float remaining = MathUtils.clamp(
+                (notice.expiresAt - totalTime) / 0.22f, 0f, 1f);
+        float alpha = Interpolation.fade.apply(Math.min(appeared, remaining));
+        float width = Math.min(820f, viewport.getWorldWidth() - 80f);
+        float height = 92f;
+        float x = (viewport.getWorldWidth() - width) / 2f;
+        float y = viewport.getWorldHeight() - 190f;
+        Color accent = notice.senderBlocked ? POT_GOLD : FOLD_RED;
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapes.setColor(0f, 0f, 0f, 0.62f * alpha);
+        roundedRect(x + 7f, y - 7f, width, height, 13f);
+        shapes.setColor(accent.r, accent.g, accent.b, 0.94f * alpha);
+        roundedRect(x - 2f, y - 2f, width + 4f, height + 4f, 13f);
+        shapes.setColor(0.012f, 0.027f, 0.047f, 0.98f * alpha);
+        roundedRect(x, y, width, height, 11f);
+        shapes.end();
+        batch.begin();
+        Texture icon = notice.senderBlocked ? blockedSoundIcon : muteIcon;
+        batch.setColor(1f, 1f, 1f, alpha);
+        batch.draw(icon, x + 18f, y + 18f, 56f, 56f);
+        drawFittedCenteredInBox(smallFont,
+                notice.nickname + ": " + notice.content,
+                x + 92f, y + 16f, width - 112f, height - 32f,
+                notice.senderBlocked ? POT_GOLD : Color.WHITE, alpha);
         batch.setColor(Color.WHITE);
         batch.end();
     }
@@ -13175,11 +13240,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             boolean eligibleNotice, boolean spokenText) {
         // Swing prepares talk.png for every text notification but only makes
         // it visible from Audio.TTS once playback really starts. A muted,
-        // disabled or blocked TTS message stays in chat without impersonating
-        // active speech on its seat. Voice notes have their own playback gate
-        // in shouldShowVoiceSeatNotice.
+        // disabled or blocked TTS message uses Swing's separate mute/blocked
+        // notice without impersonating active speech on its seat. Voice notes
+        // have their own playback gate in shouldShowVoiceSeatNotice.
         return eligibleNotice
                 && (type != LobbyChatMessage.Type.TEXT || spokenText);
+    }
+
+    static boolean shouldShowSilentTextNotice(LobbyChatMessage.Type type,
+            boolean eligibleNotice, boolean spokenText) {
+        return type == LobbyChatMessage.Type.TEXT && eligibleNotice
+                && !spokenText;
     }
 
     /** Same gates evaluated by Swing's in-game TTS watchdog. */
@@ -14214,6 +14285,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeScreenshotTexture();
         soundIcon.dispose();
         muteIcon.dispose();
+        blockedSoundIcon.dispose();
         lightsOnIcon.dispose();
         lightsOffIcon.dispose();
         pauseIcon.dispose();
@@ -14239,8 +14311,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         tableAvatarTextures.clear();
         for (SeatChatNotice notice : seatChatNotices.values()) notice.dispose();
         seatChatNotices.clear();
+        silentChatNotices.clear();
         blockedSeatMediaNotices.clear();
         if (tableChat != null) tableChat.close();
+    }
+
+    private static final class SilentChatNotice {
+
+        final String nickname;
+        final String content;
+        final boolean senderBlocked;
+        final float duration;
+        float startedAt = -1f;
+        float expiresAt = Float.POSITIVE_INFINITY;
+
+        SilentChatNotice(String nickname, String content,
+                boolean senderBlocked, float duration) {
+            this.nickname = nickname;
+            this.content = content;
+            this.senderBlocked = senderBlocked;
+            this.duration = duration;
+        }
     }
 
     private static final class LiveAudioPlayback {

@@ -55,7 +55,21 @@ final class GdxVoicePlayback {
         float voiceVolume = GdxTextToSpeechPlayback.ttsVolume(masterVolume);
         long generation = GENERATION.get();
         return CompletableFuture.runAsync(
-                () -> playQueued(payload, voiceVolume, started, generation),
+                () -> {
+                    try {
+                        GdxSpokenAudioGate.call(() -> {
+                            playQueued(payload, voiceVolume, started,
+                                    generation);
+                            return null;
+                        });
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                    } catch (RuntimeException failure) {
+                        throw failure;
+                    } catch (Exception failure) {
+                        throw new CompletionException(failure);
+                    }
+                },
                 QUEUE);
     }
 

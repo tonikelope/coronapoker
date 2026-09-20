@@ -76,8 +76,18 @@ final class GdxTextToSpeechPlayback implements AutoCloseable {
                 || closed.get()) return CompletableFuture.completedFuture(false);
         String speechLanguage = "es".equalsIgnoreCase(language) ? "es" : "en";
         CompletableFuture<Boolean> result = new CompletableFuture<>();
-        worker.execute(() -> result.complete(fetchAndPlay(
-                speech, speechLanguage, playbackStarted)));
+        worker.execute(() -> {
+            boolean played = false;
+            try {
+                played = GdxSpokenAudioGate.call(() -> fetchAndPlay(
+                        speech, speechLanguage, playbackStarted));
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            } catch (Exception ignored) {
+                // Speech is best effort; the chat message remains available.
+            }
+            result.complete(played);
+        });
         return result;
     }
 

@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 14:43 (Europe/Madrid)
+Última actualización: 2026-09-20 14:56 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -35,6 +35,11 @@ Disciplina del repositorio durante la migración:
   durante confirmaciones y `PREPARANDO LA MESA`, conservando F11. Esto evita
   activar campos o acciones invisibles del lobby mientras se abre la mesa.
   Pruebas focalizadas de frontend, lobby, Ajustes y terminación: **33/33**.
+- TTS y notas de voz GDX ya comparten una exclusión serial, igual que el
+  `Audio.TTS_LOCK` de Swing: nunca hablan simultáneamente aunque mantengan sus
+  workers y cancelaciones independientes. La espera es interrumpible para que
+  cerrar la mesa no deje un audio bloqueado. Estado de mesa, chat/voz y puerta
+  compartida: **121/121** pruebas focalizadas.
 - El interruptor UPnP de Nueva timba ya no es una opción decorativa: el core
   intenta abrir el puerto TCP del anfitrión, conserva sólo la concesión creada
   por esta instancia y la libera al cerrar sin tocar mapeos preexistentes. El
@@ -62,8 +67,8 @@ Disciplina del repositorio durante la migración:
   texto, imágenes y filas de presencia; no ofrecen scroll si todo cabe ni
   permiten terminar sobre espacio vacío. Pruebas focalizadas de voz, chat,
   scroll y terminación: **32/32**.
-- JAR GDX agrupado con estos cambios: 266.310.233 bytes, SHA-256
-  `B98C1F90D895AF5A6B82E8D3802F4ADF1EF2E2C2439498A778781DAA50FAF8DA`.
+- JAR GDX agrupado con estos cambios: 266.311.676 bytes, SHA-256
+  `0D5834140EE1B768A9128AEFB660372C04C201FC9DE93E14808D440AFDAF4576`.
 - Auditadas las claves visibles de la pantalla unificada de Ajustes contra sus
   consumidores GDX directos y el adaptador `GamePresentationSettings` que usa
   el crupier: no queda detectado ningún control mostrado que se limite a

@@ -40,6 +40,14 @@ final class GdxGameTextTest {
                 text.translate("gdx.settings.unsaved.title"));
         assertEquals("Waiting room", text.translate("gdx.lobby.title"));
         assertEquals("Room closed", text.translate("gdx.lobby.closed"));
+        assertEquals("UPnP active",
+                GdxFrontendScreen.lobbyNetworkStatusText(
+                        "UPNP_OK", text));
+        assertEquals("UPnP unavailable",
+                GdxFrontendScreen.lobbyNetworkStatusText(
+                        "UPNP_ERROR", text));
+        assertEquals("", GdxFrontendScreen.lobbyNetworkStatusText(
+                "", text));
         assertEquals("Paste an image or GIF URL",
                 text.translate("gdx.lobby.image_url_placeholder"));
         assertEquals("Page 2 / 58",

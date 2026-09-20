@@ -192,6 +192,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private volatile String password;
         private volatile ServerSocket serverSocket;
         private volatile UpnpPortMapping upnpMapping;
+        private volatile String networkStatusDetail = "";
         private volatile Connection serverConnection;
         private volatile LobbySession session;
         private String serverNickname;
@@ -248,6 +249,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                             new Object[]{port, attempt.status()});
                 }
             }
+            transport.networkStatusDetail = initialDetail;
             transport.peers.put(transport.localNickname,
                     Peer.local(transport.localNickname, request.connection().avatar(), true,
                             identity.publicKey(), identity.signJoin(sessionId)));
@@ -1205,6 +1207,11 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         }
 
         private synchronized LobbySnapshot snapshot(LobbySnapshot.Phase phase, String detail) {
+            String effectiveDetail = detail;
+            if ((effectiveDetail == null || effectiveDetail.isBlank())
+                    && phase == LobbySnapshot.Phase.WAITING_FOR_PLAYERS) {
+                effectiveDetail = networkStatusDetail;
+            }
             List<LobbyParticipant> participants = peers.values().stream().map(peer ->
                     new LobbyParticipant(peer.nickname, peer.avatar, peer.local, peer.host,
                             peer.bot, peer.connected(), false, peer.secure,
@@ -1213,7 +1220,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                             peer.connection == null ? LobbyParticipant.NO_LATENCY
                                     : peer.connection.secondaryLatency(),
                             peer.identityPublicKey)).toList();
-            return new LobbySnapshot(localNickname, serverNickname, endpoint, host, phase, detail,
+            return new LobbySnapshot(localNickname, serverNickname, endpoint,
+                    host, phase, effectiveDetail == null ? "" : effectiveDetail,
                     participants, List.copyOf(chat), tableSettings, recovering, chatNotifications);
         }
 

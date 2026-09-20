@@ -895,6 +895,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 uppercase(gameText.translate("game.timba")));
         text(tinyFont, uppercase(gameText.translate("ui.servidor")),
                 70f, 748f, MUTED, false);
+        if (state.host()) {
+            String networkStatus = lobbyNetworkStatusText(
+                    state.statusDetail(), gameText);
+            if (!networkStatus.isBlank()) {
+                textFit(tinyFont, uppercase(networkStatus), 320f, 748f,
+                        "UPNP_OK".equals(state.statusDetail())
+                                ? new Color(0x65e89fff) : ORANGE,
+                        true, 210f);
+            }
+        }
         textFit(smallFont, state.serverAddress(), 70f, 718f,
                 Color.WHITE, false, 360f);
         drawLobbyGameInfo(state, 70f, state.host() ? 605f : 645f);
@@ -1471,6 +1481,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     ? gameText.translate("gdx.lobby.error")
                     : state.statusDetail();
             case CLOSED -> gameText.translate("gdx.lobby.closed");
+        };
+    }
+
+    static String lobbyNetworkStatusText(String statusDetail,
+            GdxGameText text) {
+        if (statusDetail == null || statusDetail.isBlank()) return "";
+        return switch (statusDetail) {
+            case "UPNP_OK" -> text.translate("gdx.lobby.upnp_ok");
+            case "UPNP_ERROR" -> text.translate("gdx.lobby.upnp_error");
+            default -> statusDetail;
         };
     }
 

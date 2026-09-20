@@ -694,6 +694,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private int quickChatHistoryIndex;
     private String quickChatPendingDraft = "";
     private boolean quickChatAutoClose = true;
+    private float quickChatScroll;
+    private float quickChatScrollMaximum;
+    private boolean quickChatScrollDragging;
+    private int quickChatMessageCount;
     private volatile GdxVoiceRecorder voiceRecorder;
     private boolean voiceOpening;
     private boolean voiceLive;
@@ -1067,6 +1071,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     return true;
                 }
             }
+            if (uiLayer == UI_CHAT && !chatImageMode && amountY != 0f) {
+                pointer.set(Gdx.input.getX(), Gdx.input.getY());
+                viewport.unproject(pointer);
+                if (quickChatHistoryBounds().contains(pointer)) {
+                    quickChatScroll = quickChatPixelScrollAfterWheel(
+                            quickChatScroll, quickChatScrollMaximum, amountY);
+                    return true;
+                }
+            }
             if (uiLayer != UI_GAME_LOG || amountY == 0f) return false;
             gameLogScroll = anchoredScrollAfterWheel(gameLogScroll,
                     gameLogMaximumScroll(), amountY);
@@ -1096,6 +1109,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     && button == Input.Buttons.LEFT && !chatEditMenuOpen) {
                 pointer.set(screenX, screenY);
                 viewport.unproject(pointer);
+                if (!chatImageMode
+                        && quickChatScrollTrackContains(pointer.x, pointer.y)) {
+                    quickChatScrollDragging = true;
+                    updateQuickChatScrollFromTrack(pointer.y);
+                    return true;
+                }
                 Rectangle input = tableChatInputBounds();
                 if (input.contains(pointer)) {
                     chatEdit.focus("tableChat", chatDraft);
@@ -1152,6 +1171,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 placeTableChatCaret(pointer.x, true);
                 return true;
             }
+            if (quickChatScrollDragging) {
+                updateQuickChatScrollFromTrack(pointer.y);
+                return true;
+            }
             if (gameLogScrollDragging) {
                 updateGameLogScrollFromTrack(pointer.y);
                 return true;
@@ -1173,6 +1196,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 int button) {
             if (activeDialog != null && !activeDialog.isAutoAction()) {
                 chatPointerSelectionDragging = false;
+                quickChatScrollDragging = false;
                 gameLogScrollDragging = false;
                 settingsDebugScrollDragging = false;
                 gameLogSelectionDragging = false;
@@ -1181,6 +1205,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             if (chatPointerSelectionDragging) {
                 chatPointerSelectionDragging = false;
+                return true;
+            }
+            if (quickChatScrollDragging) {
+                quickChatScrollDragging = false;
                 return true;
             }
             if (button == Input.Buttons.LEFT && feltClickCandidate) {
@@ -4454,6 +4482,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         emojiPickerOpen = false;
         quickChatHistoryIndex = quickChatHistory.size();
         quickChatPendingDraft = chatDraft;
+        quickChatScroll = 0f;
+        quickChatScrollMaximum = 0f;
+        quickChatMessageCount = visibleTableChatMessages().size();
         chatEdit.focus("tableChat", chatDraft);
         chatEdit.end(chatDraft, false);
         openUiLayer(UI_CHAT);
@@ -9847,6 +9878,28 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return Math.round(ratio * maximum);
     }
 
+    static float quickChatMaximumPixelScroll(int messageCount,
+            float viewportHeight) {
+        return Math.max(0f, messageCount * 30f
+                - Math.max(0f, viewportHeight));
+    }
+
+    static float quickChatPixelScrollAfterWheel(float current, float maximum,
+            float amountY) {
+        return MathUtils.clamp(current - amountY * 36f, 0f,
+                Math.max(0f, maximum));
+    }
+
+    static float quickChatPixelScrollFromTrack(float pointerY, float trackY,
+            float trackHeight, float thumbHeight, float maximum) {
+        if (maximum <= 0f) return 0f;
+        float travel = Math.max(1f, trackHeight - thumbHeight);
+        float ratio = MathUtils.clamp(
+                (pointerY - trackY - thumbHeight / 2f) / travel,
+                0f, 1f);
+        return ratio * maximum;
+    }
+
     private void openUiLayer(int layer) {
         uiLayer = layer;
         if (layer != UI_CHAT) chatEditMenuOpen = false;
@@ -10768,6 +10821,38 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float panelY = (height - panelH) / 2f;
         return new Rectangle(panelX + 34f, panelY + 34f,
                 panelW - 416f, 60f);
+    }
+
+    private Rectangle quickChatHistoryBounds() {
+        float panelX = 18f;
+        float panelY = 18f;
+        return new Rectangle(panelX + 14f, panelY + 100f,
+                quickChatWidth() - 28f, quickChatHeight() - 114f);
+    }
+
+    private boolean quickChatScrollTrackContains(float x, float y) {
+        if (quickChatScrollMaximum <= 0f) return false;
+        Rectangle history = quickChatHistoryBounds();
+        return contains(x, y, history.x + history.width - 26f,
+                history.y + 8f, 24f, history.height - 16f);
+    }
+
+    private float quickChatScrollThumbHeight(float trackHeight) {
+        float viewportHeight = Math.max(0f,
+                quickChatHistoryBounds().height - 16f);
+        float contentHeight = viewportHeight + quickChatScrollMaximum;
+        return quickChatScrollMaximum <= 0f ? trackHeight
+                : Math.max(34f, trackHeight * viewportHeight
+                        / Math.max(1f, contentHeight));
+    }
+
+    private void updateQuickChatScrollFromTrack(float y) {
+        Rectangle history = quickChatHistoryBounds();
+        float trackY = history.y + 8f;
+        float trackHeight = history.height - 16f;
+        quickChatScroll = quickChatPixelScrollFromTrack(y, trackY,
+                trackHeight, quickChatScrollThumbHeight(trackHeight),
+                quickChatScrollMaximum);
     }
 
     private void openTableChatEditMenu(float x, float y) {
@@ -13395,8 +13480,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float historyH = panelH - 114f;
         float inputY = panelY + 14f;
         List<LobbyChatMessage> messages = visibleTableChatMessages();
-        int rowCount = Math.max(1, (int) ((historyH - 18f) / 30f));
-        int first = Math.max(0, messages.size() - rowCount);
+        float historyViewportH = Math.max(0f, historyH - 16f);
+        quickChatScrollMaximum = quickChatMaximumPixelScroll(messages.size(),
+                historyViewportH);
+        if (messages.size() > quickChatMessageCount && quickChatScroll > 0f) {
+            quickChatScroll += (messages.size() - quickChatMessageCount) * 30f;
+        }
+        quickChatMessageCount = messages.size();
+        quickChatScroll = MathUtils.clamp(quickChatScroll, 0f,
+                quickChatScrollMaximum);
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -13430,8 +13522,34 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.setColor(Color.WHITE);
         shapes.circle(quickChatAutoClose ? switchX + 28f : switchX + 10f,
                 switchY + 10f, 7f, 24);
+        if (quickChatScrollMaximum > 0f) {
+            float trackY = historyY + 8f;
+            float trackH = historyH - 16f;
+            float thumbH = quickChatScrollThumbHeight(trackH);
+            float thumbTravel = Math.max(1f, trackH - thumbH);
+            float thumbY = trackY + thumbTravel * quickChatScroll
+                    / quickChatScrollMaximum;
+            shapes.setColor(0.08f, 0.14f, 0.24f, 0.96f * alpha);
+            roundedRect(historyX + historyW - 20f, trackY,
+                    14f, trackH, 7f);
+            shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.96f * alpha);
+            roundedRect(historyX + historyW - 20f, thumbY,
+                    14f, thumbH, 7f);
+        }
         shapes.end();
 
+        int screenX = Math.round(viewport.getScreenX()
+                + (historyX + 8f) * viewport.getScreenWidth()
+                / viewport.getWorldWidth());
+        int screenY = Math.round(viewport.getScreenY()
+                + (historyY + 8f) * viewport.getScreenHeight()
+                / viewport.getWorldHeight());
+        int screenWidth = Math.max(1, Math.round((historyW - 36f)
+                * viewport.getScreenWidth() / viewport.getWorldWidth()));
+        int screenHeight = Math.max(1, Math.round(historyViewportH
+                * viewport.getScreenHeight() / viewport.getWorldHeight()));
+        Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
+        Gdx.gl.glScissor(screenX, screenY, screenWidth, screenHeight);
         batch.begin();
         if (messages.isEmpty()) {
             drawFittedCenteredInBox(smallFont, uppercase(gameText.translate(
@@ -13439,15 +13557,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     historyX + 12f, historyY + historyH / 2f - 14f,
                     historyW - 24f, 28f, Color.GRAY, alpha);
         } else {
-            float baseline = historyY + historyH - 18f;
-            for (int line = first; line < messages.size(); line++) {
+            float contentBottom = quickChatScrollMaximum > 0f
+                    ? historyY + 8f + quickChatScroll
+                    : historyY + 8f + historyViewportH
+                            - messages.size() * 30f;
+            for (int line = 0; line < messages.size(); line++) {
+                float rowY = contentBottom
+                        + (messages.size() - 1 - line) * 30f;
+                if (rowY + 30f < historyY + 8f
+                        || rowY > historyY + historyH - 8f) continue;
                 LobbyChatMessage message = messages.get(line);
                 String text = quickChatHistoryText(message, gameText);
                 drawLeftInBox(smallFont, text, historyX + 12f,
-                        baseline - (line - first) * 30f - 22f,
-                        historyW - 24f, 28f, Color.WHITE, alpha);
+                        rowY, historyW - 50f, 28f, Color.WHITE, alpha);
             }
         }
+        batch.end();
+        Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+
+        batch.begin();
         drawLeftInBox(smallFont, uppercase(gameText.translate(
                 "gdx.table.chat.close_on_send")),
                 panelX + 18f, panelY + 58f,

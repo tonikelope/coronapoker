@@ -1024,6 +1024,22 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void quickChatScrollMovesByPixelsAndMapsTheWholeDragTrack() {
+        assertEquals(180f, CoronaPokerGdxTable
+                .quickChatMaximumPixelScroll(10, 120f));
+        assertEquals(36f, CoronaPokerGdxTable
+                .quickChatPixelScrollAfterWheel(0f, 180f, -1f));
+        assertEquals(0f, CoronaPokerGdxTable
+                .quickChatPixelScrollAfterWheel(12f, 180f, 1f));
+        assertEquals(0f, CoronaPokerGdxTable.quickChatPixelScrollFromTrack(
+                20f, 20f, 200f, 40f, 180f));
+        assertEquals(90f, CoronaPokerGdxTable.quickChatPixelScrollFromTrack(
+                120f, 20f, 200f, 40f, 180f));
+        assertEquals(180f, CoronaPokerGdxTable.quickChatPixelScrollFromTrack(
+                220f, 20f, 200f, 40f, 180f));
+    }
+
+    @Test
     void gameLogKeepsSwingStyleAmountsAndRanksInsteadOfFlatWhiteText() {
         List<GdxGameLogFormatter.Run> runs = GdxGameLogFormatter
                 .runs("CoronaBot$3 SUBE (+0,50) -> Pareja");

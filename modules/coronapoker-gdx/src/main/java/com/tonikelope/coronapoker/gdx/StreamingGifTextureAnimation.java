@@ -56,25 +56,50 @@ final class StreamingGifTextureAnimation implements Disposable {
     private volatile Throwable failure;
     private volatile int decodedWidth;
     private volatile int decodedHeight;
+    private final boolean looping;
+    private final long[] frameEndMs;
+    private final long durationMs;
     private Texture texture;
     private int textureWidth;
     private int textureHeight;
 
     private StreamingGifTextureAnimation(DataSource source, String label,
             int maxWidth) {
+        this(source, label, maxWidth, false, null);
+    }
+
+    private StreamingGifTextureAnimation(DataSource source, String label,
+            int maxWidth, boolean looping, GifTiming timing) {
+        this.looping = looping;
+        frameEndMs = timing == null ? null : timing.frameEndMs();
+        durationMs = timing == null ? 0L : timing.durationMs();
+        if (timing != null) {
+            decodedWidth = timing.width();
+            decodedHeight = timing.height();
+        }
         decoderThread = new Thread(() -> {
             try {
                 byte[] data = source.read();
-                decode(data, label, maxWidth, frame -> {
-                    if (disposed) return;
-                    decodedWidth = frame.width();
-                    decodedHeight = frame.height();
-                    try {
-                        decoded.put(frame);
-                    } catch (InterruptedException interrupted) {
-                        Thread.currentThread().interrupt();
-                    }
-                }, () -> disposed || Thread.currentThread().isInterrupted());
+                long cycleOffset = 0L;
+                do {
+                    long currentOffset = cycleOffset;
+                    decode(data, label, maxWidth, frame -> {
+                        if (disposed) return;
+                        decodedWidth = frame.width();
+                        decodedHeight = frame.height();
+                        try {
+                            decoded.put(new CpuFrame(frame.width(),
+                                    frame.height(),
+                                    frame.startMs() + currentOffset,
+                                    frame.rgba()));
+                        } catch (InterruptedException interrupted) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }, () -> disposed
+                            || Thread.currentThread().isInterrupted());
+                    cycleOffset += durationMs;
+                } while (looping && durationMs > 0L && !disposed
+                        && !Thread.currentThread().isInterrupted());
             } catch (Throwable problem) {
                 if (!disposed) failure = problem;
             }
@@ -109,6 +134,36 @@ final class StreamingGifTextureAnimation implements Disposable {
                 () -> Files.readAllBytes(path), path.toString(), maxWidth);
     }
 
+    /**
+     * Opens a memory-bounded animation whose frame timeline repeats exactly as
+     * the source GIF. Metadata is inspected synchronously, but pixel decoding
+     * and scaling remain on the decoder thread.
+     */
+    static StreamingGifTextureAnimation loadLooping(String path, int maxWidth)
+            throws IOException {
+        Objects.requireNonNull(path, "path");
+        if (maxWidth <= 0) throw new IllegalArgumentException("maxWidth <= 0");
+        FileHandle handle = Gdx.files.internal(path);
+        if (!handle.exists()) throw new IOException("Missing GIF " + path);
+        byte[] data = handle.readBytes();
+        GifTiming timing = inspect(data, path, maxWidth);
+        return new StreamingGifTextureAnimation(() -> data, path, maxWidth,
+                true, timing);
+    }
+
+    static StreamingGifTextureAnimation loadLooping(Path path, int maxWidth)
+            throws IOException {
+        Objects.requireNonNull(path, "path");
+        if (maxWidth <= 0) throw new IllegalArgumentException("maxWidth <= 0");
+        if (!Files.isRegularFile(path)) {
+            throw new IOException("Missing external GIF " + path);
+        }
+        byte[] data = Files.readAllBytes(path);
+        GifTiming timing = inspect(data, path.toString(), maxWidth);
+        return new StreamingGifTextureAnimation(() -> data, path.toString(),
+                maxWidth, true, timing);
+    }
+
     /** Returns the current frame, or {@code null} while the first one decodes. */
     Texture frameAt(float elapsedSeconds) {
         if (disposed) return null;
@@ -139,6 +194,17 @@ final class StreamingGifTextureAnimation implements Disposable {
 
     int height() {
         return decodedHeight;
+    }
+
+    float durationSeconds() {
+        return durationMs / 1000f;
+    }
+
+    float frameStartSeconds(int oneBasedFrame) {
+        if (frameEndMs == null || oneBasedFrame <= 1) return 0f;
+        int previousFrame = Math.min(oneBasedFrame - 2,
+                frameEndMs.length - 1);
+        return frameEndMs[previousFrame] / 1000f;
     }
 
     private void upload(CpuFrame frame) {
@@ -279,6 +345,60 @@ final class StreamingGifTextureAnimation implements Disposable {
         }
     }
 
+    static GifTiming inspect(byte[] data, String label, int maxWidth)
+            throws IOException {
+        try (ByteArrayInputStream input = new ByteArrayInputStream(data);
+                ImageInputStream imageInput =
+                        ImageIO.createImageInputStream(input)) {
+            Iterator<ImageReader> readers =
+                    ImageIO.getImageReadersByFormatName("gif");
+            if (!readers.hasNext()) throw new IOException("No GIF reader available");
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(imageInput, false, false);
+                int count = reader.getNumImages(true);
+                if (count <= 0) throw new IOException("GIF without frames: " + label);
+                int logicalWidth = 0;
+                int logicalHeight = 0;
+                IIOMetadata streamMetadata = reader.getStreamMetadata();
+                if (streamMetadata != null) {
+                    Node root = streamMetadata.getAsTree(
+                            "javax_imageio_gif_stream_1.0");
+                    for (Node child = root.getFirstChild(); child != null;
+                            child = child.getNextSibling()) {
+                        if ("LogicalScreenDescriptor".equals(
+                                child.getNodeName())) {
+                            logicalWidth = intAttribute(child,
+                                    "logicalScreenWidth", 0);
+                            logicalHeight = intAttribute(child,
+                                    "logicalScreenHeight", 0);
+                        }
+                    }
+                }
+                if (logicalWidth <= 0 || logicalHeight <= 0) {
+                    logicalWidth = reader.getWidth(0);
+                    logicalHeight = reader.getHeight(0);
+                }
+                float scale = Math.min(1f, maxWidth / (float) logicalWidth);
+                int outputWidth = Math.max(1,
+                        Math.round(logicalWidth * scale));
+                int outputHeight = Math.max(1,
+                        Math.round(logicalHeight * scale));
+                long elapsed = 0L;
+                long[] frameEnds = new long[count];
+                for (int frame = 0; frame < count; frame++) {
+                    elapsed += readFrameMetadata(
+                            reader.getImageMetadata(frame)).delayMs();
+                    frameEnds[frame] = elapsed;
+                }
+                return new GifTiming(outputWidth, outputHeight, frameEnds,
+                        elapsed);
+            } finally {
+                reader.dispose();
+            }
+        }
+    }
+
     private static BufferedImage scale(BufferedImage source, int width,
             int height) {
         if (source.getWidth() == width && source.getHeight() == height) {
@@ -383,6 +503,10 @@ final class StreamingGifTextureAnimation implements Disposable {
 
     private record FrameMetadata(int left, int top, long delayMs,
             String disposal) {
+    }
+
+    record GifTiming(int width, int height, long[] frameEndMs,
+            long durationMs) {
     }
 
     record CpuFrame(int width, int height, long startMs, byte[] rgba) {

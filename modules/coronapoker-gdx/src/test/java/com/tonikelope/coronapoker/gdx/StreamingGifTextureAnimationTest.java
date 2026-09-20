@@ -53,6 +53,28 @@ class StreamingGifTextureAnimationTest {
                 "the incremental decoder must composite visible GIF frames");
     }
 
+    @Test
+    void shuffleMetadataPreservesCanonicalLoopAndAudioCutoff()
+            throws Exception {
+        byte[] data;
+        try (InputStream input = getClass().getResourceAsStream(
+                "/images/decks/goliat/gif/shuffle.gif")) {
+            assertTrue(input != null, "packaged Goliat shuffle GIF");
+            data = input.readAllBytes();
+        }
+
+        StreamingGifTextureAnimation.GifTiming timing =
+                StreamingGifTextureAnimation.inspect(data,
+                        "shuffle.gif", 960);
+
+        assertEquals(960, timing.width());
+        assertEquals(540, timing.height());
+        assertEquals(86, timing.frameEndMs().length);
+        assertEquals(1_720L, timing.durationMs());
+        assertEquals(1_040L, timing.frameEndMs()[51],
+                "frame 53 starts after frame 52");
+    }
+
     private static boolean hasVisiblePixel(
             StreamingGifTextureAnimation.CpuFrame frame) {
         int pixelStride = Math.max(1,

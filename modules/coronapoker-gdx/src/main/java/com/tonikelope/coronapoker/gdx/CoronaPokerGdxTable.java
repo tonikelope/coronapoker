@@ -722,7 +722,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Texture[] introCardFaces;
     private Texture[] flyingChips;
     private Texture pot;
-    private GifTextureAnimation defaultShuffleGif;
     private StreamingGifTextureAnimation gameOverAnimation;
     private GdxTableDialog gameOverAnimationDialog;
     private boolean gameOverAnimationFailureReported;
@@ -781,7 +780,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float statsClock;
     private float monitorRefreshPollClock;
     private String activeMonitorName = "";
-    private float shuffleAudioStopTime;
     private float shuffleSoundDurationSeconds;
     private long shuffleSoundId = -1L;
     private int frameCursor;
@@ -811,7 +809,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private String liveShowdownHoverNickname;
     private final Map<String, Texture> liveCardFaces = new HashMap<>();
     private final Map<String, Texture> liveCardBacks = new HashMap<>();
-    private final Map<String, GifTextureAnimation> liveShuffleGifs = new HashMap<>();
     private String liveDeck = "goliat";
     private double liveBetAmount;
     private float communityPauseX = Float.NaN;
@@ -1958,12 +1955,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             createChipTexture(new Color(0xe2a72fff), new Color(0x936312ff))
         };
         pot = texture("images/pot.png");
-        defaultShuffleGif = gif(
-                "images/decks/goliat/gif/shuffle.gif", 960);
-        shuffleAudioStopTime = defaultShuffleGif.frameStartSeconds(
-                SHUFFLE_AUDIO_STOP_FRAME);
-        System.out.printf("Shuffle audio cutoff: frame %d at %.0f ms%n",
-                SHUFFLE_AUDIO_STOP_FRAME, shuffleAudioStopTime * 1000f);
         FileHandle shuffleAudio = gameAudioResource("misc/shuffle.wav");
         shuffleSoundDurationSeconds = wavDurationSeconds(shuffleAudio,
                 SHUFFLE_AUDIO_FALLBACK_SECONDS);
@@ -2132,24 +2123,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         FileHandle bundledCinematic = Gdx.files.internal(
                 "cinematics/" + normalized);
         return bundledCinematic.exists() ? bundledCinematic : null;
-    }
-
-    private static GifTextureAnimation gif(String path, int maxWidth) {
-        try {
-            return GifTextureAnimation.load(path, maxWidth);
-        } catch (IOException ex) {
-            throw new IllegalStateException("Could not load CoronaPoker GIF " + path, ex);
-        }
-    }
-
-    private static GifTextureAnimation gif(Path path, int maxWidth) {
-        try {
-            return GifTextureAnimation.load(java.nio.file.Files.readAllBytes(path),
-                    path.toString(), maxWidth);
-        } catch (IOException ex) {
-            throw new IllegalStateException(
-                    "Could not load external CoronaPoker GIF " + path, ex);
-        }
     }
 
     private static Texture createSolidTexture(Color color) {
@@ -8068,6 +8041,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } catch (Throwable error) {
             active.finishBarrier.completeExceptionally(error);
         } finally {
+            if (active.animation != null) active.animation.dispose();
             liveShuffle = null;
         }
     }
@@ -8098,26 +8072,44 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return fallback;
     }
 
-    private GifTextureAnimation liveShuffleAnimation(String deck) {
+    private StreamingGifTextureAnimation liveShuffleAnimation(String deck) {
         String selected = availableDeck(deck);
         if ("goliat".equals(selected)) {
-            return defaultShuffleGif;
+            return loopingGif("images/decks/goliat/gif/shuffle.gif", 960);
         }
         java.util.Optional<Path> external = externalDeckAsset(selected,
                 "gif/shuffle.gif");
         if (external.isPresent()) {
-            return liveShuffleGifs.computeIfAbsent(selected,
-                    value -> gif(external.get(), 960));
+            return loopingGif(external.get(), 960);
         }
         if (GdxGamePresentationSettings.OFFICIAL_DECKS.contains(selected)) {
-            return liveShuffleGifs.computeIfAbsent(selected,
-                    value -> gif("images/decks/" + value
-                            + "/gif/shuffle.gif", 960));
+            return loopingGif("images/decks/" + selected
+                    + "/gif/shuffle.gif", 960);
         }
         // Swing also permits a mod deck without its own shuffle animation.
         // In that case retain the canonical Goliat shuffle rather than trying
         // to resolve a non-existent classpath resource.
-        return defaultShuffleGif;
+        return loopingGif("images/decks/goliat/gif/shuffle.gif", 960);
+    }
+
+    private static StreamingGifTextureAnimation loopingGif(String path,
+            int maxWidth) {
+        try {
+            return StreamingGifTextureAnimation.loadLooping(path, maxWidth);
+        } catch (IOException ex) {
+            throw new IllegalStateException(
+                    "Could not load CoronaPoker GIF " + path, ex);
+        }
+    }
+
+    private static StreamingGifTextureAnimation loopingGif(Path path,
+            int maxWidth) {
+        try {
+            return StreamingGifTextureAnimation.loadLooping(path, maxWidth);
+        } catch (IOException ex) {
+            throw new IllegalStateException(
+                    "Could not load external CoronaPoker GIF " + path, ex);
+        }
     }
 
     private StreamingGifTextureAnimation allInAnimation(String filename) {
@@ -8707,11 +8699,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 / Gdx.graphics.getBackBufferHeight();
         float x = tableCenterX - width / 2f;
         float y = tableCenterY - height / 2f;
-        batch.begin();
-        batch.setColor(Color.WHITE);
-        batch.draw(active.animation.frameAt(active.elapsedSeconds(), true),
-                x, y, width, height);
-        batch.end();
+        Texture frame = active.animation.frameAt(active.elapsedSeconds());
+        if (frame != null) {
+            batch.begin();
+            batch.setColor(Color.WHITE);
+            batch.draw(frame, x, y, width, height);
+            batch.end();
+        }
     }
 
     private void drawLiveCinematicOverlay() {
@@ -14423,11 +14417,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             texture.dispose();
         }
         liveCardBacks.clear();
-        defaultShuffleGif.dispose();
-        for (GifTextureAnimation shuffleGif : liveShuffleGifs.values()) {
-            shuffleGif.dispose();
+        if (liveShuffle != null) {
+            if (liveShuffle.animation != null) {
+                liveShuffle.animation.dispose();
+            }
+            liveShuffle = null;
         }
-        liveShuffleGifs.clear();
         if (liveCinematic != null) {
             liveCinematic.animation.dispose();
             liveCinematic = null;
@@ -14827,7 +14822,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private final class LiveShuffle {
 
-        final GifTextureAnimation animation;
+        final StreamingGifTextureAnimation animation;
         final long startedAtNanos;
         final boolean animationEnabled;
         final boolean soundEnabled;
@@ -14841,16 +14836,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         LiveShuffle(String deck, long startedAtNanos,
                 boolean animationEnabled, boolean soundEnabled) {
-            animation = liveShuffleAnimation(deck);
             this.startedAtNanos = startedAtNanos;
             this.animationEnabled = animationEnabled;
             this.soundEnabled = soundEnabled;
+            animation = animationEnabled ? liveShuffleAnimation(deck) : null;
             cycleSeconds = animationEnabled
                     ? animation.durationSeconds()
                     : soundEnabled ? shuffleSoundDurationSeconds
                             : SHUFFLE_TEXT_CYCLE_SECONDS;
             soundStopSeconds = animationEnabled
-                    ? shuffleAudioStopTime : cycleSeconds;
+                    ? animation.frameStartSeconds(SHUFFLE_AUDIO_STOP_FRAME)
+                            : cycleSeconds;
+            if (animationEnabled) {
+                System.out.printf(
+                        "Shuffle stream: %dx%d | %.0f ms | audio cutoff %.0f ms%n",
+                        animation.width(), animation.height(),
+                        cycleSeconds * 1000f, soundStopSeconds * 1000f);
+            }
         }
 
         float elapsedSeconds() {

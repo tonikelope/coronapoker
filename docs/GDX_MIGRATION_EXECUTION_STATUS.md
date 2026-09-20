@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 15:28 (Europe/Madrid)
+Última actualización: 2026-09-20 15:52 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,17 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19/20
 
+- Eliminado el pico principal medido al abrir la mesa: el GIF canónico de
+  barajado ya no crea de golpe 86 texturas de 960x540 durante
+  `CoronaPokerGdxTable.create()`. Usa el reproductor acotado a una textura,
+  decodifica fuera del hilo gráfico y mantiene bucle, 1.720 ms de duración y
+  el corte de audio del fotograma 53 en 1.040 ms. ALL-IN y GAME OVER ya usaban
+  esta familia de streaming. Los GIF de chat/galería conservan por ahora su
+  caché de acceso aleatorio reducida (240/320/360 px); queda auditarlos por
+  visibilidad antes de cambiar su modelo, porque scroll e historial no tienen
+  el mismo ciclo de vida que una cinemática. Temporización, decodificación y
+  control de audio: **6/6** pruebas focalizadas. Falta confirmar visualmente el
+  primer fotograma y el bucle en OpenGL real.
 - Blindado el traspaso musical lobby/mesa tras retirar la primera solución
   progresiva regresiva: desde `suspendForTable()` ninguna sincronización por
   superficie puede volver a iniciar las pistas de menú, sala o Acerca de hasta
@@ -76,9 +87,10 @@ Disciplina del repositorio durante la migración:
   texto, imágenes y filas de presencia; no ofrecen scroll si todo cabe ni
   permiten terminar sobre espacio vacío. Pruebas focalizadas de voz, chat,
   scroll y terminación: **32/32**.
-- JAR GDX estable con el handoff musical blindado: 266.311.851 bytes,
+- JAR GDX actual con handoff musical blindado y barajado en streaming:
+  266.314.338 bytes,
   SHA-256
-  `88C6DFCB814C6C66E10CCACB37B9D3B846C65ECDFC05A3F473241790AC81CA51`.
+  `87DFC310632241907314E525F1A60F3531CFFE348758E4689FF221D6072BE979`.
 - Auditadas las claves visibles de la pantalla unificada de Ajustes contra sus
   consumidores GDX directos y el adaptador `GamePresentationSettings` que usa
   el crupier: no queda detectado ningún control mostrado que se limite a

@@ -6,6 +6,8 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GdxLobbyRosterChangeTest {
 
@@ -29,7 +31,29 @@ class GdxLobbyRosterChangeTest {
                         withFirstBot));
     }
 
+    @Test
+    void tableTransitionLocksBothLocalHostAndRemoteClient() {
+        LobbySnapshot waiting = snapshot(LobbySnapshot.Phase.WAITING_FOR_PLAYERS);
+        LobbySnapshot initializing = snapshot(
+                LobbySnapshot.Phase.INITIALIZING_GAME);
+        LobbySnapshot inGame = snapshot(LobbySnapshot.Phase.IN_GAME);
+
+        assertFalse(GdxFrontendScreen.lobbyTableTransitionActive(false,
+                waiting));
+        assertTrue(GdxFrontendScreen.lobbyTableTransitionActive(true,
+                waiting));
+        assertTrue(GdxFrontendScreen.lobbyTableTransitionActive(false,
+                initializing));
+        assertTrue(GdxFrontendScreen.lobbyTableTransitionActive(false,
+                inGame));
+    }
+
     private static LobbySnapshot snapshot(LobbyParticipant... remote) {
+        return snapshot(LobbySnapshot.Phase.WAITING_FOR_PLAYERS, remote);
+    }
+
+    private static LobbySnapshot snapshot(LobbySnapshot.Phase phase,
+            LobbyParticipant... remote) {
         var participants = new java.util.ArrayList<LobbyParticipant>();
         participants.add(new LobbyParticipant("server", null, true, true,
                 false, true, false, true,
@@ -37,7 +61,7 @@ class GdxLobbyRosterChangeTest {
                 LobbyParticipant.NO_LATENCY));
         participants.addAll(List.of(remote));
         return new LobbySnapshot("server", "server", "localhost:2345", true,
-                LobbySnapshot.Phase.WAITING_FOR_PLAYERS, "", participants,
+                phase, "", participants,
                 List.of(), null, false, true);
     }
 

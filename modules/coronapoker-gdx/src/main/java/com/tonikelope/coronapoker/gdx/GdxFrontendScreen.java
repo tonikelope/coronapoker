@@ -523,7 +523,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && presetDialog == PresetDialog.NONE
                 && blindStructureDialog == BlindStructureDialog.NONE
                 && !settingsDiscardConfirmation
-                && !lobbyGameStarting) {
+                && !lobbyTableTransitionActive(lobbyGameStarting, lobby)) {
             drawEditMenu();
         }
         shapes.end();
@@ -561,7 +561,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if ((surface == Surface.MENU && (aboutOpen || updatePromptOpen))
                 || (surface == Surface.LOBBY
                 && (lobbyConfirmation != null || lobbyPasswordDialog
-                        || lobbyGameStarting || fingerprintDialog != null))
+                        || lobbyTableTransitionActive(lobbyGameStarting, lobby)
+                        || fingerprintDialog != null))
                 || (surface == Surface.SETTINGS
                 && (settingsDiscardConfirmation
                         || blindStructureDialog
@@ -737,6 +738,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     record LobbyRosterChange(boolean joined, boolean left) {
+    }
+
+    static boolean lobbyTableTransitionActive(boolean locallyStarting,
+            LobbySnapshot state) {
+        return locallyStarting || state != null && state.startingOrStarted();
     }
 
     void showSessionError(String detail) {
@@ -6156,7 +6162,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
         pressedHit = null;
-        if (surface == Surface.LOBBY && lobbyGameStarting) return true;
+        if (surface == Surface.LOBBY
+                && lobbyTableTransitionActive(lobbyGameStarting, lobby)) {
+            return true;
+        }
         if (button == Input.Buttons.LEFT
                 && beginScrollDrag(pointer.x, pointer.y)) {
             return true;
@@ -6232,7 +6241,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Hit released = pressedHit;
         pressedHit = null;
         pointerSelectionField = null;
-        if (surface == Surface.LOBBY && lobbyGameStarting) return true;
+        if (surface == Surface.LOBBY
+                && lobbyTableTransitionActive(lobbyGameStarting, lobby)) {
+            return true;
+        }
         if (scrollDrag != ScrollDrag.NONE) {
             scrollDrag = ScrollDrag.NONE;
             return true;
@@ -6319,7 +6331,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // Table creation owns this frontend until it either succeeds or
         // restores the lobby.  F11 above remains available, but no hidden
         // lobby field/action may be triggered through the loading overlay.
-        if (surface == Surface.LOBBY && lobbyGameStarting) {
+        if (surface == Surface.LOBBY
+                && lobbyTableTransitionActive(lobbyGameStarting, lobby)) {
             return true;
         }
         if (keycode == Input.Keys.ESCAPE) {

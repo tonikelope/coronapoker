@@ -1591,6 +1591,11 @@ interactiva multiproceso y pulido de estados visibles.
 
 ### P1.6 — Lobby completo
 
+- HECHO en código y prueba focalizada: el bloqueo opaco de preparación de
+  mesa ya nace tanto de la orden local del host como de las fases compartidas
+  `INITIALIZING_GAME`/`IN_GAME`. Por tanto, los clientes remotos tampoco pueden
+  seguir accionando controles invisibles de la sala mientras reciben la mesa.
+
 - Permisos y acciones reales de host/cliente.
 - Añadir y eliminar bots/jugadores.
 - Avatares e indicadores de latencia.

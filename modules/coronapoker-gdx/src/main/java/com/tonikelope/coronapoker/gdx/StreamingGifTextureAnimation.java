@@ -151,6 +151,16 @@ final class StreamingGifTextureAnimation implements Disposable {
                 true, timing);
     }
 
+    static StreamingGifTextureAnimation loadLooping(byte[] data, String label,
+            int maxWidth) throws IOException {
+        Objects.requireNonNull(data, "data");
+        Objects.requireNonNull(label, "label");
+        if (maxWidth <= 0) throw new IllegalArgumentException("maxWidth <= 0");
+        GifTiming timing = inspect(data, label, maxWidth);
+        return new StreamingGifTextureAnimation(() -> data, label, maxWidth,
+                true, timing);
+    }
+
     static StreamingGifTextureAnimation loadLooping(Path path, int maxWidth)
             throws IOException {
         Objects.requireNonNull(path, "path");

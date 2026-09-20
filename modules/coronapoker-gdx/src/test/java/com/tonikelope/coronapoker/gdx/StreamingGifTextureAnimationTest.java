@@ -75,6 +75,28 @@ class StreamingGifTextureAnimationTest {
                 "frame 53 starts after frame 52");
     }
 
+    @Test
+    void downloadedGifCanPrepareItsLoopAwayFromTheRenderThread()
+            throws Exception {
+        byte[] data;
+        try (InputStream input = getClass().getResourceAsStream(
+                "/cinematics/misc/game_over.gif")) {
+            assertTrue(input != null, "packaged GIF fixture");
+            data = input.readAllBytes();
+        }
+
+        StreamingGifTextureAnimation animation =
+                StreamingGifTextureAnimation.loadLooping(
+                        data, "chat-fixture.gif", 360);
+        try {
+            assertEquals(360, animation.width());
+            assertTrue(animation.height() > 0);
+            assertTrue(animation.durationSeconds() > 0f);
+        } finally {
+            animation.dispose();
+        }
+    }
+
     private static boolean hasVisiblePixel(
             StreamingGifTextureAnimation.CpuFrame frame) {
         int pixelStride = Math.max(1,

@@ -5928,21 +5928,42 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void loadSeatChatImage(String nickname, SeatChatNotice notice) {
-        CompletableFuture.supplyAsync(() -> GdxChatImageLoader.download(notice.content))
-                .whenComplete((data, failure) -> Gdx.app.postRunnable(() -> {
-                    if (disposed || seatChatNotices.get(nickname) != notice) return;
+        CompletableFuture.supplyAsync(() -> {
+            byte[] data = GdxChatImageLoader.download(notice.content);
+            try {
+                StreamingGifTextureAnimation gif =
+                        GdxChatImageLoader.isGif(data)
+                                ? StreamingGifTextureAnimation.loadLooping(
+                                        data, "chat:" + nickname, 360)
+                                : null;
+                return new PreparedSeatChatImage(data, gif);
+            } catch (IOException invalidGif) {
+                throw new java.util.concurrent.CompletionException(invalidGif);
+            }
+        }).whenComplete((prepared, failure) -> Gdx.app.postRunnable(() -> {
+                    if (disposed || seatChatNotices.get(nickname) != notice) {
+                        if (prepared != null && prepared.gif() != null) {
+                            prepared.gif().dispose();
+                        }
+                        return;
+                    }
                     notice.loading = false;
-                    if (failure != null || data == null || data.length == 0) {
+                    if (failure != null || prepared == null
+                            || prepared.data().length == 0) {
                         notice.failed = true;
                         return;
                     }
                     try {
-                        if (GdxChatImageLoader.isGif(data)) {
-                            notice.gif = GifTextureAnimation.load(data,
-                                    "chat:" + nickname, 360);
+                        if (prepared.gif() != null) {
+                            notice.gif = prepared.gif();
+                            // Download/metadata work happens asynchronously.
+                            // Start the visible loop only once it is attached
+                            // so frame zero and both authored passes are seen.
+                            notice.startedAt = totalTime;
                             notice.expiresAt = totalTime + Math.max(4f,
                                     Math.min(14f, notice.gif.durationSeconds() * 2f));
                         } else {
+                            byte[] data = prepared.data();
                             Pixmap pixmap = new Pixmap(data, 0, data.length);
                             try {
                                 notice.image = new Texture(pixmap, true);
@@ -5953,7 +5974,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             }
                             notice.expiresAt = totalTime + 6.5f;
                         }
-                    } catch (RuntimeException | IOException invalidImage) {
+                    } catch (RuntimeException invalidImage) {
                         notice.failed = true;
                     }
                 }));
@@ -6018,7 +6039,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private Texture seatChatNoticeTexture(SeatChatNotice notice) {
         if (notice.gif != null) {
-            return notice.gif.frameAt(totalTime - notice.startedAt, true);
+            Texture frame = notice.gif.frameAt(totalTime - notice.startedAt);
+            if (frame != null) return frame;
         }
         if (notice.image != null) return notice.image;
         return notice.type == LobbyChatMessage.Type.IMAGE
@@ -14533,7 +14555,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean loading = true;
         boolean failed;
         Texture image;
-        GifTextureAnimation gif;
+        StreamingGifTextureAnimation gif;
 
         SeatChatNotice(LobbyChatMessage.Type type, String content,
                 float startedAt, float expiresAt) {
@@ -14554,6 +14576,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 gif = null;
             }
         }
+    }
+
+    private record PreparedSeatChatImage(byte[] data,
+            StreamingGifTextureAnimation gif) {
     }
 
     private static final class LiveCardFlight {

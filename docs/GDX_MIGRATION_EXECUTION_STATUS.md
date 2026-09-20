@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 15:52 (Europe/Madrid)
+Última actualización: 2026-09-20 16:00 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -35,12 +35,15 @@ Disciplina del repositorio durante la migración:
   `CoronaPokerGdxTable.create()`. Usa el reproductor acotado a una textura,
   decodifica fuera del hilo gráfico y mantiene bucle, 1.720 ms de duración y
   el corte de audio del fotograma 53 en 1.040 ms. ALL-IN y GAME OVER ya usaban
-  esta familia de streaming. Los GIF de chat/galería conservan por ahora su
-  caché de acceso aleatorio reducida (240/320/360 px); queda auditarlos por
+  esta familia de streaming. Los GIF temporales enviados durante la partida
+  también preparan metadatos y píxeles fuera del hilo gráfico, reproducen dos
+  vueltas completas sobre el asiento y mantienen una sola textura; ya no
+  pueden congelar el render al recibirse. Lobby e historial conservan por ahora
+  su caché de acceso aleatorio reducida (240/320 px); queda auditarlos por
   visibilidad antes de cambiar su modelo, porque scroll e historial no tienen
-  el mismo ciclo de vida que una cinemática. Temporización, decodificación y
-  control de audio: **6/6** pruebas focalizadas. Falta confirmar visualmente el
-  primer fotograma y el bucle en OpenGL real.
+  el mismo ciclo de vida que una cinemática. GIF y chat de mesa: **15/15**
+  pruebas focalizadas; control de audio: **4/4**. Falta confirmar visualmente
+  el primer fotograma y el bucle en OpenGL real.
 - Blindado el traspaso musical lobby/mesa tras retirar la primera solución
   progresiva regresiva: desde `suspendForTable()` ninguna sincronización por
   superficie puede volver a iniciar las pistas de menú, sala o Acerca de hasta
@@ -88,9 +91,9 @@ Disciplina del repositorio durante la migración:
   permiten terminar sobre espacio vacío. Pruebas focalizadas de voz, chat,
   scroll y terminación: **32/32**.
 - JAR GDX actual con handoff musical blindado y barajado en streaming:
-  266.314.338 bytes,
+  266.315.749 bytes,
   SHA-256
-  `87DFC310632241907314E525F1A60F3531CFFE348758E4689FF221D6072BE979`.
+  `5838EDE66702682179D6CE2A6D3BD6E34E325C4DA65D630831774170AD8332D9`.
 - Auditadas las claves visibles de la pantalla unificada de Ajustes contra sus
   consumidores GDX directos y el adaptador `GamePresentationSettings` que usa
   el crupier: no queda detectado ningún control mostrado que se limite a

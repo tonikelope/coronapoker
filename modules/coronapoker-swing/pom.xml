@@ -134,7 +134,7 @@
                         <phase>package</phase>
                         <goals><goal>shade</goal></goals>
                         <configuration>
-                            <outputFile>${distribution.directory}/CoronaPoker-24.11-swing.jar</outputFile>
+                            <outputFile>${project.build.directory}/CoronaPoker-24.11-swing.staged.jar</outputFile>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
@@ -155,6 +155,25 @@
                                     </excludes>
                                 </filter>
                             </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>publish-complete-swing-jar</id>
+                        <phase>package</phase>
+                        <goals><goal>exec</goal></goals>
+                        <configuration>
+                            <executable>${java.home}/bin/java</executable>
+                            <arguments>
+                                <argument>${maven.multiModuleProjectDirectory}/tools/build/AtomicJarPublisher.java</argument>
+                                <argument>${project.build.directory}/CoronaPoker-24.11-swing.staged.jar</argument>
+                                <argument>${distribution.directory}/CoronaPoker-24.11-swing.jar</argument>
+                            </arguments>
                         </configuration>
                     </execution>
                 </executions>

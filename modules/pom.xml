@@ -107,6 +107,15 @@
                                 <include>CoronaPoker-*.jar</include>
                                 <include>gdx-jar-smoke.*.log</include>
                             </includes>
+                            <!-- Keep the last complete runnable pair available
+                            while the reactor builds their replacements.  Each
+                            frontend publishes its staged JAR only after shade
+                            has closed it, so a running game can never observe
+                            a half-written distribution archive. -->
+                            <excludes>
+                                <exclude>CoronaPoker-24.11-swing.jar</exclude>
+                                <exclude>CoronaPoker-24.11-gdx.jar</exclude>
+                            </excludes>
                             <followSymlinks>false</followSymlinks>
                         </fileset>
                     </filesets>
@@ -134,6 +143,11 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-shade-plugin</artifactId>
                     <version>3.6.1</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>exec-maven-plugin</artifactId>
+                    <version>3.1.0</version>
                 </plugin>
             </plugins>
         </pluginManagement>

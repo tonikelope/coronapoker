@@ -266,6 +266,11 @@ target/CoronaPoker-<version>-swing.jar
 target/CoronaPoker-<version>-gdx.jar
 ```
 
+Both frontends are shaded into a module-local staging JAR first and published
+to `target/` only after that archive is complete.  `clean package` deliberately
+keeps the previous runnable pair available until its replacements are ready;
+this prevents a running table from reading a partially rewritten JAR.
+
 Launch the classic Swing frontend or the active GDX frontend respectively:
 
 ```bash

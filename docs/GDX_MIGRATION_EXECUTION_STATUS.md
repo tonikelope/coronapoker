@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 16:38 (Europe/Madrid)
+Última actualización: 2026-09-20 17:00 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -68,6 +68,13 @@ Disciplina del repositorio durante la migración:
   por esta instancia y la libera al cerrar sin tocar mapeos preexistentes. El
   resultado permanece visible en la sala como `UPnP activo/no disponible`
   aunque cambie su contenido. Pruebas focalizadas de concesión y texto: **4/4**.
+- Blindada la publicación de ambos ejecutables después de confirmar en un log
+  real que reconstruir directamente el JAR usado por una mesa podía dejar al
+  classloader leyendo un ZIP a medio escribir. Swing y GDX se sombrean ahora
+  en un artefacto local, se valida su ZIP/manifiesto y sólo entonces se mueven
+  de forma atómica a `target/`; `clean` conserva la última pareja completa
+  hasta ese instante. El reactor offline completo genera ambos JAR, no deja
+  staging residual y una publicación fallida conserva byte a byte el destino.
 - Corregida una violación de admisión del host GDX: una identidad humana que
   intenta conectarse después de arrancar ya recibe `YOUARELATE` antes de tocar
   roster o fase, en vez de ser añadida y devolver el lobby a espera. El primer
@@ -102,9 +109,9 @@ Disciplina del repositorio durante la migración:
   permiten terminar sobre espacio vacío. Pruebas focalizadas de voz, chat,
   scroll y terminación: **32/32**.
 - JAR GDX actual con handoff musical blindado, barajado en streaming, fuego
-  ALL-IN orgánico y rechazo seguro de conexiones tardías: 266.318.725 bytes,
+  ALL-IN orgánico y rechazo seguro de conexiones tardías: 266.318.874 bytes,
   SHA-256
-  `3576B53A0574A4C0C86ACEAAABCD4209275FC46CE394E62B29EE3557A128824A`.
+  `430AA96F8658712921FC868D758E2771B88EC85ECA21D7875F606A6719FC3832`.
 - Auditadas las claves visibles de la pantalla unificada de Ajustes contra sus
   consumidores GDX directos y el adaptador `GamePresentationSettings` que usa
   el crupier: no queda detectado ningún control mostrado que se limite a

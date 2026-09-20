@@ -13,6 +13,7 @@ public final class DatabaseService implements ApplicationService {
     private Connection connection;
     private boolean started;
     private boolean closed;
+    private final Object databaseLock = new Object();
 
     public DatabaseService(String databaseLocation) {
         this.databaseLocation = requireLocation(databaseLocation);
@@ -29,6 +30,11 @@ public final class DatabaseService implements ApplicationService {
 
     public synchronized String databaseLocation() {
         return databaseLocation;
+    }
+
+    /** Shared lock for compound operations on the process-owned connection. */
+    public Object lock() {
+        return databaseLock;
     }
 
     /** Selects a different database before a connection has been opened. */

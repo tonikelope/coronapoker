@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tonikelope.coronapoker.core.LobbyChatMessage;
 import com.tonikelope.coronapoker.core.LobbyCommand;
 import com.tonikelope.coronapoker.core.LobbySession;
+import com.tonikelope.coronapoker.core.IdentityTrustStore;
 import com.tonikelope.coronapoker.core.NewGameConnectionDraft;
 import com.tonikelope.coronapoker.core.NewGameRequest;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
@@ -68,6 +69,35 @@ class NetworkLobbyGatewayTest {
         assertTrue(interrupted.await(1, TimeUnit.SECONDS));
         assertTrue(executor.isTerminated(),
                 "close must not leak native-network workers into the next scenario");
+    }
+
+    @Test void authenticatedHandshakeObservesBothRemoteIdentities() throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        TrackingIdentityTrust hostTrust = new TrackingIdentityTrust();
+        TrackingIdentityTrust clientTrust = new TrackingIdentityTrust();
+        try (NetworkLobbyGateway hostGateway = new NetworkLobbyGateway(
+                    temporary.resolve("trust-host"), GameTableFactory.unavailable(),
+                    null, hostTrust);
+             NetworkLobbyGateway clientGateway = new NetworkLobbyGateway(
+                    temporary.resolve("trust-client"), GameTableFactory.unavailable(),
+                    null, clientTrust)) {
+            LobbySession host = hostGateway.open(request(false, "Anfitrion", port))
+                    .get(5, TimeUnit.SECONDS);
+            LobbySession client = clientGateway.open(request(true, "Invitado", port))
+                    .get(5, TimeUnit.SECONDS);
+            try {
+                await(() -> hostTrust.observed.get() != null
+                        && clientTrust.observed.get() != null);
+                assertEquals("Invitado", hostTrust.observed.get());
+                assertEquals("Anfitrion", clientTrust.observed.get());
+            } finally {
+                client.close();
+                host.close();
+            }
+        }
     }
 
     @Test void twoNativeSessionsHandshakeChatManageBotsAndLeave() throws Exception {
@@ -636,5 +666,22 @@ class NetworkLobbyGatewayTest {
             Thread.sleep(10);
         }
         assertTrue(condition.getAsBoolean(), "condition did not become true before timeout");
+    }
+
+    private static final class TrackingIdentityTrust
+            implements IdentityTrustStore {
+        private final AtomicReference<String> observed = new AtomicReference<>();
+
+        @Override public Observation observe(String nickname, byte[] publicKey) {
+            assertEquals(32, publicKey.length);
+            observed.set(nickname);
+            return Observation.NEW;
+        }
+        @Override public boolean markVerified(String nickname, byte[] publicKey) {
+            return false;
+        }
+        @Override public boolean isVerified(String nickname, byte[] publicKey) {
+            return false;
+        }
     }
 }

@@ -11,6 +11,8 @@ import com.tonikelope.coronapoker.core.DatabaseService;
 import com.tonikelope.coronapoker.core.NewGameSessionGateway;
 import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.core.RecoverableGameRepository;
+import com.tonikelope.coronapoker.core.IdentityTrustStore;
+import com.tonikelope.coronapoker.core.SqlIdentityTrustStore;
 import com.tonikelope.coronapoker.core.network.NetworkLobbyGateway;
 import com.tonikelope.coronapoker.CoreGameTableFactory;
 import com.tonikelope.coronapoker.Crupier;
@@ -133,25 +135,27 @@ public final class GdxLauncher {
                         Arrays.stream(Crupier.ALLIN_CINEMATICS.getValue())
                                 .map(entry -> (String) entry[0]).toList())
                 : bundledCinematics;
+        DatabaseService database = application.service(DatabaseService.class);
+        IdentityTrustStore identityTrust = new SqlIdentityTrustStore(database);
         CoreGameTableFactory gameTables = new CoreGameTableFactory(
-                application.service(DatabaseService.class), gameText, gameLog,
+                database, gameText, gameLog,
                 new GdxGameDialogSink(gameText),
                 new GdxGameDecisionSink(gameText),
                 presentationSettings, cinematics, modMedia.installed(),
-                preferences.properties());
+                preferences.properties(), identityTrust);
         RecoverableGameRepository recoverableGames
                 = new RecoverableGameRepository(
-                        application.service(DatabaseService.class));
+                        database);
         try (NetworkLobbyGateway lobbyGateway
                 = NetworkLobbyGateway.forCurrentUser(gameTables,
-                        recoverableGames)) {
+                        recoverableGames, identityTrust)) {
             NewGameSessionGateway sessions = lobbyGateway;
             GdxApplicationShell shell = new GdxApplicationShell(
                     display.refreshRate, application, sessions, gameLog,
                     presentationSettings, gameText, language -> {
                         gameText.setLanguage(language);
                         configureModSounds(modMedia, language);
-                    });
+                    }, identityTrust);
             config.setWindowListener(new Lwjgl3WindowAdapter() {
                 @Override
                 public boolean closeRequested() {

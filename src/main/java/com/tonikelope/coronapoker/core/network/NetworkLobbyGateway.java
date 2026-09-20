@@ -8,6 +8,7 @@ import com.tonikelope.coronapoker.core.LobbyParticipant;
 import com.tonikelope.coronapoker.core.LobbySession;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
 import com.tonikelope.coronapoker.core.IdenticonFingerprint;
+import com.tonikelope.coronapoker.core.IdentityTrustStore;
 import com.tonikelope.coronapoker.core.NewGameRequest;
 import com.tonikelope.coronapoker.core.NewGameSessionGateway;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
@@ -91,24 +92,36 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
     private final Path coronaDirectory;
     private final GameTableFactory gameTables;
     private final RecoverableGameRepository recoverableGames;
+    private final IdentityTrustStore identityTrust;
     private final ExecutorService executor;
     private final Set<Thread> workerThreads = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean closed = new AtomicBoolean();
 
     public NetworkLobbyGateway(Path coronaDirectory) {
-        this(coronaDirectory, GameTableFactory.unavailable(), null);
+        this(coronaDirectory, GameTableFactory.unavailable(), null,
+                IdentityTrustStore.unavailable());
     }
 
     public NetworkLobbyGateway(Path coronaDirectory, GameTableFactory gameTables) {
-        this(coronaDirectory, gameTables, null);
+        this(coronaDirectory, gameTables, null,
+                IdentityTrustStore.unavailable());
     }
 
     public NetworkLobbyGateway(Path coronaDirectory, GameTableFactory gameTables,
             RecoverableGameRepository recoverableGames) {
+        this(coronaDirectory, gameTables, recoverableGames,
+                IdentityTrustStore.unavailable());
+    }
+
+    public NetworkLobbyGateway(Path coronaDirectory, GameTableFactory gameTables,
+            RecoverableGameRepository recoverableGames,
+            IdentityTrustStore identityTrust) {
         this.coronaDirectory = Objects.requireNonNull(coronaDirectory, "coronaDirectory")
                 .toAbsolutePath().normalize();
         this.gameTables = Objects.requireNonNull(gameTables, "gameTables");
         this.recoverableGames = recoverableGames;
+        this.identityTrust = Objects.requireNonNull(identityTrust,
+                "identityTrust");
         ThreadFactory threads = task -> {
             Thread thread = new Thread(() -> {
                 Thread worker = Thread.currentThread();
@@ -141,15 +154,23 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 gameTables, recoverableGames);
     }
 
+    public static NetworkLobbyGateway forCurrentUser(GameTableFactory gameTables,
+            RecoverableGameRepository recoverableGames,
+            IdentityTrustStore identityTrust) {
+        return new NetworkLobbyGateway(
+                Path.of(System.getProperty("user.home"), ".coronapoker"),
+                gameTables, recoverableGames, identityTrust);
+    }
+
     @Override
     public CompletableFuture<LobbySession> open(NewGameRequest request) {
         Objects.requireNonNull(request, "request");
         if (closed.get()) return CompletableFuture.failedFuture(new IllegalStateException("Network gateway is closed"));
         return CompletableFuture.supplyAsync(() -> {
             try {
-                return request.joining() ? Transport.openClient(request, coronaDirectory, executor, gameTables)
+                return request.joining() ? Transport.openClient(request, coronaDirectory, executor, gameTables, identityTrust)
                         : Transport.openHost(request, coronaDirectory, executor,
-                                gameTables, recoverableGames);
+                                gameTables, recoverableGames, identityTrust);
             } catch (Exception failure) {
                 throw new java.util.concurrent.CompletionException(failure);
             }
@@ -179,6 +200,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private final ExecutorService executor;
         private volatile NewGameTableDraft.Settings tableSettings;
         private final GameTableFactory gameTables;
+        private final IdentityTrustStore identityTrust;
         private final NativeGameChannel gameChannel;
         private final boolean recovering;
         private final int recoveryGameId;
@@ -202,7 +224,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         private Transport(boolean host, NewGameRequest request, Path coronaDirectory,
                 ExecutorService executor, byte[] sessionId, PlayerIdentity identity,
-                NewGameTableDraft.Settings tableSettings, GameTableFactory gameTables) {
+                NewGameTableDraft.Settings tableSettings, GameTableFactory gameTables,
+                IdentityTrustStore identityTrust) {
             this.host = host;
             this.localNickname = request.connection().nickname();
             this.endpoint = request.connection().server() + ":" + request.connection().port();
@@ -213,6 +236,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             this.executor = executor;
             this.tableSettings = Objects.requireNonNull(tableSettings, "tableSettings");
             this.gameTables = Objects.requireNonNull(gameTables, "gameTables");
+            this.identityTrust = Objects.requireNonNull(identityTrust,
+                    "identityTrust");
             this.recovering = request.connection().recover();
             this.recoveryGameId = request.connection().recoveredGameId() == null
                     ? -1 : request.connection().recoveredGameId();
@@ -224,12 +249,13 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         static LobbySession openHost(NewGameRequest request, Path directory,
                 ExecutorService executor, GameTableFactory gameTables,
-                RecoverableGameRepository recoverableGames) throws Exception {
+                RecoverableGameRepository recoverableGames,
+                IdentityTrustStore identityTrust) throws Exception {
             PlayerIdentity identity = PlayerIdentity.loadOrCreate(directory, request.connection().nickname());
             byte[] sessionId = new byte[16];
             new SecureRandom().nextBytes(sessionId);
             Transport transport = new Transport(true, request, directory, executor, sessionId,
-                    identity, request.table(), gameTables);
+                    identity, request.table(), gameTables, identityTrust);
             int port = parsePort(request.connection().port());
             ServerSocket server = new ServerSocket();
             server.setReuseAddress(true);
@@ -279,7 +305,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         }
 
         static LobbySession openClient(NewGameRequest request, Path directory,
-                ExecutorService executor, GameTableFactory gameTables) throws Exception {
+                ExecutorService executor, GameTableFactory gameTables,
+                IdentityTrustStore identityTrust) throws Exception {
             PlayerIdentity identity = PlayerIdentity.loadOrCreate(directory, request.connection().nickname());
             Socket socket = new Socket();
             socket.connect(new InetSocketAddress(request.connection().server(),
@@ -290,7 +317,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             Connection connection = clientHandshake(socket, request, identity, directory, executor);
             Transport transport = new Transport(false, request, directory, executor,
                     connection.sessionId, identity,
-                    NewGameTableDraft.Settings.parseWire(connection.gameConfig), gameTables);
+                    NewGameTableDraft.Settings.parseWire(connection.gameConfig),
+                    gameTables, identityTrust);
             transport.serverConnection = connection;
             transport.serverNickname = connection.remoteNickname;
             transport.peers.put(connection.remoteNickname,
@@ -298,6 +326,10 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                             false, connection.secure, connection,
                             connection.remoteIdentityPublicKey,
                             connection.remoteIdentitySignature));
+            if (connection.remoteIdentityPublicKey != null) {
+                identityTrust.observe(connection.remoteNickname,
+                        connection.remoteIdentityPublicKey);
+            }
             transport.peers.put(transport.localNickname,
                     Peer.local(transport.localNickname, request.connection().avatar(), false,
                             identity.publicKey(), identity.signJoin(connection.sessionId)));
@@ -534,6 +566,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     Peer peer = new Peer(nickname, avatar, false, false, false, true, connection,
                             publicKey, signature);
                     peers.put(nickname, peer);
+                    identityTrust.observe(nickname, publicKey);
                     connection.startGameOutbox();
                     addPresence(nickname, LobbyChatMessage.Type.PLAYER_JOINED);
                     publish(LobbySnapshot.Phase.WAITING_FOR_PLAYERS, "");
@@ -1126,6 +1159,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         key = candidateKey;
                         signature = candidateSignature;
                         identityValid = true;
+                        identityTrust.observe(nickname, candidateKey);
                     }
                 } catch (IllegalArgumentException ignored) {
                     // Keep the participant visible but explicitly mark its identity as unverified.

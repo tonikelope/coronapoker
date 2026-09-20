@@ -65,8 +65,8 @@ filas siguientes deben seguir siendo accesibles y conservar su semántica.
 | `GameOverDialog` | Fin de partida | pendiente | Pantalla/overlay GDX. |
 | `GifAnimationDialog` | Animación GIF | pendiente | Overlay GDX. |
 | `HandGeneratorDialog` | Generador de manos | pendiente | Pantalla/overlay GDX. |
-| `IdenticonDialog` | Identicon de identidad/sesión | parcial nativo | Clic derecho en participante muestra ambas huellas; falta persistir el marcado OOB verificado. |
-| `SessionIdenticonMosaicDialog` | Mosaico de identicons | parcial nativo | Cada canal se puede inspeccionar por participante; falta la vista simultánea del host. |
+| `IdenticonDialog` | Identicon de identidad/sesión | implementado nativo | Clic derecho muestra ambas huellas; el marcado OOB se persiste con TOFU, se liga a la clave exacta y se revoca al cambiarla. Pendiente QA visual OpenGL. |
+| `SessionIdenticonMosaicDialog` | Mosaico de identicons | implementado nativo | El anfitrión dispone de vista simultánea de hasta nueve canales y conserva la inspección individual. Pendiente QA visual OpenGL. |
 | `InGameNotifyDialog` | Notificación en partida | pendiente | Overlay GDX no bloqueante según el comportamiento real. |
 | `PauseDialog` | Pausa | pendiente | Overlay GDX. |
 | `RecoverDialog` | Recuperación | pendiente | Overlay GDX. |
@@ -89,7 +89,7 @@ hace a continuación con `NewGameDialog`.
 |---|---|---|
 | `status` / `barra` | Conectando, intercambio de claves, recepción de información, conectado, espera, reconexión, error e inicialización sin bloquear el render. | pendiente |
 | `conectados` / `tot_conectados` | Lista ordenada de 1–10 participantes con avatar, latencias, bot, espera asíncrona y aviso de canal inseguro. | pendiente |
-| clic derecho en participantes | Identicon de identidad y canal cifrado por participante; mosaico completo para host aún pendiente. | parcial nativo |
+| clic derecho en participantes | Identicon de identidad y canal cifrado por participante, marcado OOB persistente y mosaico simultáneo para el host. | implementado nativo; pendiente QA visual OpenGL |
 | `new_bot_button` | Sólo host; añade `CoronaBot$N`, vuelve a comprobar aforo bajo el mismo turno de admisión y difunde el alta. | pendiente |
 | `kick_user` | Sólo host y participante remoto seleccionado; expulsa, rota contraseña cuando corresponde y actualiza el resto de canales. | pendiente |
 | `empezar_timba` | Sólo host, mínimo dos participantes, confirmación previa, protección contra doble inicio, recuperación de ausentes y transición asíncrona a mesa. | pendiente |

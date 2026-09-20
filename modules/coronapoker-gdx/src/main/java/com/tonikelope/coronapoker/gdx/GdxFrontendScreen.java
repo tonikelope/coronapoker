@@ -26,6 +26,7 @@ import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.tonikelope.coronapoker.core.ApplicationMetadata;
 import com.tonikelope.coronapoker.core.IdenticonFingerprint;
+import com.tonikelope.coronapoker.core.IdentityTrustStore;
 import com.tonikelope.coronapoker.core.LobbyChatMessage;
 import com.tonikelope.coronapoker.core.LobbyCommand;
 import com.tonikelope.coronapoker.core.LobbyParticipant;
@@ -168,6 +169,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final GdxKeyRepeat textDeleteRepeat = new GdxKeyRepeat();
     private final Properties initialProperties;
     private final PreferencesService preferences;
+    private final IdentityTrustStore identityTrust;
     private final GdxAudioControl audioControl;
     private final GdxShortcutBindings shortcutBindings;
     private final GdxGamePresentationSettings presentationSettings;
@@ -288,11 +290,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     GdxFrontendScreen(PreferencesService preferences,
             NewGameSessionGateway gateway, RecoverableGameRepository recoverableGames,
+            IdentityTrustStore identityTrust,
             Consumer<NewGameSubmissionCoordinator.OpenedSession> sessionAccepted,
             Runnable sessionReturnedToMenu,
             GdxGamePresentationSettings presentationSettings,
             GdxGameText gameText, Consumer<String> languageChanged) {
         this.preferences = Objects.requireNonNull(preferences, "preferences");
+        this.identityTrust = Objects.requireNonNull(identityTrust,
+                "identityTrust");
         initialProperties = this.preferences.properties();
         if (GdxSettingsContract.migrateLegacyChatNotificationPreference(
                 initialProperties)) {
@@ -1054,7 +1059,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         byte[] session = participant.sessionFingerprint();
         FingerprintMode mode = identity != null
                 ? FingerprintMode.IDENTITY : FingerprintMode.SESSION;
-        fingerprintDialog = new FingerprintDialog(participant.nickname(),
+        fingerprintDialog = new FingerprintDialog(participant.nickname(), identity,
                 identity == null ? null : IdenticonFingerprint.fromSeed(identity),
                 session == null ? null : IdenticonFingerprint.fromDigest(session),
                 mode);
@@ -1094,30 +1099,95 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     960f, 800f, CYAN, true, 650f);
         }
 
-        float cell = 52f;
-        float iconSize = cell * IdenticonFingerprint.GRID_SIZE;
-        float iconX = WIDTH / 2f - iconSize / 2f;
-        float iconY = 342f;
-        shapes.setColor(Color.WHITE);
-        shapes.rect(iconX - 8f, iconY - 8f, iconSize + 16f, iconSize + 16f);
-        for (int column = 0; column < IdenticonFingerprint.GRID_SIZE; column++) {
-            for (int row = 0; row < IdenticonFingerprint.GRID_SIZE; row++) {
-                if (!fingerprint.filled(column, row)) continue;
-                shapes.setColor(identiconColor(fingerprint.foregroundArgb(row)));
-                shapes.rect(iconX + column * cell, iconY + row * cell,
-                        cell, cell);
-            }
+        boolean mosaic = dialog.mode() == FingerprintMode.SESSION
+                && lobby != null && lobby.host();
+        if (mosaic) {
+            drawSessionFingerprintMosaic();
+        } else {
+            float cell = 52f;
+            float iconSize = cell * IdenticonFingerprint.GRID_SIZE;
+            float iconX = WIDTH / 2f - iconSize / 2f;
+            float iconY = 342f;
+            drawIdenticon(fingerprint, iconX, iconY, cell, 8f);
+            textFit(uiFont, fingerprint.formatted(), 960f, 305f,
+                    Color.WHITE, true, 760f);
         }
-        textFit(uiFont, fingerprint.formatted(), 960f, 305f,
-                Color.WHITE, true, 760f);
         textFit(smallFont, gameText.translate(
                 dialog.mode() == FingerprintMode.IDENTITY
                         ? "gdx.identicon.identity_help"
                         : "gdx.identicon.session_help"),
                 960f, 255f, MUTED, true, 760f);
-        button(780f, 185f, 360f, 58f,
-                uppercase(gameText.translate("ui.cerrar")), false,
-                () -> fingerprintDialog = null);
+        if (dialog.mode() == FingerprintMode.IDENTITY
+                && dialog.identityPublicKey() != null) {
+            boolean verified = identityTrust.isVerified(dialog.nickname(),
+                    dialog.identityPublicKey());
+            themedButton(610f, 185f, 330f, 58f,
+                    uppercase(gameText.translate(verified
+                            ? "ui.identicon.ya_verificada"
+                            : "ui.identicon.verificar_button")),
+                    verified ? ButtonTone.POSITIVE : ButtonTone.FEATURED,
+                    () -> verifyFingerprintIdentity(dialog), !verified);
+            button(980f, 185f, 330f, 58f,
+                    uppercase(gameText.translate("ui.cerrar")), false,
+                    () -> fingerprintDialog = null);
+        } else {
+            button(780f, 185f, 360f, 58f,
+                    uppercase(gameText.translate("ui.cerrar")), false,
+                    () -> fingerprintDialog = null);
+        }
+    }
+
+    private void drawSessionFingerprintMosaic() {
+        List<LobbyParticipant> channels = lobby.participants().stream()
+                .filter(participant -> participant.sessionFingerprint() != null)
+                .limit(9).toList();
+        if (channels.isEmpty()) {
+            textFit(uiFont, gameText.translate("ui.identicon.mosaico_vacio"),
+                    960f, 520f, MUTED, true, 700f);
+            return;
+        }
+        for (int index = 0; index < channels.size(); index++) {
+            LobbyParticipant participant = channels.get(index);
+            int column = index % 3;
+            int row = index / 3;
+            float tileX = 605f + column * 245f;
+            float tileY = 590f - row * 150f;
+            IdenticonFingerprint fingerprint = IdenticonFingerprint.fromDigest(
+                    participant.sessionFingerprint());
+            textFit(smallFont, participant.nickname(), tileX + 105f,
+                    tileY + 128f, GOLD, true, 210f);
+            drawIdenticon(fingerprint, tileX + 59f, tileY + 22f, 13f, 4f);
+            String formatted = fingerprint.formatted();
+            textFit(tinyFont, formatted.substring(0, 19), tileX + 105f,
+                    tileY + 15f, MUTED, true, 220f);
+            textFit(tinyFont, formatted.substring(20), tileX + 105f,
+                    tileY - 3f, MUTED, true, 220f);
+        }
+    }
+
+    private void drawIdenticon(IdenticonFingerprint fingerprint, float x,
+            float y, float cell, float padding) {
+        float size = cell * IdenticonFingerprint.GRID_SIZE;
+        shapes.setColor(Color.WHITE);
+        shapes.rect(x - padding, y - padding,
+                size + padding * 2f, size + padding * 2f);
+        for (int column = 0; column < IdenticonFingerprint.GRID_SIZE; column++) {
+            for (int row = 0; row < IdenticonFingerprint.GRID_SIZE; row++) {
+                if (!fingerprint.filled(column, row)) continue;
+                shapes.setColor(identiconColor(fingerprint.foregroundArgb(row)));
+                shapes.rect(x + column * cell, y + row * cell, cell, cell);
+            }
+        }
+    }
+
+    private void verifyFingerprintIdentity(FingerprintDialog dialog) {
+        if (dialog.identityPublicKey() != null
+                && identityTrust.markVerified(dialog.nickname(),
+                        dialog.identityPublicKey())) {
+            showToast(gameText.translate("ui.identicon.ya_verificada"));
+        } else {
+            showToast(gameText.translate("gdx.identicon.verify_failed"));
+        }
     }
 
     private static Color identiconColor(int argb) {
@@ -6483,16 +6553,26 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         IDENTITY, SESSION
     }
 
-    private record FingerprintDialog(String nickname,
+    private record FingerprintDialog(String nickname, byte[] identityPublicKey,
             IdenticonFingerprint identity, IdenticonFingerprint session,
             FingerprintMode mode) {
+
+        private FingerprintDialog {
+            identityPublicKey = identityPublicKey == null
+                    ? null : identityPublicKey.clone();
+        }
+
+        @Override public byte[] identityPublicKey() {
+            return identityPublicKey == null ? null : identityPublicKey.clone();
+        }
 
         private IdenticonFingerprint active() {
             return mode == FingerprintMode.IDENTITY ? identity : session;
         }
 
         private FingerprintDialog withMode(FingerprintMode next) {
-            return new FingerprintDialog(nickname, identity, session, next);
+            return new FingerprintDialog(nickname, identityPublicKey,
+                    identity, session, next);
         }
     }
 

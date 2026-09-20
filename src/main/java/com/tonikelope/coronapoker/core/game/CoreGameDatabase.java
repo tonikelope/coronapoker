@@ -18,7 +18,6 @@ public final class CoreGameDatabase implements GameDatabase {
     private static final Logger LOGGER = Logger.getLogger(
             CoreGameDatabase.class.getName());
     private final DatabaseService database;
-    private final Object lock = new Object();
     private final int recoveryGameId;
     private final Supplier<String> recoverySettings;
 
@@ -39,7 +38,7 @@ public final class CoreGameDatabase implements GameDatabase {
         ensureSchema(database.connection());
     }
 
-    @Override public Object lock() { return lock; }
+    @Override public Object lock() { return database.lock(); }
     @Override public Connection connection() throws SQLException {
         return database.connection();
     }
@@ -48,7 +47,7 @@ public final class CoreGameDatabase implements GameDatabase {
     @Override
     public void persistRecoverySettings(int gameId) {
         if (gameId <= 0 || recoverySettings == null) return;
-        synchronized (lock) {
+        synchronized (database.lock()) {
             try (PreparedStatement statement = connection().prepareStatement(
                     "UPDATE game SET recover_settings=? WHERE id=?")) {
                 statement.setQueryTimeout(30);

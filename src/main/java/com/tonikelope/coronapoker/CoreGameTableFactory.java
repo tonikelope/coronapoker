@@ -93,6 +93,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
     private final GameCinematicAssets cinematicAssets;
     private final boolean modActive;
     private final Properties preferences;
+    private final GameIdentityTrust identityTrust;
 
     public CoreGameTableFactory(DatabaseService database) {
         this(database, GameText.keys(), GameLogSink.noop(), GameDialogSink.noop(),
@@ -157,6 +158,17 @@ public final class CoreGameTableFactory implements GameTableFactory {
             GamePresentationSettings presentationSettings,
             GameCinematicAssets cinematicAssets, boolean modActive,
             Properties preferences) {
+        this(database, gameText, gameLog, gameDialogs, gameDecisions,
+                presentationSettings, cinematicAssets, modActive, preferences,
+                GameIdentityTrust.unverified());
+    }
+
+    public CoreGameTableFactory(DatabaseService database, GameText gameText,
+            GameLogSink gameLog, GameDialogSink gameDialogs,
+            GameDecisionSink gameDecisions,
+            GamePresentationSettings presentationSettings,
+            GameCinematicAssets cinematicAssets, boolean modActive,
+            Properties preferences, GameIdentityTrust identityTrust) {
         this.database = Objects.requireNonNull(database, "database");
         this.gameText = Objects.requireNonNull(gameText, "gameText");
         this.gameLog = Objects.requireNonNull(gameLog, "gameLog");
@@ -169,6 +181,8 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 "cinematicAssets");
         this.modActive = modActive;
         this.preferences = Objects.requireNonNull(preferences, "preferences");
+        this.identityTrust = Objects.requireNonNull(identityTrust,
+                "identityTrust");
     }
 
     @Override
@@ -325,7 +339,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 GameUiExecutor.direct(), new TableEventGameAudioSink(events,
                         RENDERER_OWNED_AUDIO),
                 gameAsync, presentationSettings,
-                GameIdentityTrust.unverified(), text,
+                identityTrust, text,
                 cards -> new CoreGameHand(cards, text), CoreGamePot::new,
                 GameRuntimeEnvironment.at(context.dataDirectory(), modActive),
                 cinematicState,

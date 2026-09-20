@@ -108,19 +108,21 @@ Disciplina del repositorio durante la migración:
   texto, imágenes y filas de presencia; no ofrecen scroll si todo cabe ni
   permiten terminar sobre espacio vacío. Pruebas focalizadas de voz, chat,
   scroll y terminación: **32/32**.
-- La sala GDX ya recupera las huellas visuales de seguridad sin acoplarse a
+- La sala GDX recupera las huellas visuales de seguridad sin acoplarse a
   Swing/AWT ni publicar claves: clic derecho sobre un participante humano abre
   un modal nativo con el identicon de identidad Ed25519 y, cuando existe, el
   del canal cifrado. El transporte sólo proyecta el SHA-256 irreversible de la
-  clave AES original y lo conserva estable durante reconexiones. Los dos
-  extremos del canal han producido la misma huella y bots/filas locales no
-  reciben material de sesión: **8/8** pruebas focalizadas. Quedan por portar el
-  marcado OOB como verificado y la vista mosaico simultánea del anfitrión.
-- JAR GDX actual con identicons nativos, handoff musical blindado, barajado en
-  streaming, fuego ALL-IN orgánico y rechazo seguro de conexiones tardías:
-  266.325.172 bytes,
-  SHA-256
-  `E24F311A7D53CDF3233774E137B24908B46F3700E568027B468E103160F2ACD7`.
+  clave AES original y lo conserva estable durante reconexiones. La confianza
+  TOFU se persiste en la base compartida, una clave cambiada revoca el marcado
+  anterior y el botón de verificación sólo acepta la clave exacta observada.
+  El crupier y el lobby consumen el mismo repositorio neutral. El anfitrión
+  dispone además del mosaico simultáneo de hasta nueve canales. Bots y filas
+  locales no reciben material de sesión: **10/10** pruebas focalizadas. Queda
+  pendiente exclusivamente la QA visual OpenGL de este bloque.
+- JAR GDX actual con confianza de identidad persistente, identicons nativos,
+  handoff musical blindado, barajado en streaming, fuego ALL-IN orgánico y
+  rechazo seguro de conexiones tardías: 266.333.323 bytes, SHA-256
+  `092E5912B106B87536901E4B79498F043C7B083534F9B8829C107B4A5D54B569`.
 - Auditadas las claves visibles de la pantalla unificada de Ajustes contra sus
   consumidores GDX directos y el adaptador `GamePresentationSettings` que usa
   el crupier: no queda detectado ningún control mostrado que se limite a

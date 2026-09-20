@@ -10,6 +10,7 @@ import com.tonikelope.coronapoker.core.NewGameSessionGateway;
 import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.core.RecoverableGameRepository;
 import com.tonikelope.coronapoker.core.LobbySession;
+import com.tonikelope.coronapoker.core.IdentityTrustStore;
 import com.tonikelope.coronapoker.table.TableCommandSink;
 import com.tonikelope.coronapoker.table.TableSession;
 import com.tonikelope.coronapoker.table.TableSnapshot;
@@ -32,6 +33,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private final GdxGamePresentationSettings presentationSettings;
     private final GdxGameText gameText;
     private final Consumer<String> languageChanged;
+    private final IdentityTrustStore identityTrust;
     private PreferencesService preferences;
     private GdxFrontendScreen menu;
     private LobbySession lobby;
@@ -42,7 +44,8 @@ final class GdxApplicationShell extends ApplicationAdapter {
     GdxApplicationShell(int refreshRate, CoronaPokerApplication application,
             NewGameSessionGateway sessionGateway, GdxGameLogSink gameLog,
             GdxGamePresentationSettings presentationSettings,
-            GdxGameText gameText, Consumer<String> languageChanged) {
+            GdxGameText gameText, Consumer<String> languageChanged,
+            IdentityTrustStore identityTrust) {
         this.refreshRate = refreshRate;
         this.application = Objects.requireNonNull(application, "application");
         this.sessionGateway = Objects.requireNonNull(sessionGateway, "sessionGateway");
@@ -52,6 +55,8 @@ final class GdxApplicationShell extends ApplicationAdapter {
         this.gameText = Objects.requireNonNull(gameText, "gameText");
         this.languageChanged = Objects.requireNonNull(languageChanged,
                 "languageChanged");
+        this.identityTrust = Objects.requireNonNull(identityTrust,
+                "identityTrust");
     }
 
     static GdxApplicationShell active() {
@@ -87,6 +92,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
         menu = new GdxFrontendScreen(
                 preferences, sessionGateway, new RecoverableGameRepository(
                         application.service(DatabaseService.class)),
+                identityTrust,
                 opened -> {
                     application.sessionOpened();
                     lobby = opened.lobby();

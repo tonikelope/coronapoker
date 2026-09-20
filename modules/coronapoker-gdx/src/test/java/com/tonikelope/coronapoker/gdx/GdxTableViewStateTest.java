@@ -1380,6 +1380,18 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void autoActionWaitsForFreshControlsWhenTheLocalTurnStarts() {
+        assertFalse(CoronaPokerGdxTable.autoActionControlsReadyAfterPreAction(
+                true, false),
+                "the local-turn boundary must invalidate the previous turn controls");
+        assertFalse(CoronaPokerGdxTable.autoActionControlsReadyAfterPreAction(
+                false, false));
+        assertTrue(CoronaPokerGdxTable.autoActionControlsReadyAfterPreAction(
+                true, true),
+                "an out-of-turn eligibility refresh must not invalidate fresh controls");
+    }
+
+    @Test
     void pausedOverlayConsumesOnlyACompletedClickWhilePaused() {
         assertTrue(CoronaPokerGdxTable
                 .pauseOverlayConsumesRelease(true, true));

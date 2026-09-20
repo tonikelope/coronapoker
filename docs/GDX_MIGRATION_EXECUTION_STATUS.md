@@ -1376,8 +1376,11 @@ queda QA interactiva del diálogo de veto y de sus controles.
   sólo las acciones de póquer como Swing, congela su cuenta atrás durante pausa,
   acepta por teclado y se invalida al terminar el turno local. Falta E2E visual.
 - HECHO en código/modelo: deshabilitar los botones AUTO limpia la preacción y
-  el puente de activación inmediata pendientes. Falta QA de puntero sobre el
-  control visible.
+  el puente de activación inmediata pendientes. Corregida además la carrera
+  real entre `PreActionControls(false)`, el inicio del turno local y la llegada
+  posterior de `ActionControls`: GDX ya no resuelve ni borra una selección AUTO
+  contra los controles desactivados de la acción anterior. Cubierto por prueba
+  dirigida; sigue pendiente la QA manual del puntero sobre el control visible.
 - HECHO para consumo: GDX usa los valores predeterminados Swing y también sus
   personalizaciones persistidas (`shortcut.<id>`), traduce AWT→libGDX y exige
   modificadores exactos para no disparar acciones peligrosas por accidente.

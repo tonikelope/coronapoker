@@ -642,6 +642,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final Map<String, LiveHandProbability> liveHandProbabilities =
             new HashMap<>();
     private int queuedPreAction;
+    /*
+     * A local turn is announced in three causal steps: PreActionControls(false),
+     * TurnTimer(START), then ActionControls(enabled).  Rendering may happen
+     * between those events.  Never resolve an armed AUTO choice against the
+     * disabled controls left by the previous turn during that small window.
+     */
+    private boolean autoActionControlsReady;
     private float autoActionEligibleAt = Float.POSITIVE_INFINITY;
     private int gameLogScroll;
     private final Map<String, List<GdxGameLogFormatter.Run>> gameLogRunCache
@@ -2767,6 +2774,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (event instanceof TableVisualEvent.ActionControls controls) {
                 armedHudTarget = 0;
                 liveBetAmount = controls.state().raiseAmount();
+                autoActionControlsReady = true;
                 autoActionEligibleAt = totalTime + 0.08f;
             }
             if (event instanceof TableVisualEvent.TurnTimer timer
@@ -2788,6 +2796,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 queuedPreAction = queuedPreActionAfterControlsEvent(
                         queuedPreAction, controls.active(),
                         controls.clearSelection());
+                autoActionControlsReady = autoActionControlsReadyAfterPreAction(
+                        autoActionControlsReady, controls.active());
             }
             if (event instanceof TableVisualEvent.DeckChanged changed) {
                 String selectedDeck = availableDeck(changed.deck());
@@ -4138,7 +4148,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void maybeExecuteQueuedPreAction(boolean localTurn,
             ActionControlState controls) {
-        if (!localTurn || queuedPreAction == 0
+        if (!localTurn || queuedPreAction == 0 || !autoActionControlsReady
                 || totalTime < autoActionEligibleAt || activeDialog != null) {
             return;
         }
@@ -4172,6 +4182,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         autoActionEligibleAt = Float.POSITIVE_INFINITY;
+        autoActionControlsReady = false;
         if (!autoModeConfirm) {
             // Swing keeps an executed AUTO choice armed for the rest of the
             // hand. Re-arm it BEFORE submitting because command delivery may
@@ -4213,6 +4224,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static int queuedPreActionAfterControlsEvent(int selection,
             boolean active, boolean clearSelection) {
         return !active && clearSelection ? 0 : selection;
+    }
+
+    static boolean autoActionControlsReadyAfterPreAction(boolean ready,
+            boolean active) {
+        return active && ready;
     }
 
     static boolean pauseOverlayConsumesRelease(boolean paused,
@@ -9670,12 +9686,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         : lastActionTextColorForSeat(0), 1f);
 
         drawHudActionContent(foldThumbIcon,
-                preActions ? uppercase(gameText.translate("modo_auto.titulo"))
+                preActions ? uppercase(gameText.translate("action.auto_fold"))
                         : uppercase(gameText.translate("action.no_ir")),
                 foldX, actionY, foldWidth, actionHeight,
                 foldVisualText, foldContentAlpha);
         drawHudActionContent(callThumbIcon,
-                preActions ? uppercase(gameText.translate("modo_auto.titulo"))
+                preActions ? uppercase(gameText.translate("action.auto_call"))
                         : callLabel(controls, gameText),
                 checkX, actionY, checkWidth, actionHeight,
                 checkVisualText, checkContentAlpha);

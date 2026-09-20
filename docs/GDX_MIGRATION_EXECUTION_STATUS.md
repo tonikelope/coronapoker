@@ -1844,6 +1844,23 @@ protocolo ni criptografía. Estadísticas queda para el final.
 - JAR GDX: `target/CoronaPoker-24.11-gdx.jar`, 266.361.801 bytes, SHA-256
   `D2CDBEF9D67B7DFE18E39DCDDBBBCA6A8BC938646C9378953A349BE996D81A90`.
 
+### Corte 2026-09-20 - cinemática limitada a la mano recuperada
+
+- El apagado de luces, el GIF localizado de recuperación y la música especial
+  sólo se activan cuando el core va a reproducir una mano interrumpida real:
+  debe haber más de un jugador activo y la recuperación no puede estar marcada
+  para saltar esa primera mano. Reconstruir únicamente la timba o la sala, o
+  arrancar la siguiente mano, no presenta esta cinemática.
+- El predicado vive en el crupier compartido que decide la recuperación; GDX no
+  infiere ni duplica ese estado. La misma decisión abre y cierra de forma
+  simétrica el `GameDecisionSink.CloseHandle`, que al retirarse libera también
+  el reproductor del GIF.
+- Verificación focalizada: **8/8** en `CrupierTableEventBridgeTest`, incluyendo
+  recuperación con 2 y 10 jugadores y rechazo con 0, 1 o mano omitida. El
+  empaquetado completo Swing/GDX finalizó correctamente.
+- JAR GDX: `target/CoronaPoker-24.11-gdx.jar`, 266.361.907 bytes, SHA-256
+  `E09DB2FF7C67CB26387ED24D27F73CC8746AC73F277A3E50664C2A8EAF5465FB`.
+
 Al cerrar cada bloque se debe registrar aquí:
 
 - Qué consumidor real se añadió o corrigió.

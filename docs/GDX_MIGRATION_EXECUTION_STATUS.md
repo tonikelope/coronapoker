@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 02:24 (Europe/Madrid)
+Última actualización: 2026-09-20 02:30 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,12 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19/20
 
+- Corregida la paridad del registro al cerrar un showdown: GDX ya sustituye
+  `(---)` por las cartas/jugada reveladas o por `(***)` en la línea original,
+  como Swing, en vez de añadir un bloque `SHOWDOWN` separado y duplicado al
+  final. Pruebas focalizadas del sink y estado de mesa: **101/101**. JAR GDX:
+  266.274.661 bytes, SHA-256
+  `A51CA4CF333BBB09A9947C589344528AF0C5677BDED7E035881F6C36FE54530A`.
 - Consolidado el cableado de la barra rápida sin índices mágicos: sus ocho
   botones tienen una acción tipada única (Ajustes, chat, voz, imagen, recompra,
   registro, pantalla completa y salir), y voz conserva su semántica de mantener
@@ -1234,9 +1240,9 @@ completa.
   borrar solo la captura seleccionada tras confirmación; ambas operaciones se
   ejecutan fuera del hilo gráfico. Falta QA visual interactiva.
 - PARCIAL: el registro GDX ya tiene scroll, selección por líneas, copiar,
-  seleccionar todo y menú contextual nativo. Falta igualar por completo la
-  estructura, colores y contenido del registro Swing, incluidas acciones y
-  showdown.
+  seleccionar todo y menú contextual nativo. Las sustituciones de cartas y
+  jugada del showdown ya son idénticas a Swing y no duplican contenido. Falta
+  QA visual completa de estructura, colores y acciones durante una timba.
 - Ayudas aplicables y generador de jugadas.
 
 ### P1.5 — Red humana y compatibilidad cruzada

@@ -29,6 +29,54 @@ final class GdxGameLogSink implements GameLogSink {
     @Override
     public synchronized void updateShowdownCards(List<ShowdownEntry> entries) {
         showdown = List.copyOf(Objects.requireNonNull(entries, "entries"));
+        for (int index = 0; index < lines.size(); index++) {
+            lines.set(index, rewriteShowdownLine(lines.get(index), showdown));
+        }
+    }
+
+    /** Mirrors Swing by replacing the placeholder in its original log row. */
+    static String rewriteShowdownLine(String line,
+            List<ShowdownEntry> entries) {
+        String result = line == null ? "" : line;
+        if (entries == null || entries.isEmpty()) return result;
+        for (ShowdownEntry entry : entries) {
+            String nickname = entry.nickname();
+            int searchFrom = 0;
+            while (searchFrom < result.length()) {
+                int nicknameAt = result.indexOf(nickname, searchFrom);
+                if (nicknameAt < 0) break;
+                int nicknameEnd = nicknameAt + nickname.length();
+                boolean leftBoundary = nicknameAt == 0
+                        || Character.isWhitespace(result.charAt(nicknameAt - 1))
+                        || result.charAt(nicknameAt - 1) == ')';
+                int placeholderAt = nicknameEnd;
+                while (placeholderAt < result.length()
+                        && result.charAt(placeholderAt) == ' ') {
+                    placeholderAt++;
+                }
+                if (!leftBoundary || placeholderAt == nicknameEnd
+                        || !result.startsWith("(---)", placeholderAt)) {
+                    searchFrom = nicknameEnd;
+                    continue;
+                }
+                int afterPlaceholder = placeholderAt + 5;
+                if (!entry.revealed()) {
+                    result = result.substring(0, placeholderAt) + "(***)"
+                            + result.substring(afterPlaceholder);
+                    break;
+                }
+                int detailAt = afterPlaceholder;
+                while (detailAt < result.length()
+                        && result.charAt(detailAt) == ' ') detailAt++;
+                String detail = result.substring(detailAt);
+                if (detail.isBlank() || detail.indexOf(' ') <= 0) break;
+                result = result.substring(0, placeholderAt)
+                        + "(" + entry.holeCards() + ") " + detail
+                        + " -> " + entry.hand();
+                break;
+            }
+        }
+        return result;
     }
 
     synchronized Snapshot snapshot() {

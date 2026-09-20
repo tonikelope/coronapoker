@@ -10445,15 +10445,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private List<String> gameLogLines() {
         GdxGameLogSink.Snapshot snapshot = gameLog.snapshot();
         ArrayList<String> source = new ArrayList<>(snapshot.lines());
-        if (!snapshot.showdown().isEmpty()) {
-            source.add("SHOWDOWN");
-            for (var entry : snapshot.showdown()) {
-                source.add(entry.revealed()
-                        ? entry.nickname() + "  ·  " + entry.holeCards()
-                                + "  ·  " + entry.hand()
-                        : entry.nickname());
-            }
-        }
         ArrayList<String> result = new ArrayList<>();
         for (String line : source) {
             GdxGameLogFormatter.wrapLine(result, line == null ? "" : line, 92);

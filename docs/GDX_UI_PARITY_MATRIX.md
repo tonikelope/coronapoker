@@ -93,8 +93,8 @@ hace a continuación con `NewGameDialog`.
 | `new_bot_button` | Sólo host; añade `CoronaBot$N`, vuelve a comprobar aforo bajo el mismo turno de admisión y difunde el alta. | pendiente |
 | `kick_user` | Sólo host y participante remoto seleccionado; expulsa, rota contraseña cuando corresponde y actualiza el resto de canales. | pendiente |
 | `empezar_timba` | Sólo host, mínimo dos participantes, confirmación previa, protección contra doble inicio, recuperación de ausentes y transición asíncrona a mesa. | pendiente |
-| `server_address_label` | Muestra la dirección y permite copiarla al portapapeles. | pendiente |
-| `pass_icon` | Copiar, cambiar, generar o eliminar la contraseña; difundirla ordenadamente a quienes permanecen. | pendiente |
+| `server_address_label` | Muestra la dirección y permite copiarla al portapapeles. | implementado nativo; pendiente QA visual |
+| `pass_icon` | Copiar, cambiar, generar o eliminar la contraseña; difundirla ordenadamente a quienes permanecen. | implementado nativo; pendiente QA visual |
 | `game_info_buyin` | Buy-in fijo o variable real; ayuda contextual sin permitir al cliente modificarlo. | pendiente |
 | `game_info_blinds` | Ciegas e intervalo de subida reales. | pendiente |
 | `game_info_hands` | Límite de manos cuando existe. | pendiente |

@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 17:21 (Europe/Madrid)
+Última actualización: 2026-09-20 18:04 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,13 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19/20
 
+- Auditados y cableados los controles de conexión del host en la sala GDX:
+  la dirección publicada se copia al portapapeles y el diálogo de contraseña
+  ya permite copiar, cambiar, eliminar o generar y aplicar una clave fuerte de
+  14 caracteres mediante el comando compartido del lobby. Pruebas focalizadas
+  de este contrato: **2/2**; queda QA visual en OpenGL real. JAR del checkpoint:
+  `target/CoronaPoker-24.11-gdx.jar` (266.334.478 bytes, SHA-256
+  `88C9B6D114174887953B7C4F6349E47116F583A12073A8A2317FE9EA20D8745B`).
 - Eliminado el pico principal medido al abrir la mesa: el GIF canónico de
   barajado ya no crea de golpe 86 texturas de 960x540 durante
   `CoronaPokerGdxTable.create()`. Usa el reproductor acotado a una textura,

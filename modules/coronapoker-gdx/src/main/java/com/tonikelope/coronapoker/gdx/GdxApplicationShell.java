@@ -9,6 +9,7 @@ import com.tonikelope.coronapoker.core.DatabaseService;
 import com.tonikelope.coronapoker.core.NewGameSessionGateway;
 import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.core.RecoverableGameRepository;
+import com.tonikelope.coronapoker.core.SecureRandomService;
 import com.tonikelope.coronapoker.core.LobbySession;
 import com.tonikelope.coronapoker.core.IdentityTrustStore;
 import com.tonikelope.coronapoker.table.TableCommandSink;
@@ -92,7 +93,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
         menu = new GdxFrontendScreen(
                 preferences, sessionGateway, new RecoverableGameRepository(
                         application.service(DatabaseService.class)),
-                identityTrust,
+                identityTrust, application.service(SecureRandomService.class).generator(),
                 opened -> {
                     application.sessionOpened();
                     lobby = opened.lobby();

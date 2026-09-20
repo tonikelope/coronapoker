@@ -47,6 +47,7 @@ import java.awt.Frame;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -170,6 +171,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final Properties initialProperties;
     private final PreferencesService preferences;
     private final IdentityTrustStore identityTrust;
+    private final SecureRandom secureRandom;
     private final GdxAudioControl audioControl;
     private final GdxShortcutBindings shortcutBindings;
     private final GdxGamePresentationSettings presentationSettings;
@@ -290,7 +292,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     GdxFrontendScreen(PreferencesService preferences,
             NewGameSessionGateway gateway, RecoverableGameRepository recoverableGames,
-            IdentityTrustStore identityTrust,
+            IdentityTrustStore identityTrust, SecureRandom secureRandom,
             Consumer<NewGameSubmissionCoordinator.OpenedSession> sessionAccepted,
             Runnable sessionReturnedToMenu,
             GdxGamePresentationSettings presentationSettings,
@@ -298,6 +300,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         this.preferences = Objects.requireNonNull(preferences, "preferences");
         this.identityTrust = Objects.requireNonNull(identityTrust,
                 "identityTrust");
+        this.secureRandom = Objects.requireNonNull(secureRandom,
+                "secureRandom");
         initialProperties = this.preferences.properties();
         if (GdxSettingsContract.migrateLegacyChatNotificationPreference(
                 initialProperties)) {
@@ -933,6 +937,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         textFit(smallFont, state.serverAddress(), 70f, 718f,
                 Color.WHITE, false, 360f);
+        if (state.host()) {
+            hit(65f, 694f, 370f, 42f, this::copyLobbyConnectionData);
+        }
         drawLobbyGameInfo(state, 70f, state.host() ? 605f : 645f);
         if (state.host()) {
             button(70f, 650f, 360f, 46f,
@@ -1844,6 +1851,22 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 .findFirst().orElse(null);
     }
 
+    private void copyLobbyConnectionData() {
+        LobbySnapshot state = lobby;
+        String value = lobbyConnectionClipboardText(
+                state != null && state.host(),
+                state == null ? "" : state.serverAddress());
+        if (value.isEmpty()) return;
+        Gdx.app.getClipboard().setContents(value);
+        showToast(gameText.translate("conn.datos_de_conexion_copiados_en"));
+    }
+
+    static String lobbyConnectionClipboardText(boolean host, String address) {
+        String endpoint = Objects.requireNonNullElse(address, "").trim();
+        return host && !endpoint.isEmpty()
+                ? "[CoronaPoker] " + endpoint : "";
+    }
+
     private void drawLobbyConfirmation() {
         hits.clear();
         shapes.setColor(new Color(0x02050cbb));
@@ -1907,15 +1930,51 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 lobbyPasswordDraft, "lobbyPassword", true);
         textFit(tinyFont, gameText.translate("gdx.lobby.password_hint"),
                 960f, 455f, MUTED, true, 650f);
-        themedButton(660f, 370f, 270f, 64f,
+        themedButton(590f, 370f, 165f, 64f,
+                gameText.translate("gdx.lobby.generate_password"),
+                ButtonTone.NEUTRAL, this::generateLobbyPassword,
+                !lobbyCommandPending);
+        themedButton(770f, 370f, 165f, 64f,
+                gameText.translate("ui.copiar"), ButtonTone.NEUTRAL,
+                this::copyLobbyPasswordDraft,
+                !lobbyCommandPending && !lobbyPasswordDraft.isBlank());
+        themedButton(950f, 370f, 165f, 64f,
                 gameText.translate("ui.cancelar"), ButtonTone.NEUTRAL,
                 this::closeLobbyPasswordDialog, !lobbyCommandPending);
-        themedButton(990f, 370f, 270f, 64f,
+        themedButton(1130f, 370f, 165f, 64f,
                 gameText.translate("ui.guardar"), ButtonTone.POSITIVE,
                 this::submitLobbyPassword, !lobbyCommandPending);
     }
 
     private void submitLobbyPassword() {
+        submitLobbyPassword(null);
+    }
+
+    private void generateLobbyPassword() {
+        lobbyPasswordDraft = strongLobbyPassword(secureRandom);
+        Gdx.app.getClipboard().setContents(lobbyPasswordDraft);
+        submitLobbyPassword("auth.nueva_password_copiada_en_el");
+    }
+
+    private void copyLobbyPasswordDraft() {
+        String value = Objects.requireNonNullElse(lobbyPasswordDraft, "");
+        if (value.isBlank()) return;
+        Gdx.app.getClipboard().setContents(value);
+        showToast(gameText.translate(
+                "auth.password_copiada_en_el_portapapeles"));
+    }
+
+    static String strongLobbyPassword(SecureRandom random) {
+        Objects.requireNonNull(random, "random");
+        String alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
+        StringBuilder password = new StringBuilder(14);
+        for (int index = 0; index < 14; index++) {
+            password.append(alphabet.charAt(random.nextInt(alphabet.length())));
+        }
+        return password.toString();
+    }
+
+    private void submitLobbyPassword(String successKey) {
         LobbySnapshot state = lobby;
         if (state == null || !state.host() || state.startingOrStarted()) {
             closeLobbyPasswordDialog();
@@ -1925,9 +1984,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         submitLobbyCommand(new LobbyCommand.ChangePassword(next), () -> {
             if (connection != null) connection.setPassword(next);
             closeLobbyPasswordDialog();
-            showToast(gameText.translate(next.isEmpty()
-                    ? "auth.password_eliminada"
-                    : "gdx.lobby.password_updated"));
+            showToast(gameText.translate(successKey != null
+                    ? successKey
+                    : next.isEmpty() ? "auth.password_eliminada"
+                            : "gdx.lobby.password_updated"));
         });
     }
 

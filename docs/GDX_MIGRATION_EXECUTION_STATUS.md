@@ -36,13 +36,18 @@ Disciplina del repositorio durante la migración:
   la disposición de ocho jugadores. Ninguna validación heurística de asientos,
   cartas rivales o carril central se ejecuta ya al abrir una mesa real; esas
   invariantes quedan como pruebas y no pueden derribar una timba. Geometría y
-  estado de mesa GDX: **107/107**. JAR GDX: 266.288.348 bytes, SHA-256
-  `B6BD482A49F9464433E797ABE956EDEEFFB701BDF2E35044DC371B4B59E1EFCF`.
+  estado de mesa GDX: **107/107**. El checkpoint que incluye también el
+  fallback de shader descrito abajo mide 266.288.399 bytes, SHA-256
+  `6E285306108BFBC2CE4135A39C086DF8515F96B02A7AC4F51D38AF8DED182A4D`.
 - Acotado el último recurso del icono amarillo de TTS/voz: la terminación real
   sigue retirándolo 500 ms después de acabar el audio, pero una callback perdida
   ya no puede mantenerlo dos minutos sobre el asiento. El límite de fallo es de
   16 s para la nota de voz (contrato máximo de 15 s) y de 4..18 s para TTS.
   Chat de mesa: **12/12**.
+- El shader decorativo del fuego ALL-IN deja de ser un requisito para abrir la
+  mesa: si una GPU o driver no acepta el programa, GDX registra el diagnóstico
+  y conserva el fallback nativo de luz y brasas sin afectar al crupier, las
+  barreras ni la partida. El efecto completo continúa activo cuando compila.
 
 - Cerrado un falso estado válido de Nueva timba/Unirme: el botón principal ya
   reutiliza `NewGameConnectionDraft.canSubmit()` y permanece deshabilitado

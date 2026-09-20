@@ -1829,8 +1829,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             allInFireShader = new ShaderProgram(CARD_VERTEX_SHADER,
                     ALL_IN_FIRE_FRAGMENT_SHADER);
             if (!allInFireShader.isCompiled()) {
-                throw new IllegalStateException("ALL-IN fire shader: "
+                System.err.println("ALL-IN fire shader disabled: "
                         + allInFireShader.getLog());
+                allInFireShader.dispose();
+                allInFireShader = null;
             }
             allInFireCanvas = createSolidTexture(Color.WHITE);
             backdropBlurShader = new ShaderProgram(BACKDROP_VERTEX_SHADER,
@@ -5507,30 +5509,32 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // Three independently seeded shader layers form irregular, soft fire
         // with turbulent edges and a hot core. The avatar is rendered after
         // this pass, so it remains crisp while genuinely appearing to burn.
-        batch.setShader(allInFireShader);
-        batch.begin();
-        for (Seat seat : seats) {
-            float presence = seatPresenceAlpha(seat.index);
-            if (presence <= 0f || liveState.actionKind(seat.name)
-                    != TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
-                continue;
+        if (allInFireShader != null) {
+            batch.setShader(allInFireShader);
+            batch.begin();
+            for (Seat seat : seats) {
+                float presence = seatPresenceAlpha(seat.index);
+                if (presence <= 0f || liveState.actionKind(seat.name)
+                        != TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
+                    continue;
+                }
+                for (int layer = 0; layer < 3; layer++) {
+                    Rectangle fire = allInFireLayerBounds(seat.x, seat.y, layer);
+                    batch.flush();
+                    allInFireShader.setUniformf("u_time",
+                            totalTime * (1f + layer * 0.07f));
+                    allInFireShader.setUniformf("u_seed",
+                            seat.index * 1.713f + layer * 4.129f);
+                    allInFireShader.setUniformf("u_alpha",
+                            (layer == 0 ? 0.92f : 0.66f) * presence);
+                    batch.setColor(1f, 1f, 1f, 1f);
+                    batch.draw(allInFireCanvas, fire.x, fire.y,
+                            fire.width, fire.height);
+                }
             }
-            for (int layer = 0; layer < 3; layer++) {
-                Rectangle fire = allInFireLayerBounds(seat.x, seat.y, layer);
-                batch.flush();
-                allInFireShader.setUniformf("u_time",
-                        totalTime * (1f + layer * 0.07f));
-                allInFireShader.setUniformf("u_seed",
-                        seat.index * 1.713f + layer * 4.129f);
-                allInFireShader.setUniformf("u_alpha",
-                        (layer == 0 ? 0.92f : 0.66f) * presence);
-                batch.setColor(1f, 1f, 1f, 1f);
-                batch.draw(allInFireCanvas, fire.x, fire.y,
-                        fire.width, fire.height);
-            }
+            batch.end();
+            batch.setShader(null);
         }
-        batch.end();
-        batch.setShader(null);
 
         // Sparse embers follow buoyancy instead of firing away radially.
         shapes.begin(ShapeRenderer.ShapeType.Filled);

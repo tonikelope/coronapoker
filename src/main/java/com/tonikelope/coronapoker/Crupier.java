@@ -10170,7 +10170,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     "Recovered seat-roster presentation barrier failed");
         }
 
-        if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
+        boolean recoveringOpenHand = shouldShowRecoveryPresentation(
+                getJugadoresActivos(), saltar_primera_mano);
+        if (recoveringOpenHand) {
             if (presentation_settings.ambientMusic()) {
                 game_audio.stopLoopMp3("misc/background_music.mp3");
                 game_audio.playLoopMp3Resource("misc/recovering.mp3");
@@ -10236,7 +10238,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.update_game_seats = true;
         setRecovering(false);
 
-        if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
+        if (recoveringOpenHand) {
             this.game_recovered = 1;
             table_display.refresh();
         }
@@ -24045,6 +24047,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // cross-checks (straddle + RIT) can be pinned in a test.
     public static boolean recoverHostDecisionMismatch(Boolean fossilValue, boolean hostValue) {
         return fossilValue != null && fossilValue != hostValue;
+    }
+
+    /**
+     * The recovery cinematic belongs to replaying an interrupted hand, not to
+     * recovery mode in general.  Swing and GDX both enter through this shared
+     * dealer predicate: a recovery between hands, an unreplayable fossil or a
+     * table without two active players must start cleanly without the GIF.
+     */
+    static boolean shouldShowRecoveryPresentation(int activePlayers,
+            boolean skipInterruptedHand) {
+        return activePlayers > 1 && !skipInterruptedHand;
     }
 
     /**

@@ -25,6 +25,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class CrupierTableEventBridgeTest {
 
     @Test
+    void recoveryCinematicIsExclusiveToAnInterruptedReplayableHand() {
+        assertTrue(Crupier.shouldShowRecoveryPresentation(2, false));
+        assertTrue(Crupier.shouldShowRecoveryPresentation(10, false));
+
+        assertFalse(Crupier.shouldShowRecoveryPresentation(2, true));
+        assertFalse(Crupier.shouldShowRecoveryPresentation(1, false));
+        assertFalse(Crupier.shouldShowRecoveryPresentation(0, false));
+    }
+
+    @Test
     void foldedLocalPlayerCanKeepAutoChoiceForTheNextHand() {
         assertTrue(Crupier.localPreActionsEligible(false, Player.FOLD,
                 false, false, false));

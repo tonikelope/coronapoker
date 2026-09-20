@@ -273,7 +273,7 @@ final class GdxSettingsContractTest {
                 "mostrar_coste_igualar",
                 "chat_images_ingame", "chat_game_notifications",
                 "resaltar_jugada_showdown",
-                "resaltar_avatares")));
+                "resaltar_avatares", "auto_fullscreen")));
         assertTrue(GdxSettingsContract.APPEARANCE_PAGES.stream()
                 .allMatch(page -> page.options().size() <= 6));
         assertFalse(keys.contains("auto_zoom"));

@@ -84,6 +84,21 @@ final class GdxGamePresentationSettingsTest {
     }
 
     @Test
+    void automaticFullscreenSettingFeedsTheCanonicalDealerLive(
+            @TempDir Path temporary) {
+        PreferencesService preferences = new PreferencesService(
+                temporary.resolve("coronapoker.properties"));
+        GdxGamePresentationSettings settings =
+                new GdxGamePresentationSettings(preferences);
+
+        assertTrue(settings.autoFullscreen());
+        preferences.properties().setProperty("auto_fullscreen", "false");
+        assertFalse(settings.autoFullscreen());
+        preferences.properties().setProperty("auto_fullscreen", "true");
+        assertTrue(settings.autoFullscreen());
+    }
+
+    @Test
     void gameplaySoundSwitchesMatchTheSwingPreferenceMatrix(
             @TempDir Path temporary) {
         PreferencesService preferences = new PreferencesService(

@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 10:42 (Europe/Madrid)
+Última actualización: 2026-09-20 11:02 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -29,6 +29,13 @@ Disciplina del repositorio durante la migración:
   del usuario.
 
 ## Checkpoint de consolidación 2026-09-19/20
+
+- Cerrado un hueco funcional de Apariencia: `auto_fullscreen` ya no es una
+  preferencia consumida por el crupier pero imposible de editar en GDX. El
+  interruptor `Pantalla completa al iniciar` vive en `Captura y vista`, se
+  muestra igual en menú, sala y mesa y participa en Guardar/Cancelar/Restaurar
+  del contrato común. Pruebas focalizadas de catálogo, navegación, cableado y
+  consumidor real: **40/40**. Se incluirá en el próximo JAR agrupado.
 
 - Cerrada la paridad musical del diálogo `Acerca de`: al abrirlo desde el menú
   GDX se pausa la pista ambiental y se reproduce en bucle
@@ -1342,7 +1349,9 @@ interactiva multiproceso y pulido de estados visibles.
 ### P1.7 — Shell, inicio e idioma
 
 - HECHO en código: `ACERCA DE` abre un diálogo GDX real, localizado y
-  contenido, sin depender de Swing ni interrumpir la música. Falta QA visual.
+  contenido, sin depender de Swing; pausa la pista ambiental, reproduce su
+  música propia configurable y recupera la anterior al cerrar. Falta QA visual
+  y auditiva.
 - Splash oficial durante cualquier arranque negro evitable.
 - Certificar intro y movimiento final del logo a la esquina.
 - Música e icono de sonido.

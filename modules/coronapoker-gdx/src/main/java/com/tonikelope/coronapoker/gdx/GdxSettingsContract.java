@@ -284,7 +284,9 @@ final class GdxSettingsContract {
                             Gate.NONE)),
             page("CAPTURA Y VISTA",
                     option("screenshot_fin_timba",
-                            "CAPTURA AL TERMINAR LA TIMBA", false, Gate.NONE)),
+                            "CAPTURA AL TERMINAR LA TIMBA", false, Gate.NONE),
+                    option("auto_fullscreen",
+                            "PANTALLA COMPLETA AL INICIAR", true, Gate.NONE)),
             APPEARANCE_ANIMATION_OPTIONS_PAGE);
 
     /**

@@ -20,6 +20,7 @@ import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator.FreeTypeFont
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.ScreenUtils;
@@ -173,6 +174,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final Map<String, Float> hoverAnimations = new HashMap<>();
     private final GlyphLayout glyph = new GlyphLayout();
     private final Vector2 pointer = new Vector2();
+    private final Matrix4 pixelProjection = new Matrix4();
     private final GdxTextEditState textEdit = new GdxTextEditState();
     private final GdxKeyRepeat textDeleteRepeat = new GdxKeyRepeat();
     private final Properties initialProperties;
@@ -635,20 +637,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 batch.draw(aboutCrossIcon, WIDTH / 2f - 338f, 214f,
                         23f, 15f);
             } else if (aboutEasterEggTexture != null) {
-                float maximumWidth = 1180f;
-                float maximumHeight = 760f;
-                // Keep the decoded pixels at 1:1 whenever they fit. Only
-                // shrink an oversized original so the modal remains usable.
-                float scale = Math.min(1f, Math.min(maximumWidth
-                        / aboutEasterEggTexture.getWidth(), maximumHeight
-                        / aboutEasterEggTexture.getHeight()));
+                int backBufferWidth = Gdx.graphics.getBackBufferWidth();
+                int backBufferHeight = Gdx.graphics.getBackBufferHeight();
+                float scale = nativeImageScale(
+                        aboutEasterEggTexture.getWidth(),
+                        aboutEasterEggTexture.getHeight(),
+                        backBufferWidth, backBufferHeight, 48);
                 float imageWidth = aboutEasterEggTexture.getWidth() * scale;
                 float imageHeight = aboutEasterEggTexture.getHeight() * scale;
+                // Bypass FitViewport here: one source pixel must be one
+                // physical back-buffer pixel whenever the image fits.
+                batch.setProjectionMatrix(pixelProjection.setToOrtho2D(
+                        0f, 0f, backBufferWidth, backBufferHeight));
                 batch.setColor(Color.WHITE);
                 batch.draw(aboutEasterEggTexture,
-                        WIDTH / 2f - imageWidth / 2f,
-                        HEIGHT / 2f - imageHeight / 2f,
+                        (backBufferWidth - imageWidth) / 2f,
+                        (backBufferHeight - imageHeight) / 2f,
                         imageWidth, imageHeight);
+                batch.setProjectionMatrix(viewport.getCamera().combined);
             }
             for (TextItem item : texts) {
                 item.font.setColor(item.color);
@@ -1097,6 +1103,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         long usedMiB = (runtime.totalMemory() - runtime.freeMemory())
                 / (1024L * 1024L);
         return usedMiB + " MiB  ·  " + Thread.activeCount();
+    }
+
+    static float nativeImageScale(int imageWidth, int imageHeight,
+            int viewportWidth, int viewportHeight, int margin) {
+        if (imageWidth <= 0 || imageHeight <= 0) return 1f;
+        float availableWidth = Math.max(1, viewportWidth - 2 * margin);
+        float availableHeight = Math.max(1, viewportHeight - 2 * margin);
+        return Math.min(1f, Math.min(availableWidth / imageWidth,
+                availableHeight / imageHeight));
     }
 
     private float wrappedText(BitmapFont font, String value, float x,

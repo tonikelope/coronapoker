@@ -2,6 +2,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.ByteArrayInputStream;
 import java.awt.image.BufferedImage;
@@ -27,6 +28,16 @@ final class GdxAboutEasterEggTest {
         assertImage("/images/luto.png", 100, 100);
         assertImage("/images/open-book.png", 32, 32);
         assertImage("/images/cruz.png", 23, 15);
+    }
+
+    @Test
+    void preservesNativePixelsAndOnlyShrinksForSmallBackBuffers() {
+        assertEquals(1f, GdxFrontendScreen.nativeImageScale(
+                1024, 673, 1920, 1080, 48));
+        assertEquals(1f, GdxFrontendScreen.nativeImageScale(
+                1280, 640, 1920, 1080, 48));
+        assertEquals(704f / 1024f, GdxFrontendScreen.nativeImageScale(
+                1024, 673, 800, 600, 48), 0.0001f);
     }
 
     private static void assertImage(String path, int width, int height)

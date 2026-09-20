@@ -173,6 +173,14 @@ final class GdxTableViewStateTest {
         assertEquals(1, CoronaPokerGdxTable.upperHoleCardSlot(410f, 520f));
         assertEquals(0, CoronaPokerGdxTable.upperHoleCardSlot(520f, 410f));
         assertEquals(1, CoronaPokerGdxTable.upperHoleCardSlot(465f, 465f));
+        assertEquals(0, CoronaPokerGdxTable.holeCardSlotForLayer(
+                410f, 520f, 0));
+        assertEquals(1, CoronaPokerGdxTable.holeCardSlotForLayer(
+                410f, 520f, 1));
+        assertEquals(1, CoronaPokerGdxTable.holeCardSlotForLayer(
+                520f, 410f, 0));
+        assertEquals(0, CoronaPokerGdxTable.holeCardSlotForLayer(
+                520f, 410f, 1));
     }
 
     @Test

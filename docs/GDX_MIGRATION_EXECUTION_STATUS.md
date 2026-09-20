@@ -1646,6 +1646,15 @@ interactiva multiproceso y pulido de estados visibles.
   copyright, firma y datos técnicos. GDX vuelve a usar los recursos originales
   `luto.png`, `open-book.png` y `cruz.png`; el homenaje a las víctimas conserva
   expresamente el lazo negro y no se sustituye por decoración genérica.
+- Las imágenes descifradas de los easter eggs ya no pasan por el `FitViewport`:
+  se dibujan en píxeles físicos 1:1 (1024x673 y 1280x640), centradas y con
+  `Nearest`; sólo se reducen proporcionalmente si el backbuffer no dispone del
+  tamaño necesario. El botón `VERSIÓN ACTUAL` se conserva como en Swing y
+  permanece desactivado cuando no existe una actualización.
+- Las cartas continúan cargándose desde los recursos HQ, pero dejan de mezclar
+  niveles mipmap trilineales: al ser arte 2D frontal usan ahora el nivel HQ
+  original con filtrado bilineal, evitando el emborronado visible de rangos y
+  palos sin introducir una opción de Ajustes innecesaria.
 - Splash oficial durante cualquier arranque negro evitable.
 - Certificar intro y movimiento final del logo a la esquina.
 - Música e icono de sonido.

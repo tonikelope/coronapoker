@@ -2170,9 +2170,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private static Texture cardTexture(FileHandle file) {
-        Texture texture = new Texture(file, true);
-        texture.setFilter(TextureFilter.MipMapLinearLinear, TextureFilter.Linear);
-        texture.setAnisotropicFilter(Texture.getMaxAnisotropicFilterLevel());
+        // Cards are flat 2D UI art. Trilinear mipmap selection blended the HQ
+        // source with a smaller level and visibly softened ranks and suits.
+        // Keep the original HQ level and use bilinear sampling at the exact
+        // screen size instead.
+        Texture texture = new Texture(file, false);
+        texture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
         return texture;
     }
 
@@ -4275,6 +4278,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      */
     static int upperHoleCardSlot(float firstCenterX, float secondCenterX) {
         return firstCenterX > secondCenterX ? 0 : 1;
+    }
+
+    /** Returns the slot for back-to-front layer zero or one. */
+    static int holeCardSlotForLayer(float firstCenterX, float secondCenterX,
+            int layer) {
+        int upper = upperHoleCardSlot(firstCenterX, secondCenterX);
+        return layer <= 0 ? 1 - upper : upper;
     }
 
     static boolean autoActionControlsReadyAfterPreAction(boolean ready,
@@ -6436,13 +6446,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 secondPlacement = placement;
             }
         }
-        int upperSlot = upperHoleCardSlot(firstPlacement.x, secondPlacement.x);
-        if (upperSlot == 0) {
-            drawLiveHoleSwapCard(1, secondPlacement, cardBack);
-            drawLiveHoleSwapCard(0, firstPlacement, cardBack);
-        } else {
-            drawLiveHoleSwapCard(0, firstPlacement, cardBack);
-            drawLiveHoleSwapCard(1, secondPlacement, cardBack);
+        for (int layer = 0; layer < 2; layer++) {
+            int slot = holeCardSlotForLayer(firstPlacement.x,
+                    secondPlacement.x, layer);
+            drawLiveHoleSwapCard(slot,
+                    slot == 0 ? firstPlacement : secondPlacement, cardBack);
         }
     }
 
@@ -6485,12 +6493,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 towardX * towardX + towardY * towardY));
         towardX /= length;
         towardY /= length;
-        for (int slot = 0; slot < 2; slot++) {
+        LiveCardPlacement first = liveHolePlacement(seat, 0);
+        LiveCardPlacement second = liveHolePlacement(seat, 1);
+        for (int layer = 0; layer < 2; layer++) {
+            int slot = holeCardSlotForLayer(first.x, second.x, layer);
             float progress = liveHoleReveal.progress(slot);
+            LiveCardPlacement target = slot == 0 ? first : second;
             if (progress <= 0f || progress >= 1f) {
+                // Resting cards were painted before the foreground reveal
+                // pass. Repaint the physically right card when it is not the
+                // one flipping, otherwise a flipping left card can cover its
+                // rank for the duration of the animation.
+                if (layer == 1) {
+                    TableSnapshot.CardSnapshot card = progress >= 1f
+                            ? liveHoleReveal.revealedCard(slot)
+                            : liveHoleReveal.originalCard(slot);
+                    drawLiveRestingCard(card, target, cardBack);
+                }
                 continue;
             }
-            LiveCardPlacement target = liveHolePlacement(seat, slot);
             float arc = seat.index == 0 ? 0f
                     : MathUtils.sin(progress * MathUtils.PI);
             float x = target.x + towardX * arc * 56f;

@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 03:17 (Europe/Madrid)
+Última actualización: 2026-09-20 03:31 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -32,10 +32,13 @@ Disciplina del repositorio durante la migración:
 
 - Cerrada otra fuga visible de idioma en el HUD de la mesa: turno/espera,
   pensar, pasar/ir/apostar/subir/resubir, no ir, modo auto, mostrar y all-in
-  consumen el idioma activo. Se revalidó además contra Swing que el icono
+  consumen el idioma activo. Las acciones ya mostradas en los asientos también
+  se regeneran desde su tipo semántico al cambiar de idioma; al recuperar una
+  partida se normalizan los rótulos heredados ES/EN sin alterar textos
+  desconocidos. Se revalidó además contra Swing que el icono
   amarillo de conversación aparece al comenzar realmente el TTS, permanece
   durante la voz y desaparece 500 ms después; el JAR anterior era previo a esa
-  corrección. Pruebas focalizadas de estado/texto: **100/100**. JAR GDX:
+  corrección. Pruebas focalizadas de estado/texto: **101/101**. JAR GDX:
   266.277.224 bytes, SHA-256
   `4E23925447C98747A09F6858C8623B934E1EDD5D439FB3DB36EECCE2139E8514`.
 - Sustituido el aviso provisional de `ACERCA DE` por un diálogo GDX nativo:

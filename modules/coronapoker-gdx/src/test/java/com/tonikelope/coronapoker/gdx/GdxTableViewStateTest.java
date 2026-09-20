@@ -846,6 +846,32 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void visiblePlayerActionsFollowTheCurrentLanguageIncludingRecovery() {
+        GdxGameText text = new GdxGameText("es");
+
+        assertEquals("VA", CoronaPokerGdxTable.localizedActionLabel(
+                TableVisualEvent.PlayerAction.ActionKind.CALL,
+                "CALL", text));
+        assertEquals("RESUBE", CoronaPokerGdxTable.localizedActionLabel(
+                TableVisualEvent.PlayerAction.ActionKind.RERAISE,
+                "RERAISE", text));
+        assertEquals("NO VA", CoronaPokerGdxTable.localizedActionLabel(
+                null, "FOLD", text));
+
+        text.setLanguage("en");
+        assertEquals("CALL", CoronaPokerGdxTable.localizedActionLabel(
+                TableVisualEvent.PlayerAction.ActionKind.CALL,
+                "VA", text));
+        assertEquals("RERAISE", CoronaPokerGdxTable.localizedActionLabel(
+                TableVisualEvent.PlayerAction.ActionKind.RERAISE,
+                "RESUBE", text));
+        assertEquals("CHECK", CoronaPokerGdxTable.localizedActionLabel(
+                null, "PASA", text));
+        assertEquals("CUSTOM", CoronaPokerGdxTable.localizedActionLabel(
+                null, "CUSTOM", text));
+    }
+
+    @Test
     void anchoredConsoleScrollUsesTheNaturalWheelDirection() {
         assertEquals(7, CoronaPokerGdxTable
                 .anchoredScrollAfterWheel(4, 20, -1f));

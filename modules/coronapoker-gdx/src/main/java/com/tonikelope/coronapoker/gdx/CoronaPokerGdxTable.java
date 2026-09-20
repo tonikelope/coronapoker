@@ -8130,7 +8130,60 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return player.handName();
         }
         String canonicalLabel = liveState.actionLabel(player.nickname());
-        return !canonicalLabel.isBlank() ? canonicalLabel : player.lastAction();
+        String fallback = !canonicalLabel.isBlank()
+                ? canonicalLabel : player.lastAction();
+        return localizedActionLabel(liveState.actionKind(player.nickname()),
+                fallback, gameText);
+    }
+
+    /**
+     * Action events carry their semantic kind as well as Swing's already
+     * translated caption.  Render from the kind so an in-place language
+     * change also updates actions that happened earlier in the street.  A
+     * recovered initial snapshot has no event-kind map yet, so recognise the
+     * finite ES/EN legacy captions before falling back to its original text.
+     */
+    static String localizedActionLabel(
+            TableVisualEvent.PlayerAction.ActionKind kind,
+            String fallback, GdxGameText text) {
+        String label = fallback == null ? "" : fallback;
+        TableVisualEvent.PlayerAction.ActionKind resolved = kind == null
+                ? actionKindFromLegacyLabel(label) : kind;
+        if (resolved == null) return label;
+        return switch (resolved) {
+            case FOLD -> text.translate("action.label.fold2");
+            case CHECK -> text.translate("action.label.check2");
+            case CALL -> text.translate("action.label.call2");
+            case BET -> text.translate("action.label.bet2");
+            case RAISE -> text.translate("action.label.raise2");
+            case RERAISE -> "RE" + text.translate("action.label.raise2");
+            case ALL_IN -> text.translate("action.label.allin");
+            case WAITING, SMALL_BLIND, BIG_BLIND, STRADDLE -> label;
+        };
+    }
+
+    private static TableVisualEvent.PlayerAction.ActionKind
+            actionKindFromLegacyLabel(String label) {
+        String normalized = label == null ? "" : label.strip()
+                .toUpperCase(Locale.ROOT).replace('-', ' ')
+                .replaceAll("\\s+", " ");
+        return switch (normalized) {
+            case "NO VA", "FOLD" ->
+                TableVisualEvent.PlayerAction.ActionKind.FOLD;
+            case "PASA", "CHECK" ->
+                TableVisualEvent.PlayerAction.ActionKind.CHECK;
+            case "VA", "CALL" ->
+                TableVisualEvent.PlayerAction.ActionKind.CALL;
+            case "APUESTA", "BET" ->
+                TableVisualEvent.PlayerAction.ActionKind.BET;
+            case "SUBE", "RAISE" ->
+                TableVisualEvent.PlayerAction.ActionKind.RAISE;
+            case "RESUBE", "RERAISE" ->
+                TableVisualEvent.PlayerAction.ActionKind.RERAISE;
+            case "ALL IN" ->
+                TableVisualEvent.PlayerAction.ActionKind.ALL_IN;
+            default -> null;
+        };
     }
 
     private Color lastActionColorForSeat(int seat) {

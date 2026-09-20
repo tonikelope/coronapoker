@@ -400,12 +400,27 @@ final class GdxTableViewStateTest {
 
     @Test
     void screenshotContractMatchesSwingAndGalleryNeverUpscales() {
+        assertFalse(GdxImageClipboard.copy(null));
         assertEquals("coronapoker_screenshot_1234.png",
                 CoronaPokerGdxTable.screenshotFilename(1234L));
         assertTrue(CoronaPokerGdxTable.isScreenshotFile(
                 java.nio.file.Path.of("coronapoker_screenshot_1234.png")));
         assertFalse(CoronaPokerGdxTable.isScreenshotFile(
                 java.nio.file.Path.of("other.png")));
+        java.nio.file.Path folder = java.nio.file.Path.of("screenshots");
+        assertTrue(CoronaPokerGdxTable.isManagedScreenshot(folder,
+                folder.resolve("coronapoker_screenshot_1234.png")));
+        assertFalse(CoronaPokerGdxTable.isManagedScreenshot(folder,
+                folder.resolve("other.png")));
+        assertFalse(CoronaPokerGdxTable.isManagedScreenshot(folder,
+                folder.resolve("..").resolve(
+                        "coronapoker_screenshot_1234.png")));
+
+        Rectangle copy = CoronaPokerGdxTable.screenshotCopyBounds(1_920f);
+        Rectangle delete = CoronaPokerGdxTable.screenshotDeleteBounds(1_920f);
+        assertTrue(copy.x + copy.width < delete.x);
+        assertEquals(copy.y, delete.y);
+        assertEquals(copy.height, delete.height);
 
         Rectangle bounds = CoronaPokerGdxTable.fitInside(
                 800, 600, 100f, 50f, 1_600f, 900f, true);

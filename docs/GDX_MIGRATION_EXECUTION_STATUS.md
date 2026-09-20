@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 01:56 (Europe/Madrid)
+Última actualización: 2026-09-20 02:16 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -28,8 +28,14 @@ Disciplina del repositorio durante la migración:
   inventario, y se preservan expresamente mods, barajas, sonidos y cinematics
   del usuario.
 
-## Checkpoint de consolidación 2026-09-19
+## Checkpoint de consolidación 2026-09-19/20
 
+- Cerrada la funcionalidad pendiente del visor GDX de capturas: botones nativos
+  para copiar la imagen al portapapeles y borrarla con confirmación, E/S fuera
+  del hilo gráfico, refresco conservando la posición y validación que impide
+  borrar fuera de `.coronapoker/Screenshots`. Junto con la regresión del chat,
+  pruebas focalizadas: **108/108**. JAR GDX: 266.272.240 bytes, SHA-256
+  `2C2444C6A7175AE005C7BB0E06E752FB25AC59F2F17701C7061B7B71290A7773`.
 - Ajustada la duración del icono amarillo de conversación de la mesa: cuando
   el TTS se reproduce correctamente, GDX lo retira 500 ms después de terminar
   la voz, igual que Swing, en lugar de mantener siempre el mínimo fijo de tres
@@ -1217,7 +1223,9 @@ completa.
   y cierre por clic o ESC.
 - HECHO: captura GDX por el atajo canónico `Ctrl+P`, escritura asíncrona en la
   carpeta compartida `Screenshots` y visor nativo navegable, ordenado de más
-  reciente a más antigua. Pendientes del visor: copiar/eliminar y QA visual.
+  reciente a más antigua. El visor permite copiar la imagen al portapapeles y
+  borrar solo la captura seleccionada tras confirmación; ambas operaciones se
+  ejecutan fuera del hilo gráfico. Falta QA visual interactiva.
 - PARCIAL: el registro GDX ya tiene scroll, selección por líneas, copiar,
   seleccionar todo y menú contextual nativo. Falta igualar por completo la
   estructura, colores y contenido del registro Swing, incluidas acciones y

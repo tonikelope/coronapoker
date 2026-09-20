@@ -4528,7 +4528,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         : connection.mode() == NewGameConnectionDraft.Mode.JOIN
                                 ? gameText.translate("game.unirme_a_timba")
                                 : gameText.translate("game.crear_timba"),
-                true, this::submitNewGame, !submitting);
+                true, this::submitNewGame,
+                newGameSubmitEnabled(submitting, connection));
+    }
+
+    static boolean newGameSubmitEnabled(boolean submitting,
+            NewGameConnectionDraft connection) {
+        return !submitting && connection != null && connection.canSubmit();
     }
 
     private void submitNewGame() {

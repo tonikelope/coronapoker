@@ -26,14 +26,14 @@ final class NewGameConnectionDraftTest {
         draft.setPort("7");
         draft.setPort("72");
         draft.setPort("72x");
-        draft.setPort("72349");
-        draft.setPort("723499");
+        draft.setPort("62349");
+        draft.setPort("623499");
 
         NewGameConnectionDraft.Submission submission = draft.beginSubmission();
 
         assertEquals("abcdefghijklmn", submission.nickname());
         assertEquals(30, submission.password().length());
-        assertEquals("72349", submission.port());
+        assertEquals("62349", submission.port());
     }
 
     @Test
@@ -49,6 +49,22 @@ final class NewGameConnectionDraftTest {
 
         assertTrue(draft.canSubmit());
         assertEquals(17, draft.beginSubmission().recoveredGameId());
+    }
+
+    @Test
+    void submitRejectsPortsOutsideTheTcpRangeBeforeOpeningTheNetwork() {
+        NewGameConnectionDraft draft = NewGameConnectionDraft.from(
+                new Properties(), NewGameConnectionDraft.Mode.JOIN);
+        draft.setNickname("Alice");
+
+        draft.setPort("0");
+        assertFalse(draft.canSubmit());
+        draft.setPort("65535");
+        assertTrue(draft.canSubmit());
+        draft.setPort("65536");
+        assertFalse(draft.canSubmit());
+        draft.setPort("99999");
+        assertFalse(draft.canSubmit());
     }
 
     @Test

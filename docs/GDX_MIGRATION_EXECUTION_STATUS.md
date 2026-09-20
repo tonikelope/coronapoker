@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 11:31 (Europe/Madrid)
+Última actualización: 2026-09-20 11:48 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,14 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19/20
 
+- Cerrado un falso estado válido de Nueva timba/Unirme: el botón principal ya
+  reutiliza `NewGameConnectionDraft.canSubmit()` y permanece deshabilitado
+  mientras falten nick, servidor o puerto, haya una recuperación cargándose o
+  la solicitud ya esté en vuelo. El mismo contrato rechaza ahora antes de abrir
+  la red los puertos fuera del rango TCP 1..65535, en vez de habilitar el botón
+  y fallar después en el transporte. Pruebas focalizadas core+GDX: **7/7**.
+  JAR GDX: 266.285.497 bytes, SHA-256
+  `F02AAFBF2D50774825C3738CB5DDDBF3EF8D4B40BD7E26D83B2FF7F5F1D591D1`.
 - Corregida la desaparición del icono amarillo de voz en el jugador local:
   GDX creaba y temporizaba correctamente el aviso al comenzar la reproducción,
   pero lo pintaba antes del HUD local y este lo cubría. Los avisos de TTS/nota

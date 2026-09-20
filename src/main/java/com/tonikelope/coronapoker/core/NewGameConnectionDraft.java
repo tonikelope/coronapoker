@@ -174,8 +174,18 @@ public final class NewGameConnectionDraft {
         return !submitting && !committed && !recoverLoading
                 && !submittedNickname().isBlank()
                 && !server.trim().isEmpty()
-                && !port.isEmpty()
+                && validPort(port)
                 && (!recoverRequested || recoveredGameId != null);
+    }
+
+    private static boolean validPort(String value) {
+        if (value == null || value.isEmpty()) return false;
+        try {
+            int parsed = Integer.parseInt(value);
+            return parsed >= 1 && parsed <= 65535;
+        } catch (NumberFormatException invalid) {
+            return false;
+        }
     }
 
     /** Locks submission and returns the sanitized immutable handoff payload. */

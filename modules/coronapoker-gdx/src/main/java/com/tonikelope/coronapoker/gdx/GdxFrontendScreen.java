@@ -219,6 +219,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private String lobbyChatDraft = "";
     private int lobbyChatScroll;
     private int lobbyChatMessageCount;
+    private final Rectangle lobbyChatScrollTrack = new Rectangle();
+    private float lobbyChatScrollThumbHeight;
+    private int lobbyChatScrollMaximum;
     private String lobbyImageDraft = "";
     private List<String> lobbyImageHistory = List.of();
     private float lobbyImageSendAllowedAt;
@@ -257,6 +260,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private int settingsGamePage;
     private int settingsShortcutPage;
     private int settingsDebugScroll;
+    private final Rectangle settingsDebugScrollTrack = new Rectangle();
+    private float settingsDebugScrollThumbHeight;
+    private int settingsDebugScrollMaximum;
+    private ScrollDrag scrollDrag = ScrollDrag.NONE;
     private String settingsShortcutCaptureId;
     private String settingsShortcutStatus = "";
     private GdxWindowMode settingsOpenedWindowMode = GdxWindowMode.BORDERLESS;
@@ -1093,22 +1100,28 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             cursorTop = y - 10f;
         }
-        drawLobbyChatScrollbar(x + width - 5f, top - 420f, 420f,
+        drawLobbyChatScrollbar(x + width - 12f, top - 420f, 420f,
                 messages.size(), first, end, maximumScroll);
     }
 
     private void drawLobbyChatScrollbar(float x, float y, float height,
             int total, int first, int end, int maximumScroll) {
-        if (maximumScroll <= 0 || total <= 0) return;
+        lobbyChatScrollTrack.set(x - 5f, y, 22f, height);
+        lobbyChatScrollMaximum = maximumScroll;
+        if (maximumScroll <= 0 || total <= 0) {
+            lobbyChatScrollThumbHeight = height;
+            return;
+        }
         int visible = Math.max(1, end - first);
         float thumbHeight = Math.min(height,
                 Math.max(34f, height * visible / total));
+        lobbyChatScrollThumbHeight = thumbHeight;
         float progress = lobbyChatScroll / (float) maximumScroll;
         float thumbY = y + progress * (height - thumbHeight);
         shapes.setColor(new Color(0x1a2c44cc));
-        roundedRect(x, y, 5f, height, 2.5f);
+        roundedRect(x, y, 12f, height, 6f);
         shapes.setColor(CYAN);
-        roundedRect(x, thumbY, 5f, thumbHeight, 2.5f);
+        roundedRect(x, thumbY, 12f, thumbHeight, 6f);
     }
 
     static float lobbyMessageHeight(LobbyChatMessage.Type type) {
@@ -3135,17 +3148,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
 
         float trackX = consoleX + consoleW - 16f;
+        settingsDebugScrollTrack.set(trackX - 6f, consoleY + 8f,
+                22f, consoleH - 16f);
+        settingsDebugScrollMaximum = maximum;
         shapes.setColor(new Color(0x26364dff));
-        roundedRect(trackX, consoleY + 8f, 6f, consoleH - 16f, 3f);
+        roundedRect(trackX, consoleY + 8f, 10f, consoleH - 16f, 5f);
         float thumbH = maximum == 0 ? consoleH - 16f
                 : Math.max(32f, (consoleH - 16f)
                         * SETTINGS_DEBUG_VISIBLE_LINES / lines.size());
+        settingsDebugScrollThumbHeight = thumbH;
         float travel = Math.max(0f, consoleH - 16f - thumbH);
         float ratio = maximum == 0 ? 0f
                 : (float) settingsDebugScroll / maximum;
         shapes.setColor(CYAN_DARK);
         roundedRect(trackX, consoleY + 8f + travel * ratio,
-                6f, thumbH, 3f);
+                10f, thumbH, 5f);
     }
 
     private static List<String> debugLines() {
@@ -5344,6 +5361,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
         pressedHit = null;
+        if (button == Input.Buttons.LEFT
+                && beginScrollDrag(pointer.x, pointer.y)) {
+            return true;
+        }
         if (editMenu != null) {
             for (int i = editMenuHits.size() - 1; i >= 0; i--) {
                 Hit hit = editMenuHits.get(i);
@@ -5381,9 +5402,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override
     public boolean touchDragged(int screenX, int screenY, int pointerIndex) {
-        if (pointerSelectionField == null) return false;
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
+        if (scrollDrag != ScrollDrag.NONE) {
+            updateScrollDrag(pointer.y);
+            return true;
+        }
+        if (pointerSelectionField == null) return false;
         for (int i = textFieldHits.size() - 1; i >= 0; i--) {
             TextFieldHit field = textFieldHits.get(i);
             if (field.id.equals(pointerSelectionField)) {
@@ -5401,11 +5426,49 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Hit released = pressedHit;
         pressedHit = null;
         pointerSelectionField = null;
+        if (scrollDrag != ScrollDrag.NONE) {
+            scrollDrag = ScrollDrag.NONE;
+            return true;
+        }
         if (released != null && released.bounds.contains(pointer)) {
             released.action.run();
             return true;
         }
         return false;
+    }
+
+    private boolean beginScrollDrag(float x, float y) {
+        if (surface == Surface.LOBBY && !lobbyImageMode
+                && !lobbyEmojiPickerOpen && lobbyChatScrollMaximum > 0
+                && lobbyChatScrollTrack.contains(x, y)) {
+            scrollDrag = ScrollDrag.LOBBY_CHAT;
+            updateScrollDrag(y);
+            return true;
+        }
+        if (surface == Surface.SETTINGS
+                && settingsSession.section()
+                        == GdxSettingsContract.Section.DEBUG
+                && settingsDebugScrollMaximum > 0
+                && settingsDebugScrollTrack.contains(x, y)) {
+            scrollDrag = ScrollDrag.SETTINGS_DEBUG;
+            updateScrollDrag(y);
+            return true;
+        }
+        return false;
+    }
+
+    private void updateScrollDrag(float y) {
+        if (scrollDrag == ScrollDrag.LOBBY_CHAT) {
+            lobbyChatScroll = CoronaPokerGdxTable.anchoredScrollFromTrack(y,
+                    lobbyChatScrollTrack.y, lobbyChatScrollTrack.height,
+                    lobbyChatScrollThumbHeight, lobbyChatScrollMaximum);
+        } else if (scrollDrag == ScrollDrag.SETTINGS_DEBUG) {
+            settingsDebugScroll = CoronaPokerGdxTable.anchoredScrollFromTrack(
+                    y, settingsDebugScrollTrack.y,
+                    settingsDebugScrollTrack.height,
+                    settingsDebugScrollThumbHeight,
+                    settingsDebugScrollMaximum);
+        }
     }
 
     @Override
@@ -5952,6 +6015,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private enum Surface {
         MENU, NEW_GAME, LOBBY, SETTINGS
+    }
+
+    private enum ScrollDrag {
+        NONE, LOBBY_CHAT, SETTINGS_DEBUG
     }
 
     private enum LobbyConfirmation {

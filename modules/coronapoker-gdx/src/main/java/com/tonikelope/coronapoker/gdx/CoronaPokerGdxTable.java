@@ -483,6 +483,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private int settingsAppearancePage;
     private int settingsAudioPage;
     private int settingsDebugScroll;
+    private boolean settingsDebugScrollDragging;
     private int shortcutPage;
     private String shortcutCaptureId;
     private String shortcutStatus = "";
@@ -897,6 +898,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 // an InputMultiplexer can never deliver it underneath.
                 return true;
             }
+            if (uiLayer == UI_SETTINGS && button == Input.Buttons.LEFT) {
+                pointer.set(screenX, screenY);
+                viewport.unproject(pointer);
+                if (settingsDebugTrackContains(pointer.x, pointer.y)) {
+                    settingsDebugScrollDragging = true;
+                    updateSettingsDebugScrollFromTrack(pointer.y);
+                    return true;
+                }
+            }
             if (uiLayer == UI_CHAT && activeDialog == null
                     && button == Input.Buttons.LEFT && !chatEditMenuOpen) {
                 pointer.set(screenX, screenY);
@@ -961,6 +971,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 updateGameLogScrollFromTrack(pointer.y);
                 return true;
             }
+            if (settingsDebugScrollDragging) {
+                updateSettingsDebugScrollFromTrack(pointer.y);
+                return true;
+            }
             if (gameLogSelectionDragging) {
                 int line = gameLogLineAt(pointer.x, pointer.y);
                 if (line >= 0) gameLogSelectionCaret = line;
@@ -975,6 +989,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (activeDialog != null && !activeDialog.isAutoAction()) {
                 chatPointerSelectionDragging = false;
                 gameLogScrollDragging = false;
+                settingsDebugScrollDragging = false;
                 gameLogSelectionDragging = false;
                 feltClickCandidate = false;
                 return true;
@@ -990,8 +1005,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 registerEmptyFeltClick(pointer.x, pointer.y,
                         System.nanoTime());
             }
-            if (!gameLogScrollDragging && !gameLogSelectionDragging) return false;
+            if (!gameLogScrollDragging && !settingsDebugScrollDragging
+                    && !gameLogSelectionDragging) return false;
             gameLogScrollDragging = false;
+            settingsDebugScrollDragging = false;
             gameLogSelectionDragging = false;
             return true;
         }
@@ -9457,9 +9474,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static int anchoredScrollAfterWheel(int current, int maximum,
             float amountY) {
         int delta = amountY == 0f ? 0
-                : Math.max(1, Math.round(Math.abs(amountY) * 3f));
+                : Math.max(1, Math.round(Math.abs(amountY)));
         return MathUtils.clamp(current
                 + (amountY < 0f ? delta : -delta), 0, maximum);
+    }
+
+    static int anchoredScrollFromTrack(float pointerY, float trackY,
+            float trackHeight, float thumbHeight, int maximum) {
+        if (maximum <= 0) return 0;
+        float travel = Math.max(1f, trackHeight - thumbHeight);
+        float ratio = MathUtils.clamp(
+                (pointerY - trackY - thumbHeight / 2f) / travel,
+                0f, 1f);
+        return Math.round(ratio * maximum);
     }
 
     private void openUiLayer(int layer) {
@@ -10202,6 +10229,34 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         / Math.max(1f, trackHeight - thumbHeight),
                 0f, 1f);
         gameLogScroll = Math.round(ratio * maximum);
+    }
+
+    private boolean settingsDebugTrackContains(float x, float y) {
+        if (settingsSection() != GdxSettingsContract.Section.DEBUG) {
+            return false;
+        }
+        GdxSettingsLayout.Frame frame = GdxSettingsLayout.frame(
+                viewport.getWorldWidth(), viewport.getWorldHeight(),
+                settingsSession.sections().size(),
+                settingsSubpageLabels().size());
+        float trackX = frame.content().x + frame.content().width - 15f;
+        return contains(x, y, trackX - 7f, frame.firstRowY() - 337f,
+                24f, 394f);
+    }
+
+    private void updateSettingsDebugScrollFromTrack(float y) {
+        List<String> lines = settingsDebugLines();
+        int maximum = Math.max(0,
+                lines.size() - SETTINGS_DEBUG_VISIBLE_LINES);
+        GdxSettingsLayout.Frame frame = GdxSettingsLayout.frame(
+                viewport.getWorldWidth(), viewport.getWorldHeight(),
+                settingsSession.sections().size(),
+                settingsSubpageLabels().size());
+        float thumbHeight = maximum == 0 ? 394f
+                : Math.max(30f, 394f * SETTINGS_DEBUG_VISIBLE_LINES
+                        / Math.max(1, lines.size()));
+        settingsDebugScroll = anchoredScrollFromTrack(y,
+                frame.firstRowY() - 337f, 394f, thumbHeight, maximum);
     }
 
     private void handleChatClick(float x, float y) {
@@ -11872,7 +11927,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         roundedRect(x + 3f, firstY - 347f, width - 6f, 414f, 9f);
         float trackX = x + width - 15f;
         shapes.setColor(0.15f, 0.21f, 0.30f, alpha);
-        roundedRect(trackX, firstY - 337f, 5f, 394f, 2.5f);
+        roundedRect(trackX, firstY - 337f, 10f, 394f, 5f);
         List<String> lines = settingsDebugLines();
         int maximum = Math.max(0,
                 lines.size() - SETTINGS_DEBUG_VISIBLE_LINES);
@@ -11885,7 +11940,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : (float) settingsDebugScroll / maximum;
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.78f * alpha);
         roundedRect(trackX, firstY - 337f + travel * ratio,
-                5f, thumbH, 2.5f);
+                10f, thumbH, 5f);
     }
 
     private void drawSettingsToggleShape(float x, float y, float width,
@@ -12691,9 +12746,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         shapes.setColor(BUTTON_LINE.r, BUTTON_LINE.g, BUTTON_LINE.b, 0.85f * alpha);
-        roundedRect(logX + logW - 15f, logY + 14f, 5f, logH - 28f, 3f);
+        roundedRect(logX + logW - 20f, logY + 14f, 10f,
+                logH - 28f, 5f);
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.88f * alpha);
-        roundedRect(logX + logW - 16f, thumbY, 7f, thumbHeight, 3f);
+        roundedRect(logX + logW - 20f, thumbY, 10f, thumbHeight, 5f);
         drawDialogButton(panelX + panelW - 224f, panelY + 24f,
                 194f, 58f, POT_GOLD,
                 contains(pointer.x, pointer.y, panelX + panelW - 224f,
@@ -13543,7 +13599,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 local.finalStack())
                         : Math.abs(net);
                 drawFittedCentered(finalAmountFont, formatAmount(value),
-                        centerX, height - 455f, width - 130f,
+                        centerX, height - 475f, width - 130f,
                         resultColor, reveal);
             }
         }

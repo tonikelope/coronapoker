@@ -891,12 +891,18 @@ final class GdxTableViewStateTest {
 
     @Test
     void anchoredConsoleScrollUsesTheNaturalWheelDirection() {
-        assertEquals(7, CoronaPokerGdxTable
+        assertEquals(5, CoronaPokerGdxTable
                 .anchoredScrollAfterWheel(4, 20, -1f));
-        assertEquals(1, CoronaPokerGdxTable
+        assertEquals(3, CoronaPokerGdxTable
                 .anchoredScrollAfterWheel(4, 20, 1f));
         assertEquals(0, CoronaPokerGdxTable
                 .anchoredScrollAfterWheel(0, 20, 1f));
+        assertEquals(0, CoronaPokerGdxTable.anchoredScrollFromTrack(
+                100f, 100f, 400f, 40f, 20));
+        assertEquals(10, CoronaPokerGdxTable.anchoredScrollFromTrack(
+                300f, 100f, 400f, 40f, 20));
+        assertEquals(20, CoronaPokerGdxTable.anchoredScrollFromTrack(
+                500f, 100f, 400f, 40f, 20));
     }
 
     @Test

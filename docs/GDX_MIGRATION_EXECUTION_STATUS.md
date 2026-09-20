@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 10:10 (Europe/Madrid)
+Última actualización: 2026-09-20 10:32 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,12 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19/20
 
+- Unificado el comportamiento de las barras de desplazamiento GDX que existen
+  actualmente: chat de sala, registro de timba y consolas de depuración de
+  ajustes admiten rueda fina (una unidad lógica por paso) y arrastre directo
+  por una pista/pulgar más gruesos y utilizables. La cifra del resultado final
+  queda además algo más separada del rótulo GANAS/PIERDES. Pruebas focalizadas
+  de mesa, chat y ajustes: **109/109**.
 - Cerrada otra fuga visible de idioma en el HUD de la mesa: turno/espera,
   pensar, pasar/ir/apostar/subir/resubir, no ir, modo auto, mostrar y all-in
   consumen el idioma activo. Las acciones ya mostradas en los asientos también

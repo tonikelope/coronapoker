@@ -17,6 +17,21 @@ public final class VoiceWavContract {
         return validationError(wav) == null;
     }
 
+    /** Returns the encoded voice duration, or {@code -1} for an invalid note. */
+    public static long durationMillis(byte[] wav) {
+        if (validationError(wav) != null) return -1L;
+        int position = 12;
+        while (position < wav.length) {
+            long chunkSize = u32le(wav, position + 4);
+            if (ascii(wav, position, "data")) {
+                return chunkSize * 1000L / SAMPLE_RATE;
+            }
+            position = (int) (position + 8L + chunkSize
+                    + (chunkSize & 1L));
+        }
+        return -1L;
+    }
+
     public static String validationError(byte[] wav) {
         if (wav == null) return "null payload";
         if (wav.length < MIN_FILE_BYTES || wav.length > MAX_FILE_BYTES) {

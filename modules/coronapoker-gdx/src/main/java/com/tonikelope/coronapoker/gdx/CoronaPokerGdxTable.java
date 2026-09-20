@@ -187,6 +187,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float FAST_BAR_PADDING = 7f;
     private static final float FAST_BAR_HIDE_DELAY = 1f;
     private static final float FAST_BAR_FADE_SECONDS = 0.40f;
+    /** Same client-side recovery notice used by Swing's GameFrame.HALT_PAUSE. */
+    private static final float RECOVERY_STOP_NOTICE_SECONDS = 5f;
     private static final int QUICK_CHAT_HISTORY_LIMIT = 200;
     private static final float QUICK_CHAT_WIDTH_RATIO = 0.30f;
     private static final float QUICK_CHAT_SCREEN_MARGIN = 18f;
@@ -199,7 +201,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         "settings.ajustes", "chat.chat_rapido", "audio.nota_de_voz",
         "chat.enviar_imagen", "rebuy.recomprar_2",
         "log.registro_de_la_timba", "view.pantalla_completa",
-        "game.salir_de_la_timba_2"
+        "menu.detener_timba", "game.salir_de_la_timba_2"
     };
     private static final float LOCAL_HOLE_CENTER_DISTANCE = 102f;
     private static final float RIVAL_REVEAL_HUD_GAP = 20f;
@@ -617,6 +619,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private int finalSummaryPage;
     private boolean finalSummaryScreenshotTaken;
     private boolean finalContinueRequested;
+    private CompletableFuture<Void> recoveryStopBarrier;
+    private float recoveryStopUntil;
     private boolean finalExitPending;
     private boolean terminationRequested;
     private boolean recoverableTerminationRequested;
@@ -671,6 +675,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float settingsDebugScroll;
     private int settingsDebugLineCount;
     private boolean settingsDebugScrollDragging;
+    private final GdxVoiceNoteLibrary voiceNoteLibrary =
+            new GdxVoiceNoteLibrary();
+    private boolean voiceNotesOpen;
+    private boolean voiceNotesLoading;
+    private List<GdxVoiceNoteLibrary.Entry> voiceNotes = List.of();
+    private int voiceNotesPage;
+    private GdxVoiceNoteLibrary.Entry voiceNotePlaying;
+    private GdxVoiceNoteLibrary.Entry voiceNoteDeleteConfirmation;
+    private boolean voiceNotesPurgeConfirmation;
     private int shortcutPage;
     private String shortcutCaptureId;
     private String shortcutStatus = "";
@@ -2039,6 +2052,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             texture("images/fast_panel/rebuy.png"),
             texture("images/fast_panel/log.png"),
             texture("images/fast_panel/fullscreen.png"),
+            texture("images/stop.png"),
             silhouetteTexture("images/exit2.png", Color.WHITE)
         };
         defaultCardBack = cardTexture("images/decks/goliat/hq/trasera.jpg");
@@ -2138,8 +2152,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // Nearest magnification preserves the black felt's fine grain instead
         // of averaging its near-black texels into an apparently flat fill.
         Texture texture = new Texture(Gdx.files.internal(path));
-        texture.setFilter(TextureFilter.Linear, TextureFilter.Nearest);
+        texture.setFilter(feltMinificationFilter(),
+                TextureFilter.Nearest);
         return texture;
+    }
+
+    static TextureFilter feltMinificationFilter() {
+        // The bundled 450 px tiles are drawn almost pixel-for-pixel. Linear
+        // minification averages the black tile's one-pixel fibres whenever the
+        // viewport is slightly narrower than the logical canvas, making the
+        // original fabric look like a flat black fill.
+        return TextureFilter.Nearest;
     }
 
     private static Texture silhouetteTexture(String path, Color tint) {
@@ -2425,6 +2448,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             recoverableTerminationRequested = false;
             terminationConfirmation = null;
             liveState.apply(event);
+            if (recoveryStopSkipsFinalSummary(close.summary().reason())) {
+                // Swing never opens BalanceScreen for force_recover. The host
+                // immediately rebuilds its recovery lobby; remote clients keep
+                // the stopped table visible under a five-second notice, then
+                // reconnect automatically.
+                while (activeDialog != null) {
+                    activeDialog.dismiss();
+                    activeDialog = dialogQueue.pollFirst();
+                }
+                dialogQueue.clear();
+                uiLayer = UI_NONE;
+                finalContinueRequested = true;
+                if (tableHost) {
+                    barrier.complete(null);
+                } else {
+                    recoveryStopBarrier = barrier;
+                    recoveryStopUntil = totalTime
+                            + RECOVERY_STOP_NOTICE_SECONDS;
+                }
+                return;
+            }
             if (!close.summary().hasBalances()) {
                 barrier.complete(null);
                 return;
@@ -3149,6 +3193,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateLiveHoleFold();
         updateTableChat();
         updateVoiceRecording();
+        updateRecoveryStopTransition();
         recordFrame(delta);
         if (activeDialog != null) {
             activeDialog.setTimerPaused(totalTime,
@@ -3193,6 +3238,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawTerminationOverlay();
         drawActiveDialog();
         drawNetworkReconnectOverlay();
+        drawRecoveryStopOverlay();
         drawScreenshotToast();
         drawVolumeOverlay();
         if (screenshotRequested) {
@@ -3422,7 +3468,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             } else if (uiLayer == UI_HAND_GENERATOR) {
                 uiLayer = UI_NONE;
             } else if (uiLayer == UI_SETTINGS) {
-                requestCancelTableSettings(null);
+                if (voiceNotesOpen) {
+                    if (voiceNoteDeleteConfirmation != null
+                            || voiceNotesPurgeConfirmation) {
+                        voiceNoteDeleteConfirmation = null;
+                        voiceNotesPurgeConfirmation = false;
+                    } else {
+                        closeTableVoiceNotes();
+                    }
+                } else {
+                    requestCancelTableSettings(null);
+                }
             } else if (uiLayer == UI_GAME_LOG) {
                 uiLayer = UI_NONE;
             } else if (liveState == null) {
@@ -4067,7 +4123,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             pointer.set(Gdx.input.getX(), Gdx.input.getY());
             viewport.unproject(pointer);
             int fastIndex = fastButtonAt(pointer.x, pointer.y);
-            if (fastAccessActionAt(fastIndex) == FastAccessAction.VOICE
+            if (visibleFastAccessActionAt(fastIndex) == FastAccessAction.VOICE
                     && fastButtonEnabled(fastIndex)) {
                 micPointerHeld = true;
                 beginVoiceRecording();
@@ -4197,6 +4253,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         REBUY,
         GAME_LOG,
         FULLSCREEN,
+        STOP,
         EXIT,
         NONE
     }
@@ -4398,15 +4455,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private static float fastExpandedWidth() {
+    private float fastExpandedWidth() {
+        int count = fastButtonCount();
         return 2f * FAST_BAR_PADDING
-                + FAST_BUTTON_TEXT_KEYS.length * FAST_BUTTON_SIZE
-                + (FAST_BUTTON_TEXT_KEYS.length - 1) * FAST_BUTTON_GAP;
+                + count * FAST_BUTTON_SIZE
+                + (count - 1) * FAST_BUTTON_GAP;
+    }
+
+    private int fastButtonCount() {
+        return tableHost ? 9 : 8;
     }
 
     private boolean fastButtonEnabled(int index) {
-        return switch (fastAccessActionAt(index)) {
+        return switch (visibleFastAccessActionAt(index)) {
             case SETTINGS, GAME_LOG, FULLSCREEN, EXIT -> true;
+            case STOP -> tableHost;
             case CHAT -> canUseTableChat();
             case VOICE -> canUseTableVoice();
             case IMAGE -> canUseTableImages();
@@ -4416,9 +4479,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static FastAccessAction fastAccessActionAt(int index) {
-        FastAccessAction[] actions = FastAccessAction.values();
-        return index >= 0 && index < actions.length - 1
-                ? actions[index] : FastAccessAction.NONE;
+        return fastAccessActionAt(index, false);
+    }
+
+    static FastAccessAction fastAccessActionAt(int index, boolean host) {
+        if (index < 0) return FastAccessAction.NONE;
+        if (index <= 6) return FastAccessAction.values()[index];
+        if (host && index == 7) return FastAccessAction.STOP;
+        if (index == (host ? 8 : 7)) return FastAccessAction.EXIT;
+        return FastAccessAction.NONE;
+    }
+
+    private FastAccessAction visibleFastAccessActionAt(int index) {
+        return fastAccessActionAt(index, tableHost);
+    }
+
+    private int fastButtonResourceIndex(int index) {
+        // A client skips the host-only stop resource, leaving EXIT last.
+        return !tableHost && index == 7 ? 8 : index;
     }
 
     private boolean canToggleImmediateRebuy() {
@@ -4454,7 +4532,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return -1;
         }
         float firstX = FAST_BAR_X + FAST_BAR_PADDING;
-        for (int index = 0; index < FAST_BUTTON_TEXT_KEYS.length; index++) {
+        for (int index = 0; index < fastButtonCount(); index++) {
             float buttonX = firstX + index * (FAST_BUTTON_SIZE + FAST_BUTTON_GAP);
             if (contains(x, y, buttonX, FAST_BAR_Y + FAST_BAR_PADDING,
                     FAST_BUTTON_SIZE, FAST_BUTTON_SIZE)) {
@@ -4489,7 +4567,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return true;
         }
         fastBarExpanded = false;
-        switch (fastAccessActionAt(button)) {
+        switch (visibleFastAccessActionAt(button)) {
             case SETTINGS -> openSettingsSection(
                     GdxSettingsContract.Section.GAME);
             case CHAT -> openQuickChat();
@@ -4500,6 +4578,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 openUiLayer(UI_GAME_LOG);
             }
             case FULLSCREEN -> toggleFullscreen();
+            case STOP -> requestStopGame();
             case EXIT -> requestExit();
             case VOICE, NONE -> {
                 // Voice is press-and-hold and is handled before button release.
@@ -5186,14 +5265,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 panelW + 3f, panelH + 3f, 13f);
         shapes.setColor(0.006f, 0.028f, 0.040f, 0.88f * alpha);
         roundedRect(FAST_BAR_X, FAST_BAR_Y, panelW, panelH, 12f);
-        int count = fastBarExpanded ? FAST_BUTTON_TEXT_KEYS.length : 1;
+        int count = fastBarExpanded ? fastButtonCount() : 1;
         for (int index = 0; index < count; index++) {
             float buttonX = FAST_BAR_X + FAST_BAR_PADDING
                     + index * (FAST_BUTTON_SIZE + FAST_BUTTON_GAP);
             boolean enabled = !fastBarExpanded || fastButtonEnabled(index);
             boolean hover = fastBarExpanded && hovered == index;
             Color accent = hover && enabled
-                    ? index == FAST_BUTTON_TEXT_KEYS.length - 1
+                    ? visibleFastAccessActionAt(index) == FastAccessAction.EXIT
                             ? FOLD_RED : CYAN
                     : BUTTON_LINE;
             shapes.setColor(accent.r, accent.g, accent.b,
@@ -5224,12 +5303,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         batch.begin();
         if (fastBarExpanded) {
-            for (int index = 0; index < FAST_BUTTON_TEXT_KEYS.length; index++) {
+            for (int index = 0; index < fastButtonCount(); index++) {
                 float buttonX = FAST_BAR_X + FAST_BAR_PADDING
                         + index * (FAST_BUTTON_SIZE + FAST_BUTTON_GAP);
                 float tint = fastButtonEnabled(index) ? 1f : 0.36f;
                 batch.setColor(tint, tint, tint, alpha);
-                batch.draw(fastButtonIcons[index], buttonX + 5f,
+                batch.draw(fastButtonIcons[fastButtonResourceIndex(index)],
+                        buttonX + 5f,
                         FAST_BAR_Y + FAST_BAR_PADDING + 5f,
                         FAST_BUTTON_SIZE - 10f, FAST_BUTTON_SIZE - 10f);
             }
@@ -5274,7 +5354,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private String fastButtonLabel(int index) {
-        return uppercase(gameText.translate(FAST_BUTTON_TEXT_KEYS[index]));
+        return uppercase(gameText.translate(
+                FAST_BUTTON_TEXT_KEYS[fastButtonResourceIndex(index)]));
     }
 
     private void drawVoiceRecordingOverlay(float width, float height) {
@@ -5377,8 +5458,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 // including its frame and shared turn bar.
                 seats[i].stackY = Math.max(seats[i].y - 7f,
                         LOCAL_HUD_SAFE_TOP + 14f);
+                // Clear the chip stack drawn immediately to the avatar's
+                // right. The role puck belongs outside that stack, not over it.
                 seats[i].positionX = seats[i].x + AVATAR_OUTER_RADIUS
-                        + POSITION_CHIP_SIZE / 2f + 4f;
+                        + POSITION_CHIP_SIZE / 2f + 24f;
                 seats[i].positionY = seats[i].y + 8f;
             } else {
                 /*
@@ -5670,8 +5753,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 batch.begin();
                 for (Seat seat : seats) {
                     float presence = seatPresenceAlpha(seat.index);
-                    if (presence <= 0f || liveState.actionKind(seat.name)
-                            != TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
+                    if (presence <= 0f
+                            || !seatHasAllInFire(liveState, seat.name)) {
                         continue;
                     }
                     for (int layer = 0; layer < 3; layer++) {
@@ -5709,8 +5792,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (Seat seat : seats) {
             float presence = seatPresenceAlpha(seat.index);
-            if (presence <= 0f || liveState.actionKind(seat.name)
-                    != TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
+            if (presence <= 0f
+                    || !seatHasAllInFire(liveState, seat.name)) {
                 continue;
             }
             for (int ember = 0; ember < 25; ember++) {
@@ -5744,6 +5827,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         shapes.end();
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+    }
+
+    static boolean seatHasAllInFire(GdxTableViewState state,
+            String nickname) {
+        // Reveals, HandResult and RIT participation never imply ALL-IN. The
+        // effect is owned solely by that player's accepted PlayerAction.
+        return state != null && state.actionKind(nickname)
+                == TableVisualEvent.PlayerAction.ActionKind.ALL_IN;
     }
 
     static Rectangle allInFireLayerBounds(float centerX, float centerY,
@@ -7183,6 +7274,60 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 "gdx.leaving_game")),
                 panelX + 34f, panelY + 46f, panelW - 68f, 66f,
                 Color.WHITE, 1f);
+        batch.end();
+    }
+
+    private void updateRecoveryStopTransition() {
+        if (recoveryStopBarrier == null || totalTime < recoveryStopUntil) {
+            return;
+        }
+        CompletableFuture<Void> barrier = recoveryStopBarrier;
+        recoveryStopBarrier = null;
+        barrier.complete(null);
+    }
+
+    /** Swing's five-second SERVEREXITRECOVER notice with its timeout bar. */
+    private void drawRecoveryStopOverlay() {
+        if (recoveryStopBarrier == null || intro) return;
+        float width = viewport.getWorldWidth();
+        float height = viewport.getWorldHeight();
+        float panelW = Math.min(820f, width - 80f);
+        float panelH = 190f;
+        float panelX = (width - panelW) / 2f;
+        float panelY = (height - panelH) / 2f;
+        float remaining = MathUtils.clamp(
+                (recoveryStopUntil - totalTime)
+                        / RECOVERY_STOP_NOTICE_SECONDS,
+                0f, 1f);
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapes.setColor(0f, 0f, 0f, 0.76f);
+        shapes.rect(0f, 0f, width, height);
+        shapes.setColor(0f, 0f, 0f, 0.58f);
+        roundedRect(panelX + 9f, panelY - 10f, panelW, panelH, 18f);
+        shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b, 0.94f);
+        roundedRect(panelX - 2f, panelY - 2f,
+                panelW + 4f, panelH + 4f, 18f);
+        shapes.setColor(0.012f, 0.027f, 0.047f, 0.99f);
+        roundedRect(panelX, panelY, panelW, panelH, 16f);
+        shapes.setColor(0.10f, 0.15f, 0.22f, 1f);
+        roundedRect(panelX + 34f, panelY + 24f,
+                panelW - 68f, 12f, 6f);
+        shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b, 1f);
+        roundedRect(panelX + 34f, panelY + 24f,
+                (panelW - 68f) * remaining, 12f, 6f);
+        shapes.end();
+
+        batch.begin();
+        batch.setColor(Color.WHITE);
+        batch.draw(fastButtonIcons[7], panelX + 36f,
+                panelY + 75f, 58f, 58f);
+        drawFittedCenteredInBox(actionFont,
+                uppercase(gameText.translate(
+                        "conn.el_servidor_ha_detenido_la")),
+                panelX + 112f, panelY + 65f,
+                panelW - 146f, 86f, Color.WHITE, 1f);
         batch.end();
     }
 
@@ -10051,6 +10196,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void handleSettingsClick(float x, float y) {
+        if (voiceNotesOpen) {
+            handleTableVoiceNotesClick(x, y);
+            return;
+        }
+        if (recoveryStopBarrier != null) {
+            // Swing's timed stop notice is modal. The retired table cannot
+            // accept actions while the client waits to reconnect.
+            return;
+        }
         List<GdxSettingsContract.Section> sections =
                 settingsSession.sections();
         List<String> subpages = settingsSubpageLabels();
@@ -10120,6 +10274,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 GdxSettingsContract.adjustVoiceRetention(
                         tableSettingsProperties(), direction);
                 return;
+            }
+            if (GdxSettingsContract.hasVoiceRetention(page)) {
+                float actionY = audioFirstY
+                        - page.options().size() * 70f - 70f;
+                float half = (rowW - 12f) / 2f;
+                if (contains(x, y, contentX, actionY, half, 58f)) {
+                    openTableVoiceNotes(false);
+                    return;
+                }
+                if (contains(x, y, contentX + half + 12f, actionY,
+                        half, 58f)) {
+                    openTableVoiceNotes(true);
+                    return;
+                }
             }
             if (GdxSettingsContract.hasAudioDevices(page)) {
                 if (contains(x, y, contentX, audioFirstY, rowW, 68f)) {
@@ -12005,7 +12173,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         uiFont.setColor(Color.WHITE);
         dialogFontData.setScale(originalScaleX, originalScaleY);
         if (dialog.hasAmount()) {
-            drawFittedCenteredInBox(actionFont, "−",
+            drawFittedCenteredInBox(seatActionFont, "-",
                     panelX + panelW / 2f - 190f, panelY + 155f,
                     72f, 64f, Color.WHITE, 1f);
             String amountText = dialog.isHandLimit() && dialog.noLimit()
@@ -12020,7 +12188,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawFittedCenteredInBox(uiFont, amountText,
                     panelX + panelW / 2f - 110f, panelY + 155f,
                     220f, 64f, POT_GOLD, 1f);
-            drawFittedCenteredInBox(actionFont, "+",
+            drawFittedCenteredInBox(seatActionFont, "+",
                     panelX + panelW / 2f + 118f, panelY + 155f,
                     72f, 64f, Color.WHITE, 1f);
             if (!dialog.isRebuy()) {
@@ -12265,6 +12433,307 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (settingsContentPage() == 9) {
             drawSettingsDebugTextLayer(contentX, firstRowY, contentW, alpha);
         }
+        if (voiceNotesOpen) drawTableVoiceNotesDialog();
+    }
+
+    private void openTableVoiceNotes(boolean purgeConfirmation) {
+        voiceNotesOpen = true;
+        voiceNotesPurgeConfirmation = purgeConfirmation;
+        voiceNoteDeleteConfirmation = null;
+        voiceNotesPage = 0;
+        reloadTableVoiceNotes();
+    }
+
+    private void reloadTableVoiceNotes() {
+        voiceNotesLoading = true;
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return voiceNoteLibrary.list();
+            } catch (IOException failure) {
+                throw new CompletionException(failure);
+            }
+        }).whenComplete((entries, failure) -> Gdx.app.postRunnable(() -> {
+            if (!voiceNotesOpen) return;
+            voiceNotesLoading = false;
+            if (failure == null) {
+                voiceNotes = entries;
+            } else {
+                voiceNotes = List.of();
+                voiceStatus = gameText.translate("audio.borrar_nota_error");
+                voiceStatusAt = totalTime;
+            }
+        }));
+    }
+
+    private void closeTableVoiceNotes() {
+        GdxVoicePlayback.stop();
+        voiceNotePlaying = null;
+        voiceNoteDeleteConfirmation = null;
+        voiceNotesPurgeConfirmation = false;
+        voiceNotesOpen = false;
+    }
+
+    private Rectangle tableVoiceNotesPanel() {
+        float width = Math.min(1300f, viewport.getWorldWidth() - 80f);
+        float height = Math.min(820f, viewport.getWorldHeight() - 70f);
+        return new Rectangle((viewport.getWorldWidth() - width) / 2f,
+                (viewport.getWorldHeight() - height) / 2f, width, height);
+    }
+
+    private void handleTableVoiceNotesClick(float px, float py) {
+        Rectangle panel = tableVoiceNotesPanel();
+        if (voiceNoteDeleteConfirmation != null
+                || voiceNotesPurgeConfirmation) {
+            if (contains(px, py, panel.x + 250f, panel.y + 300f,
+                    360f, 74f)) {
+                voiceNoteDeleteConfirmation = null;
+                voiceNotesPurgeConfirmation = false;
+            } else if (contains(px, py,
+                    panel.x + panel.width - 610f, panel.y + 300f,
+                    360f, 74f) && !voiceNotesLoading) {
+                confirmTableVoiceNoteDeletion();
+            }
+            return;
+        }
+        if (contains(px, py, panel.x + panel.width - 260f,
+                panel.y + 36f, 210f, 68f)) {
+            closeTableVoiceNotes();
+            return;
+        }
+        int pageCount = Math.max(1, (voiceNotes.size() + 4) / 5);
+        if (contains(px, py, panel.x + 48f, panel.y + 42f, 80f, 58f)) {
+            voiceNotesPage = Math.max(0, voiceNotesPage - 1);
+            return;
+        }
+        if (contains(px, py, panel.x + 232f, panel.y + 42f, 80f, 58f)) {
+            voiceNotesPage = Math.min(pageCount - 1, voiceNotesPage + 1);
+            return;
+        }
+        int start = MathUtils.clamp(voiceNotesPage, 0, pageCount - 1) * 5;
+        int end = Math.min(voiceNotes.size(), start + 5);
+        float rowY = panel.y + panel.height - 178f;
+        for (int index = start; index < end; index++) {
+            GdxVoiceNoteLibrary.Entry entry = voiceNotes.get(index);
+            if (contains(px, py, panel.x + panel.width - 420f,
+                    rowY - 42f, 160f, 64f)) {
+                toggleTableVoiceNotePreview(entry);
+                return;
+            }
+            if (contains(px, py, panel.x + panel.width - 240f,
+                    rowY - 42f, 160f, 64f)) {
+                voiceNoteDeleteConfirmation = entry;
+                return;
+            }
+            rowY -= 102f;
+        }
+    }
+
+    private void drawTableVoiceNotesDialog() {
+        Rectangle panel = tableVoiceNotesPanel();
+        float x = panel.x;
+        float y = panel.y;
+        float w = panel.width;
+        float h = panel.height;
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapes.setColor(0.008f, 0.016f, 0.030f, 0.94f);
+        shapes.rect(0f, 0f, viewport.getWorldWidth(),
+                viewport.getWorldHeight());
+        shapes.setColor(BUTTON_LINE);
+        roundedRect(x - 2f, y - 2f, w + 4f, h + 4f, 20f);
+        shapes.setColor(0.012f, 0.027f, 0.047f, 1f);
+        roundedRect(x, y, w, h, 18f);
+        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.72f);
+        shapes.rect(x + 28f, y + h - 18f, w - 56f, 3f);
+
+        if (voiceNoteDeleteConfirmation != null
+                || voiceNotesPurgeConfirmation) {
+            drawDialogButton(x + 250f, y + 300f, 360f, 74f,
+                    BUTTON_LINE, contains(pointer.x, pointer.y,
+                            x + 250f, y + 300f, 360f, 74f), 1f);
+            drawDialogButton(x + w - 610f, y + 300f, 360f, 74f,
+                    FOLD_RED, contains(pointer.x, pointer.y,
+                            x + w - 610f, y + 300f, 360f, 74f), 1f);
+        } else {
+            int pageCount = Math.max(1, (voiceNotes.size() + 4) / 5);
+            voiceNotesPage = MathUtils.clamp(voiceNotesPage, 0,
+                    pageCount - 1);
+            int start = voiceNotesPage * 5;
+            int end = Math.min(voiceNotes.size(), start + 5);
+            float rowY = y + h - 178f;
+            for (int index = start; index < end; index++) {
+                GdxVoiceNoteLibrary.Entry entry = voiceNotes.get(index);
+                shapes.setColor(BUTTON_LINE);
+                roundedRect(x + 46f, rowY - 52f, w - 92f, 86f, 10f);
+                shapes.setColor(0.025f, 0.060f, 0.105f, 0.96f);
+                roundedRect(x + 49f, rowY - 49f, w - 98f, 80f, 8f);
+                drawDialogButton(x + w - 420f, rowY - 42f, 160f, 64f,
+                        BUTTON_LINE, contains(pointer.x, pointer.y,
+                                x + w - 420f, rowY - 42f, 160f, 64f), 1f);
+                drawDialogButton(x + w - 240f, rowY - 42f, 160f, 64f,
+                        FOLD_RED, contains(pointer.x, pointer.y,
+                                x + w - 240f, rowY - 42f, 160f, 64f), 1f);
+                rowY -= 102f;
+            }
+            if (pageCount > 1) {
+                drawDialogButton(x + 48f, y + 42f, 80f, 58f, BUTTON_LINE,
+                        contains(pointer.x, pointer.y,
+                                x + 48f, y + 42f, 80f, 58f), 1f);
+                drawDialogButton(x + 232f, y + 42f, 80f, 58f, BUTTON_LINE,
+                        contains(pointer.x, pointer.y,
+                                x + 232f, y + 42f, 80f, 58f), 1f);
+            }
+            drawDialogButton(x + w - 260f, y + 36f, 210f, 68f,
+                    POT_GOLD, contains(pointer.x, pointer.y,
+                            x + w - 260f, y + 36f, 210f, 68f), 1f);
+        }
+        shapes.end();
+
+        batch.begin();
+        drawFittedCenteredInBox(uiFont,
+                uppercase(gameText.translate("audio.ver_notas")),
+                x + 45f, y + h - 100f, w - 90f, 54f, POT_GOLD, 1f);
+        if (voiceNoteDeleteConfirmation != null
+                || voiceNotesPurgeConfirmation) {
+            String message = voiceNotesPurgeConfirmation
+                    ? gameText.translate("audio.purgar_notas_confirm")
+                    : gameText.translate("audio.borrar_nota_confirm",
+                            voiceNoteDeleteConfirmation.nickname());
+            drawFittedCenteredInBox(uiFont, message, x + 80f, y + 450f,
+                    w - 160f, 70f, Color.WHITE, 1f);
+            drawFittedCenteredInBox(actionFont,
+                    uppercase(gameText.translate("ui.cancelar")),
+                    x + 250f, y + 300f, 360f, 74f, Color.WHITE, 1f);
+            drawFittedCenteredInBox(actionFont,
+                    uppercase(gameText.translate("audio.borrar_nota")),
+                    x + w - 610f, y + 300f, 360f, 74f,
+                    Color.WHITE, 1f);
+        } else if (voiceNotesLoading) {
+            drawFittedCenteredInBox(uiFont,
+                    uppercase(gameText.translate("audio.ver_notas")) + "…",
+                    x + 80f, y + 420f, w - 160f, 70f,
+                    Color.LIGHT_GRAY, 1f);
+        } else if (voiceNotes.isEmpty()) {
+            drawFittedCenteredInBox(uiFont,
+                    gameText.translate("audio.no_notas_voz"),
+                    x + 80f, y + 420f, w - 160f, 70f,
+                    Color.LIGHT_GRAY, 1f);
+        } else {
+            int pageCount = Math.max(1, (voiceNotes.size() + 4) / 5);
+            int start = voiceNotesPage * 5;
+            int end = Math.min(voiceNotes.size(), start + 5);
+            float rowY = y + h - 178f;
+            for (int index = start; index < end; index++) {
+                GdxVoiceNoteLibrary.Entry entry = voiceNotes.get(index);
+                String date = java.time.format.DateTimeFormatter.ofPattern(
+                        "dd/MM/yyyy HH:mm").withZone(
+                        java.time.ZoneId.systemDefault()).format(
+                        java.time.Instant.ofEpochMilli(
+                                entry.timestampMillis()));
+                drawLeftInBox(uiFont, entry.nickname(), x + 70f,
+                        rowY - 18f, 390f, 48f, Color.WHITE, 1f);
+                drawLeftInBox(smallFont, date + "  ·  "
+                        + tableVoiceDuration(entry.durationMillis()),
+                        x + 500f, rowY - 18f, 320f, 48f,
+                        Color.LIGHT_GRAY, 1f);
+                drawFittedCenteredInBox(actionFont,
+                        uppercase(gameText.translate(entry.equals(
+                                voiceNotePlaying) ? "audio.preview_parar"
+                                : "audio.preview_escuchar")),
+                        x + w - 420f, rowY - 42f, 160f, 64f,
+                        Color.WHITE, 1f);
+                drawFittedCenteredInBox(actionFont,
+                        uppercase(gameText.translate("audio.borrar_nota")),
+                        x + w - 240f, rowY - 42f, 160f, 64f,
+                        Color.WHITE, 1f);
+                rowY -= 102f;
+            }
+            if (pageCount > 1) {
+                drawFittedCenteredInBox(actionFont, "‹", x + 48f,
+                        y + 42f, 80f, 58f, Color.WHITE, 1f);
+                drawFittedCenteredInBox(smallFont,
+                        (voiceNotesPage + 1) + " / " + pageCount,
+                        x + 138f, y + 42f, 84f, 58f,
+                        Color.LIGHT_GRAY, 1f);
+                drawFittedCenteredInBox(actionFont, "›", x + 232f,
+                        y + 42f, 80f, 58f, Color.WHITE, 1f);
+            }
+        }
+        if (voiceNoteDeleteConfirmation == null
+                && !voiceNotesPurgeConfirmation) {
+            drawFittedCenteredInBox(actionFont,
+                    uppercase(gameText.translate("ui.cerrar")),
+                    x + w - 260f, y + 36f, 210f, 68f,
+                    Color.WHITE, 1f);
+        }
+        batch.end();
+    }
+
+    private static String tableVoiceDuration(long millis) {
+        long seconds = Math.max(0L, Math.round(millis / 1000d));
+        return String.format(Locale.ROOT, "%d:%02d", seconds / 60,
+                seconds % 60);
+    }
+
+    private void toggleTableVoiceNotePreview(
+            GdxVoiceNoteLibrary.Entry entry) {
+        if (entry.equals(voiceNotePlaying)) {
+            GdxVoicePlayback.stop();
+            voiceNotePlaying = null;
+            return;
+        }
+        GdxVoicePlayback.stop();
+        voiceNotePlaying = entry;
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return voiceNoteLibrary.read(entry);
+            } catch (IOException failure) {
+                throw new CompletionException(failure);
+            }
+        }).thenCompose(wav -> GdxVoicePlayback.play(wav, effectsVolume,
+                null)).whenComplete((ignored, failure) ->
+                Gdx.app.postRunnable(() -> {
+                    if (entry.equals(voiceNotePlaying)) {
+                        voiceNotePlaying = null;
+                    }
+                    if (failure != null && voiceNotesOpen) {
+                        voiceStatus = gameText.translate(
+                                "gdx.lobby.voice_playback_failed");
+                        voiceStatusAt = totalTime;
+                    }
+                }));
+    }
+
+    private void confirmTableVoiceNoteDeletion() {
+        GdxVoiceNoteLibrary.Entry entry = voiceNoteDeleteConfirmation;
+        boolean purge = voiceNotesPurgeConfirmation;
+        voiceNoteDeleteConfirmation = null;
+        voiceNotesPurgeConfirmation = false;
+        voiceNotesLoading = true;
+        GdxVoicePlayback.stop();
+        voiceNotePlaying = null;
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return purge ? voiceNoteLibrary.purge()
+                        : voiceNoteLibrary.delete(entry) ? 1 : 0;
+            } catch (IOException failure) {
+                throw new CompletionException(failure);
+            }
+        }).whenComplete((deleted, failure) -> Gdx.app.postRunnable(() -> {
+            if (!voiceNotesOpen) return;
+            if (failure != null) {
+                voiceNotesLoading = false;
+                voiceStatus = gameText.translate("audio.borrar_nota_error");
+                voiceStatusAt = totalTime;
+            } else {
+                if (purge) {
+                    voiceStatus = gameText.translate(
+                            "audio.purgar_notas_resultado", deleted);
+                    voiceStatusAt = totalTime;
+                }
+                reloadTableVoiceNotes();
+            }
+        }));
     }
 
     private void drawSettingsContentShapes(float x, float firstY,
@@ -12289,6 +12758,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 drawSettingsStepperShape(x,
                         audioFirstY - page.options().size() * 70f,
                         width, alpha);
+                float actionY = audioFirstY
+                        - page.options().size() * 70f - 70f;
+                float half = (width - 12f) / 2f;
+                drawDialogButton(x, actionY, half, 58f, BUTTON_LINE,
+                        contains(pointer.x, pointer.y, x, actionY,
+                                half, 58f), alpha);
+                drawDialogButton(x + half + 12f, actionY, half, 58f,
+                        new Color(0xa83a42ff), contains(pointer.x, pointer.y,
+                                x + half + 12f, actionY, half, 58f), alpha);
             }
             if (GdxSettingsContract.hasAudioDevices(page)) {
                 drawSettingsStepperShape(x, audioFirstY, width, alpha);
@@ -12650,6 +13128,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 "gdx.settings.row.keep_voice_notes")),
                         GdxSettingsContract.voiceRetentionLabel(
                                 tableSettingsProperties(), gameText), alpha);
+                float actionY = audioFirstY
+                        - page.options().size() * 70f - 70f;
+                float half = (width - 12f) / 2f;
+                drawFittedCenteredInBox(smallFont,
+                        uppercase(gameText.translate("audio.ver_notas")),
+                        x, actionY, half, 58f, Color.WHITE, alpha);
+                drawFittedCenteredInBox(smallFont,
+                        uppercase(gameText.translate("audio.purgar_notas")),
+                        x + half + 12f, actionY, half, 58f,
+                        Color.WHITE, alpha);
             }
             if (GdxSettingsContract.hasAudioDevices(page)) {
                 drawSettingsStepperText(x, audioFirstY, width,
@@ -14416,6 +14904,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return finalContinueRequested;
     }
 
+    static boolean recoveryStopSkipsFinalSummary(
+            TableSessionSummary.CloseReason reason) {
+        return reason == TableSessionSummary.CloseReason.RECOVERABLE_STOP;
+    }
+
     private void drawFinalNavSurface(float x, float y, float width,
             float height, boolean enabled, boolean hover, float alpha) {
         GdxUiButtonStyle.draw(shapes, x, y, width, height,
@@ -14716,6 +15209,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (closingSummaryBarrier != null
                 && !closingSummaryBarrier.isDone()) {
             closingSummaryBarrier.complete(null);
+        }
+        CompletableFuture<Void> closingRecoveryBarrier = recoveryStopBarrier;
+        recoveryStopBarrier = null;
+        if (closingRecoveryBarrier != null
+                && !closingRecoveryBarrier.isDone()) {
+            closingRecoveryBarrier.complete(null);
         }
         GdxVoiceRecorder activeRecorder = voiceRecorder;
         voiceRecorder = null;

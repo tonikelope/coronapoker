@@ -53,4 +53,24 @@ final class GdxSettingsNavigationContractTest {
         assertEquals(CoronaPokerGdxTable.FastAccessAction.NONE,
                 CoronaPokerGdxTable.fastAccessActionAt(8));
     }
+
+    @Test
+    void hostFastAccessAddsStopImmediatelyBeforeExit() {
+        assertEquals(List.of(
+                CoronaPokerGdxTable.FastAccessAction.SETTINGS,
+                CoronaPokerGdxTable.FastAccessAction.CHAT,
+                CoronaPokerGdxTable.FastAccessAction.VOICE,
+                CoronaPokerGdxTable.FastAccessAction.IMAGE,
+                CoronaPokerGdxTable.FastAccessAction.REBUY,
+                CoronaPokerGdxTable.FastAccessAction.GAME_LOG,
+                CoronaPokerGdxTable.FastAccessAction.FULLSCREEN,
+                CoronaPokerGdxTable.FastAccessAction.STOP,
+                CoronaPokerGdxTable.FastAccessAction.EXIT),
+                java.util.stream.IntStream.range(0, 9)
+                        .mapToObj(index -> CoronaPokerGdxTable
+                                .fastAccessActionAt(index, true))
+                        .toList());
+        assertEquals(CoronaPokerGdxTable.FastAccessAction.NONE,
+                CoronaPokerGdxTable.fastAccessActionAt(9, true));
+    }
 }

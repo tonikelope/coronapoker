@@ -303,6 +303,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private NewGameTableDraft settingsTable;
     private NewGameTableDraft.Settings settingsTableSnapshot;
     private boolean settingsDiscardConfirmation;
+    private final GdxVoiceNoteLibrary voiceNoteLibrary =
+            new GdxVoiceNoteLibrary();
+    private boolean voiceNotesOpen;
+    private boolean voiceNotesLoading;
+    private List<GdxVoiceNoteLibrary.Entry> voiceNotes = List.of();
+    private int voiceNotesPage;
+    private GdxVoiceNoteLibrary.Entry voiceNotePlaying;
+    private GdxVoiceNoteLibrary.Entry voiceNoteDeleteConfirmation;
+    private boolean voiceNotesPurgeConfirmation;
     private boolean aboutOpen;
     private int aboutEasterEggClicks;
     private Texture aboutEasterEggTexture;
@@ -575,6 +584,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         || fingerprintDialog != null))
                 || (surface == Surface.SETTINGS
                 && (settingsDiscardConfirmation
+                        || voiceNotesOpen
                         || blindStructureDialog
                                 != BlindStructureDialog.NONE))
                 || (surface == Surface.NEW_GAME
@@ -604,6 +614,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 drawUpdateDialog();
             } else if (blindStructureDialog != BlindStructureDialog.NONE) {
                 drawBlindStructureDialog();
+            } else if (voiceNotesOpen) {
+                drawVoiceNotesDialog();
             } else if (surface == Surface.SETTINGS) {
                 drawSettingsDiscardConfirmation();
             } else if (surface == Surface.NEW_GAME) {
@@ -2318,6 +2330,201 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 ButtonTone.DANGER, () -> finishClosingSettings(false), true);
     }
 
+    private void openVoiceNotes() {
+        voiceNotesOpen = true;
+        voiceNotesLoading = true;
+        voiceNotesPage = 0;
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return voiceNoteLibrary.list();
+            } catch (IOException failure) {
+                throw new CompletionException(failure);
+            }
+        }, recoveryExecutor).whenComplete((entries, failure) ->
+                Gdx.app.postRunnable(() -> {
+                    if (!voiceNotesOpen) return;
+                    voiceNotesLoading = false;
+                    if (failure == null) {
+                        voiceNotes = entries;
+                    } else {
+                        voiceNotes = List.of();
+                        showToast(gameText.translate(
+                                "audio.borrar_nota_error"));
+                    }
+                }));
+    }
+
+    private void closeVoiceNotes() {
+        GdxVoicePlayback.stop();
+        voiceNotePlaying = null;
+        voiceNoteDeleteConfirmation = null;
+        voiceNotesPurgeConfirmation = false;
+        voiceNotesOpen = false;
+    }
+
+    private void drawVoiceNotesDialog() {
+        shapes.setColor(new Color(0x02050cdd));
+        shapes.rect(0f, 0f, WIDTH, HEIGHT);
+        float x = 310f;
+        float y = 130f;
+        float w = 1300f;
+        float h = 820f;
+        shapes.setColor(new Color(0x000000aa));
+        roundedRect(x + 12f, y - 10f, w, h, 20f);
+        shapes.setColor(CYAN_DARK);
+        roundedRect(x - 2f, y - 2f, w + 4f, h + 4f, 20f);
+        shapes.setColor(new Color(0x071321ff));
+        roundedRect(x, y, w, h, 18f);
+        shapes.setColor(new Color(0x36d9ffb8));
+        shapes.rect(x + 28f, y + h - 18f, w - 56f, 3f);
+        textFit(headingFont, uppercase(gameText.translate("audio.ver_notas")),
+                x + w / 2f, y + h - 70f, GOLD, true, w - 90f);
+
+        if (voiceNoteDeleteConfirmation != null
+                || voiceNotesPurgeConfirmation) {
+            String message = voiceNotesPurgeConfirmation
+                    ? gameText.translate("audio.purgar_notas_confirm")
+                    : gameText.translate("audio.borrar_nota_confirm",
+                            voiceNoteDeleteConfirmation.nickname());
+            textFit(actionFont, message, x + w / 2f, y + 475f,
+                    Color.WHITE, true, w - 150f);
+            themedButton(x + 250f, y + 300f, 360f, 74f,
+                    uppercase(gameText.translate("ui.cancelar")),
+                    ButtonTone.NEUTRAL, () -> {
+                        voiceNoteDeleteConfirmation = null;
+                        voiceNotesPurgeConfirmation = false;
+                    }, !voiceNotesLoading);
+            themedButton(x + 690f, y + 300f, 360f, 74f,
+                    uppercase(gameText.translate("audio.borrar_nota")),
+                    ButtonTone.DANGER, this::confirmVoiceNoteDeletion,
+                    !voiceNotesLoading);
+            return;
+        }
+
+        if (voiceNotesLoading) {
+            textFit(actionFont,
+                    uppercase(gameText.translate("audio.ver_notas")) + "…",
+                    x + w / 2f, y + 460f, MUTED, true, w - 140f);
+        } else if (voiceNotes.isEmpty()) {
+            textFit(actionFont, gameText.translate("audio.no_notas_voz"),
+                    x + w / 2f, y + 460f, MUTED, true, w - 140f);
+        } else {
+            final int rowsPerPage = 5;
+            int pageCount = Math.max(1,
+                    (voiceNotes.size() + rowsPerPage - 1) / rowsPerPage);
+            voiceNotesPage = MathUtils.clamp(voiceNotesPage, 0,
+                    pageCount - 1);
+            int start = voiceNotesPage * rowsPerPage;
+            int end = Math.min(voiceNotes.size(), start + rowsPerPage);
+            float rowY = y + h - 178f;
+            for (int index = start; index < end; index++) {
+                GdxVoiceNoteLibrary.Entry entry = voiceNotes.get(index);
+                outerBox(x + 46f, rowY - 52f, w - 92f, 86f, LINE,
+                        PANEL_LIGHT);
+                String date = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
+                        .withZone(ZoneId.systemDefault())
+                        .format(java.time.Instant.ofEpochMilli(
+                                entry.timestampMillis()));
+                textFit(uiFont, entry.nickname(), x + 70f, rowY,
+                        Color.WHITE, false, 410f);
+                textFit(smallFont, date + "  ·  "
+                        + formatVoiceDuration(entry.durationMillis()),
+                        x + 500f, rowY, MUTED, false, 350f);
+                boolean playing = entry.equals(voiceNotePlaying);
+                themedButton(x + w - 420f, rowY - 42f, 160f, 64f,
+                        uppercase(gameText.translate(playing
+                                ? "audio.preview_parar"
+                                : "audio.preview_escuchar")),
+                        ButtonTone.NEUTRAL,
+                        () -> toggleVoiceNotePreview(entry), true);
+                themedButton(x + w - 240f, rowY - 42f, 160f, 64f,
+                        uppercase(gameText.translate("audio.borrar_nota")),
+                        ButtonTone.DANGER,
+                        () -> voiceNoteDeleteConfirmation = entry, true);
+                rowY -= 102f;
+            }
+            if (pageCount > 1) {
+                themedButton(x + 48f, y + 42f, 80f, 58f, "‹",
+                        ButtonTone.NEUTRAL,
+                        () -> voiceNotesPage = Math.max(0,
+                                voiceNotesPage - 1), voiceNotesPage > 0);
+                textFit(smallFont, (voiceNotesPage + 1) + " / " + pageCount,
+                        x + 180f, y + 78f, MUTED, true, 90f);
+                themedButton(x + 232f, y + 42f, 80f, 58f, "›",
+                        ButtonTone.NEUTRAL,
+                        () -> voiceNotesPage = Math.min(pageCount - 1,
+                                voiceNotesPage + 1),
+                        voiceNotesPage + 1 < pageCount);
+            }
+        }
+        themedButton(x + w - 260f, y + 36f, 210f, 68f,
+                uppercase(gameText.translate("ui.cerrar")),
+                ButtonTone.FEATURED, this::closeVoiceNotes, true);
+    }
+
+    private static String formatVoiceDuration(long millis) {
+        long seconds = Math.max(0L, Math.round(millis / 1000d));
+        return String.format(Locale.ROOT, "%d:%02d", seconds / 60,
+                seconds % 60);
+    }
+
+    private void toggleVoiceNotePreview(GdxVoiceNoteLibrary.Entry entry) {
+        if (entry.equals(voiceNotePlaying)) {
+            GdxVoicePlayback.stop();
+            voiceNotePlaying = null;
+            return;
+        }
+        GdxVoicePlayback.stop();
+        voiceNotePlaying = entry;
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return voiceNoteLibrary.read(entry);
+            } catch (IOException failure) {
+                throw new CompletionException(failure);
+            }
+        }, recoveryExecutor).thenCompose(wav -> GdxVoicePlayback.play(wav,
+                masterVolume(), null)).whenComplete((ignored, failure) ->
+                Gdx.app.postRunnable(() -> {
+                    if (entry.equals(voiceNotePlaying)) {
+                        voiceNotePlaying = null;
+                    }
+                    if (failure != null && voiceNotesOpen) {
+                        showToast(gameText.translate(
+                                "gdx.lobby.voice_playback_failed"));
+                    }
+                }));
+    }
+
+    private void confirmVoiceNoteDeletion() {
+        GdxVoiceNoteLibrary.Entry entry = voiceNoteDeleteConfirmation;
+        boolean purge = voiceNotesPurgeConfirmation;
+        voiceNoteDeleteConfirmation = null;
+        voiceNotesPurgeConfirmation = false;
+        voiceNotesLoading = true;
+        GdxVoicePlayback.stop();
+        voiceNotePlaying = null;
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return purge ? voiceNoteLibrary.purge()
+                        : voiceNoteLibrary.delete(entry) ? 1 : 0;
+            } catch (IOException failure) {
+                throw new CompletionException(failure);
+            }
+        }, recoveryExecutor).whenComplete((deleted, failure) ->
+                Gdx.app.postRunnable(() -> {
+                    if (!voiceNotesOpen) return;
+                    if (failure != null) {
+                        voiceNotesLoading = false;
+                        showToast(gameText.translate(
+                                "audio.borrar_nota_error"));
+                    } else {
+                        if (purge) showToast(gameText.translate(
+                                "audio.purgar_notas_resultado", deleted));
+                        openVoiceNotes();
+                    }
+                }));
+    }
+
     private void confirmLobbyAction() {
         LobbyConfirmation action = lobbyConfirmation;
         lobbyConfirmation = null;
@@ -3299,6 +3506,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         GdxSettingsContract.adjustVoiceRetention(
                                 initialProperties, 1);
                     });
+            rowY -= 82f;
+            float half = (w - 82f) / 2f;
+            themedButton(x + 34f, rowY, half, 62f,
+                    uppercase(gameText.translate("audio.ver_notas")),
+                    ButtonTone.NEUTRAL, this::openVoiceNotes, true);
+            themedButton(x + 48f + half, rowY, half, 62f,
+                    uppercase(gameText.translate("audio.purgar_notas")),
+                    ButtonTone.DANGER, () -> {
+                        voiceNotesPurgeConfirmation = true;
+                        openVoiceNotes();
+                    }, true);
         }
         if (GdxSettingsContract.hasAudioDevices(page)) {
             settingsStepper(x + 34f, rowY, w - 68f, 70f,
@@ -6470,6 +6688,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             if (presetDialog != PresetDialog.NONE) {
                 closePresetDialog();
+                return true;
+            }
+            if (voiceNotesOpen) {
+                if (voiceNoteDeleteConfirmation != null
+                        || voiceNotesPurgeConfirmation) {
+                    voiceNoteDeleteConfirmation = null;
+                    voiceNotesPurgeConfirmation = false;
+                } else {
+                    closeVoiceNotes();
+                }
                 return true;
             }
             if (settingsDiscardConfirmation) {

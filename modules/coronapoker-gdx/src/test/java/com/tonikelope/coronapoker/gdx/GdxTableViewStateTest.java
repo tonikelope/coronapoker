@@ -31,6 +31,12 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void feltKeepsTheOriginalOnePixelFabricGrain() {
+        assertEquals(TextureFilter.Nearest,
+                CoronaPokerGdxTable.feltMinificationFilter());
+    }
+
+    @Test
     void straddlePositionsKeepTheirDedicatedTableChips() {
         assertEquals(CoronaPokerGdxTable.PositionChipKind.STRADDLE,
                 CoronaPokerGdxTable.positionChipKind(
@@ -603,6 +609,18 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void recoverableStopBypassesFinalBalanceLikeSwingForceRecover() {
+        assertTrue(CoronaPokerGdxTable.recoveryStopSkipsFinalSummary(
+                TableSessionSummary.CloseReason.RECOVERABLE_STOP));
+        assertFalse(CoronaPokerGdxTable.recoveryStopSkipsFinalSummary(
+                TableSessionSummary.CloseReason.COMPLETED));
+        assertFalse(CoronaPokerGdxTable.recoveryStopSkipsFinalSummary(
+                TableSessionSummary.CloseReason.EXITED));
+        assertFalse(CoronaPokerGdxTable.recoveryStopSkipsFinalSummary(
+                TableSessionSummary.CloseReason.FAILURE));
+    }
+
+    @Test
     void finalSummaryCentersSingleHeroLowerThanHeroWithAmount() {
         float height = 1152f;
 
@@ -702,6 +720,34 @@ final class GdxTableViewStateTest {
                         .map(TableSnapshot.CardSnapshot::code).toList());
         assertTrue(state.presentedHoleCards("ana").stream()
                 .allMatch(TableSnapshot.CardSnapshot::faceUp));
+    }
+
+    @Test
+    void showdownAndRunItTwiceNeverInventAllInFire() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+        state.apply(new TableVisualEvent.PlayerAction(1, "ana",
+                TableVisualEvent.PlayerAction.ActionKind.CALL,
+                "VA", 10d, 10d, 90d, 10d, 20d));
+        state.apply(new TableVisualEvent.RevealHoleCards(2, "ana",
+                card("A_C"), card("K_C"), "PAREJA"));
+        state.apply(new TableVisualEvent.RunItTwiceBoard(3,
+                TableVisualEvent.RunItTwiceBoard.Side.A,
+                "BOTE (CARA-A):", 20d, List.of()));
+
+        assertFalse(CoronaPokerGdxTable.seatHasAllInFire(state, "ana"));
+        assertFalse(CoronaPokerGdxTable.seatHasAllInFire(state, "borja"));
+
+        state.apply(new TableVisualEvent.PlayerAction(4, "borja",
+                TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
+                "ALL IN", 100d, 100d, 0d, 100d, 120d));
+        state.apply(new TableVisualEvent.RevealHoleCards(5, "borja",
+                card("Q_D"), card("Q_C"), "TRÍO"));
+        state.apply(new TableVisualEvent.RunItTwiceBoard(6,
+                TableVisualEvent.RunItTwiceBoard.Side.B,
+                "BOTE (CARA-B):", 60d, List.of(3, 4)));
+
+        assertFalse(CoronaPokerGdxTable.seatHasAllInFire(state, "ana"));
+        assertTrue(CoronaPokerGdxTable.seatHasAllInFire(state, "borja"));
     }
 
     @Test

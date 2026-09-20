@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 18:57 (Europe/Madrid)
+Última actualización: 2026-09-20 23:00 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -30,6 +30,26 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19/20
 
+- Restituido el flujo Swing exacto de `Detener timba`: un
+  `RECOVERABLE_STOP` ya no abre la pantalla final ni exige pulsar continuar.
+  El host salta directamente a reconstruir su sala de recuperación y el
+  cliente mantiene la mesa bloqueada bajo el aviso modal original de 5 s, con
+  barra de tiempo, antes de reconectar automáticamente. La barra rápida muestra
+  además STOP inmediatamente antes de Salir sólo para el anfitrión. El core,
+  `SERVEREXITRECOVER` y la persistencia no se duplican ni se modifican.
+- Revisado el disparador visual de fuego ALL-IN: ambas pasadas del efecto leen
+  exclusivamente el último `PlayerAction.ActionKind.ALL_IN` aceptado por el
+  core. Los eventos de destape, showdown y Run It Twice no encienden fuego por
+  sí mismos; una prueba reproduce CALL+RIT frente a ALL_IN+RIT y exige fuego
+  únicamente en el segundo asiento.
+- Ajustes GDX expone ya en frontend y mesa la biblioteca nativa de notas de voz
+  guardadas (listar, previsualizar, borrar y vaciar), sin widgets Swing. Se han
+  corregido también el muestreo del tapete negro original, la separación de la
+  ficha de posición local y la legibilidad de los signos menos/más en diálogos
+  numéricos. Bloque focalizado actual: **126/126**; el escenario de red
+  `forceRecoverRebuildsTheNetworkTableAndCompletesTwoHands` también pasa.
+  JAR GDX: 266.360.756 bytes, SHA-256
+  `F4CBCEEE587822F9F8FB12DC8C5A9B157849B4C8FAD7EC4F0BD216EA8C07B21C`.
 - Auditados y cableados los controles de conexión del host en la sala GDX:
   la dirección publicada se copia al portapapeles y el diálogo de contraseña
   ya permite copiar, cambiar, eliminar o generar y aplicar una clave fuerte de

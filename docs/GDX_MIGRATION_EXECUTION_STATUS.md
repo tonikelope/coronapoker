@@ -30,10 +30,21 @@ Disciplina del repositorio durante la migración:
 
 ## Checkpoint de consolidación 2026-09-19/20
 
-- JAR de checkpoint posterior a los arreglos de icono TTS/voz, scroll y
-  composición de `Acerca de`: `target/CoronaPoker-24.11-gdx.jar`,
-  266.281.645 bytes, SHA-256
-  `9C046AC4DAD8301610CFCE692A01FBB02FA04866B077AD905A5625499AC98FBE`.
+- Cerrada una discrepancia funcional de Audio/Ajustes: las notas de voz ya no
+  salen por Java Sound al margen de GDX. Ahora se reproducen en cola mediante
+  el backend OpenAL de libGDX, respetan el dispositivo de salida seleccionado,
+  aplican la misma curva de volumen maestro que TTS, reaccionan a cambios de
+  volumen durante la reproducción y se detienen al desactivar el sonido. El
+  overlay temporal de volumen de Swing también está portado de forma nativa a
+  menú, sala y mesa GDX: icono, barra, porcentaje, estado 0 % y reinicio del
+  segundo de visibilidad con cada pulsación. El bloque focalizado de voz, chat,
+  atajos, layout y contrato de Ajustes pasa **40/40**; queda la comprobación
+  auditiva y visual interactiva con dos dispositivos físicos.
+
+- JAR de checkpoint posterior a los arreglos de voz, overlay de volumen,
+  icono TTS/voz, scroll y composición de `Acerca de`:
+  `target/CoronaPoker-24.11-gdx.jar`, 266.284.544 bytes, SHA-256
+  `2C74C754CCFB0381A14ABA8573CD2B4788007967158D2CFCFADCBA1BF12C9342`.
 - Recompuesto el diálogo nativo `Acerca de`: la versión deja de montarse sobre
   el logotipo, el logo ocupa una banda propia y los agradecimientos/créditos se
   agrupan en dos paneles equilibrados antes del bloque legal y el cierre.

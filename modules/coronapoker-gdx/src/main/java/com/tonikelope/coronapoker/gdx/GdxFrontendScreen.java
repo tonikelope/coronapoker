@@ -202,6 +202,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private String activeField;
     private long toastUntil;
     private String toast = "";
+    private float volumeOverlayUntil;
     private float elapsed;
     private float frameDelta;
     private float menuRevealStartedAt = Float.NaN;
@@ -458,6 +459,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (System.currentTimeMillis() < toastUntil) {
             drawToast();
         }
+        if (elapsed < volumeOverlayUntil) drawVolumeOverlay();
         if (editMenu != null && !aboutOpen && lobbyConfirmation == null
                 && !lobbyPasswordDialog
                 && presetDialog == PresetDialog.NONE
@@ -2033,7 +2035,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 showToast(gameText.translate("gdx.lobby.voice_invalid"));
                 return;
             }
-            GdxVoicePlayback.play(wav).whenComplete((ignored, failure) -> {
+            GdxVoicePlayback.play(wav, masterVolume(), null)
+                    .whenComplete((ignored, failure) -> {
                 if (failure == null || Gdx.app == null) return;
                 Gdx.app.postRunnable(() -> {
                     if (!disposed) {
@@ -3369,6 +3372,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             soundDisabledCue.play(0.72f);
         }
         boolean enabled = audioControl.toggle(surface != Surface.SETTINGS);
+        if (!enabled) GdxVoicePlayback.stop();
         if (enabled && preferenceBoolean("sonido_efectos", true)) {
             soundEnabledCue.play(0.72f);
         }
@@ -3389,6 +3393,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void syncMusicForSurface() {
         if (backgroundMusic == null || waitingRoomMusic == null) return;
         float volume = masterVolume();
+        GdxVoicePlayback.refreshVolume(volume);
         backgroundMusic.setVolume(0.40f * volume);
         waitingRoomMusic.setVolume(0.90f * volume);
         boolean lobbyMusic = surface == Surface.LOBBY
@@ -4568,6 +4573,30 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(uiFont, toast, WIDTH / 2f, 193f, Color.WHITE, true, w - 52f);
     }
 
+    private void drawVolumeOverlay() {
+        float width = 520f;
+        float height = 100f;
+        float x = (WIDTH - width) / 2f;
+        float y = (HEIGHT - height) / 2f;
+        float volume = masterVolume();
+        Color accent = volume > 0f ? CYAN : LATENCY_RED;
+        outerBox(x, y, width, height, accent, PANEL_LIGHT);
+        uiImages.add(new UiImageItem(volume > 0f ? soundIcon : muteIcon,
+                x + 22f, y + 21f, 58f, 58f));
+        float barX = x + 104f;
+        float barY = y + 37f;
+        float barW = width - 132f;
+        shapes.setColor(new Color(0x253248ff));
+        roundedRect(barX, barY, barW, 26f, 7f);
+        if (volume > 0f) {
+            shapes.setColor(accent);
+            roundedRect(barX, barY, barW * volume, 26f, 7f);
+        }
+        textFit(uiFont, Math.round(volume * 100f) + "%",
+                barX + barW / 2f, barY + 23f, Color.WHITE, true,
+                barW - 20f);
+    }
+
     private void panel(float x, float y, float w, float h, String title) {
         outerBox(x, y, w, h, LINE, PANEL);
         shapes.rect(x + 24f, y + h * 0.56f, w - 48f, h * 0.33f,
@@ -5662,6 +5691,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             preferences.saveDeferred();
         }
         syncMusicForSurface();
+        volumeOverlayUntil = elapsed + 1f;
         playPreferenceSound("misc/volume_change.wav",
                 "sonido_volumen", 0.72f);
     }
@@ -5889,6 +5919,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         autoSubmitRecovery = false;
         recoveryExecutor.shutdownNow();
         cancelLobbyVoiceRecording();
+        GdxVoicePlayback.stop();
         clearLobbyMedia();
         lobbyHistoryMedia.dispose();
         submissions.cancel();

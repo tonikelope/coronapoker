@@ -642,6 +642,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private String potText = "BOTE: 0";
 
     private float totalTime;
+    private float volumeOverlayUntil;
     private float sceneTime;
     private float statsClock;
     private float monitorRefreshPollClock;
@@ -3004,6 +3005,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawActiveDialog();
         drawNetworkReconnectOverlay();
         drawScreenshotToast();
+        drawVolumeOverlay();
         if (screenshotRequested) {
             screenshotRequested = false;
             captureScreenshot();
@@ -5773,7 +5775,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         try {
             byte[] wav = Base64.getDecoder().decode(message.content());
             if (VoiceWavContract.isValid(wav)) {
-                return GdxVoicePlayback.play(wav, playbackStarted);
+                return GdxVoicePlayback.play(wav, effectsVolume,
+                        playbackStarted);
             }
         } catch (IllegalArgumentException malformed) {
             // The typed chat event remains visible, but malformed audio is inert.
@@ -7734,6 +7737,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean wasEnabled = audioControl.enabled();
         if (wasEnabled) playSwitchSound(false);
         boolean enabled = audioControl.toggle(uiLayer != UI_SETTINGS);
+        if (!enabled) GdxVoicePlayback.stop();
         if (enabled) playSwitchSound(true);
         if (musicEnabled()) {
             backgroundMusic.play();
@@ -7753,6 +7757,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         refreshDealerLoopVolumes();
         if (textToSpeech != null) textToSpeech.refreshVolume();
+        GdxVoicePlayback.refreshVolume(effectsVolume);
     }
 
     private void adjustMasterVolume(float delta) {
@@ -7767,6 +7772,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         refreshDealerLoopVolumes();
         if (textToSpeech != null) textToSpeech.refreshVolume();
+        GdxVoicePlayback.refreshVolume(effectsVolume);
+        volumeOverlayUntil = totalTime + 1f;
         playPreferenceSound(GdxSoundFeedback.VOLUME_CHANGE,
                 "sonido_volumen", 0.72f);
     }
@@ -11330,6 +11337,41 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
     }
 
+    private void drawVolumeOverlay() {
+        if (totalTime >= volumeOverlayUntil) return;
+        float width = 520f;
+        float height = 100f;
+        float x = (viewport.getWorldWidth() - width) / 2f;
+        float y = (viewport.getWorldHeight() - height) / 2f;
+        float volume = effectsVolume;
+        Color accent = volume > 0f ? CYAN : FOLD_RED;
+        float barX = x + 104f;
+        float barY = y + 37f;
+        float barW = width - 132f;
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapes.setColor(0f, 0f, 0f, 0.58f);
+        roundedRect(x + 8f, y - 9f, width, height, 15f);
+        shapes.setColor(accent.r, accent.g, accent.b, 0.92f);
+        roundedRect(x - 2f, y - 2f, width + 4f, height + 4f, 15f);
+        shapes.setColor(0.012f, 0.027f, 0.047f, 0.98f);
+        roundedRect(x, y, width, height, 13f);
+        shapes.setColor(0.15f, 0.20f, 0.28f, 1f);
+        roundedRect(barX, barY, barW, 26f, 7f);
+        if (volume > 0f) {
+            shapes.setColor(accent);
+            roundedRect(barX, barY, barW * volume, 26f, 7f);
+        }
+        shapes.end();
+        batch.begin();
+        batch.setColor(Color.WHITE);
+        batch.draw(volume > 0f ? soundIcon : muteIcon,
+                x + 22f, y + 21f, 58f, 58f);
+        drawFittedCenteredInBox(uiFont, Math.round(volume * 100f) + "%",
+                barX, barY, barW, 26f, Color.WHITE, 1f);
+        batch.end();
+    }
+
     private void drawActiveDialog() {
         GdxTableDialog dialog = activeDialog;
         if (dialog == null) return;
@@ -14025,6 +14067,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         voiceRecorder = null;
         if (activeRecorder != null) activeRecorder.abort();
         if (textToSpeech != null) textToSpeech.close();
+        GdxVoicePlayback.stop();
         if (activeDialog != null) {
             activeDialog.dismiss();
             activeDialog = null;

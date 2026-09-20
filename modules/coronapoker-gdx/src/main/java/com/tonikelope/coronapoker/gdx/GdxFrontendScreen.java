@@ -129,6 +129,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final Color LATENCY_ORANGE = new Color(0xff9800ff);
     private static final Color LATENCY_RED = new Color(0xf44336ff);
     private static final Color LATENCY_STALE = new Color(0x9e9e9eff);
+    private static final Color CHAT_MINE = new Color(0xd9fdd3ff);
+    private static final Color CHAT_OTHER = Color.WHITE;
+    private static final Color CHAT_TEXT = new Color(0x111111ff);
     private static final int SETTINGS_DEBUG_VISIBLE_LINES = 15;
     private static final int SETTINGS_SHORTCUT_ROWS_PER_PAGE = 5;
     private static final int EMOJI_COUNT = 1826;
@@ -146,6 +149,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final DateTimeFormatter CHAT_TIME = DateTimeFormatter
             .ofPattern("HH:mm").withZone(ZoneId.systemDefault());
     private static final float IMAGE_SEND_COOLDOWN_SECONDS = 2f;
+    private static final float TEXT_SEND_COOLDOWN_SECONDS = 0.5f;
     private static final float ABOUT_LOGO_WIDTH = 260f;
     private static final float ABOUT_LOGO_Y = 680f;
 
@@ -153,6 +157,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final List<TextItem> texts = new ArrayList<>();
     private final List<LobbyAvatarItem> lobbyAvatars = new ArrayList<>();
     private final List<UiImageItem> uiImages = new ArrayList<>();
+    private final List<TextItem> lobbyChatTexts = new ArrayList<>();
+    private final List<LobbyAvatarItem> lobbyChatAvatars = new ArrayList<>();
+    private final List<UiImageItem> lobbyChatImages = new ArrayList<>();
+    private final List<LobbyChatBubbleItem> lobbyChatBubbles =
+            new ArrayList<>();
     private final List<Hit> hits = new ArrayList<>();
     private final List<Hit> secondaryHits = new ArrayList<>();
     private final List<TextFieldHit> textFieldHits = new ArrayList<>();
@@ -188,6 +197,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private ShapeRenderer shapes;
     private Texture feltTexture;
     private Texture logo;
+    private Texture lobbyChatBackground;
     private Texture avatarDefault;
     private Texture avatarBot;
     private Texture selectedAvatarTexture;
@@ -231,12 +241,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private LobbySnapshot lobby;
     private AutoCloseable lobbySubscription;
     private String lobbyChatDraft = "";
-    private int lobbyChatScroll;
+    private float lobbyTextSendAllowedAt;
+    private float lobbyChatScroll;
     private int lobbyChatMessageCount;
+    private float lobbyChatContentHeight;
     private final Rectangle lobbyChatScrollTrack = new Rectangle();
+    private final Rectangle lobbyChatViewport = new Rectangle();
     private float lobbyChatScrollThumbHeight;
-    private int lobbyChatScrollMaximum;
-    private List<Float> lobbyChatScrollHeights = List.of();
+    private float lobbyChatScrollMaximum;
     private String lobbyImageDraft = "";
     private List<String> lobbyImageHistory = List.of();
     private float lobbyImageSendAllowedAt;
@@ -349,6 +361,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         feltTexture.setWrap(TextureWrap.Repeat, TextureWrap.Repeat);
         logo = new Texture(Gdx.files.internal("images/corona_poker_splash.png"));
         logo.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+        lobbyChatBackground = filteredTexture("images/chat_bg.jpg");
         avatarDefault = filteredTexture("images/avatar_default.png");
         avatarBot = filteredTexture("images/avatar_bot.png");
         soundIcon = filteredTexture("images/sound.png");
@@ -450,6 +463,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         texts.clear();
         lobbyAvatars.clear();
         uiImages.clear();
+        lobbyChatTexts.clear();
+        lobbyChatAvatars.clear();
+        lobbyChatImages.clear();
+        lobbyChatBubbles.clear();
         hits.clear();
         secondaryHits.clear();
         textFieldHits.clear();
@@ -512,6 +529,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             item.font.draw(batch, item.text, x, item.y);
         }
         batch.end();
+
+        drawLobbyChatLayer();
 
         drawStartupMenuReveal();
 
@@ -602,8 +621,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbySession = Objects.requireNonNull(session, "session");
         lobby = session.snapshot();
         lobbyChatDraft = "";
+        lobbyTextSendAllowedAt = 0f;
         lobbyChatScroll = 0;
         lobbyChatMessageCount = lobby.chat().size();
+        lobbyChatContentHeight = 0f;
         lobbyImageDraft = "";
         lobbyImageHistory = GdxChatImageHistory.read(initialProperties);
         lobbyImageSendAllowedAt = 0f;
@@ -1002,7 +1023,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 uppercase(gameText.translate("ui.enviar")), true,
                 this::sendLobbyComposer,
                 !lobbyCommandPending && !(lobbyImageMode
-                        ? lobbyImageDraft : lobbyChatDraft).isBlank());
+                        ? lobbyImageDraft : lobbyChatDraft).isBlank()
+                        && (lobbyImageMode || lobbyTextSendReady(
+                                elapsed, lobbyTextSendAllowedAt,
+                                lobbyChatDraft)));
         if (lobbyEmojiPickerOpen) {
             drawLobbyEmojiPicker(525f, 315f, 840f, 390f);
         } else if (!lobbyVoiceStatus.isEmpty()) {
@@ -1244,105 +1268,184 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawLobbyMessages(List<LobbyChatMessage> messages, float x,
             float top, float width) {
-        if (messages.size() > lobbyChatMessageCount && lobbyChatScroll > 0) {
-            lobbyChatScroll += messages.size() - lobbyChatMessageCount;
-        }
-        lobbyChatMessageCount = messages.size();
+        final float viewportHeight = 420f;
+        final float scrollbarGutter = 34f;
+        float contentWidth = width - scrollbarGutter;
         List<LobbyMessageLayout> layouts = new ArrayList<>(messages.size());
         List<Float> heights = new ArrayList<>(messages.size());
         for (LobbyChatMessage message : messages) {
             LobbyMessageLayout layout = lobbyMessageLayout(message,
-                    width - 48f);
+                    contentWidth - 48f);
             layouts.add(layout);
             heights.add(layout.height());
         }
-        lobbyChatScrollHeights = List.copyOf(heights);
-        int maximumScroll = lobbyMaximumScrollOffset(heights, 420f);
+        float contentHeight = lobbyChatContentHeight(heights);
+        if (messages.size() > lobbyChatMessageCount && lobbyChatScroll > 0f) {
+            lobbyChatScroll += Math.max(0f,
+                    contentHeight - lobbyChatContentHeight);
+        }
+        lobbyChatMessageCount = messages.size();
+        lobbyChatContentHeight = contentHeight;
+        float maximumScroll = lobbyMaximumPixelScroll(contentHeight,
+                viewportHeight);
         lobbyChatScroll = MathUtils.clamp(lobbyChatScroll, 0, maximumScroll);
-        int end = Math.max(0, messages.size() - lobbyChatScroll);
-        int first = lobbyMessageStartIndexForHeights(heights, 420f, end);
-        float cursorTop = top;
-        for (int i = first; i < end; i++) {
+        lobbyChatViewport.set(x - 2f, top - viewportHeight,
+                contentWidth + 4f, viewportHeight);
+        int textStart = texts.size();
+        int avatarStart = lobbyAvatars.size();
+        int imageStart = uiImages.size();
+        float cursorTop = top + maximumScroll - lobbyChatScroll;
+        for (int i = 0; i < messages.size(); i++) {
             LobbyChatMessage message = messages.get(i);
             LobbyMessageLayout layout = layouts.get(i);
             float messageHeight = layout.height();
             float y = cursorTop - messageHeight;
+            cursorTop = y - 10f;
+            if (y >= top || y + messageHeight <= top - viewportHeight) {
+                continue;
+            }
             boolean local = message.nickname().equals(lobby.localNickname());
             if (message.type() == LobbyChatMessage.Type.PLAYER_JOINED
                     || message.type() == LobbyChatMessage.Type.PLAYER_LEFT) {
-                drawLobbyPresenceMessage(message, x, y, width, messageHeight);
-                cursorTop = y - 10f;
+                drawLobbyPresenceMessage(message, x, y, contentWidth,
+                        messageHeight);
                 continue;
             }
             String header = message.nickname() + "  ·  "
                     + CHAT_TIME.format(message.timestamp());
             float bubbleW = layout.width();
-            float bubbleX = local ? x + width - bubbleW : x + 48f;
-            Color border = local ? CYAN_DARK : LINE;
-            Color fill = local ? new Color(0x0d2638e8)
-                    : new Color(0x09131fe8);
-            outerBox(bubbleX, y, bubbleW, messageHeight, border, fill);
+            float bubbleX = local ? x + contentWidth - bubbleW : x + 8f;
+            Color fill = local ? CHAT_MINE : CHAT_OTHER;
+            lobbyChatBubbles.add(new LobbyChatBubbleItem(bubbleX, y,
+                    bubbleW, messageHeight, fill));
             float headerX = bubbleX + 14f;
             float bodyX = bubbleX + 14f;
             float bodyWidth = bubbleW - 28f;
-            if (local) {
-                lobbyAvatars.add(new LobbyAvatarItem(
-                        lobbyMessageAvatar(message), bubbleX + 10f,
-                        y + messageHeight - 42f, 30f));
-                headerX += 38f;
-            } else {
-                lobbyAvatars.add(new LobbyAvatarItem(
-                        lobbyMessageAvatar(message), x + 4f,
-                        y + messageHeight - 39f, 34f));
-            }
+            lobbyAvatars.add(new LobbyAvatarItem(
+                    lobbyMessageAvatar(message), bubbleX + 10f,
+                    y + messageHeight - 42f, 30f));
+            headerX += 38f;
             textFit(tinyFont, header, headerX,
                     y + messageHeight - 12f,
-                    local ? CYAN : GOLD, false,
+                    CHAT_TEXT, false,
                     bubbleX + bubbleW - 14f - headerX);
             if (message.type() == LobbyChatMessage.Type.TEXT) {
-                float lineY = y + messageHeight - 48f;
+                float lineY = y + messageHeight - 52f;
                 for (String line : layout.lines()) {
                     drawLobbyEmojiText(line, bodyX, lineY,
-                            bodyWidth, Color.WHITE);
-                    lineY -= 30f;
+                            bodyWidth, CHAT_TEXT);
+                    lineY -= 32f;
                 }
             } else if (message.type() == LobbyChatMessage.Type.IMAGE) {
                 drawLobbyImageMessage(message, bodyX,
                         y + 12f, bodyWidth, messageHeight - 55f,
-                        Color.WHITE);
+                        CHAT_TEXT);
             } else if (message.type() == LobbyChatMessage.Type.VOICE) {
                 textFit(smallFont, "▶  " + uppercase(gameText.translate(
                         "audio.notas_de_voz")), bodyX,
-                        y + 23f, Color.WHITE, false, bodyWidth);
+                        y + 23f, CHAT_TEXT, false, bodyWidth);
                 hit(bubbleX, y, bubbleW, messageHeight,
                         () -> playLobbyVoice(message));
             }
-            cursorTop = y - 10f;
         }
-        drawLobbyChatScrollbar(x + width - 12f, top - 420f, 420f,
-                heights, maximumScroll);
+        moveTail(texts, textStart, lobbyChatTexts);
+        moveTail(lobbyAvatars, avatarStart, lobbyChatAvatars);
+        moveTail(uiImages, imageStart, lobbyChatImages);
+        drawLobbyChatScrollbar(x + width - 16f, top - viewportHeight,
+                viewportHeight, contentHeight, maximumScroll);
     }
 
     private void drawLobbyChatScrollbar(float x, float y, float height,
-            List<Float> heights, int maximumScroll) {
-        lobbyChatScrollTrack.set(x - 5f, y, 22f, height);
+            float contentHeight, float maximumScroll) {
+        lobbyChatScrollTrack.set(x - 6f, y, 28f, height);
         lobbyChatScrollMaximum = maximumScroll;
-        if (maximumScroll <= 0 || heights.isEmpty()) {
+        if (maximumScroll <= 0f || contentHeight <= 0f) {
             lobbyChatScrollThumbHeight = height;
             return;
         }
-        float contentHeight = 10f * Math.max(0, heights.size() - 1);
-        for (float itemHeight : heights) contentHeight += itemHeight;
         float thumbHeight = Math.min(height,
-                Math.max(34f, height * height / contentHeight));
+                Math.max(38f, height * height / contentHeight));
         lobbyChatScrollThumbHeight = thumbHeight;
-        float progress = lobbyScrollProgress(heights, lobbyChatScroll,
-                maximumScroll);
+        float progress = lobbyChatScroll / maximumScroll;
         float thumbY = y + progress * (height - thumbHeight);
         shapes.setColor(new Color(0x1a2c44cc));
-        roundedRect(x, y, 12f, height, 6f);
+        roundedRect(x, y, 16f, height, 8f);
         shapes.setColor(CYAN);
-        roundedRect(x, thumbY, 12f, thumbHeight, 6f);
+        roundedRect(x, thumbY, 16f, thumbHeight, 8f);
+    }
+
+    private static <T> void moveTail(List<T> source, int start,
+            List<T> destination) {
+        if (start >= source.size()) return;
+        List<T> tail = source.subList(start, source.size());
+        destination.addAll(tail);
+        tail.clear();
+    }
+
+    static float lobbyChatContentHeight(List<Float> heights) {
+        if (heights == null || heights.isEmpty()) return 0f;
+        float result = 10f * Math.max(0, heights.size() - 1);
+        for (float height : heights) result += Math.max(0f, height);
+        return result;
+    }
+
+    static float lobbyMaximumPixelScroll(float contentHeight,
+            float viewportHeight) {
+        return Math.max(0f, contentHeight - Math.max(0f, viewportHeight));
+    }
+
+    static float lobbyPixelScrollAfterWheel(float current, float maximum,
+            float amountY) {
+        return MathUtils.clamp(current - amountY * 48f, 0f,
+                Math.max(0f, maximum));
+    }
+
+    private void drawLobbyChatLayer() {
+        if (surface != Surface.LOBBY || lobbyChatViewport.width <= 0f
+                || lobbyChatViewport.height <= 0f) return;
+        int screenX = Math.round(viewport.getScreenX()
+                + lobbyChatViewport.x * viewport.getScreenWidth() / WIDTH);
+        int screenY = Math.round(viewport.getScreenY()
+                + lobbyChatViewport.y * viewport.getScreenHeight() / HEIGHT);
+        int screenWidth = Math.max(1, Math.round(lobbyChatViewport.width
+                * viewport.getScreenWidth() / WIDTH));
+        int screenHeight = Math.max(1, Math.round(lobbyChatViewport.height
+                * viewport.getScreenHeight() / HEIGHT));
+        Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
+        Gdx.gl.glScissor(screenX, screenY, screenWidth, screenHeight);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        batch.begin();
+        batch.setColor(Color.WHITE);
+        batch.draw(lobbyChatBackground, lobbyChatViewport.x,
+                lobbyChatViewport.y, lobbyChatViewport.width,
+                lobbyChatViewport.height);
+        batch.end();
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        for (LobbyChatBubbleItem item : lobbyChatBubbles) {
+            shapes.setColor(item.fill);
+            roundedRect(item.x, item.y, item.width, item.height, 12f);
+        }
+        shapes.end();
+        batch.begin();
+        if (!lobbyChatAvatars.isEmpty()) {
+            batch.setColor(Color.WHITE);
+            for (LobbyAvatarItem item : lobbyChatAvatars) {
+                batch.draw(item.texture, item.x, item.y, item.size, item.size);
+            }
+        }
+        batch.setColor(Color.WHITE);
+        for (UiImageItem item : lobbyChatImages) {
+            batch.draw(item.texture, item.x, item.y, item.width, item.height);
+        }
+        for (TextItem item : lobbyChatTexts) {
+            item.font.setColor(item.color);
+            glyph.setText(item.font, item.text);
+            float x = item.centered ? item.x - glyph.width / 2f : item.x;
+            item.font.draw(batch, item.text, x, item.y);
+        }
+        batch.end();
+        Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
     }
 
     static float lobbyMessageHeight(LobbyChatMessage.Type type) {
@@ -1354,7 +1457,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return switch (type) {
             case IMAGE -> 280f;
             case PLAYER_JOINED, PLAYER_LEFT -> 44f;
-            case TEXT -> 70f + Math.max(0, textLineCount - 1) * 30f;
+            case TEXT -> 82f + Math.max(0, textLineCount - 1) * 32f;
             default -> 70f;
         };
     }
@@ -1374,9 +1477,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private float lobbyDesiredBubbleWidth(LobbyChatMessage message,
             String header) {
         float headerWidth = textWidth(tinyFont, header) + 42f;
-        if (message.nickname().equals(lobby.localNickname())) {
-            headerWidth += 38f;
-        }
+        headerWidth += 38f;
         float contentWidth = message.type() == LobbyChatMessage.Type.TEXT
                 ? composerWidth(message.content()) + 34f : 0f;
         return Math.max(headerWidth, contentWidth);
@@ -1481,100 +1582,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 startX, y + (height - 30f) / 2f, 30f));
         float textX = startX + 42f;
         text(tinyFont, message.nickname(), textX, y + 28f,
-                Color.WHITE, false);
+                CHAT_TEXT, false);
         textX += nickWidth;
         text(tinyFont, action, textX, y + 28f,
                 message.type() == LobbyChatMessage.Type.PLAYER_JOINED
                         ? new Color(0x58d67aff) : new Color(0xf07b72ff),
                 false);
         textX += actionWidth;
-        text(tinyFont, time, textX, y + 28f, MUTED, false);
-    }
-
-    static int lobbyMessageStartIndex(List<LobbyChatMessage> messages,
-            float availableHeight) {
-        return lobbyMessageStartIndex(messages, availableHeight,
-                messages.size());
-    }
-
-    static int lobbyMessageStartIndex(List<LobbyChatMessage> messages,
-            float availableHeight, int endExclusive) {
-        List<Float> heights = messages.stream()
-                .map(message -> lobbyMessageHeight(message.type())).toList();
-        return lobbyMessageStartIndexForHeights(heights, availableHeight,
-                endExclusive);
-    }
-
-    static int lobbyMessageStartIndexForHeights(List<Float> heights,
-            float availableHeight, int endExclusive) {
-        float used = 0f;
-        int first = MathUtils.clamp(endExclusive, 0, heights.size());
-        int end = first;
-        while (first > 0) {
-            float height = heights.get(first - 1);
-            float gap = first == end ? 0f : 10f;
-            if (used + gap + height > availableHeight) break;
-            used += gap + height;
-            first--;
-        }
-        return first;
-    }
-
-    static float lobbyScrollProgress(List<Float> heights, int offset,
-            int maximumOffset) {
-        if (heights == null || heights.size() <= 1 || offset <= 0
-                || maximumOffset <= 0) return 0f;
-        int maximum = MathUtils.clamp(maximumOffset, 0,
-                heights.size() - 1);
-        int selected = MathUtils.clamp(offset, 0, maximum);
-        float skipped = 0f;
-        float skippable = 0f;
-        for (int step = 1; step <= maximum; step++) {
-            float extent = heights.get(heights.size() - step) + 10f;
-            skippable += extent;
-            if (step <= selected) skipped += extent;
-        }
-        return skippable <= 0f ? 0f : skipped / skippable;
-    }
-
-    static int lobbyMaximumScrollOffset(List<Float> heights,
-            float availableHeight) {
-        if (heights == null || heights.isEmpty()) return 0;
-        float used = 0f;
-        int visibleFromTop = 0;
-        while (visibleFromTop < heights.size()) {
-            float gap = visibleFromTop == 0 ? 0f : 10f;
-            float next = heights.get(visibleFromTop);
-            if (visibleFromTop > 0
-                    && used + gap + next > availableHeight) break;
-            used += gap + next;
-            visibleFromTop++;
-        }
-        return Math.max(0, heights.size() - visibleFromTop);
-    }
-
-    static int lobbyScrollOffsetForProgress(List<Float> heights,
-            float progress, int maximumOffset) {
-        if (heights == null || heights.size() <= 1
-                || maximumOffset <= 0) return 0;
-        int maximum = MathUtils.clamp(maximumOffset, 0,
-                heights.size() - 1);
-        float total = 0f;
-        for (int step = 1; step <= maximum; step++) {
-            total += heights.get(heights.size() - step) + 10f;
-        }
-        float target = MathUtils.clamp(progress, 0f, 1f) * total;
-        float previous = 0f;
-        for (int step = 1; step <= maximum; step++) {
-            float current = previous
-                    + heights.get(heights.size() - step) + 10f;
-            if (target <= current) {
-                return target - previous <= current - target
-                        ? step - 1 : step;
-            }
-            previous = current;
-        }
-        return maximum;
+        text(tinyFont, time, textX, y + 28f, CHAT_TEXT, false);
     }
 
     private Texture lobbyMessageAvatar(LobbyChatMessage message) {
@@ -2089,11 +2104,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return;
         }
         String message = lobbyChatDraft.trim();
-        if (!message.isEmpty()) {
+        if (lobbyTextSendReady(elapsed, lobbyTextSendAllowedAt, message)) {
+            lobbyTextSendAllowedAt = elapsed + TEXT_SEND_COOLDOWN_SECONDS;
             submitLobbyCommand(new LobbyCommand.SendText(message), () -> {
                 lobbyChatDraft = "";
             });
         }
+    }
+
+    static boolean lobbyTextSendReady(float now, float allowedAt,
+            String message) {
+        return now >= allowedAt
+                && !Objects.requireNonNullElse(message, "").trim().isEmpty();
     }
 
     private void sendLobbyImage(String rawUrl) {
@@ -6020,9 +6042,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     - lobbyChatScrollThumbHeight);
             float progress = MathUtils.clamp((y - lobbyChatScrollTrack.y
                     - lobbyChatScrollThumbHeight / 2f) / travel, 0f, 1f);
-            lobbyChatScroll = lobbyScrollOffsetForProgress(
-                    lobbyChatScrollHeights, progress,
-                    lobbyChatScrollMaximum);
+            lobbyChatScroll = progress * lobbyChatScrollMaximum;
         } else if (scrollDrag == ScrollDrag.SETTINGS_DEBUG) {
             settingsDebugScroll = CoronaPokerGdxTable.anchoredScrollFromTrack(
                     y, settingsDebugScrollTrack.y,
@@ -6473,6 +6493,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.dispose();
         feltTexture.dispose();
         logo.dispose();
+        lobbyChatBackground.dispose();
         avatarDefault.dispose();
         avatarBot.dispose();
         disposeSelectedAvatarTexture();
@@ -6531,9 +6552,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             viewport.unproject(pointer);
             if (pointer.x >= 525f && pointer.x <= 1365f
                     && pointer.y >= 315f && pointer.y <= 744f) {
-                lobbyChatScroll = CoronaPokerGdxTable
-                        .anchoredScrollAfterWheel(lobbyChatScroll,
-                                lobbyChatScrollMaximum, amountY);
+                lobbyChatScroll = lobbyPixelScrollAfterWheel(lobbyChatScroll,
+                        lobbyChatScrollMaximum, amountY);
                 return true;
             }
         }
@@ -6564,6 +6584,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private record LobbyMessageLayout(float width, float height,
             List<String> lines) {
+    }
+
+    private record LobbyChatBubbleItem(float x, float y, float width,
+            float height, Color fill) {
     }
 
     private record UiImageItem(Texture texture, float x, float y,

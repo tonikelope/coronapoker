@@ -37,6 +37,19 @@ Disciplina del repositorio durante la migración:
   de este contrato: **2/2**; queda QA visual en OpenGL real. JAR del checkpoint:
   `target/CoronaPoker-24.11-gdx.jar` (266.334.478 bytes, SHA-256
   `88C9B6D114174887953B7C4F6349E47116F583A12073A8A2317FE9EA20D8745B`).
+- La auditoría posterior del compositor detectó que el envío de texto podía
+  repetirse inmediatamente después de completarse el comando asíncrono. GDX
+  conserva ahora el anti-flood real de 500 ms de Swing tanto para Enter como
+  para el botón, además del rechazo de texto vacío. El bloque de chat y
+  conexión focalizado pasa **11/11**; queda QA visual del estado deshabilitado.
+- El historial de la sala ya no avanza por mensajes completos: usa offset
+  continuo por píxeles, arrastre proporcional, recorte de burbujas y un canal
+  independiente para que la barra no tape sus bordes. Recupera además el fondo
+  `chat_bg.jpg` y los colores de burbuja originales de Swing, dejando intacto
+  el aspecto del chat rápido de mesa. El bloque focalizado pasa **6/6**; queda
+  QA visual OpenGL real del recorte y del gesto de rueda/touchpad. JAR del
+  checkpoint: `target/CoronaPoker-24.11-gdx.jar` (266.335.922 bytes, SHA-256
+  `24B2973E70651F0D1ADD3BFF55223AF755FAA0C961F94231A5006F2260ADD1F2`).
 - Eliminado el pico principal medido al abrir la mesa: el GIF canónico de
   barajado ya no crea de golpe 86 texturas de 960x540 durante
   `CoronaPokerGdxTable.create()`. Usa el reproductor acotado a una textura,

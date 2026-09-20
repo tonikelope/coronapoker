@@ -872,6 +872,24 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void visibleHandNamesFollowTheCurrentLanguageIncludingRecovery() {
+        GdxGameText text = new GdxGameText("es");
+
+        assertEquals("COLOR", CoronaPokerGdxTable.localizedHandName(
+                "FLUSH", text));
+        assertEquals("DOBLE PAREJA", CoronaPokerGdxTable.localizedHandName(
+                "TWO PAIRS", text));
+
+        text.setLanguage("en");
+        assertEquals("FLUSH", CoronaPokerGdxTable.localizedHandName(
+                "COLOR", text));
+        assertEquals("FOUR OF A KIND", CoronaPokerGdxTable.localizedHandName(
+                "PÓKER", text));
+        assertEquals("CUSTOM HAND", CoronaPokerGdxTable.localizedHandName(
+                "CUSTOM HAND", text));
+    }
+
+    @Test
     void anchoredConsoleScrollUsesTheNaturalWheelDirection() {
         assertEquals(7, CoronaPokerGdxTable
                 .anchoredScrollAfterWheel(4, 20, -1f));

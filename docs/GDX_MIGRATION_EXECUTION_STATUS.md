@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 03:31 (Europe/Madrid)
+Última actualización: 2026-09-20 03:47 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -35,10 +35,12 @@ Disciplina del repositorio durante la migración:
   consumen el idioma activo. Las acciones ya mostradas en los asientos también
   se regeneran desde su tipo semántico al cambiar de idioma; al recuperar una
   partida se normalizan los rótulos heredados ES/EN sin alterar textos
-  desconocidos. Se revalidó además contra Swing que el icono
+  desconocidos. Los diez nombres de jugada de Montecarlo/showdown se resuelven
+  igualmente en el idioma activo aunque el snapshot se creara en el idioma
+  anterior. Se revalidó además contra Swing que el icono
   amarillo de conversación aparece al comenzar realmente el TTS, permanece
   durante la voz y desaparece 500 ms después; el JAR anterior era previo a esa
-  corrección. Pruebas focalizadas de estado/texto: **101/101**. JAR GDX:
+  corrección. Pruebas focalizadas de estado/texto: **102/102**. JAR GDX:
   266.277.224 bytes, SHA-256
   `4E23925447C98747A09F6858C8623B934E1EDD5D439FB3DB36EECCE2139E8514`.
 - Sustituido el aviso provisional de `ACERCA DE` por un diálogo GDX nativo:

@@ -112,6 +112,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"
     };
     private static final String[] INTRO_CARD_SUITS = {"C", "D", "P", "T"};
+    private static final String[] HAND_TRANSLATION_KEYS = {
+        "hand.high_card", "hand.one_pair", "hand.two_pair",
+        "hand.three_of_a_kind", "hand.straight", "hand.flush",
+        "hand.full_house", "hand.four_of_a_kind",
+        "hand.straight_flush", "hand.royal_flush"
+    };
+    private static final Map<String, String> LEGACY_HAND_NAME_KEYS
+            = legacyHandNameKeys();
     private static final int STAR_COUNT = 150;
     private static final int SEAT_COUNT = 10;
     private static final int FRAME_SAMPLE_COUNT = 720;
@@ -8105,7 +8113,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // A blank HandResult is the canonical IWTSTH/muck case: Swing
             // displays the generic loser verdict instead of leaking the hand.
             return resolvedName.isBlank()
-                    ? gameText.translate("ui.pierde_3") : resolvedName;
+                    ? gameText.translate("ui.pierde_3")
+                    : localizedHandName(resolvedName, gameText);
         }
         // A hand won because everybody else folded has no HandResult by
         // design. Swing still replaces the previous action (often ALL IN)
@@ -8116,18 +8125,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return gameText.translate(seat == 0 ? "ui.ganas_3" : "ui.gana_3");
         }
         if (!player.handName().isBlank()) {
+            String handName = localizedHandName(player.handName(), gameText);
             Float percentage = liveState.partialHandPercentage(player.nickname());
             if (percentage != null) {
                 if (percentage < 0f) {
-                    return player.handName() + " (--%)";
+                    return handName + " (--%)";
                 }
                 LiveHandProbability probability = liveHandProbabilities.get(
                         player.nickname());
                 float shown = probability == null ? percentage
                         : probability.valueAt(System.nanoTime());
-                return player.handName() + " (" + formatAmount(shown) + "%)";
+                return handName + " (" + formatAmount(shown) + "%)";
             }
-            return player.handName();
+            return handName;
         }
         String canonicalLabel = liveState.actionLabel(player.nickname());
         String fallback = !canonicalLabel.isBlank()
@@ -8162,10 +8172,37 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         };
     }
 
+    /**
+     * Hand evaluation is canonical, but its snapshot caption was translated
+     * when the event was created. Resolve the finite ES/EN poker vocabulary at
+     * render time so a live language change also updates Monte Carlo and
+     * showdown labels without changing the shared game contract.
+     */
+    static String localizedHandName(String handName, GdxGameText text) {
+        String value = handName == null ? "" : handName;
+        String key = LEGACY_HAND_NAME_KEYS.get(normalizedCaption(value));
+        return key == null ? value : text.translate(key);
+    }
+
+    private static Map<String, String> legacyHandNameKeys() {
+        Map<String, String> names = new HashMap<>();
+        for (String language : List.of("es", "en")) {
+            GdxGameText catalog = new GdxGameText(language);
+            for (String key : HAND_TRANSLATION_KEYS) {
+                names.put(normalizedCaption(catalog.translate(key)), key);
+            }
+        }
+        return Map.copyOf(names);
+    }
+
+    private static String normalizedCaption(String value) {
+        return value == null ? "" : value.strip().toUpperCase(Locale.ROOT)
+                .replaceAll("\\s+", " ");
+    }
+
     private static TableVisualEvent.PlayerAction.ActionKind
             actionKindFromLegacyLabel(String label) {
-        String normalized = label == null ? "" : label.strip()
-                .toUpperCase(Locale.ROOT).replace('-', ' ')
+        String normalized = normalizedCaption(label).replace('-', ' ')
                 .replaceAll("\\s+", " ");
         return switch (normalized) {
             case "NO VA", "FOLD" ->

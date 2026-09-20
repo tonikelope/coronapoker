@@ -1,6 +1,6 @@
 # Estado de ejecución de la migración completa GDX
 
-Última actualización: 2026-09-20 11:58 (Europe/Madrid)
+Última actualización: 2026-09-20 12:17 (Europe/Madrid)
 
 Este es el documento vivo para reanudar el trabajo tras cualquier corte. Debe
 actualizarse al cerrar cada bloque funcional, al descubrir una carencia nueva o
@@ -484,6 +484,24 @@ Disciplina del repositorio durante la migración:
 - La última certificación amplia conservada sigue siendo 48/48 escenarios GDX,
   30/30 escenarios mixtos y 42/42 fases FAST. No se eleva ese corte con las
   correcciones posteriores hasta cerrar el siguiente hito funcional.
+- Corregida la persistencia explícita de los perfiles completos de Nueva
+  timba: Guardar y Borrar ya no anuncian éxito tras limitarse a encolar una
+  escritura diferida. Ahora fuerzan la escritura atómica antes de confirmar,
+  restauran el catálogo en memoria si el disco falla y conservan en una nueva
+  instancia los 29 campos de ciegas, compra, reglas, tiempos y bots. El bloque
+  focalizado de perfiles/Nueva timba pasa **12/12**; falta QA interactiva del
+  selector y de las confirmaciones de sobrescritura/borrado.
+- Rehecha la distribución adaptable de asientos de 2 a 10 jugadores. La mesa
+  llena de 10 conserva exactamente sus coordenadas canónicas y los aforos
+  inferiores se redistribuyen uniformemente sobre ese mismo perímetro, sin
+  encogerse hacia el centro. El asiento local permanece abajo y, con un número
+  par de jugadores, el asiento superior alcanza siempre la misma altura de la
+  disposición de 10. Las pruebas cubren los nueve aforos, simetría y geometría
+  del renderer; el bloque focalizado conjunto pasa **115/115**. Falta QA visual
+  OpenGL de los nueve aforos antes de declararlo cerrado visualmente.
+- JAR de checkpoint con la persistencia de perfiles y la nueva geometría de
+  asientos: `target/CoronaPoker-24.11-gdx.jar`, 266.287.139 bytes, SHA-256
+  `3055589BFA8BA73728A5435522FD119432D72050598CD8DD39B81BE67326463C`.
 - Estrategia desde este checkpoint: primero una beta GDX jugable de extremo a
   extremo; después chat/medios y pantalla final; finalmente pulido visual,
   rendimiento, estadísticas y certificación BALANCED. Las suites amplias se

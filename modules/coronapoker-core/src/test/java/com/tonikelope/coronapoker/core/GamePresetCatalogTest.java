@@ -78,4 +78,30 @@ class GamePresetCatalogTest {
         assertEquals("SB=0.1#BG=0.2", restored.get("Amigos").settings());
         reader.close();
     }
+
+    @Test
+    void explicitProfileSaveIsDurableBeforeTheUiReportsSuccess()
+            throws Exception {
+        Path file = temporary.resolve("immediate.properties");
+        PreferencesService writer = new PreferencesService(file);
+        writer.start();
+        NewGameTableDraft draft = new NewGameTableDraft();
+        draft.setAnte(true);
+        draft.setStraddle(true);
+        draft.setRunItTwice(true);
+        NewGameTableDraft.Settings expected = draft.snapshot();
+        GamePresetCatalog.writeTo(writer.properties(), List.of(
+                new GamePresetCatalog.Entry("Viernes",
+                        expected.serializeForWire())));
+
+        writer.save();
+
+        PreferencesService concurrentReader = new PreferencesService(file);
+        GamePresetCatalog.Entry restored = GamePresetCatalog.readFrom(
+                concurrentReader.properties()).get("Viernes");
+        assertEquals(expected, NewGameTableDraft.Settings.parseWire(
+                restored.settings()));
+        concurrentReader.close();
+        writer.close();
+    }
 }

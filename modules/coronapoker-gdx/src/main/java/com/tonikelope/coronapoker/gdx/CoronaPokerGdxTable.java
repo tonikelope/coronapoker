@@ -244,6 +244,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final int SHORTCUT_ROWS_PER_PAGE = 5;
     private static final Properties EMPTY_SETTINGS_PROPERTIES =
             new Properties();
+    private static final float[][] TEN_PLAYER_SEAT_OUTLINE = {
+        {0.500f, 0.185f},
+        {0.125f, 0.280f}, {0.024f, 0.530f},
+        {0.024f, 0.780f}, {0.250f, 0.890f},
+        {0.500f, 0.930f}, {0.750f, 0.890f},
+        {0.976f, 0.780f}, {0.976f, 0.530f},
+        {0.875f, 0.280f}
+    };
     private static final float[][][] SEAT_LAYOUTS = createSeatLayouts();
 
     private static final String CARD_VERTEX_SHADER = "attribute vec4 a_position;\n"
@@ -2674,10 +2682,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     /**
-     * Distributes occupied seats around the complete table instead of selecting
-     * holes from the ten-player layout. Coordinates are normalized, so the same
-     * geometry scales to every viewport. The local player always owns the lower
-     * center; all rivals are equiangular around the remaining ellipse.
+     * Redistributes every player count over the proven ten-player perimeter.
+     * The local player remains at the lower centre and lower counts expand over
+     * the same outline instead of shrinking towards the table centre.
      */
     private static float[][][] createSeatLayouts() {
         float[][][] layouts = new float[SEAT_COUNT + 1][][];
@@ -2692,69 +2699,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             throw new IllegalArgumentException("Numero de jugadores fuera de rango: "
                     + playerCount);
         }
-        if (playerCount == SEAT_COUNT) {
-            // Preserve the proven ten-player composition. updateSeatPositions
-            // only moves an edge anchor inward far enough to center its complete
-            // PlayerPod beneath the avatar.
-            return new float[][]{
-                {0.500f, 0.185f},
-                {0.125f, 0.280f}, {0.024f, 0.530f},
-                {0.024f, 0.780f}, {0.250f, 0.890f},
-                {0.500f, 0.930f}, {0.750f, 0.890f},
-                {0.976f, 0.780f}, {0.976f, 0.530f},
-                {0.875f, 0.280f}
-            };
-        }
         float[][] anchors = new float[playerCount][2];
-        anchors[0][0] = 0.50f;
-        anchors[0][1] = 0.185f;
-
-        /*
-         * PlayerPods are rectangular units, not points on a casino oval.  An
-         * equiangular ellipse placed the two side rows of an eight-player
-         * table at roughly 18% and 54% of the viewport: both visibly sagged
-         * towards the local HUD.  Use the same three visual lanes as the
-         * proven ten-player composition instead: left column bottom-to-top,
-         * centred top row, then right column top-to-bottom.  This keeps the
-         * canonical clockwise player order while distributing every column
-         * uniformly over the available table height.
-         */
-        int rivalCount = playerCount - 1;
-        int topSeatCount = switch (rivalCount) {
-            case 1, 3, 5 -> 1;
-            case 2, 4, 6, 8 -> 2;
-            default -> 3;
-        };
-        int sideSeatCount = (rivalCount - topSeatCount) / 2;
-        float[] sideYs = switch (sideSeatCount) {
-            case 0 -> new float[0];
-            case 1 -> new float[]{0.55f};
-            case 2 -> new float[]{0.36f, 0.70f};
-            default -> new float[]{0.28f, 0.53f, 0.78f};
-        };
-
-        int seat = 1;
-        for (int ordinal = 0; ordinal < sideSeatCount; ordinal++, seat++) {
-            anchors[seat][0] = 0.024f;
-            anchors[seat][1] = sideYs[ordinal];
-        }
-
-        float topSpan = switch (topSeatCount) {
-            case 1 -> 0f;
-            case 2 -> 0.30f;
-            default -> 0.50f;
-        };
-        for (int ordinal = 0; ordinal < topSeatCount; ordinal++, seat++) {
-            float progress = topSeatCount == 1 ? 0.5f
-                    : ordinal / (float) (topSeatCount - 1);
-            anchors[seat][0] = 0.5f - topSpan / 2f + topSpan * progress;
-            anchors[seat][1] = topSeatCount == 3 && ordinal == 1
-                    ? 0.93f : 0.89f;
-        }
-
-        for (int ordinal = sideSeatCount - 1; ordinal >= 0; ordinal--, seat++) {
-            anchors[seat][0] = 0.976f;
-            anchors[seat][1] = sideYs[ordinal];
+        for (int seat = 0; seat < playerCount; seat++) {
+            float outlinePosition = seat * (SEAT_COUNT / (float) playerCount);
+            int before = (int) Math.floor(outlinePosition);
+            int after = (before + 1) % SEAT_COUNT;
+            float progress = outlinePosition - before;
+            anchors[seat][0] = MathUtils.lerp(
+                    TEN_PLAYER_SEAT_OUTLINE[before][0],
+                    TEN_PLAYER_SEAT_OUTLINE[after][0], progress);
+            anchors[seat][1] = MathUtils.lerp(
+                    TEN_PLAYER_SEAT_OUTLINE[before][1],
+                    TEN_PLAYER_SEAT_OUTLINE[after][1], progress);
         }
         return anchors;
     }

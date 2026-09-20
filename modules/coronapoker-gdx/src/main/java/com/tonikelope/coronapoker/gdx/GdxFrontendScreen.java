@@ -48,6 +48,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -3728,10 +3729,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void saveCurrentPreset(String name,
             LinkedHashMap<String, GamePresetCatalog.Entry> all) {
+        List<GamePresetCatalog.Entry> previous = List.copyOf(all.values());
         all.put(name, new GamePresetCatalog.Entry(name,
                 table.snapshot().serializeForWire()));
-        GamePresetCatalog.writeTo(initialProperties, all.values());
-        preferences.saveDeferred();
+        if (!persistGamePresets(all.values(), previous)) return;
         refreshGamePresets(name);
         closePresetDialog();
         showToast(gameText.translate("gdx.newgame.profile_saved", name));
@@ -3751,13 +3752,32 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         String name = gamePresets.get(selectedGamePreset).name();
         LinkedHashMap<String, GamePresetCatalog.Entry> all =
                 GamePresetCatalog.readFrom(initialProperties);
+        List<GamePresetCatalog.Entry> previous = List.copyOf(all.values());
         all.remove(name);
-        GamePresetCatalog.writeTo(initialProperties, all.values());
-        preferences.saveDeferred();
+        if (!persistGamePresets(all.values(), previous)) return;
         refreshGamePresets(null);
         table = new NewGameTableDraft();
         closePresetDialog();
         showToast(gameText.translate("gdx.newgame.profile_deleted", name));
+    }
+
+    private boolean persistGamePresets(
+            Collection<GamePresetCatalog.Entry> entries,
+            Collection<GamePresetCatalog.Entry> previous) {
+        GamePresetCatalog.writeTo(initialProperties, entries);
+        try {
+            // Saving a named profile is an explicit durability boundary. Do
+            // not announce success while a deferred write is still pending.
+            preferences.save();
+            return true;
+        } catch (IOException failure) {
+            GamePresetCatalog.writeTo(initialProperties, previous);
+            LOGGER.log(Level.SEVERE, "Could not persist game presets",
+                    failure);
+            showToast(gameText.translate(
+                    "gdx.newgame.profile_persist_failed"));
+            return false;
+        }
     }
 
     private void closePresetDialog() {

@@ -175,23 +175,67 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void eightPlayerTableUsesUniformSymmetricSideRows() {
+    void eightPlayerTableExpandsOverTheTenPlayerPerimeter() {
         float[][] anchors = CoronaPokerGdxTable.createSeatAnchors(8);
 
-        assertEquals(0.024f, anchors[1][0], 0.000_001f);
+        assertEquals(0.09975f, anchors[1][0], 0.000_001f);
         assertEquals(0.024f, anchors[2][0], 0.000_001f);
-        assertEquals(0.36f, anchors[1][1], 0.000_001f);
-        assertEquals(0.70f, anchors[2][1], 0.000_001f);
-        assertEquals(0.34f, anchors[2][1] - anchors[1][1], 0.000_001f);
-
+        assertEquals(0.1935f, anchors[3][0], 0.000_001f);
+        assertEquals(0.50f, anchors[4][0], 0.000_001f);
+        assertEquals(0.8065f, anchors[5][0], 0.000_001f);
         assertEquals(0.976f, anchors[6][0], 0.000_001f);
-        assertEquals(0.976f, anchors[7][0], 0.000_001f);
+        assertEquals(0.90025f, anchors[7][0], 0.000_001f);
+
+        assertEquals(0.3425f, anchors[1][1], 0.000_001f);
+        assertEquals(0.655f, anchors[2][1], 0.000_001f);
+        assertEquals(0.8625f, anchors[3][1], 0.000_001f);
+        assertEquals(0.930f, anchors[4][1], 0.000_001f);
+        assertEquals(anchors[3][1], anchors[5][1], 0.000_001f);
         assertEquals(anchors[2][1], anchors[6][1], 0.000_001f);
         assertEquals(anchors[1][1], anchors[7][1], 0.000_001f);
+    }
 
-        assertEquals(0.25f, anchors[3][0], 0.000_001f);
-        assertEquals(0.50f, anchors[4][0], 0.000_001f);
-        assertEquals(0.75f, anchors[5][0], 0.000_001f);
+    @Test
+    void everyPlayerCountKeepsTheLocalSeatAndMirrorSymmetry() {
+        for (int playerCount = 2; playerCount <= 10; playerCount++) {
+            float[][] anchors = CoronaPokerGdxTable.createSeatAnchors(playerCount);
+            assertEquals(playerCount, anchors.length);
+            assertEquals(0.500f, anchors[0][0], 0.000_001f);
+            assertEquals(0.185f, anchors[0][1], 0.000_001f);
+
+            for (int seat = 1; seat < playerCount; seat++) {
+                int mirror = playerCount - seat;
+                assertEquals(1f, anchors[seat][0] + anchors[mirror][0],
+                        0.000_001f, "horizontal symmetry for "
+                                + playerCount + " players, seat " + seat);
+                assertEquals(anchors[seat][1], anchors[mirror][1],
+                        0.000_001f, "vertical symmetry for "
+                                + playerCount + " players, seat " + seat);
+            }
+
+            if (playerCount % 2 == 0) {
+                assertEquals(0.500f, anchors[playerCount / 2][0], 0.000_001f);
+                assertEquals(0.930f, anchors[playerCount / 2][1], 0.000_001f,
+                        "top seat must stay at the ten-player edge");
+            }
+        }
+    }
+
+    @Test
+    void tenPlayerLayoutRemainsTheCanonicalReference() {
+        float[][] anchors = CoronaPokerGdxTable.createSeatAnchors(10);
+        float[][] expected = {
+            {0.500f, 0.185f},
+            {0.125f, 0.280f}, {0.024f, 0.530f},
+            {0.024f, 0.780f}, {0.250f, 0.890f},
+            {0.500f, 0.930f}, {0.750f, 0.890f},
+            {0.976f, 0.780f}, {0.976f, 0.530f},
+            {0.875f, 0.280f}
+        };
+        for (int seat = 0; seat < expected.length; seat++) {
+            assertEquals(expected[seat][0], anchors[seat][0], 0.000_001f);
+            assertEquals(expected[seat][1], anchors[seat][1], 0.000_001f);
+        }
     }
 
     @Test

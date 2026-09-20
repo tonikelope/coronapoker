@@ -1496,7 +1496,7 @@ Otros contratos vigentes:
 - Atajos configurables.
 - Idioma aplicado inmediatamente desde el selector común del menú principal.
 - Sin textos solapados, cortados o fuera de panel.
-- HECHO en menú: la consola Debug usa desplazamiento real por píxeles,
+- HECHO en menú y mesa: la consola Debug usa desplazamiento real por píxeles,
   recorte al panel y una barra gruesa arrastrable; la rueda sólo actúa cuando
   el puntero está sobre el historial.
 

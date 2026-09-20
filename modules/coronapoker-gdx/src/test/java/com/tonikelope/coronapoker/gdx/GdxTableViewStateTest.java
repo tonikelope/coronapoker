@@ -1048,6 +1048,14 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void tableDebugConsoleScrollsByRenderedPixels() {
+        assertEquals(0f, CoronaPokerGdxTable
+                .settingsDebugMaximumPixelScroll(15));
+        assertEquals(106f, CoronaPokerGdxTable
+                .settingsDebugMaximumPixelScroll(20));
+    }
+
+    @Test
     void gameLogKeepsSwingStyleAmountsAndRanksInsteadOfFlatWhiteText() {
         List<GdxGameLogFormatter.Run> runs = GdxGameLogFormatter
                 .runs("CoronaBot$3 SUBE (+0,50) -> Pareja");

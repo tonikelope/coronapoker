@@ -232,7 +232,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         "hand_generator", "last_hand", "force_reconnect", "stop_game",
         "leave_game"
     };
-    private static final int SETTINGS_DEBUG_VISIBLE_LINES = 15;
+    private static final float SETTINGS_DEBUG_LINE_HEIGHT = 25f;
+    private static final float SETTINGS_DEBUG_VIEWPORT_HEIGHT = 394f;
     /**
      * The settings backdrop is deliberately rendered below native resolution.
      * It is going to be blurred and darkened anyway, so processing every 4K
@@ -665,7 +666,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private int settingsGamePage;
     private int settingsAppearancePage;
     private int settingsAudioPage;
-    private int settingsDebugScroll;
+    private float settingsDebugScroll;
+    private int settingsDebugLineCount;
     private boolean settingsDebugScrollDragging;
     private int shortcutPage;
     private String shortcutCaptureId;
@@ -1062,11 +1064,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             if (uiLayer == UI_SETTINGS && amountY != 0f) {
                 if (settingsSection() == GdxSettingsContract.Section.DEBUG) {
-                    int maximum = Math.max(0, settingsDebugLines().size()
-                            - SETTINGS_DEBUG_VISIBLE_LINES);
+                    pointer.set(Gdx.input.getX(), Gdx.input.getY());
+                    viewport.unproject(pointer);
+                    if (!settingsDebugViewportContains(pointer.x,
+                            pointer.y)) return true;
+                    float maximum = settingsDebugMaximumPixelScroll(
+                            settingsDebugLines().size());
                     // This view is anchored at the newest line when the offset
                     // is zero, like the game log. Wheel-down moves towards it.
-                    settingsDebugScroll = anchoredScrollAfterWheel(
+                    settingsDebugScroll = quickChatPixelScrollAfterWheel(
                             settingsDebugScroll, maximum, amountY);
                     return true;
                 }
@@ -10664,19 +10670,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 24f, 394f);
     }
 
-    private void updateSettingsDebugScrollFromTrack(float y) {
-        List<String> lines = settingsDebugLines();
-        int maximum = Math.max(0,
-                lines.size() - SETTINGS_DEBUG_VISIBLE_LINES);
+    private boolean settingsDebugViewportContains(float x, float y) {
         GdxSettingsLayout.Frame frame = GdxSettingsLayout.frame(
                 viewport.getWorldWidth(), viewport.getWorldHeight(),
                 settingsSession.sections().size(),
                 settingsSubpageLabels().size());
-        float thumbHeight = maximum == 0 ? 394f
-                : Math.max(30f, 394f * SETTINGS_DEBUG_VISIBLE_LINES
-                        / Math.max(1, lines.size()));
-        settingsDebugScroll = anchoredScrollFromTrack(y,
-                frame.firstRowY() - 337f, 394f, thumbHeight, maximum);
+        return contains(x, y, frame.content().x,
+                frame.firstRowY() - 337f, frame.content().width,
+                SETTINGS_DEBUG_VIEWPORT_HEIGHT);
+    }
+
+    private void updateSettingsDebugScrollFromTrack(float y) {
+        List<String> lines = settingsDebugLines();
+        float maximum = settingsDebugMaximumPixelScroll(lines.size());
+        GdxSettingsLayout.Frame frame = GdxSettingsLayout.frame(
+                viewport.getWorldWidth(), viewport.getWorldHeight(),
+                settingsSession.sections().size(),
+                settingsSubpageLabels().size());
+        float thumbHeight = settingsDebugThumbHeight(lines.size());
+        settingsDebugScroll = quickChatPixelScrollFromTrack(y,
+                frame.firstRowY() - 337f, SETTINGS_DEBUG_VIEWPORT_HEIGHT,
+                thumbHeight, maximum);
     }
 
     private void handleChatClick(float x, float y) {
@@ -12204,6 +12218,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 save.x, save.y, save.width, save.height,
                 Color.WHITE, alpha);
         batch.end();
+        if (settingsContentPage() == 9) {
+            drawSettingsDebugTextLayer(contentX, firstRowY, contentW, alpha);
+        }
     }
 
     private void drawSettingsContentShapes(float x, float firstY,
@@ -12424,20 +12441,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         roundedRect(x + 3f, firstY - 347f, width - 6f, 414f, 9f);
         float trackX = x + width - 15f;
         shapes.setColor(0.15f, 0.21f, 0.30f, alpha);
-        roundedRect(trackX, firstY - 337f, 10f, 394f, 5f);
+        roundedRect(trackX - 4f, firstY - 337f, 14f,
+                SETTINGS_DEBUG_VIEWPORT_HEIGHT, 7f);
         List<String> lines = settingsDebugLines();
-        int maximum = Math.max(0,
-                lines.size() - SETTINGS_DEBUG_VISIBLE_LINES);
-        settingsDebugScroll = MathUtils.clamp(settingsDebugScroll, 0, maximum);
-        float thumbH = maximum == 0 ? 394f
-                : Math.max(30f, 394f * SETTINGS_DEBUG_VISIBLE_LINES
-                        / lines.size());
-        float travel = 394f - thumbH;
-        float ratio = maximum == 0 ? 0f
-                : (float) settingsDebugScroll / maximum;
+        float maximum = settingsDebugMaximumPixelScroll(lines.size());
+        if (lines.size() > settingsDebugLineCount && settingsDebugScroll > 0f) {
+            settingsDebugScroll += (lines.size() - settingsDebugLineCount)
+                    * SETTINGS_DEBUG_LINE_HEIGHT;
+        }
+        settingsDebugLineCount = lines.size();
+        settingsDebugScroll = MathUtils.clamp(settingsDebugScroll, 0f,
+                maximum);
+        float thumbH = settingsDebugThumbHeight(lines.size());
+        float travel = SETTINGS_DEBUG_VIEWPORT_HEIGHT - thumbH;
+        float ratio = maximum == 0f ? 0f : settingsDebugScroll / maximum;
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.78f * alpha);
-        roundedRect(trackX, firstY - 337f + travel * ratio,
-                10f, thumbH, 5f);
+        roundedRect(trackX - 4f, firstY - 337f + travel * ratio,
+                14f, thumbH, 7f);
     }
 
     private void drawSettingsToggleShape(float x, float y, float width,
@@ -12843,30 +12863,59 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         x, firstY + 64f, width, 20f,
                         warning ? FOLD_RED : CYAN, alpha);
             }
-        } else {
-            drawSettingsDebugText(x, firstY, width, alpha);
         }
     }
 
-    private void drawSettingsDebugText(float x, float firstY,
+    private void drawSettingsDebugTextLayer(float x, float firstY,
             float width, float alpha) {
         List<String> lines = settingsDebugLines();
-        int maximum = Math.max(0,
-                lines.size() - SETTINGS_DEBUG_VISIBLE_LINES);
-        settingsDebugScroll = MathUtils.clamp(settingsDebugScroll, 0, maximum);
-        int first = Math.max(0, lines.size() - SETTINGS_DEBUG_VISIBLE_LINES
-                - settingsDebugScroll);
-        int last = Math.min(lines.size(),
-                first + SETTINGS_DEBUG_VISIBLE_LINES);
-        float lineY = firstY + 45f;
-        for (int i = first; i < last; i++) {
+        float viewportBottom = firstY - 337f;
+        float maximum = settingsDebugMaximumPixelScroll(lines.size());
+        settingsDebugScroll = MathUtils.clamp(settingsDebugScroll, 0f,
+                maximum);
+        int screenX = Math.round(viewport.getScreenX()
+                + (x + 12f) * viewport.getScreenWidth()
+                / viewport.getWorldWidth());
+        int screenY = Math.round(viewport.getScreenY()
+                + viewportBottom * viewport.getScreenHeight()
+                / viewport.getWorldHeight());
+        int screenWidth = Math.max(1, Math.round((width - 46f)
+                * viewport.getScreenWidth() / viewport.getWorldWidth()));
+        int screenHeight = Math.max(1, Math.round(
+                SETTINGS_DEBUG_VIEWPORT_HEIGHT * viewport.getScreenHeight()
+                / viewport.getWorldHeight()));
+        Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
+        Gdx.gl.glScissor(screenX, screenY, screenWidth, screenHeight);
+        batch.begin();
+        for (int i = 0; i < lines.size(); i++) {
+            float lineY = anchoredPixelRowY(lines.size(), i,
+                    SETTINGS_DEBUG_LINE_HEIGHT, viewportBottom,
+                    SETTINGS_DEBUG_VIEWPORT_HEIGHT, settingsDebugScroll,
+                    maximum);
+            if (lineY + SETTINGS_DEBUG_LINE_HEIGHT < viewportBottom
+                    || lineY > viewportBottom
+                    + SETTINGS_DEBUG_VIEWPORT_HEIGHT) continue;
             String line = lines.get(i);
             drawLeftInBox(gameLogFont,
                     ellipsizeSettingsDebugLine(line, width),
                     x + 14f, lineY, width - 42f, 23f,
                     settingsDebugLineColor(line), alpha);
-            lineY -= 25f;
         }
+        batch.end();
+        Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+    }
+
+    static float settingsDebugMaximumPixelScroll(int lineCount) {
+        return Math.max(0f, lineCount * SETTINGS_DEBUG_LINE_HEIGHT
+                - SETTINGS_DEBUG_VIEWPORT_HEIGHT);
+    }
+
+    private static float settingsDebugThumbHeight(int lineCount) {
+        float contentHeight = lineCount * SETTINGS_DEBUG_LINE_HEIGHT;
+        return contentHeight <= SETTINGS_DEBUG_VIEWPORT_HEIGHT
+                ? SETTINGS_DEBUG_VIEWPORT_HEIGHT
+                : Math.max(34f, SETTINGS_DEBUG_VIEWPORT_HEIGHT
+                        * SETTINGS_DEBUG_VIEWPORT_HEIGHT / contentHeight);
     }
 
     private String ellipsizeSettingsDebugLine(String value, float width) {

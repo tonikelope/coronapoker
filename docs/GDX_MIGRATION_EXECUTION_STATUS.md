@@ -2397,3 +2397,25 @@ Al cerrar cada bloque se debe registrar aquí:
   JSON en `target/certification/20260925-110217`.
 - El corte certificado queda, por tanto, compuesto por las 67 fases originales
   mas las 16 de continuacion, sin repetir ni descartar evidencia valida.
+
+### Corte 2026-09-25 - limpieza estructural conservadora
+
+- La limpieza se realiza en la rama aislada
+  `chore/gdx-cleanup-architecture`, partiendo del checkpoint funcional
+  `dd2d7dcff`; no se ha movido masivamente el arbol historico de fuentes ni se
+  han eliminado clases por ausencia de referencias estaticas.
+- Corregida una frontera real de modulos: Swing recompilaba 33 clases ya
+  propiedad de `coronapoker-core`. Los `exclude` quedan sincronizados y un
+  contrato automatico impide que vuelva a existir cualquier `.class`
+  duplicado entre ambos artefactos. Resultado limpio: **0 duplicados** y prueba
+  de distribucion **2/2 PASS**.
+- La inspeccion de 69 informes Maven no encuentra fallos. Los proveedores GDX
+  alcanzados mediante `ServiceLoader` se conservan, igual que las clases
+  Alberta serializables/reflexivas y todos los recursos de referencia y MODs.
+- Sustituido el mapa obsoleto centrado unicamente en `GameFrame` por la
+  arquitectura final Swing + GDX + core compartido. Se conserva la fuente
+  editable Draw.io y el PNG se ha exportado con Draw.io CLI a **3406x2315**,
+  practicamente la misma resolucion que la referencia anterior (3446x2332).
+- El cambio estructural no modifica el runtime ni los ejecutables: el JAR GDX
+  vigente conserva 266.456.488 bytes y SHA-256
+  `34956A420A715082E510A38FB9D26E0BADAB6A83B9D2F0124D7990E023B31351`.

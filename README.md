@@ -233,7 +233,7 @@ Every visual and audio asset is replaceable through redistributable MOD packs:
 
 ## 🏗️ Architecture
 
-A high-level map of how the whole app fits together, covering the launch flow, the runtime core (`GameFrame` talking to `Crupier`), the engine subsystems that hang off it, and the shared `Helpers` foundation:
+A high-level map of the current product architecture: the independent Swing and GDX applications, their neutral presentation contracts, the single shared game core, common assets, packaging and certification layers:
 
 ![CoronaPoker module map](docs/diagrams/coronapoker-module-map.png)
 

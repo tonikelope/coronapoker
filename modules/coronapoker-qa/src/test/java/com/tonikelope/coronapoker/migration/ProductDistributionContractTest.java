@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
@@ -51,6 +53,20 @@ final class ProductDistributionContractTest {
         assertFalse(gdx.contains("CoronaPoker-24.10"));
     }
 
+    @Test
+    void swingDoesNotRecompileClassesOwnedByTheSharedCore() throws IOException {
+        Path coreClasses = reactor.resolve("coronapoker-core/target/classes");
+        Path swingClasses = reactor.resolve("coronapoker-swing/target/classes");
+
+        Set<String> core = classFiles(coreClasses);
+        Set<String> swing = classFiles(swingClasses);
+        core.retainAll(swing);
+
+        assertTrue(core.isEmpty(),
+                "Swing must consume core classes from its dependency, not "
+                        + "compile duplicate definitions: " + core);
+    }
+
     private static void assertPublishes(String pom, String reactorVersion,
             String jarName, String frontend) {
         assertTrue(pom.contains("<version>" + reactorVersion + "</version>"),
@@ -71,5 +87,17 @@ final class ProductDistributionContractTest {
 
     private String read(String relative) throws IOException {
         return Files.readString(reactor.resolve(relative), StandardCharsets.UTF_8);
+    }
+
+    private static Set<String> classFiles(Path root) throws IOException {
+        Set<String> classes = new TreeSet<>();
+        try (var paths = Files.walk(root)) {
+            paths.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().endsWith(".class"))
+                    .map(root::relativize)
+                    .map(Path::toString)
+                    .forEach(classes::add);
+        }
+        return classes;
     }
 }

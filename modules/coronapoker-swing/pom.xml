@@ -75,7 +75,9 @@
                         <exclude>com/tonikelope/coronapoker/BuyinRules.java</exclude>
                         <exclude>com/tonikelope/coronapoker/CanonicalActionRecord.java</exclude>
                         <exclude>com/tonikelope/coronapoker/CriticalVoteEnvelope.java</exclude>
+                        <exclude>com/tonikelope/coronapoker/CoreGameTableFactory.java</exclude>
                         <exclude>com/tonikelope/coronapoker/Crupier.java</exclude>
+                        <exclude>com/tonikelope/coronapoker/DebugLog.java</exclude>
                         <exclude>com/tonikelope/coronapoker/DeterministicShuffle.java</exclude>
                         <exclude>com/tonikelope/coronapoker/EndOfHandRebuyWire.java</exclude>
                         <exclude>com/tonikelope/coronapoker/GameCommandMailbox.java</exclude>
@@ -86,7 +88,12 @@
                         <exclude>com/tonikelope/coronapoker/HandStateChain.java</exclude>
                         <exclude>com/tonikelope/coronapoker/HandverifyReceiptEnvelope.java</exclude>
                         <exclude>com/tonikelope/coronapoker/InitialBuyinWire.java</exclude>
+                        <exclude>com/tonikelope/coronapoker/ImmediateRebuyWire.java</exclude>
+                        <exclude>com/tonikelope/coronapoker/LastHandWire.java</exclude>
+                        <exclude>com/tonikelope/coronapoker/LiveRuleWire.java</exclude>
                         <exclude>com/tonikelope/coronapoker/MoneyCents.java</exclude>
+                        <exclude>com/tonikelope/coronapoker/PauseWire.java</exclude>
+                        <exclude>com/tonikelope/coronapoker/PlayerExitWire.java</exclude>
                         <exclude>com/tonikelope/coronapoker/PositionWireV1.java</exclude>
                         <exclude>com/tonikelope/coronapoker/PotMath.java</exclude>
                         <exclude>com/tonikelope/coronapoker/PotCardsEnvelope.java</exclude>
@@ -100,13 +107,17 @@
                         <exclude>com/tonikelope/coronapoker/RecoverySnapshotV1.java</exclude>
                         <exclude>com/tonikelope/coronapoker/RecoveryGameKeyDataReader.java</exclude>
                         <exclude>com/tonikelope/coronapoker/RemoteRebuyBarrier.java</exclude>
+                        <exclude>com/tonikelope/coronapoker/RitVoteCloseEnvelope.java</exclude>
                         <exclude>com/tonikelope/coronapoker/SeatDraw.java</exclude>
                         <exclude>com/tonikelope/coronapoker/SeatRing.java</exclude>
                         <exclude>com/tonikelope/coronapoker/SettlementPresentation.java</exclude>
                         <exclude>com/tonikelope/coronapoker/SettlementRecord.java</exclude>
                         <exclude>com/tonikelope/coronapoker/ShuffleVerificationQueue.java</exclude>
+                        <exclude>com/tonikelope/coronapoker/StatsSync.java</exclude>
+                        <exclude>com/tonikelope/coronapoker/StatsSyncProtocol.java</exclude>
                         <exclude>com/tonikelope/coronapoker/TableFailure.java</exclude>
                         <exclude>com/tonikelope/coronapoker/TableTerminationWire.java</exclude>
+                        <exclude>org/dosse/upnp/**</exclude>
                     </excludes>
                 </configuration>
             </plugin>

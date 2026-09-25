@@ -17,6 +17,28 @@ final class GdxAboutEasterEggTest {
     }
 
     @Test
+    void memorialAndCopyrightStayInsideTheirOwnVisualBands() {
+        float musicPanelTop = GdxFrontendScreen.ABOUT_MUSIC_PANEL_Y
+                + GdxFrontendScreen.ABOUT_MUSIC_PANEL_HEIGHT;
+        float mourningIconBottom = GdxFrontendScreen.ABOUT_MEMORIAL_CENTER_Y
+                - GdxFrontendScreen.ABOUT_MOURNING_ICON_SIZE / 2f;
+
+        assertTrue(mourningIconBottom > musicPanelTop + 20f,
+                "the memorial ribbon must not invade the music panel");
+        assertTrue(GdxFrontendScreen.ABOUT_COPYRIGHT_Y
+                > GdxFrontendScreen.ABOUT_MUSIC_PANEL_Y,
+                "the copyright note must be inside the music panel");
+        assertTrue(GdxFrontendScreen.ABOUT_COPYRIGHT_Y
+                < musicPanelTop,
+                "the copyright note must not escape above the music panel");
+        float lastMusicLine = GdxFrontendScreen.ABOUT_MUSIC_FIRST_LINE_Y
+                - 3f * GdxFrontendScreen.ABOUT_MUSIC_LINE_GAP;
+        assertTrue(lastMusicLine
+                - GdxFrontendScreen.ABOUT_COPYRIGHT_Y >= 24f,
+                "the copyright note must not overlap the last music credit");
+    }
+
+    @Test
     void decodesBothOriginalAboutImagesWithoutSwing() throws Exception {
         byte[] splash = resource("/images/splash.gif");
         for (String name : new String[]{"c", "g"}) {

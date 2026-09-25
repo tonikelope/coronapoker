@@ -2496,9 +2496,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (liveState == null || seat == null || seat.name.isBlank()) {
             return null;
         }
+        return livePlayer(seat.name);
+    }
+
+    private TableSnapshot.PlayerSnapshot livePlayer(String nickname) {
+        if (liveState == null || nickname == null || nickname.isBlank()) {
+            return null;
+        }
         for (TableSnapshot.PlayerSnapshot player
                 : liveState.snapshot().players()) {
-            if (player.nickname().equals(seat.name)) {
+            if (player.nickname().equals(nickname)) {
                 return player;
             }
         }
@@ -6624,18 +6631,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (seat == null) {
                     continue;
                 }
-                if (liveHoleSwap != null
+                if (usesTransientHolePresentation(player)
+                        && liveHoleSwap != null
                         && liveHoleSwap.cards.size() >= 2
                         && liveHoleSwap.event.nickname().equals(player.nickname())) {
                     drawLiveHoleSwap(seat, cardBack);
                     continue;
                 }
-                if (liveHoleFold != null
+                if (usesTransientHolePresentation(player)
+                        && liveHoleFold != null
                         && liveHoleFold.event.nickname().equals(player.nickname())) {
                     drawLiveHoleFold(player, seat, cardBack);
                     continue;
                 }
-                if (liveHoleReveal != null
+                if (usesTransientHolePresentation(player)
+                        && liveHoleReveal != null
                         && liveHoleReveal.event.nickname().equals(player.nickname())) {
                     drawLiveHoleRevealResting(seat, cardBack);
                     continue;
@@ -6671,6 +6681,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             for (LiveCardFlight flight : liveCardFlights) {
                 if (!(flight.event instanceof TableVisualEvent.DealHoleCard deal)
                         || flight.visualFinished()) {
+                    continue;
+                }
+                TableSnapshot.PlayerSnapshot player = livePlayer(deal.nickname());
+                if (!usesTransientHolePresentation(player)) {
                     continue;
                 }
                 Seat seat = seatByNickname(deal.nickname());
@@ -6721,8 +6735,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
             if (liveHoleReveal != null) {
+                TableSnapshot.PlayerSnapshot player = livePlayer(
+                        liveHoleReveal.event.nickname());
                 Seat seat = seatByNickname(liveHoleReveal.event.nickname());
-                if (seat != null) {
+                if (seat != null && usesTransientHolePresentation(player)) {
                     drawLiveHoleRevealFlights(seat, cardBack);
                 }
             }
@@ -6781,6 +6797,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean hasActiveHoleFlight(String nickname, int slot) {
+        TableSnapshot.PlayerSnapshot player = livePlayer(nickname);
+        if (!usesTransientHolePresentation(player)) {
+            return false;
+        }
         for (LiveCardFlight flight : liveCardFlights) {
             if (!flight.visualFinished()
                     && flight.event instanceof TableVisualEvent.DealHoleCard deal
@@ -6993,6 +7013,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean hasActiveHolePresentation(String nickname) {
+        TableSnapshot.PlayerSnapshot player = livePlayer(nickname);
+        if (!usesTransientHolePresentation(player)) {
+            return false;
+        }
         return liveHoleSwap != null
                 && liveHoleSwap.event.nickname().equals(nickname)
                 || liveHoleFold != null
@@ -8913,6 +8937,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (isLiveThinkingSeat(seats[seat])) {
             return uppercase(gameText.translate("ui.pensando")) + "...";
         }
+        if (player.spectator()) {
+            return spectatorStatusLabel(player, gameText);
+        }
         if (liveState.isIwtsthCandidate(player.nickname())) {
             return iwtsthBlinkOn()
                     ? gameText.translate("iwtsth.iwtsth")
@@ -10139,7 +10166,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.begin();
         Seat local = seats[0];
         String turnStatus = localHudTurnStatus(localTurn, settledShowdown,
-                gameText);
+                liveLocalPlayer, gameText);
         if (!turnStatus.isEmpty()) {
             drawFittedCenteredInBox(localTurn ? actionFont : smallFont,
                     turnStatus, hudX + 12f, hudY + 96f,
@@ -10257,13 +10284,31 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static String localHudTurnStatus(boolean localTurn,
-            boolean settledShowdown, GdxGameText text) {
+            boolean settledShowdown, TableSnapshot.PlayerSnapshot player,
+            GdxGameText text) {
+        if (player != null && player.spectator()) {
+            return spectatorStatusLabel(player, text);
+        }
         if (settledShowdown) {
             return "";
         }
         return uppercase(text.translate(localTurn
                 ? "gdx.table.hud.your_turn"
                 : "gdx.table.hud.waiting_turn"), text);
+    }
+
+    static String spectatorStatusLabel(TableSnapshot.PlayerSnapshot player,
+            GdxGameText text) {
+        String label = player == null ? "" : player.lastAction();
+        if (label == null || label.isBlank()) {
+            label = text.translate("player.espectador");
+        }
+        return uppercase(label, text);
+    }
+
+    static boolean usesTransientHolePresentation(
+            TableSnapshot.PlayerSnapshot player) {
+        return player == null || !player.spectator();
     }
 
     static float localHudIdleFrameAlpha(boolean folded) {

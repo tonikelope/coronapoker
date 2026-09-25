@@ -866,19 +866,77 @@ final class GdxTableViewStateTest {
         GdxGameText spanish = new GdxGameText("es");
         GdxGameText english = new GdxGameText("en");
         assertEquals("", CoronaPokerGdxTable.localHudTurnStatus(
-                false, true, spanish));
+                false, true, null, spanish));
         assertEquals("TU TURNO",
                 CoronaPokerGdxTable.localHudTurnStatus(
-                        true, false, spanish));
+                        true, false, null, spanish));
         assertEquals("ESPERANDO TURNO",
                 CoronaPokerGdxTable.localHudTurnStatus(
-                        false, false, spanish));
+                        false, false, null, spanish));
         assertEquals("YOUR TURN",
                 CoronaPokerGdxTable.localHudTurnStatus(
-                        true, false, english));
+                        true, false, null, english));
         assertEquals("WAITING FOR TURN",
                 CoronaPokerGdxTable.localHudTurnStatus(
-                        false, false, english));
+                        false, false, null, english));
+    }
+
+    @Test
+    void everySpectatorVariantUsesJokersAndItsCanonicalStatus() {
+        GdxGameText spanish = new GdxGameText("es");
+        TableSnapshot.PlayerSnapshot busted = playerWithAvailability(
+                "ana", false, true, false, false);
+        GdxTableViewState bustedState = new GdxTableViewState(
+                snapshotWithPlayers(false, "", busted));
+
+        assertEquals(List.of("joker", "joker"),
+                bustedState.presentedHoleCards("ana").stream()
+                        .map(TableSnapshot.CardSnapshot::code).toList());
+        assertTrue(bustedState.presentedHoleCards("ana").stream()
+                .allMatch(card -> card.faceUp() && card.visible()));
+        assertEquals("ESPECTADOR", CoronaPokerGdxTable.localHudTurnStatus(
+                false, false, busted, spanish));
+        assertFalse(CoronaPokerGdxTable.usesTransientHolePresentation(
+                busted));
+
+        TableSnapshot.PlayerSnapshot warming = new TableSnapshot.PlayerSnapshot(
+                "ana", 1_000d, 0d, 0d, false, true, false, false,
+                -2, -2, 0, 0L, false, TableSnapshot.Position.NONE,
+                "CALENTANDO", "", List.of(card("A_C"), card("K_C")));
+        GdxTableViewState warmingState = new GdxTableViewState(
+                snapshotWithPlayers(false, "", warming));
+
+        assertEquals(List.of("joker", "joker"),
+                warmingState.presentedHoleCards("ana").stream()
+                        .map(TableSnapshot.CardSnapshot::code).toList());
+        assertEquals("CALENTANDO", CoronaPokerGdxTable.localHudTurnStatus(
+                false, false, warming, spanish));
+        assertFalse(CoronaPokerGdxTable.usesTransientHolePresentation(
+                warming));
+        assertTrue(CoronaPokerGdxTable.usesTransientHolePresentation(
+                player("borja", TableSnapshot.Position.BIG_BLIND)));
+    }
+
+    @Test
+    void spectatorRosterDiscardsThePreviousCompletedHandPresentation() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+        state.apply(new TableVisualEvent.RevealHoleCards(1, "ana",
+                card("A_C"), card("K_C"), "COLOR"));
+        state.apply(new TableVisualEvent.HandResult(2, "ana", "COLOR", true,
+                TableSnapshot.Street.SHOWDOWN));
+        TableSnapshot.PlayerSnapshot warming = new TableSnapshot.PlayerSnapshot(
+                "ana", 1_000d, 0d, 0d, false, true, false, false,
+                -2, -2, 0, 0L, false, TableSnapshot.Position.NONE,
+                "CALENTANDO", "", List.of(card("A_C"), card("K_C")));
+
+        state.apply(new TableVisualEvent.SeatRoster(3,
+                List.of(warming, player("borja",
+                        TableSnapshot.Position.BIG_BLIND))));
+
+        assertFalse(state.hasHandResult("ana"));
+        assertEquals(List.of("joker", "joker"),
+                state.presentedHoleCards("ana").stream()
+                        .map(TableSnapshot.CardSnapshot::code).toList());
     }
 
     @Test

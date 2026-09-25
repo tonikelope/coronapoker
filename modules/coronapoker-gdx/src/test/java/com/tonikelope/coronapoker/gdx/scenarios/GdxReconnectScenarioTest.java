@@ -1987,14 +1987,15 @@ class GdxReconnectScenarioTest {
                         Duration.ofSeconds(30));
                 hostRenderer.releaseHeldAction();
 
-                await(() -> selectedRejoined.returnedAfterSpectating()
-                                && renderers.stream().allMatch(
-                                        GdxScenarioRenderer::isClosed),
-                        Duration.ofSeconds(210));
+                await(selectedRejoined::returnedAfterSpectating,
+                        Duration.ofSeconds(90));
                 assertTrue(selectedRejoined.playingNicknames().contains(
                         rejoinedNick));
                 assertTrue(selectedRejoined.sawSpectatorReactivated(
                         rejoinedNick));
+                await(() -> renderers.stream().allMatch(
+                                GdxScenarioRenderer::isClosed),
+                        Duration.ofSeconds(210));
                 assertEquals(1, rebuyChoices.get(),
                         "the rejoined human must accept exactly one real rebuy");
 

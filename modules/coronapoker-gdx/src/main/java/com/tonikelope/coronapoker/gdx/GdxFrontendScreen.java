@@ -161,6 +161,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final float ABOUT_LOGO_WIDTH = 180f;
     private static final float ABOUT_LOGO_Y = 758f;
     static final int ABOUT_PANEL_RGBA = 0x365f78fc;
+    static final float ABOUT_MUSIC_PANEL_Y = 326f;
+    static final float ABOUT_MUSIC_PANEL_HEIGHT = 166f;
+    static final float ABOUT_MEMORIAL_CENTER_Y = 552f;
+    static final float ABOUT_MOURNING_ICON_SIZE = 68f;
+    static final float ABOUT_MUSIC_FIRST_LINE_Y = 454f;
+    static final float ABOUT_MUSIC_LINE_GAP = 29f;
+    static final float ABOUT_COPYRIGHT_Y = 340f;
     static final URI ABOUT_PROJECT_URI = URI.create(
             "https://github.com/tonikelope/coronapoker");
     static final URI ABOUT_RULES_URI = URI.create(
@@ -705,7 +712,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 // line, as in the original Swing composition. The previous
                 // far-left placement looked like an unrelated control.
                 batch.draw(aboutMourningIcon, WIDTH / 2f - 438f,
-                        474f, 68f, 68f);
+                        ABOUT_MEMORIAL_CENTER_Y
+                                - ABOUT_MOURNING_ICON_SIZE / 2f,
+                        ABOUT_MOURNING_ICON_SIZE,
+                        ABOUT_MOURNING_ICON_SIZE);
                 batch.draw(aboutBookIcon, WIDTH / 2f - 16f, 245f,
                         32f, 32f);
                 batch.draw(aboutCrossIcon, WIDTH / 2f - 338f, 214f,
@@ -2257,7 +2267,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.setColor(new Color(0x36d9ffb8));
         shapes.rect(x + 28f, y + h - 10f, w - 56f, 3f);
         shapes.setColor(new Color(0x07152270));
-        roundedRect(x + 44f, 326f, w - 88f, 166f, 14f);
+        roundedRect(x + 44f, ABOUT_MUSIC_PANEL_Y, w - 88f,
+                ABOUT_MUSIC_PANEL_HEIGHT, 14f);
         shapes.setColor(new Color(0x07152258));
         roundedRect(x + 44f, 142f, w - 88f, 174f, 14f);
         textFit(titleFont, uppercase(gameText.translate("about.titulo")),
@@ -2286,9 +2297,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 612f, w - 130f, 21f, 2, MUTED);
 
         textFit(headingFont, gameText.translate("about.dedicado"),
-                WIDTH / 2f, 505f, Color.WHITE, true, 830f);
+                WIDTH / 2f, ABOUT_MEMORIAL_CENTER_Y,
+                Color.WHITE, true, 830f);
 
-        float musicY = 436f;
+        float musicY = ABOUT_MUSIC_FIRST_LINE_Y;
         String[] musicKeys = {
             "about.musica_juego", "about.musica_espera",
             "about.musica_stats", "about.musica_about"
@@ -2296,35 +2308,39 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         for (String key : musicKeys) {
             centeredWrappedText(tinyFont, gameText.translate(key),
                     WIDTH / 2f, musicY, w - 150f, 20f, 2, MUTED);
-            musicY -= 27f;
+            musicY -= ABOUT_MUSIC_LINE_GAP;
         }
 
         centeredWrappedText(tinyFont, gameText.translate("about.copyright"),
-                WIDTH / 2f, 316f, w - 120f, 20f, 2, MUTED);
+                WIDTH / 2f, ABOUT_COPYRIGHT_Y,
+                w - 150f, 18f, 1, MUTED);
         hit(WIDTH / 2f - 28f, 233f, 56f, 56f,
                 () -> openExternalUri(ABOUT_RULES_URI,
                         "gdx.about.open_failed"));
         textFit(smallFont, gameText.translate("about.hecho_a_mano"),
                 WIDTH / 2f, 228f, Color.WHITE, true, w - 150f);
-        float footerColumn = (w - 120f) / 3f;
         float footerStart = x + 60f;
+        float footerWidth = w - 120f;
+        float buildWidth = footerWidth * 0.18f;
+        float runtimeWidth = footerWidth * 0.24f;
+        float systemWidth = footerWidth - buildWidth - runtimeWidth;
         textFit(tinyFont, "Jn 8:32",
-                footerStart + footerColumn / 2f, 178f,
-                MUTED, true, footerColumn - 30f);
+                footerStart + buildWidth / 2f, 178f,
+                MUTED, true, buildWidth - 30f);
         String runtime = aboutRuntimeText() + " "
                 + gameText.translate("ui.hilos");
         textFit(tinyFont, runtime,
-                footerStart + footerColumn * 1.5f, 178f,
-                MUTED, true, footerColumn - 30f);
+                footerStart + buildWidth + runtimeWidth / 2f, 178f,
+                MUTED, true, runtimeWidth - 30f);
         String system = aboutSystemText();
         textFit(tinyFont, system,
-                footerStart + footerColumn * 2.5f, 178f,
-                MUTED, true, footerColumn - 30f);
-        hit(footerStart + footerColumn * 2f, 156f,
-                footerColumn, 32f,
+                footerStart + buildWidth + runtimeWidth + systemWidth / 2f,
+                178f, MUTED, true, systemWidth - 30f);
+        hit(footerStart + buildWidth + runtimeWidth, 156f,
+                systemWidth, 32f,
                 () -> activateAboutEasterEgg(false));
-        secondaryHit(footerStart + footerColumn * 2f, 156f,
-                footerColumn, 32f,
+        secondaryHit(footerStart + buildWidth + runtimeWidth, 156f,
+                systemWidth, 32f,
                 () -> activateAboutEasterEgg(true));
         themedButton(WIDTH / 2f - 155f, y + 14f, 310f, 54f,
                 uppercase(gameText.translate("ui.cerrar")),

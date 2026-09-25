@@ -140,6 +140,7 @@ final class GdxScenarioRenderer implements TableRenderer {
                 table.commands(), () -> { }, new GdxGameLogSink(), null));
         streets.add(initialState.street());
         rememberSpectatorTransitions(initialState);
+        assertCanonicalSpectatorPresentation(initialState, projection);
         initialState.players().stream()
                 .filter(player -> player.nickname().equals(
                         initialState.localNickname()))
@@ -165,6 +166,7 @@ final class GdxScenarioRenderer implements TableRenderer {
         }
         TableSnapshot snapshot = projection.snapshot();
         rememberSpectatorTransitions(snapshot);
+        assertCanonicalSpectatorPresentation(snapshot, projection);
         TableSnapshot.PlayerSnapshot local = snapshot.players().stream()
                 .filter(player -> player.nickname().equals(
                         snapshot.localNickname()))
@@ -447,6 +449,36 @@ final class GdxScenarioRenderer implements TableRenderer {
             } else if (!player.exited()
                     && spectatorsEver.contains(player.nickname())) {
                 reactivatedSpectators.add(player.nickname());
+            }
+        }
+    }
+
+    private void assertCanonicalSpectatorPresentation(TableSnapshot snapshot,
+            GdxTableViewState projection) {
+        for (TableSnapshot.PlayerSnapshot player : snapshot.players()) {
+            List<TableSnapshot.CardSnapshot> cards
+                    = projection.presentedHoleCards(player.nickname());
+            if (player.spectator() && !player.exited()) {
+                assertEquals(2, cards.size(),
+                        player.nickname() + " spectator card count");
+                assertTrue(cards.stream().allMatch(card
+                        -> "joker".equals(card.code())
+                        && card.faceUp() && card.visible()),
+                        player.nickname()
+                        + " spectator must show two visible jokers");
+                if (player.nickname().equals(snapshot.localNickname())) {
+                    String status = CoronaPokerGdxTable.localHudTurnStatus(
+                            false, false, player, new GdxGameText("es"));
+                    assertFalse("ESPERANDO TURNO".equals(status),
+                            "a local spectator cannot be waiting for a turn");
+                    assertFalse(status.isBlank(),
+                            "a local spectator needs a canonical status");
+                }
+            } else if (reactivatedSpectators.contains(player.nickname())) {
+                assertFalse(cards.size() == 2 && cards.stream().allMatch(
+                        card -> "joker".equals(card.code())),
+                        player.nickname()
+                        + " kept spectator jokers after reactivation");
             }
         }
     }

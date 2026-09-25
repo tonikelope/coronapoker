@@ -19,6 +19,8 @@ final class GdxTableViewState {
             new TableSnapshot.CardSnapshot("", false, false);
     private static final TableSnapshot.CardSnapshot ABSENT_CARD =
             new TableSnapshot.CardSnapshot("", false, false, false);
+    private static final TableSnapshot.CardSnapshot SPECTATOR_CARD =
+            new TableSnapshot.CardSnapshot("joker", true, false);
 
     private TableSnapshot snapshot;
     private long lastSequence;
@@ -239,6 +241,15 @@ final class GdxTableViewState {
     }
 
     List<TableSnapshot.CardSnapshot> presentedHoleCards(String nickname) {
+        TableSnapshot.PlayerSnapshot player = snapshot.players().stream()
+                .filter(candidate -> candidate.nickname().equals(nickname))
+                .findFirst().orElse(null);
+        if (player != null && player.spectator() && !player.exited()) {
+            // Swing resets both cards to the deck joker for every spectator:
+            // busted players, mid-hand joiners warming up and recovered
+            // players waiting for the next hand.
+            return List.of(SPECTATOR_CARD, SPECTATOR_CARD);
+        }
         List<TableSnapshot.CardSnapshot> revealed = revealedHoleCards.get(
                 nickname);
         if (revealed != null) {
@@ -247,11 +258,7 @@ final class GdxTableViewState {
         if (foldedThisHand.contains(nickname)) {
             return List.of();
         }
-        return snapshot.players().stream()
-                .filter(player -> player.nickname().equals(nickname))
-                .findFirst()
-                .map(TableSnapshot.PlayerSnapshot::holeCards)
-                .orElse(List.of());
+        return player == null ? List.of() : player.holeCards();
     }
 
     Float partialHandPercentage(String nickname) {
@@ -365,6 +372,10 @@ final class GdxTableViewState {
             snapshot = copySnapshot(snapshot, snapshot.pot(),
                     snapshot.currentTurnNickname(), roster.players(),
                     snapshot.communityCards());
+            roster.players().stream()
+                    .filter(TableSnapshot.PlayerSnapshot::spectator)
+                    .map(TableSnapshot.PlayerSnapshot::nickname)
+                    .forEach(this::clearCompletedHandPresentation);
         } else if (event instanceof TableVisualEvent.HandBoundary boundary) {
             applyHandBoundary(boundary);
         } else if (event instanceof TableVisualEvent.CollectBets collect) {
@@ -602,6 +613,16 @@ final class GdxTableViewState {
             TableVisualEvent.PlayerAction.ActionKind kind) {
         return kind == TableVisualEvent.PlayerAction.ActionKind.FOLD
                 || kind == TableVisualEvent.PlayerAction.ActionKind.ALL_IN;
+    }
+
+    private void clearCompletedHandPresentation(String nickname) {
+        revealedHoleCards.remove(nickname);
+        foldedThisHand.remove(nickname);
+        showdownHighlights.remove(nickname);
+        partialHandPercentages.remove(nickname);
+        resolvedHandResults.remove(nickname);
+        resolvedHandNames.remove(nickname);
+        resolvedHandWinners.remove(nickname);
     }
 
     private void applyHandBoundary(TableVisualEvent.HandBoundary boundary) {

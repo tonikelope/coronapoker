@@ -2412,6 +2412,10 @@ Al cerrar cada bloque se debe registrar aquí:
 - La inspeccion de 69 informes Maven no encuentra fallos. Los proveedores GDX
   alcanzados mediante `ServiceLoader` se conservan, igual que las clases
   Alberta serializables/reflexivas y todos los recursos de referencia y MODs.
+- Endurecido el limite del nucleo: la prueba ya no inspecciona tres carpetas
+  fijas, sino las inclusiones reales declaradas por Maven. Las **247 fuentes**
+  compiladas por `coronapoker-core` quedan cubiertas y ninguna importa Swing,
+  AWT ni libGDX; el contrato de arquitectura pasa **5/5**.
 - Sustituido el mapa obsoleto centrado unicamente en `GameFrame` por la
   arquitectura final Swing + GDX + core compartido. Se conserva la fuente
   editable Draw.io y el PNG se ha exportado con Draw.io CLI a **3406x2315**,

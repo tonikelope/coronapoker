@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
@@ -16,23 +17,18 @@ final class ArchitectureBoundaryTest {
 
     private static final Pattern GRAPHICS_IMPORT = Pattern.compile(
             "(?m)^\\s*import\\s+(?:java\\.awt|javax\\.swing|com\\.badlogic\\.gdx)(?:\\.|;)");
+    private static final Pattern CORE_SOURCE_INCLUDE = Pattern.compile(
+            "<include>([^<]+\\.java)</include>");
 
     private final Path reactor = Path.of(System.getProperty("migration.reactor.dir"))
             .toAbsolutePath().normalize();
 
     @Test
     void coreHasNoSwingAwtOrLibgdxImports() throws IOException {
-        List<Path> sourceRoots = List.of(
-                reactor.resolve("../src/main/java/com/tonikelope/coronapoker/core").normalize(),
-                reactor.resolve("../src/main/java/com/tonikelope/coronapoker/table").normalize(),
-                reactor.resolve("../src/main/java/com/tonikelope/coronapoker/bot/context").normalize());
-        try (Stream<Path> files = sourceRoots.stream().flatMap(this::walk)) {
-            List<Path> violations = files
-                    .filter(path -> path.toString().endsWith(".java"))
-                    .filter(this::containsGraphicsImport)
-                    .toList();
-            assertTrue(violations.isEmpty(), "Graphics imports in core: " + violations);
-        }
+        List<Path> violations = coreSources().stream()
+                .filter(this::containsGraphicsImport)
+                .toList();
+        assertTrue(violations.isEmpty(), "Graphics imports in core: " + violations);
     }
 
     @Test
@@ -198,6 +194,31 @@ final class ArchitectureBoundaryTest {
         } catch (IOException ex) {
             throw new IllegalStateException("Cannot inspect " + path, ex);
         }
+    }
+
+    private List<Path> coreSources() throws IOException {
+        Path sourceRoot = reactor.resolve("../src/main/java").normalize();
+        Matcher includes = CORE_SOURCE_INCLUDE.matcher(
+                read("coronapoker-core/pom.xml"));
+        List<Path> sources = new java.util.ArrayList<>();
+        while (includes.find()) {
+            String include = includes.group(1);
+            if (include.endsWith("/**/*.java")) {
+                Path directory = sourceRoot.resolve(
+                        include.substring(0, include.length() - "/**/*.java".length()));
+                try (Stream<Path> files = walk(directory)) {
+                    files.filter(path -> path.toString().endsWith(".java"))
+                            .forEach(sources::add);
+                }
+            } else {
+                Path source = sourceRoot.resolve(include);
+                assertTrue(Files.isRegularFile(source),
+                        "Missing core source declared by Maven: " + source);
+                sources.add(source);
+            }
+        }
+        assertFalse(sources.isEmpty(), "No core source includes found in Maven");
+        return sources.stream().distinct().toList();
     }
 
     private Stream<Path> walk(Path root) {

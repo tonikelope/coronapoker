@@ -1,28 +1,28 @@
 # CoronaPoker 24.11 product modules
 
-This is the product Maven reactor. It builds the Swing and GDX executables and
-publishes them exclusively to `../target`. The only JAR kept at the repository
-root is `../coronaupdater.jar`, because the self-updater requires that location.
+This directory contains the Maven reactor for the CoronaPoker desktop
+application. The modules provide compile-time boundaries inside one product.
+The public build output is a single runnable JAR.
 
-## Physical source ownership
+## Source ownership
 
-- `coronapoker-core` owns game logic, networking, persistence and
-  renderer-neutral presentation contracts under
-  `coronapoker-core/src/main/java`.
-- `coronapoker-swing` owns the classic Swing frontend under
-  `coronapoker-swing/src/main/java`.
-- `coronapoker-gdx` owns the complete libGDX frontend under
-  `coronapoker-gdx/src/main/java`.
-- `coronapoker-assets` packages the shared resources from
-  `../src/main/resources`; installable MOD packs remain external to the
-  official JARs.
+- `coronapoker-core` owns poker rules, hand progression, bots, networking,
+  persistence, security and renderer-neutral presentation contracts.
+- `coronapoker-assets` packages the resources stored in
+  `../src/main/resources`. Installable MOD packs remain external to the
+  official JAR.
+- `coronapoker-gdx` owns the desktop launcher, screens, table renderer, input,
+  audio and operating-system integration.
+- `coronapoker-qa` verifies dependency direction, source ownership and product
+  distribution rules.
 
-Product Java sources exist only in the three source modules. Architecture tests
-reject Java sources in the repository-root source tree, duplicate classes,
-frontend dependencies in the core and cross-frontend ownership violations.
+Each code module has its own `src/main/java` tree. This is stronger than using
+packages inside one source tree: Maven allows GDX to depend on the core while
+preventing the core from importing GDX. Product Java sources do not live in the
+repository-root `src/main/java` directory.
 
-Shared resources deliberately remain under `../src/main/resources`: they are
-product data, not another copy of Java code.
+Shared resources deliberately remain under `../src/main/resources`. They are
+product data, not a second Java source tree.
 
 ## Build
 
@@ -33,31 +33,27 @@ From the repository root:
   -B clean verify
 ```
 
-The tracked `.mvn/maven.config` automatically uses the ignored checkout-local
-`.m2/repository`, so the command is independent of the user's global Maven
-cache and requires no machine-specific repository argument.
+The tracked `.mvn/maven.config` uses the ignored checkout-local
+`.m2/repository`, so the build does not depend on the user's global Maven
+cache.
 
-The reactor produces both executables in the repository's single product
+The reactor publishes the runnable application to the repository's product
 artifact directory:
 
 ```text
-target/CoronaPoker-24.11-swing.jar
-target/CoronaPoker-24.11-gdx.jar
+target/CoronaPoker-24.11.jar
 ```
 
-The reactor's `clean` phase removes versioned product JARs and obsolete smoke
-logs from that directory while preserving the last complete runnable pair until
-their replacements are ready. Running `package` for only one frontend updates
-only that frontend and is not a clean distribution build.
-
-The GDX JAR is built exclusively from the product GDX frontend.
+The root `coronaupdater.jar` is retained because the self-updater requires that
+location. Module-local `target` directories contain intermediate Maven output,
+not additional distributions.
 
 ## Validation
 
-The `coronapoker-qa` module verifies dependency direction, prohibited core
-imports and unique ownership of every class. The extended `tools/qa` suite adds
-protocol, recovery and multi-process application scenarios.
+The `coronapoker-qa` module checks the architecture during the normal product
+build. The extended suite under `tools/qa` adds protocol, recovery, security,
+simulation and application scenarios.
 
-A successful build does not validate visual fidelity, audio or frame pacing.
-Manual windowed/full-screen runs and screenshot comparison remain independent
-release criteria.
+A successful automated build does not validate visual fidelity, audio quality
+or frame pacing. Those release checks require a manual run on the supported
+display configurations.

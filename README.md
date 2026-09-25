@@ -211,9 +211,9 @@ Every visual and audio asset is replaceable through redistributable MOD packs:
 
 - **Java 17+** for both building and running
 - **Single-version protocol**: Every participant in a game must run the exact same CoronaPoker version; the host refuses mismatched versions instead of enabling compatibility modes.
-- **Swing** UI with NetBeans Matisse forms and the active **LibGDX** frontend
-- **Maven** multi-module build producing two self-contained product JARs over
-  the same shared core and assets
+- **LibGDX** desktop UI with an LWJGL3 backend
+- **Maven** multi-module build producing one self-contained application JAR
+  from the game core, assets and GDX frontend
 - **Alberta** poker hand evaluator for true equity computation
 - **SQLite** (via `sqlite-jdbc`) for local hand history
 - Pure-Java **SRA / Ristretto255** implementation (RFC 9496) with DLEQ-proof verifiable dealing and a zero-knowledge **Bayer-Groth verifiable shuffle**, no native crypto dependencies
@@ -222,12 +222,14 @@ Every visual and audio asset is replaceable through redistributable MOD packs:
 
 ## 🏗️ Architecture
 
-A high-level map of the current product architecture: the independent Swing and GDX applications, their neutral presentation contracts, the single shared game core, common assets, packaging and certification layers:
+A high-level map of the product modules, dependencies, packaging and
+certification layers:
 
 ![CoronaPoker module map](docs/diagrams/coronapoker-module-map.png)
 
-The class-level view below shows both executable entry points, the legacy
-Swing path, the GDX session path and the exact bidirectional table contracts:
+The class-level view shows the executable entry point, application startup,
+lobby and table creation, and the command and event paths across the
+renderer-neutral table boundary:
 
 ![CoronaPoker frontend class map](docs/diagrams/coronapoker-frontend-uml.png)
 
@@ -236,12 +238,11 @@ the responsibilities of `TableSession`, `TableCommandSink`,
 `TableEventBridge`, `TableRenderer`, snapshots and visual events, is in
 **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**.
 
-Product Java sources have one physical owner: shared logic and renderer-neutral
-contracts live in `modules/coronapoker-core`, the classic UI lives in
-`modules/coronapoker-swing`, and the libGDX UI lives in
+Product Java sources have one physical owner. Game logic and renderer-neutral
+contracts live in `modules/coronapoker-core`; presentation and input live in
 `modules/coronapoker-gdx`. Shared assets remain in `src/main/resources` and are
 packaged by `modules/coronapoker-assets`. Architecture tests enforce these
-ownership boundaries, prohibit frontend dependencies in the core and reject
+ownership boundaries, prohibit GDX dependencies in the core and reject
 duplicated product classes.
 
 ### Repository layout
@@ -249,14 +250,13 @@ duplicated product classes.
 - `pom.xml`: canonical CoronaPoker 24.11 build entry point.
 - `modules/coronapoker-core/`: shared game, networking, persistence and
   renderer-neutral presentation contracts.
-- `modules/coronapoker-swing/`: classic Swing frontend.
-- `modules/coronapoker-gdx/`: libGDX frontend.
+- `modules/coronapoker-gdx/`: libGDX application and desktop launcher.
 - `modules/coronapoker-assets/`: shared resources packaged from
   `src/main/resources`.
 - `modules/coronapoker-qa/` and `tools/qa/`: architecture tests,
   certification suites and multi-process scenarios.
 - `docs/`: architecture, security, testing and contributor documentation.
-- `target/`: the only directory containing the Swing and GDX product JARs.
+- `target/`: the only directory containing the product JAR.
 - `coronaupdater.jar`: special root-level updater artifact required by the
   GitHub self-update mechanism.
 
@@ -273,7 +273,7 @@ The complete QA model, test lanes, real-game simulator, certification profiles a
 Requirements: JDK 17 or newer for both building and running, and Apache Maven 3.x. Maven compiles against the Java 17 API baseline, and CI builds and tests on JDK 17.
 
 For an ordinary build from a clean clone, use the product reactor. It builds
-the shared core/assets once and then packages both frontends:
+the core, assets and GDX application and then packages one executable:
 
 ```bash
 git clone https://github.com/tonikelope/coronapoker.git
@@ -282,17 +282,15 @@ mvn clean package
 ```
 
 The only product-artifact directory is the repository-root `target/`. The build
-generates these two runnable JARs:
+generates this runnable JAR:
 
 ```text
-target/CoronaPoker-<version>-swing.jar
-target/CoronaPoker-<version>-gdx.jar
+target/CoronaPoker-<version>.jar
 ```
 
-Both frontends are shaded into a module-local staging JAR first and published
-to `target/` only after that archive is complete.  `clean package` deliberately
-keeps the previous runnable pair available until its replacements are ready;
-this prevents a running table from reading a partially rewritten JAR.
+The application is shaded into a module-local staging JAR and published to
+`target/` only after that archive is complete. This prevents a running table
+from reading a partially rewritten JAR.
 The root `pom.xml` is the canonical 24.11 product entry point and delegates to
 the module reactor.
 
@@ -301,19 +299,18 @@ Use the lifecycle according to intent:
 | Goal | Command |
 |---|---|
 | Compile and run the product module tests | `mvn verify` |
-| Produce a clean Swing + GDX distribution | `mvn clean package` |
+| Produce a clean GDX distribution | `mvn clean package` |
 | Build without tests for packaging diagnosis only | `mvn clean package -DskipTests` |
 | Run the extended deterministic QA lane | `mvn -f tools/reactor/pom.xml verify` |
 
 Only the clean full-reactor command constitutes a distribution build. Building
-one frontend module directly is useful for local iteration but does not replace
-or certify the runnable pair.
+the GDX module directly is useful for local iteration but does not certify the
+complete product.
 
-Launch the classic Swing frontend or the active GDX frontend respectively:
+Launch CoronaPoker:
 
 ```bash
-java -jar target/CoronaPoker-<version>-swing.jar
-java -jar target/CoronaPoker-<version>-gdx.jar
+java -jar target/CoronaPoker-<version>.jar
 ```
 
 `coronaupdater.jar` is intentionally the only JAR outside `target/`: the
@@ -354,27 +351,23 @@ matrix and then under deep stress. Each run generates and records a fresh
 replayable seed unless `-Seed` is supplied:
 
 The practical order is: focused regression, `mvn clean verify`, extended fast
-QA, native GDX scenarios, mixed Swing/GDX scenarios, and finally the balanced
-release certificate. Broad security/protocol changes additionally require a
-fast certificate followed by stress. The exact decision table and commands are
-in [Testing and certification](docs/TESTING.md#recommended-execution-order).
+QA, GDX scenarios, and finally the balanced release certificate. Broad
+security or protocol changes additionally require a fast certificate followed
+by stress. The exact decision table and commands are in
+[Testing and certification](docs/TESTING.md#recommended-execution-order).
 
 ```powershell
 .\tools\qa\certify.cmd -Mode fast
 .\tools\qa\certify.cmd -Mode stress
 ```
 
-The native GDX scenarios and the mixed Swing/GDX matrix can be run
-independently. The native runner first removes only the
-validated generated module outputs and compiles the current reactor; the mixed
-runner installs the current checkout into the checkout-local Maven repository.
-Both then launch every selected scenario in a fresh JVM and retain individual
-logs below `target/`. This prevents a stale JAR or stale `.class` file from
-producing a false green result:
+The GDX scenario runner removes only validated generated module outputs,
+compiles the current reactor, launches every selected scenario in fresh JVMs
+and retains individual logs below `target/`. This prevents stale JARs or class
+files from producing a false green result:
 
 ```powershell
 .\tools\qa\gdx-scenarios.cmd -Mode fast
-.\tools\qa\gdx-mixed-scenarios.cmd -Mode fast
 ```
 
 Use `-ListOnly`, `-Scenario <name>` or `-StartAt <name>` for targeted work.

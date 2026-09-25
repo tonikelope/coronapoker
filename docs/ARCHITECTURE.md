@@ -1,73 +1,44 @@
 # CoronaPoker architecture
 
-CoronaPoker 24.11 builds two desktop applications from one repository. The
-applications share the game engine, network protocol, persistence, security,
-configuration and assets. They do not share UI widgets or rendering code.
+CoronaPoker 24.11 is a libGDX desktop application. Poker rules, network
+protocols, persistence and security live in a renderer-independent core. The
+GDX module owns presentation and user input. Maven enforces this dependency
+direction and packages the modules as one runnable application.
 
-The architecture is deliberately asymmetric because the Swing application is
-the original implementation and the GDX application is the new frontend. GDX
-uses a renderer-neutral table boundary. Swing still uses the historical direct
-integration between its windows and the shared game classes.
-
-![CoronaPoker frontend class map](diagrams/coronapoker-frontend-uml.png)
+![CoronaPoker class architecture](diagrams/coronapoker-frontend-uml.png)
 
 The editable source is
 [`coronapoker-frontend-uml.drawio`](diagrams/coronapoker-frontend-uml.drawio).
 
-## Process entry points
-
-### Swing application
-
-The executable entry class is
-`com.tonikelope.coronapoker.swing.SwingLauncher`.
-
-Its startup path is:
-
-```text
-SwingLauncher.main
-  -> CoronaPokerBootstrap.createApplication
-  -> SwingServiceBridge.bind
-  -> Init.launch
-  -> NewGameDialog
-  -> WaitingRoomFrame
-  -> GameFrame
-  -> Crupier
-```
-
-`CoronaPokerBootstrap` creates the shared process services. The
-`SwingServiceBridge` installs Swing implementations for runtime and audio
-services. `Init` then starts the established Swing window flow.
-
-`GameFrame` owns Swing controls and creates the shared `Crupier` engine for the
-table. Existing Swing components can still read and call shared game objects
-directly. This is the legacy coupling shown in orange in the UML. It is kept so
-the original application remains behaviorally stable.
-
-### GDX application
+## Process entry point
 
 The executable entry class is
 `com.tonikelope.coronapoker.gdx.GdxLauncher`.
 
-Its startup path is:
+The application startup path is:
 
 ```text
 GdxLauncher.main
   -> CoronaPokerBootstrap.createApplication
-  -> NetworkLobbyGateway
-  -> CoreGameTableFactory
+  -> CoronaPokerApplication
   -> GdxApplicationShell
   -> GdxFrontendScreen
 ```
 
-`GdxApplicationShell` owns the single libGDX window. `GdxFrontendScreen`
-renders the main menu, setup screens and waiting room. The
-`NetworkLobbyGateway` owns the real host or client lobby and publishes a
-`TableSession` when the network agrees that the game can start.
+`CoronaPokerBootstrap` creates the process services and returns a
+`CoronaPokerApplication`. `GdxApplicationShell` owns the libGDX window and
+switches between the frontend screens and the poker table. `GdxFrontendScreen`
+renders the menu, setup, waiting room, statistics and end-of-game views.
 
-The table startup path is:
+## Lobby and table creation
+
+`NetworkLobbyGateway` owns the host or client lobby. It performs the network
+handshake, maintains the participant roster and publishes a `TableSession` when
+the peers agree that the game can start.
 
 ```text
-NetworkLobbyGateway
+GdxFrontendScreen
+  -> NetworkLobbyGateway
   -> CoreGameTableFactory.create
   -> TableSession
   -> GdxApplicationShell.attachTable
@@ -75,139 +46,132 @@ NetworkLobbyGateway
   -> CoronaPokerGdxTable
 ```
 
-`CoreGameTableFactory` constructs the canonical shared table graph: `Crupier`,
-player controllers, network peers, transport, database adapters and the
-renderer-neutral event bridge. GDX does not contain a second poker engine.
+`CoreGameTableFactory` constructs the authoritative table graph. This includes
+the dealer, player controllers, network peers, transport, database adapters and
+the renderer-neutral table bridge. The GDX module contains no second poker
+engine.
 
-## The table contracts
+## Table boundary
 
-The table contracts live under
+The table boundary lives under
 `modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/table`.
-They contain data and interfaces, never Swing or libGDX types.
+These types contain no libGDX classes.
 
 ### TableSession
 
-`TableSession` is the ownership handoff between the lobby and a running table.
-It contains:
+`TableSession` transfers ownership of a prepared table from the lobby to the
+application shell. It contains:
 
-- the authoritative initial `TableSnapshot`;
-- a `TableCommandSink` for input from the frontend;
-- a `TableEventBridge` for output from the engine;
-- a starter that begins the dealer only after the renderer is ready;
-- the resources that must be closed when the table ends.
+- the initial `TableSnapshot`;
+- the `TableCommandSink` used by the frontend;
+- the `TableEventBridge` used by the engine;
+- the starter that begins the dealer after the table scene is ready;
+- the resources closed when the table ends.
 
-Calling `TableSession.attach(renderer)` performs this order:
+`TableSession.attach(renderer)` performs the following sequence:
 
-1. Attach exactly one renderer.
+1. Attach one renderer.
 2. Open it with the initial snapshot.
-3. Wait until the frontend reports that the table scene is ready.
-4. Start the shared engine.
+3. Wait for the frontend to report that the scene is ready.
+4. Start the engine.
 
-This order prevents the first game event from arriving before the GDX scene
-exists.
+The engine cannot publish the first hand event before the GDX table exists.
 
-### Input: TableCommandSink
+### Commands from GDX to the core
 
-GDX controls do not call `Crupier` or player controllers directly. They submit
-a typed `TableCommand` through `TableCommandSink`.
+The table controls submit typed `TableCommand` values through
+`TableCommandSink`.
 
 ```text
 CoronaPokerGdxTable
-  -> TableCommandSink.submit(TableCommand)
+  -> TableCommandSink.submit
   -> CoreGameTableFactory command adapter
-  -> Crupier and shared controllers
+  -> Crupier and player controllers
 ```
 
-The command is a request. The shared engine remains authoritative and decides
-whether the action is valid.
+A command is a request. The core validates it and remains authoritative for
+the game result.
 
-### Output: TableEventBridge and TableRenderer
+### Events from the core to GDX
 
-The shared engine publishes immutable `TableVisualEvent` values through
-`TableEventBridge`. The bridge forwards them to the attached `TableRenderer`.
+The engine publishes immutable `TableVisualEvent` values through
+`TableEventBridge`.
 
 ```text
 Crupier
-  -> TableEventBridge.publish(TableVisualEvent)
+  -> TableEventBridge.publish
   -> GdxTableRenderer.render
   -> CoronaPokerGdxTable.acceptEvent
 ```
 
-`GdxTableRenderer` is the adapter between neutral core events and the libGDX
-render thread. It posts work to that thread and never decides game rules.
+`GdxTableRenderer` transfers each event to the libGDX render thread. It does
+not decide poker rules. Events that return a `CompletionStage<Void>` define an
+animation barrier at a specific point in hand progression, such as dealing or
+payout. They do not transfer game authority to the renderer.
 
-Some events return a `CompletionStage<Void>`. This is an animation barrier,
-not a game decision. The engine waits only at established visual boundaries,
-for example until dealing or payout animation has reached the required point.
+### Snapshot and event model
 
-### Snapshots and events
+`TableSnapshot` contains the complete state required to open a table. Ordered
+events carry later state changes. GDX renders and animates its local scene every
+frame; it does not request or copy a full snapshot every frame.
 
-`TableSnapshot` is the complete state required to open a table. Later changes
-arrive as ordered `TableVisualEvent` values. This gives GDX a deterministic
-initial state followed by an event stream instead of access to Swing widgets
-or mutable UI objects.
+The boundary therefore has a small runtime cost:
 
-### Runtime cost
+- one snapshot when the table opens;
+- one typed command for each user action;
+- one typed event for each relevant game state change;
+- an animation completion only where the engine must wait for presentation.
 
-The contract boundary is not a frame-by-frame state copy. One `TableSnapshot`
-opens the scene. After that, the core publishes small typed events only when
-game state changes. GDX performs its own animation and drawing on every render
-frame without asking the core for another snapshot.
+## Maven modules
 
-Commands follow the same rule: a click submits a small typed request and the
-engine publishes the authoritative result. Animation barriers exist only at
-the few points where hand progression must wait for presentation. Poker event
-frequency is low, so allocation and dispatch cost at this boundary is small
-compared with texture rendering, media decoding, network traffic and database
-work.
+![CoronaPoker module map](diagrams/coronapoker-module-map.png)
 
-## Source ownership
+The editable source is
+[`coronapoker-module-map.drawio`](diagrams/coronapoker-module-map.drawio).
 
-| Area | Physical owner | Main responsibility |
-| --- | --- | --- |
-| Shared engine and services | `modules/coronapoker-core` | Rules, dealer, players, network, persistence, security and neutral contracts |
-| Swing frontend | `modules/coronapoker-swing` | Original menus, waiting room, table widgets and Swing integration |
-| GDX frontend | `modules/coronapoker-gdx` | Native window, screens, table rendering, input and visual effects |
-| Shared resources | `src/main/resources`, packaged by `modules/coronapoker-assets` | Images, cards, sounds, translations and bundled media |
-| Architecture tests | `modules/coronapoker-qa` | Dependency and source ownership rules |
-| Functional certification | `tools/qa` and frontend scenario tests | Shared engine, Swing compatibility and GDX flows |
+| Module | Responsibility |
+| --- | --- |
+| `modules/coronapoker-core` | Rules, dealer, bots, network, persistence, security and table contracts |
+| `modules/coronapoker-assets` | Images, cards, sounds, translations and bundled media |
+| `modules/coronapoker-gdx` | Launcher, screens, table renderer, input, audio and desktop integration |
+| `modules/coronapoker-qa` | Dependency, source ownership and distribution checks |
+| `tools/qa` | Extended protocol, recovery, security and application certification |
 
-There is one source owner for each product class. Build output under `target`
-is generated and is not another source tree.
+Each code module has its own source tree. The modules are internal build units,
+not separate products. The distribution contains one executable:
 
-## What is shared and what is not
+```text
+target/CoronaPoker-24.11.jar
+```
 
-Shared:
+## Dependency rules
 
-- poker rules and hand progression;
-- networking and recovery;
-- database access and statistics data;
-- cryptographic dealing and verification;
-- bots and hand evaluation;
-- configuration services and assets;
-- table state contracts used by GDX.
+The allowed product dependencies are:
 
-Frontend-specific:
+```text
+coronapoker-gdx -> coronapoker-core
+coronapoker-gdx -> coronapoker-assets
+coronapoker-core -> Java and third-party engine libraries
+```
 
-- Swing components, dialogs and EDT behavior;
-- libGDX screens, actors, textures, effects and render-thread behavior;
-- layout, animation and visual styling.
+The core must not import libGDX. GDX may use core contracts and services but
+must not duplicate game rules. Resources contain no Java source. Architecture
+tests fail the build if these rules are broken.
 
-The practical rule is simple: a poker decision belongs in core. A visual
-decision belongs in the selected frontend. GDX may render an event differently
-from Swing, but it must not invent the event or alter its game result.
+The repository-root `src/main/resources` directory stores shared product data.
+Product Java source belongs only to the module source trees. Generated files in
+`target` directories are build output and never source ownership.
 
-The GDX Maven module depends on `coronapoker-core` and
-`coronapoker-assets`; it does not depend on `coronapoker-swing`. The core has no
-Swing UI imports. GDX uses a small number of Java Desktop APIs for operating
-system integration such as the native file chooser, clipboard, image and GIF
-decoding, keyboard constants and JVM splash handling. Those APIs do not load
-or reuse Swing screens, dialogs or table widgets.
+## Thread ownership
 
-## Current migration boundary
+The core owns its dealer, network and persistence executors. libGDX owns the
+render thread. `GdxTableRenderer` and the application shell transfer visual
+work to the render thread. Render code must not block on network or database
+operations. Core code must not read or mutate GDX actors.
 
-The GDX table is fully driven by the shared engine through typed contracts. The
-Swing table remains the behavioral reference and still has direct integration
-with shared engine objects. Converting Swing to the same contract path would be
-a separate refactor with regression risk; it is not required for the two 24.11
-applications to use one canonical game engine.
+## Historical implementation
+
+Earlier implementations remain available in Git history for behavioral
+comparison. They are not part of the active source tree, Maven reactor,
+distribution or runtime. Behavior still being matched must be expressed as a
+core or GDX scenario so it remains executable in the current product.

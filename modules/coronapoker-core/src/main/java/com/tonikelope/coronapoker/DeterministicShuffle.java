@@ -35,7 +35,7 @@ import javax.crypto.spec.SecretKeySpec;
 /**
  * Deterministic, seed-driven deck shuffle for the SRA cascade (formerly part of
  * the legacy CryptoSRA engine, whose Montgomery point math was retired by the
- * Ristretto255 migration).
+ * Ristretto255 implementation).
  *
  * A peer's cascade step reorders the deck with a Fisher-Yates shuffle whose
  * index draws come from an AES-256-CTR stream expanded from the per-hand seed,

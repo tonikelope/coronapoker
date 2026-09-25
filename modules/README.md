@@ -1,60 +1,63 @@
-# Módulos del producto CoronaPoker 24.11
+# CoronaPoker 24.11 product modules
 
-Este es el reactor Maven del producto. Los ejecutables Swing y GDX se generan
-desde aquí y se depositan exclusivamente en `../target`. El único JAR que queda
-en la raíz es `../coronaupdater.jar`, porque el actualizador lo requiere allí.
+This is the product Maven reactor. It builds the Swing and GDX executables and
+publishes them exclusively to `../target`. The only JAR kept at the repository
+root is `../coronaupdater.jar`, because the self-updater requires that location.
 
-## Propiedad física de las fuentes
+## Physical source ownership
 
-- `coronapoker-core` contiene la lógica de juego, red, persistencia y contratos de
-  presentación neutrales en `coronapoker-core/src/main/java`.
-- `coronapoker-swing` contiene exclusivamente el frontend clásico Swing en
+- `coronapoker-core` owns game logic, networking, persistence and
+  renderer-neutral presentation contracts under
+  `coronapoker-core/src/main/java`.
+- `coronapoker-swing` owns the classic Swing frontend under
   `coronapoker-swing/src/main/java`.
-- `coronapoker-gdx` contiene todo el frontend GDX activo. No compila ni ejecuta
-  código de la demo archivada.
-- `coronapoker-assets` empaqueta directamente `../src/main/resources`; los mods instalables permanecen externos y no se incrustan en el JAR oficial.
+- `coronapoker-gdx` owns the complete libGDX frontend under
+  `coronapoker-gdx/src/main/java`.
+- `coronapoker-assets` packages the shared resources from
+  `../src/main/resources`; installable MOD packs remain external to the
+  official JARs.
 
-El antiguo árbol `../src/main/java` queda vacío. La suite de arquitectura impide
-que vuelvan a aparecer fuentes allí, que un archivo Java exista en dos módulos o
-que el core importe Swing, AWT o libGDX.
+Product Java sources exist only in the three source modules. Architecture tests
+reject Java sources in the repository-root source tree, duplicate classes,
+frontend dependencies in the core and cross-frontend ownership violations.
 
-La demo aprobada se conserva únicamente de forma local como referencia visual
-en `../reference/gdx-demo` (commit histórico `627c71e4f`), ignorada por Git y
-fuera del build del producto.
-
-Los recursos compartidos permanecen deliberadamente en `../src/main/resources`:
-son datos del producto, no una tercera copia de código Java.
+Shared resources deliberately remain under `../src/main/resources`: they are
+product data, not another copy of Java code.
 
 ## Build
 
-Desde la raíz del repositorio:
+From the repository root:
 
 ```powershell
 & 'C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd' `
-  '-Dmaven.repo.local=C:\Users\Antonio\.m2\repository' `
-  -B -f modules\pom.xml clean verify
+  -B clean verify
 ```
 
-El reactor produce los dos ejecutables en el único directorio de artefactos de
-la raíz del repositorio:
+The tracked `.mvn/maven.config` automatically uses the ignored checkout-local
+`.m2/repository`, so the command is independent of the user's global Maven
+cache and requires no machine-specific repository argument.
+
+The reactor produces both executables in the repository's single product
+artifact directory:
 
 ```text
 target/CoronaPoker-24.11-swing.jar
 target/CoronaPoker-24.11-gdx.jar
 ```
 
-La fase `clean` del reactor elimina primero cualquier JAR versionado o log de
-smoke antiguo de ese directorio. Debe conservarse en el comando: ejecutar sólo
-un módulo con `package` actualiza su JAR, pero no constituye un build limpio de
-la distribución completa.
+The reactor's `clean` phase removes versioned product JARs and obsolete smoke
+logs from that directory while preserving the last complete runnable pair until
+their replacements are ready. Running `package` for only one frontend updates
+only that frontend and is not a clean distribution build.
 
-El JAR GDX se construye exclusivamente desde el frontend real. La demo archivada
-es un contrato visual y de animaciones, no código del producto.
+The GDX JAR is built exclusively from the product GDX frontend.
 
-## Validación
+## Validation
 
-La suite `coronapoker-qa` comprueba la dirección de dependencias, los imports
-prohibidos del core y que GDX no depende de la demo. Además del build del reactor
-se debe ejecutar la suite clásica de `tools/qa`.
+The `coronapoker-qa` module verifies dependency direction, prohibited core
+imports and unique ownership of every class. The extended `tools/qa` suite adds
+protocol, recovery and multi-process application scenarios.
 
-Un `BUILD SUCCESS` no valida fidelidad visual, audio ni frame pacing. El arranque manual en ventana/pantalla completa y las capturas comparativas siguen siendo criterios independientes.
+A successful build does not validate visual fidelity, audio or frame pacing.
+Manual windowed/full-screen runs and screenshot comparison remain independent
+release criteria.

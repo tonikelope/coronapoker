@@ -1,4 +1,4 @@
-package com.tonikelope.coronapoker.migration;
+package com.tonikelope.coronapoker.architecture;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -18,7 +18,7 @@ final class ArchitectureBoundaryTest {
 
     private static final Pattern GRAPHICS_IMPORT = Pattern.compile(
             "(?m)^\\s*import\\s+(?:java\\.awt|javax\\.swing|com\\.badlogic\\.gdx)(?:\\.|;)");
-    private final Path reactor = Path.of(System.getProperty("migration.reactor.dir"))
+    private final Path reactor = Path.of(System.getProperty("architecture.reactor.dir"))
             .toAbsolutePath().normalize();
 
     @Test

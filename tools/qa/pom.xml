@@ -1,13 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Standalone Maven module for the off-line QA suite. Deterministic game-code
-  tests are the default; bot-quality simulations are explicitly opt-in.
-
-  This module is intentionally NOT a sub-module of the main CoronaPoker
-  pom.xml — building or packaging the game (`mvn package` in the repo
-  root) does not compile, run, or include any of these tests. The QA
-  suite is developer/maintainer tooling and lives outside the shipped
-  artifact.
+  Opt-in Maven module for the extended QA suite. Deterministic game-code tests
+  are the default; bot-quality simulations are explicitly opt-in. It is not
+  part of the product reactor and is never packaged in either executable JAR.
 
   To run the suite:
 
@@ -17,11 +12,12 @@
   for the full description of what these tests measure and how to
   interpret the results.
 
-  First-time setup:
+  Run directly after installing the current product artifacts:
 
-      mvn '-DskipTests' install      # publishes CoronaPoker to the checkout-local .m2
+      mvn '-DskipTests' install
 
-  Then any time you want to run the bot QA suite:
+  Or use tools/reactor/pom.xml to build the product and QA together. Standalone
+  invocations remain available for focused work:
 
       mvn -f tools/qa/pom.xml -o test             # fast code/regression tests (no bot quality)
       mvn -f tools/qa/pom.xml -o test -P qa-bots  # explicit bot-quality lane only
@@ -30,20 +26,20 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.tonikelope</groupId>
+        <artifactId>coronapoker-modules</artifactId>
+        <version>24.11-SNAPSHOT</version>
+        <relativePath>../../modules/pom.xml</relativePath>
+    </parent>
     <groupId>com.tonikelope.qa</groupId>
-    <artifactId>coronapoker-bot-tests</artifactId>
-        <version>24.10</version>
+    <artifactId>coronapoker-extended-qa</artifactId>
     <packaging>jar</packaging>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>17</maven.compiler.release>
         <qa.user.home>${project.build.directory}/qa-home</qa.user.home>
-        <!-- Override with -Dcoronapoker.version=X.Y if you have a different
-        local install. Bump this property in sync with the root pom version
-        so `mvn -o test` resolves against the just-installed jar. -->
-        <coronapoker.version>24.10</coronapoker.version>
-
         <!-- Test lane selection (JUnit 5 tags). Defaults give the FAST lane:
         run everything EXCEPT tests tagged @Tag("slow"). The `qa-heavy`
         and `qa-release` profiles select the non-bot slow lanes; the
@@ -126,31 +122,17 @@
     </build>
 
     <dependencies>
-        <!-- Main CoronaPoker game artifact. Run `mvn '-DskipTests' install`
-        from the repo root once so this resolves from the checkout-local .m2. -->
+        <!-- Renderer-neutral game logic and Swing compatibility are consumed
+        directly from their product modules. -->
         <dependency>
             <groupId>com.tonikelope</groupId>
-            <artifactId>CoronaPoker</artifactId>
+            <artifactId>coronapoker-core</artifactId>
             <version>${coronapoker.version}</version>
         </dependency>
-        <!-- All the runtime libraries the main game depends on, mirrored
-        here so the test JVM can run Bot.java and its collaborators
-        end-to-end (the system-scope dependency above does not
-        transitively pull these). -->
         <dependency>
-            <groupId>com.googlecode.soundlibs</groupId>
-            <artifactId>tritonus-share</artifactId>
-            <version>0.3.7.4</version>
-        </dependency>
-        <dependency>
-            <groupId>com.googlecode.soundlibs</groupId>
-            <artifactId>mp3spi</artifactId>
-            <version>1.9.5.4</version>
-        </dependency>
-        <dependency>
-            <groupId>org.xerial</groupId>
-            <artifactId>sqlite-jdbc</artifactId>
-            <version>3.51.1.0</version>
+            <groupId>com.tonikelope</groupId>
+            <artifactId>coronapoker-swing</artifactId>
+            <version>${coronapoker.version}</version>
         </dependency>
         <!-- JUnit 5 — only used by the QA suite, not by the game. -->
         <dependency>

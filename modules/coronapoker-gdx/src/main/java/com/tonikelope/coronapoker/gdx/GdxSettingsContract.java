@@ -483,8 +483,8 @@ final class GdxSettingsContract {
     /** Restores only settings that have a real GDX appearance consumer. */
     static void restoreAppearanceDefaults(Properties properties,
             boolean includeStartupGraphics) {
-        // The GDX migration deliberately keeps the approved visual reference's
-        // Goliat deck as its product default. Every other shared appearance value
+        // GDX uses the approved visual reference's Goliat deck as its product
+        // default. Every other shared appearance value
         // below mirrors Swing's factory reset.
         properties.setProperty("baraja", "goliat");
         properties.setProperty("trasera", "default");

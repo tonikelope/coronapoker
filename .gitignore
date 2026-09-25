@@ -149,6 +149,7 @@ balance_backup*.txt
 
 # Repository-local Maven cache used by the self-contained QA runners
 /.m2/
+/.maven-root-build/
 /reference/gdx-demo/
 /reference/gdx-demo/.m2/
 
@@ -158,5 +159,5 @@ balance_backup*.txt
 # draw.io desktop backup files (created when a .drawio is opened)
 .$*.bkp
 
-# Prueba de concepto del destape (no forma parte del build de producción)
+# Reveal proof of concept (not part of the production build)
 poc/

@@ -8,7 +8,7 @@ decision pipeline and how the three difficulty levels are kept genuinely
 distinguishable. It is the bot counterpart of [`SECURITY.md`](SECURITY.md).
 
 The implementation lives almost entirely in
-[`Bot.java`](../src/main/java/com/tonikelope/coronapoker/Bot.java) plus the
+[`Bot.java`](../modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Bot.java) plus the
 `bot/eval` and `bot/context` packages. The underlying combinatorics come from the
 University of Alberta Poker Research Group library under `org.alberta.poker`.
 
@@ -377,11 +377,11 @@ profile in `tools/qa/pom.xml`): `qa-fast` runs deterministic tests,
   ```
 
 - **Standalone.** Publish the game jar once, then run the QA module against it
-  (its `coronapoker.version` must match the installed jar):
+  against the installed artifacts of the current checkout:
 
   ```
   mvn '-DskipTests' install                                            # repo root
-  mvn -f tools/qa/pom.xml test -P qa-bots '-Dcoronapoker.version=<root pom version>'
+  mvn -f tools/qa/pom.xml test -P qa-bots
   ```
 
 Scale the iteration volume with `-Dqa.sessions=N -Dqa.hands=N`; the default
@@ -398,7 +398,7 @@ validation volume is **10,000 hands per matchup** (200 sessions × 50 hands).
 
 | Area | File(s) |
 |------|---------|
-| Decision engine | [`Bot.java`](../src/main/java/com/tonikelope/coronapoker/Bot.java) |
+| Decision engine | [`Bot.java`](../modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Bot.java) |
 | Evaluation contracts | `bot/eval/BotEvaluator.java`, `HandStrengthEvaluator.java`, `DrawPotentialEvaluator.java`, `HandRankResolver.java`, `Potential.java` |
 | Evaluators | `bot/eval/AlbertaEvaluatorAdapter.java` (reference), `MemoizedAlbertaEvaluator.java` + `MemoizedHandPotential.java` (production) |
 | Table/player contracts | `bot/context/DealerView.java`, `BotPlayerView.java` |

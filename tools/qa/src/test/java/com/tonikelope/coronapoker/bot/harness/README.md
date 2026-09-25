@@ -405,16 +405,14 @@ machine) is set in `tools/qa/pom.xml`'s `maven-surefire-plugin` configuration.
 
 ### 9.2 Standalone qa module
 
-To run the qa module on its own, first publish the game jar, then point Maven
+To run the QA module on its own, first install the current product modules and
+then point Maven
 at the qa pom:
 
 ```sh
 mvn '-DskipTests' install                                 # from the repo root
-mvn -f tools/qa/pom.xml test -P qa-bots '-Dcoronapoker.version=<root pom version>'
+mvn -f tools/qa/pom.xml test -P qa-bots
 ```
-
-Keep `-Dcoronapoker.version` in sync with the root pom. Quote the complete
-property argument in PowerShell as shown above.
 
 ### 9.3 A subset by name pattern
 

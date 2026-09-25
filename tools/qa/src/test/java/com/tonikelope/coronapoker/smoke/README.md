@@ -1,74 +1,87 @@
-# Smoke harness: invariantes rápidas para refactor
+# Smoke harness: fast refactoring invariants
 
-Este paquete contiene los **smoke tests de invariantes** que se ejecutan antes de
-mergear cambios de código. La referencia canónica de lanes y orden de ejecución
-es [`docs/TESTING.md`](../../../../../../../../../docs/TESTING.md); la guía para
-elegir capa y añadir regresiones está en
-[`docs/ADDING_TEST_SCENARIOS.md`](../../../../../../../../../docs/ADDING_TEST_SCENARIOS.md).
+This package contains the invariant smoke tests run before code changes are
+merged. [`docs/TESTING.md`](../../../../../../../../../docs/TESTING.md) is the
+canonical source for test lanes and execution order. See
+[`docs/ADDING_TEST_SCENARIOS.md`](../../../../../../../../../docs/ADDING_TEST_SCENARIOS.md)
+for choosing the right layer and adding regressions.
 
-## Filosofía
+## Purpose
 
-Son tests que **NO miden calidad** (eso lo hacen los `Baseline*` / `Multiway_*` del paquete `bot/harness/` a 10.000 manos por matchup). Miden **que el código no se rompió**: chip conservation, ausencia de NaN/Inf, stack no negativo, contadores monotónicos, ausencia de excepciones.
+These tests do not measure playing quality; the 10,000-hand `Baseline*` and
+`Multiway_*` matchups under `bot/harness/` do that. Smoke tests verify that the
+code still satisfies fundamental invariants: chip conservation, no NaN or
+infinite values, non-negative stacks, monotonic counters and no exceptions.
 
-Diseñados para responder UNA pregunta: *después de mi cambio, ¿el flujo básico del juego sigue funcionando?*
+They answer one question: after a change, does the basic game flow still work?
 
-## Cuándo ejecutarlos
+## When to run them
 
-- **Después de cualquier cambio en `Crupier.java`, `Bot.java`, `bot/*` o cualquier código que afecte al flujo de mano.**
-- Antes de mergear cualquier rama `sprint-*` a master.
-- Los smoke rápidos SÍ se ejecutan automáticamente con el lane rápido: el `pom.xml` de la suite añade `**/*Smoke.java` a los `includes`. `GameFlowSmoke` está marcado `@Tag("slow")`: queda fuera del lane por defecto y sólo corre con `-P qa-bots` (nunca con los agregados `qa-heavy`/`qa-release`).
+- After any change to `Crupier.java`, `Bot.java`, `bot/*` or other hand-flow
+  code.
+- Before merging a development branch into `master`.
+- Fast smoke tests run automatically in the default fast lane because the QA
+  POM includes `**/*Smoke.java`. `GameFlowSmoke` is tagged `slow`, so it belongs
+  only to the explicit `qa-bots` lane and never to `qa-heavy` or `qa-release`.
 
-## Cómo ejecutar (solo los smoke, sin pisar la máquina)
+## Running only smoke tests
 
 ```powershell
 mvn -f tools/reactor/pom.xml -o verify -P qa-fast '-Dtest=*Smoke' '-Dsurefire.failIfNoSpecifiedTests=false'
 ```
 
-El filtro anterior corre los smoke rápidos pero **SALTA `GameFlowSmoke`**: su `@Tag("slow")` lo excluye del lane por defecto. Para ejecutar sólo ese smoke opt-in usa `-P qa-bots '-Dtest=GameFlowSmoke' '-Dsurefire.failIfNoSpecifiedTests=false'`; `qa-heavy` y `qa-release` lo excluyen deliberadamente.
+That command skips `GameFlowSmoke` because the default lane excludes its
+`@Tag("slow")`. Run it explicitly with:
 
-**Tiempo estimado:** los smoke rápidos, unos segundos; `GameFlowSmoke` añade hasta ~30 s (su objetivo declarado en el Javadoc de la clase).
+```powershell
+mvn -f tools/reactor/pom.xml -o verify -P qa-bots '-Dtest=GameFlowSmoke' '-Dsurefire.failIfNoSpecifiedTests=false'
+```
 
-## Qué NO está aquí (intencionalmente)
+Fast smoke tests take a few seconds. `GameFlowSmoke` adds up to approximately
+30 seconds, as documented by the class itself.
 
-- Tests de calidad/equity del bot → `bot/harness/`.
-- Tests de cripto SRA → `sra/`.
-- Tests de protocolo de red real (sockets) → existen en el paquete `net/`: framing, stall/back-pressure y cola de envío (`SocketFramingIntegrationTest`, `SocketStallIntegrationTest`, `NetClientQueueTest`, `WireFrameTest`, …). Las partidas multijugador completas se ejecutan en JVM separadas mediante `tools/qa/real-game-e2e.cmd`; consulta `docs/TESTING.md`.
-- Comprobaciones puramente visuales de pintura/layout Swing → inspección manual; las transiciones funcionales de Swing, sockets y `Crupier` sí están automatizadas por el simulador real.
+## Deliberately covered elsewhere
 
-## Estructura
+- Bot quality and equity: `bot/harness/`.
+- SRA cryptography: `sra/`.
+- Real socket protocol behavior: `net/`, including framing, stall/back-pressure
+  and send-queue tests. Full multiplayer games run in separate JVMs through
+  `tools/qa/real-game-e2e.cmd`; see `docs/TESTING.md`.
+- Pure Swing paint/layout inspection: manual validation. Functional Swing,
+  socket and `Crupier` transitions are automated by the real-game simulator.
 
-El lane `qa-fast` ejecuta por defecto todos los smoke de la tabla mediante el reactor, salvo `GameFlowSmoke`, que pertenece a `qa-bots` y sólo corre con ese perfil.
+## Test inventory
 
-| Clase | Qué valida | Lane |
+The default fast lane runs every smoke below except `GameFlowSmoke`.
+
+| Class | Contract | Lane |
 |---|---|---|
-| `GameFlowSmoke` | Bot engine + flujo de juego en 3/6/9 seats y las 3 difficulties (vía `MultiwaySimulator`): chip conservation, sin NaN/Inf, stack ≥ 0, contador de mano monotónico, winners válidos. 4 métodos `@Test` | qa-bots |
-| `HandEvaluatorSmoke` | Evaluador `Hand.calcularMejorJugada`: los 10 rankings + edge cases (wheel A-5, kickers, full vs trío+pareja, escalera de color). Se salta si el JVM es headless | rápido |
-| `RecoverSettingsSchemaSmoke` | Esquema único de recovery: round-trip ANTE/STRADDLE y rechazo de filas parciales | rápido |
-| `GamePresetRoundTripSmoke` | Contrato `GamePreset`: round-trip de cada ajuste de nueva partida (incl. estructura de ciegas), el registro persiste renombrados/borrados, entradas corruptas se saltan | rápido |
-| `I18nBundleIntegritySmoke` | Chequeos estructurales de los bundles de traducción (claves usadas sin bundle, forma de los ficheros) | rápido |
-| `IdentityKeypairAclSmoke` | `IdentityManager.writeKeypair` deja el privkey con ACL owner-only (0600 POSIX / una sola ACE en Windows); el pubkey existe | rápido |
-| `LatencyDotSmoke` | Mapping latencia→color de `LatencyDot`: umbrales exactos, latencia negativa → rojo, edad > stale → gris | rápido |
-| `MisdealRefundOrderSmoke` | Conservación de dinero al anular una mano durante el settlement (modelo-documentación ejecutable, NO red de seguridad del código real) | rápido |
-| `PropertiesResilienceSmoke` | Los dos fallos del fichero de propiedades que eran fatales al arranque (escape unicode roto → `IllegalArgumentException`; fichero ilegible); fija el comportamiento del JDK del que depende el fix | rápido |
-| `ReadBoundedLineSmoke` | `Helpers.readBoundedLine`: recorte LF/CR-LF, semántica de EOF, cap por nº de chars, chars del wire format limpios | rápido |
-| `RecoveryObjectFilterSmoke` | Whitelist `ObjectInputFilter` sobre RECOVERDATA: tipos permitidos deserializan; clases ajenas (`File`, `ArrayList`) y payload sobredimensionado se rechazan | rápido |
-| `SafeNickForFilenameSmoke` | `Helpers.safeNickForFilename`: neutraliza path traversal / ADS / control chars, prefija nombres reservados de Windows, capa a 32 chars, null/"" → "user" | rápido |
-| `SynthesizeFoldActionSmoke` | `Crupier.synthesizeExitFoldAction`: deja el `action[]` en FOLD canónico cuando un peer se va, sin absorb/broadcast; defensivo ante input inválido | rápido |
-| `TelemetryWireFormatSmoke` | Wire format TELEMETRY: round-trip ts + mapa de peers, nicks con chars conflictivos, payload malformado tolerado | rápido |
-| `TofuResolverOutcomeSmoke` | Integridad del outcome de `TOFUResolver`: `CHANGED` no se enmascara como `NEW` cuando el UPDATE falla (happy paths NEW/MATCH/CHANGED + fallos) | rápido |
-| `WriteStringAtomicSmoke` | `Helpers.writeStringAtomic`: crear/sobrescribir, sin `.tmp` huérfano, null rechazado, UTF-8/saltos de línea byte-for-byte | rápido |
+| `GameFlowSmoke` | Bot engine and 3/6/9-seat game flow at every difficulty: chip conservation, finite values, non-negative stacks, monotonic hand number and valid winners | qa-bots |
+| `HandEvaluatorSmoke` | The ten hand rankings and evaluator edge cases such as the wheel, kickers, full house selection and straight flushes | fast |
+| `RecoverSettingsSchemaSmoke` | Recovery schema round-trip for ante/straddle and rejection of partial rows | fast |
+| `GamePresetRoundTripSmoke` | Complete game-preset round-trip, renaming/deletion and corrupt-entry handling | fast |
+| `I18nBundleIntegritySmoke` | Structural integrity of localization bundles and referenced keys | fast |
+| `IdentityKeypairAclSmoke` | Owner-only private-key ACL and public-key creation | fast |
+| `LatencyDotSmoke` | Exact latency-to-color thresholds and stale/invalid states | fast |
+| `MisdealRefundOrderSmoke` | Money conservation when a hand is cancelled during settlement | fast |
+| `PropertiesResilienceSmoke` | Startup behavior with malformed Unicode escapes and unreadable properties | fast |
+| `ReadBoundedLineSmoke` | Bounded-line parsing, LF/CRLF trimming, EOF semantics and clean wire characters | fast |
+| `RecoveryObjectFilterSmoke` | Recovery deserialization whitelist, rejected foreign types and payload limits | fast |
+| `SafeNickForFilenameSmoke` | Path, ADS, control-character and Windows reserved-name hardening | fast |
+| `SynthesizeFoldActionSmoke` | Canonical synthetic fold when a peer exits and defensive invalid-input handling | fast |
+| `TelemetryWireFormatSmoke` | Telemetry round-trip, conflict characters and malformed payload tolerance | fast |
+| `TofuResolverOutcomeSmoke` | Correct NEW/MATCH/CHANGED identity outcomes, including update failures | fast |
+| `WriteStringAtomicSmoke` | Atomic UTF-8 creation/overwrite without orphan temporary files | fast |
 
-## Cómo añadir nuevos smoke
+## Adding a smoke test
 
-Cuando un Sprint introduce un cambio que el smoke actual NO cubre:
+1. Create `XxxSmoke.java` in this package.
+2. Document the scenario in the class.
+3. Keep each method below 30 seconds.
+4. Assert specific observables rather than only asserting that no crash occurs.
+5. Add the class to the table above.
 
-1. Crear `XxxSmoke.java` en este paquete (nombre acaba en `Smoke`).
-2. Documentar arriba en la clase qué escenario valida.
-3. Mantener tiempo por método **< 30 s**.
-4. Asserts deben ser **observables y específicos** (no "no crashea", sino "después del flop la apuesta es < pot").
-5. Añadirlo a la tabla de arriba.
-
-Antes de crear un smoke, aplica el selector de capa de la [guía de tests y
-escenarios](../../../../../../../../../docs/ADDING_TEST_SCENARIOS.md): una prueba
-de dominio normal suele encajar mejor junto a su paquete y un flujo que depende
-de sockets/`Crupier` reales pertenece al simulador multi-JVM.
+Before adding one, use the layer selector in the
+[test and scenario contributor guide](../../../../../../../../../docs/ADDING_TEST_SCENARIOS.md).
+A normal domain regression usually belongs beside its package; a flow requiring
+real sockets or `Crupier` belongs in the multi-JVM simulator.

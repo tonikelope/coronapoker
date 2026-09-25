@@ -17,20 +17,22 @@ import org.junit.jupiter.api.Test;
  */
 class QaBaselineWiringTest {
 
-    private static final Pattern PROJECT_VERSION = Pattern.compile(
-            "<artifactId>(?:CoronaPoker|coronapoker-bot-tests|coronapoker-qa-reactor)</artifactId>\\s*<version>([^<]+)</version>");
-
     @Test
     void projectQaAndReactorVersionsStayAligned() throws IOException {
         Path root = locateRoot();
-        String gameVersion = projectVersion(root.resolve("pom.xml"));
-        String qaVersion = projectVersion(root.resolve("tools/qa/pom.xml"));
-        String reactorVersion = projectVersion(root.resolve("tools/reactor/pom.xml"));
+        String gameVersion = projectVersion(root.resolve("pom.xml"), "coronapoker");
+        String modulesVersion = projectVersion(root.resolve("modules/pom.xml"), "coronapoker-modules");
+        String qaVersion = projectVersion(root.resolve("tools/qa/pom.xml"), "coronapoker-modules");
+        String reactorVersion = projectVersion(root.resolve("tools/reactor/pom.xml"), "coronapoker-qa-reactor");
         String qaPom = Files.readString(root.resolve("tools/qa/pom.xml"));
+        String modulesPom = Files.readString(root.resolve("modules/pom.xml"));
 
+        assertEquals(gameVersion, modulesVersion);
         assertEquals(gameVersion, qaVersion);
         assertEquals(gameVersion, reactorVersion);
-        assertTrue(qaPom.contains("<coronapoker.version>" + gameVersion + "</coronapoker.version>"));
+        assertTrue(modulesPom.contains("<coronapoker.version>" + gameVersion + "</coronapoker.version>"));
+        assertTrue(qaPom.contains("<artifactId>coronapoker-core</artifactId>"));
+        assertTrue(qaPom.contains("<artifactId>coronapoker-swing</artifactId>"));
     }
 
     @Test
@@ -39,6 +41,7 @@ class QaBaselineWiringTest {
         String workflow = Files.readString(root.resolve(".github/workflows/main.yml"))
                 .replace("\\r\\n", "\\n");
         String gamePom = Files.readString(root.resolve("pom.xml"));
+        String modulesPom = Files.readString(root.resolve("modules/pom.xml"));
         String qaPom = Files.readString(root.resolve("tools/qa/pom.xml"));
         String updaterPom = Files.readString(root.resolve("coronaupdater/pom.xml"));
         String readme = Files.readString(root.resolve("README.md"));
@@ -48,8 +51,10 @@ class QaBaselineWiringTest {
         assertTrue(workflow.contains("actions/checkout@"), "CI must checkout the repository");
         assertTrue(workflow.contains("ref: ${{ github.sha }}"), "CI must test the triggering commit");
         assertTrue(workflow.contains("java-version: '17'"), "CI must pin JDK 17");
-        assertTrue(gamePom.contains("<maven.compiler.release>17</maven.compiler.release>"),
-                "The game must compile against the Java 17 API baseline");
+        assertTrue(gamePom.contains("<module>modules</module>"),
+                "The root build must delegate to the product module reactor");
+        assertTrue(modulesPom.contains("<maven.compiler.release>17</maven.compiler.release>"),
+                "Product modules must compile against the Java 17 API baseline");
         assertTrue(qaPom.contains("<maven.compiler.release>17</maven.compiler.release>"),
                 "QA must compile against the Java 17 API baseline");
         assertTrue(updaterPom.contains("<maven.compiler.release>17</maven.compiler.release>"),
@@ -181,8 +186,11 @@ class QaBaselineWiringTest {
                 "launcher must propagate the certification result: " + launcher);
     }
 
-    private static String projectVersion(Path pom) throws IOException {
-        Matcher matcher = PROJECT_VERSION.matcher(Files.readString(pom));
+    private static String projectVersion(Path pom, String artifactId) throws IOException {
+        Pattern versionPattern = Pattern.compile(
+                "<artifactId>" + Pattern.quote(artifactId)
+                + "</artifactId>\\s*<version>([^<]+)</version>");
+        Matcher matcher = versionPattern.matcher(Files.readString(pom));
         assertTrue(matcher.find(), "project version not found in " + pom);
         return matcher.group(1).trim();
     }

@@ -34,7 +34,7 @@ This layer addresses vectors that the raw mental-poker cascade alone cannot dete
 
 ## 2. Identity layer
 
-Source: [`IdentityManager.java`](../src/main/java/com/tonikelope/coronapoker/IdentityManager.java).
+Source: [`IdentityManager.java`](../modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/IdentityManager.java).
 
 ### 2.1 Keypair
 
@@ -75,16 +75,16 @@ Exposed via `getShortFingerprint()` / `getFullFingerprint()`.
 
 ### 2.4 Identicons
 
-Two distinct identicons exist, both rendered by [`IdenticonDialog.java`](../src/main/java/com/tonikelope/coronapoker/IdenticonDialog.java) on a `SHA-256` hash over a `7×7` grid with horizontal symmetry, two foreground colors drawn from disjoint hash bytes and a transparent background:
+Two distinct identicons exist, both rendered by [`IdenticonDialog.java`](../modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/IdenticonDialog.java) on a `SHA-256` hash over a `7×7` grid with horizontal symmetry, two foreground colors drawn from disjoint hash bytes and a transparent background:
 
-- **Session identicon**: hashes the negotiated session **AES key**, for network-MITM detection. Reachable from the waiting room by **right-clicking anywhere in the participant list** (the opened dialog does not depend on where the click lands): a **client** opens the AES identicon of its single channel with the host. The **host** opens the per-client mosaic of every channel ([`SessionIdenticonMosaicDialog.java`](../src/main/java/com/tonikelope/coronapoker/SessionIdenticonMosaicDialog.java)).
+- **Session identicon**: hashes the negotiated session **AES key**, for network-MITM detection. Reachable from the waiting room by **right-clicking anywhere in the participant list** (the opened dialog does not depend on where the click lands): a **client** opens the AES identicon of its single channel with the host. The **host** opens the per-client mosaic of every channel ([`SessionIdenticonMosaicDialog.java`](../modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/SessionIdenticonMosaicDialog.java)).
 - **Identity identicon**: hashes a peer's **Ed25519 pubkey**, for identity OOB verification, with the full fingerprint hex shown in the title. Reachable at the table by clicking a human player's avatar. Clicking a **remote** human's avatar shows the "Verify identity" button; clicking **your own** avatar shows the same identicon and fingerprint with a copy-to-share hint instead, since there is no peer to verify against.
 
 ---
 
 ## 3. Handshake protocol
 
-Identity is folded into the **existing waiting-room join payload**. There is no separate `JOIN_IDENTITY` command. Source: [`WaitingRoomFrame.java`](../src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java).
+Identity is folded into the **existing waiting-room join payload**. There is no separate `JOIN_IDENTITY` command. Source: [`WaitingRoomFrame.java`](../modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java).
 
 ### Join payload
 
@@ -115,7 +115,7 @@ Compatibility is enforced by **strict equality** of the client's `version` field
 
 ### TOFU resolution (silent, non-blocking)
 
-After verifying the self-sig, each peer resolves `(nick, pubkey)` against its local `known_identities` ([`TOFUResolver.java`](../src/main/java/com/tonikelope/coronapoker/TOFUResolver.java)):
+After verifying the self-sig, each peer resolves `(nick, pubkey)` against its local `known_identities` ([`TOFUResolver.java`](../modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/TOFUResolver.java)):
 
 | Case | DB operation | `verified_oob` |
 |---|---|---|
@@ -133,7 +133,7 @@ The identity identicon dialog offers a **"Verify identity"** button. Clicking it
 
 ## 4. Canonical action record
 
-Every hand-action mutation is serialized to a flat 92-byte record before being signed and absorbed into the hash chain. Source: [`CanonicalActionRecord.java`](../src/main/java/com/tonikelope/coronapoker/CanonicalActionRecord.java).
+Every hand-action mutation is serialized to a flat 92-byte record before being signed and absorbed into the hash chain. Source: [`CanonicalActionRecord.java`](../modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/CanonicalActionRecord.java).
 
 ### 4.1 Layout (big-endian, no padding)
 
@@ -256,7 +256,7 @@ The outer nick, decision and bet fields are operational **and security-relevant*
 
 ## 5. Hash chain `H_t`
 
-Source: [`HandStateChain.java`](../src/main/java/com/tonikelope/coronapoker/HandStateChain.java).
+Source: [`HandStateChain.java`](../modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/HandStateChain.java).
 
 ### 5.1 Initial state `H_0`
 
@@ -289,7 +289,7 @@ Intermediate `H_t` values are **not** broadcast in production. The chain is veri
 
 After the last action and community-card reveal, the chain absorbs one terminal record committing the hand's **settlement** (the money movement, not just the actions and board). Every peer computes it locally from inputs it has already verified (the showdown cards resolved to genesis, the bets committed in `H_t`), so honest peers produce byte-identical tables and a peer reporting a different payout diverges on `H_final`.
 
-Layout ([`SettlementRecord.java`](../src/main/java/com/tonikelope/coronapoker/SettlementRecord.java), big-endian, no padding):
+Layout ([`SettlementRecord.java`](../modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/SettlementRecord.java), big-endian, no padding):
 
 ```
 HAND_ID(16) || VERSION(0x02) || N(uint8)
@@ -313,7 +313,7 @@ The record carries no per-actor signature: it rides the closing receipt, whose `
 
 ## 6. Receipt and consensus
 
-At hand close every currently expected human ring member publishes a signed receipt over the `HANDVERIFY` command (dual-form payload: a trigger from the host, then one signed receipt per expected signer). Bots and observed departures are excluded from this signer set. Source: [`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java), [`IdentityManager.java`](../src/main/java/com/tonikelope/coronapoker/IdentityManager.java).
+At hand close every currently expected human ring member publishes a signed receipt over the `HANDVERIFY` command (dual-form payload: a trigger from the host, then one signed receipt per expected signer). Bots and observed departures are excluded from this signer set. Source: [`Crupier.java`](../modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java), [`IdentityManager.java`](../modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/IdentityManager.java).
 
 ### 6.1 Wire form
 
@@ -374,7 +374,7 @@ The Crupier log shows one of the verification outcomes at hand close. Divergence
 
 ## 7. SQLite schema additions
 
-Identity and dispute tables are created with `CREATE TABLE IF NOT EXISTS` on startup ([`Helpers.java`](../src/main/java/com/tonikelope/coronapoker/Helpers.java)). The existing `balance` table is also migrated transactionally: null identities are rejected, legacy duplicates retain the greatest row id, and a unique `(id_hand, player)` index is installed. Hand creation and close then require an exact roster and strict row counts.
+Identity and dispute tables are created with `CREATE TABLE IF NOT EXISTS` on startup ([`Helpers.java`](../modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/Helpers.java)). The existing `balance` table is also migrated transactionally: null identities are rejected, legacy duplicates retain the greatest row id, and a unique `(id_hand, player)` index is installed. Hand creation and close then require an exact roster and strict row counts.
 
 ```sql
 CREATE TABLE IF NOT EXISTS known_identities (
@@ -433,7 +433,7 @@ Wire-incompatible changes are gated by the strict `AboutDialog.VERSION` equality
 
 ## 10. Bot identity
 
-**Bots have no cryptographic identity of their own.** The host operates each bot and **signs bot actions with the host's own Ed25519 private key**. Receivers therefore verify a bot's actions against the **host's** pinned pubkey (the signer resolution maps any `Participant.isCpu()` actor to the host's identity). Bots are not inserted into `known_identities` and expose no identity affordance in the UI (their avatar click is a no-op). The `$` character is reserved for bot nicknames: the human nick-entry path ([`NewGameDialog.java`](../src/main/java/com/tonikelope/coronapoker/NewGameDialog.java)) strips it before identity initialization, and the host rejects any remote `JOIN` containing it ([`WaitingRoomFrame.java`](../src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java)). Host-generated bot names carry it. `CoronaBot$<number>` is the current bot naming/classification convention; the reservation is the `$` character itself.
+**Bots have no cryptographic identity of their own.** The host operates each bot and **signs bot actions with the host's own Ed25519 private key**. Receivers therefore verify a bot's actions against the **host's** pinned pubkey (the signer resolution maps any `Participant.isCpu()` actor to the host's identity). Bots are not inserted into `known_identities` and expose no identity affordance in the UI (their avatar click is a no-op). The `$` character is reserved for bot nicknames: the human nick-entry path ([`NewGameDialog.java`](../modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/NewGameDialog.java)) strips it before identity initialization, and the host rejects any remote `JOIN` containing it ([`WaitingRoomFrame.java`](../modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java)). Host-generated bot names carry it. `CoronaBot$<number>` is the current bot naming/classification convention; the reservation is the `$` character itself.
 
 A malicious host can of course abuse the bots it operates, but every bot action still carries the host's signature and lands in `H_t` like any other action, so it is independently verifiable and attributable to the host in the chain.
 

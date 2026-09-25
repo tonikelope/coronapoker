@@ -9,7 +9,7 @@
         <version>24.11-SNAPSHOT</version>
     </parent>
     <artifactId>coronapoker-qa</artifactId>
-    <name>CoronaPoker migration architecture QA</name>
+    <name>CoronaPoker architecture QA</name>
 
     <dependencies>
         <dependency>
@@ -26,7 +26,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <systemPropertyVariables>
-                        <migration.reactor.dir>${project.basedir}/..</migration.reactor.dir>
+                        <architecture.reactor.dir>${project.basedir}/..</architecture.reactor.dir>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>

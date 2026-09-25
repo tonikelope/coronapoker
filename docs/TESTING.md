@@ -9,7 +9,10 @@ regressions.
 
 ![Testing and certification flow](diagrams/testing-certification-flow.png)
 
-The test suite lives in its own Maven module, **`tools/qa`**, kept deliberately separate from the game: `mvn package` at the repo root builds and ships the game **without** compiling or running a single test. The tests are maintainer tooling, not part of the distributed jar.
+The root product reactor runs the module-level unit, architecture and frontend
+contract tests while building both applications. The extended suite lives in
+**`tools/qa`**, outside the shipped artifacts, and adds slow lanes, seeded
+campaigns and complete multi-process games.
 
 ## Find what you need
 
@@ -26,6 +29,38 @@ The test suite lives in its own Maven module, **`tools/qa`**, kept deliberately 
 - **Diagnose or replay a simulator failure:** use [Game simulation tools
   (Windows / PowerShell)](#game-simulation-tools-windows--powershell), including
   the seed and checkpoint rules.
+
+## Recommended execution order
+
+Use the smallest level that proves the change, then move downward through this
+list as the change approaches integration or release. A later level does not
+make an earlier failing level acceptable.
+
+| Priority | When | Command | Required outcome |
+|---:|---|---|---|
+| 1 | While implementing or diagnosing | `mvn -f tools/reactor/pom.xml verify '-Dtest=ClassName' '-Dsurefire.failIfNoSpecifiedTests=false'` | The focused regression is green |
+| 2 | Before committing product code or build wiring | `mvn clean verify` | All product modules, architecture rules and frontend contract tests pass; both executable JARs are produced |
+| 3 | Before merging ordinary code changes | `mvn -f tools/reactor/pom.xml verify` | The extended deterministic fast lane passes against the same source reactor |
+| 4 | After GDX table, lifecycle, networking or shared-core changes | `.\tools\qa\gdx-scenarios.cmd -Mode fast` | Every native GDX scenario passes once |
+| 5 | After protocol, interoperability or either frontend boundary changes | `.\tools\qa\gdx-mixed-scenarios.cmd -Mode fast` | Every mixed Swing/GDX scenario passes once |
+| 6 | Before a normal release | `.\tools\qa\certify.cmd -Mode balanced` | The release certificate ends in `CORONAPOKER CERTIFICATION PASS` |
+| 7 | Major security/protocol work, new baseline or suspected race family | `.\tools\qa\certify.cmd -Mode fast`, then `.\tools\qa\certify.cmd -Mode stress` | Both fresh-seed certificates pass in order |
+
+Bot quality is an additional lane only when bot AI or evaluation changed:
+
+```powershell
+mvn -f tools/reactor/pom.xml verify -P qa-bots
+```
+
+Manual GDX inspection comes after the automated gates for rendering, audio,
+frame pacing, DPI/full-screen behavior and physical multi-machine networking.
+It complements the suites; it does not replace them.
+
+The native and mixed GDX runners use hidden windows by default, rebuild the
+current checkout, and write machine-readable summaries below
+`target/gdx-scenarios/` and `target/gdx-mixed-scenarios/`. Their `fast`,
+`balanced` and `stress` modes run each selected scenario one, two and five times
+respectively. Use `-Scenario`, `-StartAt` and `-ListOnly` for focused work.
 
 ## Adding tests or scenarios
 
@@ -105,11 +140,10 @@ be treated as a profile/classpath problem.
 The easiest and most isolated entry point on Windows is
 `tools/qa/certify.cmd`, documented below. For direct Maven runs on any
 supported development platform, use the **opt-in QA reactor**
-(`tools/reactor/pom.xml`) with at least the `verify` lifecycle. The QA module consumes
-the packaged game JAR, so stopping the reactor at `test` is invalid: the game
-classes have been compiled but its JAR is not yet available to QA. `verify`
-builds the game and tests the same checkout without any manual pre-install or
-version override:
+(`tools/reactor/pom.xml`) with the `verify` lifecycle. The QA module depends
+directly on the current core and Swing modules, so the same reactor always
+tests the current checkout without a manual pre-install or version override.
+`verify` is the documented gate because it also completes packaging checks:
 
 ```bash
 # Fast lane — the default. Game + all deterministic code tests (~1 min).
@@ -513,12 +547,11 @@ or be silently folded into the default lane.
 Add `-o` (offline) once your local Maven cache is warm to skip dependency checks. The bot simulations honour two volume knobs for fast local iteration, e.g. `'-Dqa.sessions=40' '-Dqa.hands=25'`. Quote every complete `-D...` argument in PowerShell; otherwise its native-command parser can split or reinterpret dotted property names.
 
 If the opt-in reactor reports that game classes such as `Helpers` or `Crupier`
-are missing while compiling `tools/qa`, first check the lifecycle: `test`,
-`test-compile` and `dependency:analyze` stop before the root game JAR exists and
-are invalid reactor entry points. Use the documented `verify` command. Only if
-that exact command still fails should it be treated as an environment/classpath
-problem rather than a game-test result; the standalone fallback below can then
-isolate the environment. The tracked `.mvn/maven.config` makes this checkout the
+are missing while compiling `tools/qa`, rerun the documented `verify` command
+from the repository root. If that exact command still fails, treat it as an
+environment/classpath problem rather than a game-test result; the standalone
+fallback below can then isolate the environment. The tracked
+`.mvn/maven.config` makes this checkout the
 Maven root, suppresses transfer-progress noise and directs Maven to the ignored
 checkout-local `.m2/repository`. This avoids stale user-cache artifacts and
 unwritable or account-dependent global homes; no user-global Maven settings are
@@ -540,8 +573,8 @@ You can run the module standalone, but then you must publish the game jar first 
 
 ```bash
 mvn '-DskipTests' install                                       # publish into the checkout-local .m2
-mvn -f tools/qa/pom.xml test '-Dcoronapoker.version=<root pom version>'       # fast, no bot quality
-mvn -f tools/qa/pom.xml test -P qa-bots '-Dcoronapoker.version=<root pom version>'  # bot quality only
+mvn -f tools/qa/pom.xml test                 # fast, no bot quality
+mvn -f tools/qa/pom.xml test -P qa-bots     # bot quality only
 ```
 
 The standalone module also accepts `-P qa-crypto`, `-P qa-network`,

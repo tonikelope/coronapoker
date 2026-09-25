@@ -1,4 +1,4 @@
-package com.tonikelope.coronapoker.migration;
+package com.tonikelope.coronapoker.architecture;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -19,7 +19,7 @@ final class ProductDistributionContractTest {
             "<artifactId>coronapoker-modules</artifactId>\\s*"
                     + "<version>([^<]+)</version>");
 
-    private final Path reactor = Path.of(System.getProperty("migration.reactor.dir"))
+    private final Path reactor = Path.of(System.getProperty("architecture.reactor.dir"))
             .toAbsolutePath().normalize();
 
     @Test
@@ -28,7 +28,7 @@ final class ProductDistributionContractTest {
         String parent = read("pom.xml");
         String swing = read("coronapoker-swing/pom.xml");
         String gdx = read("coronapoker-gdx/pom.xml");
-        String legacy = Files.readString(reactor.resolve("../pom.xml").normalize(),
+        String root = Files.readString(reactor.resolve("../pom.xml").normalize(),
                 StandardCharsets.UTF_8);
 
         String reactorVersion = projectVersion(parent);
@@ -46,9 +46,14 @@ final class ProductDistributionContractTest {
         assertPublishes(swing, reactorVersion, swingJar, "swing");
         assertPublishes(gdx, reactorVersion, gdxJar, "gdx");
 
-        assertTrue(legacy.contains("<directory>${project.basedir}/build/legacy-root"
-                        + "</directory>"),
-                "Legacy QA must never publish into the product target");
+        assertTrue(root.contains("<packaging>pom</packaging>"),
+                "The repository root must remain an aggregator");
+        assertTrue(root.contains("<module>modules</module>"),
+                "The root reactor must delegate product ownership to modules");
+        assertTrue(root.contains("<directory>${project.basedir}/.maven-root-build</directory>"),
+                "The root clean lifecycle must not erase the product target");
+        assertFalse(root.contains("maven-shade-plugin"),
+                "The root aggregator must not build a third application JAR");
         assertFalse(swing.contains("CoronaPoker-24.10"));
         assertFalse(gdx.contains("CoronaPoker-24.10"));
     }

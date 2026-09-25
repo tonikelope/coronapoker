@@ -1,5 +1,5 @@
 /*
- * Phase 3 (group migration) — dual-lock cascade flow on the Ristretto engine.
+ * Dual-lock cascade flow on the Ristretto engine.
  *
  * Ports the dual-lock dealing tests (previously validated on the retired Montgomery
  * engine) to RistrettoSRA, so the
@@ -10,7 +10,7 @@
  *   - testament: a community-only key handed over on EXIT does NOT leak the pocket,
  *   - showdown: a fabricated key never resolves to a card.
  *
- * Uses DeterministicShuffle.shuffleDeck (byte-agnostic permutation, unchanged by the migration).
+ * Uses DeterministicShuffle.shuffleDeck, a byte-agnostic permutation.
  */
 package com.tonikelope.coronapoker.crypto;
 

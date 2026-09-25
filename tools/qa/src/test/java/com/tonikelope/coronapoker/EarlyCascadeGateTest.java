@@ -1,5 +1,5 @@
 /*
- * Anti early-cascade gate test (regression guard for the chain migration).
+ * Regression guard that rejects an early cascade transition.
  *
  * The old REQ_SRA_UNLOCK_BATCH layered servedAnyForPhase() on top of the street gate
  * because it distrusted the broadcast-set flags. The chain path keeps only the street

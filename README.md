@@ -17,10 +17,16 @@ I hope you enjoy playing it as much as I have enjoyed building it.
 
 ## Repository layout
 
-- `src/`: shared game code, core and Swing frontend.
-- `modules/coronapoker-gdx/`: active GDX application code.
-- `modules/coronapoker-qa/` and `tools/qa/`: automated tests and scenarios.
-- `reference/gdx-demo/`: archived visual reference; never compiled into the product.
+- `pom.xml`: canonical CoronaPoker 24.11 build entry point.
+- `modules/coronapoker-core/`: shared game, networking, persistence and
+  renderer-neutral presentation contracts.
+- `modules/coronapoker-swing/`: classic Swing frontend.
+- `modules/coronapoker-gdx/`: libGDX frontend.
+- `modules/coronapoker-assets/`: shared resources packaged from
+  `src/main/resources`.
+- `modules/coronapoker-qa/` and `tools/qa/`: architecture tests,
+  certification suites and multi-process scenarios.
+- `docs/`: architecture, security, testing and contributor documentation.
 - `target/`: the only directory containing the Swing and GDX product JARs.
 - `coronaupdater.jar`: special root-level updater artifact required by the
   GitHub self-update mechanism.
@@ -240,9 +246,10 @@ A high-level map of the current product architecture: the independent Swing and 
 Product Java sources have one physical owner: shared logic and renderer-neutral
 contracts live in `modules/coronapoker-core`, the classic UI lives in
 `modules/coronapoker-swing`, and the libGDX UI lives in
-`modules/coronapoker-gdx`. The former root `src/main/java` tree is intentionally
-empty and guarded by architecture tests, preventing duplicated Swing/GDX/core
-implementations from creeping back into the product.
+`modules/coronapoker-gdx`. Shared assets remain in `src/main/resources` and are
+packaged by `modules/coronapoker-assets`. Architecture tests enforce these
+ownership boundaries, prohibit frontend dependencies in the core and reject
+duplicated product classes.
 
 The cryptographic subsystem, covering verifiable **SRA / Ristretto255** dealing with DLEQ proofs, the zero-knowledge **Bayer-Groth** shuffle, per-nick **Ed25519** identity, the per-hand `H_t` ratchet and the receipt consensus, has its own two diagrams (a component architecture and a full per-hand protocol sequence) embedded in **[`docs/SECURITY.md`](docs/SECURITY.md)**.
 
@@ -262,7 +269,7 @@ the shared core/assets once and then packages both frontends:
 ```bash
 git clone https://github.com/tonikelope/coronapoker.git
 cd coronapoker
-mvn -f modules/pom.xml clean package
+mvn clean package
 ```
 
 The only product-artifact directory is the repository-root `target/`. The build
@@ -277,9 +284,21 @@ Both frontends are shaded into a module-local staging JAR first and published
 to `target/` only after that archive is complete.  `clean package` deliberately
 keeps the previous runnable pair available until its replacements are ready;
 this prevents a running table from reading a partially rewritten JAR.
-The legacy root project used by the opt-in QA reactor writes its temporary
-24.10 dependency archives under `build/legacy-root/`, never into the product
-`target/` directory.
+The root `pom.xml` is the canonical 24.11 product entry point and delegates to
+the module reactor.
+
+Use the lifecycle according to intent:
+
+| Goal | Command |
+|---|---|
+| Compile and run the product module tests | `mvn verify` |
+| Produce a clean Swing + GDX distribution | `mvn clean package` |
+| Build without tests for packaging diagnosis only | `mvn clean package -DskipTests` |
+| Run the extended deterministic QA lane | `mvn -f tools/reactor/pom.xml verify` |
+
+Only the clean full-reactor command constitutes a distribution build. Building
+one frontend module directly is useful for local iteration but does not replace
+or certify the runnable pair.
 
 Launch the classic Swing frontend or the active GDX frontend respectively:
 
@@ -325,13 +344,19 @@ protocol campaigns and real host/client JVM scenarios first across the whole
 matrix and then under deep stress. Each run generates and records a fresh
 replayable seed unless `-Seed` is supplied:
 
+The practical order is: focused regression, `mvn clean verify`, extended fast
+QA, native GDX scenarios, mixed Swing/GDX scenarios, and finally the balanced
+release certificate. Broad security/protocol changes additionally require a
+fast certificate followed by stress. The exact decision table and commands are
+in [Testing and certification](docs/TESTING.md#recommended-execution-order).
+
 ```powershell
 .\tools\qa\certify.cmd -Mode fast
 .\tools\qa\certify.cmd -Mode stress
 ```
 
-During GDX migration work, the native homologues and the mixed Swing/GDX
-matrix can be run independently. The native runner first removes only the
+The native GDX scenarios and the mixed Swing/GDX matrix can be run
+independently. The native runner first removes only the
 validated generated module outputs and compiles the current reactor; the mixed
 runner installs the current checkout into the checkout-local Maven repository.
 Both then launch every selected scenario in a fresh JVM and retain individual

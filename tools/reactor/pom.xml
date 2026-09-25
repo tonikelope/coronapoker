@@ -1,18 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  OPT-IN QA reactor (aggregator) — NOT part of the default build.
-
-  The repo root pom.xml IS the game (packaging=jar) and cannot itself
-  aggregate modules, so a normal single-root reactor would force the game
-  into a sub-directory and break the NetBeans "project at repo root" setup.
-  This additive aggregator avoids that: it lists the game and the QA test
-  module as siblings so a single Maven run builds the game and runs the
-  tests against it straight from the reactor — no `mvn install` of the jar,
-  no `coronapoker.version` pin to keep in sync.
-
-  Nothing here changes the default build. `mvn` at the repo root still reads
-  the root pom.xml (game only); NetBeans is untouched. Use this file only by
-  pointing Maven at it explicitly:
+  OPT-IN QA reactor. The default root build compiles and tests the product
+  modules. This reactor adds tools/qa to the same Maven session, so the classic
+  QA suite compiles against the current core and Swing artifacts without a
+  local install or a separately maintained version pin.
 
       # fast feedback for a refactor — game + all tests EXCEPT the slow bot sims
       # (the fast lane is the DEFAULT; no profile needed)
@@ -39,16 +30,14 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>coronapoker-qa-reactor</artifactId>
-        <version>24.10</version>
+    <version>24.11-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>CoronaPoker QA reactor (opt-in aggregator)</name>
 
     <modules>
-        <!-- The game (repo root). Reactor build order is derived from the
-        dependency graph, so qa always builds after the game. -->
-        <module>../../</module>
-        <!-- The JUnit 5 QA test suite. Its CoronaPoker dependency (same
-        groupId/artifactId/version) resolves from the reactor. -->
+        <!-- Product modules. Reactor order follows their dependency graph. -->
+        <module>../../modules</module>
+        <!-- Opt-in JUnit 5 QA suite, resolved against this same reactor. -->
         <module>../qa</module>
     </modules>
 </project>

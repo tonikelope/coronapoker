@@ -2,7 +2,7 @@ package com.tonikelope.coronapoker.core;
 
 import java.util.Objects;
 
-/** Process owner of frontend-specific runtime resources during migration. */
+/** Process owner of frontend-specific runtime resources. */
 public final class FrontendRuntimeService implements ApplicationService {
 
     public interface Backend extends AutoCloseable {

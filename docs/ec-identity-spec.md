@@ -273,7 +273,7 @@ H_0 = SHA-256(
       )
 ```
 
-Each peer's block, its `PLAYER_ID` (`SHA-256(nick_canonical_utf8)`) followed by its per-hand commitments `K_pocket = k_pocket·B` and `K_community = k_community·B` (Ristretto255 encodings), is sorted by `PLAYER_ID` as a 32-byte unsigned integer, so `H_0` is identical across peers regardless of join order. Binding the `K` commitments here is what the verifiable dealing checks its DLEQ de-lock proofs against (see [`SECURITY.md`](SECURITY.md) §2.5). The deck commitment binds the chain to the exact cascade permutation: peers that walked a different cascade diverge on the very first absorb.
+Each peer's block, its `PLAYER_ID` (`SHA-256(nick_canonical_utf8)`) followed by its per-hand commitments `K_pocket = k_pocket * B` and `K_community = k_community * B` (Ristretto255 encodings), is sorted by `PLAYER_ID` as a 32-byte unsigned integer, so `H_0` is identical across peers regardless of join order. Binding the `K` commitments here is what the verifiable dealing checks its DLEQ de-lock proofs against (see [`SECURITY.md`](SECURITY.md) §2.5). The deck commitment binds the chain to the exact cascade permutation: peers that walked a different cascade diverge on the very first absorb.
 
 ### 5.2 Per-action ratchet
 

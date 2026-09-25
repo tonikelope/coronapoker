@@ -86,7 +86,7 @@ The bot reduces every situation to two numbers from the `BotEvaluator`:
 These are combined into the single number the rest of the engine reasons about:
 
 ```
-effective strength = strength + (1 − strength)·PPot − strength·NPot
+effective strength = strength + (1 - strength) * PPot - strength * NPot
 ```
 
 It is then nudged down by texture-aware penalties (an under-pair facing two
@@ -129,9 +129,9 @@ Each bot is independently rolled along three axes (`assignPersonality`):
 
 | Axis | Values | Meaning |
 |------|--------|---------|
-| **Difficulty** | `EASY` · `MEDIUM` · `HARD` | The table-wide skill level (or per-bot in mixed tests). Drives the skill mix and the mistake rate. |
-| **Skill** | `RECREATIONAL` · `REGULAR` · `SHARK` | How sophisticated the player's strategy is. |
-| **Profile** | `NIT` · `STATION` · `TAG` · `LAG` | The behavioural style (tight/loose × passive/aggressive). |
+| **Difficulty** | `EASY`, `MEDIUM`, `HARD` | The table-wide skill level (or per-bot in mixed tests). Drives the skill mix and the mistake rate. |
+| **Skill** | `RECREATIONAL`, `REGULAR`, `SHARK` | How sophisticated the player's strategy is. |
+| **Profile** | `NIT`, `STATION`, `TAG`, `LAG` | The behavioural style (tight/loose and passive/aggressive). |
 
 **Skill is rolled from the difficulty.** The mixes are spaced so the *flavour* of
 a table changes with difficulty:
@@ -239,13 +239,13 @@ survives across streets instead of deciding each street in a vacuum:
 
 | Plan | When | Behaviour |
 |------|------|-----------|
-| `BET·BET·BET` | a monster, a LAG value-barrel (strength in `[0.60, 0.80)`), or a LAG triple-barrel bluff | barrel every street |
-| `BET·CHK·BET` | a strong-but-not-nutted hand | pot control on the turn |
-| `CHK·CALL` | a trap with the nuts (slow-play / TAG) | check-call down |
+| `BET-BET-BET` | a monster, a LAG value-barrel (strength in `[0.60, 0.80)`), or a LAG triple-barrel bluff | barrel every street |
+| `BET-CHK-BET` | a strong-but-not-nutted hand | pot control on the turn |
+| `CHK-CALL` | a trap with the nuts (slow-play / TAG) | check-call down |
 | `none` | draws and marginal hands | decide street by street |
 
-A plan is re-evaluated as streets arrive: `BET·BET·BET` is aborted on a scare card
-(downgraded to pot control) or when the pot goes multiway, and `CHK·CALL` is
+A plan is re-evaluated as streets arrive: `BET-BET-BET` is aborted on a scare card
+(downgraded to pot control) or when the pot goes multiway, and `CHK-CALL` is
 abandoned if the opponent overbets or a nit applies real pressure.
 
 ---

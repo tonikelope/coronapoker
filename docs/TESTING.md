@@ -118,15 +118,15 @@ QA command never runs bot-quality simulations: every bot-quality class,
 including the headless bot smoke, is tagged slow and only selected by the
 explicit `qa-bots` profile.
 
-- **Fast lane (the default)** — domain, money, parsers, protocol and deterministic
+- **Fast lane (the default):** domain, money, parsers, protocol and deterministic
   smoke tests; more than 1,000 assertions/tests on the current tree. Exact counts
   are reported by Surefire and intentionally not frozen in this manual.
-- **`qa-bots`** — bot-quality statistics, matchups, Monte-Carlo hand potential
+- **`qa-bots`:** bot-quality statistics, matchups, Monte-Carlo hand potential
   and the headless bot game-flow smoke. Its result is quality evidence for bots,
   not a substitute for a game-code regression test.
-- **`qa-crypto`** — cryptographic performance, differential and cascade tests.
-- **`qa-network`** — slow real-socket/stall integration checks.
-- **`qa-heavy`** — aggregate of the non-bot slow lanes; statistical bot quality
+- **`qa-crypto`:** cryptographic performance, differential and cascade tests.
+- **`qa-network`:** slow real-socket/stall integration checks.
+- **`qa-heavy`:** aggregate of the non-bot slow lanes; statistical bot quality
   remains separate. **`qa-release`** runs fast plus the non-bot slow lanes.
   The slow lanes are never part of the normal/default run.
 
@@ -146,7 +146,7 @@ tests the current checkout without a manual pre-install or version override.
 `verify` is the documented gate because it also completes packaging checks:
 
 ```bash
-# Fast lane — the default. Game + all deterministic code tests (~1 min).
+# Fast lane. This is the default: game and all deterministic code tests (~1 min).
 # Bot-quality simulations are excluded by the slow tag.
 mvn -f tools/reactor/pom.xml verify
 # Explicit equivalent for CI/NetBeans scripts:

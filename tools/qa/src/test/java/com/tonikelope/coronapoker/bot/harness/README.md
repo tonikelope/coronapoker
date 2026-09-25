@@ -58,8 +58,8 @@ What we **do** deliver:
 
 The bot testing harness lives in
 `src/test/java/com/tonikelope/coronapoker/bot/harness/`. (The QA module holds
-other suites too — `smoke/`, `crypto/`, `net/`, `sra/`, `bot/eval/`, and the
-root `coronapoker/` package — but only the harness is documented here.)
+other suites too: `smoke/`, `crypto/`, `net/`, `sra/`, `bot/eval/`, and the
+root `coronapoker/` package. Only the harness is documented here.)
 
 ```
 harness/
@@ -106,7 +106,7 @@ harness/
 ```
 
 Every `*Test` class above is annotated `@Tag("slow")`, so the default fast
-Surefire lane skips them all — see § 9 for how to run them. This directory is
+Surefire lane skips them all. See section 9 for how to run them. This directory is
 the bot-quality lane, not a normal game-code regression suite; it is selected
 only by the explicit `qa-bots` profile. The deterministic evaluator adapter
 test remains in the fast lane, but statistical quality tests never do.
@@ -387,7 +387,7 @@ fast, protocol-simulation or real-game E2E layer.
 ### 9.1 Reactor (preferred)
 
 The opt-in reactor at `tools/reactor/pom.xml` builds the game and runs the QA
-suite against it in one pass — no `mvn install` of the jar, no
+suite against it in one pass: no `mvn install` of the jar, no
 `coronapoker.version` pin to keep in sync:
 
 ```sh

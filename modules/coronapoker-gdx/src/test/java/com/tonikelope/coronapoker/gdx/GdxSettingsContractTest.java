@@ -284,6 +284,19 @@ final class GdxSettingsContractTest {
     }
 
     @Test
+    void rhythmAndStyleUsesFiveChoiceRowsDespiteItsEmptyTogglePage() {
+        GdxSettingsContract.TogglePage page =
+                GdxSettingsContract.APPEARANCE_PAGES.get(
+                        GdxSettingsContract.APPEARANCE_PAGES.size() - 1);
+
+        assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
+        assertTrue(page.options().isEmpty());
+        assertEquals(5, GdxAppearanceOptions.ANIMATION_CHOICES.size());
+        assertTrue(GdxSettingsLayout.rowStride(660f,
+                GdxAppearanceOptions.ANIMATION_CHOICES.size()) > 0f);
+    }
+
+    @Test
     void chatNotificationsShareSwingsCanonicalPreferenceAndMigrateGdxAlias() {
         Properties properties = new Properties();
         properties.setProperty("chat_notifications_ingame", "false");

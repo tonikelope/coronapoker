@@ -4875,9 +4875,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxSettingsContract.TogglePage page =
                 GdxSettingsContract.APPEARANCE_PAGES.get(
                         settingsAppearancePage - 1);
-        float rowStride = GdxSettingsLayout.rowStride(h,
-                page.options().size());
-        if (GdxSettingsContract.hasAppearanceAnimationOptions(page)) {
+        boolean animationChoices =
+                GdxSettingsContract.hasAppearanceAnimationOptions(page);
+        int rowCount = animationChoices
+                ? GdxAppearanceOptions.ANIMATION_CHOICES.size()
+                : page.options().size();
+        float rowStride = GdxSettingsLayout.rowStride(h, rowCount);
+        if (animationChoices) {
             for (GdxAppearanceOptions.Choice option
                     : GdxAppearanceOptions.ANIMATION_CHOICES) {
                 boolean enabled = GdxAppearanceOptions.enabled(option,

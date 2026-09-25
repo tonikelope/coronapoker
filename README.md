@@ -226,6 +226,16 @@ A high-level map of the current product architecture: the independent Swing and 
 
 ![CoronaPoker module map](docs/diagrams/coronapoker-module-map.png)
 
+The class-level view below shows both executable entry points, the legacy
+Swing path, the GDX session path and the exact bidirectional table contracts:
+
+![CoronaPoker frontend class map](docs/diagrams/coronapoker-frontend-uml.png)
+
+The complete walkthrough, including startup sequences, source locations and
+the responsibilities of `TableSession`, `TableCommandSink`,
+`TableEventBridge`, `TableRenderer`, snapshots and visual events, is in
+**[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**.
+
 Product Java sources have one physical owner: shared logic and renderer-neutral
 contracts live in `modules/coronapoker-core`, the classic UI lives in
 `modules/coronapoker-swing`, and the libGDX UI lives in

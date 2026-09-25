@@ -1262,6 +1262,7 @@ final class GdxTableViewStateTest {
                 "(##) \u2514\u2500\u2500\u2534\u2500\u2500\u2518");
 
         for (String row : rows) {
+            assertTrue(GdxGameLogFormatter.isFramedTableRow(row), row);
             assertTrue(GdxGameLogFormatter.runs(row).stream()
                     .noneMatch(GdxGameLogFormatter.Run::bold), row);
         }

@@ -14229,6 +14229,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawGameLogCardBackgrounds(logLines, content, logX, logW,
                 maximumScroll, alpha);
         batch.begin();
+        glyph.setText(gameLogFont, "M");
+        float tableCellWidth = glyph.width;
         for (int line = 0; line < logLines.size(); line++) {
             float rowY = anchoredPixelRowY(logLines.size(), line,
                     GAME_LOG_LINE_HEIGHT, content.y, content.height,
@@ -14237,12 +14239,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     || rowY > content.y + content.height) continue;
             String value = logLines.get(line);
             GdxGameLogFormatter.Marker marker = GdxGameLogFormatter.marker(value);
-            float runX = logX + (marker == GdxGameLogFormatter.Marker.NONE
+            float textX = logX + (marker == GdxGameLogFormatter.Marker.NONE
                     ? 24f : 58f);
+            float runX = textX;
+            boolean fixedPitchTable = GdxGameLogFormatter
+                    .isFramedTableRow(value);
+            int tableCharacters = 0;
             float runY = rowY + 23f;
             drawGameLogMarker(marker, logX + 22f, runY - 20f, alpha);
             float contentRight = logX + logW - 34f;
             for (GdxGameLogFormatter.Run run : cachedGameLogRuns(value)) {
+                if (fixedPitchTable) {
+                    runX = textX + tableCharacters * tableCellWidth;
+                }
                 float remainingWidth = contentRight - runX;
                 if (remainingWidth <= 0f) break;
                 if (run.card()) {
@@ -14274,8 +14283,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         remainingWidth);
                 if (fitted.isEmpty()) break;
                 runFont.draw(batch, fitted, runX, runY);
-                glyph.setText(runFont, fitted);
-                runX += glyph.width;
+                if (fixedPitchTable) {
+                    tableCharacters += run.text().length();
+                    runX = textX + tableCharacters * tableCellWidth;
+                } else {
+                    glyph.setText(runFont, fitted);
+                    runX += glyph.width;
+                }
                 if (!fitted.equals(run.text())) break;
             }
         }

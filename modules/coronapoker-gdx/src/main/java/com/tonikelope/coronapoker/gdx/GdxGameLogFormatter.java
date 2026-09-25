@@ -105,8 +105,7 @@ final class GdxGameLogFormatter {
         // the horizontal borders no longer meet the vertical separators.
         // Keep the colour hierarchy and role icons, but render every glyph of
         // a marked box-drawing row with the same regular monospace font.
-        if (marker(value) != Marker.NONE
-                && GRID_PATTERN.matcher(visible).find()) {
+        if (isFramedTableRow(value)) {
             Arrays.fill(bold, false);
         }
         ArrayList<Run> runs = new ArrayList<>();
@@ -125,6 +124,11 @@ final class GdxGameLogFormatter {
         appendTextRuns(runs, visible, colors, bold, position,
                 visible.length());
         return List.copyOf(runs);
+    }
+
+    static boolean isFramedTableRow(String value) {
+        return marker(value) != Marker.NONE
+                && GRID_PATTERN.matcher(visibleText(value)).find();
     }
 
     private static void appendTextRuns(List<Run> runs, String visible,

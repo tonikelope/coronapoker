@@ -15,23 +15,6 @@ I hope you enjoy playing it as much as I have enjoyed building it.
 
 **Carpe diem.**
 
-## Repository layout
-
-- `pom.xml`: canonical CoronaPoker 24.11 build entry point.
-- `modules/coronapoker-core/`: shared game, networking, persistence and
-  renderer-neutral presentation contracts.
-- `modules/coronapoker-swing/`: classic Swing frontend.
-- `modules/coronapoker-gdx/`: libGDX frontend.
-- `modules/coronapoker-assets/`: shared resources packaged from
-  `src/main/resources`.
-- `modules/coronapoker-qa/` and `tools/qa/`: architecture tests,
-  certification suites and multi-process scenarios.
-- `docs/`: architecture, security, testing and contributor documentation.
-- `target/`: the only directory containing the Swing and GDX product JARs.
-- `coronaupdater.jar`: special root-level updater artifact required by the
-  GitHub self-update mechanism.
-
-
 <p align="center"><a href="https://github.com/tonikelope/coronapoker/releases/latest" target="_blank"><img src="https://raw.githubusercontent.com/tonikelope/megabasterd/master/src/main/resources/images/linux-mac-windows.png"></a></p>
 
 <h1 align="center"><a href="https://github.com/tonikelope/coronapoker/releases/latest"><b>DOWNLOAD CORONAPOKER</b></a></h1>
@@ -250,6 +233,22 @@ contracts live in `modules/coronapoker-core`, the classic UI lives in
 packaged by `modules/coronapoker-assets`. Architecture tests enforce these
 ownership boundaries, prohibit frontend dependencies in the core and reject
 duplicated product classes.
+
+### Repository layout
+
+- `pom.xml`: canonical CoronaPoker 24.11 build entry point.
+- `modules/coronapoker-core/`: shared game, networking, persistence and
+  renderer-neutral presentation contracts.
+- `modules/coronapoker-swing/`: classic Swing frontend.
+- `modules/coronapoker-gdx/`: libGDX frontend.
+- `modules/coronapoker-assets/`: shared resources packaged from
+  `src/main/resources`.
+- `modules/coronapoker-qa/` and `tools/qa/`: architecture tests,
+  certification suites and multi-process scenarios.
+- `docs/`: architecture, security, testing and contributor documentation.
+- `target/`: the only directory containing the Swing and GDX product JARs.
+- `coronaupdater.jar`: special root-level updater artifact required by the
+  GitHub self-update mechanism.
 
 The cryptographic subsystem, covering verifiable **SRA / Ristretto255** dealing with DLEQ proofs, the zero-knowledge **Bayer-Groth** shuffle, per-nick **Ed25519** identity, the per-hand `H_t` ratchet and the receipt consensus, has its own two diagrams (a component architecture and a full per-hand protocol sequence) embedded in **[`docs/SECURITY.md`](docs/SECURITY.md)**.
 

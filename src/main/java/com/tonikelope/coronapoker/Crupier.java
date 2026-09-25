@@ -18755,8 +18755,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // If every opponent left before this seat started, there is no
                 // poker decision to request or sign. End the round immediately
                 // and let the ordinary single-winner settlement award the pot.
-                if (getJugadoresActivos() <= 1) {
-                    resisten.removeIf(player -> !player.isActivo());
+                if (countBettingRoundContenders(resisten) <= 1) {
+                    resisten.removeIf(player -> shouldRemoveInactivePlayerFromBettingRound(
+                            player.isActivo(), player.getDecision()));
                     return resisten;
                 }
 
@@ -18848,12 +18849,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         return resisten;
                     }
 
-                    if (getJugadoresActivos() <= 1) {
+                    if (countBettingRoundContenders(resisten) <= 1) {
                         current_player.cancelTurnWithoutDecision();
                         presentTurnTimerToAttachedRenderer(current_player,
                                 TableVisualEvent.TurnTimer.Phase.STOP);
                         table_display.deactivateLocalControls();
-                        resisten.removeIf(player -> !player.isActivo());
+                        resisten.removeIf(player -> shouldRemoveInactivePlayerFromBettingRound(
+                                player.isActivo(), player.getDecision()));
                         return resisten;
                     }
 
@@ -19363,7 +19365,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         return shouldAdvanceBettingStreet(isFin_de_la_transmision(), this.termination_pending,
-                resisten.size(), street, getJugadoresActivos())
+                resisten.size(), street, countBettingRoundContenders(resisten))
                 ? rondaApuestas(street + 1, resisten)
                 : resisten;
     }
@@ -25654,6 +25656,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     static boolean shouldRemoveInactivePlayerFromBettingRound(boolean activo, int decision) {
         return !activo && decision != GamePlayerController.ALLIN;
+    }
+
+    /**
+     * Counts seats that still contest the current hand, rather than seats that
+     * remain eligible to act. A peer that leaves after an accepted ALL-IN is
+     * inactive for future turns but its committed chips and cards remain live
+     * until showdown. Treating that seat as absent lets a concurrent EXIT end
+     * the round before the remaining player has answered the all-in.
+     */
+    static int countBettingRoundContenders(
+            java.util.List<? extends GamePlayerController> contenders) {
+        int count = 0;
+        for (GamePlayerController player : contenders) {
+            if (!shouldRemoveInactivePlayerFromBettingRound(
+                    player.isActivo(), player.getDecision())) {
+                count++;
+            }
+        }
+        return count;
     }
 
     public void checkRebuyTime() {

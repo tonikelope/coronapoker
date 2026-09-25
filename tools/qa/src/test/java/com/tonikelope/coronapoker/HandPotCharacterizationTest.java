@@ -125,6 +125,19 @@ public class HandPotCharacterizationTest {
     }
 
     @Test
+    void exitedAllInStillRequiresTheRemainingPlayersResponse() {
+        Player exitedAllIn = p("departed-all-in", 10.0, Player.ALLIN, false);
+        Player remainingOpponent = p("remaining", 0.2, Player.NODEC, true);
+
+        assertEquals(2, Crupier.countBettingRoundContenders(
+                java.util.List.of(exitedAllIn, remainingOpponent)),
+                "accepted all-in stays live after EXIT until the opponent answers");
+        assertTrue(Crupier.shouldAdvanceBettingStreet(false, false, 2,
+                Crupier.PREFLOP, 2),
+                "an exited all-in must not truncate the board run-out");
+    }
+
+    @Test
     void twoDifferentAllInsMakeTwoLayeredSidePots() {
         // a all-in 2, b all-in 5, c contests 10. Layers: main 2x3=6,
         // side1 (5-2=3) x2 = 6, side2 (10-5=5) x1 = 5.

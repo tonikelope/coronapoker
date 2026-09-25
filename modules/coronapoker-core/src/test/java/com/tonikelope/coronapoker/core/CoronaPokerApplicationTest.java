@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 
 final class CoronaPokerApplicationTest {
@@ -111,6 +112,28 @@ final class CoronaPokerApplicationTest {
         assertSame(updater, application.service(UpdaterService.class));
         application.close();
         assertThrows(IllegalStateException.class, database::connection);
+    }
+
+    @Test
+    void developmentBootstrapGivesEveryProcessAnIndependentDatabaseCopy() throws Exception {
+        java.nio.file.Path coronaDirectory = tempDirectory.resolve(".coronapoker");
+        java.nio.file.Files.createDirectories(coronaDirectory);
+        java.nio.file.Path persistent = coronaDirectory.resolve("coronapoker.db");
+        java.nio.file.Files.writeString(persistent, "seed");
+
+        CoronaPokerApplication first = CoronaPokerBootstrap.createApplication(
+                tempDirectory, true);
+        CoronaPokerApplication second = CoronaPokerBootstrap.createApplication(
+                tempDirectory, true);
+        java.nio.file.Path firstDatabase = java.nio.file.Path.of(
+                first.service(DatabaseService.class).databaseLocation());
+        java.nio.file.Path secondDatabase = java.nio.file.Path.of(
+                second.service(DatabaseService.class).databaseLocation());
+
+        assertNotEquals(persistent, firstDatabase);
+        assertNotEquals(firstDatabase, secondDatabase);
+        assertEquals("seed", java.nio.file.Files.readString(firstDatabase));
+        assertEquals("seed", java.nio.file.Files.readString(secondDatabase));
     }
 
     @Test

@@ -105,6 +105,37 @@ final class GdxTableDialogTest {
     }
 
     @Test
+    void deferredRebuyDecisionWaitsForDealerReleaseAndLocksAmount() {
+        GdxTableDialog rebuy = new GdxTableDialog("COMPRA INICIAL", "", 0,
+                15, true, "", 2, 20, 10);
+        rebuy.deferCloseAfterDecision("Esperando al resto de jugadores...");
+        assertFalse(rebuy.allowsDismissal());
+
+        rebuy.accept();
+        assertTrue(rebuy.complete(), "the core decision is immediately available");
+        assertTrue(rebuy.waitingForExternalClose());
+        assertFalse(rebuy.readyToClose());
+        assertEquals("Esperando al resto de jugadores...", rebuy.message());
+        rebuy.changeAmount(1);
+        assertEquals(10, rebuy.amount(), "the accepted amount is immutable while waiting");
+
+        rebuy.releaseExternalClose();
+        assertFalse(rebuy.waitingForExternalClose());
+        assertTrue(rebuy.readyToClose());
+    }
+
+    @Test
+    void onlyRebuyDialogsWithAVisibleCancelActionAllowDismissal() {
+        GdxTableDialog mandatory = new GdxTableDialog("COMPRA INICIAL", "", 0,
+                15, true, "", 2, 20, 10);
+        GdxTableDialog voluntary = new GdxTableDialog("RECOMPRAR", "", 0,
+                15, false, "CANCELAR", 2, 20, 10);
+
+        assertFalse(mandatory.allowsDismissal());
+        assertTrue(voluntary.allowsDismissal());
+    }
+
+    @Test
     void autoCallDialogKeepsEnabledUnlimitedAndFiveCentStepDistinct() {
         GdxTableDialog dialog = GdxTableDialog.autoCall(false, 0d);
         assertTrue(dialog.isAutoCall());

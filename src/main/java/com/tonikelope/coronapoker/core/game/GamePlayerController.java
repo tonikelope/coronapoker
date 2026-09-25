@@ -210,6 +210,15 @@ public interface GamePlayerController
 
     boolean isLoser();
 
+    /**
+     * Records the canonical showdown outcome independently from the renderer.
+     * Swing controllers already receive this state through their legacy table
+     * display callbacks, so their default remains a no-op. Headless/native
+     * controllers override it because no widget exists to carry game state.
+     */
+    default void applyShowdownResult(boolean winner, String handName) {
+    }
+
     boolean isMuestra();
 
     void setMuestra(boolean showing);

@@ -28,6 +28,34 @@ class CorePlayerControllerTest {
     }
 
     @Test
+    void anteIsDeadMoneyAndDoesNotChangeTheStreetBet() {
+        CorePlayerController player = CorePlayerController.local("player");
+        player.setStack(10d);
+
+        player.setBet(0.20d);
+        double posted = player.postAnte(0.10d);
+
+        assertEquals(0.10d, posted);
+        assertEquals(0.20d, player.getBet());
+        assertEquals(0.30d, player.getBote());
+        assertEquals(9.70d, player.getStack());
+    }
+
+    @Test
+    void shortStackAntePostsOnlyTheRemainingStackAndMarksAllIn() {
+        CorePlayerController player = CorePlayerController.local("player");
+        player.setStack(0.05d);
+
+        double posted = player.postAnte(0.10d);
+
+        assertEquals(0.05d, posted);
+        assertEquals(0d, player.getBet());
+        assertEquals(0.05d, player.getBote());
+        assertEquals(0d, player.getStack());
+        assertEquals(GamePlayerController.ALLIN, player.getDecision());
+    }
+
+    @Test
     void openingNextHandConsumesCommittedRebuyBeforePendingPayout() {
         CorePlayerController player = CorePlayerController.local("player");
         player.setStack(0d);
@@ -127,6 +155,25 @@ class CorePlayerControllerTest {
         assertFalse(player.isActivo());
         assertEquals(GamePlayerController.FOLD, player.getDecision());
         assertEquals(0d, player.getBote());
+    }
+
+    @Test
+    void nativeShowdownOutcomeOffersOnlyAnActuallyMuckedHumanLoserForIwtsth() {
+        CorePlayerController remote = CorePlayerController.remote("rival");
+        remote.getHoleCard1().setVisibleCard(true);
+        remote.getHoleCard2().setVisibleCard(true);
+        remote.getHoleCard1().iniciarConValorNumerico(1);
+        remote.getHoleCard2().iniciarConValorNumerico(2);
+
+        remote.applyShowdownResult(true, "winner");
+        assertFalse(remote.isIwtsthCandidate());
+
+        remote.applyShowdownResult(false, "loser");
+        assertTrue(remote.isLoser());
+        assertTrue(remote.isIwtsthCandidate());
+
+        remote.getHoleCard1().destapar(false);
+        assertFalse(remote.isIwtsthCandidate());
     }
 
     private static final class StubDealer implements DealerView {

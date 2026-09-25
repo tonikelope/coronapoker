@@ -17,6 +17,7 @@ import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import com.tonikelope.coronapoker.core.LobbyChatMessage;
 import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
 import java.util.List;
+import java.util.HashSet;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
@@ -548,6 +549,18 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void startupIntroUsesEveryDistinctCardInTheDeckExactlyOnce() {
+        HashSet<String> cards = new HashSet<>();
+        for (int card = 0; card < 52; card++) {
+            assertTrue(cards.add(CoronaPokerGdxTable.introCardCode(card)),
+                    "duplicated startup card at slot " + card);
+        }
+        assertEquals(52, cards.size());
+        assertTrue(cards.contains("2_C"));
+        assertTrue(cards.contains("A_T"));
+    }
+
+    @Test
     void finalCounterUsesSwingRouteTimingAndBlinkCadence() {
         assertEquals(150d, CoronaPokerGdxTable
                 .finalAmountAnimationRange(100d, 150d)[0]);
@@ -602,10 +615,57 @@ final class GdxTableViewStateTest {
     void finalSummaryNavigationNeverPaintsContinueAsDisabled() {
         assertTrue(CoronaPokerGdxTable.finalSummaryNavEnabled(0));
         assertTrue(CoronaPokerGdxTable.finalSummaryNavEnabled(1));
-        assertFalse(CoronaPokerGdxTable.finalSummaryNavEnabled(2));
+        assertTrue(CoronaPokerGdxTable.finalSummaryNavEnabled(2));
         assertTrue(CoronaPokerGdxTable.finalSummaryNavEnabled(3));
         assertFalse(CoronaPokerGdxTable.finalSummaryNavEnabled(-1));
         assertFalse(CoronaPokerGdxTable.finalSummaryNavEnabled(4));
+    }
+
+    @Test
+    void finalSummaryHitMapMatchesEveryEnabledTopButton() {
+        float width = 1920f;
+        float height = 1080f;
+        float gap = 18f;
+        float buttonWidth = Math.min(350f,
+                (width - 160f - gap * 3f) / 4f);
+        float start = (width - (buttonWidth * 4f + gap * 3f)) / 2f;
+        float y = height - 55f;
+
+        assertEquals(0, CoronaPokerGdxTable.finalSummaryActionAt(width,
+                height, start + buttonWidth / 2f, y));
+        assertEquals(1, CoronaPokerGdxTable.finalSummaryActionAt(width,
+                height, start + buttonWidth + gap + buttonWidth / 2f, y));
+        assertEquals(2, CoronaPokerGdxTable.finalSummaryActionAt(width,
+                height, start + 2f * (buttonWidth + gap)
+                        + buttonWidth / 2f, y));
+        assertEquals(3, CoronaPokerGdxTable.finalSummaryActionAt(width,
+                height, start + 3f * (buttonWidth + gap)
+                        + buttonWidth / 2f, y));
+        assertEquals(4, CoronaPokerGdxTable.finalSummaryActionAt(width,
+                height, width - 51f, height - 55f));
+    }
+
+    @Test
+    void finalSummaryPointerTargetsOnlyEnabledButtonsAndAvailablePages() {
+        float width = 1920f;
+        float height = 1080f;
+        float gap = 18f;
+        float buttonWidth = Math.min(350f,
+                (width - 160f - gap * 3f) / 4f);
+        float start = (width - (buttonWidth * 4f + gap * 3f)) / 2f;
+        float y = height - 55f;
+
+        assertEquals(0, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
+                width, height, start + buttonWidth / 2f, y, 0, 12));
+        assertEquals(2, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
+                width, height, start + 2f * (buttonWidth + gap)
+                        + buttonWidth / 2f, y, 0, 12));
+        assertEquals(-1, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
+                width, height, 41f, 158f, 0, 12));
+        assertEquals(6, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
+                width, height, width - 41f, 158f, 0, 12));
+        assertEquals(5, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
+                width, height, 41f, 158f, 3, 12));
     }
 
     @Test
@@ -2151,6 +2211,86 @@ final class GdxTableViewStateTest {
                 () -> new TableVisualEvent.SpecialCardSound(2, "../A_C"));
         assertThrows(IllegalArgumentException.class,
                 () -> new TableVisualEvent.SpecialCardSound(3, "ACE_CLUBS"));
+    }
+
+    @Test
+    void iwtsthCandidatesAreProjectedAndClearedAtTheNextHand() {
+        GdxTableViewState state = new GdxTableViewState(snapshotAt(
+                TableSnapshot.Street.SHOWDOWN));
+
+        state.apply(new TableVisualEvent.IwtsthCandidates(
+                1, List.of("borja")));
+        assertTrue(state.isIwtsthCandidate("borja"));
+        assertEquals(java.util.Set.of("borja"), state.iwtsthCandidates());
+
+        state.apply(new TableVisualEvent.IwtsthCandidates(2, List.of()));
+        assertFalse(state.isIwtsthCandidate("borja"));
+
+        state.apply(new TableVisualEvent.IwtsthCandidates(
+                3, List.of("borja")));
+        state.apply(new TableVisualEvent.HandBoundary(4, 2,
+                TableVisualEvent.HandBoundary.Phase.PREPARE, snapshot()));
+        assertTrue(state.iwtsthCandidates().isEmpty());
+    }
+
+    @Test
+    void iwtsthCandidatesRejectAmbiguousNames() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new TableVisualEvent.IwtsthCandidates(
+                        1, List.of("borja", "borja")));
+        assertThrows(IllegalArgumentException.class,
+                () -> new TableVisualEvent.IwtsthCandidates(
+                        1, List.of("")));
+    }
+
+    @Test
+    void rabbitCardsAreClickableThenRevealAndClearAtTheNextHand() {
+        GdxTableViewState state = new GdxTableViewState(snapshotAt(
+                TableSnapshot.Street.SHOWDOWN));
+        TableSnapshot.CardSnapshot hidden
+                = new TableSnapshot.CardSnapshot("A_C", false, false);
+
+        state.apply(new TableVisualEvent.RabbitCards(1,
+                List.of(new TableVisualEvent.RabbitCard(4, hidden)), true));
+        assertTrue(state.rabbitRequestable());
+        assertFalse(state.snapshot().communityCards().get(4).faceUp());
+
+        state.apply(new TableVisualEvent.RabbitResult(
+                2, "borja", 0.2d, 999.8d, 1));
+        assertEquals(999.8d, player(state, "borja").stack());
+
+        state.dismissRabbitRequest();
+        assertFalse(state.rabbitRequestable());
+        state.apply(new TableVisualEvent.RabbitCards(3,
+                List.of(new TableVisualEvent.RabbitCard(4, card("A_C"))),
+                false));
+        assertTrue(state.snapshot().communityCards().get(4).faceUp());
+
+        state.apply(new TableVisualEvent.HandBoundary(4, 2,
+                TableVisualEvent.HandBoundary.Phase.PREPARE, snapshot()));
+        assertFalse(state.rabbitRequestable());
+    }
+
+    @Test
+    void rabbitNoticesExpireUsingTheRendererClock() {
+        AtomicLong clock = new AtomicLong(1_000_000L);
+        GdxTableViewState state = new GdxTableViewState(snapshot(), clock::get);
+
+        state.apply(new TableVisualEvent.RabbitNotice(
+                1, "borja", 3_000L));
+        assertTrue(state.rabbitNoticeActive("borja"));
+        clock.addAndGet(3_000_000_000L);
+        assertFalse(state.rabbitNoticeActive("borja"));
+    }
+
+    @Test
+    void timeoutStateIsNarrowAndReversible() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+
+        state.apply(new TableVisualEvent.PlayerTimeout(1, "borja", true));
+        assertTrue(player(state, "borja").timedOut());
+        state.apply(new TableVisualEvent.PlayerTimeout(2, "borja", false));
+        assertFalse(player(state, "borja").timedOut());
     }
 
     private static TableSnapshot.CardSnapshot card(String code) {

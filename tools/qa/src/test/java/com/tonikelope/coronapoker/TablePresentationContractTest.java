@@ -20,6 +20,7 @@ final class TablePresentationContractTest {
     void presentationAssignsStrictlyMonotonicSequencesAndPreservesBarrier() {
         RecordingRenderer renderer = new RecordingRenderer();
         TablePresentation presentation = new TablePresentation(renderer);
+        presentation.open(emptySnapshot()).toCompletableFuture().join();
 
         CompletionStage<Void> returned = presentation.publish(
                 sequence -> new TableVisualEvent.Shuffle(sequence, "Goliat",
@@ -38,6 +39,11 @@ final class TablePresentationContractTest {
         TablePresentation presentation = new TablePresentation(new RecordingRenderer());
         assertThrows(IllegalArgumentException.class,
                 () -> presentation.publish(sequence -> new TableVisualEvent.CloseTable(sequence + 1)));
+    }
+
+    private static TableSnapshot emptySnapshot() {
+        return new TableSnapshot(0L, "local", TableSnapshot.Street.WAITING,
+                0d, "", false, List.of(), List.of());
     }
 
     private static final class RecordingRenderer implements TableRenderer {

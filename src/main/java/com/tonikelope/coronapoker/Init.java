@@ -99,7 +99,7 @@ public class Init extends JFrame {
     private static final Logger LOGGER = Logger.getLogger(Init.class.getName());
     private static volatile CoronaPokerApplication APPLICATION;
 
-    public static final boolean DEV_MODE = false;
+    public static final boolean DEV_MODE = com.tonikelope.coronapoker.core.DevelopmentMode.ENABLED;
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
@@ -1926,6 +1926,12 @@ public class Init extends JFrame {
             application().fail(new IllegalStateException("SQLite initialization failed"));
             fatalStartupError(Translator.translate("error.bd_fatal", DEBUG_DIR), null);
         }
+        StatsSync.installProductionAccess(database,
+                () -> GameFrame.SYNC_STATS_EXCLUDE_PRIVATE_PREF,
+                () -> GameFrame.SYNC_STATS_EXCLUDE_NICKS_ENABLED_PREF
+                        ? StatsSync.parseExcludedNicks(
+                                GameFrame.SYNC_STATS_EXCLUDE_NICKS_PREF)
+                        : java.util.Set.of());
 
         splashStep(Translator.translate("splash.aleatoriedad"));
 

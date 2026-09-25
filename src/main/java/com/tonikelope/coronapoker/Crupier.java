@@ -429,6 +429,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return table_events;
     }
 
+    /** Applies and publishes the narrow timeout flag for native renderers. */
+    public void applyPlayerTimeout(String nickname, boolean timedOut) {
+        GamePlayerController player = nick2player.get(nickname);
+        if (player == null) {
+            throw new IllegalArgumentException("Unknown timeout player");
+        }
+        setPlayerTimeout(player, timedOut);
+    }
+
+    private void setPlayerTimeout(GamePlayerController player,
+            boolean timedOut) {
+        player.setTimeout(timedOut);
+        table_events.publishIfAttached(sequence
+                -> new TableVisualEvent.PlayerTimeout(sequence,
+                        player.getNickname(), timedOut));
+    }
+
     /**
      * Mutates action[] in place into a synthetic FOLD. Shared contract for the
      * two call sites below:
@@ -7764,7 +7781,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     "expected REBUY player missing from table: " + nick));
                             return;
                         }
-                        jugador.setTimeout(false);
+                        setPlayerTimeout(jugador, false);
                         // Decision received: pull the countdown/GIF and show the outcome —
                         // "REBUY!" if they rebought (with only one busted player the wait
                         // ends instantly, so without this there'd be no time to see the
@@ -7871,7 +7888,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             GamePlayerController jpk = nick2player.get(nick);
                             if (jpk != null && !jpk.isExit()) {
                                 jpk.setSpectator(null);
-                                jpk.setTimeout(false);
+                                setPlayerTimeout(jpk, false);
                             }
                             // Stop the countdown visual; with spectator already set, the
                             // restore is skipped and setSpectator's repaint takes over.
@@ -8504,13 +8521,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // animated method's own destape_animado_lock handles idempotency against concurrent
         // reveals of the same player.
         if (jugador.getHoleCard1().isTapada()) {
-            // Blocks until the flip finishes (callers are workers): the hand-name label below
-            // doesn't appear until fully revealed.
-            mostrarAnimacionDestaparCartasJugador(jugador, true);
-
             // Defensive clone: pass a copy to Hand so it doesn't reorder the UI's cards.
             ArrayList<GameCardController> evalList = new ArrayList<>();
-                evalList.addAll(cardControllers(jugador.getHoleCards()));
+            evalList.addAll(cardControllers(jugador.getHoleCards()));
             for (GameCardController c : communityCards()) {
                 if (!c.isTapada()) {
                     evalList.add(c);
@@ -8519,6 +8532,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             try {
                 GameHandResult jugada = hand_factory.evaluate(evalList);
+                // The late SHOWCARDS path used to reveal exclusively through
+                // TableDisplaySink, which is intentionally empty for GDX.
+                // Reuse the same ordered event/barrier as normal showdown so
+                // cards and their evaluated label cannot overtake each other.
+                if (!presentHoleCardsToAttachedRenderer(
+                        jugador, jugada.getName())) {
+                    mostrarAnimacionDestaparCartasJugador(jugador, true);
+                }
                 table_display.showPlayerCards(jugador.getNickname(), jugada.getName());
                 // Enables hover highlighting for the hand just revealed (forced IWTSTH or the
                 // voluntary SHOW button): no kickers, same as a winner. Showdown only sets this
@@ -8526,6 +8547,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 setShowdownHighlight(jugador, cardControllers(jugada.getWinners()));
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Error evaluating Hand while showing cards of " + nick, e);
+                if (jugador.getHoleCard1().isTapada()) {
+                    mostrarAnimacionDestaparCartasJugador(jugador, true);
+                }
             }
 
             setTiempo_pausa(presentation_settings.testMode() ? PAUSA_ENTRE_MANOS_TEST : configuration().showdownTime());
@@ -9071,10 +9095,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 }
 
                                 fjugador.ordenarCartas();
-                                mostrarAnimacionDestaparCartasJugador(fjugador, true);
-
                                 ArrayList<GameCardController> evaluationList = new ArrayList<>();
-                    evaluationList.addAll(cardControllers(fjugador.getHoleCards()));
+                                evaluationList.addAll(cardControllers(fjugador.getHoleCards()));
                                 for (GameCardController c : communityCards()) {
                                     if (!c.isTapada()) {
                                         evaluationList.add(c);
@@ -9084,12 +9106,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 GameHandResult jugada = null;
                                 try {
                                     jugada = hand_factory.evaluate(evaluationList);
+                                    if (!presentHoleCardsToAttachedRenderer(
+                                            fjugador, jugada.getName())) {
+                                        mostrarAnimacionDestaparCartasJugador(
+                                                fjugador, true);
+                                    }
                                     table_display.showPlayerCards(fjugador.getNickname(), jugada.getName());
                                     // Enables hover highlighting for the hand just revealed (received
                                     // SHOWCARDS: forced IWTSTH or a peer's voluntary SHOW): no kickers,
                                     // same as a winner. Set on the late reveal, not just at showdown.
                                     setShowdownHighlight(fjugador, cardControllers(jugada.getWinners()));
                                 } catch (Exception e) {
+                                    if (fjugador.getHoleCard1().isTapada()) {
+                                        mostrarAnimacionDestaparCartasJugador(
+                                                fjugador, true);
+                                    }
                                 }
 
                                 if (presentation_settings.sillySounds() && fjugador.getDecision() == GamePlayerController.FOLD) {
@@ -11263,6 +11294,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                         }
 
+                        final double rabbitFee = coste_rabbit;
+                        final double rabbitStack = jugador.getStack();
+                        table_events.publishIfAttached(sequence
+                                -> new TableVisualEvent.RabbitResult(
+                                        sequence, nick, rabbitFee,
+                                        rabbitStack, conta_rabbit));
+
                         // No visible/card state is touched until the under-lock hand-id gate and
                         // fee application have succeeded. This prevents a stale worker from
                         // uncovering the new hand's board after NUEVA_MANO wins the race.
@@ -11274,6 +11312,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         if (jugador != localPlayer()) {
                             table_display.showRabbitNotice(jugador.getNickname(),
                                     RABBIT_LABEL_TIMEOUT);
+                            table_events.publishIfAttached(sequence
+                                    -> new TableVisualEvent.RabbitNotice(
+                                            sequence, jugador.getNickname(),
+                                            RABBIT_LABEL_TIMEOUT));
 
                         }
 
@@ -11357,9 +11399,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (!iwtsth) {
             this.iwtsthing_request = true;
         }
+        publishIwtsthCandidates(java.util.List.of());
         game_async.execute(() -> {
             synchronized (lock_iwtsth) {
                 if (iwtsthing || iwtsth) {
+                    // IWTSTHSHOW can overtake this queued worker on a fast
+                    // network. In that ordering the request is already fully
+                    // resolved, so retaining the provisional request flag
+                    // freezes pausaConBarra until its 16 s safety timeout.
+                    if (iwtsth) {
+                        iwtsthing_request = false;
+                        synchronized (lock_pausa_barra) {
+                            lock_pausa_barra.notifyAll();
+                        }
+                    }
                     return;
                 }
                 iwtsthing = true;
@@ -11548,16 +11601,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void destaparRabbitCards() {
         synchronized (lock_rabbit) {
-            boolean hay_rabbits_tapadas = false;
+            java.util.List<Integer> rabbitSlots = new java.util.ArrayList<>();
 
-            for (GameCardController carta : communityCards()) {
-                if (carta.isRabbitTapada()) {
-                    hay_rabbits_tapadas = true;
-                    break;
+            for (int slot = 0; slot < communityCards().length; slot++) {
+                if (communityCard(slot).isRabbitTapada()) {
+                    rabbitSlots.add(slot);
                 }
             }
 
-            if (hay_rabbits_tapadas) {
+            if (!rabbitSlots.isEmpty()) {
                 if (presentation_settings.flipSound()) {
                     game_async.execute(() -> game_audio.playPreloadedWav("misc/uncover.wav"));
                 }
@@ -11568,8 +11620,34 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         carta.destapar(false);
                     }
                 }
+                publishRabbitCards(rabbitSlots, true, false);
             }
         }
+    }
+
+    private java.util.List<Integer> rabbitCardSlots() {
+        java.util.List<Integer> slots = new java.util.ArrayList<>();
+        for (int slot = 0; slot < communityCards().length; slot++) {
+            if (communityCard(slot).isRabbitTapada()) {
+                slots.add(slot);
+            }
+        }
+        return slots;
+    }
+
+    private void publishRabbitCards(java.util.List<Integer> slots,
+            boolean faceUp, boolean requestable) {
+        java.util.List<TableVisualEvent.RabbitCard> cards
+                = slots.stream().map(slot -> {
+                    GameCardController card = communityCard(slot);
+                    return new TableVisualEvent.RabbitCard(slot,
+                            new TableSnapshot.CardSnapshot(
+                                    card.toShortString(), faceUp,
+                                    card.isDesenfocada(), true));
+                }).toList();
+        table_events.publishIfAttached(sequence
+                -> new TableVisualEvent.RabbitCards(
+                        sequence, cards, requestable));
     }
 
     private boolean NUEVA_MANO() {
@@ -13219,6 +13297,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // All 5 community cards (and the hole cards) are now on the table: from here on the
         // call-cost overlay can be shown.
         this.community_cards_dealt = true;
+    }
+
+    /**
+     * Native-table entry point for the same guarded IWTSTH action exposed by
+     * Swing's candidate cards/action label. The renderer names what was
+     * clicked; the dealer remains the sole authority that may accept it.
+     */
+    public void requestIwtsthFromTable(String requester,
+            String candidateNickname) {
+        boolean candidate = remotePlayers().stream().anyMatch(player
+                -> player.getNickname().equals(candidateNickname)
+                && player.isIwtsthCandidate());
+        if (!gameSession().configuration().iwtsth()
+                || !candidate
+                || !isIWTSTH4LocalPlayerAuthorized()
+                || iwtsthing || iwtsthing_request || iwtsth
+                || !show_time) {
+            return;
+        }
+        publishIwtsthCandidates(java.util.List.of());
+        IWTSTH_REQUEST(requester);
     }
 
     /** Every Rabbit fee boundary verifies the requester's signed authorship. */
@@ -14878,7 +14977,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // drops it from pending on the next pass once it's marked exit).
                 if (!pendientes.isEmpty()) {
                     for (String nick : pendientes) {
-                        nick2player.get(nick).setTimeout(true);
+                        setPlayerTimeout(nick2player.get(nick), true);
                         if (!peers().get(nick).isForce_reset_socket()) {
                             try {
                                 this.broadcastGAMECommandFromServer("TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")), nick, false);
@@ -14937,7 +15036,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // the dealer thread forever.
                 if (!pendientes.isEmpty()) {
                     for (String nick : pendientes) {
-                        nick2player.get(nick).setTimeout(true);
+                        setPlayerTimeout(nick2player.get(nick), true);
                         if (!peers().get(nick).isForce_reset_socket()) {
                             try {
                                 this.broadcastGAMECommandFromServer("TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")), nick, false);
@@ -14963,6 +15062,51 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Split in integer cents (exact arithmetic, preserves the money): each winner
         // gets the floor share; the indivisible remainder goes to bote_sobrante.
         return PotMath.splitAmongWinners(cantidad, tot_ganadores);
+    }
+
+    /**
+     * A normal hand carries indivisible odd chips into the following pot.  The
+     * final hand has no following pot, so leaving that carry in
+     * {@code bote_sobrante} makes the final balances smaller than the buy-ins.
+     * Award it deterministically to the first winner in the canonical seat
+     * order (or, defensively, the first live seat if a terminal no-contest hand
+     * has no painted winner).  Every peer owns the same {@code nicks_permutados}
+     * order, therefore the settlement transcript remains identical.
+     */
+    private void settleFinalHandRemainder() {
+        long remainderCents = settlementAmountToCents(this.bote_sobrante);
+        if (!isLast_hand() || remainderCents <= 0L) {
+            return;
+        }
+
+        GamePlayerController recipient = null;
+        for (String nickname : this.nicks_permutados) {
+            GamePlayerController candidate = this.nick2player.get(nickname);
+            if (candidate != null && !candidate.isExit()
+                    && candidate.isWinner()) {
+                recipient = candidate;
+                break;
+            }
+        }
+        if (recipient == null) {
+            for (String nickname : this.nicks_permutados) {
+                GamePlayerController candidate = this.nick2player.get(nickname);
+                if (candidate != null && !candidate.isExit()) {
+                    recipient = candidate;
+                    break;
+                }
+            }
+        }
+        if (recipient == null) {
+            return;
+        }
+
+        double remainder = remainderCents / 100d;
+        recipient.pagar(remainder, null);
+        this.bote_sobrante = 0d;
+        LOGGER.log(Level.INFO,
+                "Final-hand odd-chip remainder awarded to {0}: {1}",
+                new Object[]{recipient.getNickname(), remainder});
     }
 
     public void sendGAMECommandToServer(String command, boolean confirmation) {
@@ -14994,9 +15138,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (confirmation) {
                 if (!pendientes.isEmpty()) {
-                    localPlayer().setTimeout(true);
+                    setPlayerTimeout(localPlayer(), true);
                 } else {
-                    localPlayer().setTimeout(false);
+                    setPlayerTimeout(localPlayer(), false);
                 }
             }
 
@@ -15029,7 +15173,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (!remaining.contains(nick)) {
                         pending.remove(nick);
                         if (nick2player.containsKey(nick)) {
-                            nick2player.get(nick).setTimeout(false);
+                            setPlayerTimeout(nick2player.get(nick), false);
                         }
                     }
                 }
@@ -15468,7 +15612,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // the EXIT already went out).
             synthesizeExitFoldAction(action);
         } else {
-            jugador.setTimeout(false);
+            setPlayerTimeout(jugador, false);
         }
         return action;
     }
@@ -20682,7 +20826,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         for (GamePlayerController j : players()) {
 
-            j.setTimeout(false);
+            setPlayerTimeout(j, false);
         }
 
     }
@@ -20755,7 +20899,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         if (!p.getNick().equals(skip_nick) && p.isExit()) {
                             pendientes.remove(p.getNick());
                             if (nick2player.containsKey(p.getNick())) {
-                                nick2player.get(p.getNick()).setTimeout(false);
+                                setPlayerTimeout(nick2player.get(p.getNick()), false);
                             }
                         }
                     }
@@ -20782,7 +20926,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // took down the host process — the whole game.
                             GamePlayerController pendiente_jugador = nick2player.get(nick);
                             if (pendiente_jugador != null) {
-                                pendiente_jugador.setTimeout(true);
+                                setPlayerTimeout(pendiente_jugador, true);
                             }
                             GamePeerController pendiente_participante = peers().get(nick);
                             if (pendiente_participante != null && !pendiente_participante.isForce_reset_socket()) {
@@ -24438,6 +24582,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 GameHandResult jugada = isWinner ? ganadores.get(jugador_actual) : perdedores.get(jugador_actual);
                 boolean mustShow = must_show.get(jugador_actual);
 
+                // The showdown outcome is game state, not renderer state. Swing's
+                // legacy display callbacks also update their widgets, while native
+                // controllers have no widget and record it here explicitly.
+                jugador_actual.applyShowdownResult(isWinner, jugada.getName());
+
                 if (isWinner) {
                     table_display.showWinner(jugador_actual.getNickname(), jugada.getName());
 
@@ -24540,11 +24689,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void startIWTSTHPlayersBlinking() {
 
-        if (gameSession().configuration().iwtsth() && isIWTSTH4LocalPlayerAuthorized()) {
+        if (gameSession().configuration().iwtsth()
+                && isIWTSTH4LocalPlayerAuthorized()
+                && !iwtsthing && !iwtsthing_request && !iwtsth) {
 
             table_display.startIwtsthCandidateBlinking();
-
+            publishIwtsthCandidates(remotePlayers().stream()
+                    .filter(GamePlayerController::isIwtsthCandidate)
+                    .map(GamePlayerController::getNickname)
+                    .toList());
+        } else if (table_events.isAttached()) {
+            // A remote request/verdict can overtake this machine's showdown
+            // presentation. Never resurrect a stale GDX click target.
+            publishIwtsthCandidates(java.util.List.of());
         }
+    }
+
+    private void publishIwtsthCandidates(java.util.List<String> nicknames) {
+        table_events.publishIfAttached(sequence
+                -> new TableVisualEvent.IwtsthCandidates(sequence, nicknames));
     }
 
     public Integer sqlUGI2GID(String ugi) {
@@ -25197,6 +25360,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // end=0 and the recover replays it. (runSettlementConsensus would also
                             // block on peers that are tearing down, the same trap SIDE-B just hit.)
                             if (!this.mano_anulada && !this.rit_sideb_interrupted) {
+                                // Odd chips normally roll into the next hand. On the
+                                // configured final hand there is no next pot, so settle
+                                // that remainder before signing/persisting terminal
+                                // balances instead of silently losing it at table close.
+                                settleFinalHandRemainder();
                                 // Settlement attestation: absorb who-won-how-much into H_final and
                                 // run the closing receipt consensus over it. Here getBote()/getPagar()
                                 // are final (the payout above is done) and not yet purged by the
@@ -25271,6 +25439,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     }
                                 }
 
+                            }
+
+                            java.util.List<Integer> rabbitSlots
+                                    = rabbitCardSlots();
+                            if (!rabbitSlots.isEmpty()) {
+                                publishRabbitCards(rabbitSlots, false, true);
                             }
 
                             startIWTSTHPlayersBlinking();

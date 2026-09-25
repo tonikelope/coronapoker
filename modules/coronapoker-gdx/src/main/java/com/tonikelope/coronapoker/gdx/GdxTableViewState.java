@@ -58,6 +58,10 @@ final class GdxTableViewState {
     private final Map<String, Float> partialHandPercentages = new HashMap<>();
     private final Map<String, Integer> immediateRebuys = new HashMap<>();
     private final java.util.Set<String> resolvedHandResults = new HashSet<>();
+    private final java.util.Set<String> iwtsthCandidates = new HashSet<>();
+    private boolean rabbitRequestable;
+    private String rabbitNoticeNickname = "";
+    private long rabbitNoticeUntilNanos;
     /*
      * Fold is ordered presentation state, just like a reveal.  END snapshots
      * may already contain the roster prepared for the following hand, so their
@@ -308,6 +312,31 @@ final class GdxTableViewState {
         return actionLabels.getOrDefault(nickname, "");
     }
 
+    boolean isIwtsthCandidate(String nickname) {
+        return iwtsthCandidates.contains(nickname);
+    }
+
+    java.util.Set<String> iwtsthCandidates() {
+        return java.util.Set.copyOf(iwtsthCandidates);
+    }
+
+    void dismissIwtsthCandidates() {
+        iwtsthCandidates.clear();
+    }
+
+    boolean rabbitRequestable() {
+        return rabbitRequestable;
+    }
+
+    void dismissRabbitRequest() {
+        rabbitRequestable = false;
+    }
+
+    boolean rabbitNoticeActive(String nickname) {
+        return nickname != null && nickname.equals(rabbitNoticeNickname)
+                && nanoTime.getAsLong() < rabbitNoticeUntilNanos;
+    }
+
     void apply(TableVisualEvent event) {
         Objects.requireNonNull(event, "event");
         if (event.sequence() <= lastSequence) {
@@ -329,6 +358,9 @@ final class GdxTableViewState {
                 replacePlayer(update.nickname(), player
                         -> copyPlayerTelemetry(player, update));
             }
+        } else if (event instanceof TableVisualEvent.PlayerTimeout timeout) {
+            replacePlayer(timeout.nickname(), player
+                    -> copyPlayerTimeout(player, timeout.timedOut()));
         } else if (event instanceof TableVisualEvent.SeatRoster roster) {
             snapshot = copySnapshot(snapshot, snapshot.pot(),
                     snapshot.currentTurnNickname(), roster.players(),
@@ -440,6 +472,28 @@ final class GdxTableViewState {
                     player.stack(), player.streetBet(), player.potContribution(),
                     player.active(), result.winner(), player.position(),
                     player.lastAction(), result.handName(), player.holeCards()));
+        } else if (event instanceof TableVisualEvent.IwtsthCandidates candidates) {
+            iwtsthCandidates.clear();
+            iwtsthCandidates.addAll(candidates.nicknames());
+        } else if (event instanceof TableVisualEvent.RabbitCards rabbit) {
+            List<TableSnapshot.CardSnapshot> board
+                    = snapshot.communityCards();
+            for (TableVisualEvent.RabbitCard card : rabbit.cards()) {
+                board = replaceCard(board, card.slot(), card.card(), 5);
+            }
+            snapshot = copySnapshot(snapshot, snapshot.pot(),
+                    snapshot.currentTurnNickname(), snapshot.players(), board);
+            rabbitRequestable = rabbit.requestable();
+        } else if (event instanceof TableVisualEvent.RabbitResult result) {
+            replacePlayer(result.nickname(), player -> copyPlayer(player,
+                    result.stackAfter(), player.streetBet(),
+                    player.potContribution(), player.active(),
+                    player.winner(), player.position(), player.lastAction(),
+                    player.handName(), player.holeCards()));
+        } else if (event instanceof TableVisualEvent.RabbitNotice notice) {
+            rabbitNoticeNickname = notice.nickname();
+            rabbitNoticeUntilNanos = nanoTime.getAsLong()
+                    + notice.durationMillis() * 1_000_000L;
         } else if (event instanceof TableVisualEvent.ShowdownHighlight highlight) {
             if (highlight.enabled()) {
                 showdownHighlights.put(highlight.nickname(), highlight);
@@ -562,6 +616,10 @@ final class GdxTableViewState {
             resolvedHandWinners.clear();
             revealedHoleCards.clear();
             foldedThisHand.clear();
+            iwtsthCandidates.clear();
+            rabbitRequestable = false;
+            rabbitNoticeNickname = "";
+            rabbitNoticeUntilNanos = 0L;
             callCostText = "";
             callCostAggressorNickname = "";
             runItTwicePotPrefix = "";
@@ -711,6 +769,17 @@ final class GdxTableViewState {
                 source.spectator(), source.exited(), source.timedOut(),
                 telemetry.latency(), telemetry.previousLatency(),
                 telemetry.reconnectionCount(), telemetry.measuredAtMillis(),
+                source.winner(), source.position(), source.lastAction(),
+                source.handName(), source.holeCards());
+    }
+
+    private static TableSnapshot.PlayerSnapshot copyPlayerTimeout(
+            TableSnapshot.PlayerSnapshot source, boolean timedOut) {
+        return new TableSnapshot.PlayerSnapshot(source.nickname(), source.stack(),
+                source.streetBet(), source.potContribution(), source.active(),
+                source.spectator(), source.exited(), timedOut,
+                source.latency(), source.previousLatency(),
+                source.reconnectionCount(), source.telemetryAt(),
                 source.winner(), source.position(), source.lastAction(),
                 source.handName(), source.holeCards());
     }

@@ -1,10 +1,37 @@
 package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.Properties;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 final class GdxGameTextTest {
+
+    @Test
+    void everyGdxTextExistsAndIsNonEmptyInSpanishAndEnglish() throws Exception {
+        Properties spanish = messages("es");
+        Properties english = messages("en");
+        Set<String> spanishKeys = spanish.stringPropertyNames().stream()
+                .filter(key -> key.startsWith("gdx."))
+                .collect(java.util.stream.Collectors.toSet());
+        Set<String> englishKeys = english.stringPropertyNames().stream()
+                .filter(key -> key.startsWith("gdx."))
+                .collect(java.util.stream.Collectors.toSet());
+
+        assertEquals(spanishKeys, englishKeys,
+                "GDX must never fall back to a different language or raw key");
+        assertEquals(469, spanishKeys.size(),
+                "new GDX labels must be added symmetrically");
+        for (String key : spanishKeys) {
+            assertFalse(spanish.getProperty(key).isBlank(), key + " empty in es");
+            assertFalse(english.getProperty(key).isBlank(), key + " empty in en");
+        }
+    }
 
     @Test
     void languageCanChangeImmediatelyWithoutReplacingCoreConsumers() {
@@ -121,5 +148,16 @@ final class GdxGameTextTest {
                 text.translate("about.titulo"));
         assertEquals("Hecho a mano en España y con amor por tonikelope (c) 2020",
                 text.translate("about.hecho_a_mano"));
+    }
+
+    private static Properties messages(String language) throws Exception {
+        String resource = "/i18n/messages_" + language + ".properties";
+        Properties values = new Properties();
+        try (InputStream input = GdxGameTextTest.class.getResourceAsStream(
+                resource)) {
+            if (input == null) throw new AssertionError("Missing " + resource);
+            values.load(new InputStreamReader(input, StandardCharsets.UTF_8));
+        }
+        return values;
     }
 }

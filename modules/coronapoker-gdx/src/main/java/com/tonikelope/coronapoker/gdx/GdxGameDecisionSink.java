@@ -330,6 +330,11 @@ final class GdxGameDecisionSink implements GameDecisionSink {
                     tr("ui.aceptar", "ACEPTAR"),
                     request.minimum(), request.maximum(),
                     request.defaultAmount());
+            if (request.deferClose()) {
+                dialog.deferCloseAfterDecision(tr(
+                        "rebuy.esperando_jugadores",
+                        "ESPERANDO AL RESTO DE JUGADORES..."));
+            }
             dialog.result().thenAccept(accepted -> result.complete(
                     new RebuyResult(accepted, dialog.amount())));
             presenter.accept(dialog);
@@ -339,7 +344,7 @@ final class GdxGameDecisionSink implements GameDecisionSink {
 
         @Override
         public void close() {
-            if (!result.isDone()) dialog.dismiss();
+            dialog.releaseExternalClose();
         }
     }
 

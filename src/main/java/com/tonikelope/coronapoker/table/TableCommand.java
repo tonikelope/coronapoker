@@ -16,6 +16,7 @@ import java.util.Objects;
 public sealed interface TableCommand permits TableCommand.Fold,
         TableCommand.CheckOrCall, TableCommand.Bet, TableCommand.AllIn,
         TableCommand.ShowCards, TableCommand.ExitGame,
+        TableCommand.RequestIwtsth, TableCommand.RequestRabbit,
         TableCommand.StopGame,
         TableCommand.TogglePause, TableCommand.OpenSettings,
         TableCommand.OpenLog, TableCommand.ChangeDeck,
@@ -38,6 +39,22 @@ public sealed interface TableCommand permits TableCommand.Fold,
     }
 
     record ShowCards() implements TableCommand {
+    }
+
+    /** Requests Swing's IWTSTH flow through one currently eligible rival. */
+    record RequestIwtsth(String candidateNickname) implements TableCommand {
+
+        public RequestIwtsth {
+            Objects.requireNonNull(candidateNickname, "candidateNickname");
+            if (candidateNickname.isBlank()) {
+                throw new IllegalArgumentException(
+                        "candidateNickname cannot be blank");
+            }
+        }
+    }
+
+    /** Requests the canonical Rabbit Hunting reveal for the local player. */
+    record RequestRabbit() implements TableCommand {
     }
 
     record ExitGame() implements TableCommand {

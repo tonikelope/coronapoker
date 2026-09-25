@@ -8,15 +8,18 @@ import com.badlogic.gdx.backends.lwjgl3.Lwjgl3WindowAdapter;
 import com.tonikelope.coronapoker.core.CoronaPokerApplication;
 import com.tonikelope.coronapoker.core.CoronaPokerBootstrap;
 import com.tonikelope.coronapoker.core.DatabaseService;
+import com.tonikelope.coronapoker.core.DevelopmentMode;
 import com.tonikelope.coronapoker.core.NewGameSessionGateway;
 import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.core.RecoverableGameRepository;
+import com.tonikelope.coronapoker.core.StatsSyncService;
 import com.tonikelope.coronapoker.core.IdentityTrustStore;
 import com.tonikelope.coronapoker.core.SqlIdentityTrustStore;
 import com.tonikelope.coronapoker.core.network.NetworkLobbyGateway;
 import com.tonikelope.coronapoker.CoreGameTableFactory;
 import com.tonikelope.coronapoker.Crupier;
 import com.tonikelope.coronapoker.DebugLog;
+import com.tonikelope.coronapoker.StatsSync;
 import com.tonikelope.coronapoker.core.game.ClasspathGameCinematicAssets;
 import com.tonikelope.coronapoker.core.game.GameCinematicAssets;
 import com.tonikelope.coronapoker.core.game.ModAwareGameCinematicAssets;
@@ -44,6 +47,11 @@ public final class GdxLauncher {
         Logger.getLogger(GdxLauncher.class.getName()).log(Level.INFO,
                 "GDX debug log: {0}", debugFile);
         CoronaPokerApplication application = CoronaPokerBootstrap.createApplication();
+        if (DevelopmentMode.ENABLED) {
+            Logger.getLogger(GdxLauncher.class.getName()).log(Level.INFO,
+                    "GDX DEV_MODE isolated database: {0}",
+                    application.service(DatabaseService.class).databaseLocation());
+        }
         try {
             application.start();
             application.menuReady();
@@ -136,6 +144,15 @@ public final class GdxLauncher {
                                 .map(entry -> (String) entry[0]).toList())
                 : bundledCinematics;
         DatabaseService database = application.service(DatabaseService.class);
+        StatsSyncService statsSync = new StatsSyncService(database,
+                () -> Boolean.parseBoolean(preferences.properties()
+                        .getProperty("sync_stats_exclude_private", "true")),
+                () -> Boolean.parseBoolean(preferences.properties()
+                        .getProperty("sync_stats_exclude_nicks_enabled",
+                                "false"))
+                        ? StatsSync.parseExcludedNicks(preferences.properties()
+                                .getProperty("sync_stats_exclude_nicks", ""))
+                        : java.util.Set.of());
         IdentityTrustStore identityTrust = new SqlIdentityTrustStore(database);
         CoreGameTableFactory gameTables = new CoreGameTableFactory(
                 database, gameText, gameLog,
@@ -148,7 +165,12 @@ public final class GdxLauncher {
                         database);
         try (NetworkLobbyGateway lobbyGateway
                 = NetworkLobbyGateway.forCurrentUser(gameTables,
-                        recoverableGames, identityTrust)) {
+                        recoverableGames, identityTrust,
+                        () -> Boolean.parseBoolean(preferences.properties()
+                                .getProperty("sync_stats_receive", "true")),
+                        () -> Boolean.parseBoolean(preferences.properties()
+                                .getProperty("sync_stats_share", "true")),
+                        statsSync)) {
             NewGameSessionGateway sessions = lobbyGateway;
             GdxApplicationShell shell = new GdxApplicationShell(
                     display.refreshRate, application, sessions, gameLog,

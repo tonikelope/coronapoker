@@ -230,7 +230,7 @@ public class StatsSyncTest {
         try (Connection dst = mem()) {
             Thread.currentThread().interrupt();
             try {
-                assertThrows(Helpers.CooperativeCancellationException.class,
+                assertThrows(StatsSync.SyncCancelledException.class,
                         () -> StatsSync.importGames(dst, gzip(new byte[]{1, 2, 3})));
             } finally {
                 // Do not leak this test's cancellation into Surefire/JUnit.
@@ -262,7 +262,7 @@ public class StatsSyncTest {
             }
 
             try {
-                assertThrows(Helpers.CooperativeCancellationException.class,
+                assertThrows(StatsSync.SyncCancelledException.class,
                         () -> StatsSync.importGames(dst, blob));
             } finally {
                 Thread.interrupted();

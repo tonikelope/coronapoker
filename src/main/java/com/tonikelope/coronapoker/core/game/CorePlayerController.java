@@ -422,7 +422,8 @@ public final class CorePlayerController implements GamePlayerController {
         else ((RemotePlayerState) state).setResponseTime(response);
     }
     @Override public boolean isIwtsthCandidate() {
-        return !local && bot == null && !isExit();
+        return !local && bot == null && isLoser() && isActivo()
+                && firstCard.isVisible_card() && firstCard.isTapada();
     }
     @Override public boolean isSpectator() { return state.spectator(); }
     @Override public boolean isExit() { return state.exited(); }
@@ -480,6 +481,10 @@ public final class CorePlayerController implements GamePlayerController {
     }
     @Override public boolean isWinner() { return state.winner(); }
     @Override public boolean isLoser() { return loser; }
+    @Override public void applyShowdownResult(boolean winner, String handName) {
+        if (winner) showWinner(handName);
+        else showLoser(handName);
+    }
     @Override public boolean isMuestra() { return state.showingCards(); }
     @Override public void setMuestra(boolean showing) { state.setShowingCards(showing); }
     @Override public void setConta_rabbit(int count) { rabbitCount = count; }

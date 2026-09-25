@@ -59,6 +59,87 @@ final class TableEventBridgeTest {
     }
 
     @Test
+    void eventsRacingRendererOpeningWaitUntilTheNativeTableIsReady() {
+        TableEventBridge bridge = new TableEventBridge();
+        CompletableFuture<Void> rendererReady = new CompletableFuture<>();
+        List<TableVisualEvent> events = new ArrayList<>();
+        TableRenderer renderer = new TableRenderer() {
+            @Override
+            public CompletionStage<Void> open(TableSnapshot initialState) {
+                return rendererReady;
+            }
+
+            @Override
+            public CompletionStage<Void> render(TableVisualEvent event) {
+                events.add(event);
+                return CompletableFuture.completedFuture(null);
+            }
+
+            @Override
+            public void close() { }
+        };
+
+        CompletionStage<Void> opening = bridge.attach(renderer, emptyTable());
+        CompletionStage<Void> first = bridge.publish(sequence ->
+                new TableVisualEvent.PreparationStatus(sequence,
+                        TableVisualEvent.PreparationStatus.Phase.DRAWING_SEATS));
+        CompletionStage<Void> second = bridge.publish(sequence ->
+                new TableVisualEvent.PreparationStatus(sequence,
+                        TableVisualEvent.PreparationStatus.Phase.READY));
+
+        assertTrue(events.isEmpty(),
+                "no event may reach GDX while its table reference is still null");
+        assertFalse(first.toCompletableFuture().isDone());
+        assertFalse(second.toCompletableFuture().isDone());
+
+        rendererReady.complete(null);
+        opening.toCompletableFuture().join();
+
+        assertEquals(List.of(1L, 2L), events.stream()
+                .map(TableVisualEvent::sequence).toList());
+        assertTrue(first.toCompletableFuture().isDone());
+        assertTrue(second.toCompletableFuture().isDone());
+    }
+
+    @Test
+    void closingDuringNativeOpeningReleasesEveryBarrierImmediately() {
+        TableEventBridge bridge = new TableEventBridge();
+        CompletableFuture<Void> rendererReady = new CompletableFuture<>();
+        boolean[] rendererClosed = {false};
+        TableRenderer renderer = new TableRenderer() {
+            @Override
+            public CompletionStage<Void> open(TableSnapshot initialState) {
+                return rendererReady;
+            }
+
+            @Override
+            public CompletionStage<Void> render(TableVisualEvent event) {
+                throw new AssertionError("closed opening must not render events");
+            }
+
+            @Override
+            public void close() {
+                rendererClosed[0] = true;
+            }
+        };
+
+        CompletionStage<Void> opening = bridge.attach(renderer, emptyTable());
+        CompletionStage<Void> pending = bridge.publish(sequence ->
+                new TableVisualEvent.PreparationStatus(sequence,
+                        TableVisualEvent.PreparationStatus.Phase.DRAWING_SEATS));
+
+        bridge.close();
+
+        assertTrue(rendererClosed[0]);
+        assertTrue(opening.toCompletableFuture().isCompletedExceptionally(),
+                "closing must release the native-opening barrier");
+        assertTrue(pending.toCompletableFuture().isCompletedExceptionally(),
+                "closing must release every event queued behind opening");
+        assertFalse(rendererReady.isDone(),
+                "presentation close must not fake renderer initialization");
+    }
+
+    @Test
     void invalidPotTransitionIsRejectedBeforeItReachesARenderer() {
         assertThrows(IllegalArgumentException.class, () ->
                 new TableVisualEvent.CollectBets(1L, List.of(

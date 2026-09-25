@@ -170,7 +170,8 @@ final class GdxSettingsContractTest {
                 "sonido_ultima_mano", "sonido_pausa", "sonido_tu_turno",
                 "sonido_aviso_tiempo", "sonido_fin_partida",
                 "sonido_entra", "sonido_entrar_sala", "sonido_sale",
-                "sonido_tapete", "sonido_visor", "sonido_arranque",
+                "sonido_tapete", "sonido_visor", "sonido_zoom",
+                "sonido_arranque",
                 "musica_about",
                 "tts_server",
                 "voice_messages", "audio_mic_enabled",
@@ -178,7 +179,6 @@ final class GdxSettingsContractTest {
                 "audio_block_tts_local")));
         assertTrue(GdxSettingsContract.AUDIO_PAGES.stream()
                 .allMatch(page -> page.options().size() <= 5));
-        assertFalse(keys.contains("sonido_zoom"));
         assertFalse(keys.contains("sonido_vista_compacta"));
         // Do not advertise settings for GDX surfaces/behaviour that do not
         // exist yet. The persisted Swing values remain untouched in the

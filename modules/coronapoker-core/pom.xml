@@ -82,6 +82,8 @@
                         <include>com/tonikelope/coronapoker/SettlementPresentation.java</include>
                         <include>com/tonikelope/coronapoker/SettlementRecord.java</include>
                         <include>com/tonikelope/coronapoker/ShuffleVerificationQueue.java</include>
+                        <include>com/tonikelope/coronapoker/StatsSync.java</include>
+                        <include>com/tonikelope/coronapoker/StatsSyncProtocol.java</include>
                         <include>com/tonikelope/coronapoker/TableFailure.java</include>
                         <include>com/tonikelope/coronapoker/TableTerminationWire.java</include>
                     </includes>

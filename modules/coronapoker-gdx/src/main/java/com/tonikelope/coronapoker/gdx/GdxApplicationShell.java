@@ -10,6 +10,7 @@ import com.tonikelope.coronapoker.core.NewGameSessionGateway;
 import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.core.RecoverableGameRepository;
 import com.tonikelope.coronapoker.core.SecureRandomService;
+import com.tonikelope.coronapoker.core.StatsRepository;
 import com.tonikelope.coronapoker.core.UpdateService;
 import com.tonikelope.coronapoker.core.LobbySession;
 import com.tonikelope.coronapoker.core.IdentityTrustStore;
@@ -91,9 +92,10 @@ final class GdxApplicationShell extends ApplicationAdapter {
             throw new IllegalStateException("Only one GDX application shell may be active");
         }
         preferences = application.service(PreferencesService.class);
+        DatabaseService database = application.service(DatabaseService.class);
         menu = new GdxFrontendScreen(
                 preferences, sessionGateway, new RecoverableGameRepository(
-                        application.service(DatabaseService.class)),
+                        database),
                 identityTrust, application.service(SecureRandomService.class).generator(),
                 opened -> {
                     application.sessionOpened();
@@ -104,7 +106,8 @@ final class GdxApplicationShell extends ApplicationAdapter {
                     lobby = null;
                     application.returnedToMenu();
         }, presentationSettings, gameText, languageChanged,
-                application.service(UpdateService.class));
+                application.service(UpdateService.class),
+                new StatsRepository(database));
         menu.holdStartupAudio();
         menu.create();
         startupIntro = new CoronaPokerGdxTable(refreshRate,
@@ -133,17 +136,30 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private void awaitTable(LobbySession lobby) {
         lobby.tableSession().whenComplete((session, failure) ->
                 Gdx.app.postRunnable(() -> {
+                    // A Leave/failed connection may retire this lobby while
+                    // its table future is completing on a network thread.  A
+                    // stale completion must never open a table over the menu
+                    // (or over a newer lobby).  Close the orphaned table
+                    // session so its controller/network workers are released.
+                    if (this.lobby != lobby) {
+                        if (session != null) session.close();
+                        return;
+                    }
                     if (failure != null) {
                         if (menu != null && lobby.snapshot().startingOrStarted()) {
                             menu.showSessionError(rootMessage(failure));
                         }
                         return;
                     }
-                    attachTable(session);
+                    attachTable(lobby, session);
                 }));
     }
 
-    private void attachTable(TableSession session) {
+    private void attachTable(LobbySession owner, TableSession session) {
+        if (lobby != owner) {
+            session.close();
+            return;
+        }
         if (table != null) {
             session.close();
             menu.showSessionError(gameText.translate(
@@ -273,6 +289,9 @@ final class GdxApplicationShell extends ApplicationAdapter {
             if (table == expected && table != null) {
                 long closeStarted = System.nanoTime();
                 boolean continueRequested = table.finalContinueRequested();
+                boolean statsRequested = table.finalStatsRequested();
+                boolean applicationExitRequested =
+                        table.finalApplicationExitRequested();
                 float musicPosition = table.backgroundMusicPosition();
                 table = null;
                 menu.refreshFeltFromSettings();
@@ -284,6 +303,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
                         menu.continueLastGameFromTable(completedLobby);
                     } else {
                         menu.returnFromTable(completedLobby);
+                        if (statsRequested) menu.openStatsFromTable();
                     }
                 }
                 // Start the menu decoder before releasing the table decoder.
@@ -298,6 +318,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
                         (menuReady - closeStarted) / 1_000_000d,
                         (sessionClosed - menuReady) / 1_000_000d,
                         (disposedAt - sessionClosed) / 1_000_000d);
+                if (applicationExitRequested) Gdx.app.exit();
             }
         });
     }

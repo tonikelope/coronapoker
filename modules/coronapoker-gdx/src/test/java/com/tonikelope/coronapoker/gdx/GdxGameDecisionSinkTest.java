@@ -150,6 +150,14 @@ final class GdxGameDecisionSinkTest {
         initialDialog.timeout();
         assertEquals(new GameDecisionSink.RebuyResult(true, 10),
                 initial.result().toCompletableFuture().get(1, TimeUnit.SECONDS));
+        assertTrue(initialDialog.waitingForExternalClose());
+        assertFalse(initialDialog.readyToClose(),
+                "the initial buy-in stays visible until the dealer finishes collection");
+        assertEquals("ESPERANDO AL RESTO DE JUGADORES...",
+                initialDialog.message());
+        initial.close();
+        assertFalse(initialDialog.waitingForExternalClose());
+        assertTrue(initialDialog.readyToClose());
 
         GameDecisionSink.RebuyHandle automatic = decisions.showRebuy(
                 new GameDecisionSink.RebuyRequest(false, 15, 2, 20, 10,
@@ -160,6 +168,7 @@ final class GdxGameDecisionSinkTest {
         automaticDialog.dismiss();
         assertEquals(new GameDecisionSink.RebuyResult(false, 10),
                 automatic.result().toCompletableFuture().get(1, TimeUnit.SECONDS));
+        assertTrue(automaticDialog.readyToClose());
 
         GameDecisionSink.RebuyHandle immediate = decisions.showRebuy(
                 new GameDecisionSink.RebuyRequest(true, 0, 1, 8, 4,

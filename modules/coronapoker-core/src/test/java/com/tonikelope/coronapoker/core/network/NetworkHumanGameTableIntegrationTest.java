@@ -135,6 +135,55 @@ class NetworkHumanGameTableIntegrationTest {
     }
 
     @Test
+    void anteIsPostedByEveryHumanAsDeadMoneyInARealNetworkHand()
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        DatabaseService hostDb = new DatabaseService(
+                temporary.resolve("ante-host.sqlite").toString());
+        DatabaseService clientDb = new DatabaseService(
+                temporary.resolve("ante-client.sqlite").toString());
+        hostDb.start();
+        clientDb.start();
+        try (hostDb; clientDb;
+             NetworkLobbyGateway hostGateway = gateway(
+                     temporary.resolve("ante-host"), hostDb);
+             NetworkLobbyGateway clientGateway = gateway(
+                     temporary.resolve("ante-client"), clientDb)) {
+            LobbySession host = hostGateway.open(anteRequest(false,
+                    "Anfitrion", port)).get(5, TimeUnit.SECONDS);
+            LobbySession client = clientGateway.open(anteRequest(true,
+                    "Invitado", port)).get(5, TimeUnit.SECONDS);
+            try {
+                await(() -> host.snapshot().participants().size() == 2,
+                        Duration.ofSeconds(5));
+                host.submit(new LobbyCommand.StartGame()).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                TableSession hostTable = host.tableSession().toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                AnteRenderer hostRenderer = new AnteRenderer(hostTable);
+                hostTable.attach(hostRenderer).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                TableSession clientTable = client.tableSession().toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                AnteRenderer clientRenderer = new AnteRenderer(clientTable);
+                clientTable.attach(clientRenderer).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+
+                await(() -> hostRenderer.closed.get()
+                        && clientRenderer.closed.get(), Duration.ofSeconds(18));
+                hostRenderer.assertAnteTransfer();
+                clientRenderer.assertAnteTransfer();
+            } finally {
+                client.close();
+                host.close();
+            }
+        }
+    }
+
+    @Test
     void dealerManagedTimeoutFoldsHeldHumanAndClosesNetworkHand()
             throws Exception {
         int port;
@@ -1215,6 +1264,25 @@ class NetworkHumanGameTableIntegrationTest {
         return new NewGameRequest(connection, table.snapshot());
     }
 
+    private static NewGameRequest anteRequest(boolean joining, String nickname,
+            int port) {
+        NewGameConnectionDraft.Submission connection
+                = new NewGameConnectionDraft.Submission(
+                        joining ? NewGameConnectionDraft.Mode.JOIN
+                                : NewGameConnectionDraft.Mode.CREATE,
+                        nickname, "", "127.0.0.1", Integer.toString(port),
+                        null, false, false, null);
+        if (joining) {
+            return new NewGameRequest(connection, null);
+        }
+        NewGameTableDraft table = new NewGameTableDraft();
+        table.setHandLimit(true);
+        table.setHandLimitCount(1);
+        table.setThinkTime(false);
+        table.setAnte(true);
+        return new NewGameRequest(connection, table.snapshot());
+    }
+
     private static NewGameRequest manualLastHandRequest(boolean joining,
             String nickname, int port) {
         NewGameConnectionDraft.Submission connection
@@ -1371,6 +1439,57 @@ class NetworkHumanGameTableIntegrationTest {
             if (heldAction.get()) {
                 table.commands().submit(new TableCommand.CheckOrCall());
             }
+        }
+
+        @Override public void close() { }
+    }
+
+    private static final class AnteRenderer implements TableRenderer {
+        private final TableSession table;
+        private final AtomicReference<TableVisualEvent.CollectBets> forcedBets
+                = new AtomicReference<>();
+        private final AtomicBoolean closed = new AtomicBoolean();
+
+        AnteRenderer(TableSession table) {
+            this.table = table;
+        }
+
+        @Override
+        public CompletionStage<Void> open(TableSnapshot initialState) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public CompletionStage<Void> render(TableVisualEvent event) {
+            if (event instanceof TableVisualEvent.CollectBets collect) {
+                forcedBets.compareAndSet(null, collect);
+            } else if (event instanceof TableVisualEvent.ActionControls controls
+                    && controls.state().callAction()
+                    != ActionControlState.CallAction.DISABLED) {
+                table.commands().submit(new TableCommand.CheckOrCall());
+            } else if (event instanceof TableVisualEvent.CloseTable) {
+                closed.set(true);
+            }
+            return CompletableFuture.completedFuture(null);
+        }
+
+        void assertAnteTransfer() {
+            TableVisualEvent.CollectBets collect = forcedBets.get();
+            assertTrue(collect != null, "forced blind/ante collection is required");
+            assertEquals(0d, collect.potBefore(), 0.001d);
+            assertEquals(0.50d, collect.potAfterLanding(), 0.001d);
+            assertEquals(2, collect.transfers().size());
+            List<TableVisualEvent.ChipTransfer> ordered = collect.transfers()
+                    .stream()
+                    .sorted(java.util.Comparator.comparingDouble(
+                            TableVisualEvent.ChipTransfer::streetBetAfter))
+                    .toList();
+            assertEquals(0.10d, ordered.get(0).streetBetAfter(), 0.001d);
+            assertEquals(0.20d, ordered.get(0).potContributionAfter(), 0.001d);
+            assertEquals(9.80d, ordered.get(0).stackAfter(), 0.001d);
+            assertEquals(0.20d, ordered.get(1).streetBetAfter(), 0.001d);
+            assertEquals(0.30d, ordered.get(1).potContributionAfter(), 0.001d);
+            assertEquals(9.70d, ordered.get(1).stackAfter(), 0.001d);
         }
 
         @Override public void close() { }

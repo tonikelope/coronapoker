@@ -11,6 +11,9 @@ import com.tonikelope.coronapoker.core.IdentityTrustStore;
 import com.tonikelope.coronapoker.core.NewGameConnectionDraft;
 import com.tonikelope.coronapoker.core.NewGameRequest;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
+import com.tonikelope.coronapoker.core.DatabaseService;
+import com.tonikelope.coronapoker.core.StatsSyncService;
+import com.tonikelope.coronapoker.core.game.CoreGameDatabase;
 import com.tonikelope.coronapoker.core.game.GameLaunchContext;
 import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
 import com.tonikelope.coronapoker.core.game.GameTableFactory;
@@ -25,6 +28,8 @@ import java.lang.reflect.Field;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Path;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
@@ -97,6 +102,64 @@ class NetworkLobbyGatewayTest {
                 client.close();
                 host.close();
             }
+        }
+    }
+
+    @Test void encryptedLobbySyncConvergesTwoIndependentStatisticsDatabases()
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        DatabaseService hostDb = statsDatabase("stats-host.db");
+        DatabaseService clientDb = statsDatabase("stats-client.db");
+        DatabaseService relayDb = statsDatabase("stats-relay.db");
+        seedFinishedGame(hostDb, "HOST-UGI");
+        seedFinishedGame(clientDb, "CLIENT-UGI");
+        StatsSyncService hostStats = new StatsSyncService(hostDb,
+                () -> true, () -> java.util.Set.of());
+        StatsSyncService clientStats = new StatsSyncService(clientDb,
+                () -> true, () -> java.util.Set.of());
+        StatsSyncService relayStats = new StatsSyncService(relayDb,
+                () -> true, () -> java.util.Set.of());
+        try (NetworkLobbyGateway hostGateway = new NetworkLobbyGateway(
+                    temporary.resolve("stats-host"), GameTableFactory.unavailable(),
+                    null, IdentityTrustStore.unavailable(), () -> true,
+                    () -> true, hostStats);
+             NetworkLobbyGateway clientGateway = new NetworkLobbyGateway(
+                    temporary.resolve("stats-client"), GameTableFactory.unavailable(),
+                    null, IdentityTrustStore.unavailable(), () -> true,
+                    () -> true, clientStats);
+             NetworkLobbyGateway relayGateway = new NetworkLobbyGateway(
+                    temporary.resolve("stats-relay"), GameTableFactory.unavailable(),
+                    null, IdentityTrustStore.unavailable(), () -> true,
+                    () -> true, relayStats)) {
+            LobbySession host = hostGateway.open(request(false, "Anfitrion", port))
+                    .get(5, TimeUnit.SECONDS);
+            LobbySession relay = relayGateway.open(request(true, "Observador", port))
+                    .get(5, TimeUnit.SECONDS);
+            await(() -> hasGame(relayDb, "HOST-UGI"));
+            LobbySession client = clientGateway.open(request(true, "Invitado", port))
+                    .get(5, TimeUnit.SECONDS);
+            try {
+                await(() -> hasGame(hostDb, "CLIENT-UGI")
+                        && hasGame(clientDb, "HOST-UGI")
+                        && hasGame(relayDb, "CLIENT-UGI"));
+                assertEquals("Invitado", importedFrom(hostDb, "CLIENT-UGI"));
+                assertEquals("Anfitrion", importedFrom(clientDb, "HOST-UGI"));
+                assertEquals("Anfitrion", importedFrom(relayDb, "CLIENT-UGI"));
+                assertEquals(2, gameCount(hostDb));
+                assertEquals(2, gameCount(clientDb));
+                assertEquals(2, gameCount(relayDb));
+            } finally {
+                client.close();
+                relay.close();
+                host.close();
+            }
+        } finally {
+            relayDb.close();
+            clientDb.close();
+            hostDb.close();
         }
     }
 
@@ -604,6 +667,68 @@ class NetworkLobbyGatewayTest {
     private static TableSnapshot emptyTable(String nickname) {
         return new TableSnapshot(0L, nickname, TableSnapshot.Street.WAITING,
                 0d, "", false, List.of(), List.of());
+    }
+
+    private DatabaseService statsDatabase(String name) throws Exception {
+        DatabaseService database = new DatabaseService(
+                temporary.resolve(name).toString());
+        database.start();
+        new CoreGameDatabase(database);
+        return database;
+    }
+
+    private static void seedFinishedGame(DatabaseService database, String ugi)
+            throws Exception {
+        synchronized (database.lock()) {
+            try (PreparedStatement statement = database.connection().prepareStatement(
+                    "INSERT INTO game(start,end,server,players,buyin,sb,"
+                    + "blinds_time,rebuy,blinds_time_type,ugi,local,private) "
+                    + "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)")) {
+                statement.setLong(1, 1_000L);
+                statement.setLong(2, 2_000L);
+                statement.setString(3, "server");
+                statement.setString(4, "");
+                statement.setInt(5, 10);
+                statement.setDouble(6, 0.1d);
+                statement.setInt(7, 5);
+                statement.setInt(8, 1);
+                statement.setInt(9, 0);
+                statement.setString(10, ugi);
+                statement.setInt(11, 1);
+                statement.setInt(12, 0);
+                statement.executeUpdate();
+            }
+        }
+    }
+
+    private static boolean hasGame(DatabaseService database, String ugi) {
+        return importedFrom(database, ugi) != null;
+    }
+
+    private static String importedFrom(DatabaseService database, String ugi) {
+        synchronized (database.lock()) {
+            try (PreparedStatement statement = database.connection()
+                    .prepareStatement("SELECT imported_from FROM game WHERE ugi=?")) {
+                statement.setString(1, ugi);
+                try (ResultSet rows = statement.executeQuery()) {
+                    return rows.next() ? rows.getString(1) : null;
+                }
+            } catch (Exception failure) {
+                throw new AssertionError(failure);
+            }
+        }
+    }
+
+    private static int gameCount(DatabaseService database) {
+        synchronized (database.lock()) {
+            try (PreparedStatement statement = database.connection()
+                    .prepareStatement("SELECT COUNT(*) FROM game");
+                    ResultSet rows = statement.executeQuery()) {
+                return rows.next() ? rows.getInt(1) : 0;
+            } catch (Exception failure) {
+                throw new AssertionError(failure);
+            }
+        }
     }
 
     private static TableRenderer immediateRenderer() {

@@ -78,6 +78,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
 
     private static final long TABLE_EXECUTOR_CLOSE_TIMEOUT_SECONDS = 5L;
     private static final long RECOVERY_SHUFFLE_PROOF_DRAIN_TIMEOUT_MS = 10_000L;
+    private static final long EXIT_SHUFFLE_PROOF_DRAIN_TIMEOUT_MS = 2_000L;
 
     private static final Set<String> RENDERER_OWNED_AUDIO = Set.of(
             "misc/shuffle.wav", "misc/deal.wav", "misc/uncover.wav",
@@ -405,6 +406,30 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 return;
             }
             if (!lobby.host()
+                    && command.command().startsWith("TIMEOUT#")) {
+                try {
+                    if (!command.peerNickname().equals(lobby.serverNickname())) {
+                        throw new IllegalArgumentException(
+                                "TIMEOUT source is not the table host");
+                    }
+                    String[] fields = command.command().split("#", -1);
+                    if (fields.length != 2) {
+                        throw new IllegalArgumentException(
+                                "Malformed TIMEOUT notification");
+                    }
+                    String nickname = new String(Base64.getDecoder().decode(
+                            fields[1]), StandardCharsets.UTF_8).trim();
+                    if (!peers.containsKey(nickname)) {
+                        throw new IllegalArgumentException(
+                                "Unknown TIMEOUT player");
+                    }
+                    dealer.applyPlayerTimeout(nickname, true);
+                } catch (RuntimeException invalid) {
+                    context.channel().close();
+                }
+                return;
+            }
+            if (!lobby.host()
                     && (command.command().equals("SERVEREXIT")
                     || command.command().startsWith("SERVEREXITRECOVER"))) {
                 dealer.acceptAuthoritativeTableExit(command.command());
@@ -489,6 +514,115 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 return;
             }
             if (pauseCoordinator.accept(command, envelope)) {
+                return;
+            }
+            if (lobby.host() && command.command().equals("IWTSTH")) {
+                GamePeerController requester = peers.get(command.peerNickname());
+                if (requester == null || requester.isCpu()
+                        || requester.isExit() || !dealer.isShow_time()) {
+                    context.channel().close();
+                    return;
+                }
+                dealer.IWTSTH_HANDLER(command.peerNickname());
+                return;
+            }
+            if (!lobby.host()
+                    && command.command().startsWith("IWTSTH#")) {
+                try {
+                    String[] fields = command.command().split("#", -1);
+                    if (fields.length != 2) {
+                        throw new IllegalArgumentException(
+                                "Malformed IWTSTH notification");
+                    }
+                    String requester = new String(Base64.getDecoder().decode(
+                            fields[1]), StandardCharsets.UTF_8).trim();
+                    if (requester.isEmpty() || !peers.containsKey(requester)) {
+                        throw new IllegalArgumentException(
+                                "Unknown IWTSTH requester");
+                    }
+                    dealer.IWTSTH_HANDLER(requester);
+                } catch (RuntimeException invalid) {
+                    context.channel().close();
+                }
+                return;
+            }
+            if (!lobby.host()
+                    && command.command().startsWith("IWTSTHSHOW#")) {
+                try {
+                    String[] fields = command.command().split("#", -1);
+                    if (fields.length != 3) {
+                        throw new IllegalArgumentException(
+                                "Malformed IWTSTHSHOW notification");
+                    }
+                    String requester = new String(Base64.getDecoder().decode(
+                            fields[1]), StandardCharsets.UTF_8).trim();
+                    if (requester.isEmpty() || !peers.containsKey(requester)) {
+                        throw new IllegalArgumentException(
+                                "Unknown IWTSTHSHOW requester");
+                    }
+                    if (!"true".equals(fields[2])
+                            && !"false".equals(fields[2])) {
+                        throw new IllegalArgumentException(
+                                "Invalid IWTSTHSHOW verdict");
+                    }
+                    dealer.IWTSTH_SHOW(requester,
+                            Boolean.parseBoolean(fields[2]));
+                } catch (RuntimeException invalid) {
+                    context.channel().close();
+                }
+                return;
+            }
+            if (lobby.host()
+                    && command.command().startsWith("RABBIT_REQ#")) {
+                try {
+                    String[] fields = command.command().split("#", -1);
+                    if (fields.length != 2) {
+                        throw new IllegalArgumentException(
+                                "Malformed Rabbit request");
+                    }
+                    RabbitFeeLedger.Result<RabbitFeeLedger.Request> decoded
+                            = RabbitFeeLedger.Request.decode(
+                                    Base64.getDecoder().decode(fields[1]));
+                    if (!decoded.isOk()
+                            || !command.peerNickname().equals(
+                                    decoded.value().playerId())) {
+                        throw new IllegalArgumentException(
+                                "Invalid Rabbit request identity or wire");
+                    }
+                    GamePeerController requester = peers.get(
+                            command.peerNickname());
+                    if (requester == null || requester.isCpu()
+                            || requester.isExit()) {
+                        throw new IllegalArgumentException(
+                                "Rabbit requester is not an active remote human");
+                    }
+                    dealer.RABBIT_REQUEST_HANDLER(decoded.value());
+                } catch (RuntimeException invalid) {
+                    context.channel().close();
+                }
+                return;
+            }
+            if (!lobby.host()
+                    && command.command().startsWith("RABBIT_AUTH#")) {
+                try {
+                    String[] fields = command.command().split("#", -1);
+                    if (fields.length != 2) {
+                        throw new IllegalArgumentException(
+                                "Malformed Rabbit authorization");
+                    }
+                    RabbitFeeLedger.Result<RabbitFeeLedger.Authorization> decoded
+                            = RabbitFeeLedger.Authorization.decode(
+                                    Base64.getDecoder().decode(fields[1]));
+                    if (!decoded.isOk()
+                            || !peers.containsKey(
+                                    decoded.value().request().playerId())) {
+                        throw new IllegalArgumentException(
+                                "Invalid Rabbit authorization wire");
+                    }
+                    dealer.RABBIT_AUTHORIZATION_HANDLER(decoded.value());
+                } catch (RuntimeException invalid) {
+                    context.channel().close();
+                }
                 return;
             }
             if (lobby.host()
@@ -863,6 +997,11 @@ public final class CoreGameTableFactory implements GameTableFactory {
             local.submitDecision(CorePlayerController.ALLIN, 0d);
         } else if (command instanceof TableCommand.ShowCards) {
             dealer.requestVoluntaryShowCards(local.getNickname());
+        } else if (command instanceof TableCommand.RequestIwtsth request) {
+            dealer.requestIwtsthFromTable(local.getNickname(),
+                    request.candidateNickname());
+        } else if (command instanceof TableCommand.RequestRabbit) {
+            dealer.REQUEST_RABBIT(local.getNickname());
         } else if (command instanceof TableCommand.ExitGame) {
             // Termination must never queue behind a live-settings operation or
             // another control request that is waiting for network consensus.
@@ -873,6 +1012,13 @@ public final class CoreGameTableFactory implements GameTableFactory {
             requestedCloseReason.set(TableSessionSummary.CloseReason.EXITED);
             terminationExecutor.execute(() -> {
                 try {
+                    // A player may later rejoin a recoverable table with the
+                    // same identity. Give an already-running verifier a short,
+                    // bounded chance to persist its genuine verdict before the
+                    // terminal flag cancels it. This stays responsive for a
+                    // normal exit and never promotes an unfinished proof.
+                    dealer.awaitCurrentShuffleProofForRecoverableShutdown(
+                            EXIT_SHUFFLE_PROOF_DRAIN_TIMEOUT_MS);
                     dealer.setTerminationPending();
                     pauseCoordinator.resumeForShutdown();
                     notifyBettingWait(dealer);
@@ -896,6 +1042,16 @@ public final class CoreGameTableFactory implements GameTableFactory {
                     TableSessionSummary.CloseReason.RECOVERABLE_STOP);
             terminationExecutor.execute(() -> {
                 try {
+                    // Preserve the current hand's genuine shuffle verdict before
+                    // requestTableExit marks the transmission finished.  The
+                    // verifier deliberately cancels once that terminal flag is
+                    // visible, so draining only from dealer.run()'s finally block
+                    // is too late: recovery can then find a valid megapacket but
+                    // no durable SHUFFLE_VERIFIED marker and must reject it.  This
+                    // bounded wait never manufactures a verdict; a timeout stays
+                    // fail-closed and the recovered hand remains unusable.
+                    dealer.awaitCurrentShuffleProofForRecoverableShutdown(
+                            RECOVERY_SHUFFLE_PROOF_DRAIN_TIMEOUT_MS);
                     dealer.setTerminationPending();
                     pauseCoordinator.resumeForShutdown();
                     notifyBettingWait(dealer);

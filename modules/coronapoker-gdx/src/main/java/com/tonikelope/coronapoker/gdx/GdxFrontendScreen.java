@@ -42,6 +42,7 @@ import com.tonikelope.coronapoker.core.BlindStructureCatalog;
 import com.tonikelope.coronapoker.core.BlindStructureRules;
 import com.tonikelope.coronapoker.core.GamePresetCatalog;
 import com.tonikelope.coronapoker.core.RecoverableGameRepository;
+import com.tonikelope.coronapoker.core.StatsRepository;
 import com.tonikelope.coronapoker.core.UpdateService;
 import com.tonikelope.coronapoker.DebugLog;
 import java.awt.FileDialog;
@@ -50,6 +51,7 @@ import java.awt.Desktop;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -76,6 +78,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.nio.file.Path;
 import java.time.ZoneId;
+import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import javax.imageio.ImageIO;
 
@@ -147,10 +150,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final float COMPOSER_EMOJI_ADVANCE = 36f;
     private static final DateTimeFormatter CHAT_TIME = DateTimeFormatter
             .ofPattern("HH:mm").withZone(ZoneId.systemDefault());
+    private static final DateTimeFormatter STATS_TIME = DateTimeFormatter
+            .ofPattern("dd-MM-yyyy HH:mm").withZone(ZoneId.systemDefault());
+    static final float STATS_VIEW_HEADER_SEPARATOR_Y = 709f;
+    static final float STATS_MODE_SELECTOR_Y = 665f;
+    static final float STATS_MODE_SELECTOR_HEIGHT = 40f;
+    static final float STATS_CONTENT_TOP = 655f;
     private static final float IMAGE_SEND_COOLDOWN_SECONDS = 2f;
     private static final float TEXT_SEND_COOLDOWN_SECONDS = 0.5f;
     private static final float ABOUT_LOGO_WIDTH = 180f;
     private static final float ABOUT_LOGO_Y = 758f;
+    static final int ABOUT_PANEL_RGBA = 0x24445afc;
+    static final URI ABOUT_PROJECT_URI = URI.create(
+            "https://github.com/tonikelope/coronapoker");
+    static final URI ABOUT_RULES_URI = URI.create(
+            "https://github.com/tonikelope/coronapoker/raw/master/robert_rules.pdf");
 
     private final FitViewport viewport = new FitViewport(WIDTH, HEIGHT);
     private final List<TextItem> texts = new ArrayList<>();
@@ -189,7 +203,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final UpdateService updateService;
     private final NewGameSubmissionCoordinator submissions;
     private final RecoverableGameRepository recoverableGames;
+    private final StatsRepository statsRepository;
     private final ExecutorService recoveryExecutor;
+    private final ExecutorService statsExecutor;
     private final Consumer<NewGameSubmissionCoordinator.OpenedSession> sessionAccepted;
     private final Runnable sessionReturnedToMenu;
     private NewGameConnectionDraft connection;
@@ -216,6 +232,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private Music backgroundMusic;
     private Music waitingRoomMusic;
     private Music aboutMusic;
+    private Music statsMusic;
     private ShaderProgram avatarShader;
     private BitmapFont titleFont;
     private BitmapFont headingFont;
@@ -322,6 +339,26 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean updatePromptDismissed;
     private long recoveryLoadGeneration;
     private boolean autoSubmitRecovery;
+    private List<StatsRepository.GameSummary> statsAllGames = List.of();
+    private List<StatsRepository.GameSummary> statsGames = List.of();
+    private List<String> statsPlayers = List.of();
+    private String statsPlayerFilter = "";
+    private List<StatsRepository.HandSummary> statsHands = List.of();
+    private List<StatsRepository.BalanceRow> statsBalances = List.of();
+    private List<StatsRepository.BalancePoint> statsBalanceHistory = List.of();
+    private List<StatsRepository.ShowdownRow> statsShowdown = List.of();
+    private List<StatsRepository.MetricRow> statsMetrics = List.of();
+    private List<StatsRepository.PerformanceRow> statsPerformance = List.of();
+    private List<StatsRepository.BestHandRow> statsBestHands = List.of();
+    private int statsGameIndex = -1;
+    private int statsHandIndex = -1;
+    private StatsMode statsMode = StatsMode.BALANCE;
+    private long statsLoadGeneration;
+    private boolean statsLoading;
+    private String statsError = "";
+    private StatsConfirmation statsConfirmation = StatsConfirmation.NONE;
+    private StatsPicker statsPicker = StatsPicker.NONE;
+    private int statsPickerPage;
 
     GdxFrontendScreen(PreferencesService preferences,
             NewGameSessionGateway gateway, RecoverableGameRepository recoverableGames,
@@ -330,7 +367,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Runnable sessionReturnedToMenu,
             GdxGamePresentationSettings presentationSettings,
             GdxGameText gameText, Consumer<String> languageChanged,
-            UpdateService updateService) {
+            UpdateService updateService, StatsRepository statsRepository) {
         this.preferences = Objects.requireNonNull(preferences, "preferences");
         this.identityTrust = Objects.requireNonNull(identityTrust,
                 "identityTrust");
@@ -349,9 +386,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 Objects.requireNonNull(gateway, "gateway"));
         this.recoverableGames = Objects.requireNonNull(recoverableGames,
                 "recoverableGames");
+        this.statsRepository = Objects.requireNonNull(statsRepository,
+                "statsRepository");
         recoveryExecutor = Executors.newSingleThreadExecutor(task -> {
             Thread thread = new Thread(task,
                     "CoronaPoker-GDX-recovery-loader");
+            thread.setDaemon(true);
+            return thread;
+        });
+        statsExecutor = Executors.newSingleThreadExecutor(task -> {
+            Thread thread = new Thread(task, "CoronaPoker-GDX-stats-loader");
             thread.setDaemon(true);
             return thread;
         });
@@ -404,6 +448,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         backgroundMusic = music("sounds/misc/background_music.mp3", 0.40f);
         waitingRoomMusic = music("sounds/misc/waiting_room.mp3", 0.90f);
         aboutMusic = music("sounds/misc/about_music.mp3", 0.90f);
+        statsMusic = music("sounds/misc/stats_music.mp3", 0.30f);
         avatarShader = new ShaderProgram(SPRITE_VERTEX_SHADER,
                 AVATAR_FRAGMENT_SHADER);
         if (!avatarShader.isCompiled()) {
@@ -470,6 +515,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         p.borderWidth = border;
         p.hinting = FreeTypeFontGenerator.Hinting.Full;
         p.kerning = true;
+        p.characters += "♥♦♠♣";
         p.minFilter = TextureFilter.Linear;
         p.magFilter = TextureFilter.Linear;
         return generator.generateFont(p);
@@ -522,6 +568,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             drawLobby();
         } else if (surface == Surface.SETTINGS) {
             drawSettingsScreen();
+        } else if (surface == Surface.STATS) {
+            drawStatsScreen();
         } else {
             drawHeader();
             drawProgress();
@@ -591,7 +639,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || (surface == Surface.NEW_GAME
                 && (submissions.submitting()
                         || presetDialog != PresetDialog.NONE
-                        || blindStructureDialog != BlindStructureDialog.NONE))) {
+                        || blindStructureDialog != BlindStructureDialog.NONE))
+                || (surface == Surface.STATS
+                && (statsConfirmation != StatsConfirmation.NONE
+                        || statsPicker != StatsPicker.NONE))) {
             texts.clear();
             // A visual modal must also own the complete interaction map.
             // Keeping the underlying page hits allowed invisible lobby/menu
@@ -627,6 +678,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 } else {
                     drawPresetDialog();
                 }
+            } else if (surface == Surface.STATS) {
+                if (statsConfirmation != StatsConfirmation.NONE) {
+                    drawStatsConfirmation();
+                } else {
+                    drawStatsPicker();
+                }
             } else if (lobbyPasswordDialog) {
                 drawLobbyPasswordDialog();
             } else if (fingerprintDialog != null) {
@@ -644,7 +701,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 batch.setColor(Color.WHITE);
                 batch.draw(logo, WIDTH / 2f - ABOUT_LOGO_WIDTH / 2f,
                         ABOUT_LOGO_Y, ABOUT_LOGO_WIDTH, logoHeight);
-                batch.draw(aboutMourningIcon, 392f, 452f, 82f, 82f);
+                // Keep the mourning ribbon visually attached to the memorial
+                // line, as in the original Swing composition. The previous
+                // far-left placement looked like an unrelated control.
+                batch.draw(aboutMourningIcon, 532f, 468f, 68f, 68f);
                 batch.draw(aboutBookIcon, WIDTH / 2f - 16f, 245f,
                         32f, 32f);
                 batch.draw(aboutCrossIcon, WIDTH / 2f - 338f, 214f,
@@ -830,7 +890,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> openNewGame(NewGameConnectionDraft.Mode.JOIN));
         mainMenuButton(595f, 415f, 730f, 82f,
                 gameText.translate("stats.estadisticas_2"), 2, false,
-                () -> showToast(gameText.translate("gdx.stats_pending")));
+                this::openStats);
         mainMenuButton(595f, 310f, 350f, 82f,
                 uppercase(gameText.translate("menu.ajustes")), 3, false,
                 this::openSettings);
@@ -847,6 +907,1162 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         keyHint(535f, 75f, "F11",
                 uppercase(gameText.translate("settings.modo_pantalla_completa")));
         drawSoundControl(1336f, 70f, 55f, 55f, false);
+    }
+
+    private void openStats() {
+        clearActiveField();
+        surface = Surface.STATS;
+        statsGameIndex = -1;
+        statsHandIndex = -1;
+        statsAllGames = List.of();
+        statsGames = List.of();
+        statsPlayers = List.of();
+        statsPlayerFilter = "";
+        statsHands = List.of();
+        statsBalances = List.of();
+        statsBalanceHistory = List.of();
+        statsShowdown = List.of();
+        statsMetrics = List.of();
+        statsPerformance = List.of();
+        statsBestHands = List.of();
+        statsConfirmation = StatsConfirmation.NONE;
+        statsPicker = StatsPicker.NONE;
+        statsPickerPage = 0;
+        loadStatsGames();
+        syncMusicForSurface();
+    }
+
+    void openStatsFromTable() {
+        openStats();
+    }
+
+    private void closeStats() {
+        statsLoadGeneration++;
+        statsLoading = false;
+        statsError = "";
+        statsConfirmation = StatsConfirmation.NONE;
+        statsPicker = StatsPicker.NONE;
+        surface = Surface.MENU;
+        syncMusicForSurface();
+    }
+
+    private void loadStatsGames() {
+        long generation = ++statsLoadGeneration;
+        statsLoading = true;
+        statsError = "";
+        CompletableFuture.runAsync(() -> {
+            try {
+                List<StatsRepository.GameSummary> games = statsRepository.games();
+                List<StatsRepository.BalanceRow> balances =
+                        statsRepository.balances(null, null);
+                List<StatsRepository.MetricRow> metrics = loadStatsMetrics(
+                        null, null);
+                List<StatsRepository.PerformanceRow> performance =
+                        statsMode == StatsMode.PERFORMANCE
+                                ? statsRepository.performance(null) : List.of();
+                List<StatsRepository.BestHandRow> bestHands =
+                        statsMode == StatsMode.BEST_HANDS
+                                ? statsRepository.bestHands(null) : List.of();
+                Gdx.app.postRunnable(() -> {
+                    if (disposed || generation != statsLoadGeneration) return;
+                    statsAllGames = games;
+                    statsPlayers = games.stream()
+                            .flatMap(game -> game.players().stream())
+                            .distinct()
+                            .sorted(String.CASE_INSENSITIVE_ORDER)
+                            .toList();
+                    applyStatsPlayerFilter();
+                    if (!statsPlayerFilter.isBlank()) {
+                        statsGameIndex = statsGames.isEmpty() ? -1 : 0;
+                        statsBalances = List.of();
+                        statsBalanceHistory = List.of();
+                        statsMetrics = List.of();
+                        statsPerformance = List.of();
+                        statsBestHands = List.of();
+                        statsLoading = false;
+                        // A player filter is a filter of concrete timbas, not
+                        // an alias for the global aggregate.  Reload the first
+                        // matching timba after maintenance so the left summary
+                        // and every chart/table keep the same scope.
+                        if (statsGameIndex >= 0) loadStatsScope();
+                        return;
+                    }
+                    statsBalances = balances;
+                    statsBalanceHistory = List.of();
+                    statsMetrics = metrics;
+                    statsPerformance = performance;
+                    statsBestHands = bestHands;
+                    statsLoading = false;
+                });
+            } catch (Exception failure) {
+                postStatsFailure(generation, failure);
+            }
+        }, statsExecutor);
+    }
+
+    private void selectStatsGame(int direction) {
+        if (statsLoading || statsGames.isEmpty()) return;
+        int count = statsGames.size() + 1;
+        statsGameIndex = Math.floorMod(statsGameIndex + 1 + direction,
+                count) - 1;
+        statsHandIndex = -1;
+        statsHands = List.of();
+        statsShowdown = List.of();
+        loadStatsScope();
+    }
+
+    private void selectStatsGameAt(int index) {
+        if (statsLoading || index < -1 || index >= statsGames.size()) return;
+        statsGameIndex = index;
+        statsHandIndex = -1;
+        statsHands = List.of();
+        statsShowdown = List.of();
+        statsPicker = StatsPicker.NONE;
+        loadStatsScope();
+    }
+
+    private void selectStatsHand(int direction) {
+        if (statsLoading || statsGameIndex < 0 || statsHands.isEmpty()
+                || !statsMode.supportsHandScope()) return;
+        int count = statsHands.size() + 1;
+        statsHandIndex = Math.floorMod(statsHandIndex + 1 + direction,
+                count) - 1;
+        loadStatsScope();
+    }
+
+    private void selectStatsHandAt(int index) {
+        if (statsLoading || statsGameIndex < 0 || index < -1
+                || index >= statsHands.size()) return;
+        statsHandIndex = index;
+        statsPicker = StatsPicker.NONE;
+        loadStatsScope();
+    }
+
+    private void selectStatsPlayerAt(int index) {
+        if (statsLoading || index < -1 || index >= statsPlayers.size()) return;
+        statsPlayerFilter = index < 0 ? "" : statsPlayers.get(index);
+        statsGameIndex = -1;
+        statsHandIndex = -1;
+        statsHands = List.of();
+        statsShowdown = List.of();
+        applyStatsPlayerFilter();
+        if (!statsPlayerFilter.isBlank() && !statsGames.isEmpty()) {
+            statsGameIndex = 0;
+        }
+        statsPicker = StatsPicker.NONE;
+        loadStatsScope();
+    }
+
+    private void applyStatsPlayerFilter() {
+        if (statsPlayerFilter.isBlank()) {
+            statsGames = statsAllGames;
+            return;
+        }
+        statsGames = statsAllGames.stream()
+                .filter(game -> game.players().stream().anyMatch(player ->
+                        player.equalsIgnoreCase(statsPlayerFilter)))
+                .toList();
+    }
+
+    private void openStatsPicker(StatsPicker picker) {
+        if (statsLoading || picker == StatsPicker.NONE) return;
+        if (picker == StatsPicker.HAND
+                && (statsGameIndex < 0 || statsHands.isEmpty()
+                        || !statsMode.supportsHandScope())) return;
+        statsPicker = picker;
+        int selected = switch (picker) {
+            case GAME -> statsGameIndex + 1;
+            case HAND -> statsHandIndex + 1;
+            case MODE -> statsMode.ordinal();
+            case PLAYER -> statsPlayerFilter.isBlank() ? 0
+                    : statsPlayers.indexOf(statsPlayerFilter) + 1;
+            case NONE -> 0;
+        };
+        statsPickerPage = Math.max(0, selected / 8);
+    }
+
+    private void selectStatsModeAt(int index) {
+        StatsMode[] values = StatsMode.values();
+        if (statsLoading || index < 0 || index >= values.length) return;
+        statsMode = values[index];
+        if (!statsMode.supportsHandScope()) statsHandIndex = -1;
+        statsPicker = StatsPicker.NONE;
+        loadStatsScope();
+    }
+
+    private void selectStatsMode(int direction) {
+        if (statsLoading) return;
+        StatsMode[] values = StatsMode.values();
+        statsMode = values[Math.floorMod(statsMode.ordinal() + direction,
+                values.length)];
+        if (!statsMode.supportsHandScope()) statsHandIndex = -1;
+        loadStatsScope();
+    }
+
+    private void loadStatsScope() {
+        long generation = ++statsLoadGeneration;
+        statsLoading = true;
+        statsError = "";
+        Integer gameId = statsGameIndex < 0 ? null
+                : statsGames.get(statsGameIndex).id();
+        Integer handId = statsHandIndex < 0 ? null
+                : statsHands.get(statsHandIndex).id();
+        CompletableFuture.runAsync(() -> {
+            try {
+                List<StatsRepository.HandSummary> hands = gameId == null
+                        ? List.of() : statsRepository.hands(gameId);
+                List<StatsRepository.BalanceRow> balances =
+                        statsRepository.balances(gameId, handId);
+                List<StatsRepository.BalancePoint> balanceHistory =
+                        gameId != null && handId == null
+                                ? statsRepository.balanceHistory(gameId)
+                                : List.of();
+                List<StatsRepository.ShowdownRow> showdown = handId == null
+                        ? List.of() : statsRepository.showdown(handId);
+                List<StatsRepository.MetricRow> metrics = loadStatsMetrics(
+                        gameId, handId);
+                List<StatsRepository.PerformanceRow> performance =
+                        statsMode == StatsMode.PERFORMANCE
+                                ? statsRepository.performance(gameId) : List.of();
+                List<StatsRepository.BestHandRow> bestHands =
+                        statsMode == StatsMode.BEST_HANDS
+                                ? statsRepository.bestHands(gameId) : List.of();
+                Gdx.app.postRunnable(() -> {
+                    if (disposed || generation != statsLoadGeneration) return;
+                    statsHands = hands;
+                    if (statsHandIndex >= hands.size()) statsHandIndex = -1;
+                    statsBalances = balances;
+                    statsBalanceHistory = balanceHistory;
+                    statsShowdown = showdown;
+                    statsMetrics = metrics;
+                    statsPerformance = performance;
+                    statsBestHands = bestHands;
+                    statsLoading = false;
+                });
+            } catch (Exception failure) {
+                postStatsFailure(generation, failure);
+            }
+        }, statsExecutor);
+    }
+
+    private List<StatsRepository.MetricRow> loadStatsMetrics(Integer gameId,
+            Integer handId) throws Exception {
+        return switch (statsMode) {
+            case BALANCE -> List.of();
+            case RESPONSE -> statsRepository.averageResponse(gameId, handId);
+            case PERFORMANCE, BEST_HANDS -> List.of();
+            case PREFLOP_RAISES -> statsRepository.raiseFrequency(gameId, 1);
+            case FLOP_RAISES -> statsRepository.raiseFrequency(gameId, 2);
+            case TURN_RAISES -> statsRepository.raiseFrequency(gameId, 3);
+            case RIVER_RAISES -> statsRepository.raiseFrequency(gameId, 4);
+        };
+    }
+
+    private void postStatsFailure(long generation, Exception failure) {
+        LOGGER.log(Level.WARNING, "Could not load GDX statistics", failure);
+        Gdx.app.postRunnable(() -> {
+            if (disposed || generation != statsLoadGeneration) return;
+            statsLoading = false;
+            statsError = failure.getMessage() == null
+                    ? failure.getClass().getSimpleName() : failure.getMessage();
+        });
+    }
+
+    private void toggleStatsPrivate() {
+        if (statsLoading || statsGameIndex < 0) return;
+        int index = statsGameIndex;
+        StatsRepository.GameSummary game = statsGames.get(index);
+        boolean value = !game.privateGame();
+        long generation = ++statsLoadGeneration;
+        statsLoading = true;
+        CompletableFuture.runAsync(() -> {
+            try {
+                statsRepository.setPrivate(game.id(), value);
+                Gdx.app.postRunnable(() -> {
+                    if (disposed || generation != statsLoadGeneration) return;
+                    List<StatsRepository.GameSummary> updated =
+                            new ArrayList<>(statsGames);
+                    if (index < updated.size()
+                            && updated.get(index).id() == game.id()) {
+                        updated.set(index, game.withPrivateGame(value));
+                        statsGames = List.copyOf(updated);
+                    }
+                    statsLoading = false;
+                });
+            } catch (Exception failure) {
+                postStatsFailure(generation, failure);
+            }
+        }, statsExecutor);
+    }
+
+    private void confirmStatsDeletion() {
+        StatsConfirmation action = statsConfirmation;
+        statsConfirmation = StatsConfirmation.NONE;
+        if (statsLoading || action == StatsConfirmation.NONE) return;
+        int gameId = statsGameIndex < 0 ? -1
+                : statsGames.get(statsGameIndex).id();
+        List<Integer> filteredGameIds = statsGames.stream()
+                .map(StatsRepository.GameSummary::id).toList();
+        long generation = ++statsLoadGeneration;
+        statsLoading = true;
+        CompletableFuture.runAsync(() -> {
+            try {
+                switch (action) {
+                    case IMPORTED -> statsRepository.deleteImportedGames();
+                    case GAME -> {
+                        if (gameId >= 0) statsRepository.deleteGame(gameId);
+                    }
+                    case PURGE_FILTERED -> statsRepository.deleteGames(
+                            filteredGameIds);
+                    case PRIVATE_FILTERED -> statsRepository.setPrivate(
+                            filteredGameIds, true);
+                    case PUBLIC_FILTERED -> statsRepository.setPrivate(
+                            filteredGameIds, false);
+                    case NONE -> { }
+                }
+                Gdx.app.postRunnable(() -> {
+                    if (disposed || generation != statsLoadGeneration) return;
+                    statsGameIndex = -1;
+                    statsHandIndex = -1;
+                    statsLoading = false;
+                    loadStatsGames();
+                });
+            } catch (Exception failure) {
+                postStatsFailure(generation, failure);
+            }
+        }, statsExecutor);
+    }
+
+    private void drawStatsScreen() {
+        panel(20f, 20f, 1880f, 1040f, "");
+        textFit(titleFont, gameText.translate("ui.estadisticas"), 62f,
+                1015f, GOLD, false, 1250f);
+        themedButton(1610f, 975f, 245f, 58f,
+                gameText.translate("ui.volver"), ButtonTone.NEUTRAL,
+                this::closeStats, true);
+
+        String gameLabel = statsGameIndex < 0
+                ? gameText.translate("gdx.stats.all_games")
+                : statsGameLabel(statsGames.get(statsGameIndex));
+        choice(60f, 840f, 580f,
+                gameText.translate("gdx.stats.game"), gameLabel,
+                () -> openStatsPicker(StatsPicker.GAME),
+                !statsLoading && !statsGames.isEmpty());
+        String handLabel = statsHandIndex < 0
+                ? gameText.translate("gdx.stats.all_hands")
+                : gameText.translate("game.mano") + " "
+                        + statsHands.get(statsHandIndex).counter();
+        choice(670f, 840f, 580f,
+                gameText.translate("gdx.stats.hand"), handLabel,
+                () -> openStatsPicker(StatsPicker.HAND),
+                !statsLoading && statsGameIndex >= 0 && !statsHands.isEmpty()
+                        && statsMode.supportsHandScope());
+        String playerLabel = statsPlayerFilter.isBlank()
+                ? gameText.translate("gdx.stats.all_players")
+                : statsPlayerFilter;
+        choice(1280f, 840f, 580f,
+                gameText.translate("gdx.stats.player_filter"), playerLabel,
+                () -> openStatsPicker(StatsPicker.PLAYER),
+                !statsLoading && !statsPlayers.isEmpty());
+
+        panel(60f, 70f, 400f, 710f,
+                statsHandIndex >= 0
+                        ? gameText.translate("gdx.stats.hand_detail")
+                        : gameText.translate("gdx.stats.summary"));
+        panel(490f, 70f, 1370f, 710f,
+                statsMode == StatsMode.BALANCE && statsHandIndex >= 0
+                        ? gameText.translate("gdx.stats.showdown")
+                        : gameText.translate("gdx.stats.view"));
+        choice(535f, STATS_MODE_SELECTOR_Y, 1280f,
+                STATS_MODE_SELECTOR_HEIGHT, "", statsModeLabel(),
+                () -> openStatsPicker(StatsPicker.MODE), !statsLoading);
+        if (statsLoading) {
+            textFit(headingFont, gameText.translate("gdx.lobby.media_loading"),
+                    1175f, 440f, CYAN, true, 1000f);
+            return;
+        }
+        if (!statsError.isBlank()) {
+            centeredWrappedText(smallFont, statsError, 1175f, 440f,
+                    1180f, 24f, 4, ORANGE);
+            return;
+        }
+        if (statsHandIndex >= 0) {
+            drawStatsHandSummary();
+        } else {
+            drawStatsSummary();
+        }
+        if (statsMode == StatsMode.BALANCE && statsHandIndex >= 0) {
+            drawStatsShowdown();
+        } else if (statsMode == StatsMode.BALANCE) {
+            drawStatsBalances();
+        } else if (statsMode == StatsMode.PERFORMANCE) {
+            drawStatsPerformance();
+        } else if (statsMode == StatsMode.BEST_HANDS) {
+            drawStatsBestHands();
+        } else {
+            drawStatsMetrics();
+        }
+        if (!statsLoading && !statsPlayerFilter.isBlank()
+                && !statsGames.isEmpty() && statsHandIndex < 0) {
+            themedButton(86f, 222f, 348f, 48f,
+                    gameText.translate("stats.hacer_privadas"),
+                    ButtonTone.NEUTRAL,
+                    () -> statsConfirmation = StatsConfirmation.PRIVATE_FILTERED,
+                    true);
+            themedButton(86f, 154f, 348f, 48f,
+                    gameText.translate("stats.quitar_privadas"),
+                    ButtonTone.NEUTRAL,
+                    () -> statsConfirmation = StatsConfirmation.PUBLIC_FILTERED,
+                    true);
+            themedButton(86f, 86f, 348f, 48f,
+                    gameText.translate("stats.purgar"), ButtonTone.DANGER,
+                    () -> statsConfirmation = StatsConfirmation.PURGE_FILTERED,
+                    true);
+        } else if (!statsLoading && statsGameIndex >= 0
+                && statsHandIndex < 0) {
+            StatsRepository.GameSummary game = statsGames.get(statsGameIndex);
+            toggle(86f, 222f, 348f,
+                    gameText.translate("gdx.stats.private_game"),
+                    game.privateGame(), this::toggleStatsPrivate, true);
+            themedButton(86f, 154f, 348f, 48f,
+                    gameText.translate("gdx.stats.delete_game"),
+                    ButtonTone.DANGER,
+                    () -> statsConfirmation = StatsConfirmation.GAME, true);
+            themedButton(86f, 86f, 348f, 48f,
+                    gameText.translate("stats.borrar_importadas"),
+                    ButtonTone.DANGER,
+                    () -> statsConfirmation = StatsConfirmation.IMPORTED,
+                    statsGames.stream().anyMatch(
+                            StatsRepository.GameSummary::imported));
+        } else if (!statsLoading && statsGameIndex < 0
+                && statsHandIndex < 0 && statsPlayerFilter.isBlank()) {
+            compactToggle(86f, 222f, 348f,
+                    gameText.translate("stats.sync_receive"),
+                    preferenceBoolean("sync_stats_receive", true),
+                    () -> toggleStatsSyncPreference("sync_stats_receive"),
+                    true);
+            compactToggle(86f, 144f, 348f,
+                    gameText.translate("stats.sync_share"),
+                    preferenceBoolean("sync_stats_share", true),
+                    () -> toggleStatsSyncPreference("sync_stats_share"),
+                    true);
+        }
+    }
+
+    private void toggleStatsSyncPreference(String key) {
+        togglePreference(key, true);
+        preferences.saveDeferred();
+    }
+
+    private void drawStatsConfirmation() {
+        shapes.setColor(new Color(0x02050cdd));
+        shapes.rect(0f, 0f, WIDTH, HEIGHT);
+        panel(560f, 350f, 800f, 330f, gameText.translate("ui.seguro"));
+        String prompt = switch (statsConfirmation) {
+            case IMPORTED -> gameText.translate("stats.borrar_importadas_confirm");
+            case PURGE_FILTERED -> gameText.translate(
+                    "player.eliminar_todas_las_timbas_donde");
+            case PRIVATE_FILTERED -> gameText.translate(
+                    "player.marcar_privadas_todas_las_timbas");
+            case PUBLIC_FILTERED -> gameText.translate(
+                    "player.quitar_privadas_todas_las_timbas");
+            case GAME, NONE -> gameText.translate(
+                    "gdx.stats.delete_game_confirm");
+        };
+        centeredWrappedText(smallFont, prompt, 960f, 560f, 680f,
+                28f, 4, Color.WHITE);
+        themedButton(635f, 405f, 300f, 75f,
+                uppercase(gameText.translate("ui.cancelar")),
+                ButtonTone.NEUTRAL,
+                () -> statsConfirmation = StatsConfirmation.NONE, true);
+        themedButton(985f, 405f, 300f, 75f,
+                uppercase(gameText.translate("gdx.stats.delete")),
+                ButtonTone.DANGER, this::confirmStatsDeletion, true);
+    }
+
+    private void drawStatsPicker() {
+        shapes.setColor(new Color(0x02050ce8));
+        shapes.rect(0f, 0f, WIDTH, HEIGHT);
+        boolean games = statsPicker == StatsPicker.GAME;
+        boolean modes = statsPicker == StatsPicker.MODE;
+        boolean players = statsPicker == StatsPicker.PLAYER;
+        String title = modes ? gameText.translate("gdx.stats.view")
+                : players ? gameText.translate("gdx.stats.player_filter")
+                : gameText.translate(games
+                        ? "gdx.stats.game" : "gdx.stats.hand");
+        panel(480f, 145f, 960f, 790f, title);
+        themedButton(1350f, 865f, 54f, 48f, "X", ButtonTone.NEUTRAL,
+                () -> statsPicker = StatsPicker.NONE, true);
+
+        int itemCount = modes ? StatsMode.values().length
+                : players ? statsPlayers.size() + 1
+                : (games ? statsGames.size() : statsHands.size()) + 1;
+        int pages = Math.max(1, (itemCount + 7) / 8);
+        statsPickerPage = MathUtils.clamp(statsPickerPage, 0, pages - 1);
+        int start = statsPickerPage * 8;
+        int end = Math.min(itemCount, start + 8);
+        float y = 780f;
+        for (int item = start; item < end; item++) {
+            int index = modes ? item : item - 1;
+            String label;
+            if (modes) {
+                label = statsModeLabel(StatsMode.values()[index]);
+            } else if (players) {
+                label = index < 0
+                        ? gameText.translate("gdx.stats.all_players")
+                        : statsPlayers.get(index);
+            } else if (index < 0) {
+                label = gameText.translate(games
+                        ? "gdx.stats.all_games" : "gdx.stats.all_hands");
+            } else if (games) {
+                label = statsGameLabel(statsGames.get(index));
+            } else {
+                label = gameText.translate("game.mano") + " "
+                        + statsHands.get(index).counter();
+            }
+            boolean selected = index == (modes ? statsMode.ordinal()
+                    : players ? statsPlayerFilter.isBlank() ? -1
+                            : statsPlayers.indexOf(statsPlayerFilter)
+                    : games ? statsGameIndex : statsHandIndex);
+            final int selectedIndex = index;
+            themedButton(535f, y, 850f, 58f, label,
+                    selected ? ButtonTone.FEATURED : ButtonTone.NEUTRAL,
+                    () -> {
+                        if (modes) selectStatsModeAt(selectedIndex);
+                        else if (players) selectStatsPlayerAt(selectedIndex);
+                        else if (games) selectStatsGameAt(selectedIndex);
+                        else selectStatsHandAt(selectedIndex);
+                    }, true);
+            y -= 67f;
+        }
+        themedButton(535f, 185f, 130f, 52f, "<", ButtonTone.NEUTRAL,
+                () -> statsPickerPage = Math.max(0, statsPickerPage - 1),
+                statsPickerPage > 0);
+        textFit(smallFont, (statsPickerPage + 1) + " / " + pages,
+                960f, 220f, MUTED, true, 300f);
+        themedButton(1255f, 185f, 130f, 52f, ">", ButtonTone.NEUTRAL,
+                () -> statsPickerPage = Math.min(pages - 1,
+                        statsPickerPage + 1), statsPickerPage + 1 < pages);
+    }
+
+    private String statsModeLabel() {
+        return statsModeLabel(statsMode);
+    }
+
+    private String statsModeLabel(StatsMode mode) {
+        return gameText.translate(switch (mode) {
+            case BALANCE -> "ui.gananciasperdidas";
+            case RESPONSE -> "ui.tiempo_medio_de_respuesta";
+            case PERFORMANCE -> "stats.rendimiento_de_los_jugadores";
+            case BEST_HANDS -> "ui.jugadas_ganadoras";
+            case PREFLOP_RAISES -> "stats.apuestassubidas_en_el_preflop";
+            case FLOP_RAISES -> "stats.apuestassubidas_en_el_flop";
+            case TURN_RAISES -> "stats.apuestassubidas_en_el_turn";
+            case RIVER_RAISES -> "stats.apuestassubidas_en_el_river";
+        });
+    }
+
+    private void drawStatsMetrics() {
+        float x = 540f;
+        float y = 645f;
+        String unit = statsMode == StatsMode.RESPONSE
+                ? gameText.translate("ui.segundos") : "%";
+        textFit(tinyFont, uppercase(gameText.translate("player.jugador")),
+                x, y, CYAN, false, 270f);
+        textFit(tinyFont, uppercase(unit), 1710f, y, CYAN, false, 100f);
+        y -= 52f;
+        int rows = Math.min(10, statsMetrics.size());
+        double maximum = statsMode == StatsMode.RESPONSE
+                ? statsMetrics.stream().mapToDouble(
+                        StatsRepository.MetricRow::value).max().orElse(1d)
+                : 100d;
+        maximum = Math.max(1d, maximum);
+        for (int index = 0; index < rows; index++) {
+            StatsRepository.MetricRow row = statsMetrics.get(index);
+            shapes.setColor(index % 2 == 0
+                    ? new Color(0x16263bdd) : new Color(0x101d30dd));
+            shapes.rect(x - 12f, y - 25f, 1275f, 48f);
+            textFit(smallFont, row.player(), x, y + 7f, Color.WHITE,
+                    false, 260f);
+            float barX = 835f;
+            float barWidth = 820f;
+            shapes.setColor(new Color(0x253248ff));
+            roundedRect(barX, y - 12f, barWidth, 24f, 6f);
+            shapes.setColor(statsMode == StatsMode.RESPONSE
+                    ? CYAN_DARK : ORANGE);
+            roundedRect(barX, y - 12f,
+                    Math.max(3f, Math.min(barWidth,
+                            barWidth * (float) (row.value() / maximum))),
+                    24f, 6f);
+            String value = String.format(Locale.ROOT, "%.1f%s", row.value(),
+                    unit);
+            textFit(smallFont, value, 1710f, y + 7f, GOLD,
+                    false, 100f);
+            y -= 52f;
+        }
+        if (statsMetrics.isEmpty()) {
+            textFit(smallFont, gameText.translate("gdx.stats.no_data"),
+                    1175f, 430f, MUTED, true, 1100f);
+        }
+    }
+
+    private void drawStatsPerformance() {
+        if (statsPerformance.isEmpty()) {
+            drawStatsEmptyState();
+            return;
+        }
+        drawStatsPerformanceRadar(525f, 155f, 500f, 500f);
+        float x = 1055f;
+        float y = 645f;
+        String[] headers = { gameText.translate("player.jugador"),
+            gameText.translate("stats.manos_jugadas"),
+            gameText.translate("stats.manos_ganadas_2"),
+            gameText.translate("stats.precision"),
+            gameText.translate("stats.roi"),
+            gameText.translate("stats.efectividad") };
+        float[] columns = { x, x + 185f, x + 305f, x + 430f,
+            x + 555f, x + 655f };
+        float[] widths = { 170f, 105f, 110f, 110f, 85f, 120f };
+        for (int index = 0; index < headers.length; index++) {
+            textFit(tinyFont, uppercase(headers[index]), columns[index], y,
+                    CYAN, false, widths[index]);
+        }
+        y -= 52f;
+        int rows = Math.min(10, statsPerformance.size());
+        for (int index = 0; index < rows; index++) {
+            StatsRepository.PerformanceRow row = statsPerformance.get(index);
+            shapes.setColor(index % 2 == 0
+                    ? new Color(0x16263bdd) : new Color(0x101d30dd));
+            shapes.rect(x - 10f, y - 23f, 755f, 42f);
+            String[] values = { row.player(), percent(row.playedPercent()),
+                percent(row.wonPercent()), percent(row.precisionPercent()),
+                percent(row.roiPercent()),
+                String.format(Locale.ROOT, "%.2f", row.effectiveness()) };
+            for (int column = 0; column < values.length; column++) {
+                textFit(smallFont, values[column], columns[column], y + 7f,
+                        column >= 4 && row.roiPercent() < 0d
+                                ? new Color(0xff6b6bff) : Color.WHITE,
+                        false, widths[column]);
+            }
+            y -= 48f;
+        }
+    }
+
+    private void drawStatsPerformanceRadar(float x, float y, float width,
+            float height) {
+        outerBox(x, y, width, height, new Color(0x31445fff),
+                new Color(0x071221c8));
+        textFit(smallFont, uppercase(gameText.translate(
+                "stats.chart_rendimiento")), x + 25f, y + height - 26f,
+                GOLD, false, width - 50f);
+        float cx = x + width / 2f;
+        float cy = y + 230f;
+        float radius = 165f;
+        float[] angles = { 90f, 210f, 330f };
+        for (int ring = 1; ring <= 4; ring++) {
+            float r = radius * ring / 4f;
+            float[] points = radarTriangle(cx, cy, r, r, r, angles);
+            shapes.setColor(new Color(0x66758a55));
+            shapes.rectLine(points[0], points[1], points[2], points[3], 1f);
+            shapes.rectLine(points[2], points[3], points[4], points[5], 1f);
+            shapes.rectLine(points[4], points[5], points[0], points[1], 1f);
+        }
+        String[] axes = { gameText.translate("stats.manos_jugadas"),
+            gameText.translate("stats.manos_ganadas_2"),
+            gameText.translate("stats.precision") };
+        textFit(tinyFont, axes[0], cx, cy + radius + 28f,
+                MUTED, true, 200f);
+        // Axis captions are centered inside their half of the chart.  Using
+        // the triangle vertices as their centres made long translations leak
+        // through the chart border even though textFit ellipsized correctly.
+        textFit(tinyFont, axes[1], x + 92f, cy - radius * 0.57f,
+                MUTED, true, 164f);
+        textFit(tinyFont, axes[2], x + width - 92f,
+                cy - radius * 0.57f, MUTED, true, 164f);
+        Color[] palette = { ORANGE, CYAN, new Color(0x64df86ff),
+            new Color(0xbc7affff), GOLD, new Color(0x2ad1c9ff),
+            new Color(0xff7f7fff), new Color(0x96c94cff) };
+        int count = Math.min(8, statsPerformance.size());
+        for (int index = 0; index < count; index++) {
+            StatsRepository.PerformanceRow row = statsPerformance.get(index);
+            float[] points = radarTriangle(cx, cy,
+                    radius * MathUtils.clamp((float) row.playedPercent(), 0f, 100f) / 100f,
+                    radius * MathUtils.clamp((float) row.wonPercent(), 0f, 100f) / 100f,
+                    radius * MathUtils.clamp((float) row.precisionPercent(), 0f, 100f) / 100f,
+                    angles);
+            Color color = palette[index % palette.length];
+            Color fill = new Color(color);
+            fill.a = 0.08f;
+            shapes.setColor(fill);
+            shapes.triangle(points[0], points[1], points[2], points[3],
+                    points[4], points[5]);
+            shapes.setColor(color);
+            shapes.rectLine(points[0], points[1], points[2], points[3], 2f);
+            shapes.rectLine(points[2], points[3], points[4], points[5], 2f);
+            shapes.rectLine(points[4], points[5], points[0], points[1], 2f);
+            float legendX = x + 18f + (index % 4) * 120f;
+            float legendY = y + 28f + (index / 4) * 24f;
+            shapes.rect(legendX, legendY - 7f, 16f, 4f);
+            textFit(tinyFont, row.player(), legendX + 23f, legendY,
+                    color, false, 90f);
+        }
+    }
+
+    private static float[] radarTriangle(float cx, float cy, float first,
+            float second, float third, float[] angles) {
+        float[] radii = { first, second, third };
+        float[] points = new float[6];
+        for (int index = 0; index < 3; index++) {
+            float radians = angles[index] * MathUtils.degreesToRadians;
+            points[index * 2] = cx + MathUtils.cos(radians) * radii[index];
+            points[index * 2 + 1] = cy + MathUtils.sin(radians) * radii[index];
+        }
+        return points;
+    }
+
+    private void drawStatsBestHands() {
+        if (statsBestHands.isEmpty()) {
+            drawStatsEmptyState();
+            return;
+        }
+        drawStatsWinningHandDistribution(525f, 155f, 620f, 500f);
+        float x = 1175f;
+        float y = 645f;
+        String[] headers = { gameText.translate("player.jugador"),
+            gameText.translate("ui.cartas_recibidas"),
+            gameText.translate("ui.jugada"),
+            gameText.translate("game.mano_2"),
+            gameText.translate("ui.beneficio") };
+        float[] columns = { x, x + 145f, x + 260f, x + 445f, x + 525f };
+        float[] widths = { 130f, 100f, 170f, 68f, 105f };
+        for (int index = 0; index < headers.length; index++) {
+            textFit(tinyFont, uppercase(headers[index]), columns[index], y,
+                    CYAN, false, widths[index]);
+        }
+        y -= 52f;
+        int rows = Math.min(10, statsBestHands.size());
+        for (int index = 0; index < rows; index++) {
+            StatsRepository.BestHandRow row = statsBestHands.get(index);
+            shapes.setColor(index % 2 == 0
+                    ? new Color(0x16263bdd) : new Color(0x101d30dd));
+            shapes.rect(x - 10f, y - 23f, 630f, 42f);
+            String[] values = { row.player(), statsCards(row.holeCards(),
+                "*****"), statsHandRank(row.handValue()),
+                Integer.toString(row.handCounter()), money(row.profit()) };
+            for (int column = 0; column < values.length; column++) {
+                textFit(smallFont, values[column], columns[column], y + 7f,
+                        column == 4 ? new Color(0x64df86ff) : Color.WHITE,
+                        false, widths[column]);
+            }
+            y -= 48f;
+        }
+    }
+
+    private void drawStatsWinningHandDistribution(float x, float y,
+            float width, float height) {
+        outerBox(x, y, width, height, new Color(0x31445fff),
+                new Color(0x071221c8));
+        textFit(smallFont, uppercase(gameText.translate("stats.chart_jugadas")),
+                x + 25f, y + height - 26f, GOLD, false, width - 50f);
+        int[] counts = new int[11];
+        for (StatsRepository.BestHandRow row : statsBestHands) {
+            if (row.handValue() >= 1 && row.handValue() <= 10) {
+                counts[row.handValue()]++;
+            }
+        }
+        int maximum = Arrays.stream(counts).max().orElse(1);
+        int visible = 0;
+        for (int rank = 1; rank <= 10; rank++) if (counts[rank] > 0) visible++;
+        float rowHeight = Math.min(40f, 390f / Math.max(1, visible));
+        float rowY = y + height - 92f;
+        for (int rank = 1; rank <= 10; rank++) {
+            if (counts[rank] == 0) continue;
+            String label = statsHandRank(rank);
+            textFit(tinyFont, label, x + 25f, rowY + 7f, Color.WHITE,
+                    false, 235f);
+            float barX = x + 275f;
+            float barWidth = width - 335f;
+            shapes.setColor(new Color(0x253248ff));
+            roundedRect(barX, rowY - 10f, barWidth, 22f, 5f);
+            shapes.setColor(new Color(0xbc7affdd));
+            roundedRect(barX, rowY - 10f,
+                    Math.max(3f, barWidth * counts[rank] / maximum),
+                    22f, 5f);
+            textFit(tinyFont, Integer.toString(counts[rank]),
+                    x + width - 45f, rowY + 7f, GOLD, false, 30f);
+            rowY -= rowHeight;
+        }
+    }
+
+    private void drawStatsEmptyState() {
+        textFit(smallFont, gameText.translate("gdx.stats.no_data"),
+                1175f, 430f, MUTED, true, 1100f);
+    }
+
+    private static String percent(double value) {
+        return String.format(Locale.ROOT, "%.1f%%", value);
+    }
+
+    private String statsGameLabel(StatsRepository.GameSummary game) {
+        return game.server() + "  ·  " + STATS_TIME.format(
+                Instant.ofEpochMilli(game.startedAtMillis()));
+    }
+
+    private void drawStatsSummary() {
+        if (statsGameIndex < 0) {
+            textFit(headingFont, Integer.toString(statsGames.size()), 260f,
+                    570f, GOLD, true, 330f);
+            textFit(smallFont, gameText.translate("gdx.stats.saved_games"),
+                    260f, 530f, MUTED, true, 330f);
+            return;
+        }
+        StatsRepository.GameSummary game = statsGames.get(statsGameIndex);
+        float y = 675f;
+        statsSummaryLine(gameText.translate("gdx.stats.server"), game.server(), y);
+        y -= 40f;
+        String elapsedDuration = game.endedAtMillis() == null
+                ? "--:--:--"
+                : formatStatsDuration(Math.max(0L,
+                        (game.endedAtMillis() - game.startedAtMillis()) / 1000L));
+        statsSummaryLine(gameText.translate("stats.duracion"),
+                elapsedDuration + " (" + formatStatsDuration(
+                        game.playTimeSeconds()) + ")", y); y -= 40f;
+        statsSummaryLine(gameText.translate("stats.manos"),
+                Integer.toString(game.hands()), y); y -= 40f;
+        statsSummaryLine(gameText.translate("stats.buyin"),
+                Integer.toString(game.buyin()), y); y -= 40f;
+        statsSummaryLine(gameText.translate("gdx.stats.blinds"),
+                money(game.smallBlind()) + " / "
+                        + money(game.smallBlind() * 2d), y); y -= 40f;
+        statsSummaryLine(gameText.translate("stats.aumentar_ciegas"),
+                statsBlindIncrease(game), y); y -= 40f;
+        statsSummaryLine(gameText.translate("stats.recomprar"),
+                gameText.translate(game.rebuy() ? "ui.si" : "gdx.stats.no"),
+                y); y -= 40f;
+        statsSummaryWrappedLine(gameText.translate("gdx.stats.players"),
+                String.join(" · ", game.players()), y); y -= 62f;
+        String origin = game.imported()
+                ? gameText.translate("gdx.stats.imported")
+                        + (game.importedFrom() == null
+                                || game.importedFrom().isBlank() ? ""
+                                        : " (" + game.importedFrom() + ")")
+                : gameText.translate("gdx.stats.local");
+        statsSummaryLine(gameText.translate("gdx.stats.origin"),
+                origin, y);
+    }
+
+    private void drawStatsHandSummary() {
+        StatsRepository.HandSummary hand = statsHands.get(statsHandIndex);
+        float y = 675f;
+        statsSummaryLine(gameText.translate("game.mano"),
+                Integer.toString(hand.counter()), y); y -= 43f;
+        statsSummaryLine(gameText.translate("gdx.stats.blinds"),
+                money(hand.smallBlind()) + " / "
+                        + money(hand.smallBlind() * 2d), y); y -= 43f;
+        statsSummaryLine(gameText.translate("stats.bote"), money(hand.pot()), y);
+        y -= 43f;
+        statsSummaryLine(gameText.translate("ui.cartas_comunitarias"),
+                statsCards(hand.communityCards(), "-----"), y); y -= 43f;
+        statsSummaryLine(gameText.translate("position.dealer"),
+                hand.dealer(), y); y -= 43f;
+        statsSummaryLine(gameText.translate("stats.ciega_pequena"),
+                hand.smallBlindPlayer(), y); y -= 43f;
+        statsSummaryLine(gameText.translate("stats.ciega_grande"),
+                hand.bigBlindPlayer(), y); y -= 43f;
+        long duration = Math.max(0L,
+                (hand.endedAtMillis() - hand.startedAtMillis()) / 1000L);
+        statsSummaryLine(gameText.translate("gdx.stats.duration"),
+                formatStatsDuration(duration), y); y -= 43f;
+        statsSummaryLine(gameText.translate("stats.jugadores_preflop"),
+                statsPlayers(hand.preflopPlayers()), y); y -= 43f;
+        statsSummaryLine(gameText.translate("stats.jugadores_flop"),
+                statsPlayers(hand.flopPlayers()), y); y -= 43f;
+        statsSummaryLine(gameText.translate("stats.jugadores_turn"),
+                statsPlayers(hand.turnPlayers()), y); y -= 43f;
+        statsSummaryLine(gameText.translate("stats.jugadores_river"),
+                statsPlayers(hand.riverPlayers()), y);
+    }
+
+    private String statsBlindIncrease(StatsRepository.GameSummary game) {
+        if (game.blindsTime() < 0) return gameText.translate("gdx.stats.no");
+        return Integer.toString(game.blindsTime())
+                + (game.blindsTimeType() <= 1 ? " min" : " ×");
+    }
+
+    private static String statsPlayers(List<String> players) {
+        return players == null || players.isEmpty()
+                ? "-----" : String.join(" · ", players);
+    }
+
+    private static String formatStatsDuration(long seconds) {
+        long safe = Math.max(0L, seconds);
+        long hours = safe / 3600L;
+        long minutes = safe % 3600L / 60L;
+        long remainder = safe % 60L;
+        return String.format(Locale.ROOT, "%02d:%02d:%02d", hours, minutes,
+                remainder);
+    }
+
+    private void drawStatsShowdown() {
+        float x = 535f;
+        float y = 645f;
+        String[] headers = { gameText.translate("player.jugador"),
+            gameText.translate("ui.gana_3"),
+            gameText.translate("ui.cartas_recibidas"),
+            gameText.translate("ui.jugada"),
+            gameText.translate("action.pagar"),
+            gameText.translate("ui.beneficio") };
+        float[] columns = { x, x + 285f, x + 390f, x + 625f,
+            x + 930f, x + 1080f };
+        float[] widths = { 260f, 80f, 210f, 280f, 125f, 170f };
+        for (int index = 0; index < headers.length; index++) {
+            textFit(tinyFont, uppercase(headers[index]), columns[index], y,
+                    CYAN, false, widths[index]);
+        }
+        y -= 48f;
+        int rows = Math.min(10, statsShowdown.size());
+        for (int index = 0; index < rows; index++) {
+            StatsRepository.ShowdownRow row = statsShowdown.get(index);
+            Color result = row.profit() > 0d ? new Color(0x64df86ff)
+                    : row.profit() < 0d ? new Color(0xff6b6bff) : MUTED;
+            shapes.setColor(index % 2 == 0
+                    ? new Color(0x16263bdd) : new Color(0x101d30dd));
+            shapes.rect(x - 12f, y - 23f, 1275f, 42f);
+            textFit(smallFont, row.player(), columns[0], y + 7f,
+                    Color.WHITE, false, widths[0]);
+            textFit(smallFont, row.winner()
+                    ? gameText.translate("ui.si")
+                            : gameText.translate("gdx.stats.no"),
+                    columns[1], y + 7f, row.winner() ? GOLD : MUTED,
+                    false, widths[1]);
+            textFit(smallFont, statsCards(row.holeCards(), "*****"),
+                    columns[2], y + 7f, Color.WHITE, false, widths[2]);
+            textFit(smallFont, statsHandRank(row.handValue()), columns[3],
+                    y + 7f, Color.WHITE, false, widths[3]);
+            textFit(smallFont, money(row.pay()), columns[4], y + 7f,
+                    Color.WHITE, false, widths[4]);
+            textFit(smallFont, money(row.profit()), columns[5], y + 7f,
+                    result, false, widths[5]);
+            y -= 48f;
+        }
+        if (statsShowdown.isEmpty()) {
+            textFit(smallFont, gameText.translate("gdx.stats.no_showdown"),
+                    1175f, 430f, MUTED, true, 1100f);
+        }
+    }
+
+    private String statsHandRank(int value) {
+        String[] keys = { "hand.high_card", "hand.one_pair",
+            "hand.two_pair", "hand.three_of_a_kind", "hand.straight",
+            "hand.flush", "hand.full_house", "hand.four_of_a_kind",
+            "hand.straight_flush", "hand.royal_flush" };
+        return value >= 1 && value <= keys.length
+                ? gameText.translate(keys[value - 1]) : "-----";
+    }
+
+    private static String statsCards(List<String> cards, String empty) {
+        if (cards == null || cards.isEmpty()) return empty;
+        List<String> readable = new ArrayList<>(cards.size());
+        for (String card : cards) {
+            if (card == null || card.isBlank()) continue;
+            String[] parts = card.trim().split("_");
+            if (parts.length != 2) {
+                readable.add(card.trim());
+                continue;
+            }
+            String suit = switch (parts[1].toUpperCase(Locale.ROOT)) {
+                case "C" -> "♥";
+                case "D" -> "♦";
+                case "P" -> "♠";
+                case "T" -> "♣";
+                default -> parts[1];
+            };
+            readable.add(parts[0] + suit);
+        }
+        return readable.isEmpty() ? empty : String.join("  ", readable);
+    }
+
+    private void statsSummaryLine(String label, String value, float y) {
+        shapes.setColor(new Color(0x31445f88));
+        shapes.rect(86f, y - 23f, 348f, 1f);
+        textFit(tinyFont, uppercase(label), 86f, y + 8f, MUTED, false, 132f);
+        textFit(smallFont, value, 230f, y + 8f, Color.WHITE, false, 204f);
+    }
+
+    private void statsSummaryWrappedLine(String label, String value, float y) {
+        shapes.setColor(new Color(0x31445f88));
+        shapes.rect(86f, y - 49f, 348f, 1f);
+        textFit(tinyFont, uppercase(label), 86f, y + 8f, MUTED, false, 132f);
+        wrappedText(tinyFont, value, 230f, y + 8f, 204f, 21f, 3,
+                Color.WHITE);
+    }
+
+    private void drawStatsBalances() {
+        if (statsBalances.isEmpty()) {
+            textFit(smallFont,
+                    gameText.translate("stats.no_partidas_guardadas"),
+                    1175f, 430f, MUTED, true, 1100f);
+            return;
+        }
+        drawStatsBalanceChart(525f, 155f, 775f, 500f);
+
+        float x = 1310f;
+        float y = 635f;
+        String[] headers = { gameText.translate("player.jugador"),
+            gameText.translate("stats.stack"), gameText.translate("stats.buyin"),
+            gameText.translate("ui.beneficio"), gameText.translate("stats.roi") };
+        float[] columns = { x, x + 170f, x + 265f, x + 360f, x + 460f };
+        float[] widths = { 155f, 80f, 80f, 90f, 65f };
+        for (int index = 0; index < headers.length; index++) {
+            textFit(tinyFont, uppercase(headers[index]), columns[index], y,
+                    CYAN, false, widths[index]);
+        }
+        y -= 42f;
+        int rows = Math.min(10, statsBalances.size());
+        for (int index = 0; index < rows; index++) {
+            StatsRepository.BalanceRow row = statsBalances.get(index);
+            Color profit = row.profit() > 0d ? new Color(0x64df86ff)
+                    : row.profit() < 0d ? new Color(0xff6b6bff) : MUTED;
+            shapes.setColor(index % 2 == 0
+                    ? new Color(0x16263bdd) : new Color(0x101d30dd));
+            shapes.rect(x - 10f, y - 20f, 535f, 37f);
+            String[] values = { row.player(), money(row.stack()),
+                money(row.buyin()), money(row.profit()),
+                String.format(Locale.ROOT, "%.1f%%", row.roiPercent()) };
+            for (int column = 0; column < values.length; column++) {
+                textFit(tinyFont, values[column], columns[column], y + 6f,
+                        column >= 3 ? profit : Color.WHITE,
+                        false, widths[column]);
+            }
+            y -= 41f;
+        }
+    }
+
+    private void drawStatsBalanceChart(float x, float y, float width,
+            float height) {
+        outerBox(x, y, width, height, new Color(0x31445fff),
+                new Color(0x071221c8));
+        String title = gameText.translate(statsBalanceHistory.isEmpty()
+                ? "stats.chart_beneficio" : "stats.chart_stack");
+        textFit(smallFont, uppercase(title), x + 28f, y + height - 26f,
+                GOLD, false, width - 56f);
+        if (statsBalanceHistory.isEmpty()) {
+            drawStatsProfitBars(x + 25f, y + 35f, width - 50f,
+                    height - 100f);
+        } else {
+            drawStatsStackLines(x + 25f, y + 35f, width - 50f,
+                    height - 100f);
+        }
+    }
+
+    private void drawStatsProfitBars(float x, float y, float width,
+            float height) {
+        double maximum = statsBalances.stream().mapToDouble(row ->
+                Math.abs(row.profit())).max().orElse(1d);
+        maximum = Math.max(0.01d, maximum);
+        float middle = x + width * 0.52f;
+        shapes.setColor(new Color(0xa8b3c055));
+        shapes.rect(middle, y, 2f, height);
+        int count = Math.min(10, statsBalances.size());
+        float rowHeight = height / Math.max(1, count);
+        for (int index = 0; index < count; index++) {
+            StatsRepository.BalanceRow row = statsBalances.get(index);
+            float cy = y + height - (index + 0.5f) * rowHeight;
+            float available = width * 0.42f;
+            float bar = Math.max(3f, available
+                    * (float) (Math.abs(row.profit()) / maximum));
+            boolean positive = row.profit() >= 0d;
+            shapes.setColor(positive ? new Color(0x2ea043dd)
+                    : new Color(0xc83737dd));
+            float barX = positive ? middle + 2f : middle - bar;
+            roundedRect(barX, cy - Math.min(13f, rowHeight * 0.3f), bar,
+                    Math.min(26f, rowHeight * 0.6f), 5f);
+            textFit(tinyFont, row.player(), x, cy + 7f, Color.WHITE,
+                    false, width * 0.42f - 12f);
+            float valueX = positive
+                    ? Math.min(middle + bar + 10f, x + width - 75f)
+                    : Math.max(middle - bar - 80f, x);
+            textFit(tinyFont, money(row.profit()), valueX,
+                    cy + 7f, positive ? new Color(0x64df86ff)
+                            : new Color(0xff6b6bff),
+                    false, 75f);
+        }
+    }
+
+    private void drawStatsStackLines(float x, float y, float width,
+            float height) {
+        int minimumHand = statsBalanceHistory.stream().mapToInt(
+                StatsRepository.BalancePoint::handCounter).min().orElse(0);
+        int maximumHand = statsBalanceHistory.stream().mapToInt(
+                StatsRepository.BalancePoint::handCounter).max().orElse(1);
+        double minimumStack = statsBalanceHistory.stream().mapToDouble(
+                StatsRepository.BalancePoint::stack).min().orElse(0d);
+        double maximumStack = statsBalanceHistory.stream().mapToDouble(
+                StatsRepository.BalancePoint::stack).max().orElse(1d);
+        if (maximumHand == minimumHand) maximumHand++;
+        if (Math.abs(maximumStack - minimumStack) < 0.001d) maximumStack++;
+        float plotX = x + 52f;
+        float plotY = y + 32f;
+        float plotW = width - 70f;
+        float plotH = height - 140f;
+        for (int line = 0; line <= 4; line++) {
+            float gy = plotY + plotH * line / 4f;
+            shapes.setColor(new Color(0x66758a44));
+            shapes.rect(plotX, gy, plotW, 1f);
+            double value = minimumStack
+                    + (maximumStack - minimumStack) * line / 4d;
+            textFit(tinyFont, money(value), x, gy + 6f, MUTED,
+                    false, 45f);
+        }
+        Map<String, List<StatsRepository.BalancePoint>> series =
+                new LinkedHashMap<>();
+        for (StatsRepository.BalancePoint point : statsBalanceHistory) {
+            series.computeIfAbsent(point.player(), ignored -> new ArrayList<>())
+                    .add(point);
+        }
+        Color[] palette = { ORANGE, CYAN, new Color(0x64df86ff),
+            new Color(0xbc7affff), GOLD, new Color(0x2ad1c9ff),
+            new Color(0xff7f7fff), new Color(0x96c94cff) };
+        int seriesIndex = 0;
+        for (Map.Entry<String, List<StatsRepository.BalancePoint>> entry
+                : series.entrySet()) {
+            Color color = palette[seriesIndex % palette.length];
+            StatsRepository.BalancePoint previous = null;
+            for (StatsRepository.BalancePoint point : entry.getValue()) {
+                float px = plotX + plotW * (point.handCounter() - minimumHand)
+                        / (maximumHand - minimumHand);
+                float py = plotY + plotH
+                        * (float) ((point.stack() - minimumStack)
+                                / (maximumStack - minimumStack));
+                shapes.setColor(color);
+                shapes.circle(px, py, 3.5f, 18);
+                if (previous != null) {
+                    float previousX = plotX + plotW
+                            * (previous.handCounter() - minimumHand)
+                            / (maximumHand - minimumHand);
+                    float previousY = plotY + plotH
+                            * (float) ((previous.stack() - minimumStack)
+                                    / (maximumStack - minimumStack));
+                    shapes.rectLine(previousX, previousY, px, py, 2.5f);
+                }
+                previous = point;
+            }
+            float legendX = plotX + (seriesIndex % 4) * (plotW / 4f);
+            // Keep a dedicated title row above the legend.  The previous
+            // -28 baseline put both on the same line and made the chart look
+            // as if its contents escaped their panel.
+            float legendY = y + height - 66f
+                    - (seriesIndex / 4) * 23f;
+            shapes.setColor(color);
+            shapes.rect(legendX, legendY - 7f, 16f, 4f);
+            textFit(tinyFont, entry.getKey(), legendX + 23f,
+                    legendY, color, false, plotW / 4f - 30f);
+            seriesIndex++;
+        }
+        textFit(tinyFont, Integer.toString(minimumHand), plotX,
+                y + 23f, MUTED, false, 60f);
+        textFit(tinyFont, Integer.toString(maximumHand),
+                plotX + plotW - 60f, y + 23f, MUTED, false, 60f);
     }
 
     private String uppercase(String value) {
@@ -965,16 +2181,22 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void openLatestRelease() {
         dismissUpdatePrompt();
+        openExternalUri(ApplicationMetadata.LATEST_RELEASE_URI,
+                "gdx.update.open_failed");
+    }
+
+    private void openExternalUri(URI uri, String failureKey) {
         try {
             if (!Desktop.isDesktopSupported()
                     || !Desktop.getDesktop().isSupported(
                             Desktop.Action.BROWSE)) {
                 throw new IOException("Desktop browsing is unavailable");
             }
-            Desktop.getDesktop().browse(ApplicationMetadata.LATEST_RELEASE_URI);
+            Desktop.getDesktop().browse(uri);
         } catch (IOException | RuntimeException failure) {
-            LOGGER.log(Level.WARNING, "Could not open latest release", failure);
-            showToast(gameText.translate("gdx.update.open_failed"));
+            LOGGER.log(Level.WARNING, "Could not open external URI " + uri,
+                    failure);
+            showToast(gameText.translate(failureKey));
         }
     }
 
@@ -1028,13 +2250,22 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float y = 58f;
         float w = 1300f;
         float h = 964f;
-        outerBox(x, y, w, h, CYAN_DARK, new Color(0x071321fc));
+        // About is a reading surface rather than another dark game panel.
+        // A lighter blue-slate fill preserves contrast and hierarchy.
+        outerBox(x, y, w, h, CYAN_DARK, new Color(ABOUT_PANEL_RGBA));
         shapes.setColor(new Color(0x36d9ffb8));
         shapes.rect(x + 28f, y + h - 10f, w - 56f, 3f);
         textFit(titleFont, uppercase(gameText.translate("about.titulo")),
                 WIDTH / 2f, y + h - 58f, GOLD, true, w - 120f);
         textFit(smallFont, "CORONAPOKER  " + ApplicationMetadata.VERSION,
                 WIDTH / 2f, y + h - 112f, CYAN, true, w - 120f);
+
+        float aboutLogoHeight = ABOUT_LOGO_WIDTH * logo.getHeight()
+                / logo.getWidth();
+        hit(WIDTH / 2f - ABOUT_LOGO_WIDTH / 2f, ABOUT_LOGO_Y,
+                ABOUT_LOGO_WIDTH, aboutLogoHeight,
+                () -> openExternalUri(ABOUT_PROJECT_URI,
+                        "gdx.about.open_failed"));
 
         centeredWrappedText(smallFont,
                 gameText.translate("about.merecemos"), WIDTH / 2f,
@@ -1050,7 +2281,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 612f, w - 130f, 21f, 2, MUTED);
 
         textFit(headingFont, gameText.translate("about.dedicado"),
-                1040f, 505f, Color.WHITE, true, 900f);
+                1058f, 505f, Color.WHITE, true, 830f);
 
         float musicY = 436f;
         String[] musicKeys = {
@@ -1065,6 +2296,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
         centeredWrappedText(tinyFont, gameText.translate("about.copyright"),
                 WIDTH / 2f, 316f, w - 120f, 20f, 2, MUTED);
+        hit(WIDTH / 2f - 28f, 233f, 56f, 56f,
+                () -> openExternalUri(ABOUT_RULES_URI,
+                        "gdx.about.open_failed"));
         textFit(smallFont, gameText.translate("about.hecho_a_mano"),
                 WIDTH / 2f, 228f, Color.WHITE, true, w - 150f);
         text(tinyFont, "Jn 8:32", x + 62f, 178f, MUTED, false);
@@ -4407,19 +5641,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void syncMusicForSurface() {
         if (backgroundMusic == null || waitingRoomMusic == null
-                || aboutMusic == null) return;
+                || aboutMusic == null || statsMusic == null) return;
         float volume = masterVolume();
         GdxVoicePlayback.refreshVolume(volume);
         backgroundMusic.setVolume(0.40f * volume);
         waitingRoomMusic.setVolume(0.90f * volume);
         aboutMusic.setVolume(0.90f * volume);
+        statsMusic.setVolume(0.30f * volume);
         boolean lobbyMusic = surface == Surface.LOBBY
+                || (surface == Surface.STATS
+                        && statsConfirmation != StatsConfirmation.NONE)
                 || (surface == Surface.SETTINGS
                 && settingsReturnSurface == Surface.LOBBY);
         boolean aboutDialogMusic = surface == Surface.MENU && aboutOpen;
+        boolean statsDialogMusic = surface == Surface.STATS;
         boolean playBackground = frontendTrackAllowed(tableAudioSuspended,
                 !startupAudioHeld
                 && musicMasterEnabled() && !lobbyMusic && !aboutDialogMusic
+                && !statsDialogMusic
                 && preferenceBoolean("sonido_ascensor", true));
         boolean playWaitingRoom = frontendTrackAllowed(tableAudioSuspended,
                 musicMasterEnabled() && lobbyMusic
@@ -4427,9 +5666,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         boolean playAbout = frontendTrackAllowed(tableAudioSuspended,
                 musicMasterEnabled() && aboutDialogMusic
                 && preferenceBoolean("musica_about", true));
+        boolean playStats = frontendTrackAllowed(tableAudioSuspended,
+                musicMasterEnabled() && statsDialogMusic
+                && preferenceBoolean("musica_stats", true));
         syncTrack(backgroundMusic, playBackground);
         syncTrack(waitingRoomMusic, playWaitingRoom);
         syncTrack(aboutMusic, playAbout);
+        syncTrack(statsMusic, playStats);
     }
 
     private static void syncTrack(Music music, boolean play) {
@@ -4457,6 +5700,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (backgroundMusic != null) backgroundMusic.pause();
         if (waitingRoomMusic != null) waitingRoomMusic.pause();
         if (aboutMusic != null) aboutMusic.pause();
+        if (statsMusic != null) statsMusic.pause();
     }
 
     private void stopLobbyTransientAudio() {
@@ -4560,8 +5804,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 uppercase(gameText.translate("gdx.newgame.your_profile")));
         panel(1130f, 185f, 725f, 625f,
                 uppercase(gameText.translate("gdx.connection")));
-        sectionTag(1644f, 754f, 176f,
-                uppercase(gameText.translate("gdx.network_data")), CYAN);
 
         shapes.setColor(CYAN_DARK);
         shapes.circle(520f, 660f, 70f, 64);
@@ -5854,12 +7096,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void toggle(float x, float y, float w, String label,
             boolean value, Runnable action, boolean enabled) {
+        toggle(x, y, w, label, value, action, enabled, smallFont);
+    }
+
+    private void compactToggle(float x, float y, float w, String label,
+            boolean value, Runnable action, boolean enabled) {
+        toggle(x, y, w, label, value, action, enabled, tinyFont);
+    }
+
+    private void toggle(float x, float y, float w, String label,
+            boolean value, Runnable action, boolean enabled,
+            BitmapFont labelFont) {
         Color border = enabled && hovered(x, y, w, GdxSettingsLayout.ROW_HEIGHT)
                 ? CYAN : enabled ? LINE : new Color(0x253044ff);
         Color fill = enabled && pressed(x, y, w, GdxSettingsLayout.ROW_HEIGHT)
                 ? new Color(0x0b1424ff) : enabled ? PANEL_LIGHT : new Color(0x0b111ddd);
         outerBox(x, y, w, GdxSettingsLayout.ROW_HEIGHT, border, fill);
-        textFit(smallFont, label, x + 22f, y + 43f,
+        textFit(labelFont, label, x + 22f, y + 43f,
                 enabled ? Color.WHITE : DISABLED, false, w - 132f);
         float tx = x + w - 88f;
         float target = value && enabled ? 1f : 0f;
@@ -6661,7 +7914,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return true;
         }
         if (keycode == Input.Keys.ESCAPE) {
-            if (aboutOpen) {
+            if (surface == Surface.STATS) {
+                if (statsPicker != StatsPicker.NONE) {
+                    statsPicker = StatsPicker.NONE;
+                } else if (statsConfirmation != StatsConfirmation.NONE) {
+                    statsConfirmation = StatsConfirmation.NONE;
+                } else {
+                    closeStats();
+                }
+                return true;
+            } else if (aboutOpen) {
                 if (aboutEasterEggTexture != null) {
                     closeAboutEasterEgg();
                 } else {
@@ -6705,6 +7967,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 settingsDiscardConfirmation = false;
                 return true;
             }
+            if (statsConfirmation != StatsConfirmation.NONE) {
+                statsConfirmation = StatsConfirmation.NONE;
+                return true;
+            }
             if (lobbyVoiceRecorder != null) {
                 cancelLobbyVoiceRecording();
                 return true;
@@ -6730,6 +7996,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 }
             } else if (surface == Surface.SETTINGS) {
                 requestCancelSettings();
+            } else if (surface == Surface.STATS) {
+                closeStats();
             }
             // The root menu is already the navigation endpoint.  ESC must not
             // terminate the process there: exiting is an explicit, confirmed
@@ -6738,7 +8006,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         if (aboutOpen || updatePromptOpen || lobbyConfirmation != null
                 || fingerprintDialog != null
-                || settingsDiscardConfirmation) {
+                || settingsDiscardConfirmation
+                || statsConfirmation != StatsConfirmation.NONE) {
             // These decision surfaces have no editable field. Do not let
             // ENTER or a configured shortcut operate on the obscured page.
             return true;
@@ -7065,6 +8334,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         recoveryLoadGeneration++;
         autoSubmitRecovery = false;
         recoveryExecutor.shutdownNow();
+        statsExecutor.shutdownNow();
         cancelLobbyVoiceRecording();
         GdxVoicePlayback.stop();
         clearLobbyMedia();
@@ -7102,6 +8372,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         waitingRoomMusic.dispose();
         aboutMusic.stop();
         aboutMusic.dispose();
+        statsMusic.stop();
+        statsMusic.dispose();
         for (Texture texture : lobbyAvatarTextures.values()) {
             texture.dispose();
         }
@@ -7209,11 +8481,36 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private enum Surface {
-        MENU, NEW_GAME, LOBBY, SETTINGS
+        MENU, NEW_GAME, LOBBY, SETTINGS, STATS
     }
 
     private enum ScrollDrag {
         NONE, LOBBY_CHAT, SETTINGS_DEBUG
+    }
+
+    private enum StatsMode {
+        BALANCE(true), RESPONSE(true), BEST_HANDS(false), PERFORMANCE(false),
+        PREFLOP_RAISES(false),
+        FLOP_RAISES(false), TURN_RAISES(false), RIVER_RAISES(false);
+
+        private final boolean handScope;
+
+        StatsMode(boolean handScope) {
+            this.handScope = handScope;
+        }
+
+        boolean supportsHandScope() {
+            return handScope;
+        }
+    }
+
+    private enum StatsConfirmation {
+        NONE, GAME, IMPORTED, PURGE_FILTERED, PRIVATE_FILTERED,
+        PUBLIC_FILTERED
+    }
+
+    private enum StatsPicker {
+        NONE, GAME, HAND, MODE, PLAYER
     }
 
     private enum LobbyConfirmation {

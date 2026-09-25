@@ -15,7 +15,7 @@ import java.util.Objects;
 /** Semantic visual events emitted by the unchanged game flow. */
 public sealed interface TableVisualEvent permits TableVisualEvent.PreparationStatus,
         TableVisualEvent.PauseStatus,
-        TableVisualEvent.TelemetryStatus,
+        TableVisualEvent.TelemetryStatus, TableVisualEvent.PlayerTimeout,
         TableVisualEvent.HandBoundary, TableVisualEvent.Shuffle,
         TableVisualEvent.PositionRotation,
         TableVisualEvent.CollectBets, TableVisualEvent.DealHoleCard,
@@ -32,6 +32,9 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
         TableVisualEvent.InitialStackFill,
         TableVisualEvent.RevealHoleCards, TableVisualEvent.PartialHand,
         TableVisualEvent.HandResult,
+        TableVisualEvent.IwtsthCandidates,
+        TableVisualEvent.RabbitCards, TableVisualEvent.RabbitResult,
+        TableVisualEvent.RabbitNotice,
         TableVisualEvent.ShowdownHighlight, TableVisualEvent.Payout,
         TableVisualEvent.Rebuy,
         TableVisualEvent.ImmediateRebuyStatus,
@@ -95,6 +98,19 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
             if (nickname.isBlank() || reconnectionCount < 0
                     || measuredAtMillis < 0L) {
                 throw new IllegalArgumentException("Invalid player telemetry");
+            }
+        }
+    }
+
+    /** Narrow authoritative timeout flag; never a whole-table resync. */
+    record PlayerTimeout(long sequence, String nickname, boolean timedOut)
+            implements TableVisualEvent {
+
+        public PlayerTimeout {
+            nickname = Objects.requireNonNull(nickname, "nickname").trim();
+            if (nickname.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Timeout nickname must not be blank");
             }
         }
     }
@@ -544,6 +560,84 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
             if (street != TableSnapshot.Street.SHOWDOWN) {
                 throw new IllegalArgumentException(
                         "Hand result must carry the canonical showdown street");
+            }
+        }
+    }
+
+    /**
+     * Rivals whose hidden showdown cards may start the canonical IWTSTH flow.
+     * An empty list closes the interaction immediately on every frontend.
+     */
+    record IwtsthCandidates(long sequence, List<String> nicknames)
+            implements TableVisualEvent {
+
+        public IwtsthCandidates {
+            nicknames = List.copyOf(nicknames);
+            if (nicknames.stream().anyMatch(name -> name == null
+                    || name.isBlank())
+                    || nicknames.stream().distinct().count()
+                    != nicknames.size()) {
+                throw new IllegalArgumentException(
+                        "IWTSTH candidates must be unique non-blank nicknames");
+            }
+        }
+    }
+
+    /**
+     * Local Rabbit Hunting board. Face-down cards are clickable candidates;
+     * face-up cards are the canonical authorized reveal. An empty list clears
+     * the interaction at the next hand boundary.
+     */
+    record RabbitCards(long sequence, List<RabbitCard> cards,
+            boolean requestable) implements TableVisualEvent {
+
+        public RabbitCards {
+            cards = List.copyOf(cards);
+            if (cards.stream().map(RabbitCard::slot).distinct().count()
+                    != cards.size()) {
+                throw new IllegalArgumentException(
+                        "Rabbit-card slots must be unique");
+            }
+            if (requestable && cards.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "A requestable Rabbit board needs cards");
+            }
+        }
+    }
+
+    record RabbitCard(int slot, TableSnapshot.CardSnapshot card) {
+
+        public RabbitCard {
+            Objects.requireNonNull(card, "card");
+            if (slot < 0 || slot > 4 || !card.visible()) {
+                throw new IllegalArgumentException(
+                        "Rabbit card must be a visible board slot 0..4");
+            }
+        }
+    }
+
+    /** Canonical Rabbit fee result applied identically by every peer. */
+    record RabbitResult(long sequence, String nickname, double fee,
+            double stackAfter, int requestCount) implements TableVisualEvent {
+
+        public RabbitResult {
+            nickname = Objects.requireNonNull(nickname, "nickname").trim();
+            requireMoney(fee, "Rabbit fee");
+            requireMoney(stackAfter, "Rabbit stack");
+            if (nickname.isEmpty() || requestCount < 1) {
+                throw new IllegalArgumentException("Invalid Rabbit result");
+            }
+        }
+    }
+
+    /** Short action notice shown over a remote requester, as in Swing. */
+    record RabbitNotice(long sequence, String nickname, long durationMillis)
+            implements TableVisualEvent {
+
+        public RabbitNotice {
+            nickname = Objects.requireNonNull(nickname, "nickname").trim();
+            if (nickname.isEmpty() || durationMillis <= 0L) {
+                throw new IllegalArgumentException("Invalid Rabbit notice");
             }
         }
     }

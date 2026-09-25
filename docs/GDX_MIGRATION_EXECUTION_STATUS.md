@@ -1312,7 +1312,8 @@ de Swing.
 
 ### P0.1 — Pausa y continuidad de la mano
 
-Estado: coordinación core/red probada; QA interactiva GDX pendiente.
+Estado: coordinación core/red y rutas nativas probadas; QA interactiva GDX
+pendiente.
 
 - Reproducir y cerrar el bloqueo observado al reanudar.
 - Verificar reanudación desde botón, atajo y clic en overlay.
@@ -1324,6 +1325,11 @@ Estado: coordinación core/red probada; QA interactiva GDX pendiente.
   timeout humano ejecuta la acción canónica, cierra la mano en host/cliente y la
   salida inmediata funciona tanto activa como pausada (6 pruebas dirigidas,
   incluidas 3 integraciones de red reales).
+- HECHO automático: botón comunitario, clic sobre el overlay y atajo configurable
+  convergen en la misma orden tipada `TableCommand.TogglePause`; el overlay posee
+  la liberación completa y no deja pasar el clic a cartas ni controles inferiores.
+  La revalidación focalizada completa una mano humana host/cliente tras pausar y
+  reanudar, conserva el temporizador del turno y cubre el consumo modal: **3/3**.
 
 ### P0.2 — Recompras y compra inicial
 
@@ -1341,6 +1347,10 @@ Estado: rutas core y red mixtas probadas; QA interactiva y límites avanzados pe
   cierre de la timba. Dos pruebas mixtas largas completaron cinco manos y varias
   recompras con host Swing/GDX en ambos sentidos sin convertir al quebrado en
   espectador ni cerrar la mesa prematuramente.
+- REVALIDADO 2026-09-21: la integración GDX host/cliente fuerza la bancarrota de
+  un humano, resuelve en la máquina afectada tanto GAME OVER como RECOMPRAR a
+  través del diálogo nativo real, juega tres manos y exige que ninguna mesa
+  conserve un modal bloqueante y que ambos saldos finales coincidan: **1/1**.
 
 ### P0.3 — Barreras causales y animaciones
 
@@ -1440,6 +1450,10 @@ Estado: límite y controles manuales principales funcionales en core/GDX.
   sockets humanos remotos sin destruir sus peers lógicos ni sus colas. La acción
   se deshabilita sin humanos conectados y está prohibida al cliente. Falta QA
   visual multiproceso del estado visible durante la reconexión.
+- REVALIDADO 2026-09-21: el homólogo GDX exacto de `force-recover` detiene una
+  mesa host/cliente con dos bots durante una decisión, cierra ambos peers como
+  `RECOVERABLE_STOP`, reconstruye la mano almacenada, completa dos manos y exige
+  balances idénticos y conservación del ledger: **1/1**.
 - HECHO automático: un propietario de turno atrasado no reactiva ni ilumina a
   un jugador inactivo, espectador, salido, desconectado o ausente, y tampoco
   permite que GDX envíe una acción por teclado, ratón o confirmación AUTO.
@@ -1463,7 +1477,7 @@ navegación y geometría comunes. Menú, sala y mesa conservan renderizadores
 propios porque son superficies GDX distintas, pero ya no mantienen catálogos ni
 semántica independientes. El bloque focalizado de contrato, layout, audio,
 apariencia, dispositivos, estructuras de ciegas, resumen, permisos y merge en
-vivo pasa **57/57**. Queda QA interactiva completa y corregir únicamente los
+vivo pasa **95/95**. Queda QA interactiva completa y corregir únicamente los
 defectos de consumidor que aparezcan; no se reescribirá otra pantalla paralela.
 
 Cobertura de audio cableada que debe conservarse (QA interactiva pendiente):
@@ -1736,7 +1750,7 @@ cableado o estabilidad de la timba.
 - Suite de escenarios `balanced` completa sin alterar sus fuentes.
 - Certificación final Swing y GDX.
 
-### P3 — Suite de escenarios GDX homóloga
+### P3 — Suite de escenarios GDX homóloga (cierre, no prioritaria ahora)
 
 Estado: operativa para lógica, red y proyección headless; ampliación activa en
 paralelo con la estabilización P0. La certificación OpenGL/visual real continúa
@@ -1758,6 +1772,12 @@ GDX correspondiente, como ya hace `GAME OVER -> ESPECTADOR`.
   recompra, pausa, salida y final de timba.
 - Mantener intacta la suite Swing: ambas suites deben poder detectar de forma
   independiente cualquier regresión de su frontend sobre el mismo core.
+- Tras cerrar Estadísticas se ha iniciado la certificación integral. El corte
+  FAST aislado del 2026-09-25 pasa **48/48**, cubre los 37 escenarios homólogos
+  Swing y demuestra avance, cierre, consenso, conservación de saldos y
+  liberación de barreras/locks. Evidencia:
+  `target/gdx-scenarios/20260925-004950-fast/summary.csv`. La comparación visual
+  de píxeles sigue fuera y se validará manualmente al final.
 
 ## Siguiente trabajo exacto
 
@@ -1785,7 +1805,7 @@ protocolo ni criptografía. Estadísticas queda para el final.
    Queda QA visual interactiva, no un bloqueo funcional identificado.
 5. EN CURSO: cierre de Ajustes GDX como superficie única de menú, sala y mesa.
    Apariencia, Audio, Atajos, Debug y Juego comparten contrato y transacción;
-   el bloque focalizado pasa 57/57. Falta la pasada interactiva completa y
+   el bloque focalizado pasa 95/95. Falta la pasada interactiva completa y
    resolver cualquier defecto real que revele, sin duplicar implementaciones.
 6. En paralelo, reforzar los escenarios GDX cuando aparezca una regresión P0:
    la prueba debe recorrer el consumidor de producto responsable, no resolver
@@ -1794,11 +1814,61 @@ protocolo ni criptografía. Estadísticas queda para el final.
    el transporte de voz real y la separación entre reproducción manual en sala
    y notificación automática en mesa ya están cerrados; sigue QA
    visual/multiproceso y la certificación interactiva del dispositivo de voz y
-   las notificaciones. Después: pantalla final, registro/navegación, lobby,
-   rendimiento y certificación final FAST/BALANCED. Estadísticas se abordará
-   sólo al final, por decisión expresa.
+   las notificaciones. Después: pantalla final, registro/navegación, lobby y
+   Estadísticas, dejando completa la superficie funcional GDX antes de volver
+   a la certificación final FAST/BALANCED.
+8. AUTORIZADO PARA DESPUÉS DE LA CERTIFICACIÓN: auditoría de código muerto,
+   limpieza y reordenación estructural. Se creará primero una rama nueva
+   dedicada: la limpieza no se ejecutará sobre la rama actual. Entonces se
+   inventariará la
+   alcanzabilidad desde ambos launchers, los `include`/`exclude` Maven, la
+   reflexión, recursos, scripts y pruebas; sólo se retirará lo demostrado como
+   no usado. La posible separación física del core compartido y el frontend
+   Swing se hará como refactor aislado, preservando Swing, mods y activos de
+   referencia. El corte se cerrará con `qa-fast` Swing, escenarios GDX y mixtos
+   y reconstrucción de ambos JAR de producto.
 
 ## Protocolo de actualización
+
+### Corte 2026-09-24 - prioridad funcional y fin de timba
+
+- La limpieza estructural/código muerto y la certificación GDX integral quedan
+  registradas como fases de cierre no prioritarias. La prioridad inmediata
+  sigue siendo completar la funcionalidad GDX.
+- La certificación final consistirá en portar los escenarios Swing a
+  consumidores GDX reales y comprobar avance, cierre, consenso, saldos y
+  liberación de barreras/locks; la comparación visual de píxeles queda fuera.
+- Revalidada sobre el checkout actual la pantalla de fin de timba: captura de
+  puntero, botones superiores, paginación, regreso al menú, continuar,
+  confirmación de cierre nativo y liberación de la barrera terminal. Resultado
+  focalizado: **132/132** (`GdxTableTerminationWiringTest` y
+  `GdxTableViewStateTest`).
+- Auditoría estática de Ajustes: todas las opciones actualmente visibles en
+  Audio/Apariencia tienen al menos un consumidor de runtime GDX; no se detectó
+  ninguna fila meramente decorativa. La QA visual interactiva continúa aparte.
+- Revalidado el bloque funcional focalizado de chat GDX: scroll continuo por
+  píxeles, historial/caché de imágenes, geometría de galería, notificación sobre
+  el asiento emisor, TTS y notas de voz serializados, bloqueo/mute y extinción
+  del icono al terminar el audio. Resultado: **26/26**
+  (`GdxTableChatSessionTest`, `GdxLobbyChatLayoutTest`,
+  `GdxChatImageHistoryTest`, `GdxChatImageLoaderTest` y
+  `GdxSpokenAudioGateTest`). La prueba visual OpenGL y de dispositivos físicos
+  sigue separada.
+- Cerrada una carrera de ciclo de vida sala-mesa: una `tableSession` que termina
+  después de abandonar o sustituir su sala ya no puede abrir una mesa obsoleta
+  sobre el menú o una sesión nueva. El shell comprueba la propiedad tanto al
+  recibirla como antes de adjuntarla y cierra la sesión huérfana para liberar
+  sus workers. Compilación y pruebas focalizadas de transición/terminación:
+  **15/15**.
+- Reauditada Nueva timba de extremo a extremo: cada control visible alimenta
+  el borrador neutral, el snapshot inmutable conserva las 29 propiedades de
+  mesa, el perfil guarda la serialización completa y el host entrega ese mismo
+  snapshot al transporte; un JOIN no puede imponer ajustes al anfitrión.
+  Modelo, perfiles, envío y selector GDX pasan **18/18** pruebas focalizadas.
+- Checkpoint ejecutable limpio generado sin repetir la suite integral:
+  `target/CoronaPoker-24.11-gdx.jar`, 266.368.048 bytes, SHA-256
+  `0F592260BB15B7A267D929F2ADB48CDCC1A79C8655546993CD7DAB90C63A0AB5`.
+  El reactor dejó también el Swing 24.11 correspondiente y ningún JAR 24.10.
 
 ### Corte 2026-09-20 - entrada a sala y veto AUTO
 
@@ -1872,3 +1942,458 @@ Al cerrar cada bloque se debe registrar aquí:
 - Qué QA visual sigue pendiente.
 - Qué artefacto/JAR contiene el cambio.
 - Cuál es el siguiente bloqueo concreto.
+
+### Corte 2026-09-21 - arranque remoto y entrada exclusiva de Fin de timba
+
+- La presentacion neutral conserva en orden los eventos que llegan mientras la
+  escena GDX todavia se esta abriendo. Ningun evento puede alcanzar una tabla
+  nativa sin publicar; la barrera de apertura se libera despues de despachar la
+  cola y cualquier fallo o cierre libera excepcionalmente sus esperas.
+- El cierre nativo desde Fin de timba ya no envia un segundo `ExitGame`: la
+  confirmacion libera la barrera terminal y solicita el cierre de la aplicacion
+  una sola vez.
+- Fin de timba posee ahora toda la pulsacion, arrastre, liberacion, rueda y
+  teclado. Ademas del consumo en `InputProcessor`, el enrutador principal corta
+  el sondeo de controles antes del HUD y de las acciones de poker; esto elimina
+  el clic que atravesaba la pantalla. El mismo aislamiento se aplica durante la
+  reconexion del cliente.
+- `DEV_MODE` queda desactivado para el artefacto entregado. La infraestructura
+  de base de datos temporal aislada permanece disponible para pruebas de
+  desarrollo, pero no altera la base real en una ejecucion normal.
+- Verificacion focalizada conjunta: **153/153** pruebas en arranque,
+  presentacion, cierre y estado GDX; tras recolocar el enrutado exclusivo pasan
+  de nuevo **129/129** las dos clases GDX afectadas. Queda la comprobacion
+  manual OpenGL de los botones y una nueva partida host/cliente en dos equipos.
+  Dos regresiones adicionales atraviesan el consumidor real de Menu principal
+  y Continuar: el bloque GDX final pasa **131/131**.
+- El escenario aislado `controlled-exit` pasa **2/2**: salida controlada durante
+  una decision y confirmacion GDX real con la mesa pausada. Evidencia:
+  `target/gdx-scenarios/20260921-022208-fast/summary.csv`.
+- JAR GDX: `target/CoronaPoker-24.11-gdx.jar`, 266.366.778 bytes, SHA-256
+  `ABE38752D7F87715332F60194D0B75F93C61A47EBC2FA9E60D078C4C3CCCD9F7`.
+
+### Corte 2026-09-21 - sonido de zoom y grupos de Audio
+
+- El ajuste Swing `sonido_zoom` ya tiene consumidor GDX real: al activar el
+  zoom del avatar reproduce `misc/zoom_in.wav` y respeta tanto el volumen
+  maestro como la activacion de efectos. Un recurso de audio invalido no puede
+  cerrar la aplicacion.
+- Audio queda repartido en paginas cortas y coherentes: Pantalla, Sistema y
+  Chat y voz. Ninguna pagina supera cinco filas, evitando que los controles se
+  salgan del panel inferior.
+- Verificacion completa del bloque de Ajustes: **95/95** en contrato,
+  navegacion, geometria, textos, audio, dispositivos, apariencia, ciegas,
+  sesion transaccional, permisos, merge en vivo y atajos; compilacion y
+  empaquetado GDX correctos. Queda QA visual y auditiva OpenGL de la
+  disposicion y del sonido real.
+- `DEV_MODE` permanece desactivado (`DevelopmentMode.ENABLED = false`).
+- JAR GDX: `target/CoronaPoker-24.11-gdx.jar`, 266.367.038 bytes, SHA-256
+  `0D1C36A93069060C37816B9C5F842C9D85E65C6CDBA6877A49EC87BAFCEC65CC`.
+
+### Corte 2026-09-21 - recertificacion de entrada final y chat
+
+- La ruta de mesa de produccion se ha auditado desde `LobbySession` hasta
+  `TableSession`, `TablePresentation` y `GdxTableViewState`: el renderer recibe
+  el snapshot y los eventos autoritativos del core. No existe una mesa de demo,
+  un estado simulado ni jugadores estaticos en esa ruta.
+- Fin de timba vuelve a pasar **131/131** pruebas dirigidas sobre el checkout
+  actual. Los botones habilitados resuelven su accion real, la pantalla posee
+  la entrada completa y no emite ordenes de poker por debajo.
+- Chat, imagenes, scroll, galeria, voz y avisos sobre asiento pasan **35/35**
+  pruebas focalizadas. Incluyen scroll continuo por pixeles, recorte de capas,
+  ocho miniaturas contenidas, transporte canonico de imagen/GIF/voz y duracion
+  acotada del icono de habla. Queda QA OpenGL y multiproceso del aspecto y del
+  dispositivo fisico de voz.
+- El artefacto probado sigue siendo `target/CoronaPoker-24.11-gdx.jar`,
+  266.367.038 bytes, SHA-256
+  `0D1C36A93069060C37816B9C5F842C9D85E65C6CDBA6877A49EC87BAFCEC65CC`.
+
+### Corte 2026-09-21 - Nueva timba, Unirse y Sala de espera
+
+- La superficie GDX pasa **24/24** pruebas dirigidas de campos obligatorios,
+  estados CREATE/JOIN/RECOVER, avatar, perfiles, editor de ciegas, datos de
+  conexion, bloqueo durante el arranque, roster y geometria/scroll del chat.
+- El modelo compartido que recibe esa superficie pasa **27/27** pruebas de
+  borrador de conexion, configuracion completa de timba, coordinacion de envio,
+  perfiles y recuperacion. Guardar/cancelar conserva la transaccion y la
+  serializacion incluye las opciones de partida, no solo los datos de red.
+- Este corte certifica **51/51** sin repetir la suite de poker/red. Sigue
+  pendiente la comprobacion visual OpenGL de la composicion y una sesion
+  CREATE/JOIN manual en dos equipos.
+- El JAR probado permanece sin cambios:
+  `target/CoronaPoker-24.11-gdx.jar`, 266.367.038 bytes, SHA-256
+  `0D1C36A93069060C37816B9C5F842C9D85E65C6CDBA6877A49EC87BAFCEC65CC`.
+
+### Corte 2026-09-21 - identidad en Fin de timba
+
+- Las tarjetas de participantes remotos de Fin de timba reutilizan ahora el
+  mismo resolvedor de identidad que los asientos vivos. Un humano remoto ya no
+  pierde su avatar personalizado al cerrarse la mesa; bots y recursos invalidos
+  conservan sus fallbacks. El jugador local mantiene el logo, como Swing.
+- Compilacion y empaquetado correctos; `git diff --check` sin errores. Falta QA
+  visual con dos humanos que usen avatares personalizados distintos.
+- JAR GDX: `target/CoronaPoker-24.11-gdx.jar`, 266.367.029 bytes, SHA-256
+  `2ACEF2641D7451962462CD55D63C62A7BF79B7A1533F7C13022978AA66A3DF81`.
+
+### Corte 2026-09-21 - captura exclusiva de botones finales
+
+- Fin de timba captura ahora la pulsacion y exige soltar sobre el mismo control
+  para activarlo. Un clic iniciado fuera de un boton ya no puede activar una
+  accion al terminar encima, y toda la superficie final sigue consumiendo la
+  entrada para impedir que alcance la mesa terminada.
+- La misma captura conserva las flechas de paginacion, excluye expresamente el
+  boton deshabilitado de Estadisticas y deja el control de sonido independiente.
+- Verificacion focalizada de estado, geometria, entrada y terminacion:
+  **132/132**. El contrato de recursos, easter eggs, imagen nativa y textos de
+  Acerca de pasa adicionalmente **5/5**. El logo vuelve a abrir el repositorio
+  y el libro las reglas de Robert, igual que en Swing. `git diff --check` no
+  presenta errores.
+- Revalidado tambien el handoff critico sala-mesa y la cola de eventos previa a
+  la apertura del renderer: **24/24** pruebas de aplicacion y puente visual. El
+  diagnostico grave de preferencias ilegibles que imprime una de ellas es su
+  caso negativo deliberado y termina verde, no un fallo del producto.
+- `DEV_MODE` permanece desactivado en el artefacto. JAR GDX 24.11:
+  `target/CoronaPoker-24.11-gdx.jar`, 266.367.931 bytes, SHA-256
+  `9DBA264126E303A47783554EE52695CF0AE98D8818D8B53643259CB401517F33`.
+
+### Corte 2026-09-21 - contrato de artefactos de producto
+
+- El reactor modular publica exclusivamente el par ejecutable 24.11 Swing/GDX
+  en el `target` raiz mediante archivos intermedios y reemplazo atomico. El
+  reactor clasico 24.10 se conserva solo como entrada de QA y escribe en
+  `build/legacy-root`, sin compartir el destino de producto.
+- `ProductDistributionContractTest` deriva la version activa del POM padre y
+  protege los nombres de ambos JAR, su staging, su publicacion y la separacion
+  del reactor legado. Verificacion focalizada: **1/1**.
+- Este corte no modifica runtime ni requiere regenerar el artefacto: sigue
+  vigente `target/CoronaPoker-24.11-gdx.jar`, 266.367.931 bytes, SHA-256
+  `9DBA264126E303A47783554EE52695CF0AE98D8818D8B53643259CB401517F33`.
+
+### Corte 2026-09-21 - cierre durante apertura nativa
+
+- Si la ventana o sesion se cierra mientras OpenGL todavia esta creando la
+  mesa, `TablePresentation` completa excepcionalmente de inmediato tanto la
+  barrera publica de apertura como todos los eventos visuales en cola. El
+  cierre ya no depende de que un renderer incompleto responda mas tarde.
+- La regresion focalizada simula un renderer que nunca termina de abrir y
+  confirma que no recibe eventos, que se cierra y que todas las barreras se
+  liberan: `TableEventBridgeTest` **8/8**. La revalidacion conjunta con el
+  bootstrap, servicios compartidos, version y base aislada pasa **25/25**. El
+  diagnostico de preferencias malformadas que imprime esa suite es su caso
+  negativo deliberado y finaliza correctamente.
+- Compilacion, sombreado y publicacion atomica correctos. Nuevo JAR GDX:
+  `target/CoronaPoker-24.11-gdx.jar`, 266.367.997 bytes, SHA-256
+  `D2D0BB0404EBF4CD19607B1D9DA7E5F7BBA8BF404F432678AF5B26B33B27AFD5`.
+  `target` conserva solo el par 24.11 Swing/GDX y `DEV_MODE` sigue desactivado.
+
+### Corte 2026-09-21 - ante, straddle y Run It Twice
+
+- El contrato neutral de ante queda cubierto explicitamente: es dinero muerto,
+  se incorpora al bote sin alterar la apuesta de la calle y, si el stack no
+  alcanza, publica solo el remanente y deja al jugador `ALL-IN`.
+  `CorePlayerControllerTest` pasa **9/9**.
+- Una mano autenticada host/cliente demuestra ademas el recorrido del crupier:
+  con ciegas 0,10/0,20 ambos humanos publican ante 0,10; las apuestas de calle
+  siguen siendo 0,10/0,20, las contribuciones quedan 0,20/0,30 y el bote inicial
+  aterriza exactamente en 0,50 en los dos peers. La mano termina con consenso:
+  **1/1**.
+- Revalidada en una sola ejecucion la ruta de produccion GDX con humanos en red:
+  el straddle rota por los tres jugadores durante tres manos y el ALL-IN con
+  Run It Twice completa ambos boards, alcanza consenso y conserva los saldos.
+  `GdxNetworkHumanProjectionIntegrationTest` pasa **2/2**.
+- Revalidada tambien la reconexion en mitad de ambas barreras: la respuesta de
+  straddle aceptada sobrevive hasta la entrega diferida de cartas y un voto RIT
+  aceptado sobrevive hasta el voto final retrasado. Ambos escenarios completan
+  la mano y alcanzan consenso: **2/2**.
+- Las acciones automaticas GDX se han revalidado sobre manos de red reales:
+  persistencia y limpieza al cambiar de mano, limite de auto-call al cambiar de
+  calle y conversion a ALL-IN cuando igualar consume el stack. Resultado:
+  **4/4**, sin decisiones duplicadas ni saldos divergentes.
+- Son pruebas y documentacion; no cambia el runtime. Sigue vigente el JAR GDX
+  `target/CoronaPoker-24.11-gdx.jar`, 266.367.997 bytes, SHA-256
+  `D2D0BB0404EBF4CD19607B1D9DA7E5F7BBA8BF404F432678AF5B26B33B27AFD5`,
+  con `DEV_MODE` desactivado.
+
+### Corte 2026-09-24 - espera real tras la compra inicial
+
+- Corregida una diferencia funcional con Swing en la compra inicial variable.
+  GDX ya no retira el dialogo en cuanto el jugador confirma o vence el tiempo:
+  entrega la decision al core, inmoviliza la cantidad, oculta las acciones y
+  mantiene el modal con `Esperando al resto de jugadores...` y una barra
+  indeterminada hasta que el crupier termina la recogida de compras.
+- El cierre sigue siendo propiedad del `RebuyHandle` del core. Durante la
+  espera no se puede alterar la cantidad ni resolver dos veces el dialogo; las
+  recompras voluntaria y automatica conservan su cierre inmediato. ESC tampoco
+  puede saltarse una compra inicial obligatoria que no ofrece Cancelar.
+- Verificacion focalizada del contrato, decisiones y ciclo real de presentacion
+  en `CoronaPokerGdxTable`: **42/42** pruebas. No se ha lanzado la certificacion
+  grande ni la limpieza final, que permanecen deliberadamente al final del plan.
+- Empaquetado modular limpio correcto. `target` contiene exclusivamente los
+  dos productos 24.11, sin ningun JAR 24.10. JAR GDX de este corte:
+  `target/CoronaPoker-24.11-gdx.jar`, 266.368.790 bytes, SHA-256
+  `8239F79CF659572B61858F4D2201AAF7DC9349C9204D69E1A0EBD6630524F5B9`.
+
+### Corte 2026-09-24 - IWTSTH nativo completo
+
+- GDX publica como candidatos exclusivamente a rivales humanos que realmente
+  perdieron y mantuvieron sus cartas ocultas; el resultado de showdown ya se
+  registra en el controlador neutral y no depende de que un widget Swing mute
+  accidentalmente el estado del juego.
+- La pulsacion sobre la franja de accion o las cartas ocultas envia un comando
+  neutral al crupier. El canal GDX procesa ahora `IWTSTH` e `IWTSTHSHOW` en
+  host y cliente, limpia los hit targets al solicitar y conserva el flujo
+  canonico de autorizacion y `SHOWCARDS`.
+- El destape tardio evalua la mano antes de publicarla al renderer GDX. Tambien
+  se elimina la carrera que podia dejar `iwtsthing_request` retenido hasta el
+  salvavidas de 16 segundos cuando la resolucion adelantaba al worker local.
+- Escenario autentico de dos instancias, varias manos y consenso: **1/1**;
+  produce un muck elegible, solicita IWTSTH desde el ganador, lo autoriza el
+  host y verifica la revelacion de las dos cartas del perdedor. Pruebas
+  focalizadas de controlador/proyeccion: **131/131**.
+- `git diff --check` correcto y `DEV_MODE` desactivado. JAR GDX de checkpoint:
+  `target/CoronaPoker-24.11-gdx.jar`, 266.373.773 bytes, SHA-256
+  `F517F946D003BFFACE2CEFA1433666A7648A465F53624E1EDD6FC19291CA7AE8`.
+
+### Corte 2026-09-24 - Rabbit Hunting nativo y de red
+
+- Cerrada una brecha de transporte que Swing resolvia fuera del crupier: el
+  canal de tabla GDX valida y entrega ahora `RABBIT_REQ` y `RABBIT_AUTH`,
+  vinculando la peticion al humano remoto autenticado y cerrando el canal ante
+  una identidad, firma o formato invalidos.
+- La mesa GDX muestra las comunitarias Rabbit tapadas como accionables, envia
+  una orden neutral al core al pulsarlas y solo las destapa tras la
+  autorizacion canonica. El coste y el stack resultante se publican como estado
+  exacto a ambos peers; el rival recibe tambien el aviso temporal Rabbit.
+- Escenario real host/cliente GDX: un jugador abandona preflop, se generan las
+  comunitarias hipoteticas, una unica instancia solicita Rabbit, ambas aceptan
+  el mismo resultado contable y solo el solicitante recibe el destape: **1/1**.
+  Regresion de proyeccion mas red: **124/124**, sin ejecutar la suite grande.
+- Compilacion y empaquetado modular correctos; `DEV_MODE` permanece
+  desactivado. JAR GDX de checkpoint: `target/CoronaPoker-24.11-gdx.jar`,
+  266.383.269 bytes, SHA-256
+  `78D2250B9792724882667186196F1FFFED7D22E8C8D9C49F1E036A4A5E05BED7`.
+
+### Corte 2026-09-24 - estado TIMEOUT de red en GDX
+
+- El `TIMEOUT` de red del original (jugador desconectado o en reconexion) ya
+  no queda limitado al modelo interno: el crupier publica un evento neutral y
+  la proyeccion GDX actualiza el indicador `timedOut` del asiento afectado.
+  Se conserva aparte el agotamiento del tiempo de una jugada, que es otro
+  flujo y no debe marcar al jugador como desconectado.
+- El cliente solo acepta `TIMEOUT` del host autenticado, valida formato y
+  jugador conocido y cierra el canal ante una notificacion invalida. Prueba
+  dirigida con canal host/cliente real hasta la proyeccion GDX: **1/1** en
+  aproximadamente un segundo. Regresion separada de agotamiento de turno mas
+  proyeccion: **125/125**.
+- `git diff --check` correcto, compilacion modular limpia correcta y
+  `DEV_MODE` desactivado. `target` contiene solo el par de producto 24.11.
+  JAR GDX de checkpoint: `target/CoronaPoker-24.11-gdx.jar`, 266.385.248
+  bytes, SHA-256
+  `3FD82E05435B8C0226D79C6920859A1AFBCCE5A622DB22EC2A89A5C0175B8BE1`.
+- Revalidado despues del cambio el homologo estricto de Swing de reconexion a
+  mitad de mano: tres peers GDX sobreviven al corte, completan dos manos y
+  cierran con consenso y balances identicos (**1/1**). No se repitio la suite
+  integral porque el cambio solo afectaba este recorrido y el checkpoint de
+  runtime anterior sigue siendo el vigente.
+
+### Corte 2026-09-24 - visor nativo de Estadisticas y caos prolongado
+
+- El menu principal GDX abre ya un visor de Estadisticas a pantalla completa,
+  respaldado por el mismo SQLite del core y sin construir widgets Swing. El
+  repositorio neutral expone timbas, manos, balances, evolucion de stacks,
+  showdown, tiempos de respuesta, frecuencias de subida, rendimiento y mejores
+  jugadas, ademas de privacidad y borrado.
+- Los selectores de timba y mano son listas directas paginadas, no carruseles
+  que obliguen a recorrer todo el historial. Las tablas usan columnas
+  delimitadas y texto ajustado a su celda; balance, evolucion, respuesta,
+  subidas, rendimiento y mejores jugadas cuentan con graficas GDX nativas.
+- La carga y las mutaciones se realizan fuera del hilo de render y vuelven a
+  el mediante `postRunnable`; las generaciones descartan respuestas obsoletas
+  al cambiar de filtro o cerrar el visor. El acceso SQLite conserva el bloqueo
+  compartido del proceso. Pruebas focalizadas del repositorio: **2/2**.
+- Revalidados de forma headless los homologos estrictos `transport-chaos` y
+  `lifecycle-chaos`: **1/1** cada uno. Cubren cortes dobles, recaida,
+  pausa/reanudacion, recuperacion, cortes posteriores y dos ciclos completos de
+  recuperacion, con consenso y conservacion monetaria.
+- No se ha realizado aun la inspeccion visual OpenGL de Estadisticas; la
+  compilacion y las pruebas no se presentan como validacion de pixeles. Todas
+  las ejecuciones automatizadas de este corte fueron invisibles/headless.
+- `DEV_MODE` permanece desactivado. Checkpoint ejecutable actual:
+  `target/CoronaPoker-24.11-gdx.jar`, 266.426.365 bytes, SHA-256
+  `7E47346C68FF5519AF5B5B78EC46FFE80B9F64E91EFD473FBFD6AD4DB34E80E8`.
+
+### Correccion visual de Estadisticas tras inspeccion real
+
+- Una captura real detecto incumplimientos del contrato visual: logo y titulo
+  solapados, ROI fuera del panel, jugadores truncados, leyenda invadiendo la
+  grafica y botones con texto recortado. Se corrigieron como restricciones de
+  contenedor, no como simples cambios cosmeticos puntuales.
+- Estadisticas ya no dibuja el logo bajo el titulo; la vista estadistica se
+  elige desde una lista directa, los jugadores admiten varias lineas, la tabla
+  queda dentro de su panel y la grafica reserva una franja exclusiva para su
+  leyenda. Los botones destructivos usan ahora todo el ancho disponible.
+- Compilacion modular correcta y pruebas focalizadas de repositorio e i18n:
+  **4/4**. No se lanzo ninguna ventana para esta comprobacion. Nuevo checkpoint
+  `target/CoronaPoker-24.11-gdx.jar`, 266.426.847 bytes, SHA-256
+  `B4893DE045789790A0DFEB77FF902CB56DADBDDB27A162F291B7828273E7F7F1`.
+
+### Corte 2026-09-24 - filtro y mantenimiento por jugador
+
+- Portado a Estadisticas GDX el filtro directo por jugador del visor Swing.
+  La lista de timbas se reduce por coincidencia exacta del nick decodificado y
+  permite volver a todos los jugadores sin recorrer el historial.
+- Con un jugador filtrado se pueden marcar privadas, hacer publicas o purgar
+  todas sus timbas. Las mutaciones reciben IDs obtenidos del repositorio y se
+  ejecutan mediante sentencias preparadas bajo el bloqueo SQLite compartido;
+  el renderer no contiene SQL.
+- Compilacion y empaquetado correctos. Repositorio e i18n focalizados: **4/4**.
+  Checkpoint `target/CoronaPoker-24.11-gdx.jar`, 266.429.364 bytes, SHA-256
+  `D5045EFBC176C074E35FE6BCFD3F17A001FEF482052BAEE82DDE93CC93221AEB`.
+
+### Corte 2026-09-25 - acceso final y limites de Estadisticas
+
+- El boton Estadisticas de fin de timba ya no es decorativo: completa la
+  barrera terminal normal, libera la mesa y abre el visor GDX nativo. No se
+  conserva una mesa a medias ni se introduce una ruta alternativa al ciclo de
+  vida compartido.
+- Se reforzo el contrato de composicion observado en la captura real. La
+  leyenda de evolucion dispone ahora de una fila distinta al titulo; los
+  valores positivos y negativos de las barras se limitan al interior de la
+  grafica; las etiquetas laterales del radar quedan centradas dentro de su
+  recuadro; y la marca maxima del eje X ya no puede cruzar el borde derecho.
+- Validacion automatizada e invisible: repositorio, textos, terminacion y
+  proyeccion de mesa GDX, **141/141**. Compilacion y empaquetado correctos. La
+  validacion visual OpenGL sigue correspondiendo a una comprobacion manual y
+  no se sustituye por estos tests.
+- Checkpoint `target/CoronaPoker-24.11-gdx.jar`, 266.429.617 bytes, SHA-256
+  `7CB3A4D042340564DE6FDCA7037EEB405AAE40CF7E2E0513C3BA492EBA9AAEC6`.
+
+### Corte 2026-09-25 - detalle historico completo
+
+- El resumen de timba muestra ya duracion total/activa, manos, buy-in,
+  ciegas, intervalo de subida, recompra, jugadores y origen, incluido el peer
+  de procedencia en partidas importadas. El detalle de mano incorpora tambien
+  los participantes reales de preflop, flop, turn y river.
+- Las filas se compactaron dentro del panel y los controles de mantenimiento
+  se desplazaron hacia abajo conservando una separacion explicita; no se
+  resolvio el nuevo contenido superponiendolo a los botones.
+- Corregido el refresco tras mantenimiento con filtro de jugador: graficas,
+  tabla y resumen vuelven a cargar la primera timba coincidente y ya no pueden
+  mezclar un filtro local con agregados globales.
+- Compilacion y pruebas focales correctas, **4/4**, sin abrir una ventana.
+  Checkpoint `target/CoronaPoker-24.11-gdx.jar`, 266.430.571 bytes, SHA-256
+  `7F2891142E36510A36715D2B4BF2E76CC2ADA04D6F9119AC91A9948E56B43ACF`.
+
+### Corte 2026-09-25 - sincronizacion P2P de Estadisticas
+
+- GDX anuncia y recibe manifiestos estadisticos cifrados por el canal nativo,
+  envia por lotes las timbas que faltan e importa por `ugi` de forma atomica e
+  idempotente. Los ajustes de recibir, compartir y exclusiones se consultan en
+  vivo; el trabajo de SQLite queda fuera del hilo lector de red.
+- La negociacion se reinicia tambien tras una reconexion y el limite de trama
+  cuenta los bytes UTF-8 reales del nick. Se mantuvo el codec compartido con
+  Swing y se elimino su dependencia de widgets o estado estatico de Swing.
+- Una prueba clasica detecto que una cancelacion posterior al primer INSERT se
+  hacia rollback correctamente pero podia quedar absorbida. Ahora la senal se
+  propaga despues del rollback para que una sesion obsoleta no retenga trabajo
+  ni el bloqueo de base de datos.
+- Cada gateway posee su acceso estadistico de proceso; no comparte un singleton
+  de base de datos con otro gateway. La prueba nativa levanta host y dos
+  clientes con tres SQLite fisicamente distintos: verifica intercambio
+  bidireccional, deduplicacion y reenvio por el host al cliente que ya estaba
+  conectado, incluido `imported_from`.
+- Validacion invisible: transporte y sincronizacion multicliente **9/9**;
+  codec, round-trip, deduplicacion, importacion atomica, limites y truncaciones
+  de StatsSync **19/19**. Esto prueba el protocolo local sobre sockets reales;
+  una partida entre maquinas distintas sigue siendo validacion manual de red.
+- Checkpoint `target/CoronaPoker-24.11-gdx.jar`, 266.456.306 bytes, SHA-256
+  `0965E2AB9DFA2250F0BED812BDC6BC3B4DA20106F881DA49AB0BEF01A31425F3`.
+
+### Corte 2026-09-25 - certificacion FAST completa de escenarios GDX
+
+- Ejecutado el catalogo estricto completo en procesos Maven/JVM aislados:
+  **48/48 PASS, 0 fallos**, correspondiente a los 37 escenarios de referencia
+  Swing. Evidencia machine-readable en
+  `target/gdx-scenarios/20260925-004950-fast/summary.csv`.
+- El corte incluye salidas controladas y abruptas, recuperacion y reentrada,
+  espectadores y recompras, caos de transporte/ciclo de vida, RIT y straddle
+  con reconexion, topologias normales, acciones nativas, ALL-IN, pausa y
+  reconexion en cada calle. Las comprobaciones exigen cierre, consenso,
+  conservacion del ledger y ausencia de barreras pendientes.
+- La ejecucion fue headless/invisible; no sustituye la inspeccion visual OpenGL
+  ni una partida manual entre maquinas fisicamente distintas.
+- Los dos ejecutables 24.11 permanecen como unicos JAR de producto en `target`.
+  GDX conserva 266.456.306 bytes y SHA-256
+  `0965E2AB9DFA2250F0BED812BDC6BC3B4DA20106F881DA49AB0BEF01A31425F3`.
+
+### Corte 2026-09-25 - certificacion FAST mixta Swing/GDX
+
+- Ejecutada la matriz mixta completa en procesos aislados: **30/30 PASS,
+  0 fallos**. Evidencia en
+  `target/gdx-mixed-scenarios/20260925-012106-fast/summary.csv`.
+- Se validan ambos sentidos host/cliente, contrasena y permisos de lobby,
+  reglas en vivo, acciones humanas, barreras ALL-IN, RIT, straddle, recompra,
+  timeouts, salidas, pausa, reconexion y recuperacion cruzada entre frontends.
+- Esta certificacion fue headless/invisible y no sustituye la partida manual
+  entre maquinas distintas ni la inspeccion visual OpenGL.
+
+### Corte 2026-09-25 - cierre FAST y ajuste de frontend
+
+- La certificacion completa de core/Swing pasa **1122/1122**, sin fallos,
+  errores ni pruebas omitidas. La prueba del contrato de presentacion conserva
+  tanto la cola previa a `open()` como la identidad de la barrera nativa una vez
+  abierta la mesa.
+- Eliminada la etiqueta `DATOS DE RED` del bloque compartido de identidad y
+  conexion, por lo que ya no aparece ni en Nueva timba ni en Unirme a timba.
+- El fondo del dialogo Acerca de se ha aclarado manteniendo el contraste del
+  contenido. La animacion inicial queda protegida por una prueba que exige los
+  **52 codigos de carta distintos** (13 valores por 4 palos).
+- Validacion focalizada de About, layout de Estadisticas y estado de mesa:
+  **131/131 PASS**. `git diff --check` no detecta errores; los avisos restantes
+  son exclusivamente de normalizacion LF/CRLF.
+- Nuevo checkpoint: `target/CoronaPoker-24.11-gdx.jar`, 266.456.488 bytes,
+  SHA-256
+  `34956A420A715082E510A38FB9D26E0BADAB6A83B9D2F0124D7990E023B31351`.
+  `target` contiene solamente los ejecutables Swing y GDX 24.11.
+- Cierre documental aprobado para despues de la limpieza conservadora: revisar
+  y reemplazar en `README.md` el mapa de arquitectura
+  `docs/diagrams/coronapoker-module-map.drawio`, reflejando el core compartido y
+  los frontends Swing/GDX finales. Exportar con Draw.io CLI sobre el PNG actual
+  de referencia (**3446x2332**) y conservar una resolucion igual o muy proxima.
+
+### Corte 2026-09-25 - certificacion BALANCED completa de escenarios GDX
+
+- Ejecutadas dos pasadas independientes del catalogo estricto completo:
+  **96/96 PASS, 0 fallos**. Evidencia machine-readable en
+  `target/gdx-scenarios/20260925-015009-balanced/summary.csv`.
+- Incluye las mismas 37 familias Swing portadas a GDX, con repeticion de los
+  48 casos de salida, recuperacion, espectadores/recompra, caos, RIT, straddle,
+  topologias, acciones nativas, ALL-IN, pausa y reconexion por cada calle.
+- La ejecucion fue headless/invisible. Certifica flujo y contratos, no pixeles,
+  audio real ni una partida manual entre dos maquinas fisicas.
+
+### Corte 2026-09-25 - certificacion BALANCED mixta Swing/GDX
+
+- Ejecutadas dos pasadas completas de la matriz de convivencia entre frontends:
+  **60/60 PASS, 0 fallos**. Evidencia machine-readable en
+  `target/gdx-mixed-scenarios/20260925-024608-balanced/summary.csv`.
+- Se repiten en ambos sentidos host/cliente los permisos y contrasenas de lobby,
+  reglas, acciones humanas, barreras ALL-IN, RIT, straddle, recompra, timeouts,
+  salidas, pausa, reconexion y recuperacion cruzada Swing/GDX.
+- La ejecucion fue headless/invisible y no sustituye una partida manual entre
+  dos equipos fisicos ni la inspeccion visual OpenGL.
+
+### Corte 2026-09-25 - certificacion BALANCED integral del core/Swing
+
+- El gate historico de produccion se ejecuto con semilla reproducible
+  `3745246327`, ventanas ocultas y monitor 2. `QA release` y las campanas de
+  500 casos de protocolo, transporte, ciclo de vida, botes/rabbit y recuperacion
+  SQL, mas 100 manos de bots, pasaron completos.
+- Las primeras **67 fases** de partidas reales pasaron y quedaron en
+  `target/certification/20260925-031902`. El proceso externo se interrumpio al
+  crear la fase 68, antes de escribir su log; no hubo fallo de escenario.
+- Se reanudo exactamente desde `force-recover-add-two`, repeticion 2/2, con la
+  misma semilla. Las **16 fases** restantes pasaron completas; evidencia CSV y
+  JSON en `target/certification/20260925-110217`.
+- El corte certificado queda, por tanto, compuesto por las 67 fases originales
+  mas las 16 de continuacion, sin repetir ni descartar evidencia valida.

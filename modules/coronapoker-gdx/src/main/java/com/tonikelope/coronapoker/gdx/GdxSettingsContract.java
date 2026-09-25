@@ -225,17 +225,20 @@ final class GdxSettingsContract {
                             Gate.EFFECTS),
                     option("sonido_visor", "VISOR DE CARTAS", true,
                             Gate.EFFECTS),
-                    option("sonido_volumen", "CAMBIAR VOLUMEN", true,
+                    option("sonido_zoom", "ZOOM DE AVATAR", true,
                             Gate.EFFECTS),
-                    option("sonido_arranque", "ARRANQUE DE LA APP", true,
+                    option("sonido_volumen", "CAMBIAR VOLUMEN", true,
                             Gate.EFFECTS)),
-            page("AVISOS Y CHAT",
+            page("SISTEMA",
+                    option("sonido_arranque", "ARRANQUE DE LA APP", true,
+                            Gate.EFFECTS),
                     option("sonido_aviso", "ADVERTENCIA", true,
                             Gate.EFFECTS),
                     option("sonido_error", "ALERTA DE PELIGRO", true,
                             Gate.EFFECTS),
                     option("sonido_error_red", "ERROR DE RED", true,
-                            Gate.EFFECTS),
+                            Gate.EFFECTS)),
+            page("CHAT Y VOZ",
                     option("voice_messages", "NOTAS DE VOZ", true,
                             Gate.SOUND),
                     option("tts_server", "VOZ (TTS)", true, Gate.SOUND)),
@@ -527,6 +530,8 @@ final class GdxSettingsContract {
             case "SALA" -> "gdx.settings.page.room";
             case "PANTALLA" -> "gdx.settings.page.display";
             case "AVISOS Y CHAT" -> "gdx.settings.page.alerts_chat";
+            case "SISTEMA" -> "gdx.settings.page.system";
+            case "CHAT Y VOZ" -> "gdx.settings.page.chat_voice";
             case "CHAT" -> "gdx.settings.page.chat";
             case "VOZ LOCAL" -> "gdx.settings.page.local_voice";
             case "DISPOSITIVOS" -> "gdx.settings.page.devices";

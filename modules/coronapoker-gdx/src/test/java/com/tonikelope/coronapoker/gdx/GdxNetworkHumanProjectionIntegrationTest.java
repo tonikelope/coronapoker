@@ -23,8 +23,10 @@ import com.tonikelope.coronapoker.core.game.GameCinematicAssets;
 import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
 import com.tonikelope.coronapoker.core.game.GameDecisionSink;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
+import com.tonikelope.coronapoker.core.game.GameLaunchContext;
 import com.tonikelope.coronapoker.core.game.GameLogSink;
 import com.tonikelope.coronapoker.core.game.GamePresentationSettings;
+import com.tonikelope.coronapoker.core.game.GameTableFactory;
 import com.tonikelope.coronapoker.core.game.GameText;
 import com.tonikelope.coronapoker.core.network.NetworkLobbyGateway;
 import com.tonikelope.coronapoker.table.TableCommand;
@@ -511,6 +513,84 @@ class GdxNetworkHumanProjectionIntegrationTest {
     }
 
     @Test
+    void hostNetworkTimeoutUpdatesTheRemoteGdxProjection()
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        DatabaseService hostDatabase = new DatabaseService(
+                temporary.resolve("peer-timeout-host.sqlite").toString());
+        DatabaseService clientDatabase = new DatabaseService(
+                temporary.resolve("peer-timeout-client.sqlite").toString());
+        hostDatabase.start();
+        clientDatabase.start();
+        AtomicReference<GameLaunchContext> hostContext = new AtomicReference<>();
+        CoreGameTableFactory hostCore = new CoreGameTableFactory(hostDatabase,
+                (key, arguments) -> key, GameLogSink.noop(),
+                GameDialogSink.noop(), GameDecisionSink.noop(),
+                acceleratedSettings(), GameCinematicAssets.none());
+        CoreGameTableFactory clientCore = new CoreGameTableFactory(clientDatabase,
+                (key, arguments) -> key, GameLogSink.noop(),
+                GameDialogSink.noop(), GameDecisionSink.noop(),
+                acceleratedSettings(), GameCinematicAssets.none());
+        GameTableFactory hostTables = context -> {
+            hostContext.set(context);
+            return hostCore.create(context);
+        };
+        GameTableFactory clientTables = clientCore::create;
+        try (hostDatabase; clientDatabase;
+             NetworkLobbyGateway hostGateway = new NetworkLobbyGateway(
+                     temporary.resolve("peer-timeout-host"), hostTables,
+                     new RecoverableGameRepository(hostDatabase));
+             NetworkLobbyGateway clientGateway = new NetworkLobbyGateway(
+                     temporary.resolve("peer-timeout-client"), clientTables,
+                     new RecoverableGameRepository(clientDatabase))) {
+            LobbySession host = hostGateway.open(request(false,
+                    "Anfitrion", port)).get(5, TimeUnit.SECONDS);
+            LobbySession client = clientGateway.open(request(true,
+                    "Invitado", port)).get(5, TimeUnit.SECONDS);
+            try {
+                await(() -> host.snapshot().participants().size() == 2,
+                        Duration.ofSeconds(5));
+                host.submit(new LobbyCommand.StartGame()).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                TableSession hostTable = host.tableSession()
+                        .toCompletableFuture().get(5, TimeUnit.SECONDS);
+                ProjectionRenderer hostRenderer =
+                        new ProjectionRenderer(hostTable);
+                hostTable.attach(hostRenderer)
+                        .toCompletableFuture().get(5, TimeUnit.SECONDS);
+                TableSession clientTable = client.tableSession()
+                        .toCompletableFuture().get(5, TimeUnit.SECONDS);
+                ProjectionRenderer clientRenderer =
+                        new ProjectionRenderer(clientTable);
+                clientTable.attach(clientRenderer).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                await(() -> hostRenderer.heldAction.get()
+                                || clientRenderer.heldAction.get(),
+                        Duration.ofSeconds(8));
+
+                String encoded = Base64.getEncoder().encodeToString(
+                        "Anfitrion".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                hostContext.get().channel().sendFromHost("Invitado",
+                        "TIMEOUT#" + encoded).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+
+                await(clientRenderer.sawTimeoutState::get,
+                        Duration.ofSeconds(5));
+                assertTrue(clientRenderer.state.get().snapshot().players()
+                        .stream().filter(player -> player.nickname()
+                        .equals("Anfitrion")).findFirst().orElseThrow()
+                        .timedOut());
+            } finally {
+                client.close();
+                host.close();
+            }
+        }
+    }
+
+    @Test
     void networkAllInCinematicBlocksTheFollowingTurnInBothGdxProjections()
             throws Exception {
         int port;
@@ -727,6 +807,136 @@ class GdxNetworkHumanProjectionIntegrationTest {
     }
 
     @Test
+    void gdxIwtsthCandidateRequestsAndRevealsTheMuckedNetworkHand()
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        DatabaseService hostDatabase = new DatabaseService(
+                temporary.resolve("iwtsth-host.sqlite").toString());
+        DatabaseService clientDatabase = new DatabaseService(
+                temporary.resolve("iwtsth-client.sqlite").toString());
+        hostDatabase.start();
+        clientDatabase.start();
+        AtomicBoolean requestClaimed = new AtomicBoolean();
+        try (hostDatabase; clientDatabase;
+             NetworkLobbyGateway hostGateway = iwtsthGateway(
+                     temporary.resolve("iwtsth-host"), hostDatabase);
+             NetworkLobbyGateway clientGateway = iwtsthGateway(
+                     temporary.resolve("iwtsth-client"), clientDatabase)) {
+            LobbySession host = hostGateway.open(iwtsthRequest(false,
+                    "Anfitrion", port)).get(5, TimeUnit.SECONDS);
+            LobbySession client = clientGateway.open(iwtsthRequest(true,
+                    "Invitado", port)).get(5, TimeUnit.SECONDS);
+            try {
+                await(() -> host.snapshot().participants().size() == 2,
+                        Duration.ofSeconds(5));
+                host.submit(new LobbyCommand.StartGame()).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+
+                TableSession hostTable = host.tableSession().toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                IwtsthProjectionRenderer hostRenderer
+                        = new IwtsthProjectionRenderer(hostTable,
+                                requestClaimed);
+                hostTable.attach(hostRenderer).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                TableSession clientTable = client.tableSession().toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                IwtsthProjectionRenderer clientRenderer
+                        = new IwtsthProjectionRenderer(clientTable,
+                                requestClaimed);
+                clientTable.attach(clientRenderer).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+
+                await(() -> hostRenderer.iwtsthComplete()
+                                || clientRenderer.iwtsthComplete(),
+                        Duration.ofSeconds(35));
+                assertTrue(hostRenderer.requested.get()
+                                ^ clientRenderer.requested.get(),
+                        "only the winner should see the remote muck as a candidate");
+                hostRenderer.assertComplete();
+                clientRenderer.assertComplete();
+            } finally {
+                client.close();
+                host.close();
+            }
+        }
+    }
+
+    @Test
+    void gdxRabbitRequestIsAuthorizedChargedAndRevealedAcrossNetwork()
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        DatabaseService hostDatabase = new DatabaseService(
+                temporary.resolve("rabbit-host.sqlite").toString());
+        DatabaseService clientDatabase = new DatabaseService(
+                temporary.resolve("rabbit-client.sqlite").toString());
+        hostDatabase.start();
+        clientDatabase.start();
+        AtomicBoolean requestClaimed = new AtomicBoolean();
+        try (hostDatabase; clientDatabase;
+             NetworkLobbyGateway hostGateway = gateway(
+                     temporary.resolve("rabbit-host"), hostDatabase,
+                     GameDecisionSink.noop(), iwtsthSettings());
+             NetworkLobbyGateway clientGateway = gateway(
+                     temporary.resolve("rabbit-client"), clientDatabase,
+                     GameDecisionSink.noop(), iwtsthSettings())) {
+            LobbySession host = hostGateway.open(rabbitRequest(false,
+                    "Anfitrion", port)).get(5, TimeUnit.SECONDS);
+            LobbySession client = clientGateway.open(rabbitRequest(true,
+                    "Invitado", port)).get(5, TimeUnit.SECONDS);
+            try {
+                await(() -> host.snapshot().participants().size() == 2,
+                        Duration.ofSeconds(5));
+                host.submit(new LobbyCommand.StartGame()).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+
+                TableSession hostTable = host.tableSession().toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                RabbitProjectionRenderer hostRenderer
+                        = new RabbitProjectionRenderer(hostTable,
+                                requestClaimed, false);
+                hostTable.attach(hostRenderer).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                TableSession clientTable = client.tableSession().toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                RabbitProjectionRenderer clientRenderer
+                        = new RabbitProjectionRenderer(clientTable,
+                                requestClaimed, true);
+                clientTable.attach(clientRenderer).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+
+                await(() -> (hostRenderer.requested.get()
+                                && hostRenderer.revealed.get()
+                                || clientRenderer.requested.get()
+                                && clientRenderer.revealed.get())
+                                && hostRenderer.resultCount.get() == 1
+                                && clientRenderer.resultCount.get() == 1,
+                        Duration.ofSeconds(25));
+                assertTrue(hostRenderer.requested.get()
+                                ^ clientRenderer.requested.get());
+                assertEquals(hostRenderer.resultNickname.get(),
+                        clientRenderer.resultNickname.get());
+                assertEquals(hostRenderer.resultStack.get(),
+                        clientRenderer.resultStack.get(), 0.000_001d);
+                if (hostRenderer.requested.get()) {
+                    assertTrue(clientRenderer.notice.get());
+                } else {
+                    assertTrue(hostRenderer.notice.get());
+                }
+            } finally {
+                client.close();
+                host.close();
+            }
+        }
+    }
+
+    @Test
     void allInRebuyCompletesFiveHandsAndCarriesARebuyForward()
             throws Exception {
         assertNetworkRebuy(true, 5);
@@ -736,6 +946,119 @@ class GdxNetworkHumanProjectionIntegrationTest {
     void nativeGdxManualRebuyKeepsBothNetworkTablesAliveForTheNextHand()
             throws Exception {
         assertNetworkRebuy(false, 3);
+    }
+
+    @Test
+    void nativeGdxVariableInitialBuyinsWaitForEveryNetworkPlayer()
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        DatabaseService hostDatabase = new DatabaseService(
+                temporary.resolve("initial-buyin-host.sqlite").toString());
+        DatabaseService clientDatabase = new DatabaseService(
+                temporary.resolve("initial-buyin-client.sqlite").toString());
+        hostDatabase.start();
+        clientDatabase.start();
+        AtomicReference<CoronaPokerGdxTable> hostGdx = new AtomicReference<>();
+        AtomicReference<CoronaPokerGdxTable> clientGdx = new AtomicReference<>();
+        AtomicInteger presentedBuyins = new AtomicInteger();
+        GameDecisionSink hostDecisions = nativeInitialBuyinDecisions(
+                hostGdx, presentedBuyins);
+        GameDecisionSink clientDecisions = nativeInitialBuyinDecisions(
+                clientGdx, presentedBuyins);
+        try (hostDatabase; clientDatabase;
+             NetworkLobbyGateway hostGateway = gateway(
+                     temporary.resolve("initial-buyin-host"), hostDatabase,
+                     hostDecisions);
+             NetworkLobbyGateway clientGateway = gateway(
+                     temporary.resolve("initial-buyin-client"), clientDatabase,
+                     clientDecisions)) {
+            LobbySession host = hostGateway.open(variableBuyinRequest(false,
+                    "Anfitrion", port)).get(5, TimeUnit.SECONDS);
+            LobbySession client = clientGateway.open(variableBuyinRequest(true,
+                    "Invitado", port)).get(5, TimeUnit.SECONDS);
+            try {
+                await(() -> host.snapshot().participants().size() == 2,
+                        Duration.ofSeconds(5));
+                host.submit(new LobbyCommand.StartGame()).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+
+                TableSession hostTable = host.tableSession().toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                GdxTableViewState hostState = new GdxTableViewState(
+                        hostTable.initialState());
+                CoronaPokerGdxTable hostProductTable = new CoronaPokerGdxTable(
+                        60, hostState, hostTable.commands(), () -> { },
+                        new GdxGameLogSink(), null, host);
+                hostGdx.set(hostProductTable);
+                ProjectionRenderer hostRenderer = new ProjectionRenderer(hostTable);
+                hostTable.attach(hostRenderer).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+
+                TableSession clientTable = client.tableSession().toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                GdxTableViewState clientState = new GdxTableViewState(
+                        clientTable.initialState());
+                CoronaPokerGdxTable clientProductTable = new CoronaPokerGdxTable(
+                        60, clientState, clientTable.commands(), () -> { },
+                        new GdxGameLogSink(), null, client);
+                clientGdx.set(clientProductTable);
+                ProjectionRenderer clientRenderer = new ProjectionRenderer(clientTable);
+                clientTable.attach(clientRenderer).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+
+                await(() -> presentedBuyins.get() == 2
+                                && hostProductTable.hasActiveDialog()
+                                && clientProductTable.hasActiveDialog(),
+                        Duration.ofSeconds(8));
+                assertTrue(hostProductTable.resolveActiveDialogChoice(true),
+                        "the host initial-buyin dialog did not accept");
+                hostProductTable.advanceDialogState();
+                assertTrue(hostProductTable.hasActiveDialog(),
+                        "the first buyer must remain waiting for the remote player");
+                assertFalse(hostProductTable.resolveActiveDialogChoice(true),
+                        "a deferred initial buy-in must not resolve twice");
+                assertFalse(hostRenderer.hasHeldAction()
+                                || clientRenderer.hasHeldAction(),
+                        "the hand started before every initial buy-in arrived");
+
+                assertTrue(clientProductTable.resolveActiveDialogChoice(true),
+                        "the client initial-buyin dialog did not accept");
+                await(() -> {
+                    hostProductTable.advanceDialogState();
+                    clientProductTable.advanceDialogState();
+                    return !hostProductTable.hasActiveDialog()
+                            && !clientProductTable.hasActiveDialog();
+                }, Duration.ofSeconds(8));
+
+                boolean hostReleased = false;
+                boolean clientReleased = false;
+                Instant deadline = Instant.now().plusSeconds(16);
+                while ((!hostReleased || !clientReleased)
+                        && Instant.now().isBefore(deadline)) {
+                    if (!hostReleased && hostRenderer.hasHeldAction()) {
+                        hostRenderer.releaseHeldActionThroughNativeGdx();
+                        hostReleased = true;
+                    }
+                    if (!clientReleased && clientRenderer.hasHeldAction()) {
+                        clientRenderer.releaseHeldActionThroughNativeGdx();
+                        clientReleased = true;
+                    }
+                    Thread.sleep(10L);
+                }
+                assertTrue(hostReleased && clientReleased,
+                        "the variable-buyin hand did not reach both GDX controls");
+                await(() -> hostRenderer.isClosed() && clientRenderer.isClosed(),
+                        Duration.ofSeconds(18));
+                hostRenderer.assertComplete();
+                clientRenderer.assertComplete();
+            } finally {
+                client.close();
+                host.close();
+            }
+        }
     }
 
     @Test
@@ -1421,10 +1744,22 @@ class GdxNetworkHumanProjectionIntegrationTest {
                     String disconnected = cutNickname.get();
                     LobbySession disconnectedSession
                             = sessionsByNickname.get().get(disconnected);
-                    await(() -> peerReconnectionCount(host, disconnected) == 1
-                                    && peerReconnectionCount(disconnectedSession,
-                                    "Anfitrion") == 1,
-                            Duration.ofSeconds(25));
+                    try {
+                        await(() -> peerReconnectionCount(host,
+                                disconnected) == 1
+                                        && peerReconnectionCount(
+                                                disconnectedSession,
+                                                "Anfitrion") == 1,
+                                Duration.ofSeconds(25));
+                    } catch (AssertionError timeout) {
+                        throw new AssertionError(
+                                "straddle reconnect counters: host->"
+                                + disconnected + "="
+                                + peerReconnectionCount(host, disconnected)
+                                + ", client->Anfitrion="
+                                + peerReconnectionCount(disconnectedSession,
+                                        "Anfitrion"), timeout);
+                    }
 
                     await(() -> hostRenderer.closed.get()
                                     && firstRenderer.closed.get()
@@ -1792,6 +2127,37 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 new RecoverableGameRepository(database));
     }
 
+    private static NetworkLobbyGateway iwtsthGateway(Path data,
+            DatabaseService database) {
+        GameDialogSink accept = new GameDialogSink() {
+            @Override public CompletionStage<Void> showError(String message,
+                    int preferredWidth) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            @Override public CompletionStage<Void> showInfo(String message,
+                    Icon icon, int preferredWidth) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            @Override public CompletionStage<Boolean> confirm(String message,
+                    Icon icon) {
+                return CompletableFuture.completedFuture(true);
+            }
+
+            @Override public CompletionStage<Void> showTimedWarning(
+                    String message, int seconds) {
+                return CompletableFuture.completedFuture(null);
+            }
+        };
+        CoreGameTableFactory tables = new CoreGameTableFactory(database,
+                (key, arguments) -> key, GameLogSink.noop(), accept,
+                GameDecisionSink.noop(), iwtsthSettings(),
+                GameCinematicAssets.none());
+        return new NetworkLobbyGateway(data, tables,
+                new RecoverableGameRepository(database));
+    }
+
     static NetworkLobbyGateway cinematicGateway(Path data,
             DatabaseService database) {
         CoreGameTableFactory tables = new CoreGameTableFactory(database,
@@ -1821,6 +2187,24 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 new Class<?>[]{GamePresentationSettings.class},
                 (proxy, method, arguments) -> "testMode".equals(method.getName())
                         ? true : method.invoke(defaults, arguments));
+    }
+
+    private static GamePresentationSettings iwtsthSettings() {
+        GamePresentationSettings defaults = GamePresentationSettings.defaults();
+        return (GamePresentationSettings) Proxy.newProxyInstance(
+                GamePresentationSettings.class.getClassLoader(),
+                new Class<?>[]{GamePresentationSettings.class},
+                (proxy, method, arguments) -> switch (method.getName()) {
+                    case "ambientMusic", "cinematics", "gameOverCinematics",
+                            "blindDealerAnimation", "betAnimation",
+                            "counterAnimation", "shuffleAnimation",
+                            "dealAnimation", "flipAnimation", "swapAnimation",
+                            "callSound", "betSound", "blindSound",
+                            "shuffleSound", "dealSound", "flipSound",
+                            "cashSound", "iwtsthSound", "startSound",
+                            "warningSound", "errorSound" -> false;
+                    default -> method.invoke(defaults, arguments);
+                });
     }
 
     private static GamePresentationSettings rebuySettings(boolean automatic) {
@@ -1892,6 +2276,23 @@ class GdxNetworkHumanProjectionIntegrationTest {
         return new NewGameRequest(connection, table.snapshot());
     }
 
+    private static NewGameRequest variableBuyinRequest(boolean joining,
+            String nickname, int port) {
+        NewGameConnectionDraft.Submission connection
+                = new NewGameConnectionDraft.Submission(
+                        joining ? NewGameConnectionDraft.Mode.JOIN
+                                : NewGameConnectionDraft.Mode.CREATE,
+                        nickname, "", "127.0.0.1", Integer.toString(port),
+                        null, false, false, null);
+        if (joining) return new NewGameRequest(connection, null);
+        NewGameTableDraft table = new NewGameTableDraft();
+        table.setHandLimit(true);
+        table.setHandLimitCount(1);
+        table.setThinkTime(false);
+        table.setFixedBuyin(false);
+        return new NewGameRequest(connection, table.snapshot());
+    }
+
     private static NewGameRequest autoActionRequest(boolean joining,
             String nickname, int port) {
         NewGameConnectionDraft.Submission connection
@@ -1956,6 +2357,45 @@ class GdxNetworkHumanProjectionIntegrationTest {
         table.setHandLimitCount(1);
         table.setThinkTime(false);
         table.setRunItTwice(true);
+        return new NewGameRequest(connection, table.snapshot());
+    }
+
+    private static NewGameRequest iwtsthRequest(boolean joining,
+            String nickname, int port) {
+        NewGameConnectionDraft.Submission connection
+                = new NewGameConnectionDraft.Submission(
+                        joining ? NewGameConnectionDraft.Mode.JOIN
+                                : NewGameConnectionDraft.Mode.CREATE,
+                        nickname, "", "127.0.0.1", Integer.toString(port),
+                        null, false, false, null);
+        if (joining) return new NewGameRequest(connection, null);
+        NewGameTableDraft table = new NewGameTableDraft();
+        table.setHandLimit(true);
+        // A check-through loser is only an IWTSTH candidate when the ordinary
+        // showdown order lets it muck. Exercise several real hands instead of
+        // assuming a particular random deal/order in the first hand.
+        table.setHandLimitCount(8);
+        table.setThinkTime(false);
+        table.setShowdownSeconds(1);
+        table.setIwtsth(true);
+        return new NewGameRequest(connection, table.snapshot());
+    }
+
+    private static NewGameRequest rabbitRequest(boolean joining,
+            String nickname, int port) {
+        NewGameConnectionDraft.Submission connection
+                = new NewGameConnectionDraft.Submission(
+                        joining ? NewGameConnectionDraft.Mode.JOIN
+                                : NewGameConnectionDraft.Mode.CREATE,
+                        nickname, "", "127.0.0.1", Integer.toString(port),
+                        null, false, false, null);
+        if (joining) return new NewGameRequest(connection, null);
+        NewGameTableDraft table = new NewGameTableDraft();
+        table.setHandLimit(true);
+        table.setHandLimitCount(1);
+        table.setThinkTime(false);
+        table.setShowdownSeconds(2);
+        table.setRabbitHunting(NewGameTableDraft.RabbitHunting.FREE);
         return new NewGameRequest(connection, table.snapshot());
     }
 
@@ -2062,6 +2502,19 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 throw new AssertionError("unexpected GDX decision dialog: "
                         + dialog.title());
             }
+            productTable.showDialog(dialog);
+        });
+    }
+
+    private static GameDecisionSink nativeInitialBuyinDecisions(
+            AtomicReference<CoronaPokerGdxTable> table,
+            AtomicInteger presentedBuyins) {
+        return new GdxGameDecisionSink(GameText.keys(), dialog -> {
+            assertEquals(GdxTableDialog.Kind.REBUY, dialog.kind());
+            CoronaPokerGdxTable productTable = table.get();
+            assertNotNull(productTable,
+                    "the initial-buyin decision arrived before its GDX table opened");
+            presentedBuyins.incrementAndGet();
             productTable.showDialog(dialog);
         });
     }
@@ -2218,6 +2671,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         private final AtomicBoolean sawHurryCue = new AtomicBoolean();
         private final AtomicBoolean sawHurryStop = new AtomicBoolean();
         private final AtomicBoolean sawTimeoutCue = new AtomicBoolean();
+        private final AtomicBoolean sawTimeoutState = new AtomicBoolean();
         private final AtomicBoolean closed = new AtomicBoolean();
         private final EnumSet<TableSnapshot.Street> streets
                 = EnumSet.noneOf(TableSnapshot.Street.class);
@@ -2265,6 +2719,14 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 } else if ("misc/timeout.wav".equals(cue.resource())) {
                     sawTimeoutCue.set(true);
                 }
+            }
+            if (event instanceof TableVisualEvent.PlayerTimeout timeout
+                    && timeout.timedOut()) {
+                sawTimeoutState.set(true);
+                assertTrue(snapshot.players().stream()
+                        .filter(player -> player.nickname().equals(
+                                timeout.nickname()))
+                        .findFirst().orElseThrow().timedOut());
             }
 
             if (event instanceof TableVisualEvent.ActionControls controls
@@ -2725,6 +3187,155 @@ class GdxNetworkHumanProjectionIntegrationTest {
             return lastAutoTarget.get();
         }
 
+    }
+
+    private static final class IwtsthProjectionRenderer
+            implements TableRenderer {
+        private final TableSession table;
+        private final AtomicBoolean requestClaimed;
+        private final AtomicReference<GdxTableViewState> state
+                = new AtomicReference<>();
+        private final AtomicBoolean requested = new AtomicBoolean();
+        private final AtomicBoolean candidateCleared = new AtomicBoolean();
+        private final AtomicBoolean candidateRevealed = new AtomicBoolean();
+        private final AtomicReference<String> candidate = new AtomicReference<>();
+        private final CopyOnWriteArrayList<String> reveals
+                = new CopyOnWriteArrayList<>();
+        private final AtomicBoolean closed = new AtomicBoolean();
+
+        IwtsthProjectionRenderer(TableSession table,
+                AtomicBoolean requestClaimed) {
+            this.table = table;
+            this.requestClaimed = requestClaimed;
+        }
+
+        @Override
+        public CompletionStage<Void> open(TableSnapshot initialState) {
+            state.set(new GdxTableViewState(initialState));
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public CompletionStage<Void> render(TableVisualEvent event) {
+            GdxTableViewState projection = state.get();
+            assertNotNull(projection);
+            projection.apply(event);
+            if (event instanceof TableVisualEvent.ActionControls controls
+                    && controls.state().callAction()
+                    != ActionControlState.CallAction.DISABLED) {
+                table.commands().submit(new TableCommand.CheckOrCall());
+            } else if (event instanceof TableVisualEvent.IwtsthCandidates candidates) {
+                if (!candidates.nicknames().isEmpty()
+                        && requestClaimed.compareAndSet(false, true)) {
+                    requested.set(true);
+                    String nickname = candidates.nicknames().get(0);
+                    candidate.set(nickname);
+                    assertTrue(projection.isIwtsthCandidate(nickname));
+                    table.commands().submit(
+                            new TableCommand.RequestIwtsth(nickname));
+                } else if (candidates.nicknames().isEmpty()
+                        && requested.get()) {
+                    candidateCleared.set(true);
+                }
+            } else if (event instanceof TableVisualEvent.RevealHoleCards reveal) {
+                reveals.add(reveal.nickname() + ":" + reveal.left().code()
+                        + ":" + reveal.right().code());
+                if (reveal.nickname().equals(candidate.get())) {
+                    candidateRevealed.set(reveal.left().faceUp()
+                            && reveal.right().faceUp()
+                            && !reveal.left().code().isBlank()
+                            && !reveal.right().code().isBlank());
+                }
+            } else if (event instanceof TableVisualEvent.CloseTable) {
+                closed.set(true);
+            }
+            return CompletableFuture.completedFuture(null);
+        }
+
+        void assertComplete() {
+            if (requested.get()) {
+                assertTrue(candidateCleared.get(),
+                        "the IWTSTH hit target remained active after submission");
+                assertTrue(candidateRevealed.get(),
+                        "the selected muck " + candidate.get()
+                        + " was not revealed by canonical SHOWCARDS; reveals="
+                        + reveals);
+            }
+        }
+
+        boolean iwtsthComplete() {
+            return requested.get() && candidateCleared.get()
+                    && candidateRevealed.get();
+        }
+
+        @Override public void close() { }
+    }
+
+    private static final class RabbitProjectionRenderer
+            implements TableRenderer {
+        private final TableSession table;
+        private final AtomicBoolean requestClaimed;
+        private final boolean foldLocal;
+        private final AtomicReference<GdxTableViewState> state
+                = new AtomicReference<>();
+        private final AtomicBoolean requested = new AtomicBoolean();
+        private final AtomicBoolean revealed = new AtomicBoolean();
+        private final AtomicBoolean notice = new AtomicBoolean();
+        private final AtomicInteger resultCount = new AtomicInteger();
+        private final AtomicReference<String> resultNickname
+                = new AtomicReference<>();
+        private final AtomicReference<Double> resultStack
+                = new AtomicReference<>();
+
+        RabbitProjectionRenderer(TableSession table,
+                AtomicBoolean requestClaimed, boolean foldLocal) {
+            this.table = table;
+            this.requestClaimed = requestClaimed;
+            this.foldLocal = foldLocal;
+        }
+
+        @Override
+        public CompletionStage<Void> open(TableSnapshot initialState) {
+            state.set(new GdxTableViewState(initialState));
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public CompletionStage<Void> render(TableVisualEvent event) {
+            GdxTableViewState projection = state.get();
+            projection.apply(event);
+            if (event instanceof TableVisualEvent.ActionControls controls
+                    && controls.state().callAction()
+                    != ActionControlState.CallAction.DISABLED) {
+                table.commands().submit(foldLocal
+                        ? new TableCommand.Fold()
+                        : new TableCommand.CheckOrCall());
+            } else if (event instanceof TableVisualEvent.RabbitCards rabbit) {
+                if (rabbit.requestable()
+                        && requestClaimed.compareAndSet(false, true)) {
+                    requested.set(true);
+                    table.commands().submit(new TableCommand.RequestRabbit());
+                } else if (!rabbit.requestable() && requested.get()
+                        && rabbit.cards().stream()
+                                .allMatch(card -> card.card().faceUp()
+                                && !card.card().code().isBlank())) {
+                    revealed.set(true);
+                }
+            } else if (event instanceof TableVisualEvent.RabbitResult result) {
+                resultCount.incrementAndGet();
+                resultNickname.set(result.nickname());
+                resultStack.set(result.stackAfter());
+                assertEquals(result.stackAfter(), projection.snapshot().players()
+                        .stream().filter(player -> player.nickname().equals(
+                                result.nickname())).findFirst().orElseThrow()
+                        .stack(), 0.000_001d);
+            } else if (event instanceof TableVisualEvent.RabbitNotice) {
+                notice.set(true);
+            }
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override public void close() { }
     }
 
     private static final class AllInProjectionRenderer implements TableRenderer {

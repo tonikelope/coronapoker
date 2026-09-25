@@ -12,6 +12,11 @@ import org.junit.jupiter.api.Test;
 final class GdxAboutEasterEggTest {
 
     @Test
+    void readingSurfaceUsesTheLighterBlueSlateBackground() {
+        assertEquals(0x24445afc, GdxFrontendScreen.ABOUT_PANEL_RGBA);
+    }
+
+    @Test
     void decodesBothOriginalAboutImagesWithoutSwing() throws Exception {
         byte[] splash = resource("/images/splash.gif");
         for (String name : new String[]{"c", "g"}) {
@@ -38,6 +43,14 @@ final class GdxAboutEasterEggTest {
                 1280, 640, 1920, 1080, 48));
         assertEquals(704f / 1024f, GdxFrontendScreen.nativeImageScale(
                 1024, 673, 800, 600, 48), 0.0001f);
+    }
+
+    @Test
+    void preservesTheTwoInteractiveLinksFromSwingAbout() {
+        assertEquals("https://github.com/tonikelope/coronapoker",
+                GdxFrontendScreen.ABOUT_PROJECT_URI.toString());
+        assertEquals("https://github.com/tonikelope/coronapoker/raw/master/robert_rules.pdf",
+                GdxFrontendScreen.ABOUT_RULES_URI.toString());
     }
 
     private static void assertImage(String path, int width, int height)

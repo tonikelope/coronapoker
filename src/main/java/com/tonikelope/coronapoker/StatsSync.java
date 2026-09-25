@@ -28,6 +28,7 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.DatabaseService;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -42,6 +43,10 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
+import java.util.Objects;
+import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.zip.GZIPInputStream;
@@ -67,8 +72,8 @@ import java.util.zip.GZIPOutputStream;
  *
  * <p>
  * The {@link Connection}-taking methods are the core (used by tests with a
- * throwaway database); the no-argument production wrappers operate on
- * {@link Helpers#getSQLITE()} under {@link GameFrame#SQL_LOCK} and never let an
+ * throwaway database); the no-argument production wrappers operate on the
+ * {@link DatabaseService} installed by the active launcher and never let an
  * exception escape into the sync thread.
  */
 public final class StatsSync {
@@ -87,6 +92,10 @@ public final class StatsSync {
     // and the work done while holding SQL_LOCK during the insert loop.
     private static final long MAX_INFLATED_BYTES = 32L * 1024 * 1024;
     private static final int MAX_STRING_BYTES = 8 * 1024 * 1024;
+    private static final int MAX_UGI_LENGTH = 50;
+
+    /** Process-owned DB and live sharing preferences, installed by a launcher. */
+    private static volatile ProductionAccess productionAccess;
 
     // Column type tags for the generic row codec.
     private static final char INT = 'I';   // SQLite INTEGER affinity (read/written as long)
@@ -126,6 +135,20 @@ public final class StatsSync {
     private StatsSync() {
     }
 
+    /**
+     * Connects the renderer-neutral codec to the process database.  Suppliers
+     * are evaluated for every manifest, so changing the classic/GDX settings
+     * does not require rebuilding the network session.
+     */
+    public static void installProductionAccess(DatabaseService database,
+            BooleanSupplier excludePrivate,
+            Supplier<Set<String>> excludedNicks) {
+        productionAccess = new ProductionAccess(
+                Objects.requireNonNull(database, "database"),
+                Objects.requireNonNull(excludePrivate, "excludePrivate"),
+                Objects.requireNonNull(excludedNicks, "excludedNicks"));
+    }
+
     // =========================================================================
     // Production wrappers (local DB, locked, exception-safe)
     // =========================================================================
@@ -155,14 +178,24 @@ public final class StatsSync {
      * so it is left untouched and convergence is by {@code ugi} alone.
      */
     public static List<String> listShareableUgis() {
-        synchronized (GameFrame.SQL_LOCK) {
+        ProductionAccess access = requireProductionAccess();
+        Set<String> excluded = access.excludedNicks.get();
+        return listShareableUgis(access.database,
+                access.excludePrivate.getAsBoolean(),
+                excluded == null ? Set.of() : excluded);
+    }
+
+    public static List<String> listShareableUgis(DatabaseService database,
+            boolean excludePrivate, Set<String> excludedNicks) {
+        synchronized (database.lock()) {
             try {
-                java.util.Set<String> excludeNicks = GameFrame.SYNC_STATS_EXCLUDE_NICKS_ENABLED_PREF
-                        ? parseExcludedNicks(GameFrame.SYNC_STATS_EXCLUDE_NICKS_PREF)
-                        : java.util.Collections.emptySet();
-                return listShareableUgis(Helpers.getSQLITE(), GameFrame.SYNC_STATS_EXCLUDE_PRIVATE_PREF, excludeNicks);
+                return listShareableUgis(database.connection(), excludePrivate,
+                        excludedNicks == null ? Set.of() : excludedNicks);
+            } catch (SyncCancelledException cancelled) {
+                throw cancelled;
             } catch (Exception ex) {
-                LOGGER.log(Level.WARNING, "StatsSync: listing shareable ugis failed", ex);
+                LOGGER.log(Level.WARNING,
+                        "StatsSync: listing shareable ugis failed", ex);
                 return new ArrayList<>();
             }
         }
@@ -174,9 +207,17 @@ public final class StatsSync {
      * skip this batch.
      */
     public static byte[] exportGames(Collection<String> ugis) {
-        synchronized (GameFrame.SQL_LOCK) {
+        ProductionAccess access = requireProductionAccess();
+        return exportGames(access.database, ugis);
+    }
+
+    public static byte[] exportGames(DatabaseService database,
+            Collection<String> ugis) {
+        synchronized (database.lock()) {
             try {
-                return exportGames(Helpers.getSQLITE(), ugis);
+                return exportGames(database.connection(), ugis);
+            } catch (SyncCancelledException cancelled) {
+                throw cancelled;
             } catch (Exception ex) {
                 LOGGER.log(Level.WARNING, "StatsSync: export failed", ex);
                 return null;
@@ -202,6 +243,11 @@ public final class StatsSync {
      * {@code null}/blank leaves it unset.
      */
     public static int importGames(byte[] blob, String fromNick) {
+        return importGames(requireProductionAccess().database, blob, fromNick);
+    }
+
+    public static int importGames(DatabaseService database, byte[] blob,
+            String fromNick) {
         try {
             // Decode (inflate + parse) is pure CPU/memory — do it WITHOUT holding
             // SQL_LOCK so a large or hostile blob can never stall the live game's
@@ -210,9 +256,11 @@ public final class StatsSync {
             if (games.isEmpty()) {
                 return 0;
             }
-            synchronized (GameFrame.SQL_LOCK) {
-                return insertGames(Helpers.getSQLITE(), games, fromNick);
+            synchronized (database.lock()) {
+                return insertGames(database.connection(), games, fromNick);
             }
+        } catch (SyncCancelledException cancelled) {
+            throw cancelled;
         } catch (Exception ex) {
             LOGGER.log(Level.WARNING, "StatsSync: import failed", ex);
             return 0;
@@ -298,7 +346,7 @@ public final class StatsSync {
      * games-by-player filter in {@link StatsDialog} applies, so an exclusion
      * matches exactly what that filter would match.
      */
-    static java.util.Set<String> parseExcludedNicks(String csv) {
+    public static java.util.Set<String> parseExcludedNicks(String csv) {
         java.util.Set<String> set = new java.util.HashSet<>();
         if (csv != null) {
             for (String token : csv.split(",")) {
@@ -438,6 +486,8 @@ public final class StatsSync {
                 } else {
                     skipped++;
                 }
+            } catch (SyncCancelledException cancelled) {
+                throw cancelled;
             } catch (Exception ex) {
                 // Already rolled back inside insertGameIfNew — skip this one game.
                 failed++;
@@ -615,7 +665,7 @@ public final class StatsSync {
         // (la fila envenenada sobrevive a reinicios) y se propaga a otros peers por el
         // host (exportGames tambien usa writeStr). Se rechaza cualquier ugi mas largo
         // que el canonico antes de que toque la BD.
-        if (ugi.length() > GameFrame.UGI_LENGTH) {
+        if (ugi.length() > MAX_UGI_LENGTH) {
             LOGGER.log(Level.WARNING, "StatsSync: game with oversized ugi rejected ({0} chars)", ugi.length());
             return false;
         }
@@ -672,7 +722,7 @@ public final class StatsSync {
             LOGGER.log(Level.FINE, "StatsSync: imported game ugi={0} ({1} hands)",
                     new Object[]{ugi, g.hands.size()});
             return true;
-        } catch (Helpers.CooperativeCancellationException cancel) {
+        } catch (SyncCancelledException cancel) {
             try {
                 conn.rollback();
             } catch (Exception rollbackFailure) {
@@ -815,8 +865,27 @@ public final class StatsSync {
 
     private static void checkCooperativeCancellation() {
         if (Thread.currentThread().isInterrupted()) {
-            throw new Helpers.CooperativeCancellationException();
+            throw new SyncCancelledException();
         }
+    }
+
+    private static ProductionAccess requireProductionAccess() {
+        ProductionAccess access = productionAccess;
+        if (access == null) {
+            throw new IllegalStateException(
+                    "StatsSync production database is not installed");
+        }
+        return access;
+    }
+
+    private record ProductionAccess(DatabaseService database,
+            BooleanSupplier excludePrivate,
+            Supplier<Set<String>> excludedNicks) { }
+
+    /** Cooperative stop signal used to abandon obsolete background sync work. */
+    public static final class SyncCancelledException
+            extends RuntimeException {
+        private static final long serialVersionUID = 1L;
     }
 
     // =========================================================================

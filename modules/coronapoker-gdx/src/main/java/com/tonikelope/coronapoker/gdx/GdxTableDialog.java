@@ -49,6 +49,9 @@ final class GdxTableDialog {
     private boolean noLimit;
     private boolean externallyControlled;
     private boolean recovery;
+    private boolean deferCloseAfterDecision;
+    private boolean externalCloseReleased;
+    private String waitingMessage = "";
 
     GdxTableDialog(Kind kind, String message, GameDialogSink.Icon icon,
             int preferredWidth, int seconds) {
@@ -220,7 +223,9 @@ final class GdxTableDialog {
 
     Kind kind() { return kind; }
     String title() { return title; }
-    String message() { return message; }
+    String message() {
+        return waitingForExternalClose() ? waitingMessage : message;
+    }
     GameDialogSink.Icon icon() { return icon; }
     int preferredWidth() { return preferredWidth; }
     int seconds() { return seconds; }
@@ -235,8 +240,17 @@ final class GdxTableDialog {
     boolean isGameOver() { return kind == Kind.GAME_OVER; }
     boolean isRecovery() { return recovery; }
     boolean isRebuy() { return kind == Kind.REBUY; }
+    boolean allowsDismissal() { return !isRebuy() || showsNegative(); }
     boolean isHandLimit() { return kind == Kind.HAND_LIMIT; }
     boolean isExternallyControlled() { return externallyControlled; }
+    boolean waitingForExternalClose() {
+        return deferCloseAfterDecision && result.isDone()
+                && !externalCloseReleased;
+    }
+    boolean readyToClose() {
+        return result.isDone() && (!deferCloseAfterDecision
+                || externalCloseReleased);
+    }
     boolean optionEnabled() { return optionEnabled; }
     boolean noLimit() { return noLimit; }
     int amount() { return amount; }
@@ -297,7 +311,7 @@ final class GdxTableDialog {
     }
 
     void changeAmount(int direction) {
-        if (!hasAmount() || direction == 0
+        if (waitingForExternalClose() || !hasAmount() || direction == 0
                 || (isAutoCall() && (!optionEnabled || noLimit))
                 || (isHandLimit() && noLimit)) return;
         if (isAutoCall()) {
@@ -361,6 +375,16 @@ final class GdxTableDialog {
     void accept() { result.complete(true); }
     void dismiss() { result.complete(false); }
     boolean complete() { return result.isDone(); }
+
+    void deferCloseAfterDecision(String message) {
+        deferCloseAfterDecision = true;
+        waitingMessage = plainText(Objects.requireNonNull(message, "message"));
+    }
+
+    void releaseExternalClose() {
+        externalCloseReleased = true;
+        if (!result.isDone()) result.complete(false);
+    }
 
     private java.util.Optional<BigDecimal> parsedAutoCallText() {
         if (!isAutoCall() || autoCallAmountText == null) {

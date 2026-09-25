@@ -10,6 +10,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.table.TableCommand;
 import com.tonikelope.coronapoker.table.TableSnapshot;
+import com.tonikelope.coronapoker.table.TableSessionSummary;
+import com.tonikelope.coronapoker.table.TableVisualEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -111,6 +113,66 @@ final class GdxTableTerminationWiringTest {
     }
 
     @Test
+    void nativeWindowCloseFromFinalSummaryReleasesItWithoutSecondExitCommand() {
+        ArrayList<TableCommand> submitted = new ArrayList<>();
+        CoronaPokerGdxTable table = table(submitted);
+        CompletableFuture<Void> finalBarrier = new CompletableFuture<>();
+        TableSessionSummary summary = new TableSessionSummary("local", 1,
+                20L, 1L, TableSessionSummary.CloseReason.COMPLETED,
+                List.of(new TableSessionSummary.PlayerBalance(
+                        "local", 10d, 10d, 0)));
+        table.acceptEvent(new TableVisualEvent.CloseTable(2L, summary,
+                TableSnapshot.Street.FINISHED), finalBarrier);
+
+        table.requestWindowClose();
+        assertTrue(table.resolveActiveDialogChoice(true));
+
+        assertTrue(finalBarrier.isDone());
+        assertTrue(table.finalApplicationExitRequested());
+        assertEquals(0, submitted.size());
+    }
+
+    @Test
+    void finalSummaryMainMenuButtonReleasesTheTerminalBarrierWithoutPokerInput() {
+        ArrayList<TableCommand> submitted = new ArrayList<>();
+        CoronaPokerGdxTable table = table(submitted);
+        CompletableFuture<Void> finalBarrier = openFinalSummary(table);
+
+        assertTrue(table.handleFinalSummaryNavigationAction(0));
+
+        assertTrue(finalBarrier.isDone());
+        assertFalse(table.finalContinueRequested());
+        assertEquals(0, submitted.size());
+    }
+
+    @Test
+    void finalSummaryContinueButtonRequestsReconnectWithoutPokerInput() {
+        ArrayList<TableCommand> submitted = new ArrayList<>();
+        CoronaPokerGdxTable table = table(submitted);
+        CompletableFuture<Void> finalBarrier = openFinalSummary(table);
+
+        assertTrue(table.handleFinalSummaryNavigationAction(3));
+
+        assertTrue(finalBarrier.isDone());
+        assertTrue(table.finalContinueRequested());
+        assertEquals(0, submitted.size());
+    }
+
+    @Test
+    void finalSummaryStatisticsButtonReleasesBarrierAndRequestsNativeStats() {
+        ArrayList<TableCommand> submitted = new ArrayList<>();
+        CoronaPokerGdxTable table = table(submitted);
+        CompletableFuture<Void> finalBarrier = openFinalSummary(table);
+
+        assertTrue(table.handleFinalSummaryNavigationAction(2));
+
+        assertTrue(finalBarrier.isDone());
+        assertTrue(table.finalStatsRequested());
+        assertFalse(table.finalContinueRequested());
+        assertEquals(0, submitted.size());
+    }
+
+    @Test
     void exitDialogConsumesRawInputInsteadOfLeakingThroughTheTable() {
         ArrayList<TableCommand> submitted = new ArrayList<>();
         CoronaPokerGdxTable table = table(submitted);
@@ -150,6 +212,31 @@ final class GdxTableTerminationWiringTest {
     }
 
     @Test
+    void deferredInitialBuyinRemainsPresentedUntilDealerRelease() {
+        ArrayList<TableCommand> submitted = new ArrayList<>();
+        CoronaPokerGdxTable table = table(submitted);
+        GdxTableDialog rebuy = new GdxTableDialog("COMPRA INICIAL", "", 0,
+                15, true, "", 2, 20, 10);
+        rebuy.deferCloseAfterDecision("Esperando al resto de jugadores...");
+        table.showDialog(rebuy);
+
+        assertFalse(table.resolveActiveDialogChoice(false),
+                "ESC cannot bypass a mandatory initial buy-in");
+        assertFalse(rebuy.complete());
+        assertTrue(table.resolveActiveDialogChoice(true));
+        table.advanceDialogState();
+        assertTrue(table.hasActiveDialog(),
+                "the decided buy-in must cover the wait for the other players");
+        assertFalse(table.resolveActiveDialogChoice(false),
+                "the waiting modal cannot be decided a second time");
+
+        rebuy.releaseExternalClose();
+        table.advanceDialogState();
+        assertFalse(table.hasActiveDialog());
+        assertEquals(0, submitted.size());
+    }
+
+    @Test
     void escapeLikeResolutionClosesInformationWithoutANegativeButton() {
         ArrayList<TableCommand> submitted = new ArrayList<>();
         CoronaPokerGdxTable table = table(submitted);
@@ -172,6 +259,18 @@ final class GdxTableTerminationWiringTest {
         return new CoronaPokerGdxTable(240,
                 new GdxTableViewState(snapshot), submitted::add, () -> { },
                 new GdxGameLogSink(), null);
+    }
+
+    private static CompletableFuture<Void> openFinalSummary(
+            CoronaPokerGdxTable table) {
+        CompletableFuture<Void> barrier = new CompletableFuture<>();
+        TableSessionSummary summary = new TableSessionSummary("local", 1,
+                20L, 1L, TableSessionSummary.CloseReason.COMPLETED,
+                List.of(new TableSessionSummary.PlayerBalance(
+                        "local", 10d, 10d, 0)));
+        table.acceptEvent(new TableVisualEvent.CloseTable(2L, summary,
+                TableSnapshot.Street.FINISHED), barrier);
+        return barrier;
     }
 
     private static TableSnapshot.PlayerSnapshot player(String nickname) {

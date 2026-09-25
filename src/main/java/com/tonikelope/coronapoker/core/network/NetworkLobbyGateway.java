@@ -1,5 +1,7 @@
 package com.tonikelope.coronapoker.core.network;
 
+import com.tonikelope.coronapoker.StatsSync;
+import com.tonikelope.coronapoker.StatsSyncProtocol;
 import com.tonikelope.coronapoker.core.ApplicationMetadata;
 import com.tonikelope.coronapoker.core.LobbyChatMessage;
 import com.tonikelope.coronapoker.core.audio.VoiceWavContract;
@@ -13,6 +15,7 @@ import com.tonikelope.coronapoker.core.NewGameRequest;
 import com.tonikelope.coronapoker.core.NewGameSessionGateway;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import com.tonikelope.coronapoker.core.RecoverableGameRepository;
+import com.tonikelope.coronapoker.core.StatsSyncService;
 import com.tonikelope.coronapoker.core.identity.PlayerIdentity;
 import com.tonikelope.coronapoker.core.game.GameChannel;
 import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
@@ -59,6 +62,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.BooleanSupplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.KeyAgreement;
@@ -93,6 +97,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
     private final GameTableFactory gameTables;
     private final RecoverableGameRepository recoverableGames;
     private final IdentityTrustStore identityTrust;
+    private final BooleanSupplier receiveStats;
+    private final BooleanSupplier shareStats;
+    private final StatsSyncService statsSync;
     private final ExecutorService executor;
     private final Set<Thread> workerThreads = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -116,12 +123,32 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
     public NetworkLobbyGateway(Path coronaDirectory, GameTableFactory gameTables,
             RecoverableGameRepository recoverableGames,
             IdentityTrustStore identityTrust) {
+        this(coronaDirectory, gameTables, recoverableGames, identityTrust,
+                () -> false, () -> false, null);
+    }
+
+    public NetworkLobbyGateway(Path coronaDirectory, GameTableFactory gameTables,
+            RecoverableGameRepository recoverableGames,
+            IdentityTrustStore identityTrust, BooleanSupplier receiveStats,
+            BooleanSupplier shareStats) {
+        this(coronaDirectory, gameTables, recoverableGames, identityTrust,
+                receiveStats, shareStats, null);
+    }
+
+    public NetworkLobbyGateway(Path coronaDirectory, GameTableFactory gameTables,
+            RecoverableGameRepository recoverableGames,
+            IdentityTrustStore identityTrust, BooleanSupplier receiveStats,
+            BooleanSupplier shareStats, StatsSyncService statsSync) {
         this.coronaDirectory = Objects.requireNonNull(coronaDirectory, "coronaDirectory")
                 .toAbsolutePath().normalize();
         this.gameTables = Objects.requireNonNull(gameTables, "gameTables");
         this.recoverableGames = recoverableGames;
         this.identityTrust = Objects.requireNonNull(identityTrust,
                 "identityTrust");
+        this.receiveStats = Objects.requireNonNull(receiveStats,
+                "receiveStats");
+        this.shareStats = Objects.requireNonNull(shareStats, "shareStats");
+        this.statsSync = statsSync;
         ThreadFactory threads = task -> {
             Thread thread = new Thread(() -> {
                 Thread worker = Thread.currentThread();
@@ -162,15 +189,28 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 gameTables, recoverableGames, identityTrust);
     }
 
+    public static NetworkLobbyGateway forCurrentUser(GameTableFactory gameTables,
+            RecoverableGameRepository recoverableGames,
+            IdentityTrustStore identityTrust, BooleanSupplier receiveStats,
+            BooleanSupplier shareStats, StatsSyncService statsSync) {
+        return new NetworkLobbyGateway(
+                Path.of(System.getProperty("user.home"), ".coronapoker"),
+                gameTables, recoverableGames, identityTrust, receiveStats,
+                shareStats, statsSync);
+    }
+
     @Override
     public CompletableFuture<LobbySession> open(NewGameRequest request) {
         Objects.requireNonNull(request, "request");
         if (closed.get()) return CompletableFuture.failedFuture(new IllegalStateException("Network gateway is closed"));
         return CompletableFuture.supplyAsync(() -> {
             try {
-                return request.joining() ? Transport.openClient(request, coronaDirectory, executor, gameTables, identityTrust)
+                return request.joining() ? Transport.openClient(request,
+                        coronaDirectory, executor, gameTables, identityTrust,
+                        receiveStats, shareStats, statsSync)
                         : Transport.openHost(request, coronaDirectory, executor,
-                                gameTables, recoverableGames, identityTrust);
+                                gameTables, recoverableGames, identityTrust,
+                                receiveStats, shareStats, statsSync);
             } catch (Exception failure) {
                 throw new java.util.concurrent.CompletionException(failure);
             }
@@ -201,6 +241,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private volatile NewGameTableDraft.Settings tableSettings;
         private final GameTableFactory gameTables;
         private final IdentityTrustStore identityTrust;
+        private final BooleanSupplier receiveStats;
+        private final BooleanSupplier shareStats;
+        private final StatsSyncService statsSync;
         private final NativeGameChannel gameChannel;
         private final boolean recovering;
         private final int recoveryGameId;
@@ -208,6 +251,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private final PlayerIdentity identity;
         private volatile GameConfigCodecV1.Configuration launchConfiguration;
         private final Map<String, Peer> peers = new LinkedHashMap<>();
+        private final Map<String, Set<String>> peerStatsUgis
+                = new ConcurrentHashMap<>();
         private final Set<String> lateJoinWarnings = new java.util.LinkedHashSet<>();
         private final List<LobbyChatMessage> chat = new ArrayList<>();
         private final AtomicLong chatSequence = new AtomicLong();
@@ -225,7 +270,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private Transport(boolean host, NewGameRequest request, Path coronaDirectory,
                 ExecutorService executor, byte[] sessionId, PlayerIdentity identity,
                 NewGameTableDraft.Settings tableSettings, GameTableFactory gameTables,
-                IdentityTrustStore identityTrust) {
+                IdentityTrustStore identityTrust, BooleanSupplier receiveStats,
+                BooleanSupplier shareStats, StatsSyncService statsSync) {
             this.host = host;
             this.localNickname = request.connection().nickname();
             this.endpoint = request.connection().server() + ":" + request.connection().port();
@@ -238,6 +284,10 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             this.gameTables = Objects.requireNonNull(gameTables, "gameTables");
             this.identityTrust = Objects.requireNonNull(identityTrust,
                     "identityTrust");
+            this.receiveStats = Objects.requireNonNull(receiveStats,
+                    "receiveStats");
+            this.shareStats = Objects.requireNonNull(shareStats, "shareStats");
+            this.statsSync = statsSync;
             this.recovering = request.connection().recover();
             this.recoveryGameId = request.connection().recoveredGameId() == null
                     ? -1 : request.connection().recoveredGameId();
@@ -250,12 +300,15 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         static LobbySession openHost(NewGameRequest request, Path directory,
                 ExecutorService executor, GameTableFactory gameTables,
                 RecoverableGameRepository recoverableGames,
-                IdentityTrustStore identityTrust) throws Exception {
+                IdentityTrustStore identityTrust, BooleanSupplier receiveStats,
+                BooleanSupplier shareStats, StatsSyncService statsSync)
+                throws Exception {
             PlayerIdentity identity = PlayerIdentity.loadOrCreate(directory, request.connection().nickname());
             byte[] sessionId = new byte[16];
             new SecureRandom().nextBytes(sessionId);
             Transport transport = new Transport(true, request, directory, executor, sessionId,
-                    identity, request.table(), gameTables, identityTrust);
+                    identity, request.table(), gameTables, identityTrust,
+                    receiveStats, shareStats, statsSync);
             int port = parsePort(request.connection().port());
             ServerSocket server = new ServerSocket();
             server.setReuseAddress(true);
@@ -306,7 +359,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         static LobbySession openClient(NewGameRequest request, Path directory,
                 ExecutorService executor, GameTableFactory gameTables,
-                IdentityTrustStore identityTrust) throws Exception {
+                IdentityTrustStore identityTrust, BooleanSupplier receiveStats,
+                BooleanSupplier shareStats, StatsSyncService statsSync)
+                throws Exception {
             PlayerIdentity identity = PlayerIdentity.loadOrCreate(directory, request.connection().nickname());
             Socket socket = new Socket();
             socket.connect(new InetSocketAddress(request.connection().server(),
@@ -318,7 +373,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             Transport transport = new Transport(false, request, directory, executor,
                     connection.sessionId, identity,
                     NewGameTableDraft.Settings.parseWire(connection.gameConfig),
-                    gameTables, identityTrust);
+                    gameTables, identityTrust, receiveStats, shareStats,
+                    statsSync);
             transport.serverConnection = connection;
             transport.serverNickname = connection.remoteNickname;
             transport.peers.put(connection.remoteNickname,
@@ -339,6 +395,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             socket.setSoTimeout(0);
             executor.execute(() -> transport.readClient(connection));
             connection.startHeartbeat(transport::publishCurrent);
+            transport.beginStatsSync(connection);
             return session;
         }
 
@@ -916,6 +973,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                             publish(LobbySnapshot.Phase.IN_GAME, "");
                             executor.execute(() -> readClient(connection));
                             connection.startHeartbeat(this::publishCurrent);
+                            beginStatsSync(connection);
                             return;
                         } catch (Exception failure) {
                             if (candidate != null) candidate.close();
@@ -1120,13 +1178,132 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private synchronized void receiveBinary(Connection source, byte[] clear,
                 boolean fromClient) throws Exception {
             BinaryPayloadCodec.Payload payload = BinaryPayloadCodec.decode(clear);
-            if (payload.type() != BinaryPayloadCodec.TYPE_VOICE
-                    || !VoiceWavContract.isValid(payload.body())) return;
             String nickname = fromClient ? source.remoteNickname : payload.nickname();
-            if (fromClient) broadcastBinary(BinaryPayloadCodec.encode(payload.type(), nickname, payload.body()), source);
-            chat.add(new LobbyChatMessage(chatSequence.getAndIncrement(), Instant.now(), nickname,
-                    LobbyChatMessage.Type.VOICE, Base64.getEncoder().encodeToString(payload.body())));
-            publishCurrent();
+            if (payload.type() == BinaryPayloadCodec.TYPE_VOICE) {
+                if (!VoiceWavContract.isValid(payload.body())) return;
+                if (fromClient) broadcastBinary(BinaryPayloadCodec.encode(
+                        payload.type(), nickname, payload.body()), source);
+                chat.add(new LobbyChatMessage(chatSequence.getAndIncrement(),
+                        Instant.now(), nickname, LobbyChatMessage.Type.VOICE,
+                        Base64.getEncoder().encodeToString(payload.body())));
+                publishCurrent();
+            } else if (payload.type() == BinaryPayloadCodec.TYPE_DATABASE
+                    && statsSync != null
+                    && (receiveStats.getAsBoolean()
+                            || shareStats.getAsBoolean())) {
+                byte[] message = payload.body();
+                executor.execute(() -> processStatsSync(source, nickname,
+                        message, fromClient));
+            }
+        }
+
+        private void beginStatsSync(Connection connection) {
+            if (statsSync == null || (!receiveStats.getAsBoolean()
+                    && !shareStats.getAsBoolean())) {
+                return;
+            }
+            executor.execute(() -> {
+                try {
+                    byte[] manifest = StatsSyncProtocol.manifestMessage(
+                            statsSync.listShareableUgis(),
+                            receiveStats.getAsBoolean());
+                    connection.writeEncryptedBinary(BinaryPayloadCodec.encode(
+                            BinaryPayloadCodec.TYPE_DATABASE, localNickname,
+                            manifest));
+                } catch (Exception failure) {
+                    if (!closed.get()) LOGGER.log(Level.WARNING,
+                            "GDX stats sync manifest failed", failure);
+                }
+            });
+        }
+
+        private void processStatsSync(Connection source, String peerNickname,
+                byte[] message, boolean fromClient) {
+            try {
+                byte subtype = StatsSyncProtocol.subtype(message);
+                if (subtype == StatsSyncProtocol.MANIFEST) {
+                    StatsSyncProtocol.Manifest manifest =
+                            StatsSyncProtocol.readManifest(message);
+                    peerStatsUgis.put(peerNickname,
+                            Set.copyOf(manifest.ugis));
+                    List<String> mine = statsSync.listShareableUgis();
+                    if (shareStats.getAsBoolean() && manifest.wantsReceive) {
+                        sendStatsGames(source, peerNickname,
+                                StatsSync.difference(mine, manifest.ugis));
+                    }
+                    // The host also advertises what it already owns so the
+                    // joining client can send the games missing on the host.
+                    if (host && fromClient && receiveStats.getAsBoolean()) {
+                        sendStatsMessage(source,
+                                StatsSyncProtocol.manifestMessage(mine, true));
+                    }
+                } else if (subtype == StatsSyncProtocol.GAMES
+                        && receiveStats.getAsBoolean()) {
+                    int imported = statsSync.importGames(
+                            StatsSyncProtocol.gamesBlob(message), peerNickname);
+                    if (imported > 0) {
+                        LOGGER.log(Level.INFO,
+                                "GDX stats sync imported {0} game(s) from {1}",
+                                new Object[]{imported, peerNickname});
+                        if (host) forwardStatsToOtherClients(peerNickname);
+                    }
+                }
+            } catch (Exception failure) {
+                if (!closed.get()) LOGGER.log(Level.WARNING,
+                        "GDX stats sync message from " + peerNickname
+                                + " failed", failure);
+            }
+        }
+
+        private void sendStatsGames(Connection source, String peerNickname,
+                List<String> missing) throws Exception {
+            final int batchSize = 25;
+            for (int offset = 0; offset < missing.size(); offset += batchSize) {
+                if (closed.get()) return;
+                List<String> batch = missing.subList(offset,
+                        Math.min(missing.size(), offset + batchSize));
+                byte[] blob = statsSync.exportGames(batch);
+                if (blob == null) continue;
+                byte[] message = StatsSyncProtocol.gamesMessage(blob);
+                int nicknameBytes = localNickname.getBytes(
+                        StandardCharsets.UTF_8).length;
+                if (message.length + 3 + nicknameBytes
+                        > MAX_COMMAND_BYTES) {
+                    LOGGER.log(Level.WARNING,
+                            "GDX stats sync batch for {0} exceeds frame limit",
+                            peerNickname);
+                    continue;
+                }
+                sendStatsMessage(source, message);
+            }
+        }
+
+        private void forwardStatsToOtherClients(String sourceNickname)
+                throws Exception {
+            List<Peer> targets;
+            synchronized (this) {
+                targets = peers.values().stream()
+                        .filter(peer -> !peer.local && !peer.bot
+                                && peer.connection != null
+                                && !peer.nickname.equals(sourceNickname))
+                        .toList();
+            }
+            if (targets.isEmpty()) return;
+            List<String> mine = statsSync.listShareableUgis();
+            for (Peer target : targets) {
+                Set<String> known = peerStatsUgis.getOrDefault(
+                        target.nickname, Set.of());
+                sendStatsGames(target.connection, target.nickname,
+                        StatsSync.difference(mine, known));
+            }
+        }
+
+        private void sendStatsMessage(Connection target, byte[] message)
+                throws Exception {
+            Connection destination = host ? target : serverConnection;
+            if (destination == null) return;
+            destination.writeEncryptedBinary(BinaryPayloadCodec.encode(
+                    BinaryPayloadCodec.TYPE_DATABASE, localNickname, message));
         }
 
         private void sendUsersList(Connection newcomer) throws Exception {
@@ -1224,6 +1401,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         private synchronized void removePeer(String nickname, boolean broadcast) throws Exception {
             Peer removed = peers.remove(nickname);
+            peerStatsUgis.remove(nickname);
             if (removed == null || removed.local) return;
             if (removed.connection != null) removed.connection.close();
             addPresence(nickname, LobbyChatMessage.Type.PLAYER_LEFT);

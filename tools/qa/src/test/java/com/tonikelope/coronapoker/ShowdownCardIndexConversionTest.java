@@ -60,7 +60,7 @@ class ShowdownCardIndexConversionTest {
     void showdownProofAndWireCardsComeFromTheEncryptedPocket() throws Exception {
         Path root = locateRoot();
         String source = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
 
         String signing = slice(source,
                 "public String signShowdownRevealForBroadcast(",

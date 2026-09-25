@@ -11,7 +11,7 @@ public class CriticalUnlockFailureClosesChannelTest {
     @Test
     public void everyUnlockHandlerAbortClosesTheHostChannel() throws Exception {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java"))
+                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java"))
                 .replace("\r\n", "\n");
         int start = source.indexOf("case \"REQ_SRA_UNLOCK_CHAIN\":");
         int end = source.indexOf("case \"H_CHECK\":", start);
@@ -37,7 +37,7 @@ public class CriticalUnlockFailureClosesChannelTest {
         Path path = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         while (path != null) {
             if (Files.isRegularFile(path.resolve("pom.xml"))
-                    && Files.isDirectory(path.resolve("src/main/java"))) return path;
+                    && Files.isDirectory(path.resolve("modules/coronapoker-core/src/main/java"))) return path;
             path = path.getParent();
         }
         throw new IllegalStateException("repository root not found");

@@ -13,7 +13,7 @@ class StraddleCanonicalResultDeliveryTest {
     @Test
     void straddleResultIsConfirmedOrTheHandStopsWithoutAnAssumedValue() throws IOException {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
 
         assertTrue(source.contains("private boolean broadcastStraddleResult(int v)"));
         assertTrue(source.contains("broadcastGAMECommandFromServer(\"STRADDLE_RESULT#\" + v, null, true)"));

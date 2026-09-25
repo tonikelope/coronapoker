@@ -237,6 +237,13 @@ A high-level map of the current product architecture: the independent Swing and 
 
 ![CoronaPoker module map](docs/diagrams/coronapoker-module-map.png)
 
+Product Java sources have one physical owner: shared logic and renderer-neutral
+contracts live in `modules/coronapoker-core`, the classic UI lives in
+`modules/coronapoker-swing`, and the libGDX UI lives in
+`modules/coronapoker-gdx`. The former root `src/main/java` tree is intentionally
+empty and guarded by architecture tests, preventing duplicated Swing/GDX/core
+implementations from creeping back into the product.
+
 The cryptographic subsystem, covering verifiable **SRA / Ristretto255** dealing with DLEQ proofs, the zero-knowledge **Bayer-Groth** shuffle, per-nick **Ed25519** identity, the per-hand `H_t` ratchet and the receipt consensus, has its own two diagrams (a component architecture and a full per-hand protocol sequence) embedded in **[`docs/SECURITY.md`](docs/SECURITY.md)**.
 
 The **bot AI**, covering its architecture, hand-evaluation maths, personality model and per-turn decision pipeline, is documented in depth, with its own two diagrams (a component architecture and a decision-flow chart), in **[`docs/BOTS.md`](docs/BOTS.md)**.

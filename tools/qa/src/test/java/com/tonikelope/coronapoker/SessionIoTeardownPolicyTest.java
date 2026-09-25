@@ -18,7 +18,7 @@ public class SessionIoTeardownPolicyTest {
 
     @Test
     public void gifMetadataReadsUseTheBoundedSessionIoOpener() throws IOException {
-        String source = Files.readString(sourceRoot().resolve("Helpers.java"));
+        String source = Files.readString(swingSourceRoot().resolve("Helpers.java"));
 
         for (String method : new String[]{"getGIFLength", "getGIFFramesCount", "isImageGIF"}) {
             String body = methodBody(source, method);
@@ -31,7 +31,7 @@ public class SessionIoTeardownPolicyTest {
 
     @Test
     public void upnpDiscoveryAndUnmapCannotBlockTableTeardownIndefinitely() throws IOException {
-        Path javaRoot = javaSourceRoot();
+        Path javaRoot = coreJavaSourceRoot();
         String gateway = Files.readString(javaRoot.resolve("org/dosse/upnp/Gateway.java"));
         assertTrue(occurrences(gateway, "setConnectTimeout(") >= 2,
                 "UPnP gateway discovery and commands both need bounded connect timeouts");
@@ -69,14 +69,19 @@ public class SessionIoTeardownPolicyTest {
         throw new AssertionError("unterminated method: " + methodName);
     }
 
-    private static Path sourceRoot() {
-        return javaSourceRoot().resolve("com/tonikelope/coronapoker");
+    private static Path swingSourceRoot() {
+        return moduleJavaSourceRoot("coronapoker-swing")
+                .resolve("com/tonikelope/coronapoker");
     }
 
-    private static Path javaSourceRoot() {
+    private static Path coreJavaSourceRoot() {
+        return moduleJavaSourceRoot("coronapoker-core");
+    }
+
+    private static Path moduleJavaSourceRoot(String module) {
         Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         while (current != null) {
-            Path candidate = current.resolve("src/main/java");
+            Path candidate = current.resolve("modules/" + module + "/src/main/java");
             if (Files.isDirectory(candidate)) {
                 return candidate;
             }

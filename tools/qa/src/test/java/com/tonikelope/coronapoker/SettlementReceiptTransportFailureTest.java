@@ -12,7 +12,7 @@ public class SettlementReceiptTransportFailureTest {
     @Test
     public void ownReceiptAndEveryRelayMustSucceedBeforeSqlClose() throws IOException {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
 
         assertTrue(source.contains("private boolean emitOwnReceipt(byte[] localReceipt)"));
         assertTrue(source.contains("if (localReceipt == null || !emitOwnReceipt(localReceipt))"));

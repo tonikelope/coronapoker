@@ -41,7 +41,7 @@ class CurrentRecoveryFossilFormatTest {
     void bothActiveRecoveryRolesEnforceTheCurrentFossilBeforeParsing() throws Exception {
         Path root = projectRoot();
         String source = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         assertEquals(2, occurrences(source,
                 "if (!isCurrentRecoveryFossil(fosil))"));
     }
@@ -66,7 +66,7 @@ class CurrentRecoveryFossilFormatTest {
     private static Path projectRoot() {
         Path root = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         while (root != null && !Files.exists(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
             root = root.getParent();
         }
         if (root == null) {

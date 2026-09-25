@@ -4,19 +4,25 @@ Este es el reactor Maven del producto. Los ejecutables Swing y GDX se generan
 desde aquí y se depositan exclusivamente en `../target`. El único JAR que queda
 en la raíz es `../coronaupdater.jar`, porque el actualizador lo requiere allí.
 
-## Fuentes únicas durante la transición
+## Propiedad física de las fuentes
 
-- `coronapoker-swing` compila directamente `../src/main/java`; no mantiene una copia del cliente clásico.
+- `coronapoker-core` contiene la lógica de juego, red, persistencia y contratos de
+  presentación neutrales en `coronapoker-core/src/main/java`.
+- `coronapoker-swing` contiene exclusivamente el frontend clásico Swing en
+  `coronapoker-swing/src/main/java`.
 - `coronapoker-gdx` contiene todo el frontend GDX activo. No compila ni ejecuta
   código de la demo archivada.
 - `coronapoker-assets` empaqueta directamente `../src/main/resources`; los mods instalables permanecen externos y no se incrustan en el JAR oficial.
-- `coronapoker-core` compila las fuentes neutrales compartidas y está protegido
-  contra imports Swing, AWT y libGDX.
+
+El antiguo árbol `../src/main/java` queda vacío. La suite de arquitectura impide
+que vuelvan a aparecer fuentes allí, que un archivo Java exista en dos módulos o
+que el core importe Swing, AWT o libGDX.
 
 La demo aprobada se conserva únicamente como referencia visual en
 `../reference/gdx-demo` (commit de referencia `627c71e4f`) y está fuera del build.
 
-Estas rutas externas son una excepción transitoria deliberada. Se retirarán cuando las fuentes se muevan a los módulos definitivos, registrando antes cada origen y destino como exige el plan maestro.
+Los recursos compartidos permanecen deliberadamente en `../src/main/resources`:
+son datos del producto, no una tercera copia de código Java.
 
 ## Build
 

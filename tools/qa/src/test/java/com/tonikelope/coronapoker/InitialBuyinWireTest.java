@@ -46,7 +46,7 @@ public class InitialBuyinWireTest {
     @Test
     void buyinWaitRejectsMalformedKnownFramesBeforeMutation() throws Exception {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java")).replace("\r\n", "\n");
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java")).replace("\r\n", "\n");
         int start = source.indexOf("private void recibirBuyinsIniciales(");
         int end = source.indexOf("public void remotePlayerQuit(", start);
         String method = source.substring(start, end);
@@ -63,7 +63,7 @@ public class InitialBuyinWireTest {
     private static Path locateRoot() {
         Path start = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
         for (Path path = start; path != null; path = path.getParent()) {
-            if (Files.exists(path.resolve("src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
+            if (Files.exists(path.resolve("modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
                 return path;
             }
         }

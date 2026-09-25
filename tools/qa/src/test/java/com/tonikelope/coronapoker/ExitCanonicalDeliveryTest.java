@@ -13,7 +13,7 @@ class ExitCanonicalDeliveryTest {
     @Test
     void playerExitIsConfirmedWithoutHoldingTheDealerMonitor() throws IOException {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
 
         assertTrue(source.contains("broadcastGAMECommandFromServer(cmd, nick, true)"));
         assertTrue(source.contains("EXIT delivery failed; aborting hand"));

@@ -48,7 +48,7 @@ class ShowdownEligibilityTest {
     private static Path sourceRoot() {
         Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         while (current != null) {
-            Path candidate = current.resolve("src/main/java/com/tonikelope/coronapoker");
+            Path candidate = current.resolve("modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker");
             if (Files.isDirectory(candidate)) {
                 return candidate;
             }

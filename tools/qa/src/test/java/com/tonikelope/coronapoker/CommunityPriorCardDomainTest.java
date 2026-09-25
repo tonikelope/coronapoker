@@ -39,7 +39,7 @@ class CommunityPriorCardDomainTest {
         Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         for (int i = 0; i < 6 && current != null; i++, current = current.getParent()) {
             Path candidate = current.resolve(
-                    "src/main/java/com/tonikelope/coronapoker/Crupier.java");
+                    "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java");
             if (Files.isRegularFile(candidate)) {
                 return candidate;
             }

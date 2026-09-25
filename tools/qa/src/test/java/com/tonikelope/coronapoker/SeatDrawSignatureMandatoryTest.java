@@ -12,7 +12,7 @@ public class SeatDrawSignatureMandatoryTest {
     @Test
     void everyHumanCommitRequiresAnIdentitySignature() throws Exception {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java")).replace("\r\n", "\n");
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java")).replace("\r\n", "\n");
 
         int hostStart = source.indexOf("private String[] hostSeatDrawCommitReveal()");
         int hostEnd = source.indexOf("private int collectSeatResponses(", hostStart);
@@ -32,7 +32,7 @@ public class SeatDrawSignatureMandatoryTest {
     private static Path locateRoot() {
         Path start = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
         for (Path path = start; path != null; path = path.getParent()) {
-            if (Files.exists(path.resolve("src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
+            if (Files.exists(path.resolve("modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
                 return path;
             }
         }

@@ -12,11 +12,11 @@ class RabbitRequesterAuthorizationBindingTest {
     void hostCannotForgeARequestThatChargesAnotherPlayer() throws Exception {
         Path root = locateRoot();
         String crupier = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         String identity = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/IdentityManager.java"));
+                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/IdentityManager.java"));
         String ledger = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/RabbitFeeLedger.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/RabbitFeeLedger.java"));
 
         assertTrue(identity.contains("signRabbitRequest")
                         && identity.contains("verifyRabbitRequest"),
@@ -66,7 +66,7 @@ class RabbitRequesterAuthorizationBindingTest {
         Path path = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         while (path != null) {
             if (Files.isRegularFile(path.resolve("pom.xml"))
-                    && Files.isDirectory(path.resolve("src/main/java"))) return path;
+                    && Files.isDirectory(path.resolve("modules/coronapoker-core/src/main/java"))) return path;
             path = path.getParent();
         }
         throw new IllegalStateException("repository root not found");

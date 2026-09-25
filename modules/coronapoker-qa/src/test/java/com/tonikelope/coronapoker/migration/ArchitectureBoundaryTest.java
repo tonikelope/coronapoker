@@ -5,8 +5,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.regex.Matcher;
+import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
@@ -17,9 +18,6 @@ final class ArchitectureBoundaryTest {
 
     private static final Pattern GRAPHICS_IMPORT = Pattern.compile(
             "(?m)^\\s*import\\s+(?:java\\.awt|javax\\.swing|com\\.badlogic\\.gdx)(?:\\.|;)");
-    private static final Pattern CORE_SOURCE_INCLUDE = Pattern.compile(
-            "<include>([^<]+\\.java)</include>");
-
     private final Path reactor = Path.of(System.getProperty("migration.reactor.dir"))
             .toAbsolutePath().normalize();
 
@@ -43,10 +41,49 @@ final class ArchitectureBoundaryTest {
         assertFalse(gdxPom.contains("coronapoker-swing"));
         assertTrue(swingPom.contains("<artifactId>coronapoker-core</artifactId>"));
         assertTrue(gdxPom.contains("<artifactId>coronapoker-core</artifactId>"));
-        assertTrue(corePom.contains("../../src/main/java/com/tonikelope/coronapoker/core"));
-        assertTrue(corePom.contains("../../src/main/java/com/tonikelope/coronapoker/table"));
-        assertTrue(swingPom.contains("com/tonikelope/coronapoker/core/**"));
-        assertTrue(swingPom.contains("com/tonikelope/coronapoker/table/**"));
+        assertFalse(corePom.contains("build-helper-maven-plugin"));
+        assertFalse(swingPom.contains("build-helper-maven-plugin"));
+        assertFalse(corePom.contains("<includes>"));
+        assertFalse(swingPom.contains("com/tonikelope/coronapoker/core/**"));
+        assertFalse(swingPom.contains("com/tonikelope/coronapoker/table/**"));
+        assertTrue(Files.isDirectory(reactor.resolve("coronapoker-core/src/main/java")));
+        assertTrue(Files.isDirectory(reactor.resolve("coronapoker-swing/src/main/java")));
+    }
+
+    @Test
+    void productSourcesHaveOnePhysicalOwner() throws IOException {
+        Path repository = reactor.getParent();
+        Path legacyRoot = repository.resolve("src/main/java");
+        if (Files.isDirectory(legacyRoot)) {
+            try (Stream<Path> files = Files.walk(legacyRoot)) {
+                List<Path> leftovers = files
+                        .filter(Files::isRegularFile)
+                        .toList();
+                assertTrue(leftovers.isEmpty(),
+                        "Legacy source tree must be empty: " + leftovers);
+            }
+        }
+
+        List<Path> roots = List.of(
+                reactor.resolve("coronapoker-core/src/main/java"),
+                reactor.resolve("coronapoker-swing/src/main/java"),
+                reactor.resolve("coronapoker-gdx/src/main/java"));
+        Set<String> seen = new java.util.HashSet<>();
+        for (Path root : roots) {
+            try (Stream<Path> files = Files.walk(root)) {
+                Set<String> relativeSources = files
+                        .filter(Files::isRegularFile)
+                        .filter(path -> path.toString().endsWith(".java"))
+                        .map(root::relativize)
+                        .map(Path::toString)
+                        .collect(Collectors.toSet());
+                Set<String> duplicates = new java.util.HashSet<>(relativeSources);
+                duplicates.retainAll(seen);
+                assertTrue(duplicates.isEmpty(),
+                        "Sources owned by more than one module: " + duplicates);
+                seen.addAll(relativeSources);
+            }
+        }
     }
 
     @Test
@@ -166,7 +203,7 @@ final class ArchitectureBoundaryTest {
         assertFalse(projection.contains("movingPositions"),
                 "A visual position-chip flight must not reconcile player state");
         String eventContract = Files.readString(
-                reactor.resolve("../src/main/java/com/tonikelope/coronapoker/"
+                reactor.resolve("coronapoker-core/src/main/java/com/tonikelope/coronapoker/"
                         + "table/TableVisualEvent.java").normalize(),
                 StandardCharsets.UTF_8);
         assertFalse(eventContract.contains("record MovePosition"),
@@ -176,7 +213,7 @@ final class ArchitectureBoundaryTest {
     @Test
     void bothLaunchersUseTheSharedBootstrap() throws IOException {
         String swingLauncher = Files.readString(
-                reactor.resolve("../src/main/java/com/tonikelope/coronapoker/swing/SwingLauncher.java").normalize(),
+                reactor.resolve("coronapoker-swing/src/main/java/com/tonikelope/coronapoker/swing/SwingLauncher.java").normalize(),
                 StandardCharsets.UTF_8);
         String gdxLauncher = read("coronapoker-gdx/src/main/java/com/tonikelope/coronapoker/gdx/GdxLauncher.java");
 
@@ -197,35 +234,13 @@ final class ArchitectureBoundaryTest {
     }
 
     private List<Path> coreSources() throws IOException {
-        Path sourceRoot = reactor.resolve("../src/main/java").normalize();
-        Matcher includes = CORE_SOURCE_INCLUDE.matcher(
-                read("coronapoker-core/pom.xml"));
-        List<Path> sources = new java.util.ArrayList<>();
-        while (includes.find()) {
-            String include = includes.group(1);
-            if (include.endsWith("/**/*.java")) {
-                Path directory = sourceRoot.resolve(
-                        include.substring(0, include.length() - "/**/*.java".length()));
-                try (Stream<Path> files = walk(directory)) {
-                    files.filter(path -> path.toString().endsWith(".java"))
-                            .forEach(sources::add);
-                }
-            } else {
-                Path source = sourceRoot.resolve(include);
-                assertTrue(Files.isRegularFile(source),
-                        "Missing core source declared by Maven: " + source);
-                sources.add(source);
-            }
-        }
-        assertFalse(sources.isEmpty(), "No core source includes found in Maven");
-        return sources.stream().distinct().toList();
-    }
-
-    private Stream<Path> walk(Path root) {
-        try {
-            return Files.walk(root);
-        } catch (IOException ex) {
-            throw new IllegalStateException("Cannot inspect " + root, ex);
+        Path sourceRoot = reactor.resolve("coronapoker-core/src/main/java");
+        try (Stream<Path> files = Files.walk(sourceRoot)) {
+            List<Path> sources = files
+                    .filter(path -> path.toString().endsWith(".java"))
+                    .toList();
+            assertFalse(sources.isEmpty(), "No physical core sources found");
+            return sources;
         }
     }
 

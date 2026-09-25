@@ -34,7 +34,7 @@ public class SeatDrawRosterBindingTest {
     @Test
     void clientChecksBindingBeforeContributing() throws Exception {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java")).replace("\r\n", "\n");
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java")).replace("\r\n", "\n");
         int client = source.indexOf("private String[] clientSeatDraw()");
         int start = source.indexOf("case \"SEAT_DRAW_BEGIN\":", client);
         int end = source.indexOf("case \"SEAT_COMMITS\":", start);
@@ -50,7 +50,7 @@ public class SeatDrawRosterBindingTest {
     private static Path locateRoot() {
         Path start = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
         for (Path path = start; path != null; path = path.getParent()) {
-            if (Files.exists(path.resolve("src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
+            if (Files.exists(path.resolve("modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
                 return path;
             }
         }

@@ -129,7 +129,7 @@ final class DialogToggleInteractionTest {
     private static Path locateSourceDir() {
         Path start = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
         for (Path p = start; p != null; p = p.getParent()) {
-            Path candidate = p.resolve("src/main/java/com/tonikelope/coronapoker");
+            Path candidate = p.resolve("modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker");
             if (Files.isDirectory(candidate) && Files.isRegularFile(candidate.resolve("SettingsUI.java"))) {
                 return candidate;
             }

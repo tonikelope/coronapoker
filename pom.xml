@@ -56,7 +56,20 @@
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>build-helper-maven-plugin</artifactId>
                 <version>3.2.0</version>
-                <executions>           
+                <executions>
+                    <execution>
+                        <id>add-modular-product-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${project.basedir}/modules/coronapoker-core/src/main/java</source>
+                                <source>${project.basedir}/modules/coronapoker-swing/src/main/java</source>
+                            </sources>
+                        </configuration>
+                    </execution>
                     <execution>             
                         <id>remove-old-artifacts</id>             
                         <phase>package</phase>             

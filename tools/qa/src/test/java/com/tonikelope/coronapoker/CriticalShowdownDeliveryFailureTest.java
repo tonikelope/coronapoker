@@ -12,7 +12,7 @@ class CriticalShowdownDeliveryFailureTest {
     void invalidOrMissingPotcardsCannotFallThroughToPayout() throws Exception {
         Path root = locateRoot();
         String source = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java")).replace("\r\n", "\n");
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java")).replace("\r\n", "\n");
         String receive = slice(source, "private void recibirCartasResistencia(",
                 "// Waits (timed-wait robust", 0);
         assertTrue(receive.contains("PotCardsEnvelope.parse("));
@@ -27,7 +27,7 @@ class CriticalShowdownDeliveryFailureTest {
                 "a post-barrier POTCARDS failure must be checked before the first payout calculation");
 
         String waitingRoom = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java")).replace("\r\n", "\n");
+                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java")).replace("\r\n", "\n");
         String showcards = slice(waitingRoom, "case \"SHOWCARDS\":",
                 "case \"RABBIT_FLOP_PIECE\":", 0);
         assertTrue(showcards.contains("boolean revealed ="));
@@ -63,7 +63,7 @@ class CriticalShowdownDeliveryFailureTest {
         Path path = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         while (path != null) {
             if (Files.isRegularFile(path.resolve("pom.xml"))
-                    && Files.isDirectory(path.resolve("src/main/java"))) return path;
+                    && Files.isDirectory(path.resolve("modules/coronapoker-core/src/main/java"))) return path;
             path = path.getParent();
         }
         throw new IllegalStateException("repository root not found");

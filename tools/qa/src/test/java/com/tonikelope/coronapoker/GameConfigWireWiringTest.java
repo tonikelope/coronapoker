@@ -14,11 +14,11 @@ public class GameConfigWireWiringTest {
     public void initAndBlindUpdatesUseOnlyTheStrictV1Codec() throws IOException {
         Path root = locateRoot();
         String waiting = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java"));
+                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java"));
         String dealer = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         String settings = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/GameSettingsPanel.java"));
+                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/GameSettingsPanel.java"));
 
         assertTrue(waiting.contains("GameConfigWireV1.decodeBase64(partes_comando[3])"));
         assertTrue(waiting.contains("Invalid INIT configuration; closing connection"));
@@ -34,7 +34,7 @@ public class GameConfigWireWiringTest {
     @Test
     public void hostInstallsValidatedConfigurationBeforeFirstSharedRead() throws IOException {
         String dealer = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         int run = dealer.indexOf("public void run()");
         int install = dealer.indexOf("gameSession().updateConfiguration(config)", run);
         int blinds = dealer.indexOf(

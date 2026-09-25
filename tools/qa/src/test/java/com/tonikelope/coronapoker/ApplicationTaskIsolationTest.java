@@ -10,10 +10,10 @@ public class ApplicationTaskIsolationTest {
 
     @Test
     public void startupTasksCannotHoldThePerTableExecutorOpen() throws Exception {
-        String init = Files.readString(sourceRoot().resolve("Init.java")).replace("\r\n", "\n");
-        String audioBackend = Files.readString(sourceRoot().resolve("swing/SwingAudioBackend.java"))
+        String init = Files.readString(swingSourceRoot().resolve("Init.java")).replace("\r\n", "\n");
+        String audioBackend = Files.readString(swingSourceRoot().resolve("swing/SwingAudioBackend.java"))
                 .replace("\r\n", "\n");
-        String updateService = Files.readString(sourceRoot().resolve("core/UpdateService.java"))
+        String updateService = Files.readString(coreSourceRoot().resolve("core/UpdateService.java"))
                 .replace("\r\n", "\n");
 
         assertTrue(init.contains("Helpers.applicationTask(Helpers::purgeOldVoiceNotes"),
@@ -57,10 +57,19 @@ public class ApplicationTaskIsolationTest {
         throw new AssertionError("unterminated method: " + methodName);
     }
 
-    private static Path sourceRoot() {
+    private static Path swingSourceRoot() {
+        return sourceRoot("coronapoker-swing");
+    }
+
+    private static Path coreSourceRoot() {
+        return sourceRoot("coronapoker-core");
+    }
+
+    private static Path sourceRoot(String module) {
         Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         while (current != null) {
-            Path candidate = current.resolve("src/main/java/com/tonikelope/coronapoker");
+            Path candidate = current.resolve("modules/" + module
+                    + "/src/main/java/com/tonikelope/coronapoker");
             if (Files.isDirectory(candidate)) {
                 return candidate;
             }

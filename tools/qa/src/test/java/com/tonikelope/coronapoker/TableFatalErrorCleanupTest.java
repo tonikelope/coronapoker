@@ -9,7 +9,7 @@ public class TableFatalErrorCleanupTest {
   assertTrue(f.closeTable()); assertTrue(f.forceRecovery()); assertFalse(f.exitJvm());
  }
  @Test public void crupierFatalCatchUsesLocalContainmentInsteadOfJvmExit() throws Exception {
-  String source=Files.readString(Paths.get("..","..","src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+  String source=Files.readString(Paths.get("..","..","modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
   assertTrue(source.contains("containTableFailure(ex);"));
   assertFalse(source.contains("System.exit(1);"));
  }

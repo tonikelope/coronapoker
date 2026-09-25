@@ -13,11 +13,11 @@ final class DealerDatabasePortWiringTest {
     void canonicalDealerUsesInjectedDatabaseAndClassicAdapterPreservesLock() throws Exception {
         Path root = root();
         String dealer = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         String dealerCode = dealer.replaceAll("(?s)/\\*.*?\\*/", "")
                 .replaceAll("(?m)//.*$", "");
         String adapter = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/SwingGameDatabase.java"));
+                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/SwingGameDatabase.java"));
 
         assertTrue(dealer.contains("GameDatabase gameDatabase"));
         assertTrue(dealer.contains("synchronized (game_database.lock())"));

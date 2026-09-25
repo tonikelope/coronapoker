@@ -12,13 +12,13 @@ public class RabbitWireWiringTest {
     public void productionUsesOnlyRequestAndAuthorizationV1() throws Exception {
         Path root = locateRoot();
         String dealer = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         String participant = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Participant.java"));
+                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/Participant.java"));
         String waiting = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java"));
+                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java"));
         String card = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Card.java"));
+                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/Card.java"));
 
         assertTrue(dealer.contains("RABBIT_REQ#"));
         assertTrue(dealer.contains("RABBIT_AUTH#"));

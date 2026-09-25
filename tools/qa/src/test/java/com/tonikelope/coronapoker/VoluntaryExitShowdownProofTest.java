@@ -11,7 +11,7 @@ class VoluntaryExitShowdownProofTest {
     @Test
     void allInClientPublishesItsSignedPocketBeforeLeaving() throws Exception {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         String exitHandler = slice(source,
                 "public void requestTableExit(",
                 "private void sendLocalExitOnce(boolean confirmation)");
@@ -31,7 +31,7 @@ class VoluntaryExitShowdownProofTest {
     @Test
     void hostRetainsVerifiedProofForAnExitedAllIn() throws Exception {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         String verifier = slice(source,
                 "private boolean verifyAndStoreShowdownKey(",
                 "private void checkJugadasParciales(");
@@ -48,7 +48,7 @@ class VoluntaryExitShowdownProofTest {
     @Test
     void abruptAllInDisconnectWithoutProofCancelsForRecovery() throws Exception {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         String hostShowdown = slice(source,
                 "private void solicitarYRecibirCartasVisuales(",
                 "private void failShowdownWaitIfUnexpected(");
@@ -71,7 +71,7 @@ class VoluntaryExitShowdownProofTest {
     private static Path locateRoot() {
         Path cursor = Paths.get("").toAbsolutePath();
         for (int i = 0; i < 8 && cursor != null; i++, cursor = cursor.getParent()) {
-            if (Files.exists(cursor.resolve("src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
+            if (Files.exists(cursor.resolve("modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
                 return cursor;
             }
         }

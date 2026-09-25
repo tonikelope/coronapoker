@@ -44,7 +44,7 @@ public class PauseWireTest {
     void invalidPauseClosesInsteadOfBeingAcknowledgedAndDropped() throws Exception {
         Path root = locateRoot();
         String participant = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Participant.java")).replace("\r\n", "\n");
+                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/Participant.java")).replace("\r\n", "\n");
         int hostCase = participant.indexOf("case \"PAUSE\":");
         int hostEnd = participant.indexOf("case \"IWTSTH\":", hostCase);
         String host = participant.substring(hostCase, hostEnd);
@@ -52,7 +52,7 @@ public class PauseWireTest {
         assertTrue(host.contains("exitAndCloseSocket()"));
 
         String waiting = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java")).replace("\r\n", "\n");
+                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java")).replace("\r\n", "\n");
         int clientCase = waiting.indexOf("case \"PAUSE\":", waiting.indexOf("if (isPartida_empezada())"));
         int clientEnd = waiting.indexOf("case \"SHUFFLE_TURN\":", clientCase);
         String client = waiting.substring(clientCase, clientEnd);
@@ -64,7 +64,7 @@ public class PauseWireTest {
     private static Path locateRoot() {
         Path start = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
         for (Path path = start; path != null; path = path.getParent()) {
-            if (Files.exists(path.resolve("src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
+            if (Files.exists(path.resolve("modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
                 return path;
             }
         }

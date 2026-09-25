@@ -30,9 +30,9 @@ public class LegalActionsUiParityTest {
     public void uiLiveWireAndRecoveryConsumeDealerEntitlementGate() throws IOException {
         Path root = locateRoot();
         String localPlayer = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/LocalPlayer.java"));
+                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/LocalPlayer.java"));
         String crupier = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         assertTrue(localPlayer.contains("getCrupier().canPlayerRaise(getNickname())"));
         assertTrue(crupier.contains("canPlayerRaise(jugador.getNickname())"));
         assertTrue(crupier.contains("canPlayerRaise(name)"));

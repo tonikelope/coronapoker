@@ -22,7 +22,9 @@ class TestModeSemanticParityTest {
                 "RemotePlayer.java", 1,
                 "SwingGamePresentationSettings.java", 1);
 
-        try (var sources = Files.list(sourceRoot())) {
+        try (var coreSources = Files.list(coreSourceRoot());
+                var swingSources = Files.list(swingSourceRoot());
+                var sources = java.util.stream.Stream.concat(coreSources, swingSources)) {
             Map<String, Integer> actual = sources
                     .filter(path -> path.getFileName().toString().endsWith(".java"))
                     .filter(path -> read(path).contains("TEST_MODE")
@@ -39,7 +41,7 @@ class TestModeSemanticParityTest {
 
     @Test
     void protocolTestModeMarkersAreObservabilityOnly() throws Exception {
-        String source = Files.readString(sourceRoot().resolve("Crupier.java"));
+        String source = Files.readString(coreSourceRoot().resolve("Crupier.java"));
         assertObservabilityOnly(source, "QA EXIT_TESTAMENT_ACCEPTED");
         assertObservabilityOnly(source, "QA RIT_VOTE_ACCEPTED");
         assertObservabilityOnly(source, "QA STRADDLE_RESP_ACCEPTED");
@@ -47,7 +49,7 @@ class TestModeSemanticParityTest {
 
     @Test
     void teardownTestModeMarkersAreObservabilityOnly() throws Exception {
-        String source = Files.readString(sourceRoot().resolve("GameFrame.java"))
+        String source = Files.readString(swingSourceRoot().resolve("GameFrame.java"))
                 .replace("\r\n", "\n");
         String reviewedMethod
                 = "    private static void qaTeardownStage(String stage) {\n"
@@ -62,7 +64,7 @@ class TestModeSemanticParityTest {
 
     @Test
     void acceleratedHandCloseKeepsPlayerAndRabbitStateTransitions() throws Exception {
-        String source = Files.readString(sourceRoot().resolve("Crupier.java"));
+        String source = Files.readString(coreSourceRoot().resolve("Crupier.java"));
         int accelerated = source.indexOf(
                 "this.pausaConBarra(Crupier.PAUSA_ENTRE_MANOS_TEST)");
         int branchEnd = source.indexOf(
@@ -79,7 +81,7 @@ class TestModeSemanticParityTest {
     @Test
     void testModeRebuyUsesNormalNextHandAccountingInsteadOfFakeActiveSeats()
             throws Exception {
-        String source = Files.readString(sourceRoot().resolve("Crupier.java"));
+        String source = Files.readString(coreSourceRoot().resolve("Crupier.java"));
         int method = source.indexOf("public void checkRebuyTime()");
         int normalPath = source.indexOf(
                 "ArrayList<String> rebuy_players = new ArrayList<>()", method);
@@ -104,10 +106,19 @@ class TestModeSemanticParityTest {
         assertFalse(Crupier.configuredNickSelected(null, "client1"));
     }
 
-    private static Path sourceRoot() {
+    private static Path coreSourceRoot() {
+        return sourceRoot("coronapoker-core");
+    }
+
+    private static Path swingSourceRoot() {
+        return sourceRoot("coronapoker-swing");
+    }
+
+    private static Path sourceRoot(String module) {
         Path current = Path.of("").toAbsolutePath();
         while (current != null) {
-            Path candidate = current.resolve("src/main/java/com/tonikelope/coronapoker");
+            Path candidate = current.resolve("modules/" + module
+                    + "/src/main/java/com/tonikelope/coronapoker");
             if (Files.isDirectory(candidate)) {
                 return candidate;
             }

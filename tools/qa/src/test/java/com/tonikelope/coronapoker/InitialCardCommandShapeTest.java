@@ -35,7 +35,7 @@ public class InitialCardCommandShapeTest {
     @Test
     void initialDealConsumerClosesInsteadOfRestoringWrongShape() throws Exception {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         int receiver = source.indexOf("private ArrayList<String> recibirMisCartas()");
         int shape = source.indexOf("!initialCardCommandHasCurrentShape(partes)", receiver);
         int reject = source.indexOf("this.received_commands.reject(comando)", shape);
@@ -62,7 +62,7 @@ public class InitialCardCommandShapeTest {
     private static Path locateRoot() {
         Path start = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
         for (Path path = start; path != null; path = path.getParent()) {
-            if (Files.exists(path.resolve("src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
+            if (Files.exists(path.resolve("modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
                 return path;
             }
         }

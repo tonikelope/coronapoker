@@ -59,7 +59,7 @@ public class ImmediateRebuyWireTest {
     void dispatchersCloseMalformedRebuyInsteadOfDroppingIt() throws Exception {
         Path root = locateRoot();
         String participant = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Participant.java")).replace("\r\n", "\n");
+                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/Participant.java")).replace("\r\n", "\n");
         int hostCase = participant.indexOf("case \"REBUYNOW\":");
         int hostEnd = participant.indexOf("case \"SHOWCARDS\":", hostCase);
         String host = participant.substring(hostCase, hostEnd);
@@ -67,7 +67,7 @@ public class ImmediateRebuyWireTest {
         assertTrue(host.contains("exitAndCloseSocket()"));
 
         String waiting = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java")).replace("\r\n", "\n");
+                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java")).replace("\r\n", "\n");
         int relayCase = waiting.indexOf("case \"REBUYNOW\":", waiting.indexOf("if (isPartida_empezada())"));
         int relayEnd = waiting.indexOf("case \"SHOWCARDS\":", relayCase);
         String client = waiting.substring(relayCase, relayEnd);
@@ -79,9 +79,9 @@ public class ImmediateRebuyWireTest {
     void rebuyAndNextHandBoundaryPreserveOneGlobalCausalOrder() throws Exception {
         Path root = locateRoot();
         String crupier = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java")).replace("\r\n", "\n");
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java")).replace("\r\n", "\n");
         String waiting = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java")).replace("\r\n", "\n");
+                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java")).replace("\r\n", "\n");
 
         assertTrue(crupier.contains("synchronized (lock_game_broadcast)"),
                 "host GAME broadcasts must have one cross-peer order");
@@ -147,7 +147,7 @@ public class ImmediateRebuyWireTest {
     private static Path locateRoot() {
         Path start = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
         for (Path path = start; path != null; path = path.getParent()) {
-            if (Files.exists(path.resolve("src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
+            if (Files.exists(path.resolve("modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
                 return path;
             }
         }

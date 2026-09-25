@@ -1,5 +1,12 @@
 # GDX migration phase 2 source map
 
+> **Final layout (2026-09-25).** The migration recorded below is complete.
+> Product Java sources now have a single physical owner under
+> `modules/coronapoker-core`, `modules/coronapoker-swing` or
+> `modules/coronapoker-gdx`; the legacy `src/main/java` tree is empty. Automated
+> architecture checks reject duplicate relative paths, UI imports in the core,
+> build-helper source injection in product modules and any new legacy source.
+
 This file records source ownership changes before they are applied, as required
 by the migration plan.
 

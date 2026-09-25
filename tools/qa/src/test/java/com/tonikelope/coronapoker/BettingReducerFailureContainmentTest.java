@@ -11,7 +11,7 @@ class BettingReducerFailureContainmentTest {
     @Test
     void reducerDivergencePreservesContendersAndAbortsBeforeSettlement() throws Exception {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"))
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"))
                 .replace("\r\n", "\n");
         String failure = slice(source,
                 "if (!applyBettingRoundAction(current_player, decision)) {",
@@ -34,7 +34,7 @@ class BettingReducerFailureContainmentTest {
         Path path = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         while (path != null) {
             if (Files.isRegularFile(path.resolve("pom.xml"))
-                    && Files.isDirectory(path.resolve("src/main/java"))) {
+                    && Files.isDirectory(path.resolve("modules/coronapoker-core/src/main/java"))) {
                 return path;
             }
             path = path.getParent();

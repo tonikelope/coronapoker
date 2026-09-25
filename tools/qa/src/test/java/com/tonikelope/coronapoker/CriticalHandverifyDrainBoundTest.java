@@ -25,11 +25,11 @@ public class CriticalHandverifyDrainBoundTest {
     public void bothTriggerAndReceiptLoopsUseTheBoundAndStrictIngress() throws IOException {
         Path root = locateRoot();
         String crupier = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         String participant = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Participant.java"));
+                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/Participant.java"));
         String waiting = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java"));
+                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java"));
 
         assertTrue(count(crupier, "criticalHandverifySnapshotSize(this.getReceived_commands())") >= 2);
         assertTrue(count(crupier, "drainedHandverify < scanLimit") >= 2);

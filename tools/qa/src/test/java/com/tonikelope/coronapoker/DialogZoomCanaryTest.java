@@ -110,18 +110,18 @@ public class DialogZoomCanaryTest {
         return n;
     }
 
-    // Sube desde user.dir hasta el primer src/main/java/com/tonikelope/coronapoker que contenga las
+    // Sube desde user.dir hasta el primer modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker que contenga las
     // clases reales (se valida con NewGameDialog.java), para funcionar tanto si el test corre desde la
     // raiz como desde el modulo tools/qa.
     private static Path locateSourceDir() {
         Path start = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
         for (Path p = start; p != null; p = p.getParent()) {
-            Path candidate = p.resolve("src/main/java/com/tonikelope/coronapoker");
+            Path candidate = p.resolve("modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker");
             if (Files.isDirectory(candidate) && Files.isRegularFile(candidate.resolve("NewGameDialog.java"))) {
                 return candidate;
             }
         }
         throw new IllegalStateException(
-                "No encuentro src/main/java/com/tonikelope/coronapoker con las clases reales desde " + start);
+                "No encuentro modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker con las clases reales desde " + start);
     }
 }

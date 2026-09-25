@@ -14,9 +14,9 @@ class CriticalVoteFailClosedWiringTest {
     void malformedVotesAndDecisionsCloseTheirAuthenticatedSource() throws IOException {
         Path root = locateRoot();
         String crupier = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         String participant = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Participant.java"));
+                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/Participant.java"));
 
         assertTrue(participant.contains("CriticalVoteEnvelope.parseRitResponse(partes_comando)"));
         assertTrue(participant.contains("CriticalVoteEnvelope.parseStraddleResponse(partes_comando)"));

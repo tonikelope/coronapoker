@@ -14,14 +14,14 @@ public class CriticalShuffleRequestFailureClosesChannelTest {
     public void cascadeRotationAndBundleHaveNoSilentAbort() throws Exception {
         Path root = locateRoot();
         String source = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java"))
+                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java"))
                 .replace("\r\n", "\n");
         assertHandlerCloses(source, "DECK_CASCADE_REQ", "DECK_ROTATION_REQ", 5);
         assertHandlerCloses(source, "DECK_ROTATION_REQ", "DUALLOCK_BUNDLE", 6);
         assertHandlerCloses(source, "DUALLOCK_BUNDLE", "REQ_SRA_UNLOCK_CHAIN", 2);
 
         String crupier = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         assertTrue(count(crupier, "closeHostAfterShuffleVerificationFailure();") >= 2,
                 "dishonest and malformed asynchronous verdicts must close the live channel");
 
@@ -46,7 +46,7 @@ public class CriticalShuffleRequestFailureClosesChannelTest {
     @Test
     public void invalidCriticalResponsesCloseTheirExactAuthenticatedSource() throws Exception {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         assertResponseWaitRejects(source, "requestRemoteCascade", "requestRemoteRotation");
         assertResponseWaitRejects(source, "requestRemoteRotation", "requestRemoteUnlockChain");
         assertResponseWaitRejects(source, "requestRemoteUnlockChain", "sendGAMECommandToParticipant");
@@ -91,7 +91,7 @@ public class CriticalShuffleRequestFailureClosesChannelTest {
         Path path = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         while (path != null) {
             if (Files.isRegularFile(path.resolve("pom.xml"))
-                    && Files.isDirectory(path.resolve("src/main/java"))) return path;
+                    && Files.isDirectory(path.resolve("modules/coronapoker-core/src/main/java"))) return path;
             path = path.getParent();
         }
         throw new IllegalStateException("repository root not found");

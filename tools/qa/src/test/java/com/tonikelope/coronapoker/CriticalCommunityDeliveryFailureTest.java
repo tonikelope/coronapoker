@@ -57,7 +57,7 @@ public class CriticalCommunityDeliveryFailureTest {
     @Test
     public void deferredPocketDeliveryFailureCannotBeReportedAsSuccess() throws Exception {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"))
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"))
                 .replace("\r\n", "\n");
         int sendStart = source.indexOf("private boolean sendGAMECommandToParticipant");
         int sendEnd = source.indexOf("private boolean extendPocketChainsForSigner", sendStart);
@@ -98,7 +98,7 @@ public class CriticalCommunityDeliveryFailureTest {
     private static String receiveCommunitySource() throws Exception {
         Path root = locateRoot();
         String source = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"))
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"))
                 .replace("\r\n", "\n");
         int start = source.indexOf("private boolean recibirCartasComunitarias()");
         int end = source.indexOf("private ArrayList<Player> rondaApuestas", start);
@@ -109,7 +109,7 @@ public class CriticalCommunityDeliveryFailureTest {
     private static String ritSideBSource() throws Exception {
         Path root = locateRoot();
         String source = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"))
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"))
                 .replace("\r\n", "\n");
         int start = source.indexOf("private boolean enviarRit2Comunitarias");
         int end = source.indexOf("private int[] cascadeAndDealCommunityPieces", start);
@@ -121,7 +121,7 @@ public class CriticalCommunityDeliveryFailureTest {
         Path path = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         while (path != null) {
             if (Files.isRegularFile(path.resolve("pom.xml"))
-                    && Files.isDirectory(path.resolve("src/main/java"))) return path;
+                    && Files.isDirectory(path.resolve("modules/coronapoker-core/src/main/java"))) return path;
             path = path.getParent();
         }
         throw new IllegalStateException("repository root not found");

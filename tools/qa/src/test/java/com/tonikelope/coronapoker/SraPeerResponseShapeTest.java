@@ -36,7 +36,7 @@ public class SraPeerResponseShapeTest {
     @Test
     void eachKnownMalformedResponseIsRejectedInsteadOfRestored() throws Exception {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java")).replace("\r\n", "\n");
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java")).replace("\r\n", "\n");
 
         assertFailClosedConsumer(source, "private byte[] requestRemoteCascade(",
                 "DECK_CASCADE_RESP", "private static String joinB64(");
@@ -74,7 +74,7 @@ public class SraPeerResponseShapeTest {
     private static Path locateRoot() {
         Path start = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
         for (Path path = start; path != null; path = path.getParent()) {
-            if (Files.exists(path.resolve("src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
+            if (Files.exists(path.resolve("modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
                 return path;
             }
         }

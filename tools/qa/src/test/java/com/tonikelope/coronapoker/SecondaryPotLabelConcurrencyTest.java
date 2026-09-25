@@ -57,7 +57,7 @@ class SecondaryPotLabelConcurrencyTest {
     private static Path locateSourceDir() {
         Path current = Path.of("").toAbsolutePath();
         while (current != null) {
-            Path candidate = current.resolve("src/main/java/com/tonikelope/coronapoker");
+            Path candidate = current.resolve("modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker");
             if (Files.isDirectory(candidate)) {
                 return candidate;
             }

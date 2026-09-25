@@ -12,9 +12,9 @@ public class RecoveryWireWiringTest {
     @Test
     public void recoverDataUsesTypedV1CodecAndNoJavaSerialization() throws IOException {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         String receiveState = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/RecoveryReceiveState.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/RecoveryReceiveState.java"));
         assertTrue(source.contains("new RecoveryReceiveState(configuration().sessionId())"));
         assertFalse(source.contains("new RecoveryReceiveState(GameFrame.UGI)"));
         assertTrue(receiveState.contains("RecoverySnapshotV1.decode(wire, expectedSession)"));
@@ -26,7 +26,7 @@ public class RecoveryWireWiringTest {
     @Test
     public void balanceEvidenceIsReconciledBeforeHostShellsOrPlayerMutation() throws IOException {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         int recoveryMethod = source.indexOf("void recuperarDatosClavePartida()");
         int evidence = source.indexOf(
                 "localEvidence = readLocalRecoverBalanceEvidence()",
@@ -49,7 +49,7 @@ public class RecoveryWireWiringTest {
     @Test
     public void missingOrInvalidActionDataTerminatesRecoveryInsteadOfBecomingEmpty() throws IOException {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         int method = source.indexOf("private String recibirAccionesRecuperadas()");
         int state = source.indexOf("new RecoveryActionReceiveState()", method);
         int failed = source.indexOf("RecoveryActionReceiveState.Status.FAILED", state);
@@ -87,7 +87,7 @@ public class RecoveryWireWiringTest {
     @Test
     public void missingOrInvalidRecoverDataTerminatesBeforeFreshHandFallback() throws IOException {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         int receiver = source.indexOf("private HashMap<String, Object> recibirDatosClaveRecuperados()");
         int failed = source.indexOf("RecoveryReceiveState.Status.FAILED", receiver);
         int force = source.indexOf("setForce_recover(true)", failed);

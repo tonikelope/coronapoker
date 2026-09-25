@@ -59,7 +59,7 @@ public class ActionWireShapeTest {
     @Test
     void malformedKnownActionIsRejectedRatherThanRestored() throws Exception {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         int receiver = source.indexOf("public Object[] readActionFromRemotePlayer(Player jugador)");
         int known = source.indexOf("partes[2].equals(\"ACTION\")", receiver);
         int shape = source.indexOf("!actionWireHasCurrentShape(partes)", known);
@@ -84,7 +84,7 @@ public class ActionWireShapeTest {
     private static Path locateRoot() {
         Path start = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
         for (Path path = start; path != null; path = path.getParent()) {
-            if (Files.exists(path.resolve("src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
+            if (Files.exists(path.resolve("modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
                 return path;
             }
         }

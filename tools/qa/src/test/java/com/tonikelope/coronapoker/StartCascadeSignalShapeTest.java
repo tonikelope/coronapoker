@@ -27,7 +27,7 @@ public class StartCascadeSignalShapeTest {
     @Test
     void malformedKnownStartSignalClosesHostChannel() throws Exception {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         int wait = source.indexOf("private void readyForNextHand(boolean discardObservedHandCommands)");
         int split = source.indexOf("comando.split(\"#\", -1)", wait);
         int known = source.indexOf("partes[2].equals(\"START_SRA_CASCADE\")", wait);
@@ -49,7 +49,7 @@ public class StartCascadeSignalShapeTest {
     private static Path locateRoot() {
         Path start = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
         for (Path path = start; path != null; path = path.getParent()) {
-            if (Files.exists(path.resolve("src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
+            if (Files.exists(path.resolve("modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
                 return path;
             }
         }

@@ -29,7 +29,7 @@ class CommunityZoomEventDrivenCanaryTest {
     private static Path locateSource() {
         Path start = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
         for (Path path = start; path != null; path = path.getParent()) {
-            Path candidate = path.resolve("src/main/java/com/tonikelope/coronapoker/CommunityCardsPanel.java");
+            Path candidate = path.resolve("modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/CommunityCardsPanel.java");
             if (Files.isRegularFile(candidate)) {
                 return candidate;
             }

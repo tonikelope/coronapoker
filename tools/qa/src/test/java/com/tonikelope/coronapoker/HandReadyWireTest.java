@@ -29,7 +29,7 @@ public class HandReadyWireTest {
     @Test
     void participantChecksBoundaryBeforeMutatingReadiness() throws Exception {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Participant.java")).replace("\r\n", "\n");
+                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/Participant.java")).replace("\r\n", "\n");
         int start = source.indexOf("case \"HAND_READY\":");
         int end = source.indexOf("case \"EXIT\":", start);
         String handler = source.substring(start, end);
@@ -42,7 +42,7 @@ public class HandReadyWireTest {
     private static Path locateRoot() {
         Path start = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
         for (Path path = start; path != null; path = path.getParent()) {
-            if (Files.exists(path.resolve("src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
+            if (Files.exists(path.resolve("modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"))) {
                 return path;
             }
         }

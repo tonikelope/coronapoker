@@ -195,11 +195,16 @@ class I18nBundleIntegritySmoke {
     void everyKeyUsedInCodeIsDefined() throws IOException {
         Properties spanish = bundle("es");
         Properties english = bundle("en");
-        Path sources = projectRoot().resolve("src/main/java");
         TreeSet<String> missing = new TreeSet<>();
 
-        try (Stream<Path> tree = Files.walk(sources)) {
-            List<Path> files = tree.filter(p -> p.toString().endsWith(".java")).collect(Collectors.toList());
+        Path project = projectRoot();
+        Path coreSources = project.resolve("modules/coronapoker-core/src/main/java");
+        Path swingSources = project.resolve("modules/coronapoker-swing/src/main/java");
+        try (Stream<Path> coreTree = Files.walk(coreSources);
+                Stream<Path> swingTree = Files.walk(swingSources);
+                Stream<Path> tree = Stream.concat(coreTree, swingTree)) {
+            List<Path> files = tree.filter(p -> p.toString().endsWith(".java"))
+                    .collect(Collectors.toList());
 
             for (Path file : files) {
                 for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {

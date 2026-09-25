@@ -70,7 +70,7 @@ class NoBackwardCompatibilityPathsTest {
                 double.class, double.class, double.class));
 
         String crupier = Files.readString(projectRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         assertFalse(crupier.contains("action[1] = partes[6]"));
         assertFalse(crupier.contains("new Object[]{Player.ALLIN, \"\", null}"));
         assertTrue(crupier.contains("action[1] = wireActionAmount"));
@@ -99,7 +99,7 @@ class NoBackwardCompatibilityPathsTest {
         while (current != null) {
             if (Files.isRegularFile(current.resolve("pom.xml"))
                     && Files.isDirectory(current.resolve("docs"))
-                    && Files.isDirectory(current.resolve("src/main/java"))) {
+                    && Files.isDirectory(current.resolve("modules/coronapoker-core/src/main/java"))) {
                 return current;
             }
             current = current.getParent();

@@ -13,7 +13,7 @@ class EmptySettlementFailClosedTest {
     @Test
     void emptySettlementCannotBypassReceiptConsensusOrSqlClose() throws IOException {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
 
         assertTrue(source.contains("Empty settlement table; refusing receipt and SQL close"));
         assertFalse(source.contains("if (entries.isEmpty()) {\n                    return true;"));

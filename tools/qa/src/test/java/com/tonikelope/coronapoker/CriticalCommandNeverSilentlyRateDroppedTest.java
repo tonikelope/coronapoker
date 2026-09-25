@@ -34,7 +34,7 @@ public class CriticalCommandNeverSilentlyRateDroppedTest {
         while (current != null) {
             if (Files.isRegularFile(current.resolve("pom.xml"))
                     && Files.isDirectory(current.resolve("docs"))
-                    && Files.isDirectory(current.resolve("src/main/java"))) {
+                    && Files.isDirectory(current.resolve("modules/coronapoker-core/src/main/java"))) {
                 return current;
             }
             current = current.getParent();

@@ -13,7 +13,7 @@ class RitCanonicalResultDeliveryTest {
     @Test
     void canonicalRitResultMustReachEveryPeerBeforePlayContinues() throws IOException {
         String source = Files.readString(locateRoot().resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
 
         assertTrue(source.contains("private boolean broadcastRitClose(int result)"));
         assertTrue(source.contains("RIT_VOTE_CLOSE delivery failed; aborting hand"));

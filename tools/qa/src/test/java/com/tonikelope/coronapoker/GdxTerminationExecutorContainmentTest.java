@@ -14,9 +14,9 @@ final class GdxTerminationExecutorContainmentTest {
     void exitAndRecoverableStopCannotLoseAnExecutorFailure() throws Exception {
         Path root = locateRoot();
         String factory = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/CoreGameTableFactory.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/CoreGameTableFactory.java"));
         String dealer = Files.readString(root.resolve(
-                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
 
         int exitStart = factory.indexOf(
                 "command instanceof TableCommand.ExitGame");

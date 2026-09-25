@@ -94,7 +94,7 @@ class AvatarIngressWiringTest {
     private static Path locateSourceDir() {
         Path start = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
         for (Path path = start; path != null; path = path.getParent()) {
-            Path candidate = path.resolve("src/main/java/com/tonikelope/coronapoker");
+            Path candidate = path.resolve("modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker");
             if (Files.isRegularFile(candidate.resolve("WaitingRoomFrame.java"))) {
                 return candidate;
             }

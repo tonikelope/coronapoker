@@ -38,7 +38,7 @@ public class TableTeardownAfterBettingRoundTest {
         Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         while (current != null) {
             Path source = current.resolve(
-                    "src/main/java/com/tonikelope/coronapoker/Crupier.java");
+                    "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java");
             if (Files.isRegularFile(source)) {
                 return Files.readString(source).replace("\r\n", "\n");
             }

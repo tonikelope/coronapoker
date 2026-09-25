@@ -18,8 +18,9 @@ El antiguo árbol `../src/main/java` queda vacío. La suite de arquitectura impi
 que vuelvan a aparecer fuentes allí, que un archivo Java exista en dos módulos o
 que el core importe Swing, AWT o libGDX.
 
-La demo aprobada se conserva únicamente como referencia visual en
-`../reference/gdx-demo` (commit de referencia `627c71e4f`) y está fuera del build.
+La demo aprobada se conserva únicamente de forma local como referencia visual
+en `../reference/gdx-demo` (commit histórico `627c71e4f`), ignorada por Git y
+fuera del build del producto.
 
 Los recursos compartidos permanecen deliberadamente en `../src/main/resources`:
 son datos del producto, no una tercera copia de código Java.

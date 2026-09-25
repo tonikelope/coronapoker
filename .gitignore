@@ -149,6 +149,7 @@ balance_backup*.txt
 
 # Repository-local Maven cache used by the self-contained QA runners
 /.m2/
+/reference/gdx-demo/
 /reference/gdx-demo/.m2/
 
 # Runtime acknowledgement written beside user-supplied prototype mods

@@ -1263,8 +1263,11 @@ final class GdxTableViewStateTest {
 
         for (String row : rows) {
             assertTrue(GdxGameLogFormatter.isFramedTableRow(row), row);
-            assertTrue(GdxGameLogFormatter.runs(row).stream()
-                    .noneMatch(GdxGameLogFormatter.Run::bold), row);
+            List<GdxGameLogFormatter.Run> runs = GdxGameLogFormatter.runs(row);
+            assertTrue(runs.stream().noneMatch(GdxGameLogFormatter.Run::bold),
+                    row);
+            assertFalse(runs.stream().map(GdxGameLogFormatter.Run::text)
+                    .reduce("", String::concat).startsWith(" "), row);
         }
     }
 

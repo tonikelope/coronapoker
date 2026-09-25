@@ -26,11 +26,13 @@ final class GdxGameLogFormatter {
     private static final Color RANK = new Color(0xcdcdcdff);
     private static final Color WIN = new Color(0x78e678ff);
     private static final Color LOSS = new Color(0xeb7878ff);
-    private static final Color CARD_RED = new Color(0xff6767ff);
+    private static final Color CARD_RED = new Color(0xc80000ff);
     private static final Pattern AMOUNT_PATTERN = Pattern.compile(
             "\\(\\s*[+-]?\\d[\\d.,\\s]*[KkMm]?\\)");
     private static final Pattern CARD_PATTERN = Pattern.compile(
-            "\\[[^\\[\\]]*[♠♥♦♣]\\]");
+            "\\[[^\\[\\]]*[\\u2660\\u2665\\u2666\\u2663]\\]");
+    private static final Pattern CARD_PAREN_PATTERN = Pattern.compile(
+            "\\(\\s*((?:\\[[^\\[\\]]*[\\u2660\\u2665\\u2666\\u2663]\\]\\s*)+)\\)");
     private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile(
             "\\((?:---|\\*\\*\\*)\\)");
     private static final Pattern GRID_PATTERN = Pattern.compile(
@@ -41,6 +43,12 @@ final class GdxGameLogFormatter {
 
     static void wrapLine(List<String> target, String line,
             int maximumCharacters) {
+        // Swing keeps each framed balance/result row as one document line.
+        // Splitting one destroys the box grid and shifts its numeric columns.
+        if (marker(line) != Marker.NONE) {
+            target.add(line);
+            return;
+        }
         if (line.length() <= maximumCharacters) {
             target.add(line);
             return;
@@ -49,7 +57,8 @@ final class GdxGameLogFormatter {
         boolean continuation = false;
         while (remaining.length() > maximumCharacters) {
             int split = remaining.lastIndexOf(' ', maximumCharacters);
-            if (split < maximumCharacters / 2) split = maximumCharacters;
+            if (split <= 0) split = maximumCharacters;
+            split = moveSplitOutsideCardToken(remaining, split);
             target.add((continuation ? "  " : "")
                     + remaining.substring(0, split).stripTrailing());
             remaining = remaining.substring(split).stripLeading();
@@ -58,12 +67,26 @@ final class GdxGameLogFormatter {
         target.add((continuation ? "  " : "") + remaining);
     }
 
+    private static int moveSplitOutsideCardToken(String value, int split) {
+        int open = value.lastIndexOf('[', split);
+        int close = value.lastIndexOf(']', split);
+        if (open <= close) return split;
+        int tokenEnd = value.indexOf(']', split);
+        if (tokenEnd >= 0 && tokenEnd + 1 < value.length()) {
+            return tokenEnd + 1;
+        }
+        return Math.max(1, open);
+    }
+
     static List<Run> runs(String value) {
-        String visible = visibleText(value);
+        String visible = CARD_PAREN_PATTERN.matcher(visibleText(value))
+                .replaceAll("$1");
         if (visible.isEmpty()) return List.of();
         Color base = lineColor(value);
         Color[] colors = new Color[visible.length()];
         Arrays.fill(colors, base);
+        boolean[] bold = new boolean[visible.length()];
+        Arrays.fill(bold, base == HEADER || base == BOARD || base == WIN);
         if (marker(value) != Marker.NONE) {
             overlay(colors, visible, GRID_PATTERN, DIM);
         }
@@ -75,22 +98,45 @@ final class GdxGameLogFormatter {
         }
         overlay(colors, visible, PLACEHOLDER_PATTERN, DIM);
         overlay(colors, visible, AMOUNT_PATTERN, AMOUNT);
-        Matcher cards = CARD_PATTERN.matcher(visible);
-        while (cards.find()) {
-            String token = cards.group();
-            Color card = token.indexOf('♥') >= 0 || token.indexOf('♦') >= 0
-                    ? CARD_RED : Color.WHITE;
-            Arrays.fill(colors, cards.start(), cards.end(), card);
-        }
+        overlayBold(bold, visible, AMOUNT_PATTERN);
         ArrayList<Run> runs = new ArrayList<>();
-        int start = 0;
-        while (start < visible.length()) {
+        Matcher cards = CARD_PATTERN.matcher(visible);
+        int position = 0;
+        while (cards.find()) {
+            appendTextRuns(runs, visible, colors, bold, position,
+                    cards.start());
+            String token = cards.group();
+            boolean red = token.indexOf('\u2665') >= 0
+                    || token.indexOf('\u2666') >= 0;
+            runs.add(new Run(token, red ? CARD_RED : Color.BLACK, true,
+                    true));
+            position = cards.end();
+        }
+        appendTextRuns(runs, visible, colors, bold, position,
+                visible.length());
+        return List.copyOf(runs);
+    }
+
+    private static void appendTextRuns(List<Run> runs, String visible,
+            Color[] colors, boolean[] bold, int from, int to) {
+        int start = from;
+        while (start < to) {
             int end = start + 1;
-            while (end < visible.length() && colors[end] == colors[start]) end++;
-            runs.add(new Run(visible.substring(start, end), colors[start]));
+            while (end < to && colors[end] == colors[start]
+                    && bold[end] == bold[start]) end++;
+            runs.add(new Run(visible.substring(start, end), colors[start],
+                    false, bold[start]));
             start = end;
         }
-        return List.copyOf(runs);
+    }
+
+    static String cardValue(String token) {
+        String inner = token.substring(1, token.length() - 1);
+        return inner.substring(0, inner.length() - 1);
+    }
+
+    static String cardSuit(String token) {
+        return token.substring(token.length() - 2, token.length() - 1);
     }
 
     static Marker marker(String value) {
@@ -172,7 +218,19 @@ final class GdxGameLogFormatter {
         }
     }
 
-    record Run(String text, Color color) {
+    private static void overlayBold(boolean[] bold, String value,
+            Pattern pattern) {
+        Matcher matcher = pattern.matcher(value);
+        while (matcher.find()) {
+            Arrays.fill(bold, matcher.start(), matcher.end(), true);
+        }
+    }
+
+    record Run(String text, Color color, boolean card, boolean bold) {
+
+        Run(String text, Color color) {
+            this(text, color, false, false);
+        }
     }
 
     enum Marker {

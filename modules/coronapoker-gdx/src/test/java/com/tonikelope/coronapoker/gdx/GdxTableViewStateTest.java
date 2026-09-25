@@ -1213,6 +1213,45 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void gameLogRendersCardsAsSwingStyleComponentsWithoutOuterParentheses() {
+        List<GdxGameLogFormatter.Run> runs = GdxGameLogFormatter.runs(
+                "server ([J\u2660][6\u2665]) GANA BOTE (1.3) -> P\u00d3KER");
+        List<GdxGameLogFormatter.Run> cards = runs.stream()
+                .filter(GdxGameLogFormatter.Run::card)
+                .toList();
+
+        assertEquals(2, cards.size());
+        assertEquals("[J\u2660]", cards.get(0).text());
+        assertEquals("J", GdxGameLogFormatter.cardValue(cards.get(0).text()));
+        assertEquals("\u2660", GdxGameLogFormatter.cardSuit(cards.get(0).text()));
+        assertColor(0x00, 0x00, 0x00, 0xff, cards.get(0).color());
+        assertEquals("[6\u2665]", cards.get(1).text());
+        assertColor(0xc8, 0x00, 0x00, 0xff, cards.get(1).color());
+        assertFalse(runs.stream().filter(run -> !run.card())
+                .map(GdxGameLogFormatter.Run::text)
+                .reduce("", String::concat).contains("(["));
+    }
+
+    @Test
+    void gameLogWrappingNeverCutsAVisualCardToken() {
+        List<String> wrapped = new java.util.ArrayList<>();
+        GdxGameLogFormatter.wrapLine(wrapped,
+                "123456789 [10\u2666] siguiente", 12);
+
+        assertEquals(List.of("123456789", "  [10\u2666]", "  siguiente"),
+                wrapped);
+    }
+
+    @Test
+    void gameLogNeverWrapsSwingBalanceTableRows() {
+        List<String> wrapped = new java.util.ArrayList<>();
+        String row = "(  ) \u2502 jugador largo \u2502 1234.50 \u2502 1000.00 \u2502";
+        GdxGameLogFormatter.wrapLine(wrapped, row, 12);
+
+        assertEquals(List.of(row), wrapped);
+    }
+
+    @Test
     void gameLogInterpretsSwingRoleMarkersInsteadOfPrintingThem() {
         assertEquals(GdxGameLogFormatter.Marker.DEALER,
                 GdxGameLogFormatter.marker("(D ) server 10 10"));

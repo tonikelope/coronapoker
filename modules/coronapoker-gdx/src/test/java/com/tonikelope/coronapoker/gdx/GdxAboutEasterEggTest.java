@@ -13,7 +13,7 @@ final class GdxAboutEasterEggTest {
 
     @Test
     void readingSurfaceUsesTheLighterBlueSlateBackground() {
-        assertEquals(0x24445afc, GdxFrontendScreen.ABOUT_PANEL_RGBA);
+        assertEquals(0x365f78fc, GdxFrontendScreen.ABOUT_PANEL_RGBA);
     }
 
     @Test

@@ -766,6 +766,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private BitmapFont finalCardFont;
     private BitmapFont finalCardBoldFont;
     private BitmapFont gameLogFont;
+    private BitmapFont gameLogBoldFont;
+    private BitmapFont gameLogSuitFont;
 
     private Texture logo;
     private Texture feltTexture;
@@ -2182,10 +2184,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // used by the main menu and the rest of the GDX interface.
         finalButtonFont = font(generator, 26, 0.2f);
         generator.dispose();
-        FreeTypeFontGenerator logGenerator = new FreeTypeFontGenerator(
-                Gdx.files.internal("fonts/Inter-Medium.ttf"));
-        gameLogFont = font(logGenerator, 21, 0f);
+        FreeTypeFontGenerator logGenerator = gameLogFontGenerator(false);
+        gameLogFont = font(logGenerator, 20, 0f);
         logGenerator.dispose();
+        FreeTypeFontGenerator logBoldGenerator = gameLogFontGenerator(true);
+        gameLogBoldFont = font(logBoldGenerator, 20, 0f);
+        gameLogSuitFont = font(logBoldGenerator, 28, 0f);
+        logBoldGenerator.dispose();
 
         initialiseSeats();
         backgroundMusic = gameMusic("misc/background_music.mp3");
@@ -2394,7 +2399,40 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         parameter.genMipMaps = false;
         parameter.minFilter = TextureFilter.Linear;
         parameter.magFilter = TextureFilter.Linear;
+        parameter.characters = FreeTypeFontGenerator.DEFAULT_CHARS
+                + "\u2660\u2665\u2666\u2663"
+                + "\u2500\u2502\u250c\u2510\u2514\u2518\u251c\u2524\u252c\u2534\u253c"
+                + "\u2550\u2551\u2554\u2557\u255a\u255d";
         return generator.generateFont(parameter);
+    }
+
+    /**
+     * Swing formats the register with Consolas. Reuse that installed face on
+     * Windows instead of approximating its fixed columns with the proportional
+     * UI font. Other platforms prefer an installed mono face and retain the
+     * packaged Inter font only as the final portable fallback.
+     */
+    private static FreeTypeFontGenerator gameLogFontGenerator(boolean bold) {
+        ArrayList<String> candidates = new ArrayList<>();
+        String windows = System.getenv("WINDIR");
+        if (windows != null && !windows.isBlank()) {
+            candidates.add(Path.of(windows, "Fonts",
+                    bold ? "consolab.ttf" : "consola.ttf")
+                    .toString());
+        }
+        candidates.add("/usr/share/fonts/truetype/dejavu/"
+                + (bold ? "DejaVuSansMono-Bold.ttf" : "DejaVuSansMono.ttf"));
+        candidates.add("/System/Library/Fonts/Menlo.ttc");
+        for (String candidate : candidates) {
+            FileHandle file = Gdx.files.absolute(candidate);
+            if (file.exists()) return new FreeTypeFontGenerator(file);
+        }
+        // This final fallback is proportional, but it is only reached on an
+        // uncommon platform without a standard monospaced face. Windows,
+        // Linux and macOS use the candidates above and therefore keep the
+        // exact fixed-column layout used by Swing.
+        return new FreeTypeFontGenerator(
+                Gdx.files.internal("fonts/Inter-Medium.ttf"));
     }
 
     private void initialiseStars() {
@@ -11494,8 +11532,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         GdxGameLogSink.Snapshot snapshot = gameLog.snapshot();
         ArrayList<String> source = new ArrayList<>(snapshot.lines());
         ArrayList<String> result = new ArrayList<>();
+        glyph.setText(gameLogFont, "M");
+        float cellWidth = Math.max(1f, glyph.width);
+        int maximumCharacters = Math.max(24, (int) Math.floor(
+                (gameLogContentBounds().width - 44f) / cellWidth));
         for (String line : source) {
-            GdxGameLogFormatter.wrapLine(result, line == null ? "" : line, 92);
+            GdxGameLogFormatter.wrapLine(result, line == null ? "" : line,
+                    maximumCharacters);
         }
         return result;
     }
@@ -13684,6 +13727,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawSettingsDebugTextLayer(float x, float firstY,
             float width, float alpha) {
         List<String> lines = settingsDebugLines();
+        List<GdxDebugLogFormatter.Line> formatted
+                = GdxDebugLogFormatter.format(lines);
         float viewportBottom = firstY - 337f;
         float maximum = settingsDebugMaximumPixelScroll(lines.size());
         settingsDebugScroll = MathUtils.clamp(settingsDebugScroll, 0f,
@@ -13701,21 +13746,59 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 / viewport.getWorldHeight()));
         Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
         Gdx.gl.glScissor(screenX, screenY, screenWidth, screenHeight);
-        batch.begin();
-        for (int i = 0; i < lines.size(); i++) {
-            float lineY = anchoredPixelRowY(lines.size(), i,
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        for (int i = 0; i < formatted.size(); i++) {
+            float lineY = anchoredPixelRowY(formatted.size(), i,
                     SETTINGS_DEBUG_LINE_HEIGHT, viewportBottom,
                     SETTINGS_DEBUG_VIEWPORT_HEIGHT, settingsDebugScroll,
                     maximum);
             if (lineY + SETTINGS_DEBUG_LINE_HEIGHT < viewportBottom
                     || lineY > viewportBottom
                     + SETTINGS_DEBUG_VIEWPORT_HEIGHT) continue;
-            String line = lines.get(i);
-            drawLeftInBox(gameLogFont,
-                    ellipsizeSettingsDebugLine(line, width),
-                    x + 14f, lineY, width - 42f, 23f,
-                    settingsDebugLineColor(line), alpha);
+            float runX = x + 14f;
+            for (GdxDebugLogFormatter.Run run : formatted.get(i).runs()) {
+                BitmapFont font = run.bold() ? gameLogBoldFont : gameLogFont;
+                glyph.setText(font, run.text());
+                if (run.background() != null) {
+                    Color background = run.background();
+                    shapes.setColor(background.r, background.g,
+                            background.b, alpha);
+                    shapes.rect(runX, lineY + 1f, glyph.width,
+                            SETTINGS_DEBUG_LINE_HEIGHT - 2f);
+                }
+                runX += glyph.width;
+                if (runX >= x + width - 28f) break;
+            }
         }
+        shapes.end();
+        batch.begin();
+        for (int i = 0; i < formatted.size(); i++) {
+            float lineY = anchoredPixelRowY(formatted.size(), i,
+                    SETTINGS_DEBUG_LINE_HEIGHT, viewportBottom,
+                    SETTINGS_DEBUG_VIEWPORT_HEIGHT, settingsDebugScroll,
+                    maximum);
+            if (lineY + SETTINGS_DEBUG_LINE_HEIGHT < viewportBottom
+                    || lineY > viewportBottom
+                    + SETTINGS_DEBUG_VIEWPORT_HEIGHT) continue;
+            float runX = x + 14f;
+            float right = x + width - 28f;
+            for (GdxDebugLogFormatter.Run run : formatted.get(i).runs()) {
+                BitmapFont font = run.bold() ? gameLogBoldFont : gameLogFont;
+                float remaining = right - runX;
+                if (remaining <= 0f) break;
+                String fitted = ellipsizeToWidth(font, run.text(), remaining);
+                Color foreground = run.foreground();
+                font.setColor(foreground.r, foreground.g, foreground.b,
+                        alpha);
+                font.draw(batch, fitted, runX, lineY + 20f);
+                glyph.setText(font, fitted);
+                runX += glyph.width;
+                if (!fitted.equals(run.text())) break;
+            }
+        }
+        gameLogFont.setColor(Color.WHITE);
+        gameLogBoldFont.setColor(Color.WHITE);
         batch.end();
         Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
     }
@@ -13742,24 +13825,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         * SETTINGS_DEBUG_VIEWPORT_HEIGHT / contentHeight);
     }
 
-    private String ellipsizeSettingsDebugLine(String value, float width) {
-        return ellipsizeToWidth(gameLogFont,
-                value == null ? "" : value.replace('\t', ' '),
-                Math.max(0f, width - 42f));
-    }
-
     private static List<String> settingsDebugLines() {
         return DebugLog.snapshot().lines().toList();
-    }
-
-    private static Color settingsDebugLineColor(String line) {
-        if (line.startsWith("SEVERE:")) return FOLD_RED;
-        if (line.startsWith("WARNING:")) return POT_GOLD;
-        if (line.startsWith("CONFIG:")) return CYAN;
-        if (line.startsWith("FINE:") || line.startsWith("FINER:")
-                || line.startsWith("FINEST:")) return SEAT_RIM;
-        if (line.startsWith("INFO:")) return STACK_GREEN;
-        return Color.LIGHT_GRAY;
     }
 
     private void drawSettingsRowText(float x, float y, float width,
@@ -14159,6 +14226,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 * viewport.getScreenHeight() / viewport.getWorldHeight()));
         Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
         Gdx.gl.glScissor(screenX, screenY, screenWidth, screenHeight);
+        drawGameLogCardBackgrounds(logLines, content, logX, logW,
+                maximumScroll, alpha);
         batch.begin();
         for (int line = 0; line < logLines.size(); line++) {
             float rowY = anchoredPixelRowY(logLines.size(), line,
@@ -14176,20 +14245,92 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             for (GdxGameLogFormatter.Run run : cachedGameLogRuns(value)) {
                 float remainingWidth = contentRight - runX;
                 if (remainingWidth <= 0f) break;
+                if (run.card()) {
+                    float cardWidth = gameLogCardWidth(run.text());
+                    if (cardWidth > remainingWidth) break;
+                    String cardValue = GdxGameLogFormatter.cardValue(
+                            run.text());
+                    String cardSuit = GdxGameLogFormatter.cardSuit(
+                            run.text());
+                    Color color = run.color();
+                    gameLogBoldFont.setColor(color.r, color.g, color.b,
+                            alpha);
+                    gameLogBoldFont.draw(batch, cardValue, runX + 6f,
+                            rowY + 22f);
+                    glyph.setText(gameLogBoldFont, cardValue);
+                    float valueWidth = glyph.width;
+                    gameLogSuitFont.setColor(color.r, color.g, color.b,
+                            alpha);
+                    gameLogSuitFont.draw(batch, cardSuit,
+                            runX + 6f + valueWidth, rowY + 25f);
+                    runX += cardWidth + 3f;
+                    continue;
+                }
                 Color color = run.color();
-                gameLogFont.setColor(color.r, color.g, color.b, alpha);
-                String fitted = ellipsizeToWidth(gameLogFont, run.text(),
+                BitmapFont runFont = run.bold()
+                        ? gameLogBoldFont : gameLogFont;
+                runFont.setColor(color.r, color.g, color.b, alpha);
+                String fitted = ellipsizeToWidth(runFont, run.text(),
                         remainingWidth);
                 if (fitted.isEmpty()) break;
-                gameLogFont.draw(batch, fitted, runX, runY);
-                glyph.setText(gameLogFont, fitted);
+                runFont.draw(batch, fitted, runX, runY);
+                glyph.setText(runFont, fitted);
                 runX += glyph.width;
                 if (!fitted.equals(run.text())) break;
             }
         }
         gameLogFont.setColor(Color.WHITE);
+        gameLogBoldFont.setColor(Color.WHITE);
+        gameLogSuitFont.setColor(Color.WHITE);
         batch.end();
         Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+    }
+
+    private void drawGameLogCardBackgrounds(List<String> logLines,
+            Rectangle content, float logX, float logW, float maximumScroll,
+            float alpha) {
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        for (int line = 0; line < logLines.size(); line++) {
+            float rowY = anchoredPixelRowY(logLines.size(), line,
+                    GAME_LOG_LINE_HEIGHT, content.y, content.height,
+                    gameLogScroll, maximumScroll);
+            if (rowY + GAME_LOG_LINE_HEIGHT < content.y
+                    || rowY > content.y + content.height) continue;
+            String value = logLines.get(line);
+            GdxGameLogFormatter.Marker marker = GdxGameLogFormatter.marker(
+                    value);
+            float runX = logX + (marker == GdxGameLogFormatter.Marker.NONE
+                    ? 24f : 58f);
+            float contentRight = logX + logW - 34f;
+            for (GdxGameLogFormatter.Run run : cachedGameLogRuns(value)) {
+                float runWidth = gameLogRunWidth(run);
+                if (runX + runWidth > contentRight) break;
+                if (run.card()) {
+                    shapes.setColor(1f, 1f, 1f, alpha);
+                    roundedRect(runX, rowY + 2f, runWidth, 27f, 6f);
+                    runX += runWidth + 3f;
+                } else {
+                    runX += runWidth;
+                }
+            }
+        }
+        shapes.end();
+    }
+
+    private float gameLogRunWidth(GdxGameLogFormatter.Run run) {
+        if (run.card()) return gameLogCardWidth(run.text());
+        glyph.setText(run.bold() ? gameLogBoldFont : gameLogFont,
+                run.text());
+        return glyph.width;
+    }
+
+    private float gameLogCardWidth(String token) {
+        glyph.setText(gameLogBoldFont,
+                GdxGameLogFormatter.cardValue(token));
+        float valueWidth = glyph.width;
+        glyph.setText(gameLogSuitFont, GdxGameLogFormatter.cardSuit(token));
+        return 12f + valueWidth + glyph.width;
     }
 
     private void drawGameLogMarker(GdxGameLogFormatter.Marker marker,
@@ -15609,6 +15750,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         finalCardFont.dispose();
         finalCardBoldFont.dispose();
         gameLogFont.dispose();
+        gameLogBoldFont.dispose();
+        gameLogSuitFont.dispose();
         logo.dispose();
         feltTexture.dispose();
         avatarDefault.dispose();

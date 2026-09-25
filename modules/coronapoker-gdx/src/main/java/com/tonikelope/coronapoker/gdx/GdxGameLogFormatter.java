@@ -99,6 +99,16 @@ final class GdxGameLogFormatter {
         overlay(colors, visible, PLACEHOLDER_PATTERN, DIM);
         overlay(colors, visible, AMOUNT_PATTERN, AMOUNT);
         overlayBold(bold, visible, AMOUNT_PATTERN);
+        // A framed table must use one font with one glyph advance from the
+        // first corner to the last. Mixing the regular and bold bitmap fonts
+        // makes otherwise monospaced columns use different pixel widths, so
+        // the horizontal borders no longer meet the vertical separators.
+        // Keep the colour hierarchy and role icons, but render every glyph of
+        // a marked box-drawing row with the same regular monospace font.
+        if (marker(value) != Marker.NONE
+                && GRID_PATTERN.matcher(visible).find()) {
+            Arrays.fill(bold, false);
+        }
         ArrayList<Run> runs = new ArrayList<>();
         Matcher cards = CARD_PATTERN.matcher(visible);
         int position = 0;

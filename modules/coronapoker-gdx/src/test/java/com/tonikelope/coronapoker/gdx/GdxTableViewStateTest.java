@@ -1252,6 +1252,22 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void gameLogUsesOneFixedPitchFontAcrossEveryFramedTableRow() {
+        List<String> rows = List.of(
+                "(##) \u250c\u2500\u2500\u252c\u2500\u2500\u2510",
+                "(##) \u2502 NICK \u2502 STACK \u2502",
+                "(D ) \u2502 server \u2502 10 \u2502",
+                "(BB) \u2502 bot \u2502 10 \u2502",
+                "($$) \u2502       \u2502 20 \u2502",
+                "(##) \u2514\u2500\u2500\u2534\u2500\u2500\u2518");
+
+        for (String row : rows) {
+            assertTrue(GdxGameLogFormatter.runs(row).stream()
+                    .noneMatch(GdxGameLogFormatter.Run::bold), row);
+        }
+    }
+
+    @Test
     void gameLogInterpretsSwingRoleMarkersInsteadOfPrintingThem() {
         assertEquals(GdxGameLogFormatter.Marker.DEALER,
                 GdxGameLogFormatter.marker("(D ) server 10 10"));

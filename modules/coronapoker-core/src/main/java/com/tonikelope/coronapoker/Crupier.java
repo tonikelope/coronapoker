@@ -2237,16 +2237,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         switch (parts[0]) {
             case "MISDEAL":
                 try {
-                    if (parts.length != 2) {
-                        throw new IllegalArgumentException(
-                                "MISDEAL has invalid arity");
-                    }
-                    String reason = decodeStrictUtf8(
-                            Base64.getDecoder().decode(parts[1]));
-                    if (reason.isBlank()) {
-                        throw new IllegalArgumentException(
-                                "MISDEAL has an empty reason");
-                    }
+                    String reason = MisdealWire.parseClientCommand(parts);
                     // The native channel callback is not the dealer thread.
                     // Publish the abort immediately so betting waits wake, but
                     // also keep the frame in the dealer mailbox (return false):
@@ -5059,6 +5050,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         TableTerminationWire.ExitCommand termination = TableTerminationWire.parse(
                 ("GAME#0#" + command).split("#", -1));
+        // MISDEAL is published immediately by the native channel callback but
+        // its canonical refund normally runs on the dealer thread. The host's
+        // ordered SERVEREXITRECOVER can reach this callback before that thread
+        // consumes the pending abort. Closing here first would freeze a stale
+        // summary with the current-street bets still missing from the stacks.
+        // Materialize only an already-announced MISDEAL before accepting the
+        // recoverable close; ordinary/manual recoveries have no pending abort
+        // and therefore keep their in-progress hand intact.
+        if (termination.recover() && hasPendingDealerMisdeal()) {
+            cancelPendingDealerMisdeal();
+        }
         setForce_recover(termination.recover());
         GamePlayerController local = localPlayer();
         // SERVEREXITRECOVER preserves the table roster for the next recovery;

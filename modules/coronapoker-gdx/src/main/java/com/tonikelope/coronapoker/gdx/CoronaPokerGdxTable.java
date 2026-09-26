@@ -5003,11 +5003,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     /** Canonical check/call activation shared by pointer, shortcut and scenarios. */
     boolean activateCheckOrCallAction() {
-        if (!hasActiveLocalTurn()) return false;
-        if (liveState.actionControls().callAction()
-                == ActionControlState.CallAction.DISABLED) return false;
+        if (!canActivateCheckOrCallAction()) return false;
         submitConfirmedAction(2, new TableCommand.CheckOrCall());
         return true;
+    }
+
+    /** Whether the native check/call control can submit at this instant. */
+    boolean canActivateCheckOrCallAction() {
+        return hasActiveLocalTurn()
+                && liveState.actionControls().callAction()
+                != ActionControlState.CallAction.DISABLED;
     }
 
     /** Canonical bet/raise activation shared by pointer, shortcut and scenarios. */

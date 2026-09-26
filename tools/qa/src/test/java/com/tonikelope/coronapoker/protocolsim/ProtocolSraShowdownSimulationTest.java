@@ -1,10 +1,10 @@
 package com.tonikelope.coronapoker.protocolsim;
 
-import com.tonikelope.coronapoker.Card;
 import com.tonikelope.coronapoker.CanonicalActionRecord;
 import com.tonikelope.coronapoker.DeterministicShuffle;
-import com.tonikelope.coronapoker.IdentityManager;
+import com.tonikelope.coronapoker.TestPlayerIdentity;
 import com.tonikelope.coronapoker.PotCardsEnvelope;
+import com.tonikelope.coronapoker.core.game.CardCode;
 import com.tonikelope.coronapoker.crypto.RistrettoSRA;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -31,13 +31,13 @@ final class ProtocolSraShowdownSimulationTest {
     private static final int POCKET_SLOTS = PLAYERS * 2;
     private static final List<String> NICKS = List.of("sra-host", "sra-client", "CoronaBot$sra");
 
-    private static IdentityManager hostIdentity;
-    private static IdentityManager clientIdentity;
+    private static TestPlayerIdentity hostIdentity;
+    private static TestPlayerIdentity clientIdentity;
 
     @BeforeAll
     static void identities() {
-        hostIdentity = IdentityManager.initializeForNick(NICKS.get(0));
-        clientIdentity = IdentityManager.initializeForNick(NICKS.get(1));
+        hostIdentity = TestPlayerIdentity.initializeForNick(NICKS.get(0));
+        clientIdentity = TestPlayerIdentity.initializeForNick(NICKS.get(1));
         assertTrue(hostIdentity.isReady(), hostIdentity.getLoadError());
         assertTrue(clientIdentity.isReady(), clientIdentity.getLoadError());
     }
@@ -119,7 +119,7 @@ final class ProtocolSraShowdownSimulationTest {
         while (resolvedPocketCard(pocketCards, unusedCard)) {
             unusedCard++;
         }
-        changedPlaintext[4] = Card.shortStringFromIndex(unusedCard);
+        changedPlaintext[4] = CardCode.shortCodeFromIndex(unusedCard);
         PotCardsEnvelope plaintextEnvelope = PotCardsEnvelope.parse(
                 changedPlaintext, new HashSet<>(NICKS));
         assertFalse(verifyEntry(handId, plaintextEnvelope.entries().get(0), signerKey(0),
@@ -159,8 +159,8 @@ final class ProtocolSraShowdownSimulationTest {
             byte[] signature = signer(player).signShowdownReveal(handId, nick, keys[player],
                     cards[player][0], cards[player][1]);
             fields.add(Base64.getEncoder().encodeToString(nick.getBytes(StandardCharsets.UTF_8)));
-            fields.add(Card.shortStringFromIndex(cards[player][0]));
-            fields.add(Card.shortStringFromIndex(cards[player][1]));
+            fields.add(CardCode.shortCodeFromIndex(cards[player][0]));
+            fields.add(CardCode.shortCodeFromIndex(cards[player][1]));
             fields.add(Base64.getEncoder().encodeToString(keys[player]));
             fields.add(Base64.getEncoder().encodeToString(signature));
         }
@@ -169,7 +169,7 @@ final class ProtocolSraShowdownSimulationTest {
 
     private static boolean verifyEntry(byte[] handId, PotCardsEnvelope.Entry entry,
             byte[] signerKey, byte[] firstResidual, byte[] secondResidual) {
-        if (!IdentityManager.verifyShowdownReveal(signerKey, handId, entry.nick(),
+        if (!TestPlayerIdentity.verifyShowdownReveal(signerKey, handId, entry.nick(),
                 entry.pocketKey(), entry.firstCard(), entry.secondCard(), entry.signature())) {
             return false;
         }
@@ -180,7 +180,7 @@ final class ProtocolSraShowdownSimulationTest {
         return first == entry.firstCard() && second == entry.secondCard();
     }
 
-    private static IdentityManager signer(int player) {
+    private static TestPlayerIdentity signer(int player) {
         return player == 1 ? clientIdentity : hostIdentity;
     }
 

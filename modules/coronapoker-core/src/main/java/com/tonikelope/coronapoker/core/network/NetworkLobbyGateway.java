@@ -1,5 +1,7 @@
 package com.tonikelope.coronapoker.core.network;
 
+import com.tonikelope.coronapoker.core.AvatarImageValidator;
+
 import com.tonikelope.coronapoker.StatsSync;
 import com.tonikelope.coronapoker.StatsSyncProtocol;
 import com.tonikelope.coronapoker.core.ApplicationMetadata;
@@ -2302,14 +2304,19 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
     private static byte[] readAvatar(Path avatar) throws IOException {
         if (avatar == null) return null;
         byte[] bytes = Files.readAllBytes(avatar);
-        if (bytes.length > 256 * 1024) throw new IOException("Avatar too large");
+        AvatarImageValidator.validate(bytes);
         return bytes;
     }
 
     private static Path saveAvatar(String encoded, String nickname, Path directory) throws IOException {
         if (encoded == null || encoded.isBlank() || "*".equals(encoded)) return null;
-        byte[] bytes = Base64.getDecoder().decode(encoded);
-        if (bytes.length > 256 * 1024) throw new IOException("Remote avatar too large");
+        final byte[] bytes;
+        try {
+            bytes = Base64.getDecoder().decode(encoded);
+        } catch (IllegalArgumentException failure) {
+            throw new IOException("Remote avatar is not strict Base64", failure);
+        }
+        AvatarImageValidator.validate(bytes);
         Path avatars = directory.resolve("cache").resolve("lobby-avatars");
         Files.createDirectories(avatars);
         String digest;

@@ -45,6 +45,32 @@ class SqlIdentityTrustStoreTest {
         }
     }
 
+    @Test void updateFailureCannotDisguiseMatchOrChangedAsNew()
+            throws Exception {
+        DatabaseService database = new DatabaseService(
+                temporary.resolve("identity-update-failure.db").toString());
+        database.start();
+        try {
+            SqlIdentityTrustStore store = new SqlIdentityTrustStore(database);
+            byte[] first = key(3);
+            byte[] changed = key(4);
+            assertEquals(IdentityTrustStore.Observation.NEW,
+                    store.observe("Invitado", first));
+            try (var statement = database.connection().createStatement()) {
+                statement.execute("CREATE TRIGGER reject_identity_update "
+                        + "BEFORE UPDATE ON known_identities BEGIN "
+                        + "SELECT RAISE(FAIL, 'simulated update failure'); END");
+            }
+
+            assertEquals(IdentityTrustStore.Observation.MATCH,
+                    store.observe("Invitado", first));
+            assertEquals(IdentityTrustStore.Observation.CHANGED,
+                    store.observe("Invitado", changed));
+        } finally {
+            database.close();
+        }
+    }
+
     private static byte[] key(int value) {
         byte[] key = new byte[32];
         Arrays.fill(key, (byte) value);

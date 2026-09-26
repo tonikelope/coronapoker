@@ -2,6 +2,7 @@ package com.tonikelope.coronapoker;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import com.tonikelope.coronapoker.core.game.GamePlayerController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,22 +19,19 @@ public class LegalActionsUiParityTest {
 
         boolean entitlement = state.legalActions("B").canRaise();
         assertFalse(entitlement);
-        assertFalse(Crupier.isLegalRemoteAction(Player.BET, 250d,
+        assertFalse(Crupier.isLegalRemoteAction(GamePlayerController.BET, 250d,
                 100d, 500d, 150d, 100d, 100d, entitlement));
-        assertTrue(Crupier.isLegalRemoteAction(Player.CHECK, 0d,
+        assertTrue(Crupier.isLegalRemoteAction(GamePlayerController.CHECK, 0d,
                 100d, 500d, 150d, 100d, 100d, entitlement));
-        assertFalse(Crupier.isLegalRemoteAction(Player.ALLIN, 0d,
+        assertFalse(Crupier.isLegalRemoteAction(GamePlayerController.ALLIN, 0d,
                 100d, 500d, 150d, 100d, 100d, entitlement));
     }
 
     @Test
-    public void uiLiveWireAndRecoveryConsumeDealerEntitlementGate() throws IOException {
+    public void liveWireRecoveryAndGdxControlsConsumeDealerEntitlementGate() throws IOException {
         Path root = locateRoot();
-        String localPlayer = Files.readString(root.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/LocalPlayer.java"));
         String crupier = Files.readString(root.resolve(
                 "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
-        assertTrue(localPlayer.contains("getCrupier().canPlayerRaise(getNickname())"));
         assertTrue(crupier.contains("canPlayerRaise(jugador.getNickname())"));
         assertTrue(crupier.contains("canPlayerRaise(name)"));
         assertTrue(crupier.contains("ActionControlState.forTurn("));

@@ -10,22 +10,22 @@ import org.junit.jupiter.api.Test;
 final class DealerDatabasePortWiringTest {
 
     @Test
-    void canonicalDealerUsesInjectedDatabaseAndClassicAdapterPreservesLock() throws Exception {
+    void canonicalDealerUsesInjectedDatabaseAndCoreAdapterPreservesLock() throws Exception {
         Path root = root();
         String dealer = Files.readString(root.resolve(
                 "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         String dealerCode = dealer.replaceAll("(?s)/\\*.*?\\*/", "")
                 .replaceAll("(?m)//.*$", "");
         String adapter = Files.readString(root.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/SwingGameDatabase.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/core/game/CoreGameDatabase.java"));
 
         assertTrue(dealer.contains("GameDatabase gameDatabase"));
         assertTrue(dealer.contains("synchronized (game_database.lock())"));
         assertTrue(dealer.contains("game_database.connection()"));
         assertFalse(dealer.contains("GameFrame.SQL_LOCK"));
         assertFalse(dealer.contains("Helpers.getSQLITE()"));
-        assertTrue(adapter.contains("return GameFrame.SQL_LOCK"));
-        assertTrue(adapter.contains("return Helpers.getSQLITE()"));
+        assertTrue(adapter.contains("return database.lock()"));
+        assertTrue(adapter.contains("return database.connection()"));
         assertTrue(dealer.contains("host_configuration.create(this.getUGI())"));
         assertFalse(dealer.contains("GameConfigWireV1.fromGlobals()"));
         assertFalse(dealer.contains("GameFrame.RECOVER_ID"));

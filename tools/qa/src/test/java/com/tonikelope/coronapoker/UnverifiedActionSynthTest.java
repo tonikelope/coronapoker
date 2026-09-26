@@ -54,7 +54,7 @@ class UnverifiedActionSynthTest {
      */
     private static Object[] genuineBetAction() {
         Object[] action = new Object[7];
-        action[0] = Player.BET;
+        action[0] = com.tonikelope.coronapoker.core.game.GamePlayerController.BET;
         action[1] = 50d;
         action[2] = null;
         action[3] = new byte[CanonicalActionRecord.RECORD_BYTES];
@@ -92,7 +92,7 @@ class UnverifiedActionSynthTest {
 
         assertFalse(Crupier.isUnverifiedSynthFold(action),
                 "the exit fold must clear the mark, not inherit it");
-        assertEquals(Player.FOLD, action[0]);
+        assertEquals(com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, action[0]);
         assertEquals(Boolean.FALSE, action[5]);
     }
 
@@ -120,7 +120,7 @@ class UnverifiedActionSynthTest {
                 Crupier.synthesizeExitFoldAction(action);
             }
 
-            assertEquals(Player.FOLD, action[0], "the falsified decision must not survive");
+            assertEquals(com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, action[0], "the falsified decision must not survive");
             assertEquals(0d, action[1], "no money moves on a synthetic fold");
             assertNull(action[2]);
             assertNull(action[3], "no record is contributed for this seat");
@@ -135,10 +135,10 @@ class UnverifiedActionSynthTest {
     void nonWireActionArraysDefaultToSilent() {
         // The current bot path builds a 3-slot action[]. It cannot ask for a
         // rebroadcast: the safe default is silence.
-        assertFalse(Crupier.isUnverifiedSynthFold(new Object[]{Player.CHECK, 0d, null}));
+        assertFalse(Crupier.isUnverifiedSynthFold(new Object[]{com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK, 0d, null}));
 
         Object[] recovered = new Object[6];
-        recovered[0] = Player.FOLD;
+        recovered[0] = com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD;
         recovered[1] = 0d;
         recovered[5] = Boolean.FALSE;
         assertFalse(Crupier.isUnverifiedSynthFold(recovered));
@@ -238,7 +238,7 @@ class UnverifiedActionSynthTest {
                 "*", (byte[]) action[3], (byte[]) action[4]);
 
         assertEquals("ACTION#" + Base64.getEncoder().encodeToString("alice".getBytes(java.nio.charset.StandardCharsets.UTF_8))
-                + "#" + Player.FOLD + "#0#*#*#*", comando);
+                + "#" + com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD + "#0#*#*#*", comando);
 
         String[] partes = asReceived(comando);
         assertFalse(Crupier.wireCarriesRecordAndSig(partes),
@@ -253,7 +253,7 @@ class UnverifiedActionSynthTest {
         byte[] sig = new byte[64];
         Arrays.fill(sig, (byte) 0x22);
 
-        String comando = Crupier.buildActionWireCommand("alice", Player.BET, 50d, "*", record, sig);
+        String comando = Crupier.buildActionWireCommand("alice", com.tonikelope.coronapoker.core.game.GamePlayerController.BET, 50d, "*", record, sig);
 
         String[] partes = asReceived(comando);
         assertTrue(Crupier.wireCarriesRecordAndSig(partes));
@@ -283,7 +283,7 @@ class UnverifiedActionSynthTest {
     void allInWireKeepsTheAmountAtZero() {
         // On ALLIN the amount slot is fixed at 0 and the animation travels apart;
         // only a BET writes a figure there.
-        String comando = Crupier.buildActionWireCommand("alice", Player.ALLIN, 0d, "hulk_b64", null, null);
+        String comando = Crupier.buildActionWireCommand("alice", com.tonikelope.coronapoker.core.game.GamePlayerController.ALLIN, 0d, "hulk_b64", null, null);
         String[] partes = asReceived(comando);
         assertEquals("0", partes[5]);
         assertEquals("hulk_b64", partes[6]);

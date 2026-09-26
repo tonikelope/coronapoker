@@ -44,6 +44,56 @@ class GameConfigCodecV1Test {
     }
 
     @Test
+    void canonicalHashIsStableAndOlderWireVersionsAreRejected() {
+        GameConfigCodecV1.Configuration valid = defaultConfiguration();
+        assertArrayEquals(GameConfigCodecV1.canonicalHash(valid),
+                GameConfigCodecV1.canonicalHash(defaultConfiguration()));
+        byte[] encoded = GameConfigCodecV1.encode(valid);
+        encoded[7] = 0;
+        assertFalse(GameConfigCodecV1.decode(encoded).isOk());
+    }
+
+    @Test
+    void rejectsNonFiniteMoneyAndCrossFieldRangesWithoutPublishingThem() {
+        GameConfigCodecV1.Configuration valid = defaultConfiguration();
+        assertThrows(IllegalArgumentException.class, () ->
+                GameConfigCodecV1.requireValid(copy(valid, Double.NaN,
+                        valid.bigBlind(), valid.buyinMinBb(),
+                        valid.buyinMaxBb(), valid.rebuyCapPolicy())));
+        assertThrows(IllegalArgumentException.class, () ->
+                GameConfigCodecV1.requireValid(copy(valid,
+                        Double.POSITIVE_INFINITY, valid.bigBlind(),
+                        valid.buyinMinBb(), valid.buyinMaxBb(),
+                        valid.rebuyCapPolicy())));
+        assertThrows(IllegalArgumentException.class, () ->
+                GameConfigCodecV1.requireValid(copy(valid,
+                        valid.smallBlind(), Double.NEGATIVE_INFINITY,
+                        valid.buyinMinBb(), valid.buyinMaxBb(),
+                        valid.rebuyCapPolicy())));
+        assertThrows(IllegalArgumentException.class, () ->
+                GameConfigCodecV1.requireValid(copy(valid, Double.MAX_VALUE,
+                        valid.bigBlind(), valid.buyinMinBb(),
+                        valid.buyinMaxBb(), valid.rebuyCapPolicy())));
+        assertThrows(IllegalArgumentException.class, () ->
+                GameConfigCodecV1.requireValid(copy(valid,
+                        valid.smallBlind(), 1e100, valid.buyinMinBb(),
+                        valid.buyinMaxBb(), valid.rebuyCapPolicy())));
+        assertThrows(IllegalArgumentException.class, () ->
+                GameConfigCodecV1.requireValid(copy(valid, 2d, 1d,
+                        valid.buyinMinBb(), valid.buyinMaxBb(),
+                        valid.rebuyCapPolicy())));
+        assertThrows(IllegalArgumentException.class, () ->
+                GameConfigCodecV1.requireValid(copy(valid,
+                        valid.smallBlind(), valid.bigBlind(), 200, 100,
+                        valid.rebuyCapPolicy())));
+        assertThrows(IllegalArgumentException.class, () ->
+                GameConfigCodecV1.requireValid(copy(valid,
+                        valid.smallBlind(), valid.bigBlind(),
+                        valid.buyinMinBb(), valid.buyinMaxBb(), 99)));
+        assertEquals(valid, GameConfigCodecV1.requireValid(valid));
+    }
+
+    @Test
     void everyNewGameRuleReachesTheAuthoritativeLaunchConfiguration() {
         NewGameTableDraft draft = new NewGameTableDraft();
         draft.setBlindStructure("Turbo",
@@ -87,5 +137,25 @@ class GameConfigCodecV1Test {
                 List.of(new GameConfigCodecV1.BlindLevel(0.25, 0.5),
                         new GameConfigCodecV1.BlindLevel(0.5, 1),
                         new GameConfigCodecV1.BlindLevel(1, 2))), actual);
+    }
+
+    private static GameConfigCodecV1.Configuration defaultConfiguration() {
+        return GameConfigCodecV1.fromSettings(
+                new NewGameTableDraft().snapshot(), false, "session-default");
+    }
+
+    private static GameConfigCodecV1.Configuration copy(
+            GameConfigCodecV1.Configuration value, double smallBlind,
+            double bigBlind, int minBuyin, int maxBuyin, int rebuyCapPolicy) {
+        return new GameConfigCodecV1.Configuration(value.buyin(), smallBlind,
+                bigBlind,
+                value.blindsDouble(), value.blindsDoubleType(), value.recover(),
+                value.sessionId(), value.rebuy(), value.hands(),
+                value.blindCap(), value.rebuyLimit(), value.botRebuy(),
+                value.fixedBuyin(), minBuyin, maxBuyin, rebuyCapPolicy,
+                value.ante(), value.straddle(), value.iwtsth(),
+                value.runItTwice(), value.rabbitHunting(), value.thinkTime(),
+                value.thinkTimeEnabled(), value.showdownTime(),
+                value.botBalanceToHumans(), value.blindStructure());
     }
 }

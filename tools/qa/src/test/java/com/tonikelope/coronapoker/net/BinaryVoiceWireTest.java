@@ -8,9 +8,9 @@
  */
 package com.tonikelope.coronapoker.net;
 
-import com.tonikelope.coronapoker.BinaryWire;
+import com.tonikelope.coronapoker.core.network.BinaryPayloadCodec;
 import com.tonikelope.coronapoker.Helpers;
-import com.tonikelope.coronapoker.WireFrame;
+import com.tonikelope.coronapoker.core.network.WireFrameCodec;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.security.KeyException;
@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * AAA tests for {@link BinaryWire} (the voice/avatar binary payload layout) and
+ * AAA tests for {@link BinaryPayloadCodec} (the voice/avatar binary payload layout) and
  * the full voice wire pipeline: encodeVoice → encryptBytes → writeBinary → read
  * → decryptBytes → decode, which is exactly what the send/receive sites do for
  * a note. Includes a size assertion proving the binary path is ~240 KB, not the
@@ -58,32 +58,32 @@ class BinaryVoiceWireTest {
     void voiceRoundTrip() {
         byte[] audio = new byte[5000];
         new Random(1).nextBytes(audio);
-        BinaryWire.Decoded d = BinaryWire.decode(BinaryWire.encodeVoice("alice", audio));
-        assertEquals(BinaryWire.TYPE_VOICE, d.type);
-        assertEquals("alice", d.nick);
-        assertArrayEquals(audio, d.payload);
+        BinaryPayloadCodec.Payload d = BinaryPayloadCodec.decode(BinaryPayloadCodec.encode(BinaryPayloadCodec.TYPE_VOICE, "alice", audio));
+        assertEquals(BinaryPayloadCodec.TYPE_VOICE, d.type());
+        assertEquals("alice", d.nickname());
+        assertArrayEquals(audio, d.body());
     }
 
     @Test
     @DisplayName("unicode nick and empty audio survive the codec")
     void unicodeNickEmptyAudio() {
-        BinaryWire.Decoded d = BinaryWire.decode(BinaryWire.encodeVoice("ñoño☺", new byte[0]));
-        assertEquals("ñoño☺", d.nick);
-        assertEquals(0, d.payload.length);
+        BinaryPayloadCodec.Payload d = BinaryPayloadCodec.decode(BinaryPayloadCodec.encode(BinaryPayloadCodec.TYPE_VOICE, "ñoño☺", new byte[0]));
+        assertEquals("ñoño☺", d.nickname());
+        assertEquals(0, d.body().length);
     }
 
     @Test
     @DisplayName("empty nick survives the codec")
     void emptyNick() {
-        BinaryWire.Decoded d = BinaryWire.decode(BinaryWire.encodeVoice("", new byte[]{1, 2, 3}));
-        assertEquals("", d.nick);
-        assertArrayEquals(new byte[]{1, 2, 3}, d.payload);
+        BinaryPayloadCodec.Payload d = BinaryPayloadCodec.decode(BinaryPayloadCodec.encode(BinaryPayloadCodec.TYPE_VOICE, "", new byte[]{1, 2, 3}));
+        assertEquals("", d.nickname());
+        assertArrayEquals(new byte[]{1, 2, 3}, d.body());
     }
 
     @Test
     @DisplayName("decode rejects a too-short buffer")
     void decodeTooShort() {
-        assertThrows(IllegalArgumentException.class, () -> BinaryWire.decode(new byte[]{'V', 0}));
+        assertThrows(IllegalArgumentException.class, () -> BinaryPayloadCodec.decode(new byte[]{'V', 0}));
     }
 
     @Test
@@ -91,7 +91,7 @@ class BinaryVoiceWireTest {
     void decodeNicklenOutOfBounds() {
         // type 'V', nicklen = 0xFFFF but no nick bytes follow
         byte[] bad = {'V', (byte) 0xFF, (byte) 0xFF};
-        assertThrows(IllegalArgumentException.class, () -> BinaryWire.decode(bad));
+        assertThrows(IllegalArgumentException.class, () -> BinaryPayloadCodec.decode(bad));
     }
 
     @Test
@@ -101,10 +101,10 @@ class BinaryVoiceWireTest {
         byte[] audio = new byte[240_000];
         new Random(42).nextBytes(audio);
 
-        byte[] frameBody = Helpers.encryptBytes(BinaryWire.encodeVoice("bob", audio), AES, HMAC);
+        byte[] frameBody = Helpers.encryptBytes(BinaryPayloadCodec.encode(BinaryPayloadCodec.TYPE_VOICE, "bob", audio), AES, HMAC);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
-            WireFrame.writeBinary(out, frameBody);
+            WireFrameCodec.writeBinary(out, frameBody);
         } catch (Exception ex) {
             throw new RuntimeException(ex);
         }
@@ -115,18 +115,18 @@ class BinaryVoiceWireTest {
         assertEquals(true, onWire.length < 260_000,
                 "binary frame on the wire (" + onWire.length + " B) must be ~240 KB, not ~427 KB");
 
-        WireFrame.Result r;
+        WireFrameCodec.Frame r;
         try {
-            r = WireFrame.read(new ByteArrayInputStream(onWire), CAP);
+            r = WireFrameCodec.read(new ByteArrayInputStream(onWire), CAP);
         } catch (Exception ex) {
             throw new RuntimeException(ex);
         }
         org.junit.jupiter.api.Assertions.assertTrue(r.isBinary());
 
         byte[] payload = Helpers.decryptBytes(r.binary(), AES, HMAC);
-        BinaryWire.Decoded d = BinaryWire.decode(payload);
-        assertEquals(BinaryWire.TYPE_VOICE, d.type);
-        assertEquals("bob", d.nick);
-        assertArrayEquals(audio, d.payload);
+        BinaryPayloadCodec.Payload d = BinaryPayloadCodec.decode(payload);
+        assertEquals(BinaryPayloadCodec.TYPE_VOICE, d.type());
+        assertEquals("bob", d.nickname());
+        assertArrayEquals(audio, d.body());
     }
 }

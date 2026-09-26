@@ -66,6 +66,16 @@ class I18nBundleIntegritySmoke {
     private static final String[] LANGUAGES = {"es", "en"};
 
     /**
+     * Runtime suffixes are selected from closed enums or switches. A literal
+     * scan sees only the prefix at these call sites, so validate the namespace
+     * below instead of treating the prefix itself as a complete key.
+     */
+    private static final Set<String> DYNAMIC_KEY_PREFIXES = Set.of(
+            "gdx.final.title.",
+            "gdx.settings.game.",
+            "gdx.settings.shortcut.action.");
+
+    /**
      * Walks up from the working directory until the project root shows up.
      */
     private static Path projectRoot() {
@@ -197,12 +207,19 @@ class I18nBundleIntegritySmoke {
         Properties english = bundle("en");
         TreeSet<String> missing = new TreeSet<>();
 
+        for (String prefix : DYNAMIC_KEY_PREFIXES) {
+            assertTrue(spanish.stringPropertyNames().stream().anyMatch(key -> key.startsWith(prefix)),
+                    "the spanish bundle has no concrete key for dynamic prefix " + prefix);
+            assertTrue(english.stringPropertyNames().stream().anyMatch(key -> key.startsWith(prefix)),
+                    "the english bundle has no concrete key for dynamic prefix " + prefix);
+        }
+
         Path project = projectRoot();
         Path coreSources = project.resolve("modules/coronapoker-core/src/main/java");
-        Path swingSources = project.resolve("modules/coronapoker-swing/src/main/java");
+        Path gdxSources = project.resolve("modules/coronapoker-gdx/src/main/java");
         try (Stream<Path> coreTree = Files.walk(coreSources);
-                Stream<Path> swingTree = Files.walk(swingSources);
-                Stream<Path> tree = Stream.concat(coreTree, swingTree)) {
+                Stream<Path> gdxTree = Files.walk(gdxSources);
+                Stream<Path> tree = Stream.concat(coreTree, gdxTree)) {
             List<Path> files = tree.filter(p -> p.toString().endsWith(".java"))
                     .collect(Collectors.toList());
 
@@ -219,6 +236,10 @@ class I18nBundleIntegritySmoke {
 
                     while (matcher.find()) {
                         String key = matcher.group(1);
+
+                        if (DYNAMIC_KEY_PREFIXES.contains(key)) {
+                            continue;
+                        }
 
                         if (spanish.getProperty(key) == null || english.getProperty(key) == null) {
                             missing.add(key + "  (" + file.getFileName() + ")");

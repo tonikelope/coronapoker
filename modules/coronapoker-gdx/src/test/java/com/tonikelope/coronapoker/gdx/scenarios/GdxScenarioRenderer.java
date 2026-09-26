@@ -55,6 +55,8 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final AtomicBoolean sawPaused = new AtomicBoolean();
     private final AtomicBoolean resumedAfterPause = new AtomicBoolean();
     private final AtomicLong allInHand = new AtomicLong(-1L);
+    private final AtomicBoolean allInAtFirstOpportunity
+            = new AtomicBoolean();
     private final AtomicBoolean allInCommandSent = new AtomicBoolean();
     private final AtomicBoolean acceptedLocalAllIn = new AtomicBoolean();
     private final AtomicBoolean sawAllInAction = new AtomicBoolean();
@@ -66,6 +68,10 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final AtomicLong immediateRebuyHand = new AtomicLong(-1L);
     private final AtomicBoolean immediateRebuyRequested = new AtomicBoolean();
     private final AtomicBoolean foldAutomatically = new AtomicBoolean();
+    private final AtomicBoolean allInEveryHand = new AtomicBoolean();
+    private final AtomicBoolean raiseMix = new AtomicBoolean();
+    private final AtomicInteger localRaiseSubmissions = new AtomicInteger();
+    private final AtomicInteger acceptedRaiseActions = new AtomicInteger();
     private final AtomicBoolean sawLocalSpectator = new AtomicBoolean();
     private final AtomicBoolean returnedAfterSpectating = new AtomicBoolean();
     private final java.util.concurrent.ConcurrentHashMap<String, Integer>
@@ -76,10 +82,22 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final EnumSet<TableSnapshot.Street> streets
             = EnumSet.noneOf(TableSnapshot.Street.class);
     private final List<String> actionTrace = new CopyOnWriteArrayList<>();
+    private final Set<Long> allInActionHands
+            = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final Set<String> spectatorsEver
             = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final Set<String> reactivatedSpectators
             = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Set<Long> straddleHands
+            = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Map<Long, List<TableSnapshot.CardSnapshot>> localDeals
+            = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<Long, Long> localRevealSequences
+            = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<Long, Long> firstActionSequences
+            = new java.util.concurrent.ConcurrentHashMap<>();
+    private final AtomicInteger localStraddleDecisions = new AtomicInteger();
+    private final AtomicLong localStraddleHand = new AtomicLong(-1L);
 
     GdxScenarioRenderer(TableSession table, int expectedPlayers) {
         this(table, expectedPlayers, new AtomicReference<>());
@@ -117,6 +135,12 @@ final class GdxScenarioRenderer implements TableRenderer {
         afterAllInCommand.set(postAction);
     }
 
+    void allInAtFirstOpportunity() {
+        allInAtFirstOpportunity.set(true);
+        allInCommandSent.set(false);
+        acceptedLocalAllIn.set(false);
+    }
+
     void requestImmediateRebuyOnHand(long handId) {
         immediateRebuyHand.set(handId);
         immediateRebuyRequested.set(false);
@@ -130,6 +154,15 @@ final class GdxScenarioRenderer implements TableRenderer {
 
     void foldAutomatically(boolean enabled) {
         foldAutomatically.set(enabled);
+    }
+
+    void enableRaiseMix() {
+        raiseMix.set(true);
+    }
+
+    void enableAllInEveryHand() {
+        allInEveryHand.set(true);
+        allInCommandSent.set(false);
     }
 
     @Override
@@ -159,12 +192,31 @@ final class GdxScenarioRenderer implements TableRenderer {
             if (boundary.phase()
                     == TableVisualEvent.HandBoundary.Phase.PREPARE) {
                 currentHand.set(boundary.handId());
+                if (allInEveryHand.get()) {
+                    allInCommandSent.set(false);
+                }
             } else if (boundary.phase()
                     == TableVisualEvent.HandBoundary.Phase.END) {
                 endedHands.incrementAndGet();
             }
         }
         TableSnapshot snapshot = projection.snapshot();
+        if (event instanceof TableVisualEvent.DealHoleCard deal
+                && deal.nickname().equals(snapshot.localNickname())) {
+            localDeals.computeIfAbsent(currentHand.get(), ignored
+                    -> new CopyOnWriteArrayList<>()).add(deal.card());
+        }
+        if (event instanceof TableVisualEvent.RevealHoleCards reveal
+                && reveal.nickname().equals(snapshot.localNickname())
+                && reveal.handName().isBlank()) {
+            localRevealSequences.putIfAbsent(currentHand.get(),
+                    reveal.sequence());
+        }
+        if (event instanceof TableVisualEvent.PositionRotation rotation
+                && rotation.transfers().stream().anyMatch(transfer
+                -> transfer.position() == TableSnapshot.Position.STRADDLE)) {
+            straddleHands.add(currentHand.get());
+        }
         rememberSpectatorTransitions(snapshot);
         assertCanonicalSpectatorPresentation(snapshot, projection);
         TableSnapshot.PlayerSnapshot local = snapshot.players().stream()
@@ -204,6 +256,8 @@ final class GdxScenarioRenderer implements TableRenderer {
                 && (controls.state().callAction()
                 != ActionControlState.CallAction.DISABLED
                 || controls.state().allInEnabled())) {
+            firstActionSequences.putIfAbsent(currentHand.get(),
+                    event.sequence());
             assertEquals(snapshot.localNickname(), snapshot.currentTurnNickname(),
                     "GDX controls may only activate for the local turn");
             sawLocalControls.set(true);
@@ -214,16 +268,26 @@ final class GdxScenarioRenderer implements TableRenderer {
                 heldAction.set(true);
                 return CompletableFuture.completedFuture(null);
             }
-            if (foldAutomatically.get() && controls.state().foldEnabled()) {
+            if (raiseMix.get()
+                    && controls.state().raiseAction()
+                    != ActionControlState.RaiseAction.DISABLED
+                    && localRaiseSubmissions.getAndIncrement() < 2) {
+                assertTrue(productTable().activateBetAction(),
+                        "native GDX raise-mix control did not submit");
+            } else if (foldAutomatically.get()
+                    && controls.state().foldEnabled()) {
                 assertTrue(productTable().activateFoldAction(),
                         "native GDX fold control did not submit");
-            } else if (allInHand.get() == currentHand.get()
+            } else if ((allInAtFirstOpportunity.get()
+                    || allInEveryHand.get()
+                    || allInHand.get() == currentHand.get())
                     && controls.state().allInEnabled()
                     && allInCommandSent.compareAndSet(false, true)) {
                 assertTrue(productTable().activateAllInAction(),
                         "native GDX ALL-IN control did not arm");
                 assertTrue(productTable().activateAllInAction(),
                         "native GDX ALL-IN control did not submit");
+                allInAtFirstOpportunity.set(false);
                 afterAllInCommand.get().run();
             } else if (controls.state().callAction()
                     != ActionControlState.CallAction.DISABLED) {
@@ -242,6 +306,14 @@ final class GdxScenarioRenderer implements TableRenderer {
             if (action.kind()
                     == TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
                 sawAllInAction.set(true);
+                allInActionHands.add(currentHand.get());
+            }
+            if (action.kind() == TableVisualEvent.PlayerAction.ActionKind.BET
+                    || action.kind()
+                    == TableVisualEvent.PlayerAction.ActionKind.RAISE
+                    || action.kind()
+                    == TableVisualEvent.PlayerAction.ActionKind.RERAISE) {
+                acceptedRaiseActions.incrementAndGet();
             }
             if (!action.nickname().equals(snapshot.localNickname())) {
                 sawRemoteAction.set(true);
@@ -280,6 +352,19 @@ final class GdxScenarioRenderer implements TableRenderer {
         }
     }
 
+    void submitHeldAllIn(Runnable postAction) {
+        if (!heldAction.compareAndSet(true, false)) {
+            throw new AssertionError("no held GDX action for ordered all-in");
+        }
+        gateConsumed.set(true);
+        allInCommandSent.set(true);
+        assertTrue(productTable().activateAllInAction(),
+                "native GDX ordered ALL-IN control did not arm");
+        assertTrue(productTable().activateAllInAction(),
+                "native GDX ordered ALL-IN control did not submit");
+        postAction.run();
+    }
+
     void releaseHeldActionAndGate(long nextHand,
             TableSnapshot.Street nextStreet) {
         if (heldAction.compareAndSet(true, false)) {
@@ -301,6 +386,14 @@ final class GdxScenarioRenderer implements TableRenderer {
         return heldAction.get();
     }
 
+    boolean nativeCheckOrCallReady() {
+        return productTable().canActivateCheckOrCallAction();
+    }
+
+    int acceptedRaiseActions() {
+        return acceptedRaiseActions.get();
+    }
+
     boolean isClosed() {
         return closed.get();
     }
@@ -315,6 +408,15 @@ final class GdxScenarioRenderer implements TableRenderer {
 
     boolean sawAllInAction() {
         return sawAllInAction.get();
+    }
+
+    boolean sawAllInOnEveryHand(int expectedHands) {
+        for (long hand = 1L; hand <= expectedHands; hand++) {
+            if (!allInActionHands.contains(hand)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     boolean completedRunItTwiceBoards() {
@@ -451,6 +553,35 @@ final class GdxScenarioRenderer implements TableRenderer {
                 reactivatedSpectators.add(player.nickname());
             }
         }
+    }
+
+    void recordLocalStraddleDecision() {
+        localStraddleDecisions.incrementAndGet();
+        localStraddleHand.set(currentHand.get());
+    }
+
+    void assertStraddleComplete(int expectedHands) {
+        assertComplete(expectedHands);
+        assertEquals(Set.of(1L, 2L, 3L), straddleHands);
+        assertEquals(1, localStraddleDecisions.get(),
+                "each human must receive exactly one straddle decision");
+        assertEquals(Set.of(1L, 2L, 3L), localDeals.keySet());
+        assertTrue(localDeals.values().stream().allMatch(cards
+                -> cards.size() == 2));
+        long hand = localStraddleHand.get();
+        List<TableSnapshot.CardSnapshot> cards = localDeals.get(hand);
+        assertNotNull(cards);
+        assertTrue(cards.stream().noneMatch(
+                TableSnapshot.CardSnapshot::faceUp),
+                "straddler cards must stay hidden until the decision");
+        Long reveal = localRevealSequences.get(hand);
+        Long action = firstActionSequences.get(hand);
+        assertNotNull(reveal,
+                "accepted straddle must reveal the deferred pocket cards");
+        assertNotNull(action,
+                "accepted straddle must reach a betting decision");
+        assertTrue(action > reveal,
+                "betting cannot overtake the accepted straddle reveal");
     }
 
     private void assertCanonicalSpectatorPresentation(TableSnapshot snapshot,

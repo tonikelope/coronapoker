@@ -4,16 +4,17 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import com.tonikelope.coronapoker.core.game.GamePlayerController;
 import org.junit.jupiter.api.Test;
 
 class ShowdownEligibilityTest {
 
     @Test
     void disconnectedAllInRemainsInShowdownButOtherExitsDoNot() {
-        assertFalse(Crupier.shouldRemoveExitedPlayerFromShowdown(true, Player.ALLIN));
-        assertTrue(Crupier.shouldRemoveExitedPlayerFromShowdown(true, Player.FOLD));
-        assertTrue(Crupier.shouldRemoveExitedPlayerFromShowdown(true, Player.BET));
-        assertFalse(Crupier.shouldRemoveExitedPlayerFromShowdown(false, Player.BET));
+        assertFalse(Crupier.shouldRemoveExitedPlayerFromShowdown(true, GamePlayerController.ALLIN));
+        assertTrue(Crupier.shouldRemoveExitedPlayerFromShowdown(true, GamePlayerController.FOLD));
+        assertTrue(Crupier.shouldRemoveExitedPlayerFromShowdown(true, GamePlayerController.BET));
+        assertFalse(Crupier.shouldRemoveExitedPlayerFromShowdown(false, GamePlayerController.BET));
     }
 
     @Test

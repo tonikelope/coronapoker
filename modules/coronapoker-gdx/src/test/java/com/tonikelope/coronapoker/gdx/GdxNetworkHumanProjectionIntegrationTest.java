@@ -2180,6 +2180,13 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 new RecoverableGameRepository(database));
     }
 
+    static NetworkLobbyGateway automaticRebuyGateway(Path data,
+            DatabaseService database) {
+        return gateway(data, database,
+                acceptingRebuyDecisions(true, new AtomicInteger()),
+                rebuySettings(true));
+    }
+
     private static GamePresentationSettings acceleratedSettings() {
         GamePresentationSettings defaults = GamePresentationSettings.defaults();
         return (GamePresentationSettings) Proxy.newProxyInstance(
@@ -2195,6 +2202,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 GamePresentationSettings.class.getClassLoader(),
                 new Class<?>[]{GamePresentationSettings.class},
                 (proxy, method, arguments) -> switch (method.getName()) {
+                    case "testMode" -> true;
                     case "ambientMusic", "cinematics", "gameOverCinematics",
                             "blindDealerAnimation", "betAnimation",
                             "counterAnimation", "shuffleAnimation",

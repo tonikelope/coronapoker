@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
- * Prevents CI and the standalone QA module from silently testing a stale game artifact.
+ * Prevents the standalone QA module from silently testing a stale game artifact.
  */
 class QaBaselineWiringTest {
 
@@ -32,14 +32,12 @@ class QaBaselineWiringTest {
         assertEquals(gameVersion, reactorVersion);
         assertTrue(modulesPom.contains("<coronapoker.version>" + gameVersion + "</coronapoker.version>"));
         assertTrue(qaPom.contains("<artifactId>coronapoker-core</artifactId>"));
-        assertTrue(qaPom.contains("<artifactId>coronapoker-swing</artifactId>"));
+        assertTrue(qaPom.contains("<artifactId>coronapoker-gdx</artifactId>"));
     }
 
     @Test
-    void ciBuildsCurrentCommitThroughReactorAndFailsOnZeroTests() throws IOException {
+    void localBuildUsesCurrentReactorAndFailsOnZeroTests() throws IOException {
         Path root = locateRoot();
-        String workflow = Files.readString(root.resolve(".github/workflows/main.yml"))
-                .replace("\\r\\n", "\\n");
         String gamePom = Files.readString(root.resolve("pom.xml"));
         String modulesPom = Files.readString(root.resolve("modules/pom.xml"));
         String qaPom = Files.readString(root.resolve("tools/qa/pom.xml"));
@@ -48,9 +46,6 @@ class QaBaselineWiringTest {
         String identitySpec = Files.readString(root.resolve("docs/ec-identity-spec.md"));
         String mavenConfig = Files.readString(root.resolve(".mvn/maven.config"));
 
-        assertTrue(workflow.contains("actions/checkout@"), "CI must checkout the repository");
-        assertTrue(workflow.contains("ref: ${{ github.sha }}"), "CI must test the triggering commit");
-        assertTrue(workflow.contains("java-version: '17'"), "CI must pin JDK 17");
         assertTrue(gamePom.contains("<module>modules</module>"),
                 "The root build must delegate to the product module reactor");
         assertTrue(modulesPom.contains("<maven.compiler.release>17</maven.compiler.release>"),
@@ -63,15 +58,6 @@ class QaBaselineWiringTest {
                 "README must publish the Java 17 build and runtime requirement");
         assertTrue(identitySpec.contains("supported JDK 17+ runtime"),
                 "The public identity specification must match the supported runtime");
-        assertTrue(workflow.contains("tools/reactor/pom.xml"), "CI must build game and QA in one reactor");
-        assertTrue(workflow.contains("qa-release"),
-                "CI must execute fast plus every non-bot release lane");
-        assertTrue(!workflow.contains("qa-bots"),
-                "CI must keep statistical bot quality explicitly separate");
-        assertTrue(workflow.contains("-Dqa.sim.hands=1")
-                && workflow.contains("-Dqa.sim.faults=1")
-                && workflow.contains("-Dqa.sim.bot.hands=1"),
-                "CI must run one wiring case instead of duplicating mass campaigns");
         assertTrue(qaPom.contains("<failIfNoTests>true</failIfNoTests>"),
                 "Surefire must fail when no tests are discovered");
         assertTrue(qaPom.contains("<runOrder>alphabetical</runOrder>"),
@@ -112,12 +98,12 @@ class QaBaselineWiringTest {
         Path root = locateRoot();
         assertLauncher(root, "certify.cmd", "run-certification.ps1");
         assertLauncher(root, "headless-sim.cmd", "run-headless-sim.ps1");
-        assertLauncher(root, "real-game-e2e.cmd", "run-real-game-e2e.ps1");
+        assertLauncher(root, "gdx-scenarios.cmd", "run-gdx-scenarios.ps1");
 
         String testing = Files.readString(root.resolve("docs/TESTING.md"));
         assertTrue(testing.contains(".\\tools\\qa\\certify.cmd"));
         assertTrue(testing.contains(".\\tools\\qa\\headless-sim.cmd"));
-        assertTrue(testing.contains(".\\tools\\qa\\real-game-e2e.cmd"));
+        assertTrue(testing.contains(".\\tools\\qa\\gdx-scenarios.cmd"));
     }
 
     @Test
@@ -129,8 +115,7 @@ class QaBaselineWiringTest {
         assertTrue(seedHelper.contains("ToUInt32"),
                 "QA seeds must stay in the safe range used for derived scenario seeds");
 
-        for (String runner : List.of("run-certification.ps1", "run-headless-sim.ps1",
-                "run-real-game-e2e.ps1")) {
+        for (String runner : List.of("run-certification.ps1", "run-headless-sim.ps1")) {
             String script = Files.readString(root.resolve("tools/qa").resolve(runner));
             assertTrue(script.contains(". (Join-Path $PSScriptRoot 'qa-seed.ps1')"),
                     runner + " must use the shared seed generator");
@@ -154,10 +139,6 @@ class QaBaselineWiringTest {
         assertTrue(certification.contains("\"-Dqa.sim.seed=$Seed\""),
                 "the release suite must share the certification's fresh base seed");
 
-        String workflow = Files.readString(root.resolve(".github/workflows/main.yml"));
-        assertTrue(workflow.contains("/dev/urandom"));
-        assertTrue(workflow.contains("CoronaPoker CI base seed:"));
-        assertTrue(workflow.contains("-Dqa.sim.seed=$QA_SEED"));
     }
 
     @Test

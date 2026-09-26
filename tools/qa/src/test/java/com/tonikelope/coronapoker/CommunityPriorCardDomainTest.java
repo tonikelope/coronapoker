@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.game.CardCode;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -13,10 +14,10 @@ class CommunityPriorCardDomainTest {
 
     @Test
     void storedOneBasedRunoutUsesTheSameExplicitBoundaryConversion() {
-        assertEquals(0, Card.cardIndexFromOneBased(1));
-        assertEquals(51, Card.cardIndexFromOneBased(52));
-        assertEquals(-1, Card.cardIndexFromOneBased(0));
-        assertEquals(-1, Card.cardIndexFromOneBased(53));
+        assertEquals(0, CardCode.indexFromOneBased(1));
+        assertEquals(51, CardCode.indexFromOneBased(52));
+        assertEquals(-1, CardCode.indexFromOneBased(0));
+        assertEquals(-1, CardCode.indexFromOneBased(53));
     }
 
     @Test
@@ -32,7 +33,7 @@ class CommunityPriorCardDomainTest {
                 "live flop/turn cards must cross the UI-to-SRA boundary explicitly");
         assertFalse(method.contains("prior.addAll(this.rit_side_a_runout_cards)"),
                 "RIT side-A values are stored for the 1..52 Monte Carlo deck and must be converted");
-        assertTrue(method.contains("Card.cardIndexFromOneBased(oneBased)"));
+        assertTrue(method.contains("CardCode.indexFromOneBased(oneBased)"));
     }
 
     private static Path findCrupierSource() {

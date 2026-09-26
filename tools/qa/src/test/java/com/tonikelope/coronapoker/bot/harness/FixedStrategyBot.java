@@ -10,8 +10,6 @@ package com.tonikelope.coronapoker.bot.harness;
 
 import com.tonikelope.coronapoker.Bot;
 import com.tonikelope.coronapoker.Crupier;
-import com.tonikelope.coronapoker.GameFrame;
-import com.tonikelope.coronapoker.Player;
 import com.tonikelope.coronapoker.bot.context.BotPlayerView;
 import com.tonikelope.coronapoker.bot.context.DealerView;
 
@@ -111,9 +109,9 @@ public final class FixedStrategyBot extends Bot {
 
     private int decideStation(double toCall) {
         if (toCall > 0f) {
-            return Player.CHECK;
+            return com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK;
         }
-        return Player.CHECK;
+        return com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK;
     }
 
     private int decideRock(boolean preflop, double toCall, boolean pair, int high, int low,
@@ -125,45 +123,45 @@ public final class FixedStrategyBot extends Bot {
             if (premium) {
                 if (toCall <= 0f) {
                     lastTargetSize = d.getCiega_grande() * 3.0f;
-                    return Player.BET;
+                    return com.tonikelope.coronapoker.core.game.GamePlayerController.BET;
                 }
                 lastTargetSize = Math.max(d.getApuesta_actual() * 3.0f,
                         d.getApuesta_actual() + d.getCiega_grande() * 4.0f);
-                return Player.BET;
+                return com.tonikelope.coronapoker.core.game.GamePlayerController.BET;
             }
             if (toCall <= 0f) {
-                return Player.CHECK;
+                return com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK;
             }
-            return Player.FOLD;
+            return com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD;
         }
         if (premium) {
             if (toCall <= 0f) {
                 lastTargetSize = d.getBote_total() * 0.65f;
-                return Player.BET;
+                return com.tonikelope.coronapoker.core.game.GamePlayerController.BET;
             }
-            return Player.CHECK;
+            return com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK;
         }
         if (toCall <= 0f) {
-            return Player.CHECK;
+            return com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK;
         }
-        return Player.FOLD;
+        return com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD;
     }
 
     private int decideManiac(boolean preflop, double toCall, DealerView d) {
         if (preflop) {
             if (toCall <= 0f) {
                 lastTargetSize = d.getCiega_grande() * 3.0f;
-                return Player.BET;
+                return com.tonikelope.coronapoker.core.game.GamePlayerController.BET;
             }
             lastTargetSize = Math.max(d.getApuesta_actual() * 2.5f,
                     d.getApuesta_actual() + d.getCiega_grande() * 5.0f);
-            return Player.BET;
+            return com.tonikelope.coronapoker.core.game.GamePlayerController.BET;
         }
         if (toCall <= 0f) {
             lastTargetSize = Math.max(d.getCiega_grande(), d.getBote_total() * 1.0f);
-            return Player.BET;
+            return com.tonikelope.coronapoker.core.game.GamePlayerController.BET;
         }
-        return Player.CHECK;
+        return com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK;
     }
 
     private int decideTag(boolean preflop, double toCall, boolean pair, int high, int low,
@@ -174,28 +172,28 @@ public final class FixedStrategyBot extends Bot {
             if (toCall <= 0f) {
                 if (top25) {
                     lastTargetSize = d.getCiega_grande() * 2.8f;
-                    return Player.BET;
+                    return com.tonikelope.coronapoker.core.game.GamePlayerController.BET;
                 }
-                return Player.FOLD;
+                return com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD;
             }
             if (betCount >= 2) {
                 if (pair && high >= 9) {
                     if (high >= 10) {
                         lastTargetSize = Math.max(d.getApuesta_actual() * 2.7f,
                                 d.getApuesta_actual() + d.getCiega_grande() * 6.0f);
-                        return Player.BET;
+                        return com.tonikelope.coronapoker.core.game.GamePlayerController.BET;
                     }
-                    return Player.CHECK;
+                    return com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK;
                 }
                 if (localRng.nextInt(100) < 50) {
-                    return Player.FOLD;
+                    return com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD;
                 }
-                return Player.FOLD;
+                return com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD;
             }
             if (top25) {
-                return Player.CHECK;
+                return com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK;
             }
-            return Player.FOLD;
+            return com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD;
         }
         boolean topPairOrBetter = computeTopPairOrBetter(high, low, pair, d);
         boolean wasPreflopAggressor = (d.getLast_aggressor() == null
@@ -204,18 +202,18 @@ public final class FixedStrategyBot extends Bot {
             if (d.getStreet() == Crupier.FLOP && wasPreflopAggressor
                     && localRng.nextInt(100) < 65) {
                 lastTargetSize = d.getBote_total() * 0.55f;
-                return Player.BET;
+                return com.tonikelope.coronapoker.core.game.GamePlayerController.BET;
             }
             if (topPairOrBetter) {
                 lastTargetSize = d.getBote_total() * 0.65f;
-                return Player.BET;
+                return com.tonikelope.coronapoker.core.game.GamePlayerController.BET;
             }
-            return Player.CHECK;
+            return com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK;
         }
         if (topPairOrBetter) {
-            return Player.CHECK;
+            return com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK;
         }
-        return Player.FOLD;
+        return com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD;
     }
 
     private boolean isTop25(boolean pair, int high, int low, boolean suited) {
@@ -266,9 +264,4 @@ public final class FixedStrategyBot extends Bot {
         lastTargetSize = 0;
     }
 
-    static {
-        if (GameFrame.CIEGA_PEQUEÑA <= 0f) {
-            GameFrame.CIEGA_PEQUEÑA = 1.0f;
-        }
-    }
 }

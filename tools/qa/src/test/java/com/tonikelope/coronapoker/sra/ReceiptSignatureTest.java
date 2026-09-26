@@ -16,8 +16,7 @@
 package com.tonikelope.coronapoker.sra;
 
 import com.tonikelope.coronapoker.CanonicalActionRecord;
-import com.tonikelope.coronapoker.IdentityManager;
-import java.lang.reflect.Method;
+import com.tonikelope.coronapoker.TestPlayerIdentity;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -25,16 +24,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ReceiptSignatureTest {
 
-    private static IdentityManager peerA;
-    private static IdentityManager peerB;
+    private static TestPlayerIdentity peerA;
+    private static TestPlayerIdentity peerB;
     private static byte[] peerAPub;
     private static byte[] peerBPub;
 
     @BeforeAll
     public static void initIdentities() {
-        peerA = IdentityManager.initializeForNick("__qa_receipt_peerA_" + System.nanoTime());
+        peerA = TestPlayerIdentity.initializeForNick("__qa_receipt_peerA_" + System.nanoTime());
         peerAPub = peerA.getPublicKey();
-        peerB = IdentityManager.initializeForNick("__qa_receipt_peerB_" + System.nanoTime());
+        peerB = TestPlayerIdentity.initializeForNick("__qa_receipt_peerB_" + System.nanoTime());
         peerBPub = peerB.getPublicKey();
     }
 
@@ -59,7 +58,7 @@ public class ReceiptSignatureTest {
         byte[] handId = sampleHandId(0x10);
         byte[] hFinal = sampleHFinal(0x20);
         byte[] sig = peerA.signReceipt(handId, hFinal, (byte) 0);
-        assertTrue(IdentityManager.verifyReceipt(peerAPub, handId, hFinal, (byte) 0, sig));
+        assertTrue(TestPlayerIdentity.verifyReceipt(peerAPub, handId, hFinal, (byte) 0, sig));
     }
 
     @Test
@@ -67,7 +66,7 @@ public class ReceiptSignatureTest {
         byte[] handId = sampleHandId(0x10);
         byte[] hFinal = sampleHFinal(0x20);
         byte[] sigA = peerA.signReceipt(handId, hFinal, (byte) 0);
-        assertFalse(IdentityManager.verifyReceipt(peerBPub, handId, hFinal, (byte) 0, sigA),
+        assertFalse(TestPlayerIdentity.verifyReceipt(peerBPub, handId, hFinal, (byte) 0, sigA),
                 "peer A's receipt sig must NOT verify under peer B's pubkey");
     }
 
@@ -79,7 +78,7 @@ public class ReceiptSignatureTest {
 
         byte[] tampered = handId.clone();
         tampered[3] ^= 0x01;
-        assertFalse(IdentityManager.verifyReceipt(peerAPub, tampered, hFinal, (byte) 0, sig));
+        assertFalse(TestPlayerIdentity.verifyReceipt(peerAPub, tampered, hFinal, (byte) 0, sig));
     }
 
     @Test
@@ -90,25 +89,21 @@ public class ReceiptSignatureTest {
 
         byte[] tampered = hFinal.clone();
         tampered[15] ^= 0x80;
-        assertFalse(IdentityManager.verifyReceipt(peerAPub, handId, tampered, (byte) 0, sig));
+        assertFalse(TestPlayerIdentity.verifyReceipt(peerAPub, handId, tampered, (byte) 0, sig));
     }
 
     @Test
-    public void actionSigIsNotAcceptedAsReceipt() throws Exception {
+    public void actionSigIsNotAcceptedAsReceipt() {
         // Domain separation: an ACTION sig over the same exact bytes
         // (HAND_ID || H_final || flags concatenated) must NOT verify as a RECEIPT.
-        // We bypass the public helpers to construct such a sig deliberately
-        // and assert verifyReceipt rejects it.
+        // Sign the exact receipt payload through the ACTION API and assert that
+        // the RECEIPT verifier rejects the different signature domain.
         byte[] handId = sampleHandId(0x10);
         byte[] hFinal = sampleHFinal(0x20);
-        byte[] payload = IdentityManager.receiptPayload(handId, hFinal, (byte) 0);
+        byte[] payload = TestPlayerIdentity.receiptPayload(handId, hFinal, (byte) 0);
+        byte[] actionSig = peerA.signAction(payload);
 
-        Method sign = IdentityManager.class.getDeclaredMethod("sign", byte[].class, byte[].class);
-        sign.setAccessible(true);
-        byte[] actionDomain = "ACTION\0".getBytes("UTF-8");
-        byte[] actionSig = (byte[]) sign.invoke(peerA, actionDomain, payload);
-
-        assertFalse(IdentityManager.verifyReceipt(peerAPub, handId, hFinal, (byte) 0, actionSig),
+        assertFalse(TestPlayerIdentity.verifyReceipt(peerAPub, handId, hFinal, (byte) 0, actionSig),
                 "ACTION sig must NOT pass as a RECEIPT sig");
     }
 
@@ -120,10 +115,10 @@ public class ReceiptSignatureTest {
 
         // Wrong-length pubkey is rejected by verifyAction's argument validation
         // and surfaces as false (not as an exception).
-        assertFalse(IdentityManager.verifyReceipt(new byte[31], handId, hFinal, (byte) 0, sig));
+        assertFalse(TestPlayerIdentity.verifyReceipt(new byte[31], handId, hFinal, (byte) 0, sig));
         // Wrong-length sig is also rejected by Ed25519.verify itself.
         byte[] shortSig = new byte[63];
         System.arraycopy(sig, 0, shortSig, 0, 63);
-        assertFalse(IdentityManager.verifyReceipt(peerAPub, handId, hFinal, (byte) 0, shortSig));
+        assertFalse(TestPlayerIdentity.verifyReceipt(peerAPub, handId, hFinal, (byte) 0, shortSig));
     }
 }

@@ -13,21 +13,21 @@ public class MisdealWireTest {
     public void parsesTheSingleCurrentMisdealShape() {
         String reason = "peer.state_inconsistent";
         String encoded = Base64.getEncoder().encodeToString(reason.getBytes(StandardCharsets.UTF_8));
-        assertEquals(reason, MisdealWire.parse(
-                new String[]{"GAME", "7", "MISDEAL", encoded}));
+        assertEquals(reason, MisdealWire.parseClientCommand(
+                new String[]{"MISDEAL", encoded}));
     }
 
     @Test
     public void rejectsMalformedMisdealInsteadOfRefundingAndContinuing() {
-        assertThrows(IllegalArgumentException.class, () -> MisdealWire.parse(
-                new String[]{"GAME", "7", "MISDEAL"}));
-        assertThrows(IllegalArgumentException.class, () -> MisdealWire.parse(
-                new String[]{"GAME", "7", "MISDEAL", "%%%"}));
-        assertThrows(IllegalArgumentException.class, () -> MisdealWire.parse(
-                new String[]{"GAME", "7", "MISDEAL", "", "ignored"}));
-        assertThrows(IllegalArgumentException.class, () -> MisdealWire.parse(
-                new String[]{"GAME", "7", "MISDEAL", ""}));
-        assertThrows(IllegalArgumentException.class, () -> MisdealWire.parse(
-                new String[]{"GAME", "7", "MISDEAL", "cGVlci5zdGF0ZV9pbmNvbnNpc3RlbnQ"}));
+        assertThrows(IllegalArgumentException.class, () -> MisdealWire.parseClientCommand(
+                new String[]{"MISDEAL"}));
+        assertThrows(IllegalArgumentException.class, () -> MisdealWire.parseClientCommand(
+                new String[]{"MISDEAL", "%%%"}));
+        assertThrows(IllegalArgumentException.class, () -> MisdealWire.parseClientCommand(
+                new String[]{"MISDEAL", "", "ignored"}));
+        assertThrows(IllegalArgumentException.class, () -> MisdealWire.parseClientCommand(
+                new String[]{"MISDEAL", ""}));
+        assertThrows(IllegalArgumentException.class, () -> MisdealWire.parseClientCommand(
+                new String[]{"MISDEAL", "cGVlci5zdGF0ZV9pbmNvbnNpc3RlbnQ"}));
     }
 }

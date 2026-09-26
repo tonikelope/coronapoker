@@ -70,7 +70,7 @@ Options:
   -WindowMode <mode>       hidden, minimized or visible (default: hidden)
   -Screen <1..16>          Monitor assigned to real-game JVMs (default: 2)
   -Animations              Enable animations in real-game scenarios
-  -ProductionTiming        Use production pauses and real Swing action clocks
+  -ProductionTiming        Use production pauses and real GDX action clocks
   -IncludeBotQuality       Also run statistical bot-quality tests (bot changes only)
   -StartAtScenario <label> Continue at a real-game label after a diagnosed failure;
                            requires the original -Seed, skips QA/headless and is
@@ -133,7 +133,6 @@ if (-not $PSBoundParameters.ContainsKey('ScenarioRepeats')) { $ScenarioRepeats =
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $reactorPom = Join-Path $repoRoot 'tools\reactor\pom.xml'
 $headlessRunner = Join-Path $PSScriptRoot 'run-headless-sim.ps1'
-$realGameRunner = Join-Path $PSScriptRoot 'run-real-game-e2e.ps1'
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $reportDir = Join-Path $repoRoot "target\certification\$timestamp"
 New-Item -ItemType Directory -Path $reportDir -Force | Out-Null
@@ -390,6 +389,54 @@ try {
         @{ Label = 'spectator-double-recovery-crash-mix'; Name = 'spectator-double-recovery-crash-mix'; Clients = 6; Bots = 1; Hands = 8 }
     )
 
+    $gdxScenarioMethods = @{
+        'normal-soak' = 'normalSoakMatchesTheSwingGoldTopologyAcrossGdxProcesses'
+        'normal-heads-up' = 'normalHeadsUpMatchesTheSwingGoldTopologyAcrossGdxProcesses'
+        'normal-full-mixed' = 'normalFullMixedMatchesTheSwingGoldTopologyAcrossGdxProcesses'
+        'normal-full-human' = 'normalFullHumanMatchesTheSwingGoldTopologyAcrossGdxProcesses'
+        'raise-mix' = 'raiseMixMatchesTheSwingGoldSequenceAcrossGdxProcesses'
+        'allin-single-board' = 'allInSingleBoardMatchesTheSwingGoldSequenceAcrossGdxProcesses'
+        'allin-rebuy' = 'allInRebuyMatchesTheSwingGoldSequenceAcrossGdxProcesses'
+        'allin-rit' = 'allInRunItTwiceMatchesTheSwingGoldSequenceAcrossGdxProcesses'
+        'allin-controlled-exit' = 'allInControlledExitMatchesTheSwingGoldSequenceAcrossGdxProcesses'
+        'straddle-post' = 'straddlePostMatchesTheSwingGoldSequenceAcrossGdxProcesses'
+        'pause-resume' = 'pauseResumePreservesTheDecisionAcrossIndependentGdxProcesses'
+        'reconnect-midhand' = 'reconnectMidHandReplacesTheSocketAcrossIndependentGdxProcesses'
+        'reconnect-twice' = 'reconnectTwiceMatchesTheSwingGoldSequenceAcrossGdxProcesses'
+        'reconnect-storm' = 'reconnectStormMatchesTheSwingGoldSequenceAcrossGdxProcesses'
+        'dual-reconnect' = 'dualReconnectMatchesTheSwingGoldSequenceAcrossGdxProcesses'
+        'host-channel-flap' = 'hostChannelFlapMatchesTheSwingGoldSequenceAcrossGdxProcesses'
+        'reconnect-every-street' = 'reconnectEveryStreetMatchesTheSwingGoldSequenceAcrossGdxProcesses'
+        'allin-reconnect' = 'allInReconnectMatchesTheSwingGoldSequenceAcrossGdxProcesses'
+        'rit-network-cut' = 'runItTwiceVoteSurvivesNetworkCutAcrossGdxProcesses'
+        'straddle-network-cut' = 'straddleAcceptedResponseSurvivesNetworkCutAcrossGdxProcesses'
+        'reconnect-force-recover' = 'reconnectAndForceRecoveryConvergeAcrossIndependentGdxProcesses'
+        'transport-chaos' = 'transportChaosConvergesAcrossIndependentGdxProcesses'
+        'lifecycle-chaos' = 'lifecycleChaosConvergesAcrossIndependentGdxProcesses'
+        'abrupt-exit-survivor' = 'abruptProcessExitLeavesIndependentGdxPeersRecoverable'
+        'controlled-exit-survivor' = 'controlledExitUsesIndependentGdxProcesses'
+        'dual-abrupt-exit' = 'dualAbruptExitMatchesTheSwingGoldScenarioAcrossGdxProcesses'
+        'mixed-exit-crash' = 'mixedControlledExitAndCrashMatchesTheSwingGoldScenario'
+        'allin-abrupt-exit' = 'allInAbruptExitMatchesTheSwingGoldSequenceAcrossGdxProcesses'
+        'force-recover' = 'forceRecoveryRebuildsBothGdxProcessesAndCompletesTwoHands'
+        'double-force-recover' = 'doubleForceRecoveryRebuildsBothGdxProcessesAtHandsOneAndThree'
+        'crash-rejoin-recover' = 'crashRejoinRecoveryRestartsTheSameGdxPeerAndCompletesHandTwo'
+        'force-recover-add-client' = 'forceRecoveryAdmitsNewIndependentGdxProcessForFreshSecondHand'
+        'force-recover-add-two' = 'forceRecoveryAdmitsTwoNewIndependentGdxProcessesForSecondHand'
+        'force-recover-swap-client' = 'forceRecoveryReplacesMissingIndependentGdxProcessForSecondHand'
+        'spectator-rebuy-cycle' = 'spectatorRebuyCycleReturnsBustedIndependentGdxProcessToPlay'
+        'spectator-recovery-mix' = 'spectatorsSurviveRecoveryRebuyAndTwoNewIndependentGdxProcesses'
+        'bot-bust-recover-regrow' = 'bustedBotRegrowsAcrossIndependentGdxProcessesAfterRecovery'
+        'bot-bust-recover-drop' = 'bustedBotDropsAcrossIndependentGdxProcessesAfterRecovery'
+        'human-bust-exit-rejoin-rebuy' = 'bustedHumanExitsRejoinsWithSameIdentityAcrossIndependentGdxProcesses'
+        'spectator-double-recovery-crash-mix' = 'spectatorDoubleRecoveryCrashMixRunsAcrossIndependentGdxProcesses'
+    }
+    foreach ($profile in $scenarioProfiles) {
+        if (-not $gdxScenarioMethods.ContainsKey($profile.Label)) {
+            throw "Missing GDX scenario method mapping for $($profile.Label)"
+        }
+    }
+
     if ($Mode -eq 'quick') {
         $quickLabels = @(
             'normal-soak',
@@ -416,6 +463,7 @@ try {
                     Clients = $profile.Clients
                     Bots = $profile.Bots
                     Hands = $profile.Hands
+                    Method = $gdxScenarioMethods[$profile.Label]
                     Repeat = $repeat
                 })
         }
@@ -436,26 +484,22 @@ try {
         $scenario = $scenarios[$scenarioIndex]
         $scenarioSeed = $Seed + (($scenarioIndex + 1) * 1009)
         $scenarioArgs = @(
-            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $realGameRunner,
-            '-Scenario', $scenario.Name,
-            '-Clients', "$($scenario.Clients)",
-            '-Bots', "$($scenario.Bots)",
-            '-Hands', "$($scenario.Hands)",
-            '-Seed', "$scenarioSeed",
-            '-WindowMode', $WindowMode,
-            '-Screen', "$Screen",
-            '-SkipGameBuild'
+            '-f', $reactorPom,
+            "-Dmaven.repo.local=$($mavenRepo.Replace('\', '/'))",
+            '-pl', ':coronapoker-gdx', '-am',
+            'test',
+            "-Dtest=GdxMultiprocessScenarioTest#$($scenario.Method)",
+            '-Dsurefire.failIfNoSpecifiedTests=false',
+            "-Dcoronapoker.qa.gdx.soakHands=$SoakHands",
+            "-Dcoronapoker.qa.gdx.headsUpHands=$headsUpHands",
+            "-Dcoronapoker.qa.gdx.fullMixedHands=$fullMixedHands",
+            "-Dcoronapoker.qa.gdx.fullHumanHands=$fullHumanHands",
+            "-Dqa.sim.seed=$scenarioSeed"
         )
-        if ($Animations) {
-            $scenarioArgs += '-Animations'
-        }
-        if ($ProductionTiming) {
-            $scenarioArgs += '-ProductionTiming'
-        }
 
         Invoke-CertificationPhase `
-            -Name "Real game: $($scenario.Label) repeat $($scenario.Repeat)/$ScenarioRepeats seed $scenarioSeed" `
-            -Command 'powershell.exe' `
+            -Name "GDX real game: $($scenario.Label) repeat $($scenario.Repeat)/$ScenarioRepeats seed $scenarioSeed" `
+            -Command $maven `
             -Arguments $scenarioArgs
     }
     Remove-CertificationQaHome

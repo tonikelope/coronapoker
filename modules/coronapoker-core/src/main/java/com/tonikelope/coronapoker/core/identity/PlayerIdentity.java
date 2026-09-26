@@ -28,7 +28,7 @@ import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/** Persistent per-nickname Ed25519 identity shared by Swing and GDX adapters. */
+/** Persistent per-nickname Ed25519 identity used by the game core. */
 public final class PlayerIdentity implements GameIdentity {
     private static final Logger LOGGER = Logger.getLogger(PlayerIdentity.class.getName());
     private static final String ALGORITHM = "Ed25519";

@@ -11,7 +11,7 @@ package com.tonikelope.coronapoker.table;
 import java.util.concurrent.CompletionStage;
 
 /**
- * Presentation boundary shared by Swing and GDX.
+ * Presentation boundary between the game core and GDX.
  *
  * Completion of {@link #render(TableVisualEvent)} is the explicit animation
  * barrier. The dealer may wait for it only where the classic flow already has

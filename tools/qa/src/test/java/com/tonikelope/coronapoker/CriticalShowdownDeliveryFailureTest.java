@@ -26,15 +26,6 @@ class CriticalShowdownDeliveryFailureTest {
         assertTrue(settle.contains("if (isFin_de_la_transmision() || this.termination_pending"),
                 "a post-barrier POTCARDS failure must be checked before the first payout calculation");
 
-        String waitingRoom = Files.readString(root.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java")).replace("\r\n", "\n");
-        String showcards = slice(waitingRoom, "case \"SHOWCARDS\":",
-                "case \"RABBIT_FLOP_PIECE\":", 0);
-        assertTrue(showcards.contains("boolean revealed ="));
-        assertTrue(showcards.contains("if (!revealed)"));
-        assertTrue(showcards.contains("closeCriticalHostChannel();"),
-                "a rejected SHOWCARDS from the authenticated host must close, not just log");
-
         String hostBuild = slice(source, "private void solicitarYRecibirCartasVisuales(",
                 "private boolean verifyAndStoreShowdownKey(", 0);
         assertTrue(hostBuild.contains("missing mandatory POTCARDS proof"));

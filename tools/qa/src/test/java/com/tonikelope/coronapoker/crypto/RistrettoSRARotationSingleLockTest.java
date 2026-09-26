@@ -1,7 +1,7 @@
 /*
  * Guards the "single-lock rotation" CPU optimization: applying two commutative locks in
  * sequence (uPocket then kCommunity) must be byte-identical to applying ONE lock with the
- * product scalar s = uPocket*kCommunity mod L. Crupier / WaitingRoomFrame rely on this to
+ * product scalar s = uPocket*kCommunity mod L. Crupier and the network lobby rely on this to
  * halve the rotation scalar-muls without changing the wire bytes or the rotation proof
  * (which already uses the very same product scalar).
  */

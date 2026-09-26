@@ -4,7 +4,7 @@ import com.tonikelope.coronapoker.CanonicalActionRecord;
 import com.tonikelope.coronapoker.core.network.GameCommandGate;
 import com.tonikelope.coronapoker.core.network.GameCommandType;
 import com.tonikelope.coronapoker.HandStateChain;
-import com.tonikelope.coronapoker.IdentityManager;
+import com.tonikelope.coronapoker.TestPlayerIdentity;
 import java.util.Base64;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,7 +28,7 @@ final class ProtocolFaultTransportTest {
         REORDER, DISCONNECT, RATE_LIMIT, UNKNOWN_COMMAND
     }
 
-    private static IdentityManager signer;
+    private static TestPlayerIdentity signer;
     private static byte[] signerKey;
     private static byte[] playerId;
 
@@ -63,7 +63,7 @@ final class ProtocolFaultTransportTest {
             if (!decision.enqueue()) {
                 return;
             }
-            if (!IdentityManager.verifyAction(signerKey, event.record(), event.signature())) {
+            if (!TestPlayerIdentity.verifyAction(signerKey, event.record(), event.signature())) {
                 connected = false;
                 return;
             }
@@ -92,7 +92,7 @@ final class ProtocolFaultTransportTest {
 
     @BeforeAll
     static void identity() {
-        signer = IdentityManager.initializeForNick("sim-transport-host");
+        signer = TestPlayerIdentity.initializeForNick("sim-transport-host");
         assertTrue(signer.isReady(), signer.getLoadError());
         signerKey = signer.getPublicKey();
         playerId = CanonicalActionRecord.playerIdFromNick("sim-transport-host");

@@ -11,26 +11,18 @@ public class CriticalUnlockFailureClosesChannelTest {
     @Test
     public void everyUnlockHandlerAbortClosesTheHostChannel() throws Exception {
         String source = Files.readString(locateRoot().resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java"))
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"))
                 .replace("\r\n", "\n");
-        int start = source.indexOf("case \"REQ_SRA_UNLOCK_CHAIN\":");
-        int end = source.indexOf("case \"H_CHECK\":", start);
+        int start = source.indexOf("private void processClientUnlockChainRequest(");
+        int end = source.indexOf("private void processClientDualLockBundle(", start);
         assertTrue(start >= 0 && end > start, "REQ_SRA_UNLOCK_CHAIN handler not found");
         String handler = source.substring(start, end);
-        String[] lines = handler.split("\n");
-        int aborts = 0;
-        for (int i = 0; i < lines.length; i++) {
-            if ("return;".equals(lines[i].trim())) {
-                aborts++;
-                int previous = i - 1;
-                while (previous >= 0 && lines[previous].trim().isEmpty()) previous--;
-                assertEquals("closeCriticalHostChannel();", lines[previous].trim(),
-                        "critical unlock return at handler line " + (i + 1) + " is a silent abort");
-            }
-        }
-        assertTrue(aborts >= 15, "test did not cover the complete critical handler");
-        assertTrue(handler.matches("(?s).*catch \\(Exception e\\) \\{.*closeCriticalHostChannel\\(\\);.*"),
-                "unexpected unlock exception must close the host channel");
+        assertTrue(handler.contains("catch (Exception failure)"));
+        assertTrue(handler.contains(
+                "failClientCriticalHostCommand(\"REQ_SRA_UNLOCK_CHAIN\", failure)"),
+                "unexpected unlock failure must close the host channel");
+        assertTrue(handler.contains("if (isFin_de_la_transmision() || this.termination_pending)"),
+                "only an already-closing table may suppress the fail-closed path");
     }
 
     private static Path locateRoot() {

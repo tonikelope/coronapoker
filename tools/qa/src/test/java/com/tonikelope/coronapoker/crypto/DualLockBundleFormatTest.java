@@ -53,7 +53,7 @@ public class DualLockBundleFormatTest {
     }
 
     /**
-     * Replica EXACTA de WaitingRoomFrame.csvToBytes.
+     * Exact replica of the production CSV byte encoding.
      */
     private static List<byte[]> csvToBytes(String csv) {
         List<byte[]> out = new ArrayList<>();

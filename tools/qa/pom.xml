@@ -29,7 +29,7 @@
     <parent>
         <groupId>com.tonikelope</groupId>
         <artifactId>coronapoker-modules</artifactId>
-        <version>24.11-SNAPSHOT</version>
+        <version>24.11</version>
         <relativePath>../../modules/pom.xml</relativePath>
     </parent>
     <groupId>com.tonikelope.qa</groupId>
@@ -122,8 +122,8 @@
     </build>
 
     <dependencies>
-        <!-- Renderer-neutral game logic and Swing compatibility are consumed
-        directly from their product modules. -->
+        <!-- The extended suite exercises the renderer-neutral core and the
+        production GDX application from the same reactor. -->
         <dependency>
             <groupId>com.tonikelope</groupId>
             <artifactId>coronapoker-core</artifactId>
@@ -131,7 +131,7 @@
         </dependency>
         <dependency>
             <groupId>com.tonikelope</groupId>
-            <artifactId>coronapoker-swing</artifactId>
+            <artifactId>coronapoker-gdx</artifactId>
             <version>${coronapoker.version}</version>
         </dependency>
         <!-- JUnit 5 — only used by the QA suite, not by the game. -->
@@ -156,7 +156,7 @@
 
         <!-- Explicit name for the normal deterministic lane. The same
         selection is already the default when no profile is supplied;
-        this profile makes CI/NetBeans invocations self-documenting. -->
+        this profile makes automated and NetBeans invocations self-documenting. -->
         <profile>
             <id>qa-fast</id>
             <properties>
@@ -297,39 +297,6 @@
                                 <include>**/ProtocolSqlRecoveryCampaignTest.java</include>
                                 <include>**/ProtocolSqlActionReplayCampaignTest.java</include>
                                 <include>**/RecoveredActionBatchTest.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
-        <!-- Opt-in local-machine lane: launches one production host JVM and a
-        configurable number of production client JVMs over real loopback
-        sockets. Swing objects are mounted because Crupier still owns UI state;
-        hidden is the default, with explicit minimized/visible diagnostic modes.
-        Actions use LocalPlayer's real buttons. This is intentionally separate
-        from CI/headless campaigns. -->
-        <profile>
-            <id>qa-real-game-e2e</id>
-            <properties>
-                <qa.groups>real-game-e2e</qa.groups>
-                <qa.excludedGroups></qa.excludedGroups>
-            </properties>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <groups>real-game-e2e</groups>
-                            <excludedGroups></excludedGroups>
-                            <systemPropertyVariables combine.children="append">
-                                <java.awt.headless>false</java.awt.headless>
-                            </systemPropertyVariables>
-                            <includes combine.self="override">
-                                <include>**/RealGameLoopbackE2EIT.java</include>
-                                <include>**/MixedFrontendNetworkE2EIT.java</include>
                             </includes>
                         </configuration>
                     </plugin>

@@ -8,7 +8,7 @@
  */
 package com.tonikelope.coronapoker.smoke;
 
-import com.tonikelope.coronapoker.IdentityManager;
+import com.tonikelope.coronapoker.TestPlayerIdentity;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * AAA test del fix de IdentityManager.writeKeypair: tras crear la identidad, el
+ * AAA test del fix de TestPlayerIdentity.writeKeypair: tras crear la identidad, el
  * fichero privkey debe quedar con ACL restrictiva (owner-only). El fix cambió
  * el orden a "createFile -> applyACL -> writeBytes" para eliminar la ventana de
  * exposición donde los bytes existían con ACL heredada del padre.
@@ -35,7 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Windows, la ACL tiene exactamente UNA ACE (la del owner actual) - El pubkey
  * existe pero no requiere ACL restrictiva
  *
- * NO testea (no se puede sin instrumentar IdentityManager): - Que durante la
+ * NO testea (no se puede sin instrumentar TestPlayerIdentity): - Que durante la
  * ejecución de writeKeypair el fichero nunca pase por un estado intermedio con
  * bytes-sensibles + ACL heredada. Eso se valida leyendo el código del fix.
  */
@@ -45,8 +45,8 @@ class IdentityKeypairAclSmoke {
     @DisplayName("Tras initializeForNick, el privkey existe y tiene bytes")
     void privkeyExistsWithBytes() throws Exception {
         String nick = "__qa_acl_basic_" + System.nanoTime();
-        IdentityManager im = IdentityManager.initializeForNick(nick);
-        assertTrue(im.isReady(), "IdentityManager debe quedar ready");
+        TestPlayerIdentity im = TestPlayerIdentity.initializeForNick(nick);
+        assertTrue(im.isReady(), "TestPlayerIdentity debe quedar ready");
 
         Path privFile = findPrivkeyFile(nick);
         assertNotNull(privFile, "Debe existir el fichero privkey tras init");
@@ -62,7 +62,7 @@ class IdentityKeypairAclSmoke {
             return; // skip: POSIX-only assertion
         }
         String nick = "__qa_acl_posix_" + System.nanoTime();
-        IdentityManager.initializeForNick(nick);
+        TestPlayerIdentity.initializeForNick(nick);
         Path privFile = findPrivkeyFile(nick);
         assertNotNull(privFile);
 
@@ -79,7 +79,7 @@ class IdentityKeypairAclSmoke {
             return; // skip: Windows-only assertion
         }
         String nick = "__qa_acl_win_" + System.nanoTime();
-        IdentityManager.initializeForNick(nick);
+        TestPlayerIdentity.initializeForNick(nick);
         Path privFile = findPrivkeyFile(nick);
         assertNotNull(privFile);
 
@@ -105,7 +105,7 @@ class IdentityKeypairAclSmoke {
     @DisplayName("Pubkey existe pero NO requiere perms restrictivas")
     void pubkeyExists() throws Exception {
         String nick = "__qa_acl_pub_" + System.nanoTime();
-        IdentityManager.initializeForNick(nick);
+        TestPlayerIdentity.initializeForNick(nick);
         Path pubFile = findPubkeyFile(nick);
         assertNotNull(pubFile, "Debe existir el fichero pubkey");
         assertEquals(32L, Files.size(pubFile),
@@ -113,7 +113,7 @@ class IdentityKeypairAclSmoke {
     }
 
     private static Path findPrivkeyFile(String nick) {
-        // IdentityManager guarda en ~/.coronapoker/identity_<player_id_hex>.ed25519
+        // TestPlayerIdentity guarda en ~/.coronapoker/identity_<player_id_hex>.ed25519
         // donde player_id_hex es SHA-256(NFC(nick))[0..16chars]. Más sencillo:
         // listamos el directorio y filtramos por sufijo .ed25519 (no .pub) cuya
         // fecha de mtime sea reciente.

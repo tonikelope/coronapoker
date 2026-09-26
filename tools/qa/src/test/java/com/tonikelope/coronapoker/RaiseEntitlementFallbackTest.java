@@ -12,14 +12,14 @@ final class RaiseEntitlementFallbackTest {
     void localProducerGetsANormalFoldThatCanBeSignedAndBroadcast() {
         Object[] action = Crupier.rejectedRaiseFallback(true);
         assertEquals(3, action.length);
-        assertEquals(Player.FOLD, action[0]);
+        assertEquals(com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, action[0]);
         assertFalse(Crupier.isUnverifiedSynthFold(action));
     }
 
     @Test
     void invalidRemoteProducerGetsAnExplicitUnverifiedSyntheticFold() {
         Object[] action = Crupier.rejectedRaiseFallback(false);
-        assertEquals(Player.FOLD, action[0]);
+        assertEquals(com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, action[0]);
         assertTrue(Crupier.isUnverifiedSynthFold(action));
     }
 }

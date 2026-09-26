@@ -8,7 +8,6 @@
  */
 package com.tonikelope.coronapoker.bot.harness;
 
-import com.tonikelope.coronapoker.Card;
 import com.tonikelope.coronapoker.bot.context.BotPlayerView;
 
 /**
@@ -80,12 +79,12 @@ public final class TestBotPlayer implements BotPlayerView {
     }
 
     @Override
-    public Card getHoleCard1() {
+    public Object getHoleCard1() {
         throw new UnsupportedOperationException("Harness fakes expose hole cards via getHoleCard1Index()");
     }
 
     @Override
-    public Card getHoleCard2() {
+    public Object getHoleCard2() {
         throw new UnsupportedOperationException("Harness fakes expose hole cards via getHoleCard2Index()");
     }
 }

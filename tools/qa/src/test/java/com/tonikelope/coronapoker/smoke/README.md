@@ -45,10 +45,10 @@ Fast smoke tests take a few seconds. `GameFlowSmoke` adds up to approximately
 - Bot quality and equity: `bot/harness/`.
 - SRA cryptography: `sra/`.
 - Real socket protocol behavior: `net/`, including framing, stall/back-pressure
-  and send-queue tests. Full multiplayer games run in separate JVMs through
-  `tools/qa/real-game-e2e.cmd`; see `docs/TESTING.md`.
-- Pure Swing paint/layout inspection: manual validation. Functional Swing,
-  socket and `Crupier` transitions are automated by the real-game simulator.
+  and send-queue tests. Full multiplayer GDX games run in separate JVMs through
+  `tools/qa/gdx-scenarios.cmd`; see `docs/TESTING.md`.
+- Pixel-level GDX paint and layout inspection remains manual. Functional GDX,
+  socket and `Crupier` transitions are automated by the multiprocess suite.
 
 ## Test inventory
 

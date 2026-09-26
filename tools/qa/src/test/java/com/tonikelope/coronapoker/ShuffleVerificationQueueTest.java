@@ -170,13 +170,13 @@ public class ShuffleVerificationQueueTest {
     public void tableResetShutsDownTheIndependentVerificationWorker() throws Exception {
         Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         while (current != null && !Files.isRegularFile(current.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/GameFrame.java"))) {
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/CoreGameTableFactory.java"))) {
             current = current.getParent();
         }
         assertTrue(current != null, "repository root found");
-        String gameFrame = Files.readString(current.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/GameFrame.java"));
-        assertTrue(gameFrame.contains("shutdownShuffleVerifyQueue()"),
+        String factory = Files.readString(current.resolve(
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/CoreGameTableFactory.java"));
+        assertTrue(factory.contains("dealer.shutdownShuffleVerifyQueue()"),
                 "RESET_GAME must stop the verifier worker that lives outside Helpers.THREAD_POOL");
     }
 }

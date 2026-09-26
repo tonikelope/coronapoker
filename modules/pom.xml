@@ -6,14 +6,13 @@
 
     <groupId>com.tonikelope</groupId>
     <artifactId>coronapoker-modules</artifactId>
-    <version>24.11-SNAPSHOT</version>
+    <version>24.11</version>
     <packaging>pom</packaging>
     <name>CoronaPoker product modules</name>
 
     <modules>
         <module>coronapoker-core</module>
         <module>coronapoker-assets</module>
-        <module>coronapoker-swing</module>
         <module>coronapoker-gdx</module>
         <module>coronapoker-qa</module>
     </modules>
@@ -21,7 +20,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>17</maven.compiler.release>
-        <coronapoker.version>24.11-SNAPSHOT</coronapoker.version>
+        <coronapoker.version>24.11</coronapoker.version>
         <libgdx.version>1.14.2</libgdx.version>
         <lwjgl.version>3.4.1</lwjgl.version>
         <junit.version>5.10.2</junit.version>
@@ -93,7 +92,7 @@
         <plugins>
             <!-- The repository root target/ is the product distribution, not
             another module output. Clean it once from the reactor parent so a
-            build can never leave stale versioned JARs beside the current pair. -->
+            build can never leave stale versioned JARs beside the current JAR. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-clean-plugin</artifactId>
@@ -107,14 +106,13 @@
                                 <include>CoronaPoker-*.jar</include>
                                 <include>gdx-jar-smoke.*.log</include>
                             </includes>
-                            <!-- Keep the last complete runnable pair available
-                            while the reactor builds their replacements.  Each
-                            frontend publishes its staged JAR only after shade
-                            has closed it, so a running game can never observe
-                            a half-written distribution archive. -->
+                            <!-- Keep the last complete runnable JAR available
+                            while the reactor builds its replacement. The GDX
+                            module publishes its staged JAR only after shade has
+                            closed it, so a running game can never observe a
+                            half-written distribution archive. -->
                             <excludes>
-                                <exclude>CoronaPoker-24.11-swing.jar</exclude>
-                                <exclude>CoronaPoker-24.11-gdx.jar</exclude>
+                                <exclude>CoronaPoker-24.11.jar</exclude>
                             </excludes>
                             <followSymlinks>false</followSymlinks>
                         </fileset>

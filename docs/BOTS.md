@@ -57,7 +57,7 @@ The bot subsystem is layered, and the layers are joined by deliberately narrow
 
 These seams are the **testability boundary**: because the bot only ever talks to
 the table through them, the offline QA harness can inject a *fake* dealer, fake
-players and a seeded RNG and run thousands of hands head-less, no Swing, no
+players and a seeded RNG and run thousands of hands headless, with no UI and no
 sockets. Production wires the real `Crupier`, real `Player`s and the
 `MemoizedAlbertaEvaluator`.
 
@@ -96,7 +96,7 @@ overcards, a made hand with a weak kicker) and floored at `0.10`.
 
 Throughout the bot subsystem a card is an integer in `[0..51]`:
 `index = rank + suit × 13`, with `rank` in `[0..12]` (`2..A`) and `suit` in
-`[0..3]`. `Bot.coronaCard2LokiCard(...)` converts the Swing-bound `Card` to this
+`[0..3]`. `Bot.coronaCard2LokiCard(...)` converts the legacy product `Card` to this
 Alberta encoding.
 
 ### Two evaluators, one of them a reference

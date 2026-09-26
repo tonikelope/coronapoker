@@ -14,7 +14,7 @@ class RabbitRequesterAuthorizationBindingTest {
         String crupier = Files.readString(root.resolve(
                 "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         String identity = Files.readString(root.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/IdentityManager.java"));
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/core/identity/GameIdentityProtocol.java"));
         String ledger = Files.readString(root.resolve(
                 "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/RabbitFeeLedger.java"));
 
@@ -29,7 +29,7 @@ class RabbitRequesterAuthorizationBindingTest {
 
     @Test
     void requesterSignatureSurvivesAuthorizationAndBindsEveryField() {
-        IdentityManager requester = IdentityManager.initializeForNick(
+        TestPlayerIdentity requester = TestPlayerIdentity.initializeForNick(
                 "__qa_rabbit_requester_" + System.nanoTime());
         byte[] hand = RabbitClientChosenCounterRejectedTest.hand(7);
         byte[] nonce = RabbitClientChosenCounterRejectedTest.nonce(9);
@@ -43,15 +43,15 @@ class RabbitRequesterAuthorizationBindingTest {
 
         assertTrue(decoded.isOk());
         RabbitFeeLedger.Request relayed = decoded.value().request();
-        assertTrue(IdentityManager.verifyRabbitRequest(requester.getPublicKey(),
+        assertTrue(TestPlayerIdentity.verifyRabbitRequest(requester.getPublicKey(),
                 relayed.handId(), relayed.playerId(), relayed.nonce(),
                 relayed.requesterSignature()));
-        assertFalse(IdentityManager.verifyRabbitRequest(requester.getPublicKey(),
+        assertFalse(TestPlayerIdentity.verifyRabbitRequest(requester.getPublicKey(),
                 relayed.handId(), "mallory", relayed.nonce(),
                 relayed.requesterSignature()));
         byte[] changedNonce = relayed.nonce();
         changedNonce[0] ^= 1;
-        assertFalse(IdentityManager.verifyRabbitRequest(requester.getPublicKey(),
+        assertFalse(TestPlayerIdentity.verifyRabbitRequest(requester.getPublicKey(),
                 relayed.handId(), relayed.playerId(), changedNonce,
                 relayed.requesterSignature()));
     }

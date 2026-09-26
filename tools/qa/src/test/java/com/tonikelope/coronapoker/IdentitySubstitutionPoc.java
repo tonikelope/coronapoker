@@ -19,7 +19,7 @@ final class IdentitySubstitutionPoc {
     }
 
     static byte[] rawPublicKey(KeyPair pair) {
-        return IdentityManager.x509PubKeyToRaw(pair.getPublic().getEncoded());
+        return TestPlayerIdentity.x509PubKeyToRaw(pair.getPublic().getEncoded());
     }
 
     static byte[] sign(KeyPair pair, String domain, byte[] payload) throws Exception {
@@ -48,12 +48,12 @@ final class IdentitySubstitutionPoc {
     static boolean currentRosterAndActionPipelineAccepts(KeyPair announcedKey) throws Exception {
         byte[] raw = rawPublicKey(announcedKey);
         byte[] selfSig = sign(announcedKey, "JOIN\0",
-                IdentityManager.joinPayload(SESSION_ID, HONEST_NICK, raw));
+                TestPlayerIdentity.joinPayload(SESSION_ID, HONEST_NICK, raw));
         HandStateChain chain = newChain();
         byte[] record = actionRecord(chain.getCurrentHash(), chain.getHandId());
         byte[] actionSig = sign(announcedKey, "ACTION\0", record);
 
-        return IdentityManager.verifyJoin(SESSION_ID, HONEST_NICK, raw, selfSig)
-                && IdentityManager.verifyAction(raw, record, actionSig);
+        return TestPlayerIdentity.verifyJoin(SESSION_ID, HONEST_NICK, raw, selfSig)
+                && TestPlayerIdentity.verifyAction(raw, record, actionSig);
     }
 }

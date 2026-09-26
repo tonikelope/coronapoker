@@ -33,6 +33,7 @@ import com.tonikelope.coronapoker.core.LobbyCommand;
 import com.tonikelope.coronapoker.core.LobbyParticipant;
 import com.tonikelope.coronapoker.core.LobbySession;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
+import com.tonikelope.coronapoker.core.AvatarImageValidator;
 import com.tonikelope.coronapoker.core.NewGameConnectionDraft;
 import com.tonikelope.coronapoker.core.NewGameSessionGateway;
 import com.tonikelope.coronapoker.core.NewGameSubmissionCoordinator;
@@ -7567,13 +7568,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     static boolean isSupportedAvatar(Path path) {
-        if (path == null || !java.nio.file.Files.isRegularFile(path)
-                || !java.nio.file.Files.isReadable(path)) return false;
         try {
-            if (java.nio.file.Files.size(path)
-                    > NewGameConnectionDraft.MAX_AVATAR_BYTES) return false;
-            BufferedImage image = ImageIO.read(path.toFile());
-            return image != null && image.getWidth() > 0 && image.getHeight() > 0;
+            AvatarImageValidator.validate(path);
+            return true;
         } catch (IOException | RuntimeException failure) {
             return false;
         }

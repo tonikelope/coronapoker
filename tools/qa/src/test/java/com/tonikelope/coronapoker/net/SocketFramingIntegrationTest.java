@@ -9,7 +9,7 @@
 package com.tonikelope.coronapoker.net;
 
 import com.tonikelope.coronapoker.Helpers;
-import com.tonikelope.coronapoker.WireFrame;
+import com.tonikelope.coronapoker.core.network.WireFrameCodec;
 import java.io.BufferedInputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Integration test over a real localhost socket pair, exercising the exact
  * Phase 1 read mechanism (a persistent {@link BufferedInputStream} read by
- * {@link WireFrame#read}) carrying the live encrypted text wire, plus a mixed
+ * {@link WireFrameCodec#read}) carrying the live encrypted text wire, plus a mixed
  * binary frame (the Phase 2 receive path) — to confirm the framing survives
  * real TCP fragmentation, not just in-memory streams.
  *
@@ -101,7 +101,7 @@ class SocketFramingIntegrationTest {
     }
 
     private String readText() throws Exception {
-        WireFrame.Result r = WireFrame.read(in, CAP);
+        WireFrameCodec.Frame r = WireFrameCodec.read(in, CAP);
         assertTrue(r.isText(), "expected TEXT frame");
         return Helpers.decryptCommand(r.text(), AES, HMAC);
     }
@@ -114,7 +114,7 @@ class SocketFramingIntegrationTest {
      */
     private String readLikeProduction() throws Exception {
         while (true) {
-            WireFrame.Result r = WireFrame.read(in, CAP);
+            WireFrameCodec.Frame r = WireFrameCodec.read(in, CAP);
             if (r == null) {
                 return null;
             }
@@ -175,12 +175,12 @@ class SocketFramingIntegrationTest {
         new Random(5).nextBytes(voiceLike);
 
         writeText("CHAT#aGk=");
-        WireFrame.writeBinary(writerSide.getOutputStream(), Helpers.encryptBytes(voiceLike, AES, HMAC));
+        WireFrameCodec.writeBinary(writerSide.getOutputStream(), Helpers.encryptBytes(voiceLike, AES, HMAC));
         writeText("PONG#9");
 
         assertEquals("CHAT#aGk=", readText());
 
-        WireFrame.Result bin = WireFrame.read(in, CAP);
+        WireFrameCodec.Frame bin = WireFrameCodec.read(in, CAP);
         assertTrue(bin.isBinary(), "middle frame must be BINARY");
         assertArrayEquals(voiceLike, Helpers.decryptBytes(bin.binary(), AES, HMAC),
                 "decrypted binary body must equal original blob");
@@ -194,7 +194,7 @@ class SocketFramingIntegrationTest {
         writeText("PING#1");
         assertEquals("PING#1", readText());
         writerSide.close();
-        assertNull(WireFrame.read(in, CAP), "EOF after peer close must be null");
+        assertNull(WireFrameCodec.read(in, CAP), "EOF after peer close must be null");
     }
 
     @Test
@@ -230,7 +230,7 @@ class SocketFramingIntegrationTest {
         os.write((corrupted + "\n").getBytes(StandardCharsets.UTF_8));
         os.flush();
 
-        WireFrame.Result r = WireFrame.read(in, CAP);
+        WireFrameCodec.Frame r = WireFrameCodec.read(in, CAP);
         assertTrue(r.isText());
         String out;
         try {
@@ -254,7 +254,7 @@ class SocketFramingIntegrationTest {
         os.write("GAME#1#ACTION#injected\n".getBytes(StandardCharsets.UTF_8));
         os.flush();
 
-        WireFrame.Result r = WireFrame.read(in, CAP);
+        WireFrameCodec.Frame r = WireFrameCodec.read(in, CAP);
         assertTrue(r.isText(), "expected TEXT frame");
         assertThrows(KeyException.class, () -> Helpers.decryptCommand(r.text(), AES, HMAC),
                 "an unauthenticated plaintext frame must never reach the dispatcher");
@@ -275,7 +275,7 @@ class SocketFramingIntegrationTest {
         os.flush();
 
         for (String c : control) {
-            WireFrame.Result r = WireFrame.read(in, CAP);
+            WireFrameCodec.Frame r = WireFrameCodec.read(in, CAP);
             assertTrue(r.isText(), "expected TEXT frame");
             assertEquals(c, Helpers.decryptCommand(r.text(), AES, HMAC),
                     "the keepalive must survive the authenticated-channel check");
@@ -337,7 +337,7 @@ class SocketFramingIntegrationTest {
         os.flush();
 
         for (String c : bogus) {
-            WireFrame.Result r = WireFrame.read(in, CAP);
+            WireFrameCodec.Frame r = WireFrameCodec.read(in, CAP);
             assertTrue(r.isText(), "expected TEXT frame");
             assertThrows(KeyException.class, () -> Helpers.decryptCommand(r.text(), AES, HMAC),
                     "must not accept a lookalike: " + c);

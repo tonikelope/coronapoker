@@ -124,12 +124,10 @@ final class GdxVoiceRecorder {
             return null;
         }
         recording = false;
+        closeLine();
         try {
-            if (!finished.await(2, TimeUnit.SECONDS)) {
-                closeLine();
-                if (!finished.await(1, TimeUnit.SECONDS)) {
-                    return failed(Outcome.LOST);
-                }
+            if (!finished.await(500, TimeUnit.MILLISECONDS)) {
+                return failed(Outcome.LOST);
             }
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
@@ -144,7 +142,9 @@ final class GdxVoiceRecorder {
             return failed(Outcome.SILENT);
         }
         try {
-            return encodePcm(bytes);
+            byte[] encoded = encodePcm(bytes);
+            finish(Outcome.OK);
+            return encoded;
         } catch (Exception encodingFailure) {
             return failed(Outcome.ENCODE_ERROR);
         }

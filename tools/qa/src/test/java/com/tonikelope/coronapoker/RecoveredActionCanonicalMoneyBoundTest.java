@@ -11,7 +11,7 @@ public class RecoveredActionCanonicalMoneyBoundTest {
     @Test
     public void amountAboveCanonicalTableDomainIsRejected() {
         String actor = Base64.getEncoder().encodeToString("alice".getBytes(StandardCharsets.UTF_8));
-        String wire = "V1#" + actor + "#" + Player.BET + "#"
+        String wire = "V1#" + actor + "#" + com.tonikelope.coronapoker.core.game.GamePlayerController.BET + "#"
                 + (MoneyCents.MAX_CENTS + 1L) + "#*#*";
 
         RecoveredActionCodec.Result decoded = RecoveredActionCodec.decode(wire);

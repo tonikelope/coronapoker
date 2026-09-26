@@ -23,28 +23,24 @@ final class ProductDistributionContractTest {
             .toAbsolutePath().normalize();
 
     @Test
-    void productFrontendsPublishOnlyTheCurrentVersionToTheRootTarget()
+    void productPublishesOnlyTheCurrentVersionToTheRootTarget()
             throws IOException {
         String parent = read("pom.xml");
-        String swing = read("coronapoker-swing/pom.xml");
         String gdx = read("coronapoker-gdx/pom.xml");
         String root = Files.readString(reactor.resolve("../pom.xml").normalize(),
                 StandardCharsets.UTF_8);
 
         String reactorVersion = projectVersion(parent);
         String releaseVersion = reactorVersion.replaceFirst("-SNAPSHOT$", "");
-        String swingJar = "CoronaPoker-" + releaseVersion + "-swing.jar";
-        String gdxJar = "CoronaPoker-" + releaseVersion + "-gdx.jar";
+        String productJar = "CoronaPoker-" + releaseVersion + ".jar";
 
         assertTrue(parent.contains("<distribution.directory>"
                         + "${maven.multiModuleProjectDirectory}/target"
                         + "</distribution.directory>"),
                 "Product artifacts must have one canonical root target");
-        assertTrue(parent.contains("<exclude>" + swingJar + "</exclude>"));
-        assertTrue(parent.contains("<exclude>" + gdxJar + "</exclude>"));
+        assertTrue(parent.contains("<exclude>" + productJar + "</exclude>"));
 
-        assertPublishes(swing, reactorVersion, swingJar, "swing");
-        assertPublishes(gdx, reactorVersion, gdxJar, "gdx");
+        assertPublishes(gdx, reactorVersion, productJar);
 
         assertTrue(root.contains("<packaging>pom</packaging>"),
                 "The repository root must remain an aggregator");
@@ -54,34 +50,33 @@ final class ProductDistributionContractTest {
                 "The root clean lifecycle must not erase the product target");
         assertFalse(root.contains("maven-shade-plugin"),
                 "The root aggregator must not build a third application JAR");
-        assertFalse(swing.contains("CoronaPoker-24.10"));
         assertFalse(gdx.contains("CoronaPoker-24.10"));
     }
 
     @Test
-    void swingDoesNotRecompileClassesOwnedByTheSharedCore() throws IOException {
+    void gdxDoesNotRecompileClassesOwnedByTheSharedCore() throws IOException {
         Path coreClasses = reactor.resolve("coronapoker-core/target/classes");
-        Path swingClasses = reactor.resolve("coronapoker-swing/target/classes");
+        Path gdxClasses = reactor.resolve("coronapoker-gdx/target/classes");
 
         Set<String> core = classFiles(coreClasses);
-        Set<String> swing = classFiles(swingClasses);
-        core.retainAll(swing);
+        Set<String> gdx = classFiles(gdxClasses);
+        core.retainAll(gdx);
 
         assertTrue(core.isEmpty(),
-                "Swing must consume core classes from its dependency, not "
+                "GDX must consume core classes from its dependency, not "
                         + "compile duplicate definitions: " + core);
     }
 
     private static void assertPublishes(String pom, String reactorVersion,
-            String jarName, String frontend) {
+            String jarName) {
         assertTrue(pom.contains("<version>" + reactorVersion + "</version>"),
-                frontend + " must inherit the current product version");
+                "GDX must inherit the current product version");
         assertTrue(pom.contains("<outputFile>${project.build.directory}/"
                         + jarName.replace(".jar", ".staged.jar") + "</outputFile>"),
-                frontend + " must shade into a module-local staging archive");
+                "GDX must shade into a module-local staging archive");
         assertTrue(pom.contains("<argument>${distribution.directory}/"
                         + jarName + "</argument>"),
-                frontend + " must atomically publish the current product JAR");
+                "GDX must atomically publish the current product JAR");
     }
 
     private static String projectVersion(String pom) {

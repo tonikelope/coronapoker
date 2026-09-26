@@ -58,21 +58,12 @@ public class ImmediateRebuyWireTest {
     @Test
     void dispatchersCloseMalformedRebuyInsteadOfDroppingIt() throws Exception {
         Path root = locateRoot();
-        String participant = Files.readString(root.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/Participant.java")).replace("\r\n", "\n");
-        int hostCase = participant.indexOf("case \"REBUYNOW\":");
-        int hostEnd = participant.indexOf("case \"SHOWCARDS\":", hostCase);
-        String host = participant.substring(hostCase, hostEnd);
-        assertTrue(host.contains("ImmediateRebuyWire.parseClientRequest(partes_comando)"));
-        assertTrue(host.contains("exitAndCloseSocket()"));
-
-        String waiting = Files.readString(root.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java")).replace("\r\n", "\n");
-        int relayCase = waiting.indexOf("case \"REBUYNOW\":", waiting.indexOf("if (isPartida_empezada())"));
-        int relayEnd = waiting.indexOf("case \"SHOWCARDS\":", relayCase);
-        String client = waiting.substring(relayCase, relayEnd);
-        assertTrue(client.contains("ImmediateRebuyWire.parseHostRelay(partes_comando)"));
-        assertTrue(client.contains("closeCriticalHostChannel()"));
+        String factory = Files.readString(root.resolve(
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/CoreGameTableFactory.java")).replace("\r\n", "\n");
+        assertTrue(factory.contains("ImmediateRebuyWire.parseClientRequest("));
+        assertTrue(factory.contains("ImmediateRebuyWire.parseHostRelay("));
+        assertTrue(factory.contains("catch (RuntimeException invalid) {"));
+        assertTrue(factory.contains("context.channel().close();"));
     }
 
     @Test
@@ -80,8 +71,8 @@ public class ImmediateRebuyWireTest {
         Path root = locateRoot();
         String crupier = Files.readString(root.resolve(
                 "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java")).replace("\r\n", "\n");
-        String waiting = Files.readString(root.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java")).replace("\r\n", "\n");
+        String factory = Files.readString(root.resolve(
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/CoreGameTableFactory.java")).replace("\r\n", "\n");
 
         assertTrue(crupier.contains("synchronized (lock_game_broadcast)"),
                 "host GAME broadcasts must have one cross-peer order");
@@ -91,8 +82,8 @@ public class ImmediateRebuyWireTest {
         assertTrue(crupier.indexOf("awaitRemoteRebuyBarrier(throughSequence)")
                 < crupier.indexOf("acceptNextHandBalanceSnapshot(partes[3]"),
                 "client must apply received rebuys before validating START balances");
-        assertTrue(waiting.contains("rbCrupier.registerRemoteRebuyRelay(rbSequence)"));
-        assertTrue(waiting.contains("startCrupier.enqueueRemoteRebuyBarrier(rebuyBoundary"));
+        assertTrue(factory.contains("dealer.registerRemoteRebuyRelay(arrival)"));
+        assertTrue(factory.contains("dealer.enqueueRemoteRebuyBarrier(rebuyBoundary"));
     }
 
     @Test

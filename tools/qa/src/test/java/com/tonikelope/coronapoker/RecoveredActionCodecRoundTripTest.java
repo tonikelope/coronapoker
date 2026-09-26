@@ -8,12 +8,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class RecoveredActionCodecRoundTripTest {
     @Test
     public void v1UsesExactIntegerCents() {
-        String encoded = RecoveredActionCodec.encodeV1("álîce", Player.BET,
+        String encoded = RecoveredActionCodec.encodeV1("álîce", com.tonikelope.coronapoker.core.game.GamePlayerController.BET,
                 12.34d, null, null);
         RecoveredActionCodec.Result decoded = RecoveredActionCodec.decode(encoded);
         assertTrue(decoded.isOk());
         assertEquals("álîce", decoded.value().actor());
-        assertEquals(Player.BET, decoded.value().decision());
+        assertEquals(com.tonikelope.coronapoker.core.game.GamePlayerController.BET, decoded.value().decision());
         assertEquals(1234L, decoded.value().amountCents());
     }
 

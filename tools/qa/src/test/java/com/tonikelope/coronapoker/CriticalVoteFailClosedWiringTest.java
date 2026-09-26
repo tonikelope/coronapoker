@@ -15,11 +15,8 @@ class CriticalVoteFailClosedWiringTest {
         Path root = locateRoot();
         String crupier = Files.readString(root.resolve(
                 "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
-        String participant = Files.readString(root.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/Participant.java"));
-
-        assertTrue(participant.contains("CriticalVoteEnvelope.parseRitResponse(partes_comando)"));
-        assertTrue(participant.contains("CriticalVoteEnvelope.parseStraddleResponse(partes_comando)"));
+        assertTrue(crupier.contains("CriticalVoteEnvelope.parseRitResponse(partes)"));
+        assertTrue(crupier.contains("CriticalVoteEnvelope.parseStraddleResponse(partes)"));
         assertTrue(crupier.contains("CriticalVoteEnvelope.parseStraddleDecision(partes)"));
         assertTrue(crupier.contains("rejectCriticalVoteCommand(cmd"));
         assertTrue(crupier.contains("Invalid critical STRADDLE_DECISION; closing host channel"));

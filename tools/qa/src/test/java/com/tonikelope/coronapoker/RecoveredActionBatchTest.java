@@ -23,7 +23,7 @@ class RecoveredActionBatchTest {
 
     @Test
     void malformedTokenRejectsTheWholeBatch() {
-        String valid = RecoveredActionCodec.encodeV1("alice", Player.CHECK,
+        String valid = RecoveredActionCodec.encodeV1("alice", com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK,
                 0d, null, null);
         RecoveredActionBatch.Result result = RecoveredActionBatch.decode(
                 valid + "@INVALID_RECOVERY_ACTION@");

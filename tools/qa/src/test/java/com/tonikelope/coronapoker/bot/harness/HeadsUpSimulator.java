@@ -10,9 +10,7 @@ package com.tonikelope.coronapoker.bot.harness;
 
 import com.tonikelope.coronapoker.Bot;
 import com.tonikelope.coronapoker.Crupier;
-import com.tonikelope.coronapoker.GameFrame;
 import com.tonikelope.coronapoker.Helpers;
-import com.tonikelope.coronapoker.Player;
 import com.tonikelope.coronapoker.bot.eval.BotEvaluator;
 import java.security.SecureRandom;
 import java.util.Arrays;
@@ -37,8 +35,6 @@ public final class HeadsUpSimulator {
         if (Helpers.CSPRNG_GENERATOR == null) {
             Helpers.CSPRNG_GENERATOR = new SecureRandom();
         }
-        // Small-blind rounding unit used by Bot.getBetSize.
-        GameFrame.CIEGA_PEQUEÑA = 1.0f;
     }
 
     /**
@@ -367,13 +363,13 @@ public final class HeadsUpSimulator {
             double toCall = currentBet - toActPlayer.getBet();
             boolean actorIsA = toActPlayer == p1;
 
-            if (decision == Player.FOLD) {
+            if (decision == com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD) {
                 toActPlayer.setActivo(false);
                 if (street > Crupier.PREFLOP) {
                     recordPostflopFold(actorIsA);
                 }
                 return BettingResult.HAND_OVER_FOLD;
-            } else if (decision == Player.CHECK) {
+            } else if (decision == com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK) {
                 if (toCall > 0f) {
                     double pay = Math.min(toCall, toActPlayer.getStack());
                     chargeBet(toActPlayer, pay);
@@ -390,7 +386,7 @@ public final class HeadsUpSimulator {
                 if (actions >= 2 && bothMatched()) {
                     return BettingResult.STREET_DONE;
                 }
-            } else if (decision == Player.BET) {
+            } else if (decision == com.tonikelope.coronapoker.core.game.GamePlayerController.BET) {
                 double newBet = toActBot.getBetSize();
                 double maxAffordable = toActPlayer.getBet() + toActPlayer.getStack();
                 if (newBet > maxAffordable) {

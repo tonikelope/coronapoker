@@ -47,15 +47,15 @@ public class ActionAmountBindingTest {
     @Test
     public void foldIsAlwaysZero() {
         // No money moves on a fold, whatever the state.
-        assertEquals(0L, Crupier.expectedActionAmountCents(Player.FOLD, 99.0, 40.0, 60.0, 12.34));
+        assertEquals(0L, Crupier.expectedActionAmountCents(com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, 99.0, 40.0, 60.0, 12.34));
     }
 
     @Test
     public void checkOrCallBindsToApuestaActual() {
         // CHECK covers both a true check and a call; the amount is the current
         // bet to match, NOT the plaintext bet field (which is 0 on the wire).
-        assertEquals(1234L, Crupier.expectedActionAmountCents(Player.CHECK, 0.0, 5.0, 100.0, 12.34));
-        assertEquals(0L, Crupier.expectedActionAmountCents(Player.CHECK, 0.0, 0.0, 100.0, 0.0));
+        assertEquals(1234L, Crupier.expectedActionAmountCents(com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK, 0.0, 5.0, 100.0, 12.34));
+        assertEquals(0L, Crupier.expectedActionAmountCents(com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK, 0.0, 0.0, 100.0, 0.0));
     }
 
     @Test
@@ -63,16 +63,16 @@ public class ActionAmountBindingTest {
         // BET is the only type whose amount comes from the plaintext bet
         // (partes[5]); the receiver must derive the record amount from that same
         // value so a signed-vs-played mismatch is caught.
-        assertEquals(5000L, Crupier.expectedActionAmountCents(Player.BET, 50.0, 5.0, 100.0, 10.0));
-        assertEquals(1234L, Crupier.expectedActionAmountCents(Player.BET, 12.34, 0.0, 0.0, 0.0));
+        assertEquals(5000L, Crupier.expectedActionAmountCents(com.tonikelope.coronapoker.core.game.GamePlayerController.BET, 50.0, 5.0, 100.0, 10.0));
+        assertEquals(1234L, Crupier.expectedActionAmountCents(com.tonikelope.coronapoker.core.game.GamePlayerController.BET, 12.34, 0.0, 0.0, 0.0));
     }
 
     @Test
     public void allInBindsToBetPlusStack() {
         // ALLIN moves the whole stack into the bet: amount == bet + stack, a
         // pre/post-action invariant, independent of the plaintext bet field.
-        assertEquals(10000L, Crupier.expectedActionAmountCents(Player.ALLIN, 0.0, 40.0, 60.0, 10.0));
-        assertEquals(6050L, Crupier.expectedActionAmountCents(Player.ALLIN, 0.0, 12.5, 48.0, 999.0));
+        assertEquals(10000L, Crupier.expectedActionAmountCents(com.tonikelope.coronapoker.core.game.GamePlayerController.ALLIN, 0.0, 40.0, 60.0, 10.0));
+        assertEquals(6050L, Crupier.expectedActionAmountCents(com.tonikelope.coronapoker.core.game.GamePlayerController.ALLIN, 0.0, 12.5, 48.0, 999.0));
     }
 
     @Test
@@ -85,13 +85,13 @@ public class ActionAmountBindingTest {
     public void honestRecordAmountMatchesExpected() {
         // Signer and receiver run the SAME formula over the SAME pre-action
         // state, so an honest record's amount equals the receiver's expectation.
-        long expectedBet = Crupier.expectedActionAmountCents(Player.BET, 37.5, 0.0, 0.0, 0.0);
+        long expectedBet = Crupier.expectedActionAmountCents(com.tonikelope.coronapoker.core.game.GamePlayerController.BET, 37.5, 0.0, 0.0, 0.0);
         assertEquals(expectedBet, roundTripAmount(expectedBet, false), "honest BET must bind");
 
-        long expectedCall = Crupier.expectedActionAmountCents(Player.CHECK, 0.0, 0.0, 0.0, 20.0);
+        long expectedCall = Crupier.expectedActionAmountCents(com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK, 0.0, 0.0, 0.0, 20.0);
         assertEquals(expectedCall, roundTripAmount(expectedCall, false), "honest call must bind");
 
-        long expectedAllin = Crupier.expectedActionAmountCents(Player.ALLIN, 0.0, 15.0, 85.0, 0.0);
+        long expectedAllin = Crupier.expectedActionAmountCents(com.tonikelope.coronapoker.core.game.GamePlayerController.ALLIN, 0.0, 15.0, 85.0, 0.0);
         assertEquals(expectedAllin, roundTripAmount(expectedAllin, true), "honest all-in must bind");
     }
 
@@ -99,12 +99,12 @@ public class ActionAmountBindingTest {
     public void tamperedRecordAmountIsDetected() {
         // A modified client signs amount Y while the played decision implies X:
         // the receiver's expectation never equals the tampered figure.
-        long expected = Crupier.expectedActionAmountCents(Player.BET, 50.0, 0.0, 0.0, 0.0); // 5000
+        long expected = Crupier.expectedActionAmountCents(com.tonikelope.coronapoker.core.game.GamePlayerController.BET, 50.0, 0.0, 0.0, 0.0); // 5000
         long tampered = roundTripAmount(9999L, false);
         assertNotEquals(expected, tampered, "a bet signed at a different amount must NOT bind");
 
         // Under-signing (claim a smaller amount than played) is caught too.
-        long expectedCall = Crupier.expectedActionAmountCents(Player.CHECK, 0.0, 0.0, 0.0, 40.0); // 4000
+        long expectedCall = Crupier.expectedActionAmountCents(com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK, 0.0, 0.0, 0.0, 40.0); // 4000
         assertNotEquals(expectedCall, roundTripAmount(1L, false), "an under-signed call must NOT bind");
     }
 
@@ -112,10 +112,10 @@ public class ActionAmountBindingTest {
     public void centsRoundingIsDeterministicNoJitter() {
         // Float money that is exact in cents must land on the exact cents value,
         // with no IEEE-754 drift, so honest actions never fail to bind by 1 cent.
-        assertEquals(1005L, Crupier.expectedActionAmountCents(Player.BET, 10.05, 0.0, 0.0, 0.0));
-        assertEquals(333L, Crupier.expectedActionAmountCents(Player.BET, 3.33, 0.0, 0.0, 0.0));
+        assertEquals(1005L, Crupier.expectedActionAmountCents(com.tonikelope.coronapoker.core.game.GamePlayerController.BET, 10.05, 0.0, 0.0, 0.0));
+        assertEquals(333L, Crupier.expectedActionAmountCents(com.tonikelope.coronapoker.core.game.GamePlayerController.BET, 3.33, 0.0, 0.0, 0.0));
         // The all-in sum of two clean cents values is itself clean.
-        assertEquals(4567L, Crupier.expectedActionAmountCents(Player.ALLIN, 0.0, 12.34, 33.33, 0.0));
+        assertEquals(4567L, Crupier.expectedActionAmountCents(com.tonikelope.coronapoker.core.game.GamePlayerController.ALLIN, 0.0, 12.34, 33.33, 0.0));
     }
 
     @Test
@@ -123,9 +123,9 @@ public class ActionAmountBindingTest {
         // A NaN/Infinite bet is rejected at the cents conversion; the receiver
         // treats that throw as forgery (synth-fold), an honest bet never hits it.
         assertThrows(RuntimeException.class,
-                () -> Crupier.expectedActionAmountCents(Player.BET, Double.NaN, 0.0, 0.0, 0.0));
+                () -> Crupier.expectedActionAmountCents(com.tonikelope.coronapoker.core.game.GamePlayerController.BET, Double.NaN, 0.0, 0.0, 0.0));
         assertThrows(RuntimeException.class,
-                () -> Crupier.expectedActionAmountCents(Player.BET, Double.POSITIVE_INFINITY, 0.0, 0.0, 0.0));
+                () -> Crupier.expectedActionAmountCents(com.tonikelope.coronapoker.core.game.GamePlayerController.BET, Double.POSITIVE_INFINITY, 0.0, 0.0, 0.0));
     }
 
     @Test
@@ -156,16 +156,16 @@ public class ActionAmountBindingTest {
     public void bindsWhenTypePlayerHandAndAmountAllMatch() {
         assertTrue(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_FOLD, 0L, false),
-                Player.FOLD, 0.0, 5.0, 100.0, 12.34, PID, HID));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, 0.0, 5.0, 100.0, 12.34, PID, HID));
         assertTrue(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_CHECK, 2000L, false),
-                Player.CHECK, 0.0, 0.0, 0.0, 20.0, PID, HID));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK, 0.0, 0.0, 0.0, 20.0, PID, HID));
         assertTrue(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_BET, 5000L, false),
-                Player.BET, 50.0, 0.0, 0.0, 0.0, PID, HID));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.BET, 50.0, 0.0, 0.0, 0.0, PID, HID));
         assertTrue(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_ALLIN, 10000L, true),
-                Player.ALLIN, 0.0, 40.0, 60.0, 0.0, PID, HID));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.ALLIN, 0.0, 40.0, 60.0, 0.0, PID, HID));
     }
 
     @Test
@@ -174,23 +174,23 @@ public class ActionAmountBindingTest {
         // action TYPE tells them apart.
         assertFalse(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_CHECK, 0L, false),
-                Player.FOLD, 0.0, 5.0, 100.0, 0.0, PID, HID));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, 0.0, 5.0, 100.0, 0.0, PID, HID));
         assertFalse(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_FOLD, 0L, false),
-                Player.CHECK, 0.0, 5.0, 100.0, 0.0, PID, HID));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK, 0.0, 5.0, 100.0, 0.0, PID, HID));
         assertFalse(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_BET, 10000L, false),
-                Player.ALLIN, 0.0, 40.0, 60.0, 0.0, PID, HID));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.ALLIN, 0.0, 40.0, 60.0, 0.0, PID, HID));
     }
 
     @Test
     public void rejectsAmountMismatchWithMatchingType() {
         assertFalse(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_BET, 9999L, false),
-                Player.BET, 50.0, 0.0, 0.0, 0.0, PID, HID));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.BET, 50.0, 0.0, 0.0, 0.0, PID, HID));
         assertFalse(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_CHECK, 1L, false),
-                Player.CHECK, 0.0, 0.0, 0.0, 40.0, PID, HID));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK, 0.0, 0.0, 0.0, 40.0, PID, HID));
     }
 
     @Test
@@ -200,7 +200,7 @@ public class ActionAmountBindingTest {
         byte[] otherPid = fill(32, (byte) 0x44);
         assertFalse(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_BET, 5000L, false),
-                Player.BET, 50.0, 0.0, 0.0, 0.0, otherPid, HID));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.BET, 50.0, 0.0, 0.0, 0.0, otherPid, HID));
     }
 
     @Test
@@ -209,17 +209,17 @@ public class ActionAmountBindingTest {
         byte[] otherHid = fill(16, (byte) 0x55);
         assertFalse(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_BET, 5000L, false),
-                Player.BET, 50.0, 0.0, 0.0, 0.0, PID, otherHid));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.BET, 50.0, 0.0, 0.0, 0.0, PID, otherHid));
     }
 
     @Test
     public void missingExpectedIdentifiersFailClosed() {
         assertFalse(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_BET, 5000L, false),
-                Player.BET, 50.0, 0.0, 0.0, 0.0, null, null));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.BET, 50.0, 0.0, 0.0, 0.0, null, null));
         assertFalse(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_BET, 9999L, false),
-                Player.BET, 50.0, 0.0, 0.0, 0.0, null, null));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.BET, 50.0, 0.0, 0.0, 0.0, null, null));
     }
 
     @Test
@@ -228,7 +228,7 @@ public class ActionAmountBindingTest {
         // has one numeric type while cinematic data lives in its separate slot.
         assertTrue(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_ALLIN, 6050L, true),
-                Player.ALLIN, 0d, 12.5, 48.0, 999.0, PID, HID));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.ALLIN, 0d, 12.5, 48.0, 999.0, PID, HID));
     }
 
     @Test
@@ -245,7 +245,7 @@ public class ActionAmountBindingTest {
         // NaN/Inf bet on a BET must throw (caught upstream as forgery), not bind.
         assertThrows(RuntimeException.class, () -> Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_BET, 5000L, false),
-                Player.BET, Double.NaN, 0.0, 0.0, 0.0, PID, HID));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.BET, Double.NaN, 0.0, 0.0, 0.0, PID, HID));
     }
 
 }

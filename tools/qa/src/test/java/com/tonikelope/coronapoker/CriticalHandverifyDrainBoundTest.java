@@ -26,18 +26,12 @@ public class CriticalHandverifyDrainBoundTest {
         Path root = locateRoot();
         String crupier = Files.readString(root.resolve(
                 "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
-        String participant = Files.readString(root.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/Participant.java"));
-        String waiting = Files.readString(root.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java"));
-
         assertTrue(count(crupier, "criticalHandverifySnapshotSize(this.getReceived_commands())") >= 2);
         assertTrue(count(crupier, "drainedHandverify < scanLimit") >= 2);
-        assertTrue(participant.contains("partes_comando.length == 5"));
-        assertTrue(participant.contains("HandverifyReceiptEnvelope.parse(partes_comando)"));
-        assertTrue(waiting.contains("case \"HANDVERIFY\":"));
-        assertTrue(waiting.contains("HandverifyReceiptEnvelope.parse(partes_comando)"));
-        assertTrue(waiting.contains("Invalid critical HANDVERIFY; closing host channel"));
+        assertTrue(crupier.contains("partes.length == 5"));
+        assertTrue(crupier.contains("HandverifyReceiptEnvelope.parse(partes)"));
+        assertTrue(crupier.contains("Malformed critical HANDVERIFY receipt; closing source"));
+        assertTrue(count(crupier, "this.received_commands.reject(comando)") >= 3);
         assertTrue(crupier.contains("handverify_trigger_received.set(false)"));
         assertTrue(crupier.contains("handverify_receipts_received.clear()"));
     }

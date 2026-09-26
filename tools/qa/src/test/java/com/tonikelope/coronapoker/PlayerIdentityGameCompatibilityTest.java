@@ -6,22 +6,17 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Proves that Swing and Core/GDX use identical game-signature contracts. */
+/** Proves that the QA scenarios exercise the production core identity contract. */
 final class PlayerIdentityGameCompatibilityTest {
 
     @Test
     void everyGameDomainIsCompatibleInBothDirections() throws Exception {
-        // A previous interrupted Windows run may leave an owner-only key file
-        // temporarily inaccessible to the next Surefire process. This test is
-        // about Swing/Core wire compatibility, not persistence across JVMs, so
-        // give each execution its own identity while both implementations still
-        // load exactly the same files within this test.
         String nickname = "identity-contract-" + Long.toUnsignedString(System.nanoTime());
         Path coronaDirectory = Path.of(System.getProperty("user.home"), ".coronapoker");
         PlayerIdentity core = PlayerIdentity.loadOrCreate(coronaDirectory, nickname);
-        IdentityManager swing = IdentityManager.initializeForNick(nickname);
-        assertTrue(swing.isReady(), swing.getLoadError());
-        assertArrayEquals(swing.getPublicKey(), core.getPublicKey());
+        TestPlayerIdentity fixture = TestPlayerIdentity.initializeForNick(nickname);
+        assertTrue(fixture.isReady(), fixture.getLoadError());
+        assertArrayEquals(fixture.getPublicKey(), core.getPublicKey());
 
         byte[] record = bytes(92, 1);
         byte[] handId = bytes(16, 2);
@@ -31,41 +26,41 @@ final class PlayerIdentityGameCompatibilityTest {
         byte[] seatNonce = bytes(32, 6);
         byte[] commitment = bytes(32, 7);
 
-        assertTrue(IdentityManager.verifyAction(core.getPublicKey(), record,
+        assertTrue(TestPlayerIdentity.verifyAction(core.getPublicKey(), record,
                 core.signAction(record)));
-        assertTrue(core.verifyActionSignature(swing.getPublicKey(), record,
-                swing.signAction(record)));
+        assertTrue(core.verifyActionSignature(fixture.getPublicKey(), record,
+                fixture.signAction(record)));
 
-        assertTrue(IdentityManager.verifyReceipt(core.getPublicKey(), handId, finalHash,
+        assertTrue(TestPlayerIdentity.verifyReceipt(core.getPublicKey(), handId, finalHash,
                 (byte) 5, core.signReceipt(handId, finalHash, (byte) 5)));
-        assertTrue(core.verifyReceiptSignature(swing.getPublicKey(), handId, finalHash,
-                (byte) 5, swing.signReceipt(handId, finalHash, (byte) 5)));
+        assertTrue(core.verifyReceiptSignature(fixture.getPublicKey(), handId, finalHash,
+                (byte) 5, fixture.signReceipt(handId, finalHash, (byte) 5)));
 
-        assertTrue(IdentityManager.verifyShowdownReveal(core.getPublicKey(), handId,
+        assertTrue(TestPlayerIdentity.verifyShowdownReveal(core.getPublicKey(), handId,
                 nickname, pocketKey, 12, 41,
                 core.signShowdownReveal(handId, nickname, pocketKey, 12, 41)));
-        assertTrue(core.verifyShowdownRevealSignature(swing.getPublicKey(), handId,
+        assertTrue(core.verifyShowdownRevealSignature(fixture.getPublicKey(), handId,
                 nickname, pocketKey, 12, 41,
-                swing.signShowdownReveal(handId, nickname, pocketKey, 12, 41)));
+                fixture.signShowdownReveal(handId, nickname, pocketKey, 12, 41)));
 
-        assertTrue(IdentityManager.verifyStraddleDecision(core.getPublicKey(), handId,
+        assertTrue(TestPlayerIdentity.verifyStraddleDecision(core.getPublicKey(), handId,
                 nickname, 1, core.signStraddleDecision(handId, nickname, 1)));
-        assertTrue(core.verifyStraddleDecisionSignature(swing.getPublicKey(), handId,
-                nickname, 1, swing.signStraddleDecision(handId, nickname, 1)));
+        assertTrue(core.verifyStraddleDecisionSignature(fixture.getPublicKey(), handId,
+                nickname, 1, fixture.signStraddleDecision(handId, nickname, 1)));
 
-        assertTrue(IdentityManager.verifyRabbitRequest(core.getPublicKey(), handId,
+        assertTrue(TestPlayerIdentity.verifyRabbitRequest(core.getPublicKey(), handId,
                 nickname, rabbitNonce,
                 core.signRabbitRequest(handId, nickname, rabbitNonce)));
-        assertTrue(core.verifyRabbitRequestSignature(swing.getPublicKey(), handId,
+        assertTrue(core.verifyRabbitRequestSignature(fixture.getPublicKey(), handId,
                 nickname, rabbitNonce,
-                swing.signRabbitRequest(handId, nickname, rabbitNonce)));
+                fixture.signRabbitRequest(handId, nickname, rabbitNonce)));
 
-        assertTrue(IdentityManager.verifySeatCommit(core.getPublicKey(), seatNonce,
+        assertTrue(TestPlayerIdentity.verifySeatCommit(core.getPublicKey(), seatNonce,
                 nickname, commitment,
                 core.signSeatCommit(seatNonce, nickname, commitment)));
-        assertTrue(core.verifySeatCommitSignature(swing.getPublicKey(), seatNonce,
+        assertTrue(core.verifySeatCommitSignature(fixture.getPublicKey(), seatNonce,
                 nickname, commitment,
-                swing.signSeatCommit(seatNonce, nickname, commitment)));
+                fixture.signSeatCommit(seatNonce, nickname, commitment)));
     }
 
     private static byte[] bytes(int length, int seed) {

@@ -8,6 +8,10 @@
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.game.CoreGamePot;
+import com.tonikelope.coronapoker.core.game.CorePlayerController;
+import com.tonikelope.coronapoker.core.game.GamePlayerController;
+import com.tonikelope.coronapoker.core.game.PlayerState;
 import com.tonikelope.coronapoker.protocolsim.CampaignSeed;
 import com.tonikelope.coronapoker.protocolsim.CampaignProgress;
 import java.util.ArrayList;
@@ -28,13 +32,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ProtocolPotRabbitCampaignTest {
 
     private static final double EPSILON = 1.0e-7;
-    private static IdentityManager hostIdentity;
-    private static IdentityManager clientIdentity;
+    private static TestPlayerIdentity hostIdentity;
+    private static TestPlayerIdentity clientIdentity;
 
     @BeforeAll
     static void identities() {
-        hostIdentity = IdentityManager.initializeForNick("sim-pot-rabbit-host");
-        clientIdentity = IdentityManager.initializeForNick("sim-pot-rabbit-client");
+        hostIdentity = TestPlayerIdentity.initializeForNick("sim-pot-rabbit-host");
+        clientIdentity = TestPlayerIdentity.initializeForNick("sim-pot-rabbit-client");
         assertTrue(hostIdentity.isReady(), hostIdentity.getLoadError());
         assertTrue(clientIdentity.isReady(), clientIdentity.getLoadError());
     }
@@ -68,7 +72,7 @@ class ProtocolPotRabbitCampaignTest {
     private static void exerciseSidePots(Random random, String context, int hand) {
         // Hand zero always exercises the ten-seat boundary; later hands vary 2..10.
         int playerCount = hand == 0 ? 10 : 2 + random.nextInt(9);
-        List<FakePotPlayer> players = new ArrayList<>(playerCount);
+        List<CorePlayerController> players = new ArrayList<>(playerCount);
         long committedCents = 0L;
         for (int seat = 0; seat < playerCount; seat++) {
             long cents = switch (seat) {
@@ -79,30 +83,30 @@ class ProtocolPotRabbitCampaignTest {
             int decision;
             boolean active;
             if (seat == 0) {
-                decision = Player.ALLIN;
+                decision = GamePlayerController.ALLIN;
                 active = true;
             } else {
                 int roll = random.nextInt(4);
-                decision = roll == 0 ? Player.FOLD
-                        : roll == 1 ? Player.ALLIN
-                        : roll == 2 ? Player.BET : Player.CHECK;
-                active = decision != Player.FOLD && random.nextBoolean();
-                if (decision != Player.FOLD && decision != Player.ALLIN) {
+                decision = roll == 0 ? GamePlayerController.FOLD
+                        : roll == 1 ? GamePlayerController.ALLIN
+                        : roll == 2 ? GamePlayerController.BET : GamePlayerController.CHECK;
+                active = decision != GamePlayerController.FOLD && random.nextBoolean();
+                if (decision != GamePlayerController.FOLD && decision != GamePlayerController.ALLIN) {
                     active = true;
                 }
             }
-            FakePotPlayer player = new FakePotPlayer(
+            CorePlayerController player = potPlayer(
                     "sim-" + seat, cents / 100.0, decision, active);
             players.add(player);
             committedCents += cents;
         }
 
-        HandPot pot = new HandPot(0.0);
-        players.forEach(pot::addPlayer);
+        CoreGamePot pot = new CoreGamePot(0.0);
+        players.forEach(pot::addPlayerController);
         pot.genSidePots();
         double layerTotal = 0.0;
         int layers = 0;
-        for (HandPot layer = pot; layer != null; layer = layer.getSidePot()) {
+        for (CoreGamePot layer = pot; layer != null; layer = layer.getSidePot()) {
             layers++;
             assertTrue(Double.isFinite(layer.getTotal()) && layer.getTotal() >= 0.0,
                     context + " invalid pot layer total");
@@ -115,6 +119,22 @@ class ProtocolPotRabbitCampaignTest {
         assertEquals(layers - 1, pot.getSide_pot_count(),
                 context + " side-pot chain count mismatch");
         assertTrue(layers <= playerCount, context + " too many side-pot layers");
+    }
+
+    private static CorePlayerController potPlayer(String nickname,
+            double committed, int decision, boolean active) {
+        CorePlayerController player = CorePlayerController.remote(nickname);
+        player.getState().setPotContribution(committed);
+        player.getState().setActive(active);
+        player.getState().setExited(!active);
+        player.getState().setDecision(switch (decision) {
+            case GamePlayerController.FOLD -> PlayerState.Decision.FOLD;
+            case GamePlayerController.CHECK -> PlayerState.Decision.CHECK;
+            case GamePlayerController.BET -> PlayerState.Decision.BET;
+            case GamePlayerController.ALLIN -> PlayerState.Decision.ALL_IN;
+            default -> PlayerState.Decision.NONE;
+        });
+        return player;
     }
 
     private static void exerciseRabbit(Random random, byte[] handId, String context) {
@@ -131,7 +151,7 @@ class ProtocolPotRabbitCampaignTest {
         for (int requestIndex = 0; requestIndex < requests; requestIndex++) {
             boolean clientRequest = random.nextBoolean();
             String nick = clientRequest ? "sim-pot-rabbit-client" : "sim-pot-rabbit-host";
-            IdentityManager signer = clientRequest ? clientIdentity : hostIdentity;
+            TestPlayerIdentity signer = clientRequest ? clientIdentity : hostIdentity;
             byte[] nonce = new byte[RabbitFeeLedger.NONCE_BYTES];
             random.nextBytes(nonce);
             byte[] signature = signer.signRabbitRequest(handId, nick, nonce);
@@ -140,7 +160,7 @@ class ProtocolPotRabbitCampaignTest {
             RabbitFeeLedger.Result<RabbitFeeLedger.Request> decodedRequest
                     = RabbitFeeLedger.Request.decode(request.encode());
             assertTrue(decodedRequest.isOk(), context + " Rabbit request did not round-trip");
-            assertTrue(IdentityManager.verifyRabbitRequest(signer.getPublicKey(),
+            assertTrue(TestPlayerIdentity.verifyRabbitRequest(signer.getPublicKey(),
                     handId, nick, nonce, decodedRequest.value().requesterSignature()),
                     context + " Rabbit requester signature failed");
 
@@ -172,7 +192,7 @@ class ProtocolPotRabbitCampaignTest {
 
             byte[] alteredNonce = nonce.clone();
             alteredNonce[0] ^= 1;
-            assertFalse(IdentityManager.verifyRabbitRequest(signer.getPublicKey(),
+            assertFalse(TestPlayerIdentity.verifyRabbitRequest(signer.getPublicKey(),
                     handId, nick, alteredNonce, signature),
                     context + " Rabbit signature accepted a mutated nonce");
         }

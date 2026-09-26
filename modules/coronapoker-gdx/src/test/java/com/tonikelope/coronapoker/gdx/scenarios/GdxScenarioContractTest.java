@@ -11,14 +11,11 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
-/** Guards the new GDX suite without modifying the established Swing suite. */
+/** Guards the GDX suite against the immutable historical Swing GOLD baseline. */
 class GdxScenarioContractTest {
 
-    private static final Pattern QUOTED = Pattern.compile("\\\"([^\\\"]+)\\\"");
     private static final Set<String> BLOCKING_GDX_UI_SCENARIOS = Set.of(
             "controlled-exit", "spectator-rebuy-cycle",
             "normal", "raise-mix", "allin-single-board", "allin-rit",
@@ -27,19 +24,21 @@ class GdxScenarioContractTest {
             "force-recover");
 
     @Test
-    void gdxCatalogueIsAnExactCopyOfTheSwingReference() throws IOException {
+    void gdxCatalogueIsAnExactCopyOfTheSwingGoldManifest() throws IOException {
         Path root = repositoryRoot();
-        Path source = root.resolve("tools/qa/src/test/java/com/tonikelope/"
-                + "coronapoker/e2e/RealGameScenarioContract.java");
-        String text = Files.readString(source, StandardCharsets.UTF_8);
-        Set<String> reference = new HashSet<>();
-        Matcher matcher = QUOTED.matcher(text.substring(0,
-                text.indexOf("private RealGameScenarioContract")));
-        while (matcher.find()) {
-            reference.add(matcher.group(1));
-        }
+        Path manifest = root.resolve(
+                "tools/qa/reference/swing-gold-scenarios.tsv");
+        Set<String> reference = Files.readAllLines(manifest,
+                        StandardCharsets.UTF_8).stream()
+                .map(String::trim)
+                .filter(line -> !line.isEmpty() && !line.startsWith("#"))
+                .map(line -> line.split("\\t", -1))
+                .peek(parts -> assertEquals(2, parts.length,
+                        "invalid Swing GOLD manifest row"))
+                .map(parts -> parts[1])
+                .collect(java.util.stream.Collectors.toSet());
         assertEquals(reference, GdxScenarioContract.SWING_REFERENCE,
-                "the GDX catalogue must track Swing without editing Swing tests");
+                "the GDX catalogue must preserve the final Swing GOLD baseline");
     }
 
     private static Path repositoryRoot() {
@@ -62,7 +61,8 @@ class GdxScenarioContractTest {
     void everyDeclaredMappingNamesAnExecutableGdxNetworkTest() {
         Set<String> methods = Arrays.stream(
                 new Class<?>[]{GdxNetworkHumanProjectionIntegrationTest.class,
-                    GdxReconnectScenarioTest.class})
+                    GdxReconnectScenarioTest.class,
+                    GdxMultiprocessScenarioTest.class})
                 .flatMap(type -> Arrays.stream(type.getDeclaredMethods()))
                 .filter(method -> method.isAnnotationPresent(Test.class))
                 .map(java.lang.reflect.Method::getName)

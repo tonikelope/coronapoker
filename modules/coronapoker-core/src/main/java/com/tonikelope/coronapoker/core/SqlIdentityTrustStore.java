@@ -36,9 +36,11 @@ public final class SqlIdentityTrustStore implements IdentityTrustStore {
         requireIdentity(nickname, publicKey);
         long now = System.currentTimeMillis() / 1000L;
         synchronized (database.lock()) {
+            byte[] existing;
+            int sessions;
             try {
-                byte[] existing = null;
-                int sessions = 0;
+                existing = null;
+                sessions = 0;
                 try (PreparedStatement query = database.connection().prepareStatement(
                         "SELECT pubkey, sessions_count FROM known_identities WHERE nick=?")) {
                     query.setString(1, nickname);
@@ -49,7 +51,13 @@ public final class SqlIdentityTrustStore implements IdentityTrustStore {
                         }
                     }
                 }
-                if (existing == null) {
+            } catch (Exception failure) {
+                LOGGER.log(Level.SEVERE,
+                        "Failed to read identity for " + nickname, failure);
+                return Observation.NEW;
+            }
+            if (existing == null) {
+                try {
                     try (PreparedStatement insert = database.connection().prepareStatement(
                             "INSERT INTO known_identities(nick,pubkey,first_seen,last_seen,sessions_count,verified_oob) VALUES(?,?,?,?,1,0)")) {
                         insert.setString(1, nickname);
@@ -59,8 +67,17 @@ public final class SqlIdentityTrustStore implements IdentityTrustStore {
                         insert.executeUpdate();
                     }
                     return Observation.NEW;
+                } catch (Exception failure) {
+                    LOGGER.log(Level.SEVERE,
+                            "Failed to store new identity for " + nickname,
+                            failure);
+                    return Observation.NEW;
                 }
-                boolean matches = MessageDigest.isEqual(existing, publicKey);
+            }
+            boolean matches = MessageDigest.isEqual(existing, publicKey);
+            Observation observation = matches ? Observation.MATCH
+                    : Observation.CHANGED;
+            try {
                 String sql = matches
                         ? "UPDATE known_identities SET last_seen=?, sessions_count=? WHERE nick=?"
                         : "UPDATE known_identities SET last_seen=?, sessions_count=?, pubkey=?, verified_oob=0 WHERE nick=?";
@@ -75,12 +92,12 @@ public final class SqlIdentityTrustStore implements IdentityTrustStore {
                     }
                     update.executeUpdate();
                 }
-                return matches ? Observation.MATCH : Observation.CHANGED;
             } catch (Exception failure) {
                 LOGGER.log(Level.SEVERE,
-                        "Failed to observe identity for " + nickname, failure);
-                return Observation.NEW;
+                        "Failed to update observed identity for " + nickname,
+                        failure);
             }
+            return observation;
         }
     }
 

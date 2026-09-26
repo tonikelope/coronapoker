@@ -14,7 +14,7 @@ public class RecoveredActionBadSignatureRejectedTest {
                 + "#" + Base64.getEncoder().encodeToString(signature);
         RecoveredActionCodec.Result decoded = RecoveredActionCodec.decode(wire);
         assertTrue(decoded.isOk());
-        assertFalse(IdentityManager.verifyAction(new byte[32],
+        assertFalse(TestPlayerIdentity.verifyAction(new byte[32],
                 decoded.value().record(), decoded.value().signature()));
         assertFalse(Crupier.recoveredActionSignatureIsValid(null,
                 decoded.value().record(), decoded.value().signature()),

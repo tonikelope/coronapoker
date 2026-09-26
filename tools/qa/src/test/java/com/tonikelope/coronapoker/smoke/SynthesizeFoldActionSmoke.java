@@ -9,7 +9,6 @@
 package com.tonikelope.coronapoker.smoke;
 
 import com.tonikelope.coronapoker.Crupier;
-import com.tonikelope.coronapoker.Player;
 import java.lang.reflect.Method;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * el action[] queda en estado canónico que la rueda de apuestas reconoce y que
  * NO desencadena absorb al chain.
  *
- * Cobertura: - decision se reemplaza por Player.FOLD INDEPENDIENTEMENTE de lo
+ * Cobertura: - decision se reemplaza por com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD INDEPENDIENTEMENTE de lo
  * que viniera (BET, ALLIN, CHECK, FOLD ya). - bet se anula a 0f. - cinematic se
  * anula (slot 2). - record y sig se anulan (slots 3 y 4) →
  * absorbActionIntoChain será no-op para este slot. - voluntary se marca FALSE
@@ -51,7 +50,7 @@ class SynthesizeFoldActionSmoke {
     @DisplayName("Decision BET con bet=50 se reemplaza por FOLD bet=0")
     void betFalsifiedToFold() throws Exception {
         Object[] action = new Object[6];
-        action[0] = Player.BET;
+        action[0] = com.tonikelope.coronapoker.core.game.GamePlayerController.BET;
         action[1] = 50f;
         action[2] = null;
         action[3] = new byte[]{1, 2, 3};
@@ -60,7 +59,7 @@ class SynthesizeFoldActionSmoke {
 
         invokeSynthesize(action);
 
-        assertEquals(Player.FOLD, action[0]);
+        assertEquals(com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, action[0]);
         assertEquals(0d, action[1]);
         assertNull(action[2]);
         assertNull(action[3]);
@@ -72,7 +71,7 @@ class SynthesizeFoldActionSmoke {
     @DisplayName("Decision ALLIN con cinematic se reemplaza por FOLD")
     void allinFalsifiedToFold() throws Exception {
         Object[] action = new Object[6];
-        action[0] = Player.ALLIN;
+        action[0] = com.tonikelope.coronapoker.core.game.GamePlayerController.ALLIN;
         action[1] = "rounders.gif";
         action[2] = "rounders.gif";
         action[3] = new byte[]{7, 8, 9};
@@ -81,7 +80,7 @@ class SynthesizeFoldActionSmoke {
 
         invokeSynthesize(action);
 
-        assertEquals(Player.FOLD, action[0]);
+        assertEquals(com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, action[0]);
         assertEquals(0d, action[1]);
         assertNull(action[2]);
         assertNull(action[3]);
@@ -95,7 +94,7 @@ class SynthesizeFoldActionSmoke {
         // Aunque la decision original sea inofensiva (CHECK con bet=0),
         // el helper la reemplaza igual — el caller decide cuándo llamar.
         Object[] action = new Object[6];
-        action[0] = Player.CHECK;
+        action[0] = com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK;
         action[1] = 0f;
         action[2] = null;
         action[3] = null;
@@ -104,7 +103,7 @@ class SynthesizeFoldActionSmoke {
 
         invokeSynthesize(action);
 
-        assertEquals(Player.FOLD, action[0]);
+        assertEquals(com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, action[0]);
         assertEquals(0d, action[1]);
         assertEquals(Boolean.FALSE, action[5]);
     }
@@ -113,7 +112,7 @@ class SynthesizeFoldActionSmoke {
     @DisplayName("Decision FOLD ya — idempotente, queda FOLD voluntary=FALSE")
     void foldAlreadyIdempotent() throws Exception {
         Object[] action = new Object[6];
-        action[0] = Player.FOLD;
+        action[0] = com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD;
         action[1] = 0f;
         action[2] = null;
         action[3] = new byte[]{1};
@@ -123,7 +122,7 @@ class SynthesizeFoldActionSmoke {
         invokeSynthesize(action);
 
         // FOLD ya; pero los slots record/sig se limpian igual.
-        assertEquals(Player.FOLD, action[0]);
+        assertEquals(com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, action[0]);
         assertNull(action[3]);
         assertNull(action[4]);
         // El voluntary baja a FALSE — esto es importante: incluso si

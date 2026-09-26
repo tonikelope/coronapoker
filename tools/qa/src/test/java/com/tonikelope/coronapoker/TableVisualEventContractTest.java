@@ -80,16 +80,16 @@ final class TableVisualEventContractTest {
     @Test
     void acceptedPokerDecisionsMapWithoutReadingSwingLabels() {
         assertEquals(TableVisualEvent.PlayerAction.ActionKind.FOLD,
-                Crupier.actionKind(Player.FOLD, 0d, 100d));
+                Crupier.actionKind(com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, 0d, 100d));
         assertEquals(TableVisualEvent.PlayerAction.ActionKind.CHECK,
-                Crupier.actionKind(Player.CHECK, 0d, 100d));
+                Crupier.actionKind(com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK, 0d, 100d));
         assertEquals(TableVisualEvent.PlayerAction.ActionKind.CALL,
-                Crupier.actionKind(Player.CHECK, 50d, 100d));
+                Crupier.actionKind(com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK, 50d, 100d));
         assertEquals(TableVisualEvent.PlayerAction.ActionKind.BET,
-                Crupier.actionKind(Player.BET, 100d, 0d));
+                Crupier.actionKind(com.tonikelope.coronapoker.core.game.GamePlayerController.BET, 100d, 0d));
         assertEquals(TableVisualEvent.PlayerAction.ActionKind.RAISE,
-                Crupier.actionKind(Player.BET, 200d, 100d));
+                Crupier.actionKind(com.tonikelope.coronapoker.core.game.GamePlayerController.BET, 200d, 100d));
         assertEquals(TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
-                Crupier.actionKind(Player.ALLIN, 500d, 100d));
+                Crupier.actionKind(com.tonikelope.coronapoker.core.game.GamePlayerController.ALLIN, 500d, 100d));
     }
 }

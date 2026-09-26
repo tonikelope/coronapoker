@@ -41,14 +41,14 @@ class RecoverAbsenceActionClassifierTest {
     @DisplayName("A FOLD later than everything stored locally is the benign absence case")
     void foldBeyondStoredIsBenign() {
         // Left after 2 recorded actions; the host's exit-fold is my 3rd (index 3 > 2).
-        assertTrue(Crupier.isBenignPostAbsenceRecover(Player.FOLD, 3, 2));
+        assertTrue(Crupier.isBenignPostAbsenceRecover(com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, 3, 2));
     }
 
     @Test
     @DisplayName("Left before acting at all: the very first replayed FOLD is still benign")
     void foldWithNothingStoredIsBenign() {
         // Persisted count 0 (never got to act), exit-fold is index 1 > 0.
-        assertTrue(Crupier.isBenignPostAbsenceRecover(Player.FOLD, 1, 0));
+        assertTrue(Crupier.isBenignPostAbsenceRecover(com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, 1, 0));
     }
 
     @Test
@@ -56,17 +56,17 @@ class RecoverAbsenceActionClassifierTest {
     void foldWithinStoredIsForgery() {
         // Index equal to the stored count: this action is one I recorded locally, so a
         // bare replay means the host removed its signature. Hard path, not benign.
-        assertFalse(Crupier.isBenignPostAbsenceRecover(Player.FOLD, 2, 2));
+        assertFalse(Crupier.isBenignPostAbsenceRecover(com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, 2, 2));
         // And strictly before the stored count is even more clearly witnessed.
-        assertFalse(Crupier.isBenignPostAbsenceRecover(Player.FOLD, 1, 2));
+        assertFalse(Crupier.isBenignPostAbsenceRecover(com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, 1, 2));
     }
 
     @Test
     @DisplayName("A non-FOLD attributed to an absent seat is never benign (it would move money)")
     void nonFoldBeyondStoredIsNeverBenign() {
-        assertFalse(Crupier.isBenignPostAbsenceRecover(Player.BET, 3, 2));
-        assertFalse(Crupier.isBenignPostAbsenceRecover(Player.CHECK, 3, 2));
-        assertFalse(Crupier.isBenignPostAbsenceRecover(Player.ALLIN, 3, 2));
+        assertFalse(Crupier.isBenignPostAbsenceRecover(com.tonikelope.coronapoker.core.game.GamePlayerController.BET, 3, 2));
+        assertFalse(Crupier.isBenignPostAbsenceRecover(com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK, 3, 2));
+        assertFalse(Crupier.isBenignPostAbsenceRecover(com.tonikelope.coronapoker.core.game.GamePlayerController.ALLIN, 3, 2));
     }
 
     @Test
@@ -74,6 +74,6 @@ class RecoverAbsenceActionClassifierTest {
     void unreadableLocalCountStaysHard() {
         // sqlCountLocalHandActions returns Integer.MAX_VALUE on SQL failure: no index can
         // exceed it, so the classifier conservatively refuses to soften the warning.
-        assertFalse(Crupier.isBenignPostAbsenceRecover(Player.FOLD, 5, Integer.MAX_VALUE));
+        assertFalse(Crupier.isBenignPostAbsenceRecover(com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, 5, Integer.MAX_VALUE));
     }
 }

@@ -25,10 +25,10 @@ Usage:
   .\tools\qa\gdx-scenarios.cmd -StartAt bot-bust-recover-drop
   .\tools\qa\gdx-scenarios.cmd -ListOnly
 
-Every strict GDX homologue runs in its own Maven process and therefore in a
-fresh JVM. This deliberately matches the process isolation of the established
-Swing real-game scenarios: static QA properties, sockets, dealers and executor
-threads from one scenario cannot contaminate the next one.
+Every GDX scenario runs in its own Maven process and therefore in a fresh JVM.
+The historical Swing suite remains only as the GOLD scenario catalogue used to
+check coverage. Static QA properties, sockets, dealers and executor threads
+from one scenario cannot contaminate the next one.
 
 The selected GDX reactor is compiled from empty, explicitly validated module
 target directories once before the isolated executions, preventing leftover

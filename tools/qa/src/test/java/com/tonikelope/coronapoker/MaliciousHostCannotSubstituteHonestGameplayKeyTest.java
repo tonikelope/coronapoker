@@ -17,7 +17,7 @@ public class MaliciousHostCannotSubstituteHonestGameplayKeyTest {
         byte[] forged = IdentitySubstitutionPoc.actionRecord(
                 victimView.getCurrentHash(), victimView.getHandId());
         byte[] forgedSig = IdentitySubstitutionPoc.sign(attacker, "ACTION\0", forged);
-        assertTrue(IdentityManager.verifyAction(
+        assertTrue(TestPlayerIdentity.verifyAction(
                 IdentitySubstitutionPoc.rawPublicKey(attacker), forged, forgedSig));
 
         victimView.absorb(forged, forgedSig);

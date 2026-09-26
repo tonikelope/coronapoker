@@ -30,15 +30,14 @@ public class SessionGenerationInvalidatesOutboxTest {
     }
 
     @Test
-    public void participantReconnectUsesThePreservingGenerationTransition() throws Exception {
+    public void networkReconnectUsesThePreservingGenerationTransition() throws Exception {
         Path root = Path.of(System.getProperty("user.dir")).toAbsolutePath();
-        while (root != null && !Files.exists(root.resolve("modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/Participant.java"))) {
+        while (root != null && !Files.exists(root.resolve("modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/core/network/NetworkLobbyGateway.java"))) {
             root = root.getParent();
         }
         assertTrue(root != null, "repository root not found");
-        String participant = Files.readString(root.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/Participant.java"));
-        assertTrue(participant.contains(
-                "pre_game_socket_writer_queue.advanceGenerationPreservingEntries();"));
+        String gateway = Files.readString(root.resolve(
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/core/network/NetworkLobbyGateway.java"));
+        assertTrue(gateway.contains("gameOutbox.advanceGenerationPreservingEntries();"));
     }
 }

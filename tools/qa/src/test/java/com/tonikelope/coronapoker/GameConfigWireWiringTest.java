@@ -13,22 +13,20 @@ public class GameConfigWireWiringTest {
     @Test
     public void initAndBlindUpdatesUseOnlyTheStrictV1Codec() throws IOException {
         Path root = locateRoot();
-        String waiting = Files.readString(root.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java"));
+        String gateway = Files.readString(root.resolve(
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/core/network/NetworkLobbyGateway.java"));
         String dealer = Files.readString(root.resolve(
                 "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
-        String settings = Files.readString(root.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/GameSettingsPanel.java"));
-
-        assertTrue(waiting.contains("GameConfigWireV1.decodeBase64(partes_comando[3])"));
-        assertTrue(waiting.contains("Invalid INIT configuration; closing connection"));
-        assertTrue(waiting.contains("Invalid UPDATEBLINDS configuration; closing connection"));
+        assertTrue(gateway.contains("GameConfigCodecV1.decodeBase64(parts[3])"));
+        assertTrue(gateway.contains("Invalid INIT configuration:"));
+        assertTrue(dealer.contains("GameConfigCodecV1.decodeBase64(parts[1])"));
+        assertTrue(dealer.contains("failClientCriticalHostCommand(\"UPDATEBLINDS\", failure)"));
         assertTrue(dealer.contains("GameConfigCodecV1.encodeBase64(config)"));
         assertTrue(dealer.contains("gameSession().updateConfiguration(config)"));
-        assertTrue(settings.contains("\"UPDATEBLINDS#\" + encodedConfig"));
+        assertTrue(dealer.contains("\"UPDATEBLINDS#\""));
         assertFalse(dealer.contains("INIT#\" + String.valueOf(GameFrame.BUYIN)"));
-        assertFalse(waiting.contains("GameFrame.BUYIN = Integer.parseInt(partes_comando[3])"));
-        assertFalse(waiting.contains("GameFrame.BLIND_CAP = partes_comando.length > 7"));
+        assertFalse(gateway.contains("GameFrame.BUYIN"));
+        assertFalse(gateway.contains("GameFrame.BLIND_CAP"));
     }
 
     @Test

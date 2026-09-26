@@ -40,8 +40,9 @@ Examples:
   .\tools\qa\headless-sim.cmd -Hands 200 -Faults 200 -BotHands 10 -Seed 42
   .\tools\qa\headless-sim.cmd -AllNonVisual
 
-This fast layer exercises production protocol/domain components without full
-Swing/Crupier orchestration. Use real-game-e2e.cmd for complete local games.
+This fast layer exercises production protocol and domain components without a
+complete GDX table lifecycle. Use gdx-scenarios.cmd or certify.cmd for complete
+local multiplayer games.
 The exact checkout is built into the ignored local .m2/repository cache. An
 omitted seed is generated and printed before Maven starts; pass it back with
 -Seed to replay a failure.

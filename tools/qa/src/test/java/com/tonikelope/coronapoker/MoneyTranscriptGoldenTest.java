@@ -19,6 +19,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.game.MoneyMath;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -56,7 +57,7 @@ public class MoneyTranscriptGoldenTest {
 
     // The current cents choke point.
     private static long centsDoublePath(double betTo) {
-        return Math.round(Helpers.doubleClean(betTo) * 100.0);
+        return Math.round(MoneyMath.clean(betTo) * 100.0);
     }
 
     private static String hex(byte[] b) {

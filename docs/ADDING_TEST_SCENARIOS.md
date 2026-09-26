@@ -1,405 +1,190 @@
-<div align="justify">
+# Adding GDX test scenarios
 
-# Adding tests and real-game scenarios
+This guide explains how to add or extend a CoronaPoker gameplay scenario without
+creating a test that passes for the wrong reason. Read
+[Testing and certification](TESTING.md) first for the execution order and release
+gates.
 
-This guide is the contributor path for adding a CoronaPoker regression. It
-explains which test layer to choose and, for a real-game certification scenario,
-every registration, orchestration, node-policy, documentation and validation
-step required before the scenario is complete.
+## Choose the correct layer
 
-The broader lane and release policy remains in [Testing and
-certification](TESTING.md). Read that manual when choosing how widely to validate
-a change; use this guide while implementing the test itself.
+| Change | Primary test layer |
+|---|---|
+| Pure rule, codec, persistence or money calculation | Unit test in `coronapoker-core` |
+| GDX command, projection, dialog state or lifecycle binding | Focused test in `coronapoker-gdx` |
+| Complete game flow with production core objects | `GdxReconnectScenarioTest` |
+| Real sockets, separate client processes, crashes or recovery | `GdxMultiprocessScenarioTest` |
+| Large seeded protocol volume | `tools/qa/headless-sim.cmd` campaign |
 
-## Choose the smallest layer that proves the defect
+Use the lowest layer that can prove the invariant, then add multiprocess coverage
+when process isolation, sockets or lifecycle are part of the behavior. A mocked
+projection test cannot certify a reconnect or a crashed client.
 
-Start with the cheapest layer that can observe the behavior. A real-game
-scenario is appropriate only when the claim depends on production JVM, socket,
-Swing/`Crupier` or recovery orchestration.
+## Scenario architecture
 
-| What must be proved | Add it here | Normal lane |
-|---|---|---|
-| Pure rule, parser, money, persistence or production helper behavior | Matching package under `tools/qa/src/test/java` | `qa-fast` |
-| A short cross-component invariant suitable for refactor protection | `smoke/*Smoke.java` | `qa-fast` |
-| Many deterministic protocol, fault or SQLite cases without full `Crupier` orchestration | `protocolsim` or the related campaign package | `qa-protocol-sim`, also wired into release QA |
-| Deterministic framing, wire-format or queue behavior | `net` | `qa-fast` |
-| A real-socket stall/back-pressure check that is genuinely slow | `net`, normally `SocketStallIntegrationTest`, and `@Tag("slow")` | `qa-network` |
-| Crypto performance, differential or cascade behavior | `crypto` and `@Tag("slow")` | `qa-crypto` |
-| Bot playing strength or statistical difficulty separation | `bot/harness` and `@Tag("slow")` | `qa-bots` |
-| A complete host/client game, production dialogs, a live socket fault, recovery, or multi-JVM lifecycle | `e2e` scenario described below | `real-game-e2e.cmd` and certification matrix |
+The scenario system has four contracts:
 
-Do not create an E2E scenario merely to call a production method. If a focused
-JUnit regression can prove the contract deterministically, keep it in
-`qa-fast`. Conversely, do not replace a socket, recovery or lifecycle defect
-with a model that cannot exercise the production orchestration which failed.
+1. `tools/qa/reference/swing-gold-scenarios.tsv` is the immutable list of the 37
+   historical gameplay scenarios used as the migration baseline.
+2. `GdxScenarioContract.java` maps every historical identifier to strict GDX
+   tests. Its contract test rejects missing, duplicated or invented mappings.
+3. `GdxMultiprocessScenarioTest.java` launches the host and client JVMs used by
+   release certification. `GdxMultiprocessNodeMain.java` is the node process.
+4. `tools/qa/run-certification.ps1` defines the public profile name, topology,
+   hand count, JUnit method and repetitions used by each certification mode.
 
-## The red-to-green workflow for ordinary tests
+The historical manifest is not the product scenario catalogue. New GDX-only
+coverage can be added without changing it. Change the manifest only when
+correcting the recorded historical baseline, and explain that correction in the
+commit.
 
-1. Reproduce the defect with one deterministic failing test. Give the test a
-   behavioral name and make the assertion describe the broken contract.
-2. Put the test beside the nearest existing tests. Search by the production
-   class or method first instead of creating a new package by default.
-3. Keep it out of `@Tag("slow")` unless it genuinely requires the bot, crypto or
-   socket slow harness. Runtime alone is not a reason to hide a deterministic
-   regression from the normal lane.
-4. Run the single class, then the affected package/classes, then `qa-fast`.
-5. If the fix changes protocol, networking, recovery, settlement or shared
-   lifecycle behavior, also run the affected real-game scenarios as specified
-   in the proportional validation matrix in `TESTING.md`.
-
-Example single-class command from the repository root:
-
-```powershell
-mvn -f tools/reactor/pom.xml verify '-Dtest=PotMathTest' '-Dsurefire.failIfNoSpecifiedTests=false'
-```
-
-The reactor must reach `verify`: stopping at `test` does not package the game JAR
-needed by the QA module.
-
-## Real-game scenario architecture
-
-The real-game harness has a parent process and several production nodes. Knowing
-the boundary prevents a scenario from accidentally testing only its own harness.
-
-```text
-certify.cmd
-  -> run-certification.ps1       selects Label/Name/topology/repetitions
-     -> run-real-game-e2e.ps1    validates CLI and passes Maven properties
-        -> RealGameLoopbackE2EIT launches and orchestrates all JVMs
-           -> RealGameNodeMain   mounts production WaitingRoomFrame/Crupier
-              -> production sockets, crypto, settlement, SQLite and recovery
-```
-
-The parent sends narrow control commands over each node's standard input. Nodes
-report observable state as `CP_E2E_*` markers on standard output. The parent must
-coordinate from those markers and production log evidence, never from a timing
-guess.
-
-Keep these files open while implementing a scenario:
+## Important files
 
 | File | Responsibility |
 |---|---|
-| [`run-real-game-e2e.ps1`](../tools/qa/run-real-game-e2e.ps1) | Public options, help, examples and fail-fast CLI constraints |
-| [`RealGameScenarioContract.java`](../tools/qa/src/test/java/com/tonikelope/coronapoker/e2e/RealGameScenarioContract.java) | Supported names, timing class and narrow terminal-MISDEAL classification |
-| [`RealGameLoopbackE2EIT.java`](../tools/qa/src/test/java/com/tonikelope/coronapoker/e2e/RealGameLoopbackE2EIT.java) | Parent launch, gates, fault orchestration and green/red assertions |
-| [`RealGameNodeMain.java`](../tools/qa/src/test/java/com/tonikelope/coronapoker/e2e/RealGameNodeMain.java) | Node-side production UI/action/dialog driver and semantic markers |
-| [`run-certification.ps1`](../tools/qa/run-certification.ps1) | Certified labels, topology, repetition and `quick` selection |
-| [`RealGameScenarioContractTest.java`](../tools/qa/src/test/java/com/tonikelope/coronapoker/e2e/RealGameScenarioContractTest.java) | Fast catalog, matrix and pure harness-contract checks |
-| [`TESTING.md`](TESTING.md) | Public matrix, scenario oracle catalog and proportional validation policy |
+| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/scenarios/GdxScenarioContract.java` | Historical identifier to strict GDX test mapping |
+| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/scenarios/GdxScenarioContractTest.java` | Mapping and coverage invariants |
+| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/scenarios/GdxReconnectScenarioTest.java` | Production-core game scenarios observed through GDX |
+| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/GdxMultiprocessScenarioTest.java` | Parent process, topology, process faults and final assertions |
+| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/GdxMultiprocessNodeMain.java` | Host or client process behavior and semantic markers |
+| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/scenarios/GdxScenarioRenderer.java` | Test renderer, native action readiness and observations |
+| `tools/qa/run-certification.ps1` | Release profile matrix, method mapping and seed schedule |
+| `docs/TESTING.md` | Public commands, topology matrix and scenario meaning |
 
-### Terms used by the scenario catalog
+## Step 1: define the behavior
 
-- **Name** is the public `-Scenario` value and selects one behavior, for example
-  `reconnect-midhand`.
-- **Label** identifies one certification profile. Usually it equals `Name`, but
-  one behavior can have several topologies: `normal` is certified as
-  `normal-soak`, `normal-heads-up`, `normal-full-mixed` and
-  `normal-full-human`.
-- **Topology** is `Clients/Bots/Hands`. The host is an additional human seat, so
-  `Clients=9, Bots=0` fills the ten-seat table.
-- **Green oracle** is the exact evidence that proves success. Process exit code,
-  a live JVM, CPU activity or the absence of an exception is not an oracle.
-- **Post-fault liveness** means a fresh hand completes after the transition. Add
-  that hand only when the scenario claims continued play.
+Write down the precondition, trigger and observable result before editing the
+harness. A useful contract answers all of these questions:
 
-### Choose exactly one timing contract
+- Which peer owns the action?
+- At which hand and street may it occur?
+- What event proves the peer is ready?
+- Which socket or process fault is applied?
+- Which peer must remain alive?
+- What ledger, stack, hand counter or consensus value must match at the end?
+- What output proves that the intended branch actually executed?
 
-Every name belongs to one and only one set in `RealGameScenarioContract`:
+Do not use elapsed time as proof that a game reached a state.
 
-| Contract | Use it when | Required coordination |
-|---|---|---|
-| `AUTONOMOUS` | The action driver and existing dialog policy can complete the scenario without a precisely timed external fault | Assert the final production outcome |
-| `ACTION_GATED` | A fault or control action must occur when a real player action is available at an exact hand/street | Arm before `START_GAME`, await `CP_E2E_ACTION_GATE_REACHED`, perform the action once, then release |
-| `DIALOG_ORDERED` | The causal point is a real production dialog whose decision must be delayed until the parent acts | Capture the dialog, emit a reached marker, perform the external action and explicitly release the dialog decision |
+## Step 2: add the smallest failing regression
 
-`MISDEAL_TERMINAL` is separate from the timing contract. Add a name there only
-when a successful production MISDEAL intentionally dismantles the current
-table. It relaxes specific common terminal handling; it must never become a
-general error allowance.
+Add a focused unit or GDX integration test first. For an existing historical
+scenario, register the exact test method in `STRICT_HOMOLOGUE_TESTS`. A test
+method may support one historical scenario only. Supporting tests that are not
+strict homologues belong in `SUPPORTING_NETWORK_TESTS`.
 
-## Design the scenario before editing code
-
-Write this small contract first. If any cell is vague, the scenario is not ready
-to implement.
-
-| Decision | Required answer |
-|---|---|
-| Public name | Stable lower-case hyphenated `-Scenario` value |
-| Defect or risk | One production behavior that existing tests cannot prove |
-| Closest scenario | Existing scenario whose orchestration and node policy are most similar |
-| Topology | Minimum clients, bots and hands, including the host seat |
-| Causal point | Exact hand, street, dialog or production event where the action occurs |
-| Parent action | Socket drop, process death, pause, recovery, controlled exit, or other single operation |
-| Green oracle | Exact markers, consensus, balances, ledger, refund or recovery state |
-| Red oracle | Premature exit, missing marker, `CP_E2E_FAIL`, divergence, invalid ledger or forbidden dialog/log evidence |
-| Liveness | Whether a newly dealt following hand is required, and why |
-| Timing class | `AUTONOMOUS`, `ACTION_GATED` or `DIALOG_ORDERED` |
-| Certification | Profile label and whether it is critical enough for `quick` |
-
-Use the smallest topology that contains an independent witness for the claim.
-For example, a peer-loss scenario may need another surviving human because a
-host plus bot cannot prove the same distributed receipt path. Hand counts are
-contract evidence, not padding: one interrupted hand plus one fresh hand is two
-hands; a scenario should not gain extra hands just to make a race less visible.
-
-To inspect every current touchpoint for a similar scenario on Windows:
+Run the contract guard:
 
 ```powershell
-Get-ChildItem tools/qa -Recurse -File | Select-String -SimpleMatch 'reconnect-midhand'
+mvn -f modules/pom.xml -pl coronapoker-gdx -am test `
+  '-Dtest=GdxScenarioContractTest' `
+  '-Dsurefire.failIfNoSpecifiedTests=false'
 ```
 
-Repeat that search with the chosen nearest scenario and review every result
-before writing the new name.
+## Step 3: use semantic synchronization
 
-## Implement a complete real-game scenario
+Coordinate the parent and node processes with explicit state or markers. Good
+gates include:
 
-The following order keeps incomplete registration failures early and makes the
-first runnable version diagnosable.
+- a specific hand and street;
+- an active local turn;
+- a native button becoming enabled;
+- a reconnect count changing;
+- a recovery lobby opening;
+- a player becoming spectator or active;
+- a committed action appearing in the durable ledger.
 
-### 1. Register and validate the public CLI
+Never replace such a gate with a fixed sleep. A short polling interval is fine
+inside a bounded wait, but the predicate must represent gameplay progress. Every
+wait needs a timeout and diagnostics that name the missing state.
 
-Edit `tools/qa/run-real-game-e2e.ps1` in all four places:
+If an action is submitted through GDX, first assert the same readiness that the
+real control uses. Calling a helper immediately after socket reconnection can
+otherwise create a harness race that no user could trigger.
 
-1. Add `my-scenario` to the `-Scenario` `ValidateSet`.
-2. Add every exact `Clients`, `Bots` and `Hands` constraint to the `Constraints`
-   section printed by `-Help`.
-3. Enforce the same constraints before Maven starts, with an error that states
-   the accepted topology.
-4. Add one complete, directly copyable example under `Examples`.
+## Step 4: add multiprocess coverage
 
-Do not rely only on `[ValidateRange]`: it proves the global range, not the
-scenario-specific topology.
+Add one method to `GdxMultiprocessScenarioTest`. Reuse the existing host/client
+launchers and isolated homes. The method must assert the intended transition,
+not only process exit code zero.
 
-### 2. Add the Java-side catalog and mirrored input validation
+The end oracle should normally include:
 
-In `RealGameScenarioContract`, add the name to exactly one timing set. Add it to
-`MISDEAL_TERMINAL` only under the narrow definition above.
+- every expected process reached its completion marker;
+- no fatal or unexpected dialog marker was emitted;
+- canonical ledgers match across surviving peers;
+- stacks and buy-ins conserve money;
+- the expected number of durable hands was committed;
+- required recovery, reconnect, RIT, straddle or spectator markers occurred;
+- no stale process remains after teardown.
 
-Then mirror the CLI topology constraint at the start of
-`RealGameLoopbackE2EIT.completesConfiguredLocalGameWithRealCrupiersAndSockets`.
-This duplication is intentional: direct Maven invocation can bypass the public
-PowerShell runner, so both boundaries must reject invalid input.
+Scale timeouts by the actual work. Large tables need a participant-aware budget,
+not only a hand-count budget. Do not raise a timeout until the log shows semantic
+progress throughout the extra interval.
 
-The catalog contract test checks that the Java set, PowerShell `ValidateSet`,
-certification names and public tables agree. It does **not** currently prove
-that the PowerShell and Java topology predicates are equivalent; review both
-manually and add a focused unit test when the predicate has non-trivial logic.
+## Step 5: register a certification profile
 
-### 3. Account for launch topology and identities
+In `tools/qa/run-certification.ps1`:
 
-The parent normally launches the host plus all configured clients before the
-game. Recovery scenarios can start with fewer clients and add or replace nodes
-later. If the new scenario changes membership, update the initial-client
-calculation and give every late node the correct isolated home, nick, identity,
-SQLite history and completed-hand target.
+1. Add the profile to `scenarioProfiles` with a unique `Label`, scenario `Name`,
+   client count, bot count and complete hand count.
+2. Map the label to the exact multiprocess JUnit method in
+   `gdxScenarioMethods`.
+3. Add it to `quickLabels` only when it belongs in the short critical subset.
+4. Add the same profile and topology to the matrix in `docs/TESTING.md`.
 
-Never assume that `nodes.get(1)` is the desired role without documenting which
-nick it represents after additions, removals or relaunches. Use an unaffected
-human witness when the oracle depends on distributed agreement.
+The host is an additional human seat. `Clients = 9` and `Bots = 0` therefore
+tests the ten-seat limit. Host plus clients plus bots must never exceed ten.
 
-### 4. Establish causal coordination before game start
+Certification derives each scenario seed from the printed base seed. Preserve
+that rule so a failure can be replayed exactly.
 
-For `ACTION_GATED`, add a concrete plan to
-`RealGameLoopbackE2EIT.armScenarioActionGates`. Gates must be armed before the
-parent sends `START_GAME`; otherwise the automatic action driver can consume the
-turn first.
+## Step 6: validate in increasing scope
 
-The normal pattern is:
-
-```java
-armActionGate(victim, 1, Crupier.PREFLOP);       // before START_GAME
-awaitActionGate(victim, 1, Crupier.PREFLOP);     // exact semantic point
-dropAndAwaitReconnect(victim, host, "client1", 1); // fault once + prove reconnect
-releaseActionGate(victim, 1, Crupier.PREFLOP);   // let production continue
-```
-
-Use the existing `armActionGate`, `awaitActionGate` and `releaseActionGate`
-helpers. Do not replace them with `Thread.sleep`. A short polling sleep inside a
-bounded generic waiter is an implementation detail; a sleep used to guess that
-the table reached preflop/flop/recovery is invalid scenario coordination.
-
-For `DIALOG_ORDERED`, follow the nearest RIT or straddle scenario: the node must
-observe the actual dialog on the EDT, retain it, emit a reached marker and act
-only after the parent has established the intended ordering.
-
-### 5. Add the parent orchestration and exact oracles
-
-In `RealGameLoopbackE2EIT`:
-
-1. Add the top-level dispatch for the new name.
-2. Put the behavior in a clearly named `run...Scenario` helper rather than
-   extending the main test body with a long inline branch.
-3. Await the causal marker and perform the fault/action exactly once.
-4. Await positive completion evidence and assert all forbidden evidence.
-5. Include `node.diagnostic()` in timeout and assertion failures.
-6. Reuse common consensus, balance and ledger assertions where their contract
-   matches; add a narrow assertion helper when it does not.
-
-Settled hands normally require identical consensus hashes and canonical
-balances on every surviving peer plus exact ledger conservation. Aborted hands
-normally require the expected MISDEAL reason, zero pot, exact refund/recovery
-state and a live recovery path. If continued liveness is claimed, require a
-fresh hand rather than merely checking that the process remains alive.
-
-### 6. Add only necessary node-side policy
-
-`RealGameNodeMain` must remain a driver around production behavior, not a second
-game implementation. Review the following extension points and change only
-those the contract needs:
-
-- `configureRuntime` for scenario-specific production settings;
-- `driveLocalActions` for action choice while real buttons are enabled;
-- `startControlThread` for a new narrow parent command;
-- `applyScenarioWindowAction` for real dialog ordering;
-- category helpers such as `isForceRecoverScenario`, `isAllInScenario`,
-  `isRitScenario`, `requiresLiveStreetAfterPeerLoss` and
-  `expectsPermanentLocalExit`;
-- spectator/rebuy helper policies when roster state is part of the scenario.
-
-Prefer a small predicate or command helper that can be unit-tested. Emit a
-`CP_E2E_*` marker after the production action or observable state change, not
-before it. Any node exception must surface as `CP_E2E_FAIL` and remain terminal.
-
-### 7. Add the certification profile
-
-Add one profile to `scenarioProfiles` in `tools/qa/run-certification.ps1`:
+Run the focused test first:
 
 ```powershell
-@{ Label = 'my-scenario'; Name = 'my-scenario'; Clients = 2; Bots = 1; Hands = 2 }
+mvn -f modules/pom.xml -pl coronapoker-gdx -am test `
+  '-Dtest=GdxMultiprocessScenarioTest#yourMethodName' `
+  '-Dsurefire.failIfNoSpecifiedTests=false' `
+  '-Dqa.sim.seed=42'
 ```
 
-Use a distinct `Label` only when the same `Name` needs multiple certified
-topologies. `fast`, `balanced` and `stress` consume the full profile list. Add
-the label to `quickLabels` only if it is a critical short preflight scenario;
-do not use `quick` inclusion to compensate for missing focused tests.
-
-### 8. Update the executable reference and public tables
-
-Keep all public surfaces synchronized:
-
-- `real-game-e2e.cmd -Help`: constraint, scenario description and copyable
-  example (the text is implemented in `run-real-game-e2e.ps1`);
-- the certification matrix in `TESTING.md`: exact topology for every mode and a
-  one-sentence rationale for the minimum hand count;
-- `Scenario contracts` in `TESTING.md`: what is exercised and the exact green
-  result;
-- typical commands in `TESTING.md` only when the scenario illustrates a new
-  family not already represented there.
-
-Do not duplicate the full scenario catalog in this contributor guide. The
-contract test intentionally parses the two tables in `TESTING.md` as the public
-source of truth.
-
-### 9. Add focused contract tests
-
-Extend `RealGameScenarioContractTest` or another small E2E contract test for all
-new pure logic: gate selection, role targeting, terminal classification,
-topology predicates, parser behavior, recovery targets and watchdog decisions.
-
-Run the catalog/document contract first:
+Run the strict GDX catalogue:
 
 ```powershell
-mvn -f tools/reactor/pom.xml verify '-Dtest=RealGameScenarioContractTest' '-Dsurefire.failIfNoSpecifiedTests=false'
+.\tools\qa\gdx-scenarios.cmd -Mode fast
 ```
 
-This catches catalog, profile and table drift quickly. Its current static checks
-cover:
-
-- one non-overlapping Java timing contract per scenario name;
-- exact equality between the Java catalog and PowerShell `ValidateSet`;
-- coverage of every scenario name by certification profiles;
-- unique profile labels and exact documented matrix topologies for every mode;
-- exact scenario membership in the public `Scenario contracts` table.
-
-It does not validate help descriptions/examples, equivalence of CLI and Java
-topology predicates, parent dispatch, gate role/hand/street selection, node-side
-policy or the semantic strength of the final oracle. Those require the focused
-unit tests and live scenario runs above.
-
-### 10. Run the new scenario and broader gates
-
-First exercise the public launcher with two explicit seeds:
+Run the full multiprocess matrix once:
 
 ```powershell
-.\tools\qa\real-game-e2e.cmd -Scenario my-scenario -Clients 2 -Bots 1 -Hands 2 -Seed 101
-.\tools\qa\real-game-e2e.cmd -Scenario my-scenario -Clients 2 -Bots 1 -Hands 2 -Seed 102
+.\tools\qa\certify.cmd -Mode fast
 ```
 
-Replace the topology with the contract designed above. One seed proves replay;
-the second checks that the scenario does not accidentally depend on a specific
-deal or schedule.
-
-Then run:
+For a race, watchdog, scheduling or recovery change, finish with fresh-seed
+stress:
 
 ```powershell
-.\tools\qa\certify.cmd -Mode quick   # only when the new label is in quickLabels
-.\tools\qa\certify.cmd -Mode fast    # required full-matrix integration check
+.\tools\qa\certify.cmd -Mode stress
 ```
 
-Use `balanced` for a normal release. Reserve `stress` for a major baseline,
-broad protocol/security change or suspected race family. Statistical bot
-quality remains separate unless bot AI/evaluation changed.
+On failure, rerun the exact printed seed before using a new seed. Fix either the
+product or the harness according to the first violated contract. Do not weaken
+the oracle to make a failing product pass.
 
-## Worked pattern: an action-gated transition
+## Completion checklist
 
-`pause-resume` is the smallest existing reference for the common sequence:
+- [ ] The invariant and expected failure mode are explicit.
+- [ ] The lowest useful regression is red before the fix and green after it.
+- [ ] Historical mappings remain one-to-one and complete.
+- [ ] Multiprocess scenarios use separate JVMs and isolated homes.
+- [ ] Synchronization is semantic and every wait is bounded.
+- [ ] Native GDX readiness is checked before submitting an action.
+- [ ] Final ledgers, stacks, buy-ins and durable hand counts are asserted.
+- [ ] The certification profile and documentation matrix agree exactly.
+- [ ] The exact failing seed passes after the fix.
+- [ ] The required fast, balanced or stress gate finishes with a PASS banner.
 
-1. CLI and Java require enough hands to prove the paused hand and a following
-   hand.
-2. `RealGameScenarioContract.ACTION_GATED` classifies it.
-3. `armScenarioActionGates` arms the host at hand 1/preflop before `START_GAME`.
-4. `runPauseResumeScenario` awaits the gate, sends `PAUSE_TOGGLE`, and requires
-   every node to report `CP_E2E_PAUSE_STATE paused=true`.
-5. It toggles again, requires `paused=false` from every node, and releases the
-   gate.
-6. Common final assertions require the configured hands, consensus, balances
-   and ledger conservation.
-
-When adding a different transition, copy this *shape*, not its assertions. The
-new green oracle must prove the new production claim.
-
-## Definition of done
-
-A real-game scenario is complete only when every box is true:
-
-- [ ] The contract states the smallest topology, causal point, green/red oracle
-  and whether a fresh liveness hand is required.
-- [ ] The PowerShell `ValidateSet`, help constraint, executable validation,
-  scenario description and example agree.
-- [ ] The Java catalog contains the name in exactly one timing class.
-- [ ] Direct Maven input validation mirrors the public CLI constraint.
-- [ ] Parent launch membership and node identities are correct.
-- [ ] Every action gate is armed before `START_GAME`.
-- [ ] Parent orchestration uses semantic markers and performs the fault once.
-- [ ] Node policy still drives production UI, sockets, `Crupier`, crypto,
-  settlement and SQLite instead of copying game logic.
-- [ ] Premature termination, `CP_E2E_FAIL`, forbidden dialogs and no semantic
-  progress fail with diagnostics.
-- [ ] `scenarioProfiles`, optional `quickLabels`, the certification matrix and
-  `Scenario contracts` agree.
-- [ ] Focused contract tests pass.
-- [ ] The public launcher passes with the replay seed and at least one different
-  seed.
-- [ ] The proportional lane from `TESTING.md` passes; `fast` covers the final
-  full matrix before integration.
-
-## Future improvement: simplify scenario extension
-
-Adding a complete real-game scenario currently requires coordinated changes
-across the PowerShell CLI and certification matrix, the Java scenario catalog,
-parent orchestration, node-side policy, contract tests and public tables. The
-contributor guide makes that workflow explicit, but the number of manual
-integration points remains higher than desirable.
-
-This does not currently justify a harness refactor by itself. Revisit it when
-new scenario families must be added regularly or the existing registration
-cost starts causing omissions. A safe future refactor should proceed in small,
-behavior-preserving stages: first strengthen characterization tests, then
-extract per-family handlers from the parent and node classes, introduce an
-exactly-once handler registry, and finally centralize machine-readable scenario
-metadata. Existing CLI values, seeds, `CP_E2E_*` markers, gates, timeouts,
-diagnostics and green/red oracles must remain stable throughout. Run the full
-`fast` matrix after common harness changes, and use `stress` only if timing,
-scheduling, watchdog or gate semantics change.
-
-</div>
+Visual alignment, animation quality, physical audio hardware and real Internet
+or NAT behavior remain manual checks. They complement the automated certificate
+and do not replace it.

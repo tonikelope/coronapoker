@@ -14,11 +14,14 @@ public class CriticalShuffleRequestFailureClosesChannelTest {
     public void cascadeRotationAndBundleHaveNoSilentAbort() throws Exception {
         Path root = locateRoot();
         String source = Files.readString(root.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java"))
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"))
                 .replace("\r\n", "\n");
-        assertHandlerCloses(source, "DECK_CASCADE_REQ", "DECK_ROTATION_REQ", 5);
-        assertHandlerCloses(source, "DECK_ROTATION_REQ", "DUALLOCK_BUNDLE", 6);
-        assertHandlerCloses(source, "DUALLOCK_BUNDLE", "REQ_SRA_UNLOCK_CHAIN", 2);
+        assertClientHandlerCloses(source, "processClientCascadeRequest",
+                "processClientRotationRequest", "DECK_CASCADE_REQ");
+        assertClientHandlerCloses(source, "processClientRotationRequest",
+                "processClientUnlockChainRequest", "DECK_ROTATION_REQ");
+        assertClientHandlerCloses(source, "processClientDualLockBundle",
+                "decodeBase64Csv", "DUALLOCK_BUNDLE");
 
         String crupier = Files.readString(root.resolve(
                 "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
@@ -52,25 +55,19 @@ public class CriticalShuffleRequestFailureClosesChannelTest {
         assertResponseWaitRejects(source, "requestRemoteUnlockChain", "sendGAMECommandToParticipant");
     }
 
-    private static void assertHandlerCloses(String source, String name, String next, int minimumAborts) {
-        int start = source.indexOf("case \"" + name + "\":");
-        int end = source.indexOf("case \"" + next + "\":", start);
-        assertTrue(start >= 0 && end > start, name + " handler not found");
-        String[] lines = source.substring(start, end).split("\n");
-        int aborts = 0;
-        for (int i = 0; i < lines.length; i++) {
-            if ("return;".equals(lines[i].trim())) {
-                aborts++;
-                int previous = i - 1;
-                while (previous >= 0 && lines[previous].trim().isEmpty()) previous--;
-                assertEquals("closeCriticalHostChannel();", lines[previous].trim(),
-                        name + " abort at handler line " + (i + 1) + " is silent");
-            }
+    private static void assertClientHandlerCloses(String source, String method,
+            String nextMethod, String phase) {
+        int start = source.indexOf("private void " + method + "(");
+        int end = source.indexOf("private ", start + 1);
+        if (nextMethod != null) {
+            int namedEnd = source.indexOf("private ", source.indexOf(nextMethod, start));
+            if (namedEnd > start) end = namedEnd;
         }
-        assertTrue(aborts >= minimumAborts, name + " coverage unexpectedly shrank");
-        assertTrue(source.substring(start, end).matches(
-                "(?s).*catch \\(Exception [a-zA-Z]+\\) \\{.*closeCriticalHostChannel\\(\\);.*"),
-                name + " unexpected exception must close the host channel");
+        assertTrue(start >= 0 && end > start, method + " handler not found");
+        String handler = source.substring(start, end);
+        assertTrue(handler.contains("catch (Exception failure)"));
+        assertTrue(handler.contains("failClientCriticalHostCommand(\"" + phase + "\", failure)"),
+                phase + " failures must close the authenticated host channel");
     }
 
     private static int count(String text, String token) {

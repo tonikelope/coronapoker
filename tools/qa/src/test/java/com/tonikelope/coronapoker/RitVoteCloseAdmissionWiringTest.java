@@ -12,13 +12,11 @@ class RitVoteCloseAdmissionWiringTest {
     @Test
     void clientParsesAndAdmitsTheCanonicalResultOnlyOncePerHand() throws IOException {
         Path root = locateRoot();
-        String waitingRoom = Files.readString(root.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java"));
         String crupier = Files.readString(root.resolve(
                 "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
 
-        assertTrue(waitingRoom.contains("RitVoteCloseEnvelope.parse(partes_comando)"));
-        assertTrue(waitingRoom.contains("acceptRitVoteCloseOnce(result.agreed())"));
+        assertTrue(crupier.contains("RitVoteCloseEnvelope.parse("));
+        assertTrue(crupier.contains("acceptRitVoteCloseOnce(result.agreed())"));
         assertTrue(crupier.contains("public synchronized void acceptRitVoteCloseOnce(boolean agreed)"));
         assertTrue(crupier.contains("RIT_VOTE_CLOSE overrides this client's vote"));
         assertTrue(crupier.contains("this.rit_vote_close_received = false;"));

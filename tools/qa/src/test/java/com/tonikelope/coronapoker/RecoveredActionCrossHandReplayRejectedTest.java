@@ -15,7 +15,7 @@ public class RecoveredActionCrossHandReplayRejectedTest {
                 CanonicalActionRecord.STREET_PREFLOP,
                 CanonicalActionRecord.ACTION_FOLD, 0L, false, true);
         assertFalse(Crupier.recoveredActionBindsToRecordWithState(
-                record, Player.FOLD, 0d, "alice", handB,
+                record, com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, 0d, "alice", handB,
                 0d, 100d, 0d));
     }
 }

@@ -1,7 +1,9 @@
 package com.tonikelope.coronapoker.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Properties;
@@ -82,6 +84,52 @@ final class BlindStructureCatalogTest {
                         entry("Duplicada", 2, 4))));
 
         assertEquals(before, properties);
+    }
+
+    @Test
+    void validatesNamesWithTheGoldLengthAndControlCharacterRules() {
+        assertTrue(BlindStructureCatalog.isValidName("Casa"));
+        assertTrue(BlindStructureCatalog.isValidName("  Turbo 6-max  "));
+        assertFalse(BlindStructureCatalog.isValidName(null));
+        assertFalse(BlindStructureCatalog.isValidName(""));
+        assertFalse(BlindStructureCatalog.isValidName("   "));
+        assertFalse(BlindStructureCatalog.isValidName("bad\nname"));
+        assertFalse(BlindStructureCatalog.isValidName(
+                "x".repeat(BlindStructureCatalog.MAX_NAME_LENGTH + 1)));
+    }
+
+    @Test
+    void roundTripsFractionalWholeAndLargeBlindValues() {
+        Properties properties = new Properties();
+        BlindStructureCatalog.writeTo(properties, List.of(
+                entry("Mixed", 0.05, 0.10, 0.5, 1, 1_000, 2_000)));
+
+        assertEquals("0.05/0.1,0.5/1,1000/2000",
+                properties.getProperty("blind_structure.0.levels"));
+        BlindStructureCatalog.Entry restored =
+                BlindStructureCatalog.read(properties).get(0);
+        assertEquals(List.of(
+                new BlindStructureCatalog.BlindLevel(0.05, 0.10),
+                new BlindStructureCatalog.BlindLevel(0.5, 1),
+                new BlindStructureCatalog.BlindLevel(1_000, 2_000)),
+                restored.levels());
+    }
+
+    @Test
+    void clampsAbsurdCountsAndKeepsTheFirstDuplicate() {
+        Properties properties = new Properties();
+        properties.setProperty(BlindStructureCatalog.COUNT_KEY, "100000");
+        properties.setProperty(BlindStructureCatalog.PREFIX + "0.name", "Casa");
+        properties.setProperty(BlindStructureCatalog.PREFIX + "0.levels", "25/50");
+        properties.setProperty(BlindStructureCatalog.PREFIX + "1.name", "Casa");
+        properties.setProperty(BlindStructureCatalog.PREFIX + "1.levels", "50/100");
+
+        List<BlindStructureCatalog.Entry> entries =
+                BlindStructureCatalog.read(properties);
+
+        assertEquals(1, entries.size());
+        assertEquals("Casa", entries.get(0).name());
+        assertEquals(25, entries.get(0).levels().get(0).smallBlind());
     }
 
     private static BlindStructureCatalog.Entry entry(String name,

@@ -8,7 +8,7 @@
  */
 package com.tonikelope.coronapoker.net;
 
-import com.tonikelope.coronapoker.WireFrame;
+import com.tonikelope.coronapoker.core.network.WireFrameCodec;
 import com.tonikelope.coronapoker.Helpers;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * AAA tests for {@link WireFrame}: the binary frame codec and the combined
+ * AAA tests for {@link WireFrameCodec}: the binary frame codec and the combined
  * text-line / binary-frame reader that lets both forms share one socket stream.
  *
  * Covers: binary roundtrip across edge sizes and adversarial byte content,
@@ -46,8 +46,8 @@ class WireFrameTest {
     // ---- binary roundtrip ----
     private static byte[] roundTripBinary(byte[] body) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        WireFrame.writeBinary(out, body);
-        WireFrame.Result r = WireFrame.read(new ByteArrayInputStream(out.toByteArray()), CAP);
+        WireFrameCodec.writeBinary(out, body);
+        WireFrameCodec.Frame r = WireFrameCodec.read(new ByteArrayInputStream(out.toByteArray()), CAP);
         assertTrue(r.isBinary(), "must decode as BINARY");
         return r.binary();
     }
@@ -86,7 +86,7 @@ class WireFrameTest {
         // 0x00 sentinel + big-endian length way over a tiny cap, no body bytes.
         byte[] framed = {0x00, 0x00, 0x10, 0x00, 0x00}; // len = 0x00100000 = 1 MiB
         IOException ex = assertThrows(IOException.class,
-                () -> WireFrame.read(new ByteArrayInputStream(framed), 1024));
+                () -> WireFrameCodec.read(new ByteArrayInputStream(framed), 1024));
         assertTrue(ex.getMessage().contains("DoS guard"), ex.getMessage());
     }
 
@@ -95,7 +95,7 @@ class WireFrameTest {
     void negativeLengthRejected() {
         byte[] framed = {0x00, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF};
         IOException ex = assertThrows(IOException.class,
-                () -> WireFrame.read(new ByteArrayInputStream(framed), CAP));
+                () -> WireFrameCodec.read(new ByteArrayInputStream(framed), CAP));
         assertTrue(ex.getMessage().contains("DoS guard"), ex.getMessage());
     }
 
@@ -104,7 +104,7 @@ class WireFrameTest {
     void truncatedLength() {
         byte[] framed = {0x00, 0x00, 0x10}; // only 2 of 4 length bytes
         assertThrows(IOException.class,
-                () -> WireFrame.read(new ByteArrayInputStream(framed), CAP));
+                () -> WireFrameCodec.read(new ByteArrayInputStream(framed), CAP));
     }
 
     @Test
@@ -113,7 +113,7 @@ class WireFrameTest {
         // len says 10 but only 5 body bytes follow
         byte[] framed = {0x00, 0x00, 0x00, 0x00, 0x0A, 1, 2, 3, 4, 5};
         assertThrows(IOException.class,
-                () -> WireFrame.read(new ByteArrayInputStream(framed), CAP));
+                () -> WireFrameCodec.read(new ByteArrayInputStream(framed), CAP));
     }
 
     // ---- back-to-back and mixed framing ----
@@ -121,32 +121,32 @@ class WireFrameTest {
     @DisplayName("two binary frames back to back read independently")
     void twoBinaryFrames() throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        WireFrame.writeBinary(out, new byte[]{1, 2, 3});
-        WireFrame.writeBinary(out, new byte[]{4, 5, 6, 7});
+        WireFrameCodec.writeBinary(out, new byte[]{1, 2, 3});
+        WireFrameCodec.writeBinary(out, new byte[]{4, 5, 6, 7});
         InputStream in = new ByteArrayInputStream(out.toByteArray());
-        assertArrayEquals(new byte[]{1, 2, 3}, WireFrame.read(in, CAP).binary());
-        assertArrayEquals(new byte[]{4, 5, 6, 7}, WireFrame.read(in, CAP).binary());
-        assertNull(WireFrame.read(in, CAP), "clean EOF after last frame");
+        assertArrayEquals(new byte[]{1, 2, 3}, WireFrameCodec.read(in, CAP).binary());
+        assertArrayEquals(new byte[]{4, 5, 6, 7}, WireFrameCodec.read(in, CAP).binary());
+        assertNull(WireFrameCodec.read(in, CAP), "clean EOF after last frame");
     }
 
     @Test
     @DisplayName("binary, then text line, then binary — all decode in order")
     void mixedFraming() throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        WireFrame.writeBinary(out, new byte[]{(byte) 0xAB, (byte) 0xCD});
+        WireFrameCodec.writeBinary(out, new byte[]{(byte) 0xAB, (byte) 0xCD});
         out.write("*SGVsbG8=\n".getBytes(StandardCharsets.ISO_8859_1));
-        WireFrame.writeBinary(out, new byte[]{(byte) 0xEF});
+        WireFrameCodec.writeBinary(out, new byte[]{(byte) 0xEF});
         InputStream in = new ByteArrayInputStream(out.toByteArray());
 
-        WireFrame.Result a = WireFrame.read(in, CAP);
+        WireFrameCodec.Frame a = WireFrameCodec.read(in, CAP);
         assertTrue(a.isBinary());
         assertArrayEquals(new byte[]{(byte) 0xAB, (byte) 0xCD}, a.binary());
 
-        WireFrame.Result b = WireFrame.read(in, CAP);
+        WireFrameCodec.Frame b = WireFrameCodec.read(in, CAP);
         assertTrue(b.isText());
         assertEquals("*SGVsbG8=", b.text());
 
-        WireFrame.Result c = WireFrame.read(in, CAP);
+        WireFrameCodec.Frame c = WireFrameCodec.read(in, CAP);
         assertTrue(c.isBinary());
         assertArrayEquals(new byte[]{(byte) 0xEF}, c.binary());
     }
@@ -186,8 +186,8 @@ class WireFrameTest {
         byte[] body = new byte[5000];
         new Random(99).nextBytes(body);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        WireFrame.writeBinary(out, body);
-        WireFrame.Result r = WireFrame.read(new DripInputStream(out.toByteArray()), CAP);
+        WireFrameCodec.writeBinary(out, body);
+        WireFrameCodec.Frame r = WireFrameCodec.read(new DripInputStream(out.toByteArray()), CAP);
         assertArrayEquals(body, r.binary());
     }
 
@@ -210,7 +210,7 @@ class WireFrameTest {
                     try {
                         // Callers hold the per-stream write lock; mirror that here.
                         synchronized (out) {
-                            WireFrame.writeBinary(out, body);
+                            WireFrameCodec.writeBinary(out, body);
                         }
                     } catch (IOException ex) {
                         throw new RuntimeException(ex);
@@ -228,8 +228,8 @@ class WireFrameTest {
         // Every frame must be a clean 64-byte run of a single tag.
         InputStream in = new ByteArrayInputStream(out.toByteArray());
         int[] counts = new int[writers];
-        WireFrame.Result r;
-        while ((r = WireFrame.read(in, CAP)) != null) {
+        WireFrameCodec.Frame r;
+        while ((r = WireFrameCodec.read(in, CAP)) != null) {
             byte[] body = r.binary();
             assertEquals(64, body.length, "frame body length intact");
             byte tag = body[0];
@@ -252,7 +252,7 @@ class WireFrameTest {
     }
 
     private static String frameLine(String wire, int cap) throws IOException {
-        WireFrame.Result r = WireFrame.read(
+        WireFrameCodec.Frame r = WireFrameCodec.read(
                 new ByteArrayInputStream(wire.getBytes(StandardCharsets.ISO_8859_1)), cap);
         return r == null ? null : r.text();
     }
@@ -308,11 +308,11 @@ class WireFrameTest {
         InputStream frameIn = new ByteArrayInputStream(wire.getBytes(StandardCharsets.ISO_8859_1));
         for (int i = 0; i < 3; i++) {
             String a = Helpers.readBoundedLine(reference, CAP);
-            WireFrame.Result b = WireFrame.read(frameIn, CAP);
+            WireFrameCodec.Frame b = WireFrameCodec.read(frameIn, CAP);
             assertEquals(a, b.text(), "line " + i);
             assertTrue(b.isText());
         }
-        assertNull(WireFrame.read(frameIn, CAP), "EOF after 3 lines");
+        assertNull(WireFrameCodec.read(frameIn, CAP), "EOF after 3 lines");
     }
 
     @Test

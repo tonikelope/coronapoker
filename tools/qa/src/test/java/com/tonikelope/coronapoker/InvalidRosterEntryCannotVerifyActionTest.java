@@ -10,7 +10,7 @@ public class InvalidRosterEntryCannotVerifyActionTest {
         java.security.KeyPair announced = IdentitySubstitutionPoc.keyPair();
         byte[] raw = IdentitySubstitutionPoc.rawPublicKey(announced);
 
-        assertFalse(IdentityManager.verifyJoin(IdentitySubstitutionPoc.SESSION_ID,
+        assertFalse(TestPlayerIdentity.verifyJoin(IdentitySubstitutionPoc.SESSION_ID,
                 IdentitySubstitutionPoc.HONEST_NICK, raw, new byte[64]));
     }
 }

@@ -30,13 +30,13 @@ final class ProtocolExitRecoverySimulationTest {
     private static final String HOST = "recovery-host";
     private static final String CLIENT = "recovery-client";
 
-    private static IdentityManager hostIdentity;
-    private static IdentityManager clientIdentity;
+    private static TestPlayerIdentity hostIdentity;
+    private static TestPlayerIdentity clientIdentity;
 
     @BeforeAll
     static void identities() {
-        hostIdentity = IdentityManager.initializeForNick(HOST);
-        clientIdentity = IdentityManager.initializeForNick(CLIENT);
+        hostIdentity = TestPlayerIdentity.initializeForNick(HOST);
+        clientIdentity = TestPlayerIdentity.initializeForNick(CLIENT);
         assertTrue(hostIdentity.isReady(), hostIdentity.getLoadError());
         assertTrue(clientIdentity.isReady(), clientIdentity.getLoadError());
     }
@@ -79,10 +79,10 @@ final class ProtocolExitRecoverySimulationTest {
 
         String reason = "peer.community_unlock_no_testament";
         String encodedReason = b64(reason.getBytes(StandardCharsets.UTF_8));
-        assertEquals(reason, MisdealWire.parse(
-                new String[]{"GAME", "41", "MISDEAL", encodedReason}));
-        assertThrows(IllegalArgumentException.class, () -> MisdealWire.parse(
-                new String[]{"GAME", "41", "MISDEAL", encodedReason + "="}));
+        assertEquals(reason, MisdealWire.parseClientCommand(
+                new String[]{"MISDEAL", encodedReason}));
+        assertThrows(IllegalArgumentException.class, () -> MisdealWire.parseClientCommand(
+                new String[]{"MISDEAL", encodedReason + "="}));
     }
 
     @Test
@@ -114,7 +114,7 @@ final class ProtocolExitRecoverySimulationTest {
         byte[] signature = clientIdentity.signAction(record);
         uninterrupted.absorb(record, signature);
 
-        String recoveredWire = RecoveredActionCodec.encodeV1(CLIENT, Player.BET, 1.25d,
+        String recoveredWire = RecoveredActionCodec.encodeV1(CLIENT, com.tonikelope.coronapoker.core.game.GamePlayerController.BET, 1.25d,
                 b64(record), b64(signature));
         RecoveryActionReceiveState actionReceive = new RecoveryActionReceiveState();
         actionReceive.acceptFrame("GAME#41#ACTIONDATA#"
@@ -125,7 +125,7 @@ final class ProtocolExitRecoverySimulationTest {
         assertTrue(decoded.isOk(), String.valueOf(decoded.error()));
         assertEquals(CLIENT, decoded.value().actor());
         assertEquals(125L, decoded.value().amountCents());
-        assertTrue(IdentityManager.verifyAction(clientIdentity.getPublicKey(),
+        assertTrue(TestPlayerIdentity.verifyAction(clientIdentity.getPublicKey(),
                 decoded.value().record(), decoded.value().signature()));
 
         HandStateChain recovered = genesis.startChain();
@@ -153,7 +153,7 @@ final class ProtocolExitRecoverySimulationTest {
                 0L, false, true);
         byte[] signature = clientIdentity.signAction(record);
         record[CanonicalActionRecord.OFFSET_FLAGS] ^= 1;
-        assertFalse(IdentityManager.verifyAction(clientIdentity.getPublicKey(), record, signature));
+        assertFalse(TestPlayerIdentity.verifyAction(clientIdentity.getPublicKey(), record, signature));
         assertArrayEquals(before, chain.getCurrentHash());
         assertEquals(0, chain.getAbsorbedActions());
     }

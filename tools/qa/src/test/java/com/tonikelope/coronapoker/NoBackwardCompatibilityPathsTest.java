@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import org.junit.jupiter.api.Test;
 
 class NoBackwardCompatibilityPathsTest {
@@ -16,7 +17,6 @@ class NoBackwardCompatibilityPathsTest {
     @Test
     void oldWireAndPersistenceAdaptersAreAbsent() {
         assertFalse(hasMethod(Crupier.class, "canonicalLegacyRemoteRebuyAmount"));
-        assertFalse(hasMethod(GameFrame.class, "migrateSplitAnimationPrefs"));
         assertFalse(hasMethod(SettlementRecord.class, "encode", byte[].class,
                 java.util.List.class, long.class));
         assertFalse(hasMethod(SettlementRecord.class, "amountsBalance",
@@ -32,8 +32,10 @@ class NoBackwardCompatibilityPathsTest {
 
     @Test
     void obsoleteAliasesAreNotInterpretedAndSeedShapesAreRejected() {
-        assertEquals(Bot.Difficulty.MEDIUM,
-                GamePreset.Settings.parse("DIFF=EXPERT").difficulty);
+        String wire = new NewGameTableDraft().snapshot().serializeForWire()
+                .replace("DIFF=MEDIUM", "DIFF=EXPERT");
+        assertThrows(IllegalArgumentException.class,
+                () -> NewGameTableDraft.Settings.parseWire(wire));
         assertThrows(RuntimeException.class,
                 () -> DeterministicShuffle.shufflePermutation(52, new byte[32]));
     }
@@ -72,7 +74,7 @@ class NoBackwardCompatibilityPathsTest {
         String crupier = Files.readString(projectRoot().resolve(
                 "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
         assertFalse(crupier.contains("action[1] = partes[6]"));
-        assertFalse(crupier.contains("new Object[]{Player.ALLIN, \"\", null}"));
+        assertFalse(crupier.contains("new Object[]{com.tonikelope.coronapoker.core.game.GamePlayerController.ALLIN, \"\", null}"));
         assertTrue(crupier.contains("action[1] = wireActionAmount"));
         assertTrue(crupier.contains("action[2] = partes[6]"));
     }

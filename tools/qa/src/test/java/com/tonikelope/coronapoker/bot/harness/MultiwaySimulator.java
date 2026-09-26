@@ -10,9 +10,7 @@ package com.tonikelope.coronapoker.bot.harness;
 
 import com.tonikelope.coronapoker.Bot;
 import com.tonikelope.coronapoker.Crupier;
-import com.tonikelope.coronapoker.GameFrame;
 import com.tonikelope.coronapoker.Helpers;
-import com.tonikelope.coronapoker.Player;
 import com.tonikelope.coronapoker.bot.eval.BotEvaluator;
 import java.security.SecureRandom;
 import java.util.ArrayList;
@@ -54,7 +52,6 @@ public final class MultiwaySimulator {
         if (Helpers.CSPRNG_GENERATOR == null) {
             Helpers.CSPRNG_GENERATOR = new SecureRandom();
         }
-        GameFrame.CIEGA_PEQUEÑA = 1.0f;
     }
 
     /**
@@ -371,7 +368,7 @@ public final class MultiwaySimulator {
             double toCall = currentBet - players[toAct].getBet();
             int street = dealer.getStreet();
 
-            if (decision == Player.FOLD) {
+            if (decision == com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD) {
                 if (toCall <= 0f) {
                     // "FOLD" with nothing to call → treat as check (no state change).
                     needToAct.remove(toAct);
@@ -385,7 +382,7 @@ public final class MultiwaySimulator {
                         recordPostflopFold(toAct);
                     }
                 }
-            } else if (decision == Player.CHECK) {
+            } else if (decision == com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK) {
                 if (toCall > 0f) {
                     double pay = Math.min(toCall, players[toAct].getStack());
                     chargeBet(players[toAct], pay);
@@ -399,7 +396,7 @@ public final class MultiwaySimulator {
                     recordPostflopCheck(toAct);
                 }
                 needToAct.remove(toAct);
-            } else if (decision == Player.BET) {
+            } else if (decision == com.tonikelope.coronapoker.core.game.GamePlayerController.BET) {
                 double newBet = bots[toAct].getBetSize();
                 double maxAffordable = players[toAct].getBet() + players[toAct].getStack();
                 if (newBet > maxAffordable) {

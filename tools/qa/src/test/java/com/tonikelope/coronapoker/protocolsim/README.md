@@ -10,7 +10,7 @@ For a new regression, first use the layer selector in [Adding tests and
 real-game scenarios](../../../../../../../../../docs/ADDING_TEST_SCENARIOS.md).
 Add a case here when high-volume deterministic protocol/domain coverage is the
 claim; use the real-game E2E path when the defect depends on production
-`Crupier`, Swing, sockets or recovery orchestration.
+`Crupier`, GDX, sockets or recovery orchestration.
 
 Run from the repository root. The script uses the Maven reactor, so it always
 compiles and tests the current checkout rather than a possibly stale installed
@@ -99,11 +99,11 @@ thresholds with hard per-hand conservation, liveness and validity invariants.
 
 ## Not covered by this headless campaign alone
 
-The repository also provides `tools/qa/real-game-e2e.cmd`. That separate
-layer launches production Swing peers in isolated JVMs and drives real encrypted
-sockets, `WaitingRoomFrame`, `Crupier.run()`, `rondaApuestas()`, SRA, consensus
-and SQLite. It covers normal/raise/all-in/RIT/straddle games, EXIT/MISDEAL,
-pause/reconnect and multiple recovery/roster transitions. Do not infer those
+The repository also provides `tools/qa/gdx-scenarios.cmd`. That separate layer
+launches production GDX peers in isolated JVMs and drives real encrypted
+sockets, the native lobby, `Crupier.run()`, `rondaApuestas()`, SRA, consensus
+and SQLite. It covers normal, raise, all-in, RIT and straddle games, plus exit,
+misdeal, pause, reconnect and recovery transitions. Do not infer those
 integration guarantees from this headless campaign by itself.
 
 - Actual `Crupier` orchestration. Production bot decisions are exercised by a
@@ -117,8 +117,8 @@ integration guarantees from this headless campaign by itself.
   signed ledger and all fee modes are randomized above.
 - Full `Crupier` EXIT/MISDEAL/refund and recovery orchestration is covered by
   separate real-game scenarios; it is intentionally not duplicated here.
-- Real sockets, executors, Swing/EDT and lobby lifecycle are outside this
-  simulator and belong to the real-game E2E layer.
+- Real sockets, executors, GDX render-loop activity and lobby lifecycle are
+  outside this simulator and belong to the multiprocess GDX layer.
 
 Those items are added incrementally by composing or extracting production
 components; protocol logic must not be copied into a parallel implementation.

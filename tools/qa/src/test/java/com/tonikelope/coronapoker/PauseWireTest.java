@@ -43,22 +43,12 @@ public class PauseWireTest {
     @Test
     void invalidPauseClosesInsteadOfBeingAcknowledgedAndDropped() throws Exception {
         Path root = locateRoot();
-        String participant = Files.readString(root.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/Participant.java")).replace("\r\n", "\n");
-        int hostCase = participant.indexOf("case \"PAUSE\":");
-        int hostEnd = participant.indexOf("case \"IWTSTH\":", hostCase);
-        String host = participant.substring(hostCase, hostEnd);
-        assertTrue(host.contains("PauseWire.parseClientRequest(partes_comando)"));
-        assertTrue(host.contains("exitAndCloseSocket()"));
-
-        String waiting = Files.readString(root.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java")).replace("\r\n", "\n");
-        int clientCase = waiting.indexOf("case \"PAUSE\":", waiting.indexOf("if (isPartida_empezada())"));
-        int clientEnd = waiting.indexOf("case \"SHUFFLE_TURN\":", clientCase);
-        String client = waiting.substring(clientCase, clientEnd);
-        assertTrue(client.contains("PauseWire.parseHostRelay(partes_comando)"));
-        assertTrue(client.contains("closeCriticalHostChannel()"));
-        assertFalse(client.contains("partes_comando.length >= 5"), "legacy owner fallback remains");
+        String factory = Files.readString(root.resolve(
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/CoreGameTableFactory.java")).replace("\r\n", "\n");
+        assertTrue(factory.contains("PauseWire.parseClientRequest(fields)"));
+        assertTrue(factory.contains("PauseWire.parseHostRelay(fields)"));
+        assertTrue(factory.contains("catch (RuntimeException invalid) {\n                context.channel().close();"));
+        assertFalse(factory.contains("parts.length >= 5"), "legacy owner fallback remains");
     }
 
     private static Path locateRoot() {

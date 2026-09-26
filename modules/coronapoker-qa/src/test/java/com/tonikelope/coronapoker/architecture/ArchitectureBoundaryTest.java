@@ -30,24 +30,18 @@ final class ArchitectureBoundaryTest {
     }
 
     @Test
-    void frontendsDependOnlyTowardCore() throws IOException {
+    void gdxDependsOnlyTowardCore() throws IOException {
         String corePom = read("coronapoker-core/pom.xml");
-        String swingPom = read("coronapoker-swing/pom.xml");
         String gdxPom = read("coronapoker-gdx/pom.xml");
 
         assertFalse(corePom.contains("coronapoker-swing"));
         assertFalse(corePom.contains("coronapoker-gdx"));
-        assertFalse(swingPom.contains("gdx-backend"));
         assertFalse(gdxPom.contains("coronapoker-swing"));
-        assertTrue(swingPom.contains("<artifactId>coronapoker-core</artifactId>"));
         assertTrue(gdxPom.contains("<artifactId>coronapoker-core</artifactId>"));
         assertFalse(corePom.contains("build-helper-maven-plugin"));
-        assertFalse(swingPom.contains("build-helper-maven-plugin"));
         assertFalse(corePom.contains("<includes>"));
-        assertFalse(swingPom.contains("com/tonikelope/coronapoker/core/**"));
-        assertFalse(swingPom.contains("com/tonikelope/coronapoker/table/**"));
         assertTrue(Files.isDirectory(reactor.resolve("coronapoker-core/src/main/java")));
-        assertTrue(Files.isDirectory(reactor.resolve("coronapoker-swing/src/main/java")));
+        assertTrue(Files.isDirectory(reactor.resolve("coronapoker-gdx/src/main/java")));
     }
 
     @Test
@@ -66,7 +60,6 @@ final class ArchitectureBoundaryTest {
 
         List<Path> roots = List.of(
                 reactor.resolve("coronapoker-core/src/main/java"),
-                reactor.resolve("coronapoker-swing/src/main/java"),
                 reactor.resolve("coronapoker-gdx/src/main/java"));
         Set<String> seen = new java.util.HashSet<>();
         for (Path root : roots) {
@@ -211,13 +204,9 @@ final class ArchitectureBoundaryTest {
     }
 
     @Test
-    void bothLaunchersUseTheSharedBootstrap() throws IOException {
-        String swingLauncher = Files.readString(
-                reactor.resolve("coronapoker-swing/src/main/java/com/tonikelope/coronapoker/swing/SwingLauncher.java").normalize(),
-                StandardCharsets.UTF_8);
+    void gdxLauncherUsesTheSharedBootstrap() throws IOException {
         String gdxLauncher = read("coronapoker-gdx/src/main/java/com/tonikelope/coronapoker/gdx/GdxLauncher.java");
 
-        assertTrue(swingLauncher.contains("CoronaPokerBootstrap.createApplication()"));
         assertTrue(gdxLauncher.contains("CoronaPokerBootstrap.createApplication()"));
         assertTrue(gdxLauncher.contains("new GdxApplicationShell"));
         assertTrue(gdxLauncher.contains("new Lwjgl3Application"));

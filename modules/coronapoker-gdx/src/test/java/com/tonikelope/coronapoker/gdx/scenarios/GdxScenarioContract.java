@@ -4,11 +4,12 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * GDX-owned copy of the production-loopback scenario catalogue.
+ * GDX-owned executable mapping of the historical Swing GOLD scenario catalogue.
  *
- * <p>The Swing suite is the immutable behavioural reference.  This catalogue
- * deliberately lives in the GDX test tree so GDX coverage can grow without
- * changing the reference suite or weakening one of its contracts.</p>
+ * <p>The immutable baseline is stored in
+ * {@code tools/qa/reference/swing-gold-scenarios.tsv}. This executable mapping
+ * deliberately lives in the GDX test tree so coverage can grow without
+ * weakening or silently dropping a historical GOLD contract.</p>
  */
 final class GdxScenarioContract {
 
@@ -89,40 +90,57 @@ final class GdxScenarioContract {
             Map.entry("mixed-exit-crash", Set.of(
                     "mixedControlledExitAndCrashPreserveTheWitnessAndLedger")),
             Map.entry("crash-rejoin-recover", Set.of(
-                    "crashedPeerRejoinsTheRecoverableGameAndCompletesTheNextHand")),
+                    "crashedPeerRejoinsTheRecoverableGameAndCompletesTheNextHand",
+                    "crashRejoinRecoveryRestartsTheSameGdxPeerAndCompletesHandTwo")),
             Map.entry("force-recover", Set.of(
                     "forceRecoverRebuildsTheNetworkTableAndCompletesTwoHands",
+                    "forceRecoveryRebuildsBothGdxProcessesAndCompletesTwoHands",
                     "nativeGdxRecoveryReplaysTheRecordedLocalActionAndClosesItsOverlay")),
             Map.entry("double-force-recover", Set.of(
-                    "doubleForceRecoverRebuildsHandsOneAndThreeAndCompletesFourHands")),
+                    "doubleForceRecoverRebuildsHandsOneAndThreeAndCompletesFourHands",
+                    "doubleForceRecoveryRebuildsBothGdxProcessesAtHandsOneAndThree")),
             Map.entry("reconnect-force-recover", Set.of(
-                    "reconnectOverlappingForceRecoveryConvergesAcrossEveryGdxPeer")),
+                    "reconnectOverlappingForceRecoveryConvergesAcrossEveryGdxPeer",
+                    "reconnectAndForceRecoveryConvergeAcrossIndependentGdxProcesses")),
             Map.entry("force-recover-add-client", Set.of(
-                    "forceRecoveryAdmitsNewGdxClientForFreshSecondHand")),
+                    "forceRecoveryAdmitsNewGdxClientForFreshSecondHand",
+                    "forceRecoveryAdmitsNewIndependentGdxProcessForFreshSecondHand")),
             Map.entry("force-recover-add-two", Set.of(
-                    "forceRecoveryAdmitsTwoNewGdxClientsForFreshSecondHand")),
+                    "forceRecoveryAdmitsTwoNewGdxClientsForFreshSecondHand",
+                    "forceRecoveryAdmitsTwoNewIndependentGdxProcessesForSecondHand")),
             Map.entry("force-recover-swap-client", Set.of(
-                    "forceRecoveryReplacesMissingClientAndStartsFreshSecondHand")),
+                    "forceRecoveryReplacesMissingClientAndStartsFreshSecondHand",
+                    "forceRecoveryReplacesMissingIndependentGdxProcessForSecondHand")),
             Map.entry("spectator-rebuy-cycle", Set.of(
                     "bustedGdxHumanSpectatesThenRebuysAndReturnsToTheActiveRing",
-                    "nativeGdxSpectatorChoiceReleasesTheRealNetworkDealerEvenWhenAudioCallbackIsLost")),
+                    "nativeGdxSpectatorChoiceReleasesTheRealNetworkDealerEvenWhenAudioCallbackIsLost",
+                    "spectatorRebuyCycleReturnsBustedIndependentGdxProcessToPlay")),
             Map.entry("spectator-recovery-mix", Set.of(
-                    "spectatorsSurviveRecoveryRebuyAndTwoNewHumansJoining")),
+                    "spectatorsSurviveRecoveryRebuyAndTwoNewHumansJoining",
+                    "spectatorsSurviveRecoveryRebuyAndTwoNewIndependentGdxProcesses")),
             Map.entry("bot-bust-recover-regrow", Set.of(
-                    "bustedBotRegrowsAtTheRecoveredHandBoundary")),
+                    "bustedBotRegrowsAtTheRecoveredHandBoundary",
+                    "bustedBotRegrowsAcrossIndependentGdxProcessesAfterRecovery")),
             Map.entry("bot-bust-recover-drop", Set.of(
-                    "bustedBotDropsFromTheRecoveredActiveRing")),
+                    "bustedBotDropsFromTheRecoveredActiveRing",
+                    "bustedBotDropsAcrossIndependentGdxProcessesAfterRecovery")),
             Map.entry("human-bust-exit-rejoin-rebuy", Set.of(
-                    "bustedHumanExitsRejoinsWithSameIdentityAndRebuysAfterRecovery")),
+                    "bustedHumanExitsRejoinsWithSameIdentityAndRebuysAfterRecovery",
+                    "bustedHumanExitsRejoinsWithSameIdentityAcrossIndependentGdxProcesses")),
             Map.entry("spectator-double-recovery-crash-mix", Set.of(
-                    "spectatorsAndNewcomersSurviveTwoRecoveriesAndARealClientCrash")),
+                    "spectatorsAndNewcomersSurviveTwoRecoveriesAndARealClientCrash",
+                    "spectatorDoubleRecoveryCrashMixRunsAcrossIndependentGdxProcesses")),
             Map.entry("transport-chaos", Set.of(
-                    "transportChaosConvergesAfterDualCutRelapsePauseRecoveryAndLaterCut")),
+                    "transportChaosConvergesAfterDualCutRelapsePauseRecoveryAndLaterCut",
+                    "transportChaosConvergesAcrossIndependentGdxProcesses")),
             Map.entry("lifecycle-chaos", Set.of(
-                    "lifecycleChaosConvergesAcrossReconnectPauseAndTwoRecoveryCycles")),
+                    "lifecycleChaosConvergesAcrossReconnectPauseAndTwoRecoveryCycles",
+                    "lifecycleChaosConvergesAcrossIndependentGdxProcesses")),
             Map.entry("rit-network-cut", Set.of(
+                    "runItTwiceVoteSurvivesNetworkCutAcrossGdxProcesses",
                     "nativeGdxRunItTwiceVoteSurvivesReconnectBeforeTheDelayedFinalVote")),
             Map.entry("straddle-network-cut", Set.of(
+                    "straddleAcceptedResponseSurvivesNetworkCutAcrossGdxProcesses",
                     "nativeGdxStraddleAcceptedResponseSurvivesReconnectBeforeDeferredPocketDelivery")),
             Map.entry("normal", Set.of(
                     "nativeGdxCheckCallControlsCompleteARealTwoHumanHand",
@@ -141,11 +159,13 @@ final class GdxScenarioContract {
                     "allInSingleBoardCompletesWithOneBoardAndConservedBalances",
                     "nativeGdxAllInButtonArmsBeforeSubmittingTheRealCommand")),
             Map.entry("allin-rit", Set.of(
+                    "allInRunItTwiceMatchesTheSwingGoldSequenceAcrossGdxProcesses",
                     "nativeGdxAllInRunItTwiceCompletesBothBoardsAndConservesBalances")),
             Map.entry("allin-rebuy", Set.of(
                     "allInRebuyCompletesFiveHandsAndCarriesARebuyForward",
                     "nativeGdxManualRebuyKeepsBothNetworkTablesAliveForTheNextHand")),
             Map.entry("straddle-post", Set.of(
+                    "straddlePostMatchesTheSwingGoldSequenceAcrossGdxProcesses",
                     "nativeGdxStraddlePostRotatesAllThreeHumansAcrossThreeHands")),
             Map.entry("pause-resume", Set.of(
                     "pauseResumeScenarioPreservesTheDecisionAndCompletesTwoHands",

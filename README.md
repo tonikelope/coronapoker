@@ -270,7 +270,7 @@ The complete QA model, test lanes, real-game simulator, certification profiles a
 
 ## Build and certify from source
 
-Requirements: JDK 17 or newer for both building and running, and Apache Maven 3.x. Maven compiles against the Java 17 API baseline, and CI builds and tests on JDK 17.
+Requirements: JDK 17 or newer for both building and running, and Apache Maven 3.x. Maven compiles against the Java 17 API baseline, and the local certification suite builds and tests on JDK 17.
 
 For an ordinary build from a clean clone, use the product reactor. It builds
 the core, assets and GDX application and then packages one executable:
@@ -345,7 +345,7 @@ gate. No private directory or pre-existing user cache is required.
 ## 🧪 Testing & certification
 
 QA lives in the separate `tools/qa` module and is never packaged in the game
-JAR. The release workflow runs replayable tests, non-bot slow lanes, seeded
+JAR. The release certification runs replayable tests, non-bot slow lanes, seeded
 protocol campaigns and real host/client JVM scenarios first across the whole
 matrix and then under deep stress. Each run generates and records a fresh
 replayable seed unless `-Seed` is supplied:

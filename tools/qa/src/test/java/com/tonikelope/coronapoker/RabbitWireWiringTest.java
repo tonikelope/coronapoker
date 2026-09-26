@@ -13,23 +13,17 @@ public class RabbitWireWiringTest {
         Path root = locateRoot();
         String dealer = Files.readString(root.resolve(
                 "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
-        String participant = Files.readString(root.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/Participant.java"));
-        String waiting = Files.readString(root.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java"));
-        String card = Files.readString(root.resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/Card.java"));
+        String factory = Files.readString(root.resolve(
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/CoreGameTableFactory.java"));
 
         assertTrue(dealer.contains("RABBIT_REQ#"));
         assertTrue(dealer.contains("RABBIT_AUTH#"));
-        assertTrue(participant.contains("case \"RABBIT_REQ\""));
-        assertTrue(waiting.contains("case \"RABBIT_AUTH\""));
-        assertTrue(card.contains(".REQUEST_RABBIT("));
+        assertTrue(factory.contains("command.command().startsWith(\"RABBIT_REQ#\")"));
+        assertTrue(factory.contains("command.command().startsWith(\"RABBIT_AUTH#\")"));
+        assertTrue(factory.contains("dealer.REQUEST_RABBIT(local.getNickname())"));
         assertFalse(dealer.contains("RABBIT_HANDLER"));
         assertFalse(dealer.contains("\"RABBIT#\""));
-        assertFalse(participant.contains("case \"RABBIT\""));
-        assertFalse(waiting.contains("case \"RABBIT\""));
-        assertFalse(card.contains("incrementContaRabbit"));
+        assertFalse(factory.contains("incrementContaRabbit"));
     }
 
     private static Path locateRoot() {

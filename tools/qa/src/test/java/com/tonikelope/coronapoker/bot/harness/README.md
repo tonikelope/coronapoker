@@ -112,7 +112,7 @@ only by the explicit `qa-bots` profile. The deterministic evaluator adapter
 test remains in the fast lane, but statistical quality tests never do.
 
 The simulators reuse the production `Bot.java` unchanged. They do not
-hook into Swing, the GameFrame, or any networking code. Everything runs
+hook into GDX, the table scene, or any networking code. Everything runs
 inside a single JVM with seeded RNGs for reproducibility.
 
 ---

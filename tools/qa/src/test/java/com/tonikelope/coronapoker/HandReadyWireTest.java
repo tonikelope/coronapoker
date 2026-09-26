@@ -27,16 +27,28 @@ public class HandReadyWireTest {
     }
 
     @Test
-    void participantChecksBoundaryBeforeMutatingReadiness() throws Exception {
-        String source = Files.readString(locateRoot().resolve(
-                "modules/coronapoker-swing/src/main/java/com/tonikelope/coronapoker/Participant.java")).replace("\r\n", "\n");
-        int start = source.indexOf("case \"HAND_READY\":");
-        int end = source.indexOf("case \"EXIT\":", start);
+    void coreDispatcherChecksBoundaryBeforeMutatingReadiness() throws Exception {
+        Path root = locateRoot();
+        String source = Files.readString(root.resolve(
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+        int start = source.indexOf("public void acceptRemoteHandReady(");
+        int end = source.indexOf("public double getApuestas()", start);
         String handler = source.substring(start, end);
         int check = handler.indexOf("handReadyMatchesNextHand");
-        int mutation = handler.indexOf("this.new_hand_ready =");
+        int mutation = handler.indexOf("peer.setNew_hand_ready(");
         assertTrue(check >= 0 && mutation > check);
-        assertTrue(handler.contains("exitAndCloseSocket()"));
+        String factory = Files.readString(root.resolve(
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/CoreGameTableFactory.java"));
+        int dispatchStart = factory.indexOf(
+                "if (lobby.host() && command.command().startsWith(\"HAND_READY#\"))");
+        int dispatchEnd = factory.indexOf(
+                "if (!lobby.host()", dispatchStart);
+        assertTrue(dispatchStart >= 0 && dispatchEnd > dispatchStart);
+        String dispatch = factory.substring(dispatchStart, dispatchEnd);
+        int acceptance = dispatch.indexOf(
+                "dealer.acceptRemoteHandReady(command.peerNickname(), envelope)");
+        int invalidClose = dispatch.indexOf("context.channel().close()", acceptance);
+        assertTrue(acceptance >= 0 && invalidClose > acceptance);
     }
 
     private static Path locateRoot() {

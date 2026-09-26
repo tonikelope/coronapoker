@@ -10,7 +10,7 @@ regressions.
 ![Testing and certification flow](diagrams/testing-certification-flow.png)
 
 The root product reactor runs the module-level unit, architecture and frontend
-contract tests while building both applications. The extended suite lives in
+contract tests while building the GDX application. The extended suite lives in
 **`tools/qa`**, outside the shipped artifacts, and adds slow lanes, seeded
 campaigns and complete multi-process games.
 
@@ -39,10 +39,10 @@ make an earlier failing level acceptable.
 | Priority | When | Command | Required outcome |
 |---:|---|---|---|
 | 1 | While implementing or diagnosing | `mvn -f tools/reactor/pom.xml verify '-Dtest=ClassName' '-Dsurefire.failIfNoSpecifiedTests=false'` | The focused regression is green |
-| 2 | Before committing product code or build wiring | `mvn clean verify` | All product modules, architecture rules and frontend contract tests pass; both executable JARs are produced |
+| 2 | Before committing product code or build wiring | `mvn clean verify` | All product modules, architecture rules and frontend contract tests pass; the executable GDX JAR is produced |
 | 3 | Before merging ordinary code changes | `mvn -f tools/reactor/pom.xml verify` | The extended deterministic fast lane passes against the same source reactor |
 | 4 | After GDX table, lifecycle, networking or shared-core changes | `.\tools\qa\gdx-scenarios.cmd -Mode fast` | Every native GDX scenario passes once |
-| 5 | After protocol, interoperability or either frontend boundary changes | `.\tools\qa\gdx-mixed-scenarios.cmd -Mode fast` | Every mixed Swing/GDX scenario passes once |
+| 5 | After socket, process-lifecycle or recovery changes | `.\tools\qa\certify.cmd -Mode fast` | Every multiprocess GDX profile passes once |
 | 6 | Before a normal release | `.\tools\qa\certify.cmd -Mode balanced` | The release certificate ends in `CORONAPOKER CERTIFICATION PASS` |
 | 7 | Major security/protocol work, new baseline or suspected race family | `.\tools\qa\certify.cmd -Mode fast`, then `.\tools\qa\certify.cmd -Mode stress` | Both fresh-seed certificates pass in order |
 
@@ -56,11 +56,11 @@ Manual GDX inspection comes after the automated gates for rendering, audio,
 frame pacing, DPI/full-screen behavior and physical multi-machine networking.
 It complements the suites; it does not replace them.
 
-The native and mixed GDX runners use hidden windows by default, rebuild the
-current checkout, and write machine-readable summaries below
-`target/gdx-scenarios/` and `target/gdx-mixed-scenarios/`. Their `fast`,
-`balanced` and `stress` modes run each selected scenario one, two and five times
-respectively. Use `-Scenario`, `-StartAt` and `-ListOnly` for focused work.
+The GDX scenario runner uses hidden windows by default, rebuilds the current
+checkout, and writes a machine-readable summary below `target/gdx-scenarios/`.
+Its `fast`, `balanced` and `stress` modes run each selected scenario one, two
+and five times respectively. Use `-Scenario`, `-StartAt` and `-ListOnly` for
+focused work. The release certifier owns the independent-process matrix.
 
 ## Adding tests or scenarios
 
@@ -141,7 +141,7 @@ The easiest and most isolated entry point on Windows is
 `tools/qa/certify.cmd`, documented below. For direct Maven runs on any
 supported development platform, use the **opt-in QA reactor**
 (`tools/reactor/pom.xml`) with the `verify` lifecycle. The QA module depends
-directly on the current core and Swing modules, so the same reactor always
+directly on the current core and GDX modules, so the same reactor always
 tests the current checkout without a manual pre-install or version override.
 `verify` is the documented gate because it also completes packaging checks:
 
@@ -149,7 +149,7 @@ tests the current checkout without a manual pre-install or version override.
 # Fast lane. This is the default: game and all deterministic code tests (~1 min).
 # Bot-quality simulations are excluded by the slow tag.
 mvn -f tools/reactor/pom.xml verify
-# Explicit equivalent for CI/NetBeans scripts:
+# Explicit equivalent for automation or NetBeans scripts:
 mvn -f tools/reactor/pom.xml verify -P qa-fast
 
 # Bot-quality lane only (statistical; does not replace fast game tests).
@@ -172,25 +172,21 @@ mvn -f tools/reactor/pom.xml verify -P qa-release
 mvn -f tools/reactor/pom.xml verify '-Dtest=PotMathTest' '-Dsurefire.failIfNoSpecifiedTests=false'
 ```
 
-GitHub Actions generates and prints a fresh OS-random `QA_SEED`, then runs
-`mvn -B -ntp -f tools/reactor/pom.xml -P qa-release verify
-"-Dqa.sim.seed=$QA_SEED"` on every push and pull request targeting `master`,
-using Temurin Java 17 on Ubuntu 24.04. CI bounds each embedded mass campaign to one wiring case; the
-local certifier owns the high-volume seeded campaigns. It uploads
-the Surefire reports and built JARs even on failure. The Windows-only
-multi-JVM/Swing scenario matrix remains the local certification gate below;
-the Linux CI job complements it and does not claim to replace it.
+No hosted CI workflow is currently tracked. The Windows local certifier is the
+authoritative release gate and records its seed, reports and logs under
+`target/certification/`. Run it from a clean checkout before publishing a
+release; a successful ordinary Maven build is not a release certificate.
 
 ## Game simulation tools (Windows / PowerShell)
 
-One certification command composes the complete local battery. The two lower-level
-runners remain available for focused diagnosis:
+One certification command composes the complete local battery. The lower-level
+GDX and headless runners remain available for focused diagnosis:
 
 | Runner | Purpose | Production coverage |
 |---|---|---|
 | `tools/qa/certify.cmd` | Fail-fast full game certification after a code change | `qa-release`, mass headless campaigns and every real-game scenario below; bot-quality statistics are opt-in |
 | `tools/qa/headless-sim.cmd` | Fast seeded campaigns and fault injection | Protocol/domain components, SRA, signed actions, pots, Rabbit/RIT, EXIT/MISDEAL/recovery models, SQLite replay and production bots |
-| `tools/qa/real-game-e2e.cmd` | Complete local games in separate JVMs | Real encrypted sockets, `WaitingRoomFrame`, `Crupier.run()`, `rondaApuestas()`, bots, consensus and per-peer SQLite |
+| `tools/qa/gdx-scenarios.cmd` | Isolated native GDX scenario homologues | GDX controls and observations against the production core, with one fresh JVM per test |
 
 The tracked `.cmd` launchers are the public Windows entry points. They apply a
 process-local PowerShell execution-policy bypass (without changing the machine)
@@ -200,7 +196,7 @@ current options:
 ```powershell
 .\tools\qa\certify.cmd -Help
 .\tools\qa\headless-sim.cmd -Help
-.\tools\qa\real-game-e2e.cmd -Help
+.\tools\qa\gdx-scenarios.cmd -Help
 ```
 
 Typical runs:
@@ -218,74 +214,11 @@ Typical runs:
 # Fast reproducible protocol campaign.
 .\tools\qa\headless-sim.cmd -Hands 5000 -Faults 5000 -BotHands 100 -Seed 42
 
-# One host, two human-client JVMs and one host bot, three complete hands.
-# Windows stay hidden; native creation is assigned to monitor 2 first. On a
-# single-monitor machine, the runner deterministically uses the highest available monitor.
-.\tools\qa\real-game-e2e.cmd -Clients 2 -Bots 1 -Hands 3 -WindowMode hidden -Screen 2
+# Run one isolated native GDX homologue while diagnosing.
+.\tools\qa\gdx-scenarios.cmd -Scenario spectator-rebuy-cycle
 
-# Long real-socket soak (the supported range is 1..1000 hands).
-.\tools\qa\real-game-e2e.cmd -Scenario normal -Clients 2 -Bots 2 -Hands 250
-
-# Production table-size boundaries: ten fully simulated humans, or a full
-# mixed table. The host counts as one seat.
-.\tools\qa\real-game-e2e.cmd -Scenario normal -Clients 9 -Bots 0 -Hands 1
-.\tools\qa\real-game-e2e.cmd -Scenario normal -Clients 4 -Bots 5 -Hands 3
-
-# Visual diagnosis on monitor 2, optionally with animations and production timing.
-.\tools\qa\real-game-e2e.cmd -WindowMode visible -Screen 2 -Animations -ProductionTiming
-
-# Kill one client JVM during preflop and require MISDEAL + full refund + live host.
-.\tools\qa\real-game-e2e.cmd -Scenario abrupt-exit
-
-# Exercise the real voluntary EXIT testament path; the host must finish normally.
-.\tools\qa\real-game-e2e.cmd -Scenario controlled-exit
-
-# Exercise human bet/raise controls and exact signed monetary values.
-.\tools\qa\real-game-e2e.cmd -Scenario raise-mix -Clients 2 -Bots 2 -Hands 5
-
-# Force a normal single-board all-in showdown (no RIT).
-.\tools\qa\real-game-e2e.cmd -Scenario allin-single-board -Clients 1 -Bots 0
-
-# Force two all-ins and verify that the busted seat's rebuy reaches hand 2.
-.\tools\qa\real-game-e2e.cmd -Scenario allin-rebuy -Clients 1 -Bots 0 -Hands 5
-
-# Force every human seat all-in, vote RIT unanimously and settle both boards.
-# This deterministic scenario requires zero bots and exactly one hand.
-.\tools\qa\real-game-e2e.cmd -Scenario allin-rit -Clients 1 -Bots 0
-
-# Both humans go all-in; the client then exits with its production testament.
-.\tools\qa\real-game-e2e.cmd -Scenario allin-controlled-exit -Clients 1 -Bots 0
-
-# Post a signed voluntary straddle in every hand at a three-human table.
-.\tools\qa\real-game-e2e.cmd -Scenario straddle-post -Clients 2 -Bots 0 -Hands 3
-
-# Distributed pause/resume and a deliberate live socket drop/reconnect.
-.\tools\qa\real-game-e2e.cmd -Scenario pause-resume -Clients 2 -Bots 1 -Hands 2
-.\tools\qa\real-game-e2e.cmd -Scenario reconnect-midhand -Clients 2 -Bots 1 -Hands 2
-
-# Cut/reconnect at every street boundary, and combine transport faults with recovery.
-.\tools\qa\real-game-e2e.cmd -Scenario reconnect-every-street -Clients 2 -Bots 1 -Hands 4
-.\tools\qa\real-game-e2e.cmd -Scenario transport-chaos -Clients 3 -Bots 1 -Hands 5
-.\tools\qa\real-game-e2e.cmd -Scenario lifecycle-chaos -Clients 2 -Bots 1 -Hands 7
-
-# Compound faults: two simultaneous JVM deaths, mixed clean/unclean exits, or
-# an all-in peer dying before its mandatory showdown proof.
-.\tools\qa\real-game-e2e.cmd -Scenario dual-abrupt-exit -Clients 3 -Bots 1
-.\tools\qa\real-game-e2e.cmd -Scenario mixed-exit-crash -Clients 3 -Bots 1
-.\tools\qa\real-game-e2e.cmd -Scenario allin-abrupt-exit -Clients 2 -Bots 0
-
-# Stop a live hand, recover/replay it, then deal and settle a fresh next hand.
-.\tools\qa\real-game-e2e.cmd -Scenario force-recover -Clients 1 -Bots 2 -Hands 2
-
-# Repeat the full stop/rebuild/recover cycle on hands 1 and 3; hands 2 and 4
-# must be newly dealt and settled with every peer still in agreement.
-.\tools\qa\real-game-e2e.cmd -Scenario double-force-recover -Clients 1 -Bots 2 -Hands 4
-
-# Kill and relaunch the same client identity, recover, then complete a new hand.
-.\tools\qa\real-game-e2e.cmd -Scenario crash-rejoin-recover -Clients 1 -Bots 2 -Hands 2
-
-# Add a brand-new client during recovery; it observes the replay, then joins hand 2.
-.\tools\qa\real-game-e2e.cmd -Scenario force-recover-add-client -Clients 2 -Bots 2 -Hands 2
+# Resume a release certificate at a recorded profile and repetition.
+.\tools\qa\certify.cmd -Mode stress -StartAtScenario reconnect-every-street -StartAtRepeat 3 -Seed 42
 ```
 
 The complete runner executes one wiring case for each protocol campaign inside
@@ -453,7 +386,7 @@ Scenario contracts:
 The real-game runner defaults to hidden windows, disabled sound/animations and
 accelerated test timing. It preserves poker rules, signed protocol, accounting,
 settlement, recovery and player lifecycle, while the harness action driver owns
-turn input and therefore disables Swing action clocks and modal action
+turn input and therefore disables interactive action clocks and modal action
 confirmations. `-ProductionTiming`
 restores both normal pauses and real action clocks. Each peer gets a temporary isolated home,
 identity and SQLite database, removed after the run. A run is green only when
@@ -476,7 +409,7 @@ seeded generator exists only under `tools/qa/src/test` and is not packaged in th
 CoronaPoker JAR. Use different seeds across stress repetitions to explore other
 hands and races.
 Every runner also assigns a fresh Maven QA home per invocation. Persisted
-owner-only identity files are therefore never reused by a later CI, service or
+owner-only identity files are therefore never reused by a later automated run, service or
 sandbox account; failure to read a key created in the current run remains fatal.
 The exact per-run home is deleted in a guarded `finally` block on success or
 failure, while certification logs and machine-readable reports are retained.
@@ -592,7 +525,7 @@ protocol or accounting change.
 | Change or milestone | Required validation |
 |---|---|
 | Localized production fix | First reproduce it with a red regression; run that test, the affected package/classes, then `mvn -f tools/reactor/pom.xml verify -P qa-fast` |
-| Protocol, recovery, settlement, consensus or lifecycle change | The localized row above plus every directly affected `real-game-e2e.cmd` scenario; use at least the failing seed and one fresh seed |
+| Protocol, recovery, settlement, consensus or lifecycle change | The localized row above plus the affected GDX scenario and multiprocess certification profiles; use at least the failing seed and one fresh seed |
 | Shared protocol/game primitive or common harness semantics | `certify.cmd -Mode fast`; use `balanced` or `stress` as required by the release/milestone rows below |
 | Crypto/SRA change | `qa-fast`, `-P qa-crypto`, and the affected real-game shuffle/unlock scenarios |
 | Networking/framing change | `qa-fast`, `-P qa-network`, and the affected reconnect/cut/transport scenarios |
@@ -606,7 +539,7 @@ Use `quick` while iterating, targeted lanes while diagnosing, `fast` for complet
 breadth, `balanced` for an ordinary release and `stress` only when its additional
 depth is justified. Manual
 play is only a complement for genuinely visual, physical-audio,
-accessibility or real-human timing behaviour; multi-JVM Swing clients and real
+accessibility or real-human timing behaviour; multi-JVM GDX clients and real
 encrypted sockets are already automated. Manual play never replaces an
 automatable regression test.
 

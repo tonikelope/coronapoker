@@ -5,7 +5,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Objects;
 
-/** Renderer-neutral visual fingerprint shared by Swing and native frontends. */
+/** Renderer-neutral visual fingerprint consumed by the GDX frontend. */
 public final class IdenticonFingerprint {
 
     public static final int GRID_SIZE = 7;

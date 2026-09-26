@@ -1,5 +1,7 @@
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.game.CoreCardController;
+import com.tonikelope.coronapoker.core.game.GameCardController;
 import com.tonikelope.coronapoker.crypto.RistrettoSRA;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,23 +38,23 @@ class ShowdownCardIndexConversionTest {
 
     @Test
     void uiCardRangeMapsToCanonicalCryptoIndicesIncludingCard52() {
-        Card first = new Card(false);
+        GameCardController first = new CoreCardController();
         first.iniciarConValorNumerico(1);
-        Card last = new Card(false);
+        GameCardController last = new CoreCardController();
         last.iniciarConValorNumerico(52);
 
         assertEquals(0, first.getCardIndex());
         assertEquals(51, last.getCardIndex(),
                 "UI card 52 must sign and verify as canonical SRA index 51");
 
-        IdentityManager signer = IdentityManager.initializeForNick(
+        TestPlayerIdentity signer = TestPlayerIdentity.initializeForNick(
                 "__qa_showdown_index_" + System.nanoTime());
         byte[] handId = new byte[CanonicalActionRecord.HAND_ID_BYTES];
         byte[] key = new byte[32];
         byte[] signature = signer.signShowdownReveal(handId, "bot", key,
                 first.getCardIndex(), last.getCardIndex());
 
-        assertTrue(IdentityManager.verifyShowdownReveal(signer.getPublicKey(), handId,
+        assertTrue(TestPlayerIdentity.verifyShowdownReveal(signer.getPublicKey(), handId,
                 "bot", key, 0, 51, signature));
     }
 

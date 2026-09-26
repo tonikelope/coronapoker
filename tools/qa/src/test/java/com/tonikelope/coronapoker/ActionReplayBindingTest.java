@@ -47,13 +47,13 @@ class ActionReplayBindingTest {
         System.arraycopy(current, 0, record, CanonicalActionRecord.OFFSET_PREV_H, current.length);
 
         assertTrue(Crupier.recoveredActionIsSafe(
-                record, Player.BET, 40d, 10d, 100d, 20d, 20d, 10d, current));
+                record, com.tonikelope.coronapoker.core.game.GamePlayerController.BET, 40d, 10d, 100d, 20d, 20d, 10d, current));
         assertFalse(Crupier.recoveredActionIsSafe(
-                record, Player.BET, 111d, 10d, 100d, 20d, 20d, 10d, current));
+                record, com.tonikelope.coronapoker.core.game.GamePlayerController.BET, 111d, 10d, 100d, 20d, 20d, 10d, current));
 
         System.arraycopy(old, 0, record, CanonicalActionRecord.OFFSET_PREV_H, old.length);
         assertFalse(Crupier.recoveredActionIsSafe(
-                record, Player.BET, 40d, 10d, 100d, 20d, 20d, 10d, current));
+                record, com.tonikelope.coronapoker.core.game.GamePlayerController.BET, 40d, 10d, 100d, 20d, 20d, 10d, current));
     }
 
     @Test
@@ -66,25 +66,25 @@ class ActionReplayBindingTest {
                 CanonicalActionRecord.STREET_PREFLOP,
                 CanonicalActionRecord.ACTION_CHECK, 2000L, false, true);
         assertTrue(Crupier.recoveredActionBindsToRecordWithState(
-                check, Player.CHECK, 0d, "alice", hand, 10d, 100d, 20d));
+                check, com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK, 0d, "alice", hand, 10d, 100d, 20d));
 
         byte[] wrongCheckAmount = CanonicalActionRecord.encode(previous, hand, player,
                 CanonicalActionRecord.STREET_PREFLOP,
                 CanonicalActionRecord.ACTION_CHECK, 2100L, false, true);
         assertFalse(Crupier.recoveredActionBindsToRecordWithState(
-                wrongCheckAmount, Player.CHECK, 0d, "alice", hand, 10d, 100d, 20d));
+                wrongCheckAmount, com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK, 0d, "alice", hand, 10d, 100d, 20d));
 
         byte[] allIn = CanonicalActionRecord.encode(previous, hand, player,
                 CanonicalActionRecord.STREET_PREFLOP,
                 CanonicalActionRecord.ACTION_ALLIN, 11000L, true, true);
         assertTrue(Crupier.recoveredActionBindsToRecordWithState(
-                allIn, Player.ALLIN, 0d, "alice", hand, 10d, 100d, 20d));
+                allIn, com.tonikelope.coronapoker.core.game.GamePlayerController.ALLIN, 0d, "alice", hand, 10d, 100d, 20d));
 
         byte[] wrongAllInAmount = CanonicalActionRecord.encode(previous, hand, player,
                 CanonicalActionRecord.STREET_PREFLOP,
                 CanonicalActionRecord.ACTION_ALLIN, 9999L, true, true);
         assertFalse(Crupier.recoveredActionBindsToRecordWithState(
-                wrongAllInAmount, Player.ALLIN, 0d, "alice", hand, 10d, 100d, 20d));
+                wrongAllInAmount, com.tonikelope.coronapoker.core.game.GamePlayerController.ALLIN, 0d, "alice", hand, 10d, 100d, 20d));
     }
 
     private static byte[] filled(int length, byte value) {

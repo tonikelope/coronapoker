@@ -38,13 +38,13 @@ class ProtocolSqlActionReplayCampaignTest {
 
     private static final String ALICE = "sql-alice";
     private static final String BOB = "sql-bob";
-    private static IdentityManager aliceIdentity;
-    private static IdentityManager bobIdentity;
+    private static TestPlayerIdentity aliceIdentity;
+    private static TestPlayerIdentity bobIdentity;
 
     @BeforeAll
     static void identities() {
-        aliceIdentity = IdentityManager.initializeForNick(ALICE);
-        bobIdentity = IdentityManager.initializeForNick(BOB);
+        aliceIdentity = TestPlayerIdentity.initializeForNick(ALICE);
+        bobIdentity = TestPlayerIdentity.initializeForNick(BOB);
         assertTrue(aliceIdentity.isReady(), aliceIdentity.getLoadError());
         assertTrue(bobIdentity.isReady(), bobIdentity.getLoadError());
     }
@@ -67,13 +67,13 @@ class ProtocolSqlActionReplayCampaignTest {
                 List<Row> rows = new ArrayList<>();
                 for (int counter = 1; counter <= actionCount; counter++) {
                     String actor = (counter & 1) == 0 ? ALICE : BOB;
-                    IdentityManager identity = actor.equals(ALICE) ? aliceIdentity : bobIdentity;
+                    TestPlayerIdentity identity = actor.equals(ALICE) ? aliceIdentity : bobIdentity;
                     int decision = randomDecision(random);
-                    long cents = decision == Player.BET ? random.nextInt(100_001) : 0L;
+                    long cents = decision == com.tonikelope.coronapoker.core.game.GamePlayerController.BET ? random.nextInt(100_001) : 0L;
                     byte[] record = CanonicalActionRecord.encode(live.getCurrentHash(), genesis.handId,
                             CanonicalActionRecord.playerIdFromNick(actor),
                             random.nextInt(4), wireAction(decision),
-                            cents, decision == Player.ALLIN, true);
+                            cents, decision == com.tonikelope.coronapoker.core.game.GamePlayerController.ALLIN, true);
                     byte[] signature = identity.signAction(record);
                     live.absorb(record, signature);
                     rows.add(new Row(counter, actor, decision, cents,
@@ -125,9 +125,9 @@ class ProtocolSqlActionReplayCampaignTest {
                                     CanonicalActionRecord.readAmountCents(action.record()), context);
                             assertArrayEquals(CanonicalActionRecord.playerIdFromNick(expected.actor),
                                     CanonicalActionRecord.readPlayerId(action.record()), context);
-                            IdentityManager identity = action.actor().equals(ALICE)
+                            TestPlayerIdentity identity = action.actor().equals(ALICE)
                                     ? aliceIdentity : bobIdentity;
-                            assertTrue(IdentityManager.verifyAction(identity.getPublicKey(),
+                            assertTrue(TestPlayerIdentity.verifyAction(identity.getPublicKey(),
                                     action.record(), action.signature()), context);
                             assertArrayEquals(recovered.getCurrentHash(),
                                     Arrays.copyOfRange(action.record(),
@@ -194,19 +194,19 @@ class ProtocolSqlActionReplayCampaignTest {
 
     private static int randomDecision(Random random) {
         return switch (random.nextInt(4)) {
-            case 0 -> Player.FOLD;
-            case 1 -> Player.CHECK;
-            case 2 -> Player.BET;
-            default -> Player.ALLIN;
+            case 0 -> com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD;
+            case 1 -> com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK;
+            case 2 -> com.tonikelope.coronapoker.core.game.GamePlayerController.BET;
+            default -> com.tonikelope.coronapoker.core.game.GamePlayerController.ALLIN;
         };
     }
 
     private static int wireAction(int decision) {
         return switch (decision) {
-            case Player.FOLD -> CanonicalActionRecord.ACTION_FOLD;
-            case Player.CHECK -> CanonicalActionRecord.ACTION_CHECK;
-            case Player.BET -> CanonicalActionRecord.ACTION_BET;
-            case Player.ALLIN -> CanonicalActionRecord.ACTION_ALLIN;
+            case com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD -> CanonicalActionRecord.ACTION_FOLD;
+            case com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK -> CanonicalActionRecord.ACTION_CHECK;
+            case com.tonikelope.coronapoker.core.game.GamePlayerController.BET -> CanonicalActionRecord.ACTION_BET;
+            case com.tonikelope.coronapoker.core.game.GamePlayerController.ALLIN -> CanonicalActionRecord.ACTION_ALLIN;
             default -> throw new IllegalArgumentException("unexpected decision");
         };
     }

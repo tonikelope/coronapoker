@@ -2,7 +2,7 @@
 <!--
   OPT-IN QA reactor. The default root build compiles and tests the product
   modules. This reactor adds tools/qa to the same Maven session, so the classic
-  QA suite compiles against the current core and Swing artifacts without a
+  QA suite compiles against the current core and GDX artifacts without a
   local install or a separately maintained version pin.
 
       # fast feedback for a refactor — game + all tests EXCEPT the slow bot sims
@@ -30,7 +30,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>coronapoker-qa-reactor</artifactId>
-    <version>24.11-SNAPSHOT</version>
+    <version>24.11</version>
     <packaging>pom</packaging>
     <name>CoronaPoker QA reactor (opt-in aggregator)</name>
 

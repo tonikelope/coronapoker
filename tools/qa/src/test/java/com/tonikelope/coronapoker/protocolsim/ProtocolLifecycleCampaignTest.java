@@ -9,6 +9,10 @@
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.core.network.SessionOutbox;
+import com.tonikelope.coronapoker.table.TableEventBridge;
+import com.tonikelope.coronapoker.table.TableRenderer;
+import com.tonikelope.coronapoker.table.TableSnapshot;
+import com.tonikelope.coronapoker.table.TableVisualEvent;
 
 import com.tonikelope.coronapoker.protocolsim.CampaignProgress;
 import com.tonikelope.coronapoker.protocolsim.CampaignSeed;
@@ -61,8 +65,6 @@ class ProtocolLifecycleCampaignTest {
         String context = "seed=" + campaignSeed + " lifecycle_case=" + caseNumber
                 + " caseSeed=" + caseSeed + " event=" + event;
 
-        SessionGuard guard = new SessionGuard();
-        SessionGuard.Generation table = guard.beginSession();
         SessionOutbox outbox = new SessionOutbox(16, 16_384);
         int queued = 1 + random.nextInt(8);
         List<String> commands = new ArrayList<>(queued);
@@ -75,12 +77,14 @@ class ProtocolLifecycleCampaignTest {
         int firstWireId = leasedBeforeEvent.wireId();
 
         AtomicInteger tableEffects = new AtomicInteger();
-        assertTrue(guard.runIfCurrent(table, tableEffects::incrementAndGet), context);
+        TableEventBridge table = table(tableEffects);
+        publish(table);
+        assertEquals(1, tableEffects.get(), context);
 
         switch (event) {
             case NORMAL -> {
                 drainCurrent(outbox, context);
-                assertTrue(guard.runIfCurrent(table, tableEffects::incrementAndGet), context);
+                publish(table);
                 assertEquals(2, tableEffects.get(), context);
             }
             case SOCKET_RECONNECT -> {
@@ -95,14 +99,14 @@ class ProtocolLifecycleCampaignTest {
                     assertEquals(expected, rebound.command(), context);
                     assertTrue(outbox.removeIfHead(rebound), context);
                 }
-                assertTrue(guard.runIfCurrent(table, tableEffects::incrementAndGet), context);
+                publish(table);
                 assertEquals(2, tableEffects.get(), context);
             }
             case FINAL_EXIT -> {
                 TableTerminationWire.ExitCommand parsed = TableTerminationWire.parse(
                         new String[]{"GAME", "91", "SERVEREXIT"});
                 assertFalse(parsed.recover(), context);
-                terminate(guard, table, outbox, tableEffects, context);
+                terminate(table, outbox, tableEffects, context);
             }
             case FORCE_RECOVER -> {
                 String password = "recover-" + caseNumber;
@@ -115,7 +119,7 @@ class ProtocolLifecycleCampaignTest {
                 assertTrue(Crupier.shouldAbortAfterBettingRound(false, true), context);
                 assertFalse(Crupier.shouldAdvanceBettingStreet(false, true, 3,
                         Crupier.FLOP, 3), context);
-                terminate(guard, table, outbox, tableEffects, context);
+                terminate(table, outbox, tableEffects, context);
             }
             case ABRUPT_DISCONNECT -> {
                 RecoveryReceiveState receive = new RecoveryReceiveState("session-" + caseNumber);
@@ -126,9 +130,9 @@ class ProtocolLifecycleCampaignTest {
                 String reason = "peer.transport_closed." + caseNumber;
                 String encoded = Base64.getEncoder().encodeToString(
                         reason.getBytes(StandardCharsets.UTF_8));
-                assertEquals(reason, MisdealWire.parse(
-                        new String[]{"GAME", "91", "MISDEAL", encoded}), context);
-                terminate(guard, table, outbox, tableEffects, context);
+                assertEquals(reason, MisdealWire.parseClientCommand(
+                        new String[]{"MISDEAL", encoded}), context);
+                terminate(table, outbox, tableEffects, context);
             }
             case RIT_SIDE_B_STOP -> {
                 boolean refunded = random.nextBoolean();
@@ -144,9 +148,9 @@ class ProtocolLifecycleCampaignTest {
                 // A generated RIT stop with no termination signal is just an
                 // ordinary live state; otherwise it must invalidate the table.
                 if (pending || finished || interrupted) {
-                    terminate(guard, table, outbox, tableEffects, context);
+                    terminate(table, outbox, tableEffects, context);
                 } else {
-                    assertTrue(guard.isCurrent(table), context);
+                    assertTrue(table.isAttached(), context);
                 }
             }
             case MALFORMED_TERMINATION -> {
@@ -158,7 +162,7 @@ class ProtocolLifecycleCampaignTest {
                         () -> TableTerminationWire.parse(malformed.split("#", -1)), context);
                 // Invalid critical input closes explicitly; it cannot be ignored
                 // while the old table continues processing later commands.
-                terminate(guard, table, outbox, tableEffects, context);
+                terminate(table, outbox, tableEffects, context);
             }
         }
 
@@ -167,18 +171,44 @@ class ProtocolLifecycleCampaignTest {
         }
     }
 
-    private static void terminate(SessionGuard guard, SessionGuard.Generation oldTable,
+    private static void terminate(TableEventBridge oldTable,
             SessionOutbox outbox, AtomicInteger effects, String context) {
-        guard.invalidate(oldTable);
+        oldTable.close();
         outbox.advanceGeneration();
         assertTrue(outbox.isEmpty(), context + " old commands survived table termination");
-        assertFalse(guard.runIfCurrent(oldTable, effects::incrementAndGet),
-                context + " stale callback mutated terminated table");
+        publish(oldTable);
         assertEquals(1, effects.get(), context);
 
-        SessionGuard.Generation nextTable = guard.beginSession();
-        assertTrue(guard.runIfCurrent(nextTable, effects::incrementAndGet), context);
+        TableEventBridge nextTable = table(effects);
+        publish(nextTable);
         assertEquals(2, effects.get(), context);
+        nextTable.close();
+    }
+
+    private static TableEventBridge table(AtomicInteger effects) {
+        TableEventBridge bridge = new TableEventBridge();
+        bridge.attach(new TableRenderer() {
+            @Override public java.util.concurrent.CompletionStage<Void> open(
+                    TableSnapshot initialState) {
+                return java.util.concurrent.CompletableFuture.completedFuture(null);
+            }
+
+            @Override public java.util.concurrent.CompletionStage<Void> render(
+                    TableVisualEvent event) {
+                effects.incrementAndGet();
+                return java.util.concurrent.CompletableFuture.completedFuture(null);
+            }
+
+            @Override public void close() { }
+        }, new TableSnapshot(0L, "local", TableSnapshot.Street.WAITING,
+                0d, "", false, List.of(), List.of())).toCompletableFuture().join();
+        return bridge;
+    }
+
+    private static void publish(TableEventBridge bridge) {
+        bridge.publish(sequence -> new TableVisualEvent.PreparationStatus(sequence,
+                TableVisualEvent.PreparationStatus.Phase.READY))
+                .toCompletableFuture().join();
     }
 
     private static void drainCurrent(SessionOutbox outbox, String context) {

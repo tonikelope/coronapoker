@@ -8,7 +8,8 @@
  */
 package com.tonikelope.coronapoker.smoke;
 
-import com.tonikelope.coronapoker.Helpers;
+import com.tonikelope.coronapoker.core.network.TelemetryCodec;
+import com.tonikelope.coronapoker.core.network.TelemetryFrame;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -39,9 +40,9 @@ class TelemetryWireFormatSmoke {
         Map<String, int[]> data = new HashMap<>();
         data.put("alice", new int[]{120, 130, 3});
 
-        Helpers.TelemetryFrame f = new Helpers.TelemetryFrame(1716559200000L, data);
-        String wire = Helpers.encodeTelemetry(f);
-        Helpers.TelemetryFrame restored = Helpers.decodeTelemetry(wire);
+        TelemetryFrame f = new TelemetryFrame(1716559200000L, data);
+        String wire = TelemetryCodec.encode(f);
+        TelemetryFrame restored = TelemetryCodec.decode(wire);
 
         assertNotNull(restored);
         assertEquals(1716559200000L, restored.serverTimestampMs);
@@ -57,9 +58,9 @@ class TelemetryWireFormatSmoke {
         data.put("bob", new int[]{200, 210, 1});
         data.put("carol", new int[]{-1, -1, 0});
 
-        Helpers.TelemetryFrame f = new Helpers.TelemetryFrame(42L, data);
-        String wire = Helpers.encodeTelemetry(f);
-        Helpers.TelemetryFrame restored = Helpers.decodeTelemetry(wire);
+        TelemetryFrame f = new TelemetryFrame(42L, data);
+        String wire = TelemetryCodec.encode(f);
+        TelemetryFrame restored = TelemetryCodec.decode(wire);
 
         assertEquals(42L, restored.serverTimestampMs);
         assertEquals(3, restored.perPeer.size());
@@ -71,9 +72,9 @@ class TelemetryWireFormatSmoke {
     @Test
     @DisplayName("Round-trip: ts + 0 peers (broadcast vacío)")
     void roundTripEmpty() {
-        Helpers.TelemetryFrame f = new Helpers.TelemetryFrame(99L, new HashMap<>());
-        String wire = Helpers.encodeTelemetry(f);
-        Helpers.TelemetryFrame restored = Helpers.decodeTelemetry(wire);
+        TelemetryFrame f = new TelemetryFrame(99L, new HashMap<>());
+        String wire = TelemetryCodec.encode(f);
+        TelemetryFrame restored = TelemetryCodec.decode(wire);
 
         assertEquals(99L, restored.serverTimestampMs);
         assertTrue(restored.perPeer.isEmpty());
@@ -87,9 +88,9 @@ class TelemetryWireFormatSmoke {
         data.put("español ñ á é", new int[]{4, 5, 6});
         data.put("中文 unicode", new int[]{7, 8, 9});
 
-        Helpers.TelemetryFrame f = new Helpers.TelemetryFrame(0L, data);
-        String wire = Helpers.encodeTelemetry(f);
-        Helpers.TelemetryFrame restored = Helpers.decodeTelemetry(wire);
+        TelemetryFrame f = new TelemetryFrame(0L, data);
+        String wire = TelemetryCodec.encode(f);
+        TelemetryFrame restored = TelemetryCodec.decode(wire);
 
         assertEquals(3, restored.perPeer.size());
         assertArrayEquals(new int[]{1, 2, 3}, restored.perPeer.get("pepe#@=/"));
@@ -100,25 +101,25 @@ class TelemetryWireFormatSmoke {
     @Test
     @DisplayName("Decoder: null input → null")
     void decoderNullInput() {
-        assertNull(Helpers.decodeTelemetry(null));
+        assertNull(TelemetryCodec.decode(null));
     }
 
     @Test
     @DisplayName("Decoder: empty input → null")
     void decoderEmptyInput() {
-        assertNull(Helpers.decodeTelemetry(""));
+        assertNull(TelemetryCodec.decode(""));
     }
 
     @Test
     @DisplayName("Decoder: ts no numérico → null")
     void decoderBadTimestamp() {
-        assertNull(Helpers.decodeTelemetry("noTs#anything"));
+        assertNull(TelemetryCodec.decode("noTs#anything"));
     }
 
     @Test
     @DisplayName("Decoder: solo ts sin '#' → frame con map vacío")
     void decoderTsOnly() {
-        Helpers.TelemetryFrame f = Helpers.decodeTelemetry("12345");
+        TelemetryFrame f = TelemetryCodec.decode("12345");
         assertNotNull(f);
         assertEquals(12345L, f.serverTimestampMs);
         assertTrue(f.perPeer.isEmpty());
@@ -132,7 +133,7 @@ class TelemetryWireFormatSmoke {
         String b64bob = java.util.Base64.getEncoder().encodeToString("bob".getBytes());
         String wire = "100#" + b64alice + "|10/20/30@MALFORMED@" + b64alice + "|notANumber/2/3@" + b64bob + "|40/50/60";
 
-        Helpers.TelemetryFrame f = Helpers.decodeTelemetry(wire);
+        TelemetryFrame f = TelemetryCodec.decode(wire);
         assertNotNull(f);
         assertEquals(100L, f.serverTimestampMs);
         // alice OK, MALFORMED skip, alice second-try skip por not-a-number, bob OK
@@ -149,7 +150,7 @@ class TelemetryWireFormatSmoke {
         // alice tiene solo 2 números → debe saltar
         String wire = "5#" + b64alice + "|10/20@" + b64bob + "|30/40/50";
 
-        Helpers.TelemetryFrame f = Helpers.decodeTelemetry(wire);
+        TelemetryFrame f = TelemetryCodec.decode(wire);
         assertEquals(1, f.perPeer.size());
         assertFalse(f.perPeer.containsKey("alice"));
         assertArrayEquals(new int[]{30, 40, 50}, f.perPeer.get("bob"));
@@ -161,7 +162,7 @@ class TelemetryWireFormatSmoke {
         Map<String, int[]> mutable = new HashMap<>();
         mutable.put("alice", new int[]{1, 2, 3});
 
-        Helpers.TelemetryFrame f = new Helpers.TelemetryFrame(0L, mutable);
+        TelemetryFrame f = new TelemetryFrame(0L, mutable);
         // Modificar el map original no debe afectar al frame
         mutable.put("bob", new int[]{4, 5, 6});
 

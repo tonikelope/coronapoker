@@ -5,7 +5,7 @@ import com.tonikelope.coronapoker.CanonicalActionRecord;
 import com.tonikelope.coronapoker.DeterministicShuffle;
 import com.tonikelope.coronapoker.HandStateChain;
 import com.tonikelope.coronapoker.HandverifyReceiptEnvelope;
-import com.tonikelope.coronapoker.IdentityManager;
+import com.tonikelope.coronapoker.TestPlayerIdentity;
 import com.tonikelope.coronapoker.MoneyCents;
 import com.tonikelope.coronapoker.PotMath;
 import com.tonikelope.coronapoker.SettlementRecord;
@@ -51,7 +51,7 @@ final class ProtocolSimulationCampaignTest {
     private static Actor bot;
     private static List<Actor> actors;
 
-    private record Actor(String nick, byte[] playerId, IdentityManager signer,
+    private record Actor(String nick, byte[] playerId, TestPlayerIdentity signer,
             byte[] signerPublicKey) {
     }
 
@@ -61,9 +61,9 @@ final class ProtocolSimulationCampaignTest {
 
     @BeforeAll
     static void identities() {
-        IdentityManager hostIdentity = IdentityManager.initializeForNick(HOST);
+        TestPlayerIdentity hostIdentity = TestPlayerIdentity.initializeForNick(HOST);
         assertTrue(hostIdentity.isReady(), hostIdentity.getLoadError());
-        IdentityManager clientIdentity = IdentityManager.initializeForNick(CLIENT);
+        TestPlayerIdentity clientIdentity = TestPlayerIdentity.initializeForNick(CLIENT);
         assertTrue(clientIdentity.isReady(), clientIdentity.getLoadError());
 
         host = actor(HOST, hostIdentity, hostIdentity.getPublicKey());
@@ -232,10 +232,10 @@ final class ProtocolSimulationCampaignTest {
                         ? 0L : action.committedTotalCents(),
                 action.allIn(), true);
         byte[] signature = action.actor().signer().signAction(record);
-        assertTrue(IdentityManager.verifyAction(action.actor().signerPublicKey(), record, signature),
+        assertTrue(TestPlayerIdentity.verifyAction(action.actor().signerPublicKey(), record, signature),
                 context + " signer mismatch " + action.actor().nick());
         for (HandStateChain peer : peers) {
-            assertTrue(IdentityManager.verifyAction(action.actor().signerPublicKey(), record, signature),
+            assertTrue(TestPlayerIdentity.verifyAction(action.actor().signerPublicKey(), record, signature),
                     context + " receiver signature");
             peer.absorb(record, signature);
         }
@@ -248,7 +248,7 @@ final class ProtocolSimulationCampaignTest {
                 host.playerId(), street, CanonicalActionRecord.ACTION_COMMUNITY,
                 CanonicalActionRecord.packCommunityCards(cards), false, false);
         byte[] signature = host.signer().signAction(record);
-        assertTrue(IdentityManager.verifyAction(host.signerPublicKey(), record, signature), context);
+        assertTrue(TestPlayerIdentity.verifyAction(host.signerPublicKey(), record, signature), context);
         for (HandStateChain peer : peers) {
             peer.absorb(record, signature);
         }
@@ -298,7 +298,7 @@ final class ProtocolSimulationCampaignTest {
             assertEquals(actor.nick(), envelope.nick(), context);
             assertArrayEquals(handId, envelope.handId(), context);
             assertArrayEquals(finalHash, envelope.finalHash(), context);
-            assertTrue(IdentityManager.verifyReceipt(actor.signerPublicKey(), envelope.handId(),
+            assertTrue(TestPlayerIdentity.verifyReceipt(actor.signerPublicKey(), envelope.handId(),
                     envelope.finalHash(), envelope.flags(), envelope.signature()), context);
         }
     }
@@ -310,17 +310,17 @@ final class ProtocolSimulationCampaignTest {
                 CanonicalActionRecord.STREET_SHOWDOWN, CanonicalActionRecord.ACTION_CHECK,
                 0L, false, true);
         byte[] signature = client.signer().signAction(record);
-        assertTrue(IdentityManager.verifyAction(client.signerPublicKey(), record, signature), context);
+        assertTrue(TestPlayerIdentity.verifyAction(client.signerPublicKey(), record, signature), context);
         assertThrows(IllegalStateException.class, () -> settled.absorb(record, signature),
                 context + " stale PREV_H accepted");
 
         byte[] tampered = record.clone();
         tampered[CanonicalActionRecord.OFFSET_AMOUNT_CENTS + 7] ^= 1;
-        assertFalse(IdentityManager.verifyAction(client.signerPublicKey(), tampered, signature),
+        assertFalse(TestPlayerIdentity.verifyAction(client.signerPublicKey(), tampered, signature),
                 context + " tampered signed action accepted");
     }
 
-    private static Actor actor(String nick, IdentityManager signer, byte[] signerPublicKey) {
+    private static Actor actor(String nick, TestPlayerIdentity signer, byte[] signerPublicKey) {
         return new Actor(nick, CanonicalActionRecord.playerIdFromNick(nick), signer,
                 signerPublicKey.clone());
     }

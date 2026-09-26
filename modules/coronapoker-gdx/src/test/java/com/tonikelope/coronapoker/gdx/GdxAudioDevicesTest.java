@@ -3,9 +3,11 @@ package com.tonikelope.coronapoker.gdx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Properties;
+import javax.sound.sampled.LineUnavailableException;
 import org.junit.jupiter.api.Test;
 
 final class GdxAudioDevicesTest {
@@ -47,5 +49,16 @@ final class GdxAudioDevicesTest {
                 GdxAudioDevices.adjacentDevice(devices, "Auriculares", -1));
         assertEquals("",
                 GdxAudioDevices.adjacentDevice(devices, "Altavoces", -1));
+    }
+
+    @Test
+    void missingConfiguredMicrophoneDoesNotFallBackToAnotherInput() {
+        Properties properties = new Properties();
+        properties.setProperty(GdxAudioDevices.CAPTURE_KEY,
+                "__coronapoker_missing_capture_device_for_qa__");
+
+        assertThrows(LineUnavailableException.class,
+                () -> GdxAudioDevices.openCapture(properties,
+                        GdxVoiceRecorder.PCM_FORMAT));
     }
 }

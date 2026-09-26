@@ -14,17 +14,11 @@ class TestModeSemanticParityTest {
     void everyProductionTestModeShortcutBelongsToTheReviewedInventory()
             throws Exception {
         Map<String, Integer> reviewedOccurrences = Map.of(
-                "Audio.java", 8,
-                "Crupier.java", 23,
-                "GameFrame.java", 6,
-                "Init.java", 1,
-                "LocalPlayer.java", 3,
-                "RemotePlayer.java", 1,
-                "SwingGamePresentationSettings.java", 1);
+                "Crupier.java", 23);
 
-        try (var coreSources = Files.list(coreSourceRoot());
-                var swingSources = Files.list(swingSourceRoot());
-                var sources = java.util.stream.Stream.concat(coreSources, swingSources)) {
+        try (var coreSources = Files.walk(coreSourceRoot());
+                var gdxSources = Files.walk(gdxSourceRoot());
+                var sources = java.util.stream.Stream.concat(coreSources, gdxSources)) {
             Map<String, Integer> actual = sources
                     .filter(path -> path.getFileName().toString().endsWith(".java"))
                     .filter(path -> read(path).contains("TEST_MODE")
@@ -45,21 +39,6 @@ class TestModeSemanticParityTest {
         assertObservabilityOnly(source, "QA EXIT_TESTAMENT_ACCEPTED");
         assertObservabilityOnly(source, "QA RIT_VOTE_ACCEPTED");
         assertObservabilityOnly(source, "QA STRADDLE_RESP_ACCEPTED");
-    }
-
-    @Test
-    void teardownTestModeMarkersAreObservabilityOnly() throws Exception {
-        String source = Files.readString(swingSourceRoot().resolve("GameFrame.java"))
-                .replace("\r\n", "\n");
-        String reviewedMethod
-                = "    private static void qaTeardownStage(String stage) {\n"
-                + "        if (TEST_MODE) {\n"
-                + "            System.out.println(\"CP_QA_TEARDOWN_STAGE \" + stage);\n"
-                + "        }\n"
-                + "    }";
-
-        assertTrue(source.contains(reviewedMethod),
-                "QA teardown stages must remain observability-only");
     }
 
     @Test
@@ -110,8 +89,8 @@ class TestModeSemanticParityTest {
         return sourceRoot("coronapoker-core");
     }
 
-    private static Path swingSourceRoot() {
-        return sourceRoot("coronapoker-swing");
+    private static Path gdxSourceRoot() {
+        return sourceRoot("coronapoker-gdx");
     }
 
     private static Path sourceRoot(String module) {

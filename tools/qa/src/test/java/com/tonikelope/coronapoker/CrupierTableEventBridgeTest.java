@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.game.GamePlayerController;
 import com.tonikelope.coronapoker.table.TableEventBridge;
 import com.tonikelope.coronapoker.table.TableRenderer;
 import com.tonikelope.coronapoker.table.TableSnapshot;
@@ -36,27 +37,27 @@ final class CrupierTableEventBridgeTest {
 
     @Test
     void foldedLocalPlayerCanKeepAutoChoiceForTheNextHand() {
-        assertTrue(Crupier.localPreActionsEligible(false, Player.FOLD,
+        assertTrue(Crupier.localPreActionsEligible(false, com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD,
                 false, false, false));
-        assertFalse(Crupier.localPreActionsEligible(true, Player.FOLD,
+        assertFalse(Crupier.localPreActionsEligible(true, com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD,
                 false, false, false));
         assertTrue(Crupier.shouldPresentLocalPreActions(true, false,
-                Player.FOLD, false, false, false));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, false, false, false));
         assertTrue(Crupier.shouldPresentLocalPreActions(true, false,
-                Player.NODEC, false, false, false));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.NODEC, false, false, false));
 
         assertFalse(Crupier.shouldPresentLocalPreActions(false, false,
-                Player.FOLD, false, false, false));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, false, false, false));
         assertFalse(Crupier.shouldPresentLocalPreActions(true, true,
-                Player.FOLD, false, false, false));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, false, false, false));
         assertFalse(Crupier.shouldPresentLocalPreActions(true, false,
-                Player.ALLIN, false, false, false));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.ALLIN, false, false, false));
         assertFalse(Crupier.shouldPresentLocalPreActions(true, false,
-                Player.FOLD, true, false, false));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, true, false, false));
         assertFalse(Crupier.shouldPresentLocalPreActions(true, false,
-                Player.FOLD, false, true, false));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, false, true, false));
         assertFalse(Crupier.shouldPresentLocalPreActions(true, false,
-                Player.FOLD, false, false, true));
+                com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD, false, false, true));
     }
 
     @Test
@@ -161,8 +162,8 @@ final class CrupierTableEventBridgeTest {
         Crupier dealer = new Crupier(bridge);
         AtomicBoolean smallDeferred = new AtomicBoolean(true);
         AtomicBoolean bigDeferred = new AtomicBoolean(true);
-        Player small = player("small", 50d, smallDeferred);
-        Player big = player("big", 100d, bigDeferred);
+        GamePlayerController small = player("small", 50d, smallDeferred);
+        GamePlayerController big = player("big", 100d, bigDeferred);
         ExecutorService executor = Executors.newSingleThreadExecutor();
 
         try {
@@ -221,10 +222,10 @@ final class CrupierTableEventBridgeTest {
         }
     }
 
-    private static Player player(String nickname, double pot,
+    private static GamePlayerController player(String nickname, double pot,
             AtomicBoolean counterDeferred) {
-        return (Player) Proxy.newProxyInstance(
-                Player.class.getClassLoader(), new Class<?>[]{Player.class},
+        return (GamePlayerController) Proxy.newProxyInstance(
+                GamePlayerController.class.getClassLoader(), new Class<?>[]{GamePlayerController.class},
                 (proxy, method, args) -> switch (method.getName()) {
                     case "getNickname" -> nickname;
                     case "getBote" -> pot;

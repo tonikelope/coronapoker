@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import com.tonikelope.coronapoker.core.game.GamePlayerController;
 import org.junit.jupiter.api.Test;
 
 public class ActionWireShapeTest {
@@ -25,7 +26,7 @@ public class ActionWireShapeTest {
         double promotedFloat = (double) 0.7f;
 
         String wire = Crupier.buildActionWireCommand(
-                "bot", Player.BET, promotedFloat, "*", new byte[]{1}, new byte[]{2});
+                "bot", GamePlayerController.BET, promotedFloat, "*", new byte[]{1}, new byte[]{2});
 
         String[] fields = ("GAME#1#" + wire).split("#", -1);
         assertEquals("0.70", fields[5],
@@ -45,12 +46,12 @@ public class ActionWireShapeTest {
 
         for (double engineValue : engineValues) {
             String wire = Crupier.buildActionWireCommand(
-                    "bot", Player.BET, engineValue, "*", new byte[]{1}, new byte[]{2});
+                    "bot", GamePlayerController.BET, engineValue, "*", new byte[]{1}, new byte[]{2});
             String wireAmount = ("GAME#1#" + wire).split("#", -1)[5];
 
             assertEquals(
                     Crupier.expectedActionAmountCents(
-                            Player.BET, engineValue, 0d, 1_000_000d, 0d),
+                            GamePlayerController.BET, engineValue, 0d, 1_000_000d, 0d),
                     MoneyCents.parse(wireAmount).cents(),
                     "plaintext and signed amount must use the same cent value for " + engineValue);
         }
@@ -60,7 +61,7 @@ public class ActionWireShapeTest {
     void malformedKnownActionIsRejectedRatherThanRestored() throws Exception {
         String source = Files.readString(locateRoot().resolve(
                 "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
-        int receiver = source.indexOf("public Object[] readActionFromRemotePlayer(Player jugador)");
+        int receiver = source.indexOf("public Object[] readActionFromRemotePlayer(GamePlayerController jugador)");
         int known = source.indexOf("partes[2].equals(\"ACTION\")", receiver);
         int shape = source.indexOf("!actionWireHasCurrentShape(partes)", known);
         int reject = source.indexOf("this.received_commands.reject(comando)", shape);

@@ -6,10 +6,10 @@
 
     <groupId>com.tonikelope</groupId>
     <artifactId>coronapoker</artifactId>
-    <version>24.11-SNAPSHOT</version>
+    <version>24.11</version>
     <packaging>pom</packaging>
     <name>CoronaPoker</name>
-    <description>CoronaPoker product reactor for the shared core, Swing and GDX frontends.</description>
+    <description>CoronaPoker product reactor for the shared core and GDX application.</description>
 
     <modules>
         <module>modules</module>
@@ -17,9 +17,9 @@
 
     <build>
         <!-- target/ is the canonical distribution directory populated by the
-        Swing and GDX modules.  The root aggregator is sorted after those
-        modules, so its own clean lifecycle must use a private directory and
-        must never erase the completed product archives. -->
+        GDX application module. The root aggregator is sorted after the
+        product modules, so its own clean lifecycle uses a private directory
+        and must never erase the completed product archive. -->
         <directory>${project.basedir}/.maven-root-build</directory>
     </build>
 </project>

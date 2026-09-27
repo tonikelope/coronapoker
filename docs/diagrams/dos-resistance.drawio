@@ -58,7 +58,7 @@
           </mxGeometry>
         </mxCell>
 
-        <mxCell id="ladderNote" value="The engine presumes good faith and always picks the least destructive response that still protects the honest players. AUTO-EXPEL is the availability counterpart of FORFEIT. FORFEIT isolates one peer's bad data for one hand, AUTO-EXPEL isolates one peer's bad behaviour for the rest of the game, and in both cases the honest players keep playing." style="text;html=1;fontSize=12;align=left;verticalAlign=top;fontColor=#555555;" vertex="1" parent="1">
+        <mxCell id="ladderNote" value="The engine presumes good faith and always picks the least destructive response that still protects the honest players. AUTO-EXPEL is the availability counterpart of FORFEIT. FORFEIT isolates one peer's bad data for one hand, AUTO-EXPEL isolates one peer's bad behaviour for the rest of the game, and in both cases the honest players keep playing." style="text;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;fontColor=#555555;" vertex="1" parent="1">
           <mxGeometry x="740" y="580" width="580" height="80" as="geometry" />
         </mxCell>
 

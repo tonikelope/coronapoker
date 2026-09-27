@@ -1,4 +1,4 @@
-# CoronaPoker 25.1 product modules
+# CoronaPoker 25.3 product modules
 
 This directory contains the Maven reactor for the CoronaPoker desktop
 application. The modules provide compile-time boundaries inside one product.
@@ -41,7 +41,7 @@ The reactor publishes the runnable application to the repository's product
 artifact directory:
 
 ```text
-target/CoronaPoker_25.1.jar
+target/CoronaPoker_25.3.jar
 ```
 
 The root `coronaupdater.jar` is retained because the self-updater requires that
@@ -51,8 +51,9 @@ not additional distributions.
 ## Validation
 
 The `coronapoker-qa` module checks the architecture during the normal product
-build. The extended suite under `tools/qa` adds protocol, recovery, security,
-simulation and application scenarios.
+build. The extended suite under `tools/qa` adds opt-in protocol, recovery,
+security and simulation tests. GDX behavioural certification is executed from
+the scenario contract in `coronapoker-gdx`; see `../docs/TESTING.md`.
 
 A successful automated build does not validate visual fidelity, audio quality
 or frame pacing. Those release checks require a manual run on the supported

@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.core.UpdaterService;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class GdxUpdateHandoffTest {
@@ -27,15 +29,50 @@ class GdxUpdateHandoffTest {
     }
 
     @Test
-    void preservesCustomInstallationNamesOnOtherPlatforms() {
+    void migratesVersionedWindowsInstallationToTheStableName() {
+        Path current = Path.of("C:/CoronaPoker/CoronaPoker_25.2.jar");
+        UpdaterService.Request request = GdxUpdateHandoff.request(
+                "25.3", "es", current,
+                Path.of("C:/Java/jdk-25"), "Windows 11");
+
+        assertEquals(current.toAbsolutePath().normalize(), request.currentJar());
+        assertEquals(current.resolveSibling("CoronaPoker.jar").toAbsolutePath()
+                .normalize(), request.newJar());
+    }
+
+    @Test
+    void usesTheStableInstallationNameOnOtherPlatformsToo() {
         Path current = Path.of("/opt/coronapoker/game.jar");
         UpdaterService.Request request = GdxUpdateHandoff.request(
                 "24.12", "en", current,
                 Path.of("/opt/jdk"), "Linux");
 
-        assertEquals(current.toAbsolutePath().normalize(), request.newJar());
+        assertEquals(current.resolveSibling("CoronaPoker.jar").toAbsolutePath()
+                .normalize(), request.newJar());
         assertEquals(Path.of("/opt/jdk/bin/java").toAbsolutePath()
                 .normalize(), request.javaExecutable());
         assertFalse(request.spanish());
+    }
+
+    @Test
+    void versionedInstallationHandsTheUpdaterTheStableDestination() throws Exception {
+        Path updaterJar = Path.of("C:/Temp/coronaupdater.jar");
+        Path current = Path.of("C:/CoronaPoker/CoronaPoker_25.2.jar");
+        Path javaHome = Path.of("C:/Java/jdk-25");
+        List<List<String>> commands = new ArrayList<>();
+        UpdaterService updater = new UpdaterService(() -> updaterJar,
+                commands::add);
+        updater.start();
+
+        updater.handoff(GdxUpdateHandoff.request("25.3", "es", current,
+                javaHome, "Windows 11"));
+
+        assertEquals(List.of(List.of(
+                javaHome.resolve("bin/java.exe").toAbsolutePath().normalize().toString(),
+                "-jar", updaterJar.toString(), "25.3",
+                current.toAbsolutePath().normalize().toString(),
+                current.resolveSibling("CoronaPoker.jar").toAbsolutePath()
+                        .normalize().toString(),
+                "¡Santiago y cierra, España!")), commands);
     }
 }

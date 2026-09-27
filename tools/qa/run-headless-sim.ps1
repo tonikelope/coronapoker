@@ -33,7 +33,7 @@ Options:
   -BotHands <1..1000000>   Production-bot hands (default: 100)
   -Seed <long>             Replay an exact campaign seed (omitted: fresh random seed)
   -AllNonVisual            Run every automated non-visual QA test, not only protocol simulation
-  -SkipGameBuild           Reuse the exact checkout already installed by run-certification.ps1
+  -SkipGameBuild           Skip the product reactor install and run tools/qa only
   -Help                    Show this help and exit
 
 Examples:
@@ -41,7 +41,7 @@ Examples:
   .\tools\qa\headless-sim.cmd -AllNonVisual
 
 This fast layer exercises production protocol and domain components without a
-complete GDX table lifecycle. Use gdx-scenarios.cmd or certify.cmd for complete
+complete GDX table lifecycle. Use certify.cmd for complete
 local multiplayer games.
 The exact checkout is built into the ignored local .m2/repository cache. An
 omitted seed is generated and printed before Maven starts; pass it back with

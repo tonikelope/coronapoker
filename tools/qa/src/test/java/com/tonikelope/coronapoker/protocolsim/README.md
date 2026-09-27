@@ -99,7 +99,7 @@ thresholds with hard per-hand conservation, liveness and validity invariants.
 
 ## Not covered by this headless campaign alone
 
-The repository also provides `tools/qa/gdx-scenarios.cmd`. That separate layer
+The repository also provides `tools/qa/certify.cmd`. That separate layer
 launches production GDX peers in isolated JVMs and drives real encrypted
 sockets, the native lobby, `Crupier.run()`, `rondaApuestas()`, SRA, consensus
 and SQLite. It covers normal, raise, all-in, RIT and straddle games, plus exit,

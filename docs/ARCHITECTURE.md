@@ -1,6 +1,6 @@
 # CoronaPoker architecture
 
-CoronaPoker 25.1 is a libGDX desktop application. Poker rules, network
+CoronaPoker 25.3 is a libGDX desktop application. Poker rules, network
 protocols, persistence and security live in a renderer-independent core. The
 GDX module owns presentation and user input. Maven enforces this dependency
 direction and packages the modules as one runnable application.
@@ -135,13 +135,13 @@ The editable source is
 | `modules/coronapoker-assets` | Images, cards, sounds, translations and bundled media |
 | `modules/coronapoker-gdx` | Launcher, screens, table renderer, input, audio and desktop integration |
 | `modules/coronapoker-qa` | Dependency, source ownership and distribution checks |
-| `tools/qa` | Extended protocol, recovery, security and application certification |
+| `tools/qa` | Extended protocol, recovery, security and headless simulation tests |
 
 Each code module has its own source tree. The modules are internal build units,
 not separate products. The distribution contains one executable:
 
 ```text
-target/CoronaPoker_25.1.jar
+target/CoronaPoker_25.3.jar
 ```
 
 ## Dependency rules

@@ -26,11 +26,12 @@ The scenario system has four contracts:
 1. `tools/qa/reference/swing-gold-scenarios.tsv` is the immutable list of the 37
    historical gameplay scenarios used as the migration baseline.
 2. `GdxScenarioContract.java` maps every historical identifier to strict GDX
-   tests. Its contract test rejects missing, duplicated or invented mappings.
+   tests and records post-Swing product scenarios separately. Its contract test
+   rejects missing, duplicated or invented mappings.
 3. `GdxMultiprocessScenarioTest.java` launches the host and client JVMs used by
    release certification. `GdxMultiprocessNodeMain.java` is the node process.
-4. `tools/qa/run-certification.ps1` defines the public profile name, topology,
-   hand count, JUnit method and repetitions used by each certification mode.
+4. `tools/qa/run-certification.ps1` reads the Java mappings and defines only
+   execution policy: mode depth, repetitions, seeds, isolation and reports.
 
 The historical manifest is not the product scenario catalogue. New GDX-only
 coverage can be added without changing it. Change the manifest only when
@@ -47,7 +48,7 @@ commit.
 | `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/GdxMultiprocessScenarioTest.java` | Parent process, topology, process faults and final assertions |
 | `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/GdxMultiprocessNodeMain.java` | Host or client process behavior and semantic markers |
 | `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/scenarios/GdxScenarioRenderer.java` | Test renderer, native action readiness and observations |
-| `tools/qa/run-certification.ps1` | Release profile matrix, method mapping and seed schedule |
+| `tools/qa/run-certification.ps1` | Mode depth, process isolation, seed schedule and reports |
 | `docs/TESTING.md` | Public commands, topology matrix and scenario meaning |
 
 ## Step 1: define the behavior
@@ -68,9 +69,11 @@ Do not use elapsed time as proof that a game reached a state.
 ## Step 2: add the smallest failing regression
 
 Add a focused unit or GDX integration test first. For an existing historical
-scenario, register the exact test method in `STRICT_HOMOLOGUE_TESTS`. A test
-method may support one historical scenario only. Supporting tests that are not
-strict homologues belong in `SUPPORTING_NETWORK_TESTS`.
+scenario, register the exact test method in `STRICT_HOMOLOGUE_TESTS`. A new
+product behaviour that deserves release certification belongs in
+`GDX_ONLY_SCENARIOS`. A certification method may belong to one scenario only.
+Useful integration coverage that is not a release scenario belongs in
+`SUPPORTING_NETWORK_TESTS`.
 
 Run the contract guard:
 
@@ -121,22 +124,17 @@ Scale timeouts by the actual work. Large tables need a participant-aware budget,
 not only a hand-count budget. Do not raise a timeout until the log shows semantic
 progress throughout the extra interval.
 
-## Step 5: register a certification profile
+## Step 5: register the scenario
 
-In `tools/qa/run-certification.ps1`:
+Register the method once in `GdxScenarioContract.java`:
 
-1. Add the profile to `scenarioProfiles` with a unique `Label`, scenario `Name`,
-   client count, bot count and complete hand count.
-2. Map the label to the exact multiprocess JUnit method in
-   `gdxScenarioMethods`.
-3. Add it to `quickLabels` only when it belongs in the short critical subset.
-4. Add the same profile and topology to the matrix in `docs/TESTING.md`.
+1. Use `STRICT_HOMOLOGUE_TESTS` only for a historical Swing identifier.
+2. Use `GDX_ONLY_SCENARIOS` for behaviour introduced after that baseline.
+3. Add it to the certifier's `quickScenarios` only when it belongs in the short
+   critical subset.
 
-The host is an additional human seat. `Clients = 9` and `Bots = 0` therefore
-tests the ten-seat limit. Host plus clients plus bots must never exceed ten.
-
-Certification derives each scenario seed from the printed base seed. Preserve
-that rule so a failure can be replayed exactly.
+Do not add a second method list to PowerShell. The certifier discovers the Java
+mapping and derives each execution seed from the printed base seed.
 
 ## Step 6: validate in increasing scope
 
@@ -149,13 +147,7 @@ mvn -f modules/pom.xml -pl coronapoker-gdx -am test `
   '-Dqa.sim.seed=42'
 ```
 
-Run the strict GDX catalogue:
-
-```powershell
-.\tools\qa\gdx-scenarios.cmd -Mode fast
-```
-
-Run the full multiprocess matrix once:
+Run the complete behavioural catalogue once:
 
 ```powershell
 .\tools\qa\certify.cmd -Mode fast
@@ -181,7 +173,7 @@ the oracle to make a failing product pass.
 - [ ] Synchronization is semantic and every wait is bounded.
 - [ ] Native GDX readiness is checked before submitting an action.
 - [ ] Final ledgers, stacks, buy-ins and durable hand counts are asserted.
-- [ ] The certification profile and documentation matrix agree exactly.
+- [ ] The scenario is registered once in the correct Java mapping.
 - [ ] The exact failing seed passes after the fix.
 - [ ] The required fast, balanced or stress gate finishes with a PASS banner.
 

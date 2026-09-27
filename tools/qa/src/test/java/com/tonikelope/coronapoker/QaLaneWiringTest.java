@@ -24,7 +24,7 @@ class QaLaneWiringTest {
         String pom = Files.readString(locateRoot().resolve("tools/qa/pom.xml"))
                 .replace("\r\n", "\n");
 
-        for (String profile : new String[]{"qa-heavy", "qa-release"}) {
+        for (String profile : new String[]{"qa-heavy", "qa-all"}) {
             String profileBlock = profileBlock(pom, profile);
             for (String selector : BOT_SELECTORS) {
                 assertTrue(profileBlock.contains("<exclude>" + selector + "</exclude>"),

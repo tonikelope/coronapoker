@@ -13,10 +13,10 @@ package com.tonikelope.coronapoker.bot.harness;
  * for fast local iteration without editing source.
  *
  * <ul>
- * <li><b>Validation mode (default)</b>: {@code mvn -o test} — uses each test's
+ * <li><b>Validation mode (default)</b>: {@code mvn test} uses each test's
  * full volume (200 sessions × 50 hands = 10 000 hands/matchup).</li>
- * <li><b>Iteration mode</b>: {@code mvn -o test -Dqa.sessions=40 -Dqa.hands=25}
- * — ~1 000 hands/matchup, minutes instead of hours, for tuning a leak before
+ * <li><b>Iteration mode</b>: {@code mvn test -Dqa.sessions=40 -Dqa.hands=25}
+ * uses about 1 000 hands per matchup for tuning a leak before
  * committing to the full validation sweep.</li>
  * </ul>
  *

@@ -1,168 +1,193 @@
 [CmdletBinding()]
 param(
     [ValidateSet('quick', 'fast', 'balanced', 'stress')]
-    [string]$Mode = 'balanced',
-
-    [ValidateRange(1, 100000)]
-    [int]$Hands,
-
-    [ValidateRange(1, 100000)]
-    [int]$Faults,
-
-    [ValidateRange(1, 1000000)]
-    [int]$BotHands,
-
-    [ValidateRange(5, 1000)]
-    [int]$SoakHands,
-
-    [ValidateRange(1, 10)]
-    [int]$ScenarioRepeats,
-
-    [long]$Seed,
-
-    [ValidateSet('hidden', 'minimized', 'visible')]
-    [string]$WindowMode = 'hidden',
-
-    [ValidateRange(1, 16)]
-    [int]$Screen = 2,
-
-    [switch]$Animations,
-
-    [switch]$ProductionTiming,
-
-    [switch]$IncludeBotQuality,
-
-    [string]$StartAtScenario,
-
-    [ValidateRange(1, 10)]
-    [int]$StartAtRepeat = 1,
-
-    [switch]$VerboseOutput,
-
-    [switch]$Help
+    [string] $Mode = 'balanced',
+    [string] $Scenario = 'all',
+    [string] $StartAtScenario = '',
+    [ValidateRange(1, 10)] [int] $StartAtRepeat = 1,
+    [ValidateRange(1, 10)] [int] $ScenarioRepeats,
+    [ValidateRange(5, 1000)] [int] $SoakHands,
+    [long] $Seed,
+    [switch] $ListOnly,
+    [switch] $VerboseOutput,
+    [switch] $Help
 )
 
 $ErrorActionPreference = 'Stop'
 
 if ($Help) {
     @'
-CoronaPoker complete local certification
+CoronaPoker GDX scenario certification
 
 Usage:
-  .\tools\qa\certify.cmd [options]
+  .\tools\qa\certify.cmd [-Mode quick|fast|balanced|stress]
+  .\tools\qa\certify.cmd -Scenario spectator-rebuy-cycle -Mode fast
+  .\tools\qa\certify.cmd -StartAtScenario reconnect-every-street -StartAtRepeat 2 -Seed 42
+  .\tools\qa\certify.cmd -ListOnly
 
-Default mode is balanced: the normal production-release gate, with every
-scenario twice and bounded campaign sizes. For a major audit, broad
-security/protocol change, new baseline or suspected race family, run fast first
-and stress only after it passes. Phases are fail-fast and sequential:
-  1. qa-release: fast tests plus every non-bot slow lane
-  2. Seeded headless protocol/fault campaigns
-  3. Every real-game loopback scenario in separate production JVMs
+This command certifies game behaviour. It runs the authoritative GDX scenario
+mapping: every historical Swing GOLD scenario plus the GDX-only product
+scenarios. Each mapped test receives a fresh Maven process and therefore a
+fresh JVM. Code tests and mass headless campaigns are separate lanes.
+
+Modes:
+  quick      Critical iteration subset, one pass, 5-hand normal soak
+  fast       Complete scenario catalogue, one pass, 5-hand normal soak
+  balanced   Complete catalogue, two passes, 20-hand normal soak
+  stress     Complete catalogue, five passes, 50-hand normal soak
 
 Options:
-  -Mode <mode>             quick, fast, balanced or stress (default: balanced)
-  -Hands <1..100000>       Override headless protocol campaign hands
-  -Faults <1..100000>      Override headless critical-stream fault cases
-  -BotHands <1..1000000>   Override headless production-bot hands
-  -SoakHands <5..1000>     Override hands in the real-socket soak game
-  -ScenarioRepeats <1..10> Override serial runs with distinct seeds per scenario
-  -Seed <long>             Replay an exact base seed (omitted: fresh random seed)
-  -WindowMode <mode>       hidden, minimized or visible (default: hidden)
-  -Screen <1..16>          Monitor assigned to real-game JVMs (default: 2)
-  -Animations              Enable animations in real-game scenarios
-  -ProductionTiming        Use production pauses and real GDX action clocks
-  -IncludeBotQuality       Also run statistical bot-quality tests (bot changes only)
-  -StartAtScenario <label> Continue at a real-game label after a diagnosed failure;
-                           requires the original -Seed, skips QA/headless and is
-                           not a standalone certificate
-  -StartAtRepeat <1..10>   With -StartAtScenario, continue at its exact repetition
-                           (default: 1; use the original mode/overrides)
-  -VerboseOutput           Stream raw Maven/game logs to the console as well as files
-  -Help                    Show this help and exit
+  -Scenario <name>          Run one scenario and all of its mapped tests
+  -StartAtScenario <name>   Resume the complete schedule at a scenario
+  -StartAtRepeat <1..10>    Repetition used with -StartAtScenario
+  -ScenarioRepeats <1..10>  Override the mode repetition count
+  -SoakHands <5..1000>      Override the normal soak length
+  -Seed <long>              Replay a base seed; otherwise one is generated
+  -ListOnly                 Print the executable catalogue without running it
+  -VerboseOutput            Stream Maven output as well as writing logs
+  -Help                     Show this help
 
-Examples:
-  .\tools\qa\certify.cmd
-  .\tools\qa\certify.cmd -Mode quick
-  .\tools\qa\certify.cmd -Mode fast
-  .\tools\qa\certify.cmd -Mode stress -Seed 42
-  .\tools\qa\certify.cmd -Hands 750 -Faults 750 -ScenarioRepeats 3
-  .\tools\qa\certify.cmd -IncludeBotQuality
-  .\tools\qa\certify.cmd -Mode stress -StartAtScenario reconnect-every-street -StartAtRepeat 3 -Seed 42
-
-Mode defaults (explicit numeric options always win):
-  quick     50 hands/faults, 20 bot hands, 5-hand soak, critical subset once
-  fast      50 hands/faults, 20 bot hands, 5-hand soak, every scenario once
-  balanced  500 hands/faults, 100 bot hands, 20-hand soak, every scenario x2
-  stress    5000 hands/faults, 500 bot hands, 50-hand soak, every scenario x5
-
-Compact progress is printed by default. Full phase logs plus summary.csv and
-summary.json are written under target\certification\<timestamp>. The command
-exits non-zero at the first failed phase and prints the log tail/path. An
-omitted seed is generated before work starts; both summaries retain BaseSeed.
-After a failure, replay it with the same seed, then rerun the affected scenario
-with a fresh seed and resume from its exact checkpoint. The final tree must pass
-fast completely. Restart stress only if shared game/protocol or common harness
-semantics may invalidate phases that already passed.
+Reports are written below target\certification. A failure stops the run and
+leaves CSV, JSON and per-test logs. A resumed run is continuation evidence and
+must be combined with the preceding partial report.
 '@ | Write-Host
     exit 0
 }
 
 . (Join-Path $PSScriptRoot 'qa-seed.ps1')
-if ($StartAtScenario -and (-not $PSBoundParameters.ContainsKey('Seed'))) {
-    throw '-StartAtScenario requires the BaseSeed reported by the original run.'
+
+if ($StartAtScenario -and $Scenario -ne 'all') {
+    throw '-StartAtScenario can only be used with the complete catalogue.'
 }
-if ($PSBoundParameters.ContainsKey('StartAtRepeat') -and (-not $StartAtScenario)) {
+if ($PSBoundParameters.ContainsKey('StartAtRepeat') -and -not $StartAtScenario) {
     throw '-StartAtRepeat requires -StartAtScenario.'
+}
+if ($StartAtScenario -and -not $PSBoundParameters.ContainsKey('Seed')) {
+    throw '-StartAtScenario requires the BaseSeed from the original run.'
 }
 if (-not $PSBoundParameters.ContainsKey('Seed')) {
     $Seed = New-CoronaPokerQaSeed
 }
 
 $modeDefaults = @{
-    quick = @{ Hands = 50; Faults = 50; BotHands = 20; SoakHands = 5; ScenarioRepeats = 1 }
-    fast = @{ Hands = 50; Faults = 50; BotHands = 20; SoakHands = 5; ScenarioRepeats = 1 }
-    balanced = @{ Hands = 500; Faults = 500; BotHands = 100; SoakHands = 20; ScenarioRepeats = 2 }
-    stress = @{ Hands = 5000; Faults = 5000; BotHands = 500; SoakHands = 50; ScenarioRepeats = 5 }
+    quick = @{ Repeats = 1; Soak = 5; HeadsUp = 5; FullMixed = 1; FullHuman = 1 }
+    fast = @{ Repeats = 1; Soak = 5; HeadsUp = 5; FullMixed = 1; FullHuman = 1 }
+    balanced = @{ Repeats = 2; Soak = 20; HeadsUp = 20; FullMixed = 3; FullHuman = 1 }
+    stress = @{ Repeats = 5; Soak = 50; HeadsUp = 50; FullMixed = 10; FullHuman = 3 }
 }[$Mode]
-if (-not $PSBoundParameters.ContainsKey('Hands')) { $Hands = $modeDefaults.Hands }
-if (-not $PSBoundParameters.ContainsKey('Faults')) { $Faults = $modeDefaults.Faults }
-if (-not $PSBoundParameters.ContainsKey('BotHands')) { $BotHands = $modeDefaults.BotHands }
-if (-not $PSBoundParameters.ContainsKey('SoakHands')) { $SoakHands = $modeDefaults.SoakHands }
-if (-not $PSBoundParameters.ContainsKey('ScenarioRepeats')) { $ScenarioRepeats = $modeDefaults.ScenarioRepeats }
+if (-not $PSBoundParameters.ContainsKey('ScenarioRepeats')) {
+    $ScenarioRepeats = $modeDefaults.Repeats
+}
+if (-not $PSBoundParameters.ContainsKey('SoakHands')) {
+    $SoakHands = $modeDefaults.Soak
+}
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$reactorPom = Join-Path $repoRoot 'tools\reactor\pom.xml'
-$headlessRunner = Join-Path $PSScriptRoot 'run-headless-sim.ps1'
-$timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$reportDir = Join-Path $repoRoot "target\certification\$timestamp"
-New-Item -ItemType Directory -Path $reportDir -Force | Out-Null
-$qaUserHome = Join-Path $reportDir 'qa-home'
+$contractPath = Join-Path $repoRoot ('modules\coronapoker-gdx\src\test\java\com\' +
+    'tonikelope\coronapoker\gdx\scenarios\GdxScenarioContract.java')
+$testRoot = Join-Path $repoRoot 'modules\coronapoker-gdx\src\test\java'
+$reactorPom = Join-Path $repoRoot 'modules\pom.xml'
+$mavenRepo = Join-Path $repoRoot '.m2\repository'
 
-function Remove-CertificationQaHome {
-    $reportPath = [IO.Path]::GetFullPath($script:reportDir)
-    $homePath = [IO.Path]::GetFullPath($script:qaUserHome)
-    if (-not $homePath.StartsWith($reportPath + [IO.Path]::DirectorySeparatorChar,
-            [StringComparison]::OrdinalIgnoreCase)) {
-        throw "Refusing unsafe certification QA home path: $homePath"
+if (-not (Test-Path -LiteralPath $contractPath)) {
+    throw "GDX scenario contract not found: $contractPath"
+}
+
+# The Java contract is the single catalogue. Reading it here prevents a second
+# hand-maintained list in PowerShell from drifting away from the tests.
+$contractSource = Get-Content -LiteralPath $contractPath -Raw
+$strictStart = $contractSource.IndexOf('STRICT_HOMOLOGUE_TESTS')
+$strictEnd = $contractSource.IndexOf('private GdxScenarioContract', $strictStart)
+if ($strictStart -lt 0 -or $strictEnd -le $strictStart) {
+    throw 'Cannot locate STRICT_HOMOLOGUE_TESTS in GdxScenarioContract.java.'
+}
+$strictBlock = $contractSource.Substring($strictStart, $strictEnd - $strictStart)
+$entryPattern = [regex]::new(
+    'Map\.entry\("([^"]+)"\s*,\s*Set\.of\((.*?)\)\)',
+    [System.Text.RegularExpressions.RegexOptions]::Singleline)
+$quotedPattern = [regex]::new('"([^"]+)"')
+$catalogue = [System.Collections.Generic.List[object]]::new()
+foreach ($match in $entryPattern.Matches($strictBlock)) {
+    $methods = @($quotedPattern.Matches($match.Groups[2].Value) |
+        ForEach-Object { $_.Groups[1].Value })
+    if ($methods.Count -eq 0) {
+        throw "Strict GDX scenario '$($match.Groups[1].Value)' has no tests."
     }
-    if (Test-Path -LiteralPath $homePath) {
-        Remove-Item -LiteralPath $homePath -Recurse -Force
+    $catalogue.Add([pscustomobject]@{
+            Scenario = $match.Groups[1].Value
+            Methods = $methods
+        })
+}
+if ($catalogue.Count -eq 0) {
+    throw 'No GDX certification scenarios were discovered.'
+}
+
+$testSources = @(Get-ChildItem -LiteralPath $testRoot -Recurse -Filter '*Test.java' |
+    ForEach-Object {
+        [pscustomobject]@{
+            Source = Get-Content -LiteralPath $_.FullName -Raw
+        }
+    })
+$resolved = [System.Collections.Generic.List[object]]::new()
+foreach ($entry in $catalogue) {
+    foreach ($method in $entry.Methods) {
+        $owners = [System.Collections.Generic.List[string]]::new()
+        foreach ($file in $testSources) {
+            if ($file.Source -notmatch ('\bvoid\s+' +
+                    [regex]::Escape($method) + '\s*\(')) {
+                continue
+            }
+            $packageMatch = [regex]::Match($file.Source,
+                '(?m)^package\s+([A-Za-z0-9_.]+)\s*;')
+            $classMatch = [regex]::Match($file.Source,
+                '(?m)^\s*(?:public\s+)?(?:final\s+)?class\s+([A-Za-z0-9_]+)')
+            if ($packageMatch.Success -and $classMatch.Success) {
+                $owners.Add($packageMatch.Groups[1].Value + '.' +
+                    $classMatch.Groups[1].Value)
+            }
+        }
+        if ($owners.Count -ne 1) {
+            throw "GDX test '$method' must have one owning class; found $($owners.Count)."
+        }
+        $resolved.Add([pscustomobject]@{
+                Scenario = $entry.Scenario
+                Class = $owners[0]
+                Method = $method
+            })
     }
 }
 
-$mavenRepo = Join-Path $repoRoot '.m2\repository'
+$quickScenarios = @(
+    'normal', 'allin-single-board', 'allin-rebuy', 'allin-rit',
+    'pause-resume', 'mixed-exit-crash', 'host-channel-flap',
+    'reconnect-force-recover', 'force-recover', 'crash-rejoin-recover',
+    'spectator-rebuy-cycle', 'rabbit-hunting'
+)
+if ($Scenario -ne 'all') {
+    $resolved = @($resolved | Where-Object { $_.Scenario -eq $Scenario })
+    if ($resolved.Count -eq 0) {
+        throw "Unknown GDX scenario '$Scenario'. Use -ListOnly to inspect the catalogue."
+    }
+} elseif ($Mode -eq 'quick') {
+    $resolved = @($resolved | Where-Object {
+            $quickScenarios -contains $_.Scenario
+        })
+}
+
+if ($ListOnly) {
+    $resolved | ForEach-Object {
+        '{0} -> {1}#{2}' -f $_.Scenario, $_.Class, $_.Method
+    }
+    exit 0
+}
 
 $maven = $null
 $wrapper = Join-Path $repoRoot 'mvnw.cmd'
-if (Test-Path -LiteralPath $wrapper) {
-    $maven = $wrapper
-}
+if (Test-Path -LiteralPath $wrapper) { $maven = $wrapper }
 foreach ($candidate in @('mvn.cmd', 'mvn')) {
     if ($null -eq $maven) {
-        $mavenCommand = Get-Command $candidate -ErrorAction SilentlyContinue
-        if ($null -ne $mavenCommand) {
-            $maven = $mavenCommand.Source
-        }
+        $command = Get-Command $candidate -ErrorAction SilentlyContinue
+        if ($null -ne $command) { $maven = $command.Source }
     }
 }
 if ($null -eq $maven) {
@@ -170,364 +195,148 @@ if ($null -eq $maven) {
     if (Test-Path -LiteralPath $netBeansMaven) {
         $maven = $netBeansMaven
     } else {
-        throw 'Maven was not found (checked mvnw.cmd, PATH and Apache NetBeans).'
+        throw 'Maven was not found in mvnw.cmd, PATH or Apache NetBeans.'
     }
 }
 
-$phaseResults = [System.Collections.Generic.List[object]]::new()
-$phaseNumber = 0
-$totalTimer = [System.Diagnostics.Stopwatch]::StartNew()
+$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$reportDir = Join-Path $repoRoot "target\certification\$stamp-$Mode"
+New-Item -ItemType Directory -Path $reportDir -Force | Out-Null
+$results = [System.Collections.Generic.List[object]]::new()
+$timer = [System.Diagnostics.Stopwatch]::StartNew()
 
 function Write-CertificationSummary {
-    param([string]$Prefix = 'Summary')
-    $csvPath = Join-Path $script:reportDir 'summary.csv'
-    $jsonPath = Join-Path $script:reportDir 'summary.json'
-    $script:phaseResults | Export-Csv -LiteralPath $csvPath -NoTypeInformation -Encoding UTF8
-    $script:phaseResults | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath $jsonPath -Encoding UTF8
-    Write-Host ''
-    $script:phaseResults | Select-Object Phase, Result, Seconds | Format-Table -AutoSize | Out-Host
-    Write-Host ("{0}: {1}" -f $Prefix, $csvPath)
-    Write-Host ("Machine-readable JSON: {0}" -f $jsonPath)
+    $csv = Join-Path $script:reportDir 'summary.csv'
+    $json = Join-Path $script:reportDir 'summary.json'
+    $script:results | Export-Csv -LiteralPath $csv -NoTypeInformation -Encoding utf8
+    $script:results | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath $json -Encoding utf8
+    Write-Host "Summary: $csv"
+    Write-Host "Machine-readable summary: $json"
 }
 
-function Invoke-CertificationPhase {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Name,
+Write-Host 'Clean-compiling the current GDX scenario reactor...' -ForegroundColor Cyan
+$preflightLog = Join-Path $reportDir '00-clean-test-compile.log'
+$preflightArgs = @(
+    '-B', '-f', $reactorPom,
+    '-pl', 'coronapoker-gdx', '-am',
+    "-Dmaven.repo.local=$mavenRepo",
+    '-DskipTests', 'clean', 'test-compile'
+)
+$previousPreference = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+try {
+    & $maven @preflightArgs 2>&1 |
+        Out-File -LiteralPath $preflightLog -Encoding utf8
+    $preflightExit = $LASTEXITCODE
+} finally {
+    $ErrorActionPreference = $previousPreference
+}
+if ($preflightExit -ne 0) {
+    Get-Content -LiteralPath $preflightLog -Tail 80 | Write-Host
+    throw "Scenario reactor does not clean-compile. Log: $preflightLog"
+}
 
-        [Parameter(Mandatory = $true)]
-        [string]$Command,
+$schedule = [System.Collections.Generic.List[object]]::new()
+for ($repeat = 1; $repeat -le $ScenarioRepeats; $repeat++) {
+    foreach ($test in $resolved) {
+        $schedule.Add([pscustomobject]@{
+                Repeat = $repeat
+                Scenario = $test.Scenario
+                Class = $test.Class
+                Method = $test.Method
+            })
+    }
+}
+if ($StartAtScenario) {
+    $startIndex = -1
+    for ($index = 0; $index -lt $schedule.Count; $index++) {
+        if ($schedule[$index].Scenario -eq $StartAtScenario -and
+                $schedule[$index].Repeat -eq $StartAtRepeat) {
+            $startIndex = $index
+            break
+        }
+    }
+    if ($startIndex -lt 0) {
+        throw "Unknown continuation point '$StartAtScenario' repeat $StartAtRepeat."
+    }
+    $schedule = @($schedule | Select-Object -Skip $startIndex)
+}
 
-        [Parameter(Mandatory = $true)]
-        [string[]]$Arguments
+Write-Host ("Mode={0} BaseSeed={1} scenarios={2} tests={3} repeats={4} soakHands={5}" -f
+    $Mode, $Seed, (@($resolved.Scenario | Sort-Object -Unique).Count),
+    $resolved.Count, $ScenarioRepeats, $SoakHands)
+Write-Host "Reports: $reportDir"
+
+$failed = $false
+for ($index = 0; $index -lt $schedule.Count; $index++) {
+    $test = $schedule[$index]
+    $scenarioSeed = $Seed + (($index + 1) * 1009)
+    $selector = $test.Class + '#' + $test.Method
+    $safeName = ($test.Scenario + '-' + $test.Method) -replace '[^A-Za-z0-9_.-]', '_'
+    $log = Join-Path $reportDir ("{0:D3}-r{1}-{2}.log" -f
+        ($index + 1), $test.Repeat, $safeName)
+    $started = Get-Date
+    Write-Host ("[{0}/{1}] r{2} {3} -> {4}" -f
+        ($index + 1), $schedule.Count, $test.Repeat, $test.Scenario, $selector)
+    $arguments = @(
+        '-B', '-f', $reactorPom,
+        '-pl', 'coronapoker-gdx', '-am', 'test',
+        "-Dmaven.repo.local=$mavenRepo",
+        "-Dtest=$selector",
+        '-Dsurefire.failIfNoSpecifiedTests=false',
+        '-Dcoronapoker.gdx.excludedGroups=',
+        "-Dqa.sim.seed=$scenarioSeed",
+        "-Dcoronapoker.qa.gdx.soakHands=$SoakHands",
+        "-Dcoronapoker.qa.gdx.headsUpHands=$($modeDefaults.HeadsUp)",
+        "-Dcoronapoker.qa.gdx.fullMixedHands=$($modeDefaults.FullMixed)",
+        "-Dcoronapoker.qa.gdx.fullHumanHands=$($modeDefaults.FullHuman)"
     )
-
-    $script:phaseNumber++
-    $safeName = $Name.ToLowerInvariant() -replace '[^a-z0-9]+', '-'
-    $safeName = $safeName.Trim('-')
-    $logPath = Join-Path $script:reportDir ('{0:D2}-{1}.log' -f $script:phaseNumber, $safeName)
-    $timer = [System.Diagnostics.Stopwatch]::StartNew()
-
-    Write-Host ''
-    Write-Host ("[{0}] RUN  {1}" -f $script:phaseNumber, $Name) -ForegroundColor Cyan
-
-    # Native tools such as Maven legitimately write progress/warnings to stderr.
-    # With ErrorActionPreference=Stop PowerShell can turn those lines into a
-    # terminating NativeCommandError before $LASTEXITCODE can be inspected.
-    $previousErrorActionPreference = $ErrorActionPreference
+    $previousPreference = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
-    $utf8 = New-Object System.Text.UTF8Encoding($false)
-    $writer = New-Object System.IO.StreamWriter($logPath, $false, $utf8)
-    $lastProgress = $null
     try {
-        & $Command @Arguments 2>&1 | ForEach-Object {
-            $line = $_.ToString()
-            $writer.WriteLine($line)
-            if ($script:VerboseOutput) {
-                Write-Host $line
-            } elseif ($line -match 'CP_E2E_PROGRESS completed=(\d+) requested=(\d+)') {
-                $progress = "{0}/{1}" -f $Matches[1], $Matches[2]
-                if ($progress -ne $lastProgress) {
-                    Write-Host ("    hands {0}" -f $progress) -ForegroundColor DarkGray
-                    $lastProgress = $progress
-                }
-            } elseif ($line -match 'CP_HEADLESS_PROGRESS campaign=([^ ]+) completed=(\d+) requested=(\d+)') {
-                $progress = "{0} {1}/{2}" -f $Matches[1], $Matches[2], $Matches[3]
-                if ($progress -ne $lastProgress) {
-                    Write-Host ("    {0}" -f $progress) -ForegroundColor DarkGray
-                    $lastProgress = $progress
-                }
-            } elseif ($line -match 'CP_E2E_FAIL') {
-                Write-Host ("    {0}" -f $line) -ForegroundColor Red
-            }
+        if ($VerboseOutput) {
+            & $maven @arguments 2>&1 | Tee-Object -FilePath $log
+        } else {
+            & $maven @arguments 2>&1 |
+                Out-File -LiteralPath $log -Encoding utf8
         }
         $exitCode = $LASTEXITCODE
     } finally {
-        $writer.Dispose()
+        $ErrorActionPreference = $previousPreference
     }
-    if ($exitCode -eq 0 -and (Select-String -LiteralPath $logPath -Pattern 'CP_E2E_FAIL' -Quiet)) {
-        Write-Host '    terminal CP_E2E_FAIL marker found in a nominally successful phase' `
-            -ForegroundColor Red
-        $exitCode = 1
-    }
-    $ErrorActionPreference = $previousErrorActionPreference
-    $timer.Stop()
-
-    if ($exitCode -ne 0) {
-        $script:phaseResults.Add([pscustomobject]@{
-                Phase = $Name
-                Result = 'FAIL'
-                Seconds = [math]::Round($timer.Elapsed.TotalSeconds, 1)
-                Log = $logPath
-                Mode = $script:Mode
-                BaseSeed = $script:Seed
-                Hands = $script:Hands
-                Faults = $script:Faults
-                BotHands = $script:BotHands
-                SoakHands = $script:SoakHands
-                ScenarioRepeats = $script:ScenarioRepeats
-            })
-        Write-Host ("[{0}] FAIL {1} ({2:n1}s, exit {3})" -f $script:phaseNumber, $Name,
-                $timer.Elapsed.TotalSeconds, $exitCode) -ForegroundColor Red
-        Write-Host 'Last log lines:' -ForegroundColor DarkGray
-        Get-Content -LiteralPath $logPath -Tail 30 | ForEach-Object { Write-Host $_ }
-        Write-Host "Full log: $logPath" -ForegroundColor Red
-        throw "Certification phase failed: $Name"
-    }
-
-    $script:phaseResults.Add([pscustomobject]@{
-            Phase = $Name
-            Result = 'PASS'
-            Seconds = [math]::Round($timer.Elapsed.TotalSeconds, 1)
-            Log = $logPath
-            Mode = $script:Mode
-            BaseSeed = $script:Seed
-            Hands = $script:Hands
-            Faults = $script:Faults
-            BotHands = $script:BotHands
-            SoakHands = $script:SoakHands
-            ScenarioRepeats = $script:ScenarioRepeats
+    $seconds = [math]::Round(((Get-Date) - $started).TotalSeconds, 3)
+    $status = if ($exitCode -eq 0) { 'PASS' } else { 'FAIL' }
+    $results.Add([pscustomobject]@{
+            Repeat = $test.Repeat
+            Scenario = $test.Scenario
+            Test = $selector
+            Seed = $scenarioSeed
+            Result = $status
+            Seconds = $seconds
+            Log = $log
+            Mode = $Mode
+            BaseSeed = $Seed
+            ScenarioRepeats = $ScenarioRepeats
+            SoakHands = $SoakHands
         })
-    Write-Host ("[{0}] PASS {1} ({2:n1}s)" -f $script:phaseNumber, $Name,
-            $timer.Elapsed.TotalSeconds) -ForegroundColor Green
+    Write-Host "  $status ($seconds s)"
+    if ($exitCode -ne 0) {
+        $failed = $true
+        Get-Content -LiteralPath $log -Tail 80 | Write-Host
+        break
+    }
 }
 
-$commonMavenArgs = @(
-    '-f', $reactorPom,
-    "-Dmaven.repo.local=$($mavenRepo.Replace('\', '/'))",
-    "-Dqa.user.home=$($qaUserHome.Replace('\', '/'))",
-    'install'
-)
-
-Write-Host 'CoronaPoker local certification' -ForegroundColor Cyan
-Write-Host ("Mode={0} seed={1} campaigns={2}/{3}/{4} soak={5} scenarioRepeats={6}" -f `
-        $Mode, $Seed, $Hands, $Faults, $BotHands, $SoakHands, $ScenarioRepeats)
-Write-Host ("Windows={0} screen={1} animations={2} productionTiming={3}" -f `
-        $WindowMode, $Screen, [bool]$Animations, [bool]$ProductionTiming)
-Write-Host ("Reports: {0}" -f $reportDir)
-
-try {
-    if (-not $StartAtScenario) {
-        Invoke-CertificationPhase `
-            -Name 'QA release suite' `
-            -Command $maven `
-            -Arguments ($commonMavenArgs + @(
-                    '-Pqa-release',
-                    "-Dqa.sim.seed=$Seed",
-                    '-Dqa.sim.hands=1',
-                    '-Dqa.sim.faults=1',
-                    '-Dqa.sim.bot.hands=1'
-                ))
-
-        if ($IncludeBotQuality) {
-            Invoke-CertificationPhase `
-                -Name 'Bot quality suite' `
-                -Command $maven `
-                -Arguments ($commonMavenArgs + @('-Pqa-bots'))
-        }
-
-        Invoke-CertificationPhase `
-            -Name 'Headless protocol campaigns' `
-            -Command 'powershell.exe' `
-            -Arguments @(
-                '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $headlessRunner,
-                '-Hands', "$Hands", '-Faults', "$Faults", '-BotHands', "$BotHands", '-Seed', "$Seed",
-                '-SkipGameBuild'
-            )
-    } else {
-        Write-Host ("Continuation mode: rebuilding current sources, skipping QA/headless; starting at {0} repeat {1}" -f `
-                $StartAtScenario, $StartAtRepeat) -ForegroundColor Yellow
-        Invoke-CertificationPhase `
-            -Name 'Current-source build for continuation' `
-            -Command $maven `
-            -Arguments ($commonMavenArgs + @('-DskipTests'))
-    }
-
-    $fullMixedHands = if ($Mode -eq 'stress') { 10 } elseif ($Mode -in @('quick', 'fast')) { 1 } else { 3 }
-    $fullHumanHands = if ($Mode -eq 'stress') { 3 } else { 1 }
-    $headsUpHands = if ($Mode -in @('quick', 'fast')) { 5 } else { 20 }
-    $scenarioProfiles = @(
-        @{ Label = 'normal-soak'; Name = 'normal'; Clients = 2; Bots = 2; Hands = $SoakHands },
-        @{ Label = 'normal-heads-up'; Name = 'normal'; Clients = 1; Bots = 0; Hands = $headsUpHands },
-        @{ Label = 'normal-full-mixed'; Name = 'normal'; Clients = 4; Bots = 5; Hands = $fullMixedHands },
-        @{ Label = 'normal-full-human'; Name = 'normal'; Clients = 9; Bots = 0; Hands = $fullHumanHands },
-        @{ Label = 'raise-mix'; Name = 'raise-mix'; Clients = 2; Bots = 2; Hands = 10 },
-        @{ Label = 'allin-single-board'; Name = 'allin-single-board'; Clients = 1; Bots = 0; Hands = 1 },
-        @{ Label = 'allin-rebuy'; Name = 'allin-rebuy'; Clients = 1; Bots = 0; Hands = 5 },
-        @{ Label = 'allin-rit'; Name = 'allin-rit'; Clients = 1; Bots = 0; Hands = 1 },
-        @{ Label = 'allin-controlled-exit'; Name = 'allin-controlled-exit'; Clients = 1; Bots = 0; Hands = 1 },
-        @{ Label = 'straddle-post'; Name = 'straddle-post'; Clients = 2; Bots = 0; Hands = 3 },
-        @{ Label = 'pause-resume'; Name = 'pause-resume'; Clients = 2; Bots = 1; Hands = 2 },
-        @{ Label = 'reconnect-midhand'; Name = 'reconnect-midhand'; Clients = 2; Bots = 1; Hands = 2 },
-        @{ Label = 'reconnect-twice'; Name = 'reconnect-twice'; Clients = 2; Bots = 1; Hands = 3 },
-        @{ Label = 'reconnect-storm'; Name = 'reconnect-storm'; Clients = 2; Bots = 1; Hands = 4 },
-        @{ Label = 'dual-reconnect'; Name = 'dual-reconnect'; Clients = 3; Bots = 1; Hands = 3 },
-        @{ Label = 'host-channel-flap'; Name = 'host-channel-flap'; Clients = 3; Bots = 1; Hands = 2 },
-        @{ Label = 'reconnect-every-street'; Name = 'reconnect-every-street'; Clients = 2; Bots = 1; Hands = 4 },
-        @{ Label = 'allin-reconnect'; Name = 'allin-reconnect'; Clients = 2; Bots = 0; Hands = 1 },
-        @{ Label = 'rit-network-cut'; Name = 'rit-network-cut'; Clients = 2; Bots = 0; Hands = 1 },
-        @{ Label = 'straddle-network-cut'; Name = 'straddle-network-cut'; Clients = 2; Bots = 0; Hands = 3 },
-        @{ Label = 'reconnect-force-recover'; Name = 'reconnect-force-recover'; Clients = 2; Bots = 1; Hands = 3 },
-        @{ Label = 'transport-chaos'; Name = 'transport-chaos'; Clients = 3; Bots = 1; Hands = 5 },
-        @{ Label = 'lifecycle-chaos'; Name = 'lifecycle-chaos'; Clients = 2; Bots = 1; Hands = 7 },
-        @{ Label = 'abrupt-exit-survivor'; Name = 'abrupt-exit'; Clients = 2; Bots = 1; Hands = 1 },
-        @{ Label = 'controlled-exit-survivor'; Name = 'controlled-exit'; Clients = 2; Bots = 1; Hands = 1 },
-        @{ Label = 'dual-abrupt-exit'; Name = 'dual-abrupt-exit'; Clients = 3; Bots = 1; Hands = 1 },
-        @{ Label = 'mixed-exit-crash'; Name = 'mixed-exit-crash'; Clients = 3; Bots = 1; Hands = 1 },
-        @{ Label = 'allin-abrupt-exit'; Name = 'allin-abrupt-exit'; Clients = 2; Bots = 0; Hands = 1 },
-        @{ Label = 'force-recover'; Name = 'force-recover'; Clients = 1; Bots = 2; Hands = 2 },
-        @{ Label = 'double-force-recover'; Name = 'double-force-recover'; Clients = 1; Bots = 2; Hands = 4 },
-        @{ Label = 'crash-rejoin-recover'; Name = 'crash-rejoin-recover'; Clients = 1; Bots = 2; Hands = 2 },
-        @{ Label = 'force-recover-add-client'; Name = 'force-recover-add-client'; Clients = 2; Bots = 2; Hands = 2 },
-        @{ Label = 'force-recover-add-two'; Name = 'force-recover-add-two'; Clients = 3; Bots = 1; Hands = 2 },
-        @{ Label = 'force-recover-swap-client'; Name = 'force-recover-swap-client'; Clients = 2; Bots = 1; Hands = 2 },
-        @{ Label = 'spectator-rebuy-cycle'; Name = 'spectator-rebuy-cycle'; Clients = 3; Bots = 0; Hands = 7 },
-        @{ Label = 'spectator-recovery-mix'; Name = 'spectator-recovery-mix'; Clients = 6; Bots = 1; Hands = 7 },
-        @{ Label = 'bot-bust-recover-regrow'; Name = 'bot-bust-recover-regrow'; Clients = 2; Bots = 2; Hands = 7 }
-        @{ Label = 'bot-bust-recover-drop'; Name = 'bot-bust-recover-drop'; Clients = 2; Bots = 2; Hands = 7 }
-        @{ Label = 'human-bust-exit-rejoin-rebuy'; Name = 'human-bust-exit-rejoin-rebuy'; Clients = 3; Bots = 1; Hands = 7 }
-        @{ Label = 'spectator-double-recovery-crash-mix'; Name = 'spectator-double-recovery-crash-mix'; Clients = 6; Bots = 1; Hands = 8 }
-    )
-
-    $gdxScenarioMethods = @{
-        'normal-soak' = 'normalSoakMatchesTheSwingGoldTopologyAcrossGdxProcesses'
-        'normal-heads-up' = 'normalHeadsUpMatchesTheSwingGoldTopologyAcrossGdxProcesses'
-        'normal-full-mixed' = 'normalFullMixedMatchesTheSwingGoldTopologyAcrossGdxProcesses'
-        'normal-full-human' = 'normalFullHumanMatchesTheSwingGoldTopologyAcrossGdxProcesses'
-        'raise-mix' = 'raiseMixMatchesTheSwingGoldSequenceAcrossGdxProcesses'
-        'allin-single-board' = 'allInSingleBoardMatchesTheSwingGoldSequenceAcrossGdxProcesses'
-        'allin-rebuy' = 'allInRebuyMatchesTheSwingGoldSequenceAcrossGdxProcesses'
-        'allin-rit' = 'allInRunItTwiceMatchesTheSwingGoldSequenceAcrossGdxProcesses'
-        'allin-controlled-exit' = 'allInControlledExitMatchesTheSwingGoldSequenceAcrossGdxProcesses'
-        'straddle-post' = 'straddlePostMatchesTheSwingGoldSequenceAcrossGdxProcesses'
-        'pause-resume' = 'pauseResumePreservesTheDecisionAcrossIndependentGdxProcesses'
-        'reconnect-midhand' = 'reconnectMidHandReplacesTheSocketAcrossIndependentGdxProcesses'
-        'reconnect-twice' = 'reconnectTwiceMatchesTheSwingGoldSequenceAcrossGdxProcesses'
-        'reconnect-storm' = 'reconnectStormMatchesTheSwingGoldSequenceAcrossGdxProcesses'
-        'dual-reconnect' = 'dualReconnectMatchesTheSwingGoldSequenceAcrossGdxProcesses'
-        'host-channel-flap' = 'hostChannelFlapMatchesTheSwingGoldSequenceAcrossGdxProcesses'
-        'reconnect-every-street' = 'reconnectEveryStreetMatchesTheSwingGoldSequenceAcrossGdxProcesses'
-        'allin-reconnect' = 'allInReconnectMatchesTheSwingGoldSequenceAcrossGdxProcesses'
-        'rit-network-cut' = 'runItTwiceVoteSurvivesNetworkCutAcrossGdxProcesses'
-        'straddle-network-cut' = 'straddleAcceptedResponseSurvivesNetworkCutAcrossGdxProcesses'
-        'reconnect-force-recover' = 'reconnectAndForceRecoveryConvergeAcrossIndependentGdxProcesses'
-        'transport-chaos' = 'transportChaosConvergesAcrossIndependentGdxProcesses'
-        'lifecycle-chaos' = 'lifecycleChaosConvergesAcrossIndependentGdxProcesses'
-        'abrupt-exit-survivor' = 'abruptProcessExitLeavesIndependentGdxPeersRecoverable'
-        'controlled-exit-survivor' = 'controlledExitUsesIndependentGdxProcesses'
-        'dual-abrupt-exit' = 'dualAbruptExitMatchesTheSwingGoldScenarioAcrossGdxProcesses'
-        'mixed-exit-crash' = 'mixedControlledExitAndCrashMatchesTheSwingGoldScenario'
-        'allin-abrupt-exit' = 'allInAbruptExitMatchesTheSwingGoldSequenceAcrossGdxProcesses'
-        'force-recover' = 'forceRecoveryRebuildsBothGdxProcessesAndCompletesTwoHands'
-        'double-force-recover' = 'doubleForceRecoveryRebuildsBothGdxProcessesAtHandsOneAndThree'
-        'crash-rejoin-recover' = 'crashRejoinRecoveryRestartsTheSameGdxPeerAndCompletesHandTwo'
-        'force-recover-add-client' = 'forceRecoveryAdmitsNewIndependentGdxProcessForFreshSecondHand'
-        'force-recover-add-two' = 'forceRecoveryAdmitsTwoNewIndependentGdxProcessesForSecondHand'
-        'force-recover-swap-client' = 'forceRecoveryReplacesMissingIndependentGdxProcessForSecondHand'
-        'spectator-rebuy-cycle' = 'spectatorRebuyCycleReturnsBustedIndependentGdxProcessToPlay'
-        'spectator-recovery-mix' = 'spectatorsSurviveRecoveryRebuyAndTwoNewIndependentGdxProcesses'
-        'bot-bust-recover-regrow' = 'bustedBotRegrowsAcrossIndependentGdxProcessesAfterRecovery'
-        'bot-bust-recover-drop' = 'bustedBotDropsAcrossIndependentGdxProcessesAfterRecovery'
-        'human-bust-exit-rejoin-rebuy' = 'bustedHumanExitsRejoinsWithSameIdentityAcrossIndependentGdxProcesses'
-        'spectator-double-recovery-crash-mix' = 'spectatorDoubleRecoveryCrashMixRunsAcrossIndependentGdxProcesses'
-    }
-    foreach ($profile in $scenarioProfiles) {
-        if (-not $gdxScenarioMethods.ContainsKey($profile.Label)) {
-            throw "Missing GDX scenario method mapping for $($profile.Label)"
-        }
-    }
-
-    if ($Mode -eq 'quick') {
-        $quickLabels = @(
-            'normal-soak',
-            'normal-heads-up',
-            'normal-full-mixed',
-            'allin-single-board',
-            'allin-rebuy',
-            'allin-rit',
-            'host-channel-flap',
-            'mixed-exit-crash',
-            'reconnect-force-recover',
-            'force-recover',
-            'crash-rejoin-recover'
-        )
-        $scenarioProfiles = @($scenarioProfiles | Where-Object { $quickLabels -contains $_.Label })
-    }
-
-    $scenarios = [System.Collections.Generic.List[object]]::new()
-    foreach ($profile in $scenarioProfiles) {
-        for ($repeat = 1; $repeat -le $ScenarioRepeats; $repeat++) {
-            $scenarios.Add([pscustomobject]@{
-                    Label = $profile.Label
-                    Name = $profile.Name
-                    Clients = $profile.Clients
-                    Bots = $profile.Bots
-                    Hands = $profile.Hands
-                    Method = $gdxScenarioMethods[$profile.Label]
-                    Repeat = $repeat
-                })
-        }
-    }
-
-    $firstScenarioIndex = 0
-    if ($StartAtScenario) {
-        $matchingScenario = @($scenarios | Where-Object {
-                $_.Label -eq $StartAtScenario -and $_.Repeat -eq $StartAtRepeat
-            })
-        if ($matchingScenario.Count -eq 0) {
-            throw "Unknown or unavailable continuation point: $StartAtScenario repeat $StartAtRepeat"
-        }
-        $firstScenarioIndex = $scenarios.IndexOf($matchingScenario[0])
-    }
-
-    for ($scenarioIndex = $firstScenarioIndex; $scenarioIndex -lt $scenarios.Count; $scenarioIndex++) {
-        $scenario = $scenarios[$scenarioIndex]
-        $scenarioSeed = $Seed + (($scenarioIndex + 1) * 1009)
-        $scenarioArgs = @(
-            '-f', $reactorPom,
-            "-Dmaven.repo.local=$($mavenRepo.Replace('\', '/'))",
-            '-pl', ':coronapoker-gdx', '-am',
-            'test',
-            "-Dtest=GdxMultiprocessScenarioTest#$($scenario.Method)",
-            '-Dsurefire.failIfNoSpecifiedTests=false',
-            "-Dcoronapoker.qa.gdx.soakHands=$SoakHands",
-            "-Dcoronapoker.qa.gdx.headsUpHands=$headsUpHands",
-            "-Dcoronapoker.qa.gdx.fullMixedHands=$fullMixedHands",
-            "-Dcoronapoker.qa.gdx.fullHumanHands=$fullHumanHands",
-            "-Dqa.sim.seed=$scenarioSeed"
-        )
-
-        Invoke-CertificationPhase `
-            -Name "GDX real game: $($scenario.Label) repeat $($scenario.Repeat)/$ScenarioRepeats seed $scenarioSeed" `
-            -Command $maven `
-            -Arguments $scenarioArgs
-    }
-    Remove-CertificationQaHome
-} catch {
-    $failure = $_
-    $totalTimer.Stop()
-    try {
-        Remove-CertificationQaHome
-    } catch {
-        Write-Host "QA home cleanup also failed: $($_.Exception.Message)" -ForegroundColor Yellow
-    }
-    Write-Host $failure.Exception.Message -ForegroundColor Red
-    Write-CertificationSummary -Prefix 'Partial summary'
+$timer.Stop()
+Write-CertificationSummary
+Write-Host ("Elapsed: {0}" -f $timer.Elapsed)
+if ($failed) {
+    Write-Host 'CORONAPOKER GDX CERTIFICATION FAIL' -ForegroundColor Red
     exit 1
 }
-
-$totalTimer.Stop()
-Write-Host ''
-Write-Host ('=' * 78)
 if ($StartAtScenario) {
-    Write-Host 'CORONAPOKER CERTIFICATION CONTINUATION PASS' -ForegroundColor Green
-    Write-Host 'This continuation is evidence only; combine it with the preceding checkpoint.' `
-        -ForegroundColor Yellow
+    Write-Host 'CORONAPOKER GDX CERTIFICATION CONTINUATION PASS' -ForegroundColor Green
 } else {
-    Write-Host 'CORONAPOKER CERTIFICATION PASS' -ForegroundColor Green
+    Write-Host 'CORONAPOKER GDX CERTIFICATION PASS' -ForegroundColor Green
 }
-Write-Host ("Phases: {0}; elapsed: {1}" -f $phaseResults.Count, $totalTimer.Elapsed)
-Write-Host ('=' * 78)
-Write-CertificationSummary
-
 exit 0

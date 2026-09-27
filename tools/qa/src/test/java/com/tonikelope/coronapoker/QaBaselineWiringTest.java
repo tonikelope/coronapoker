@@ -1,6 +1,7 @@
 package com.tonikelope.coronapoker;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -98,12 +99,12 @@ class QaBaselineWiringTest {
         Path root = locateRoot();
         assertLauncher(root, "certify.cmd", "run-certification.ps1");
         assertLauncher(root, "headless-sim.cmd", "run-headless-sim.ps1");
-        assertLauncher(root, "gdx-scenarios.cmd", "run-gdx-scenarios.ps1");
 
         String testing = Files.readString(root.resolve("docs/TESTING.md"));
         assertTrue(testing.contains(".\\tools\\qa\\certify.cmd"));
         assertTrue(testing.contains(".\\tools\\qa\\headless-sim.cmd"));
-        assertTrue(testing.contains(".\\tools\\qa\\gdx-scenarios.cmd"));
+        assertFalse(testing.contains("gdx-scenarios.cmd"),
+                "the retired duplicate scenario launcher must stay undocumented");
     }
 
     @Test
@@ -121,12 +122,12 @@ class QaBaselineWiringTest {
                     runner + " must use the shared seed generator");
             assertTrue(script.contains("$PSBoundParameters.ContainsKey('Seed')"),
                     runner + " must preserve an explicit replay seed");
-            assertTrue(script.contains("omitted: fresh random seed"),
-                    runner + " help must explain its random default");
+            assertTrue(script.contains("New-CoronaPokerQaSeed"),
+                    runner + " must generate a seed when none is supplied");
         }
 
         String certification = Files.readString(root.resolve("tools/qa/run-certification.ps1"));
-        assertTrue(certification.contains("BaseSeed = $script:Seed"),
+        assertTrue(certification.contains("BaseSeed = $Seed"),
                 "machine-readable certification summaries must persist the replay seed");
         assertTrue(certification.contains("-StartAtScenario requires the BaseSeed"),
                 "continuation must not silently switch to a fresh schedule seed");
@@ -134,10 +135,12 @@ class QaBaselineWiringTest {
                 "certifier must expose the full-matrix fast preflight explicitly");
         assertTrue(certification.contains("-StartAtRepeat requires -StartAtScenario"),
                 "an exact-repeat checkpoint must not be accepted without a scenario");
-        assertTrue(certification.contains("ScenarioRepeats = $script:ScenarioRepeats"),
+        assertTrue(certification.contains("ScenarioRepeats = $ScenarioRepeats"),
                 "summaries must persist the schedule needed to resume exactly");
-        assertTrue(certification.contains("\"-Dqa.sim.seed=$Seed\""),
-                "the release suite must share the certification's fresh base seed");
+        assertTrue(certification.contains("\"-Dqa.sim.seed=$scenarioSeed\""),
+                "each scenario process must receive its derived replay seed");
+        assertFalse(certification.contains("'-o'"),
+                "the public certifier must work with an empty checkout-local Maven cache");
 
     }
 

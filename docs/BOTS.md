@@ -343,8 +343,8 @@ The behaviours that make the bot hard to read, all gated so they stay +EV:
 ## 11. Testing and calibration
 
 Bot quality is a *measured* property. The offline harness lives in
-[`tools/qa`](../tools/qa) (a standalone Maven module that depends on the published
-game jar) and is documented in
+[`tools/qa`](../tools/qa), is built with the current product sources through
+the opt-in QA reactor, and is documented in
 [`tools/qa/.../bot/harness/README.md`](../tools/qa/src/test/java/com/tonikelope/coronapoker/bot/harness/README.md).
 
 - **Matchup simulations** pit one difficulty/archetype against five others over
@@ -361,28 +361,17 @@ game jar) and is documented in
 
 The QA module runs in **tagged lanes** (JUnit 5 `@Tag`, selected by a Maven
 profile in `tools/qa/pom.xml`): `qa-fast` runs deterministic tests,
-`qa-heavy` runs the non-bot slow lanes, and `qa-release` combines those two.
+`qa-heavy` runs the non-bot slow lanes, and `qa-all` combines the fast and
+slow non-bot lanes.
 **Every bot matchup, baseline and difficulty-gradient simulation is tagged
 `slow` and belongs only to `qa-bots`**, so a plain `mvn test`, `qa-heavy` or
-`qa-release` runs *none* of them. To calibrate the bot you must select
-`qa-bots` explicitly. Two ways to do that:
+`qa-all` runs *none* of them. To calibrate the bot you must select
+`qa-bots` explicitly:
 
-- **Reactor (no install).** The opt-in aggregator at `tools/reactor/pom.xml`
-  builds the game and the QA module together, so nothing has to be published to
-  the checkout-local `.m2/repository` first:
-
-  ```
-  mvn -f tools/reactor/pom.xml verify -P qa-bots    # bot sims only
-  mvn -f tools/reactor/pom.xml verify -P qa-release # fast + non-bot slow
-  ```
-
-- **Standalone.** Publish the game jar once, then run the QA module against it
-  against the installed artifacts of the current checkout:
-
-  ```
-  mvn '-DskipTests' install                                            # repo root
-  mvn -f tools/qa/pom.xml test -P qa-bots
-  ```
+```
+mvn -f tools/reactor/pom.xml verify -P qa-bots
+mvn -f tools/reactor/pom.xml verify -P qa-all
+```
 
 Scale the iteration volume with `-Dqa.sessions=N -Dqa.hands=N`; the default
 validation volume is **10,000 hands per matchup** (200 sessions × 50 hands).

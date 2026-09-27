@@ -22,19 +22,19 @@ They answer one question: after a change, does the basic game flow still work?
 - Before merging a development branch into `master`.
 - Fast smoke tests run automatically in the default fast lane because the QA
   POM includes `**/*Smoke.java`. `GameFlowSmoke` is tagged `slow`, so it belongs
-  only to the explicit `qa-bots` lane and never to `qa-heavy` or `qa-release`.
+  only to the explicit `qa-bots` lane and never to `qa-heavy` or `qa-all`.
 
 ## Running only smoke tests
 
 ```powershell
-mvn -f tools/reactor/pom.xml -o verify -P qa-fast '-Dtest=*Smoke' '-Dsurefire.failIfNoSpecifiedTests=false'
+mvn -f tools/reactor/pom.xml verify -P qa-fast '-Dtest=*Smoke' '-Dsurefire.failIfNoSpecifiedTests=false'
 ```
 
 That command skips `GameFlowSmoke` because the default lane excludes its
 `@Tag("slow")`. Run it explicitly with:
 
 ```powershell
-mvn -f tools/reactor/pom.xml -o verify -P qa-bots '-Dtest=GameFlowSmoke' '-Dsurefire.failIfNoSpecifiedTests=false'
+mvn -f tools/reactor/pom.xml verify -P qa-bots '-Dtest=GameFlowSmoke' '-Dsurefire.failIfNoSpecifiedTests=false'
 ```
 
 Fast smoke tests take a few seconds. `GameFlowSmoke` adds up to approximately
@@ -46,7 +46,7 @@ Fast smoke tests take a few seconds. `GameFlowSmoke` adds up to approximately
 - SRA cryptography: `sra/`.
 - Real socket protocol behavior: `net/`, including framing, stall/back-pressure
   and send-queue tests. Full multiplayer GDX games run in separate JVMs through
-  `tools/qa/gdx-scenarios.cmd`; see `docs/TESTING.md`.
+  `tools/qa/certify.cmd`; see `docs/TESTING.md`.
 - Pixel-level GDX paint and layout inspection remains manual. Functional GDX,
   socket and `Crupier` transitions are automated by the multiprocess suite.
 

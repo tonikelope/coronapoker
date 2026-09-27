@@ -247,14 +247,15 @@ duplicated product classes.
 
 ### Repository layout
 
-- `pom.xml`: canonical CoronaPoker 25.1 build entry point.
+- `pom.xml`: canonical CoronaPoker 25.3 build entry point.
 - `modules/coronapoker-core/`: shared game, networking, persistence and
   renderer-neutral presentation contracts.
 - `modules/coronapoker-gdx/`: libGDX application and desktop launcher.
 - `modules/coronapoker-assets/`: shared resources packaged from
   `src/main/resources`.
-- `modules/coronapoker-qa/` and `tools/qa/`: architecture tests,
-  certification suites and multi-process scenarios.
+- `modules/coronapoker-qa/`: architecture and source-ownership tests.
+- `tools/qa/`: opt-in protocol, recovery, security and headless simulation
+  tests. Behavioural certification scenarios live with the GDX test sources.
 - `docs/`: architecture, security, testing and contributor documentation.
 - `target/`: the only directory containing the product JAR.
 - `coronaupdater.jar`: special root-level updater artifact required by the
@@ -291,12 +292,13 @@ target/CoronaPoker_<version>.jar
 The application is shaded into a module-local staging JAR and published to
 `target/` only after that archive is complete. This prevents a running table
 from reading a partially rewritten JAR.
-The root `pom.xml` is the canonical 25.1 product entry point and delegates to
+The root `pom.xml` is the canonical 25.3 product entry point and delegates to
 the module reactor.
 
-The local distribution and the GitHub release asset use the same historical
-name, `target/CoronaPoker_25.1.jar`, which is also the exact filename resolved
-by the installed updater. No manual rename or second JAR is required.
+The local distribution and the GitHub release asset use the historical name
+`target/CoronaPoker_25.3.jar`. The updater downloads that versioned asset and
+installs it beside the running application as `CoronaPoker.jar`, then relaunches
+that stable filename. No manual rename is required.
 
 Use the lifecycle according to intent:
 
@@ -320,10 +322,8 @@ java -jar target/CoronaPoker_<version>.jar
 `coronaupdater.jar` is intentionally the only JAR outside `target/`: the
 self-update mechanism requires that special helper at the repository root.
 
-For a release-certified build on Windows, clone the repository and run the
-public certifier from its root. It builds the current checkout, runs the normal
-non-bot QA lanes, mass protocol campaigns and real host/client JVM scenarios,
-then leaves the same fat JAR under `target/`:
+Behavioural certification is a separate release gate. On Windows, run the
+public GDX scenario certifier from the repository root:
 
 ```powershell
 git clone https://github.com/tonikelope/coronapoker.git
@@ -331,51 +331,33 @@ Set-Location coronapoker
 .\tools\qa\certify.cmd -Mode balanced
 ```
 
-A normal release uses `balanced`, which runs `qa-release`, mass headless
-campaigns and every real-game scenario twice. Major audits, broad protocol or
-security changes, new certification baselines and suspected race families use
-`fast` as a full-matrix preflight followed by the five-seed `stress` gate. A
-valid result exits with code `0`, ends with `CORONAPOKER CERTIFICATION PASS`
-and writes `summary.csv`, `summary.json` and phase logs below the printed
-`target/certification/<timestamp>` directory. Each new run chooses and records
-a fresh seed; replay a failure with its reported `-Seed`. On a single-monitor
-machine add `-Screen 1`. The detailed proportional policy for localized fixes,
-subsystems and release milestones is in [Testing and certification](docs/TESTING.md).
-Statistical bot-quality tests are intentionally outside this normal release
-gate. No private directory or pre-existing user cache is required.
+`balanced` runs the complete GDX scenario catalogue twice. The runner reads
+the executable mapping of the historical Swing GOLD scenarios and the GDX-only
+product scenarios directly, uses fresh Maven processes for isolation and
+records replayable seeds, logs,
+`summary.csv` and `summary.json` below `target/certification/`. Code tests,
+extended QA and headless campaigns remain explicit separate commands, so a
+certificate always means scenario behaviour rather than an opaque mixture of
+test types. See [Testing and certification](docs/TESTING.md) for the command
+order and proportional validation policy.
 
 ---
 
 ## 🧪 Testing & certification
 
-QA lives in the separate `tools/qa` module and is never packaged in the game
-JAR. The release certification runs replayable tests, non-bot slow lanes, seeded
-protocol campaigns and real host/client JVM scenarios first across the whole
-matrix and then under deep stress. Each run generates and records a fresh
-replayable seed unless `-Seed` is supplied:
-
-The practical order is: focused regression, `mvn clean verify`, extended fast
-QA, GDX scenarios, and finally the balanced release certificate. Broad
-security or protocol changes additionally require a fast certificate followed
-by stress. The exact decision table and commands are in
-[Testing and certification](docs/TESTING.md#recommended-execution-order).
+The normal product build runs code and architecture tests. The separate
+`tools/qa` module provides extended opt-in regressions and seeded headless
+campaigns. Behavioural certification is the GDX scenario suite. None of these
+layers is packaged in the game JAR.
 
 ```powershell
 .\tools\qa\certify.cmd -Mode fast
 .\tools\qa\certify.cmd -Mode stress
 ```
 
-The GDX scenario runner removes only validated generated module outputs,
-compiles the current reactor, launches every selected scenario in fresh JVMs
-and retains individual logs below `target/`. This prevents stale JARs or class
-files from producing a false green result:
-
-```powershell
-.\tools\qa\gdx-scenarios.cmd -Mode fast
-```
-
-Use `-ListOnly`, `-Scenario <name>` or `-StartAt <name>` for targeted work.
-`balanced` remains the final repetition gate rather than the normal inner loop.
+Use `certify.cmd -ListOnly` to inspect the authoritative catalogue and
+`-Scenario <name>` for a targeted behavioural run. `quick`, `fast`, `balanced`
+and `stress` increase catalogue breadth, repetitions and long-game depth.
 
 Statistical bot-quality tests remain opt-in. See **[Testing and certification](docs/TESTING.md)**
 for every lane, simulator scenario, option, example, report format and

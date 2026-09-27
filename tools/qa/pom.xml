@@ -29,7 +29,7 @@
     <parent>
         <groupId>com.tonikelope</groupId>
         <artifactId>coronapoker-modules</artifactId>
-        <version>25.2</version>
+        <version>25.3</version>
         <relativePath>../../modules/pom.xml</relativePath>
     </parent>
     <groupId>com.tonikelope.qa</groupId>
@@ -42,7 +42,7 @@
         <qa.user.home>${project.build.directory}/qa-home</qa.user.home>
         <!-- Test lane selection (JUnit 5 tags). Defaults give the FAST lane:
         run everything EXCEPT tests tagged @Tag("slow"). The `qa-heavy`
-        and `qa-release` profiles select the non-bot slow lanes; the
+        and `qa-all` profiles select the non-bot slow lanes; the
         statistical bot lane is only selected by the explicit `qa-bots`
         profile. See the Testing section in README.md. -->
         <qa.groups></qa.groups>
@@ -76,7 +76,7 @@
                     <failIfNoTests>true</failIfNoTests>
                     <!-- JUnit 5 tag lanes. Empty qa.groups = no positive
                     filter; qa.excludedGroups=slow (the default) skips the
-                    heavy tests. Overridable by the qa-heavy/qa-release
+                    heavy tests. Overridable by the qa-heavy/qa-all
                     profiles or directly, e.g. -Dqa.excludedGroups= to run everything. -->
                     <groups>${qa.groups}</groups>
                     <excludedGroups>${qa.excludedGroups}</excludedGroups>
@@ -348,7 +348,7 @@
         <!-- Whole replayable suite plus non-bot slow lanes. Statistical bot
         quality is deliberately excluded and requires -P qa-bots. -->
         <profile>
-            <id>qa-release</id>
+            <id>qa-all</id>
             <properties>
                 <qa.groups></qa.groups>
                 <qa.excludedGroups></qa.excludedGroups>

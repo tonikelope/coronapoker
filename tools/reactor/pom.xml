@@ -11,7 +11,7 @@
 
       # full deterministic suite plus crypto and socket-stall checks;
       # statistical bot/harness quality is excluded from this aggregate
-      mvn -f tools/reactor/pom.xml verify -P qa-release
+      mvn -f tools/reactor/pom.xml verify -P qa-all
 
       # non-bot slow lanes aggregate (bot quality remains explicit)
       mvn -f tools/reactor/pom.xml verify -P qa-heavy
@@ -19,7 +19,7 @@
       # a single test class
       mvn -f tools/reactor/pom.xml verify '-Dtest=BetRulesTest' '-Dsurefire.failIfNoSpecifiedTests=false'
 
-  The fast lane is the DEFAULT (no profile). The `qa-heavy` and `qa-release`
+  The fast lane is the DEFAULT (no profile). The `qa-heavy` and `qa-all`
   profiles are declared in tools/qa/pom.xml and select the non-bot slow tests
   inside this reactor; `qa-bots` is the separate statistical lane. See that pom
   for what each lane covers.
@@ -30,7 +30,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>coronapoker-qa-reactor</artifactId>
-    <version>25.2</version>
+    <version>25.3</version>
     <packaging>pom</packaging>
     <name>CoronaPoker QA reactor (opt-in aggregator)</name>
 

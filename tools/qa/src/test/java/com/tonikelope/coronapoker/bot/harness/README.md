@@ -395,10 +395,10 @@ suite against it in one pass: no `mvn install` of the jar, no
 mvn -f tools/reactor/pom.xml verify -P qa-bots
 
 # deterministic suite plus non-bot slow checks
-mvn -f tools/reactor/pom.xml verify -P qa-release
+mvn -f tools/reactor/pom.xml verify -P qa-all
 ```
 
-The `qa-heavy` and `qa-release` profiles are declared in `tools/qa/pom.xml`;
+The `qa-heavy` and `qa-all` profiles are declared in `tools/qa/pom.xml`;
 `-P` activates them on the qa module inside the reactor. Add `-o` (offline) once the local
 Maven cache is warm. `forkCount=0.6C` (≈ 5 concurrent JVMs on an 8-core
 machine) is set in `tools/qa/pom.xml`'s `maven-surefire-plugin` configuration.
@@ -451,7 +451,7 @@ Volume is controlled at runtime (no source edits needed) via two system
 properties read by `QaConfig` and forwarded into the surefire forks:
 
 ```sh
-mvn -f tools/reactor/pom.xml -o verify -P qa-bots \
+mvn -f tools/reactor/pom.xml verify -P qa-bots \
     '-Dtest=Multiway_*Test' '-Dsurefire.failIfNoSpecifiedTests=false' \
     '-Dqa.sessions=40' '-Dqa.hands=25'
 ```
@@ -470,7 +470,7 @@ FAIL on significance only). Re-run at full volume to sign off a change.
 The hand evaluator is memoized (`MemoizedAlbertaEvaluator`, ~8× faster than the
 raw Alberta path on Windows), so a reduced-volume iteration pass returns in
 seconds; the bot lane itself runs the matchups at the 10 000-hand default and
-is deliberately separate from `qa-release` (see `tools/qa/pom.xml`).
+is deliberately separate from `qa-all` (see `tools/qa/pom.xml`).
 
 ---
 

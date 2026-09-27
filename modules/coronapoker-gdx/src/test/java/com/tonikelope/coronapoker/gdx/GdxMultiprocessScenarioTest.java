@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.io.TempDir;
  * they never replace or weaken the Swing topology, disruption sequence or
  * assertions represented here.</p>
  */
+@Tag("certification")
 class GdxMultiprocessScenarioTest {
 
     @Test

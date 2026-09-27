@@ -11,8 +11,8 @@ import org.junit.jupiter.api.Test;
 class GdxUpdateHandoffTest {
 
     @Test
-    void buildsTheWindowsUpdaterContractForTheReleaseJar() {
-        Path current = Path.of("C:/CoronaPoker/CoronaPoker_24.10.jar");
+    void keepsTheStableWindowsInstallationNameAcrossUpdates() {
+        Path current = Path.of("C:/CoronaPoker/CoronaPoker.jar");
         Path javaHome = Path.of("C:/Java/jdk-25");
 
         UpdaterService.Request request = GdxUpdateHandoff.request(
@@ -20,21 +20,20 @@ class GdxUpdateHandoffTest {
 
         assertEquals(current.toAbsolutePath().normalize(),
                 request.currentJar());
-        assertEquals(Path.of("C:/CoronaPoker/CoronaPoker_25.1.jar")
-                .toAbsolutePath().normalize(), request.newJar());
+        assertEquals(current.toAbsolutePath().normalize(), request.newJar());
         assertEquals(javaHome.resolve("bin/java.exe").toAbsolutePath()
                 .normalize(), request.javaExecutable());
         assertTrue(request.spanish());
     }
 
     @Test
-    void usesThePlatformJavaExecutableAndEnglishUpdaterOtherwise() {
+    void preservesCustomInstallationNamesOnOtherPlatforms() {
+        Path current = Path.of("/opt/coronapoker/game.jar");
         UpdaterService.Request request = GdxUpdateHandoff.request(
-                "24.12", "en", Path.of("/opt/coronapoker/game.jar"),
+                "24.12", "en", current,
                 Path.of("/opt/jdk"), "Linux");
 
-        assertEquals(Path.of("/opt/coronapoker/CoronaPoker_24.12.jar")
-                .toAbsolutePath().normalize(), request.newJar());
+        assertEquals(current.toAbsolutePath().normalize(), request.newJar());
         assertEquals(Path.of("/opt/jdk/bin/java").toAbsolutePath()
                 .normalize(), request.javaExecutable());
         assertFalse(request.spanish());

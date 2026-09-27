@@ -45,10 +45,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /** GDX-owned counterpart of Swing's reconnect-midhand scenario. */
+@Tag("certification")
 class GdxReconnectScenarioTest {
 
     @TempDir Path temporary;

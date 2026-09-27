@@ -188,6 +188,21 @@ final class GdxScenarioContract {
             Map.entry("allin-reconnect", Set.of(
                     "allInReconnectPreservesAcceptedActionAndSettlesEveryGdxTable")));
 
+    /**
+     * Product scenarios added after the Swing baseline was frozen. They are
+     * first-class certification scenarios, but must never be inserted into the
+     * historical one-for-one mapping above.
+     */
+    static final Map<String, Set<String>> GDX_ONLY_SCENARIOS = Map.ofEntries(
+            Map.entry("turn-timeout", Set.of(
+                    "networkTimeoutStopsTheGdxTimerAndAdvancesBothTables")),
+            Map.entry("live-rules-last-hand", Set.of(
+                    "hostLiveRulesAndLastHandReachBothNetworkGdxTables")),
+            Map.entry("paused-exit", Set.of(
+                    "hostExitWhilePausedCannotLeaveEitherNetworkGdxTableBlocked")),
+            Map.entry("rabbit-hunting", Set.of(
+                    "gdxRabbitRequestIsAuthorizedChargedAndRevealedAcrossNetwork")));
+
     private GdxScenarioContract() {
     }
 }

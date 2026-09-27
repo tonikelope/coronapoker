@@ -62,6 +62,7 @@ import java.util.function.BooleanSupplier;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -92,6 +93,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         };
     }
 
+    @Tag("certification")
     @Test
     void nativeGdxAllInButtonArmsBeforeSubmittingTheRealCommand() {
         TableSnapshot snapshot = new TableSnapshot(1L, "Anfitrion",
@@ -211,6 +213,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 message.type() == type && message.content().equals(content));
     }
 
+    @Tag("certification")
     @Test
     void nativeGdxCheckCallControlsCompleteARealTwoHumanHand()
             throws Exception {
@@ -281,6 +284,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         }
     }
 
+    @Tag("certification")
     @Test
     void nativeGdxPauseResumeCompletesARealTwoHumanHand()
             throws Exception {
@@ -358,6 +362,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         }
     }
 
+    @Tag("certification")
     @Test
     void nativeGdxFoldedLocalStillSeesRemoteMonteCarloRevealsAndShowdownResults()
             throws Exception {
@@ -447,6 +452,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         }
     }
 
+    @Tag("certification")
     @Test
     void networkTimeoutStopsTheGdxTimerAndAdvancesBothTables()
             throws Exception {
@@ -654,6 +660,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         }
     }
 
+    @Tag("certification")
     @Test
     void nativeGdxAllInRunItTwiceCompletesBothBoardsAndConservesBalances()
             throws Exception {
@@ -865,6 +872,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         }
     }
 
+    @Tag("certification")
     @Test
     void gdxRabbitRequestIsAuthorizedChargedAndRevealedAcrossNetwork()
             throws Exception {
@@ -936,12 +944,14 @@ class GdxNetworkHumanProjectionIntegrationTest {
         }
     }
 
+    @Tag("certification")
     @Test
     void allInRebuyCompletesFiveHandsAndCarriesARebuyForward()
             throws Exception {
         assertNetworkRebuy(true, 5);
     }
 
+    @Tag("certification")
     @Test
     void nativeGdxManualRebuyKeepsBothNetworkTablesAliveForTheNextHand()
             throws Exception {
@@ -1061,6 +1071,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         }
     }
 
+    @Tag("certification")
     @Test
     void nativeGdxSpectatorChoiceReleasesTheRealNetworkDealerEvenWhenAudioCallbackIsLost()
             throws Exception {
@@ -1473,6 +1484,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         }
     }
 
+    @Tag("certification")
     @Test
     void nativeGdxStraddlePostRotatesAllThreeHumansAcrossThreeHands()
             throws Exception {
@@ -1603,6 +1615,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
      * native transport generation is cut synchronously before the dealer can
      * release the deferred pocket-card cascade.
      */
+    @Tag("certification")
     @Test
     void nativeGdxStraddleAcceptedResponseSurvivesReconnectBeforeDeferredPocketDelivery()
             throws Exception {
@@ -1800,6 +1813,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         }
     }
 
+    @Tag("certification")
     @Test
     void hostLiveRulesAndLastHandReachBothNetworkGdxTables()
             throws Exception {
@@ -1916,12 +1930,14 @@ class GdxNetworkHumanProjectionIntegrationTest {
         assertHostExit(false, false);
     }
 
+    @Tag("certification")
     @Test
     void hostExitWhilePausedCannotLeaveEitherNetworkGdxTableBlocked()
             throws Exception {
         assertHostExit(true, false);
     }
 
+    @Tag("certification")
     @Test
     void nativeGdxExitConfirmationClosesRealNetworkTableWhilePaused()
             throws Exception {

@@ -5151,8 +5151,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             GdxAppearanceOptions.feltLabel(configuredFelt(),
                                     gameText),
                             "verde".equalsIgnoreCase(configuredFelt())),
-                    this::selectPreviousFelt, this::selectNextFelt,
-                    this::activateSecretFelt);
+                    this::selectPreviousFelt, this::selectNextFelt);
             settingsStepper(x + 34f, rowY - 3f * rowStride, w - 68f, 70f,
                     uppercase(gameText.translate(
                             "gdx.settings.row.light_off")),
@@ -5882,13 +5881,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         presentationSettings.selectPreviousFelt(false);
         refreshFeltFromSettings();
         playPreferenceSound("misc/mat.wav", "sonido_tapete", 0.92f);
-    }
-
-    private void activateSecretFelt() {
-        if (presentationSettings.registerSecretFeltClick(false)) {
-            refreshFeltFromSettings();
-            playPreferenceSound("misc/mat.wav", "sonido_tapete", 0.92f);
-        }
     }
 
     private String msaaSettingLabel() {

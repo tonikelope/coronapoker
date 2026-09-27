@@ -5,19 +5,19 @@
   QA suite compiles against the current core and GDX artifacts without a
   local install or a separately maintained version pin.
 
-      # fast feedback for a refactor — game + all tests EXCEPT the slow bot sims
+      # fast feedback for a refactor: game plus all tests except slow bot sims
       # (the fast lane is the DEFAULT; no profile needed)
-      mvn -f tools/reactor/pom.xml -o verify
+      mvn -f tools/reactor/pom.xml verify
 
       # full deterministic suite plus crypto and socket-stall checks;
       # statistical bot/harness quality is excluded from this aggregate
-      mvn -f tools/reactor/pom.xml -o verify -P qa-release
+      mvn -f tools/reactor/pom.xml verify -P qa-release
 
       # non-bot slow lanes aggregate (bot quality remains explicit)
-      mvn -f tools/reactor/pom.xml -o verify -P qa-heavy
+      mvn -f tools/reactor/pom.xml verify -P qa-heavy
 
       # a single test class
-      mvn -f tools/reactor/pom.xml -o verify '-Dtest=BetRulesTest' '-Dsurefire.failIfNoSpecifiedTests=false'
+      mvn -f tools/reactor/pom.xml verify '-Dtest=BetRulesTest' '-Dsurefire.failIfNoSpecifiedTests=false'
 
   The fast lane is the DEFAULT (no profile). The `qa-heavy` and `qa-release`
   profiles are declared in tools/qa/pom.xml and select the non-bot slow tests
@@ -30,7 +30,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>coronapoker-qa-reactor</artifactId>
-    <version>25.1</version>
+    <version>25.2</version>
     <packaging>pom</packaging>
     <name>CoronaPoker QA reactor (opt-in aggregator)</name>
 

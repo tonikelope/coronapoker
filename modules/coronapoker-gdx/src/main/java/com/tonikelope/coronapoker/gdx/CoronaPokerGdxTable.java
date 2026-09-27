@@ -10741,12 +10741,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         contentX, firstRowY - 140f, rowW, 68f)) {
                     int direction = settingsStepperDirection(x, contentX,
                             rowW);
-                    if (direction == 0 && settingsStepperValueContains(x,
-                            contentX, rowW)) {
-                        activateSecretTableFelt();
-                    } else {
-                        adjustTableFelt(direction);
-                    }
+                    adjustTableFelt(direction);
                     return;
                 }
                 if (contains(x, y, contentX, firstRowY - 210f,
@@ -11149,13 +11144,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 ? presentationSettings.selectPreviousFelt(false)
                 : presentationSettings.selectNextFelt(false);
         replaceFeltTexture(selected, true);
-    }
-
-    private void activateSecretTableFelt() {
-        if (presentationSettings != null
-                && presentationSettings.registerSecretFeltClick(false)) {
-            replaceFeltTexture(presentationSettings.felt(), true);
-        }
     }
 
     private GdxSettingsContract.Section settingsSection() {

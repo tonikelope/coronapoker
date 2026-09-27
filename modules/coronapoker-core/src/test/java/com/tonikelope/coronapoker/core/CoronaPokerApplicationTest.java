@@ -334,23 +334,22 @@ final class CoronaPokerApplicationTest {
     }
 
     @Test
-    void updaterHandoffPreservesTheClassicCommandContract() throws Exception {
+    void updaterHandoffCanReplaceAndRelaunchTheInstalledJarInPlace() throws Exception {
         List<List<String>> commands = new ArrayList<>();
         Path updaterJar = Path.of("C:/temp/coronaupdater.jar");
-        Path currentJar = Path.of("C:/app/CoronaPoker_24.10.jar");
-        Path newJar = Path.of("C:/app/CoronaPoker_25.1.jar");
+        Path currentJar = Path.of("C:/app/CoronaPoker.jar");
         Path javaExecutable = Path.of("C:/java/bin/java.exe");
         UpdaterService updater = new UpdaterService(
                 () -> updaterJar, commands::add);
         updater.start();
 
         boolean handedOff = updater.handoff(new UpdaterService.Request(
-                "25.1", currentJar, newJar, javaExecutable, true));
+                "25.1", currentJar, currentJar, javaExecutable, true));
 
         assertTrue(handedOff);
         assertEquals(List.of(List.of(
                 javaExecutable.toString(), "-jar", updaterJar.toString(), "25.1",
-                currentJar.toString(), newJar.toString(),
+                currentJar.toString(), currentJar.toString(),
                 "¡Santiago y cierra, España!")), commands);
         updater.close();
         assertThrows(IllegalStateException.class, () -> updater.handoff(

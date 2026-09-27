@@ -6,7 +6,7 @@
 
   To run the suite:
 
-      mvn -f tools/qa/pom.xml -o test  # from repo root; bot quality is opt-in
+      mvn -f tools/qa/pom.xml test  # from repo root; bot quality is opt-in
 
   See ./src/test/java/com/tonikelope/coronapoker/bot/harness/README.md
   for the full description of what these tests measure and how to
@@ -19,8 +19,8 @@
   Or use tools/reactor/pom.xml to build the product and QA together. Standalone
   invocations remain available for focused work:
 
-      mvn -f tools/qa/pom.xml -o test             # fast code/regression tests (no bot quality)
-      mvn -f tools/qa/pom.xml -o test -P qa-bots  # explicit bot-quality lane only
+      mvn -f tools/qa/pom.xml test             # fast code/regression tests (no bot quality)
+      mvn -f tools/qa/pom.xml test -P qa-bots  # explicit bot-quality lane only
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -29,7 +29,7 @@
     <parent>
         <groupId>com.tonikelope</groupId>
         <artifactId>coronapoker-modules</artifactId>
-        <version>25.1</version>
+        <version>25.2</version>
         <relativePath>../../modules/pom.xml</relativePath>
     </parent>
     <groupId>com.tonikelope.qa</groupId>
@@ -80,12 +80,9 @@
                     profiles or directly, e.g. -Dqa.excludedGroups= to run everything. -->
                     <groups>${qa.groups}</groups>
                     <excludedGroups>${qa.excludedGroups}</excludedGroups>
-                    <!-- Los ficheros *Smoke NO los recoge el patron por defecto, que solo
-                    mira *Test/*Tests/*TestCase, asi que un `mvn test` a secas se
-                    saltaba todos estos tests: no corrian NUNCA salvo que se
-                    invocaran a mano con -Dtest. Se anaden aqui junto a los patrones
-                    de siempre, que hay que repetir porque declarar includes los
-                    sustituye en vez de sumarse. -->
+                    <!-- Surefire's default patterns do not include *Smoke.
+                    Declare the standard patterns again because an explicit
+                    includes block replaces rather than extends the defaults. -->
                     <includes>
                         <include>**/Test*.java</include>
                         <include>**/*Test.java</include>
@@ -98,7 +95,7 @@
                     literal "${qa.sessions}", which QaConfig parses as
                     "absent" and falls back to the per-test default. Lower
                     the volume for fast local iteration, e.g.
-                    mvn -o test '-Dqa.sessions=40' '-Dqa.hands=25' -->
+                    mvn test '-Dqa.sessions=40' '-Dqa.hands=25' -->
                     <systemPropertyVariables>
                         <!-- Concurrent forks must never share persistent identities.
                         The fork suffix prevents Ed25519 key creation/ACL races and
@@ -134,7 +131,7 @@
             <artifactId>coronapoker-gdx</artifactId>
             <version>${coronapoker.version}</version>
         </dependency>
-        <!-- JUnit 5 — only used by the QA suite, not by the game. -->
+        <!-- JUnit 5 is used only by the QA suite, not by the game. -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>

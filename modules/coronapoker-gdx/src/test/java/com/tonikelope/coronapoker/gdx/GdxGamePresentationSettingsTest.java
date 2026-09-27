@@ -289,7 +289,7 @@ final class GdxGamePresentationSettingsTest {
     }
 
     @Test
-    void fiveClicksOnTheSelectedFeltRestoreTheSwingSecretVariant(
+    void fiveAlternatingFeltChangesActivateTheSecretVariant(
             @TempDir Path temporary) throws Exception {
         PreferencesService preferences = new PreferencesService(
                 temporary.resolve("coronapoker.properties"));
@@ -298,18 +298,28 @@ final class GdxGamePresentationSettingsTest {
             GdxGamePresentationSettings settings =
                     new GdxGamePresentationSettings(preferences);
 
-            for (int click = 0; click < 4; click++) {
-                assertFalse(settings.registerSecretFeltClick(false));
-            }
+            assertEquals("azul", settings.selectFelt("azul", false));
+            assertEquals("verde", settings.selectFelt("verde", false));
+            assertEquals("azul", settings.selectFelt("azul", false));
+            assertEquals("verde", settings.selectFelt("verde", false));
             assertFalse(settings.secretFelt());
-            assertTrue(settings.registerSecretFeltClick(false));
+            assertEquals("azul", settings.selectFelt("azul", false));
             assertTrue(settings.secretFelt());
-            assertEquals("verde*", preferences.properties()
+            assertEquals("azul*", preferences.properties()
                     .getProperty("color_tapete"));
 
-            settings.selectNextFelt(false);
-            assertEquals("azul", settings.felt());
+            settings.selectFelt("verde", false);
+            assertEquals("verde", settings.felt());
             assertFalse(settings.secretFelt());
+
+            settings.selectFelt("azul", false);
+            settings.selectFelt("rojo", false);
+            settings.selectFelt("azul", false);
+            settings.selectFelt("rojo", false);
+            settings.selectFelt("azul", false);
+            assertFalse(settings.secretFelt());
+            settings.selectFelt("rojo", false);
+            assertTrue(settings.secretFelt());
         } finally {
             preferences.close();
         }

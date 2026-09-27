@@ -39,13 +39,11 @@ final class GdxUpdateHandoff {
     static UpdaterService.Request request(String version, String language,
             Path currentJar, Path javaHome, String operatingSystem) {
         Path installedJar = currentJar.toAbsolutePath().normalize();
-        Path destination = installedJar.resolveSibling(
-                "CoronaPoker_" + version + ".jar");
         boolean windows = operatingSystem.toLowerCase(Locale.ROOT)
                 .contains("win");
         Path javaExecutable = javaHome.toAbsolutePath().normalize()
                 .resolve("bin").resolve(windows ? "java.exe" : "java");
-        return new UpdaterService.Request(version, installedJar, destination,
+        return new UpdaterService.Request(version, installedJar, installedJar,
                 javaExecutable, "es".equalsIgnoreCase(language));
     }
 }

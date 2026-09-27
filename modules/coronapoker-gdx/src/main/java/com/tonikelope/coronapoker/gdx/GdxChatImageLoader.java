@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
+import com.tonikelope.coronapoker.core.ApplicationMetadata;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -105,7 +106,8 @@ final class GdxChatImageLoader {
             connection.setConnectTimeout(5_000);
             connection.setReadTimeout(10_000);
             connection.setUseCaches(true);
-            connection.setRequestProperty("User-Agent", "CoronaPoker-GDX/25.1");
+            connection.setRequestProperty("User-Agent", "CoronaPoker-GDX/"
+                    + ApplicationMetadata.VERSION);
             long declared = connection.getContentLengthLong();
             if (declared > MAXIMUM_BYTES) {
                 throw new IOException("Chat image is too large");

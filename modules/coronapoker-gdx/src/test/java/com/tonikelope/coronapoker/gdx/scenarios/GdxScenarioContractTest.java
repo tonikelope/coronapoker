@@ -5,12 +5,17 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** Guards the GDX suite against the immutable historical Swing GOLD baseline. */
@@ -84,6 +89,13 @@ class GdxScenarioContractTest {
                     "missing strict GDX homologue for " + scenario + ": "
                             + tests.stream().filter(test -> !methods.contains(test)).toList());
         });
+        GdxScenarioContract.GDX_ONLY_SCENARIOS.forEach((scenario, tests) -> {
+            assertFalse(GdxScenarioContract.SWING_REFERENCE.contains(scenario),
+                    "GDX-only scenario duplicates the Swing baseline: " + scenario);
+            assertTrue(methods.containsAll(tests),
+                    "missing GDX-only scenario tests for " + scenario + ": "
+                            + tests.stream().filter(test -> !methods.contains(test)).toList());
+        });
     }
 
     @Test
@@ -100,6 +112,50 @@ class GdxScenarioContractTest {
             tests.forEach(test -> assertTrue(uniqueTests.add(test),
                     "one GDX test cannot certify two different Swing scenarios: "
                             + test));
+        });
+    }
+
+    @Test
+    void certificationMethodsBelongToOneScenarioOnly() {
+        Set<String> uniqueTests = new HashSet<>();
+        GdxScenarioContract.STRICT_HOMOLOGUE_TESTS.values().stream()
+                .flatMap(Set::stream)
+                .forEach(test -> assertTrue(uniqueTests.add(test),
+                        "duplicated strict certification test: " + test));
+        GdxScenarioContract.GDX_ONLY_SCENARIOS.values().stream()
+                .flatMap(Set::stream)
+                .forEach(test -> assertTrue(uniqueTests.add(test),
+                        "GDX-only certification test duplicates another scenario: "
+                                + test));
+    }
+
+    @Test
+    void certificationMethodsStayOutOfTheNormalProductBuild() {
+        Map<String, Method> methods = Arrays.stream(
+                new Class<?>[]{GdxNetworkHumanProjectionIntegrationTest.class,
+                    GdxReconnectScenarioTest.class,
+                    GdxMultiprocessScenarioTest.class})
+                .flatMap(type -> Arrays.stream(type.getDeclaredMethods()))
+                .filter(method -> method.isAnnotationPresent(Test.class))
+                .collect(Collectors.toMap(Method::getName,
+                        Function.identity()));
+        Set<String> certificationTests = new HashSet<>();
+        GdxScenarioContract.STRICT_HOMOLOGUE_TESTS.values().forEach(
+                certificationTests::addAll);
+        GdxScenarioContract.GDX_ONLY_SCENARIOS.values().forEach(
+                certificationTests::addAll);
+
+        certificationTests.forEach(name -> {
+            Method method = methods.get(name);
+            assertTrue(method != null, "missing certification method: " + name);
+            Tag methodTag = method.getAnnotation(Tag.class);
+            Tag classTag = method.getDeclaringClass().getAnnotation(Tag.class);
+            assertTrue((methodTag != null
+                            && methodTag.value().equals("certification"))
+                            || (classTag != null
+                            && classTag.value().equals("certification")),
+                    "certification method is not isolated from the product build: "
+                            + name);
         });
     }
 
@@ -165,15 +221,16 @@ class GdxScenarioContractTest {
             throws IOException {
         Path root = repositoryRoot();
         String runner = Files.readString(root.resolve(
-                "tools/qa/run-gdx-scenarios.ps1"), StandardCharsets.UTF_8);
+                "tools/qa/run-certification.ps1"), StandardCharsets.UTF_8);
         String launcher = Files.readString(root.resolve(
-                "tools/qa/gdx-scenarios.cmd"), StandardCharsets.UTF_8);
+                "tools/qa/certify.cmd"), StandardCharsets.UTF_8);
 
         assertTrue(runner.contains("STRICT_HOMOLOGUE_TESTS"));
         assertTrue(runner.contains("foreach ($method in $entry.Methods)"));
         assertTrue(runner.contains("$selector = $test.Class + '#' + $test.Method"));
-        assertTrue(runner.contains("& $maven @mavenArgs"));
-        assertTrue(runner.contains("target\\gdx-scenarios"));
-        assertTrue(launcher.contains("run-gdx-scenarios.ps1"));
+        assertTrue(runner.contains("& $maven @arguments"));
+        assertTrue(runner.contains("-Dcoronapoker.gdx.excludedGroups="));
+        assertTrue(runner.contains("target\\certification"));
+        assertTrue(launcher.contains("run-certification.ps1"));
     }
 }

@@ -30,8 +30,9 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     private final Map<String, String> normalizedDecks;
     private volatile boolean autoRebuyOnBroke;
     private volatile int actualMsaaSamples;
-    private String secretFeltCandidate = "";
-    private int secretFeltClicks;
+    private String secretFeltFirst = "";
+    private String secretFeltSecond = "";
+    private int secretFeltSwitches;
 
     GdxGamePresentationSettings(PreferencesService preferences) {
         this(preferences, discoverInstalledMod());
@@ -139,28 +140,6 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
                 && FELTS.contains(configured.substring(0,
                         configured.length() - 1));
     }
-    /**
-     * Preserves Swing's hidden activation contract: five consecutive clicks
-     * on the currently selected felt reveal its secret full-table artwork.
-     */
-    boolean registerSecretFeltClick(boolean persist) {
-        String selected = felt();
-        if (secretFelt()) {
-            resetSecretFeltClicks();
-            return false;
-        }
-        if (selected.equals(secretFeltCandidate)) {
-            secretFeltClicks++;
-        } else {
-            secretFeltCandidate = selected;
-            secretFeltClicks = 1;
-        }
-        if (secretFeltClicks < 5) return false;
-        properties.setProperty("color_tapete", selected + "*");
-        resetSecretFeltClicks();
-        if (persist) preferences.saveDeferred();
-        return true;
-    }
     String selectNextFelt() {
         return selectNextFelt(true);
     }
@@ -181,15 +160,40 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         return selectFelt(felt, true);
     }
     String selectFelt(String felt, boolean persist) {
+        String previous = felt();
+        boolean wasSecret = secretFelt();
         String selected = normalizedFelt(felt);
         properties.setProperty("color_tapete", selected);
-        resetSecretFeltClicks();
+        if (wasSecret || selected.equals(previous)) {
+            resetSecretFeltSwitches();
+        } else {
+            registerSecretFeltSwitch(previous, selected);
+        }
         if (persist) preferences.saveDeferred();
         return selected;
     }
-    private void resetSecretFeltClicks() {
-        secretFeltCandidate = "";
-        secretFeltClicks = 0;
+    private void registerSecretFeltSwitch(String previous, String selected) {
+        boolean continuesPair = secretFeltSwitches > 0
+                && ((previous.equals(secretFeltFirst)
+                        && selected.equals(secretFeltSecond))
+                    || (previous.equals(secretFeltSecond)
+                        && selected.equals(secretFeltFirst)));
+        if (continuesPair) {
+            secretFeltSwitches++;
+        } else {
+            secretFeltFirst = previous;
+            secretFeltSecond = selected;
+            secretFeltSwitches = 1;
+        }
+        if (secretFeltSwitches >= 5) {
+            properties.setProperty("color_tapete", selected + "*");
+            resetSecretFeltSwitches();
+        }
+    }
+    private void resetSecretFeltSwitches() {
+        secretFeltFirst = "";
+        secretFeltSecond = "";
+        secretFeltSwitches = 0;
     }
     static String normalizedFelt(String felt) {
         String normalized = felt == null ? "" : felt.toLowerCase(Locale.ROOT);

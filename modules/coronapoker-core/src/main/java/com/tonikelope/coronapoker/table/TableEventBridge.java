@@ -18,10 +18,10 @@ import java.util.function.LongFunction;
 /**
  * The single optional presentation outlet owned by a live table.
  *
- * Swing tables leave it detached, making every publication an immediate no-op.
- * A GDX table attaches exactly one presentation before the hand starts. This
- * keeps renderer checks out of the dealer and provides the same completion
- * stage at the few points where the classic flow already waits for visuals.
+ * Headless tables leave it detached, making every publication an immediate
+ * no-op. A GDX table attaches exactly one presentation before the hand starts.
+ * This keeps renderer checks out of the dealer and provides a completion stage
+ * at the points where game flow waits for presentation barriers.
  */
 public final class TableEventBridge implements AutoCloseable {
 

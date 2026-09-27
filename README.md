@@ -308,6 +308,8 @@ Use the lifecycle according to intent:
 | Produce a clean GDX distribution | `mvn clean package` |
 | Build without tests for packaging diagnosis only | `mvn clean package -DskipTests` |
 | Run the extended deterministic QA lane | `mvn -f tools/reactor/pom.xml verify` |
+| Run a seeded headless protocol campaign | `.\tools\qa\headless-sim.cmd` |
+| Certify the complete GDX scenario catalogue | `.\tools\qa\certify.cmd -Mode balanced` |
 
 Only the clean full-reactor command constitutes a distribution build. Building
 the GDX module directly is useful for local iteration but does not certify the
@@ -322,48 +324,16 @@ java -jar target/CoronaPoker_<version>.jar
 `coronaupdater.jar` is intentionally the only JAR outside `target/`: the
 self-update mechanism requires that special helper at the repository root.
 
-Behavioural certification is a separate release gate. On Windows, run the
-public GDX scenario certifier from the repository root:
-
-```powershell
-git clone https://github.com/tonikelope/coronapoker.git
-Set-Location coronapoker
-.\tools\qa\certify.cmd -Mode balanced
-```
-
-`balanced` runs the complete GDX scenario catalogue twice. The runner reads
-the executable mapping of the historical Swing GOLD scenarios and the GDX-only
-product scenarios directly, uses fresh Maven processes for isolation and
-records replayable seeds, logs,
-`summary.csv` and `summary.json` below `target/certification/`. Code tests,
-extended QA and headless campaigns remain explicit separate commands, so a
-certificate always means scenario behaviour rather than an opaque mixture of
-test types. See [Testing and certification](docs/TESTING.md) for the command
-order and proportional validation policy.
-
----
-
 ## 🧪 Testing & certification
 
-The normal product build runs code and architecture tests. The separate
-`tools/qa` module provides extended opt-in regressions and seeded headless
-campaigns. Behavioural certification is the GDX scenario suite. None of these
-layers is packaged in the game JAR.
+The normal product build runs code and architecture tests. Extended QA,
+headless campaigns and GDX behavioural certification are separate opt-in
+layers and are never packaged in the game JAR.
 
-```powershell
-.\tools\qa\certify.cmd -Mode fast
-.\tools\qa\certify.cmd -Mode stress
-```
-
-Use `certify.cmd -ListOnly` to inspect the authoritative catalogue and
-`-Scenario <name>` for a targeted behavioural run. `quick`, `fast`, `balanced`
-and `stress` increase catalogue breadth, repetitions and long-game depth.
-
-Statistical bot-quality tests remain opt-in. See **[Testing and certification](docs/TESTING.md)**
-for every lane, simulator scenario, option, example, report format and
-troubleshooting rule. Contributors adding a regression or a complete multi-JVM
-scenario should use the file-by-file **[test and scenario contributor
-guide](docs/ADDING_TEST_SCENARIOS.md)**.
+**[Testing and certification](docs/TESTING.md)** is the canonical guide for
+test groups, expected cost, dependencies, command order, scenario modes and
+release gates. Contributors adding a regression or a multi-process scenario
+should also follow **[Adding GDX test scenarios](docs/ADDING_TEST_SCENARIOS.md)**.
 
 ---
 

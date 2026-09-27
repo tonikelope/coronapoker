@@ -8,16 +8,40 @@ interpret.
 
 ## The four layers
 
-| Layer | Purpose | Main command |
-|---|---|---|
-| Product tests | Rules, networking, persistence, security, GDX contracts and architecture | `mvn clean verify` |
-| Extended QA | Large opt-in regression suite under `tools/qa` | `mvn -f tools/reactor/pom.xml verify` |
-| Headless campaigns | Seeded high-volume protocol and fault simulation | `.\tools\qa\headless-sim.cmd` |
-| GDX certification | Complete gameplay scenarios, including real sockets and separate processes where required | `.\tools\qa\certify.cmd -Mode balanced` |
+| Layer | Purpose | Typical cost | Main command |
+|---|---|---|---|
+| Product tests | Rules, networking, persistence, security, GDX contracts and architecture | A few minutes | `mvn clean verify` |
+| Extended QA | Large opt-in regression suite under `tools/qa` | Minutes for the default lane; longer for slow profiles | `mvn -f tools/reactor/pom.xml verify` |
+| Headless campaigns | Seeded high-volume protocol and fault simulation | Proportional to the requested hands and faults | `.\tools\qa\headless-sim.cmd` |
+| GDX certification | Complete gameplay scenarios, including real sockets and separate processes where required | From a targeted run to a long stress run | `.\tools\qa\certify.cmd -Mode balanced` |
 
 The layers are complementary. A build failure is a code-test failure. A
 certification failure is a gameplay-scenario failure. `certify.cmd` does not
 silently run the other layers.
+
+## Automatic and opt-in execution
+
+| Execution | Starts when | Included work |
+|---|---|---|
+| Product build gate | Every `mvn verify`, `mvn package`, `mvn clean verify` or `mvn clean package` unless tests are explicitly skipped | Product unit tests, deterministic integration tests and architecture rules |
+| Extended QA | Only when `tools/reactor/pom.xml` or `tools/qa/pom.xml` is invoked | The selected `qa-*` profile; the recommended reactor also runs the product gate against the same checkout |
+| Headless campaign | Only when `headless-sim.cmd` is invoked | Configurable seeded protocol and fault simulations; by default it first runs the product gate |
+| GDX certification | Only when `certify.cmd` is invoked | Isolated behavioural scenarios selected by mode or name |
+
+The dependency is one-way: a product build never enters `tools/qa`, but the
+recommended QA reactor runs the product modules before its selected tool suite.
+The product gate is intentionally substantial: it includes deterministic
+in-process and real-loopback-socket integration tests because those checks are
+stable enough to protect every build. The expensive statistical, high-volume,
+multi-process and certification workloads remain opt-in. They never start in
+the background and are not prerequisites for an ordinary local compile.
+
+The commands are self-contained unless stated otherwise. The extended QA
+reactor runs the product build and its tests before `tools/qa`. The headless
+runner uses that reactor by default unless `-SkipGameBuild` is explicitly used;
+that switch requires compatible product artifacts to be installed already.
+The certifier performs a clean GDX test compilation with tests skipped and then
+starts only each scheduled scenario test in an isolated Maven process.
 
 ## Recommended order
 
@@ -65,11 +89,44 @@ mvn -f modules/pom.xml -pl coronapoker-gdx -am test `
   '-Dsurefire.failIfNoSpecifiedTests=false'
 ```
 
+Select one test method by appending `#methodName`:
+
+```powershell
+mvn -f modules/pom.xml -pl coronapoker-gdx -am test `
+  '-Dtest=GdxScenarioContractTest#everySwingScenarioHasItsOwnStrictGdxCoverage' `
+  '-Dsurefire.failIfNoSpecifiedTests=false'
+```
+
 ## Extended QA
 
-`tools/qa` is an opt-in test module and is never packaged in the game. The
-reactor wrapper builds it against the current product sources, so no manual
-installation or version pin is needed.
+`tools/qa` is an independent opt-in test module and is never reached by a root
+product build or packaged in the game. The reactor wrapper builds it against
+the current product sources, so no manual installation or version pin is
+needed.
+
+The Maven profiles are the executable grouping. They are intentionally based
+on runtime characteristics rather than mirroring every source package:
+
+| Selection | What it validates | Relative cost | When to use it |
+|---|---|---:|---|
+| default or `qa-fast` | Deterministic regressions not tagged `slow` | Low | Normal development and before a commit that changes shared code |
+| `qa-heavy` | All slow non-bot regressions, including cryptographic differentials, socket stalls and protocol campaigns | High | After broad crypto, concurrency, network or protocol changes |
+| `qa-crypto` | Slow tests in the cryptographic package | High | After changes to SRA, proofs, shuffle or field arithmetic |
+| `qa-network` | The slow real-socket stall integration test | Medium | After socket framing, timeout or shutdown changes |
+| `qa-protocol-sim` | Seeded protocol, lifecycle, Rabbit, recovery and SQL campaigns | Configurable | For high-volume deterministic protocol validation |
+| `qa-headless-all` | Every automated non-visual integrity check except bot-strength statistics and the environment-specific ACL smoke | High | Broad regression before a release or after cross-cutting changes |
+| `qa-all` | Fast and slow replayable QA except bot-strength statistics | High | Complete extended regression on a suitable developer or build host |
+| `qa-bots` | Statistical matchups, hand-potential sampling and bot game-flow smoke | Very high | Only after bot decision or evaluator changes, and before a release that changes bots |
+
+`qa-fast` is contained in `qa-all` and `qa-headless-all`; running either broad
+lane immediately after `qa-fast` repeats those fast checks. `qa-crypto` and
+`qa-network` are focused subsets of the slow coverage in `qa-heavy` and
+`qa-all`. `qa-bots` is deliberately independent and is never pulled in by an
+aggregate profile. The protocol simulator can be invoked directly through the
+profile, but `headless-sim.cmd` is preferred because it validates arguments,
+records or generates a replay seed and builds the current checkout by default.
+Focused profiles select only their named workload; run the default fast lane
+first unless `qa-all` or `qa-headless-all` will cover it in the same validation.
 
 ```powershell
 # Fast deterministic QA. This is the default tools/qa selection.
@@ -89,6 +146,12 @@ mvn -f tools/reactor/pom.xml verify -P qa-crypto
 
 # Slow real-socket integration tests only.
 mvn -f tools/reactor/pom.xml verify -P qa-network
+
+# Seeded protocol simulations using Maven properties directly.
+mvn -f tools/reactor/pom.xml verify -P qa-protocol-sim
+
+# Every non-visual integrity check except statistical bot quality.
+mvn -f tools/reactor/pom.xml verify -P qa-headless-all
 ```
 
 `qa-bots` remains separate because it measures playing strength statistically
@@ -101,6 +164,14 @@ To run one extended test:
 ```powershell
 mvn -f tools/reactor/pom.xml verify `
   '-Dtest=PotMathTest' `
+  '-Dsurefire.failIfNoSpecifiedTests=false'
+```
+
+The same selector syntax runs one method:
+
+```powershell
+mvn -f tools/reactor/pom.xml verify `
+  '-Dtest=PotMathTest#singleWinnerGetsEverythingExact' `
   '-Dsurefire.failIfNoSpecifiedTests=false'
 ```
 
@@ -214,8 +285,10 @@ Those checks remain manual and complement the automated certificate.
 - Repository-root `target` contains the runnable JAR and ignored QA reports.
 - Test homes are generated below build output and must never be committed.
 
-Use `mvn clean` for normal build cleanup. Do not delete caches or reports while
-another Maven, certification or game process is using them.
+Use `mvn clean` for product build cleanup. Because extended QA is deliberately
+outside the product reactor, use `mvn -f tools/reactor/pom.xml clean` when its
+generated `tools/qa/target` state should also be removed. Do not delete caches
+or reports while another Maven, certification or game process is using them.
 
 See [Adding GDX test scenarios](ADDING_TEST_SCENARIOS.md) for contributor rules
 and scenario wiring.

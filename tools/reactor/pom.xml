@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   OPT-IN QA reactor. The default root build compiles and tests the product
-  modules. This reactor adds tools/qa to the same Maven session, so the classic
+  modules. This reactor adds tools/qa to the same Maven session, so the extended
   QA suite compiles against the current core and GDX artifacts without a
   local install or a separately maintained version pin.
 
-      # fast feedback for a refactor: game plus all tests except slow bot sims
-      # (the fast lane is the DEFAULT; no profile needed)
+      # product gate plus fast extended QA (all tests tagged slow are excluded)
+      # the fast lane is the DEFAULT; no profile is needed
       mvn -f tools/reactor/pom.xml verify
 
       # full deterministic suite plus crypto and socket-stall checks;
@@ -21,8 +21,8 @@
 
   The fast lane is the DEFAULT (no profile). The `qa-heavy` and `qa-all`
   profiles are declared in tools/qa/pom.xml and select the non-bot slow tests
-  inside this reactor; `qa-bots` is the separate statistical lane. See that pom
-  for what each lane covers.
+  inside this reactor; `qa-bots` is the separate statistical lane. See
+  ../../docs/TESTING.md for the complete lane and execution policy.
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -30,7 +30,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>coronapoker-qa-reactor</artifactId>
-    <version>25.4</version>
+    <version>25.5</version>
     <packaging>pom</packaging>
     <name>CoronaPoker QA reactor (opt-in aggregator)</name>
 

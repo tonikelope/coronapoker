@@ -58,20 +58,13 @@ The default fast lane runs every smoke below except `GameFlowSmoke`.
 |---|---|---|
 | `GameFlowSmoke` | Bot engine and 3/6/9-seat game flow at every difficulty: chip conservation, finite values, non-negative stacks, monotonic hand number and valid winners | qa-bots |
 | `HandEvaluatorSmoke` | The ten hand rankings and evaluator edge cases such as the wheel, kickers, full house selection and straight flushes | fast |
-| `RecoverSettingsSchemaSmoke` | Recovery schema round-trip for ante/straddle and rejection of partial rows | fast |
-| `GamePresetRoundTripSmoke` | Complete game-preset round-trip, renaming/deletion and corrupt-entry handling | fast |
 | `I18nBundleIntegritySmoke` | Structural integrity of localization bundles and referenced keys | fast |
 | `IdentityKeypairAclSmoke` | Owner-only private-key ACL and public-key creation | fast |
-| `LatencyDotSmoke` | Exact latency-to-color thresholds and stale/invalid states | fast |
 | `MisdealRefundOrderSmoke` | Money conservation when a hand is cancelled during settlement | fast |
 | `PropertiesResilienceSmoke` | Startup behavior with malformed Unicode escapes and unreadable properties | fast |
 | `ReadBoundedLineSmoke` | Bounded-line parsing, LF/CRLF trimming, EOF semantics and clean wire characters | fast |
-| `RecoveryObjectFilterSmoke` | Recovery deserialization whitelist, rejected foreign types and payload limits | fast |
-| `SafeNickForFilenameSmoke` | Path, ADS, control-character and Windows reserved-name hardening | fast |
 | `SynthesizeFoldActionSmoke` | Canonical synthetic fold when a peer exits and defensive invalid-input handling | fast |
 | `TelemetryWireFormatSmoke` | Telemetry round-trip, conflict characters and malformed payload tolerance | fast |
-| `TofuResolverOutcomeSmoke` | Correct NEW/MATCH/CHANGED identity outcomes, including update failures | fast |
-| `WriteStringAtomicSmoke` | Atomic UTF-8 creation/overwrite without orphan temporary files | fast |
 
 ## Adding a smoke test
 

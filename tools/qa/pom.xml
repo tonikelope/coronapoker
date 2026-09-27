@@ -2,22 +2,22 @@
 <!--
   Opt-in Maven module for the extended QA suite. Deterministic game-code tests
   are the default; bot-quality simulations are explicitly opt-in. It is not
-  part of the product reactor and is never packaged in either executable JAR.
+  part of the product reactor and is never packaged in the executable JAR.
 
-  To run the suite:
+  The self-contained entry point builds the current product sources first:
 
-      mvn -f tools/qa/pom.xml test  # from repo root; bot quality is opt-in
+      mvn -f tools/reactor/pom.xml verify
 
-  See ./src/test/java/com/tonikelope/coronapoker/bot/harness/README.md
-  for the full description of what these tests measure and how to
-  interpret the results.
+  See ../../docs/TESTING.md for every lane, its cost and when to use it. See
+  ./src/test/java/com/tonikelope/coronapoker/bot/harness/README.md for the
+  statistical bot-quality methodology and result interpretation.
 
   Run directly after installing the current product artifacts:
 
       mvn '-DskipTests' install
 
-  Or use tools/reactor/pom.xml to build the product and QA together. Standalone
-  invocations remain available for focused work:
+  Standalone invocations remain available after installing the exact product
+  checkout into the local Maven repository:
 
       mvn -f tools/qa/pom.xml test             # fast code/regression tests (no bot quality)
       mvn -f tools/qa/pom.xml test -P qa-bots  # explicit bot-quality lane only
@@ -29,7 +29,7 @@
     <parent>
         <groupId>com.tonikelope</groupId>
         <artifactId>coronapoker-modules</artifactId>
-        <version>25.4</version>
+        <version>25.5</version>
         <relativePath>../../modules/pom.xml</relativePath>
     </parent>
     <groupId>com.tonikelope.qa</groupId>
@@ -44,7 +44,7 @@
         run everything EXCEPT tests tagged @Tag("slow"). The `qa-heavy`
         and `qa-all` profiles select the non-bot slow lanes; the
         statistical bot lane is only selected by the explicit `qa-bots`
-        profile. See the Testing section in README.md. -->
+        profile. See docs/TESTING.md. -->
         <qa.groups></qa.groups>
         <qa.excludedGroups>slow</qa.excludedGroups>
     </properties>
@@ -145,11 +145,10 @@
         fast lane (see the qa.* properties above): everything except
         tests tagged "slow". These profiles flip that selection.
 
-        Slow tests are the heavy regression guards over already-stable,
-        out-of-scope subsystems: the bot-AI statistical matchups
+        Slow tests are the costly regression guards: the bot-AI statistical matchups
         (bot/harness + smoke/GameFlowSmoke + bot/eval Monte-Carlo) and
-        the crypto perf/differential/cascade suite. Measured full suite
-        ~4.6 min; fast lane well under a minute. See the Testing section in README.md. -->
+        the crypto perf/differential/cascade suite and the protocol campaigns.
+        See docs/TESTING.md for the current execution policy. -->
 
         <!-- Explicit name for the normal deterministic lane. The same
         selection is already the default when no profile is supplied;
@@ -288,11 +287,9 @@
                             <excludedGroups></excludedGroups>
                             <includes combine.self="override">
                                 <include>**/protocolsim/*Test.java</include>
-                                <include>**/ProtocolExitRecoverySimulationTest.java</include>
-                                <include>**/ProtocolPotRabbitCampaignTest.java</include>
-                                <include>**/ProtocolLifecycleCampaignTest.java</include>
-                                <include>**/ProtocolSqlRecoveryCampaignTest.java</include>
-                                <include>**/ProtocolSqlActionReplayCampaignTest.java</include>
+                                <!-- This tagged regression intentionally lives
+                                beside the recovery unit tests, outside the
+                                protocolsim package. -->
                                 <include>**/RecoveredActionBatchTest.java</include>
                             </includes>
                         </configuration>

@@ -364,14 +364,16 @@ profile in `tools/qa/pom.xml`): `qa-fast` runs deterministic tests,
 `qa-heavy` runs the non-bot slow lanes, and `qa-all` combines the fast and
 slow non-bot lanes.
 **Every bot matchup, baseline and difficulty-gradient simulation is tagged
-`slow` and belongs only to `qa-bots`**, so a plain `mvn test`, `qa-heavy` or
-`qa-all` runs *none* of them. To calibrate the bot you must select
+`slow` and belongs only to `qa-bots`**, so a product build, `qa-fast`,
+`qa-heavy` or `qa-all` runs *none* of them. To calibrate the bot you must select
 `qa-bots` explicitly:
 
 ```
 mvn -f tools/reactor/pom.xml verify -P qa-bots
-mvn -f tools/reactor/pom.xml verify -P qa-all
 ```
+
+The other QA profiles and their intended use are defined in
+[Testing and certification](TESTING.md).
 
 Scale the iteration volume with `-Dqa.sessions=N -Dqa.hands=N`; the default
 validation volume is **10,000 hands per matchup** (200 sessions × 50 hands).

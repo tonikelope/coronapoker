@@ -173,6 +173,29 @@ final class TableEventBridgeTest {
     }
 
     @Test
+    void detachedBridgePublicationIsAnImmediateNoOp() {
+        TableEventBridge bridge = new TableEventBridge();
+
+        CompletionStage<Void> completion = bridge.publish(sequence ->
+                new TableVisualEvent.CloseTable(sequence,
+                        TableSessionSummary.empty(),
+                        TableSnapshot.Street.FINISHED));
+
+        assertTrue(completion.toCompletableFuture().isDone());
+        assertFalse(bridge.isAttached());
+    }
+
+    @Test
+    void aTableCanNeverOwnTwoRenderers() {
+        TableEventBridge bridge = new TableEventBridge();
+        bridge.attach(new RecordingRenderer(), emptyTable())
+                .toCompletableFuture().join();
+
+        assertThrows(IllegalStateException.class,
+                () -> bridge.attach(new RecordingRenderer(), emptyTable()));
+    }
+
+    @Test
     void positionRotationIsOneParallelTimedEvent() {
         TableVisualEvent.PositionRotation rotation = new TableVisualEvent.PositionRotation(
                 3L, List.of(

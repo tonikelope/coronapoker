@@ -97,6 +97,12 @@ public final class CorePlayerController implements GamePlayerController {
         return submitDecision(decision, raiseAmount, false);
     }
 
+    @Override
+    public synchronized boolean submitRecoveredDecision(int decision,
+            double amount) {
+        return submitDecision(decision, amount, false);
+    }
+
     private synchronized boolean submitDecision(int decision,
             double raiseAmount, boolean timedOut) {
         if (!local || !isTurno() || getDecision() != NODEC || isExit()

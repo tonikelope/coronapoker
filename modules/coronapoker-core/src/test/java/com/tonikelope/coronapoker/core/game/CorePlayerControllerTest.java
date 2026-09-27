@@ -126,6 +126,21 @@ class CorePlayerControllerTest {
     }
 
     @Test
+    void recoveredDecisionCompletesTheCanonicalTurnWithoutFrontendInput() {
+        CorePlayerController player = CorePlayerController.local("player");
+        player.setStack(10d);
+        player.bindDealer(new StubDealer(0d));
+        AtomicInteger completions = new AtomicInteger();
+        player.bindTurnCompletionSignal(completions::incrementAndGet);
+        player.esTuTurno();
+
+        assertTrue(player.submitRecoveredDecision(GamePlayerController.CHECK, 0d));
+        assertEquals(GamePlayerController.CHECK, player.getDecision());
+        assertFalse(player.isTurno());
+        assertEquals(1, completions.get());
+    }
+
+    @Test
     void spectatorTransitionClearsCompletedHandAllInState() {
         CorePlayerController player = CorePlayerController.local("player");
         player.setStack(10d);

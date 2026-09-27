@@ -111,6 +111,15 @@ public interface GamePlayerController
         return false;
     }
 
+    /**
+     * Applies one dealer-approved action while rebuilding a stopped hand.
+     * Recovery is canonical game state, not renderer input, so native
+     * frontends must not route it through whichever visual table is active.
+     */
+    default boolean submitRecoveredDecision(int decision, double amount) {
+        return false;
+    }
+
     int getDecision();
 
     void markFoldedOnRecover();

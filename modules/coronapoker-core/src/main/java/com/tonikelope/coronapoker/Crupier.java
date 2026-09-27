@@ -18831,12 +18831,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                     if (accion_recuperada != null) {
                         // A recovered decision is replayed by the dealer and is
-                        // never interactive. Publishing enabled controls first
-                        // exposed a transient button state that could accept a
-                        // second decision while the stored one was being replayed.
-                        game_decisions.replayRecoveredAction(
-                                playerStateDecision((int) accion_recuperada[0]),
-                                (Double) accion_recuperada[1]);
+                        // never renderer input. Routing it through the active
+                        // GDX table made a second recovery race against the
+                        // visual table swap and could submit to the closed table.
+                        if (!current_player.submitRecoveredDecision(
+                                (int) accion_recuperada[0],
+                                (Double) accion_recuperada[1])) {
+                            throw new IllegalStateException(
+                                    "Recovered local action was rejected for "
+                                    + current_player.getNickname());
+                        }
                     } else {
                         // Publish enabled controls only after the canonical player
                         // state owns the turn. A synchronous renderer (including

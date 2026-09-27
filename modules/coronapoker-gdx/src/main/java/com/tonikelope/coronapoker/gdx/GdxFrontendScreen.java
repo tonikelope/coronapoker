@@ -45,6 +45,7 @@ import com.tonikelope.coronapoker.core.GamePresetCatalog;
 import com.tonikelope.coronapoker.core.RecoverableGameRepository;
 import com.tonikelope.coronapoker.core.StatsRepository;
 import com.tonikelope.coronapoker.core.UpdateService;
+import com.tonikelope.coronapoker.core.UpdaterService;
 import com.tonikelope.coronapoker.DebugLog;
 import java.awt.FileDialog;
 import java.awt.Frame;
@@ -209,6 +210,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final GdxGameText gameText;
     private final Consumer<String> languageChanged;
     private final UpdateService updateService;
+    private final UpdaterService updaterService;
     private final NewGameSubmissionCoordinator submissions;
     private final RecoverableGameRepository recoverableGames;
     private final StatsRepository statsRepository;
@@ -342,6 +344,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private int aboutEasterEggClicks;
     private Texture aboutEasterEggTexture;
     private boolean updateCheckInFlight;
+    private boolean updateInstalling;
     private UpdateService.CheckResult updateResult;
     private boolean updatePromptOpen;
     private boolean updatePromptDismissed;
@@ -375,7 +378,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Runnable sessionReturnedToMenu,
             GdxGamePresentationSettings presentationSettings,
             GdxGameText gameText, Consumer<String> languageChanged,
-            UpdateService updateService, StatsRepository statsRepository) {
+            UpdateService updateService, UpdaterService updaterService,
+            StatsRepository statsRepository) {
         this.preferences = Objects.requireNonNull(preferences, "preferences");
         this.identityTrust = Objects.requireNonNull(identityTrust,
                 "identityTrust");
@@ -417,6 +421,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 "languageChanged");
         this.updateService = Objects.requireNonNull(updateService,
                 "updateService");
+        this.updaterService = Objects.requireNonNull(updaterService,
+                "updaterService");
         surface = Surface.MENU;
     }
 
@@ -2187,8 +2193,43 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void dismissUpdatePrompt() {
+        if (updateInstalling) return;
         updatePromptOpen = false;
         updatePromptDismissed = true;
+    }
+
+    private void startUpdateHandoff() {
+        if (updateInstalling || updateResult == null
+                || updateResult.status()
+                        != UpdateService.Status.UPDATE_AVAILABLE) return;
+        String version = updateResult.version();
+        var request = GdxUpdateHandoff.runtimeRequest(version,
+                gameText.language());
+        if (request.isEmpty()) {
+            openLatestRelease();
+            return;
+        }
+        updateInstalling = true;
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return updaterService.handoff(request.orElseThrow());
+            } catch (Exception failure) {
+                throw new CompletionException(failure);
+            }
+        }, recoveryExecutor).whenComplete((handedOff, failure) ->
+                Gdx.app.postRunnable(() -> {
+                    if (disposed) return;
+                    updateInstalling = false;
+                    Throwable cause = unwrap(failure);
+                    if (cause != null || !Boolean.TRUE.equals(handedOff)) {
+                        LOGGER.log(Level.WARNING,
+                                "GDX updater handoff failed", cause);
+                        showToast(gameText.translate(
+                                "gdx.update.install_failed"));
+                        return;
+                    }
+                    Gdx.app.exit();
+                }));
     }
 
     private void openLatestRelease() {
@@ -2226,8 +2267,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 GOLD, true, w - 100f);
         String version = updateResult == null ? ""
                 : Objects.requireNonNullElse(updateResult.version(), "");
+        String messageKey = updateInstalling
+                ? "gdx.update.installing" : "gdx.update.message";
         List<String> lines = wrapText(smallFont, gameText.translate(
-                "gdx.update.message", version), w - 130f, 3);
+                messageKey, version), w - 130f, 3);
         float lineY = y + 230f;
         for (String line : lines) {
             textFit(smallFont, line, WIDTH / 2f, lineY,
@@ -2236,10 +2279,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         themedButton(x + 70f, y + 42f, 320f, 72f,
                 uppercase(gameText.translate("gdx.update.later")),
-                ButtonTone.NEUTRAL, this::dismissUpdatePrompt, true);
+                ButtonTone.NEUTRAL, this::dismissUpdatePrompt,
+                !updateInstalling);
         themedButton(x + w - 390f, y + 42f, 320f, 72f,
-                uppercase(gameText.translate("gdx.update.open")),
-                ButtonTone.FEATURED, this::openLatestRelease, true);
+                uppercase(gameText.translate("gdx.update.install")),
+                ButtonTone.FEATURED, this::startUpdateHandoff,
+                !updateInstalling);
     }
 
     /** Native GDX counterpart of Swing's AboutDialog, including its music. */
@@ -7964,7 +8009,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 return true;
             }
             if (updatePromptOpen) {
-                dismissUpdatePrompt();
+                if (!updateInstalling) dismissUpdatePrompt();
                 return true;
             }
             if (fingerprintDialog != null) {

@@ -294,6 +294,11 @@ from reading a partially rewritten JAR.
 The root `pom.xml` is the canonical 24.11 product entry point and delegates to
 the module reactor.
 
+The local distribution is written to `target/CoronaPoker-24.11.jar`. GitHub
+release assets use the historical `CoronaPoker_24.11.jar` name because the
+installed updater resolves that exact filename. Both names contain the same
+GDX-only JAR; rename the verified local artifact when uploading it.
+
 Use the lifecycle according to intent:
 
 | Goal | Command |

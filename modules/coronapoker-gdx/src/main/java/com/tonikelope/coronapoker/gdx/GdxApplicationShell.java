@@ -12,6 +12,7 @@ import com.tonikelope.coronapoker.core.RecoverableGameRepository;
 import com.tonikelope.coronapoker.core.SecureRandomService;
 import com.tonikelope.coronapoker.core.StatsRepository;
 import com.tonikelope.coronapoker.core.UpdateService;
+import com.tonikelope.coronapoker.core.UpdaterService;
 import com.tonikelope.coronapoker.core.LobbySession;
 import com.tonikelope.coronapoker.core.IdentityTrustStore;
 import com.tonikelope.coronapoker.table.TableCommandSink;
@@ -107,6 +108,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
                     application.returnedToMenu();
         }, presentationSettings, gameText, languageChanged,
                 application.service(UpdateService.class),
+                application.service(UpdaterService.class),
                 new StatsRepository(database));
         menu.holdStartupAudio();
         menu.create();

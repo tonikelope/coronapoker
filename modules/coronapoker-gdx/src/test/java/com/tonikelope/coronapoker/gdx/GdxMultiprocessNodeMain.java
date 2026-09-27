@@ -234,6 +234,7 @@ public final class GdxMultiprocessNodeMain {
                                 + "/" + balance.rebuyCount())
                         .collect(java.util.stream.Collectors.joining(",")));
                 marker("HANDS_COMPLETE", "hands=" + renderer.completedHands()
+                        + " durableHands=" + renderer.summary().handCount()
                         + " reason=" + renderer.summary().reason());
             }
         }
@@ -1945,6 +1946,10 @@ public final class GdxMultiprocessNodeMain {
                         Duration.ofSeconds(60), "client reconnection " + hand);
                 marker("RECONNECTED", "peer=server count=" + occurrence
                         + " hand=" + hand + " street=" + streets[index]);
+                await(renderer::nativeCheckOrCallReady,
+                        Duration.ofSeconds(30),
+                        "native action control after reconnect at "
+                                + streets[index]);
                 if (index + 1 < streets.length) {
                     renderer.releaseHeldActionAndGate(hand + 1L,
                             streets[index + 1]);

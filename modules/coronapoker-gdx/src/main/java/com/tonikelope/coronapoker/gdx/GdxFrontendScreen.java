@@ -366,9 +366,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private String settingsShortcutCaptureId;
     private String settingsShortcutStatus = "";
     private GdxWindowMode settingsOpenedWindowMode = GdxWindowMode.BORDERLESS;
+    private int settingsOpenedMsaaSamples;
     private NewGameTableDraft settingsTable;
     private NewGameTableDraft.Settings settingsTableSnapshot;
     private boolean settingsDiscardConfirmation;
+    private boolean settingsRestartNotice;
     private final GdxVoiceNoteLibrary voiceNoteLibrary =
             new GdxVoiceNoteLibrary();
     private boolean voiceNotesOpen;
@@ -722,7 +724,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // Modal surfaces must be composed after every underlying glyph. Texts
         // are batched separately from shapes, so drawing the modal inside
         // drawLobby would otherwise let the lobby chat glyphs bleed over it.
-        if ((surface == Surface.MENU && (aboutOpen || updatePromptOpen))
+        if (settingsRestartNotice
+                || (surface == Surface.MENU && (aboutOpen || updatePromptOpen))
                 || (surface == Surface.LOBBY
                 && (lobbyConfirmation != null || lobbyPasswordDialog
                         || lobbyTableTransitionActive(lobbyGameStarting, lobby)
@@ -756,7 +759,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
                     GL20.GL_ONE_MINUS_SRC_ALPHA);
             shapes.begin(ShapeRenderer.ShapeType.Filled);
-            if (aboutOpen) {
+            if (settingsRestartNotice) {
+                drawSettingsRestartNotice();
+            } else if (aboutOpen) {
                 drawAboutDialog();
             } else if (updatePromptOpen) {
                 drawUpdateDialog();
@@ -4882,6 +4887,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsShortcutStatus = "";
         shortcutBindings.beginEdit();
         settingsOpenedWindowMode = GdxDisplayModeController.activeMode();
+        settingsOpenedMsaaSamples = presentationSettings
+                .requestedMsaaSamples();
         settingsTable = lobby != null && settingsReturnSurface == Surface.LOBBY
                 && lobby.tableSettings() != null
                         ? NewGameTableDraft.from(lobby.tableSettings()) : null;
@@ -4941,6 +4948,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void finishClosingSettings(boolean save) {
+        boolean restartNotice = save
+                && GdxSettingsContract.requiresMsaaRestart(
+                        settingsOpenedMsaaSamples,
+                        presentationSettings.requestedMsaaSamples(),
+                        presentationSettings.actualMsaaSamples());
         if (save) {
             shortcutBindings.commitEdit();
             if (preferences != null) preferences.saveDeferred();
@@ -4970,6 +4982,33 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsDiscardConfirmation = false;
         surface = settingsReturnSurface;
         syncMusicForSurface();
+        settingsRestartNotice = restartNotice;
+    }
+
+    private void drawSettingsRestartNotice() {
+        hits.clear();
+        secondaryHits.clear();
+        textFieldHits.clear();
+        editMenuHits.clear();
+        shapes.setColor(new Color(0x02050cdd));
+        shapes.rect(0f, 0f, WIDTH, HEIGHT);
+        shapes.setColor(new Color(0x000000aa));
+        roundedRect(515f, 335f, 910f, 350f, 18f);
+        shapes.setColor(CYAN_DARK);
+        roundedRect(503f, 343f, 914f, 354f, 18f);
+        shapes.setColor(new Color(0x071321ff));
+        roundedRect(505f, 345f, 910f, 350f, 16f);
+        shapes.setColor(new Color(0x36d9ffb8));
+        shapes.rect(535f, 678f, 850f, 3f);
+        textFit(headingFont, uppercase(gameText.translate(
+                "gdx.settings.msaa_restart.title")), 960f, 585f,
+                GOLD, true, 800f);
+        textFit(actionFont, gameText.translate(
+                "gdx.settings.msaa_restart.message"), 960f, 515f,
+                Color.WHITE, true, 790f);
+        themedButton(785f, 405f, 350f, 75f, uppercase(gameText.translate(
+                "ui.aceptar")), ButtonTone.FEATURED,
+                () -> settingsRestartNotice = false, true);
     }
 
     private boolean settingsHavePendingChanges() {
@@ -8445,6 +8484,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
         }
         if (keycode == Input.Keys.ESCAPE) {
+            if (settingsRestartNotice) {
+                settingsRestartNotice = false;
+                return true;
+            }
             if (surface == Surface.STATS) {
                 if (statsPicker != StatsPicker.NONE) {
                     statsPicker = StatsPicker.NONE;
@@ -8537,7 +8580,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             // action owned by the SALIR button (and by the window-close flow).
             return true;
         }
-        if (aboutOpen || updatePromptOpen || lobbyConfirmation != null
+        if (settingsRestartNotice || aboutOpen || updatePromptOpen
+                || lobbyConfirmation != null
                 || fingerprintDialog != null
                 || settingsDiscardConfirmation
                 || statsConfirmation != StatsConfirmation.NONE) {

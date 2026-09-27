@@ -12,6 +12,14 @@ import org.junit.jupiter.api.Test;
 final class GdxSettingsContractTest {
 
     @Test
+    void msaaRestartNoticeRequiresARealPendingBackBufferChange() {
+        assertTrue(GdxSettingsContract.requiresMsaaRestart(4, 8, 4));
+        assertFalse(GdxSettingsContract.requiresMsaaRestart(4, 4, 4));
+        assertFalse(GdxSettingsContract.requiresMsaaRestart(4, 4, 0));
+        assertFalse(GdxSettingsContract.requiresMsaaRestart(4, 8, 8));
+    }
+
+    @Test
     void masterVolumeHasOneValidatedDefaultAcrossEverySettingsSurface() {
         Properties properties = new Properties();
         assertEquals(0.8f, GdxSettingsContract.masterVolume(properties));

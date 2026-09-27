@@ -82,13 +82,23 @@ class GdxScenarioContractTest {
                     "missing supporting GDX tests for " + scenario + ": "
                             + tests.stream().filter(test -> !methods.contains(test)).toList());
         });
-        GdxScenarioContract.STRICT_HOMOLOGUE_TESTS.forEach((scenario, tests) -> {
+        GdxScenarioContract.AUXILIARY_HOMOLOGUE_TESTS.forEach((scenario, tests) -> {
             assertTrue(GdxScenarioContract.SWING_REFERENCE.contains(scenario),
-                    "strict GDX homologue is absent from Swing: " + scenario);
+                    "auxiliary GDX homologue is absent from Swing: " + scenario);
             assertTrue(methods.containsAll(tests),
-                    "missing strict GDX homologue for " + scenario + ": "
+                    "missing auxiliary GDX homologue for " + scenario + ": "
                             + tests.stream().filter(test -> !methods.contains(test)).toList());
         });
+        GdxScenarioContract.SWING_GOLD_MULTIPROCESS_TESTS.forEach(
+                (scenario, tests) -> assertTrue(methods.containsAll(tests),
+                        "missing multi-process GOLD test for " + scenario + ": "
+                                + tests.stream().filter(
+                                        test -> !methods.contains(test)).toList()));
+        GdxScenarioContract.NATIVE_GDX_UI_TESTS.forEach(
+                (scenario, tests) -> assertTrue(methods.containsAll(tests),
+                        "missing native GDX UI test for " + scenario + ": "
+                                + tests.stream().filter(
+                                        test -> !methods.contains(test)).toList()));
         GdxScenarioContract.GDX_ONLY_SCENARIOS.forEach((scenario, tests) -> {
             assertFalse(GdxScenarioContract.SWING_REFERENCE.contains(scenario),
                     "GDX-only scenario duplicates the Swing baseline: " + scenario);
@@ -99,16 +109,16 @@ class GdxScenarioContractTest {
     }
 
     @Test
-    void everySwingScenarioHasItsOwnStrictGdxCoverage() {
+    void everySwingScenarioRetainsAuxiliaryGdxCoverage() {
         assertEquals(GdxScenarioContract.SWING_REFERENCE,
-                GdxScenarioContract.STRICT_HOMOLOGUE_TESTS.keySet(),
+                GdxScenarioContract.AUXILIARY_HOMOLOGUE_TESTS.keySet(),
                 "catalogue parity alone is insufficient: every Swing scenario "
-                        + "must have strict executable GDX coverage");
+                        + "must retain auxiliary executable GDX coverage");
 
         Set<String> uniqueTests = new HashSet<>();
-        GdxScenarioContract.STRICT_HOMOLOGUE_TESTS.forEach((scenario, tests) -> {
+        GdxScenarioContract.AUXILIARY_HOMOLOGUE_TESTS.forEach((scenario, tests) -> {
             assertTrue(!tests.isEmpty(),
-                    "strict GDX coverage is empty for " + scenario);
+                    "auxiliary GDX coverage is empty for " + scenario);
             tests.forEach(test -> assertTrue(uniqueTests.add(test),
                     "one GDX test cannot certify two different Swing scenarios: "
                             + test));
@@ -116,12 +126,39 @@ class GdxScenarioContractTest {
     }
 
     @Test
+    void everySwingScenarioRetainsASeparateProcessSocketHomologue() {
+        Set<String> multiprocessMethods = Arrays.stream(
+                        GdxMultiprocessScenarioTest.class.getDeclaredMethods())
+                .filter(method -> method.isAnnotationPresent(Test.class))
+                .map(Method::getName)
+                .collect(Collectors.toSet());
+
+        assertEquals(GdxScenarioContract.SWING_REFERENCE,
+                GdxScenarioContract.SWING_GOLD_MULTIPROCESS_TESTS.keySet(),
+                "every Swing GOLD scenario must have an official multi-process port");
+        GdxScenarioContract.SWING_GOLD_MULTIPROCESS_TESTS.forEach(
+                (scenario, tests) -> {
+                    assertTrue(!tests.isEmpty(),
+                            "empty multi-process GOLD mapping: " + scenario);
+                    assertTrue(tests.stream().allMatch(
+                                    multiprocessMethods::contains),
+                            "GOLD mapping contains an in-process substitute: "
+                                    + scenario);
+                });
+    }
+
+    @Test
     void certificationMethodsBelongToOneScenarioOnly() {
         Set<String> uniqueTests = new HashSet<>();
-        GdxScenarioContract.STRICT_HOMOLOGUE_TESTS.values().stream()
+        GdxScenarioContract.SWING_GOLD_MULTIPROCESS_TESTS.values().stream()
                 .flatMap(Set::stream)
                 .forEach(test -> assertTrue(uniqueTests.add(test),
-                        "duplicated strict certification test: " + test));
+                        "duplicated GOLD certification test: " + test));
+        GdxScenarioContract.NATIVE_GDX_UI_TESTS.values().stream()
+                .flatMap(Set::stream)
+                .forEach(test -> assertTrue(uniqueTests.add(test),
+                        "native UI test duplicates another certification test: "
+                                + test));
         GdxScenarioContract.GDX_ONLY_SCENARIOS.values().stream()
                 .flatMap(Set::stream)
                 .forEach(test -> assertTrue(uniqueTests.add(test),
@@ -140,7 +177,9 @@ class GdxScenarioContractTest {
                 .collect(Collectors.toMap(Method::getName,
                         Function.identity()));
         Set<String> certificationTests = new HashSet<>();
-        GdxScenarioContract.STRICT_HOMOLOGUE_TESTS.values().forEach(
+        GdxScenarioContract.SWING_GOLD_MULTIPROCESS_TESTS.values().forEach(
+                certificationTests::addAll);
+        GdxScenarioContract.NATIVE_GDX_UI_TESTS.values().forEach(
                 certificationTests::addAll);
         GdxScenarioContract.GDX_ONLY_SCENARIOS.values().forEach(
                 certificationTests::addAll);
@@ -162,7 +201,7 @@ class GdxScenarioContractTest {
     @Test
     void blockingGdxUiScenariosAlsoExerciseNativeTableWiring() {
         BLOCKING_GDX_UI_SCENARIOS.forEach(scenario -> {
-            Set<String> tests = GdxScenarioContract.STRICT_HOMOLOGUE_TESTS
+            Set<String> tests = GdxScenarioContract.NATIVE_GDX_UI_TESTS
                     .getOrDefault(scenario, Set.of());
             assertTrue(tests.stream().anyMatch(
                             test -> test.startsWith("nativeGdx")),
@@ -225,7 +264,8 @@ class GdxScenarioContractTest {
         String launcher = Files.readString(root.resolve(
                 "tools/qa/certify.cmd"), StandardCharsets.UTF_8);
 
-        assertTrue(runner.contains("STRICT_HOMOLOGUE_TESTS"));
+        assertTrue(runner.contains("SWING_GOLD_MULTIPROCESS_TESTS"));
+        assertTrue(runner.contains("NATIVE_GDX_UI_TESTS"));
         assertTrue(runner.contains("foreach ($method in $entry.Methods)"));
         assertTrue(runner.contains("$selector = $test.Class + '#' + $test.Method"));
         assertTrue(runner.contains("& $maven @arguments"));

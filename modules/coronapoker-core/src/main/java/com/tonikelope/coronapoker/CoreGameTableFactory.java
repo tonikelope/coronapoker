@@ -438,48 +438,46 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 return;
             }
             if (lobby.host() && command.command().startsWith("EXIT#")) {
-                PlayerExitWire.Command playerExit;
                 try {
-                    playerExit = PlayerExitWire.parseClientRequest(
+                    PlayerExitWire.Command playerExit = PlayerExitWire.parseClientRequest(
                             envelope.split("#", -1), command.peerNickname());
                     GamePeerController exitingPeer = peers.get(playerExit.nick());
                     if (exitingPeer == null || exitingPeer.isCpu()) {
                         throw new IllegalArgumentException(
                                 "EXIT source is not a current remote human");
                     }
+                    if (dealer.requiresExitPocketProof(playerExit.nick())
+                            && !playerExit.hasPocketReveal()) {
+                        throw new IllegalArgumentException(
+                                "all-in EXIT requires a signed pocket reveal");
+                    }
+                    if (playerExit.hasPocketReveal()
+                            && !dealer.acceptExitShowdownProof(
+                                    playerExit.nick(),
+                                    playerExit.pocketKeyWire(),
+                                    playerExit.pocketSignatureWire())) {
+                        throw new IllegalArgumentException(
+                                "EXIT carries an invalid showdown proof");
+                    }
+                    if (playerExit.hasTestament()) {
+                        exitingPeer.setSra_unlock_community(
+                                playerExit.testament());
+                    }
+
+                    // A voluntary EXIT is an ordering-critical transition.
+                    // Apply it on the ordered channel drain before EOF can
+                    // publish a definitive peer loss. Offloading this work to
+                    // controlExecutor allowed the socket-loss callback to win
+                    // the race, void an honest hand and show RECONNECTING for
+                    // a player who had deliberately left the table.
+                    dealer.remotePlayerQuit(playerExit.nick(),
+                            playerExit.testamentWire(),
+                            playerExit.pocketKeyWire(),
+                            playerExit.pocketSignatureWire());
+                    notifyBettingWait(dealer);
                 } catch (RuntimeException invalid) {
                     context.channel().close();
-                    return;
                 }
-                controlExecutor.execute(() -> {
-                    try {
-                        GamePeerController exitingPeer = peers.get(playerExit.nick());
-                        if (dealer.requiresExitPocketProof(playerExit.nick())
-                                && !playerExit.hasPocketReveal()) {
-                            throw new IllegalArgumentException(
-                                    "all-in EXIT requires a signed pocket reveal");
-                        }
-                        if (playerExit.hasPocketReveal()
-                                && !dealer.acceptExitShowdownProof(
-                                        playerExit.nick(),
-                                        playerExit.pocketKeyWire(),
-                                        playerExit.pocketSignatureWire())) {
-                            throw new IllegalArgumentException(
-                                    "EXIT carries an invalid showdown proof");
-                        }
-                        if (playerExit.hasTestament()) {
-                            exitingPeer.setSra_unlock_community(
-                                    playerExit.testament());
-                        }
-                        dealer.remotePlayerQuit(playerExit.nick(),
-                                playerExit.testamentWire(),
-                                playerExit.pocketKeyWire(),
-                                playerExit.pocketSignatureWire());
-                        notifyBettingWait(dealer);
-                    } catch (RuntimeException invalid) {
-                        context.channel().close();
-                    }
-                });
                 return;
             }
             if (!lobby.host() && command.command().startsWith("EXIT#")) {
@@ -708,7 +706,11 @@ public final class CoreGameTableFactory implements GameTableFactory {
         AutoCloseable peerLoss = context.channel().subscribePeerLoss(nickname -> {
             if (!lobby.host() || closing.get()) return;
             GamePeerController peer = peers.get(nickname);
-            if (peer == null || peer.isCpu()) return;
+            // A normal EXIT may be followed immediately by EOF from the same
+            // socket. Once the ordered EXIT handler has marked the peer out,
+            // that EOF is teardown, not an unannounced disconnect and must
+            // never invalidate the hand or put the seat into reconnection.
+            if (peer == null || peer.isCpu() || peer.isExit()) return;
             // The watchdog runs outside the dealer thread. It may only publish
             // the definitive loss and wake waits; refunding here can race an
             // accepted action while its bet is still being committed. The

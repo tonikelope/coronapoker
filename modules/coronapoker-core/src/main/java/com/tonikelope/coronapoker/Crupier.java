@@ -8227,18 +8227,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        // Publish the abort before marking the seat out. A dealer observing
-        // either state therefore sees the abort too and cannot incorrectly use
-        // getJugadoresActivos() <= 1 to award the pot as a normal fold win.
-        requestDealerThreadMisdeal("peer.community_unlock_no_testament");
+        // Publish the abort atomically before marking the seat out. Do not call
+        // requestDealerThreadMisdeal here yet: a definitive-loss callback can
+        // arrive while the dealer owns lock_apuestas inside a confirmed GAME
+        // broadcast. Waiting for that lock before marking the dead peer would
+        // leave the broadcast waiting forever for its ACK. The atomic flag
+        // preserves the MISDEAL-before-exit invariant while markExitAndNotify
+        // wakes the confirmation tracker immediately.
+        pending_dealer_abort_reason.compareAndSet(null,
+                "peer.community_unlock_no_testament");
         if (!jugador.isExit()) {
             jugador.setExit();
         }
         GamePeerController participante = peers().get(nick);
         if (participante != null) {
-            participante.setExit(true);
+            participante.markExitAndNotify("definitive transport loss");
         }
-
+        synchronized (this.getReceived_commands()) {
+            this.getReceived_commands().notifyAll();
+        }
+        synchronized (this.getLock_apuestas()) {
+            this.getLock_apuestas().notifyAll();
+        }
     }
 
     private boolean hasPendingDealerMisdeal() {

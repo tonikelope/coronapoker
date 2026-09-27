@@ -771,6 +771,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean settingsTextToSpeechDraft = true;
     private boolean settingsVoiceMessagesDraft = true;
     private GdxWindowMode settingsOpenedWindowMode;
+    private int settingsOpenedMsaaSamples;
     private GameConfigCodecV1.Configuration liveSettingsOpened;
     private GameConfigCodecV1.Configuration liveSettingsDraft;
     private NewGameTableDraft.BotDifficulty tableBotDifficulty;
@@ -1861,6 +1862,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         settingsSession.begin(GdxSettingsSession.Context.LIVE_TABLE,
                 preferences == null ? null : preferences.properties());
         settingsOpenedWindowMode = GdxDisplayModeController.activeMode();
+        settingsOpenedMsaaSamples = presentationSettings == null ? 0
+                : presentationSettings.requestedMsaaSamples();
         settingsGamePage = 0;
         settingsAppearancePage = 0;
         settingsAudioPage = 0;
@@ -1883,6 +1886,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void closeTableSettings(boolean save) {
+        boolean restartNotice = save && presentationSettings != null
+                && GdxSettingsContract.requiresMsaaRestart(
+                        settingsOpenedMsaaSamples,
+                        presentationSettings.requestedMsaaSamples(),
+                        presentationSettings.actualMsaaSamples());
         shortcutCaptureId = null;
         shortcutStatus = "";
         if (save) {
@@ -1976,6 +1984,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         settingsOpenedWindowMode = null;
         settingsSession.close();
         uiLayer = UI_NONE;
+        if (restartNotice) {
+            showDialog(new GdxTableDialog(GdxTableDialog.Kind.INFO,
+                    gameText.translate("gdx.settings.msaa_restart.title"),
+                    gameText.translate("gdx.settings.msaa_restart.message"),
+                    com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.NONE,
+                    860, 0, false, "",
+                    gameText.translate("ui.aceptar")));
+        }
     }
 
     private boolean settingsHavePendingChanges() {

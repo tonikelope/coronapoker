@@ -200,17 +200,18 @@ The public certification entry point is:
 .\tools\qa\certify.cmd -Mode balanced
 ```
 
-`tools/qa/reference/swing-gold-scenarios.tsv` preserves the final Swing scenario
-catalogue. `GdxScenarioContract.STRICT_HOMOLOGUE_TESTS` is its executable GDX
-mapping, while `GDX_ONLY_SCENARIOS` holds product scenarios added after the
-baseline, including Rabbit Hunting. The certifier reads both mappings directly,
-resolves every named JUnit method and launches each one in a fresh Maven process.
-There is no second hand-maintained scenario list.
+`tools/qa/reference/swing-gold-scenarios.tsv` preserves the final 37-scenario
+Swing catalogue. `GdxScenarioContract.SWING_GOLD_MULTIPROCESS_TESTS` maps every
+historical identifier to its release-certifying GDX port. Every mapped method
+lives in `GdxMultiprocessScenarioTest` and runs independent JVMs over real
+loopback sockets; an in-process simulation cannot satisfy GOLD parity.
 
-The mapping includes production-core game flows, native GDX command/dialog
-wiring and multiprocess tests. Scenarios that historically depended on sockets,
-disconnects, crashes or recovery keep separate host/client JVMs. The Swing code
-is not part of the product and is not executed.
+`NATIVE_GDX_UI_TESTS` adds product-table and control checks, while
+`GDX_ONLY_SCENARIOS` holds post-Swing behaviour such as Rabbit Hunting. These
+lanes supplement GOLD and never replace it. The certifier reads the three maps
+directly, resolves every named JUnit method and launches each one in a fresh
+Maven process. There is no second hand-maintained executable list, and the Swing
+code is neither part of the product nor executed.
 
 ### Modes
 

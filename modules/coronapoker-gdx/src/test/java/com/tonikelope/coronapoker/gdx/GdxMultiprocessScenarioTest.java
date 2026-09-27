@@ -36,6 +36,37 @@ import org.junit.jupiter.api.io.TempDir;
 @Tag("certification")
 class GdxMultiprocessScenarioTest {
 
+    private static final Set<String> EXPECTED_MISDEAL_SCENARIOS = Set.of(
+            "abrupt-exit", "dual-abrupt-exit", "mixed-exit-crash",
+            "allin-abrupt-exit", "crash-rejoin-recover",
+            "spectator-double-recovery-crash-mix");
+
+    /** Exact terminal MISDEAL set frozen by the final Swing GOLD contract. */
+    private static final Set<String> TERMINAL_MISDEAL_SCENARIOS = Set.of(
+            "abrupt-exit", "dual-abrupt-exit", "mixed-exit-crash",
+            "allin-abrupt-exit");
+
+    private static final List<String> ALWAYS_FATAL_OUTPUT = List.of(
+            "CP_GDX_E2E_FAIL",
+            "TABLE_FAILURE_V1",
+            "Empty settlement table; refusing receipt and SQL close",
+            "Next-hand balance barrier disagrees with atomic opening rows",
+            "Error parsing remote action",
+            "SYNTHESIZING FOLD",
+            "invalid atomic POTCARDS",
+            "Cannot build mandatory all-in showdown proof",
+            "missing mandatory",
+            "FAILED signature verify",
+            "host forging",
+            "disputed_hands row inserted",
+            "invalid-sig flag",
+            "Recover action MISMATCH",
+            "RECOVERDATA rejected",
+            "stale PREV_H",
+            "DECK_CASCADE_REQ received mid-hand",
+            "RIT_VOTE_CLOSE overrides",
+            "refusing to start betting without a verified honest-shuffle proof");
+
     @Test
     @Timeout(value = 3, unit = TimeUnit.MINUTES)
     void normalSupportingTopologyRunsAsIndependentGdxProcesses(
@@ -666,6 +697,14 @@ class GdxMultiprocessScenarioTest {
                     killed.add(disrupted);
                 } else {
                     disrupted.send(disruption);
+                    if ("controlled-exit".equals(scenario)) {
+                        assertTrue(disrupted.await(
+                                "CP_GDX_E2E_CONTROLLED_EXIT_SENT nick=client1",
+                                Duration.ofSeconds(30)), disrupted.diagnostic());
+                        assertTrue(host.await(
+                                "QA EXIT_TESTAMENT_ACCEPTED nick=client1",
+                                Duration.ofSeconds(30)), host.diagnostic());
+                    }
                 }
             }
             List<NodeProcess> completed = new ArrayList<>();
@@ -685,6 +724,25 @@ class GdxMultiprocessScenarioTest {
             }
             assertMatchingConservedLedgers(completed, scenario,
                     clients + bots + 1);
+            if (TERMINAL_MISDEAL_SCENARIOS.contains(scenario)) {
+                assertTerminalMisdealOutcome(completed, host, scenario);
+            } else {
+                assertMatchingCompletedHistory(completed, scenario, hands);
+            }
+            if (scenario.equals("controlled-exit")) {
+                assertTrue(!host.contains("MISDEAL triggered:"),
+                        host.diagnostic());
+                assertTrue(!host.contains("MANO ANULADA"), host.diagnostic());
+                assertTrue(!host.contains("peer.community_unlock_no_testament"),
+                        host.diagnostic());
+                assertTrue(!host.contains(
+                                "CP_GDX_E2E_RECONNECTED peer=client1"),
+                        "a voluntary exit was misclassified as reconnectable\n"
+                        + host.diagnostic());
+                assertTrue(!host.contains("RECONNECTANDO"),
+                        "a voluntary exit exposed reconnecting state\n"
+                        + host.diagnostic());
+            }
             if (scenario.equals("spectator-rebuy-cycle")) {
                 assertTrue(completed.stream().anyMatch(node -> node.contains(
                                 "CP_GDX_E2E_SPECTATOR_CYCLE"
@@ -2063,6 +2121,55 @@ class GdxMultiprocessScenarioTest {
                 "final stacks must equal cumulative buy-ins");
     }
 
+    private static void assertTerminalMisdealOutcome(
+            List<NodeProcess> completed, NodeProcess host, String scenario) {
+        assertTrue(host.contains("MISDEAL triggered:"),
+                "Swing GOLD requires a terminal MISDEAL for " + scenario
+                + "\n" + host.diagnostic());
+        assertTrue(host.contains("RECOVERY: abortAndRecover engaged"),
+                "terminal MISDEAL did not enter recoverable teardown\n"
+                + host.diagnostic());
+        for (NodeProcess node : completed) {
+            if (scenario.equals("mixed-exit-crash")
+                    && node.name.endsWith(":client1")) {
+                assertTrue(node.contains("reason=EXITED"), node.diagnostic());
+            } else {
+                assertTrue(node.contains("reason=RECOVERABLE_STOP"),
+                        node.diagnostic());
+            }
+        }
+    }
+
+    private static void assertMatchingCompletedHistory(
+            List<NodeProcess> completed, String scenario, int hands) {
+        List<NodeProcess> comparable = completed.stream()
+                .filter(node -> !(scenario.equals("controlled-exit")
+                        || scenario.equals("allin-controlled-exit"))
+                        || !node.name.endsWith(":client1"))
+                .toList();
+        assertTrue(!comparable.isEmpty(),
+                "scenario has no completed history witness: " + scenario);
+        NodeProcess witness = comparable.get(0);
+        assertTrue(witness.contains("CP_GDX_E2E_HANDS_COMPLETE hands="
+                + hands + " durableHands=" + hands + " reason=COMPLETED"),
+                witness.diagnostic());
+        List<String> expectedConsensus = witness.consensusHistory();
+        List<String> expectedBalances = witness.balanceHistory();
+        assertEquals(hands, expectedConsensus.size(), witness.diagnostic());
+        assertEquals(hands, expectedBalances.size(), witness.diagnostic());
+        for (NodeProcess node : comparable.subList(1, comparable.size())) {
+            assertTrue(node.contains("CP_GDX_E2E_HANDS_COMPLETE hands="
+                    + hands + " durableHands=" + hands
+                    + " reason=COMPLETED"), node.diagnostic());
+            assertEquals(expectedConsensus, node.consensusHistory(),
+                    "consensus history diverged in " + scenario + "\n"
+                    + node.diagnostic());
+            assertEquals(expectedBalances, node.balanceHistory(),
+                    "balance history diverged in " + scenario + "\n"
+                    + node.diagnostic());
+        }
+    }
+
     private static NodeProcess startNode(Path home, String role, String nick,
             int port, int clients, int bots, int hands, String scenario)
             throws IOException {
@@ -2085,20 +2192,22 @@ class GdxMultiprocessScenarioTest {
                 Integer.toString(bots), Integer.toString(hands), scenario,
                 phase);
         builder.redirectErrorStream(true);
-        return new NodeProcess(role + ":" + nick, builder.start());
+        return new NodeProcess(role + ":" + nick, scenario, builder.start());
     }
 
     private static final class NodeProcess implements AutoCloseable {
 
         private final String name;
+        private final String scenario;
         private final Process process;
         private final BufferedWriter input;
         private final List<String> output = Collections.synchronizedList(
                 new ArrayList<>());
         private final CountDownLatch readerDone = new CountDownLatch(1);
 
-        NodeProcess(String name, Process process) {
+        NodeProcess(String name, String scenario, Process process) {
             this.name = name;
+            this.scenario = scenario;
             this.process = process;
             this.input = new BufferedWriter(new OutputStreamWriter(
                     process.getOutputStream(), StandardCharsets.UTF_8));
@@ -2149,7 +2258,87 @@ class GdxMultiprocessScenarioTest {
                 return Integer.MIN_VALUE;
             }
             readerDone.await(2, TimeUnit.SECONDS);
-            return process.exitValue();
+            int exit = process.exitValue();
+            if (exit == 0) {
+                assertNoUnexpectedFailures();
+            }
+            return exit;
+        }
+
+        private void assertNoUnexpectedFailures() {
+            for (String marker : ALWAYS_FATAL_OUTPUT) {
+                assertTrue(!contains(marker),
+                        "fatal output escaped the " + scenario
+                        + " scenario oracle: " + marker + "\n"
+                        + diagnostic());
+            }
+            assertTrue(!hasUnexpectedClientWriteFailure(),
+                    "unexpected client write failure escaped the " + scenario
+                    + " oracle\n" + diagnostic());
+            if (!EXPECTED_MISDEAL_SCENARIOS.contains(scenario)) {
+                assertTrue(!contains("MISDEAL triggered:"),
+                        "unexpected MISDEAL in " + scenario + "\n"
+                        + diagnostic());
+                assertTrue(!contains("MANO ANULADA"),
+                        "unexpected hand cancellation in " + scenario + "\n"
+                        + diagnostic());
+                assertTrue(!contains("QA dialog suppressed [Error"),
+                        "unexpected error dialog in " + scenario + "\n"
+                        + diagnostic());
+            }
+        }
+
+        private boolean hasUnexpectedClientWriteFailure() {
+            boolean cutArmed = false;
+            boolean failureSeen = false;
+            synchronized (output) {
+                for (String line : output) {
+                    if (line.contains("CP_GDX_E2E_SOCKET_DROP_REQUESTED")) {
+                        if (cutArmed) return true;
+                        cutArmed = true;
+                        failureSeen = false;
+                    }
+                    if (line.contains("Client write failed")) {
+                        if (!cutArmed || failureSeen) return true;
+                        failureSeen = true;
+                    }
+                    if (line.contains("CP_GDX_E2E_RECONNECTED") && cutArmed) {
+                        cutArmed = false;
+                        failureSeen = false;
+                    }
+                }
+            }
+            return false;
+        }
+
+        List<String> consensusHistory() {
+            synchronized (output) {
+                return output.stream()
+                        .filter(line -> line.contains(" verified: "))
+                        .map(line -> line.substring(line.indexOf("Hand ")))
+                        .toList();
+            }
+        }
+
+        List<String> balanceHistory() {
+            synchronized (output) {
+                return output.stream()
+                        .filter(line -> line.contains("Balance after hand "))
+                        .map(NodeProcess::canonicalBalanceLine)
+                        .toList();
+            }
+        }
+
+        private static String canonicalBalanceLine(String line) {
+            int handStart = line.indexOf("Balance after hand ");
+            int rowsStart = line.indexOf(" -> ", handStart);
+            if (handStart < 0 || rowsStart < 0) return line;
+            String heading = line.substring(handStart, rowsStart);
+            String rows = line.substring(rowsStart + 4);
+            String canonical = java.util.Arrays.stream(rows.split("@"))
+                    .sorted()
+                    .collect(java.util.stream.Collectors.joining("@"));
+            return heading + " -> " + canonical;
         }
 
         void destroyForcibly() throws Exception {

@@ -25,9 +25,10 @@ The scenario system has four contracts:
 
 1. `tools/qa/reference/swing-gold-scenarios.tsv` is the immutable list of the 37
    historical gameplay scenarios used as the migration baseline.
-2. `GdxScenarioContract.java` maps every historical identifier to strict GDX
-   tests and records post-Swing product scenarios separately. Its contract test
-   rejects missing, duplicated or invented mappings.
+2. `GdxScenarioContract.java` maps every historical identifier to an official
+   multiprocess GDX test, records native GDX supplements and keeps post-Swing
+   product scenarios separate. Its contract test rejects missing, duplicated,
+   in-process or invented GOLD mappings.
 3. `GdxMultiprocessScenarioTest.java` launches the host and client JVMs used by
    release certification. `GdxMultiprocessNodeMain.java` is the node process.
 4. `tools/qa/run-certification.ps1` reads the Java mappings and defines only
@@ -42,7 +43,7 @@ commit.
 
 | File | Responsibility |
 |---|---|
-| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/scenarios/GdxScenarioContract.java` | Historical identifier to strict GDX test mapping |
+| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/scenarios/GdxScenarioContract.java` | Historical identifier to official multiprocess GOLD mapping, native supplements and GDX-only scenarios |
 | `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/scenarios/GdxScenarioContractTest.java` | Mapping and coverage invariants |
 | `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/scenarios/GdxReconnectScenarioTest.java` | Production-core game scenarios observed through GDX |
 | `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/GdxMultiprocessScenarioTest.java` | Parent process, topology, process faults and final assertions |
@@ -69,11 +70,12 @@ Do not use elapsed time as proof that a game reached a state.
 ## Step 2: add the smallest failing regression
 
 Add a focused unit or GDX integration test first. For an existing historical
-scenario, register the exact test method in `STRICT_HOMOLOGUE_TESTS`. A new
-product behaviour that deserves release certification belongs in
-`GDX_ONLY_SCENARIOS`. A certification method may belong to one scenario only.
-Useful integration coverage that is not a release scenario belongs in
-`SUPPORTING_NETWORK_TESTS`.
+scenario, add its independent-JVM port to `SWING_GOLD_MULTIPROCESS_TESTS`.
+Product-table interaction that supplements that port belongs in
+`NATIVE_GDX_UI_TESTS`. A new product behaviour that deserves release
+certification belongs in `GDX_ONLY_SCENARIOS`. A certification method may belong
+to one scenario only. Useful integration coverage that is not a release scenario
+belongs in `SUPPORTING_NETWORK_TESTS` or `AUXILIARY_HOMOLOGUE_TESTS`.
 
 Run the contract guard:
 
@@ -128,9 +130,12 @@ progress throughout the extra interval.
 
 Register the method once in `GdxScenarioContract.java`:
 
-1. Use `STRICT_HOMOLOGUE_TESTS` only for a historical Swing identifier.
-2. Use `GDX_ONLY_SCENARIOS` for behaviour introduced after that baseline.
-3. Add it to the certifier's `quickScenarios` only when it belongs in the short
+1. Use `SWING_GOLD_MULTIPROCESS_TESTS` only for an independent-process port of a
+   historical Swing identifier.
+2. Use `NATIVE_GDX_UI_TESTS` for additional real-table/control coverage that
+   must run in certification but cannot replace the multiprocess port.
+3. Use `GDX_ONLY_SCENARIOS` for behaviour introduced after that baseline.
+4. Add it to the certifier's `quickScenarios` only when it belongs in the short
    critical subset.
 
 Do not add a second method list to PowerShell. The certifier discovers the Java

@@ -399,6 +399,12 @@ final class GdxSettingsContract {
                 msaaValue(actual, text));
     }
 
+    /** Whether this edit selected an MSAA back buffer that needs a restart. */
+    static boolean requiresMsaaRestart(int openedRequested, int requested,
+            int actual) {
+        return openedRequested != requested && requested != actual;
+    }
+
     private static String msaaValue(int samples, GdxGameText text) {
         return samples == 0 ? translatedUpper(text,
                 "gdx.settings.value.disabled", "DESACTIVADO")

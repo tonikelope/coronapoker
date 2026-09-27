@@ -5545,7 +5545,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawFastAccessBar();
         drawVoiceRecordingOverlay(width, height);
         drawAvatarZoomOverlay(width, height);
-        if (tablePreference("gdx_show_fps", true)) {
+        if (tablePreference("gdx_show_fps", false)) {
             drawFpsCounter(width, height);
         }
 

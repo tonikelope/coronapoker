@@ -274,7 +274,7 @@ final class GdxSettingsContract {
                             Gate.ANIMATIONS)),
             page("INFORMACIÓN",
                     option("show_time", "MOSTRAR RELOJ", false, Gate.NONE),
-                    option("gdx_show_fps", "MOSTRAR FPS", true, Gate.NONE),
+                    option("gdx_show_fps", "MOSTRAR FPS", false, Gate.NONE),
                     option("mostrar_coste_igualar", "COSTE DE IGUALAR", true,
                             Gate.NONE),
                     option("resaltar_jugada_showdown",

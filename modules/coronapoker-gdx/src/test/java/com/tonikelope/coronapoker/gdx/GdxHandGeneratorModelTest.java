@@ -5,9 +5,15 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.core.game.CardCode;
+import com.tonikelope.coronapoker.core.game.CoreCardController;
+import com.tonikelope.coronapoker.core.game.CoreGameHand;
+import com.tonikelope.coronapoker.core.game.GameCardController;
+import com.tonikelope.coronapoker.core.game.GameText;
 import com.badlogic.gdx.math.Rectangle;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -40,7 +46,8 @@ final class GdxHandGeneratorModelTest {
                 "3589,57:1", "30939:1");
         List<Integer> visibleCardCounts = List.of(5, 2, 4, 3, 5, 5, 5, 4,
                 5, 5);
-        GdxHandGeneratorModel model = new GdxHandGeneratorModel(0);
+        GdxHandGeneratorModel model = new GdxHandGeneratorModel(0,
+                new Random(25L));
 
         assertEquals(keys.size(), model.size());
         for (int index = 0; index < model.size(); index++) {
@@ -55,11 +62,29 @@ final class GdxHandGeneratorModelTest {
                 parsed.add(CardCode.parseShortCode(card));
             }
             assertEquals(example.cards().size(), parsed.size());
+            assertEquals(index + 1, evaluatedValue(parsed));
             if (index + 1 < model.size()) {
                 assertTrue(model.canNext());
                 model.next();
             }
         }
+    }
+
+    @Test
+    void navigationGeneratesFreshExamplesLikeSwing() {
+        GdxHandGeneratorModel model = new GdxHandGeneratorModel(9,
+                new Random(2500L));
+        Set<List<String>> royalFlushes = new HashSet<>();
+        royalFlushes.add(model.current().cards());
+
+        for (int iteration = 0; iteration < 12; iteration++) {
+            model.previous();
+            model.next();
+            royalFlushes.add(model.current().cards());
+        }
+
+        assertTrue(royalFlushes.size() > 1,
+                "Returning to a category must generate a new example");
     }
 
     @Test
@@ -83,5 +108,15 @@ final class GdxHandGeneratorModelTest {
             assertTrue(first.y >= panelBottom);
             assertTrue(first.y + first.height <= panelTop);
         }
+    }
+
+    private static int evaluatedValue(Set<CardCode> codes) {
+        ArrayList<GameCardController> cards = new ArrayList<>();
+        for (CardCode code : codes) {
+            CoreCardController card = new CoreCardController();
+            card.iniciarConValorNumerico(code.oneBased());
+            cards.add(card);
+        }
+        return new CoreGameHand(cards, GameText.keys()).getValue();
     }
 }

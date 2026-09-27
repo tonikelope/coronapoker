@@ -418,7 +418,7 @@ final class GdxSettingsContractTest {
         assertEquals("default", properties.getProperty("trasera"));
         assertEquals("verde", properties.getProperty("color_tapete"));
         assertEquals("50", properties.getProperty("nivel_luz"));
-        assertEquals("true", properties.getProperty("gdx_show_fps"));
+        assertEquals("false", properties.getProperty("gdx_show_fps"));
         assertEquals("false", properties.getProperty("animaciones"));
         assertEquals("620", properties.getProperty("card_flip_duration"));
         assertEquals("windowed", properties.getProperty("gdx_window_mode"));

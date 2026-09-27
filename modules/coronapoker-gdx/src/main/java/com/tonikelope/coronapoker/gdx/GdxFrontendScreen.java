@@ -2488,7 +2488,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(headingFont,
                 uppercase(gameText.translate("gdx.hand_generator.title")),
                 WIDTH / 2f, y + h - 58f, GOLD, true, w - 120f);
-        textFit(uiFont, gameText.translate(example.translationKey()),
+        textFit(headingFont, gameText.translate(example.translationKey()),
                 WIDTH / 2f, y + h - 115f, Color.WHITE, true, w - 160f);
         textFit(smallFont, uppercase(gameText.translate(
                         "gdx.hand_generator.probability",
@@ -2571,6 +2571,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void openHandGenerator() {
+        handGenerator.regenerate();
         handGeneratorOpen = true;
         aboutEasterEggClicks = 0;
         disposeAboutEasterEgg();

@@ -614,18 +614,15 @@ class GdxReconnectScenarioTest {
     }
 
     @Test
-    void nativeGdxRecoveryReplaysTheRecordedLocalActionAndClosesItsOverlay()
+    void nativeGdxRecoveryAppliesTheRecordedActionInCoreAndClosesItsOverlay()
             throws Exception {
         int port;
         try (ServerSocket reservation = new ServerSocket(0)) {
             port = reservation.getLocalPort();
         }
         DatabaseService database = database("native-recovery.sqlite");
-        AtomicReference<TableSession> activeTable = new AtomicReference<>();
-        AtomicReference<TableCommand> pendingReplay = new AtomicReference<>();
         AtomicReference<GdxTableDialog> recoveryDialog = new AtomicReference<>();
-        AtomicInteger replayedActions = new AtomicInteger();
-        Object replayLock = new Object();
+        AtomicInteger frontendReplayAttempts = new AtomicInteger();
         GdxGameDecisionSink decisions = new GdxGameDecisionSink(
                 GameText.keys(), dialog -> {
                     if (dialog.isExternallyControlled()) {
@@ -633,17 +630,7 @@ class GdxReconnectScenarioTest {
                     } else {
                         dialog.dismiss();
                     }
-                }, command -> {
-                    replayedActions.incrementAndGet();
-                    synchronized (replayLock) {
-                        TableSession table = activeTable.get();
-                        if (table == null) {
-                            pendingReplay.set(command);
-                        } else {
-                            table.commands().submit(command);
-                        }
-                    }
-                });
+                }, command -> frontendReplayAttempts.incrementAndGet());
 
         try (database;
              NetworkLobbyGateway gateway
@@ -688,17 +675,12 @@ class GdxReconnectScenarioTest {
                         .toCompletableFuture().get(10, TimeUnit.SECONDS);
                 TableSession table = resumed.tableSession().toCompletableFuture()
                         .get(15, TimeUnit.SECONDS);
-                synchronized (replayLock) {
-                    activeTable.set(table);
-                    TableCommand pending = pendingReplay.getAndSet(null);
-                    if (pending != null) table.commands().submit(pending);
-                }
                 table.commands().submit(new TableCommand.SetLastHand(true));
                 GdxScenarioRenderer renderer = attach(table, 2, -1);
 
-                await(() -> replayedActions.get() > 0,
-                        Duration.ofSeconds(15));
                 await(renderer::isClosed, Duration.ofSeconds(25));
+                assertEquals(0, frontendReplayAttempts.get(),
+                        "recovered actions must not be routed through the visual table");
                 assertTrue(recoveryDialog.get() != null,
                         "the native recovery overlay was never presented");
                 assertTrue(recoveryDialog.get().complete(),

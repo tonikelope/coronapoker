@@ -272,7 +272,9 @@ final class GdxGamePresentationSettingsTest {
                     new GdxGamePresentationSettings(preferences);
 
             assertEquals("verde", settings.felt());
+            assertTrue(settings.secretFelt());
             assertEquals("azul", settings.selectNextFelt());
+            assertFalse(settings.secretFelt());
             assertEquals("azul", settings.felt());
             assertEquals("rojo", settings.selectNextFelt());
             assertEquals("negro", settings.selectNextFelt());
@@ -281,6 +283,33 @@ final class GdxGamePresentationSettingsTest {
             assertEquals("madera", settings.selectPreviousFelt());
             assertEquals("rojo", settings.selectFelt("ROJO"));
             assertEquals("rojo", settings.felt());
+        } finally {
+            preferences.close();
+        }
+    }
+
+    @Test
+    void fiveClicksOnTheSelectedFeltRestoreTheSwingSecretVariant(
+            @TempDir Path temporary) throws Exception {
+        PreferencesService preferences = new PreferencesService(
+                temporary.resolve("coronapoker.properties"));
+        preferences.start();
+        try {
+            GdxGamePresentationSettings settings =
+                    new GdxGamePresentationSettings(preferences);
+
+            for (int click = 0; click < 4; click++) {
+                assertFalse(settings.registerSecretFeltClick(false));
+            }
+            assertFalse(settings.secretFelt());
+            assertTrue(settings.registerSecretFeltClick(false));
+            assertTrue(settings.secretFelt());
+            assertEquals("verde*", preferences.properties()
+                    .getProperty("color_tapete"));
+
+            settings.selectNextFelt(false);
+            assertEquals("azul", settings.felt());
+            assertFalse(settings.secretFelt());
         } finally {
             preferences.close();
         }

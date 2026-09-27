@@ -276,14 +276,14 @@ final class CoronaPokerApplicationTest {
             if (attempts.incrementAndGet() < 3) {
                 return null;
             }
-            return "24.11";
+            return "25.0";
         });
         updates.start();
 
         UpdateService.CheckResult result = updates.checkLatest().get(2, TimeUnit.SECONDS);
 
         assertEquals(UpdateService.Status.UPDATE_AVAILABLE, result.status());
-        assertEquals("24.11", result.version());
+        assertEquals("25.0", result.version());
         assertEquals(3, attempts.get());
         updates.close();
         assertThrows(IllegalStateException.class, updates::checkLatest);
@@ -337,24 +337,24 @@ final class CoronaPokerApplicationTest {
     void updaterHandoffPreservesTheClassicCommandContract() throws Exception {
         List<List<String>> commands = new ArrayList<>();
         Path updaterJar = Path.of("C:/temp/coronaupdater.jar");
-        Path currentJar = Path.of("C:/app/CoronaPoker-24.10.jar");
-        Path newJar = Path.of("C:/app/CoronaPoker-24.11.jar");
+        Path currentJar = Path.of("C:/app/CoronaPoker_24.10.jar");
+        Path newJar = Path.of("C:/app/CoronaPoker_25.0.jar");
         Path javaExecutable = Path.of("C:/java/bin/java.exe");
         UpdaterService updater = new UpdaterService(
                 () -> updaterJar, commands::add);
         updater.start();
 
         boolean handedOff = updater.handoff(new UpdaterService.Request(
-                "24.11", currentJar, newJar, javaExecutable, true));
+                "25.0", currentJar, newJar, javaExecutable, true));
 
         assertTrue(handedOff);
         assertEquals(List.of(List.of(
-                javaExecutable.toString(), "-jar", updaterJar.toString(), "24.11",
+                javaExecutable.toString(), "-jar", updaterJar.toString(), "25.0",
                 currentJar.toString(), newJar.toString(),
                 "¡Santiago y cierra, España!")), commands);
         updater.close();
         assertThrows(IllegalStateException.class, () -> updater.handoff(
-                new UpdaterService.Request("24.11", Path.of("old"), Path.of("new"), Path.of("java"), false)));
+                new UpdaterService.Request("25.0", Path.of("old"), Path.of("new"), Path.of("java"), false)));
     }
 
     private static ApplicationService service(String name, List<String> calls) {

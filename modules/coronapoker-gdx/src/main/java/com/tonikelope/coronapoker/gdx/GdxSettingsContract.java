@@ -418,6 +418,10 @@ final class GdxSettingsContract {
         return page == APPEARANCE_ANIMATION_OPTIONS_PAGE;
     }
 
+    static String markDefault(String value, boolean factoryDefault) {
+        return factoryDefault ? value + " *" : value;
+    }
+
     static String voiceRetentionLabel(Properties properties) {
         int days = voiceRetentionDays(properties);
         return days == 0 ? "PARA SIEMPRE" : days + " DÍAS";
@@ -507,7 +511,7 @@ final class GdxSettingsContract {
         }
     }
 
-    private static int voiceRetentionDays(Properties properties) {
+    static int voiceRetentionDays(Properties properties) {
         try {
             int value = Integer.parseInt(properties.getProperty(
                     "audio_voice_note_retention_days", "90"));

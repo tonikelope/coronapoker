@@ -32,12 +32,16 @@ final class ProductDistributionContractTest {
 
         String reactorVersion = projectVersion(parent);
         String releaseVersion = reactorVersion.replaceFirst("-SNAPSHOT$", "");
-        String productJar = "CoronaPoker-" + releaseVersion + ".jar";
+        String productJar = "CoronaPoker_" + releaseVersion + ".jar";
 
         assertTrue(parent.contains("<distribution.directory>"
                         + "${maven.multiModuleProjectDirectory}/target"
                         + "</distribution.directory>"),
                 "Product artifacts must have one canonical root target");
+        assertTrue(parent.contains("<include>CoronaPoker-*.jar</include>"),
+                "Clean must remove legacy hyphenated product JARs");
+        assertTrue(parent.contains("<include>CoronaPoker_*.jar</include>"),
+                "Clean must remove versioned product JARs");
         assertTrue(parent.contains("<exclude>" + productJar + "</exclude>"));
 
         assertPublishes(gdx, reactorVersion, productJar);

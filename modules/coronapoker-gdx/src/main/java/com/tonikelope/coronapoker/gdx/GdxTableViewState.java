@@ -61,6 +61,7 @@ final class GdxTableViewState {
     private final Map<String, Integer> immediateRebuys = new HashMap<>();
     private final java.util.Set<String> resolvedHandResults = new HashSet<>();
     private final java.util.Set<String> iwtsthCandidates = new HashSet<>();
+    private final java.util.Set<Integer> rabbitCardSlots = new HashSet<>();
     private boolean rabbitRequestable;
     private String rabbitNoticeNickname = "";
     private long rabbitNoticeUntilNanos;
@@ -335,6 +336,10 @@ final class GdxTableViewState {
         return rabbitRequestable;
     }
 
+    boolean isRabbitCard(int slot) {
+        return rabbitCardSlots.contains(slot);
+    }
+
     void dismissRabbitRequest() {
         rabbitRequestable = false;
     }
@@ -491,6 +496,7 @@ final class GdxTableViewState {
                     = snapshot.communityCards();
             for (TableVisualEvent.RabbitCard card : rabbit.cards()) {
                 board = replaceCard(board, card.slot(), card.card(), 5);
+                rabbitCardSlots.add(card.slot());
             }
             snapshot = copySnapshot(snapshot, snapshot.pot(),
                     snapshot.currentTurnNickname(), snapshot.players(), board);
@@ -638,6 +644,7 @@ final class GdxTableViewState {
             revealedHoleCards.clear();
             foldedThisHand.clear();
             iwtsthCandidates.clear();
+            rabbitCardSlots.clear();
             rabbitRequestable = false;
             rabbitNoticeNickname = "";
             rabbitNoticeUntilNanos = 0L;

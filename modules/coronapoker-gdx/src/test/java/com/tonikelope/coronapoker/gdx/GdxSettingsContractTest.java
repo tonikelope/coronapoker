@@ -456,6 +456,14 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.Section.DEBUG));
     }
 
+    @Test
+    void defaultMarkerOnlyDecoratesFactoryValues() {
+        assertEquals("goliat *",
+                GdxSettingsContract.markDefault("goliat", true));
+        assertEquals("rojo",
+                GdxSettingsContract.markDefault("rojo", false));
+    }
+
     private static Properties properties(String key, String value) {
         Properties properties = new Properties();
         properties.setProperty(key, value);

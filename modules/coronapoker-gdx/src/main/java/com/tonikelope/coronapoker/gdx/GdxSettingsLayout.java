@@ -15,7 +15,9 @@ final class GdxSettingsLayout {
     static final float SUB_TAB_TOP_INSET = 254f;
     static final int MAX_SUB_TABS_PER_ROW = 7;
     static final float SUB_TAB_ROW_GAP = 42f;
-    static final float CONTENT_ROW_TOP_INSET = 158f;
+    // Subsection names already live in the tab row. Start the controls directly
+    // below it instead of repeating the active tab as a yellow heading.
+    static final float CONTENT_ROW_TOP_INSET = 92f;
     static final float CONTENT_BOTTOM_INSET = 112f;
     static final float CONTENT_TOTAL_VERTICAL_INSET = 362f;
     static final float FOOTER_BOTTOM_INSET = 24f;
@@ -96,7 +98,7 @@ final class GdxSettingsLayout {
      */
     static float rowStride(float contentHeight, int rowCount) {
         if (rowCount <= 1) return 0f;
-        float firstRowBottomInset = 158f;
+        float firstRowBottomInset = CONTENT_ROW_TOP_INSET;
         float lastRowBottomInset = 8f;
         float available = contentHeight - firstRowBottomInset
                 - lastRowBottomInset;

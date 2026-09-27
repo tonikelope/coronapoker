@@ -317,14 +317,6 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void settingsContentHeadingSitsAboveTheFirstRowWithoutTouchingIt() {
-        float firstRowY = 500f;
-        float headingY = CoronaPokerGdxTable.settingsContentTitleY(firstRowY);
-        assertTrue(headingY >= firstRowY + 64f);
-        assertTrue(headingY + 28f <= firstRowY + 104f);
-    }
-
-    @Test
     void allInAlwaysKeepsTheSwingTwoPressSafeguard() {
         assertTrue(CoronaPokerGdxTable.requiresActionConfirmation(
                 6, false, false));
@@ -2370,6 +2362,8 @@ final class GdxTableViewStateTest {
         state.apply(new TableVisualEvent.RabbitCards(1,
                 List.of(new TableVisualEvent.RabbitCard(4, hidden)), true));
         assertTrue(state.rabbitRequestable());
+        assertTrue(state.isRabbitCard(4));
+        assertFalse(state.isRabbitCard(3));
         assertFalse(state.snapshot().communityCards().get(4).faceUp());
 
         state.apply(new TableVisualEvent.RabbitResult(
@@ -2381,11 +2375,13 @@ final class GdxTableViewStateTest {
         state.apply(new TableVisualEvent.RabbitCards(3,
                 List.of(new TableVisualEvent.RabbitCard(4, card("A_C"))),
                 false));
+        assertTrue(state.isRabbitCard(4));
         assertTrue(state.snapshot().communityCards().get(4).faceUp());
 
         state.apply(new TableVisualEvent.HandBoundary(4, 2,
                 TableVisualEvent.HandBoundary.Phase.PREPARE, snapshot()));
         assertFalse(state.rabbitRequestable());
+        assertFalse(state.isRabbitCard(4));
     }
 
     @Test

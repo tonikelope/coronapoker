@@ -247,7 +247,7 @@ duplicated product classes.
 
 ### Repository layout
 
-- `pom.xml`: canonical CoronaPoker 24.11 build entry point.
+- `pom.xml`: canonical CoronaPoker 25.0 build entry point.
 - `modules/coronapoker-core/`: shared game, networking, persistence and
   renderer-neutral presentation contracts.
 - `modules/coronapoker-gdx/`: libGDX application and desktop launcher.
@@ -285,19 +285,18 @@ The only product-artifact directory is the repository-root `target/`. The build
 generates this runnable JAR:
 
 ```text
-target/CoronaPoker-<version>.jar
+target/CoronaPoker_<version>.jar
 ```
 
 The application is shaded into a module-local staging JAR and published to
 `target/` only after that archive is complete. This prevents a running table
 from reading a partially rewritten JAR.
-The root `pom.xml` is the canonical 24.11 product entry point and delegates to
+The root `pom.xml` is the canonical 25.0 product entry point and delegates to
 the module reactor.
 
-The local distribution is written to `target/CoronaPoker-24.11.jar`. GitHub
-release assets use the historical `CoronaPoker_24.11.jar` name because the
-installed updater resolves that exact filename. Both names contain the same
-GDX-only JAR; rename the verified local artifact when uploading it.
+The local distribution and the GitHub release asset use the same historical
+name, `target/CoronaPoker_25.0.jar`, which is also the exact filename resolved
+by the installed updater. No manual rename or second JAR is required.
 
 Use the lifecycle according to intent:
 
@@ -315,7 +314,7 @@ complete product.
 Launch CoronaPoker:
 
 ```bash
-java -jar target/CoronaPoker-<version>.jar
+java -jar target/CoronaPoker_<version>.jar
 ```
 
 `coronaupdater.jar` is intentionally the only JAR outside `target/`: the

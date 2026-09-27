@@ -30,6 +30,8 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     private final Map<String, String> normalizedDecks;
     private volatile boolean autoRebuyOnBroke;
     private volatile int actualMsaaSamples;
+    private String secretFeltCandidate = "";
+    private int secretFeltClicks;
 
     GdxGamePresentationSettings(PreferencesService preferences) {
         this(preferences, discoverInstalledMod());
@@ -130,6 +132,35 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     String felt() {
         return normalizedFelt(properties.getProperty("color_tapete", "verde"));
     }
+    boolean secretFelt() {
+        String configured = properties.getProperty("color_tapete", "verde")
+                .toLowerCase(Locale.ROOT);
+        return configured.endsWith("*")
+                && FELTS.contains(configured.substring(0,
+                        configured.length() - 1));
+    }
+    /**
+     * Preserves Swing's hidden activation contract: five consecutive clicks
+     * on the currently selected felt reveal its secret full-table artwork.
+     */
+    boolean registerSecretFeltClick(boolean persist) {
+        String selected = felt();
+        if (secretFelt()) {
+            resetSecretFeltClicks();
+            return false;
+        }
+        if (selected.equals(secretFeltCandidate)) {
+            secretFeltClicks++;
+        } else {
+            secretFeltCandidate = selected;
+            secretFeltClicks = 1;
+        }
+        if (secretFeltClicks < 5) return false;
+        properties.setProperty("color_tapete", selected + "*");
+        resetSecretFeltClicks();
+        if (persist) preferences.saveDeferred();
+        return true;
+    }
     String selectNextFelt() {
         return selectNextFelt(true);
     }
@@ -152,8 +183,13 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     String selectFelt(String felt, boolean persist) {
         String selected = normalizedFelt(felt);
         properties.setProperty("color_tapete", selected);
+        resetSecretFeltClicks();
         if (persist) preferences.saveDeferred();
         return selected;
+    }
+    private void resetSecretFeltClicks() {
+        secretFeltCandidate = "";
+        secretFeltClicks = 0;
     }
     static String normalizedFelt(String felt) {
         String normalized = felt == null ? "" : felt.toLowerCase(Locale.ROOT);

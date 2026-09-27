@@ -22,9 +22,18 @@ final class GdxUiButtonStyle {
     static void draw(ShapeRenderer shapes, float x, float y, float width,
             float height, Tone tone, boolean enabled, float hoverAmount,
             boolean pressed, float alpha) {
+        draw(shapes, x, y, width, height, tone, enabled, hoverAmount,
+                pressed, alpha, true);
+    }
+
+    static void draw(ShapeRenderer shapes, float x, float y, float width,
+            float height, Tone tone, boolean enabled, float hoverAmount,
+            boolean pressed, float alpha, boolean shadow) {
         float hover = Math.max(0f, Math.min(1f, hoverAmount));
-        shapes.setColor(0f, 0f, 0f, 0.40f * alpha);
-        roundedRect(shapes, x + 5f, y - 6f, width, height, 14f);
+        if (shadow) {
+            shapes.setColor(0f, 0f, 0f, 0.40f * alpha);
+            roundedRect(shapes, x + 5f, y - 6f, width, height, 14f);
+        }
         if (enabled && hover > 0.01f) {
             Color glow = accent(tone, true);
             shapes.setColor(glow.r, glow.g, glow.b,

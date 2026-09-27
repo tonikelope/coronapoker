@@ -40,7 +40,7 @@ final class GdxUpdateHandoff {
             Path currentJar, Path javaHome, String operatingSystem) {
         Path installedJar = currentJar.toAbsolutePath().normalize();
         Path destination = installedJar.resolveSibling(
-                "CoronaPoker-" + version + ".jar");
+                "CoronaPoker_" + version + ".jar");
         boolean windows = operatingSystem.toLowerCase(Locale.ROOT)
                 .contains("win");
         Path javaExecutable = javaHome.toAbsolutePath().normalize()

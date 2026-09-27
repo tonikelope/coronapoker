@@ -25,12 +25,11 @@ final class GdxSettingsNavigationContractTest {
     }
 
     @Test
-    void sessionPageKeepsTheOperationalActionsRemovedFromRightClick() {
+    void sessionPageKeepsOnlyLiveTableOperationalActions() {
         assertEquals(List.of("Pantalla completa", "Visor de capturas",
                 "Registro de la timba", "Reglas de Robert",
-                "Generador de jugadas", "Marcar última mano",
-                "Forzar reconexión de jugadores", "Detener timba",
-                "Salir de la timba"),
+                "Marcar última mano", "Forzar reconexión de jugadores",
+                "Detener timba", "Salir de la timba"),
                 CoronaPokerGdxTable.settingsSessionActionLabels());
     }
 

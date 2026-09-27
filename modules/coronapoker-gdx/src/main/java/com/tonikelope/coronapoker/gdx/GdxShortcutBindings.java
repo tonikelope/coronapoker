@@ -186,6 +186,12 @@ final class GdxShortcutBindings {
         current = Map.copyOf(reset);
     }
 
+    synchronized boolean isDefault(String id) {
+        Definition definition = definitions.get(id);
+        return definition != null && Objects.equals(current.get(id),
+                definition.fallback);
+    }
+
     synchronized Assignment assign(String id, int gdxKeyCode, boolean alt,
             boolean control, boolean shift) {
         Definition target = definitions.get(id);

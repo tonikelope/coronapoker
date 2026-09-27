@@ -163,13 +163,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final float ABOUT_LOGO_WIDTH = 180f;
     private static final float ABOUT_LOGO_Y = 758f;
     static final int ABOUT_PANEL_RGBA = 0x365f78fc;
-    static final float ABOUT_MUSIC_PANEL_Y = 326f;
-    static final float ABOUT_MUSIC_PANEL_HEIGHT = 166f;
-    static final float ABOUT_MEMORIAL_CENTER_Y = 552f;
+    static final float ABOUT_MUSIC_PANEL_Y = 300f;
+    static final float ABOUT_MUSIC_PANEL_HEIGHT = 214f;
+    static final float ABOUT_MEMORIAL_CENTER_Y = 574f;
     static final float ABOUT_MOURNING_ICON_SIZE = 68f;
-    static final float ABOUT_MUSIC_FIRST_LINE_Y = 454f;
-    static final float ABOUT_MUSIC_LINE_GAP = 29f;
-    static final float ABOUT_COPYRIGHT_Y = 340f;
+    static final float ABOUT_MUSIC_FIRST_LINE_Y = 490f;
+    static final float ABOUT_MUSIC_LINE_GAP = 31f;
+    static final float ABOUT_COPYRIGHT_Y = 342f;
+    static final float ABOUT_INNER_PANEL_WIDTH = 1060f;
     static final URI ABOUT_PROJECT_URI = URI.create(
             "https://github.com/tonikelope/coronapoker");
     static final URI ABOUT_RULES_URI = URI.create(
@@ -189,6 +190,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final List<TextFieldHit> textFieldHits = new ArrayList<>();
     private final List<Hit> editMenuHits = new ArrayList<>();
     private final Map<String, Texture> lobbyAvatarTextures = new HashMap<>();
+    private final Map<String, Texture> handGeneratorCardTextures =
+            new HashMap<>();
     private final Map<Integer, Texture> emojiTextures = new HashMap<>();
     private final Map<Long, LobbyMedia> lobbyMedia = new HashMap<>();
     private final GdxChatGalleryMedia lobbyHistoryMedia =
@@ -223,6 +226,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private SpriteBatch batch;
     private ShapeRenderer shapes;
     private Texture feltTexture;
+    private boolean secretFeltTexture;
     private Texture logo;
     private Texture avatarDefault;
     private Texture avatarBot;
@@ -341,8 +345,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private GdxVoiceNoteLibrary.Entry voiceNoteDeleteConfirmation;
     private boolean voiceNotesPurgeConfirmation;
     private boolean aboutOpen;
+    private boolean handGeneratorOpen;
     private int aboutEasterEggClicks;
     private Texture aboutEasterEggTexture;
+    private final GdxHandGeneratorModel handGenerator =
+            new GdxHandGeneratorModel();
     private boolean updateCheckInFlight;
     private boolean updateInstalling;
     private UpdateService.CheckResult updateResult;
@@ -436,11 +443,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxAudioDevices.applyConfiguredOutput(initialProperties);
         batch = new SpriteBatch();
         shapes = new ShapeRenderer();
-        String felt = presentationSettings.felt();
-        feltTexture = new Texture(Gdx.files.internal(
-                "images/tapete_" + felt + ".jpg"));
-        feltTexture.setFilter(TextureFilter.Linear, TextureFilter.Nearest);
-        feltTexture.setWrap(TextureWrap.Repeat, TextureWrap.Repeat);
+        feltTexture = loadFeltTexture();
         logo = new Texture(Gdx.files.internal("images/corona_poker_splash.png"));
         logo.setFilter(TextureFilter.Linear, TextureFilter.Linear);
         avatarDefault = filteredTexture("images/avatar_default.png");
@@ -449,7 +452,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         muteIcon = filteredTexture("images/mute.png");
         talkIcon = filteredTexture("images/talk.png");
         aboutMourningIcon = filteredTexture("images/luto.png");
-        aboutBookIcon = filteredTexture("images/open-book.png");
+        aboutBookIcon = silhouetteTexture("images/open-book.png",
+                new Color(0xeaf8ffff));
         aboutCrossIcon = filteredTexture("images/cruz.png");
         soundEnabledCue = Gdx.audio.newSound(
                 Gdx.files.internal("sounds/misc/button_on.wav"));
@@ -511,13 +515,39 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     /** Reloads a felt changed from the live table before revealing this screen. */
     void refreshFeltFromSettings() {
         if (feltTexture == null) return;
-        Texture replacement = new Texture(Gdx.files.internal(
-                "images/tapete_" + presentationSettings.felt() + ".jpg"));
-        replacement.setFilter(TextureFilter.Linear, TextureFilter.Nearest);
-        replacement.setWrap(TextureWrap.Repeat, TextureWrap.Repeat);
+        Texture replacement = loadFeltTexture();
         Texture previous = feltTexture;
         feltTexture = replacement;
         previous.dispose();
+    }
+
+    private Texture loadFeltTexture() {
+        if (presentationSettings.secretFelt()) {
+            try {
+                Texture secret = GdxSecretFelt.texture();
+                secretFeltTexture = true;
+                return secret;
+            } catch (Exception failure) {
+                LOGGER.log(Level.WARNING,
+                        "Unable to decode the original secret felt", failure);
+            }
+        }
+        secretFeltTexture = false;
+        Texture normal = new Texture(Gdx.files.internal("images/tapete_"
+                + presentationSettings.felt() + ".jpg"));
+        normal.setFilter(TextureFilter.Linear, TextureFilter.Nearest);
+        normal.setWrap(TextureWrap.Repeat, TextureWrap.Repeat);
+        return normal;
+    }
+
+    private void drawFelt(float width, float height) {
+        if (secretFeltTexture) {
+            batch.draw(feltTexture, 0f, 0f, width, height);
+        } else {
+            batch.draw(feltTexture, 0f, 0f, width, height,
+                    0f, 0f, width / feltTexture.getWidth(),
+                    height / feltTexture.getHeight());
+        }
     }
 
     private static BitmapFont font(FreeTypeFontGenerator generator, int size,
@@ -585,6 +615,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } else if (surface == Surface.STATS) {
             drawStatsScreen();
         } else {
+            drawNewGameDialogFrame();
             drawHeader();
             drawProgress();
             switch (page) {
@@ -597,6 +628,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             drawFooter();
         }
+        drawFrontendVersionLabel();
         if (System.currentTimeMillis() < toastUntil) {
             drawToast();
         }
@@ -709,7 +741,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             shapes.end();
             batch.begin();
-            if (aboutOpen && aboutEasterEggTexture == null) {
+            if (aboutOpen && handGeneratorOpen) {
+                drawHandGeneratorCards();
+            } else if (aboutOpen && aboutEasterEggTexture == null) {
                 float logoHeight = ABOUT_LOGO_WIDTH * logo.getHeight()
                         / logo.getWidth();
                 batch.setColor(Color.WHITE);
@@ -723,8 +757,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                 - ABOUT_MOURNING_ICON_SIZE / 2f,
                         ABOUT_MOURNING_ICON_SIZE,
                         ABOUT_MOURNING_ICON_SIZE);
-                batch.draw(aboutBookIcon, WIDTH / 2f - 16f, 245f,
-                        32f, 32f);
+                batch.draw(aboutBookIcon, WIDTH / 2f - 21f, 244f,
+                        42f, 42f);
                 batch.draw(aboutCrossIcon, WIDTH / 2f - 338f, 214f,
                         23f, 15f);
             } else if (aboutEasterEggTexture != null) {
@@ -883,9 +917,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawFeltBackground() {
         batch.begin();
         batch.setColor(Color.WHITE);
-        batch.draw(feltTexture, 0f, 0f, WIDTH, HEIGHT,
-                0f, 0f, WIDTH / feltTexture.getWidth(),
-                HEIGHT / feltTexture.getHeight());
+        drawFelt(WIDTH, HEIGHT);
         if (surface == Surface.MENU || surface == Surface.LOBBY
                 || surface == Surface.SETTINGS) {
             float logoWidth = surface == Surface.MENU ? MENU_LOGO_WIDTH : 240f;
@@ -2104,6 +2136,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void openAboutDialog() {
         aboutOpen = true;
+        handGeneratorOpen = false;
         aboutEasterEggClicks = 0;
         disposeAboutEasterEgg();
         clearActiveField();
@@ -2113,6 +2146,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void closeAboutDialog() {
         disposeAboutEasterEgg();
+        handGeneratorOpen = false;
         aboutEasterEggClicks = 0;
         aboutOpen = false;
         syncMusicForSurface();
@@ -2294,6 +2328,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.setColor(new Color(0x01040bd8));
         shapes.rect(0f, 0f, WIDTH, HEIGHT);
 
+        if (handGeneratorOpen) {
+            drawHandGeneratorDialog();
+            return;
+        }
+
         if (aboutEasterEggTexture != null) {
             outerBox(330f, 115f, 1260f, 850f, CYAN_DARK,
                     new Color(0x02060dff));
@@ -2312,11 +2351,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         outerBox(x, y, w, h, CYAN_DARK, new Color(ABOUT_PANEL_RGBA));
         shapes.setColor(new Color(0x36d9ffb8));
         shapes.rect(x + 28f, y + h - 10f, w - 56f, 3f);
+        float innerPanelX = WIDTH / 2f - ABOUT_INNER_PANEL_WIDTH / 2f;
         shapes.setColor(new Color(0x07152270));
-        roundedRect(x + 44f, ABOUT_MUSIC_PANEL_Y, w - 88f,
+        roundedRect(innerPanelX, ABOUT_MUSIC_PANEL_Y,
+                ABOUT_INNER_PANEL_WIDTH,
                 ABOUT_MUSIC_PANEL_HEIGHT, 14f);
         shapes.setColor(new Color(0x07152258));
-        roundedRect(x + 44f, 142f, w - 88f, 174f, 14f);
+        roundedRect(innerPanelX, 142f, ABOUT_INNER_PANEL_WIDTH, 156f, 14f);
         textFit(titleFont, uppercase(gameText.translate("about.titulo")),
                 WIDTH / 2f, y + h - 58f, GOLD, true, w - 120f);
         textFit(smallFont, "CORONAPOKER  " + ApplicationMetadata.VERSION,
@@ -2360,37 +2401,135 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         centeredWrappedText(tinyFont, gameText.translate("about.copyright"),
                 WIDTH / 2f, ABOUT_COPYRIGHT_Y,
                 w - 150f, 18f, 1, MUTED);
-        hit(WIDTH / 2f - 28f, 233f, 56f, 56f,
+        hit(WIDTH / 2f - 30f, 235f, 60f, 60f,
                 () -> openExternalUri(ABOUT_RULES_URI,
                         "gdx.about.open_failed"));
         textFit(smallFont, gameText.translate("about.hecho_a_mano"),
-                WIDTH / 2f, 228f, Color.WHITE, true, w - 150f);
-        float footerStart = x + 60f;
-        float footerWidth = w - 120f;
+                WIDTH / 2f, 226f, Color.WHITE, true,
+                ABOUT_INNER_PANEL_WIDTH - 90f);
+        float footerStart = innerPanelX + 26f;
+        float footerWidth = ABOUT_INNER_PANEL_WIDTH - 52f;
         float buildWidth = footerWidth * 0.18f;
         float runtimeWidth = footerWidth * 0.24f;
         float systemWidth = footerWidth - buildWidth - runtimeWidth;
         textFit(tinyFont, "Jn 8:32",
-                footerStart + buildWidth / 2f, 178f,
+                footerStart + buildWidth / 2f, 174f,
                 MUTED, true, buildWidth - 30f);
         String runtime = aboutRuntimeText() + " "
                 + gameText.translate("ui.hilos");
         textFit(tinyFont, runtime,
-                footerStart + buildWidth + runtimeWidth / 2f, 178f,
+                footerStart + buildWidth + runtimeWidth / 2f, 174f,
                 MUTED, true, runtimeWidth - 30f);
         String system = aboutSystemText();
         textFit(tinyFont, system,
                 footerStart + buildWidth + runtimeWidth + systemWidth / 2f,
-                178f, MUTED, true, systemWidth - 30f);
-        hit(footerStart + buildWidth + runtimeWidth, 156f,
+                174f, MUTED, true, systemWidth - 30f);
+        hit(footerStart + buildWidth + runtimeWidth, 152f,
                 systemWidth, 32f,
                 () -> activateAboutEasterEgg(false));
-        secondaryHit(footerStart + buildWidth + runtimeWidth, 156f,
+        secondaryHit(footerStart + buildWidth + runtimeWidth, 152f,
                 systemWidth, 32f,
                 () -> activateAboutEasterEgg(true));
-        themedButton(WIDTH / 2f - 155f, y + 14f, 310f, 54f,
+        themedButton(WIDTH / 2f - 325f, y + 18f, 310f, 58f,
+                uppercase(gameText.translate("menu.generador_de_jugadas")),
+                ButtonTone.FEATURED, this::openHandGenerator, true, false);
+        themedButton(WIDTH / 2f + 15f, y + 18f, 310f, 58f,
                 uppercase(gameText.translate("ui.cerrar")),
-                ButtonTone.NEUTRAL, this::closeAboutDialog, true);
+                ButtonTone.NEUTRAL, this::closeAboutDialog, true, false);
+    }
+
+    private void drawHandGeneratorDialog() {
+        float x = 410f;
+        float y = 178f;
+        float w = 1100f;
+        float h = 700f;
+        GdxHandGeneratorModel.Example example = handGenerator.current();
+
+        outerBox(x, y, w, h, CYAN_DARK, PANEL);
+        shapes.setColor(new Color(0x36d9ffb8));
+        shapes.rect(x + 28f, y + h - 10f, w - 56f, 3f);
+        shapes.setColor(new Color(0x07152270));
+        roundedRect(x + 40f, y + 126f, w - 80f, 350f, 14f);
+
+        textFit(headingFont,
+                uppercase(gameText.translate("gdx.hand_generator.title")),
+                WIDTH / 2f, y + h - 58f, GOLD, true, w - 120f);
+        textFit(uiFont, gameText.translate(example.translationKey()),
+                WIDTH / 2f, y + h - 115f, Color.WHITE, true, w - 160f);
+        textFit(smallFont, uppercase(gameText.translate(
+                        "gdx.hand_generator.probability",
+                        example.probability())),
+                WIDTH / 2f, y + h - 162f, GOLD, true, 440f);
+        hit(WIDTH / 2f - 220f, y + h - 194f, 440f, 48f,
+                () -> openExternalUri(
+                        URI.create(GdxHandGeneratorModel.POKER_ODDS_URL),
+                        "gdx.about.open_failed"));
+
+        themedButton(x + 42f, y + 34f, 250f, 62f,
+                "‹  " + uppercase(gameText.translate(
+                        "gdx.hand_generator.previous")),
+                ButtonTone.NEUTRAL, handGenerator::previous,
+                handGenerator.canPrevious(), false);
+        textFit(smallFont,
+                (handGenerator.index() + 1) + " / " + handGenerator.size(),
+                WIDTH / 2f, y + 122f, MUTED, true, 180f);
+        themedButton(x + w - 292f, y + 34f, 250f, 62f,
+                uppercase(gameText.translate("gdx.hand_generator.next"))
+                        + "  ›",
+                ButtonTone.NEUTRAL, handGenerator::next,
+                handGenerator.canNext(), false);
+        themedButton(WIDTH / 2f - 110f, y + 34f, 220f, 62f,
+                uppercase(gameText.translate("ui.volver")),
+                ButtonTone.FEATURED, this::closeHandGenerator, true, false);
+    }
+
+    private void drawHandGeneratorCards() {
+        GdxHandGeneratorModel.Example example = handGenerator.current();
+        float cardHeight = 300f;
+        float cardWidth = cardHeight * 0.714f;
+        float gap = 18f;
+        float totalWidth = cardWidth * example.cards().size()
+                + gap * Math.max(0, example.cards().size() - 1);
+        float x = (WIDTH - totalWidth) / 2f;
+        float y = 330f;
+        batch.setColor(Color.WHITE);
+        for (int index = 0; index < example.cards().size(); index++) {
+            batch.draw(handGeneratorCardTexture(example.cards().get(index)),
+                    x + index * (cardWidth + gap), y,
+                    cardWidth, cardHeight);
+        }
+    }
+
+    private Texture handGeneratorCardTexture(String code) {
+        String deck = configuredDeck();
+        if (!GdxGamePresentationSettings.OFFICIAL_DECKS.contains(deck)) {
+            deck = "goliat";
+        }
+        String key = deck + "/" + code;
+        String selectedDeck = deck;
+        return handGeneratorCardTextures.computeIfAbsent(key, ignored -> {
+            Texture texture = new Texture(Gdx.files.internal(
+                    "images/decks/" + selectedDeck + "/hq/" + code
+                            + ".jpg"), true);
+            texture.setFilter(TextureFilter.MipMapLinearNearest,
+                    TextureFilter.Linear);
+            return texture;
+        });
+    }
+
+    private void openHandGenerator() {
+        handGeneratorOpen = true;
+        aboutEasterEggClicks = 0;
+        disposeAboutEasterEgg();
+    }
+
+    private void closeHandGenerator() {
+        handGeneratorOpen = false;
+    }
+
+    private void drawFrontendVersionLabel() {
+        textFit(tinyFont, "CoronaPoker " + ApplicationMetadata.VERSION,
+                16f, 20f, new Color(0xd5dfebc0), false, 260f);
     }
 
     static String aboutSystemText() {
@@ -2483,9 +2622,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         batch.begin();
         batch.setColor(1f, 1f, 1f, 1f - progress);
-        batch.draw(feltTexture, 0f, 0f, WIDTH, HEIGHT,
-                0f, 0f, WIDTH / feltTexture.getWidth(),
-                HEIGHT / feltTexture.getHeight());
+        drawFelt(WIDTH, HEIGHT);
         float logoHeight = MENU_LOGO_WIDTH * logo.getHeight() / logo.getWidth();
         batch.setColor(Color.WHITE);
         batch.draw(logo, MENU_LOGO_X, HEIGHT - MENU_LOGO_TOP - logoHeight,
@@ -2833,6 +2970,29 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static Texture filteredTexture(String asset) {
         Texture texture = new Texture(Gdx.files.internal(asset));
         texture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+        return texture;
+    }
+
+    private static Texture silhouetteTexture(String asset, Color tint) {
+        Pixmap source = new Pixmap(Gdx.files.internal(asset));
+        Pixmap tinted = new Pixmap(source.getWidth(), source.getHeight(),
+                Pixmap.Format.RGBA8888);
+        tinted.setColor(0f, 0f, 0f, 0f);
+        tinted.fill();
+        for (int y = 0; y < source.getHeight(); y++) {
+            for (int x = 0; x < source.getWidth(); x++) {
+                int alpha = source.getPixel(x, y) & 0xff;
+                if (alpha == 0) continue;
+                tinted.setColor(tint.r, tint.g, tint.b,
+                        tint.a * alpha / 255f);
+                tinted.drawPixel(x, y);
+            }
+        }
+        Texture texture = new Texture(tinted, true);
+        texture.setFilter(TextureFilter.MipMapLinearLinear,
+                TextureFilter.Linear);
+        source.dispose();
+        tinted.dispose();
         return texture;
     }
 
@@ -4682,7 +4842,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float contentY = content.y;
         float contentW = content.width;
         float contentH = content.height;
-        GdxSettingsContract.Section activeSection = settingsSession.section();
         boolean restoreVisible = settingsSectionHasRestoreDefaults();
         GdxSettingsChrome.draw(shapes, frame, sections.size(),
                 subpages.size(), settingsSession.tabIndex(), activeSubpage,
@@ -4704,7 +4863,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             boolean active = settingsSession.tabIndex() == i;
             textFit(actionFont, sections.get(i).label(gameText),
                     tab.x + tab.width / 2f, tab.y + 32f,
-                    active ? Color.WHITE : MUTED, true, tab.width - 24f);
+                    active ? Color.WHITE : MUTED,
+                    true, tab.width - 24f);
             hit(tab.x, tab.y, tab.width, tab.height, () -> {
                 settingsSession.selectTab(selected);
                 settingsAppearancePage = 0;
@@ -4722,7 +4882,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             boolean active = i == activeSubpage;
             textFit(smallFont, subpages.get(i),
                     tab.x + tab.width / 2f, tab.y + 26f,
-                    active ? GOLD : MUTED, true, tab.width - 17f);
+                    active ? GOLD : MUTED,
+                    true, tab.width - 17f);
             hit(tab.x, tab.y, tab.width, tab.height,
                     () -> selectSettingsSubpage(selected));
         }
@@ -4780,12 +4941,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 GdxSettingsContract.AUDIO_PAGES.size() - 1);
         GdxSettingsContract.TogglePage page =
                 GdxSettingsContract.AUDIO_PAGES.get(settingsAudioPage);
-        settingsHeading(x, y, w, h,
-                GdxSettingsContract.contentHeading(
-                        GdxSettingsContract.Section.AUDIO,
-                        page.title(gameText)),
-                w - 68f);
-        float rowY = y + h - 158f;
+        float rowY = y + h - GdxSettingsLayout.CONTENT_ROW_TOP_INSET;
         if (settingsAudioPage == 0) {
             drawFrontendVolumeControl(x + 34f, rowY, w - 68f);
             rowY -= 74f;
@@ -4797,7 +4953,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Runnable action = "sonidos".equals(option.key())
                     ? this::toggleMasterSound
                     : () -> togglePreference(option.key(), option.fallback());
-            toggle(x + 34f, rowY, w - 68f, option.label(gameText), value,
+            toggle(x + 34f, rowY, w - 68f,
+                    GdxSettingsContract.markDefault(option.label(gameText),
+                            value == option.fallback()), value,
                     action, enabled);
             rowY -= GdxSettingsLayout.ROW_STRIDE;
         }
@@ -4805,8 +4963,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             settingsStepper(x + 34f, rowY, w - 68f, 70f,
                     uppercase(gameText.translate(
                             "gdx.settings.row.keep_voice_notes")),
-                    GdxSettingsContract.voiceRetentionLabel(
-                            initialProperties, gameText),
+                    GdxSettingsContract.markDefault(
+                            GdxSettingsContract.voiceRetentionLabel(
+                                    initialProperties, gameText),
+                            GdxSettingsContract.voiceRetentionDays(
+                                    initialProperties) == 90),
                     () -> {
                         GdxSettingsContract.adjustVoiceRetention(
                                 initialProperties, -1);
@@ -4830,7 +4991,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             settingsStepper(x + 34f, rowY, w - 68f, 70f,
                     uppercase(gameText.translate(
                             "gdx.settings.row.game_output")),
-                    GdxAudioDevices.outputLabel(initialProperties, gameText), () -> {
+                    GdxSettingsContract.markDefault(
+                            GdxAudioDevices.outputLabel(initialProperties,
+                                    gameText),
+                            initialProperties.getProperty(
+                                    GdxAudioDevices.OUTPUT_KEY, "").isBlank()), () -> {
                         GdxAudioDevices.adjustOutput(initialProperties, -1);
                     }, () -> {
                         GdxAudioDevices.adjustOutput(initialProperties, 1);
@@ -4838,7 +5003,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             settingsStepper(x + 34f, rowY - 84f, w - 68f, 70f,
                     uppercase(gameText.translate(
                             "gdx.settings.row.microphone")),
-                    GdxAudioDevices.captureLabel(initialProperties, gameText), () -> {
+                    GdxSettingsContract.markDefault(
+                            GdxAudioDevices.captureLabel(initialProperties,
+                                    gameText),
+                            initialProperties.getProperty(
+                                    GdxAudioDevices.CAPTURE_KEY, "").isBlank()), () -> {
                         GdxAudioDevices.adjustCapture(initialProperties, -1);
                     }, () -> {
                         GdxAudioDevices.adjustCapture(initialProperties, 1);
@@ -4871,7 +5040,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(smallFont, uppercase(gameText.translate(
                 "gdx.settings.row.master_volume")), label.x,
                 label.y + 31f, Color.WHITE, false, label.width);
-        textFit(smallFont, Math.round(masterVolume() * 100f) + "%",
+        textFit(smallFont, GdxSettingsContract.markDefault(
+                Math.round(masterVolume() * 100f) + "%",
+                Float.compare(masterVolume(), 0.8f) == 0),
                 percentage.x + percentage.width / 2f,
                 percentage.y + 31f, GOLD, true, percentage.width - 8f);
         shapes.setColor(new Color(0x253248ff));
@@ -4891,46 +5062,56 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         int pages = GdxSettingsContract.APPEARANCE_PAGES.size() + 1;
         settingsAppearancePage = MathUtils.clamp(settingsAppearancePage,
                 0, pages - 1);
-        String pageTitle = settingsAppearancePage == 0
-                ? uppercase(gameText.translate("gdx.settings.page.table"))
-                : GdxSettingsContract.APPEARANCE_PAGES
-                        .get(settingsAppearancePage - 1).title(gameText);
-        settingsHeading(x, y, w, h,
-                GdxSettingsContract.contentHeading(
-                        GdxSettingsContract.Section.APPEARANCE, pageTitle),
-                w - 68f);
-        float rowY = y + h - 158f;
+        float rowY = y + h - GdxSettingsLayout.CONTENT_ROW_TOP_INSET;
         if (settingsAppearancePage == 0) {
             float rowStride = GdxSettingsLayout.rowStride(h, 6);
             settingsStepper(x + 34f, rowY, w - 68f, 70f,
                     uppercase(gameText.translate("gdx.settings.row.deck")),
-                    GdxAppearanceOptions.deckLabel(configuredDeck(), gameText),
+                    GdxSettingsContract.markDefault(
+                            GdxAppearanceOptions.deckLabel(configuredDeck(),
+                                    gameText),
+                            "goliat".equalsIgnoreCase(configuredDeck())),
                     this::selectPreviousDeck, this::selectNextDeck);
             settingsStepper(x + 34f, rowY - rowStride, w - 68f, 70f,
                     uppercase(gameText.translate(
                             "gdx.settings.row.card_back")),
-                    GdxAppearanceOptions.cardBackLabel(configuredBack(),
-                            gameText),
+                    GdxSettingsContract.markDefault(
+                            GdxAppearanceOptions.cardBackLabel(configuredBack(),
+                                    gameText),
+                            "default".equalsIgnoreCase(configuredBack())),
                     this::selectPreviousBack, this::selectNextBack);
             settingsStepper(x + 34f, rowY - 2f * rowStride, w - 68f, 70f,
                     uppercase(gameText.translate("gdx.settings.row.felt")),
-                    GdxAppearanceOptions.feltLabel(configuredFelt(), gameText),
-                    this::selectPreviousFelt, this::selectNextFelt);
+                    GdxSettingsContract.markDefault(
+                            GdxAppearanceOptions.feltLabel(configuredFelt(),
+                                    gameText),
+                            "verde".equalsIgnoreCase(configuredFelt())),
+                    this::selectPreviousFelt, this::selectNextFelt,
+                    this::activateSecretFelt);
             settingsStepper(x + 34f, rowY - 3f * rowStride, w - 68f, 70f,
                     uppercase(gameText.translate(
                             "gdx.settings.row.light_off")),
-                    GdxAppearanceOptions.lightLevelLabel(initialProperties),
+                    GdxSettingsContract.markDefault(
+                            GdxAppearanceOptions.lightLevelLabel(
+                                    initialProperties),
+                            "50".equals(initialProperties.getProperty(
+                                    "nivel_luz", "50"))),
                     () -> adjustLightLevel(-1),
                     () -> adjustLightLevel(1));
             settingsStepper(x + 34f, rowY - 4f * rowStride, w - 68f, 70f,
                     uppercase(gameText.translate(
                             "gdx.settings.row.window_mode")),
-                    windowModeSettingLabel(), this::selectPreviousWindowMode,
+                    GdxSettingsContract.markDefault(windowModeSettingLabel(),
+                            GdxWindowMode.configured(initialProperties)
+                                    == GdxWindowMode.BORDERLESS),
+                    this::selectPreviousWindowMode,
                     this::selectNextWindowMode);
             settingsStepper(x + 34f, rowY - 5f * rowStride, w - 68f, 70f,
                     uppercase(gameText.translate(
                             "gdx.settings.row.antialiasing")),
-                    msaaSettingLabel(),
+                    GdxSettingsContract.markDefault(msaaSettingLabel(),
+                            "4".equals(initialProperties.getProperty(
+                                    "gdx_msaa_samples", "4"))),
                     this::selectPreviousMsaa, this::selectNextMsaa);
             return;
         }
@@ -4950,8 +5131,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         initialProperties);
                 settingsStepper(x + 34f, rowY, w - 68f, 70f,
                         option.label(gameText),
-                        GdxAppearanceOptions.selectedLabel(option,
-                                initialProperties, gameText),
+                        GdxSettingsContract.markDefault(
+                                GdxAppearanceOptions.selectedLabel(option,
+                                        initialProperties, gameText),
+                                option.fallback().equals(option.values().get(
+                                        GdxAppearanceOptions.selectedIndex(
+                                                option,
+                                                initialProperties)))),
                         () -> {
                             GdxAppearanceOptions.adjust(option,
                                     initialProperties, -1);
@@ -4966,8 +5152,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         for (GdxSettingsContract.ToggleOption option : page.options()) {
             boolean enabled = GdxSettingsContract.enabled(option,
                     initialProperties, audioControl.enabled());
-            toggle(x + 34f, rowY, w - 68f, option.label(gameText),
-                    preferenceBoolean(option.key(), option.fallback()),
+            boolean value = preferenceBoolean(option.key(),
+                    option.fallback());
+            toggle(x + 34f, rowY, w - 68f,
+                    GdxSettingsContract.markDefault(option.label(gameText),
+                            value == option.fallback()), value,
                     () -> togglePreference(option.key(), option.fallback()),
                     enabled);
             rowY -= rowStride;
@@ -5004,12 +5193,25 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void settingsStepper(float x, float y, float w, float h,
             String label, String value, Runnable minus, Runnable plus) {
-        settingsStepper(x, y, w, h, label, value, minus, plus, true);
+        settingsStepper(x, y, w, h, label, value, minus, plus, null, true);
+    }
+
+    private void settingsStepper(float x, float y, float w, float h,
+            String label, String value, Runnable minus, Runnable plus,
+            Runnable valueAction) {
+        settingsStepper(x, y, w, h, label, value, minus, plus, valueAction,
+                true);
     }
 
     private void settingsStepper(float x, float y, float w, float h,
             String label, String value, Runnable minus, Runnable plus,
             boolean enabled) {
+        settingsStepper(x, y, w, h, label, value, minus, plus, null, enabled);
+    }
+
+    private void settingsStepper(float x, float y, float w, float h,
+            String label, String value, Runnable minus, Runnable plus,
+            Runnable valueAction, boolean enabled) {
         outerBox(x, y, w, h,
                 enabled && hovered(x, y, w, h) ? CYAN
                         : enabled ? LINE : new Color(0x253044ff),
@@ -5037,6 +5239,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 y + h / 2f + 14f, enabled ? Color.WHITE : DISABLED, true);
         if (enabled) {
             hit(controlsX, y, buttonW, h, minus);
+            if (valueAction != null) {
+                hit(controlsX + buttonW, y, valueW, h, valueAction);
+            }
             hit(x + w - buttonW, y, buttonW, h, plus);
         }
     }
@@ -5047,26 +5252,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawLobbyGameSettings(float x, float y, float w, float h) {
         if (settingsTable == null || lobby == null) {
-            settingsHeading(x, y, w, h,
-                    settingsGameText("unavailable"));
+            textFit(headingFont, settingsGameText("unavailable"),
+                    x + w / 2f, y + h / 2f, MUTED, true, w - 68f);
             return;
         }
         List<String> pages = settingsSession.gamePages();
         if (pages.isEmpty()) {
-            settingsHeading(x, y, w, h,
-                    settingsGameText("unavailable"));
+            textFit(headingFont, settingsGameText("unavailable"),
+                    x + w / 2f, y + h / 2f, MUTED, true, w - 68f);
             return;
         }
         settingsGamePage = MathUtils.clamp(settingsGamePage, 0,
                 pages.size() - 1);
-        String title = pages.get(settingsGamePage);
-        settingsHeading(x, y, w, h,
-                GdxSettingsContract.contentHeading(
-                        GdxSettingsContract.Section.GAME, title),
-                w - 68f);
         boolean editable = lobby.host();
         boolean economyEditable = editable && !settingsTable.economyLocked();
-        float rowY = y + h - 158f;
+        float rowY = y + h - GdxSettingsLayout.CONTENT_ROW_TOP_INSET;
         switch (settingsGamePage) {
             case 0 -> drawLobbyBlindSettings(x, w, rowY, economyEditable);
             case 1 -> drawLobbyPurchaseSettings(x, w, rowY, editable,
@@ -5414,19 +5614,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 / SETTINGS_SHORTCUT_ROWS_PER_PAGE);
         settingsShortcutPage = MathUtils.clamp(settingsShortcutPage,
                 0, pages - 1);
-        settingsHeading(x, y, w, h,
-                GdxSettingsContract.Section.SHORTCUTS.label(gameText));
         int first = settingsShortcutPage * SETTINGS_SHORTCUT_ROWS_PER_PAGE;
         int visible = Math.min(SETTINGS_SHORTCUT_ROWS_PER_PAGE,
                 entries.size() - first);
-        float firstY = y + h - 158f;
+        float firstY = y + h - GdxSettingsLayout.CONTENT_ROW_TOP_INSET;
         for (int row = 0; row < visible; row++) {
             GdxShortcutBindings.ShortcutEntry entry = entries.get(first + row);
             boolean capturing = entry.id().equals(settingsShortcutCaptureId);
             shortcutRow(x + 34f, firstY - row * 70f, w - 68f,
                     capturing ? uppercase(gameText.translate(
                             "gdx.settings.shortcut.press_key"))
-                            : entry.display(),
+                            : GdxSettingsContract.markDefault(entry.display(),
+                                    shortcutBindings.isDefault(entry.id())),
                     uppercase(entry.description()), capturing);
             hit(x + 34f, firstY - row * 70f, w - 68f, 62f, () -> {
                 settingsShortcutCaptureId = entry.id();
@@ -5445,11 +5644,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawDebugSettings(float x, float y, float w, float h) {
-        settingsHeading(x, y, w, h, "DEBUG");
         float consoleX = x + 24f;
         float consoleY = y + 28f;
         float consoleW = w - 48f;
-        float consoleH = h - 122f;
+        float consoleH = h - 56f;
         outerBox(consoleX, consoleY, consoleW, consoleH, LINE,
                 new Color(0x03070cff));
 
@@ -5507,19 +5705,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || line.startsWith("FINEST:")) return DISABLED;
         if (line.startsWith("INFO:")) return new Color(0x6ee7a8ff);
         return MUTED;
-    }
-
-    private void settingsHeading(float x, float y, float w, float h,
-            String title) {
-        settingsHeading(x, y, w, h, title, w - 68f);
-    }
-
-    private void settingsHeading(float x, float y, float w, float h,
-            String title, float titleWidth) {
-        textFit(headingFont, title, x + 34f, y + h - 46f,
-                GOLD, false, titleWidth);
-        shapes.setColor(new Color(0x31445fbb));
-        shapes.rect(x + 34f, y + h - 76f, w - 68f, 1f);
     }
 
     private void shortcutRow(float x, float y, float w, String key,
@@ -5632,6 +5817,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         presentationSettings.selectPreviousFelt(false);
         refreshFeltFromSettings();
         playPreferenceSound("misc/mat.wav", "sonido_tapete", 0.92f);
+    }
+
+    private void activateSecretFelt() {
+        if (presentationSettings.registerSecretFeltClick(false)) {
+            refreshFeltFromSettings();
+            playPreferenceSound("misc/mat.wav", "sonido_tapete", 0.92f);
+        }
     }
 
     private String msaaSettingLabel() {
@@ -5818,31 +6010,28 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawHeader() {
-        backButton(32f, 1006f, 64f, 54f, () -> {
-            if (page > 0) {
-                page--;
-            } else {
-                cancelOrReturnToMenu();
-            }
-        });
-        text(smallFont, uppercase(gameText.translate("ui.menu_principal"))
-                + "  /", 122f, 1041f, MUTED, false);
-        text(smallFont, connection.mode() == NewGameConnectionDraft.Mode.JOIN
-                ? gameText.translate("game.unirme_a_timba")
-                : uppercase(gameText.translate("ui.nueva_timba")),
-                315f, 1041f, GOLD, false);
         String title = connection.mode() == NewGameConnectionDraft.Mode.JOIN
                 ? gameText.translate("game.unirme_a_timba")
                 : uppercase(gameText.translate("ui.nueva_timba"));
-        text(titleFont, title, 434f, 932f, new Color(0x000000aa), false);
-        text(titleFont, title, 430f, 936f, GOLD, false);
+        textFit(titleFont, title, 70f, 1004f, GOLD, false, 1780f);
         String guidance = connection.mode() == NewGameConnectionDraft.Mode.JOIN
                 ? gameText.translate("gdx.newgame.guidance_join")
                 : page == 0
                         ? gameText.translate("gdx.newgame.guidance_connection")
                         : gameText.translate("gdx.newgame.guidance_optional");
-        textFit(smallFont, guidance, 434f, 850f,
-                page == 0 ? MUTED : CYAN, false, 1380f);
+        textFit(smallFont, guidance, 70f, 946f,
+                page == 0 ? MUTED : CYAN, false, 1780f);
+    }
+
+    private void drawNewGameDialogFrame() {
+        shapes.setColor(0f, 0f, 0f, 0.38f);
+        shapes.rect(0f, 0f, WIDTH, HEIGHT);
+        shapes.setColor(0f, 0f, 0f, 0.42f);
+        roundedRect(30f, 8f, 1860f, 1044f, 24f);
+        outerBox(20f, 18f, 1880f, 1044f, CYAN_DARK,
+                new Color(0x071321f7));
+        shapes.setColor(new Color(0x36d9ffcc));
+        roundedRect(42f, 1047f, 1836f, 3f, 1.5f);
     }
 
     private void drawProgress() {
@@ -6882,15 +7071,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             clearActiveField();
         }
         keyHint(58f, 55f, "ESC", gameText.translate("ui.cerrar"));
-        button(1165f, 31f, 250f, 70f,
-                gameText.translate("ui.cancelar"), false,
-                this::cancelOrReturnToMenu);
-        button(1445f, 31f, 410f, 70f,
+        themedButton(1165f, 31f, 250f, 70f,
+                gameText.translate("ui.cancelar"), ButtonTone.NEUTRAL,
+                this::cancelOrReturnToMenu, true);
+        themedButton(1445f, 31f, 410f, 70f,
                 submitting ? uppercase(gameText.translate("gdx.connecting"))
                         : connection.mode() == NewGameConnectionDraft.Mode.JOIN
                                 ? gameText.translate("game.unirme_a_timba")
                                 : gameText.translate("game.crear_timba"),
-                true, this::submitNewGame,
+                ButtonTone.POSITIVE, this::submitNewGame,
                 newGameSubmitEnabled(submitting, connection));
     }
 
@@ -7386,6 +7575,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void themedButton(float x, float y, float w, float h,
             String label, ButtonTone tone, Runnable action, boolean enabled) {
+        themedButton(x, y, w, h, label, tone, action, enabled, true);
+    }
+
+    private void themedButton(float x, float y, float w, float h,
+            String label, ButtonTone tone, Runnable action, boolean enabled,
+            boolean shadow) {
         boolean hover = enabled && hovered(x, y, w, h);
         float hoverTarget = hover ? 1f : 0f;
         float hoverAmount = hoverAnimations.getOrDefault(label, hoverTarget);
@@ -7396,7 +7591,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxUiButtonStyle.Tone sharedTone = GdxUiButtonStyle.Tone.valueOf(
                 tone.name());
         GdxUiButtonStyle.draw(shapes, x, y, w, h, sharedTone, enabled,
-                hoverAmount, down, 1f);
+                hoverAmount, down, 1f, shadow);
         Color labelColor = GdxUiButtonStyle.labelColor(sharedTone, enabled);
         textFit(actionFont, label, x + w / 2f, y + h / 2f + 8f,
                 labelColor, true, w - 30f);
@@ -7990,6 +8185,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && lobbyTableTransitionActive(lobbyGameStarting, lobby)) {
             return true;
         }
+        if (aboutOpen && handGeneratorOpen) {
+            if (keycode == Input.Keys.LEFT || keycode == Input.Keys.DOWN) {
+                handGenerator.previous();
+                return true;
+            }
+            if (keycode == Input.Keys.RIGHT || keycode == Input.Keys.UP
+                    || keycode == Input.Keys.ENTER
+                    || keycode == Input.Keys.NUMPAD_ENTER) {
+                handGenerator.next();
+                return true;
+            }
+        }
         if (keycode == Input.Keys.ESCAPE) {
             if (surface == Surface.STATS) {
                 if (statsPicker != StatsPicker.NONE) {
@@ -8003,6 +8210,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             } else if (aboutOpen) {
                 if (aboutEasterEggTexture != null) {
                     closeAboutEasterEgg();
+                } else if (handGeneratorOpen) {
+                    closeHandGenerator();
                 } else {
                     closeAboutDialog();
                 }
@@ -8455,6 +8664,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             texture.dispose();
         }
         lobbyAvatarTextures.clear();
+        for (Texture texture : handGeneratorCardTextures.values()) {
+            texture.dispose();
+        }
+        handGeneratorCardTextures.clear();
         for (Texture texture : emojiTextures.values()) {
             texture.dispose();
         }

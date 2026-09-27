@@ -105,7 +105,7 @@ final class GdxChatImageLoader {
             connection.setConnectTimeout(5_000);
             connection.setReadTimeout(10_000);
             connection.setUseCaches(true);
-            connection.setRequestProperty("User-Agent", "CoronaPoker-GDX/24.11");
+            connection.setRequestProperty("User-Agent", "CoronaPoker-GDX/25.0");
             long declared = connection.getContentLengthLong();
             if (declared > MAXIMUM_BYTES) {
                 throw new IOException("Chat image is too large");

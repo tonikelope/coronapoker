@@ -50,7 +50,8 @@ final class GdxSettingsChrome {
             boolean hover = contains(tab, pointer);
             outerBox(shapes, tab,
                     active ? CYAN : hover ? CYAN_DARK : LINE,
-                    active ? ACTIVE_TAB : TAB, alpha);
+                    active ? ACTIVE_TAB : TAB,
+                    alpha);
             if (active) {
                 shapes.setColor(GOLD.r, GOLD.g, GOLD.b, alpha);
                 roundedRect(shapes, tab.x + 10f, tab.y + 2f,

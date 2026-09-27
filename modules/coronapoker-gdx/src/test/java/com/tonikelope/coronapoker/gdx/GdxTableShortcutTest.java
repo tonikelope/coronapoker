@@ -225,6 +225,18 @@ final class GdxTableShortcutTest {
                 bindings.actionFor(Input.Keys.P, false, true, false));
     }
 
+    @Test
+    void defaultMarkersFollowTheEditedShortcutPage() {
+        GdxShortcutBindings bindings = bindings();
+        assertTrue(bindings.isDefault(GdxShortcutBindings.PAUSE));
+
+        bindings.beginEdit();
+        assertEquals(GdxShortcutBindings.Assignment.ASSIGNED,
+                bindings.assign(GdxShortcutBindings.PAUSE, Input.Keys.K,
+                        true, false, false));
+        assertFalse(bindings.isDefault(GdxShortcutBindings.PAUSE));
+    }
+
     private static GdxShortcutBindings bindings() {
         return new GdxShortcutBindings(new Properties());
     }

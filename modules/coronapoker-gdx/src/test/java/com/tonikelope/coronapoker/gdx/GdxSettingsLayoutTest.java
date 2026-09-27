@@ -60,10 +60,10 @@ final class GdxSettingsLayoutTest {
                 <= audio.panel().x + audio.panel().width
                 - GdxSettingsLayout.HORIZONTAL_INSET);
         Rectangle lowestTab = audio.subTab(10);
-        float headingBottom = audio.firstRowY() + 66f;
-        float headingTop = headingBottom + 28f;
-        assertTrue(headingTop < lowestTab.y,
-                "the content heading must stay clear of wrapped tabs");
+        float firstRowTop = audio.firstRowY()
+                + GdxSettingsLayout.ROW_HEIGHT;
+        assertTrue(firstRowTop < lowestTab.y,
+                "the first control must stay clear of wrapped tabs");
     }
 
     @Test

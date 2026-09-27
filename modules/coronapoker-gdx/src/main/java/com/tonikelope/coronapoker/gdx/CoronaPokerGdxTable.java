@@ -657,6 +657,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean finalSummaryScreenshotTaken;
     private boolean finalContinueRequested;
     private boolean finalStatsRequested;
+    private Runnable retainedFinalMenuAction;
+    private Runnable retainedFinalStatsAction;
+    private Runnable retainedFinalContinueAction;
+    private Runnable retainedFinalApplicationExitAction;
     private boolean finalApplicationExitRequested;
     private CompletableFuture<Void> recoveryStopBarrier;
     private float recoveryStopUntil;
@@ -4069,6 +4073,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 terminationConfirmation = null;
             }
             if (!accepted || finalSummary == null || finalExitPending) return;
+            if (retainedFinalApplicationExitAction != null) {
+                finalExitPending = true;
+                retainedFinalApplicationExitAction.run();
+                return;
+            }
             // The dealer has already published CloseTable and is blocked only
             // by the visible final-summary barrier. Sending ExitGame here asks
             // an already-finished session for a second terminal transition and
@@ -15178,6 +15187,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (finalExitPending || finalSummary == null
                 || uiLayer == UI_GAME_LOG) return false;
         if (action == 0) {
+            if (retainedFinalMenuAction != null) {
+                finalExitPending = true;
+                retainedFinalMenuAction.run();
+                return true;
+            }
             finalExitPending = true;
             CompletableFuture<Void> barrier = finalSummaryBarrier;
             if (barrier != null && !barrier.isDone()) barrier.complete(null);
@@ -15189,6 +15203,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return true;
         }
         if (action == 2) {
+            if (retainedFinalStatsAction != null) {
+                finalExitPending = true;
+                retainedFinalStatsAction.run();
+                return true;
+            }
             finalStatsRequested = true;
             finalExitPending = true;
             CompletableFuture<Void> barrier = finalSummaryBarrier;
@@ -15196,6 +15215,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return true;
         }
         if (action == 3) {
+            if (retainedFinalContinueAction != null) {
+                finalExitPending = true;
+                retainedFinalContinueAction.run();
+                return true;
+            }
             finalContinueRequested = true;
             finalExitPending = true;
             CompletableFuture<Void> barrier = finalSummaryBarrier;
@@ -15323,6 +15347,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.end();
 
         batch.begin();
+        float finalLogoWidth = Math.min(180f, Math.max(120f, navStart - 54f));
+        float finalLogoHeight = finalLogoWidth * logo.getHeight()
+                / logo.getWidth();
+        batch.setColor(1f, 1f, 1f, reveal);
+        batch.draw(logo, 42f, height - 24f - finalLogoHeight,
+                finalLogoWidth, finalLogoHeight);
         Texture[] navIcons = {finalMenuIcon, finalLogIcon,
             finalStatsIcon, finalContinueIcon};
         String[] navLabels = {
@@ -15512,6 +15542,28 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     boolean finalApplicationExitRequested() {
         return finalApplicationExitRequested;
+    }
+
+    void retainFinalSummary(Runnable menuAction, Runnable statsAction,
+            Runnable continueAction, Runnable applicationExitAction) {
+        retainedFinalMenuAction = Objects.requireNonNull(menuAction,
+                "menuAction");
+        retainedFinalStatsAction = Objects.requireNonNull(statsAction,
+                "statsAction");
+        retainedFinalContinueAction = Objects.requireNonNull(continueAction,
+                "continueAction");
+        retainedFinalApplicationExitAction = Objects.requireNonNull(
+                applicationExitAction, "applicationExitAction");
+    }
+
+    void resumeRetainedFinalSummary() {
+        finalExitPending = false;
+        finalStatsRequested = false;
+        if (backgroundMusic != null && musicEnabled()) backgroundMusic.play();
+    }
+
+    void suspendRetainedFinalSummary() {
+        if (backgroundMusic != null) backgroundMusic.pause();
     }
 
     static boolean recoveryStopSkipsFinalSummary(

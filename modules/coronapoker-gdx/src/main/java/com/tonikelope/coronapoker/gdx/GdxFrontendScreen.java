@@ -228,12 +228,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final GlyphLayout glyph = new GlyphLayout();
     private final Vector2 pointer = new Vector2();
     private final Matrix4 pixelProjection = new Matrix4();
+    private final Matrix4 identityTransform = new Matrix4();
+    private final Matrix4 italicTransform = new Matrix4();
     private final GdxTextEditState textEdit = new GdxTextEditState();
     private final GdxKeyRepeat textDeleteRepeat = new GdxKeyRepeat();
     private final Properties initialProperties;
     private final PreferencesService preferences;
     private final IdentityTrustStore identityTrust;
     private final SecureRandom secureRandom;
+    private final GdxMenuQuotes menuQuotes;
     private final GdxAudioControl audioControl;
     private final GdxShortcutBindings shortcutBindings;
     private final GdxGamePresentationSettings presentationSettings;
@@ -248,6 +251,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final ExecutorService statsExecutor;
     private final Consumer<NewGameSubmissionCoordinator.OpenedSession> sessionAccepted;
     private final Runnable sessionReturnedToMenu;
+    private Runnable statsReturnAction;
     private NewGameConnectionDraft connection;
     private NewGameTableDraft table = new NewGameTableDraft();
     private SpriteBatch batch;
@@ -420,6 +424,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 "identityTrust");
         this.secureRandom = Objects.requireNonNull(secureRandom,
                 "secureRandom");
+        menuQuotes = new GdxMenuQuotes(this.secureRandom);
         initialProperties = this.preferences.properties();
         if (GdxSettingsContract.migrateLegacyChatNotificationPreference(
                 initialProperties)) {
@@ -691,10 +696,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             batch.draw(item.texture, item.x, item.y, item.width, item.height);
         }
         for (TextItem item : texts) {
-            item.font.setColor(item.color);
-            glyph.setText(item.font, item.text);
-            float x = item.centered ? item.x - glyph.width / 2f : item.x;
-            item.font.draw(batch, item.text, x, item.y);
+            drawTextItem(item);
         }
         batch.end();
 
@@ -816,11 +818,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 batch.setProjectionMatrix(viewport.getCamera().combined);
             }
             for (TextItem item : texts) {
-                item.font.setColor(item.color);
-                glyph.setText(item.font, item.text);
-                float x = item.centered
-                        ? item.x - glyph.width / 2f : item.x;
-                item.font.draw(batch, item.text, x, item.y);
+                drawTextItem(item);
             }
             batch.end();
         }
@@ -954,7 +952,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         drawFelt(WIDTH, HEIGHT);
         if (surface == Surface.MENU || surface == Surface.LOBBY
                 || surface == Surface.SETTINGS) {
-            float logoWidth = surface == Surface.MENU ? MENU_LOGO_WIDTH : 240f;
+            float logoWidth = MENU_LOGO_WIDTH;
             float logoHeight = logoWidth * logo.getHeight() / logo.getWidth();
             float topInset = surface == Surface.MENU ? MENU_LOGO_TOP : 18f;
             batch.draw(logo, MENU_LOGO_X, HEIGHT - topInset - logoHeight,
@@ -991,6 +989,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         keyHint(535f, 75f, "F11",
                 uppercase(gameText.translate("settings.modo_pantalla_completa")));
         drawSoundControl(1336f, 70f, 55f, 55f, false);
+        String quote = menuQuotes.update(gameText.language(), frameDelta);
+        if (!quote.isBlank()) {
+            italicTextFit(smallFont, quote, WIDTH / 2f, 48f,
+                    Color.WHITE, true, 1180f);
+        }
     }
 
     private void openStats() {
@@ -1016,7 +1019,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         syncMusicForSurface();
     }
 
-    void openStatsFromTable() {
+    void openStatsFromTable(Runnable returnAction) {
+        statsReturnAction = Objects.requireNonNull(returnAction,
+                "returnAction");
         openStats();
     }
 
@@ -1026,8 +1031,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         statsError = "";
         statsConfirmation = StatsConfirmation.NONE;
         statsPicker = StatsPicker.NONE;
-        surface = Surface.MENU;
-        syncMusicForSurface();
+        Runnable returnAction = statsReturnAction;
+        statsReturnAction = null;
+        if (returnAction != null) {
+            returnAction.run();
+        } else {
+            surface = Surface.MENU;
+            syncMusicForSurface();
+        }
     }
 
     private void loadStatsGames() {
@@ -5723,7 +5734,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             String line = lines.get(i);
             settingsDebugTexts.add(fittedTextItem(tinyFont, line,
                     consoleX + 14f, lineY, debugLineColor(line), false,
-                    consoleW - 50f));
+                    consoleW - 50f, false));
         }
         settingsDebugViewport.set(consoleX + 8f, consoleY + 8f,
                 consoleW - 36f, viewportHeight);
@@ -5896,7 +5907,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private String windowModeSettingLabel() {
         GdxWindowMode configured = GdxWindowMode.configured(initialProperties);
-        return configured.label(gameText) + "  \u00b7  "
+        return configured.label(gameText) + "  -  "
                 + uppercase(gameText.translate("gdx.settings.value.active"));
     }
 
@@ -6068,13 +6079,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 ? gameText.translate("game.unirme_a_timba")
                 : uppercase(gameText.translate("ui.nueva_timba"));
         textFit(titleFont, title, 70f, 1004f, GOLD, false, 1780f);
-        String guidance = connection.mode() == NewGameConnectionDraft.Mode.JOIN
-                ? gameText.translate("gdx.newgame.guidance_join")
-                : page == 0
-                        ? gameText.translate("gdx.newgame.guidance_connection")
-                        : gameText.translate("gdx.newgame.guidance_optional");
-        textFit(smallFont, guidance, 70f, 946f,
-                page == 0 ? MUTED : CYAN, false, 1780f);
     }
 
     private void drawNewGameDialogFrame() {
@@ -6119,8 +6123,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 page = targetPage;
             });
         }
-        keyHint(245f, 55f, "F11",
-                uppercase(gameText.translate("settings.modo_pantalla_completa")));
     }
 
     private void drawIdentityPage() {
@@ -6186,11 +6188,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 500f, 700f, MUTED, false, 1285f);
         textFit(smallFont,
                 uppercase(gameText.translate("newgame.grupo_ciegas"))
-                        + "  ·  "
+                        + "  /  "
                         + uppercase(gameText.translate("newgame.grupo_compra"))
-                        + "  ·  "
+                        + "  /  "
                         + uppercase(gameText.translate("newgame.grupo_partida"))
-                        + "  ·  "
+                        + "  /  "
                         + uppercase(gameText.translate("newgame.grupo_bots")),
                 500f, 650f, CYAN, false, 1285f);
         boolean profileEditable = !connection.recoverRequested();
@@ -7124,7 +7126,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             hits.clear();
             clearActiveField();
         }
-        keyHint(58f, 55f, "ESC", gameText.translate("ui.cerrar"));
         themedButton(1165f, 31f, 250f, 70f,
                 gameText.translate("ui.cancelar"), ButtonTone.NEUTRAL,
                 this::cancelOrReturnToMenu, true);
@@ -7979,17 +7980,25 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void text(BitmapFont font, String value, float x, float y,
             Color color, boolean centered) {
-        texts.add(new TextItem(font, value, x, y, new Color(color), centered));
+        texts.add(new TextItem(font, value, x, y, new Color(color), centered,
+                false));
     }
 
     private void textFit(BitmapFont preferred, String value, float x, float y,
             Color color, boolean centered, float maxWidth) {
         texts.add(fittedTextItem(preferred, value, x, y, color, centered,
-                maxWidth));
+                maxWidth, false));
+    }
+
+    private void italicTextFit(BitmapFont preferred, String value, float x,
+            float y, Color color, boolean centered, float maxWidth) {
+        texts.add(fittedTextItem(preferred, value, x, y, color, centered,
+                maxWidth, true));
     }
 
     private TextItem fittedTextItem(BitmapFont preferred, String value,
-            float x, float y, Color color, boolean centered, float maxWidth) {
+            float x, float y, Color color, boolean centered, float maxWidth,
+            boolean italic) {
         BitmapFont selected = preferred;
         if (!fits(selected, value, maxWidth) && selected != smallFont) {
             selected = smallFont;
@@ -7998,7 +8007,22 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             selected = tinyFont;
         }
         return new TextItem(selected, ellipsize(selected, value, maxWidth),
-                x, y, new Color(color), centered);
+                x, y, new Color(color), centered, italic);
+    }
+
+    private void drawTextItem(TextItem item) {
+        item.font.setColor(item.color);
+        glyph.setText(item.font, item.text);
+        float x = item.centered ? item.x - glyph.width / 2f : item.x;
+        if (item.italic) {
+            float shear = 0.18f;
+            italicTransform.idt();
+            italicTransform.val[Matrix4.M01] = shear;
+            italicTransform.val[Matrix4.M03] = -shear * item.y;
+            batch.setTransformMatrix(italicTransform);
+        }
+        item.font.draw(batch, item.text, x, item.y);
+        if (item.italic) batch.setTransformMatrix(identityTransform);
     }
 
     private boolean fits(BitmapFont font, String value, float maxWidth) {
@@ -8779,7 +8803,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private record TextItem(BitmapFont font, String text, float x, float y,
-            Color color, boolean centered) {
+            Color color, boolean centered, boolean italic) {
     }
 
     private record LobbyAvatarItem(Texture texture, float x, float y,

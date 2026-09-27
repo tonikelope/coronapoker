@@ -19,7 +19,7 @@ final class GdxSettingsLayout {
     // below it instead of repeating the active tab as a yellow heading.
     static final float CONTENT_ROW_TOP_INSET = 92f;
     static final float CONTENT_BOTTOM_INSET = 112f;
-    static final float CONTENT_TOTAL_VERTICAL_INSET = 362f;
+    static final float CONTENT_TOTAL_VERTICAL_INSET = 382f;
     static final float FOOTER_BOTTOM_INSET = 24f;
     static final float FOOTER_BUTTON_HEIGHT = 58f;
     /** Common row geometry for menu, waiting-room and live-table settings. */

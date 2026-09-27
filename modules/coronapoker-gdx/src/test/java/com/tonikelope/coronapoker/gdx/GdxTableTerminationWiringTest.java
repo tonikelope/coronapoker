@@ -173,6 +173,26 @@ final class GdxTableTerminationWiringTest {
     }
 
     @Test
+    void retainedFinalSummaryRoutesNavigationAfterReturningFromStatistics() {
+        CoronaPokerGdxTable table = table(new ArrayList<>());
+        CompletableFuture<Void> finalBarrier = openFinalSummary(table);
+        int[] calls = new int[3];
+
+        assertTrue(table.handleFinalSummaryNavigationAction(2));
+        assertTrue(finalBarrier.isDone());
+        table.retainFinalSummary(() -> calls[0]++, () -> calls[1]++,
+                () -> calls[2]++, () -> { });
+        table.resumeRetainedFinalSummary();
+
+        assertTrue(table.handleFinalSummaryNavigationAction(2));
+        assertEquals(1, calls[1]);
+        table.resumeRetainedFinalSummary();
+        assertTrue(table.handleFinalSummaryNavigationAction(0));
+        assertEquals(1, calls[0]);
+        assertEquals(0, calls[2]);
+    }
+
+    @Test
     void exitDialogConsumesRawInputInsteadOfLeakingThroughTheTable() {
         ArrayList<TableCommand> submitted = new ArrayList<>();
         CoronaPokerGdxTable table = table(submitted);

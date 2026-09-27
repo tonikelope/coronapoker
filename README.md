@@ -247,7 +247,7 @@ duplicated product classes.
 
 ### Repository layout
 
-- `pom.xml`: canonical CoronaPoker 25.0 build entry point.
+- `pom.xml`: canonical CoronaPoker 25.1 build entry point.
 - `modules/coronapoker-core/`: shared game, networking, persistence and
   renderer-neutral presentation contracts.
 - `modules/coronapoker-gdx/`: libGDX application and desktop launcher.
@@ -291,11 +291,11 @@ target/CoronaPoker_<version>.jar
 The application is shaded into a module-local staging JAR and published to
 `target/` only after that archive is complete. This prevents a running table
 from reading a partially rewritten JAR.
-The root `pom.xml` is the canonical 25.0 product entry point and delegates to
+The root `pom.xml` is the canonical 25.1 product entry point and delegates to
 the module reactor.
 
 The local distribution and the GitHub release asset use the same historical
-name, `target/CoronaPoker_25.0.jar`, which is also the exact filename resolved
+name, `target/CoronaPoker_25.1.jar`, which is also the exact filename resolved
 by the installed updater. No manual rename or second JAR is required.
 
 Use the lifecycle according to intent:

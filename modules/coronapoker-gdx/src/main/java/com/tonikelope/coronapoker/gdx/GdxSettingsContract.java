@@ -393,10 +393,10 @@ final class GdxSettingsContract {
             GdxGameText text) {
         String requestedText = msaaValue(requested, text);
         if (actual == requested) {
-            return requestedText + "  \u00b7  " + translatedUpper(text,
+            return requestedText + "  -  " + translatedUpper(text,
                     "gdx.settings.value.active", "ACTIVO");
         }
-        return requestedText + "  \u00b7  " + translatedUpper(text,
+        return requestedText + "  -  " + translatedUpper(text,
                 "gdx.settings.value.restart_current",
                 "REINICIAR (ACTUAL " + msaaValue(actual, text) + ")",
                 msaaValue(actual, text));

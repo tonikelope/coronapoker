@@ -43,6 +43,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private LobbySession lobby;
     private CoronaPokerGdxTable startupIntro;
     private volatile CoronaPokerGdxTable table;
+    private CoronaPokerGdxTable suspendedFinalTable;
     private boolean splashCloseScheduled;
 
     GdxApplicationShell(int refreshRate, CoronaPokerApplication application,
@@ -300,12 +301,15 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 Gdx.input.setInputProcessor(menu);
                 long menuReady = System.nanoTime();
                 LobbySession completedLobby = lobby;
+                if (statsRequested && completedLobby != null) {
+                    suspendFinalSummaryForStats(expected);
+                    return;
+                }
                 if (completedLobby != null) {
                     if (continueRequested) {
                         menu.continueLastGameFromTable(completedLobby);
                     } else {
                         menu.returnFromTable(completedLobby);
-                        if (statsRequested) menu.openStatsFromTable();
                     }
                 }
                 // Start the menu decoder before releasing the table decoder.
@@ -323,6 +327,59 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 if (applicationExitRequested) Gdx.app.exit();
             }
         });
+    }
+
+    private void suspendFinalSummaryForStats(CoronaPokerGdxTable expected) {
+        suspendedFinalTable = expected;
+        expected.retainFinalSummary(
+                () -> finishRetainedFinalSummary(expected, false, false),
+                () -> showStatsFromRetainedFinalSummary(expected),
+                () -> finishRetainedFinalSummary(expected, true, false),
+                () -> finishRetainedFinalSummary(expected, false, true));
+        expected.suspendRetainedFinalSummary();
+        menu.openStatsFromTable(() -> restoreRetainedFinalSummary(expected));
+        menu.resumeMusic();
+    }
+
+    private void showStatsFromRetainedFinalSummary(
+            CoronaPokerGdxTable expected) {
+        if (table != expected) return;
+        table = null;
+        suspendedFinalTable = expected;
+        expected.suspendRetainedFinalSummary();
+        Gdx.input.setInputProcessor(menu);
+        menu.openStatsFromTable(() -> restoreRetainedFinalSummary(expected));
+        menu.resumeMusic();
+    }
+
+    private void restoreRetainedFinalSummary(CoronaPokerGdxTable expected) {
+        if (suspendedFinalTable != expected) return;
+        suspendedFinalTable = null;
+        menu.suspendForTable();
+        expected.resumeRetainedFinalSummary();
+        table = expected;
+        expected.resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        Gdx.input.setInputProcessor(expected.inputProcessor());
+    }
+
+    private void finishRetainedFinalSummary(CoronaPokerGdxTable expected,
+            boolean continueRequested, boolean applicationExitRequested) {
+        if (table != expected && suspendedFinalTable != expected) return;
+        float musicPosition = expected.backgroundMusicPosition();
+        table = null;
+        suspendedFinalTable = null;
+        Gdx.input.setInputProcessor(menu);
+        LobbySession completedLobby = lobby;
+        if (completedLobby != null) {
+            if (continueRequested) {
+                menu.continueLastGameFromTable(completedLobby);
+            } else {
+                menu.returnFromTable(completedLobby);
+            }
+        }
+        menu.resumeBackgroundMusicAt(musicPosition);
+        expected.dispose();
+        if (applicationExitRequested) Gdx.app.exit();
     }
 
     void showDialog(GdxTableDialog request) {
@@ -392,6 +449,9 @@ final class GdxApplicationShell extends ApplicationAdapter {
         if (current != null) {
             current.dispose();
         }
+        CoronaPokerGdxTable suspended = suspendedFinalTable;
+        suspendedFinalTable = null;
+        if (suspended != null && suspended != current) suspended.dispose();
         if (menu != null) {
             menu.dispose();
             menu = null;

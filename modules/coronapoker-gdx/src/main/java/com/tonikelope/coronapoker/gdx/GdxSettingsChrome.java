@@ -59,6 +59,16 @@ final class GdxSettingsChrome {
             }
         }
 
+        Rectangle firstMainTab = frame.mainTab(0);
+        Rectangle firstSubTab = frame.subTab(0);
+        float separatorY = (firstMainTab.y
+                + firstSubTab.y + firstSubTab.height) / 2f;
+        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.46f * alpha);
+        shapes.rect(panel.x + GdxSettingsLayout.HORIZONTAL_INSET + 10f,
+                separatorY,
+                panel.width - 2f * GdxSettingsLayout.HORIZONTAL_INSET - 20f,
+                1.5f);
+
         for (int index = 0; index < subpageCount; index++) {
             Rectangle tab = frame.subTab(index);
             boolean active = index == activeSubpage;

@@ -16,11 +16,11 @@ class GdxUpdateHandoffTest {
         Path javaHome = Path.of("C:/Java/jdk-25");
 
         UpdaterService.Request request = GdxUpdateHandoff.request(
-                "25.0", "es", current, javaHome, "Windows 11");
+                "25.1", "es", current, javaHome, "Windows 11");
 
         assertEquals(current.toAbsolutePath().normalize(),
                 request.currentJar());
-        assertEquals(Path.of("C:/CoronaPoker/CoronaPoker_25.0.jar")
+        assertEquals(Path.of("C:/CoronaPoker/CoronaPoker_25.1.jar")
                 .toAbsolutePath().normalize(), request.newJar());
         assertEquals(javaHome.resolve("bin/java.exe").toAbsolutePath()
                 .normalize(), request.javaExecutable());

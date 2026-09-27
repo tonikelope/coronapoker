@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.tonikelope.coronapoker.core.ApplicationMetadata;
 import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.core.media.ModMediaCatalog;
 import java.nio.file.Files;
@@ -374,8 +375,21 @@ final class GdxGamePresentationSettingsTest {
             assertTrue(settings.modDeck("pepsiman"));
             assertTrue(settings.modAsset("decks/pepsiman/hq/A_C.jpg")
                     .isPresent());
+            assertEquals("Test v1", settings.modDisplayName());
+            assertEquals("CoronaPoker " + ApplicationMetadata.VERSION
+                    + " (Test v1)", settings.productVersionLabel());
         } finally {
             preferences.close();
         }
+    }
+
+    @Test
+    void modVersionPrefixIsNotDuplicated() {
+        assertEquals("Chilean MOD v1.0",
+                GdxGamePresentationSettings.modDisplayName(
+                        "Chilean MOD", "v1.0"));
+        assertEquals("Chilean MOD",
+                GdxGamePresentationSettings.modDisplayName(
+                        "Chilean MOD", ""));
     }
 }

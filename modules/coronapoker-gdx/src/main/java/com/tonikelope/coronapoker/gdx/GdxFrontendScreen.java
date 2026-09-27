@@ -268,6 +268,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private Texture aboutMourningIcon;
     private Texture aboutBookIcon;
     private Texture aboutCrossIcon;
+    private Texture aboutModIcon;
     private Sound soundEnabledCue;
     private Sound soundDisabledCue;
     private Sound participantJoinedCue;
@@ -488,6 +489,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         aboutBookIcon = silhouetteTexture("images/open-book.png",
                 new Color(0xeaf8ffff));
         aboutCrossIcon = filteredTexture("images/cruz.png");
+        aboutModIcon = externalTexture(
+                presentationSettings.modAsset("mod.png").orElse(null));
         soundEnabledCue = Gdx.audio.newSound(
                 Gdx.files.internal("sounds/misc/button_on.wav"));
         soundDisabledCue = Gdx.audio.newSound(
@@ -782,9 +785,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             } else if (aboutOpen && aboutEasterEggTexture == null) {
                 float logoHeight = ABOUT_LOGO_WIDTH * logo.getHeight()
                         / logo.getWidth();
+                float logoX = aboutModIcon == null
+                        ? WIDTH / 2f - ABOUT_LOGO_WIDTH / 2f
+                        : WIDTH / 2f - ABOUT_LOGO_WIDTH - 16f;
                 batch.setColor(Color.WHITE);
-                batch.draw(logo, WIDTH / 2f - ABOUT_LOGO_WIDTH / 2f,
+                batch.draw(logo, logoX,
                         ABOUT_LOGO_Y, ABOUT_LOGO_WIDTH, logoHeight);
+                if (aboutModIcon != null) {
+                    float scale = Math.min(180f / aboutModIcon.getWidth(),
+                            72f / aboutModIcon.getHeight());
+                    float modWidth = aboutModIcon.getWidth() * scale;
+                    float modHeight = aboutModIcon.getHeight() * scale;
+                    batch.draw(aboutModIcon, WIDTH / 2f + 16f,
+                            ABOUT_LOGO_Y + (logoHeight - modHeight) / 2f,
+                            modWidth, modHeight);
+                }
                 // Keep the mourning ribbon visually attached to the memorial
                 // line, as in the original Swing composition. The previous
                 // far-left placement looked like an unrelated control.
@@ -2410,14 +2425,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
         float aboutLogoHeight = ABOUT_LOGO_WIDTH * logo.getHeight()
                 / logo.getWidth();
-        hit(WIDTH / 2f - ABOUT_LOGO_WIDTH / 2f, ABOUT_LOGO_Y,
+        float aboutLogoX = aboutModIcon == null
+                ? WIDTH / 2f - ABOUT_LOGO_WIDTH / 2f
+                : WIDTH / 2f - ABOUT_LOGO_WIDTH - 16f;
+        hit(aboutLogoX, ABOUT_LOGO_Y,
                 ABOUT_LOGO_WIDTH, aboutLogoHeight,
                 () -> openExternalUri(ABOUT_PROJECT_URI,
                         "gdx.about.open_failed"));
 
+        if (presentationSettings.modActive()) {
+            textFit(tinyFont, gameText.translate("gdx.about.mod_loaded",
+                            presentationSettings.modDisplayName()),
+                    WIDTH / 2f + 106f, 748f, Color.WHITE, true, 300f);
+        }
+
         centeredWrappedText(smallFont,
                 gameText.translate("about.merecemos"), WIDTH / 2f,
-                730f, w - 150f, 25f, 2, Color.WHITE);
+                presentationSettings.modActive() ? 714f : 730f,
+                w - 150f, 25f, 2, Color.WHITE);
         centeredWrappedText(tinyFont,
                 gameText.translate("about.gracias_1"), WIDTH / 2f,
                 674f, w - 130f, 21f, 2, MUTED);
@@ -2593,8 +2618,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawFrontendVersionLabel() {
-        textFit(tinyFont, "CoronaPoker " + ApplicationMetadata.VERSION,
-                16f, 20f, new Color(0xd5dfebc0), false, 260f);
+        textFit(tinyFont, presentationSettings.productVersionLabel(),
+                16f, 20f, new Color(0xd5dfebc0), false, 620f);
+    }
+
+    private static Texture externalTexture(java.nio.file.Path path) {
+        if (path == null) return null;
+        try {
+            Texture texture = new Texture(Gdx.files.absolute(path.toString()));
+            texture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+            return texture;
+        } catch (RuntimeException failure) {
+            LOGGER.log(Level.WARNING, "Could not load external image {0}",
+                    path);
+            return null;
+        }
     }
 
     static String aboutSystemText() {
@@ -8715,6 +8753,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         aboutMourningIcon.dispose();
         aboutBookIcon.dispose();
         aboutCrossIcon.dispose();
+        if (aboutModIcon != null) aboutModIcon.dispose();
         soundEnabledCue.dispose();
         soundDisabledCue.dispose();
         participantJoinedCue.dispose();

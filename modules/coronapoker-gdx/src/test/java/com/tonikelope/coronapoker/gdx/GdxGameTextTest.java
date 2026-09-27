@@ -25,7 +25,7 @@ final class GdxGameTextTest {
 
         assertEquals(spanishKeys, englishKeys,
                 "GDX must never fall back to a different language or raw key");
-        assertEquals(469, spanishKeys.size(),
+        assertEquals(470, spanishKeys.size(),
                 "new GDX labels must be added symmetrically");
         for (String key : spanishKeys) {
             assertFalse(spanish.getProperty(key).isBlank(), key + " empty in es");
@@ -91,6 +91,11 @@ final class GdxGameTextTest {
                 text.translate("gdx.newgame.connecting_waiting_room"));
         assertEquals("New version 24.12",
                 text.translate("gdx.update.available", "24.12"));
+        assertEquals("CoronaPoker 25.3 is available.",
+                text.translate("gdx.update.message", "25.3"));
+        assertEquals("MOD LOADED: Chilean MOD v1.0",
+                text.translate("gdx.about.mod_loaded",
+                        "Chilean MOD v1.0"));
         assertEquals("Select avatar", text.translate("gdx.avatar.select"));
         assertEquals("No previous servers",
                 text.translate("gdx.newgame.no_previous_servers"));
@@ -136,6 +141,8 @@ final class GdxGameTextTest {
                 text.translate("gdx.newgame.connecting_waiting_room"));
         assertEquals("Nueva versión 24.12",
                 text.translate("gdx.update.available", "24.12"));
+        assertEquals("CoronaPoker 25.3 está disponible.",
+                text.translate("gdx.update.message", "25.3"));
         assertEquals("2 de 5",
                 text.translate("gdx.newgame.blind_editor.level_count", 2, 5));
         assertEquals("MÍNIMO", text.translate("gdx.dialog.minimum"));

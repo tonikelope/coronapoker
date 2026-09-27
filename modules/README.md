@@ -1,4 +1,4 @@
-# CoronaPoker 25.3 product modules
+# CoronaPoker 25.4 product modules
 
 This directory contains the Maven reactor for the CoronaPoker desktop
 application. The modules provide compile-time boundaries inside one product.
@@ -41,7 +41,7 @@ The reactor publishes the runnable application to the repository's product
 artifact directory:
 
 ```text
-target/CoronaPoker_25.3.jar
+target/CoronaPoker_25.4.jar
 ```
 
 The root `coronaupdater.jar` is retained because the self-updater requires that

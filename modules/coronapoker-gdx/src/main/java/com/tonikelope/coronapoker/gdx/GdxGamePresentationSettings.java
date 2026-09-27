@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
+import com.tonikelope.coronapoker.core.ApplicationMetadata;
 import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.core.game.GamePresentationSettings;
 import com.tonikelope.coronapoker.core.media.ModMediaCatalog;
@@ -254,6 +255,24 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         return Math.floorMod(current - 1, size);
     }
     boolean modActive() { return modMedia.installed(); }
+    String modDisplayName() {
+        return modDisplayName(modMedia.name(), modMedia.version());
+    }
+    static String modDisplayName(String name, String version) {
+        String normalizedName = name == null ? "" : name.trim();
+        String normalizedVersion = version == null ? "" : version.trim();
+        if (normalizedName.isEmpty()) return "";
+        if (normalizedVersion.isEmpty()) return normalizedName;
+        String prefix = normalizedVersion.regionMatches(true, 0, "v", 0, 1)
+                ? " " : " v";
+        return normalizedName + prefix + normalizedVersion;
+    }
+    String productVersionLabel() {
+        String product = "CoronaPoker " + ApplicationMetadata.VERSION;
+        String mod = modDisplayName();
+        return modActive() && !mod.isEmpty()
+                ? product + " (" + mod + ")" : product;
+    }
     boolean modDeck(String deck) {
         return deck != null && modMedia.decks().stream()
                 .anyMatch(deck::equalsIgnoreCase);

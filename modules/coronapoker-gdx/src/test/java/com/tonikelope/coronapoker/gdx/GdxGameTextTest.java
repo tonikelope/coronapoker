@@ -105,7 +105,7 @@ final class GdxGameTextTest {
         assertEquals("CLOSE AFTER SENDING",
                 text.translate("gdx.table.chat.close_on_send"));
         assertEquals("RESUME", text.translate("gdx.table.resume"));
-        assertEquals("Probability  1 in 46",
+        assertEquals("Probability: 46",
                 text.translate("gdx.hand_generator.probability", 46));
         assertEquals("Previous",
                 text.translate("gdx.hand_generator.previous"));
@@ -142,7 +142,7 @@ final class GdxGameTextTest {
         assertEquals("SIN MENSAJES",
                 text.translate("gdx.table.chat.no_messages"));
         assertEquals("REANUDAR", text.translate("gdx.table.resume"));
-        assertEquals("Probabilidad  1 entre 46",
+        assertEquals("Probabilidad: 46",
                 text.translate("gdx.hand_generator.probability", 46));
         assertEquals("¿De dónde ha salido esto?",
                 text.translate("about.titulo"));

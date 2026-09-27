@@ -122,6 +122,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             + "    if (pixel.a <= 0.001) discard;\n"
             + "    gl_FragColor = pixel;\n"
             + "}\n";
+    private static final String ROUNDED_TEXTURE_FRAGMENT_SHADER = "#ifdef GL_ES\n"
+            + "precision mediump float;\n"
+            + "#endif\n"
+            + "varying vec4 v_color;\n"
+            + "varying vec2 v_texCoords;\n"
+            + "uniform sampler2D u_texture;\n"
+            + "uniform float u_cornerRadius;\n"
+            + "uniform float u_edgeSoftness;\n"
+            + "void main() {\n"
+            + "    vec2 centered = abs(v_texCoords - vec2(0.5));\n"
+            + "    vec2 corner = centered - (vec2(0.5) - vec2(u_cornerRadius));\n"
+            + "    float edge = length(max(corner, vec2(0.0))) - u_cornerRadius;\n"
+            + "    float mask = 1.0 - smoothstep(-u_edgeSoftness, u_edgeSoftness, edge);\n"
+            + "    vec4 pixel = texture2D(u_texture, v_texCoords) * v_color;\n"
+            + "    pixel.a *= mask;\n"
+            + "    if (pixel.a <= 0.001) discard;\n"
+            + "    gl_FragColor = pixel;\n"
+            + "}\n";
     private static final Color BACKGROUND = new Color(0x031a14ff);
     private static final Color PANEL = new Color(0x101a2ecc);
     private static final Color PANEL_LIGHT = new Color(0x111a2add);
@@ -171,6 +189,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float ABOUT_MUSIC_LINE_GAP = 31f;
     static final float ABOUT_COPYRIGHT_Y = 342f;
     static final float ABOUT_INNER_PANEL_WIDTH = 1060f;
+    static final float HAND_GENERATOR_PANEL_X = 410f;
+    static final float HAND_GENERATOR_PANEL_Y = 178f;
+    static final float HAND_GENERATOR_PANEL_WIDTH = 1100f;
+    static final float HAND_GENERATOR_PANEL_HEIGHT = 700f;
+    static final float HAND_GENERATOR_CARD_AREA_INSET = 64f;
+    static final float HAND_GENERATOR_CARD_Y = 338f;
+    static final float HAND_GENERATOR_CARD_GAP = 16f;
+    static final float HAND_GENERATOR_CARD_MAX_WIDTH = 190f;
+    static final float HAND_GENERATOR_CARD_ASPECT = 0.714f;
     static final URI ABOUT_PROJECT_URI = URI.create(
             "https://github.com/tonikelope/coronapoker");
     static final URI ABOUT_RULES_URI = URI.create(
@@ -248,6 +275,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private Music aboutMusic;
     private Music statsMusic;
     private ShaderProgram avatarShader;
+    private ShaderProgram roundedTextureShader;
     private BitmapFont titleFont;
     private BitmapFont headingFont;
     private BitmapFont actionFont;
@@ -472,6 +500,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (!avatarShader.isCompiled()) {
             throw new IllegalStateException("Avatar shader: "
                     + avatarShader.getLog());
+        }
+        roundedTextureShader = new ShaderProgram(SPRITE_VERTEX_SHADER,
+                ROUNDED_TEXTURE_FRAGMENT_SHADER);
+        if (!roundedTextureShader.isCompiled()) {
+            throw new IllegalStateException("Rounded texture shader: "
+                    + roundedTextureShader.getLog());
         }
         checkForUpdates();
         FreeTypeFontGenerator titleGenerator = new FreeTypeFontGenerator(
@@ -2439,10 +2473,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawHandGeneratorDialog() {
-        float x = 410f;
-        float y = 178f;
-        float w = 1100f;
-        float h = 700f;
+        float x = HAND_GENERATOR_PANEL_X;
+        float y = HAND_GENERATOR_PANEL_Y;
+        float w = HAND_GENERATOR_PANEL_WIDTH;
+        float h = HAND_GENERATOR_PANEL_HEIGHT;
         GdxHandGeneratorModel.Example example = handGenerator.current();
 
         outerBox(x, y, w, h, CYAN_DARK, PANEL);
@@ -2485,19 +2519,38 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawHandGeneratorCards() {
         GdxHandGeneratorModel.Example example = handGenerator.current();
-        float cardHeight = 300f;
-        float cardWidth = cardHeight * 0.714f;
-        float gap = 18f;
-        float totalWidth = cardWidth * example.cards().size()
-                + gap * Math.max(0, example.cards().size() - 1);
-        float x = (WIDTH - totalWidth) / 2f;
-        float y = 330f;
         batch.setColor(Color.WHITE);
+        batch.setShader(roundedTextureShader);
+        roundedTextureShader.setUniformf("u_cornerRadius", 0.045f);
+        roundedTextureShader.setUniformf("u_edgeSoftness", 0.004f);
         for (int index = 0; index < example.cards().size(); index++) {
+            Rectangle bounds = handGeneratorCardBounds(
+                    example.cards().size(), index);
             batch.draw(handGeneratorCardTexture(example.cards().get(index)),
-                    x + index * (cardWidth + gap), y,
-                    cardWidth, cardHeight);
+                    bounds.x, bounds.y, bounds.width, bounds.height);
         }
+        batch.flush();
+        batch.setShader(null);
+    }
+
+    static Rectangle handGeneratorCardBounds(int cardCount, int cardIndex) {
+        if (cardCount < 1 || cardCount > 5
+                || cardIndex < 0 || cardIndex >= cardCount) {
+            throw new IllegalArgumentException("Invalid hand card index");
+        }
+        float areaWidth = HAND_GENERATOR_PANEL_WIDTH
+                - 2f * HAND_GENERATOR_CARD_AREA_INSET;
+        float cardWidth = Math.min(HAND_GENERATOR_CARD_MAX_WIDTH,
+                (areaWidth - HAND_GENERATOR_CARD_GAP * (cardCount - 1))
+                        / cardCount);
+        float cardHeight = cardWidth / HAND_GENERATOR_CARD_ASPECT;
+        float rowWidth = cardWidth * cardCount
+                + HAND_GENERATOR_CARD_GAP * (cardCount - 1);
+        float rowX = HAND_GENERATOR_PANEL_X
+                + (HAND_GENERATOR_PANEL_WIDTH - rowWidth) / 2f;
+        return new Rectangle(
+                rowX + cardIndex * (cardWidth + HAND_GENERATOR_CARD_GAP),
+                HAND_GENERATOR_CARD_Y, cardWidth, cardHeight);
     }
 
     private Texture handGeneratorCardTexture(String code) {
@@ -8673,6 +8726,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         emojiTextures.clear();
         avatarShader.dispose();
+        roundedTextureShader.dispose();
         titleFont.dispose();
         headingFont.dispose();
         actionFont.dispose();

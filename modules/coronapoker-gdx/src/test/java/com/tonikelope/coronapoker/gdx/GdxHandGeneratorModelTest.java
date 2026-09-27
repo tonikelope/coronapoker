@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.core.game.CardCode;
+import com.badlogic.gdx.math.Rectangle;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -58,6 +59,29 @@ final class GdxHandGeneratorModelTest {
                 assertTrue(model.canNext());
                 model.next();
             }
+        }
+    }
+
+    @Test
+    void everySupportedCardRowStaysInsideTheGeneratorPanel() {
+        float panelLeft = GdxFrontendScreen.HAND_GENERATOR_PANEL_X;
+        float panelRight = panelLeft
+                + GdxFrontendScreen.HAND_GENERATOR_PANEL_WIDTH;
+        float panelBottom = GdxFrontendScreen.HAND_GENERATOR_PANEL_Y;
+        float panelTop = panelBottom
+                + GdxFrontendScreen.HAND_GENERATOR_PANEL_HEIGHT;
+
+        for (int count = 2; count <= 5; count++) {
+            Rectangle first = GdxFrontendScreen.handGeneratorCardBounds(
+                    count, 0);
+            Rectangle last = GdxFrontendScreen.handGeneratorCardBounds(
+                    count, count - 1);
+            assertTrue(first.x >= panelLeft
+                    + GdxFrontendScreen.HAND_GENERATOR_CARD_AREA_INSET);
+            assertTrue(last.x + last.width <= panelRight
+                    - GdxFrontendScreen.HAND_GENERATOR_CARD_AREA_INSET);
+            assertTrue(first.y >= panelBottom);
+            assertTrue(first.y + first.height <= panelTop);
         }
     }
 }

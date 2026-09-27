@@ -25,7 +25,7 @@ final class GdxGameTextTest {
 
         assertEquals(spanishKeys, englishKeys,
                 "GDX must never fall back to a different language or raw key");
-        assertEquals(470, spanishKeys.size(),
+        assertEquals(478, spanishKeys.size(),
                 "new GDX labels must be added symmetrically");
         for (String key : spanishKeys) {
             assertFalse(spanish.getProperty(key).isBlank(), key + " empty in es");
@@ -93,6 +93,10 @@ final class GdxGameTextTest {
                 text.translate("gdx.update.available", "24.12"));
         assertEquals("CoronaPoker 25.3 is available.",
                 text.translate("gdx.update.message", "25.3"));
+        assertEquals("MOD 0.58 is available.",
+                text.translate("gdx.mod_update.message", "0.58"));
+        assertEquals("The MOD is already up to date.",
+                text.translate("gdx.mod_update.current"));
         assertEquals("MOD LOADED: Chilean MOD v1.0",
                 text.translate("gdx.about.mod_loaded",
                         "Chilean MOD v1.0"));

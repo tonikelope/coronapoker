@@ -7,6 +7,7 @@ import com.tonikelope.coronapoker.core.game.GamePresentationSettings;
 import com.tonikelope.coronapoker.core.media.ModMediaCatalog;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Objects;
@@ -255,6 +256,7 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         return Math.floorMod(current - 1, size);
     }
     boolean modActive() { return modMedia.installed(); }
+    String modVersion() { return modMedia.version(); }
     String modDisplayName() {
         return modDisplayName(modMedia.name(), modMedia.version());
     }
@@ -280,6 +282,8 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     Optional<Path> modAsset(String relativePath) {
         return modMedia.resolve(relativePath);
     }
+    Optional<URI> modUpdateUri() { return modMedia.updateUri(); }
+    String modUpdatePassword() { return modMedia.updatePassword(); }
     List<Path> modFiles(String relativeDirectory, String extension) {
         return modMedia.files(relativeDirectory, extension);
     }

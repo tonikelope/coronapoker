@@ -360,7 +360,12 @@ final class GdxGamePresentationSettingsTest {
         Path mod = Files.createDirectories(installation.resolve(
                 "mod/decks/pepsiman/hq"));
         Files.writeString(installation.resolve("mod/mod.xml"),
-                "<mod><name>Test</name><version>1</version></mod>");
+                """
+                <mod><name>Test</name><version>1</version>
+                  <updateurl>https://example.test/mod-version.txt</updateurl>
+                  <updatepassword>secret</updatepassword>
+                </mod>
+                """);
         Files.writeString(mod.resolve("A_C.jpg"), "external");
         PreferencesService preferences = new PreferencesService(
                 temporary.resolve("coronapoker.properties"));
@@ -376,6 +381,10 @@ final class GdxGamePresentationSettingsTest {
             assertTrue(settings.modAsset("decks/pepsiman/hq/A_C.jpg")
                     .isPresent());
             assertEquals("Test v1", settings.modDisplayName());
+            assertEquals("1", settings.modVersion());
+            assertEquals("https://example.test/mod-version.txt",
+                    settings.modUpdateUri().orElseThrow().toString());
+            assertEquals("secret", settings.modUpdatePassword());
             assertEquals("CoronaPoker " + ApplicationMetadata.VERSION
                     + " (Test v1)", settings.productVersionLabel());
         } finally {

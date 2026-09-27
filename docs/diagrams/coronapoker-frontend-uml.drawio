@@ -4,7 +4,7 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
-        <mxCell id="title" value="CoronaPoker 25.4 GDX class architecture" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=30;fontStyle=1;fontColor=#F8D66D;" vertex="1" parent="1"><mxGeometry x="45" y="18" width="1100" height="45" as="geometry"/></mxCell>
+        <mxCell id="title" value="CoronaPoker 25.5 GDX class architecture" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=30;fontStyle=1;fontColor=#F8D66D;" vertex="1" parent="1"><mxGeometry x="45" y="18" width="1100" height="45" as="geometry"/></mxCell>
         <mxCell id="subtitle" value="Verified creation path, session ownership and renderer-neutral table loop." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=16;fontColor=#D6E4F0;" vertex="1" parent="1"><mxGeometry x="47" y="64" width="1400" height="28" as="geometry"/></mxCell>
 
         <mxCell id="startupLane" value="APPLICATION ASSEMBLY" style="swimlane;html=1;rounded=1;startSize=38;horizontal=1;fillColor=#17243A;swimlaneFillColor=#0C1524;strokeColor=#26BDE2;fontColor=#7DE3FA;fontSize=18;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="45" y="110" width="2310" height="390" as="geometry"/></mxCell>

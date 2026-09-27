@@ -20,6 +20,8 @@ final class ModMediaCatalogTest {
                 <mod fusion_sounds="true" fusion_cinematics="false">
                   <name>Chilean MOD</name><version>1.0</version>
                   <font>corona.ttf</font>
+                  <updateurl>https://example.test/mod-version.txt</updateurl>
+                  <updatepassword>secret</updatepassword>
                 </mod>
                 """);
         Path deck = Files.createDirectories(mod.resolve("decks/pepsiman/hq"));
@@ -42,6 +44,9 @@ final class ModMediaCatalogTest {
         assertEquals(card, catalog.resolve("decks/pepsiman/hq/A_C.jpg")
                 .orElseThrow());
         assertEquals(font, catalog.font().orElseThrow());
+        assertEquals("https://example.test/mod-version.txt",
+                catalog.updateUri().orElseThrow().toString());
+        assertEquals("secret", catalog.updatePassword());
         Map.Entry<String, String[]> sounds = catalog.soundCategory("es",
                 "fold", Map.entry("joke/es/fold/",
                         new String[]{"base.wav"}));

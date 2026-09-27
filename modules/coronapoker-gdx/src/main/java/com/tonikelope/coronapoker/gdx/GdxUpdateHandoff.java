@@ -36,6 +36,30 @@ final class GdxUpdateHandoff {
         }
     }
 
+    static Optional<UpdaterService.ModRequest> runtimeModRequest(
+            String version, URI downloadUri, String password,
+            String language) {
+        try {
+            URI location = GdxLauncher.class.getProtectionDomain()
+                    .getCodeSource().getLocation().toURI();
+            if (!"file".equalsIgnoreCase(location.getScheme())) {
+                return Optional.empty();
+            }
+            Path currentJar = Path.of(location).toAbsolutePath().normalize();
+            if (!Files.isRegularFile(currentJar)
+                    || !currentJar.getFileName().toString()
+                            .toLowerCase(Locale.ROOT).endsWith(".jar")) {
+                return Optional.empty();
+            }
+            return Optional.of(modRequest(version, downloadUri, password,
+                    language, currentJar,
+                    Path.of(System.getProperty("java.home")),
+                    System.getProperty("os.name", "")));
+        } catch (Exception failure) {
+            return Optional.empty();
+        }
+    }
+
     static UpdaterService.Request request(String version, String language,
             Path currentJar, Path javaHome, String operatingSystem) {
         Path installedJar = currentJar.toAbsolutePath().normalize();
@@ -46,5 +70,19 @@ final class GdxUpdateHandoff {
                 .resolve("bin").resolve(windows ? "java.exe" : "java");
         return new UpdaterService.Request(version, installedJar, stableJar,
                 javaExecutable, "es".equalsIgnoreCase(language));
+    }
+
+    static UpdaterService.ModRequest modRequest(String version,
+            URI downloadUri, String password, String language,
+            Path currentJar, Path javaHome, String operatingSystem) {
+        Path installedJar = currentJar.toAbsolutePath().normalize();
+        boolean windows = operatingSystem.toLowerCase(Locale.ROOT)
+                .contains("win");
+        Path javaExecutable = javaHome.toAbsolutePath().normalize()
+                .resolve("bin").resolve(windows ? "java.exe" : "java");
+        return new UpdaterService.ModRequest(
+                installedJar.resolveSibling("mod"), version, installedJar,
+                downloadUri, password, javaExecutable,
+                "es".equalsIgnoreCase(language));
     }
 }

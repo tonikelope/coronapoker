@@ -81,6 +81,7 @@ import java.util.regex.Pattern;
 import java.nio.file.Path;
 import java.time.ZoneId;
 import java.time.Instant;
+import java.time.Duration;
 import java.time.format.DateTimeFormatter;
 import javax.imageio.ImageIO;
 
@@ -388,6 +389,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private UpdateService.CheckResult updateResult;
     private boolean updatePromptOpen;
     private boolean updatePromptDismissed;
+    private boolean updatePromptForMod;
+    private boolean updateReturnToAbout;
+    private boolean modUpdateCheckInFlight;
+    private GdxModUpdateChecker.Result modUpdateResult;
+    private String aboutModUpdateStatusKey = "";
+    private long aboutModUpdateStatusUntil;
     private long recoveryLoadGeneration;
     private boolean autoSubmitRecovery;
     private List<StatsRepository.GameSummary> statsAllGames = List.of();
@@ -616,6 +623,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && updateResult != null
                 && updateResult.status()
                         == UpdateService.Status.UPDATE_AVAILABLE) {
+            updatePromptForMod = false;
+            updateReturnToAbout = false;
             updatePromptOpen = true;
         }
         updateTextDeleteRepeat();
@@ -792,13 +801,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 batch.draw(logo, logoX,
                         ABOUT_LOGO_Y, ABOUT_LOGO_WIDTH, logoHeight);
                 if (aboutModIcon != null) {
-                    float scale = Math.min(180f / aboutModIcon.getWidth(),
-                            72f / aboutModIcon.getHeight());
-                    float modWidth = aboutModIcon.getWidth() * scale;
-                    float modHeight = aboutModIcon.getHeight() * scale;
-                    batch.draw(aboutModIcon, WIDTH / 2f + 16f,
-                            ABOUT_LOGO_Y + (logoHeight - modHeight) / 2f,
-                            modWidth, modHeight);
+                    Rectangle modBounds = aboutModIconBounds(logoHeight);
+                    batch.draw(aboutModIcon, modBounds.x, modBounds.y,
+                            modBounds.width, modBounds.height);
                 }
                 // Keep the mourning ribbon visually attached to the memorial
                 // line, as in the original Swing composition. The previous
@@ -2281,6 +2286,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (updateResult == null || updateResult.status()
                 != UpdateService.Status.UPDATE_AVAILABLE) return;
         aboutOpen = false;
+        updatePromptForMod = false;
+        updateReturnToAbout = false;
         updatePromptDismissed = false;
         updatePromptOpen = true;
         syncMusicForSurface();
@@ -2289,11 +2296,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void dismissUpdatePrompt() {
         if (updateInstalling) return;
         updatePromptOpen = false;
-        updatePromptDismissed = true;
+        if (updatePromptForMod) {
+            updatePromptForMod = false;
+            if (updateReturnToAbout) {
+                aboutOpen = true;
+            }
+            updateReturnToAbout = false;
+        } else {
+            updatePromptDismissed = true;
+        }
+        syncMusicForSurface();
     }
 
     private void startUpdateHandoff() {
-        if (updateInstalling || updateResult == null
+        if (updatePromptForMod || updateInstalling || updateResult == null
                 || updateResult.status()
                         != UpdateService.Status.UPDATE_AVAILABLE) return;
         String version = updateResult.version();
@@ -2320,6 +2336,96 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                 "GDX updater handoff failed", cause);
                         showToast(gameText.translate(
                                 "gdx.update.install_failed"));
+                        return;
+                    }
+                    Gdx.app.exit();
+                }));
+    }
+
+    private void checkForModUpdates() {
+        if (modUpdateCheckInFlight || disposed) return;
+        var descriptor = presentationSettings.modUpdateUri();
+        if (descriptor.isEmpty()) {
+            showAboutModUpdateStatus("gdx.mod_update.not_configured");
+            return;
+        }
+        modUpdateCheckInFlight = true;
+        showAboutModUpdateStatus("gdx.mod_update.checking");
+        CompletableFuture.supplyAsync(() -> GdxModUpdateChecker.check(
+                        presentationSettings.modVersion(),
+                        descriptor.orElseThrow(), Duration.ofSeconds(10)),
+                recoveryExecutor).whenComplete((result, failure) ->
+                Gdx.app.postRunnable(() -> {
+                    if (disposed) return;
+                    modUpdateCheckInFlight = false;
+                    if (failure != null || result == null
+                            || result.status()
+                                    == GdxModUpdateChecker.Status.UNAVAILABLE) {
+                        LOGGER.log(Level.WARNING,
+                                "GDX MOD update check failed", failure);
+                        showAboutModUpdateStatus(
+                                "gdx.mod_update.unavailable");
+                    } else if (result.status()
+                            == GdxModUpdateChecker.Status.CURRENT) {
+                        showAboutModUpdateStatus("gdx.mod_update.current");
+                    } else {
+                        modUpdateResult = result;
+                        updatePromptForMod = true;
+                        updateReturnToAbout = true;
+                        updatePromptOpen = true;
+                        aboutOpen = false;
+                        syncMusicForSurface();
+                    }
+                }));
+    }
+
+    private void showAboutModUpdateStatus(String key) {
+        aboutModUpdateStatusKey = key;
+        aboutModUpdateStatusUntil = System.currentTimeMillis() + 3_500L;
+    }
+
+    private void startModUpdateHandoff() {
+        if (!updatePromptForMod || updateInstalling
+                || modUpdateResult == null
+                || modUpdateResult.status()
+                        != GdxModUpdateChecker.Status.UPDATE_AVAILABLE) return;
+        String gameVersion = updateResult != null
+                && updateResult.status()
+                        == UpdateService.Status.UPDATE_AVAILABLE
+                ? updateResult.version() : ApplicationMetadata.VERSION;
+        URI downloadUri;
+        try {
+            downloadUri = URI.create(GdxModUpdateChecker.downloadUrl(
+                    modUpdateResult, gameVersion));
+        } catch (IllegalArgumentException invalid) {
+            showToast(gameText.translate("gdx.mod_update.install_failed"));
+            return;
+        }
+        var request = GdxUpdateHandoff.runtimeModRequest(
+                modUpdateResult.version(), downloadUri,
+                presentationSettings.modUpdatePassword(),
+                gameText.language());
+        if (request.isEmpty()) {
+            openExternalUri(downloadUri, "gdx.update.open_failed");
+            return;
+        }
+        updateInstalling = true;
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return updaterService.handoff(request.orElseThrow());
+            } catch (Exception failure) {
+                throw new CompletionException(failure);
+            }
+        }, recoveryExecutor).whenComplete((handedOff, failure) ->
+                Gdx.app.postRunnable(() -> {
+                    if (disposed) return;
+                    updateInstalling = false;
+                    Throwable cause = unwrap(failure);
+                    if (cause != null || !Boolean.TRUE.equals(handedOff)) {
+                        LOGGER.log(Level.WARNING,
+                                "GDX MOD updater handoff failed", cause);
+                        showToast(gameText.translate(
+                                "gdx.mod_update.install_failed"));
                         return;
                     }
                     Gdx.app.exit();
@@ -2356,13 +2462,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float w = 840f;
         float h = 390f;
         panel(x, y, w, h, "");
+        String titleKey = updatePromptForMod
+                ? "gdx.mod_update.title" : "gdx.update.title";
         textFit(headingFont, uppercase(gameText.translate(
-                "gdx.update.title")), WIDTH / 2f, y + h - 76f,
+                titleKey)), WIDTH / 2f, y + h - 76f,
                 GOLD, true, w - 100f);
-        String version = updateResult == null ? ""
-                : Objects.requireNonNullElse(updateResult.version(), "");
+        String version = updatePromptForMod
+                ? (modUpdateResult == null ? ""
+                        : Objects.requireNonNullElse(
+                                modUpdateResult.version(), ""))
+                : (updateResult == null ? ""
+                        : Objects.requireNonNullElse(
+                                updateResult.version(), ""));
         String messageKey = updateInstalling
-                ? "gdx.update.installing" : "gdx.update.message";
+                ? (updatePromptForMod ? "gdx.mod_update.installing"
+                        : "gdx.update.installing")
+                : (updatePromptForMod ? "gdx.mod_update.message"
+                        : "gdx.update.message");
         List<String> lines = wrapText(smallFont, gameText.translate(
                 messageKey, version), w - 130f, 3);
         float lineY = y + 230f;
@@ -2377,7 +2493,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 !updateInstalling);
         themedButton(x + w - 390f, y + 42f, 320f, 72f,
                 uppercase(gameText.translate("gdx.update.install")),
-                ButtonTone.FEATURED, this::startUpdateHandoff,
+                ButtonTone.FEATURED, updatePromptForMod
+                        ? this::startModUpdateHandoff
+                        : this::startUpdateHandoff,
                 !updateInstalling);
     }
 
@@ -2434,9 +2552,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         "gdx.about.open_failed"));
 
         if (presentationSettings.modActive()) {
-            textFit(tinyFont, gameText.translate("gdx.about.mod_loaded",
-                            presentationSettings.modDisplayName()),
-                    WIDTH / 2f + 106f, 748f, Color.WHITE, true, 300f);
+            Rectangle modBounds = aboutModIconBounds(aboutLogoHeight);
+            if (modBounds.width > 0f && modBounds.height > 0f) {
+                hit(modBounds.x, modBounds.y, modBounds.width,
+                        modBounds.height, this::checkForModUpdates);
+            }
+            boolean transientStatus = !aboutModUpdateStatusKey.isEmpty()
+                    && System.currentTimeMillis() < aboutModUpdateStatusUntil;
+            String modLabel = transientStatus
+                    ? gameText.translate(aboutModUpdateStatusKey)
+                    : gameText.translate("gdx.about.mod_loaded",
+                            presentationSettings.modDisplayName());
+            textFit(tinyFont, modLabel,
+                    WIDTH / 2f, 748f, Color.WHITE, true, 620f);
         }
 
         centeredWrappedText(smallFont,
@@ -2620,6 +2748,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawFrontendVersionLabel() {
         textFit(tinyFont, presentationSettings.productVersionLabel(),
                 16f, 20f, new Color(0xd5dfebc0), false, 620f);
+    }
+
+    private Rectangle aboutModIconBounds(float coronaLogoHeight) {
+        if (aboutModIcon == null) return new Rectangle();
+        float scale = Math.min(180f / aboutModIcon.getWidth(),
+                72f / aboutModIcon.getHeight());
+        float width = aboutModIcon.getWidth() * scale;
+        float height = aboutModIcon.getHeight() * scale;
+        return new Rectangle(WIDTH / 2f + 16f,
+                ABOUT_LOGO_Y + (coronaLogoHeight - height) / 2f,
+                width, height);
     }
 
     private static Texture externalTexture(java.nio.file.Path path) {

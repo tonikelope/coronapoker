@@ -2,6 +2,7 @@
 package com.tonikelope.coronapoker.core.media;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -41,11 +42,14 @@ public final class ModMediaCatalog {
     private final boolean fuseSounds;
     private final boolean fuseCinematics;
     private final String font;
+    private final URI updateUri;
+    private final String updatePassword;
     private final List<String> decks;
 
     private ModMediaCatalog(Path root, boolean installed, String name,
             String version, boolean fuseSounds, boolean fuseCinematics,
-            String font, List<String> decks) {
+            String font, URI updateUri, String updatePassword,
+            List<String> decks) {
         this.root = root;
         this.installed = installed;
         this.name = name;
@@ -53,6 +57,8 @@ public final class ModMediaCatalog {
         this.fuseSounds = fuseSounds;
         this.fuseCinematics = fuseCinematics;
         this.font = font;
+        this.updateUri = updateUri;
+        this.updatePassword = updatePassword;
         this.decks = List.copyOf(decks);
     }
 
@@ -88,8 +94,13 @@ public final class ModMediaCatalog {
             boolean fuseSounds = attribute(mod, "fusion_sounds", false);
             boolean fuseCinematics = attribute(mod, "fusion_cinematics", false);
             String font = text(document, "font").orElse("");
+            URI updateUri = text(document, "updateurl")
+                    .flatMap(ModMediaCatalog::httpUri).orElse(null);
+            String updatePassword = text(document, "updatepassword")
+                    .orElse("");
             return new ModMediaCatalog(root, true, name, version,
-                    fuseSounds, fuseCinematics, font, discoverDecks(root));
+                    fuseSounds, fuseCinematics, font, updateUri,
+                    updatePassword, discoverDecks(root));
         } catch (Exception failure) {
             LOGGER.log(Level.WARNING,
                     "Could not load external CoronaPoker mod catalog: {0}",
@@ -100,7 +111,19 @@ public final class ModMediaCatalog {
 
     private static ModMediaCatalog empty(Path root) {
         return new ModMediaCatalog(root, false, "", "", false, false,
-                "", List.of());
+                "", null, "", List.of());
+    }
+
+    private static Optional<URI> httpUri(String value) {
+        try {
+            URI uri = URI.create(value);
+            String scheme = uri.getScheme();
+            return ("http".equalsIgnoreCase(scheme)
+                    || "https".equalsIgnoreCase(scheme))
+                    ? Optional.of(uri) : Optional.empty();
+        } catch (IllegalArgumentException invalid) {
+            return Optional.empty();
+        }
     }
 
     private static List<String> discoverDecks(Path root) throws IOException {
@@ -159,6 +182,14 @@ public final class ModMediaCatalog {
     public Optional<Path> font() {
         return font.isBlank() ? Optional.empty()
                 : resolve("fonts/" + font);
+    }
+
+    public Optional<URI> updateUri() {
+        return Optional.ofNullable(updateUri);
+    }
+
+    public String updatePassword() {
+        return updatePassword;
     }
 
     public List<String> decks() {

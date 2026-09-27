@@ -26,6 +26,27 @@ public final class UpdaterService implements ApplicationService {
         }
     }
 
+    public record ModRequest(Path modDirectory, String version,
+            Path currentJar, URI downloadUri, String password,
+            Path javaExecutable, boolean spanish) {
+
+        public ModRequest {
+            Objects.requireNonNull(modDirectory, "modDirectory");
+            if (version == null || version.isBlank()) {
+                throw new IllegalArgumentException("version is required");
+            }
+            Objects.requireNonNull(currentJar, "currentJar");
+            Objects.requireNonNull(downloadUri, "downloadUri");
+            if (!"http".equalsIgnoreCase(downloadUri.getScheme())
+                    && !"https".equalsIgnoreCase(downloadUri.getScheme())) {
+                throw new IllegalArgumentException(
+                        "MOD download URI must use HTTP or HTTPS");
+            }
+            password = password == null ? "" : password;
+            Objects.requireNonNull(javaExecutable, "javaExecutable");
+        }
+    }
+
     @FunctionalInterface
     public interface Downloader {
 
@@ -81,6 +102,29 @@ public final class UpdaterService implements ApplicationService {
         List<String> command = new ArrayList<>(List.of(
                 request.javaExecutable().toString(), "-jar", updater.toString(),
                 request.version(), request.currentJar().toString(), request.newJar().toString()));
+        if (request.spanish()) {
+            command.add("¡Santiago y cierra, España!");
+        }
+        launcher.launch(List.copyOf(command));
+        return true;
+    }
+
+    /** Hands a MOD package to the same external updater used by the classic client. */
+    public boolean handoff(ModRequest request) throws Exception {
+        synchronized (this) {
+            ensureStarted();
+        }
+        Path updater = downloader.download();
+        if (updater == null) {
+            return false;
+        }
+        String modDirectory = request.modDirectory().toAbsolutePath()
+                .normalize().toString().replace('\\', '/');
+        List<String> command = new ArrayList<>(List.of(
+                request.javaExecutable().toString(), "-jar", updater.toString(),
+                modDirectory, request.version(),
+                request.currentJar().toString(), request.downloadUri().toString(),
+                request.password()));
         if (request.spanish()) {
             command.add("¡Santiago y cierra, España!");
         }

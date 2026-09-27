@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.core.UpdaterService;
+import java.net.URI;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -73,6 +74,34 @@ class GdxUpdateHandoffTest {
                 current.toAbsolutePath().normalize().toString(),
                 current.resolveSibling("CoronaPoker.jar").toAbsolutePath()
                         .normalize().toString(),
+                "¡Santiago y cierra, España!")), commands);
+    }
+
+    @Test
+    void modUpdateUsesTheExternalUpdatersHistoricalArgumentContract()
+            throws Exception {
+        Path updaterJar = Path.of("C:/Temp/coronaupdater.jar");
+        Path current = Path.of("C:/CoronaPoker/CoronaPoker.jar");
+        Path javaHome = Path.of("C:/Java/jdk-25");
+        URI download = URI.create("https://example.test/chilean-mod.zip");
+        List<List<String>> commands = new ArrayList<>();
+        UpdaterService updater = new UpdaterService(() -> updaterJar,
+                commands::add);
+        updater.start();
+
+        UpdaterService.ModRequest request = GdxUpdateHandoff.modRequest(
+                "0.58", download, "secret", "es", current, javaHome,
+                "Windows 11");
+        updater.handoff(request);
+
+        assertEquals(List.of(List.of(
+                javaHome.resolve("bin/java.exe").toAbsolutePath().normalize()
+                        .toString(),
+                "-jar", updaterJar.toString(),
+                current.resolveSibling("mod").toAbsolutePath().normalize()
+                        .toString().replace('\\', '/'),
+                "0.58", current.toAbsolutePath().normalize().toString(),
+                download.toString(), "secret",
                 "¡Santiago y cierra, España!")), commands);
     }
 }

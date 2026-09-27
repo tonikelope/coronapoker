@@ -236,7 +236,8 @@ renderer-neutral table boundary:
 
 The complete walkthrough, including startup sequences, source locations and
 the responsibilities of `TableSession`, `TableCommandSink`,
-`TableEventBridge`, `TableRenderer`, snapshots and visual events, is in
+`TableEventBridge`, `TablePresentation`, `TableRenderer`, snapshots and visual
+events, is in
 **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**.
 
 Product Java sources have one physical owner. Game logic and renderer-neutral
@@ -248,7 +249,7 @@ duplicated product classes.
 
 ### Repository layout
 
-- `pom.xml`: canonical CoronaPoker 25.5 build entry point.
+- `pom.xml`: canonical product build entry point.
 - `modules/coronapoker-core/`: shared game, networking, persistence and
   renderer-neutral presentation contracts.
 - `modules/coronapoker-gdx/`: libGDX application and desktop launcher.

@@ -1,6 +1,6 @@
 # CoronaPoker architecture
 
-CoronaPoker 25.5 is a libGDX desktop application. Poker rules, network
+CoronaPoker is a libGDX desktop application. Poker rules, network
 protocols, persistence and security live in a renderer-independent core. The
 GDX module owns presentation and user input. Maven enforces this dependency
 direction and packages the modules as one runnable application.
@@ -28,20 +28,24 @@ GdxLauncher.main
 `CoronaPokerBootstrap` creates the process services and returns a
 `CoronaPokerApplication`. `GdxApplicationShell` owns the libGDX window and
 switches between the frontend screens and the poker table. `GdxFrontendScreen`
-renders the menu, setup, waiting room, statistics and end-of-game views.
+renders the menu, setup, waiting room and statistics views.
+`CoronaPokerGdxTable` owns the active table scene and its final balance
+summary.
 
 ## Lobby and table creation
 
-`NetworkLobbyGateway` owns the host or client lobby. It performs the network
-handshake, maintains the participant roster and publishes a `TableSession` when
-the peers agree that the game can start.
+`NetworkLobbyGateway` opens the host or client transport and creates a
+`LobbySession`. The lobby session owns the lobby state, commands and transport,
+maintains the participant roster and publishes one `TableSession` when the
+peers agree that the game can start.
 
 ```text
 GdxFrontendScreen
   -> NetworkLobbyGateway
+  -> LobbySession
   -> CoreGameTableFactory.create
   -> TableSession
-  -> GdxApplicationShell.attachTable
+  -> GdxApplicationShell
   -> GdxTableRenderer
   -> CoronaPokerGdxTable
 ```
@@ -59,8 +63,8 @@ These types contain no libGDX classes.
 
 ### TableSession
 
-`TableSession` transfers ownership of a prepared table from the lobby to the
-application shell. It contains:
+`TableSession` exposes a prepared table to the application shell while the
+publishing `LobbySession` remains its lifetime owner. It contains:
 
 - the initial `TableSnapshot`;
 - the `TableCommandSink` used by the frontend;
@@ -100,14 +104,18 @@ The engine publishes immutable `TableVisualEvent` values through
 ```text
 Crupier
   -> TableEventBridge.publish
+  -> TablePresentation
   -> GdxTableRenderer.render
   -> CoronaPokerGdxTable.acceptEvent
 ```
 
-`GdxTableRenderer` transfers each event to the libGDX render thread. It does
-not decide poker rules. Events that return a `CompletionStage<Void>` define an
-animation barrier at a specific point in hand progression, such as dealing or
-payout. They do not transfer game authority to the renderer.
+`TableEventBridge` attaches one `TablePresentation`. The presentation assigns
+monotonic sequence numbers, queues events while the renderer is opening and
+preserves their delivery order. `GdxTableRenderer` then transfers each render
+call to the libGDX thread. Neither class decides poker rules. Operations that
+return a `CompletionStage<Void>` define an animation barrier at a specific
+point in hand progression, such as dealing or payout. They do not transfer game
+authority to the renderer.
 
 ### Snapshot and event model
 
@@ -134,15 +142,18 @@ The editable source is
 | `modules/coronapoker-core` | Rules, dealer, bots, network, persistence, security and table contracts |
 | `modules/coronapoker-assets` | Images, cards, sounds, translations and bundled media |
 | `modules/coronapoker-gdx` | Launcher, screens, table renderer, input, audio and desktop integration |
-| `modules/coronapoker-qa` | Dependency, source ownership and distribution checks |
-| `tools/qa` | Extended protocol, recovery, security and headless simulation tests |
+| `modules/coronapoker-qa` | Dependency, source ownership and distribution checks run by the normal product reactor |
+| `tools/qa` | Opt-in extended protocol, recovery, security, bot and headless simulation tests |
 
 Each code module has its own source tree. The modules are internal build units,
 not separate products. The distribution contains one executable:
 
 ```text
-target/CoronaPoker_25.5.jar
+target/CoronaPoker_<version>.jar
 ```
+
+The root build runs the module tests and `coronapoker-qa`. The separate
+`tools/qa` reactor runs only when explicitly requested for extended validation.
 
 ## Dependency rules
 

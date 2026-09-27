@@ -95,7 +95,7 @@ final class GdxScenarioContract {
             Map.entry("force-recover", Set.of(
                     "forceRecoverRebuildsTheNetworkTableAndCompletesTwoHands",
                     "forceRecoveryRebuildsBothGdxProcessesAndCompletesTwoHands",
-                    "nativeGdxRecoveryReplaysTheRecordedLocalActionAndClosesItsOverlay")),
+                    "nativeGdxRecoveryAppliesTheRecordedActionInCoreAndClosesItsOverlay")),
             Map.entry("double-force-recover", Set.of(
                     "doubleForceRecoverRebuildsHandsOneAndThreeAndCompletesFourHands",
                     "doubleForceRecoveryRebuildsBothGdxProcessesAtHandsOneAndThree")),

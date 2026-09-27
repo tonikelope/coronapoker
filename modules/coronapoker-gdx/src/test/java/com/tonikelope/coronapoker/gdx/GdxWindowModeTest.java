@@ -34,6 +34,17 @@ final class GdxWindowModeTest {
     }
 
     @Test
+    void exposesTheThreeCompleteDisplayModeNamesWithoutStatusSuffixes() {
+        GdxGameText spanish = new GdxGameText("es");
+
+        assertEquals("COMPLETA SIN BORDES",
+                GdxWindowMode.BORDERLESS.label(spanish));
+        assertEquals("COMPLETA EXCLUSIVA",
+                GdxWindowMode.EXCLUSIVE.label(spanish));
+        assertEquals("VENTANA", GdxWindowMode.WINDOWED.label(spanish));
+    }
+
+    @Test
     void explicitLauncherArgumentOverridesPersistedMode() {
         Properties properties = new Properties();
         properties.setProperty(GdxWindowMode.PREFERENCE_KEY, "exclusive");

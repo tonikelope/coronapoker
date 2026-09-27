@@ -67,7 +67,7 @@ final class GdxSettingsChrome {
         shapes.rect(panel.x + GdxSettingsLayout.HORIZONTAL_INSET + 10f,
                 separatorY,
                 panel.width - 2f * GdxSettingsLayout.HORIZONTAL_INSET - 20f,
-                1.5f);
+                3f);
 
         for (int index = 0; index < subpageCount; index++) {
             Rectangle tab = frame.subTab(index);

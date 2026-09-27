@@ -274,7 +274,7 @@ final class GdxGameDecisionSink implements GameDecisionSink {
         private String message() {
             return tr("gdx.runittwice.tally",
                     "BOTE: " + potText + "\nVOTOS: " + normal
-                            + " UNA VEZ  ·  " + twice + " DOS VECES\n"
+                            + " UNA VEZ  -  " + twice + " DOS VECES\n"
                             + "SE NECESITA UNANIMIDAD (" + totalVoters + ")",
                     potText, normal, twice, totalVoters);
         }

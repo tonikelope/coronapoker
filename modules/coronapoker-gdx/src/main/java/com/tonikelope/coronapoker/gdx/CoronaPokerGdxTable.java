@@ -2201,8 +2201,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         uiFont = font(generator, 31, 1.2f);
         smallFont = font(generator, 21, 0.8f);
         versionFont = font(generator, 15, 0f);
-        playerNameFont = font(generator, 44, 3.2f);
-        playerNameFont.getData().setScale(0.5f);
+        playerNameFont = font(generator, 22, 1.6f);
         stackFont = font(generator, 24, 0f);
         // Action surfaces already provide their own contrast. A heavy glyph
         // outline makes black labels such as SUBE/VA look double-bold, so the
@@ -2437,10 +2436,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static BitmapFont font(FreeTypeFontGenerator generator, int size,
             float border, Color color, Color borderColor) {
         FreeTypeFontParameter parameter = new FreeTypeFontParameter();
-        parameter.size = size;
+        float rasterScale = size <= 76 ? 2f : 1f;
+        parameter.size = Math.round(size * rasterScale);
         parameter.color = color;
         parameter.borderColor = borderColor;
-        parameter.borderWidth = border;
+        parameter.borderWidth = border * rasterScale;
         // Text is already generated at its intended UI size. Font mipmaps made
         // thin strokes choose a softer lower-resolution level under Windows'
         // fractional DPI scaling (notably 125%). Keep the demo/frontend's
@@ -2456,7 +2456,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 + "\u2660\u2665\u2666\u2663"
                 + "\u2500\u2502\u250c\u2510\u2514\u2518\u251c\u2524\u252c\u2534\u253c"
                 + "\u2550\u2551\u2554\u2557\u255a\u255d";
-        return generator.generateFont(parameter);
+        BitmapFont result = generator.generateFont(parameter);
+        result.getData().setScale(1f / rasterScale);
+        return result;
     }
 
     /**
@@ -5302,8 +5304,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private String tableWindowModeSettingLabel() {
         return GdxWindowMode.configured(tableSettingsProperties())
-                .label(gameText) + "  ·  "
-                + uppercase(gameText.translate("gdx.settings.value.active"));
+                .label(gameText);
     }
 
     private String tableMsaaSettingLabel() {
@@ -5635,7 +5636,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 drawFittedCenteredInBox(smallFont,
                         fastButtonEnabled(hovered)
                                 ? hoveredLabel
-                                : hoveredLabel + " · " + uppercase(
+                                : hoveredLabel + " - " + uppercase(
                                         gameText.translate(
                                                 "gdx.quick.unavailable")),
                         tipX + 8f, FAST_BAR_Y + panelH + 10f,
@@ -12252,7 +12253,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 "menu.visor_capturas"));
         String title = screenshotFiles.isEmpty()
                 ? viewerTitle
-                : viewerTitle + "  ·  " + (screenshotIndex + 1)
+                : viewerTitle + "  -  " + (screenshotIndex + 1)
                         + " / " + screenshotFiles.size();
         drawFittedCenteredInBox(uiFont, title, 150f, height - 80f,
                 width - 300f, 62f, POT_GOLD, alpha);
@@ -13045,7 +13046,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 entry.timestampMillis()));
                 drawLeftInBox(uiFont, entry.nickname(), x + 70f,
                         rowY - 18f, 390f, 48f, Color.WHITE, 1f);
-                drawLeftInBox(smallFont, date + "  ·  "
+                drawLeftInBox(smallFont, date + "  -  "
                         + tableVoiceDuration(entry.durationMillis()),
                         x + 500f, rowY - 18f, 320f, 48f,
                         Color.LIGHT_GRAY, 1f);
@@ -13512,7 +13513,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 Float.compare(effectsVolume, 0.8f) == 0),
                         percentage.x, percentage.y, percentage.width,
                         percentage.height, POT_GOLD, alpha);
-                drawFittedCenteredInBox(actionFont, "−",
+                drawFittedCenteredInBox(actionFont, "-",
                         minus.x, minus.y, minus.width, minus.height,
                         Color.WHITE, alpha);
                 drawFittedCenteredInBox(actionFont, "+",
@@ -13684,7 +13685,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawSettingsRowText(x, firstY, width,
                     settingsGameText("row.auto_buttons"), alpha);
             drawSettingsRowText(x, firstY - 70f, width,
-                    settingsGameText("row.auto_call") + "  ·  "
+                    settingsGameText("row.auto_call") + "  -  "
                             + (autoCallMax == 0d
                                     ? settingsGameText("value.no_limit")
                                     : settingsGameText("value.maximum") + " "
@@ -13717,16 +13718,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     settingsGameText("row.rabbit_hunting"), rabbitRuleLabel(),
                     enabledAlpha);
             drawSettingsRowText(x, firstY - 210f, width,
-                    settingsGameText("row.hand_limit") + "  ·  "
+                    settingsGameText("row.hand_limit") + "  -  "
                             + handLimitSettingLabel(),
                     enabledAlpha);
             if (liveSettingsDraft == null) {
                 drawCompactSettingsRowText(x, firstY - 280f, width,
-                        settingsGameText("row.think_time") + "  ·  "
+                        settingsGameText("row.think_time") + "  -  "
                                 + settingsGameText("value.unavailable"), alpha);
                 drawCompactSettingsRowText(x, firstY - 332f, width,
                         settingsGameText("summary.label.showdown_time")
-                                + "  ·  "
+                                + "  -  "
                                 + settingsGameText("value.unavailable"), alpha);
             } else {
                 List<String> timingLabels =
@@ -13762,7 +13763,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                     liveSettingsDraft.blindsDouble())),
                     increasing ? enabledAlpha : enabledAlpha * 0.36f);
             drawCompactSettingsRowText(x, firstY - 4f * compactGap, width,
-                    settingsGameText("row.unit") + "  ·  "
+                    settingsGameText("row.unit") + "  -  "
                             + (liveSettingsDraft != null
                             && liveSettingsDraft.blindsDoubleType() == 2
                                     ? settingsGameText("value.hands")
@@ -13993,7 +13994,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float width, String label, String value, float alpha) {
         drawLeftInBox(smallFont, label, x + 18f, y + 3f,
                 width - 340f, 40f, Color.WHITE, alpha);
-        drawFittedCenteredInBox(actionFont, "−",
+        drawFittedCenteredInBox(actionFont, "-",
                 x + width - 164f, y + 3f, 72f, 40f,
                 Color.WHITE, alpha);
         drawFittedCenteredInBox(smallFont, value,

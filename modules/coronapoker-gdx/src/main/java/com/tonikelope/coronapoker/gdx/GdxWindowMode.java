@@ -6,8 +6,8 @@ import java.util.Properties;
 
 /** Startup window mode owned only by the native GDX frontend. */
 enum GdxWindowMode {
-    EXCLUSIVE("exclusive", "EXCLUSIVA"),
-    BORDERLESS("borderless", "SIN BORDES"),
+    EXCLUSIVE("exclusive", "COMPLETA EXCLUSIVA"),
+    BORDERLESS("borderless", "COMPLETA SIN BORDES"),
     WINDOWED("windowed", "VENTANA");
 
     static final String PREFERENCE_KEY = "gdx_window_mode";

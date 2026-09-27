@@ -133,7 +133,7 @@ final class GdxSettingsContract {
     static String contentHeading(Section section, String subpage) {
         String page = subpage == null ? "" : subpage.strip();
         // The selected primary and secondary tabs already communicate the
-        // hierarchy. Repeating "AUDIO · GENERAL" (and equivalents) wastes
+        // hierarchy. Repeating "AUDIO / GENERAL" (and equivalents) wastes
         // vertical space and makes the content look like a third navigation
         // level. Keep only the useful leaf heading.
         return page.isEmpty() ? section.label() : page;
@@ -392,10 +392,7 @@ final class GdxSettingsContract {
     static String msaaStatusLabel(int requested, int actual,
             GdxGameText text) {
         String requestedText = msaaValue(requested, text);
-        if (actual == requested) {
-            return requestedText + "  -  " + translatedUpper(text,
-                    "gdx.settings.value.active", "ACTIVO");
-        }
+        if (actual == requested) return requestedText;
         return requestedText + "  -  " + translatedUpper(text,
                 "gdx.settings.value.restart_current",
                 "REINICIAR (ACTUAL " + msaaValue(actual, text) + ")",

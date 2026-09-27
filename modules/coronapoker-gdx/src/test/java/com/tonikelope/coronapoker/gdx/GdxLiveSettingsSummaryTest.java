@@ -19,16 +19,16 @@ final class GdxLiveSettingsSummaryTest {
                 true, true, 3, 1, true);
 
         assertEquals(List.of(
-                "TIEMPO DE PENSAR  \u00b7  40 S",
-                "TIEMPO DE SHOWDOWN  \u00b7  10 S"),
+                "TIEMPO DE PENSAR  -  40 S",
+                "TIEMPO DE SHOWDOWN  -  10 S"),
                 GdxLiveSettingsSummary.timingLabels(configuration, ES));
         assertEquals(List.of(
-                "COMPRA INICIAL  \u00b7  10",
-                "BUY-IN  \u00b7  FIJO",
-                "RANGO DE COMPRA  \u00b7  10 \u2013 100 BB",
-                "RECOMPRA  \u00b7  ACTIVADA",
-                "L\u00cdMITE POR JUGADOR  \u00b7  3",
-                "TOPE DE RECOMPRA  \u00b7  STACK M\u00c1S ALTO"),
+                "COMPRA INICIAL  -  10",
+                "BUY-IN  -  FIJO",
+                "RANGO DE COMPRA  -  10 - 100 BB",
+                "RECOMPRA  -  ACTIVADA",
+                "L\u00cdMITE POR JUGADOR  -  3",
+                "TOPE DE RECOMPRA  -  STACK M\u00c1S ALTO"),
                 GdxLiveSettingsSummary.purchaseLabels(configuration, ES));
     }
 
@@ -37,15 +37,15 @@ final class GdxLiveSettingsSummaryTest {
         GameConfigCodecV1.Configuration configuration = configuration(
                 false, false, 0, 0, false);
 
-        assertEquals("TIEMPO DE PENSAR  \u00b7  DESACTIVADO",
+        assertEquals("TIEMPO DE PENSAR  -  DESACTIVADO",
                 GdxLiveSettingsSummary.timingLabels(configuration, ES).get(0));
-        assertEquals("BUY-IN  \u00b7  VARIABLE",
+        assertEquals("BUY-IN  -  VARIABLE",
                 GdxLiveSettingsSummary.purchaseLabels(configuration, ES).get(1));
-        assertEquals("RECOMPRA  \u00b7  DESACTIVADA",
+        assertEquals("RECOMPRA  -  DESACTIVADA",
                 GdxLiveSettingsSummary.purchaseLabels(configuration, ES).get(3));
-        assertEquals("L\u00cdMITE POR JUGADOR  \u00b7  SIN L\u00cdMITE",
+        assertEquals("L\u00cdMITE POR JUGADOR  -  SIN L\u00cdMITE",
                 GdxLiveSettingsSummary.purchaseLabels(configuration, ES).get(4));
-        assertEquals("TOPE DE RECOMPRA  \u00b7  BUY-IN",
+        assertEquals("TOPE DE RECOMPRA  -  BUY-IN",
                 GdxLiveSettingsSummary.purchaseLabels(configuration, ES).get(5));
     }
 
@@ -67,7 +67,7 @@ final class GdxLiveSettingsSummaryTest {
 
     @Test
     void purchaseSectionIsExplicitlyReadOnlyLikeSwing() {
-        assertEquals("FIJADO AL CREAR LA TIMBA \u00b7 SOLO LECTURA",
+        assertEquals("FIJADO AL CREAR LA TIMBA - SOLO LECTURA",
                 GdxLiveSettingsSummary.purchaseHeading(ES));
     }
 
@@ -90,13 +90,13 @@ final class GdxLiveSettingsSummaryTest {
         GameConfigCodecV1.Configuration configuration = configuration(
                 true, true, 3, 1, true);
 
-        assertEquals("THINK TIME  ·  40 S",
+        assertEquals("THINK TIME  -  40 S",
                 GdxLiveSettingsSummary.timingLabels(configuration, EN).get(0));
-        assertEquals("BUY-IN RANGE  ·  10 – 100 BB",
+        assertEquals("BUY-IN RANGE  -  10 - 100 BB",
                 GdxLiveSettingsSummary.purchaseLabels(configuration, EN).get(2));
         assertEquals("FREE » SMALL BLIND",
                 GdxLiveSettingsSummary.rabbitHuntingLabel(2, EN));
-        assertEquals("SET WHEN THE GAME WAS CREATED · READ ONLY",
+        assertEquals("SET WHEN THE GAME WAS CREATED - READ ONLY",
                 GdxLiveSettingsSummary.purchaseHeading(EN));
     }
 

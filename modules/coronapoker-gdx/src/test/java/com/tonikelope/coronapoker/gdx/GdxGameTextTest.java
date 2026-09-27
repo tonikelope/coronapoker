@@ -50,14 +50,14 @@ final class GdxGameTextTest {
         assertEquals("Maximum rebuys",
                 text.translate("gdx.settings.game.row.maximum_rebuys"));
         assertEquals("Free » small blind", text.translate("menu.free_sb"));
-        assertEquals("Previous game loaded · game 7",
+        assertEquals("Previous game loaded - game 7",
                 text.translate("gdx.newgame.recover_loaded",
                         text.translate("gdx.newgame.recovered_game", 7)));
         assertEquals("2 of 5",
                 text.translate("gdx.newgame.blind_editor.level_count", 2, 5));
         assertEquals("Create and adjust the blind schedules available for this game",
                 text.translate("gdx.newgame.blind_editor.help"));
-        assertEquals("3 raises · 1 / 2",
+        assertEquals("3 raises - 1 / 2",
                 text.translate("gdx.settings.game.value.raises", 3, "1 / 2"));
         assertEquals("Confirm all actions",
                 text.translate("gdx.settings.game.row.confirm_actions"));

@@ -29,11 +29,11 @@ final class GdxLiveSettingsSummary {
         Objects.requireNonNull(configuration, "configuration");
         Objects.requireNonNull(text, "text");
         return List.of(
-                label(text, "think_time") + "  \u00b7  "
+                label(text, "think_time") + "  -  "
                 + (configuration.thinkTimeEnabled()
                         ? configuration.thinkTime() + " S"
                         : value(text, "disabled")),
-                label(text, "showdown_time") + "  \u00b7  "
+                label(text, "showdown_time") + "  -  "
                 + configuration.showdownTime() + " S");
     }
 
@@ -43,24 +43,24 @@ final class GdxLiveSettingsSummary {
         Objects.requireNonNull(configuration, "configuration");
         Objects.requireNonNull(text, "text");
         return List.of(
-                label(text, "initial_buyin") + "  \u00b7  "
+                label(text, "initial_buyin") + "  -  "
                         + configuration.buyin(),
-                label(text, "buyin") + "  \u00b7  "
+                label(text, "buyin") + "  -  "
                         + (configuration.fixedBuyin()
                                 ? value(text, "fixed")
                                 : value(text, "variable")),
-                label(text, "buyin_range") + "  \u00b7  "
+                label(text, "buyin_range") + "  -  "
                         + configuration.buyinMinBb()
-                + " \u2013 " + configuration.buyinMaxBb() + " BB",
-                label(text, "rebuy") + "  \u00b7  "
+                + " - " + configuration.buyinMaxBb() + " BB",
+                label(text, "rebuy") + "  -  "
                         + (configuration.rebuy()
                                 ? value(text, "enabled")
                                 : value(text, "disabled_feminine")),
-                label(text, "player_limit") + "  \u00b7  "
+                label(text, "player_limit") + "  -  "
                 + (configuration.rebuyLimit() > 0
                         ? Integer.toString(configuration.rebuyLimit())
                         : value(text, "no_limit")),
-                label(text, "rebuy_cap") + "  \u00b7  "
+                label(text, "rebuy_cap") + "  -  "
                 + (configuration.rebuyCapPolicy() == 0
                         ? "BUY-IN" : value(text, "highest_stack")));
     }
@@ -68,12 +68,12 @@ final class GdxLiveSettingsSummary {
     static List<String> unavailablePurchaseLabels(GdxGameText text) {
         String unavailable = value(text, "unavailable");
         return List.of(
-                label(text, "initial_buyin") + "  \u00b7  " + unavailable,
-                label(text, "buyin") + "  \u00b7  " + unavailable,
-                label(text, "buyin_range") + "  \u00b7  " + unavailable,
-                label(text, "rebuy") + "  \u00b7  " + unavailable,
-                label(text, "player_limit") + "  \u00b7  " + unavailable,
-                label(text, "rebuy_cap") + "  \u00b7  " + unavailable);
+                label(text, "initial_buyin") + "  -  " + unavailable,
+                label(text, "buyin") + "  -  " + unavailable,
+                label(text, "buyin_range") + "  -  " + unavailable,
+                label(text, "rebuy") + "  -  " + unavailable,
+                label(text, "player_limit") + "  -  " + unavailable,
+                label(text, "rebuy_cap") + "  -  " + unavailable);
     }
 
     static String purchaseHeading(GdxGameText text) {

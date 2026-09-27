@@ -45,6 +45,9 @@ final class GdxSettingsLayoutTest {
         Rectangle firstSubTab = menu.subTab(0);
         assertTrue(firstSubTab.y + firstSubTab.height < firstMainTab.y,
                 "main and secondary tab labels must never overlap");
+        assertTrue(firstMainTab.y
+                - (firstSubTab.y + firstSubTab.height) >= 30f,
+                "the shared separator needs visible space on both sides");
     }
 
     @Test

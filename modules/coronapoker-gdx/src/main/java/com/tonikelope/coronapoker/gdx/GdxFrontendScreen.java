@@ -602,16 +602,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static BitmapFont font(FreeTypeFontGenerator generator, int size,
             float border) {
         FreeTypeFontParameter p = new FreeTypeFontParameter();
-        p.size = size;
+        p.size = size * 2;
         p.color = Color.WHITE;
         p.borderColor = new Color(0x02050ccc);
-        p.borderWidth = border;
+        p.borderWidth = border * 2f;
         p.hinting = FreeTypeFontGenerator.Hinting.Full;
         p.kerning = true;
         p.characters += "♥♦♠♣";
         p.minFilter = TextureFilter.Linear;
         p.magFilter = TextureFilter.Linear;
-        return generator.generateFont(p);
+        BitmapFont result = generator.generateFont(p);
+        result.getData().setScale(0.5f);
+        return result;
     }
 
     @Override
@@ -1819,7 +1821,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private String statsGameLabel(StatsRepository.GameSummary game) {
-        return game.server() + "  ·  " + STATS_TIME.format(
+        return game.server() + "  -  " + STATS_TIME.format(
                 Instant.ofEpochMilli(game.startedAtMillis()));
     }
 
@@ -1855,7 +1857,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.translate(game.rebuy() ? "ui.si" : "gdx.stats.no"),
                 y); y -= 40f;
         statsSummaryWrappedLine(gameText.translate("gdx.stats.players"),
-                String.join(" · ", game.players()), y); y -= 62f;
+                String.join(" - ", game.players()), y); y -= 62f;
         String origin = game.imported()
                 ? gameText.translate("gdx.stats.imported")
                         + (game.importedFrom() == null
@@ -1906,7 +1908,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private static String statsPlayers(List<String> players) {
         return players == null || players.isEmpty()
-                ? "-----" : String.join(" · ", players);
+                ? "-----" : String.join(" - ", players);
     }
 
     private static String formatStatsDuration(long seconds) {
@@ -2786,7 +2788,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Runtime runtime = Runtime.getRuntime();
         long usedMiB = (runtime.totalMemory() - runtime.freeMemory())
                 / (1024L * 1024L);
-        return usedMiB + " MiB  ·  " + Thread.activeCount();
+        return usedMiB + " MiB  -  " + Thread.activeCount();
     }
 
     static float nativeImageScale(int imageWidth, int imageHeight,
@@ -3283,7 +3285,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         messageHeight);
                 continue;
             }
-            String header = message.nickname() + "  ·  "
+            String header = message.nickname() + "  -  "
                     + CHAT_TIME.format(message.timestamp());
             float bubbleW = layout.width();
             float bubbleX = local ? x + contentWidth - bubbleW : x + 48f;
@@ -3499,7 +3501,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return new LobbyMessageLayout(availableWidth,
                     lobbyMessageHeight(message.type()), List.of());
         }
-        String header = message.nickname() + "  ·  "
+        String header = message.nickname() + "  -  "
                 + CHAT_TIME.format(message.timestamp());
         float width = lobbyMessageWidth(message.type(),
                 lobbyDesiredBubbleWidth(message, header), availableWidth);
@@ -4136,7 +4138,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                 entry.timestampMillis()));
                 textFit(uiFont, entry.nickname(), x + 70f, rowY,
                         Color.WHITE, false, 410f);
-                textFit(smallFont, date + "  ·  "
+                textFit(smallFont, date + "  -  "
                         + formatVoiceDuration(entry.durationMillis()),
                         x + 500f, rowY, MUTED, false, 350f);
                 boolean playing = entry.equals(voiceNotePlaying);
@@ -5292,7 +5294,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.setColor(CYAN);
         roundedRect(slider.x, slider.y, slider.width * masterVolume(),
                 slider.height, 6f);
-        themedButton(minus.x, minus.y, minus.width, minus.height, "−",
+        themedButton(minus.x, minus.y, minus.width, minus.height, "-",
                 ButtonTone.NEUTRAL,
                 () -> adjustFrontendMasterVolume(-0.05f), true);
         themedButton(plus.x, plus.y, plus.width, plus.height, "+",
@@ -5717,7 +5719,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(smallFont, label, x + 22f, y + 44f,
                 enabled ? Color.WHITE : DISABLED, false, w * 0.50f);
         float controlsX = x + w * 0.62f;
-        themedButton(controlsX, y + 10f, 48f, 48f, "−",
+        themedButton(controlsX, y + 10f, 48f, 48f, "-",
                 ButtonTone.NEUTRAL, minus, enabled);
         textFit(uiFont, Integer.toString(value), controlsX + 100f, y + 44f,
                 enabled ? GOLD : DISABLED, true, 82f);
@@ -6075,9 +6077,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private String windowModeSettingLabel() {
-        GdxWindowMode configured = GdxWindowMode.configured(initialProperties);
-        return configured.label(gameText) + "  -  "
-                + uppercase(gameText.translate("gdx.settings.value.active"));
+        return GdxWindowMode.configured(initialProperties).label(gameText);
     }
 
     private void selectNextWindowMode() {

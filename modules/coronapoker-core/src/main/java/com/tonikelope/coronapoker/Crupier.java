@@ -18825,17 +18825,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (current_player == localPlayer()) {
                     current_player.esTuTurno();
-                    // Publish enabled controls only after the canonical player
-                    // state owns the turn. A synchronous renderer (including
-                    // GDX and the headless network verifier) may submit from
-                    // this event; publishing first made that valid click race
-                    // against isTurno()==false and get silently rejected.
-                    presentLocalActionControlsToAttachedRenderer();
-                    armDealerManagedLocalTurnTimeout(current_player, turno);
-                    if (eraSincronizacion && (accion_recuperada = siguienteAccionLocalRecuperada(current_player.getNickname())) != null) {
+                    if (eraSincronizacion) {
+                        accion_recuperada = siguienteAccionLocalRecuperada(
+                                current_player.getNickname());
+                    }
+                    if (accion_recuperada != null) {
+                        // A recovered decision is replayed by the dealer and is
+                        // never interactive. Publishing enabled controls first
+                        // exposed a transient button state that could accept a
+                        // second decision while the stored one was being replayed.
                         game_decisions.replayRecoveredAction(
                                 playerStateDecision((int) accion_recuperada[0]),
                                 (Double) accion_recuperada[1]);
+                    } else {
+                        // Publish enabled controls only after the canonical player
+                        // state owns the turn. A synchronous renderer (including
+                        // GDX and the headless network verifier) may submit from
+                        // this event; publishing first made that valid click race
+                        // against isTurno()==false and get silently rejected.
+                        presentLocalActionControlsToAttachedRenderer();
+                        armDealerManagedLocalTurnTimeout(current_player, turno);
                     }
 
                     final GamePlayerController awaitedLocalPlayer = current_player;

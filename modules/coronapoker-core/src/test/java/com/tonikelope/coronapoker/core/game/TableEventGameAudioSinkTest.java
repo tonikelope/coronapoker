@@ -1,6 +1,7 @@
 package com.tonikelope.coronapoker.core.game;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.table.TableEventBridge;
@@ -71,6 +72,22 @@ final class TableEventGameAudioSinkTest {
                         .toList());
     }
 
+    @Test
+    void missingAudioCompletionCannotRetainTheDealerForever() {
+        TableEventBridge bridge = new TableEventBridge();
+        NeverCompletingAudioRenderer renderer =
+                new NeverCompletingAudioRenderer();
+        bridge.attach(renderer, emptySnapshot()).toCompletableFuture().join();
+        TableEventGameAudioSink audio = new TableEventGameAudioSink(bridge,
+                Set.of(), 25L, 25L);
+
+        assertTrue(audio.playWavResourceAndWait("misc/timeout.wav"));
+
+        assertNotNull(renderer.audioBarrier);
+        assertTrue(renderer.audioBarrier.isDone(),
+                "the safety limit must release an absent audio callback");
+    }
+
     private static TableSnapshot emptySnapshot() {
         return new TableSnapshot(0L, "local", TableSnapshot.Street.WAITING,
                 0d, "", false, List.of(), List.of());
@@ -88,6 +105,30 @@ final class TableEventGameAudioSinkTest {
         @Override
         public CompletionStage<Void> render(TableVisualEvent event) {
             events.add(event);
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public void close() {
+        }
+    }
+
+    private static final class NeverCompletingAudioRenderer
+            implements TableRenderer {
+
+        CompletableFuture<Void> audioBarrier;
+
+        @Override
+        public CompletionStage<Void> open(TableSnapshot initialState) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public CompletionStage<Void> render(TableVisualEvent event) {
+            if (event instanceof TableVisualEvent.AudioCue) {
+                audioBarrier = new CompletableFuture<>();
+                return audioBarrier;
+            }
             return CompletableFuture.completedFuture(null);
         }
 

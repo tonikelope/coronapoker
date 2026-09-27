@@ -9,6 +9,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Routes dealer-owned audio to the attached renderer.
@@ -19,14 +20,30 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public final class TableEventGameAudioSink implements GameAudioSink {
 
+    private static final long DEFAULT_WAIT_LIMIT_MILLIS = 30_000L;
+    private static final long TIMEOUT_CUE_WAIT_LIMIT_MILLIS = 4_000L;
     private final TableEventBridge events;
     private final Set<String> rendererOwned;
+    private final long waitLimitMillis;
+    private final long timeoutCueWaitLimitMillis;
 
     public TableEventGameAudioSink(TableEventBridge events,
             Set<String> rendererOwned) {
+        this(events, rendererOwned, DEFAULT_WAIT_LIMIT_MILLIS,
+                TIMEOUT_CUE_WAIT_LIMIT_MILLIS);
+    }
+
+    TableEventGameAudioSink(TableEventBridge events,
+            Set<String> rendererOwned, long waitLimitMillis,
+            long timeoutCueWaitLimitMillis) {
         this.events = Objects.requireNonNull(events, "events");
         this.rendererOwned = Set.copyOf(Objects.requireNonNull(
                 rendererOwned, "rendererOwned"));
+        if (waitLimitMillis <= 0L || timeoutCueWaitLimitMillis <= 0L) {
+            throw new IllegalArgumentException("Audio wait limits must be positive");
+        }
+        this.waitLimitMillis = waitLimitMillis;
+        this.timeoutCueWaitLimitMillis = timeoutCueWaitLimitMillis;
     }
 
     @Override
@@ -139,7 +156,15 @@ public final class TableEventGameAudioSink implements GameAudioSink {
                     new TableVisualEvent.AudioCue(sequence, operation,
                             normalized, wait, forceClose, bypassMuted,
                             forceSilent));
-            if (wait) barrier.toCompletableFuture().join();
+            if (wait) {
+                long limit = "misc/timeout.wav".equals(normalized)
+                        ? timeoutCueWaitLimitMillis : waitLimitMillis;
+                // Audio is presentation. A missing/reset output device or a
+                // lost backend callback must never retain the authoritative
+                // dealer thread and freeze a turn indefinitely.
+                barrier.toCompletableFuture().completeOnTimeout(null, limit,
+                        TimeUnit.MILLISECONDS).join();
+            }
             return true;
         } catch (CompletionException | IllegalStateException failure) {
             return false;

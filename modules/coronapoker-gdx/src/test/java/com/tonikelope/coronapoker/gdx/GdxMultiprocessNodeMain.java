@@ -2063,6 +2063,15 @@ public final class GdxMultiprocessNodeMain {
         table.setHandLimit(true);
         table.setHandLimitCount(config.hands);
         table.setThinkTime(false);
+        if ("reconnect-every-street".equals(config.scenario)) {
+            // This scenario must reach a live decision on each street. Its
+            // oracle is transport reconnection, not short-stack elimination;
+            // keep the real no-limit game and bot, but give every seat enough
+            // depth that a seeded four-hand run cannot accidentally consume
+            // the requested river action before the socket cut is exercised.
+            table.setMaxBuyinBb(NewGameTableDraft.MAX_BUYIN_BB);
+            table.setBuyin(table.maximumBuyin());
+        }
         if ("allin-rebuy".equals(config.scenario)
                 || "spectator-rebuy-cycle".equals(config.scenario)
                 || "spectator-recovery-mix".equals(config.scenario)

@@ -483,12 +483,14 @@ class GdxNetworkHumanProjectionIntegrationTest {
 
                 TableSession hostTable = host.tableSession().toCompletableFuture()
                         .get(5, TimeUnit.SECONDS);
-                ProjectionRenderer hostRenderer = new ProjectionRenderer(hostTable);
+                ProjectionRenderer hostRenderer = new ProjectionRenderer(
+                        hostTable, true);
                 hostTable.attach(hostRenderer).toCompletableFuture()
                         .get(5, TimeUnit.SECONDS);
                 TableSession clientTable = client.tableSession().toCompletableFuture()
                         .get(5, TimeUnit.SECONDS);
-                ProjectionRenderer clientRenderer = new ProjectionRenderer(clientTable);
+                ProjectionRenderer clientRenderer = new ProjectionRenderer(
+                        clientTable, true);
                 clientTable.attach(clientRenderer).toCompletableFuture()
                         .get(5, TimeUnit.SECONDS);
 
@@ -2697,11 +2699,18 @@ class GdxNetworkHumanProjectionIntegrationTest {
         private final AtomicBoolean sawTimeoutCue = new AtomicBoolean();
         private final AtomicBoolean sawTimeoutState = new AtomicBoolean();
         private final AtomicBoolean closed = new AtomicBoolean();
+        private final boolean loseTimeoutAudioCompletion;
         private final EnumSet<TableSnapshot.Street> streets
                 = EnumSet.noneOf(TableSnapshot.Street.class);
 
         ProjectionRenderer(TableSession table) {
+            this(table, false);
+        }
+
+        ProjectionRenderer(TableSession table,
+                boolean loseTimeoutAudioCompletion) {
             this.table = table;
+            this.loseTimeoutAudioCompletion = loseTimeoutAudioCompletion;
         }
 
         @Override
@@ -2742,6 +2751,12 @@ class GdxNetworkHumanProjectionIntegrationTest {
                     }
                 } else if ("misc/timeout.wav".equals(cue.resource())) {
                     sawTimeoutCue.set(true);
+                    if (loseTimeoutAudioCompletion
+                            && cue.waitForCompletion()) {
+                        // Models OpenAL accepting playback while no output
+                        // device is available and never firing completion.
+                        return new CompletableFuture<>();
+                    }
                 }
             }
             if (event instanceof TableVisualEvent.PlayerTimeout timeout

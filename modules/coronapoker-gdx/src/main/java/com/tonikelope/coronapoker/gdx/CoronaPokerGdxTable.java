@@ -856,6 +856,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final Set<String> failedPreferenceSoundCues = new HashSet<>();
     private final Map<String, Music> liveAudioCueLoops = new HashMap<>();
     private final List<LiveAudioPlayback> liveAudioCueWaits = new ArrayList<>();
+    private static final float AUDIO_WAIT_START_GRACE_SECONDS = 0.12f;
+    private static final float AUDIO_WAIT_MAX_SECONDS = 12f;
+    private static final float TIMEOUT_AUDIO_WAIT_MAX_SECONDS = 4f;
     private Sound liveDangerAlertSound;
     private long liveDangerAlertSoundId = -1L;
     private boolean liveAudioLoopsMuted;
@@ -3388,6 +3391,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateTableChat();
         updateVoiceRecording();
         updateRecoveryStopTransition();
+        updateAudioCueWaits();
         recordFrame(delta);
         if (activeDialog != null) {
             activeDialog.setTimerPaused(totalTime,
@@ -8440,7 +8444,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // next action overtake the same flow that Swing waits for.
         Music playback = Gdx.audio.newMusic(file);
         LiveAudioPlayback active = new LiveAudioPlayback(resource,
-                playback, barrier);
+                playback, barrier, totalTime);
         liveAudioCueWaits.add(active);
         playback.setVolume(audible ? effectsVolume : 0f);
         playback.setOnCompletionListener(completed ->
@@ -8461,6 +8465,38 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (failure == null) active.barrier.complete(null);
             else active.barrier.completeExceptionally(failure);
         }
+    }
+
+    /**
+     * OpenAL completion listeners are advisory: an output-device reset or a
+     * backend edge case can lose the callback after playback has stopped. A
+     * wait-for-completion cue is allowed to pace presentation, but it must
+     * never retain the dealer forever (the local timeout decision is one such
+     * causal waiter).
+     */
+    private void updateAudioCueWaits() {
+        for (LiveAudioPlayback active : List.copyOf(liveAudioCueWaits)) {
+            boolean playing;
+            try {
+                playing = active.music.isPlaying();
+            } catch (Throwable unavailable) {
+                finishAudioCue(active, null);
+                continue;
+            }
+            if (audioWaitMustFinish(active.resource, active.startedAt,
+                    totalTime, playing)) {
+                finishAudioCue(active, null);
+            }
+        }
+    }
+
+    static boolean audioWaitMustFinish(String resource, float startedAt,
+            float now, boolean playing) {
+        float elapsed = Math.max(0f, now - startedAt);
+        if (!playing && elapsed >= AUDIO_WAIT_START_GRACE_SECONDS) return true;
+        float maximum = "misc/timeout.wav".equals(resource)
+                ? TIMEOUT_AUDIO_WAIT_MAX_SECONDS : AUDIO_WAIT_MAX_SECONDS;
+        return elapsed >= maximum;
     }
 
     private void stopAudioCue(String resource) {
@@ -16062,12 +16098,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final String resource;
         final Music music;
         final CompletableFuture<Void> barrier;
+        final float startedAt;
 
         LiveAudioPlayback(String resource, Music music,
-                CompletableFuture<Void> barrier) {
+                CompletableFuture<Void> barrier, float startedAt) {
             this.resource = resource;
             this.music = music;
             this.barrier = barrier;
+            this.startedAt = startedAt;
         }
     }
 

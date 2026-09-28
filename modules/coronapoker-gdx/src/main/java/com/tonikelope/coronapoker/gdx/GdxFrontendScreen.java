@@ -2899,9 +2899,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return;
         }
         String lobbyTitle = uppercase(gameText.translate("gdx.lobby.title"));
-        textFit(titleFont, lobbyTitle, 59f, 890f,
-                new Color(0x000000aa), false, 1290f);
-        textFit(titleFont, lobbyTitle, 55f, 894f, GOLD, false, 1290f);
+        textFit(titleFont, lobbyTitle, WIDTH / 2f + 4f, 1000f,
+                new Color(0x000000aa), true, 900f);
+        textFit(titleFont, lobbyTitle, WIDTH / 2f, 1004f, GOLD, true, 900f);
 
         panel(35f, 180f, 430f, 650f,
                 uppercase(gameText.translate("game.timba")));
@@ -2959,15 +2959,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } else if (!lobbyEmojiPickerOpen) {
             drawLobbyMessages(state.chat(), 525f, 744f, 840f);
         }
-        drawLobbyChatInput(525f, 215f, 440f);
-        button(965f, 215f, 85f, 70f,
+        drawLobbyChatInput(525f, 215f, 395f);
+        button(930f, 215f, 90f, 70f,
                 uppercase(gameText.translate("gdx.lobby.emoji")), false,
                 () -> {
                     lobbyImageMode = false;
                     lobbyEmojiPickerOpen = !lobbyEmojiPickerOpen;
                     activateField("lobbyChat");
                 });
-        button(1060f, 215f, 85f, 70f,
+        button(1030f, 215f, 140f, 70f,
                 uppercase(gameText.translate("gdx.lobby.image")), false,
                 () -> {
                     lobbyEmojiPickerOpen = false;
@@ -2975,12 +2975,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     activateField(lobbyImageMode ? "lobbyImage" : "lobbyChat");
                     if (lobbyImageMode) refreshLobbyHistoryMedia();
                 });
-        button(1155f, 215f, 85f, 70f,
+        button(1180f, 215f, 80f, 70f,
                 uppercase(gameText.translate(lobbyVoiceLive || lobbyVoiceOpening
                         ? "audio.preview_parar" : "gdx.lobby.voice")), false,
                 this::toggleLobbyVoiceRecording, canUseLobbyVoice()
                         && !lobbyCommandPending && !lobbyVoiceStopping);
-        button(1250f, 215f, 115f, 70f,
+        button(1270f, 215f, 95f, 70f,
                 uppercase(gameText.translate("ui.enviar")), true,
                 this::sendLobbyComposer,
                 !lobbyCommandPending && !(lobbyImageMode
@@ -4519,11 +4519,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             });
         }
         button(x + 30f, y + 18f, 155f, 52f,
-                uppercase(gameText.translate("ui.imagen_anterior")), false,
+                uppercase(gameText.translate("gdx.lobby.previous")), false,
                 () -> lobbyEmojiPage = Math.max(0, lobbyEmojiPage - 1),
                 lobbyEmojiPage > 0);
         button(x + w - 185f, y + 18f, 155f, 52f,
-                uppercase(gameText.translate("ui.imagen_siguiente")), false,
+                uppercase(gameText.translate("gdx.lobby.next")), false,
                 () -> lobbyEmojiPage = Math.min(pageCount - 1,
                         lobbyEmojiPage + 1), lobbyEmojiPage + 1 < pageCount);
         button(x + w / 2f - 80f, y + 18f, 160f, 52f,
@@ -6378,9 +6378,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawProgress() {
         boolean joining = connection.mode() == NewGameConnectionDraft.Mode.JOIN;
-        String[] names = joining
-                ? new String[]{gameText.translate("game.unirme_a_timba")}
-                : new String[]{uppercase(gameText.translate("gdx.connection")),
+        if (joining) {
+            return;
+        }
+        String[] names = new String[]{uppercase(gameText.translate("gdx.connection")),
                     uppercase(gameText.translate("newgame.grupo_ciegas")),
                     uppercase(gameText.translate("newgame.grupo_compra")),
                     uppercase(gameText.translate("newgame.grupo_partida")),
@@ -6398,7 +6399,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 shapes.setColor(GOLD);
                 roundedRect(x + 5f, y + 15f, 4f, 48f, 2f);
             }
-            drawNavIcon(joining ? 0 : i, x + 39f, y + 39f,
+            drawNavIcon(i, x + 39f, y + 39f,
                     selected ? CYAN : DISABLED);
             textFit(actionFont, names[i], x + 74f, y + 49f,
                     selected ? Color.WHITE : MUTED, false, 230f);
@@ -6410,56 +6411,58 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawIdentityPage() {
-        panel(430f, 185f, 670f, 625f,
+        float offsetX = connection.mode() == NewGameConnectionDraft.Mode.JOIN
+                ? -182.5f : 0f;
+        panel(430f + offsetX, 185f, 670f, 625f,
                 uppercase(gameText.translate("gdx.newgame.your_profile")));
-        panel(1130f, 185f, 725f, 625f,
+        panel(1130f + offsetX, 185f, 725f, 625f,
                 uppercase(gameText.translate("gdx.connection")));
 
         shapes.setColor(CYAN_DARK);
-        shapes.circle(520f, 660f, 70f, 64);
+        shapes.circle(520f + offsetX, 660f, 70f, 64);
         shapes.setColor(PANEL_LIGHT);
-        shapes.circle(520f, 660f, 61f, 64);
-        drawAvatarIcon(520f, 660f);
-        hit(445f, 580f, 150f, 155f,
+        shapes.circle(520f + offsetX, 660f, 61f, 64);
+        drawAvatarIcon(520f + offsetX, 660f);
+        hit(445f + offsetX, 580f, 150f, 155f,
                 this::selectAvatar);
         textFit(tinyFont, avatarSelectionPending
                 ? uppercase(gameText.translate("gdx.opening"))
                 : uppercase(gameText.translate("gdx.change")),
-                520f, 570f, avatarSelectionPending ? DISABLED : CYAN,
+                520f + offsetX, 570f, avatarSelectionPending ? DISABLED : CYAN,
                 true, 145f);
         if (connection.avatar() != null) {
-            button(455f, 515f, 130f, 42f,
+            button(455f + offsetX, 515f, 130f, 42f,
                     uppercase(gameText.translate("gdx.remove")), false,
                     this::resetAvatar, !avatarSelectionPending);
         }
 
-        field(610f, 630f, 450f, gameText.translate("gdx.newgame.nick_required"),
+        field(610f + offsetX, 630f, 450f, gameText.translate("gdx.newgame.nick_required"),
                 connection.nickname(), "nick", false);
-        field(610f, 475f, 450f, gameText.translate("gdx.newgame.password_optional"),
+        field(610f + offsetX, 475f, 450f, gameText.translate("gdx.newgame.password_optional"),
                 connection.password(), "password", true);
         if (connection.mode() != NewGameConnectionDraft.Mode.JOIN) {
-            toggle(610f, 325f, 450f,
+            toggle(610f + offsetX, 325f, 450f,
                     uppercase(gameText.translate(
                             "gdx.newgame.recover_previous")),
                     connection.recoverRequested(), this::toggleRecover, true);
         }
 
-        field(1170f, 630f, 430f,
+        field(1170f + offsetX, 630f, 430f,
                 gameText.translate("gdx.newgame.server_required"),
                 connection.server(), "server", false);
-        field(1630f, 630f, 175f, gameText.translate("gdx.port"),
+        field(1630f + offsetX, 630f, 175f, gameText.translate("gdx.port"),
                 connection.port(), "port", false);
         if (connection.mode() == NewGameConnectionDraft.Mode.JOIN) {
             String history = connection.serverHistory().isEmpty()
                     ? gameText.translate("gdx.newgame.no_previous_servers")
                     : connection.serverHistory().get(historyIndex < 0
                             ? connection.serverHistory().size() - 1 : historyIndex);
-            bidirectionalChoice(1170f, 475f, 635f,
+            bidirectionalChoice(1170f + offsetX, 475f, 635f,
                     gameText.translate("gdx.newgame.previous_servers"), history,
                     this::previousServerHistory, this::nextServerHistory,
                     !connection.serverHistory().isEmpty());
         } else {
-            toggle(1170f, 475f, 635f, "UPnP", connection.upnp(),
+            toggle(1170f + offsetX, 475f, 635f, "UPnP", connection.upnp(),
                     () -> connection.setUpnp(!connection.upnp()), true);
         }
     }

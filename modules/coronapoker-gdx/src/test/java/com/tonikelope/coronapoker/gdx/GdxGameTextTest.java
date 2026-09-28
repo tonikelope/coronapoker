@@ -37,7 +37,7 @@ final class GdxGameTextTest {
 
         assertEquals(spanishKeys, englishKeys,
                 "GDX must never fall back to a different language or raw key");
-        assertEquals(485, spanishKeys.size(),
+        assertEquals(487, spanishKeys.size(),
                 "new GDX labels must be added symmetrically");
         for (String key : spanishKeys) {
             assertFalse(spanish.getProperty(key).isBlank(), key + " empty in es");
@@ -89,6 +89,9 @@ final class GdxGameTextTest {
                 "", text));
         assertEquals("Paste an image or GIF URL",
                 text.translate("gdx.lobby.image_url_placeholder"));
+        assertEquals("Insert image", text.translate("gdx.lobby.image"));
+        assertEquals("Previous", text.translate("gdx.lobby.previous"));
+        assertEquals("Next", text.translate("gdx.lobby.next"));
         assertEquals("Page 2 / 58",
                 text.translate("gdx.lobby.page", 2, 58));
         assertEquals("Recording - press stop to send",

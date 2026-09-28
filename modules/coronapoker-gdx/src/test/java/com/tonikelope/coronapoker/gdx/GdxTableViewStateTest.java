@@ -2153,13 +2153,27 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void decorativeChipGroupsCommitOnlyTheExactContribution() {
-        assertEquals(0d, CoronaPokerGdxTable.landedCounterContribution(
-                0.2d, 0, 3));
-        assertEquals(0d, CoronaPokerGdxTable.landedCounterContribution(
-                0.2d, 2, 3));
-        assertEquals(0.2d, CoronaPokerGdxTable.landedCounterContribution(
-                0.2d, 3, 3));
+    void visualCounterStepsUseRealChipDenominationsAndPreserveTheTotal() {
+        double[] splitBlind = CoronaPokerGdxTable.splitVisualCounterAmounts(
+                0.2d, 3, 0.1d);
+        assertEquals(0d, splitBlind[0]);
+        assertEquals(0.1d, splitBlind[1]);
+        assertEquals(0.1d, splitBlind[2]);
+
+        double[] largerAmount = CoronaPokerGdxTable.splitVisualCounterAmounts(
+                1.3d, 4, 0.1d);
+        assertEquals(0.3d, largerAmount[0]);
+        assertEquals(0.3d, largerAmount[1]);
+        assertEquals(0.3d, largerAmount[2]);
+        assertEquals(0.4d, largerAmount[3]);
+        assertEquals(1.3d, java.util.Arrays.stream(largerAmount).sum(),
+                0.000_001d);
+
+        double[] remainder = CoronaPokerGdxTable.splitVisualCounterAmounts(
+                0.05d, 3, 0.1d);
+        assertEquals(0d, remainder[0]);
+        assertEquals(0d, remainder[1]);
+        assertEquals(0.05d, remainder[2]);
     }
 
     @Test

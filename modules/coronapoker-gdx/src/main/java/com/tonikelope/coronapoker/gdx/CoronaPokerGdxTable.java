@@ -2804,7 +2804,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             TableSnapshot presentationSnapshot = liveState.snapshot();
             if (liveActionChips.isEmpty()) {
                 liveChipBatch = new LiveChipBatch(collect, System.nanoTime(),
-                        barrier, presentationSnapshot, livePotContributions);
+                        barrier, presentationSnapshot, livePotContributions,
+                        liveCounterDenomination());
             } else {
                 // Swing lets action chips fly without holding the next turn,
                 // but never duplicates them when the street is collected.
@@ -2825,7 +2826,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return;
             }
             liveActionChips.add(new LiveActionChip(action,
-                    System.nanoTime(), liveCounterAnimationEnabled()));
+                    System.nanoTime(), liveCounterAnimationEnabled(),
+                    liveCounterDenomination()));
             // The canonical sequence fixes both the action label and the exact
             // post-action balances. Counter interpolation remains cosmetic.
             liveState.apply(event);
@@ -2854,7 +2856,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return;
             }
             liveState.apply(event);
-            livePayout = new LivePayout(payout, System.nanoTime(), barrier);
+            livePayout = new LivePayout(payout, System.nanoTime(), barrier,
+                    liveCounterDenomination());
             syncSeatsFromLiveState();
         } else if (event instanceof TableVisualEvent.Rebuy rebuy) {
             if (liveRebuy != null) {
@@ -8224,7 +8227,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             liveChipBatch = new LiveChipBatch(pending.event,
                     System.nanoTime(), pending.barrier,
                     pending.presentationSnapshot,
-                    livePotContributions);
+                    livePotContributions, liveCounterDenomination());
         }
     }
 
@@ -9991,15 +9994,35 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return Math.max(0d, canonicalPotAfter + payout - landed);
     }
 
-    static double landedCounterContribution(double exactContribution,
-            int landedChips, int totalChips) {
-        // The extra GDX sprites are purely decorative. Dividing money among
-        // them made the counter expose invented fractions such as 0.07 while
-        // a three-chip group was landing. Swing commits the player's exact
-        // contribution when its visual flight finishes; preserve that causal
-        // behaviour without changing the canonical economy.
-        return totalChips > 0 && landedChips >= totalChips
-                ? exactContribution : 0d;
+    static double[] splitVisualCounterAmounts(double exactAmount,
+            int visualChipCount, double minimumChip) {
+        if (visualChipCount <= 0) {
+            return new double[0];
+        }
+        long totalMinor = Math.max(0L, Math.round(exactAmount * 100d));
+        long denominationMinor = Math.max(1L,
+                Math.round(Math.abs(minimumChip) * 100d));
+        long wholeUnits = totalMinor / denominationMinor;
+        long remainderMinor = totalMinor % denominationMinor;
+        double[] amounts = new double[visualChipCount];
+        long previousUnits = 0L;
+        for (int index = 0; index < visualChipCount; index++) {
+            long cumulativeUnits = (index + 1L) * wholeUnits
+                    / visualChipCount;
+            long units = cumulativeUnits - previousUnits;
+            long minor = units * denominationMinor;
+            if (index == visualChipCount - 1) {
+                minor += remainderMinor;
+            }
+            amounts[index] = minor / 100d;
+            previousUnits = cumulativeUnits;
+        }
+        return amounts;
+    }
+
+    private double liveCounterDenomination() {
+        double smallBlind = liveState == null ? 0d : liveState.smallBlind();
+        return smallBlind > 0d ? smallBlind : 0.01d;
     }
 
     private double livePot() {
@@ -17117,7 +17140,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean soundPlayed;
 
         LiveActionChip(TableVisualEvent.PlayerAction event,
-                long startedAtNanos, boolean deferPlayerCounters) {
+                long startedAtNanos, boolean deferPlayerCounters,
+                double minimumChip) {
             this.event = event;
             this.startedAtNanos = startedAtNanos;
             this.deferPlayerCounters = deferPlayerCounters;
@@ -17134,17 +17158,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 default -> 0;
             };
             ArrayList<LiveChip> created = new ArrayList<>(chipCount);
-            double base = event.contributionDelta() / chipCount;
+            double[] contributions = splitVisualCounterAmounts(
+                    event.contributionDelta(), chipCount, minimumChip);
             for (int chip = 0; chip < chipCount; chip++) {
-                double contribution = chip == chipCount - 1
-                        ? event.contributionDelta() - base * (chipCount - 1)
-                        : base;
                 created.add(new LiveChip(event.nickname(),
                         CHIP_FLIGHT_DELAY + chip * 0.065f,
                         CHIP_FLIGHT_SECONDS + chip * 0.035f,
                         Math.floorMod(event.nickname().hashCode()
                                 + chip * 53, 360),
-                        (baseColor + chip) % 4, chip, contribution));
+                        (baseColor + chip) % 4, chip, contributions[chip]));
             }
             chips = List.copyOf(created);
         }
@@ -17159,12 +17181,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
 
         double landedContribution(float elapsed) {
-            int landed = 0;
+            double landed = 0d;
             for (LiveChip chip : chips) {
-                if (chip.progress(elapsed) >= 1f) landed++;
+                if (chip.progress(elapsed) >= 1f) {
+                    landed += chip.contribution;
+                }
             }
-            return landedCounterContribution(event.contributionDelta(),
-                    landed, chips.size());
+            return landed;
         }
 
     }
@@ -17192,18 +17215,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final List<LivePayoutChip> chips;
 
         LivePayout(TableVisualEvent.Payout event, long startedAtNanos,
-                CompletableFuture<Void> barrier) {
+                CompletableFuture<Void> barrier, double minimumChip) {
             this.event = event;
             this.startedAtNanos = startedAtNanos;
             this.barrier = barrier;
             List<LivePayoutChip> created = new ArrayList<>(18);
-            double base = event.amount() / 18d;
+            double[] amounts = splitVisualCounterAmounts(event.amount(), 18,
+                    minimumChip);
             for (int index = 0; index < 18; index++) {
-                double amount = index == 17
-                        ? event.amount() - base * 17d : base;
                 created.add(new LivePayoutChip(index,
                         0.18f + index * 0.035f, 1.05f,
-                        index % 4, amount));
+                        index % 4, amounts[index]));
             }
             chips = List.copyOf(created);
         }
@@ -17413,7 +17435,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         LiveChipBatch(TableVisualEvent.CollectBets event, long startedAtNanos,
                 CompletableFuture<Void> barrier, TableSnapshot snapshot,
-                Map<String, Double> delivered) {
+                Map<String, Double> delivered, double minimumChip) {
             this.event = event;
             this.startedAtNanos = startedAtNanos;
             this.barrier = barrier;
@@ -17443,11 +17465,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             37f, 2, 0, smallAmount));
                 }
                 if (bigAmount > 0.000_001d) {
-                    double first = bigAmount / 2d;
+                    double[] amounts = splitVisualCounterAmounts(bigAmount, 2,
+                            minimumChip);
                     created.add(new LiveChip(bigBlind.nickname(), 0.06f, 0.36f,
-                            91f, 1, 0, first));
+                            91f, 1, 0, amounts[0]));
                     created.add(new LiveChip(bigBlind.nickname(), 0.14f, 0.38f,
-                            143f, 1, 1, bigAmount - first));
+                            143f, 1, 1, amounts[1]));
                 }
                 chips = List.copyOf(created);
                 return;
@@ -17466,16 +17489,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     case STRADDLE, DEALER_STRADDLE -> 3;
                     default -> 1;
                 };
-                double base = visualAmount / chipCount;
+                double[] contributions = splitVisualCounterAmounts(visualAmount,
+                        chipCount, minimumChip);
                 for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {
-                    double contribution = chipIndex == chipCount - 1
-                            ? visualAmount - base * (chipCount - 1) : base;
                     float start = transferIndex * 0.025f + chipIndex * 0.06f;
                     float duration = 0.34f + chipIndex * 0.02f;
                     created.add(new LiveChip(transfer.nickname(), start, duration,
                             (transferIndex * 97f + chipIndex * 53f) % 360f,
                             (transferIndex + chipIndex) % 4, chipIndex,
-                            contribution));
+                            contributions[chipIndex]));
                 }
             }
             chips = List.copyOf(created);
@@ -17501,21 +17523,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         double landedContribution(String nickname, float elapsed) {
             double total = 0d;
-            for (TableVisualEvent.ChipTransfer transfer : event.transfers()) {
-                if (nickname != null && !nickname.equals(transfer.nickname())) {
-                    continue;
+            for (LiveChip chip : chips) {
+                if ((nickname == null || nickname.equals(chip.nickname))
+                        && chip.progress(elapsed) >= 1f) {
+                    total += chip.contribution;
                 }
-                int groupSize = 0;
-                int landed = 0;
-                double exactContribution = 0d;
-                for (LiveChip chip : chips) {
-                    if (!transfer.nickname().equals(chip.nickname)) continue;
-                    groupSize++;
-                    exactContribution += chip.contribution;
-                    if (chip.progress(elapsed) >= 1f) landed++;
-                }
-                total += landedCounterContribution(exactContribution,
-                        landed, groupSize);
             }
             return total;
         }

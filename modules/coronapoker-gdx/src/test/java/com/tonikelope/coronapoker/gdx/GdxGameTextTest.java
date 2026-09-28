@@ -37,7 +37,7 @@ final class GdxGameTextTest {
 
         assertEquals(spanishKeys, englishKeys,
                 "GDX must never fall back to a different language or raw key");
-        assertEquals(487, spanishKeys.size(),
+        assertEquals(488, spanishKeys.size(),
                 "new GDX labels must be added symmetrically");
         for (String key : spanishKeys) {
             assertFalse(spanish.getProperty(key).isBlank(), key + " empty in es");
@@ -78,6 +78,7 @@ final class GdxGameTextTest {
         assertEquals("Unsaved changes",
                 text.translate("gdx.settings.unsaved.title"));
         assertEquals("Waiting room", text.translate("gdx.lobby.title"));
+        assertEquals("No limit", text.translate("gdx.lobby.no_hand_limit"));
         assertEquals("Room closed", text.translate("gdx.lobby.closed"));
         assertEquals("UPnP active",
                 GdxFrontendScreen.lobbyNetworkStatusText(
@@ -154,6 +155,8 @@ final class GdxGameTextTest {
                 text.translate("gdx.settings.unsaved.title"));
         assertEquals("No se pueden guardar más de 10 perfiles",
                 text.translate("gdx.newgame.profile_limit", 10));
+        assertEquals("Sin límite",
+                text.translate("gdx.lobby.no_hand_limit"));
         assertEquals("Preparando la sala de espera…",
                 text.translate("gdx.newgame.preparing_waiting_room"));
         assertEquals("Conectando con la sala de espera…",

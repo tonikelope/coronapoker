@@ -1000,35 +1000,35 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // A titleless panel must not inherit the decorative content bands used
         // by titled data panels. Those bands formed an unrelated rectangle
         // behind the upper menu buttons.
-        plainPanel(515f, 155f, 890f, 650f);
-        mainMenuButton(595f, 625f, 730f, 82f,
+        plainPanel(515f, 175f, 890f, 602f);
+        mainMenuButton(595f, 645f, 730f, 82f,
                 gameText.translate("game.crear_timba"), 0, true,
                 () -> openNewGame(NewGameConnectionDraft.Mode.CREATE));
-        mainMenuButton(595f, 520f, 730f, 82f,
+        mainMenuButton(595f, 540f, 730f, 82f,
                 gameText.translate("game.unirme_a_timba"), 1, false,
                 () -> openNewGame(NewGameConnectionDraft.Mode.JOIN));
-        mainMenuButton(595f, 415f, 730f, 82f,
+        mainMenuButton(595f, 435f, 730f, 82f,
                 gameText.translate("stats.estadisticas_2"), 2, false,
                 this::openStats);
-        mainMenuButton(595f, 310f, 350f, 82f,
+        mainMenuButton(595f, 330f, 350f, 82f,
                 uppercase(gameText.translate("menu.ajustes")), 3, false,
                 this::openSettings);
-        choice(975f, 310f, 350f, 82f, "",
+        choice(975f, 330f, 350f, 82f, "",
                 gameText.translate("gdx.language_name"),
                 this::toggleLanguage);
-        mainMenuButton(595f, 205f, 350f, 82f,
+        mainMenuButton(595f, 225f, 350f, 82f,
                 uppercase(gameText.translate("menu.acerca_de")), 4, false,
                 this::openAboutDialog);
-        mainMenuButton(975f, 205f, 350f, 82f,
+        mainMenuButton(975f, 225f, 350f, 82f,
                 gameText.translate("ui.salir"), 5, false,
                 Gdx.app::exit);
 
-        keyHint(535f, 75f, "F11",
+        keyHint(535f, 105f, "F11",
                 uppercase(gameText.translate("settings.modo_pantalla_completa")));
-        drawSoundControl(1336f, 70f, 55f, 55f, false);
+        drawSoundControl(1336f, 100f, 55f, 55f, false);
         String quote = menuQuotes.update(gameText.language(), frameDelta);
         if (!quote.isBlank()) {
-            italicTextFit(smallFont, quote, WIDTH / 2f, 48f,
+            italicTextFit(smallFont, quote, WIDTH / 2f, 78f,
                     Color.WHITE, true, 1180f);
         }
     }
@@ -2918,10 +2918,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         true, 210f);
             }
         }
-        textFit(smallFont, state.serverAddress(), 70f, 718f,
-                Color.WHITE, false, 360f);
+        float serverAddressWidth = state.host() ? 140f : 255f;
+        textFit(smallFont, state.serverAddress(), 170f, 748f,
+                Color.WHITE, false, serverAddressWidth);
         if (state.host()) {
-            hit(65f, 694f, 370f, 42f, this::copyLobbyConnectionData);
+            hit(160f, 720f, 150f, 42f, this::copyLobbyConnectionData);
         }
         drawLobbyGameInfo(state, 70f, state.host() ? 605f : 645f);
         if (state.host()) {
@@ -2929,8 +2930,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     uppercase(gameText.translate("auth.menu_cambiar_password")),
                     false, this::openLobbyPasswordDialog,
                     !lobbyCommandPending && !state.startingOrStarted());
-            button(70f, 392f, 360f, 64f,
-                    uppercase(gameText.translate("ui.anadir_bot")), false,
+            lobbyBotButton(70f, 392f, 360f, 64f,
+                    uppercase(gameText.translate("ui.anadir_bot")),
                     () -> submitLobbyCommand(new LobbyCommand.AddBot(), null),
                     !lobbyCommandPending
                             && state.participants().size() < LobbySnapshot.MAX_PARTICIPANTS
@@ -2995,10 +2996,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             drawLobbyVoiceStatus(535f, 312f, 820f);
         }
 
-        panel(1425f, 180f, 460f, 650f,
-                uppercase(gameText.translate("ui.participantes_conectados")));
-        text(smallFont, state.participants().size() + "/"
-                + LobbySnapshot.MAX_PARTICIPANTS, 1845f, 794f, CYAN, true);
+        panel(1425f, 180f, 460f, 650f, "");
+        textFit(actionFont,
+                uppercase(gameText.translate("ui.participantes_conectados")),
+                1455f, 795f, GOLD, false, 335f);
+        textFit(actionFont, state.participants().size() + "/"
+                + LobbySnapshot.MAX_PARTICIPANTS, 1842f, 795f, CYAN,
+                true, 72f);
+        shapes.setColor(new Color(0x31445f90));
+        shapes.rect(1455f, 759f, 400f, 1f);
         float participantY = 705f;
         for (LobbyParticipant participant : state.participants()) {
             drawLobbyParticipant(participant, 1450f, participantY, 410f, 54f);
@@ -3012,7 +3018,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         button(1640f, 55f, 245f, 70f,
                 uppercase(gameText.translate("menu.ajustes")), false,
                 this::openSettings);
-        drawSoundControl(1430f, 62f, 175f, 58f, true);
+        drawSoundControl(1553f, 62f, 55f, 58f, false);
 
     }
 
@@ -3837,15 +3843,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 + " / " + money(blind.bigBlind()));
         lobbyInfoRow(x, y - 140f, gameText.translate("game.manos"),
                 settings.handLimit()
-                ? Integer.toString(settings.handLimitCount()) : "—");
+                ? Integer.toString(settings.handLimitCount())
+                : gameText.translate("gdx.lobby.no_hand_limit"));
     }
 
     private void lobbyInfoRow(float x, float y, String label, String value) {
         shapes.setColor(new Color(0x31445f77));
         shapes.rect(x, y - 18f, 390f, 1f);
-        textFit(smallFont, label, x, y + 18f, MUTED, false, 170f);
-        textFit(smallFont, value, x + 295f, y + 18f,
-                Color.WHITE, true, 190f);
+        textFit(smallFont, label, x, y + 18f, MUTED, false, 120f);
+        textFit(smallFont, value, x + 135f, y + 18f,
+                Color.WHITE, false, 255f);
     }
 
     private static String money(double amount) {
@@ -6416,10 +6423,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         field(610f, 475f, 450f,
                 gameText.translate("gdx.newgame.password_optional"),
                 connection.password(), "password", true);
-        toggle(610f, 325f, 450f,
-                uppercase(gameText.translate("gdx.newgame.recover_previous")),
-                connection.recoverRequested(), this::toggleRecover, true);
-
         field(1170f, 630f, 430f,
                 gameText.translate("gdx.newgame.server_required"),
                 connection.server(), "server", false);
@@ -7411,6 +7414,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             clearActiveField();
         }
         boolean joining = connection.mode() == NewGameConnectionDraft.Mode.JOIN;
+        if (!joining) {
+            themedButton(430f, 55f, 500f, 70f,
+                    uppercase(gameText.translate(
+                            "gdx.newgame.recover_previous")),
+                    connection.recoverRequested()
+                            ? ButtonTone.POSITIVE : ButtonTone.NEUTRAL,
+                    this::toggleRecover,
+                    !submitting && !connection.recoverLoading());
+        }
         themedButton(joining ? 1040f : 1165f, joining ? 165f : 55f,
                 joining ? 240f : 250f, 70f,
                 gameText.translate("ui.cancelar"), ButtonTone.NEUTRAL,
@@ -7957,6 +7969,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 action, enabled, true, smallFont);
     }
 
+    private void lobbyBotButton(float x, float y, float w, float h,
+            String label, Runnable action, boolean enabled) {
+        themedButton(x, y, w, h, label, ButtonTone.NEUTRAL,
+                action, enabled);
+        boolean hover = enabled && hovered(x, y, w, h);
+        Color iconColor = enabled ? (hover ? CYAN : GOLD) : DISABLED;
+        drawBotIcon(x + 38f, y + h / 2f, iconColor,
+                new Color(0x0b1424ff));
+        Color divider = new Color(iconColor);
+        divider.a = enabled ? 0.28f : 0.18f;
+        shapes.setColor(divider);
+        shapes.rect(x + 76f, y + 14f, 2f, h - 28f);
+    }
+
     private void themedButton(float x, float y, float w, float h,
             String label, ButtonTone tone, Runnable action, boolean enabled) {
         themedButton(x, y, w, h, label, tone, action, enabled, true);
@@ -8121,13 +8147,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 roundedRect(cx + 3f, cy - 14f, 15f, 23f, 2f);
             }
             case 4 -> {
-                roundedRect(cx - 18f, cy - 14f, 36f, 28f, 6f);
-                shapes.rect(cx - 3f, cy + 14f, 6f, 8f);
-                shapes.circle(cx, cy + 23f, 3.5f, 16);
-                shapes.setColor(cutout);
-                shapes.circle(cx - 8f, cy, 3.5f, 16);
-                shapes.circle(cx + 8f, cy, 3.5f, 16);
-                shapes.rect(cx - 9f, cy - 8f, 18f, 3f);
+                drawBotIcon(cx, cy, color, cutout);
             }
             default -> {
                 // Complete-table preset: a compact stack of saved sheets.
@@ -8140,6 +8160,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 shapes.rect(cx - 6f, cy - 5f, 9f, 2.5f);
             }
         }
+    }
+
+    private void drawBotIcon(float cx, float cy, Color color, Color cutout) {
+        shapes.setColor(color);
+        roundedRect(cx - 18f, cy - 14f, 36f, 28f, 6f);
+        shapes.rect(cx - 3f, cy + 14f, 6f, 8f);
+        shapes.circle(cx, cy + 23f, 3.5f, 16);
+        shapes.setColor(cutout);
+        shapes.circle(cx - 8f, cy, 3.5f, 16);
+        shapes.circle(cx + 8f, cy, 3.5f, 16);
+        shapes.rect(cx - 9f, cy - 8f, 18f, 3f);
     }
 
     private void drawAvatarIcon(float cx, float cy) {

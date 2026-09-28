@@ -142,7 +142,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             + "    gl_FragColor = pixel;\n"
             + "}\n";
     private static final Color BACKGROUND = new Color(0x031a14ff);
-    private static final Color PANEL = new Color(0x101a2ecc);
+    static final int SCREEN_PANEL_RGBA = 0x101a2ecc;
+    private static final Color PANEL = new Color(SCREEN_PANEL_RGBA);
     private static final Color PANEL_LIGHT = new Color(0x111a2add);
     private static final Color CYAN = new Color(0x36d9ffff);
     private static final Color CYAN_DARK = new Color(0x176b83ff);
@@ -983,20 +984,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         batch.begin();
         batch.setColor(Color.WHITE);
         drawFelt(WIDTH, HEIGHT);
-        if (surface == Surface.MENU || surface == Surface.LOBBY
-                || surface == Surface.SETTINGS) {
-            float logoWidth = MENU_LOGO_WIDTH;
-            float logoHeight = logoWidth * logo.getHeight() / logo.getWidth();
-            batch.draw(logo, MENU_LOGO_X,
-                    HEIGHT - MENU_LOGO_TOP - logoHeight,
-                    logoWidth, logoHeight);
-        }
+        // The logo is part of the fixed frontend background. Keeping it here,
+        // rather than in selected screens, prevents it from jumping or
+        // disappearing while navigating to statistics or table setup.
+        float logoWidth = MENU_LOGO_WIDTH;
+        float logoHeight = logoWidth * logo.getHeight() / logo.getWidth();
+        batch.draw(logo, MENU_LOGO_X,
+                HEIGHT - MENU_LOGO_TOP - logoHeight,
+                logoWidth, logoHeight);
         batch.setColor(Color.WHITE);
         batch.end();
     }
 
     private void drawMainMenu() {
-        panel(515f, 155f, 890f, 650f, "");
+        // A titleless panel must not inherit the decorative content bands used
+        // by titled data panels. Those bands formed an unrelated rectangle
+        // behind the upper menu buttons.
+        plainPanel(515f, 155f, 890f, 650f);
         mainMenuButton(595f, 625f, 730f, 82f,
                 gameText.translate("game.crear_timba"), 0, true,
                 () -> openNewGame(NewGameConnectionDraft.Mode.CREATE));
@@ -3701,8 +3705,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     : frontendInputWindow(uiFont, draft,
                             draft, w - 44f, focused);
             drawInputSelection(x + 22f, y + 17f, 36f, window, focused);
-            text(uiFont, window.text(), x + 22f, y + 44f,
-                    draft.isEmpty() ? DISABLED : Color.WHITE, false);
+            if (draft.isEmpty()) {
+                textFit(uiFont, window.text(), x + 22f, y + 44f,
+                        DISABLED, false, w - 44f);
+            } else {
+                text(uiFont, window.text(), x + 22f, y + 44f,
+                        Color.WHITE, false);
+            }
             drawInputCaret(x + 22f + window.caretOffset(), y + 17f, 36f,
                     focused);
         }
@@ -6370,8 +6379,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawNewGameDialogFrame() {
-        shapes.setColor(0f, 0f, 0f, 0.38f);
-        shapes.rect(0f, 0f, WIDTH, HEIGHT);
+        // This is a full frontend screen, not a modal. Do not dim the complete
+        // background: the shared felt and fixed logo must remain visible just
+        // as they do in the menu, settings and statistics screens.
         shapes.setColor(0f, 0f, 0f, 0.42f);
         boolean joining = connection.mode() == NewGameConnectionDraft.Mode.JOIN;
         float frameX = joining ? 190f : 50f;
@@ -6380,7 +6390,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float frameH = joining ? 820f : 990f;
         roundedRect(frameX, frameY, frameW, frameH, 24f);
         outerBox(frameX - 10f, frameY + 10f, frameW + 20f, frameH,
-                CYAN_DARK, new Color(0x071321f7));
+                CYAN_DARK, PANEL);
         shapes.setColor(new Color(0x36d9ffcc));
         roundedRect(frameX + 12f, frameY + frameH - 3f,
                 frameW - 24f, 3f, 1.5f);
@@ -7596,6 +7606,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             shapes.setColor(new Color(0x31445f90));
             shapes.rect(x + 30f, y + h - 71f, w - 60f, 1f);
         }
+    }
+
+    /** Shared glass panel without content bands or a title/header region. */
+    private void plainPanel(float x, float y, float w, float h) {
+        outerBox(x, y, w, h, LINE, PANEL);
+        shapes.setColor(new Color(0x36d9ff70));
+        shapes.rect(x + 18f, y + h - 8f, w - 36f, 2f);
     }
 
     private void sectionTag(float x, float y, float w, String label,

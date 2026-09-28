@@ -19,8 +19,12 @@ final class GdxSettingsChrome {
     private static final Color CYAN_DARK = new Color(0x176b83ff);
     private static final Color GOLD = new Color(0xffe07aff);
     private static final Color LINE = new Color(0x31445fff);
-    private static final Color PANEL = new Color(0x071321f2);
-    private static final Color CONTENT = new Color(0x081828d9);
+    // Full-screen settings is another frontend surface, so its glass opacity
+    // must match menu/statistics/table setup rather than an opaque modal.
+    private static final Color PANEL = new Color(
+            GdxFrontendScreen.SCREEN_PANEL_RGBA);
+    private static final Color CONTENT = new Color(
+            GdxFrontendScreen.SCREEN_PANEL_RGBA);
     private static final Color TAB = new Color(0x0b1729b8);
     private static final Color ACTIVE_TAB = new Color(0x123047e8);
     private static final Color ACTIVE_SUBTAB = new Color(0x171b1de8);

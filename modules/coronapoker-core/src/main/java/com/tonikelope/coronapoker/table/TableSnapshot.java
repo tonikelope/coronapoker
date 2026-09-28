@@ -80,10 +80,24 @@ public record TableSnapshot(
             int reconnectionCount,
             long telemetryAt,
             boolean winner,
+            boolean underTheGun,
             Position position,
             String lastAction,
             String handName,
             List<CardSnapshot> holeCards) {
+
+        public PlayerSnapshot(String nickname, double stack,
+                double streetBet, double potContribution, boolean active,
+                boolean spectator, boolean exited, boolean timedOut,
+                int latency, int previousLatency, int reconnectionCount,
+                long telemetryAt, boolean winner, Position position,
+                String lastAction, String handName,
+                List<CardSnapshot> holeCards) {
+            this(nickname, stack, streetBet, potContribution, active,
+                    spectator, exited, timedOut, latency, previousLatency,
+                    reconnectionCount, telemetryAt, winner, false, position,
+                    lastAction, handName, holeCards);
+        }
 
         public PlayerSnapshot {
             Objects.requireNonNull(nickname, "nickname");

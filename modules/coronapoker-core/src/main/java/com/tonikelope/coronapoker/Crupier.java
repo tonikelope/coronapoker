@@ -16535,10 +16535,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             utg_real.setUTG();
             this.straddle_utg_nick = utg_real.getNickname();
         }
+        publishUnderTheGunStatus(this.straddle_utg_nick);
 
         flyStraddleChipToSeat(straddler);
 
         return posted;
+    }
+
+    private void publishUnderTheGunStatus(String nickname) {
+        String holder = nickname == null ? "" : nickname;
+        awaitAttachedTableEvent(sequence
+                -> new TableVisualEvent.UnderTheGunStatus(sequence, holder),
+                "UTG badge presentation update failed");
     }
 
     // Flies the RED straddle chip from the table CENTER to the straddler's seat (same
@@ -19385,6 +19393,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (utg_to_disable_player != null) {
                     utg_to_disable_player.disableUTG();
                 }
+                publishUnderTheGunStatus("");
             }
 
         }

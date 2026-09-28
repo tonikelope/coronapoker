@@ -22,7 +22,6 @@ public final class CorePlayerController implements GamePlayerController {
     private volatile boolean spectatorBigBlind;
     private volatile boolean loser;
     private volatile boolean chipForcedHidden;
-    private volatile boolean underTheGun;
     private volatile int winCount;
     private volatile int rabbitCount;
     private volatile int parguelaCount;
@@ -251,13 +250,13 @@ public final class CorePlayerController implements GamePlayerController {
     public synchronized void applyCurrentHandPosition() {
         DealerView current = dealer;
         PlayerState.Position position = PlayerState.Position.NONE;
-        underTheGun = false;
+        state.setUnderTheGun(false);
         if (current != null) {
             String nickname = getNickname();
             if (nickname.equals(current.getDealer_nick())) position = PlayerState.Position.DEALER;
             if (nickname.equals(current.getSb_nick())) position = PlayerState.Position.SMALL_BLIND;
             if (nickname.equals(current.getBb_nick())) position = PlayerState.Position.BIG_BLIND;
-            underTheGun = nickname.equals(current.getUtg_nick());
+            state.setUnderTheGun(nickname.equals(current.getUtg_nick()));
         }
         state.setPosition(position);
         postForcedBlind(current, position);
@@ -504,8 +503,8 @@ public final class CorePlayerController implements GamePlayerController {
     }
     @Override public void setChipForcedHidden(boolean hidden) { chipForcedHidden = hidden; }
     @Override public int getParguela_counter() { return parguelaCount; }
-    @Override public void disableUTG() { underTheGun = false; }
-    @Override public void setUTG() { underTheGun = true; }
+    @Override public void disableUTG() { state.setUnderTheGun(false); }
+    @Override public void setUTG() { state.setUnderTheGun(true); }
 
     @Override public int getHoleCard1Index() { return albertaIndex(firstCard); }
     @Override public int getHoleCard2Index() { return albertaIndex(secondCard); }

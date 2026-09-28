@@ -235,6 +235,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final Matrix4 italicTransform = new Matrix4();
     private final GdxTextEditState textEdit = new GdxTextEditState();
     private final GdxKeyRepeat textDeleteRepeat = new GdxKeyRepeat();
+    private final GdxKeyRepeat pointerRepeat = new GdxKeyRepeat();
     private final Properties initialProperties;
     private final PreferencesService preferences;
     private final IdentityTrustStore identityTrust;
@@ -301,6 +302,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean startupAudioHeld;
     private boolean tableAudioSuspended;
     private Hit pressedHit;
+    private Hit pointerRepeatHit;
+    private Surface pointerRepeatSurface;
     private EditMenu editMenu;
     private String pointerSelectionField;
     private Surface surface;
@@ -639,6 +642,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             updatePromptOpen = true;
         }
         updateTextDeleteRepeat();
+        updatePointerRepeat();
         updateLobbyVoiceRecording();
         syncMusicForSurface();
         ScreenUtils.clear(BACKGROUND);
@@ -5552,11 +5556,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         text(headingFont, "+", x + w - buttonW / 2f,
                 y + h / 2f + 14f, enabled ? Color.WHITE : DISABLED, true);
         if (enabled) {
-            hit(controlsX, y, buttonW, h, minus);
+            repeatHit(controlsX, y, buttonW, h, minus);
             if (valueAction != null) {
                 hit(controlsX + buttonW, y, valueW, h, valueAction);
             }
-            hit(x + w - buttonW, y, buttonW, h, plus);
+            repeatHit(x + w - buttonW, y, buttonW, h, plus);
         }
     }
 
@@ -7206,8 +7210,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 Color.WHITE, true);
         textFit(headingFont, formatBlind(value), x + width / 2f,
                 y + 49f, GOLD, true, width - side * 2f - 24f);
-        hit(x, y, side + 6f, 72f, minus);
-        hit(x + width - side - 6f, y, side + 6f, 72f, plus);
+        repeatHit(x, y, side + 6f, 72f, minus);
+        repeatHit(x + width - side - 6f, y, side + 6f, 72f, plus);
     }
 
     private void drawBlindStructureNameDialog() {
@@ -7728,7 +7732,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             editMenuHits.add(new Hit(new Rectangle(x, y, w, h), () -> {
                 action.run();
                 editMenu = null;
-            }));
+            }, false));
         }
     }
 
@@ -7814,8 +7818,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         text(headingFont, Integer.toString(value), x + w / 2f, y + 49f,
                 enabled ? GOLD : DISABLED, true);
         if (enabled) {
-            hit(x, y, side + 6f, 72f, minus);
-            hit(x + w - side - 6f, y, side + 6f, 72f, plus);
+            repeatHit(x, y, side + 6f, 72f, minus);
+            repeatHit(x + w - side - 6f, y, side + 6f, 72f, plus);
         }
     }
 
@@ -7850,8 +7854,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 y + 46f, enabled ? GOLD : DISABLED, true,
                 Math.max(0f, w - side * 2f - 24f));
         if (enabled) {
-            hit(x, y, side + 6f, height, minus);
-            hit(x + w - side - 6f, y, side + 6f, height, plus);
+            repeatHit(x, y, side + 6f, height, minus);
+            repeatHit(x + w - side - 6f, y, side + 6f, height, plus);
         }
     }
 
@@ -8026,7 +8030,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(labelFont, label, x + w / 2f, y + h / 2f + 8f,
                 labelColor, true, w - 30f);
         if (enabled) {
-            hit(x, y, w, h, action);
+            if ("-".equals(label) || "+".equals(label)) {
+                repeatHit(x, y, w, h, action);
+            } else {
+                hit(x, y, w, h, action);
+            }
         }
     }
 
@@ -8439,12 +8447,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (surface == Surface.MENU && menuRevealProgress() < 0.98f) {
             return;
         }
-        hits.add(new Hit(new Rectangle(x, y, w, h), action));
+        hits.add(new Hit(new Rectangle(x, y, w, h), action, false));
+    }
+
+    private void repeatHit(float x, float y, float w, float h,
+            Runnable action) {
+        if (surface == Surface.MENU && menuRevealProgress() < 0.98f) {
+            return;
+        }
+        hits.add(new Hit(new Rectangle(x, y, w, h), action, true));
     }
 
     private void secondaryHit(float x, float y, float w, float h,
             Runnable action) {
-        secondaryHits.add(new Hit(new Rectangle(x, y, w, h), action));
+        secondaryHits.add(new Hit(new Rectangle(x, y, w, h), action, false));
     }
 
     private boolean hovered(float x, float y, float w, float h) {
@@ -8462,6 +8478,48 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Rectangle b = pressedHit.bounds;
         return Math.abs(b.x - x) < 0.5f && Math.abs(b.y - y) < 0.5f
                 && Math.abs(b.width - w) < 0.5f && Math.abs(b.height - h) < 0.5f;
+    }
+
+    private void updatePointerRepeat() {
+        if (pointerRepeatHit == null) return;
+        pointer.set(Gdx.input.getX(), Gdx.input.getY());
+        viewport.unproject(pointer);
+        Hit current = matchingRepeatHit(pointerRepeatHit.bounds);
+        boolean pressed = pointerRepeatSurface == surface
+                && Gdx.input.isButtonPressed(Input.Buttons.LEFT)
+                && pointerRepeatHit.bounds.contains(pointer)
+                && current != null;
+        int repeats = pointerRepeat.update(frameDelta, pressed);
+        if (!pressed) {
+            pointerRepeatHit = null;
+            pointerRepeatSurface = null;
+            return;
+        }
+        pointerRepeatHit = current;
+        for (int repeat = 0; repeat < repeats; repeat++) {
+            current.action.run();
+        }
+    }
+
+    private Hit matchingRepeatHit(Rectangle bounds) {
+        for (int index = hits.size() - 1; index >= 0; index--) {
+            Hit hit = hits.get(index);
+            if (hit.repeatable && sameBounds(hit.bounds, bounds)) return hit;
+        }
+        return null;
+    }
+
+    private static boolean sameBounds(Rectangle first, Rectangle second) {
+        return Math.abs(first.x - second.x) < 0.5f
+                && Math.abs(first.y - second.y) < 0.5f
+                && Math.abs(first.width - second.width) < 0.5f
+                && Math.abs(first.height - second.height) < 0.5f;
+    }
+
+    private void clearPointerRepeat() {
+        pointerRepeat.clear();
+        pointerRepeatHit = null;
+        pointerRepeatSurface = null;
     }
 
     private void showToast(String value) {
@@ -8525,6 +8583,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Hit hit = hits.get(i);
             if (hit.bounds.contains(pointer)) {
                 pressedHit = hit;
+                if (hit.repeatable && button == Input.Buttons.LEFT) {
+                    hit.action.run();
+                    pointerRepeatHit = hit;
+                    pointerRepeatSurface = surface;
+                    pointerRepeat.press(1);
+                }
                 return true;
             }
         }
@@ -8557,6 +8621,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         viewport.unproject(pointer);
         Hit released = pressedHit;
         pressedHit = null;
+        clearPointerRepeat();
         pointerSelectionField = null;
         if (surface == Surface.LOBBY
                 && lobbyTableTransitionActive(lobbyGameStarting, lobby)) {
@@ -8566,7 +8631,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             scrollDrag = ScrollDrag.NONE;
             return true;
         }
-        if (released != null && released.bounds.contains(pointer)) {
+        if (released != null && !released.repeatable
+                && released.bounds.contains(pointer)) {
             released.action.run();
             return true;
         }
@@ -9198,7 +9264,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         return false;
     }
-    @Override public boolean touchCancelled(int x, int y, int p, int b) { return false; }
+    @Override public boolean touchCancelled(int x, int y, int p, int b) {
+        pressedHit = null;
+        clearPointerRepeat();
+        return false;
+    }
     @Override public boolean mouseMoved(int x, int y) {
         pointer.set(x, y);
         viewport.unproject(pointer);
@@ -9397,7 +9467,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         NEUTRAL, FEATURED, POSITIVE, DANGER
     }
 
-    private record Hit(Rectangle bounds, Runnable action) {
+    private record Hit(Rectangle bounds, Runnable action, boolean repeatable) {
     }
 
     private record TextFieldHit(String id, Rectangle bounds) {

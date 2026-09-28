@@ -17,7 +17,7 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
         TableVisualEvent.PauseStatus,
         TableVisualEvent.TelemetryStatus, TableVisualEvent.PlayerTimeout,
         TableVisualEvent.HandBoundary, TableVisualEvent.Shuffle,
-        TableVisualEvent.PositionRotation,
+        TableVisualEvent.PositionRotation, TableVisualEvent.UnderTheGunStatus,
         TableVisualEvent.CollectBets, TableVisualEvent.DealHoleCard,
         TableVisualEvent.DealCommunityCard,
         TableVisualEvent.RunItTwiceBoard,
@@ -197,6 +197,15 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
                 throw new IllegalArgumentException("Position destination player is required");
             }
             Objects.requireNonNull(position, "position");
+        }
+    }
+
+    /** Current UTG badge holder; a blank nickname clears the badge. */
+    record UnderTheGunStatus(long sequence, String nickname)
+            implements TableVisualEvent {
+
+        public UnderTheGunStatus {
+            nickname = Objects.requireNonNull(nickname, "nickname").trim();
         }
     }
 

@@ -2319,6 +2319,26 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void underTheGunEventSurvivesTelemetryAndCanBeCleared() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+
+        state.apply(new TableVisualEvent.UnderTheGunStatus(1, "borja"));
+
+        state.apply(new TableVisualEvent.TelemetryStatus(2, List.of(
+                new TableVisualEvent.PlayerTelemetry(
+                        "borja", 81, 77, 3, 9_876L))));
+
+        TableSnapshot.PlayerSnapshot updated = player(state, "borja");
+        assertTrue(updated.underTheGun());
+        assertEquals(TableSnapshot.Position.BIG_BLIND, updated.position());
+        assertFalse(player(state, "ana").underTheGun());
+
+        state.apply(new TableVisualEvent.UnderTheGunStatus(3, ""));
+
+        assertFalse(player(state, "borja").underTheGun());
+    }
+
+    @Test
     void revealedHandStaysNeutralUntilItsResultArrives() {
         GdxTableViewState state = new GdxTableViewState(snapshot());
         state.apply(new TableVisualEvent.RevealHoleCards(1, "borja",

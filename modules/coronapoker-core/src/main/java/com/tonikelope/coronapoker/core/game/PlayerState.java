@@ -15,6 +15,7 @@ public class PlayerState {
             double potContribution, double pendingPayment, Decision decision,
             Position position, boolean active, boolean spectator, boolean exited,
             boolean timedOut, boolean winner, boolean showingCards,
+            boolean underTheGun,
             int latency, int previousLatency, int reconnectionCount,
             long telemetryAt, List<CardState.Snapshot> holeCards,
             String lastAction, String handName) { }
@@ -33,6 +34,7 @@ public class PlayerState {
     private volatile boolean timedOut;
     private volatile boolean winner;
     private volatile boolean showingCards;
+    private volatile boolean underTheGun;
     private volatile int latency = -2;
     private volatile int previousLatency = -2;
     private volatile int reconnectionCount;
@@ -64,6 +66,7 @@ public class PlayerState {
     public boolean timedOut() { return timedOut; }
     public boolean winner() { return winner; }
     public boolean showingCards() { return showingCards; }
+    public boolean underTheGun() { return underTheGun; }
     public String lastAction() { return lastAction; }
     public String handName() { return handName; }
     public int latency() { return latency; }
@@ -100,6 +103,7 @@ public class PlayerState {
     public void setTimedOut(boolean value) { timedOut = value; }
     public void setWinner(boolean value) { winner = value; }
     public void setShowingCards(boolean value) { showingCards = value; }
+    public void setUnderTheGun(boolean value) { underTheGun = value; }
     public void setLastAction(String value) { lastAction = Objects.requireNonNullElse(value, ""); }
     public void setHandName(String value) { handName = Objects.requireNonNullElse(value, ""); }
     public void setTelemetry(int current, int previous, int reconnections) {
@@ -115,7 +119,7 @@ public class PlayerState {
     public synchronized Snapshot snapshot() {
         return new Snapshot(nickname, buyIn, stack, bet, potContribution,
                 pendingPayment, decision, position, active, spectator, exited,
-                timedOut, winner, showingCards,
+                timedOut, winner, showingCards, underTheGun,
                 latency, previousLatency, reconnectionCount, telemetryAt,
                 List.of(firstCard.snapshot(), secondCard.snapshot()),
                 lastAction, handName);

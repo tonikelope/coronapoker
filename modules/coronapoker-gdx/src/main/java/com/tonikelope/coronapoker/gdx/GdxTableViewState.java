@@ -610,6 +610,15 @@ final class GdxTableViewState {
                     snapshot.pot(), "", snapshot.players(),
                     snapshot.communityCards());
             stopTurn();
+        } else if (event instanceof TableVisualEvent.UnderTheGunStatus status) {
+            List<TableSnapshot.PlayerSnapshot> players = snapshot.players()
+                    .stream()
+                    .map(player -> copyPlayerUnderTheGun(player,
+                            player.nickname().equals(status.nickname())))
+                    .toList();
+            snapshot = copySnapshot(snapshot, snapshot.street(),
+                    snapshot.pot(), snapshot.currentTurnNickname(), players,
+                    snapshot.communityCards());
         } else if (event instanceof TableVisualEvent.PositionRotation rotation) {
             // Normal blind/dealer rotations are transient flights and the
             // canonical snapshot already owns their final state.  A voluntary
@@ -859,8 +868,8 @@ final class GdxTableViewState {
                 source.spectator(), source.exited(), source.timedOut(),
                 telemetry.latency(), telemetry.previousLatency(),
                 telemetry.reconnectionCount(), telemetry.measuredAtMillis(),
-                source.winner(), source.position(), source.lastAction(),
-                source.handName(), source.holeCards());
+                source.winner(), source.underTheGun(), source.position(),
+                source.lastAction(), source.handName(), source.holeCards());
     }
 
     private static TableSnapshot.PlayerSnapshot copyPlayerTimeout(
@@ -870,8 +879,19 @@ final class GdxTableViewState {
                 source.spectator(), source.exited(), timedOut,
                 source.latency(), source.previousLatency(),
                 source.reconnectionCount(), source.telemetryAt(),
-                source.winner(), source.position(), source.lastAction(),
-                source.handName(), source.holeCards());
+                source.winner(), source.underTheGun(), source.position(),
+                source.lastAction(), source.handName(), source.holeCards());
+    }
+
+    private static TableSnapshot.PlayerSnapshot copyPlayerUnderTheGun(
+            TableSnapshot.PlayerSnapshot source, boolean underTheGun) {
+        return new TableSnapshot.PlayerSnapshot(source.nickname(),
+                source.stack(), source.streetBet(), source.potContribution(),
+                source.active(), source.spectator(), source.exited(),
+                source.timedOut(), source.latency(), source.previousLatency(),
+                source.reconnectionCount(), source.telemetryAt(),
+                source.winner(), underTheGun, source.position(),
+                source.lastAction(), source.handName(), source.holeCards());
     }
 
     private static List<TableSnapshot.CardSnapshot> padded(
@@ -906,7 +926,7 @@ final class GdxTableViewState {
                 streetBet, contribution, active, source.spectator(),
                 source.exited(), source.timedOut(), source.latency(),
                 source.previousLatency(), source.reconnectionCount(),
-                source.telemetryAt(), winner, position,
+                source.telemetryAt(), winner, source.underTheGun(), position,
                 action, hand, cards);
     }
 }

@@ -1,7 +1,7 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
-/** Frame-driven repeat timing for editing keys not repeated by keyTyped. */
+/** Frame-driven repeat timing shared by editing keys and held UI controls. */
 final class GdxKeyRepeat {
 
     static final float INITIAL_DELAY_SECONDS = 0.42f;

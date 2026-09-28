@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.bot.context.BotPlayerView;
 import com.tonikelope.coronapoker.bot.context.DealerView;
+import com.tonikelope.coronapoker.table.TableSnapshot;
+import com.tonikelope.coronapoker.table.TableSnapshotMapper;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
@@ -79,6 +81,28 @@ class CorePlayerControllerTest {
 
         assertEquals(PlayerState.Position.DEALER_STRADDLE,
                 player.getState().snapshot().position());
+    }
+
+    @Test
+    void underTheGunIsAnIndependentFrontendBadge() {
+        CorePlayerController player = CorePlayerController.remote("dealer");
+        player.bindDealer(new StubDealer(0d));
+        player.applyCurrentHandPosition();
+
+        player.setUTG();
+
+        PlayerState.Snapshot state = player.getState().snapshot();
+        TableSnapshot.PlayerSnapshot snapshot = TableSnapshotMapper.player(state);
+        assertEquals(PlayerState.Position.DEALER, state.position());
+        assertTrue(state.underTheGun());
+        assertEquals(TableSnapshot.Position.DEALER, snapshot.position());
+        assertTrue(snapshot.underTheGun());
+
+        player.disableUTG();
+
+        assertEquals(PlayerState.Position.DEALER,
+                player.getState().snapshot().position());
+        assertFalse(player.getState().snapshot().underTheGun());
     }
 
     @Test

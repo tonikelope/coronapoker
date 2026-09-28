@@ -30,8 +30,9 @@ public final class TableSnapshotMapper {
                 state.spectator(), state.exited(), state.timedOut(),
                 state.latency(), state.previousLatency(),
                 state.reconnectionCount(), state.telemetryAt(),
-                state.winner(), position(state.position()), state.lastAction(),
-                state.handName(), state.holeCards().stream()
+                state.winner(), state.underTheGun(),
+                position(state.position()), state.lastAction(), state.handName(),
+                state.holeCards().stream()
                         .map(TableSnapshotMapper::card).toList());
     }
 

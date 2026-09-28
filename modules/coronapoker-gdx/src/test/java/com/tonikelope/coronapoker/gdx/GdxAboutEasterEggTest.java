@@ -12,8 +12,9 @@ import org.junit.jupiter.api.Test;
 final class GdxAboutEasterEggTest {
 
     @Test
-    void readingSurfaceUsesTheLighterBlueSlateBackground() {
-        assertEquals(0x365f78fc, GdxFrontendScreen.ABOUT_PANEL_RGBA);
+    void readingSurfaceUsesTheSharedDialogGlass() {
+        assertEquals(GdxUiDialogStyle.PANEL_RGBA,
+                GdxFrontendScreen.ABOUT_PANEL_RGBA);
     }
 
     @Test

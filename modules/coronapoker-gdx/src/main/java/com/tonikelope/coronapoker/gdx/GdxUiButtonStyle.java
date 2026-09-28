@@ -51,41 +51,14 @@ final class GdxUiButtonStyle {
         roundedRectOutline(shapes, x + 1f, y + 1f, width - 2f,
                 height - 2f, 13f, 2f);
 
-        float inset = 14f;
-        float sheenBottom = y + height * 0.54f;
-        float sheenTop = y + height - 9f;
-        shapes.rect(x + inset, sheenBottom, width - inset * 2f,
-                sheenTop - sheenBottom,
-                new Color(1f, 1f, 1f, 0.018f * alpha),
-                new Color(1f, 1f, 1f, 0.018f * alpha),
-                new Color(1f, 1f, 1f, 0.115f * alpha),
-                new Color(1f, 1f, 1f, 0.115f * alpha));
-        shapes.rect(x + inset, y + 8f, width - inset * 2f,
-                height * 0.18f,
-                new Color(0f, 0f, 0f, 0.11f * alpha),
-                new Color(0f, 0f, 0f, 0.11f * alpha),
-                new Color(0f, 0f, 0f, 0.01f * alpha),
-                new Color(0f, 0f, 0f, 0.01f * alpha));
-        shapes.setColor(1f, 1f, 1f, 0.055f * alpha);
+        // Keep the material deliberately clean. Previous stacked gradients
+        // formed bands and detached-looking patches on hover, especially on
+        // short dialog buttons. Depth now comes from the fill and border.
+        shapes.setColor(1f, 1f, 1f, 0.07f * alpha);
         shapes.rect(x + 16f, y + height - 7f, width - 32f, 1.5f);
-
-        if (enabled && tone != Tone.FEATURED) {
-            Color inner = accent(tone, false);
-            shapes.setColor(inner.r, inner.g, inner.b,
-                    (0.10f + hover * 0.16f) * alpha);
-            roundedRectOutline(shapes, x + 5f, y + 5f,
-                    width - 10f, height - 10f, 10f, 1f);
-            shapes.setColor(inner.r, inner.g, inner.b,
-                    (0.18f + hover * 0.30f) * alpha);
-            shapes.rect(x + 20f, y + height - 7f,
-                    (width - 40f) * (0.68f + hover * 0.32f), 2f);
-        }
         if (tone == Tone.FEATURED) {
             shapes.setColor(GOLD.r, GOLD.g, GOLD.b, 0.80f * alpha);
             shapes.rect(x + 18f, y + height - 9f, width - 36f, 2f);
-            shapes.setColor(CYAN_DARK.r, CYAN_DARK.g, CYAN_DARK.b,
-                    0.80f * alpha);
-            shapes.rect(x + 18f, y + 6f, width - 36f, 3f);
         }
     }
 

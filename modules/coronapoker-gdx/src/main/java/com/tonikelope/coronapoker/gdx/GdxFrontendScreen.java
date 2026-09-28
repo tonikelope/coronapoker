@@ -183,7 +183,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final float TEXT_SEND_COOLDOWN_SECONDS = 0.5f;
     private static final float ABOUT_LOGO_WIDTH = 180f;
     private static final float ABOUT_LOGO_Y = 758f;
-    static final int ABOUT_PANEL_RGBA = 0x365f78fc;
+    static final int ABOUT_PANEL_RGBA = GdxUiDialogStyle.PANEL_RGBA;
     static final float ABOUT_MUSIC_PANEL_Y = 300f;
     static final float ABOUT_MUSIC_PANEL_HEIGHT = 214f;
     static final float ABOUT_MEMORIAL_CENTER_Y = 574f;
@@ -1487,9 +1487,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawStatsConfirmation() {
-        shapes.setColor(new Color(0x02050cdd));
-        shapes.rect(0f, 0f, WIDTH, HEIGHT);
-        panel(560f, 350f, 800f, 330f, gameText.translate("ui.seguro"));
+        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
+        GdxUiDialogStyle.drawPanel(shapes, 560f, 350f, 800f, 330f,
+                CYAN_DARK, 1f);
+        textFit(headingFont, gameText.translate("ui.seguro"), 594f, 651f,
+                GOLD, false, 732f);
         String prompt = switch (statsConfirmation) {
             case IMPORTED -> gameText.translate("stats.borrar_importadas_confirm");
             case PURGE_FILTERED -> gameText.translate(
@@ -1513,8 +1515,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawStatsPicker() {
-        shapes.setColor(new Color(0x02050ce8));
-        shapes.rect(0f, 0f, WIDTH, HEIGHT);
+        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
         boolean games = statsPicker == StatsPicker.GAME;
         boolean modes = statsPicker == StatsPicker.MODE;
         boolean players = statsPicker == StatsPicker.PLAYER;
@@ -1522,7 +1523,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 : players ? gameText.translate("gdx.stats.player_filter")
                 : gameText.translate(games
                         ? "gdx.stats.game" : "gdx.stats.hand");
-        panel(480f, 145f, 960f, 790f, title);
+        GdxUiDialogStyle.drawPanel(shapes, 480f, 145f, 960f, 790f,
+                CYAN_DARK, 1f);
+        textFit(headingFont, title, 514f, 906f, GOLD, false, 892f);
         themedButton(1350f, 865f, 54f, 48f, "X", ButtonTone.NEUTRAL,
                 () -> statsPicker = StatsPicker.NONE, true);
 
@@ -2471,13 +2474,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawUpdateDialog() {
         hits.clear();
-        shapes.setColor(new Color(0x01040be8));
-        shapes.rect(0f, 0f, WIDTH, HEIGHT);
+        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
         float x = 540f;
         float y = 345f;
         float w = 840f;
         float h = 390f;
-        panel(x, y, w, h, "");
+        GdxUiDialogStyle.drawPanel(shapes, x, y, w, h, CYAN_DARK, 1f);
         String titleKey = updatePromptForMod
                 ? "gdx.mod_update.title" : "gdx.update.title";
         textFit(headingFont, uppercase(gameText.translate(
@@ -2519,8 +2521,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawAboutDialog() {
         hits.clear();
         secondaryHits.clear();
-        shapes.setColor(new Color(0x01040bd8));
-        shapes.rect(0f, 0f, WIDTH, HEIGHT);
+        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
 
         if (handGeneratorOpen) {
             drawHandGeneratorDialog();
@@ -2528,8 +2529,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
 
         if (aboutEasterEggTexture != null) {
-            outerBox(330f, 115f, 1260f, 850f, CYAN_DARK,
-                    new Color(0x02060dff));
+            GdxUiDialogStyle.drawPanel(shapes, 330f, 115f, 1260f, 850f,
+                    CYAN_DARK, 1f);
             textFit(tinyFont, gameText.translate("ui.cerrar"), WIDTH / 2f,
                     142f, MUTED, true, 600f);
             hit(0f, 0f, WIDTH, HEIGHT, this::closeAboutEasterEgg);
@@ -2540,18 +2541,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float y = 58f;
         float w = 1300f;
         float h = 964f;
-        // About is a reading surface rather than another dark game panel.
-        // A lighter blue-slate fill preserves contrast and hierarchy.
-        outerBox(x, y, w, h, CYAN_DARK, new Color(ABOUT_PANEL_RGBA));
-        shapes.setColor(new Color(0x36d9ffb8));
-        shapes.rect(x + 28f, y + h - 10f, w - 56f, 3f);
+        // About is information-rich, but it is still one dialog. Use the
+        // shared glass shell and quiet inset cards instead of stacking a
+        // second unrelated slate material over the rest of the frontend.
+        GdxUiDialogStyle.drawPanel(shapes, x, y, w, h, CYAN_DARK, 1f);
         float innerPanelX = WIDTH / 2f - ABOUT_INNER_PANEL_WIDTH / 2f;
-        shapes.setColor(new Color(0x07152270));
-        roundedRect(innerPanelX, ABOUT_MUSIC_PANEL_Y,
+        GdxUiDialogStyle.drawInset(shapes, innerPanelX, ABOUT_MUSIC_PANEL_Y,
                 ABOUT_INNER_PANEL_WIDTH,
-                ABOUT_MUSIC_PANEL_HEIGHT, 14f);
-        shapes.setColor(new Color(0x07152258));
-        roundedRect(innerPanelX, 142f, ABOUT_INNER_PANEL_WIDTH, 156f, 14f);
+                ABOUT_MUSIC_PANEL_HEIGHT, 1f);
+        GdxUiDialogStyle.drawInset(shapes, innerPanelX, 142f,
+                ABOUT_INNER_PANEL_WIDTH, 156f, 1f);
         textFit(titleFont, uppercase(gameText.translate("about.titulo")),
                 WIDTH / 2f, y + h - 58f, GOLD, true, w - 120f);
         textFit(smallFont, "CORONAPOKER  " + ApplicationMetadata.VERSION,
@@ -2659,11 +2658,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float h = HAND_GENERATOR_PANEL_HEIGHT;
         GdxHandGeneratorModel.Example example = handGenerator.current();
 
-        outerBox(x, y, w, h, CYAN_DARK, PANEL);
-        shapes.setColor(new Color(0x36d9ffb8));
-        shapes.rect(x + 28f, y + h - 10f, w - 56f, 3f);
-        shapes.setColor(new Color(0x07152270));
-        roundedRect(x + 40f, y + 126f, w - 80f, 350f, 14f);
+        GdxUiDialogStyle.drawPanel(shapes, x, y, w, h, CYAN_DARK, 1f);
+        GdxUiDialogStyle.drawInset(shapes, x + 40f, y + 126f,
+                w - 80f, 350f, 1f);
 
         textFit(headingFont,
                 uppercase(gameText.translate("gdx.hand_generator.title")),
@@ -3068,10 +3065,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         IdenticonFingerprint fingerprint = dialog.active();
         hits.clear();
         secondaryHits.clear();
-        shapes.setColor(new Color(0x02050cdd));
-        shapes.rect(0f, 0f, WIDTH, HEIGHT);
-        outerBox(535f, 165f, 850f, 750f, CYAN,
-                new Color(0x071321ff));
+        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
+        GdxUiDialogStyle.drawPanel(shapes, 535f, 165f, 850f, 750f,
+                CYAN, 1f);
         textFit(titleFont, dialog.nickname(), 960f, 842f, GOLD, true, 720f);
 
         if (dialog.identity() != null && dialog.session() != null) {
@@ -3914,22 +3910,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawLobbyConfirmation() {
         hits.clear();
-        shapes.setColor(new Color(0x02050cbb));
-        shapes.rect(0f, 0f, WIDTH, HEIGHT);
+        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
         String prompt = uppercase(gameText.translate(
                 lobbyConfirmation == LobbyConfirmation.START
                         ? "ui.seguro_que_quieres_empezar_ya"
                         : "ui.seguro_que_quieres_salir_ahora"));
-        // A confirmation is a true modal surface: underlying chat content must
-        // never bleed through and compete with the decision text.
-        shapes.setColor(new Color(0x00000099));
-        roundedRect(570f, 340f, 800f, 330f, 18f);
-        shapes.setColor(CYAN_DARK);
-        roundedRect(558f, 348f, 804f, 334f, 18f);
-        shapes.setColor(new Color(0x071321ff));
-        roundedRect(560f, 350f, 800f, 330f, 16f);
-        shapes.setColor(new Color(0x36d9ffb8));
-        shapes.rect(586f, 665f, 748f, 3f);
+        GdxUiDialogStyle.drawPanel(shapes, 560f, 350f, 800f, 330f,
+                CYAN_DARK, 1f);
         textFit(headingFont, prompt, 960f, 560f, Color.WHITE, true, 700f);
         button(635f, 405f, 300f, 75f,
                 uppercase(gameText.translate("ui.cancelar")), false,
@@ -3961,12 +3948,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         hits.clear();
         textFieldHits.clear();
         editMenuHits.clear();
-        shapes.setColor(new Color(0x02050cdd));
-        shapes.rect(0f, 0f, WIDTH, HEIGHT);
-        outerBox(560f, 335f, 800f, 390f, CYAN_DARK,
-                new Color(0x071321ff));
-        shapes.setColor(new Color(0x36d9ffb8));
-        shapes.rect(590f, 698f, 740f, 3f);
+        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
+        GdxUiDialogStyle.drawPanel(shapes, 560f, 335f, 800f, 390f,
+                CYAN_DARK, 1f);
         textFit(headingFont, uppercase(gameText.translate(
                 "auth.menu_cambiar_password")), 960f, 650f, GOLD,
                 true, 700f);
@@ -4040,16 +4024,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         hits.clear();
         textFieldHits.clear();
         editMenuHits.clear();
-        shapes.setColor(new Color(0x02050cdd));
-        shapes.rect(0f, 0f, WIDTH, HEIGHT);
-        shapes.setColor(new Color(0x000000aa));
-        roundedRect(570f, 340f, 800f, 330f, 18f);
-        shapes.setColor(CYAN_DARK);
-        roundedRect(558f, 348f, 804f, 334f, 18f);
-        shapes.setColor(new Color(0x071321ff));
-        roundedRect(560f, 350f, 800f, 330f, 16f);
-        shapes.setColor(new Color(0x36d9ffb8));
-        shapes.rect(586f, 665f, 748f, 3f);
+        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
+        GdxUiDialogStyle.drawPanel(shapes, 560f, 350f, 800f, 330f,
+                CYAN_DARK, 1f);
         textFit(headingFont, uppercase(gameText.translate(
                 "gdx.settings.unsaved.title")), 960f, 578f,
                 GOLD, true, 700f);
@@ -4098,20 +4075,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawVoiceNotesDialog() {
-        shapes.setColor(new Color(0x02050cdd));
-        shapes.rect(0f, 0f, WIDTH, HEIGHT);
+        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
         float x = 310f;
         float y = 130f;
         float w = 1300f;
         float h = 820f;
-        shapes.setColor(new Color(0x000000aa));
-        roundedRect(x + 12f, y - 10f, w, h, 20f);
-        shapes.setColor(CYAN_DARK);
-        roundedRect(x - 2f, y - 2f, w + 4f, h + 4f, 20f);
-        shapes.setColor(new Color(0x071321ff));
-        roundedRect(x, y, w, h, 18f);
-        shapes.setColor(new Color(0x36d9ffb8));
-        shapes.rect(x + 28f, y + h - 18f, w - 56f, 3f);
+        GdxUiDialogStyle.drawPanel(shapes, x, y, w, h, CYAN_DARK, 1f);
         textFit(headingFont, uppercase(gameText.translate("audio.ver_notas")),
                 x + w / 2f, y + h - 70f, GOLD, true, w - 90f);
 
@@ -4273,16 +4242,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawLobbyLoadingOverlay() {
         hits.clear();
-        shapes.setColor(new Color(0x02050cdd));
-        shapes.rect(0f, 0f, WIDTH, HEIGHT);
-        shapes.setColor(new Color(0x00000099));
-        roundedRect(566f, 376f, 808f, 270f, 18f);
-        shapes.setColor(CYAN_DARK);
-        roundedRect(558f, 384f, 804f, 274f, 18f);
-        shapes.setColor(new Color(0x071321ff));
-        roundedRect(560f, 386f, 800f, 270f, 16f);
-        shapes.setColor(new Color(0x36d9ffb8));
-        shapes.rect(586f, 641f, 748f, 3f);
+        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
+        GdxUiDialogStyle.drawPanel(shapes, 560f, 386f, 800f, 270f,
+                CYAN_DARK, 1f);
 
         textFit(headingFont, uppercase(gameText.translate(
                 "game.inicializando_timba")),
@@ -4313,23 +4275,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawNewGameSubmissionOverlay() {
-        shapes.setColor(new Color(0x02050ce6));
-        shapes.rect(0f, 0f, WIDTH, HEIGHT);
+        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
 
         float panelX = 610f;
         float panelY = 384f;
         float panelW = 700f;
         float panelH = 270f;
-        shapes.setColor(new Color(0x00000099));
-        roundedRect(panelX + 8f, panelY - 10f, panelW, panelH, 18f);
-        shapes.setColor(CYAN_DARK);
-        roundedRect(panelX - 2f, panelY - 2f, panelW + 4f,
-                panelH + 4f, 18f);
-        shapes.setColor(new Color(0x071321ff));
-        roundedRect(panelX, panelY, panelW, panelH, 16f);
-        shapes.setColor(new Color(0x36d9ffb8));
-        shapes.rect(panelX + 28f, panelY + panelH - 15f,
-                panelW - 56f, 3f);
+        GdxUiDialogStyle.drawPanel(shapes, panelX, panelY, panelW, panelH,
+                CYAN_DARK, 1f);
 
         String statusKey = connection.mode()
                 == NewGameConnectionDraft.Mode.CREATE
@@ -4414,7 +4367,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawLobbyImageGallery(float x, float y, float w, float h) {
-        outerBox(x, y, w, h, CYAN_DARK, new Color(0x061321f5));
+        GdxUiDialogStyle.drawPanel(shapes, x, y, w, h, CYAN_DARK, 1f);
         textFit(smallFont, uppercase(gameText.translate(
                 "gdx.lobby.image_gallery")), x + 24f,
                 y + h - 28f, GOLD, false, w - 410f);
@@ -4497,7 +4450,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawLobbyEmojiPicker(float x, float y, float w, float h) {
-        outerBox(x, y, w, h, CYAN_DARK, new Color(0x061321f5));
+        GdxUiDialogStyle.drawPanel(shapes, x, y, w, h, CYAN_DARK, 1f);
         int first = lobbyEmojiPage * EMOJI_PAGE_SIZE + 1;
         int last = Math.min(EMOJI_COUNT, first + EMOJI_PAGE_SIZE - 1);
         int pageCount = (EMOJI_COUNT + EMOJI_PAGE_SIZE - 1) / EMOJI_PAGE_SIZE;
@@ -5010,16 +4963,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         secondaryHits.clear();
         textFieldHits.clear();
         editMenuHits.clear();
-        shapes.setColor(new Color(0x02050cdd));
-        shapes.rect(0f, 0f, WIDTH, HEIGHT);
-        shapes.setColor(new Color(0x000000aa));
-        roundedRect(515f, 335f, 910f, 350f, 18f);
-        shapes.setColor(CYAN_DARK);
-        roundedRect(503f, 343f, 914f, 354f, 18f);
-        shapes.setColor(new Color(0x071321ff));
-        roundedRect(505f, 345f, 910f, 350f, 16f);
-        shapes.setColor(new Color(0x36d9ffb8));
-        shapes.rect(535f, 678f, 850f, 3f);
+        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
+        GdxUiDialogStyle.drawPanel(shapes, 505f, 345f, 910f, 350f,
+                CYAN_DARK, 1f);
         textFit(headingFont, uppercase(gameText.translate(
                 "gdx.settings.msaa_restart.title")), 960f, 585f,
                 GOLD, true, 800f);
@@ -6718,12 +6664,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         hits.clear();
         textFieldHits.clear();
         editMenuHits.clear();
-        shapes.setColor(new Color(0x02050cdd));
-        shapes.rect(0f, 0f, WIDTH, HEIGHT);
-        outerBox(560f, 350f, 800f, 360f, CYAN_DARK,
-                new Color(0x071321ff));
-        shapes.setColor(new Color(0x36d9ffb8));
-        shapes.rect(590f, 683f, 740f, 3f);
+        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
+        GdxUiDialogStyle.drawPanel(shapes, 560f, 350f, 800f, 360f,
+                CYAN_DARK, 1f);
         if (presetDialog == PresetDialog.NAME) {
             textFit(headingFont, uppercase(gameText.translate(
                     "gdx.newgame.save_profile")), 960f, 635f, GOLD,
@@ -7098,8 +7041,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         hits.clear();
         textFieldHits.clear();
         editMenuHits.clear();
-        shapes.setColor(new Color(0x02050ce8));
-        shapes.rect(0f, 0f, WIDTH, HEIGHT);
+        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
         if (blindStructureDialog == BlindStructureDialog.DELETE) {
             drawBlindStructureDeleteConfirmation();
             return;
@@ -7111,10 +7053,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return;
         }
 
-        outerBox(220f, 105f, 1480f, 870f, CYAN_DARK,
-                new Color(0x071321ff));
-        shapes.setColor(new Color(0x36d9ffb8));
-        shapes.rect(250f, 944f, 1420f, 3f);
+        GdxUiDialogStyle.drawPanel(shapes, 220f, 105f, 1480f, 870f,
+                CYAN_DARK, 1f);
         textFit(headingFont, uppercase(gameText.translate(
                 "blinds.gestionar_estructuras")), 275f, 905f,
                 GOLD, false, 1100f);
@@ -7251,10 +7191,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawBlindStructureNameDialog() {
-        outerBox(560f, 350f, 800f, 360f, CYAN_DARK,
-                new Color(0x071321ff));
-        shapes.setColor(new Color(0x36d9ffb8));
-        shapes.rect(590f, 683f, 740f, 3f);
+        GdxUiDialogStyle.drawPanel(shapes, 560f, 350f, 800f, 360f,
+                CYAN_DARK, 1f);
         String title = switch (blindStructureDialog) {
             case NAME_NEW -> gameText.translate(
                     "gdx.newgame.blind_editor.new_title");
@@ -7282,10 +7220,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawBlindStructureDeleteConfirmation() {
-        outerBox(560f, 350f, 800f, 360f, CYAN_DARK,
-                new Color(0x071321ff));
-        shapes.setColor(new Color(0x36d9ffb8));
-        shapes.rect(590f, 683f, 740f, 3f);
+        GdxUiDialogStyle.drawPanel(shapes, 560f, 350f, 800f, 360f,
+                CYAN_DARK, 1f);
         textFit(headingFont, uppercase(gameText.translate(
                 "gdx.newgame.blind_editor.delete_structure")), 960f, 625f,
                 GOLD, true, 700f);

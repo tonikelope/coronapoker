@@ -50,11 +50,12 @@ final class GdxUiDialogStyle {
             float width, float height, float radius) {
         float r = Math.min(radius, Math.min(width, height) / 2f);
         shapes.rect(x + r, y, width - 2f * r, height);
-        shapes.rect(x, y + r, width, height - 2f * r);
-        shapes.circle(x + r, y + r, r, 24);
-        shapes.circle(x + width - r, y + r, r, 24);
-        shapes.circle(x + width - r, y + height - r, r, 24);
-        shapes.circle(x + r, y + height - r, r, 24);
+        shapes.rect(x, y + r, r, height - 2f * r);
+        shapes.rect(x + width - r, y + r, r, height - 2f * r);
+        shapes.arc(x + r, y + r, r, 180f, 90f, 18);
+        shapes.arc(x + width - r, y + r, r, 270f, 90f, 18);
+        shapes.arc(x + width - r, y + height - r, r, 0f, 90f, 18);
+        shapes.arc(x + r, y + height - r, r, 90f, 90f, 18);
     }
 
     private static void roundedRectOutline(ShapeRenderer shapes, float x,

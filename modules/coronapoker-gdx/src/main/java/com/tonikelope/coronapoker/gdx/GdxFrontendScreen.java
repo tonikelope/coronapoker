@@ -5529,8 +5529,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // decrement/increment controls.
         float valueW = 280f;
         float controlsX = x + w - buttonW * 2f - valueW;
+        embeddedButtonSurface(controlsX, y, buttonW, h, enabled);
+        embeddedButtonSurface(x + w - buttonW, y, buttonW, h, enabled);
         shapes.setColor(new Color(0x31445fff));
-        shapes.rect(controlsX, y + 8f, 2f, h - 16f);
         shapes.rect(controlsX + buttonW, y + 8f, 2f, h - 16f);
         shapes.rect(controlsX + buttonW + valueW, y + 8f, 2f, h - 16f);
         textFit(smallFont, label, x + 22f, y + h / 2f + 10f,
@@ -6359,8 +6360,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             float x = 55f;
             float y = 760f - i * 108f;
             boolean selected = i == page;
-            outerBox(x, y, 320f, 78f, selected ? CYAN : LINE,
-                    selected ? new Color(0x101a2ee0) : new Color(0x101a2ecc));
+            boolean hover = hovered(x, y, 320f, 78f);
+            Color fill = selected ? new Color(0x101a2ee0)
+                    : new Color(0x101a2ecc);
+            Color border = selected ? CYAN : hover ? CYAN_DARK : LINE;
+            GdxUiButtonStyle.drawPalette(shapes, x, y, 320f, 78f,
+                    border, fill.r, fill.g, fill.b, fill.a,
+                    true, hover ? 1f : 0f,
+                    pressed(x, y, 320f, 78f), 1f, true);
             if (selected) {
                 shapes.setColor(GOLD);
                 roundedRect(x + 5f, y + 15f, 4f, 48f, 2f);
@@ -7178,9 +7185,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         outerBox(x, y, width, 72f,
                 hovered(x, y, width, 72f) ? CYAN : LINE, PANEL_LIGHT);
         float side = 70f;
-        shapes.setColor(new Color(0x20324cff));
-        roundedRect(x + 3f, y + 3f, side, 66f, 10f);
-        roundedRect(x + width - side - 3f, y + 3f, side, 66f, 10f);
+        embeddedButtonSurface(x, y, side + 3f, 72f, true);
+        embeddedButtonSurface(x + width - side - 3f, y,
+                side + 3f, 72f, true);
         text(headingFont, "-", x + 38f, y + 48f, Color.WHITE, true);
         text(headingFont, "+", x + width - 38f, y + 48f,
                 Color.WHITE, true);
@@ -7775,9 +7782,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 ? new Color(0x0b1424ff) : enabled ? PANEL_LIGHT : new Color(0x0b111ddd);
         outerBox(x, y, w, 72f, border, fill);
         float side = 70f;
-        shapes.setColor(enabled ? new Color(0x20324cff) : new Color(0x141c2aff));
-        roundedRect(x + 3f, y + 3f, side, 66f, 10f);
-        roundedRect(x + w - side - 3f, y + 3f, side, 66f, 10f);
+        embeddedButtonSurface(x, y, side + 3f, 72f, enabled);
+        embeddedButtonSurface(x + w - side - 3f, y, side + 3f, 72f,
+                enabled);
         text(headingFont, "-", x + 38f, y + 48f, enabled ? Color.WHITE : DISABLED, true);
         text(headingFont, "+", x + w - 38f, y + 48f, enabled ? Color.WHITE : DISABLED, true);
         text(headingFont, Integer.toString(value), x + w / 2f, y + 49f,
@@ -7806,11 +7813,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 : enabled ? PANEL_LIGHT : new Color(0x0b111ddd);
         outerBox(x, y, w, height, border, fill);
         float side = 66f;
-        shapes.setColor(enabled ? new Color(0x20324cff)
-                : new Color(0x141c2aff));
-        roundedRect(x + 3f, y + 3f, side, height - 6f, 10f);
-        roundedRect(x + w - side - 3f, y + 3f,
-                side, height - 6f, 10f);
+        embeddedButtonSurface(x, y, side + 3f, height, enabled);
+        embeddedButtonSurface(x + w - side - 3f, y,
+                side + 3f, height, enabled);
         textFit(headingFont, "-", x + 3f + side / 2f,
                 y + 45f, enabled ? Color.WHITE : DISABLED,
                 true, side - 18f);
@@ -7877,10 +7882,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         outerBox(x, y, w, h, border, fill);
 
         float side = 70f;
-        shapes.setColor(enabled ? new Color(0x20324cff)
-                : new Color(0x141c2aff));
-        roundedRect(x + 3f, y + 3f, side, h - 6f, 10f);
-        roundedRect(x + w - side - 3f, y + 3f, side, h - 6f, 10f);
+        embeddedButtonSurface(x, y, side + 3f, h, enabled);
+        embeddedButtonSurface(x + w - side - 3f, y,
+                side + 3f, h, enabled);
 
         Color arrowColor = enabled ? GOLD : DISABLED;
         shapes.setColor(arrowColor);
@@ -7918,6 +7922,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         outerBox(x, y, 64f, 48f, CYAN_DARK, new Color(0x07111fff));
         text(smallFont, key, x + 32f, y + 32f, CYAN, true);
         textFit(smallFont, action, x + 78f, y + 32f, MUTED, false, 360f);
+    }
+
+    private void embeddedButtonSurface(float x, float y, float w, float h,
+            boolean enabled) {
+        boolean hover = enabled && hovered(x, y, w, h);
+        GdxUiButtonStyle.draw(shapes, x, y, w, h,
+                GdxUiButtonStyle.Tone.NEUTRAL, enabled,
+                hover ? 1f : 0f, enabled && pressed(x, y, w, h),
+                1f, false);
     }
 
     private void button(float x, float y, float w, float h, String label,
@@ -8058,7 +8071,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void backButton(float x, float y, float w, float h,
             Runnable action) {
-        outerBox(x, y, w, h, CYAN_DARK, PANEL_LIGHT);
+        boolean hover = hovered(x, y, w, h);
+        GdxUiButtonStyle.draw(shapes, x, y, w, h,
+                GdxUiButtonStyle.Tone.NEUTRAL, true,
+                hover ? 1f : 0f, pressed(x, y, w, h), 1f);
         shapes.setColor(CYAN);
         shapes.triangle(x + 17f, y + h / 2f,
                 x + 35f, y + h / 2f + 14f,
@@ -8248,8 +8264,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     new Color(0f, 0f, 0f, 0.01f),
                     new Color(0f, 0f, 0f, 0.01f));
         }
-        shapes.setColor(1f, 1f, 1f, 0.055f);
-        shapes.rect(x + 16f, y + h - 7f, w - 32f, 1.5f);
     }
 
     private void roundedRectOutline(float x, float y, float w, float h,

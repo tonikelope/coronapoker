@@ -5687,19 +5687,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     + index * (FAST_BUTTON_SIZE + FAST_BUTTON_GAP);
             boolean enabled = !fastBarExpanded || fastButtonEnabled(index);
             boolean hover = fastBarExpanded && hovered == index;
-            Color accent = hover && enabled
-                    ? visibleFastAccessActionAt(index) == FastAccessAction.EXIT
-                            ? FOLD_RED : CYAN
-                    : BUTTON_LINE;
-            shapes.setColor(accent.r, accent.g, accent.b,
-                    (hover ? 0.54f : 0.24f) * alpha);
-            roundedRect(buttonX, FAST_BAR_Y + FAST_BAR_PADDING,
-                    FAST_BUTTON_SIZE, FAST_BUTTON_SIZE, 9f);
-            shapes.setColor(1f, 1f, 1f,
-                    (hover && enabled ? 0.17f : 0.07f) * alpha);
-            roundedRect(buttonX + 4f,
-                    FAST_BAR_Y + FAST_BAR_PADDING + FAST_BUTTON_SIZE - 11f,
-                    FAST_BUTTON_SIZE - 8f, 7f, 3f);
+            GdxUiButtonStyle.Tone tone = fastBarExpanded
+                    && visibleFastAccessActionAt(index) == FastAccessAction.EXIT
+                            ? GdxUiButtonStyle.Tone.DANGER
+                            : GdxUiButtonStyle.Tone.NEUTRAL;
+            GdxUiButtonStyle.draw(shapes, buttonX,
+                    FAST_BAR_Y + FAST_BAR_PADDING,
+                    FAST_BUTTON_SIZE, FAST_BUTTON_SIZE, tone, enabled,
+                    hover ? 1f : 0f, false, alpha, false);
         }
         if (fastBarExpanded && hovered >= 0) {
             String hoveredLabel = fastButtonLabel(hovered);
@@ -10254,14 +10249,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawHudActionSurface(float x, float y, float width, float height,
             Color color, boolean hover, boolean selected, boolean enabled) {
-        // Keep Swing's learned action colours genuinely recognisable. The former
-        // almost-opaque navy layer sat on top of every base colour, turning white
-        // into grey and desaturating green/red/purple. We retain the approved
-        // glass highlight and depth, but the material itself now derives
-        // directly from the canonical action colour.
-        // Active controls use the exact source colour. In particular, Swing's
-        // white call/bet surface must remain #FFFFFF instead of becoming an
-        // off-white after compositing over the dark table material.
+        // Preserve Swing's learned poker colours, but render them through the
+        // same glass/bevel geometry as every dialog button. The palette conveys
+        // the action; decorative top pills and bottom bars no longer define a
+        // second, unrelated HUD skin.
         float colorMix = enabled ? 1f : 0.34f;
         float surfaceR = 0.018f + (color.r - 0.018f) * colorMix;
         float surfaceG = 0.032f + (color.g - 0.032f) * colorMix;
@@ -10275,20 +10266,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             shapes.setColor(1f, 1f, 1f, 0.52f + pulse * 0.38f);
             roundedRect(x - 3f, y - 3f, width + 6f, height + 6f, 16f);
         }
-        shapes.setColor(0f, 0f, 0f, 0.58f);
-        roundedRect(x + 5f, y - 6f, width, height, 14f);
         Color rimColor = hudActionRimColor(color, selected);
-        shapes.setColor(rimColor.r, rimColor.g, rimColor.b,
-                enabled || hover ? 1f : 0.48f);
-        roundedRect(x, y, width, height, 14f);
-        shapes.setColor(surfaceR, surfaceG, surfaceB,
-                enabled || hover ? 1f : 0.78f);
-        roundedRect(x + 3f, y + 4f, width - 6f, height - 8f, 11f);
-        shapes.setColor(1f, 1f, 1f,
-                hover || selected ? 0.28f : enabled ? 0.18f : 0.07f);
-        roundedRect(x + 9f, y + height - 19f, width - 18f, 10f, 5f);
-        shapes.setColor(color.r, color.g, color.b, enabled ? 1f : 0.48f);
-        shapes.rect(x + 13f, y + 5f, width - 26f, 4f);
+        GdxUiButtonStyle.drawPalette(shapes, x, y, width, height,
+                rimColor, surfaceR, surfaceG, surfaceB,
+                enabled || hover ? 1f : 0.78f, enabled,
+                hover ? 1f : 0f, false, 1f, true);
     }
 
     static Color hudActionRimColor(Color semanticColor, boolean selected) {
@@ -10693,34 +10675,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             roundedRect(groupX - 3f, y - 3f,
                     groupWidth + 6f, height + 6f, 16f);
         }
-        shapes.setColor(0f, 0f, 0f, 0.62f);
-        roundedRect(groupX + 5f, y - 6f, groupWidth, height, 14f);
-        shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
-                enabled ? spinnerHover || actionHover ? 0.98f : 0.72f : 0.24f);
-        roundedRect(groupX, y, groupWidth, height, 14f);
-        shapes.setColor(0.018f, 0.032f, 0.055f, enabled ? 0.98f : 0.78f);
-        roundedRect(groupX + 3f, y + 4f,
-                groupWidth - 6f, height - 8f, 11f);
-
-        shapes.setColor(1f, 1f, 1f, spinnerHover && enabled ? 0.10f : 0.035f);
-        roundedRect(spinnerX, y + 4f, spinnerWidth, height - 8f, 10f);
-        shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
-                enabled ? 0.38f : 0.12f);
-        shapes.rect(actionX - 6f, y + 10f, 2f, height - 20f);
+        GdxUiButtonStyle.draw(shapes, spinnerX, y, spinnerWidth, height,
+                GdxUiButtonStyle.Tone.FEATURED, enabled,
+                spinnerHover ? 1f : 0f, false, 1f);
 
         float mix = enabled ? 1f : 0.34f;
         float r = 0.018f + (actionColor.r - 0.018f) * mix;
         float g = 0.032f + (actionColor.g - 0.032f) * mix;
         float b = 0.055f + (actionColor.b - 0.055f) * mix;
-        shapes.setColor(r, g, b, enabled ? 1f : 0.76f);
-        roundedRect(actionX, y + 4f, actionWidth, height - 8f, 11f);
-        shapes.setColor(1f, 1f, 1f,
-                actionHover || selected ? 0.30f : enabled ? 0.17f : 0.06f);
-        roundedRect(actionX + 9f, y + height - 19f,
-                actionWidth - 18f, 9f, 4.5f);
-        shapes.setColor(actionColor.r, actionColor.g, actionColor.b,
-                enabled ? 1f : 0.42f);
-        shapes.rect(actionX + 13f, y + 7f, actionWidth - 26f, 3f);
+        GdxUiButtonStyle.drawPalette(shapes, actionX, y,
+                actionWidth, height, selected ? POT_GOLD : actionColor,
+                r, g, b, enabled ? 1f : 0.76f, enabled,
+                actionHover ? 1f : 0f, false, 1f, true);
     }
 
     static Color hudCallSurfaceColor(ActionControlState.CallAction action) {

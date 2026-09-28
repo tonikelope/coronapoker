@@ -55,10 +55,12 @@ final class GdxSettingsChrome {
             Rectangle tab = frame.mainTab(index);
             boolean active = index == activeSection;
             boolean hover = contains(tab, pointer);
-            outerBox(shapes, tab,
-                    active ? CYAN : hover ? CYAN_DARK : LINE,
-                    active ? ACTIVE_TAB : TAB,
-                    alpha);
+            Color border = active ? CYAN : hover ? CYAN_DARK : LINE;
+            Color fill = active ? ACTIVE_TAB : TAB;
+            GdxUiButtonStyle.drawPalette(shapes, tab.x, tab.y,
+                    tab.width, tab.height, border,
+                    fill.r, fill.g, fill.b, fill.a,
+                    true, hover ? 1f : 0f, false, alpha, false);
             if (active) {
                 shapes.setColor(GOLD.r, GOLD.g, GOLD.b, alpha);
                 roundedRect(shapes, tab.x + 10f, tab.y + 2f,
@@ -80,9 +82,12 @@ final class GdxSettingsChrome {
             Rectangle tab = frame.subTab(index);
             boolean active = index == activeSubpage;
             boolean hover = contains(tab, pointer);
-            outerBox(shapes, tab,
-                    active ? GOLD : hover ? CYAN_DARK : LINE,
-                    active ? ACTIVE_SUBTAB : TAB, alpha);
+            Color border = active ? GOLD : hover ? CYAN_DARK : LINE;
+            Color fill = active ? ACTIVE_SUBTAB : TAB;
+            GdxUiButtonStyle.drawPalette(shapes, tab.x, tab.y,
+                    tab.width, tab.height, border,
+                    fill.r, fill.g, fill.b, fill.a,
+                    true, hover ? 1f : 0f, false, alpha, false);
         }
 
         drawFooterButton(shapes, frame.cancelButton(),
@@ -115,32 +120,18 @@ final class GdxSettingsChrome {
         shapes.setColor(border.r, border.g, border.b, border.a * alpha);
         roundedRectOutline(shapes, bounds.x + 1f, bounds.y + 1f,
                 bounds.width - 2f, bounds.height - 2f, 13f, 2f);
-        if (bounds.height <= 90f && bounds.width > 90f) {
-            float inset = 14f;
-            float sheenBottom = bounds.y + bounds.height * 0.54f;
-            float sheenTop = bounds.y + bounds.height - 9f;
-            shapes.rect(bounds.x + inset, sheenBottom,
-                    bounds.width - inset * 2f, sheenTop - sheenBottom,
-                    new Color(1f, 1f, 1f, 0.018f * alpha),
-                    new Color(1f, 1f, 1f, 0.018f * alpha),
-                    new Color(1f, 1f, 1f, 0.115f * alpha),
-                    new Color(1f, 1f, 1f, 0.115f * alpha));
-        }
-        shapes.setColor(1f, 1f, 1f, 0.055f * alpha);
-        shapes.rect(bounds.x + 16f,
-                bounds.y + bounds.height - 7f,
-                bounds.width - 32f, 1.5f);
     }
 
     private static void roundedRect(ShapeRenderer shapes, float x, float y,
             float width, float height, float radius) {
         float r = Math.min(radius, Math.min(width, height) / 2f);
         shapes.rect(x + r, y, width - 2f * r, height);
-        shapes.rect(x, y + r, width, height - 2f * r);
-        shapes.circle(x + r, y + r, r, 24);
-        shapes.circle(x + width - r, y + r, r, 24);
-        shapes.circle(x + width - r, y + height - r, r, 24);
-        shapes.circle(x + r, y + height - r, r, 24);
+        shapes.rect(x, y + r, r, height - 2f * r);
+        shapes.rect(x + width - r, y + r, r, height - 2f * r);
+        shapes.arc(x + r, y + r, r, 180f, 90f, 18);
+        shapes.arc(x + width - r, y + r, r, 270f, 90f, 18);
+        shapes.arc(x + width - r, y + height - r, r, 0f, 90f, 18);
+        shapes.arc(x + r, y + height - r, r, 90f, 90f, 18);
     }
 
     private static void roundedRectOutline(ShapeRenderer shapes, float x,

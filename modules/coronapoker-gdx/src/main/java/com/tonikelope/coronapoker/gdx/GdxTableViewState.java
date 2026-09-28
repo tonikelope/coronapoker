@@ -264,9 +264,18 @@ final class GdxTableViewState {
             // Never use this exception for a remote player: hidden rival cards
             // must still disappear immediately after the fold.
             return player != null && nickname.equals(snapshot.localNickname())
-                    ? player.holeCards() : List.of();
+                    ? player.holeCards().stream()
+                            .map(GdxTableViewState::disabledCard)
+                            .toList()
+                    : List.of();
         }
         return player == null ? List.of() : player.holeCards();
+    }
+
+    private static TableSnapshot.CardSnapshot disabledCard(
+            TableSnapshot.CardSnapshot card) {
+        return card.disabled() ? card : new TableSnapshot.CardSnapshot(
+                card.code(), card.faceUp(), true, card.visible());
     }
 
     boolean hasRevealedHoleCards(String nickname) {

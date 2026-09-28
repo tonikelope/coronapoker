@@ -599,6 +599,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final Color LEGACY_SHOW = new Color(0x3399ffff);
     private static final Color LEGACY_WINNER = new Color(0x00ff00ff);
     private static final Color LEGACY_LOSER = new Color(0xff0000ff);
+    private static final Color LOCAL_OUTCOME_WIN = new Color(0x35b968ff);
+    private static final Color LOCAL_OUTCOME_LOSS = new Color(0xb0182bff);
     // Montecarlo winner state must remain unmistakable even over a darkened
     // all-in seat. The former olive green lost contrast at 100%.
     private static final Color PARTIAL_HAND_WINNER = new Color(0x72df00ff);
@@ -5624,6 +5626,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         potCenterY = boardTopY + POT_BOARD_GAP + POT_PANEL_HEIGHT / 2f;
 
         updateSeatPositions(width, height);
+        pointer.set(Gdx.input.getX(), Gdx.input.getY());
+        viewport.unproject(pointer);
         updateLiveShowdownHover(width);
         drawTableBranding(height);
         drawChipTrails(potCenterX, potCenterY);
@@ -5810,8 +5814,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 || !liveState.hasShowdownHighlights()) {
             return;
         }
-        pointer.set(Gdx.input.getX(), Gdx.input.getY());
-        viewport.unproject(pointer);
         for (Seat seat : seats) {
             TableVisualEvent.ShowdownHighlight highlight
                     = liveState.showdownHighlight(seat.name);
@@ -6851,14 +6853,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             || card.disabled() && !card.faceUp()) {
                         continue;
                     }
+                    LiveCardPlacement placement = liveHolePlacement(seat, slot);
                     if (liveRestingCardAlpha(card, player.nickname(), slot,
-                            false) < 1f && compositeDisabledCards) {
+                            false, placement) < 1f && compositeDisabledCards) {
                         // Disabled hands are composited as one translucent
                         // layer. Drawing each card with alpha independently
                         // makes the rear card visible through the front card.
                         continue;
                     }
-                    LiveCardPlacement placement = liveHolePlacement(seat, slot);
                     drawLiveRestingCard(card, placement, cardBack,
                             player.nickname(), slot, false);
                 }
@@ -7104,7 +7106,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // the disabled/showdown fade to them, even though their core snapshot
         // remains disabled after the hand has ended.
         float alpha = rabbitRestingAlpha(rabbitCard,
-                liveRestingCardAlpha(card, nickname, slot, communityCard));
+                liveRestingCardAlpha(card, nickname, slot, communityCard,
+                        placement));
         TableVisualEvent.ShowdownHighlight highlight = liveShowdownHoverNickname == null
                 ? null : liveState.showdownHighlight(liveShowdownHoverNickname);
         boolean showdownTint = !rabbitCard && highlight != null && alpha >= 1f;
@@ -7158,7 +7161,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private float liveRestingCardAlpha(TableSnapshot.CardSnapshot card,
-            String nickname, int slot, boolean communityCard) {
+            String nickname, int slot, boolean communityCard,
+            LiveCardPlacement placement) {
         if (!card.faceUp()) {
             return card.disabled() ? DISABLED_CARD_ALPHA : 1f;
         }
@@ -7174,10 +7178,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             selected = liveState.showdownCardSelected(nickname, slot,
                     communityCard);
         }
-        if (selected != null) {
-            return selected ? 1f : DISABLED_CARD_ALPHA;
-        }
-        return card.disabled() ? DISABLED_CARD_ALPHA : 1f;
+        boolean hovered = uiLayer == UI_NONE && activeDialog == null
+                && placementContains(placement, pointer.x, pointer.y);
+        return restingCardAlpha(card.disabled(), selected, hovered);
+    }
+
+    static float restingCardAlpha(boolean disabled, Boolean selected,
+            boolean hovered) {
+        float alpha = selected != null
+                ? selected ? 1f : DISABLED_CARD_ALPHA
+                : disabled ? DISABLED_CARD_ALPHA : 1f;
+        // Swing's Card keeps its disabled state on mouse enter and only swaps
+        // the rendered image for the full-colour face. Match that temporary
+        // inspection without mutating the authoritative card snapshot.
+        return hovered && alpha < 1f ? 1f : alpha;
     }
 
     private void drawDisabledHoleCardsLayer(Texture cardBack) {
@@ -7194,7 +7208,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 TableSnapshot.CardSnapshot card = holeCards.get(slot);
                 if (card.visible() && card.faceUp()
                         && liveRestingCardAlpha(card, player.nickname(), slot,
-                                false) < 1f) {
+                                false, liveHolePlacement(seat, slot)) < 1f) {
                     hasDisabledCards = true;
                     break;
                 }
@@ -7223,7 +7237,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 TableSnapshot.CardSnapshot card = holeCards.get(slot);
                 if (!card.visible() || !card.faceUp()
                         || liveRestingCardAlpha(card, player.nickname(), slot,
-                                false) >= 1f) {
+                                false, liveHolePlacement(seat, slot)) >= 1f) {
                     continue;
                 }
                 drawLiveRestingCard(card, liveHolePlacement(seat, slot),
@@ -9613,6 +9627,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return winner ? LEGACY_WINNER : LEGACY_LOSER;
     }
 
+    static Color localOutcomeSurfaceColor(boolean winner) {
+        // Keep the canonical green/red semantics on the rim, but use a calmer
+        // glass tint for the large HUD surface. Pure legacy red over the whole
+        // panel is visually harsh and made the former overlays look banded.
+        return winner ? LOCAL_OUTCOME_WIN : LOCAL_OUTCOME_LOSS;
+    }
+
     static Color timeoutAwareRim(TableSnapshot.PlayerSnapshot livePlayer,
             Color normalRim) {
         return livePlayer != null && livePlayer.timedOut()
@@ -10507,27 +10528,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // A unified HUD does not need an opaque black slab. Keep a subtle
         // smoked-glass tint so the felt remains visible behind the controls.
         if (settledLocalWinner != null) {
-            Color outcomeColor = settledShowdownColor(settledLocalWinner);
-            shapes.setColor(0.012f, 0.025f, 0.040f, 0.62f);
+            Color outcomeColor = localOutcomeSurfaceColor(
+                    settledLocalWinner);
+            shapes.setColor(0.012f, 0.025f, 0.040f, 0.68f);
             roundedRect(hudX - 3f, hudY - 3f,
                     hudWidth + 6f, hudHeight + 15f, 16f);
             shapes.setColor(outcomeColor.r, outcomeColor.g, outcomeColor.b,
-                    0.50f + outcomePulse * 0.08f);
+                    0.58f + outcomePulse * 0.06f);
             roundedRect(hudX - 3f, hudY - 3f,
                     hudWidth + 6f, hudHeight + 15f, 16f);
-            // A soft glass highlight and a shaded lower band break up the old
-            // flat red/green slab while retaining the established result
-            // colour and letting the table texture remain subtly visible.
-            shapes.setColor(1f, 1f, 1f, 0.07f + outcomePulse * 0.03f);
-            roundedRect(hudX + 5f, hudY + hudHeight * 0.67f,
-                    hudWidth - 10f, hudHeight * 0.34f, 12f);
-            shapes.setColor(0f, 0f, 0f, 0.13f);
-            roundedRect(hudX + 3f, hudY,
-                    hudWidth - 6f, hudHeight * 0.42f, 12f);
-            shapes.setColor(outcomeColor.r, outcomeColor.g, outcomeColor.b,
-                    0.84f);
-            roundedRect(hudX + 13f, hudY + 3f,
-                    hudWidth - 26f, 4f, 2f);
         } else {
             shapes.setColor(0.025f, 0.085f, 0.095f, 0.56f);
             roundedRect(hudX - 3f, hudY - 3f,

@@ -2107,6 +2107,49 @@ final class GdxTableViewStateTest {
         assertTrue(localCards.stream()
                 .allMatch(TableSnapshot.CardSnapshot::disabled),
                 "the retained local pocket must use the disabled treatment");
+
+        TableSnapshot folded = state.snapshot();
+        List<TableSnapshot.PlayerSnapshot> refreshedPlayers
+                = folded.players().stream().map(player -> {
+                    if (!player.nickname().equals("ana")) return player;
+                    List<TableSnapshot.CardSnapshot> reenabled
+                            = player.holeCards().stream()
+                                    .map(card -> new TableSnapshot.CardSnapshot(
+                                    card.code(), card.faceUp(), false,
+                                    card.visible()))
+                                    .toList();
+                    return new TableSnapshot.PlayerSnapshot(player.nickname(),
+                            player.stack(), player.streetBet(),
+                            player.potContribution(), true,
+                            player.spectator(), player.exited(),
+                            player.timedOut(), player.latency(),
+                            player.previousLatency(),
+                            player.reconnectionCount(), player.telemetryAt(),
+                            player.winner(), player.position(),
+                            player.lastAction(), player.handName(), reenabled);
+                }).toList();
+        state.apply(new TableVisualEvent.HandBoundary(5, 1,
+                TableVisualEvent.HandBoundary.Phase.END,
+                new TableSnapshot(folded.revision(), folded.localNickname(),
+                        TableSnapshot.Street.SHOWDOWN, folded.pot(), "",
+                        folded.paused(), refreshedPlayers,
+                        folded.communityCards())));
+
+        assertTrue(state.presentedHoleCards("ana").stream()
+                .allMatch(TableSnapshot.CardSnapshot::disabled),
+                "the end snapshot must not reactivate the folded local pocket");
+    }
+
+    @Test
+    void hoveringTemporarilyFocusesADisabledCardWithoutChangingItsState() {
+        assertEquals(CoronaPokerGdxTable.DISABLED_CARD_ALPHA,
+                CoronaPokerGdxTable.restingCardAlpha(true, null, false));
+        assertEquals(1f,
+                CoronaPokerGdxTable.restingCardAlpha(true, null, true));
+        assertEquals(1f,
+                CoronaPokerGdxTable.restingCardAlpha(false, null, false));
+        assertEquals(1f,
+                CoronaPokerGdxTable.restingCardAlpha(true, false, true));
     }
 
     @Test

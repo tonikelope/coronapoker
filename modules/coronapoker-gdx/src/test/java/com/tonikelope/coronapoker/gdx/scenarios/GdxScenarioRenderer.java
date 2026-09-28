@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tonikelope.coronapoker.core.LobbySession;
 import com.tonikelope.coronapoker.core.game.ActionControlState;
 import com.tonikelope.coronapoker.table.TableCommand;
 import com.tonikelope.coronapoker.table.TableRenderer;
@@ -39,6 +40,7 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final TableSession table;
     private final int expectedPlayers;
     private final AtomicReference<CoronaPokerGdxTable> productTable;
+    private final LobbySession lobby;
     private final AtomicReference<GdxTableViewState> state
             = new AtomicReference<>();
     private final AtomicReference<TableSessionSummary> summary
@@ -90,6 +92,8 @@ final class GdxScenarioRenderer implements TableRenderer {
             = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final Map<String, String> departures
             = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Set<String> reconnectingPlayersEver
+            = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final Set<Long> straddleHands
             = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final Map<Long, List<TableSnapshot.CardSnapshot>> localDeals
@@ -109,9 +113,16 @@ final class GdxScenarioRenderer implements TableRenderer {
 
     GdxScenarioRenderer(TableSession table, int expectedPlayers,
             AtomicReference<CoronaPokerGdxTable> productTable) {
+        this(table, expectedPlayers, productTable, null);
+    }
+
+    GdxScenarioRenderer(TableSession table, int expectedPlayers,
+            AtomicReference<CoronaPokerGdxTable> productTable,
+            LobbySession lobby) {
         this.table = table;
         this.expectedPlayers = expectedPlayers;
         this.productTable = productTable;
+        this.lobby = lobby;
     }
 
     void gateActionOnHand(long handId) {
@@ -174,7 +185,9 @@ final class GdxScenarioRenderer implements TableRenderer {
         GdxTableViewState projection = new GdxTableViewState(initialState);
         state.set(projection);
         productTable.set(new CoronaPokerGdxTable(60, projection,
-                table.commands(), () -> { }, new GdxGameLogSink(), null));
+                table.commands(), () -> { }, new GdxGameLogSink(), null,
+                lobby));
+        observeLiveConnectivity(initialState);
         streets.add(initialState.street());
         rememberSpectatorTransitions(initialState);
         assertCanonicalSpectatorPresentation(initialState, projection);
@@ -205,6 +218,7 @@ final class GdxScenarioRenderer implements TableRenderer {
             }
         }
         TableSnapshot snapshot = projection.snapshot();
+        observeLiveConnectivity(snapshot);
         if (event instanceof TableVisualEvent.HandBoundary boundary
                 && boundary.phase()
                 == TableVisualEvent.HandBoundary.Phase.PREPARE) {
@@ -558,6 +572,23 @@ final class GdxScenarioRenderer implements TableRenderer {
         return departures.containsKey(nickname);
     }
 
+    boolean sawReconnectingPlayer(String nickname) {
+        return reconnectingPlayersEver.contains(nickname);
+    }
+
+    void assertNeverShowedReconnectFor(String nickname) {
+        assertFalse(sawReconnectingPlayer(nickname),
+                nickname + " was visibly projected as reconnecting");
+    }
+
+    void assertNoUnexpectedReconnects(Set<String> allowed) {
+        Set<String> unexpected = new java.util.HashSet<>(
+                reconnectingPlayersEver);
+        unexpected.removeAll(allowed);
+        assertTrue(unexpected.isEmpty(),
+                "unexpected visible reconnect projection: " + unexpected);
+    }
+
     String departureLabel(String nickname) {
         return departures.getOrDefault(nickname, "");
     }
@@ -575,6 +606,15 @@ final class GdxScenarioRenderer implements TableRenderer {
                 reactivatedSpectators.add(player.nickname());
             }
         }
+    }
+
+    private void observeLiveConnectivity(TableSnapshot snapshot) {
+        CoronaPokerGdxTable liveTable = productTable.get();
+        if (liveTable == null || lobby == null) return;
+        snapshot.players().stream()
+                .map(TableSnapshot.PlayerSnapshot::nickname)
+                .filter(liveTable::isLiveReconnectingPlayer)
+                .forEach(reconnectingPlayersEver::add);
     }
 
     void recordLocalStraddleDecision() {
@@ -695,6 +735,8 @@ final class GdxScenarioRenderer implements TableRenderer {
                 .allMatch(card -> card.visible() && card.faceUp()));
         TableSessionSummary finalSummary = summary.get();
         assertNotNull(finalSummary);
+        assertEquals(TableSessionSummary.CloseReason.COMPLETED,
+                finalSummary.reason());
         assertEquals(table.initialState().localNickname(),
                 finalSummary.localNickname());
         assertEquals(expectedBalanceRows, finalSummary.balances().size());

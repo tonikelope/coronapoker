@@ -49,6 +49,8 @@ class GdxMultiprocessScenarioTest {
     private static final List<String> ALWAYS_FATAL_OUTPUT = List.of(
             "CP_GDX_E2E_FAIL",
             "TABLE_FAILURE_V1",
+            "LA TIMBA HA TERMINADO (NO QUEDAN JUGADORES)",
+            "GAME OVER (NO PLAYERS LEFT)",
             "Empty settlement table; refusing receipt and SQL close",
             "Next-hand balance barrier disagrees with atomic opening rows",
             "Error parsing remote action",
@@ -851,6 +853,9 @@ class GdxMultiprocessScenarioTest {
                         node.diagnostic());
             }
             assertMatchingConservedLedgers(nodes, "crash-rejoin-recover", 4);
+            assertEquals(1, host.count("MISDEAL triggered:"),
+                    "the single crash must cause exactly one recoverable hand"
+                    + " cancellation\n" + host.diagnostic());
         } finally {
             if (crashed != null) {
                 crashed.close();
@@ -1845,6 +1850,9 @@ class GdxMultiprocessScenarioTest {
                         node.diagnostic());
             }
             assertMatchingConservedLedgers(completed, scenario, 8);
+            assertEquals(1, host.count("MISDEAL triggered:"),
+                    "only the injected crash may cancel a hand\n"
+                    + host.diagnostic());
         } finally {
             for (NodeProcess node : nodes) {
                 if (!killed.contains(node)) {
@@ -2137,6 +2145,9 @@ class GdxMultiprocessScenarioTest {
         assertTrue(host.contains("MISDEAL triggered:"),
                 "Swing GOLD requires a terminal MISDEAL for " + scenario
                 + "\n" + host.diagnostic());
+        assertEquals(1, host.count("MISDEAL triggered:"),
+                "terminal disruption must produce exactly one MISDEAL\n"
+                + host.diagnostic());
         assertTrue(host.contains("RECOVERY: abortAndRecover engaged"),
                 "terminal MISDEAL did not enter recoverable teardown\n"
                 + host.diagnostic());
@@ -2409,6 +2420,13 @@ class GdxMultiprocessScenarioTest {
         boolean contains(String text) {
             synchronized (output) {
                 return output.stream().anyMatch(line -> line.contains(text));
+            }
+        }
+
+        long count(String text) {
+            synchronized (output) {
+                return output.stream().filter(line -> line.contains(text))
+                        .count();
             }
         }
 

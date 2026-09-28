@@ -256,6 +256,28 @@ class GdxScenarioContractTest {
     }
 
     @Test
+    void multiprocessOracleObservesRealLobbyConnectivityAndDepartureState()
+            throws IOException {
+        Path root = repositoryRoot();
+        String driver = Files.readString(root.resolve("modules/coronapoker-gdx/src/"
+                + "test/java/com/tonikelope/coronapoker/gdx/scenarios/"
+                + "GdxScenarioRenderer.java"), StandardCharsets.UTF_8);
+        String node = Files.readString(root.resolve("modules/coronapoker-gdx/src/"
+                + "test/java/com/tonikelope/coronapoker/gdx/"
+                + "GdxMultiprocessNodeMain.java"), StandardCharsets.UTF_8);
+
+        assertTrue(driver.contains("LobbySession lobby"),
+                "the product table oracle must receive the real lobby session");
+        assertTrue(driver.contains("lobby));"),
+                "the product table oracle cannot detach network presence");
+        assertTrue(node.contains("productTable, lobby"),
+                "multiprocess nodes must wire their real lobby into GDX");
+        assertTrue(node.contains(
+                "renderer.assertNeverShowedReconnectFor(\"client1\")"),
+                "voluntary exit must reject a visible reconnect projection");
+    }
+
+    @Test
     void officialRunnerIsolatesEveryMappedTestInItsOwnMavenProcess()
             throws IOException {
         Path root = repositoryRoot();

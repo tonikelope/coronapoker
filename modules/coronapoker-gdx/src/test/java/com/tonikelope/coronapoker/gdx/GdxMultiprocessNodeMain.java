@@ -149,7 +149,7 @@ public final class GdxMultiprocessNodeMain {
                 TableSession table = lobby.tableSession().toCompletableFuture()
                         .get(30, TimeUnit.SECONDS);
                 GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
-                        expectedPlayers, productTable);
+                        expectedPlayers, productTable, lobby);
                 scenarioRenderer.set(renderer);
                 if ("raise-mix".equals(config.scenario)) {
                     renderer.enableRaiseMix();
@@ -275,7 +275,7 @@ public final class GdxMultiprocessNodeMain {
             TableSession table = lobby.tableSession().toCompletableFuture()
                     .get(30, TimeUnit.SECONDS);
             GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
-                    expectedPlayers, productTable);
+                    expectedPlayers, productTable, lobby);
             if (!config.host()) {
                 renderer.gateActionOnHand(1L);
             }
@@ -400,7 +400,7 @@ public final class GdxMultiprocessNodeMain {
                 TableSession table = lobby.tableSession().toCompletableFuture()
                         .get(45, TimeUnit.SECONDS);
                 GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
-                        expectedPlayers, productTable);
+                        expectedPlayers, productTable, lobby);
                 if (config.host() && stopThisSession) {
                     renderer.gateActionOnHand(interruptedHand);
                 }
@@ -533,7 +533,7 @@ public final class GdxMultiprocessNodeMain {
                 GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
                         recovering ? finalExpectedPlayers
                                 : initialExpectedPlayers,
-                        productTable);
+                        productTable, lobby);
                 if (!recovering && !config.host()) {
                     renderer.allInOnHand(1L);
                 }
@@ -661,7 +661,7 @@ public final class GdxMultiprocessNodeMain {
                 TableSession table = lobby.tableSession().toCompletableFuture()
                         .get(45, TimeUnit.SECONDS);
                 GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
-                        expectedPlayers, productTable);
+                        expectedPlayers, productTable, lobby);
                 if (!recovering) {
                     renderer.foldAutomatically(true);
                     if (config.host()) {
@@ -808,7 +808,7 @@ public final class GdxMultiprocessNodeMain {
                 TableSession table = lobby.tableSession().toCompletableFuture()
                         .get(45, TimeUnit.SECONDS);
                 GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
-                        expectedPlayers, productTable);
+                        expectedPlayers, productTable, lobby);
                 if (!recovering && candidate) {
                     renderer.allInOnHand(1L);
                 }
@@ -987,7 +987,7 @@ public final class GdxMultiprocessNodeMain {
                 GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
                         phase == 0 ? expectedPlayers - newcomerCount
                                 : expectedPlayers,
-                        productTable);
+                        productTable, lobby);
                 if (phase == 0) {
                     if ("client1".equals(config.nickname)
                             || "client2".equals(config.nickname)) {
@@ -1133,7 +1133,7 @@ public final class GdxMultiprocessNodeMain {
                 TableSession table = lobby.tableSession().toCompletableFuture()
                         .get(45, TimeUnit.SECONDS);
                 GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
-                        expectedPlayers, productTable);
+                        expectedPlayers, productTable, lobby);
                 if (!recovering && config.host()) {
                     renderer.gateActionOnHand(2L);
                 } else if (!recovering
@@ -1282,7 +1282,7 @@ public final class GdxMultiprocessNodeMain {
                 TableSession table = lobby.tableSession().toCompletableFuture()
                         .get(45, TimeUnit.SECONDS);
                 GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
-                        expectedPlayers, productTable);
+                        expectedPlayers, productTable, lobby);
                 if (phase == 0 && config.host()) {
                     renderer.gateActionOnHand(2L);
                 } else if (phase == 0
@@ -1491,7 +1491,7 @@ public final class GdxMultiprocessNodeMain {
         TableSession table = lobby.tableSession().toCompletableFuture()
                 .get(45, TimeUnit.SECONDS);
         GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
-                expectedPlayers, productTable);
+                expectedPlayers, productTable, lobby);
         table.attach(renderer).toCompletableFuture()
                 .get(10, TimeUnit.SECONDS);
         return renderer;
@@ -2146,6 +2146,8 @@ public final class GdxMultiprocessNodeMain {
 
     private static void assertOutcome(Config config,
             GdxScenarioRenderer renderer) {
+        renderer.assertNoUnexpectedReconnects(
+                allowedVisibleReconnects(config));
         if ("normal".equals(config.scenario)) {
             renderer.assertComplete(config.hands);
             return;
@@ -2270,6 +2272,7 @@ public final class GdxMultiprocessNodeMain {
                     throw new AssertionError(
                             "all-in exit did not project SE PIRA/LEAVES");
                 }
+                renderer.assertNeverShowedReconnectFor("client1");
             }
             return;
         }
@@ -2299,6 +2302,7 @@ public final class GdxMultiprocessNodeMain {
                     throw new AssertionError(
                             "controlled-exit did not project SE PIRA/LEAVES");
                 }
+                renderer.assertNeverShowedReconnectFor("client1");
             }
             return;
         }
@@ -2330,6 +2334,23 @@ public final class GdxMultiprocessNodeMain {
         }
         throw new IllegalArgumentException("unsupported scenario "
                 + config.scenario);
+    }
+
+    private static Set<String> allowedVisibleReconnects(Config config) {
+        if (config.reconnectScenario()
+                || "allin-reconnect".equals(config.scenario)
+                || "rit-network-cut".equals(config.scenario)
+                || "straddle-network-cut".equals(config.scenario)) {
+            return java.util.stream.IntStream.rangeClosed(1, config.clients)
+                    .mapToObj(index -> "client" + index)
+                    .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        }
+        return switch (config.scenario) {
+            case "abrupt-exit", "allin-abrupt-exit" -> Set.of("client1");
+            case "dual-abrupt-exit" -> Set.of("client1", "client2");
+            case "mixed-exit-crash" -> Set.of("client2");
+            default -> Set.of();
+        };
     }
 
     private static void await(BooleanSupplier condition, Duration timeout,

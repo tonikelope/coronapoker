@@ -2209,7 +2209,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         initialProperties.setProperty("lenguaje", next);
         languageChanged.accept(next);
         if (preferences != null) preferences.saveDeferred();
-        showToast(gameText.translate("gdx.language_changed"));
     }
 
     private void openAboutDialog() {

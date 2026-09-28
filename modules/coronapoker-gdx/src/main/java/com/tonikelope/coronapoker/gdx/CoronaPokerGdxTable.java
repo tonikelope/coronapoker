@@ -9991,6 +9991,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return Math.max(0d, canonicalPotAfter + payout - landed);
     }
 
+    static double landedCounterContribution(double exactContribution,
+            int landedChips, int totalChips) {
+        // The extra GDX sprites are purely decorative. Dividing money among
+        // them made the counter expose invented fractions such as 0.07 while
+        // a three-chip group was landing. Swing commits the player's exact
+        // contribution when its visual flight finishes; preserve that causal
+        // behaviour without changing the canonical economy.
+        return totalChips > 0 && landedChips >= totalChips
+                ? exactContribution : 0d;
+    }
+
     private double livePot() {
         if (livePayout != null) {
             return displayedPayoutPot(livePayout.event.potAfter(),
@@ -17148,11 +17159,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
 
         double landedContribution(float elapsed) {
-            double total = 0d;
+            int landed = 0;
             for (LiveChip chip : chips) {
-                if (chip.progress(elapsed) >= 1f) total += chip.contribution;
+                if (chip.progress(elapsed) >= 1f) landed++;
             }
-            return total;
+            return landedCounterContribution(event.contributionDelta(),
+                    landed, chips.size());
         }
 
     }
@@ -17489,11 +17501,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         double landedContribution(String nickname, float elapsed) {
             double total = 0d;
-            for (LiveChip chip : chips) {
-                if ((nickname == null || nickname.equals(chip.nickname))
-                        && chip.progress(elapsed) >= 1f) {
-                    total += chip.contribution;
+            for (TableVisualEvent.ChipTransfer transfer : event.transfers()) {
+                if (nickname != null && !nickname.equals(transfer.nickname())) {
+                    continue;
                 }
+                int groupSize = 0;
+                int landed = 0;
+                double exactContribution = 0d;
+                for (LiveChip chip : chips) {
+                    if (!transfer.nickname().equals(chip.nickname)) continue;
+                    groupSize++;
+                    exactContribution += chip.contribution;
+                    if (chip.progress(elapsed) >= 1f) landed++;
+                }
+                total += landedCounterContribution(exactContribution,
+                        landed, groupSize);
             }
             return total;
         }

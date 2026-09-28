@@ -2153,6 +2153,16 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void decorativeChipGroupsCommitOnlyTheExactContribution() {
+        assertEquals(0d, CoronaPokerGdxTable.landedCounterContribution(
+                0.2d, 0, 3));
+        assertEquals(0d, CoronaPokerGdxTable.landedCounterContribution(
+                0.2d, 2, 3));
+        assertEquals(0.2d, CoronaPokerGdxTable.landedCounterContribution(
+                0.2d, 3, 3));
+    }
+
+    @Test
     void endSnapshotCannotResurrectFoldedSeatOrItsCardsDuringShowdown() {
         GdxTableViewState state = new GdxTableViewState(snapshot());
         state.apply(new TableVisualEvent.DealHoleCard(1, "borja", 0,

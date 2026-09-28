@@ -293,6 +293,7 @@ public final class GdxMultiprocessNodeMain {
             }
             await(renderer::isClosed, Duration.ofMinutes(3),
                     "recoverable stop after client crash");
+            assertPhaseReconnects(config, renderer, Set.of("client1"));
             if (renderer.summary().reason()
                     != TableSessionSummary.CloseReason.RECOVERABLE_STOP) {
                 throw new AssertionError("crash-rejoin initial table was not "
@@ -433,6 +434,10 @@ public final class GdxMultiprocessNodeMain {
                 await(renderer::isClosed, Duration.ofMinutes(3),
                         stopThisSession ? "forced recoverable stop"
                                 : "force-recovered table completion");
+                assertPhaseReconnects(config, renderer,
+                        "reconnect-force-recover".equals(config.scenario)
+                                && !recovering
+                                ? Set.of("client1") : Set.of());
                 if (stopThisSession) {
                     if (renderer.summary().reason()
                             != TableSessionSummary.CloseReason.RECOVERABLE_STOP) {
@@ -568,6 +573,7 @@ public final class GdxMultiprocessNodeMain {
                 await(renderer::isClosed, Duration.ofMinutes(4),
                         recovering ? "spectator recovery completion"
                                 : "spectator recoverable stop");
+                assertPhaseReconnects(config, renderer, Set.of());
                 if (!recovering) {
                     if (renderer.summary().reason()
                             != TableSessionSummary.CloseReason.RECOVERABLE_STOP) {
@@ -703,6 +709,7 @@ public final class GdxMultiprocessNodeMain {
                 await(renderer::isClosed, Duration.ofMinutes(4),
                         recovering ? "bot recovery completion"
                                 : "bot recoverable stop");
+                assertPhaseReconnects(config, renderer, Set.of());
                 if (!recovering) {
                     if (renderer.summary().reason()
                             != TableSessionSummary.CloseReason.RECOVERABLE_STOP) {
@@ -837,6 +844,7 @@ public final class GdxMultiprocessNodeMain {
                         table.commands().submit(new TableCommand.ExitGame());
                         await(renderer::isClosed, Duration.ofSeconds(45),
                                 "controlled spectator exit");
+                        assertPhaseReconnects(config, renderer, Set.of());
                         if (renderer.summary().reason()
                                 != TableSessionSummary.CloseReason.EXITED) {
                             throw new AssertionError("spectator exit reason: "
@@ -877,6 +885,7 @@ public final class GdxMultiprocessNodeMain {
                 await(renderer::isClosed, Duration.ofMinutes(4),
                         recovering ? "human rejoin recovery completion"
                                 : "human bust recoverable stop");
+                assertPhaseReconnects(config, renderer, Set.of());
                 if (!recovering) {
                     if (renderer.summary().reason()
                             != TableSessionSummary.CloseReason.RECOVERABLE_STOP) {
@@ -1049,6 +1058,8 @@ public final class GdxMultiprocessNodeMain {
                 await(renderer::isClosed, Duration.ofMinutes(5),
                         phase == 2 ? "double recovery completion"
                                 : "double recovery stop");
+                assertPhaseReconnects(config, renderer,
+                        phase == 1 ? Set.of("client3") : Set.of());
                 if (phase < 2) {
                     if (renderer.summary().reason()
                             != TableSessionSummary.CloseReason.RECOVERABLE_STOP) {
@@ -1210,6 +1221,9 @@ public final class GdxMultiprocessNodeMain {
                 await(renderer::isClosed, Duration.ofMinutes(5),
                         recovering ? "transport chaos completion"
                                 : "transport chaos recoverable stop");
+                assertPhaseReconnects(config, renderer,
+                        recovering ? Set.of("client3")
+                                : Set.of("client1", "client2"));
                 if (!recovering) {
                     if (renderer.summary().reason()
                             != TableSessionSummary.CloseReason.RECOVERABLE_STOP) {
@@ -1384,6 +1398,9 @@ public final class GdxMultiprocessNodeMain {
                 await(renderer::isClosed, Duration.ofMinutes(6),
                         phase == 2 ? "lifecycle completion"
                                 : "lifecycle recoverable stop " + phase);
+                assertPhaseReconnects(config, renderer,
+                        phase == 0 ? Set.of("client1")
+                                : phase == 1 ? Set.of("client2") : Set.of());
                 if (phase < 2) {
                     if (renderer.summary().reason()
                             != TableSessionSummary.CloseReason.RECOVERABLE_STOP) {
@@ -1499,6 +1516,7 @@ public final class GdxMultiprocessNodeMain {
 
     private static void assertRecoveredCrashRejoin(Config config,
             GdxScenarioRenderer renderer) {
+        assertPhaseReconnects(config, renderer, Set.of());
         renderer.assertComplete(1);
         if (renderer.summary().handCount() != config.hands) {
             throw new AssertionError("crash-rejoin durable hand count: expected "
@@ -2339,7 +2357,12 @@ public final class GdxMultiprocessNodeMain {
     }
 
     private static Set<String> allowedVisibleReconnects(Config config) {
-        Set<String> disconnectedPeers = expectedDisconnectedPeers(config);
+        return visibleReconnectsForNode(config,
+                expectedDisconnectedPeers(config));
+    }
+
+    private static Set<String> visibleReconnectsForNode(Config config,
+            Set<String> disconnectedPeers) {
         if (config.host() || !disconnectedPeers.contains(config.nickname)) {
             return disconnectedPeers;
         }
@@ -2354,12 +2377,25 @@ public final class GdxMultiprocessNodeMain {
         if ("straddle-network-cut".equals(config.scenario)) {
             return Set.of();
         }
-        Set<String> disconnectedPeers = expectedDisconnectedPeers(config);
+        return requiredReconnectsForNode(config,
+                expectedDisconnectedPeers(config));
+    }
+
+    private static Set<String> requiredReconnectsForNode(Config config,
+            Set<String> disconnectedPeers) {
         if (config.host()) {
             return disconnectedPeers;
         }
         return disconnectedPeers.contains(config.nickname)
                 ? Set.of("server") : Set.of();
+    }
+
+    private static void assertPhaseReconnects(Config config,
+            GdxScenarioRenderer renderer, Set<String> disconnectedPeers) {
+        renderer.assertNoUnexpectedReconnects(
+                visibleReconnectsForNode(config, disconnectedPeers));
+        renderer.assertShowedExpectedReconnects(
+                requiredReconnectsForNode(config, disconnectedPeers));
     }
 
     private static Set<String> expectedDisconnectedPeers(Config config) {

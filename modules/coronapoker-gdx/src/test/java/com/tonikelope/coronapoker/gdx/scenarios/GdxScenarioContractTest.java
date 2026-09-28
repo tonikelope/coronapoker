@@ -284,6 +284,17 @@ class GdxScenarioContractTest {
                 "visible reconnect allowances must be scenario-specific");
         assertTrue(node.contains("requiredVisibleReconnects(config)"),
                 "real network cuts must require their GDX reconnect projection");
+        assertTrue(node.contains("assertPhaseReconnects(Config config"),
+                "recovery scenarios must validate every session phase");
+        assertTrue(node.contains(
+                "phase == 1 ? Set.of(\"client3\") : Set.of()"),
+                "the injected recovery crash must be observable only in its phase");
+        assertTrue(node.contains(
+                "recovering ? Set.of(\"client3\")"),
+                "transport chaos must distinguish pre/post-recovery cuts");
+        assertTrue(node.contains(
+                "phase == 0 ? Set.of(\"client1\")"),
+                "lifecycle chaos must keep phase-specific reconnect identities");
     }
 
     @Test

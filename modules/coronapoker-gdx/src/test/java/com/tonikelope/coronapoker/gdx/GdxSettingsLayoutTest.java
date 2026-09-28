@@ -112,4 +112,33 @@ final class GdxSettingsLayoutTest {
         assertEquals(GdxSettingsLayout.ROW_STRIDE,
                 GdxSettingsLayout.rowStride(contentHeight, 5));
     }
+
+    @Test
+    void childRowsAreInsetOnlyFromTheLeft() {
+        Rectangle parent = GdxSettingsLayout.optionRow(
+                100f, 500f, 1_000f, false);
+        Rectangle child = GdxSettingsLayout.optionRow(
+                100f, 430f, 1_000f, true);
+        assertTrue(child.x > parent.x);
+        assertEquals(parent.x + parent.width, child.x + child.width);
+        assertEquals(GdxSettingsLayout.CHILD_ROW_INDENT,
+                child.x - parent.x);
+        assertEquals(parent.y - GdxSettingsLayout.ROW_STRIDE, child.y);
+    }
+
+    @Test
+    void settingsScrollbarMapsMouseDragFromTopToFirstRows() {
+        float height = 420f;
+        float thumb = GdxSettingsLayout.scrollbarThumbHeight(height, 12, 6);
+
+        assertEquals(0, GdxSettingsLayout.firstRowFromScrollbar(
+                100f + height - thumb / 2f, 100f, height, thumb, 6));
+        assertEquals(3, GdxSettingsLayout.firstRowFromScrollbar(
+                100f + height / 2f, 100f, height, thumb, 6));
+        assertEquals(6, GdxSettingsLayout.firstRowFromScrollbar(
+                100f + thumb / 2f, 100f, height, thumb, 6));
+        assertEquals(14f, GdxSettingsLayout.SCROLLBAR_WIDTH);
+        assertTrue(GdxSettingsLayout.SCROLLBAR_HIT_WIDTH
+                > GdxSettingsLayout.SCROLLBAR_WIDTH);
+    }
 }

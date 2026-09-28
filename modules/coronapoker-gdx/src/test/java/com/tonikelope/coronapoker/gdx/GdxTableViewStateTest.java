@@ -104,6 +104,22 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void localHudOutcomeWaitsForTheAuthoritativeHandResult() {
+        assertEquals(Boolean.TRUE,
+                CoronaPokerGdxTable.localHandOutcome(true, false));
+        assertEquals(Boolean.FALSE,
+                CoronaPokerGdxTable.localHandOutcome(false, false));
+        assertEquals(null,
+                CoronaPokerGdxTable.localHandOutcome(null, true));
+        assertEquals(null,
+                CoronaPokerGdxTable.localHandOutcome(null, false));
+        assertEquals("¡GANAS!", CoronaPokerGdxTable.localHandOutcomeLabel(
+                true, new GdxGameText("es")));
+        assertEquals("YOU LOSE", CoronaPokerGdxTable.localHandOutcomeLabel(
+                false, new GdxGameText("en")));
+    }
+
+    @Test
     void foldedActionLabelRemainsAttenuatedEvenAfterShowdownSettles() {
         assertEquals(0.34f,
                 CoronaPokerGdxTable.seatActionSurfaceAlpha(true, true),
@@ -803,6 +819,62 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void allInRunoutPausePreservesTheAcceptedActionUntilRevealsBegin() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+        state.apply(new TableVisualEvent.PlayerAction(1, "borja",
+                TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
+                "ALL IN", 100d, 100d, 0d, 100d, 100d));
+
+        state.apply(new TableVisualEvent.AllInRunoutPause(2, 1_000L));
+
+        assertEquals("ALL IN", state.actionLabel("borja"));
+        assertEquals("", player(state, "borja").handName());
+
+        state.apply(new TableVisualEvent.PartialHand(3, "borja", "PAREJA",
+                true, 62.5f));
+        assertEquals("PAREJA", player(state, "borja").handName());
+    }
+
+    @Test
+    void allInRunoutBeatStartsAfterTheLastActionMotionAndLastsOneSecond() {
+        long waiting = CoronaPokerGdxTable.allInRunoutPauseStartTime(
+                -1L, 500_000_000L, false);
+        assertEquals(-1L, waiting);
+
+        long started = CoronaPokerGdxTable.allInRunoutPauseStartTime(
+                waiting, 800_000_000L, true);
+        assertEquals(800_000_000L, started);
+        assertFalse(CoronaPokerGdxTable.allInRunoutPauseFinished(
+                started, 1_799_999_999L, 1_000L));
+        assertTrue(CoronaPokerGdxTable.allInRunoutPauseFinished(
+                started, 1_800_000_000L, 1_000L));
+    }
+
+    @Test
+    void revealedShowdownStateSurvivesRunItTwiceVerdictReset() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+        state.apply(new TableVisualEvent.PlayerAction(1, "borja",
+                TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
+                "ALL IN", 100d, 100d, 0d, 100d, 100d));
+        assertFalse(state.hasRevealedHoleCards("borja"));
+        state.apply(new TableVisualEvent.RevealHoleCards(2, "borja",
+                card("Q_D"), card("Q_C"), "PAREJA"));
+        assertTrue(state.hasRevealedHoleCards("borja"));
+        state.apply(new TableVisualEvent.HandResult(3, "borja", "PAREJA",
+                false, TableSnapshot.Street.SHOWDOWN));
+        state.apply(new TableVisualEvent.RunItTwiceBoard(4,
+                TableVisualEvent.RunItTwiceBoard.Side.B,
+                "BOTE (CARA-B):", 50d, List.of(3, 4)));
+
+        assertTrue(state.hasRevealedHoleCards("borja"));
+        assertEquals("ALL IN", state.actionLabel("borja"));
+        assertEquals("", player(state, "borja").handName());
+        assertFalse(CoronaPokerGdxTable.historicalActionLabelVisible(
+                state.hasRevealedHoleCards("borja")),
+                "RIT side B must not resurrect the old ALL IN caption");
+    }
+
+    @Test
     void derivesEveryPokerStreetFromTheOrderedPresentationEvents() {
         GdxTableViewState state = new GdxTableViewState(snapshot());
 
@@ -1283,6 +1355,51 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void gameLogSharesOneNormalizedPayloadForGridAndCardLayout() {
+        String row = "(MV) │ PAREJA │ bot │ ([K♣][7♥])";
+
+        assertEquals("│ PAREJA │ bot │ [K♣][7♥]",
+                GdxGameLogFormatter.displayText(row));
+        List<GdxGameLogFormatter.Run> runs = GdxGameLogFormatter.runs(row);
+        List<GdxGameLogFormatter.Run> cards = runs.stream()
+                .filter(GdxGameLogFormatter.Run::card).toList();
+        assertEquals(2, cards.size());
+        assertTrue(GdxGameLogFormatter.isBoxDrawingCharacter('│'));
+        assertTrue(GdxGameLogFormatter.isBoxDrawingCharacter('┼'));
+        assertFalse(GdxGameLogFormatter.isBoxDrawingCharacter('K'));
+
+        List<Float> widths = runs.stream()
+                .map(run -> run.card() ? 28f : run.text().length() * 10f)
+                .toList();
+        List<Float> offsets = CoronaPokerGdxTable.gameLogRunOffsets(
+                runs, widths, true, 10f, 3f);
+        int firstCard = runs.indexOf(cards.get(0));
+        int secondCard = runs.indexOf(cards.get(1));
+        assertTrue(offsets.get(secondCard)
+                >= offsets.get(firstCard) + widths.get(firstCard) + 3f);
+    }
+
+    @Test
+    void localHudDangerPulseUsesTheSameLastQuarterAsTheRedTimer() {
+        assertFalse(CoronaPokerGdxTable.localHudDangerActive(
+                true, true, false, 0.251f));
+        assertTrue(CoronaPokerGdxTable.localHudDangerActive(
+                true, true, false, 0.25f));
+        assertTrue(CoronaPokerGdxTable.localHudDangerActive(
+                true, true, false, 0f));
+        assertFalse(CoronaPokerGdxTable.localHudDangerActive(
+                false, true, false, 0.1f));
+        assertFalse(CoronaPokerGdxTable.localHudDangerActive(
+                true, false, false, 0.1f));
+        assertFalse(CoronaPokerGdxTable.localHudDangerActive(
+                true, true, true, 0.1f));
+        assertEquals(0f, CoronaPokerGdxTable.localHudDangerPulse(0f),
+                0.000_001f);
+        assertTrue(CoronaPokerGdxTable.localHudDangerPulse(0.25f) >= 0f);
+        assertTrue(CoronaPokerGdxTable.localHudDangerPulse(0.25f) <= 1f);
+    }
+
+    @Test
     void gameLogWrappingNeverCutsAVisualCardToken() {
         List<String> wrapped = new java.util.ArrayList<>();
         GdxGameLogFormatter.wrapLine(wrapped,
@@ -1457,6 +1574,18 @@ final class GdxTableViewStateTest {
                 () -> state.apply(new TableVisualEvent.CloseTable(5,
                         com.tonikelope.coronapoker.table.TableSessionSummary.empty(),
                         TableSnapshot.Street.FINISHED)));
+    }
+
+    @Test
+    void dealerStraddlePositionSurvivesTheRotationAnimation() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+
+        state.apply(new TableVisualEvent.PositionRotation(1, List.of(
+                new TableVisualEvent.PositionTransfer("borja", "ana",
+                        TableSnapshot.Position.DEALER_STRADDLE, false)), 440));
+
+        assertEquals(TableSnapshot.Position.DEALER_STRADDLE,
+                player(state, "ana").position());
     }
 
     @Test
@@ -1871,6 +2000,21 @@ final class GdxTableViewStateTest {
         assertEquals(0, player(state, "ana").holeCards().size());
         assertEquals(0, state.snapshot().communityCards().size());
         assertTrue(!state.hasShowdownHighlights());
+    }
+
+    @Test
+    void deferredStraddleSortAlsoReordersThePersistedReveal() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+        TableSnapshot.CardSnapshot ten = card("10_S");
+        TableSnapshot.CardSnapshot queen = card("Q_H");
+
+        state.apply(new TableVisualEvent.RevealHoleCards(1, "ana",
+                ten, queen));
+        state.apply(new TableVisualEvent.SwapHoleCards(2, "ana", true));
+
+        assertEquals(List.of(queen, ten), state.presentedHoleCards("ana"),
+                "the reveal overlay must not undo the straddle sort");
+        assertEquals(List.of(queen, ten), player(state, "ana").holeCards());
     }
 
     @Test

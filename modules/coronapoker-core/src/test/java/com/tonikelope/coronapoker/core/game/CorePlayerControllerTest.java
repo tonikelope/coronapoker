@@ -56,6 +56,32 @@ class CorePlayerControllerTest {
     }
 
     @Test
+    void postedStraddleBecomesTheCanonicalPositionForEveryFrontend() {
+        CorePlayerController player = CorePlayerController.local("utg");
+        player.setStack(10d);
+        player.bindDealer(new StubDealer(0d));
+        player.applyCurrentHandPosition();
+
+        player.postStraddle(0.40d);
+
+        assertEquals(PlayerState.Position.STRADDLE,
+                player.getState().snapshot().position());
+    }
+
+    @Test
+    void dealerStraddleKeepsTheCombinedCanonicalPosition() {
+        CorePlayerController player = CorePlayerController.remote("dealer");
+        player.setStack(10d);
+        player.bindDealer(new StubDealer(0d));
+        player.applyCurrentHandPosition();
+
+        player.postStraddle(0.40d);
+
+        assertEquals(PlayerState.Position.DEALER_STRADDLE,
+                player.getState().snapshot().position());
+    }
+
+    @Test
     void openingNextHandConsumesCommittedRebuyBeforePendingPayout() {
         CorePlayerController player = CorePlayerController.local("player");
         player.setStack(0d);

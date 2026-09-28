@@ -211,6 +211,16 @@ final class TableEventBridgeTest {
                 new TableVisualEvent.PositionRotation(4L, List.of(), 240L));
     }
 
+    @Test
+    void allInRunoutPauseRequiresARealPositivePresentationBeat() {
+        TableVisualEvent.AllInRunoutPause pause
+                = new TableVisualEvent.AllInRunoutPause(1L, 1_000L);
+
+        assertEquals(1_000L, pause.durationMillis());
+        assertThrows(IllegalArgumentException.class, () ->
+                new TableVisualEvent.AllInRunoutPause(2L, 0L));
+    }
+
     private static TableSnapshot emptyTable() {
         return new TableSnapshot(0L, "local", TableSnapshot.Street.WAITING,
                 0d, "", false, List.of(), List.of());

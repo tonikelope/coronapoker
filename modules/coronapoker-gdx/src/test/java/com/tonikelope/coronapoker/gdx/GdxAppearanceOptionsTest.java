@@ -109,4 +109,10 @@ final class GdxAppearanceOptionsTest {
         assertFalse(GdxAppearanceOptions.enabled(flip, properties));
         assertTrue(GdxAppearanceOptions.enabled(swap, properties));
     }
+
+    @Test
+    void everyAnimationChoiceUsesChildRowGeometry() {
+        assertTrue(GdxAppearanceOptions.ANIMATION_CHOICES.stream()
+                .allMatch(GdxAppearanceOptions::isChildChoice));
+    }
 }

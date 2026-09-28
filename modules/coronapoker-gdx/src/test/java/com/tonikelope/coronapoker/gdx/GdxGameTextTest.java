@@ -2,6 +2,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -11,6 +12,17 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 final class GdxGameTextTest {
+
+    @Test
+    void equalButtonCaptionsStillHaveIndependentHoverState() {
+        String first = GdxFrontendScreen.buttonHoverKey(
+                "CANCELAR", 100f, 80f, 240f, 68f);
+
+        assertEquals(first, GdxFrontendScreen.buttonHoverKey(
+                "CANCELAR", 100f, 80f, 240f, 68f));
+        assertNotEquals(first, GdxFrontendScreen.buttonHoverKey(
+                "CANCELAR", 620f, 80f, 240f, 68f));
+    }
 
     @Test
     void everyGdxTextExistsAndIsNonEmptyInSpanishAndEnglish() throws Exception {
@@ -25,7 +37,7 @@ final class GdxGameTextTest {
 
         assertEquals(spanishKeys, englishKeys,
                 "GDX must never fall back to a different language or raw key");
-        assertEquals(480, spanishKeys.size(),
+        assertEquals(485, spanishKeys.size(),
                 "new GDX labels must be added symmetrically");
         for (String key : spanishKeys) {
             assertFalse(spanish.getProperty(key).isBlank(), key + " empty in es");

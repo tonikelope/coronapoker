@@ -157,6 +157,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final Color LATENCY_RED = new Color(0xf44336ff);
     private static final Color LATENCY_STALE = new Color(0x9e9e9eff);
     private static final int SETTINGS_SHORTCUT_ROWS_PER_PAGE = 5;
+    private static final int SETTINGS_OPTION_ROWS_VISIBLE = 6;
     private static final int EMOJI_COUNT = 1826;
     private static final int EMOJI_COLUMNS = 8;
     private static final int EMOJI_ROWS = 4;
@@ -352,7 +353,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final GdxSettingsSession settingsSession =
             new GdxSettingsSession();
     private int settingsAppearancePage;
+    private int settingsAppearanceRow;
     private int settingsAudioPage;
+    private int settingsAudioRow;
     private int settingsGamePage;
     private int settingsShortcutPage;
     private float settingsDebugScroll;
@@ -361,6 +364,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private float settingsDebugScrollThumbHeight;
     private float settingsDebugScrollMaximum;
     private final Rectangle settingsDebugViewport = new Rectangle();
+    private final Rectangle settingsRowScrollTrack = new Rectangle();
+    private float settingsRowScrollThumbHeight;
+    private int settingsRowScrollMaximum;
     private final List<TextItem> settingsDebugTexts = new ArrayList<>();
     private ScrollDrag scrollDrag = ScrollDrag.NONE;
     private String settingsShortcutCaptureId;
@@ -981,8 +987,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || surface == Surface.SETTINGS) {
             float logoWidth = MENU_LOGO_WIDTH;
             float logoHeight = logoWidth * logo.getHeight() / logo.getWidth();
-            float topInset = surface == Surface.MENU ? MENU_LOGO_TOP : 18f;
-            batch.draw(logo, MENU_LOGO_X, HEIGHT - topInset - logoHeight,
+            batch.draw(logo, MENU_LOGO_X,
+                    HEIGHT - MENU_LOGO_TOP - logoHeight,
                     logoWidth, logoHeight);
         }
         batch.setColor(Color.WHITE);
@@ -2894,9 +2900,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return;
         }
         String lobbyTitle = uppercase(gameText.translate("gdx.lobby.title"));
-        text(titleFont, lobbyTitle, 59f, 890f,
-                new Color(0x000000aa), false);
-        text(titleFont, lobbyTitle, 55f, 894f, GOLD, false);
+        textFit(titleFont, lobbyTitle, 59f, 890f,
+                new Color(0x000000aa), false, 1290f);
+        textFit(titleFont, lobbyTitle, 55f, 894f, GOLD, false, 1290f);
 
         panel(35f, 180f, 430f, 650f,
                 uppercase(gameText.translate("game.timba")));
@@ -3592,13 +3598,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float nickWidth = textWidth(tinyFont, message.nickname());
         float actionWidth = textWidth(tinyFont, action);
         float timeWidth = textWidth(tinyFont, time);
+        float maxNickWidth = Math.max(0f,
+                width - 42f - actionWidth - timeWidth);
+        String visibleNickname = ellipsize(tinyFont, message.nickname(),
+                maxNickWidth);
+        nickWidth = textWidth(tinyFont, visibleNickname);
         float totalWidth = 34f + 8f + nickWidth + actionWidth + timeWidth;
         float startX = x + Math.max(0f, (width - totalWidth) / 2f);
         lobbyAvatars.add(new LobbyAvatarItem(lobbyMessageAvatar(message),
                 startX, y + (height - 30f) / 2f, 30f));
         float textX = startX + 42f;
-        text(tinyFont, message.nickname(), textX, y + 28f,
-                Color.WHITE, false);
+        textFit(tinyFont, visibleNickname, textX, y + 28f,
+                Color.WHITE, false, maxNickWidth);
         textX += nickWidth;
         text(tinyFont, action, textX, y + 28f,
                 message.type() == LobbyChatMessage.Type.PLAYER_JOINED
@@ -3828,7 +3839,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void lobbyInfoRow(float x, float y, String label, String value) {
         shapes.setColor(new Color(0x31445f77));
         shapes.rect(x, y - 18f, 390f, 1f);
-        text(smallFont, label, x, y + 18f, MUTED, false);
+        textFit(smallFont, label, x, y + 18f, MUTED, false, 170f);
         textFit(smallFont, value, x + 295f, y + 18f,
                 Color.WHITE, true, 190f);
     }
@@ -5057,6 +5068,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void restoreCurrentFrontendSettingsSectionDefaults() {
+        settingsRowScrollMaximum = 0;
+        settingsRowScrollTrack.set(0f, 0f, 0f, 0f);
         switch (settingsSession.section()) {
             case APPEARANCE -> restoreFrontendAppearanceDefaults();
             case AUDIO -> restoreFrontendAudioDefaults();
@@ -5085,18 +5098,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case APPEARANCE -> settingsAppearancePage;
             case AUDIO -> settingsAudioPage;
             case GAME -> settingsGamePage;
-            case SHORTCUTS -> settingsShortcutPage;
+            case SHORTCUTS -> 0;
             case DEBUG -> 0;
         };
     }
 
     private void selectSettingsSubpage(int index) {
         switch (settingsSession.section()) {
-            case APPEARANCE -> settingsAppearancePage = index;
-            case AUDIO -> settingsAudioPage = index;
+            case APPEARANCE -> {
+                settingsAppearancePage = index;
+                settingsAppearanceRow = 0;
+            }
+            case AUDIO -> {
+                settingsAudioPage = index;
+                settingsAudioRow = 0;
+            }
             case GAME -> settingsGamePage = index;
             case SHORTCUTS -> {
-                settingsShortcutPage = index;
+                settingsShortcutPage = 0;
                 settingsShortcutCaptureId = null;
                 settingsShortcutStatus = "";
             }
@@ -5229,19 +5248,34 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             drawFrontendVolumeControl(x + 34f, rowY, w - 68f);
             rowY -= 74f;
         }
-        for (GdxSettingsContract.ToggleOption option : page.options()) {
+        int reservedRows = settingsAudioPage == 0 ? 1 : 0;
+        int visible = Math.min(SETTINGS_OPTION_ROWS_VISIBLE - reservedRows,
+                page.options().size());
+        settingsAudioRow = MathUtils.clamp(settingsAudioRow, 0,
+                Math.max(0, page.options().size() - visible));
+        float baseX = x + GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
+        float baseWidth = w - 2f
+                * GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
+        for (int slot = 0; slot < visible; slot++) {
+            GdxSettingsContract.ToggleOption option = page.options().get(
+                    settingsAudioRow + slot);
             boolean enabled = frontendAudioOptionEnabled(option);
             boolean value = GdxSettingsContract.displayedValue(option,
                     initialProperties, audioControl.enabled());
             Runnable action = "sonidos".equals(option.key())
                     ? this::toggleMasterSound
                     : () -> togglePreference(option.key(), option.fallback());
-            toggle(x + 34f, rowY, w - 68f,
+            Rectangle row = GdxSettingsLayout.optionRow(baseX, rowY,
+                    baseWidth,
+                    GdxSettingsContract.isChildOption(page, option));
+            toggle(row.x, row.y, row.width,
                     GdxSettingsContract.markDefault(option.label(gameText),
                             value == option.fallback()), value,
                     action, enabled);
             rowY -= GdxSettingsLayout.ROW_STRIDE;
         }
+        drawSettingsRowScrollbar(x + w - 24f, y + 14f, h - 28f,
+                page.options().size(), visible, settingsAudioRow);
         if (GdxSettingsContract.hasVoiceRetention(page)) {
             settingsStepper(x + 34f, rowY, w - 68f, 70f,
                     uppercase(gameText.translate(
@@ -5400,18 +5434,41 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxSettingsContract.TogglePage page =
                 GdxSettingsContract.APPEARANCE_PAGES.get(
                         settingsAppearancePage - 1);
-        boolean animationChoices =
-                GdxSettingsContract.hasAppearanceAnimationOptions(page);
-        int rowCount = animationChoices
-                ? GdxAppearanceOptions.ANIMATION_CHOICES.size()
-                : page.options().size();
-        float rowStride = GdxSettingsLayout.rowStride(h, rowCount);
-        if (animationChoices) {
-            for (GdxAppearanceOptions.Choice option
-                    : GdxAppearanceOptions.ANIMATION_CHOICES) {
+        int rowCount = GdxSettingsContract.appearanceRowCount(page);
+        int visible = Math.min(SETTINGS_OPTION_ROWS_VISIBLE, rowCount);
+        settingsAppearanceRow = MathUtils.clamp(settingsAppearanceRow, 0,
+                Math.max(0, rowCount - visible));
+        float rowStride = GdxSettingsLayout.rowStride(h, visible);
+        float baseX = x + GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
+        float baseWidth = w - 2f
+                * GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
+        for (int slot = 0; slot < visible; slot++) {
+            int row = settingsAppearanceRow + slot;
+            if (row < page.options().size()) {
+                GdxSettingsContract.ToggleOption option =
+                        page.options().get(row);
+                boolean enabled = GdxSettingsContract.enabled(option,
+                        initialProperties, audioControl.enabled());
+                boolean value = preferenceBoolean(option.key(),
+                        option.fallback());
+                Rectangle rowBounds = GdxSettingsLayout.optionRow(baseX,
+                        rowY, baseWidth,
+                        GdxSettingsContract.isChildOption(page, option));
+                toggle(rowBounds.x, rowBounds.y, rowBounds.width,
+                        GdxSettingsContract.markDefault(option.label(gameText),
+                                value == option.fallback()), value,
+                        () -> togglePreference(option.key(),
+                                option.fallback()), enabled);
+            } else {
+                GdxAppearanceOptions.Choice option =
+                        GdxAppearanceOptions.ANIMATION_CHOICES.get(
+                                row - page.options().size());
                 boolean enabled = GdxAppearanceOptions.enabled(option,
                         initialProperties);
-                settingsStepper(x + 34f, rowY, w - 68f, 70f,
+                Rectangle rowBounds = GdxSettingsLayout.optionRow(baseX,
+                        rowY, baseWidth,
+                        GdxAppearanceOptions.isChildChoice(option));
+                settingsStepper(rowBounds.x, rowBounds.y, rowBounds.width, 70f,
                         option.label(gameText),
                         GdxSettingsContract.markDefault(
                                 GdxAppearanceOptions.selectedLabel(option,
@@ -5427,22 +5484,34 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             GdxAppearanceOptions.adjust(option,
                                     initialProperties, 1);
                         }, enabled);
-                rowY -= rowStride;
             }
-            return;
-        }
-        for (GdxSettingsContract.ToggleOption option : page.options()) {
-            boolean enabled = GdxSettingsContract.enabled(option,
-                    initialProperties, audioControl.enabled());
-            boolean value = preferenceBoolean(option.key(),
-                    option.fallback());
-            toggle(x + 34f, rowY, w - 68f,
-                    GdxSettingsContract.markDefault(option.label(gameText),
-                            value == option.fallback()), value,
-                    () -> togglePreference(option.key(), option.fallback()),
-                    enabled);
             rowY -= rowStride;
         }
+        drawSettingsRowScrollbar(x + w - 24f, y + 14f, h - 28f,
+                rowCount, visible, settingsAppearanceRow);
+    }
+
+    private void drawSettingsRowScrollbar(float x, float y, float height,
+            int totalRows, int visibleRows, int firstRow) {
+        settingsRowScrollMaximum = Math.max(0, totalRows - visibleRows);
+        if (settingsRowScrollMaximum == 0 || visibleRows <= 0) {
+            settingsRowScrollTrack.set(0f, 0f, 0f, 0f);
+            return;
+        }
+        float trackWidth = GdxSettingsLayout.SCROLLBAR_WIDTH;
+        float thumbHeight = GdxSettingsLayout.scrollbarThumbHeight(height,
+                totalRows, visibleRows);
+        settingsRowScrollTrack.set(x - (GdxSettingsLayout.SCROLLBAR_HIT_WIDTH
+                - trackWidth) / 2f, y,
+                GdxSettingsLayout.SCROLLBAR_HIT_WIDTH, height);
+        settingsRowScrollThumbHeight = thumbHeight;
+        float maximum = totalRows - visibleRows;
+        float thumbY = y + (height - thumbHeight)
+                * (1f - firstRow / maximum);
+        shapes.setColor(0.12f, 0.20f, 0.31f, 0.92f);
+        roundedRect(x, y, trackWidth, height, trackWidth / 2f);
+        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.96f);
+        roundedRect(x, thumbY, trackWidth, thumbHeight, trackWidth / 2f);
     }
 
     /** Compact settings row: label and value share one bounded surface. */
@@ -5914,6 +5983,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 settingsShortcutStatus = "prompt";
             });
         }
+        drawSettingsRowScrollbar(x + w - 24f, y + 14f, h - 28f,
+                entries.size(), visible, first);
         if (!settingsShortcutStatus.isBlank()) {
             Color color = settingsShortcutStatus.equals("conflict")
                     || settingsShortcutStatus.equals("unsupported")
@@ -5956,12 +6027,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsDebugViewport.set(consoleX + 8f, consoleY + 8f,
                 consoleW - 36f, viewportHeight);
 
-        float trackX = consoleX + consoleW - 16f;
-        settingsDebugScrollTrack.set(trackX - 6f, consoleY + 8f,
-                22f, consoleH - 16f);
+        float trackX = consoleX + consoleW - 20f;
+        settingsDebugScrollTrack.set(trackX
+                - (GdxSettingsLayout.SCROLLBAR_HIT_WIDTH
+                - GdxSettingsLayout.SCROLLBAR_WIDTH) / 2f,
+                consoleY + 8f, GdxSettingsLayout.SCROLLBAR_HIT_WIDTH,
+                consoleH - 16f);
         settingsDebugScrollMaximum = maximum;
         shapes.setColor(new Color(0x26364dff));
-        roundedRect(trackX, consoleY + 8f, 10f, consoleH - 16f, 5f);
+        roundedRect(trackX, consoleY + 8f,
+                GdxSettingsLayout.SCROLLBAR_WIDTH, consoleH - 16f,
+                GdxSettingsLayout.SCROLLBAR_WIDTH / 2f);
         float thumbH = maximum == 0 ? consoleH - 16f
                 : Math.max(32f, (consoleH - 16f)
                         * viewportHeight
@@ -5972,7 +6048,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 : settingsDebugScroll / maximum;
         shapes.setColor(CYAN_DARK);
         roundedRect(trackX, consoleY + 8f + travel * ratio,
-                10f, thumbH, 5f);
+                GdxSettingsLayout.SCROLLBAR_WIDTH, thumbH,
+                GdxSettingsLayout.SCROLLBAR_WIDTH / 2f);
     }
 
     private static List<String> debugLines() {
@@ -7634,19 +7711,36 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void compactToggle(float x, float y, float w, String label,
             boolean value, Runnable action, boolean enabled) {
-        toggle(x, y, w, label, value, action, enabled, tinyFont);
+        toggle(x, y, w, label, value, action, enabled, tinyFont, true);
     }
 
     private void toggle(float x, float y, float w, String label,
             boolean value, Runnable action, boolean enabled,
             BitmapFont labelFont) {
+        toggle(x, y, w, label, value, action, enabled, labelFont, false);
+    }
+
+    private void toggle(float x, float y, float w, String label,
+            boolean value, Runnable action, boolean enabled,
+            BitmapFont labelFont, boolean wrapLabel) {
         Color border = enabled && hovered(x, y, w, GdxSettingsLayout.ROW_HEIGHT)
                 ? CYAN : enabled ? LINE : new Color(0x253044ff);
         Color fill = enabled && pressed(x, y, w, GdxSettingsLayout.ROW_HEIGHT)
                 ? new Color(0x0b1424ff) : enabled ? PANEL_LIGHT : new Color(0x0b111ddd);
         outerBox(x, y, w, GdxSettingsLayout.ROW_HEIGHT, border, fill);
-        textFit(labelFont, label, x + 22f, y + 43f,
-                enabled ? Color.WHITE : DISABLED, false, w - 132f);
+        float labelWidth = Math.max(0f, w - 132f);
+        if (wrapLabel) {
+            List<String> lines = wrapText(labelFont, label, labelWidth, 2);
+            float baseline = lines.size() > 1 ? y + 48f : y + 42f;
+            for (String line : lines) {
+                textFit(labelFont, line, x + 22f, baseline,
+                        enabled ? Color.WHITE : DISABLED, false, labelWidth);
+                baseline -= 24f;
+            }
+        } else {
+            textFit(labelFont, label, x + 22f, y + 43f,
+                    enabled ? Color.WHITE : DISABLED, false, labelWidth);
+        }
         float tx = x + w - 88f;
         float target = value && enabled ? 1f : 0f;
         float animation = toggleAnimations.getOrDefault(label, target);
@@ -7808,20 +7902,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.setColor(CYAN_DARK);
         shapes.circle(x + 10f, y + 4f, 9f, 24);
         text(smallFont, "i", x + 10f, y + 10f, Color.WHITE, true);
-        text(smallFont, value, x + 34f, y + 10f, MUTED, false);
+        textFit(smallFont, value, x + 34f, y + 10f, MUTED, false, 776f);
     }
 
     private void summaryRow(float x, float y, String label, String value) {
         shapes.setColor(new Color(0x31445f77));
         shapes.rect(x, y - 18f, 810f, 1f);
-        text(smallFont, label, x, y + 18f, MUTED, false);
-        text(uiFont, value, x + 790f, y + 18f, Color.WHITE, true);
+        textFit(smallFont, label, x, y + 18f, MUTED, false, 500f);
+        textFit(uiFont, value, x + 790f, y + 18f, Color.WHITE, true, 280f);
     }
 
     private void keyHint(float x, float y, String key, String action) {
         outerBox(x, y, 64f, 48f, CYAN_DARK, new Color(0x07111fff));
         text(smallFont, key, x + 32f, y + 32f, CYAN, true);
-        text(smallFont, action, x + 78f, y + 32f, MUTED, false);
+        textFit(smallFont, action, x + 78f, y + 32f, MUTED, false, 360f);
     }
 
     private void button(float x, float y, float w, float h, String label,
@@ -7846,10 +7940,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             boolean shadow) {
         boolean hover = enabled && hovered(x, y, w, h);
         float hoverTarget = hover ? 1f : 0f;
-        float hoverAmount = hoverAnimations.getOrDefault(label, hoverTarget);
+        String hoverKey = buttonHoverKey(label, x, y, w, h);
+        float hoverAmount = hoverAnimations.getOrDefault(hoverKey, hoverTarget);
         hoverAmount += (hoverTarget - hoverAmount)
                 * Math.min(1f, frameDelta * 13f);
-        hoverAnimations.put(label, hoverAmount);
+        hoverAnimations.put(hoverKey, hoverAmount);
         boolean down = enabled && pressed(x, y, w, h);
         GdxUiButtonStyle.Tone sharedTone = GdxUiButtonStyle.Tone.valueOf(
                 tone.name());
@@ -7861,6 +7956,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (enabled) {
             hit(x, y, w, h, action);
         }
+    }
+
+    static String buttonHoverKey(String label, float x, float y, float w,
+            float h) {
+        return Objects.requireNonNullElse(label, "") + '@'
+                + Float.floatToIntBits(x) + ':' + Float.floatToIntBits(y)
+                + ':' + Float.floatToIntBits(w) + ':'
+                + Float.floatToIntBits(h);
     }
 
     private void mainMenuButton(float x, float y, float w, float h,
@@ -8401,6 +8504,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return true;
         }
         if (surface == Surface.SETTINGS
+                && settingsRowScrollMaximum > 0
+                && settingsRowScrollTrack.contains(x, y)
+                && (settingsSession.section()
+                        == GdxSettingsContract.Section.APPEARANCE
+                    || settingsSession.section()
+                        == GdxSettingsContract.Section.AUDIO
+                    || settingsSession.section()
+                        == GdxSettingsContract.Section.SHORTCUTS)) {
+            scrollDrag = ScrollDrag.SETTINGS_ROWS;
+            updateScrollDrag(y);
+            return true;
+        }
+        if (surface == Surface.SETTINGS
                 && settingsSession.section()
                         == GdxSettingsContract.Section.DEBUG
                 && settingsDebugScrollMaximum > 0
@@ -8426,6 +8542,28 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     settingsDebugScrollTrack.height,
                     settingsDebugScrollThumbHeight,
                     settingsDebugScrollMaximum);
+        } else if (scrollDrag == ScrollDrag.SETTINGS_ROWS) {
+            int first = GdxSettingsLayout.firstRowFromScrollbar(y,
+                    settingsRowScrollTrack.y,
+                    settingsRowScrollTrack.height,
+                    settingsRowScrollThumbHeight,
+                    settingsRowScrollMaximum);
+            if (settingsSession.section()
+                    == GdxSettingsContract.Section.APPEARANCE) {
+                settingsAppearanceRow = first;
+            } else if (settingsSession.section()
+                    == GdxSettingsContract.Section.AUDIO) {
+                settingsAudioRow = first;
+            } else if (settingsSession.section()
+                    == GdxSettingsContract.Section.SHORTCUTS) {
+                int pages = Math.max(1,
+                        (shortcutBindings.editableEntries().size()
+                        + SETTINGS_SHORTCUT_ROWS_PER_PAGE - 1)
+                        / SETTINGS_SHORTCUT_ROWS_PER_PAGE);
+                settingsShortcutPage = MathUtils.clamp(Math.round(
+                        first / (float) SETTINGS_SHORTCUT_ROWS_PER_PAGE),
+                        0, pages - 1);
+            }
         }
     }
 
@@ -9003,6 +9141,48 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         if (surface == Surface.SETTINGS && amountY != 0f
                 && settingsSession.section()
+                == GdxSettingsContract.Section.SHORTCUTS) {
+            int pages = Math.max(1,
+                    (shortcutBindings.editableEntries().size()
+                    + SETTINGS_SHORTCUT_ROWS_PER_PAGE - 1)
+                    / SETTINGS_SHORTCUT_ROWS_PER_PAGE);
+            settingsShortcutPage = MathUtils.clamp(settingsShortcutPage
+                    + (amountY > 0f ? 1 : -1), 0, pages - 1);
+            return true;
+        }
+        if (surface == Surface.SETTINGS && amountY != 0f
+                && settingsSession.section()
+                == GdxSettingsContract.Section.AUDIO) {
+            GdxSettingsContract.TogglePage page =
+                    GdxSettingsContract.AUDIO_PAGES.get(settingsAudioPage);
+            int visible = SETTINGS_OPTION_ROWS_VISIBLE
+                    - (settingsAudioPage == 0 ? 1 : 0);
+            int maximum = Math.max(0, page.options().size() - visible);
+            if (maximum > 0) {
+                settingsAudioRow = MathUtils.clamp(settingsAudioRow
+                        + (amountY > 0f ? 1 : -1), 0, maximum);
+                return true;
+            }
+        }
+        if (surface == Surface.SETTINGS && amountY != 0f
+                && settingsSession.section()
+                == GdxSettingsContract.Section.APPEARANCE
+                && settingsAppearancePage > 0) {
+            GdxSettingsContract.TogglePage page =
+                    GdxSettingsContract.APPEARANCE_PAGES.get(
+                            settingsAppearancePage - 1);
+            int maximum = Math.max(0,
+                    GdxSettingsContract.appearanceRowCount(page)
+                    - SETTINGS_OPTION_ROWS_VISIBLE);
+            if (maximum > 0) {
+                settingsAppearanceRow = MathUtils.clamp(
+                        settingsAppearanceRow + (amountY > 0f ? 1 : -1),
+                        0, maximum);
+                return true;
+            }
+        }
+        if (surface == Surface.SETTINGS && amountY != 0f
+                && settingsSession.section()
                 == GdxSettingsContract.Section.DEBUG) {
             pointer.set(Gdx.input.getX(), Gdx.input.getY());
             viewport.unproject(pointer);
@@ -9068,7 +9248,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private enum ScrollDrag {
-        NONE, LOBBY_CHAT, SETTINGS_DEBUG
+        NONE, LOBBY_CHAT, SETTINGS_ROWS, SETTINGS_DEBUG
     }
 
     private enum StatsMode {

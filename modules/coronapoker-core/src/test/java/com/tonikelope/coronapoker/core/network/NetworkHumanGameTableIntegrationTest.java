@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.CoreGameTableFactory;
+import com.tonikelope.coronapoker.Crupier;
 import com.tonikelope.coronapoker.core.DatabaseService;
 import com.tonikelope.coronapoker.core.LobbyCommand;
 import com.tonikelope.coronapoker.core.LobbySession;
@@ -1601,6 +1602,10 @@ class NetworkHumanGameTableIntegrationTest {
         private final AtomicBoolean closedByGame = new AtomicBoolean();
         private final AtomicLong sideASequence = new AtomicLong();
         private final AtomicLong sideBSequence = new AtomicLong();
+        private final AtomicLong runoutPauseSequence = new AtomicLong();
+        private final AtomicLong firstRevealSequence = new AtomicLong();
+        private final AtomicLong firstPartialHandSequence = new AtomicLong();
+        private final AtomicInteger runoutPauseCount = new AtomicInteger();
         private final CopyOnWriteArrayList<Integer> sideBDeals
                 = new CopyOnWriteArrayList<>();
         private final CopyOnWriteArrayList<String> events
@@ -1625,6 +1630,16 @@ class NetworkHumanGameTableIntegrationTest {
                         != ActionControlState.CallAction.DISABLED) {
                     table.commands().submit(new TableCommand.CheckOrCall());
                 }
+            } else if (event instanceof TableVisualEvent.AllInRunoutPause pause) {
+                assertEquals(Crupier.PAUSA_ANTES_DESTAPE_ALLIN,
+                        pause.durationMillis());
+                runoutPauseCount.incrementAndGet();
+                runoutPauseSequence.compareAndSet(0L, pause.sequence());
+            } else if (event instanceof TableVisualEvent.RevealHoleCards reveal) {
+                firstRevealSequence.compareAndSet(0L, reveal.sequence());
+            } else if (event instanceof TableVisualEvent.PartialHand partial) {
+                firstPartialHandSequence.compareAndSet(0L,
+                        partial.sequence());
             } else if (event instanceof TableVisualEvent.RunItTwiceBoard board) {
                 if (board.side() == TableVisualEvent.RunItTwiceBoard.Side.A) {
                     sideASequence.compareAndSet(0L, board.sequence());
@@ -1642,13 +1657,24 @@ class NetworkHumanGameTableIntegrationTest {
         }
 
         void assertCompletePreflopRunItTwice() {
+            assertEquals(1, runoutPauseCount.get(), diagnostic());
+            assertTrue(runoutPauseSequence.get() > 0L, diagnostic());
+            assertTrue(firstRevealSequence.get() > runoutPauseSequence.get(),
+                    diagnostic());
+            assertTrue(firstPartialHandSequence.get()
+                    > runoutPauseSequence.get(), diagnostic());
             assertTrue(sideASequence.get() > 0L, diagnostic());
+            assertTrue(sideASequence.get() > runoutPauseSequence.get(),
+                    diagnostic());
             assertTrue(sideBSequence.get() > sideASequence.get(), diagnostic());
             assertEquals(List.of(0, 1, 2, 3, 4), sideBDeals, diagnostic());
         }
 
         String diagnostic() {
-            return "sideA=" + sideASequence + ", sideB=" + sideBSequence
+            return "pause=" + runoutPauseSequence + "/" + runoutPauseCount
+                    + ", reveal=" + firstRevealSequence
+                    + ", partial=" + firstPartialHandSequence
+                    + ", sideA=" + sideASequence + ", sideB=" + sideBSequence
                     + ", deals=" + sideBDeals + ", closed=" + closedByGame
                     + ", events=" + events;
         }
@@ -1691,7 +1717,9 @@ class NetworkHumanGameTableIntegrationTest {
                 localRevealSequence.compareAndSet(0L, reveal.sequence());
             } else if (event instanceof TableVisualEvent.PositionRotation rotation
                     && rotation.transfers().stream().anyMatch(transfer
-                    -> transfer.position() == TableSnapshot.Position.STRADDLE)) {
+                    -> transfer.position() == TableSnapshot.Position.STRADDLE
+                    || transfer.position()
+                            == TableSnapshot.Position.DEALER_STRADDLE)) {
                 sawStraddlePosition.set(true);
             } else if (event instanceof TableVisualEvent.ActionControls controls
                     && controls.state().callAction()

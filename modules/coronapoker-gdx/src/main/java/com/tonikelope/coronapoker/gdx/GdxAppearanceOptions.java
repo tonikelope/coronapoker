@@ -72,15 +72,24 @@ final class GdxAppearanceOptions {
      * renderer's semantic animations cannot all be disabled as a group.
      */
     static boolean enabled(Choice choice, Properties properties) {
-        String parent = switch (choice.key()) {
+        String parent = parentKey(choice);
+        return parent == null || Boolean.parseBoolean(properties.getProperty(
+                parent, "true"));
+    }
+
+    /** Choice rows are children of the animation switch that enables them. */
+    static boolean isChildChoice(Choice choice) {
+        return parentKey(choice) != null;
+    }
+
+    private static String parentKey(Choice choice) {
+        return switch (choice.key()) {
             case "reparto_velocidad" -> "animacion_reparto";
             case "card_flip_duration", "card_flip_zoom" ->
                 "animacion_destape";
             case "swap_velocidad", "swap_arco" -> "animacion_swap";
             default -> null;
         };
-        return parent == null || Boolean.parseBoolean(properties.getProperty(
-                parent, "true"));
     }
 
     static String lightLevelLabel(Properties properties) {

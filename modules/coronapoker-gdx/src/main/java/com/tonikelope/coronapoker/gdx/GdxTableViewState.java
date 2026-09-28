@@ -262,6 +262,10 @@ final class GdxTableViewState {
         return player == null ? List.of() : player.holeCards();
     }
 
+    boolean hasRevealedHoleCards(String nickname) {
+        return revealedHoleCards.containsKey(nickname);
+    }
+
     Float partialHandPercentage(String nickname) {
         return partialHandPercentages.get(nickname);
     }
@@ -410,6 +414,17 @@ final class GdxTableViewState {
                     snapshot.currentTurnNickname(), snapshot.players(), community);
             runItTwicePotPrefix = board.potPrefix();
         } else if (event instanceof TableVisualEvent.SwapHoleCards swap) {
+            // RevealHoleCards is intentionally preserved across later legacy
+            // snapshots. Keep that presentation copy in the same order as the
+            // authoritative player snapshot or a deferred straddle reveal
+            // will visually undo its subsequent sort.
+            List<TableSnapshot.CardSnapshot> revealed =
+                    revealedHoleCards.get(swap.nickname());
+            if (revealed != null) {
+                List<TableSnapshot.CardSnapshot> cards = padded(revealed, 2);
+                revealedHoleCards.put(swap.nickname(),
+                        List.of(cards.get(1), cards.get(0)));
+            }
             replacePlayer(swap.nickname(), player -> {
                 List<TableSnapshot.CardSnapshot> cards = padded(player.holeCards(), 2);
                 return copyPlayer(player, player.stack(), player.streetBet(),
@@ -461,6 +476,10 @@ final class GdxTableViewState {
                     player.active(),
                     player.winner(), player.position(), action.label(),
                     player.handName(), player.holeCards()));
+        } else if (event instanceof TableVisualEvent.AllInRunoutPause) {
+            // Sequence-only presentation barrier. Keeping the state untouched
+            // is what preserves the accepted ALL IN/CALL label for its full
+            // dramatic beat before reveals and partial hands arrive.
         } else if (event instanceof TableVisualEvent.RevealHoleCards reveal) {
             revealedHoleCards.put(reveal.nickname(),
                     List.of(reveal.left(), reveal.right()));
@@ -518,10 +537,10 @@ final class GdxTableViewState {
                 showdownHighlights.remove(highlight.nickname());
             }
         } else if (event instanceof TableVisualEvent.Payout payout) {
-            // A positive canonical payout is also the winner signal for hands
-            // that end because every opponent folded. Those hands correctly
-            // have no HandResult/reveal event, but the seat must still receive
-            // the same settled-winner presentation as a showdown winner.
+            // Keep payout as a defensive winner signal as well. Canonical
+            // single-survivor hands now publish HandResult before the
+            // between-hands wait, but recovery/older producers may still only
+            // provide the positive payout event.
             resolvedHandWinners.put(payout.nickname(), true);
             replacePlayer(payout.nickname(), player -> copyPlayer(player,
                     payout.stackAfter(), player.streetBet(),
@@ -567,10 +586,29 @@ final class GdxTableViewState {
                     snapshot.pot(), "", snapshot.players(),
                     snapshot.communityCards());
             stopTurn();
+        } else if (event instanceof TableVisualEvent.PositionRotation rotation) {
+            // Normal blind/dealer rotations are transient flights and the
+            // canonical snapshot already owns their final state.  A voluntary
+            // straddle is different: it is announced after that snapshot, so
+            // persist that transfer or the chip falls back to ordinary DEALER
+            // as soon as the flight finishes.
+            for (TableVisualEvent.PositionTransfer transfer
+                    : rotation.transfers()) {
+                if (transfer.position() == TableSnapshot.Position.STRADDLE
+                        || transfer.position()
+                                == TableSnapshot.Position.DEALER_STRADDLE) {
+                    replacePlayer(transfer.toNickname(), player
+                            -> copyPlayer(player, player.stack(),
+                                    player.streetBet(),
+                                    player.potContribution(), player.active(),
+                                    player.winner(), transfer.position(),
+                                    player.lastAction(), player.handName(),
+                                    player.holeCards()));
+                }
+            }
         } else if (event instanceof TableVisualEvent.PreparationStatus
                 || event instanceof TableVisualEvent.DeckChanged
                 || event instanceof TableVisualEvent.InitialStackFill
-                || event instanceof TableVisualEvent.PositionRotation
                 || event instanceof TableVisualEvent.Cinematic
                 || event instanceof TableVisualEvent.AudioCue
                 || event instanceof TableVisualEvent.SpecialCardSound

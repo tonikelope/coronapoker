@@ -1063,6 +1063,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int REMOTE_CASCADE_RESP_TIMEOUT_MS = 120000;
     public static final int PAUSA_DESTAPAR_CARTA = 1000;
     public static final int PAUSA_DESTAPAR_CARTA_ALLIN = 2000;
+    public static final int PAUSA_ANTES_DESTAPE_ALLIN = 1000;
     public static final int PAUSA_ENTRE_DESTAPES_SHOWDOWN = 1000;
     // The showdown pause (seconds the result is shown before the next hand) is
     // configurable per table: lives in GameFrame.SHOWDOWN_TIME (default 10, range 5-30).
@@ -16553,7 +16554,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final java.util.List<TableVisualEvent.PositionTransfer> transfers
                 = java.util.List.of(new TableVisualEvent.PositionTransfer(
                         "", straddler.getNickname(),
-                        com.tonikelope.coronapoker.table.TableSnapshot.Position.STRADDLE,
+                        straddlePosition(this.dealer_nick,
+                                straddler.getNickname()),
                         true));
         int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / getJugadoresActivos())));
         final int flight_dur = Math.max(150, pausa);
@@ -16651,7 +16653,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 c2.iniciarConValorNumerico(v2);
                 c2.destapar(false);
             });
-            if (v1 < v2) {
+            if (holeCardsNeedDisplaySwap(v1, v2)) {
                 presentHoleCardSwapToAttachedRenderer(
                         local.getNickname(), true);
             }
@@ -16689,6 +16691,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Already face up: order the hand (animated swap if applicable), which repartir()
         // couldn't do.
         ordenarCartasLocalAnimado();
+    }
+
+    /**
+     * Returns whether the first dealt card must move to the right display
+     * slot. Card identifiers are grouped by suit, so comparing their raw deck
+     * positions would order some cross-suit hands incorrectly.
+     */
+    static boolean holeCardsNeedDisplaySwap(int firstOneBased,
+            int secondOneBased) {
+        return CardCode.fromOneBased(firstOneBased).rank().aceHighValue()
+                < CardCode.fromOneBased(secondOneBased).rank().aceHighValue();
     }
 
     // DEFERRED unlock cascade for the blind straddler's 2 pocket slots, run by the HOST
@@ -19321,6 +19334,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 actualizarContadoresTapete();
                 if (resisten.contains(localPlayer())) {
                     table_display.deactivateLocalControls();
+                }
+                if (firstResistencia) {
+                    awaitAttachedTableEvent(sequence
+                            -> new TableVisualEvent.AllInRunoutPause(sequence,
+                                    PAUSA_ANTES_DESTAPE_ALLIN),
+                            "All-in runout presentation pause failed");
                 }
                 procesarCartasResistencia(resisten, true);
                 if (isFin_de_la_transmision() || this.termination_pending
@@ -25131,12 +25150,36 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     case 1:
                                         procesarCartasResistencia(new ArrayList<GamePlayerController>(), false);
 
-                                        table_display.showWinner(resisten.get(0).getNickname(), resisten.contains(localPlayer()) ? game_text.translate("ui.ganas_3") : game_text.translate("ui.gana_3"));
-                                        if (resisten.get(0) != localPlayer()) {
-                                            resisten.get(0).getHoleCard1().desenfocar();
-                                            resisten.get(0).getHoleCard2().desenfocar();
+                                        GamePlayerController soleSurvivor = resisten.get(0);
+                                        String soleSurvivorMessage = soleSurvivor.equals(localPlayer())
+                                                ? game_text.translate("ui.ganas_3")
+                                                : game_text.translate("ui.gana_3");
+
+                                        // A hand won because everybody else folded has no
+                                        // evaluated poker hand, but it is already a final hand
+                                        // result.  Swing receives the verdict through
+                                        // TableDisplaySink; the native GDX frontend is driven by
+                                        // ordered TableVisualEvents instead.  Publish that verdict
+                                        // now, before the configured between-hands pause.  The pot
+                                        // payout remains later in animateShowdownPayout(), so this
+                                        // changes presentation timing without moving any chips or
+                                        // accounting early.
+                                        soleSurvivor.applyShowdownResult(true,
+                                                soleSurvivorMessage);
+                                        table_display.showWinner(soleSurvivor.getNickname(),
+                                                soleSurvivorMessage);
+                                        awaitAttachedTableEvent(sequence
+                                                -> new TableVisualEvent.HandResult(sequence,
+                                                        soleSurvivor.getNickname(),
+                                                        soleSurvivorMessage, true,
+                                                        TableSnapshot.Street.SHOWDOWN),
+                                                "Single-survivor result presentation barrier failed");
+
+                                        if (soleSurvivor != localPlayer()) {
+                                            soleSurvivor.getHoleCard1().desenfocar();
+                                            soleSurvivor.getHoleCard2().desenfocar();
                                         }
-                                        resisten.get(0).pagar(this.bote.getTotal() + this.bote_sobrante, null);
+                                        soleSurvivor.pagar(this.bote.getTotal() + this.bote_sobrante, null);
                                         this.beneficio_bote_principal = this.bote.getTotal() + this.bote_sobrante - this.bote.getBet();
                                         game_log.print(resisten.get(0).getNickname() + " " + game_text.translate("game.gana_bote") + value_formatter.money(this.bote.getTotal() + this.bote_sobrante) + game_text.translate("action.sin_tener_que_mostrar"));
                                         table_display.setPotStyle(TableDisplaySink.PotStyle.WIN);
@@ -25146,15 +25189,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         for (GameCardController carta : communityCards()) {
                                             carta.desenfocar();
                                         }
-                                        if (resisten.get(0) == localPlayer()) {
+                                        if (soleSurvivor == localPlayer()) {
                                             setVoluntaryShowAction(true, false);
                                         }
-                                        if (resisten.get(0) == localPlayer()) {
+                                        if (soleSurvivor == localPlayer()) {
                                             this.soundWinner(0, false);
                                         }
                                         ganadores = new HashMap<>();
-                                        ganadores.put(resisten.get(0), null);
-                                        this.sqlNewShowdown(resisten.get(0), null, true, true);
+                                        ganadores.put(soleSurvivor, null);
+                                        this.sqlNewShowdown(soleSurvivor, null, true, true);
                                         break;
                                     default:
                                         // Everyone shows their cards and GUI updates
@@ -25681,6 +25724,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     static boolean shouldRemoveInactivePlayerFromBettingRound(boolean activo, int decision) {
         return !activo && decision != GamePlayerController.ALLIN;
+    }
+
+    static com.tonikelope.coronapoker.table.TableSnapshot.Position
+            straddlePosition(String dealerNickname, String straddlerNickname) {
+        return java.util.Objects.equals(dealerNickname, straddlerNickname)
+                ? com.tonikelope.coronapoker.table.TableSnapshot.Position.DEALER_STRADDLE
+                : com.tonikelope.coronapoker.table.TableSnapshot.Position.STRADDLE;
     }
 
     /**

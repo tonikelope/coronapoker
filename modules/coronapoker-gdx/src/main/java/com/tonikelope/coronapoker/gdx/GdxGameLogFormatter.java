@@ -79,17 +79,13 @@ final class GdxGameLogFormatter {
     }
 
     static List<Run> runs(String value) {
-        String visible = CARD_PAREN_PATTERN.matcher(visibleText(value))
-                .replaceAll("$1");
+        String visible = displayText(value);
         // Role/grid markers already reserve a dedicated gutter in the GDX
         // renderer. Swing's payload adds one separator space after the marker,
         // but LibGDX measures that space only when it shares a run with visible
         // glyphs; a colour split can turn it into a zero-width whitespace run.
         // Remove it uniformly so border, header, body and footer start at the
         // exact same pixel column.
-        if (isFramedTableRow(value) && visible.startsWith(" ")) {
-            visible = visible.substring(1);
-        }
         if (visible.isEmpty()) return List.of();
         Color base = lineColor(value);
         Color[] colors = new Color[visible.length()];
@@ -138,6 +134,20 @@ final class GdxGameLogFormatter {
     static boolean isFramedTableRow(String value) {
         return marker(value) != Marker.NONE
                 && GRID_PATTERN.matcher(visibleText(value)).find();
+    }
+
+    /** Exact visible payload used by both text and vector-grid layout. */
+    static String displayText(String value) {
+        String visible = CARD_PAREN_PATTERN.matcher(visibleText(value))
+                .replaceAll("$1");
+        if (isFramedTableRow(value) && visible.startsWith(" ")) {
+            visible = visible.substring(1);
+        }
+        return visible;
+    }
+
+    static boolean isBoxDrawingCharacter(char value) {
+        return value >= '\u2500' && value <= '\u257f';
     }
 
     private static void appendTextRuns(List<Run> runs, String visible,

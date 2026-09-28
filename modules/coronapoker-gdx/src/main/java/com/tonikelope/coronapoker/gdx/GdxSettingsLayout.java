@@ -7,6 +7,10 @@ import com.badlogic.gdx.math.Rectangle;
 final class GdxSettingsLayout {
 
     static final float HORIZONTAL_INSET = 44f;
+    /** Breathing room between the content well and every settings row. */
+    static final float CONTENT_HORIZONTAL_INSET = 34f;
+    /** Left-only inset used by every control governed by another switch. */
+    static final float CHILD_ROW_INDENT = 38f;
     // The subtitle baseline sits 116 px below the panel top.  The old tab row
     // ended only four pixels below it, so real font ascenders/descenders at
     // 125% Windows scaling visibly crossed the tab chrome.  Reserve a full
@@ -25,6 +29,10 @@ final class GdxSettingsLayout {
     /** Common row geometry for menu, waiting-room and live-table settings. */
     static final float ROW_HEIGHT = 68f;
     static final float ROW_STRIDE = 70f;
+    /** Same visible width as the in-game log scrollbar. */
+    static final float SCROLLBAR_WIDTH = 14f;
+    /** Generous mouse target around the visible bar. */
+    static final float SCROLLBAR_HIT_WIDTH = 28f;
 
     private GdxSettingsLayout() {
     }
@@ -104,6 +112,37 @@ final class GdxSettingsLayout {
                 - lastRowBottomInset;
         return Math.min(ROW_STRIDE, Math.max(62f,
                 available / (rowCount - 1)));
+    }
+
+    /**
+     * Applies the same content padding and optional hierarchy indentation in
+     * the menu and live-table renderers.
+     */
+    static Rectangle optionRow(float x, float y, float width,
+            boolean child) {
+        float indent = child ? CHILD_ROW_INDENT : 0f;
+        return new Rectangle(x + indent, y,
+                width - indent, ROW_HEIGHT);
+    }
+
+    static float scrollbarThumbHeight(float height, int totalRows,
+            int visibleRows) {
+        if (totalRows <= 0 || visibleRows <= 0) return height;
+        return Math.min(height, Math.max(42f,
+                height * visibleRows / (float) totalRows));
+    }
+
+    /**
+     * Converts a pointer position on a settings scrollbar into its first
+     * visible row. Row zero lives at the top, matching the visual thumb.
+     */
+    static int firstRowFromScrollbar(float pointerY, float trackY,
+            float trackHeight, float thumbHeight, int maximumFirstRow) {
+        if (maximumFirstRow <= 0) return 0;
+        float travel = Math.max(1f, trackHeight - thumbHeight);
+        float progressFromBottom = Math.max(0f, Math.min(1f,
+                (pointerY - trackY - thumbHeight / 2f) / travel));
+        return Math.round((1f - progressFromBottom) * maximumFirstRow);
     }
 
     record Frame(Rectangle panel, Rectangle content, float mainTabY,

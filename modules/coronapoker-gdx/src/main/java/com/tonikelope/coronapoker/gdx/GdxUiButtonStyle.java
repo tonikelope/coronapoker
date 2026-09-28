@@ -30,16 +30,16 @@ final class GdxUiButtonStyle {
             float height, Tone tone, boolean enabled, float hoverAmount,
             boolean pressed, float alpha, boolean shadow) {
         float hover = Math.max(0f, Math.min(1f, hoverAmount));
-        if (shadow) {
-            shapes.setColor(0f, 0f, 0f, 0.40f * alpha);
-            roundedRect(shapes, x + 5f, y - 6f, width, height, 14f);
-        }
+        // The old displaced rounded shadow exposed its circular end caps
+        // below dialog buttons.  On hover, the additional filled halo made
+        // those caps look like detached bubbles.  Depth now comes from the
+        // material itself; the hover indication is deliberately outline-only.
         if (enabled && hover > 0.01f) {
             Color glow = accent(tone, true);
             shapes.setColor(glow.r, glow.g, glow.b,
-                    (tone == Tone.FEATURED ? 0.18f : 0.14f) * hover * alpha);
-            roundedRect(shapes, x - 4f * hover, y - 4f * hover,
-                    width + 8f * hover, height + 8f * hover, 18f);
+                    (tone == Tone.FEATURED ? 0.52f : 0.42f) * hover * alpha);
+            roundedRectOutline(shapes, x - 2f, y - 2f,
+                    width + 4f, height + 4f, 16f, 2f);
         }
 
         Color border = enabled ? accent(tone, hover > 0.5f) : LINE;

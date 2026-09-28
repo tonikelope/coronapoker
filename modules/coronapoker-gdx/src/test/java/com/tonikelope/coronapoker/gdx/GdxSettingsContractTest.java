@@ -68,10 +68,31 @@ final class GdxSettingsContractTest {
     }
 
     @Test
+    void everySwitchDependencyIsIndented() {
+        GdxSettingsContract.TogglePage cinematics =
+                GdxSettingsContract.APPEARANCE_PAGES.get(0);
+        assertFalse(GdxSettingsContract.isChildOption(cinematics,
+                cinematics.options().get(0)));
+        assertTrue(GdxSettingsContract.isChildOption(cinematics,
+                cinematics.options().get(1)));
+        assertTrue(GdxSettingsContract.isChildOption(cinematics,
+                cinematics.options().get(2)));
+
+        GdxSettingsContract.TogglePage music =
+                GdxSettingsContract.AUDIO_PAGES.get(1);
+        assertTrue(GdxSettingsContract.isChildOption(music,
+                music.options().get(0)));
+
+        GdxSettingsContract.TogglePage animations =
+                GdxSettingsContract.APPEARANCE_PAGES.get(1);
+        assertTrue(animations.options().stream().allMatch(option ->
+                GdxSettingsContract.isChildOption(animations, option)));
+    }
+
+    @Test
     void bothSettingsEntryPointsUseTheSameSubpageCatalogueBuilder() {
         assertEquals(java.util.List.of("MESA", "CINEMÁTICAS",
-                "MESA Y CARTAS", "MOVIMIENTO", "INFORMACIÓN",
-                "CHAT", "CAPTURA Y VISTA", "RITMO Y ESTILO"),
+                "ANIMACIONES", "INFORMACIÓN", "CHAT"),
                 GdxSettingsContract.subpageLabels(
                         GdxSettingsContract.Section.APPEARANCE,
                         java.util.List.of(), 0, 5));
@@ -79,7 +100,7 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.subpageLabels(
                         GdxSettingsContract.Section.GAME,
                         java.util.List.of("CIEGAS", "COMPRA"), 0, 5));
-        assertEquals(java.util.List.of("PÁGINA 1", "PÁGINA 2", "PÁGINA 3"),
+        assertEquals(java.util.List.of("CONTROLES"),
                 GdxSettingsContract.subpageLabels(
                         GdxSettingsContract.Section.SHORTCUTS,
                         java.util.List.of(), 11, 5));
@@ -93,8 +114,7 @@ final class GdxSettingsContractTest {
     void settingsContentAndSubpagesFollowTheLiveLanguage() {
         GdxGameText text = new GdxGameText("en");
         assertEquals(java.util.List.of("TABLE", "CINEMATICS",
-                "TABLE AND CARDS", "MOVEMENT", "INFORMATION",
-                "CHAT", "CAPTURE AND VIEW", "PACE AND STYLE"),
+                "ANIMATIONS", "INFORMATION", "CHAT"),
                 GdxSettingsContract.subpageLabels(
                         GdxSettingsContract.Section.APPEARANCE,
                         java.util.List.of(), 0, 5, text));
@@ -185,8 +205,10 @@ final class GdxSettingsContractTest {
                 "voice_messages", "audio_mic_enabled",
                 "audio_block_voice_messages", "audio_play_own_voice",
                 "audio_block_tts_local")));
-        assertTrue(GdxSettingsContract.AUDIO_PAGES.stream()
-                .allMatch(page -> page.options().size() <= 5));
+        assertEquals(java.util.List.of("GENERAL", "MÚSICA", "EFECTOS",
+                "CHAT Y VOZ", "VOZ LOCAL", "DISPOSITIVOS"),
+                GdxSettingsContract.AUDIO_PAGES.stream()
+                        .map(GdxSettingsContract.TogglePage::title).toList());
         assertFalse(keys.contains("sonido_vista_compacta"));
         // Do not advertise settings for GDX surfaces/behaviour that do not
         // exist yet. The persisted Swing values remain untouched in the
@@ -282,8 +304,10 @@ final class GdxSettingsContractTest {
                 "chat_images_ingame", "chat_game_notifications",
                 "resaltar_jugada_showdown",
                 "resaltar_avatares", "auto_fullscreen")));
-        assertTrue(GdxSettingsContract.APPEARANCE_PAGES.stream()
-                .allMatch(page -> page.options().size() <= 6));
+        assertEquals(java.util.List.of("CINEMÁTICAS", "ANIMACIONES",
+                "INFORMACIÓN", "CHAT"),
+                GdxSettingsContract.APPEARANCE_PAGES.stream()
+                        .map(GdxSettingsContract.TogglePage::title).toList());
         assertFalse(keys.contains("auto_zoom"));
         assertFalse(keys.contains("animaciones"));
         assertFalse(keys.contains("cinematicas_accion"));
@@ -292,16 +316,14 @@ final class GdxSettingsContractTest {
     }
 
     @Test
-    void rhythmAndStyleUsesFiveChoiceRowsDespiteItsEmptyTogglePage() {
+    void animationsCombinesSwitchesAndChoicesInOneScrollablePage() {
         GdxSettingsContract.TogglePage page =
-                GdxSettingsContract.APPEARANCE_PAGES.get(
-                        GdxSettingsContract.APPEARANCE_PAGES.size() - 1);
+                GdxSettingsContract.APPEARANCE_PAGES.get(1);
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
-        assertTrue(page.options().isEmpty());
+        assertEquals(8, page.options().size());
         assertEquals(5, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertTrue(GdxSettingsLayout.rowStride(660f,
-                GdxAppearanceOptions.ANIMATION_CHOICES.size()) > 0f);
+        assertEquals(13, GdxSettingsContract.appearanceRowCount(page));
     }
 
     @Test

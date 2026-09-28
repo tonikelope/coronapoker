@@ -286,6 +286,68 @@ class GdxNetworkHumanProjectionIntegrationTest {
 
     @Tag("certification")
     @Test
+    void uncontestedWinnerIsPublishedBeforeTheBetweenHandsPayout()
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        DatabaseService hostDatabase = new DatabaseService(
+                temporary.resolve("uncontested-host.sqlite").toString());
+        DatabaseService clientDatabase = new DatabaseService(
+                temporary.resolve("uncontested-client.sqlite").toString());
+        hostDatabase.start();
+        clientDatabase.start();
+        try (hostDatabase; clientDatabase;
+             NetworkLobbyGateway hostGateway = gateway(
+                     temporary.resolve("uncontested-host"), hostDatabase);
+             NetworkLobbyGateway clientGateway = gateway(
+                     temporary.resolve("uncontested-client"), clientDatabase)) {
+            LobbySession host = hostGateway.open(request(false,
+                    "Anfitrion", port)).get(5, TimeUnit.SECONDS);
+            LobbySession client = clientGateway.open(request(true,
+                    "Invitado", port)).get(5, TimeUnit.SECONDS);
+            try {
+                await(() -> host.snapshot().participants().size() == 2,
+                        Duration.ofSeconds(5));
+                host.submit(new LobbyCommand.StartGame()).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+
+                TableSession hostTable = host.tableSession().toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                UncontestedHandRenderer hostRenderer =
+                        new UncontestedHandRenderer(hostTable);
+                hostTable.attach(hostRenderer).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                TableSession clientTable = client.tableSession()
+                        .toCompletableFuture().get(5, TimeUnit.SECONDS);
+                UncontestedHandRenderer clientRenderer =
+                        new UncontestedHandRenderer(clientTable);
+                clientTable.attach(clientRenderer).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+
+                await(() -> hostRenderer.winnerResultPublished()
+                                && clientRenderer.winnerResultPublished()
+                                && hostRenderer.handEnded()
+                                && clientRenderer.handEnded(),
+                        Duration.ofSeconds(25));
+                hostRenderer.assertImmediateWinnerResult();
+                clientRenderer.assertImmediateWinnerResult();
+                assertEquals(hostRenderer.winnerNickname.get(),
+                        clientRenderer.winnerNickname.get(),
+                        "both socket peers must project the same winner");
+                assertTrue(hostRenderer.localOutcomeAtResult.get()
+                                != clientRenderer.localOutcomeAtResult.get(),
+                        "exactly one local projection must be the winner");
+            } finally {
+                client.close();
+                host.close();
+            }
+        }
+    }
+
+    @Tag("certification")
+    @Test
     void nativeGdxPauseResumeCompletesARealTwoHumanHand()
             throws Exception {
         int port;
@@ -2873,6 +2935,86 @@ class GdxNetworkHumanProjectionIntegrationTest {
         }
 
         @Override public void close() { }
+    }
+
+    private static final class UncontestedHandRenderer
+            implements TableRenderer {
+        private final TableSession table;
+        private final AtomicReference<GdxTableViewState> state =
+                new AtomicReference<>();
+        private final AtomicInteger eventOrder = new AtomicInteger();
+        private final AtomicInteger winnerResultOrder = new AtomicInteger(-1);
+        private final AtomicInteger endBoundaryOrder = new AtomicInteger(-1);
+        private final AtomicInteger payoutOrder = new AtomicInteger(-1);
+        private final AtomicReference<Boolean> localOutcomeAtResult =
+                new AtomicReference<>();
+        private final AtomicReference<String> winnerNickname =
+                new AtomicReference<>();
+
+        UncontestedHandRenderer(TableSession table) {
+            this.table = table;
+        }
+
+        @Override
+        public CompletionStage<Void> open(TableSnapshot initialState) {
+            state.set(new GdxTableViewState(initialState));
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public synchronized CompletionStage<Void> render(
+                TableVisualEvent event) {
+            GdxTableViewState projection = state.get();
+            assertNotNull(projection);
+            projection.apply(event);
+            int order = eventOrder.incrementAndGet();
+            if (event instanceof TableVisualEvent.ActionControls controls) {
+                if (controls.state().foldEnabled()) {
+                    table.commands().submit(new TableCommand.Fold());
+                } else if (controls.state().callAction()
+                        != ActionControlState.CallAction.DISABLED) {
+                    table.commands().submit(new TableCommand.CheckOrCall());
+                }
+            } else if (event instanceof TableVisualEvent.HandResult result
+                    && result.winner()) {
+                winnerNickname.compareAndSet(null, result.nickname());
+                winnerResultOrder.compareAndSet(-1, order);
+                String local = projection.snapshot().localNickname();
+                localOutcomeAtResult.set(CoronaPokerGdxTable.localHandOutcome(
+                        projection.resolvedHandWinner(local),
+                        projection.foldedThisHand(local)));
+            } else if (event instanceof TableVisualEvent.Payout) {
+                payoutOrder.compareAndSet(-1, order);
+            } else if (event instanceof TableVisualEvent.HandBoundary boundary
+                    && boundary.phase()
+                    == TableVisualEvent.HandBoundary.Phase.END) {
+                endBoundaryOrder.compareAndSet(-1, order);
+            }
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override public void close() { }
+
+        boolean winnerResultPublished() {
+            return winnerResultOrder.get() > 0;
+        }
+
+        boolean handEnded() {
+            return endBoundaryOrder.get() > 0;
+        }
+
+        void assertImmediateWinnerResult() {
+            assertTrue(winnerResultOrder.get() > 0,
+                    "the uncontested winner was never published");
+            assertTrue(payoutOrder.get() < 0
+                            || payoutOrder.get() > winnerResultOrder.get(),
+                    "the GDX winner verdict must be visible before the "
+                            + "delayed pot payout");
+            assertTrue(endBoundaryOrder.get() > winnerResultOrder.get(),
+                    "the GDX winner verdict must be visible before the "
+                            + "hand enters its between-hands phase");
+            assertNotNull(localOutcomeAtResult.get());
+        }
     }
 
     private static final class FoldedObserverProjectionRenderer

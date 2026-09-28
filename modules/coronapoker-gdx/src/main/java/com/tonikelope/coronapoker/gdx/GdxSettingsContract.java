@@ -113,16 +113,8 @@ final class GdxSettingsContract {
                             gamePageTranslationKey(page), page))
                     .toList();
             case SHORTCUTS -> {
-                int rows = Math.max(1, shortcutRowsPerPage);
-                int pages = Math.max(1, (Math.max(0, shortcutEntries)
-                        + rows - 1) / rows);
-                java.util.ArrayList<String> labels = new java.util.ArrayList<>();
-                for (int page = 0; page < pages; page++) {
-                    labels.add(translatedUpper(text,
-                            "gdx.settings.page_number",
-                            "PÁGINA " + (page + 1), page + 1));
-                }
-                yield List.copyOf(labels);
+                yield List.of(translatedUpper(text,
+                        "gdx.settings.page.controls", "CONTROLES"));
             }
             case DEBUG -> List.of(translatedUpper(text,
                     "gdx.settings.page.technical_log",
@@ -158,12 +150,28 @@ final class GdxSettingsContract {
                     Gate.SOUND));
 
     private static final TogglePage AUDIO_DEVICE_PAGE = page("DISPOSITIVOS");
-    private static final TogglePage APPEARANCE_ANIMATION_OPTIONS_PAGE = page(
-            "RITMO Y ESTILO");
+    private static final TogglePage APPEARANCE_ANIMATIONS_PAGE = page(
+            "ANIMACIONES",
+            option("animacion_barajado", "BARAJADO", true,
+                    Gate.ANIMATIONS),
+            option("animacion_reparto", "REPARTO", true,
+                    Gate.ANIMATIONS),
+            option("animacion_destape", "DESTAPAR", true,
+                    Gate.ANIMATIONS),
+            option("animacion_ciegas_dealer", "FICHAS DE POSICIÓN", true,
+                    Gate.ANIMATIONS),
+            option("animacion_apuestas", "APUESTAS", true,
+                    Gate.ANIMATIONS),
+            option("animacion_contadores", "CONTADORES", true,
+                    Gate.ANIMATIONS),
+            option("animacion_swap", "ORDENAR LA MANO", true,
+                    Gate.ANIMATIONS),
+            option("animacion_contador_final", "RECUENTO FINAL", true,
+                    Gate.ANIMATIONS));
 
     private static final int[] VOICE_RETENTION_DAYS = {7, 15, 30, 90, 0};
 
-    static final List<TogglePage> AUDIO_PAGES = List.of(
+    private static final List<TogglePage> AUDIO_SOURCE_PAGES = List.of(
             page("GENERAL",
                     option("sonidos", "SONIDO", true, Gate.NONE),
                     option("musica", "MÚSICA", true, Gate.SOUND),
@@ -245,33 +253,31 @@ final class GdxSettingsContract {
             AUDIO_LOCAL_VOICE_PAGE,
             AUDIO_DEVICE_PAGE);
 
+    /**
+     * Audio keeps only meaningful navigation groups.  Detailed Swing sound
+     * families remain available as rows inside the scrollable EFFECTS page
+     * instead of becoming a wall of tiny invented subcategories.
+     */
+    private static final TogglePage AUDIO_EFFECTS_PAGE = mergePages(
+            "EFECTOS", AUDIO_SOURCE_PAGES.subList(2, 9));
+    static final List<TogglePage> AUDIO_PAGES = List.of(
+            AUDIO_SOURCE_PAGES.get(0),
+            AUDIO_SOURCE_PAGES.get(1),
+            AUDIO_EFFECTS_PAGE,
+            AUDIO_SOURCE_PAGES.get(9),
+            AUDIO_LOCAL_VOICE_PAGE,
+            AUDIO_DEVICE_PAGE);
+
     /** Appearance switches shared with Swing; choice controls are separate. */
     static final List<TogglePage> APPEARANCE_PAGES = List.of(
             page("CINEMÁTICAS",
-                    option("cinematicas", "CINEMÁTICAS", true,
+                    option("cinematicas", "USAR CINEMÁTICAS", true,
                             Gate.NONE),
                     option("cinematicas_allin", "ALL-IN", true,
                             Gate.CINEMATICS),
                     option("cinematicas_gameover", "GAME OVER", true,
                             Gate.CINEMATICS)),
-            page("MESA Y CARTAS",
-                    option("animacion_barajado", "BARAJADO", true,
-                            Gate.ANIMATIONS),
-                    option("animacion_reparto", "REPARTO", true,
-                            Gate.ANIMATIONS),
-                    option("animacion_destape", "DESTAPAR", true,
-                            Gate.ANIMATIONS),
-                    option("animacion_ciegas_dealer",
-                            "FICHAS DE POSICIÓN", true, Gate.ANIMATIONS),
-                    option("animacion_apuestas", "APUESTAS", true,
-                            Gate.ANIMATIONS)),
-            page("MOVIMIENTO",
-                    option("animacion_contadores", "CONTADORES", true,
-                            Gate.ANIMATIONS),
-                    option("animacion_swap", "ORDENAR LA MANO", true,
-                            Gate.ANIMATIONS),
-                    option("animacion_contador_final", "RECUENTO FINAL", true,
-                            Gate.ANIMATIONS)),
+            APPEARANCE_ANIMATIONS_PAGE,
             page("INFORMACIÓN",
                     option("show_time", "MOSTRAR RELOJ", false, Gate.NONE),
                     option("gdx_show_fps", "MOSTRAR FPS", false, Gate.NONE),
@@ -280,19 +286,17 @@ final class GdxSettingsContract {
                     option("resaltar_jugada_showdown",
                             "RESALTAR JUGADA EN SHOWDOWN", true, Gate.NONE),
                     option("resaltar_avatares", "RESALTAR AVATARES", false,
-                            Gate.NONE)),
+                            Gate.NONE),
+                    option("screenshot_fin_timba",
+                            "CAPTURA AL TERMINAR LA TIMBA", false, Gate.NONE),
+                    option("auto_fullscreen",
+                            "PANTALLA COMPLETA AL INICIAR", true, Gate.NONE)),
             page("CHAT",
                     option(CHAT_GAME_NOTIFICATIONS_KEY,
                             "NOTIFICACIONES DURANTE LA PARTIDA", true,
                             Gate.NONE),
                     option("chat_images_ingame", "IMÁGENES DEL CHAT", true,
-                            Gate.NONE)),
-            page("CAPTURA Y VISTA",
-                    option("screenshot_fin_timba",
-                            "CAPTURA AL TERMINAR LA TIMBA", false, Gate.NONE),
-                    option("auto_fullscreen",
-                            "PANTALLA COMPLETA AL INICIAR", true, Gate.NONE)),
-            APPEARANCE_ANIMATION_OPTIONS_PAGE);
+                            Gate.NONE)));
 
     /**
      * Persisted values owned by the shared Swing/GDX settings transaction.
@@ -349,6 +353,12 @@ final class GdxSettingsContract {
         return new TogglePage(title, List.of(options));
     }
 
+    private static TogglePage mergePages(String title,
+            List<TogglePage> pages) {
+        return new TogglePage(title, pages.stream()
+                .flatMap(page -> page.options().stream()).toList());
+    }
+
     private static ToggleOption option(String key, String label,
             boolean fallback, Gate gate) {
         return new ToggleOption(key, label, fallback, gate, false);
@@ -357,6 +367,11 @@ final class GdxSettingsContract {
     private static ToggleOption invertedOption(String key, String label,
             boolean fallback, Gate gate) {
         return new ToggleOption(key, label, fallback, gate, true);
+    }
+
+    /** Every control governed by a switch uses the shared child-row geometry. */
+    static boolean isChildOption(TogglePage page, ToggleOption option) {
+        return option != null && option.gate() != Gate.NONE;
     }
 
     static boolean displayedValue(ToggleOption option, Properties properties,
@@ -418,7 +433,13 @@ final class GdxSettingsContract {
     }
 
     static boolean hasAppearanceAnimationOptions(TogglePage page) {
-        return page == APPEARANCE_ANIMATION_OPTIONS_PAGE;
+        return page == APPEARANCE_ANIMATIONS_PAGE;
+    }
+
+    static int appearanceRowCount(TogglePage page) {
+        return page.options().size()
+                + (hasAppearanceAnimationOptions(page)
+                        ? GdxAppearanceOptions.ANIMATION_CHOICES.size() : 0);
     }
 
     static String markDefault(String value, boolean factoryDefault) {
@@ -530,6 +551,7 @@ final class GdxSettingsContract {
         return switch (title) {
             case "GENERAL" -> "gdx.settings.page.general";
             case "MÚSICA" -> "gdx.settings.page.music";
+            case "EFECTOS" -> "gdx.settings.page.effects";
             case "ACCIONES" -> "gdx.settings.page.actions";
             case "CARTAS" -> "gdx.settings.page.cards";
             case "PARTIDA" -> "gdx.settings.page.game";
@@ -543,11 +565,9 @@ final class GdxSettingsContract {
             case "VOZ LOCAL" -> "gdx.settings.page.local_voice";
             case "DISPOSITIVOS" -> "gdx.settings.page.devices";
             case "CINEMÁTICAS" -> "gdx.settings.page.cinematics";
-            case "MESA Y CARTAS" -> "gdx.settings.page.table_cards";
+            case "ANIMACIONES" -> "gdx.settings.page.animations";
             case "MOVIMIENTO" -> "gdx.settings.page.movement";
             case "INFORMACIÓN" -> "gdx.settings.page.information";
-            case "CAPTURA Y VISTA" -> "gdx.settings.page.capture_view";
-            case "RITMO Y ESTILO" -> "gdx.settings.page.pace_style";
             default -> "gdx.settings.page." + title;
         };
     }

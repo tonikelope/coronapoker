@@ -153,6 +153,16 @@ public class HandPotCharacterizationTest {
     }
 
     @Test
+    void dealerStraddleUsesTheOriginalCombinedPositionChip() {
+        assertEquals(
+                com.tonikelope.coronapoker.table.TableSnapshot.Position.DEALER_STRADDLE,
+                Crupier.straddlePosition("dealer", "dealer"));
+        assertEquals(
+                com.tonikelope.coronapoker.table.TableSnapshot.Position.STRADDLE,
+                Crupier.straddlePosition("dealer", "utg"));
+    }
+
+    @Test
     void twoDifferentAllInsMakeTwoLayeredSidePots() {
         // a all-in 2, b all-in 5, c contests 10. Layers: main 2x3=6,
         // side1 (5-2=3) x2 = 6, side2 (10-5=5) x1 = 5.

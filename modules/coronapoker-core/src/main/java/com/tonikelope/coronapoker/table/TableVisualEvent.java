@@ -26,7 +26,8 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
         TableVisualEvent.SharedProgress,
         TableVisualEvent.TableInfo, TableVisualEvent.CallCost,
         TableVisualEvent.ActionControls, TableVisualEvent.PreActionControls,
-        TableVisualEvent.PlayerAction, TableVisualEvent.Cinematic,
+        TableVisualEvent.PlayerAction, TableVisualEvent.AllInRunoutPause,
+        TableVisualEvent.Cinematic,
         TableVisualEvent.AudioCue,
         TableVisualEvent.SpecialCardSound,
         TableVisualEvent.InitialStackFill,
@@ -48,6 +49,22 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
         TableVisualEvent.CloseTable {
 
     long sequence();
+
+    /**
+     * Short presentation beat between the action that closes betting and the
+     * first all-in reveal.  The barrier keeps the accepted action label on
+     * screen before any hole cards or partial Monte Carlo hands can replace it.
+     */
+    record AllInRunoutPause(long sequence, long durationMillis)
+            implements TableVisualEvent {
+
+        public AllInRunoutPause {
+            if (durationMillis <= 0L) {
+                throw new IllegalArgumentException(
+                        "All-in runout pause must be positive");
+            }
+        }
+    }
 
     /**
      * Real hand-off milestones while the lobby gives ownership to the table.

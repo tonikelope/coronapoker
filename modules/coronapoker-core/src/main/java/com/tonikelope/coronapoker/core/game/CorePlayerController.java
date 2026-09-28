@@ -361,6 +361,10 @@ public final class CorePlayerController implements GamePlayerController {
     @Override
     public synchronized double postStraddle(double amount) {
         double requested = MoneyMath.clean(amount);
+        DealerView current = requireDealer();
+        state.setPosition(getNickname().equals(current.getDealer_nick())
+                ? PlayerState.Position.DEALER_STRADDLE
+                : PlayerState.Position.STRADDLE);
         if (MoneyMath.compare(requested, getStack()) < 0) {
             setBet(requested);
             return requested;

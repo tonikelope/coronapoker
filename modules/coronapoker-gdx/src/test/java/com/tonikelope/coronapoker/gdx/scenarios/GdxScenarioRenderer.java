@@ -41,6 +41,8 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final int expectedPlayers;
     private final AtomicReference<CoronaPokerGdxTable> productTable;
     private final LobbySession lobby;
+    private final AtomicReference<AutoCloseable> lobbySubscription
+            = new AtomicReference<>();
     private final AtomicReference<GdxTableViewState> state
             = new AtomicReference<>();
     private final AtomicReference<TableSessionSummary> summary
@@ -193,6 +195,14 @@ final class GdxScenarioRenderer implements TableRenderer {
         productTable.set(new CoronaPokerGdxTable(60, projection,
                 table.commands(), () -> { }, new GdxGameLogSink(), null,
                 lobby));
+        if (lobby != null) {
+            lobbySubscription.set(lobby.subscribe(ignored -> {
+                GdxTableViewState current = state.get();
+                if (current != null) {
+                    observeLiveConnectivity(current.snapshot());
+                }
+            }));
+        }
         observeLiveConnectivity(initialState);
         streets.add(initialState.street());
         rememberSpectatorTransitions(initialState);
@@ -620,6 +630,12 @@ final class GdxScenarioRenderer implements TableRenderer {
                 "unexpected visible reconnect projection: " + unexpected);
     }
 
+    void assertShowedExpectedReconnects(Set<String> expected) {
+        assertTrue(reconnectingPlayersEver.containsAll(expected),
+                "missing visible reconnect projection: expected=" + expected
+                + ", observed=" + reconnectingPlayersEver);
+    }
+
     String departureLabel(String nickname) {
         return departures.getOrDefault(nickname, "");
     }
@@ -786,5 +802,14 @@ final class GdxScenarioRenderer implements TableRenderer {
 
     @Override
     public void close() {
+        AutoCloseable subscription = lobbySubscription.getAndSet(null);
+        if (subscription != null) {
+            try {
+                subscription.close();
+            } catch (Exception failure) {
+                throw new AssertionError(
+                        "could not detach scenario lobby observer", failure);
+            }
+        }
     }
 }

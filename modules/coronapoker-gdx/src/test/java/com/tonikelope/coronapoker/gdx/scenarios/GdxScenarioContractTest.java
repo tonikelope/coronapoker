@@ -270,6 +270,8 @@ class GdxScenarioContractTest {
                 "the product table oracle must receive the real lobby session");
         assertTrue(driver.contains("lobby));"),
                 "the product table oracle cannot detach network presence");
+        assertTrue(driver.contains("lobby.subscribe("),
+                "short reconnect projections must be captured from real lobby snapshots");
         assertTrue(node.contains("productTable, lobby"),
                 "multiprocess nodes must wire their real lobby into GDX");
         assertTrue(node.contains(
@@ -278,8 +280,10 @@ class GdxScenarioContractTest {
         assertTrue(node.contains("visible.add(\"server\")"),
                 "a disconnected client must observe the remote host seat, "
                 + "not permit its own local seat as reconnecting");
-        assertTrue(node.contains("Set<String> disconnectedPeers = switch"),
+        assertTrue(node.contains("expectedDisconnectedPeers(Config config)"),
                 "visible reconnect allowances must be scenario-specific");
+        assertTrue(node.contains("requiredVisibleReconnects(config)"),
+                "real network cuts must require their GDX reconnect projection");
     }
 
     @Test

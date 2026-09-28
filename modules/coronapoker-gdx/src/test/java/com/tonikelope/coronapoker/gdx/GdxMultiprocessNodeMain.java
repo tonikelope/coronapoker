@@ -2146,8 +2146,10 @@ public final class GdxMultiprocessNodeMain {
 
     private static void assertOutcome(Config config,
             GdxScenarioRenderer renderer) {
-        renderer.assertNoUnexpectedReconnects(
-                allowedVisibleReconnects(config));
+        Set<String> allowedReconnects = allowedVisibleReconnects(config);
+        renderer.assertNoUnexpectedReconnects(allowedReconnects);
+        renderer.assertShowedExpectedReconnects(
+                requiredVisibleReconnects(config));
         if ("normal".equals(config.scenario)) {
             renderer.assertComplete(config.hands);
             return;
@@ -2337,7 +2339,31 @@ public final class GdxMultiprocessNodeMain {
     }
 
     private static Set<String> allowedVisibleReconnects(Config config) {
-        Set<String> disconnectedPeers = switch (config.scenario) {
+        Set<String> disconnectedPeers = expectedDisconnectedPeers(config);
+        if (config.host() || !disconnectedPeers.contains(config.nickname)) {
+            return disconnectedPeers;
+        }
+        java.util.HashSet<String> visible = new java.util.HashSet<>(
+                disconnectedPeers);
+        visible.remove(config.nickname);
+        visible.add("server");
+        return Set.copyOf(visible);
+    }
+
+    private static Set<String> requiredVisibleReconnects(Config config) {
+        if ("straddle-network-cut".equals(config.scenario)) {
+            return Set.of();
+        }
+        Set<String> disconnectedPeers = expectedDisconnectedPeers(config);
+        if (config.host()) {
+            return disconnectedPeers;
+        }
+        return disconnectedPeers.contains(config.nickname)
+                ? Set.of("server") : Set.of();
+    }
+
+    private static Set<String> expectedDisconnectedPeers(Config config) {
+        return switch (config.scenario) {
             case "reconnect-midhand", "reconnect-every-street",
                     "allin-reconnect", "rit-network-cut" -> Set.of("client1");
             case "reconnect-twice", "reconnect-storm",
@@ -2355,14 +2381,6 @@ public final class GdxMultiprocessNodeMain {
             case "mixed-exit-crash" -> Set.of("client2");
             default -> Set.of();
         };
-        if (config.host() || !disconnectedPeers.contains(config.nickname)) {
-            return disconnectedPeers;
-        }
-        java.util.HashSet<String> visible = new java.util.HashSet<>(
-                disconnectedPeers);
-        visible.remove(config.nickname);
-        visible.add("server");
-        return Set.copyOf(visible);
     }
 
     private static void await(BooleanSupplier condition, Duration timeout,

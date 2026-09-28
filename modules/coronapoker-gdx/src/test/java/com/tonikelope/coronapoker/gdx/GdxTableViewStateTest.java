@@ -912,6 +912,8 @@ final class GdxTableViewStateTest {
         draft.setBlindLevelIndex(2);
         draft.setHandLimit(true);
         draft.setHandLimitCount(30);
+        draft.setAnte(true);
+        draft.setStraddle(true);
         GameConfigCodecV1.Configuration configuration
                 = GameConfigCodecV1.fromSettings(draft.snapshot(), false,
                         "live-settings-test");
@@ -923,6 +925,26 @@ final class GdxTableViewStateTest {
         assertEquals(configuration.smallBlind(), state.smallBlind());
         assertEquals(configuration.bigBlind(), state.bigBlind());
         assertEquals(30, state.maximumHands());
+        assertTrue(state.anteEnabled());
+        assertTrue(state.straddleEnabled());
+    }
+
+    @Test
+    void communityHudKeepsSwingBlindFlagsAndCompactHandCounter() {
+        GdxGameText spanish = new GdxGameText("es");
+
+        assertEquals("CIEGAS  (A) 0.1 / 0.2",
+                CoronaPokerGdxTable.communityBlindsText(
+                        spanish, 0.1d, 0.2d, true));
+        assertEquals("CIEGAS  0.1 / 0.2",
+                CoronaPokerGdxTable.communityBlindsText(
+                        spanish, 0.1d, 0.2d, false));
+        assertEquals("MANO 10/60",
+                CoronaPokerGdxTable.communityHandText(
+                        spanish, 10, 60, false));
+        assertEquals("MANO 10",
+                CoronaPokerGdxTable.communityHandText(
+                        spanish, 10, -1, false));
     }
 
     @Test

@@ -201,6 +201,14 @@ final class GdxTableViewState {
         return bigBlind;
     }
 
+    boolean anteEnabled() {
+        return gameConfiguration != null && gameConfiguration.ante();
+    }
+
+    boolean straddleEnabled() {
+        return gameConfiguration != null && gameConfiguration.straddle();
+    }
+
     int handNumber() {
         return handNumber;
     }

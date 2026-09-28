@@ -831,6 +831,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Texture logMoneyIcon;
     private Texture logStraddleIcon;
     private Texture logDealerStraddleIcon;
+    private Texture communityStraddleIcon;
     private Texture soundIcon;
     private Texture muteIcon;
     private Texture blockedSoundIcon;
@@ -2219,6 +2220,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         logMoneyIcon = texture("images/chips.png");
         logStraddleIcon = texture("images/straddle.png");
         logDealerStraddleIcon = texture("images/dealer_straddle.png");
+        communityStraddleIcon = texture("images/straddle_small.png");
         soundIcon = texture("images/sound.png");
         muteIcon = texture("images/mute.png");
         blockedSoundIcon = texture("images/sound_b.png");
@@ -7857,7 +7859,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float handWidth = Math.min(150f, width * 0.22f);
         float blindsWidth = width - pauseWidth - handWidth - soundWidth
                 - lightsWidth - padding * 4f;
-        communityPauseX = x + width - pauseWidth;
+        communityHandX = x + width - handWidth;
+        communityHandY = y;
+        communityHandWidth = handWidth;
+        communityHandHeight = height;
+        communityPauseX = communityHandX - padding - pauseWidth;
         communityPauseY = y;
         communityPauseWidth = pauseWidth;
         communityPauseHeight = height;
@@ -7895,11 +7901,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.setColor(1f, 1f, 1f, 0.10f);
         roundedRect(x + 5f, y + height - 10f, width - 10f, 6f, 3f);
 
-        float handX = x + blindsWidth + padding;
-        communityHandX = handX;
-        communityHandY = y;
-        communityHandWidth = handWidth;
-        communityHandHeight = height;
+        float handX = communityHandX;
         boolean handHover = tableHost && contains(pointer.x, pointer.y,
                 communityHandX, communityHandY,
                 communityHandWidth, communityHandHeight);
@@ -7911,13 +7913,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     handWidth - 7f, height - 6f, 7f);
         }
         shapes.setColor(BUTTON_LINE.r, BUTTON_LINE.g, BUTTON_LINE.b, 0.76f);
-        shapes.rect(handX - padding / 2f, y + 6f, 2f, height - 12f);
         shapes.rect(communitySoundX - padding / 2f,
                 y + 6f, 2f, height - 12f);
         shapes.rect(communityLightsX - padding / 2f,
                 y + 6f, 2f, height - 12f);
         shapes.rect(communityPauseX - padding / 2f,
                 y + 6f, 2f, height - 12f);
+        shapes.rect(handX - padding / 2f, y + 6f, 2f, height - 12f);
         drawHudActionSurface(communitySoundX, communitySoundY,
                 communitySoundWidth, communitySoundHeight,
                 SEAT_RIM, soundHover, false, true);
@@ -7941,34 +7943,28 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         shapes.end();
 
-        String blindsLabel = uppercase(gameText.translate(
-                "blinds.ciegas_titulo"));
-        String blinds = liveState.smallBlind() > 0d
-                && liveState.bigBlind() > 0d
-                ? blindsLabel + "  " + formatAmount(liveState.smallBlind())
-                + " / " + formatAmount(liveState.bigBlind())
-                : blindsLabel + "  —";
+        String blinds = communityBlindsText(gameText,
+                liveState.smallBlind(), liveState.bigBlind(),
+                liveState.anteEnabled());
         if (tablePreference("show_time", false)) {
             blinds += "   " + formatPlayTime(liveState.playTimeSeconds());
         }
-        String hand;
-        if (liveState.lastHand()) {
-            hand = uppercase(gameText.translate("game.ultima_mano"));
-        } else if (liveState.handNumber() > 0
-                && liveState.maximumHands() > 0) {
-            hand = uppercase(gameText.translate("game.mano_2")) + "  "
-                    + liveState.handNumber()
-                    + " / " + liveState.maximumHands();
-        } else {
-            hand = liveState.handNumber() > 0
-                    ? uppercase(gameText.translate("game.mano_2")) + "  "
-                            + liveState.handNumber()
-                    : uppercase(gameText.translate("game.mano_2")) + "  —";
-        }
+        String hand = communityHandText(gameText, liveState.handNumber(),
+                liveState.maximumHands(), liveState.lastHand());
         batch.begin();
+        float straddleSlot = liveState.straddleEnabled() ? height - 6f : 0f;
         drawFittedCenteredInBox(actionFont, blinds,
-                x + 10f, y + 5f, blindsWidth - 20f, height - 10f,
+                x + 10f, y + 5f,
+                blindsWidth - 20f - straddleSlot, height - 10f,
                 POT_GOLD, 1f);
+        if (liveState.straddleEnabled()) {
+            float iconSize = height - 8f;
+            batch.setColor(Color.WHITE);
+            batch.draw(communityStraddleIcon,
+                    x + blindsWidth - iconSize - 5f,
+                    y + (height - iconSize) / 2f,
+                    iconSize, iconSize);
+        }
         drawFittedCenteredInBox(actionFont, hand,
                 handX + 4f, y + 5f, handWidth - 12f, height - 10f,
                 liveState.lastHand() ? POT_GOLD : Color.WHITE, 1f);
@@ -7998,6 +7994,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 communityPauseWidth - 54f, communityPauseHeight - 10f,
                 paused ? Color.WHITE : Color.BLACK, 1f);
         batch.end();
+    }
+
+    static String communityBlindsText(GdxGameText text, double smallBlind,
+            double bigBlind, boolean ante) {
+        String title = uppercase(text.translate("blinds.ciegas_titulo"), text);
+        if (smallBlind <= 0d || bigBlind <= 0d) {
+            return title + "  —";
+        }
+        return title + "  " + (ante ? "(A) " : "")
+                + formatAmount(smallBlind) + " / " + formatAmount(bigBlind);
+    }
+
+    static String communityHandText(GdxGameText text, int handNumber,
+            int maximumHands, boolean lastHand) {
+        if (lastHand) {
+            return uppercase(text.translate("game.ultima_mano"), text);
+        }
+        String title = uppercase(text.translate("game.mano_2"), text);
+        if (handNumber <= 0) return title + "  —";
+        return title + " " + handNumber
+                + (maximumHands > 0 ? "/" + maximumHands : "");
     }
 
     private void useRoundedCardShader() {
@@ -16485,6 +16502,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         logMoneyIcon.dispose();
         logStraddleIcon.dispose();
         logDealerStraddleIcon.dispose();
+        communityStraddleIcon.dispose();
         defaultCardBack.dispose();
         rabbitCardBack.dispose();
         rabbitRevealOverlay.dispose();

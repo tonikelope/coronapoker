@@ -2959,15 +2959,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } else if (!lobbyEmojiPickerOpen) {
             drawLobbyMessages(state.chat(), 525f, 744f, 840f);
         }
-        drawLobbyChatInput(525f, 215f, 395f);
-        button(930f, 215f, 90f, 70f,
+        drawLobbyChatInput(525f, 215f, 345f);
+        compactButton(880f, 215f, 95f, 70f,
                 uppercase(gameText.translate("gdx.lobby.emoji")), false,
                 () -> {
                     lobbyImageMode = false;
                     lobbyEmojiPickerOpen = !lobbyEmojiPickerOpen;
                     activateField("lobbyChat");
                 });
-        button(1030f, 215f, 140f, 70f,
+        compactButton(985f, 215f, 190f, 70f,
                 uppercase(gameText.translate("gdx.lobby.image")), false,
                 () -> {
                     lobbyEmojiPickerOpen = false;
@@ -2975,12 +2975,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     activateField(lobbyImageMode ? "lobbyImage" : "lobbyChat");
                     if (lobbyImageMode) refreshLobbyHistoryMedia();
                 });
-        button(1180f, 215f, 80f, 70f,
+        compactButton(1185f, 215f, 75f, 70f,
                 uppercase(gameText.translate(lobbyVoiceLive || lobbyVoiceOpening
                         ? "audio.preview_parar" : "gdx.lobby.voice")), false,
                 this::toggleLobbyVoiceRecording, canUseLobbyVoice()
                         && !lobbyCommandPending && !lobbyVoiceStopping);
-        button(1270f, 215f, 95f, 70f,
+        compactButton(1270f, 215f, 95f, 70f,
                 uppercase(gameText.translate("ui.enviar")), true,
                 this::sendLobbyComposer,
                 !lobbyCommandPending && !(lobbyImageMode
@@ -4499,7 +4499,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 x + w - 330f, y + h - 30f, MUTED, false, 300f);
         float cellW = 82f;
         float cellH = 62f;
-        float startX = x + 78f;
+        float gridWidth = (EMOJI_COLUMNS - 1) * cellW + 54f;
+        float startX = x + (w - gridWidth) / 2f;
         float startY = y + h - 112f;
         for (int slot = 0; slot < EMOJI_PAGE_SIZE; slot++) {
             int number = first + slot;
@@ -4518,15 +4519,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 replaceActiveSelection(" #" + number + "# ");
             });
         }
-        button(x + 30f, y + 18f, 155f, 52f,
+        compactButton(x + 30f, y + 18f, 155f, 52f,
                 uppercase(gameText.translate("gdx.lobby.previous")), false,
                 () -> lobbyEmojiPage = Math.max(0, lobbyEmojiPage - 1),
                 lobbyEmojiPage > 0);
-        button(x + w - 185f, y + 18f, 155f, 52f,
+        compactButton(x + w - 185f, y + 18f, 155f, 52f,
                 uppercase(gameText.translate("gdx.lobby.next")), false,
                 () -> lobbyEmojiPage = Math.min(pageCount - 1,
                         lobbyEmojiPage + 1), lobbyEmojiPage + 1 < pageCount);
-        button(x + w / 2f - 80f, y + 18f, 160f, 52f,
+        compactButton(x + w / 2f - 80f, y + 18f, 160f, 52f,
                 uppercase(gameText.translate("ui.cerrar")), false,
                 () -> lobbyEmojiPickerOpen = false);
     }
@@ -6359,21 +6360,30 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawHeader() {
-        String title = connection.mode() == NewGameConnectionDraft.Mode.JOIN
+        boolean joining = connection.mode() == NewGameConnectionDraft.Mode.JOIN;
+        String title = joining
                 ? gameText.translate("game.unirme_a_timba")
                 : uppercase(gameText.translate("ui.nueva_timba"));
-        textFit(titleFont, title, 70f, 1004f, GOLD, false, 1780f);
+        textFit(titleFont, title, joining ? 225f : 85f,
+                joining ? 900f : 985f, GOLD, false,
+                joining ? 1470f : 1750f);
     }
 
     private void drawNewGameDialogFrame() {
         shapes.setColor(0f, 0f, 0f, 0.38f);
         shapes.rect(0f, 0f, WIDTH, HEIGHT);
         shapes.setColor(0f, 0f, 0f, 0.42f);
-        roundedRect(30f, 8f, 1860f, 1044f, 24f);
-        outerBox(20f, 18f, 1880f, 1044f, CYAN_DARK,
-                new Color(0x071321f7));
+        boolean joining = connection.mode() == NewGameConnectionDraft.Mode.JOIN;
+        float frameX = joining ? 190f : 50f;
+        float frameY = joining ? 120f : 35f;
+        float frameW = joining ? 1540f : 1820f;
+        float frameH = joining ? 820f : 990f;
+        roundedRect(frameX, frameY, frameW, frameH, 24f);
+        outerBox(frameX - 10f, frameY + 10f, frameW + 20f, frameH,
+                CYAN_DARK, new Color(0x071321f7));
         shapes.setColor(new Color(0x36d9ffcc));
-        roundedRect(42f, 1047f, 1836f, 3f, 1.5f);
+        roundedRect(frameX + 12f, frameY + frameH - 3f,
+                frameW - 24f, 3f, 1.5f);
     }
 
     private void drawProgress() {
@@ -6390,7 +6400,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             "gdx.newgame.profile_title"))};
         for (int i = 0; i < names.length; i++) {
             final int targetPage = i;
-            float x = 35f;
+            float x = 55f;
             float y = 760f - i * 108f;
             boolean selected = i == page;
             outerBox(x, y, 320f, 78f, selected ? CYAN : LINE,
@@ -6411,60 +6421,94 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawIdentityPage() {
-        float offsetX = connection.mode() == NewGameConnectionDraft.Mode.JOIN
-                ? -182.5f : 0f;
-        panel(430f + offsetX, 185f, 670f, 625f,
+        if (connection.mode() == NewGameConnectionDraft.Mode.JOIN) {
+            drawJoinIdentityPage();
+            return;
+        }
+        panel(430f, 185f, 670f, 625f,
                 uppercase(gameText.translate("gdx.newgame.your_profile")));
-        panel(1130f + offsetX, 185f, 725f, 625f,
+        panel(1130f, 185f, 725f, 625f,
                 uppercase(gameText.translate("gdx.connection")));
 
         shapes.setColor(CYAN_DARK);
-        shapes.circle(520f + offsetX, 660f, 70f, 64);
+        shapes.circle(520f, 660f, 70f, 64);
         shapes.setColor(PANEL_LIGHT);
-        shapes.circle(520f + offsetX, 660f, 61f, 64);
-        drawAvatarIcon(520f + offsetX, 660f);
-        hit(445f + offsetX, 580f, 150f, 155f,
-                this::selectAvatar);
+        shapes.circle(520f, 660f, 61f, 64);
+        drawAvatarIcon(520f, 660f);
+        hit(445f, 580f, 150f, 155f, this::selectAvatar);
         textFit(tinyFont, avatarSelectionPending
                 ? uppercase(gameText.translate("gdx.opening"))
                 : uppercase(gameText.translate("gdx.change")),
-                520f + offsetX, 570f, avatarSelectionPending ? DISABLED : CYAN,
+                520f, 570f, avatarSelectionPending ? DISABLED : CYAN,
                 true, 145f);
         if (connection.avatar() != null) {
-            button(455f + offsetX, 515f, 130f, 42f,
+            button(455f, 515f, 130f, 42f,
                     uppercase(gameText.translate("gdx.remove")), false,
                     this::resetAvatar, !avatarSelectionPending);
         }
 
-        field(610f + offsetX, 630f, 450f, gameText.translate("gdx.newgame.nick_required"),
+        field(610f, 630f, 450f,
+                gameText.translate("gdx.newgame.nick_required"),
                 connection.nickname(), "nick", false);
-        field(610f + offsetX, 475f, 450f, gameText.translate("gdx.newgame.password_optional"),
+        field(610f, 475f, 450f,
+                gameText.translate("gdx.newgame.password_optional"),
                 connection.password(), "password", true);
-        if (connection.mode() != NewGameConnectionDraft.Mode.JOIN) {
-            toggle(610f + offsetX, 325f, 450f,
-                    uppercase(gameText.translate(
-                            "gdx.newgame.recover_previous")),
-                    connection.recoverRequested(), this::toggleRecover, true);
-        }
+        toggle(610f, 325f, 450f,
+                uppercase(gameText.translate("gdx.newgame.recover_previous")),
+                connection.recoverRequested(), this::toggleRecover, true);
 
-        field(1170f + offsetX, 630f, 430f,
+        field(1170f, 630f, 430f,
                 gameText.translate("gdx.newgame.server_required"),
                 connection.server(), "server", false);
-        field(1630f + offsetX, 630f, 175f, gameText.translate("gdx.port"),
+        field(1630f, 630f, 175f, gameText.translate("gdx.port"),
                 connection.port(), "port", false);
-        if (connection.mode() == NewGameConnectionDraft.Mode.JOIN) {
-            String history = connection.serverHistory().isEmpty()
-                    ? gameText.translate("gdx.newgame.no_previous_servers")
-                    : connection.serverHistory().get(historyIndex < 0
-                            ? connection.serverHistory().size() - 1 : historyIndex);
-            bidirectionalChoice(1170f + offsetX, 475f, 635f,
-                    gameText.translate("gdx.newgame.previous_servers"), history,
-                    this::previousServerHistory, this::nextServerHistory,
-                    !connection.serverHistory().isEmpty());
-        } else {
-            toggle(1170f + offsetX, 475f, 635f, "UPnP", connection.upnp(),
-                    () -> connection.setUpnp(!connection.upnp()), true);
+        toggle(1170f, 475f, 635f, "UPnP", connection.upnp(),
+                () -> connection.setUpnp(!connection.upnp()), true);
+    }
+
+    private void drawJoinIdentityPage() {
+        panel(295f, 285f, 620f, 480f,
+                uppercase(gameText.translate("gdx.newgame.your_profile")));
+        panel(945f, 285f, 680f, 480f,
+                uppercase(gameText.translate("gdx.connection")));
+
+        shapes.setColor(CYAN_DARK);
+        shapes.circle(380f, 630f, 60f, 64);
+        shapes.setColor(PANEL_LIGHT);
+        shapes.circle(380f, 630f, 52f, 64);
+        drawAvatarIcon(380f, 630f);
+        hit(315f, 565f, 130f, 135f, this::selectAvatar);
+        textFit(tinyFont, avatarSelectionPending
+                ? uppercase(gameText.translate("gdx.opening"))
+                : uppercase(gameText.translate("gdx.change")),
+                380f, 552f, avatarSelectionPending ? DISABLED : CYAN,
+                true, 125f);
+        if (connection.avatar() != null) {
+            compactButton(320f, 500f, 120f, 42f,
+                    uppercase(gameText.translate("gdx.remove")), false,
+                    this::resetAvatar, !avatarSelectionPending);
         }
+
+        field(470f, 595f, 400f,
+                gameText.translate("gdx.newgame.nick_required"),
+                connection.nickname(), "nick", false);
+        field(470f, 435f, 400f,
+                gameText.translate("gdx.newgame.password_optional"),
+                connection.password(), "password", true);
+
+        field(985f, 595f, 385f,
+                gameText.translate("gdx.newgame.server_required"),
+                connection.server(), "server", false);
+        field(1395f, 595f, 185f, gameText.translate("gdx.port"),
+                connection.port(), "port", false);
+        String history = connection.serverHistory().isEmpty()
+                ? gameText.translate("gdx.newgame.no_previous_servers")
+                : connection.serverHistory().get(historyIndex < 0
+                        ? connection.serverHistory().size() - 1 : historyIndex);
+        bidirectionalChoice(985f, 435f, 595f,
+                gameText.translate("gdx.newgame.previous_servers"), history,
+                this::previousServerHistory, this::nextServerHistory,
+                !connection.serverHistory().isEmpty());
     }
 
     /** Global presets cover the complete table setup, never just networking. */
@@ -7413,12 +7457,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             hits.clear();
             clearActiveField();
         }
-        themedButton(1165f, 31f, 250f, 70f,
+        boolean joining = connection.mode() == NewGameConnectionDraft.Mode.JOIN;
+        themedButton(joining ? 1040f : 1165f, joining ? 165f : 55f,
+                joining ? 240f : 250f, 70f,
                 gameText.translate("ui.cancelar"), ButtonTone.NEUTRAL,
                 this::cancelOrReturnToMenu, true);
-        themedButton(1445f, 31f, 410f, 70f,
+        themedButton(joining ? 1310f : 1445f, joining ? 165f : 55f,
+                joining ? 315f : 410f, 70f,
                 submitting ? uppercase(gameText.translate("gdx.connecting"))
-                        : connection.mode() == NewGameConnectionDraft.Mode.JOIN
+                        : joining
                                 ? gameText.translate("game.unirme_a_timba")
                                 : gameText.translate("game.crear_timba"),
                 ButtonTone.POSITIVE, this::submitNewGame,
@@ -7932,6 +7979,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 action, enabled);
     }
 
+    private void compactButton(float x, float y, float w, float h,
+            String label, boolean primary, Runnable action) {
+        compactButton(x, y, w, h, label, primary, action, true);
+    }
+
+    private void compactButton(float x, float y, float w, float h,
+            String label, boolean primary, Runnable action, boolean enabled) {
+        themedButton(x, y, w, h, label,
+                primary ? ButtonTone.FEATURED : ButtonTone.NEUTRAL,
+                action, enabled, true, smallFont);
+    }
+
     private void themedButton(float x, float y, float w, float h,
             String label, ButtonTone tone, Runnable action, boolean enabled) {
         themedButton(x, y, w, h, label, tone, action, enabled, true);
@@ -7940,6 +7999,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void themedButton(float x, float y, float w, float h,
             String label, ButtonTone tone, Runnable action, boolean enabled,
             boolean shadow) {
+        themedButton(x, y, w, h, label, tone, action, enabled, shadow,
+                actionFont);
+    }
+
+    private void themedButton(float x, float y, float w, float h,
+            String label, ButtonTone tone, Runnable action, boolean enabled,
+            boolean shadow, BitmapFont labelFont) {
         boolean hover = enabled && hovered(x, y, w, h);
         float hoverTarget = hover ? 1f : 0f;
         String hoverKey = buttonHoverKey(label, x, y, w, h);
@@ -7953,7 +8019,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxUiButtonStyle.draw(shapes, x, y, w, h, sharedTone, enabled,
                 hoverAmount, down, 1f, shadow);
         Color labelColor = GdxUiButtonStyle.labelColor(sharedTone, enabled);
-        textFit(actionFont, label, x + w / 2f, y + h / 2f + 8f,
+        textFit(labelFont, label, x + w / 2f, y + h / 2f + 8f,
                 labelColor, true, w - 30f);
         if (enabled) {
             hit(x, y, w, h, action);

@@ -257,7 +257,14 @@ final class GdxTableViewState {
             return revealed;
         }
         if (foldedThisHand.contains(nickname)) {
-            return List.of();
+            // Swing removes a folded rival's pocket but leaves the local
+            // player's own cards on the table in their disabled state.  The
+            // FoldHoleCards projection above already marks both cards as
+            // disabled, so preserve only that local visual information here.
+            // Never use this exception for a remote player: hidden rival cards
+            // must still disappear immediately after the fold.
+            return player != null && nickname.equals(snapshot.localNickname())
+                    ? player.holeCards() : List.of();
         }
         return player == null ? List.of() : player.holeCards();
     }

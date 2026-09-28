@@ -10476,6 +10476,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 liveState.turnTimerVisible(), liveState.snapshot().paused(),
                 sharedTurnRemaining());
         float dangerPulse = danger ? localHudDangerPulse(totalTime) : 0f;
+        float outcomePulse = settledLocalWinner == null ? 0f
+                : 0.5f + 0.5f * MathUtils.sin(totalTime * 2.8f);
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -10487,13 +10489,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 : localFolded ? BUTTON_LINE : SEAT_RIM);
         if (danger) {
             shapes.setColor(FOLD_RED.r, FOLD_RED.g, FOLD_RED.b,
-                    0.16f + dangerPulse * 0.34f);
-            roundedRect(hudX - 16f, hudY - 16f,
-                    hudWidth + 32f, hudHeight + 41f, 25f);
+                    0.24f + dangerPulse * 0.50f);
+            roundedRect(hudX - 22f, hudY - 22f,
+                    hudWidth + 44f, hudHeight + 53f, 29f);
+            shapes.setColor(1f, 0.08f, 0.04f,
+                    0.12f + dangerPulse * 0.34f);
+            roundedRect(hudX - 14f, hudY - 14f,
+                    hudWidth + 28f, hudHeight + 37f, 24f);
         }
         shapes.setColor(hudFrame.r, hudFrame.g, hudFrame.b,
-                settledShowdown ? 1f
-                        : danger ? 0.52f + dangerPulse * 0.48f
+                settledShowdown ? 0.78f + outcomePulse * 0.18f
+                        : danger ? 0.62f + dangerPulse * 0.38f
                         : localTurn ? 0.72f + turnPulse * 0.26f
                                 : localHudIdleFrameAlpha(localFolded));
         roundedRect(hudX - 8f, hudY - 8f,
@@ -10502,16 +10508,34 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // smoked-glass tint so the felt remains visible behind the controls.
         if (settledLocalWinner != null) {
             Color outcomeColor = settledShowdownColor(settledLocalWinner);
+            shapes.setColor(0.012f, 0.025f, 0.040f, 0.62f);
+            roundedRect(hudX - 3f, hudY - 3f,
+                    hudWidth + 6f, hudHeight + 15f, 16f);
             shapes.setColor(outcomeColor.r, outcomeColor.g, outcomeColor.b,
-                    0.96f);
+                    0.50f + outcomePulse * 0.08f);
+            roundedRect(hudX - 3f, hudY - 3f,
+                    hudWidth + 6f, hudHeight + 15f, 16f);
+            // A soft glass highlight and a shaded lower band break up the old
+            // flat red/green slab while retaining the established result
+            // colour and letting the table texture remain subtly visible.
+            shapes.setColor(1f, 1f, 1f, 0.07f + outcomePulse * 0.03f);
+            roundedRect(hudX + 5f, hudY + hudHeight * 0.67f,
+                    hudWidth - 10f, hudHeight * 0.34f, 12f);
+            shapes.setColor(0f, 0f, 0f, 0.13f);
+            roundedRect(hudX + 3f, hudY,
+                    hudWidth - 6f, hudHeight * 0.42f, 12f);
+            shapes.setColor(outcomeColor.r, outcomeColor.g, outcomeColor.b,
+                    0.84f);
+            roundedRect(hudX + 13f, hudY + 3f,
+                    hudWidth - 26f, 4f, 2f);
         } else {
             shapes.setColor(0.025f, 0.085f, 0.095f, 0.56f);
+            roundedRect(hudX - 3f, hudY - 3f,
+                    hudWidth + 6f, hudHeight + 15f, 16f);
         }
-        roundedRect(hudX - 3f, hudY - 3f,
-                hudWidth + 6f, hudHeight + 15f, 16f);
         if (danger) {
             shapes.setColor(FOLD_RED.r, 0.02f, 0.02f,
-                    0.06f + dangerPulse * 0.18f);
+                    0.10f + dangerPulse * 0.26f);
             roundedRect(hudX - 3f, hudY - 3f,
                     hudWidth + 6f, hudHeight + 15f, 16f);
         }
@@ -10567,7 +10591,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // action surfaces, participates in the warning without reducing
             // label legibility or hiding poker-state colours.
             shapes.setColor(FOLD_RED.r, 0.02f, 0.02f,
-                    0.025f + dangerPulse * 0.075f);
+                    0.05f + dangerPulse * 0.14f);
             roundedRect(hudX - 3f, hudY - 3f,
                     hudWidth + 6f, hudHeight + 15f, 16f);
         }

@@ -2079,6 +2079,34 @@ final class GdxTableViewStateTest {
         assertFalse(player(state, "borja").active());
         assertTrue(player(state, "borja").holeCards().stream()
                 .allMatch(TableSnapshot.CardSnapshot::disabled));
+        assertTrue(state.presentedHoleCards("borja").isEmpty(),
+                "a folded remote pocket must disappear");
+    }
+
+    @Test
+    void acceptedLocalFoldKeepsBothCardsVisibleButDisabled() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+        state.apply(new TableVisualEvent.DealHoleCard(1, "ana", 0,
+                card("A_C")));
+        state.apply(new TableVisualEvent.DealHoleCard(2, "ana", 1,
+                card("K_C")));
+
+        state.apply(new TableVisualEvent.PlayerAction(3, "ana",
+                TableVisualEvent.PlayerAction.ActionKind.FOLD,
+                "NO VA", 0d, 0d, 1_000d, 0d, 0d));
+        state.apply(new TableVisualEvent.FoldHoleCards(4, "ana"));
+
+        List<TableSnapshot.CardSnapshot> localCards
+                = state.presentedHoleCards("ana");
+        assertEquals(2, localCards.size(),
+                "the folded local pocket must remain on the table");
+        assertTrue(localCards.stream()
+                .allMatch(TableSnapshot.CardSnapshot::visible));
+        assertTrue(localCards.stream()
+                .allMatch(TableSnapshot.CardSnapshot::faceUp));
+        assertTrue(localCards.stream()
+                .allMatch(TableSnapshot.CardSnapshot::disabled),
+                "the retained local pocket must use the disabled treatment");
     }
 
     @Test

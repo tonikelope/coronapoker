@@ -5323,14 +5323,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float gap = 12f;
         float foldX = hudX + 230f + gap;
         float checkX = foldX + 150f + gap;
-        float spinnerX = checkX + 200f + gap;
-        float betX = spinnerX + 145f + gap;
-        float allInX = betX + 175f + gap;
+        float minusX = checkX + 200f + gap;
+        float betX = minusX + 58f;
+        float plusX = betX + 222f;
+        float allInX = plusX + 52f + gap;
         if (contains(x, y, foldX, actionY, 150f, actionHeight)) return 1;
         if (contains(x, y, checkX, actionY, 200f, actionHeight)) return 2;
-        if (contains(x, y, spinnerX, actionY, 43f, actionHeight)) return 3;
-        if (contains(x, y, spinnerX + 102f, actionY, 43f, actionHeight)) return 4;
-        if (contains(x, y, betX, actionY, 175f, actionHeight)) return 5;
+        if (contains(x, y, minusX, actionY, 52f, actionHeight)) return 3;
+        if (contains(x, y, betX, actionY, 216f, actionHeight)) return 5;
+        if (contains(x, y, plusX, actionY, 52f, actionHeight)) return 4;
         if (contains(x, y, allInX, actionY, 150f, actionHeight)) return 6;
         return 0;
     }
@@ -10266,28 +10267,32 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawHudActionSurface(float x, float y, float width, float height,
             Color color, boolean hover, boolean selected, boolean enabled) {
+        drawHudActionSurface(x, y, width, height, color, hover, selected,
+                false, enabled, enabled ? 1f : 0.34f);
+    }
+
+    private void drawHudActionSurface(float x, float y, float width, float height,
+            Color color, boolean hover, boolean selected, boolean pressed,
+            boolean enabled) {
+        drawHudActionSurface(x, y, width, height, color, hover, selected,
+                pressed, enabled, enabled ? 0.72f : 0.22f);
+    }
+
+    private void drawHudActionSurface(float x, float y, float width, float height,
+            Color color, boolean hover, boolean selected, boolean pressed,
+            boolean enabled, float colorMix) {
         // Preserve Swing's learned poker colours, but render them through the
         // same glass/bevel geometry as every dialog button. The palette conveys
-        // the action; decorative top pills and bottom bars no longer define a
-        // second, unrelated HUD skin.
-        float colorMix = enabled ? 1f : 0.34f;
+        // the action. Keep the semantic colour slightly below full strength so
+        // the glass layers retain depth instead of becoming a flat neon slab.
         float surfaceR = 0.018f + (color.r - 0.018f) * colorMix;
         float surfaceG = 0.032f + (color.g - 0.032f) * colorMix;
         float surfaceB = 0.055f + (color.b - 0.055f) * colorMix;
-        if (selected && enabled) {
-            float pulse = 0.58f + 0.42f
-                    * MathUtils.sin(totalTime * 7.4f) * MathUtils.sin(totalTime * 7.4f);
-            shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
-                    0.32f + pulse * 0.40f);
-            roundedRect(x - 7f, y - 7f, width + 14f, height + 14f, 18f);
-            shapes.setColor(1f, 1f, 1f, 0.52f + pulse * 0.38f);
-            roundedRect(x - 3f, y - 3f, width + 6f, height + 6f, 16f);
-        }
         Color rimColor = hudActionRimColor(color, selected);
         GdxUiButtonStyle.drawPalette(shapes, x, y, width, height,
                 rimColor, surfaceR, surfaceG, surfaceB,
                 enabled || hover ? 1f : 0.78f, enabled,
-                hover ? 1f : 0f, false, 1f, true);
+                hover ? 1f : 0f, pressed || selected, 1f, true);
     }
 
     static Color hudActionRimColor(Color semanticColor, boolean selected) {
@@ -10404,16 +10409,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float gap = 12f;
         float foldWidth = 150f;
         float checkWidth = 200f;
-        float spinnerWidth = 145f;
-        float betWidth = 175f;
+        float stepperWidth = 52f;
+        float betWidth = 216f;
+        float betInnerGap = 6f;
         float allInWidth = 150f;
         float actionY = hudY + 24f;
         float actionHeight = 80f;
         float foldX = hudX + infoWidth + gap;
         float checkX = foldX + foldWidth + gap;
-        float spinnerX = checkX + checkWidth + gap;
-        float betX = spinnerX + spinnerWidth + gap;
-        float allInX = betX + betWidth + gap;
+        float minusX = checkX + checkWidth + gap;
+        float betX = minusX + stepperWidth + betInnerGap;
+        float plusX = betX + betWidth + betInnerGap;
+        float allInX = plusX + stepperWidth + gap;
         boolean localTurn = hasActiveLocalTurn();
         ActionControlState controls = liveState.actionControls();
         boolean autoActionVeto = activeDialog != null
@@ -10483,12 +10490,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
         boolean checkHover = pointer.x >= checkX && pointer.x <= checkX + checkWidth
                 && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
-        boolean spinnerHover = pointer.x >= spinnerX && pointer.x <= spinnerX + spinnerWidth
+        boolean minusHover = pointer.x >= minusX && pointer.x <= minusX + stepperWidth
                 && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
         boolean betHover = pointer.x >= betX && pointer.x <= betX + betWidth
                 && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
+        boolean plusHover = pointer.x >= plusX && pointer.x <= plusX + stepperWidth
+                && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
         boolean allInHover = pointer.x >= allInX && pointer.x <= allInX + allInWidth
                 && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
+        boolean pointerDown = Gdx.input.isButtonPressed(Input.Buttons.LEFT);
         float foldContentAlpha = foldEnabled ? 1f : 0.34f;
         float checkContentAlpha = checkEnabled ? 1f : 0.34f;
         float betContentAlpha = betEnabled ? 1f : 0.34f;
@@ -10582,18 +10592,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (settledLocalWinner == null) {
             drawHudActionSurface(foldX, actionY, foldWidth, actionHeight,
                     foldVisualColor, foldHover && foldEnabled,
-                    foldSelected || armedHudTarget == 1, foldEnabled);
+                    foldSelected || armedHudTarget == 1,
+                    pointerDown && foldHover && foldEnabled, foldEnabled);
             drawHudActionSurface(checkX, actionY, checkWidth, actionHeight,
                     checkVisualColor, checkHover && checkEnabled,
-                    checkSelected || armedHudTarget == 2, checkEnabled);
+                    checkSelected || armedHudTarget == 2,
+                    pointerDown && checkHover && checkEnabled, checkEnabled);
 
-            drawGroupedBetControl(spinnerX, betX, actionY,
-                    spinnerWidth, betWidth, actionHeight,
-                    betVisualColor, spinnerHover, betHover,
-                    armedHudTarget == 5, betEnabled);
+            drawGroupedBetControl(minusX, betX, plusX, actionY,
+                    stepperWidth, betWidth, actionHeight,
+                    betVisualColor, minusHover, betHover, plusHover,
+                    armedHudTarget == 5, pointerDown, betEnabled);
             drawHudActionSurface(allInX, actionY, allInWidth, actionHeight,
                     allInVisualColor, allInHover && allInEnabled,
-                    armedHudTarget == 6, allInEnabled);
+                    armedHudTarget == 6,
+                    pointerDown && allInHover && allInEnabled, allInEnabled);
         }
         if (danger) {
             // Finish with a very light wash so the whole HUD, including its
@@ -10657,7 +10670,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             : callLabel(controls, gameText),
                     checkX, actionY, checkWidth, actionHeight,
                     checkVisualText, checkContentAlpha);
-            drawHudActionContent(raiseLabel(controls, gameText), betX, actionY,
+            drawHudActionContent(raiseLabel(controls, gameText) + " "
+                    + formatAmount(liveBetAmount), betX, actionY,
                     betWidth, actionHeight, betVisualText, betContentAlpha);
             drawHudActionContent(controls.showCards()
                             ? uppercase(gameText.translate("action.mostrar"))
@@ -10665,45 +10679,36 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     allInX, actionY, allInWidth, actionHeight,
                     allInVisualText, allInContentAlpha);
             batch.setColor(Color.WHITE);
-            drawFittedCenteredInBox(actionFont,
-                    "-   " + formatAmount(liveBetAmount) + "   +",
-                    spinnerX + 8f, actionY + 13f,
-                    spinnerWidth - 16f, actionHeight - 26f,
+            drawFittedCenteredInBox(actionFont, "-",
+                    minusX + 8f, actionY + 13f,
+                    stepperWidth - 16f, actionHeight - 26f,
+                    Color.WHITE, betContentAlpha);
+            drawFittedCenteredInBox(actionFont, "+",
+                    plusX + 8f, actionY + 13f,
+                    stepperWidth - 16f, actionHeight - 26f,
                     Color.WHITE, betContentAlpha);
         }
         batch.end();
     }
 
-    private void drawGroupedBetControl(float spinnerX, float actionX,
-            float y, float spinnerWidth, float actionWidth, float height,
-            Color actionColor, boolean spinnerHover, boolean actionHover,
-            boolean selected, boolean enabled) {
-        float groupX = spinnerX - 6f;
-        float groupWidth = actionX + actionWidth - spinnerX + 12f;
-        if (selected && enabled) {
-            float pulse = 0.58f + 0.42f
-                    * MathUtils.sin(totalTime * 7.4f)
-                    * MathUtils.sin(totalTime * 7.4f);
-            shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
-                    0.32f + pulse * 0.40f);
-            roundedRect(groupX - 7f, y - 7f,
-                    groupWidth + 14f, height + 14f, 18f);
-            shapes.setColor(1f, 1f, 1f, 0.52f + pulse * 0.38f);
-            roundedRect(groupX - 3f, y - 3f,
-                    groupWidth + 6f, height + 6f, 16f);
-        }
-        GdxUiButtonStyle.draw(shapes, spinnerX, y, spinnerWidth, height,
-                GdxUiButtonStyle.Tone.FEATURED, enabled,
-                spinnerHover ? 1f : 0f, false, 1f);
-
-        float mix = enabled ? 1f : 0.34f;
-        float r = 0.018f + (actionColor.r - 0.018f) * mix;
-        float g = 0.032f + (actionColor.g - 0.032f) * mix;
-        float b = 0.055f + (actionColor.b - 0.055f) * mix;
-        GdxUiButtonStyle.drawPalette(shapes, actionX, y,
-                actionWidth, height, selected ? POT_GOLD : actionColor,
-                r, g, b, enabled ? 1f : 0.76f, enabled,
-                actionHover ? 1f : 0f, false, 1f, true);
+    private void drawGroupedBetControl(float minusX, float actionX,
+            float plusX, float y, float stepperWidth, float actionWidth,
+            float height, Color actionColor, boolean minusHover,
+            boolean actionHover, boolean plusHover, boolean selected,
+            boolean pointerDown, boolean enabled) {
+        Color rimColor = hudActionRimColor(actionColor, selected);
+        float sideAlpha = enabled ? 0.94f : 0.68f;
+        GdxUiButtonStyle.drawPalette(shapes, minusX, y, stepperWidth, height,
+                rimColor, 0.025f, 0.055f, 0.085f, sideAlpha, enabled,
+                minusHover ? 1f : 0f, pointerDown && minusHover,
+                1f, true);
+        drawHudActionSurface(actionX, y, actionWidth, height,
+                actionColor, actionHover, selected,
+                pointerDown && actionHover, enabled);
+        GdxUiButtonStyle.drawPalette(shapes, plusX, y, stepperWidth, height,
+                rimColor, 0.025f, 0.055f, 0.085f, sideAlpha, enabled,
+                plusHover ? 1f : 0f, pointerDown && plusHover,
+                1f, true);
     }
 
     static Color hudCallSurfaceColor(ActionControlState.CallAction action) {

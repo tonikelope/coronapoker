@@ -23956,7 +23956,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         if (jugador != localPlayer() && !jugador.isExit()) {
 
-                            mostrarAnimacionDestaparCartasJugador(jugador, false);
+                            revealResistanceCards(jugador);
                         }
                     }
                 }
@@ -23989,13 +23989,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         if (jugador != localPlayer() && !jugador.isExit()) {
 
-                            mostrarAnimacionDestaparCartasJugador(jugador, false);
+                            revealResistanceCards(jugador);
                         }
                     }
                 }
 
                 this.cartas_resistencia = true;
             }
+        }
+    }
+
+    /**
+     * Reveals one all-in opponent through the active renderer and waits until
+     * that presentation has finished.  Swing keeps using its established
+     * blocking flip path; GDX receives an explicit RevealHoleCards event.
+     *
+     * The empty hand name is intentional: the following PartialHand event is
+     * the authoritative Monte Carlo label.  Publishing that label only after
+     * this barrier prevents partial results from appearing over card backs.
+     */
+    private void revealResistanceCards(GamePlayerController player) {
+        if (!presentHoleCardsToAttachedRenderer(player, "")) {
+            mostrarAnimacionDestaparCartasJugador(player, false);
         }
     }
 

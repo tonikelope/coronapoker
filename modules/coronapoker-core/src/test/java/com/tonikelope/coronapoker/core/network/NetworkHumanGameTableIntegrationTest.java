@@ -1662,7 +1662,7 @@ class NetworkHumanGameTableIntegrationTest {
             assertTrue(firstRevealSequence.get() > runoutPauseSequence.get(),
                     diagnostic());
             assertTrue(firstPartialHandSequence.get()
-                    > runoutPauseSequence.get(), diagnostic());
+                    > firstRevealSequence.get(), diagnostic());
             assertTrue(sideASequence.get() > 0L, diagnostic());
             assertTrue(sideASequence.get() > runoutPauseSequence.get(),
                     diagnostic());

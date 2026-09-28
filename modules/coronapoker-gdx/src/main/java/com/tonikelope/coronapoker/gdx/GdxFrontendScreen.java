@@ -6759,6 +6759,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         startRecoverLoad();
     }
 
+    private void continuePreviousGame() {
+        if (submissions.submitting() || connection.recoverLoading()) return;
+        if (connection.recoverRequested()) {
+            submitNewGame();
+            return;
+        }
+        autoSubmitRecovery = true;
+        toggleRecover();
+    }
+
     private void startRecoverLoad() {
         if (!connection.recoverRequested()) return;
         if (!connection.beginRecoverLoad()) return;
@@ -7414,20 +7424,22 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             clearActiveField();
         }
         boolean joining = connection.mode() == NewGameConnectionDraft.Mode.JOIN;
+        float createFooterY = 75f;
         if (!joining) {
-            themedButton(430f, 55f, 500f, 70f,
+            themedButton(55f, createFooterY, 500f, 70f,
                     uppercase(gameText.translate(
                             "gdx.newgame.recover_previous")),
-                    connection.recoverRequested()
-                            ? ButtonTone.POSITIVE : ButtonTone.NEUTRAL,
-                    this::toggleRecover,
+                    ButtonTone.POSITIVE,
+                    this::continuePreviousGame,
                     !submitting && !connection.recoverLoading());
         }
-        themedButton(joining ? 1040f : 1165f, joining ? 165f : 55f,
+        themedButton(joining ? 1040f : 1165f,
+                joining ? 165f : createFooterY,
                 joining ? 240f : 250f, 70f,
                 gameText.translate("ui.cancelar"), ButtonTone.NEUTRAL,
                 this::cancelOrReturnToMenu, true);
-        themedButton(joining ? 1310f : 1445f, joining ? 165f : 55f,
+        themedButton(joining ? 1310f : 1445f,
+                joining ? 165f : createFooterY,
                 joining ? 315f : 410f, 70f,
                 submitting ? uppercase(gameText.translate("gdx.connecting"))
                         : joining

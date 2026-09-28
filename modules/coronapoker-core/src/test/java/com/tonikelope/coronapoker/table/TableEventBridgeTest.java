@@ -186,6 +186,30 @@ final class TableEventBridgeTest {
     }
 
     @Test
+    void closeTableIsTheLastEventThatCanReachTheRenderer() {
+        TableEventBridge bridge = new TableEventBridge();
+        RecordingRenderer renderer = new RecordingRenderer();
+        bridge.attach(renderer, emptyTable()).toCompletableFuture().join();
+
+        CompletionStage<Void> terminal = bridge.publish(sequence ->
+                new TableVisualEvent.CloseTable(sequence,
+                        TableSessionSummary.empty(),
+                        TableSnapshot.Street.FINISHED));
+        CompletionStage<Void> lateDeparture = bridge.publish(sequence ->
+                new TableVisualEvent.PlayerDeparture(sequence, "late",
+                        "ui.se_pira"));
+
+        assertEquals(1, renderer.events.size());
+        assertTrue(renderer.events.get(0)
+                instanceof TableVisualEvent.CloseTable);
+        assertTrue(lateDeparture.toCompletableFuture()
+                .isCompletedExceptionally(),
+                "a late network callback must not outlive CloseTable");
+        renderer.finishCurrentAnimation();
+        assertTrue(terminal.toCompletableFuture().isDone());
+    }
+
+    @Test
     void aTableCanNeverOwnTwoRenderers() {
         TableEventBridge bridge = new TableEventBridge();
         bridge.attach(new RecordingRenderer(), emptyTable())

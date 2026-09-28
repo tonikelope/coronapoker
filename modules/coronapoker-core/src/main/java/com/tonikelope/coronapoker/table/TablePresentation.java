@@ -24,6 +24,7 @@ public final class TablePresentation implements AutoCloseable {
     private CompletableFuture<Void> openingBarrier;
     private boolean openingStarted;
     private boolean opened;
+    private boolean terminalPublished;
     private boolean closed;
 
     public TablePresentation(TableRenderer renderer) {
@@ -82,6 +83,11 @@ public final class TablePresentation implements AutoCloseable {
     public synchronized CompletionStage<Void> publish(
             LongFunction<? extends TableVisualEvent> eventFactory) {
         Objects.requireNonNull(eventFactory, "eventFactory");
+        if (terminalPublished) {
+            return CompletableFuture.failedFuture(
+                    new IllegalStateException(
+                            "CloseTable is the terminal presentation event"));
+        }
         long next = sequence.incrementAndGet();
         TableVisualEvent event = Objects.requireNonNull(eventFactory.apply(next), "event");
         if (event.sequence() != next) {
@@ -90,6 +96,9 @@ public final class TablePresentation implements AutoCloseable {
         if (closed) {
             return CompletableFuture.failedFuture(
                     new IllegalStateException("Table presentation is closed"));
+        }
+        if (event instanceof TableVisualEvent.CloseTable) {
+            terminalPublished = true;
         }
         if (!opened) {
             CompletableFuture<Void> barrier = new CompletableFuture<>();

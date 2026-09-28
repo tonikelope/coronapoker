@@ -2274,7 +2274,12 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             identitySignature = identitySignature == null ? null : identitySignature.clone();
         }
         boolean connected() {
-            return connection == null ? bot || local : connection.isConnected();
+            // A client has one direct socket to the host. Every other human
+            // is an authoritative presence relayed by that host and therefore
+            // deliberately has no local Connection object. Treating null as
+            // disconnected made those healthy indirect peers appear as
+            // RECONNECTING until DELUSER removed them.
+            return connection == null || connection.isConnected();
         }
         static Peer local(String nickname, Path avatar, boolean host,
                 byte[] identityPublicKey, byte[] identitySignature) {

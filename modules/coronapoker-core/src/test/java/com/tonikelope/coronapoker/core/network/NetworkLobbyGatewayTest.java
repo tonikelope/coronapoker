@@ -304,6 +304,11 @@ class NetworkLobbyGatewayTest {
                 await(() -> host.snapshot().participants().size() == 3
                         && first.snapshot().participants().size() == 3
                         && second.snapshot().participants().size() == 3);
+                assertTrue(List.of(host, first, second).stream()
+                        .flatMap(lobby -> lobby.snapshot().participants()
+                                .stream())
+                        .allMatch(participant -> participant.connected()),
+                        "host-relayed peers are present, not disconnected");
 
                 host.submit(new LobbyCommand.Leave()).toCompletableFuture()
                         .get(2, TimeUnit.SECONDS);

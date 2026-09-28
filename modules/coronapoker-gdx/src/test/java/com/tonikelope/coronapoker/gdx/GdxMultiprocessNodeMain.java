@@ -2164,10 +2164,18 @@ public final class GdxMultiprocessNodeMain {
 
     private static void assertOutcome(Config config,
             GdxScenarioRenderer renderer) {
-        Set<String> allowedReconnects = allowedVisibleReconnects(config);
-        renderer.assertNoUnexpectedReconnects(allowedReconnects);
-        renderer.assertShowedExpectedReconnects(
-                requiredVisibleReconnects(config));
+        // An EXITED renderer is already leaving its own table while the other
+        // JVMs independently tear down their sockets. Connectivity snapshots
+        // observed by that departing process are not user-visible outcomes.
+        // Survivors remain strict: they must project the voluntary departure
+        // and may never misclassify it as a reconnect.
+        if (renderer.summary().reason()
+                != TableSessionSummary.CloseReason.EXITED) {
+            Set<String> allowedReconnects = allowedVisibleReconnects(config);
+            renderer.assertNoUnexpectedReconnects(allowedReconnects);
+            renderer.assertShowedExpectedReconnects(
+                    requiredVisibleReconnects(config));
+        }
         if ("normal".equals(config.scenario)) {
             renderer.assertComplete(config.hands);
             return;

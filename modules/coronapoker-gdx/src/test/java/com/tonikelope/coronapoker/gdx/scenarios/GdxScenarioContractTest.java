@@ -284,6 +284,9 @@ class GdxScenarioContractTest {
                 "visible reconnect allowances must be scenario-specific");
         assertTrue(node.contains("requiredVisibleReconnects(config)"),
                 "real network cuts must require their GDX reconnect projection");
+        assertTrue(node.contains(
+                "!= TableSessionSummary.CloseReason.EXITED"),
+                "connectivity must be judged from surviving renderers");
         assertTrue(node.contains("assertPhaseReconnects(Config config"),
                 "recovery scenarios must validate every session phase");
         assertTrue(node.contains(

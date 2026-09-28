@@ -275,6 +275,39 @@ class GdxScenarioContractTest {
         assertTrue(node.contains(
                 "renderer.assertNeverShowedReconnectFor(\"client1\")"),
                 "voluntary exit must reject a visible reconnect projection");
+        assertTrue(node.contains("visible.add(\"server\")"),
+                "a disconnected client must observe the remote host seat, "
+                + "not permit its own local seat as reconnecting");
+        assertTrue(node.contains("Set<String> disconnectedPeers = switch"),
+                "visible reconnect allowances must be scenario-specific");
+    }
+
+    @Test
+    void multiprocessOracleRejectsCorruptEventAndHandLifecycles()
+            throws IOException {
+        String driver = Files.readString(repositoryRoot().resolve(
+                "modules/coronapoker-gdx/src/test/java/com/tonikelope/"
+                + "coronapoker/gdx/scenarios/GdxScenarioRenderer.java"),
+                StandardCharsets.UTF_8);
+
+        assertTrue(driver.contains("lastEventSequence"),
+                "the shared oracle must reject duplicated or reordered events");
+        assertTrue(driver.contains("preparedHandIds"),
+                "the shared oracle must remember distinct PREPARE boundaries");
+        assertTrue(driver.contains("endedHandIds"),
+                "the shared oracle must remember distinct END boundaries");
+        assertTrue(driver.contains("assertEquals(preparedHandIds, endedHandIds"),
+                "completion must prove every observed hand closed exactly once");
+        assertTrue(driver.contains("event arrived after CloseTable"),
+                "CloseTable must remain the terminal visual event");
+
+        String processOracle = Files.readString(repositoryRoot().resolve(
+                "modules/coronapoker-gdx/src/test/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxMultiprocessScenarioTest.java"),
+                StandardCharsets.UTF_8);
+        assertTrue(processOracle.contains(
+                "node.count(\"CP_GDX_E2E_HANDS_COMPLETE \""),
+                "a duplicated terminal outcome cannot satisfy a scenario");
     }
 
     @Test

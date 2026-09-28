@@ -46,6 +46,7 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final AtomicReference<TableSessionSummary> summary
             = new AtomicReference<>();
     private final AtomicInteger endedHands = new AtomicInteger();
+    private final AtomicLong lastEventSequence = new AtomicLong();
     private final AtomicLong currentHand = new AtomicLong(1L);
     private final AtomicLong gatedHand = new AtomicLong(-1L);
     private final AtomicReference<TableSnapshot.Street> gatedStreet
@@ -104,6 +105,11 @@ final class GdxScenarioRenderer implements TableRenderer {
             = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<Long, Set<String>> playersAtHandStart
             = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Set<Long> preparedHandIds
+            = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Set<Long> endedHandIds
+            = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final AtomicLong lastPreparedHand = new AtomicLong();
     private final AtomicInteger localStraddleDecisions = new AtomicInteger();
     private final AtomicLong localStraddleHand = new AtomicLong(-1L);
 
@@ -202,18 +208,43 @@ final class GdxScenarioRenderer implements TableRenderer {
 
     @Override
     public synchronized CompletionStage<Void> render(TableVisualEvent event) {
+        assertFalse(closed.get(), "event arrived after CloseTable: " + event);
+        long previousSequence = lastEventSequence.getAndSet(event.sequence());
+        assertTrue(event.sequence() > previousSequence,
+                "GDX event sequence must increase strictly: previous="
+                + previousSequence + ", current=" + event.sequence());
         GdxTableViewState projection = state.get();
         assertNotNull(projection, "renderer must open before events arrive");
         projection.apply(event);
         if (event instanceof TableVisualEvent.HandBoundary boundary) {
             if (boundary.phase()
                     == TableVisualEvent.HandBoundary.Phase.PREPARE) {
+                long previousHand = lastPreparedHand.getAndSet(
+                        boundary.handId());
+                assertTrue(boundary.handId() > 0L,
+                        "hand ids must be positive");
+                assertTrue(previousHand == 0L
+                        || boundary.handId() == previousHand + 1L,
+                        "observed hand ids must be consecutive: previous="
+                        + previousHand + ", current=" + boundary.handId());
+                assertTrue(preparedHandIds.add(boundary.handId()),
+                        "duplicate PREPARE for hand " + boundary.handId());
+                assertFalse(endedHandIds.contains(boundary.handId()),
+                        "PREPARE arrived after END for hand "
+                        + boundary.handId());
                 currentHand.set(boundary.handId());
                 if (allInEveryHand.get()) {
                     allInCommandSent.set(false);
                 }
             } else if (boundary.phase()
                     == TableVisualEvent.HandBoundary.Phase.END) {
+                assertTrue(preparedHandIds.contains(boundary.handId()),
+                        "END arrived without PREPARE for hand "
+                        + boundary.handId());
+                assertEquals(currentHand.get(), boundary.handId(),
+                        "END closed a different hand than the active one");
+                assertTrue(endedHandIds.add(boundary.handId()),
+                        "duplicate END for hand " + boundary.handId());
                 endedHands.incrementAndGet();
             }
         }
@@ -710,6 +741,10 @@ final class GdxScenarioRenderer implements TableRenderer {
         GdxTableViewState projection = state.get();
         assertNotNull(projection);
         assertEquals(expectedHands, endedHands.get());
+        assertEquals(expectedHands, endedHandIds.size(),
+                "completed-hand count must represent distinct hands");
+        assertEquals(preparedHandIds, endedHandIds,
+                "a completed table cannot leave a prepared hand open");
         if (requireLocalControls) {
             assertTrue(sawLocalControls.get(), () -> localNickname()
                     + " never received enabled local action controls; trace="

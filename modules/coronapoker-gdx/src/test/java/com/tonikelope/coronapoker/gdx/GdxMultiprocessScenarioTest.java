@@ -2107,6 +2107,17 @@ class GdxMultiprocessScenarioTest {
 
     private static void assertMatchingConservedLedgers(
             List<NodeProcess> completed, String scenario, int seats) {
+        for (NodeProcess node : completed) {
+            assertEquals(1, node.count("CP_GDX_E2E_LEDGER "),
+                    "node must publish exactly one terminal ledger\n"
+                    + node.diagnostic());
+            assertEquals(1, node.count("CP_GDX_E2E_CAPITAL "),
+                    "node must publish exactly one terminal capital summary\n"
+                    + node.diagnostic());
+            assertEquals(1, node.count("CP_GDX_E2E_HANDS_COMPLETE "),
+                    "node must publish exactly one terminal hand summary\n"
+                    + node.diagnostic());
+        }
         List<NodeProcess> comparable = completed.stream()
                 .filter(node -> !(scenario.equals("controlled-exit")
                         || scenario.equals("mixed-exit-crash")

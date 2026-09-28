@@ -2337,20 +2337,32 @@ public final class GdxMultiprocessNodeMain {
     }
 
     private static Set<String> allowedVisibleReconnects(Config config) {
-        if (config.reconnectScenario()
-                || "allin-reconnect".equals(config.scenario)
-                || "rit-network-cut".equals(config.scenario)
-                || "straddle-network-cut".equals(config.scenario)) {
-            return java.util.stream.IntStream.rangeClosed(1, config.clients)
-                    .mapToObj(index -> "client" + index)
+        Set<String> disconnectedPeers = switch (config.scenario) {
+            case "reconnect-midhand", "reconnect-every-street",
+                    "allin-reconnect", "rit-network-cut" -> Set.of("client1");
+            case "reconnect-twice", "reconnect-storm",
+                    "dual-reconnect" -> Set.of("client1", "client2");
+            case "host-channel-flap" -> java.util.stream.IntStream.rangeClosed(
+                    1, config.clients).mapToObj(index -> "client" + index)
                     .collect(java.util.stream.Collectors.toUnmodifiableSet());
-        }
-        return switch (config.scenario) {
+            // The accepted straddler is selected by the real position rotation.
+            // The outer oracle proves that exactly that peer performed the cut;
+            // until the node receives that identity, either remote human is a
+            // legitimate transient observation.
+            case "straddle-network-cut" -> Set.of("client1", "client2");
             case "abrupt-exit", "allin-abrupt-exit" -> Set.of("client1");
             case "dual-abrupt-exit" -> Set.of("client1", "client2");
             case "mixed-exit-crash" -> Set.of("client2");
             default -> Set.of();
         };
+        if (config.host() || !disconnectedPeers.contains(config.nickname)) {
+            return disconnectedPeers;
+        }
+        java.util.HashSet<String> visible = new java.util.HashSet<>(
+                disconnectedPeers);
+        visible.remove(config.nickname);
+        visible.add("server");
+        return Set.copyOf(visible);
     }
 
     private static void await(BooleanSupplier condition, Duration timeout,

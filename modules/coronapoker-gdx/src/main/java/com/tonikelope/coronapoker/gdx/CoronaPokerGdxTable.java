@@ -10275,7 +10275,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Color color, boolean hover, boolean selected, boolean pressed,
             boolean enabled) {
         drawHudActionSurface(x, y, width, height, color, hover, selected,
-                pressed, enabled, enabled ? 0.72f : 0.22f);
+                pressed, enabled, enabled ? 0.92f : 0.28f);
     }
 
     private void drawHudActionSurface(float x, float y, float width, float height,
@@ -10697,16 +10697,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             boolean actionHover, boolean plusHover, boolean selected,
             boolean pointerDown, boolean enabled) {
         Color rimColor = hudActionRimColor(actionColor, selected);
-        float sideAlpha = enabled ? 0.94f : 0.68f;
+        float sideAlpha = enabled ? 0.98f : 0.70f;
+        float sideTint = enabled ? 0.14f : 0.05f;
         GdxUiButtonStyle.drawPalette(shapes, minusX, y, stepperWidth, height,
-                rimColor, 0.025f, 0.055f, 0.085f, sideAlpha, enabled,
+                rimColor,
+                0.025f + actionColor.r * sideTint,
+                0.055f + actionColor.g * sideTint,
+                0.085f + actionColor.b * sideTint,
+                sideAlpha, enabled,
                 minusHover ? 1f : 0f, pointerDown && minusHover,
                 1f, true);
         drawHudActionSurface(actionX, y, actionWidth, height,
                 actionColor, actionHover, selected,
                 pointerDown && actionHover, enabled);
         GdxUiButtonStyle.drawPalette(shapes, plusX, y, stepperWidth, height,
-                rimColor, 0.025f, 0.055f, 0.085f, sideAlpha, enabled,
+                rimColor,
+                0.025f + actionColor.r * sideTint,
+                0.055f + actionColor.g * sideTint,
+                0.085f + actionColor.b * sideTint,
+                sideAlpha, enabled,
                 plusHover ? 1f : 0f, pointerDown && plusHover,
                 1f, true);
     }

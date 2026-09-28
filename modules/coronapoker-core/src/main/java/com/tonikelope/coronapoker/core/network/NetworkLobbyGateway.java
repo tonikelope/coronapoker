@@ -1722,6 +1722,17 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             return transport.forceReconnectRemotePeers();
         }
 
+        @Override public void retirePeerAfterExit(String nickname) {
+            try {
+                transport.removePeer(Objects.requireNonNull(nickname,
+                        "nickname"), transport.host);
+            } catch (Exception failure) {
+                throw new IllegalStateException(
+                        "Could not retire voluntarily exited peer " + nickname,
+                        failure);
+            }
+        }
+
         private static String requireCommand(String command) {
             String checked = Objects.requireNonNull(command, "command");
             if (checked.isBlank() || checked.startsWith("GAME#")) {

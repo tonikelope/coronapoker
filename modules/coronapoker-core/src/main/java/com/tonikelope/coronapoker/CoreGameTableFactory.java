@@ -301,9 +301,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
         LobbyTransitionSink lobbyTransition = new LobbyTransitionSink() {
             @Override
             public void removeParticipant(String nickname) {
-                // The network lobby owns its roster until the table transition
-                // is complete. Dealer-side removals are already reflected by
-                // the canonical seat roster published below.
+                context.channel().retirePeerAfterExit(nickname);
             }
 
             @Override

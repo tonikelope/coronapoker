@@ -88,6 +88,8 @@ final class GdxScenarioRenderer implements TableRenderer {
             = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final Set<String> reactivatedSpectators
             = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Map<String, String> departures
+            = new java.util.concurrent.ConcurrentHashMap<>();
     private final Set<Long> straddleHands
             = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final Map<Long, List<TableSnapshot.CardSnapshot>> localDeals
@@ -95,6 +97,8 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final Map<Long, Long> localRevealSequences
             = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<Long, Long> firstActionSequences
+            = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<Long, Set<String>> playersAtHandStart
             = new java.util.concurrent.ConcurrentHashMap<>();
     private final AtomicInteger localStraddleDecisions = new AtomicInteger();
     private final AtomicLong localStraddleHand = new AtomicLong(-1L);
@@ -201,6 +205,14 @@ final class GdxScenarioRenderer implements TableRenderer {
             }
         }
         TableSnapshot snapshot = projection.snapshot();
+        if (event instanceof TableVisualEvent.HandBoundary boundary
+                && boundary.phase()
+                == TableVisualEvent.HandBoundary.Phase.PREPARE) {
+            playersAtHandStart.put(boundary.handId(), snapshot.players().stream()
+                    .filter(player -> !player.exited())
+                    .map(TableSnapshot.PlayerSnapshot::nickname)
+                    .collect(java.util.stream.Collectors.toUnmodifiableSet()));
+        }
         if (event instanceof TableVisualEvent.DealHoleCard deal
                 && deal.nickname().equals(snapshot.localNickname())) {
             localDeals.computeIfAbsent(currentHand.get(), ignored
@@ -321,6 +333,8 @@ final class GdxScenarioRenderer implements TableRenderer {
                     == TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
                 acceptedLocalAllIn.set(true);
             }
+        } else if (event instanceof TableVisualEvent.PlayerDeparture departure) {
+            departures.put(departure.nickname(), departure.label());
         } else if (event instanceof TableVisualEvent.ImmediateRebuyStatus status) {
             if (status.enabled()) {
                 immediateRebuys.put(status.nickname(), status.amount());
@@ -540,6 +554,14 @@ final class GdxScenarioRenderer implements TableRenderer {
         return reactivatedSpectators.contains(nickname);
     }
 
+    boolean sawDeparture(String nickname) {
+        return departures.containsKey(nickname);
+    }
+
+    String departureLabel(String nickname) {
+        return departures.getOrDefault(nickname, "");
+    }
+
     long currentHand() {
         return currentHand.get();
     }
@@ -623,6 +645,17 @@ final class GdxScenarioRenderer implements TableRenderer {
             int expectedActivePlayers, int expectedBalanceRows) {
         assertCompleteState(expectedHands, null, expectedActivePlayers,
                 expectedBalanceRows, true);
+    }
+
+    void assertCompleteWithHistoricalBalances(int expectedHands,
+            int expectedBalanceRows) {
+        assertCompleteState(expectedHands, null, null,
+                expectedBalanceRows, true);
+    }
+
+    void assertHandStartedWithPlayers(long handId, Set<String> expected) {
+        assertEquals(expected, playersAtHandStart.get(handId),
+                "unexpected active roster at start of hand " + handId);
     }
 
     void assertCompleteAsPassiveObserver(int expectedHands,

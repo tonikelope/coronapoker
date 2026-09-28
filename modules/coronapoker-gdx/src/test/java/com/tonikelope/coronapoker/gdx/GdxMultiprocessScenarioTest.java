@@ -160,7 +160,7 @@ class GdxMultiprocessScenarioTest {
     void controlledExitUsesIndependentGdxProcesses(
             @TempDir Path root) throws Exception {
         runCompletingScenario(root, "controlled-exit", 2, 1,
-                "CONTROLLED_EXIT");
+                "CONTROLLED_EXIT", 2);
     }
 
     @Test
@@ -294,7 +294,7 @@ class GdxMultiprocessScenarioTest {
     @Timeout(value = 5, unit = TimeUnit.MINUTES)
     void allInControlledExitMatchesTheSwingGoldSequenceAcrossGdxProcesses(
             @TempDir Path root) throws Exception {
-        runCompletingScenario(root, "allin-controlled-exit", 1, 0, null, 1);
+        runCompletingScenario(root, "allin-controlled-exit", 2, 1, null, 2);
     }
 
     @Test
@@ -729,19 +729,30 @@ class GdxMultiprocessScenarioTest {
             } else {
                 assertMatchingCompletedHistory(completed, scenario, hands);
             }
-            if (scenario.equals("controlled-exit")) {
-                assertTrue(!host.contains("MISDEAL triggered:"),
-                        host.diagnostic());
-                assertTrue(!host.contains("MANO ANULADA"), host.diagnostic());
-                assertTrue(!host.contains("peer.community_unlock_no_testament"),
-                        host.diagnostic());
-                assertTrue(!host.contains(
-                                "CP_GDX_E2E_RECONNECTED peer=client1"),
-                        "a voluntary exit was misclassified as reconnectable\n"
-                        + host.diagnostic());
-                assertTrue(!host.contains("RECONNECTANDO"),
-                        "a voluntary exit exposed reconnecting state\n"
-                        + host.diagnostic());
+            if (scenario.equals("controlled-exit")
+                    || scenario.equals("allin-controlled-exit")) {
+                for (NodeProcess survivor : completed.stream()
+                        .filter(node -> !node.name.endsWith(":client1"))
+                        .toList()) {
+                    assertTrue(!survivor.contains("MISDEAL triggered:"),
+                            survivor.diagnostic());
+                    assertTrue(!survivor.contains("MANO ANULADA"),
+                            survivor.diagnostic());
+                    assertTrue(!survivor.contains(
+                                    "peer.community_unlock_no_testament"),
+                            survivor.diagnostic());
+                    assertTrue(!survivor.contains(
+                                    "CP_GDX_E2E_RECONNECTED peer=client1"),
+                            "a voluntary exit was misclassified as reconnectable\n"
+                            + survivor.diagnostic());
+                    assertTrue(!survivor.contains("RECONNECTANDO"),
+                            "a voluntary exit exposed reconnecting state\n"
+                            + survivor.diagnostic());
+                    assertTrue(survivor.contains(
+                                    "CP_GDX_E2E_DEPARTURE nick=client1"),
+                            "a survivor never projected the voluntary departure\n"
+                            + survivor.diagnostic());
+                }
             }
             if (scenario.equals("spectator-rebuy-cycle")) {
                 assertTrue(completed.stream().anyMatch(node -> node.contains(
@@ -2094,7 +2105,7 @@ class GdxMultiprocessScenarioTest {
                         || scenario.equals("allin-controlled-exit"))
                         || !node.name.endsWith(":client1"))
                 .toList();
-        int minimumWitnesses = scenario.equals("allin-controlled-exit") ? 1 : 2;
+        int minimumWitnesses = 2;
         assertTrue(comparable.size() >= minimumWitnesses,
                 "scenario requires at least " + minimumWitnesses
                 + " surviving ledger witness(es)");

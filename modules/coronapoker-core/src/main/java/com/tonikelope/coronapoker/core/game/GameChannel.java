@@ -75,6 +75,13 @@ public interface GameChannel extends AutoCloseable {
                 "This game channel cannot force peer reconnection");
     }
 
+    /**
+     * Host-side retirement of a peer whose authenticated voluntary EXIT has
+     * already been applied and relayed by the dealer.
+     */
+    default void retirePeerAfterExit(String nickname) {
+    }
+
     @Override
     void close();
 }

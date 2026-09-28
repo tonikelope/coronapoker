@@ -196,6 +196,15 @@ public interface GamePlayerController
 
     void setExit();
 
+    /**
+     * Marks a voluntary departure and exposes its translated presentation
+     * label to renderer-neutral frontends. Swing controllers already paint
+     * their established exit label inside {@link #setExit()}.
+     */
+    default void setExit(String departureLabel) {
+        setExit();
+    }
+
     String getLastActionString();
 
     void setBuyin(int buyin);

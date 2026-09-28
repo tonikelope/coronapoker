@@ -401,6 +401,14 @@ final class GdxTableViewState {
         } else if (event instanceof TableVisualEvent.PlayerTimeout timeout) {
             replacePlayer(timeout.nickname(), player
                     -> copyPlayerTimeout(player, timeout.timedOut()));
+        } else if (event instanceof TableVisualEvent.PlayerDeparture departure) {
+            actionKinds.remove(departure.nickname());
+            actionLabels.put(departure.nickname(), departure.label());
+            replacePlayer(departure.nickname(), player
+                    -> copyPlayerDeparture(player, departure.label()));
+            if (departure.nickname().equals(snapshot.currentTurnNickname())) {
+                stopTurn();
+            }
         } else if (event instanceof TableVisualEvent.SeatRoster roster) {
             snapshot = copySnapshot(snapshot, snapshot.pot(),
                     snapshot.currentTurnNickname(), roster.players(),
@@ -881,6 +889,17 @@ final class GdxTableViewState {
                 source.reconnectionCount(), source.telemetryAt(),
                 source.winner(), source.underTheGun(), source.position(),
                 source.lastAction(), source.handName(), source.holeCards());
+    }
+
+    private static TableSnapshot.PlayerSnapshot copyPlayerDeparture(
+            TableSnapshot.PlayerSnapshot source, String label) {
+        return new TableSnapshot.PlayerSnapshot(source.nickname(), source.stack(),
+                source.streetBet(), source.potContribution(), false,
+                source.spectator(), true, false,
+                source.latency(), source.previousLatency(),
+                source.reconnectionCount(), source.telemetryAt(),
+                source.winner(), source.underTheGun(), source.position(),
+                label, source.handName(), source.holeCards());
     }
 
     private static TableSnapshot.PlayerSnapshot copyPlayerUnderTheGun(

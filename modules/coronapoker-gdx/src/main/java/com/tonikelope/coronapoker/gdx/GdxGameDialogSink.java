@@ -70,7 +70,9 @@ final class GdxGameDialogSink implements GameDialogSink {
                 Objects.requireNonNull(message, "message"),
                 Objects.requireNonNull(icon, "icon"), preferredWidth,
                 seconds, kind == GdxTableDialog.Kind.TIMED_WARNING,
-                tr("ui.cancelar", "CANCELAR"),
+                kind == GdxTableDialog.Kind.ERROR
+                        || kind == GdxTableDialog.Kind.INFO
+                                ? "" : tr("ui.cancelar", "CANCELAR"),
                 kind == GdxTableDialog.Kind.CONFIRM
                         ? tr("ui.aceptar", "ACEPTAR")
                         : tr("ui.cerrar", "CERRAR"));

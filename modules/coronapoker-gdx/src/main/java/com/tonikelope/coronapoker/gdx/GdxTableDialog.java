@@ -238,6 +238,7 @@ final class GdxTableDialog {
     boolean isAutoCall() { return kind == Kind.AUTO_CALL; }
     boolean isAutoAction() { return kind == Kind.AUTO_ACTION; }
     boolean isGameOver() { return kind == Kind.GAME_OVER; }
+    boolean isNotice() { return kind == Kind.ERROR || kind == Kind.INFO; }
     boolean isRecovery() { return recovery; }
     boolean isRebuy() { return kind == Kind.REBUY; }
     boolean allowsDismissal() { return !isRebuy() || showsNegative(); }

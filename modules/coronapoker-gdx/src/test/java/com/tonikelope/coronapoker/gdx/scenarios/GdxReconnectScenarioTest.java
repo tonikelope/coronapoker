@@ -326,13 +326,13 @@ class GdxReconnectScenarioTest {
              NetworkLobbyGateway witnessGateway = gateway(
                      "controlled-exit-witness", witnessDatabase)) {
             LobbySession host = hostGateway.open(
-                    request(false, "Anfitrion", port, 1))
+                    request(false, "Anfitrion", port, 2))
                     .get(5, TimeUnit.SECONDS);
             LobbySession client = clientGateway.open(
-                    request(true, "Invitado", port, 1))
+                    request(true, "Invitado", port, 2))
                     .get(5, TimeUnit.SECONDS);
             LobbySession witness = witnessGateway.open(
-                    request(true, "Testigo", port, 1))
+                    request(true, "Testigo", port, 2))
                     .get(5, TimeUnit.SECONDS);
             try {
                 host.submit(new LobbyCommand.AddBot()).toCompletableFuture()
@@ -364,8 +364,16 @@ class GdxReconnectScenarioTest {
                         clientRenderer.summary().reason());
                 assertEquals(TableSessionSummary.CloseReason.COMPLETED,
                         hostRenderer.summary().reason());
-                assertEquals(1, hostRenderer.completedHands());
-                witnessRenderer.assertComplete(1);
+                hostRenderer.assertCompleteWithHistoricalBalances(2, 4);
+                witnessRenderer.assertCompleteWithHistoricalBalances(2, 4);
+                Set<String> secondHandPlayers = Set.of(
+                        "Anfitrion", "Testigo", "CoronaBot$1");
+                hostRenderer.assertHandStartedWithPlayers(
+                        2, secondHandPlayers);
+                witnessRenderer.assertHandStartedWithPlayers(
+                        2, secondHandPlayers);
+                assertTrue(hostRenderer.sawDeparture("Invitado"));
+                assertTrue(witnessRenderer.sawDeparture("Invitado"));
                 assertEquals(hostRenderer.balancesByNickname(),
                         witnessRenderer.balancesByNickname());
                 double stacks = hostRenderer.summary().balances().stream()

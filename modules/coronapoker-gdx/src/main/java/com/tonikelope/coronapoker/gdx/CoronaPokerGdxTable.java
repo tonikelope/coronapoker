@@ -4392,7 +4392,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             dialog.changeAmount(1);
             focusAutoCallAmount(dialog, false);
         } else if (dialog.showsPositive() && contains(pointer.x, pointer.y,
-                panelX + panelW - 272f, panelY + 34f, 230f, 64f)) {
+                dialogPositiveX(dialog, panelX, panelW), panelY + 34f,
+                230f, 64f)) {
             resolveActiveDialogChoice(true);
         }
     }
@@ -4455,8 +4456,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float actionWidth = hudWidth - 230f - 12f;
             return Math.min(620f, actionWidth);
         }
-        return MathUtils.clamp(dialog.preferredWidth() > 0
-                ? dialog.preferredWidth() : 860f, 620f, 1200f);
+        float requested = dialog.preferredWidth() > 0
+                ? dialog.preferredWidth() : 860f;
+        if (dialog.isNotice()) requested = Math.max(requested, 980f);
+        return MathUtils.clamp(requested, 620f, 1200f);
     }
 
     private static float dialogHeight(GdxTableDialog dialog) {
@@ -4465,7 +4468,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         ? (dialog.showsPositive() ? 570f : 390f)
                 : dialog.isAutoCall() || dialog.isHandLimit() ? 540f
                 : dialog.isRebuy() ? 390f
+                : dialog.isNotice() ? 470f
                 : dialog.hasAmount() ? 470f : 390f;
+    }
+
+    private static float dialogPositiveX(GdxTableDialog dialog,
+            float panelX, float panelW) {
+        return dialog.showsPositive() && !dialog.showsNegative()
+                ? panelX + panelW / 2f - 115f
+                : panelX + panelW - 272f;
     }
 
     private float dialogX(GdxTableDialog dialog, float panelW) {
@@ -9553,6 +9564,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Color lastActionColorForSeat(int seat) {
         TableSnapshot.PlayerSnapshot player = livePlayer(seats[seat]);
         if (player == null) return SEAT_RIM;
+        if (player.exited()) return LATENCY_ORANGE;
         if (isLiveReconnectingPlayer(player.nickname())) {
             return LATENCY_ORANGE;
         }
@@ -9581,6 +9593,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private Color lastActionTextColorForSeat(int seat) {
         TableSnapshot.PlayerSnapshot player = livePlayer(seats[seat]);
+        if (player != null && player.exited()) {
+            return Color.WHITE;
+        }
         if (player != null && isLiveReconnectingPlayer(player.nickname())) {
             return Color.WHITE;
         }
@@ -9656,6 +9671,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      */
     boolean isLiveReconnectingPlayer(String nickname) {
         if (tableChat == null || nickname == null || nickname.isBlank()) {
+            return false;
+        }
+        TableSnapshot.PlayerSnapshot player = livePlayer(nickname);
+        if (player != null && player.exited()) {
             return false;
         }
         return tableChat.snapshot().participants().stream()
@@ -12883,7 +12902,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawRecoveryDialog(dialog, width, height);
             return;
         }
-        float acceptX = panelX + panelW - 272f;
+        float acceptX = dialogPositiveX(dialog, panelX, panelW);
         float negativeX = panelX + (dialog.isAutoAction() ? 30f : 42f);
         float negativeW = dialog.isAutoAction() ? panelW - 60f : 230f;
         float buttonY = panelY + (dialog.isAutoAction() ? 22f : 34f);

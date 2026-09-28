@@ -455,6 +455,10 @@ public final class CorePlayerController implements GamePlayerController {
         setTurn(false);
         turnCompletionSignal.run();
     }
+    @Override public void setExit(String departureLabel) {
+        setExit();
+        state.setLastAction(Objects.requireNonNullElse(departureLabel, ""));
+    }
     @Override public String getLastActionString() { return state.lastAction(); }
     @Override public void setBuyin(int buyin) { state.setBuyIn(buyin); }
     @Override public double getPagar() { return state.pendingPayment(); }

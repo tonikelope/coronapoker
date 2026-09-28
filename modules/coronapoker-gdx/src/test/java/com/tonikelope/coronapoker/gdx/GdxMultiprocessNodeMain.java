@@ -218,6 +218,12 @@ public final class GdxMultiprocessNodeMain {
                         Duration.ofSeconds(Math.max(150L,
                                 config.hands * 30L)), "table completion");
                 assertOutcome(config, renderer);
+                if (("controlled-exit".equals(config.scenario)
+                        || "allin-controlled-exit".equals(config.scenario))
+                        && !config.disruptedClient()) {
+                    marker("DEPARTURE", "nick=client1 label="
+                            + renderer.departureLabel("client1"));
+                }
                 marker("LEDGER", renderer.balancesByNickname().entrySet()
                         .stream()
                         .sorted(Comparator.comparing(java.util.Map.Entry::getKey))
@@ -2243,10 +2249,27 @@ public final class GdxMultiprocessNodeMain {
         if ("allin-controlled-exit".equals(config.scenario)) {
             TableSessionSummary.CloseReason expected = config.host()
                     ? TableSessionSummary.CloseReason.COMPLETED
-                    : TableSessionSummary.CloseReason.EXITED;
+                    : config.disruptedClient()
+                            ? TableSessionSummary.CloseReason.EXITED
+                            : TableSessionSummary.CloseReason.COMPLETED;
             if (renderer.summary().reason() != expected) {
                 throw new AssertionError("allin-controlled-exit reason: expected "
                         + expected + " but was " + renderer.summary().reason());
+            }
+            if (!config.disruptedClient()) {
+                renderer.assertCompleteWithHistoricalBalances(
+                        config.hands, config.clients + config.bots + 1);
+                renderer.assertHandStartedWithPlayers(2, Set.of(
+                        "server", "client2", "CoronaBot$1"));
+                if (!renderer.sawAllInAction()
+                        || !renderer.sawAllInCinematic()) {
+                    throw new AssertionError(
+                            "all-in exit lost its accepted action or cinematic");
+                }
+                if (!renderer.sawDeparture("client1")) {
+                    throw new AssertionError(
+                            "all-in exit did not project SE PIRA/LEAVES");
+                }
             }
             return;
         }
@@ -2265,6 +2288,17 @@ public final class GdxMultiprocessNodeMain {
             if (renderer.summary().reason() != expected) {
                 throw new AssertionError("controlled-exit reason: expected "
                         + expected + " but was " + renderer.summary().reason());
+            }
+            if (!config.disruptedClient()) {
+                renderer.assertCompleteWithHistoricalBalances(
+                        config.hands,
+                        config.clients + config.bots + 1);
+                renderer.assertHandStartedWithPlayers(2, Set.of(
+                        "server", "client2", "CoronaBot$1"));
+                if (!renderer.sawDeparture("client1")) {
+                    throw new AssertionError(
+                            "controlled-exit did not project SE PIRA/LEAVES");
+                }
             }
             return;
         }
@@ -2348,6 +2382,7 @@ public final class GdxMultiprocessNodeMain {
         boolean disruptedClient() {
             return !host() && "client1".equals(nickname)
                     && ("controlled-exit".equals(scenario)
+                    || "allin-controlled-exit".equals(scenario)
                     || "abrupt-exit".equals(scenario)
                     || "dual-abrupt-exit".equals(scenario)
                     || "mixed-exit-crash".equals(scenario));

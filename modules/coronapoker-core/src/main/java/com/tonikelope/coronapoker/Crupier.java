@@ -8155,7 +8155,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         GamePlayerController jugador = nick2player.get(nick);
         if (jugador != null && quit_anunciado.add(nick)) {
             if (!jugador.isExit()) {
-                jugador.setExit();
+                String departureLabel = game_text.translate("ui.se_pira");
+                jugador.setExit(departureLabel);
+                table_events.publishIfAttached(sequence
+                        -> new TableVisualEvent.PlayerDeparture(sequence,
+                                nick, departureLabel));
             }
             if (gameSession().isHost()) {
                 GamePeerController participante = peers().get(nick);
@@ -24070,6 +24074,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     ganancia_msg += game_text.translate("ui.ni_gana_ni_pierde");
                 }
                 game_log.print(jugador.getNickname() + " " + game_text.translate("game.abandona_la_timba_2") + " -> " + ganancia_msg);
+
+                // Keep an exited all-in player in the showdown that was in
+                // progress when their signed EXIT arrived. Once that hand is
+                // fully settled, however, its decision and contribution must
+                // not leak into the next hand: exited players are deliberately
+                // excluded from nuevaMano(), so nobody else will clear them.
+                // A stale ALL_IN here makes the following showdown treat the
+                // departed player as a contender and request a proof belonging
+                // to the previous hand, which correctly fails closed as a
+                // misdeal. Clear only completed-hand betting state; keep stack
+                // + pending payout intact for the auditor above.
+                jugador.resetBetDecision();
+                jugador.resetBote();
                 exit++;
             }
         }
@@ -26708,9 +26725,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public java.util.ArrayList<GamePlayerController> getAnilloCriptografico() {
         java.util.ArrayList<GamePlayerController> ring = new java.util.ArrayList<>();
         for (GamePlayerController jugador : players()) {
-            // Include everyone (active, spectators, server, disconnected).
-            // Exclude only players joining the table mid-game (calentando) during a recover.
-            if (!jugador.isCalentando()) {
+            // A temporarily disconnected player remains in the ring so their
+            // authenticated socket generation can recover. A confirmed
+            // voluntary EXIT is final and must never enter the next hand's
+            // cascade/rotation; its current-hand testament is handled by the
+            // existing exit path before this next ring is constructed.
+            if (!jugador.isCalentando() && !jugador.isExit()) {
                 ring.add(jugador);
             }
         }

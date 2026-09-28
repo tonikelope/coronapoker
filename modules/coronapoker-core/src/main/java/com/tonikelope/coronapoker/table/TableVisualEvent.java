@@ -16,6 +16,7 @@ import java.util.Objects;
 public sealed interface TableVisualEvent permits TableVisualEvent.PreparationStatus,
         TableVisualEvent.PauseStatus,
         TableVisualEvent.TelemetryStatus, TableVisualEvent.PlayerTimeout,
+        TableVisualEvent.PlayerDeparture,
         TableVisualEvent.HandBoundary, TableVisualEvent.Shuffle,
         TableVisualEvent.PositionRotation, TableVisualEvent.UnderTheGunStatus,
         TableVisualEvent.CollectBets, TableVisualEvent.DealHoleCard,
@@ -128,6 +129,20 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
             if (nickname.isEmpty()) {
                 throw new IllegalArgumentException(
                         "Timeout nickname must not be blank");
+            }
+        }
+    }
+
+    /** A confirmed voluntary EXIT, distinct from a reconnectable socket loss. */
+    record PlayerDeparture(long sequence, String nickname, String label)
+            implements TableVisualEvent {
+
+        public PlayerDeparture {
+            Objects.requireNonNull(nickname, "nickname");
+            Objects.requireNonNull(label, "label");
+            if (nickname.isBlank()) {
+                throw new IllegalArgumentException(
+                        "Departure nickname must not be blank");
             }
         }
     }

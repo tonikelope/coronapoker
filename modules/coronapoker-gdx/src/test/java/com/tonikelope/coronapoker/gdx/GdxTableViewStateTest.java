@@ -2689,6 +2689,22 @@ final class GdxTableViewStateTest {
         assertFalse(player(state, "borja").timedOut());
     }
 
+    @Test
+    void voluntaryDepartureIsProjectedAsExitInsteadOfReconnection() {
+        GdxTableViewState state = new GdxTableViewState(
+                snapshot(false, "borja"));
+
+        state.apply(new TableVisualEvent.PlayerDeparture(
+                1, "borja", "SE PIRA"));
+
+        TableSnapshot.PlayerSnapshot departed = player(state, "borja");
+        assertFalse(departed.active());
+        assertTrue(departed.exited());
+        assertFalse(departed.timedOut());
+        assertEquals("SE PIRA", departed.lastAction());
+        assertTrue(state.snapshot().currentTurnNickname().isBlank());
+    }
+
     private static TableSnapshot.CardSnapshot card(String code) {
         return new TableSnapshot.CardSnapshot(code, true, false);
     }

@@ -294,11 +294,11 @@ target/CoronaPoker_<version>.jar
 The application is shaded into a module-local staging JAR and published to
 `target/` only after that archive is complete. This prevents a running table
 from reading a partially rewritten JAR.
-The root `pom.xml` is the canonical 25.10 product entry point and delegates to
+The root `pom.xml` is the canonical 25.11 product entry point and delegates to
 the module reactor.
 
 The local distribution and the GitHub release asset use the historical name
-`target/CoronaPoker_25.10.jar`. The updater downloads that versioned asset and
+`target/CoronaPoker_25.11.jar`. The updater downloads that versioned asset and
 installs it beside the running application as `CoronaPoker.jar`, then relaunches
 that stable filename. No manual rename is required.
 

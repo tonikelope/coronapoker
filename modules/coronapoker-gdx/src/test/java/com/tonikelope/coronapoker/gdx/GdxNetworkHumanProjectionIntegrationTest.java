@@ -3912,7 +3912,9 @@ class GdxNetworkHumanProjectionIntegrationTest {
                         reveal.sequence());
             } else if (event instanceof TableVisualEvent.PositionRotation rotation
                     && rotation.transfers().stream().anyMatch(transfer
-                    -> transfer.position() == TableSnapshot.Position.STRADDLE)) {
+                    -> transfer.position() == TableSnapshot.Position.STRADDLE
+                    || transfer.position()
+                    == TableSnapshot.Position.DEALER_STRADDLE)) {
                 straddleHands.add(projection.handNumber());
             } else if (event instanceof TableVisualEvent.ActionControls controls
                     && controls.state().callAction()

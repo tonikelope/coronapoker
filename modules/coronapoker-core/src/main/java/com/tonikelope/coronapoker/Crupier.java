@@ -16589,20 +16589,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     // Flies the RED straddle chip from the table CENTER to the straddler's seat (same
     // engine as the position-chip rotation) and, on landing, paints the static chip.
-    // BLOCKS until it lands. Without animation / on recover / on transmission end: just
-    // paints the static chip (identical to the old straddle).
+    // BLOCKS until it lands. With an attached renderer the canonical role update is
+    // always published, even when animation is disabled or the table is recovering;
+    // presentation settings must not suppress renderer state. Classic Swing keeps the
+    // direct static refresh fallback.
     private void flyStraddleChipToSeat(GamePlayerController straddler) {
-        if (!presentation_settings.blindDealerAnimation() || gameSession().isRecovering()
-                || this.game_recovered != 0 || isFin_de_la_transmision()) {
-            table_display.refreshPositionChip(straddler.getNickname());
-            return;
-        }
         final java.util.List<TableVisualEvent.PositionTransfer> transfers
                 = java.util.List.of(new TableVisualEvent.PositionTransfer(
                         "", straddler.getNickname(),
                         straddlePosition(this.dealer_nick,
                                 straddler.getNickname()),
                         true));
+
+        if (isFin_de_la_transmision()) {
+            table_display.refreshPositionChip(straddler.getNickname());
+            return;
+        }
+
+        if (!presentation_settings.blindDealerAnimation() || gameSession().isRecovering()
+                || this.game_recovered != 0) {
+            if (!presentPositionRotationToAttachedRenderer(transfers, 1L)) {
+                table_display.refreshPositionChip(straddler.getNickname());
+            }
+            return;
+        }
+
         int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / getJugadoresActivos())));
         final int flight_dur = Math.max(150, pausa);
 

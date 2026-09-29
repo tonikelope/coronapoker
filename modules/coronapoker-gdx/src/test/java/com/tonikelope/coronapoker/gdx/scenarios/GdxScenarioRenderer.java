@@ -297,7 +297,9 @@ final class GdxScenarioRenderer implements TableRenderer {
         }
         if (event instanceof TableVisualEvent.PositionRotation rotation
                 && rotation.transfers().stream().anyMatch(transfer
-                -> transfer.position() == TableSnapshot.Position.STRADDLE)) {
+                -> transfer.position() == TableSnapshot.Position.STRADDLE
+                || transfer.position()
+                == TableSnapshot.Position.DEALER_STRADDLE)) {
             straddleHands.add(currentHand.get());
         }
         rememberSpectatorTransitions(snapshot);
@@ -768,8 +770,13 @@ final class GdxScenarioRenderer implements TableRenderer {
     }
 
     void assertCompleteAsPassiveObserver(int expectedHands,
-            int expectedActivePlayers, int expectedBalanceRows) {
-        assertCompleteState(expectedHands, null, expectedActivePlayers,
+            int expectedSnapshotPlayers, int expectedBalanceRows) {
+        // A passive observer may receive a peer's terminal EXIT while the
+        // independent JVMs are closing after the final summary.  The roster
+        // must still be complete, but requiring every row to remain non-exited
+        // at that instant makes process teardown order part of the game oracle.
+        // Assert the authoritative visible roster and durable balances instead.
+        assertCompleteState(expectedHands, expectedSnapshotPlayers, null,
                 expectedBalanceRows, false);
     }
 

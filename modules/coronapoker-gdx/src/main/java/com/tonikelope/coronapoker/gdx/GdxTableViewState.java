@@ -80,6 +80,8 @@ final class GdxTableViewState {
      */
     private final Map<String, String> resolvedHandNames = new HashMap<>();
     private final Map<String, Boolean> resolvedHandWinners = new HashMap<>();
+    private final Map<String, List<Integer>> resolvedWonPotIndexes
+            = new HashMap<>();
     /*
      * RevealHoleCards is also ordered presentation state. A later exact
      * HandBoundary/roster snapshot may still contain the legacy controller's
@@ -247,6 +249,10 @@ final class GdxTableViewState {
 
     Boolean resolvedHandWinner(String nickname) {
         return resolvedHandWinners.get(nickname);
+    }
+
+    List<Integer> resolvedWonPotIndexes(String nickname) {
+        return resolvedWonPotIndexes.getOrDefault(nickname, List.of());
     }
 
     List<TableSnapshot.CardSnapshot> presentedHoleCards(String nickname) {
@@ -532,6 +538,8 @@ final class GdxTableViewState {
             resolvedHandResults.add(result.nickname());
             resolvedHandNames.put(result.nickname(), result.handName());
             resolvedHandWinners.put(result.nickname(), result.winner());
+            resolvedWonPotIndexes.put(result.nickname(),
+                    result.wonPotIndexes());
             snapshot = copySnapshot(snapshot, result.street(),
                     snapshot.pot(), snapshot.currentTurnNickname(),
                     snapshot.players(), snapshot.communityCards());
@@ -574,6 +582,9 @@ final class GdxTableViewState {
             // between-hands wait, but recovery/older producers may still only
             // provide the positive payout event.
             resolvedHandWinners.put(payout.nickname(), true);
+            if (payout.potIndex() > 0) {
+                recordWonPotIndex(payout.nickname(), payout.potIndex());
+            }
             replacePlayer(payout.nickname(), player -> copyPlayer(player,
                     payout.stackAfter(), player.streetBet(),
                     player.potContribution(), player.active(), true,
@@ -708,6 +719,14 @@ final class GdxTableViewState {
         resolvedHandResults.remove(nickname);
         resolvedHandNames.remove(nickname);
         resolvedHandWinners.remove(nickname);
+        resolvedWonPotIndexes.remove(nickname);
+    }
+
+    private void recordWonPotIndex(String nickname, int potIndex) {
+        java.util.TreeSet<Integer> indexes = new java.util.TreeSet<>(
+                resolvedWonPotIndexes(nickname));
+        indexes.add(potIndex);
+        resolvedWonPotIndexes.put(nickname, List.copyOf(indexes));
     }
 
     private void applyHandBoundary(TableVisualEvent.HandBoundary boundary) {
@@ -720,6 +739,7 @@ final class GdxTableViewState {
             resolvedHandResults.clear();
             resolvedHandNames.clear();
             resolvedHandWinners.clear();
+            resolvedWonPotIndexes.clear();
             revealedHoleCards.clear();
             foldedThisHand.clear();
             iwtsthCandidates.clear();
@@ -748,6 +768,7 @@ final class GdxTableViewState {
         resolvedHandResults.clear();
         resolvedHandNames.clear();
         resolvedHandWinners.clear();
+        resolvedWonPotIndexes.clear();
         List<TableSnapshot.PlayerSnapshot> players = snapshot.players().stream()
                 .map(player -> copyPlayer(player, player.stack(),
                 player.streetBet(), player.potContribution(), player.active(),

@@ -17734,7 +17734,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Visual board update uses the complete immutable result. Null for the
         // deferred param: run-it-twice keeps its own dimming flow.
         this.showdown(new HashMap<>(presentation.losers()),
-                new HashMap<>(presentation.winners()), null);
+                new HashMap<>(presentation.winners()), null,
+                presentation.wonPotIndexes());
 
         // Main pot's "#1" tag: after the showdown (not before), and only if there are
         // side pots. marcarBotePot deduplicates between SIDE-A and SIDE-B.
@@ -24601,7 +24602,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    public void showdown(HashMap<GamePlayerController, GameHandResult> perdedores, HashMap<GamePlayerController, GameHandResult> ganadores, java.util.List<? extends GameCardController> diferir_desenfoque) {
+    public void showdown(HashMap<GamePlayerController, GameHandResult> perdedores,
+            HashMap<GamePlayerController, GameHandResult> ganadores,
+            java.util.List<? extends GameCardController> diferir_desenfoque) {
+        showdown(perdedores, ganadores, diferir_desenfoque, java.util.Map.of());
+    }
+
+    private void showdown(HashMap<GamePlayerController, GameHandResult> perdedores,
+            HashMap<GamePlayerController, GameHandResult> ganadores,
+            java.util.List<? extends GameCardController> diferir_desenfoque,
+            java.util.Map<GamePlayerController, java.util.List<Integer>> wonPotIndexes) {
         int pivote;
 
         // 1. Determine who shows first (last aggressor, or the seat after the dealer)
@@ -24800,7 +24810,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 awaitAttachedTableEvent(sequence -> new TableVisualEvent.HandResult(
                         sequence, jugador_actual.getNickname(),
                         mustShow || isLocal ? jugada.getName() : "", isWinner,
-                        TableSnapshot.Street.SHOWDOWN),
+                        TableSnapshot.Street.SHOWDOWN,
+                        wonPotIndexes.getOrDefault(jugador_actual,
+                                java.util.List.of())),
                         "Showdown-result presentation barrier failed");
             }
 
@@ -25421,28 +25433,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             // just won mucked. The computation doesn't touch game state
                                             // (calcularGanadores only drains the copy passed to it), so
                                             // doing it early is harmless and the payout loop below reuses it.
-                                            HashMap<GamePlayerController, GameHandResult> ganadores_todos = new HashMap<>(ganadores);
                                             java.util.ArrayList<HashMap<GamePlayerController, GameHandResult>> jugadas_por_lateral = new java.util.ArrayList<>();
                                             java.util.ArrayList<HashMap<GamePlayerController, GameHandResult>> ganadores_por_lateral = new java.util.ArrayList<>();
 
                                             for (GamePot lateral = this.bote.getSidePot(); lateral != null; lateral = lateral.getSidePot()) {
-                                                HashMap<GamePlayerController, GameHandResult> jugadas_lateral = this.calcularJugadas(lateral.getPlayerControllers());
-                                                HashMap<GamePlayerController, GameHandResult> ganadores_lateral = this.calcularGanadores(new HashMap<>(jugadas_lateral));
+                                                HashMap<GamePlayerController, GameHandResult> jugadas_lateral;
+                                                HashMap<GamePlayerController, GameHandResult> ganadores_lateral;
+                                                if (lateral.getPlayerControllers().size() > 1) {
+                                                    jugadas_lateral = this.calcularJugadas(lateral.getPlayerControllers());
+                                                    ganadores_lateral = this.calcularGanadores(new HashMap<>(jugadas_lateral));
+                                                } else {
+                                                    jugadas_lateral = new HashMap<>();
+                                                    ganadores_lateral = new HashMap<>();
+                                                }
                                                 jugadas_por_lateral.add(jugadas_lateral);
                                                 ganadores_por_lateral.add(ganadores_lateral);
-
-                                                // A derived pot with a SINGLE player isn't won: it's
-                                                // RECOVERED — the part of their bet nobody matched (the
-                                                // payout loop says exactly that). Counting it as a win
-                                                // painted the winner border, added a won hand, and stored
-                                                // it as such, even if they'd lost everything else. The
-                                                // run-it-twice path already treats it this way.
-                                                if (lateral.getPlayerControllers().size() > 1) {
-                                                    ganadores_todos.putAll(ganadores_lateral);
-                                                }
                                             }
 
-                                            this.showdown(jugadas, ganadores_todos, diferir_dim);
+                                            SettlementPresentation.Plan<GamePlayerController, GameHandResult> presentation
+                                                    = SettlementPresentation.plan(jugadas, ganadores,
+                                                            jugadas_por_lateral, ganadores_por_lateral);
+
+                                            this.showdown(new HashMap<>(presentation.losers()),
+                                                    new HashMap<>(presentation.winners()), diferir_dim,
+                                                    presentation.wonPotIndexes());
 
                                             // Main pot's "#1" tag: painted NOW, after showdown (pass 2's
                                             // verdicts), not in the payout above. We're in the side-pots

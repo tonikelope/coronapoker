@@ -24,8 +24,41 @@ class RunItTwiceSidePotOnlyWinnerPresentationTest {
 
         assertEquals(Map.of("alice", "main winner", "bob", "side winner"), plan.winners());
         assertEquals(Map.of("carol", "side loser"), plan.losers());
+        assertEquals(List.of(1), plan.wonPotIndexes().get("alice"));
+        assertEquals(List.of(2), plan.wonPotIndexes().get("bob"));
         assertTrue(plan.winners().containsKey("bob"));
         assertFalse(plan.losers().containsKey("bob"));
+    }
+
+    @Test
+    void winnerCarriesEveryPotIndexInSettlementOrder() {
+        SettlementPresentation.Plan<String, String> plan
+                = SettlementPresentation.plan(
+                        Map.of("alice", "main"), Map.of("alice", "main"),
+                        List.of(Map.of("alice", "side 1"),
+                                Map.of("alice", "side 2")),
+                        List.of(Map.of("alice", "side 1"),
+                                Map.of("alice", "side 2")));
+
+        assertEquals(List.of(1, 2, 3),
+                plan.wonPotIndexes().get("alice"));
+    }
+
+    @Test
+    void ordinaryPotAndUncontestedRefundDoNotAddPotLabels() {
+        SettlementPresentation.Plan<String, String> ordinary
+                = SettlementPresentation.plan(
+                        Map.of("alice", "main"), Map.of("alice", "main"),
+                        List.of(), List.of());
+        SettlementPresentation.Plan<String, String> withRefund
+                = SettlementPresentation.plan(
+                        Map.of("alice", "main", "bob", "loser"),
+                        Map.of("alice", "main"),
+                        List.of(Map.of()), List.of(Map.of()));
+
+        assertTrue(ordinary.wonPotIndexes().isEmpty());
+        assertEquals(List.of(1), withRefund.wonPotIndexes().get("alice"));
+        assertFalse(withRefund.wonPotIndexes().containsKey("bob"));
     }
 
     @Test
@@ -35,5 +68,7 @@ class RunItTwiceSidePotOnlyWinnerPresentationTest {
 
         assertThrows(UnsupportedOperationException.class, () -> plan.winners().put("mallory", "fake"));
         assertThrows(UnsupportedOperationException.class, () -> plan.losers().put("mallory", "fake"));
+        assertThrows(UnsupportedOperationException.class,
+                () -> plan.wonPotIndexes().put("mallory", List.of(2)));
     }
 }

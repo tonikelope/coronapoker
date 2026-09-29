@@ -117,6 +117,14 @@ final class GdxTableViewStateTest {
                 true, new GdxGameText("es")));
         assertEquals("YOU LOSE", CoronaPokerGdxTable.localHandOutcomeLabel(
                 false, new GdxGameText("en")));
+        assertEquals("¡GANAS!\nBOTE #2", CoronaPokerGdxTable
+                .localHandOutcomeLabel(true, List.of(2),
+                        new GdxGameText("es")));
+        assertEquals("¡GANAS!\nBOTE #1+#2", CoronaPokerGdxTable
+                .localHandOutcomeLabel(true, List.of(1, 2),
+                        new GdxGameText("es")));
+        assertEquals("YOU LOSE", CoronaPokerGdxTable.localHandOutcomeLabel(
+                false, List.of(), new GdxGameText("en")));
     }
 
     @Test
@@ -1674,14 +1682,31 @@ final class GdxTableViewStateTest {
         assertEquals(Boolean.FALSE, state.resolvedHandWinner("borja"));
 
         state.apply(new TableVisualEvent.Payout(
-                2, "borja", 30d, 1, 1_030d, 0d));
+                2, "borja", 30d, 2, 1_030d, 0d));
 
         assertTrue(player(state, "borja").winner());
         assertEquals(Boolean.TRUE, state.resolvedHandWinner("borja"),
                 "a side-pot winner must never retain the loser presentation");
+        assertEquals(List.of(2), state.resolvedWonPotIndexes("borja"));
         assertTrue(CoronaPokerGdxTable.hasSettledPresentation(
                 state.hasHandResult("borja"),
                 state.resolvedHandWinner("borja")));
+    }
+
+    @Test
+    void finalHandResultCarriesEveryWonPotWithoutAProvisionalLoss() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+
+        state.apply(new TableVisualEvent.HandResult(
+                1, "borja", "COLOR", true,
+                TableSnapshot.Street.SHOWDOWN, List.of(1, 3)));
+
+        assertEquals(Boolean.TRUE, state.resolvedHandWinner("borja"));
+        assertEquals(List.of(1, 3), state.resolvedWonPotIndexes("borja"));
+        assertEquals("¡GANAS!\nBOTE #1+#3",
+                CoronaPokerGdxTable.localHandOutcomeLabel(true,
+                        state.resolvedWonPotIndexes("borja"),
+                        new GdxGameText("es")));
     }
 
     @Test

@@ -5803,10 +5803,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     && visibleFastAccessActionAt(index) == FastAccessAction.EXIT
                             ? GdxUiButtonStyle.Tone.DANGER
                             : GdxUiButtonStyle.Tone.NEUTRAL;
-            GdxUiButtonStyle.draw(shapes, buttonX,
+            GdxUiButtonStyle.drawBorderless(shapes, buttonX,
                     FAST_BAR_Y + FAST_BAR_PADDING,
                     FAST_BUTTON_SIZE, FAST_BUTTON_SIZE, tone, enabled,
-                    hover ? 1f : 0f, false, alpha, false);
+                    hover ? 1f : 0f, false, alpha);
         }
         if (fastBarExpanded && hovered >= 0) {
             String hoveredLabel = fastButtonLabel(hovered);
@@ -9373,8 +9373,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static String localHandOutcomeLabel(boolean winner, GdxGameText text) {
-        return text.translate(winner
+        return localHandOutcomeLabel(winner, List.of(), text);
+    }
+
+    static String localHandOutcomeLabel(boolean winner,
+            List<Integer> wonPotIndexes, GdxGameText text) {
+        String outcome = text.translate(winner
                 ? "gdx.table.hud.win" : "gdx.table.hud.lose");
+        if (!winner || wonPotIndexes == null || wonPotIndexes.isEmpty()) {
+            return outcome;
+        }
+        String pots = wonPotIndexes.stream()
+                .map(index -> "#" + index)
+                .collect(java.util.stream.Collectors.joining("+"));
+        return outcome + "\n" + text.translate("gdx.table.hud.pots", pots);
     }
 
     static boolean shouldDimSeat(boolean playerActive,
@@ -10796,7 +10808,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         if (settledLocalWinner != null) {
             drawFittedCenteredInBox(localOutcomeFont,
-                    localHandOutcomeLabel(settledLocalWinner, gameText),
+                    localHandOutcomeLabel(settledLocalWinner,
+                            liveState.resolvedWonPotIndexes(seats[0].name),
+                            gameText),
                     foldX + 24f, actionY + 9f,
                     allInX + allInWidth - foldX - 48f,
                     actionHeight - 18f,

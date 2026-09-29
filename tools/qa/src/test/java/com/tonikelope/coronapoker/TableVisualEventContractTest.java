@@ -49,6 +49,23 @@ final class TableVisualEventContractTest {
     }
 
     @Test
+    void showdownResultRequiresOrderedPotsOnlyForWinners() {
+        TableVisualEvent.HandResult result = new TableVisualEvent.HandResult(
+                1L, "CoronaBot$1", "COLOR", true,
+                TableSnapshot.Street.SHOWDOWN, List.of(1, 3));
+
+        assertEquals(List.of(1, 3), result.wonPotIndexes());
+        assertThrows(IllegalArgumentException.class,
+                () -> new TableVisualEvent.HandResult(2L, "CoronaBot$1",
+                        "COLOR", true, TableSnapshot.Street.SHOWDOWN,
+                        List.of(2, 2)));
+        assertThrows(IllegalArgumentException.class,
+                () -> new TableVisualEvent.HandResult(3L, "CoronaBot$1",
+                        "PAREJA", false, TableSnapshot.Street.SHOWDOWN,
+                        List.of(2)));
+    }
+
+    @Test
     void startedTimerRequiresAPlayerAndCoherentDuration() {
         assertThrows(IllegalArgumentException.class,
                 () -> new TableVisualEvent.TurnTimer(1L, "", 10_000L, 10_000L,

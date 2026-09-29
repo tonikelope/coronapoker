@@ -39,7 +39,18 @@ final class GdxUiButtonStyle {
         Color fill = fill(tone, enabled, pressed);
         drawMaterial(shapes, x, y, width, height, border, fill, enabled,
                 hover, pressed, alpha, shadow,
-                tone == Tone.FEATURED ? 0.52f : 0.42f);
+                tone == Tone.FEATURED ? 0.52f : 0.42f, true);
+    }
+
+    /** Compact icon material used inside an already framed toolbar. */
+    static void drawBorderless(ShapeRenderer shapes, float x, float y,
+            float width, float height, Tone tone, boolean enabled,
+            float hoverAmount, boolean pressed, float alpha) {
+        float hover = Math.max(0f, Math.min(1f, hoverAmount));
+        drawMaterial(shapes, x, y, width, height,
+                enabled ? accent(tone, hover > 0.5f) : LINE,
+                fill(tone, enabled, pressed), enabled, hover, pressed, alpha,
+                false, tone == Tone.FEATURED ? 0.52f : 0.42f, false);
     }
 
     /**
@@ -57,13 +68,13 @@ final class GdxUiButtonStyle {
                 surfaceAlpha);
         drawMaterial(shapes, x, y, width, height,
                 enabled ? accent : LINE, CUSTOM_SURFACE, enabled, hover,
-                pressed, alpha, shadow, 0.42f);
+                pressed, alpha, shadow, 0.42f, true);
     }
 
     private static void drawMaterial(ShapeRenderer shapes, float x, float y,
             float width, float height, Color border, Color fill,
             boolean enabled, float hover, boolean pressed, float alpha,
-            boolean shadow, float glowStrength) {
+            boolean shadow, float glowStrength, boolean borderVisible) {
         // Keep the shadow aligned with the control. A horizontal displacement
         // exposes the circular end caps and makes them look like detached
         // bubbles below short dialog buttons.
@@ -74,7 +85,7 @@ final class GdxUiButtonStyle {
 
         // Hover is deliberately outline-only: it cannot produce patches or
         // alter the perceived shape of the button.
-        if (enabled && hover > 0.01f) {
+        if (borderVisible && enabled && hover > 0.01f) {
             shapes.setColor(border.r, border.g, border.b,
                     glowStrength * hover * alpha);
             roundedRectOutline(shapes, x - 2f, y - 2f,
@@ -83,10 +94,17 @@ final class GdxUiButtonStyle {
 
         shapes.setColor(fill.r, fill.g, fill.b, fill.a * alpha);
         roundedRect(shapes, x, y, width, height, 14f);
-        shapes.setColor(border.r, border.g, border.b,
-                (enabled ? 1f : 0.55f) * alpha);
-        roundedRectOutline(shapes, x + 1f, y + 1f, width - 2f,
-                height - 2f, 13f, 2f);
+        if (borderVisible) {
+            shapes.setColor(border.r, border.g, border.b,
+                    (enabled ? 1f : 0.55f) * alpha);
+            roundedRectOutline(shapes, x + 1f, y + 1f, width - 2f,
+                    height - 2f, 13f, 2f);
+        } else if (enabled && hover > 0.01f) {
+            shapes.setColor(border.r, border.g, border.b,
+                    0.16f * hover * alpha);
+            roundedRect(shapes, x + 2f, y + 2f, width - 4f,
+                    height - 4f, 12f);
+        }
 
         // A continuous glass bevel restores volume without the decorative
         // top bars that previously made FEATURED and regular buttons look as
@@ -107,9 +125,11 @@ final class GdxUiButtonStyle {
                     ((pressed ? 0.055f : 0.10f) + 0.03f * hover) * alpha);
         }
 
-        shapes.setColor(1f, 1f, 1f, 0.07f * alpha);
-        roundedRectOutline(shapes, x + 5f, y + 5f,
-                width - 10f, height - 10f, 9f, 1f);
+        if (borderVisible) {
+            shapes.setColor(1f, 1f, 1f, 0.07f * alpha);
+            roundedRectOutline(shapes, x + 5f, y + 5f,
+                    width - 10f, height - 10f, 9f, 1f);
+        }
     }
 
     static Color labelColor(Tone tone, boolean enabled) {

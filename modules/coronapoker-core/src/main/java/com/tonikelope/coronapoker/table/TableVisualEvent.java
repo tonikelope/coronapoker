@@ -592,16 +592,36 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
 
     /** Exact per-player showdown verdict emitted by the canonical dealer. */
     record HandResult(long sequence, String nickname, String handName,
-            boolean winner, TableSnapshot.Street street)
+            boolean winner, TableSnapshot.Street street,
+            List<Integer> wonPotIndexes)
             implements TableVisualEvent {
+
+        public HandResult(long sequence, String nickname, String handName,
+                boolean winner, TableSnapshot.Street street) {
+            this(sequence, nickname, handName, winner, street, List.of());
+        }
 
         public HandResult {
             Objects.requireNonNull(nickname, "nickname");
             Objects.requireNonNull(handName, "handName");
             Objects.requireNonNull(street, "street");
+            wonPotIndexes = List.copyOf(Objects.requireNonNull(
+                    wonPotIndexes, "wonPotIndexes"));
             if (street != TableSnapshot.Street.SHOWDOWN) {
                 throw new IllegalArgumentException(
                         "Hand result must carry the canonical showdown street");
+            }
+            int previous = 0;
+            for (Integer potIndex : wonPotIndexes) {
+                if (potIndex == null || potIndex <= previous) {
+                    throw new IllegalArgumentException(
+                            "Won pot indexes must be positive, unique and ordered");
+                }
+                previous = potIndex;
+            }
+            if (!winner && !wonPotIndexes.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "A losing hand cannot carry won pot indexes");
             }
         }
     }

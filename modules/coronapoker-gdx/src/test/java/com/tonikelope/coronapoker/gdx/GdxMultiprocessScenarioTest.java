@@ -751,7 +751,7 @@ class GdxMultiprocessScenarioTest {
                             "a voluntary exit exposed reconnecting state\n"
                             + survivor.diagnostic());
                     assertTrue(survivor.contains(
-                                    "CP_GDX_E2E_DEPARTURE nick=client1"),
+                                    "CP_GDX_E2E_DEPARTURE nick=client1 label=SE VA"),
                             "a survivor never projected the voluntary departure\n"
                             + survivor.diagnostic());
                 }

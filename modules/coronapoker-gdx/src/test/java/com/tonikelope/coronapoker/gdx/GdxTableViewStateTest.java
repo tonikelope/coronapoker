@@ -2695,13 +2695,13 @@ final class GdxTableViewStateTest {
                 snapshot(false, "borja"));
 
         state.apply(new TableVisualEvent.PlayerDeparture(
-                1, "borja", "SE PIRA"));
+                1, "borja", "SE VA"));
 
         TableSnapshot.PlayerSnapshot departed = player(state, "borja");
         assertFalse(departed.active());
         assertTrue(departed.exited());
         assertFalse(departed.timedOut());
-        assertEquals("SE PIRA", departed.lastAction());
+        assertEquals("SE VA", departed.lastAction());
         assertTrue(state.snapshot().currentTurnNickname().isBlank());
     }
 

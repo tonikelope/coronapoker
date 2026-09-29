@@ -265,6 +265,10 @@ class GdxScenarioContractTest {
         String node = Files.readString(root.resolve("modules/coronapoker-gdx/src/"
                 + "test/java/com/tonikelope/coronapoker/gdx/"
                 + "GdxMultiprocessNodeMain.java"), StandardCharsets.UTF_8);
+        String integration = Files.readString(root.resolve(
+                "modules/coronapoker-gdx/src/test/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxNetworkHumanProjectionIntegrationTest.java"),
+                StandardCharsets.UTF_8);
 
         assertTrue(driver.contains("LobbySession lobby"),
                 "the product table oracle must receive the real lobby session");
@@ -272,11 +276,18 @@ class GdxScenarioContractTest {
                 "the product table oracle cannot detach network presence");
         assertTrue(driver.contains("lobby.subscribe("),
                 "short reconnect projections must be captured from real lobby snapshots");
+        assertTrue(driver.contains("current != null && !closed.get()"),
+                "terminal lobby teardown must not count as visible reconnect state");
         assertTrue(node.contains("productTable, lobby"),
                 "multiprocess nodes must wire their real lobby into GDX");
         assertTrue(node.contains(
                 "renderer.assertNeverShowedReconnectFor(\"client1\")"),
                 "voluntary exit must reject a visible reconnect projection");
+        assertTrue(integration.contains("new GdxGameText(\"es\")"),
+                "multiprocess scenarios must exercise production GDX localization");
+        assertTrue(node.contains(
+                "renderer.assertDepartureLabel(\"client1\", \"SE VA\")"),
+                "voluntary exit must assert its exact visible semantic label");
         assertTrue(node.contains("visible.add(\"server\")"),
                 "a disconnected client must observe the remote host seat, "
                 + "not permit its own local seat as reconnecting");
@@ -314,8 +325,10 @@ class GdxScenarioContractTest {
                 "the shared oracle must remember distinct PREPARE boundaries");
         assertTrue(driver.contains("endedHandIds"),
                 "the shared oracle must remember distinct END boundaries");
-        assertTrue(driver.contains("assertEquals(preparedHandIds, endedHandIds"),
-                "completion must prove every observed hand closed exactly once");
+        assertTrue(driver.contains("skippedRecoveredHandIds"),
+                "the shared oracle must identify passively skipped recovered hands");
+        assertTrue(driver.contains("assertEquals(preparedHandIds, closedHandIds"),
+                "completion must prove every observed hand ended or was explicitly skipped");
         assertTrue(driver.contains("event arrived after CloseTable"),
                 "CloseTable must remain the terminal visual event");
 

@@ -704,11 +704,13 @@ public final class CoreGameTableFactory implements GameTableFactory {
         AutoCloseable peerLoss = context.channel().subscribePeerLoss(nickname -> {
             if (!lobby.host() || closing.get()) return;
             GamePeerController peer = peers.get(nickname);
-            // A normal EXIT may be followed immediately by EOF from the same
-            // socket. Once the ordered EXIT handler has marked the peer out,
-            // that EOF is teardown, not an unannounced disconnect and must
-            // never invalidate the hand or put the seat into reconnection.
-            if (peer == null || peer.isCpu() || peer.isExit()) return;
+            // A normal authenticated EXIT may be followed immediately by EOF
+            // from the same socket. Do not use peer.isExit() for this test:
+            // the transport also marks a socket-dead peer out to release ACK
+            // waits. Treating that transport flag as a voluntary EXIT hid an
+            // unannounced crash whenever another player had just left cleanly.
+            if (peer == null || peer.isCpu()
+                    || dealer.hasAcceptedPeerExit(nickname)) return;
             // The watchdog runs outside the dealer thread. It may only publish
             // the definitive loss and wake waits; refunding here can race an
             // accepted action while its bet is still being committed. The

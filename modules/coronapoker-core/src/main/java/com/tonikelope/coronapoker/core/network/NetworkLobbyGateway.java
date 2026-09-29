@@ -807,9 +807,16 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             // peers from receiving the graceful EXIT marker. This used to
             // bubble the first IOException out of the command future and left
             // the GDX screen apparently ignoring the confirmed exit.
+            sendGracefulExit();
+            publish(LobbySnapshot.Phase.CLOSED, "");
+            closeAfterGracefulExit();
+        }
+
+        private void sendGracefulExit() {
             if (host) {
                 for (Peer peer : List.copyOf(peers.values())) {
-                    if (peer.connection == null) continue;
+                    if (peer.connection == null
+                            || !peer.connection.isConnected()) continue;
                     try {
                         peer.connection.writeEncrypted("EXIT");
                     } catch (Exception failure) {
@@ -818,7 +825,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                                 + peer.nickname, failure);
                     }
                 }
-            } else if (serverConnection != null) {
+            } else if (serverConnection != null
+                    && serverConnection.isConnected()) {
                 try {
                     serverConnection.writeEncrypted("EXIT");
                 } catch (Exception failure) {
@@ -827,8 +835,6 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                             failure);
                 }
             }
-            publish(LobbySnapshot.Phase.CLOSED, "");
-            closeAfterGracefulExit();
         }
 
         private void closeAfterGracefulExit() {
@@ -876,7 +882,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private void handleHostGenerationEnd(Connection connection,
                 Connection.Generation generation) {
             long reconnectAttempt = connection.markGenerationDown(generation);
-            if (closed.get() || reconnectAttempt < 0L) {
+            if (closed.get() || reconnectAttempt < 0L
+                    || gameChannel.isTerminating()) {
                 return;
             }
             synchronized (this) {
@@ -938,8 +945,10 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 publish(LobbySnapshot.Phase.CLOSED, "");
                 return;
             }
+            if (gameChannel.isTerminating()) {
+                return;
+            }
             if (active != null && active.snapshot().startingOrStarted()) {
-                publish(LobbySnapshot.Phase.RECONNECTING, "");
                 startClientReconnect(connection);
             } else {
                 fail("Se ha perdido la conexión con el servidor");
@@ -963,8 +972,28 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         Thread.currentThread().interrupt();
                         return;
                     }
+                    if (closed.get() || !connection.isReconnecting()) {
+                        return;
+                    }
+                    if (gameChannel.isClosed()) {
+                        publish(LobbySnapshot.Phase.CLOSED, "");
+                        connection.close();
+                        return;
+                    }
+                    if (gameChannel.isTerminating()) {
+                        return;
+                    }
+
+                    // EOF is not user-visible evidence of a recoverable drop
+                    // until the short terminal-drain window has elapsed.  A
+                    // normal SERVEREXIT/CloseTable often crosses the game
+                    // executor just after the socket reader sees EOF; exposing
+                    // RECONNECTING before this recheck caused a false flash on
+                    // an otherwise clean table finish.
+                    publish(LobbySnapshot.Phase.RECONNECTING, "");
                     while (!closed.get() && connection.isReconnecting()
                             && !gameChannel.isClosed()
+                            && !gameChannel.isTerminating()
                             && System.nanoTime() < deadline) {
                         Connection candidate = null;
                         try {
@@ -991,9 +1020,11 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         }
                     }
                     if (gameChannel.isClosed()) {
+                        publish(LobbySnapshot.Phase.CLOSED, "");
                         connection.close();
                         return;
                     }
+                    if (gameChannel.isTerminating()) return;
                     if (!closed.get() && connection.isReconnecting()) {
                         fail("No se pudo recuperar la conexión con el servidor");
                     }
@@ -1516,6 +1547,14 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         @Override public void close() {
             if (!closed.compareAndSet(false, true)) return;
+            // A completed table session is a deliberate departure even when
+            // its frontend closes the AutoCloseable directly (for example,
+            // while entering recover mode).  Preserve the legacy EXIT marker
+            // before retiring the socket; otherwise the host projects a
+            // spurious RECONNECTING player during normal terminal teardown.
+            if (gameChannel.isClosed()) {
+                sendGracefulExit();
+            }
             gameChannel.close();
             closeUpnpMappingAsync();
             try { if (serverSocket != null) serverSocket.close(); } catch (IOException ignored) { }
@@ -1552,6 +1591,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private final ExecutorService executor;
         private final java.util.ArrayDeque<Inbound> pending = new java.util.ArrayDeque<>();
         private boolean closed;
+        private boolean terminating;
         private boolean draining;
         private long pendingBytes;
         private Consumer<Inbound> listener;
@@ -1579,6 +1619,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     || bytes > MAX_PENDING_BYTES - pendingBytes) {
                 close();
                 throw new IOException("Game input queue is full");
+            }
+            if (isTerminationCommand(command)) {
+                terminating = true;
             }
             pending.addLast(new Inbound(peerNickname, command));
             pendingBytes += bytes;
@@ -1656,6 +1699,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         synchronized boolean isClosed() { return closed; }
 
+        synchronized boolean isTerminating() { return terminating || closed; }
+
         private void drain() {
             while (true) {
                 Consumer<Inbound> target;
@@ -1688,7 +1733,13 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         @Override public java.util.concurrent.CompletionStage<Void> broadcastFromHost(
                 String command, String skipNickname)
                 throws IOException {
-            return transport.broadcastGameFromChannel(requireCommand(command), skipNickname);
+            String checked = requireCommand(command);
+            synchronized (this) {
+                if (isTerminationCommand(checked)) {
+                    terminating = true;
+                }
+            }
+            return transport.broadcastGameFromChannel(checked, skipNickname);
         }
 
         @Override public java.util.concurrent.CompletionStage<Void> sendFromHost(
@@ -1741,7 +1792,13 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             return checked;
         }
 
+        private static boolean isTerminationCommand(String command) {
+            return "SERVEREXIT".equals(command)
+                    || command.startsWith("SERVEREXITRECOVER");
+        }
+
         @Override public synchronized void close() {
+            terminating = true;
             closed = true;
             pending.clear();
             pendingPeerLosses.clear();

@@ -14,6 +14,7 @@ import com.tonikelope.coronapoker.table.TableSessionSummary;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -109,6 +110,8 @@ final class GdxScenarioRenderer implements TableRenderer {
             = new java.util.concurrent.ConcurrentHashMap<>();
     private final Set<Long> preparedHandIds
             = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Set<Long> skippedRecoveredHandIds
+            = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final Set<Long> endedHandIds
             = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final AtomicLong lastPreparedHand = new AtomicLong();
@@ -198,7 +201,7 @@ final class GdxScenarioRenderer implements TableRenderer {
         if (lobby != null) {
             lobbySubscription.set(lobby.subscribe(ignored -> {
                 GdxTableViewState current = state.get();
-                if (current != null) {
+                if (current != null && !closed.get()) {
                     observeLiveConnectivity(current.snapshot());
                 }
             }));
@@ -246,6 +249,19 @@ final class GdxScenarioRenderer implements TableRenderer {
                 if (allInEveryHand.get()) {
                     allInCommandSent.set(false);
                 }
+            } else if (boundary.phase()
+                    == TableVisualEvent.HandBoundary.Phase.SKIP_RECOVERED) {
+                assertTrue(preparedHandIds.contains(boundary.handId()),
+                        "SKIP_RECOVERED arrived without PREPARE for hand "
+                        + boundary.handId());
+                assertFalse(endedHandIds.contains(boundary.handId()),
+                        "SKIP_RECOVERED arrived after END for hand "
+                        + boundary.handId());
+                assertEquals(currentHand.get(), boundary.handId(),
+                        "SKIP_RECOVERED closed a different hand than active");
+                assertTrue(skippedRecoveredHandIds.add(boundary.handId()),
+                        "duplicate SKIP_RECOVERED for hand "
+                        + boundary.handId());
             } else if (boundary.phase()
                     == TableVisualEvent.HandBoundary.Phase.END) {
                 assertTrue(preparedHandIds.contains(boundary.handId()),
@@ -640,6 +656,11 @@ final class GdxScenarioRenderer implements TableRenderer {
         return departures.getOrDefault(nickname, "");
     }
 
+    void assertDepartureLabel(String nickname, String expected) {
+        assertEquals(expected, departureLabel(nickname),
+                "wrong visible departure label for " + nickname);
+    }
+
     long currentHand() {
         return currentHand.get();
     }
@@ -656,6 +677,7 @@ final class GdxScenarioRenderer implements TableRenderer {
     }
 
     private void observeLiveConnectivity(TableSnapshot snapshot) {
+        if (closed.get()) return;
         CoronaPokerGdxTable liveTable = productTable.get();
         if (liveTable == null || lobby == null) return;
         snapshot.players().stream()
@@ -759,7 +781,9 @@ final class GdxScenarioRenderer implements TableRenderer {
         assertEquals(expectedHands, endedHands.get());
         assertEquals(expectedHands, endedHandIds.size(),
                 "completed-hand count must represent distinct hands");
-        assertEquals(preparedHandIds, endedHandIds,
+        Set<Long> closedHandIds = new HashSet<>(endedHandIds);
+        closedHandIds.addAll(skippedRecoveredHandIds);
+        assertEquals(preparedHandIds, closedHandIds,
                 "a completed table cannot leave a prepared hand open");
         if (requireLocalControls) {
             assertTrue(sawLocalControls.get(), () -> localNickname()

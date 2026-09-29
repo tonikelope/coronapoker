@@ -2200,7 +2200,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
     private static NetworkLobbyGateway gateway(Path data, DatabaseService database,
             GameDecisionSink decisions, GamePresentationSettings settings) {
         CoreGameTableFactory tables = new CoreGameTableFactory(database,
-                (key, arguments) -> key, GameLogSink.noop(),
+                new GdxGameText("es"), GameLogSink.noop(),
                 GameDialogSink.noop(), decisions,
                 settings, GameCinematicAssets.none());
         return new NetworkLobbyGateway(data, tables,
@@ -2241,7 +2241,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
     static NetworkLobbyGateway cinematicGateway(Path data,
             DatabaseService database) {
         CoreGameTableFactory tables = new CoreGameTableFactory(database,
-                (key, arguments) -> key, GameLogSink.noop(),
+                new GdxGameText("es"), GameLogSink.noop(),
                 GameDialogSink.noop(), GameDecisionSink.noop(),
                 acceleratedSettings(), new GameCinematicAssets() {
                     @Override public long durationMillis(String filename) {

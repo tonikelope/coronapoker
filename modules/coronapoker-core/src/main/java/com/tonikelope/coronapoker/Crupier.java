@@ -3204,6 +3204,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // thing those waits watch is fin_de_la_transmision, which finTransmision can't set until it
     // gets the very lock the crupier is holding.
     private volatile boolean termination_pending = false;
+    // Set only after an authenticated SERVEREXIT/SERVEREXITRECOVER has been
+    // accepted. The dealer tail must not answer that authoritative teardown
+    // with a voluntary EXIT after the native outbox has already retired.
+    private volatile boolean authoritative_termination_received = false;
     // A voluntary client EXIT carries the cryptographic testament and must be
     // emitted exactly once. The explicit UI/GDX exit path and run()'s final
     // safety tail can race; without this gate the tail writes to an already
@@ -5039,6 +5043,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // No successful delivery was established. Let a later recovery or
             // final safety path retry instead of permanently suppressing EXIT.
             local_exit_sent.set(false);
+            if (!confirmation && isFin_de_la_transmision()) {
+                LOGGER.log(Level.FINE,
+                        "Final best-effort EXIT lost the race with authoritative teardown",
+                        failure);
+                return;
+            }
             throw failure;
         }
     }
@@ -5051,6 +5061,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         TableTerminationWire.ExitCommand termination = TableTerminationWire.parse(
                 ("GAME#0#" + command).split("#", -1));
+        authoritative_termination_received = true;
         // MISDEAL is published immediately by the native channel callback but
         // its canonical refund normally runs on the dealer thread. The host's
         // ordered SERVEREXITRECOVER can reach this callback before that thread
@@ -8213,6 +8224,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Convenience overload for callers without a pre-resolved participant.
     public void remotePlayerQuit(String nick) {
         remotePlayerQuit(nick, null, null, null);
+    }
+
+    /** True only after an authenticated EXIT has crossed the game protocol. */
+    public boolean hasAcceptedPeerExit(String nick) {
+        return nick != null && exited_consensus_participants.contains(nick);
     }
 
     /**
@@ -11692,6 +11708,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         table_display.resetForNewHand();
         game_progress.indeterminate();
+        if (leavingPassiveObservedHand) {
+            awaitAttachedTableEvent(sequence -> new TableVisualEvent.HandBoundary(
+                    sequence, this.conta_mano,
+                    TableVisualEvent.HandBoundary.Phase.SKIP_RECOVERED,
+                    handBoundarySnapshot(TableSnapshot.Street.PREFLOP)),
+                    "Recovered-observer hand skip presentation barrier failed");
+        }
         if (!gameSession().isHost()) {
             game_window.setExitEnabled(false);
         }
@@ -12401,7 +12424,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (jugador != null && (jugador.isActivo()
                         || MoneyMath.compare(0f, jugador.getStack()) == 0
                         || jugador.isExit())) {
-                    double stack = jugador.getStack() + (includeCurrentBet ? jugador.getBet() : 0d);
+                    double stack = jugador.getStack()
+                            + (includeCurrentBet
+                                    ? jugador.getBet() + jugador.getPagar() : 0d);
                     rows.add(handCloseBalance(jugador.getNickname(), stack,
                             jugador.getBuyin(), getRebuyCount(jugador.getNickname())));
                 }
@@ -12413,7 +12438,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (jugador.isActivo()
                             || MoneyMath.compare(0f, jugador.getStack()) == 0
                             || jugador.isExit()) {
-                        double stack = jugador.getStack() + (includeCurrentBet ? jugador.getBet() : 0d);
+                        double stack = jugador.getStack()
+                                + (includeCurrentBet
+                                        ? jugador.getBet() + jugador.getPagar() : 0d);
                         rows.add(handCloseBalance(jugador.getNickname(), stack,
                                 jugador.getBuyin(), getRebuyCount(jugador.getNickname())));
                     }
@@ -15317,7 +15344,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 canPlayerRaise(jugador.getNickname()))) {
                                             throw new IllegalArgumentException(
                                                     "illegal remote ACTION payload (decision="
-                                                    + action[0] + ", amount=" + wireActionAmount + ")");
+                                                    + action[0] + ", amount=" + wireActionAmount
+                                                    + ", playerBet=" + jugador.getBet()
+                                                    + ", playerStack=" + jugador.getStack()
+                                                    + ", currentBet=" + this.apuesta_actual
+                                                    + ", lastRaise=" + this.ultimo_raise
+                                                    + ", bigBlind=" + this.ciega_grande
+                                                    + ", raiseEntitled="
+                                                    + canPlayerRaise(jugador.getNickname()) + ")");
                                         }
                                         action[1] = wireActionAmount;
                                         action[2] = null;
@@ -24083,8 +24117,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // A stale ALL_IN here makes the following showdown treat the
                 // departed player as a contender and request a proof belonging
                 // to the previous hand, which correctly fails closed as a
-                // misdeal. Clear only completed-hand betting state; keep stack
-                // + pending payout intact for the auditor above.
+                // misdeal. The winner's payout must also be consolidated now:
+                // exited players never enter nuevaMano(), which is the normal
+                // place that moves pagar into stack and clears it. Leaving the
+                // old pagar pending made the next hand's settlement count the
+                // previous prize again. Preserve the exact effective balance
+                // recorded in the auditor while removing that stale hand state.
+                double pendingPayout = jugador.getPagar();
+                if (MoneyMath.compare(pendingPayout, 0d) > 0) {
+                    jugador.setStack(MoneyMath.clean(
+                            jugador.getStack() + pendingPayout));
+                    jugador.setPagar(0d);
+                }
                 jugador.resetBetDecision();
                 jugador.resetBote();
                 exit++;
@@ -25706,11 +25750,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        // SERVEREXITRECOVER is a host-directed teardown: its frame already
-        // carries the authoritative transition and the socket reader retires
-        // that connection before this old Crupier reaches its tail. Normal
-        // voluntary/final client exits still send their testament.
-        if (!localHost && !force_recover) {
+        // An authenticated SERVEREXIT or SERVEREXITRECOVER is a host-directed
+        // teardown: its frame already carries the authoritative transition and
+        // the socket reader may retire the outbox before this dealer tail runs.
+        // Only a locally initiated voluntary/final client exit sends testament.
+        if (!localHost && !force_recover
+                && !authoritative_termination_received) {
             sendLocalExitOnce(false);
         }
 

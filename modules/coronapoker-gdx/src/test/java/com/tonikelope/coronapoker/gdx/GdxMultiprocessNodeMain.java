@@ -2298,8 +2298,9 @@ public final class GdxMultiprocessNodeMain {
                 }
                 if (!renderer.sawDeparture("client1")) {
                     throw new AssertionError(
-                            "all-in exit did not project SE PIRA/LEAVES");
+                            "all-in exit did not project SE VA/LEAVES");
                 }
+                renderer.assertDepartureLabel("client1", "SE VA");
                 renderer.assertNeverShowedReconnectFor("client1");
             }
             return;
@@ -2328,8 +2329,9 @@ public final class GdxMultiprocessNodeMain {
                         "server", "client2", "CoronaBot$1"));
                 if (!renderer.sawDeparture("client1")) {
                     throw new AssertionError(
-                            "controlled-exit did not project SE PIRA/LEAVES");
+                            "controlled-exit did not project SE VA/LEAVES");
                 }
+                renderer.assertDepartureLabel("client1", "SE VA");
                 renderer.assertNeverShowedReconnectFor("client1");
             }
             return;

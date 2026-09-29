@@ -158,9 +158,9 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
         public HandBoundary {
             Objects.requireNonNull(phase, "phase");
             Objects.requireNonNull(snapshot, "snapshot");
-            TableSnapshot.Street expected = phase == Phase.PREPARE
-                    ? TableSnapshot.Street.PREFLOP
-                    : TableSnapshot.Street.SHOWDOWN;
+            TableSnapshot.Street expected = phase == Phase.END
+                    ? TableSnapshot.Street.SHOWDOWN
+                    : TableSnapshot.Street.PREFLOP;
             if (snapshot.street() != expected
                     || !snapshot.currentTurnNickname().isBlank()) {
                 throw new IllegalArgumentException(
@@ -170,6 +170,7 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
 
         public enum Phase {
             PREPARE,
+            SKIP_RECOVERED,
             END
         }
     }

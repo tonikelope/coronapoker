@@ -85,6 +85,44 @@ final class GdxLobbyChatLayoutTest {
     }
 
     @Test
+    void hostConnectionGameInfoAndActionsNeverOverlap() {
+        float connectionBottom = GdxFrontendScreen.LOBBY_CONNECTION_Y;
+        float passwordTop = GdxFrontendScreen.LOBBY_PASSWORD_Y
+                + GdxFrontendScreen.LOBBY_PASSWORD_HEIGHT;
+        float infoTop = GdxFrontendScreen.LOBBY_GAME_INFO_Y
+                + GdxFrontendScreen.LOBBY_GAME_INFO_HEIGHT;
+        float botTop = GdxFrontendScreen.LOBBY_BOT_BUTTON_Y
+                + GdxFrontendScreen.LOBBY_BOT_BUTTON_HEIGHT;
+        float kickTop = GdxFrontendScreen.LOBBY_KICK_BUTTON_Y
+                + GdxFrontendScreen.LOBBY_KICK_BUTTON_HEIGHT;
+        float playTop = GdxFrontendScreen.LOBBY_PLAY_BUTTON_Y
+                + GdxFrontendScreen.LOBBY_PLAY_BUTTON_HEIGHT;
+
+        assertTrue(passwordTop < connectionBottom);
+        assertTrue(infoTop < GdxFrontendScreen.LOBBY_PASSWORD_Y);
+        assertTrue(botTop < GdxFrontendScreen.LOBBY_GAME_INFO_Y);
+        assertTrue(kickTop < GdxFrontendScreen.LOBBY_BOT_BUTTON_Y);
+        assertTrue(playTop < GdxFrontendScreen.LOBBY_KICK_BUTTON_Y);
+    }
+
+    @Test
+    void everyLobbyInformationRowStaysInsideItsFrameAtMaximumOccupancy() {
+        int maximumVisibleRows = 3;
+        float bottom = GdxFrontendScreen.LOBBY_GAME_INFO_Y;
+        float top = bottom + GdxFrontendScreen.LOBBY_GAME_INFO_HEIGHT;
+        float previous = Float.POSITIVE_INFINITY;
+        for (int index = 0; index < maximumVisibleRows; index++) {
+            float baseline = GdxFrontendScreen.lobbyInfoRowBaseline(bottom,
+                    GdxFrontendScreen.LOBBY_GAME_INFO_HEIGHT,
+                    maximumVisibleRows, index);
+            assertTrue(baseline > bottom + 14f);
+            assertTrue(baseline < top - 14f);
+            assertTrue(baseline < previous);
+            previous = baseline;
+        }
+    }
+
+    @Test
     void inTableGalleryKeepsEightLargeThumbnailsInsideItsPanel() {
         Rectangle panel = new Rectangle(80f, 120f, 1072f, 500f);
         Rectangle[] cells = new Rectangle[8];

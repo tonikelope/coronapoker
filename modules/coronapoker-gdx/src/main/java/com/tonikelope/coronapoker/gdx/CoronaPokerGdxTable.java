@@ -121,6 +121,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"
     };
     private static final String[] INTRO_CARD_SUITS = {"C", "D", "P", "T"};
+    private static final String[] FAST_BUTTON_ICON_PATHS = {
+        "images/menu/gear.png", "images/fast_panel/chat.png",
+        "images/fast_panel/mic.png", "images/fast_panel/image.png",
+        "images/fast_panel/rebuy.png", "images/fast_panel/log.png",
+        "images/fast_panel/fullscreen.png", "images/stop.png",
+        "images/exit2.png"
+    };
     private static final String[] HAND_TRANSLATION_KEYS = {
         "hand.high_card", "hand.one_pair", "hand.two_pair",
         "hand.three_of_a_kind", "hand.straight", "hand.flush",
@@ -937,9 +944,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private int frameCount;
     private boolean intro = true;
     private int creationPhase = -1;
+    private int creationResourceIndex;
     private int creationCardIndex;
     private int creationAvatarIndex;
     private boolean creationComplete;
+    private FreeTypeFontGenerator creationFontGenerator;
     private CompletableFuture<StreamingGifTextureAnimation.PreparedLooping>
             shufflePreparation;
     private StreamingGifTextureAnimation.PreparedLooping preparedShuffle;
@@ -2220,22 +2229,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (creationComplete) return true;
         if (creationPhase < 0) beginCreate();
         switch (creationPhase) {
-            case 0 -> advanceCreation(this::createGraphicsCore);
-            case 1 -> advanceCreation(this::createSharedVisuals);
-            case 2 -> advanceCreation(this::createTableChrome);
-            case 3 -> advanceCreation(this::createTableCardsAndChips);
+            case 0 -> advanceCreationStep(createNextGraphicsCore());
+            case 1 -> advanceCreationStep(createNextSharedVisual());
+            case 2 -> advanceCreationStep(createNextTableChromeResource());
+            case 3 -> advanceCreationStep(createNextCardAndChipResource());
             case 4 -> {
-                if (createNextCardFace()) creationPhase++;
+                if (createNextCardFace()) finishCreationPhase();
             }
             case 5 -> {
-                if (createNextTableAvatar()) creationPhase++;
+                if (createNextTableAvatar()) finishCreationPhase();
             }
-            case 6 -> advanceCreation(this::createTableAudio);
-            case 7 -> advanceCreation(this::createPrimaryFonts);
-            case 8 -> advanceCreation(this::createReportAndLogFonts);
+            case 6 -> advanceCreationStep(createNextTableAudioResource());
+            case 7 -> advanceCreationStep(createNextPrimaryFont());
+            case 8 -> advanceCreationStep(createNextReportAndLogFont());
             case 9 -> {
                 if (completeShufflePreparation()) {
-                    advanceCreation(this::finishTableCreation);
+                    finishTableCreation();
+                    finishCreationPhase();
                 }
             }
             default -> creationComplete = true;
@@ -2243,9 +2253,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return creationComplete;
     }
 
-    private void advanceCreation(Runnable phase) {
-        phase.run();
+    private void advanceCreationStep(boolean phaseComplete) {
+        if (phaseComplete) finishCreationPhase();
+    }
+
+    private void finishCreationPhase() {
         creationPhase++;
+        creationResourceIndex = 0;
     }
 
     private boolean createNextCardFace() {
@@ -2265,55 +2279,75 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return creationAvatarIndex >= participants.size();
     }
 
-    private void createGraphicsCore() {
-        camera = new OrthographicCamera();
-        viewport = new ExtendViewport(BASE_WIDTH, BASE_HEIGHT, 2560f, 1440f, camera);
-        shapes = new ShapeRenderer();
-        batch = new SpriteBatch(2000);
-        roundedCardShader = new ShaderProgram(CARD_VERTEX_SHADER, CARD_FRAGMENT_SHADER);
-        if (!roundedCardShader.isCompiled()) {
-            throw new IllegalStateException("Rounded-card shader: " + roundedCardShader.getLog());
+    private boolean createNextGraphicsCore() {
+        switch (creationResourceIndex++) {
+            case 0 -> {
+                camera = new OrthographicCamera();
+                viewport = new ExtendViewport(BASE_WIDTH, BASE_HEIGHT,
+                        2560f, 1440f, camera);
+                shapes = new ShapeRenderer();
+                batch = new SpriteBatch(2000);
+            }
+            case 1 -> {
+                roundedCardShader = new ShaderProgram(CARD_VERTEX_SHADER,
+                        CARD_FRAGMENT_SHADER);
+                requireCompiled(roundedCardShader, "Rounded-card shader");
+                if (startupIntroOnly) return true;
+            }
+            case 2 -> {
+                rabbitPeelShader = new ShaderProgram(CARD_VERTEX_SHADER,
+                        RABBIT_PEEL_FRAGMENT_SHADER);
+                requireCompiled(rabbitPeelShader, "Rabbit peel shader");
+            }
+            case 3 -> {
+                avatarShader = new ShaderProgram(CARD_VERTEX_SHADER,
+                        AVATAR_FRAGMENT_SHADER);
+                requireCompiled(avatarShader, "Avatar shader");
+            }
+            case 4 -> {
+                allInFireShader = new ShaderProgram(CARD_VERTEX_SHADER,
+                        ALL_IN_FIRE_FRAGMENT_SHADER);
+                if (!allInFireShader.isCompiled()) {
+                    System.err.println("ALL-IN fire shader disabled: "
+                            + allInFireShader.getLog());
+                    allInFireShader.dispose();
+                    allInFireShader = null;
+                }
+            }
+            case 5 -> allInFireCanvas = createSolidTexture(Color.WHITE);
+            case 6 -> {
+                backdropBlurShader = new ShaderProgram(BACKDROP_VERTEX_SHADER,
+                        BACKDROP_BLUR_FRAGMENT_SHADER);
+                requireCompiled(backdropBlurShader, "Backdrop blur shader");
+                return true;
+            }
+            default -> { return true; }
         }
-        if (!startupIntroOnly) {
-            rabbitPeelShader = new ShaderProgram(CARD_VERTEX_SHADER,
-                    RABBIT_PEEL_FRAGMENT_SHADER);
-            if (!rabbitPeelShader.isCompiled()) {
-                throw new IllegalStateException("Rabbit peel shader: "
-                        + rabbitPeelShader.getLog());
-            }
-            avatarShader = new ShaderProgram(CARD_VERTEX_SHADER,
-                    AVATAR_FRAGMENT_SHADER);
-            if (!avatarShader.isCompiled()) {
-                throw new IllegalStateException("Avatar shader: "
-                        + avatarShader.getLog());
-            }
-            allInFireShader = new ShaderProgram(CARD_VERTEX_SHADER,
-                    ALL_IN_FIRE_FRAGMENT_SHADER);
-            if (!allInFireShader.isCompiled()) {
-                System.err.println("ALL-IN fire shader disabled: "
-                        + allInFireShader.getLog());
-                allInFireShader.dispose();
-                allInFireShader = null;
-            }
-            allInFireCanvas = createSolidTexture(Color.WHITE);
-            backdropBlurShader = new ShaderProgram(BACKDROP_VERTEX_SHADER,
-                    BACKDROP_BLUR_FRAGMENT_SHADER);
-            if (!backdropBlurShader.isCompiled()) {
-                throw new IllegalStateException("Backdrop blur shader: "
-                        + backdropBlurShader.getLog());
-            }
+        return false;
+    }
+
+    private static void requireCompiled(ShaderProgram shader, String name) {
+        if (!shader.isCompiled()) {
+            throw new IllegalStateException(name + ": " + shader.getLog());
         }
     }
 
-    private void createSharedVisuals() {
+    private boolean createNextSharedVisual() {
         // The intro enlarges the official logo substantially. Use its exact
         // 2x source there so the dock animation never magnifies the 525 px
         // menu asset and exposes jagged/pixelated edges.
-        logo = texture(startupIntroOnly
-                ? "images/coronapoker_logo_big.png"
-                : "images/corona_poker_splash.png");
-        feltTexture = loadFeltTexture(presentationSettings == null
-                ? "verde" : presentationSettings.felt());
+        if (creationResourceIndex == 0) {
+            creationResourceIndex++;
+            logo = texture(startupIntroOnly
+                    ? "images/coronapoker_logo_big.png"
+                    : "images/corona_poker_splash.png");
+            return false;
+        }
+        if (creationResourceIndex == 1) {
+            creationResourceIndex++;
+            feltTexture = loadFeltTexture(presentationSettings == null
+                    ? "verde" : presentationSettings.felt());
+        }
         if (startupIntroOnly) {
             defaultCardBack = cardTexture(
                     "images/decks/goliat/hq/trasera.jpg");
@@ -2324,134 +2358,199 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             initialiseStars();
             Gdx.input.setCursorCatched(false);
             creationComplete = true;
-            return;
+            return true;
         }
+        return true;
     }
 
-    private void createTableChrome() {
-        avatarDefault = texture("images/avatar_default.png");
-        avatarBot = texture("images/avatar_bot.png");
-        dealerChip = texture("images/dealer.png");
-        smallBlindChip = texture("images/sb.png");
-        bigBlindChip = texture("images/bb.png");
-        underTheGunIcon = texture("images/utg.png");
-        logMoneyIcon = texture("images/chips.png");
-        logStraddleIcon = texture("images/straddle.png");
-        logDealerStraddleIcon = texture("images/dealer_straddle.png");
-        communityStraddleIcon = texture("images/straddle_small.png");
-        soundIcon = texture("images/sound.png");
-        muteIcon = texture("images/mute.png");
-        blockedSoundIcon = texture("images/sound_b.png");
-        lightsOnIcon = texture("images/lights_on.png");
-        lightsOffIcon = texture("images/lights_off.png");
-        pauseIcon = texture("images/pause.png");
-        foldThumbIcon = texture("images/action/down.png");
-        callThumbIcon = texture("images/action/up.png");
-        timeoutIcon = texture("images/menu/timeout.png");
-        talkIcon = texture("images/talk.png");
-        finalMenuIcon = silhouetteTexture("images/exit2.png", Color.WHITE);
-        finalLogIcon = texture("images/menu/log2.png");
-        finalStatsIcon = texture("images/stats.png");
-        finalContinueIcon = texture("images/continue.png");
-        fastMenuIcon = texture("images/fast_panel/menu.png");
-        fastButtonIcons = new Texture[]{
-            silhouetteTexture("images/menu/gear.png", Color.WHITE),
-            texture("images/fast_panel/chat.png"),
-            texture("images/fast_panel/mic.png"),
-            texture("images/fast_panel/image.png"),
-            texture("images/fast_panel/rebuy.png"),
-            texture("images/fast_panel/log.png"),
-            texture("images/fast_panel/fullscreen.png"),
-            texture("images/stop.png"),
-            silhouetteTexture("images/exit2.png", Color.WHITE)
-        };
+    private boolean createNextTableChromeResource() {
+        int resource = creationResourceIndex++;
+        switch (resource) {
+            case 0 -> avatarDefault = texture("images/avatar_default.png");
+            case 1 -> avatarBot = texture("images/avatar_bot.png");
+            case 2 -> dealerChip = texture("images/dealer.png");
+            case 3 -> smallBlindChip = texture("images/sb.png");
+            case 4 -> bigBlindChip = texture("images/bb.png");
+            case 5 -> underTheGunIcon = texture("images/utg.png");
+            case 6 -> logMoneyIcon = texture("images/chips.png");
+            case 7 -> logStraddleIcon = texture("images/straddle.png");
+            case 8 -> logDealerStraddleIcon = texture("images/dealer_straddle.png");
+            case 9 -> communityStraddleIcon = texture("images/straddle_small.png");
+            case 10 -> soundIcon = texture("images/sound.png");
+            case 11 -> muteIcon = texture("images/mute.png");
+            case 12 -> blockedSoundIcon = texture("images/sound_b.png");
+            case 13 -> lightsOnIcon = texture("images/lights_on.png");
+            case 14 -> lightsOffIcon = texture("images/lights_off.png");
+            case 15 -> pauseIcon = texture("images/pause.png");
+            case 16 -> foldThumbIcon = texture("images/action/down.png");
+            case 17 -> callThumbIcon = texture("images/action/up.png");
+            case 18 -> timeoutIcon = texture("images/menu/timeout.png");
+            case 19 -> talkIcon = texture("images/talk.png");
+            case 20 -> finalMenuIcon = silhouetteTexture(
+                    "images/exit2.png", Color.WHITE);
+            case 21 -> finalLogIcon = texture("images/menu/log2.png");
+            case 22 -> finalStatsIcon = texture("images/stats.png");
+            case 23 -> finalContinueIcon = texture("images/continue.png");
+            case 24 -> fastMenuIcon = texture("images/fast_panel/menu.png");
+            default -> {
+                int fastIcon = resource - 25;
+                if (fastIcon >= FAST_BUTTON_ICON_PATHS.length) return true;
+                if (fastButtonIcons == null) {
+                    fastButtonIcons = new Texture[FAST_BUTTON_ICON_PATHS.length];
+                }
+                fastButtonIcons[fastIcon] = fastIcon == 0
+                        || fastIcon == FAST_BUTTON_ICON_PATHS.length - 1
+                        ? silhouetteTexture(FAST_BUTTON_ICON_PATHS[fastIcon],
+                                Color.WHITE)
+                        : texture(FAST_BUTTON_ICON_PATHS[fastIcon]);
+                if (fastIcon == FAST_BUTTON_ICON_PATHS.length - 1) return true;
+            }
+        }
+        return false;
     }
 
-    private void createTableCardsAndChips() {
-        defaultCardBack = cardTexture("images/decks/goliat/hq/trasera.jpg");
-        rabbitCardBack = cardTexture("images/bugs2.png");
-        rabbitRevealOverlay = cardTexture("images/bugs2_b.png");
-        flyingChips = new Texture[]{
-            createChipTexture(new Color(0xd72d3bff), new Color(0x7f101bff)),
-            createChipTexture(new Color(0x247ee8ff), new Color(0x10458fff)),
-            createChipTexture(new Color(0x20a96bff), new Color(0x0d6840ff)),
-            createChipTexture(new Color(0xe2a72fff), new Color(0x936312ff))
-        };
-        pot = texture("images/pot.png");
+    private boolean createNextCardAndChipResource() {
+        switch (creationResourceIndex++) {
+            case 0 -> defaultCardBack = cardTexture(
+                    "images/decks/goliat/hq/trasera.jpg");
+            case 1 -> rabbitCardBack = cardTexture("images/bugs2.png");
+            case 2 -> rabbitRevealOverlay = cardTexture("images/bugs2_b.png");
+            case 3 -> {
+                flyingChips = new Texture[4];
+                flyingChips[0] = createChipTexture(new Color(0xd72d3bff),
+                        new Color(0x7f101bff));
+            }
+            case 4 -> flyingChips[1] = createChipTexture(
+                    new Color(0x247ee8ff), new Color(0x10458fff));
+            case 5 -> flyingChips[2] = createChipTexture(
+                    new Color(0x20a96bff), new Color(0x0d6840ff));
+            case 6 -> flyingChips[3] = createChipTexture(
+                    new Color(0xe2a72fff), new Color(0x936312ff));
+            case 7 -> {
+                pot = texture("images/pot.png");
+                return true;
+            }
+            default -> { return true; }
+        }
+        return false;
     }
 
-    private void createTableAudio() {
-        FileHandle shuffleAudio = gameAudioResource("misc/shuffle.wav");
-        shuffleSoundDurationSeconds = wavDurationSeconds(shuffleAudio,
-                SHUFFLE_AUDIO_FALLBACK_SECONDS);
-        shuffleSound = Gdx.audio.newSound(shuffleAudio);
-        dealSound = gameSound("misc/deal.wav");
-        uncoverSound = gameSound("misc/uncover.wav");
-        checkSound = gameSound("misc/check.wav");
-        callSound = gameSound("misc/call.wav");
-        betSound = gameSound("misc/bet.wav");
-        foldSound = gameSound("misc/fold.wav");
-        allInSound = gameSound("misc/allin.wav");
-        buttonOnSound = gameSound("misc/button_on.wav");
-        buttonOffSound = gameSound("misc/button_off.wav");
-        balanceCountSound = gameSound("misc/balance_count.wav");
-        cardViewerSound = gameSound("misc/card_visor.wav");
-        screenshotSound = gameSound("misc/screenshot.wav");
-        feltChangeSound = gameSound("misc/mat.wav");
+    private boolean createNextTableAudioResource() {
+        switch (creationResourceIndex++) {
+            case 0 -> {
+                FileHandle shuffleAudio = gameAudioResource("misc/shuffle.wav");
+                shuffleSoundDurationSeconds = wavDurationSeconds(shuffleAudio,
+                        SHUFFLE_AUDIO_FALLBACK_SECONDS);
+                shuffleSound = Gdx.audio.newSound(shuffleAudio);
+            }
+            case 1 -> dealSound = gameSound("misc/deal.wav");
+            case 2 -> uncoverSound = gameSound("misc/uncover.wav");
+            case 3 -> checkSound = gameSound("misc/check.wav");
+            case 4 -> callSound = gameSound("misc/call.wav");
+            case 5 -> betSound = gameSound("misc/bet.wav");
+            case 6 -> foldSound = gameSound("misc/fold.wav");
+            case 7 -> allInSound = gameSound("misc/allin.wav");
+            case 8 -> buttonOnSound = gameSound("misc/button_on.wav");
+            case 9 -> buttonOffSound = gameSound("misc/button_off.wav");
+            case 10 -> balanceCountSound = gameSound("misc/balance_count.wav");
+            case 11 -> cardViewerSound = gameSound("misc/card_visor.wav");
+            case 12 -> screenshotSound = gameSound("misc/screenshot.wav");
+            case 13 -> {
+                feltChangeSound = gameSound("misc/mat.wav");
+                return true;
+            }
+            default -> { return true; }
+        }
+        return false;
     }
 
-    private void createPrimaryFonts() {
-        FreeTypeFontGenerator generator = new FreeTypeFontGenerator(
-                Gdx.files.internal("fonts/McLaren-Regular.ttf"));
-        uiFont = font(generator, 31, 1.2f);
-        smallFont = font(generator, 21, 0.8f);
-        versionFont = font(generator, 15, 0f);
-        playerNameFont = font(generator, 22, 1.6f);
-        stackFont = font(generator, 24, 0f);
+    private boolean createNextPrimaryFont() {
+        if (creationResourceIndex == 0) {
+            creationFontGenerator = new FreeTypeFontGenerator(
+                    Gdx.files.internal("fonts/McLaren-Regular.ttf"));
+            creationResourceIndex++;
+            return false;
+        }
+        switch (creationResourceIndex++) {
+            case 1 -> uiFont = font(creationFontGenerator, 31, 1.2f);
+            case 2 -> smallFont = font(creationFontGenerator, 21, 0.8f);
+            case 3 -> versionFont = font(creationFontGenerator, 15, 0f);
+            case 4 -> playerNameFont = font(creationFontGenerator, 22, 1.6f);
+            case 5 -> stackFont = font(creationFontGenerator, 24, 0f);
         // Action surfaces already provide their own contrast. A heavy glyph
         // outline makes black labels such as SUBE/VA look double-bold, so the
         // canonical Swing palette is kept with a clean, consistent face.
-        actionFont = font(generator, 22, 0f);
-        seatActionFont = font(generator, 32, 0f);
+            case 6 -> actionFont = font(creationFontGenerator, 22, 0f);
+            case 7 -> seatActionFont = font(creationFontGenerator, 32, 0f);
         // The local result belongs to the in-game HUD, so it must use the
         // same McLaren face as the rest of the table rather than the bold
         // Montserrat reserved for the final balance report.
-        localOutcomeFont = font(generator, 58, 0f);
-        callCostFont = font(generator, 160, 6f,
-                new Color(0f, 0f, 0f, 0.80f),
-                new Color(1f, 1f, 0f, 0.80f));
-        pauseFont = font(generator, 76, 0f,
-                PAUSE_RED, new Color(0x640000cc));
-        finalButtonFont = font(generator, 26, 0.2f);
-        generator.dispose();
+            case 8 -> localOutcomeFont = font(creationFontGenerator, 58, 0f);
+            case 9 -> callCostFont = font(creationFontGenerator, 160, 6f,
+                    new Color(0f, 0f, 0f, 0.80f),
+                    new Color(1f, 1f, 0f, 0.80f));
+            case 10 -> pauseFont = font(creationFontGenerator, 76, 0f,
+                    PAUSE_RED, new Color(0x640000cc));
+            case 11 -> {
+                finalButtonFont = font(creationFontGenerator, 26, 0.2f);
+                disposeCreationFontGenerator();
+                return true;
+            }
+            default -> {
+                disposeCreationFontGenerator();
+                return true;
+            }
+        }
+        return false;
     }
 
-    private void createReportAndLogFonts() {
+    private boolean createNextReportAndLogFont() {
         // BalanceScreen uses a bold Dialog face. Generate the GDX equivalents
         // natively at display size: enlarging uiFont's 31 px atlas made the
         // final title visibly pixelated at 1080p and above.
-        FreeTypeFontGenerator balanceGenerator = new FreeTypeFontGenerator(
-                Gdx.files.internal("fonts/Montserrat-Bold.ttf"));
-        finalTitleFont = font(balanceGenerator, 66, 0f);
-        finalHeroFont = font(balanceGenerator, 173, 5.5f,
-                Color.WHITE, new Color(0x000000ef));
-        finalAmountFont = font(balanceGenerator, 162, 5.5f,
-                Color.WHITE, new Color(0x000000ef));
-        finalCardBoldFont = font(balanceGenerator, 20, 0f);
-        balanceGenerator.dispose();
-        FreeTypeFontGenerator balanceDetailGenerator
-                = new FreeTypeFontGenerator(
+        switch (creationResourceIndex++) {
+            case 0 -> creationFontGenerator = new FreeTypeFontGenerator(
+                    Gdx.files.internal("fonts/Montserrat-Bold.ttf"));
+            case 1 -> finalTitleFont = font(creationFontGenerator, 66, 0f);
+            case 2 -> finalHeroFont = font(creationFontGenerator, 173, 5.5f,
+                    Color.WHITE, new Color(0x000000ef));
+            case 3 -> finalAmountFont = font(creationFontGenerator, 162, 5.5f,
+                    Color.WHITE, new Color(0x000000ef));
+            case 4 -> finalCardBoldFont = font(creationFontGenerator, 20, 0f);
+            case 5 -> {
+                disposeCreationFontGenerator();
+                creationFontGenerator = new FreeTypeFontGenerator(
                         Gdx.files.internal("fonts/Inter-Medium.ttf"));
-        finalDetailFont = font(balanceDetailGenerator, 38, 0f);
-        finalCardFont = font(balanceDetailGenerator, 18, 0f);
-        balanceDetailGenerator.dispose();
-        FreeTypeFontGenerator logGenerator = gameLogFontGenerator(false);
-        gameLogFont = font(logGenerator, 20, 0f);
-        logGenerator.dispose();
-        FreeTypeFontGenerator logBoldGenerator = gameLogFontGenerator(true);
-        gameLogBoldFont = font(logBoldGenerator, 20, 0f);
-        gameLogSuitFont = font(logBoldGenerator, 28, 0f);
-        logBoldGenerator.dispose();
+            }
+            case 6 -> finalDetailFont = font(creationFontGenerator, 38, 0f);
+            case 7 -> finalCardFont = font(creationFontGenerator, 18, 0f);
+            case 8 -> {
+                disposeCreationFontGenerator();
+                creationFontGenerator = gameLogFontGenerator(false);
+            }
+            case 9 -> gameLogFont = font(creationFontGenerator, 20, 0f);
+            case 10 -> {
+                disposeCreationFontGenerator();
+                creationFontGenerator = gameLogFontGenerator(true);
+            }
+            case 11 -> gameLogBoldFont = font(creationFontGenerator, 20, 0f);
+            case 12 -> {
+                gameLogSuitFont = font(creationFontGenerator, 28, 0f);
+                disposeCreationFontGenerator();
+                return true;
+            }
+            default -> {
+                disposeCreationFontGenerator();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void disposeCreationFontGenerator() {
+        if (creationFontGenerator == null) return;
+        creationFontGenerator.dispose();
+        creationFontGenerator = null;
     }
 
     private void finishTableCreation() {
@@ -4279,8 +4378,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         "exit.salir_de_la_timba_pregunta")),
                 com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.EXIT,
                 760, 0, false,
-                uppercase(gameText.translate("ui.cancelar")),
-                uppercase(gameText.translate("ui.aceptar")));
+                uppercase(gameText.translate("ui.seguir_jugando")),
+                uppercase(gameText.translate("ui.salir"))).exitChoice();
         terminationConfirmation = confirmation;
         confirmation.result().thenAccept(accepted -> {
             if (terminationConfirmation == confirmation) {
@@ -4320,8 +4419,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         "exit.salir_de_la_timba_pregunta")),
                 com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.EXIT,
                 760, 0, false,
-                uppercase(gameText.translate("ui.cancelar")),
-                uppercase(gameText.translate("ui.aceptar")));
+                uppercase(gameText.translate("ui.seguir_jugando")),
+                uppercase(gameText.translate("ui.salir"))).exitChoice();
         terminationConfirmation = confirmation;
         confirmation.result().thenAccept(accepted -> {
             if (terminationConfirmation == confirmation) {
@@ -13152,11 +13251,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 panelW - 56f, contentH, 1f);
         if (dialog.showsNegative() && !dialog.waitingForExternalClose()) {
             drawDialogButton(negativeX, buttonY, negativeW, buttonH,
-                    BUTTON_LINE, contains(pointer.x, pointer.y,
+                    dialog.isExitChoice() ? LEGACY_CHECK : BUTTON_LINE,
+                    contains(pointer.x, pointer.y,
                             negativeX, buttonY, negativeW, buttonH), 1f);
         }
         if (dialog.showsPositive() && !dialog.waitingForExternalClose()) {
-            drawDialogButton(acceptX, panelY + 34f, 230f, 64f, accent,
+            drawDialogButton(acceptX, panelY + 34f, 230f, 64f,
+                    dialog.isExitChoice() ? FOLD_RED : accent,
                     contains(pointer.x, pointer.y, acceptX,
                             panelY + 34f, 230f, 64f), 1f);
         }
@@ -16973,6 +17074,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     void disposeFailedCreation() {
         disposed = true;
         cancelShufflePreparation();
+        disposeSafely(creationFontGenerator);
+        creationFontGenerator = null;
         disposeSafely(backgroundMusic);
         disposeSafely(shuffleSound);
         disposeSafely(dealSound);

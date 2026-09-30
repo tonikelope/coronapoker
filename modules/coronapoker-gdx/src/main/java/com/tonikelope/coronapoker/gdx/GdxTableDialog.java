@@ -51,6 +51,7 @@ final class GdxTableDialog {
     private boolean recovery;
     private boolean deferCloseAfterDecision;
     private boolean externalCloseReleased;
+    private boolean exitChoice;
     private String waitingMessage = "";
 
     GdxTableDialog(Kind kind, String message, GameDialogSink.Icon icon,
@@ -243,6 +244,7 @@ final class GdxTableDialog {
     boolean isRebuy() { return kind == Kind.REBUY; }
     boolean allowsDismissal() { return !isRebuy() || showsNegative(); }
     boolean isHandLimit() { return kind == Kind.HAND_LIMIT; }
+    boolean isExitChoice() { return exitChoice; }
     boolean isExternallyControlled() { return externallyControlled; }
     boolean waitingForExternalClose() {
         return deferCloseAfterDecision && result.isDone()
@@ -261,6 +263,11 @@ final class GdxTableDialog {
     int minimumAmount() { return minimumAmount; }
     int maximumAmount() { return maximumAmount; }
     CompletionStage<Boolean> result() { return result; }
+
+    GdxTableDialog exitChoice() {
+        exitChoice = true;
+        return this;
+    }
 
     void message(String value) {
         message = plainText(Objects.requireNonNull(value, "value"));

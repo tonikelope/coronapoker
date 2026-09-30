@@ -60,6 +60,9 @@ final class GdxTableTerminationWiringTest {
 
         assertNotNull(dialog);
         assertEquals(GdxTableDialog.Kind.CONFIRM, dialog.kind());
+        assertEquals("SEGUIR JUGANDO", dialog.negativeLabel());
+        assertEquals("SALIR", dialog.positiveLabel());
+        assertTrue(dialog.isExitChoice());
         assertEquals(0, submitted.size());
 
         dialog.accept();

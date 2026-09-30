@@ -97,6 +97,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float MENU_LOGO_X = 42f;
     static final float MENU_LOGO_TOP = 32f;
     static final float MENU_LOGO_WIDTH = 320f;
+    static final float LOBBY_LEFT_CONTENT_X = 60f;
+    static final float LOBBY_LEFT_CONTENT_WIDTH = 380f;
+    static final float LOBBY_CONNECTION_Y = 674f;
+    static final float LOBBY_CONNECTION_HEIGHT = 82f;
+    static final float LOBBY_PASSWORD_Y = 608f;
+    static final float LOBBY_PASSWORD_HEIGHT = 48f;
+    static final float LOBBY_GAME_INFO_Y = 454f;
+    static final float LOBBY_GAME_INFO_HEIGHT = 138f;
+    static final float LOBBY_BOT_BUTTON_Y = 370f;
+    static final float LOBBY_BOT_BUTTON_HEIGHT = 62f;
+    static final float LOBBY_KICK_BUTTON_Y = 292f;
+    static final float LOBBY_KICK_BUTTON_HEIGHT = 62f;
+    static final float LOBBY_PLAY_BUTTON_Y = 198f;
+    static final float LOBBY_PLAY_BUTTON_HEIGHT = 76f;
     private static final float MENU_REVEAL_SECONDS = 0.78f;
     private static final String SPRITE_VERTEX_SHADER = "attribute vec4 a_position;\n"
             + "attribute vec4 a_color;\n"
@@ -348,6 +362,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean lobbyPasswordDialog;
     private String lobbyPasswordDraft = "";
     private String lobbyPublicAddress = "";
+    private String cachedLobbyPublicAddress = "";
     private boolean lobbyPublicAddressLoading;
     private long lobbyPublicAddressGeneration;
     private PresetDialog presetDialog = PresetDialog.NONE;
@@ -970,9 +985,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void loadLobbyPublicAddress(boolean host) {
         long generation = ++lobbyPublicAddressGeneration;
-        lobbyPublicAddress = "";
-        lobbyPublicAddressLoading = host;
+        lobbyPublicAddress = host ? cachedLobbyPublicAddress : "";
+        lobbyPublicAddressLoading = host && lobbyPublicAddress.isBlank();
         if (!host) return;
+        if (!lobbyPublicAddress.isBlank()) return;
         CompletableFuture.supplyAsync(() -> {
             try {
                 return Objects.requireNonNullElse(UPnP.getExternalIP(), "");
@@ -991,6 +1007,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     lobbyPublicAddress = failure == null
                             ? Objects.requireNonNullElse(address, "").trim()
                             : "";
+                    if (!lobbyPublicAddress.isBlank()) {
+                        cachedLobbyPublicAddress = lobbyPublicAddress;
+                    }
                 }));
     }
 
@@ -2974,42 +2993,56 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
         panel(35f, 180f, 430f, 650f,
                 uppercase(gameText.translate("game.timba")));
+        float connectionY = state.host() ? LOBBY_CONNECTION_Y : 694f;
+        float connectionHeight = state.host()
+                ? LOBBY_CONNECTION_HEIGHT : 62f;
+        outerBox(LOBBY_LEFT_CONTENT_X, connectionY,
+                LOBBY_LEFT_CONTENT_WIDTH, connectionHeight,
+                new Color(0x31445fcc), new Color(0x081525a8));
+        float serverBaseline = 733f;
         text(tinyFont, uppercase(gameText.translate("ui.servidor")),
-                70f, 748f, MUTED, false);
+                76f, serverBaseline, MUTED, false);
         if (state.host()) {
             String networkStatus = lobbyNetworkStatusText(
                     state.statusDetail(), gameText);
             if (!networkStatus.isBlank()) {
-                textFit(tinyFont, uppercase(networkStatus), 320f, 748f,
+                textFit(tinyFont, uppercase(networkStatus), 326f,
+                        serverBaseline,
                         "UPNP_OK".equals(state.statusDetail())
                                 ? new Color(0x65e89fff) : ORANGE,
-                        true, 210f);
+                        true, 102f);
             }
         }
-        float serverAddressWidth = state.host() ? 140f : 255f;
-        textFit(smallFont, state.serverAddress(), 170f, 748f,
+        float serverAddressWidth = state.host() ? 144f : 245f;
+        textFit(smallFont, state.serverAddress(), 176f, serverBaseline,
                 Color.WHITE, false, serverAddressWidth);
         if (state.host()) {
-            hit(160f, 720f, 150f, 42f, this::copyLobbyConnectionData);
             text(tinyFont, uppercase(gameText.translate(
-                    "gdx.lobby.public_address")), 70f, 704f, MUTED, false);
+                    "gdx.lobby.public_address")), 76f, 695f, MUTED, false);
             String publicAddress = lobbyPublicAddressLoading
                     ? gameText.translate("gdx.loading")
                     : lobbyPublicAddress.isBlank()
                             ? gameText.translate(
                                     "gdx.lobby.public_address_unavailable")
                             : lobbyPublicAddress;
-            textFit(smallFont, publicAddress, 205f, 704f,
+            textFit(smallFont, publicAddress, 205f, 695f,
                     lobbyPublicAddress.isBlank() ? DISABLED : Color.WHITE,
                     false, 225f);
+            hit(LOBBY_LEFT_CONTENT_X, connectionY,
+                    LOBBY_LEFT_CONTENT_WIDTH, connectionHeight,
+                    this::copyLobbyConnectionData);
         }
-        drawLobbyGameInfo(state, 70f, state.host() ? 575f : 645f);
+        drawLobbyGameInfo(state, LOBBY_LEFT_CONTENT_X,
+                state.host() ? LOBBY_GAME_INFO_Y : 516f,
+                LOBBY_LEFT_CONTENT_WIDTH,
+                state.host() ? LOBBY_GAME_INFO_HEIGHT : 138f);
         if (state.host()) {
-            button(70f, 620f, 360f, 46f,
+            button(70f, LOBBY_PASSWORD_Y, 360f, LOBBY_PASSWORD_HEIGHT,
                     uppercase(gameText.translate("auth.menu_cambiar_password")),
                     false, this::openLobbyPasswordDialog,
                     !lobbyCommandPending && !state.startingOrStarted());
-            lobbyBotButton(70f, 392f, 360f, 64f,
+            lobbyBotButton(70f, LOBBY_BOT_BUTTON_Y, 360f,
+                    LOBBY_BOT_BUTTON_HEIGHT,
                     uppercase(gameText.translate("ui.anadir_bot")),
                     () -> submitLobbyCommand(new LobbyCommand.AddBot(), null),
                     !lobbyCommandPending
@@ -3017,12 +3050,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             && !state.startingOrStarted());
             boolean kickEnabled = selectedRemoteParticipant(state) != null
                     && !state.startingOrStarted();
-            themedButton(70f, 312f, 360f, 64f,
+            themedButton(70f, LOBBY_KICK_BUTTON_Y, 360f,
+                    LOBBY_KICK_BUTTON_HEIGHT,
                     uppercase(gameText.translate("ui.expulsar_jugador")),
                     ButtonTone.DANGER,
                     this::kickSelectedParticipant,
                     !lobbyCommandPending && kickEnabled);
-            themedButton(70f, 215f, 360f, 76f,
+            themedButton(70f, LOBBY_PLAY_BUTTON_Y, 360f,
+                    LOBBY_PLAY_BUTTON_HEIGHT,
                     uppercase(gameText.translate("ui.a_jugar")),
                     ButtonTone.POSITIVE,
                     () -> lobbyConfirmation = LobbyConfirmation.START,
@@ -3929,35 +3964,62 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
     }
 
-    private void drawLobbyGameInfo(LobbySnapshot state, float x, float y) {
+    private void drawLobbyGameInfo(LobbySnapshot state, float x, float y,
+            float width, float height) {
+        outerBox(x, y, width, height, new Color(0x31445fcc),
+                new Color(0x081525a8));
         NewGameTableDraft.Settings settings = state.tableSettings();
         if (settings == null) {
             textFit(smallFont, gameText.translate(
                     "status.recibiendo_info_servidor"),
-                    x, y, MUTED, false, 390f);
+                    x + 16f, y + height / 2f + 8f, MUTED, false,
+                    width - 32f);
             return;
         }
         NewGameTableDraft.BlindLevel blind = settings.blindLevels()
                 .get(settings.blindLevelIndex());
-        lobbyInfoRow(x, y, gameText.translate("ui.compra"),
-                settings.fixedBuyin() ? Integer.toString(settings.buyin())
-                        : gameText.translate(
-                                "gdx.settings.game.summary.value.variable"));
-        lobbyInfoRow(x, y - 70f, gameText.translate("blinds.ciegas"),
-                money(blind.smallBlind())
-                + " / " + money(blind.bigBlind()));
-        lobbyInfoRow(x, y - 140f, gameText.translate("game.manos"),
-                settings.handLimit()
-                ? Integer.toString(settings.handLimitCount())
-                : gameText.translate("gdx.lobby.no_hand_limit"));
+        List<LobbyInfoItem> rows = List.of(
+                new LobbyInfoItem(gameText.translate("ui.compra"),
+                        settings.fixedBuyin()
+                                ? Integer.toString(settings.buyin())
+                                : gameText.translate(
+                                        "gdx.settings.game.summary.value.variable")),
+                new LobbyInfoItem(gameText.translate("blinds.ciegas"),
+                        money(blind.smallBlind()) + " / "
+                                + money(blind.bigBlind())),
+                new LobbyInfoItem(gameText.translate("game.manos"),
+                        settings.handLimit()
+                                ? Integer.toString(settings.handLimitCount())
+                                : gameText.translate(
+                                        "gdx.lobby.no_hand_limit")));
+        for (int index = 0; index < rows.size(); index++) {
+            LobbyInfoItem row = rows.get(index);
+            lobbyInfoRow(x + 16f,
+                    lobbyInfoRowBaseline(y, height, rows.size(), index),
+                    width - 32f, row.label(), row.value(),
+                    index < rows.size() - 1);
+        }
     }
 
-    private void lobbyInfoRow(float x, float y, String label, String value) {
-        shapes.setColor(new Color(0x31445f77));
-        shapes.rect(x, y - 18f, 390f, 1f);
-        textFit(smallFont, label, x, y + 18f, MUTED, false, 120f);
-        textFit(smallFont, value, x + 135f, y + 18f,
-                Color.WHITE, false, 255f);
+    private void lobbyInfoRow(float x, float baseline, float width,
+            String label, String value, boolean separator) {
+        if (separator) {
+            shapes.setColor(new Color(0x31445f77));
+            shapes.rect(x, baseline - 20f, width, 1f);
+        }
+        textFit(smallFont, label, x, baseline, MUTED, false, 132f);
+        textFit(smallFont, value, x + 148f, baseline,
+                Color.WHITE, false, width - 148f);
+    }
+
+    static float lobbyInfoRowBaseline(float y, float height, int rowCount,
+            int rowIndex) {
+        if (rowCount <= 0 || rowIndex < 0 || rowIndex >= rowCount) {
+            throw new IllegalArgumentException("Invalid lobby information row");
+        }
+        float usableHeight = height - 28f;
+        float rowHeight = usableHeight / rowCount;
+        return y + height - 14f - rowHeight * (rowIndex + 0.5f);
     }
 
     private static String money(double amount) {
@@ -9693,6 +9755,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private record LobbyAvatarItem(Texture texture, float x, float y,
             float size) {
+    }
+
+    private record LobbyInfoItem(String label, String value) {
     }
 
     private record LobbyMessageLayout(float width, float height,

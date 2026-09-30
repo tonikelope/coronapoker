@@ -54,7 +54,11 @@ import java.awt.Desktop;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -74,6 +78,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -112,6 +118,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float LOBBY_PLAY_BUTTON_Y = 198f;
     static final float LOBBY_PLAY_BUTTON_HEIGHT = 76f;
     private static final float MENU_REVEAL_SECONDS = 0.78f;
+    private static final URI PUBLIC_ADDRESS_URI = URI.create(
+            "https://api.ipify.org");
+    private static final Duration PUBLIC_ADDRESS_CONNECT_TIMEOUT =
+            Duration.ofMillis(1_200L);
+    private static final Duration PUBLIC_ADDRESS_REQUEST_TIMEOUT =
+            Duration.ofMillis(1_800L);
+    private static final long PUBLIC_ADDRESS_OVERALL_TIMEOUT_MILLIS = 3_500L;
     private static final String SPRITE_VERTEX_SHADER = "attribute vec4 a_position;\n"
             + "attribute vec4 a_color;\n"
             + "attribute vec2 a_texCoord0;\n"
@@ -495,7 +508,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             thread.setDaemon(true);
             return thread;
         });
-        networkInfoExecutor = Executors.newSingleThreadExecutor(task -> {
+        networkInfoExecutor = Executors.newFixedThreadPool(2, task -> {
             Thread thread = new Thread(task,
                     "CoronaPoker-GDX-public-address-loader");
             thread.setDaemon(true);
@@ -989,16 +1002,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyPublicAddressLoading = host && lobbyPublicAddress.isBlank();
         if (!host) return;
         if (!lobbyPublicAddress.isBlank()) return;
-        CompletableFuture.supplyAsync(() -> {
-            try {
-                return Objects.requireNonNullElse(UPnP.getExternalIP(), "");
-            } catch (RuntimeException failure) {
-                LOGGER.log(Level.FINE,
-                        "Unable to obtain the public address through UPnP",
-                        failure);
-                return "";
-            }
-        }, networkInfoExecutor).whenComplete((address, failure) ->
+        resolveLobbyPublicAddress().whenComplete((address, failure) ->
                 Gdx.app.postRunnable(() -> {
                     if (disposed || generation != lobbyPublicAddressGeneration) {
                         return;
@@ -1011,6 +1015,86 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         cachedLobbyPublicAddress = lobbyPublicAddress;
                     }
                 }));
+    }
+
+    private CompletableFuture<String> resolveLobbyPublicAddress() {
+        CompletableFuture<String> resolved = new CompletableFuture<>();
+        AtomicInteger pending = new AtomicInteger(2);
+        Consumer<String> candidateConsumer = candidate -> {
+            String normalized = normalizePublicAddress(candidate);
+            if (!normalized.isBlank()) {
+                resolved.complete(normalized);
+            } else if (pending.decrementAndGet() == 0) {
+                resolved.complete("");
+            }
+        };
+        CompletableFuture.supplyAsync(this::publicAddressViaHttps,
+                networkInfoExecutor).whenComplete((candidate, failure) -> {
+                    if (failure != null) {
+                        LOGGER.log(Level.FINE,
+                                "Unable to obtain the public address through HTTPS",
+                                failure);
+                    }
+                    candidateConsumer.accept(failure == null ? candidate : "");
+                });
+        CompletableFuture.supplyAsync(this::publicAddressViaUpnp,
+                networkInfoExecutor).whenComplete((candidate, failure) -> {
+                    if (failure != null) {
+                        LOGGER.log(Level.FINE,
+                                "Unable to obtain the public address through UPnP",
+                                failure);
+                    }
+                    candidateConsumer.accept(failure == null ? candidate : "");
+                });
+        return resolved.completeOnTimeout("",
+                PUBLIC_ADDRESS_OVERALL_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+    }
+
+    private String publicAddressViaHttps() {
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(PUBLIC_ADDRESS_CONNECT_TIMEOUT)
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .build();
+        HttpRequest request = HttpRequest.newBuilder(PUBLIC_ADDRESS_URI)
+                .timeout(PUBLIC_ADDRESS_REQUEST_TIMEOUT)
+                .header("Accept", "text/plain")
+                .header("User-Agent", "CoronaPoker/" + ApplicationMetadata.VERSION)
+                .GET()
+                .build();
+        try {
+            HttpResponse<String> response = client.send(request,
+                    HttpResponse.BodyHandlers.ofString());
+            return response.statusCode() == 200 ? response.body() : "";
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return "";
+        } catch (IOException failure) {
+            return "";
+        }
+    }
+
+    private String publicAddressViaUpnp() {
+        return Objects.requireNonNullElse(UPnP.getExternalIP(), "");
+    }
+
+    static String normalizePublicAddress(String address) {
+        String candidate = Objects.requireNonNullElse(address, "").trim();
+        if (candidate.isBlank() || candidate.length() > 64
+                || !candidate.matches("[0-9A-Fa-f:.]+")
+                || (!candidate.contains(".") && !candidate.contains(":"))) {
+            return "";
+        }
+        try {
+            InetAddress parsed = InetAddress.getByName(candidate);
+            if (parsed.isAnyLocalAddress() || parsed.isLoopbackAddress()
+                    || parsed.isLinkLocalAddress() || parsed.isSiteLocalAddress()
+                    || parsed.isMulticastAddress()) {
+                return "";
+            }
+            return candidate;
+        } catch (IOException invalidAddress) {
+            return "";
+        }
     }
 
     private void playLobbyRosterChange(LobbySnapshot previous,

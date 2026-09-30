@@ -85,6 +85,17 @@ final class GdxTableTerminationWiringTest {
     }
 
     @Test
+    void stopGameConfirmationUsesTheSameExplicitExitChoices() {
+        GdxTableDialog dialog = table(new ArrayList<>())
+                .newStopGameConfirmation();
+
+        assertEquals(GdxTableDialog.Kind.CONFIRM, dialog.kind());
+        assertEquals("SEGUIR JUGANDO", dialog.negativeLabel());
+        assertEquals("SALIR", dialog.positiveLabel());
+        assertTrue(dialog.isExitChoice());
+    }
+
+    @Test
     void repeatedExitRequestsReuseOneConfirmationAndSubmitOneCommand() {
         ArrayList<TableCommand> submitted = new ArrayList<>();
         CoronaPokerGdxTable table = table(submitted);

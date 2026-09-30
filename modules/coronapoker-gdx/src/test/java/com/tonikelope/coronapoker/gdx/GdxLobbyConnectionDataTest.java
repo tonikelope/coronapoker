@@ -25,4 +25,19 @@ class GdxLobbyConnectionDataTest {
         assertEquals(14, password.length());
         assertTrue(password.matches("[a-z0-9]{14}"));
     }
+
+    @Test
+    void publicAddressResponsesAreTrimmedAndMustContainAUsableIpAddress() {
+        assertEquals("83.39.59.168",
+                GdxFrontendScreen.normalizePublicAddress(
+                        "  83.39.59.168\n"));
+        assertEquals("2001:db8::1",
+                GdxFrontendScreen.normalizePublicAddress("2001:db8::1"));
+        assertEquals("", GdxFrontendScreen.normalizePublicAddress(
+                "<html>not an address</html>"));
+        assertEquals("", GdxFrontendScreen.normalizePublicAddress(
+                "192.168.1.20"));
+        assertEquals("", GdxFrontendScreen.normalizePublicAddress(
+                "127.0.0.1"));
+    }
 }

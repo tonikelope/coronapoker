@@ -4453,14 +4453,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && !terminationConfirmation.complete()) {
             return;
         }
-        GdxTableDialog confirmation = new GdxTableDialog(
-                GdxTableDialog.Kind.CONFIRM,
-                uppercase(gameText.translate("exit.detener_la_timba")),
-                uppercase(gameText.translate("gdx.stop_for_recovery")),
-                com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.EXIT,
-                820, 0, false,
-                uppercase(gameText.translate("ui.cancelar")),
-                uppercase(gameText.translate("ui.aceptar")));
+        GdxTableDialog confirmation = newStopGameConfirmation();
         terminationConfirmation = confirmation;
         confirmation.result().thenAccept(accepted -> {
             if (terminationConfirmation == confirmation) {
@@ -4469,6 +4462,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (accepted) submitTermination(new TableCommand.StopGame(), true);
         });
         showDialog(confirmation);
+    }
+
+    GdxTableDialog newStopGameConfirmation() {
+        return new GdxTableDialog(
+                GdxTableDialog.Kind.CONFIRM,
+                uppercase(gameText.translate("exit.detener_la_timba")),
+                uppercase(gameText.translate("gdx.stop_for_recovery")),
+                com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.EXIT,
+                820, 0, false,
+                uppercase(gameText.translate("ui.seguir_jugando")),
+                uppercase(gameText.translate("ui.salir"))).exitChoice();
     }
 
     private void requestLastHandChange() {

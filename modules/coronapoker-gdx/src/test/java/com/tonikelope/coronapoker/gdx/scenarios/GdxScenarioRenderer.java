@@ -77,9 +77,11 @@ final class GdxScenarioRenderer implements TableRenderer {
             = new AtomicReference<>();
     private final AtomicReference<String> runItTwiceSideBPrefix
             = new AtomicReference<>();
-    private final AtomicBoolean runItTwicePotPreservedAtEnd
+    private final AtomicBoolean runItTwiceSideASettled
             = new AtomicBoolean();
-    private final AtomicBoolean runItTwicePayoutReturnedToOrdinaryPot
+    private final AtomicBoolean runItTwiceSideBSettled
+            = new AtomicBoolean();
+    private final AtomicBoolean runItTwiceSideBSettledAtEnd
             = new AtomicBoolean();
     private final List<Integer> runItTwiceSideBDeals
             = new CopyOnWriteArrayList<>();
@@ -290,13 +292,14 @@ final class GdxScenarioRenderer implements TableRenderer {
                         "duplicate END for hand " + boundary.handId());
                 endedHands.incrementAndGet();
                 if (runItTwiceSideBSequence.get() > 0L) {
-                    assertEquals(runItTwiceSideBPot.get(),
-                            projection.snapshot().pot(),
-                            "RIT END replaced the visible CARA B amount");
+                    assertTrue(runItTwiceSideBSettled.get(),
+                            "RIT END arrived before CARA B paid its winner");
+                    assertEquals(0d, projection.snapshot().pot(),
+                            "RIT END retained unpaid CARA B chips");
                     assertEquals(runItTwiceSideBPrefix.get(),
                             projection.runItTwicePotPrefix(),
-                            "RIT END replaced the visible CARA B label");
-                    runItTwicePotPreservedAtEnd.set(true);
+                            "RIT END replaced the settled CARA B label");
+                    runItTwiceSideBSettledAtEnd.set(true);
                 }
             }
         }
@@ -460,16 +463,32 @@ final class GdxScenarioRenderer implements TableRenderer {
                 runItTwiceSideAPrefix.compareAndSet(null,
                         board.potPrefix());
             } else {
+                assertTrue(runItTwiceSideASettled.get(),
+                        "CARA B started before CARA A paid its winner");
                 runItTwiceSideBSequence.compareAndSet(0L, board.sequence());
                 runItTwiceSideBPot.compareAndSet(null, board.potAmount());
                 runItTwiceSideBPrefix.compareAndSet(null,
                         board.potPrefix());
             }
-        } else if (event instanceof TableVisualEvent.Payout
-                && runItTwiceSideBSequence.get() > 0L) {
-            assertEquals("", projection.runItTwicePotPrefix(),
-                    "RIT payout must return to the ordinary BOTE label");
-            runItTwicePayoutReturnedToOrdinaryPot.set(true);
+        } else if (event instanceof TableVisualEvent.Payout payout
+                && runItTwiceSideASequence.get() > 0L) {
+            assertEquals(0, endedHands.get(),
+                    "RIT payout arrived after the hand had already ended");
+            if (runItTwiceSideBSequence.get() == 0L) {
+                assertEquals(runItTwiceSideAPrefix.get(),
+                        projection.runItTwicePotPrefix(),
+                        "CARA A payout lost its board label");
+                if (payout.potAfter() == 0d) {
+                    runItTwiceSideASettled.set(true);
+                }
+            } else {
+                assertEquals(runItTwiceSideBPrefix.get(),
+                        projection.runItTwicePotPrefix(),
+                        "CARA B payout lost its board label");
+                if (payout.potAfter() == 0d) {
+                    runItTwiceSideBSettled.set(true);
+                }
+            }
         } else if (event instanceof TableVisualEvent.DealCommunityCard deal
                 && runItTwiceSideBSequence.get() > 0L
                 && deal.sequence() > runItTwiceSideBSequence.get()) {
@@ -566,8 +585,9 @@ final class GdxScenarioRenderer implements TableRenderer {
                 && runItTwiceSideBPrefix.get() != null
                 && !runItTwiceSideAPrefix.get().equals(
                         runItTwiceSideBPrefix.get())
-                && runItTwicePotPreservedAtEnd.get()
-                && runItTwicePayoutReturnedToOrdinaryPot.get()
+                && runItTwiceSideASettled.get()
+                && runItTwiceSideBSettled.get()
+                && runItTwiceSideBSettledAtEnd.get()
                 && runItTwiceSideBDeals.equals(List.of(0, 1, 2, 3, 4));
     }
 

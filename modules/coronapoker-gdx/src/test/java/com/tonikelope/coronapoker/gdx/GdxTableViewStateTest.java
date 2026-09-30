@@ -796,25 +796,34 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void runItTwicePayoutDropsTheBoardPrefixBeforeCombinedMoneyMoves() {
+    void runItTwicePayoutKeepsTheActiveBoardPrefixWhileItsMoneyMoves() {
         GdxTableViewState state = new GdxTableViewState(snapshot());
         state.apply(new TableVisualEvent.RunItTwiceBoard(1,
-                TableVisualEvent.RunItTwiceBoard.Side.B,
-                "BOTE (CARA-B):", 50d, List.of(3, 4)));
+                TableVisualEvent.RunItTwiceBoard.Side.A,
+                "BOTE (CARA-A):", 50d, List.of()));
 
         state.apply(new TableVisualEvent.HandBoundary(2, 1,
                 TableVisualEvent.HandBoundary.Phase.END,
                 snapshotAt(TableSnapshot.Street.SHOWDOWN)));
-        assertEquals("BOTE (CARA-B):", state.runItTwicePotPrefix());
+        assertEquals("BOTE (CARA-A):", state.runItTwicePotPrefix());
         assertEquals(50d, state.snapshot().pot(),
-                "END must retain the visible board half until payout");
+                "the board must retain its visible half until payout");
 
         state.apply(new TableVisualEvent.Payout(3, "ana", 40d, 1,
-                130d, 60d));
+                130d, 10d));
 
-        assertEquals("", state.runItTwicePotPrefix(),
-                "combined A+B payouts must use the ordinary BOTE label");
-        assertEquals(60d, state.snapshot().pot());
+        assertEquals("BOTE (CARA-A):", state.runItTwicePotPrefix(),
+                "a board payout must retain the board it is paying");
+        assertEquals(10d, state.snapshot().pot());
+
+        state.apply(new TableVisualEvent.RunItTwiceBoard(4,
+                TableVisualEvent.RunItTwiceBoard.Side.B,
+                "BOTE (CARA-B):", 50d, List.of(3, 4)));
+        state.apply(new TableVisualEvent.Payout(5, "borja", 50d, 1,
+                1_050d, 0d));
+
+        assertEquals("BOTE (CARA-B):", state.runItTwicePotPrefix());
+        assertEquals(0d, state.snapshot().pot());
     }
 
     @Test

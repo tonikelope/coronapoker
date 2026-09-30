@@ -3932,11 +3932,15 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 = new AtomicReference<>();
         private final AtomicReference<Double> sideBPot
                 = new AtomicReference<>();
+        private final AtomicReference<String> sideAPrefix
+                = new AtomicReference<>();
         private final AtomicReference<String> sideBPrefix
                 = new AtomicReference<>();
-        private final AtomicBoolean sideBPotPreservedAtEnd
+        private final AtomicBoolean sideASettled
                 = new AtomicBoolean();
-        private final AtomicBoolean payoutRestoredOrdinaryPot
+        private final AtomicBoolean sideBSettled
+                = new AtomicBoolean();
+        private final AtomicBoolean sideBSettledAtEnd
                 = new AtomicBoolean();
         private final CopyOnWriteArrayList<Integer> sideBDeals
                 = new CopyOnWriteArrayList<>();
@@ -4017,7 +4021,10 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 if (board.side() == TableVisualEvent.RunItTwiceBoard.Side.A) {
                     sideASequence.compareAndSet(0L, board.sequence());
                     sideAPot.compareAndSet(null, board.potAmount());
+                    sideAPrefix.compareAndSet(null, board.potPrefix());
                 } else {
+                    assertTrue(sideASettled.get(),
+                            "CARA B started before CARA A paid its winner");
                     sideBSequence.compareAndSet(0L, board.sequence());
                     sideBPot.compareAndSet(null, board.potAmount());
                     sideBPrefix.compareAndSet(null, board.potPrefix());
@@ -4040,11 +4047,13 @@ class GdxNetworkHumanProjectionIntegrationTest {
                     == TableVisualEvent.HandBoundary.Phase.END) {
                 endedHands.incrementAndGet();
                 if (sideBSequence.get() > 0L) {
-                    assertEquals(sideBPot.get(), projection.snapshot().pot(),
-                            "RIT END zeroed the CARA B label before payout");
+                    assertTrue(sideBSettled.get(),
+                            "RIT END arrived before CARA B paid its winner");
+                    assertEquals(0d, projection.snapshot().pot(),
+                            "RIT END retained unpaid CARA B chips");
                     assertEquals(sideBPrefix.get(),
                             projection.runItTwicePotPrefix());
-                    sideBPotPreservedAtEnd.set(true);
+                    sideBSettledAtEnd.set(true);
                 }
                 preservedRevealsAtEnd.set(revealedPlayers.stream().allMatch(
                         nickname -> projection.presentedHoleCards(nickname)
@@ -4052,11 +4061,23 @@ class GdxNetworkHumanProjectionIntegrationTest {
                         && projection.presentedHoleCards(nickname).stream()
                                 .allMatch(card -> card.visible()
                                 && card.faceUp())));
-            } else if (event instanceof TableVisualEvent.Payout
-                    && sideBSequence.get() > 0L) {
-                assertEquals("", projection.runItTwicePotPrefix(),
-                        "RIT payout retained the CARA B prefix");
-                payoutRestoredOrdinaryPot.set(true);
+            } else if (event instanceof TableVisualEvent.Payout payout
+                    && sideASequence.get() > 0L) {
+                assertEquals(0, endedHands.get(),
+                        "RIT payout arrived after the hand had already ended");
+                if (sideBSequence.get() == 0L) {
+                    assertEquals(sideAPrefix.get(),
+                            projection.runItTwicePotPrefix());
+                    if (payout.potAfter() == 0d) {
+                        sideASettled.set(true);
+                    }
+                } else {
+                    assertEquals(sideBPrefix.get(),
+                            projection.runItTwicePotPrefix());
+                    if (payout.potAfter() == 0d) {
+                        sideBSettled.set(true);
+                    }
+                }
             } else if (event instanceof TableVisualEvent.CloseTable close) {
                 summary.set(close.summary());
                 closed.set(true);
@@ -4073,8 +4094,9 @@ class GdxNetworkHumanProjectionIntegrationTest {
             assertTrue(sideBSequence.get() > sideASequence.get());
             assertTrue(sideAPot.get() != null && sideAPot.get() > 0d);
             assertTrue(sideBPot.get() != null && sideBPot.get() > 0d);
-            assertTrue(sideBPotPreservedAtEnd.get());
-            assertTrue(payoutRestoredOrdinaryPot.get());
+            assertTrue(sideASettled.get());
+            assertTrue(sideBSettled.get());
+            assertTrue(sideBSettledAtEnd.get());
             assertEquals(List.of(0, 1, 2, 3, 4), sideBDeals);
             assertEquals(Set.of("Anfitrion", "Invitado"), revealedPlayers);
             assertEquals(revealedPlayers, monteCarloPlayers);

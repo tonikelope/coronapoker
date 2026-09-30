@@ -620,11 +620,9 @@ final class GdxTableViewState {
                 showdownHighlights.remove(highlight.nickname());
             }
         } else if (event instanceof TableVisualEvent.Payout payout) {
-            // Payouts consolidate winnings from BOTH Run It Twice boards. They
-            // must therefore return to the ordinary BOTE label before showing
-            // the combined remainder; retaining CARA B here falsely described
-            // the two-board total as the second board's half.
-            runItTwicePotPrefix = "";
+            // Run It Twice now publishes one payout stream per board. Preserve
+            // the active CARA-A/CARA-B prefix while that board's chips leave
+            // the pot; the next board or hand boundary owns the transition.
             // Keep payout as a defensive winner signal as well. Canonical
             // single-survivor hands now publish HandResult before the
             // between-hands wait, but recovery/older producers may still only

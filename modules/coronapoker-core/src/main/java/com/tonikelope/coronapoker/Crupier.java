@@ -3161,6 +3161,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // would undo the in-memory conta_win correction. After both boards, one consolidated row is
     // written (total pay + winner = won some side).
     private volatile boolean rit_suppress_showdown_sql = false;
+    // True when the attached renderer has already received the payout of each
+    // run-it-twice board separately.  The ordinary between-hands payout must
+    // then stay silent or it would fly the accumulated amount a second time.
+    private volatile boolean rit_board_payouts_presented = false;
     // Hand voided by MISDEAL (cancelarManoYDevolverApuestas already refunded the bets,
     // rollbackAbortedHand closed the hand in SQL and raised fin_de_la_transmision). Signals paths that
     // settled money BEFORE the abort — the run-it-twice SIDE-A settle — that they must revert their
@@ -5614,6 +5618,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      */
     private void animateShowdownPayout() {
 
+        if (this.rit_board_payouts_presented) {
+            return;
+        }
+
         if (table_events.isAttached()) {
             double remainingPayout = players().stream()
                     .filter(java.util.Objects::nonNull)
@@ -5681,6 +5689,71 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.WARNING,
                     "Classic showdown-payout presentation barrier failed", ex);
         }
+    }
+
+    private HashMap<GamePlayerController, Double> snapshotPendingPayouts() {
+        HashMap<GamePlayerController, Double> snapshot = new HashMap<>();
+        for (GamePlayerController player : players()) {
+            if (player != null) {
+                snapshot.put(player, MoneyMath.clean(player.getPagar()));
+            }
+        }
+        return snapshot;
+    }
+
+    /**
+     * Presents one Run It Twice board's payout immediately after that board is
+     * settled. Accounting remains deferred in {@code pagar}; only the delta
+     * introduced by this board is sent to the renderer. Consequently SIDE-A's
+     * chips land before the rewind and SIDE-B's chips land before the final
+     * showdown wait, while the next-hand accounting path remains unchanged.
+     */
+    private void animateRunItTwiceBoardPayout(
+            Map<GamePlayerController, Double> payoutBefore,
+            double paidThisBoard) {
+        if (!table_events.isAttached()) {
+            return;
+        }
+
+        HashMap<GamePlayerController, Double> boardPayouts = new HashMap<>();
+        double remaining = 0d;
+        for (GamePlayerController player : players()) {
+            if (player == null) {
+                continue;
+            }
+            double before = MoneyMath.clean(payoutBefore.getOrDefault(
+                    player, 0d));
+            double after = MoneyMath.clean(player.getPagar());
+            double delta = MoneyMath.clean(after - before);
+            if (MoneyMath.compare(delta, 0d) > 0) {
+                boardPayouts.put(player, delta);
+                remaining = MoneyMath.clean(remaining + delta);
+            }
+        }
+        if (MoneyMath.compare(remaining, paidThisBoard) != 0) {
+            throw new IllegalStateException(
+                    "Run It Twice payout delta does not match board settlement");
+        }
+
+        for (GamePlayerController player : players()) {
+            Double amount = boardPayouts.get(player);
+            if (amount == null) {
+                continue;
+            }
+            remaining = MoneyMath.clean(remaining - amount);
+            if (MoneyMath.compare(remaining, 0d) < 0) {
+                throw new IllegalStateException(
+                        "Negative Run It Twice payout remainder");
+            }
+            final double potAfter = remaining;
+            final double stackAfter = MoneyMath.clean(player.getStack()
+                    + player.getPagar());
+            awaitAttachedTableEvent(sequence -> new TableVisualEvent.Payout(
+                    sequence, player.getNickname(), amount, 0,
+                    stackAfter, potAfter),
+                    "Run It Twice board payout presentation barrier failed");
+        }
+        this.rit_board_payouts_presented = true;
     }
     public int getGame_recovered() {
         return game_recovered;
@@ -11904,6 +11977,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Defensive: if a previous hand aborted between the two boards with showdown SQL
         // silenced, re-enable it at the start of the new hand.
         this.rit_suppress_showdown_sql = false;
+        this.rit_board_payouts_presented = false;
         // Same defensive reasoning: after a MISDEAL this Crupier has no more hands
         // (fin_de_la_transmision stays raised), but a fresh hand should never start marked
         // aborted regardless.
@@ -17492,6 +17566,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         // ---- SIDE-A (board already on the table) ----
         double paidA = settleRunItTwiceBoard(resisten, 0, wonAnySide);
+        animateRunItTwiceBoardPayout(pagarSnapshot, paidA);
         game_log.print(game_text.translate("runittwice.log_fin_a"));
 
         if (!presentation_settings.testMode() && !isFin_de_la_transmision()
@@ -17617,7 +17692,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         double paidB = 0;
         if (dealt && !isFin_de_la_transmision()) {
+            HashMap<GamePlayerController, Double> pagarBeforeB
+                    = snapshotPendingPayouts();
             paidB = settleRunItTwiceBoard(resisten, 1, wonAnySide);
+            animateRunItTwiceBoardPayout(pagarBeforeB, paidB);
             game_log.print(game_text.translate("runittwice.log_fin_b"));
         }
 

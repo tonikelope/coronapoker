@@ -3,7 +3,9 @@ package com.tonikelope.coronapoker.gdx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tonikelope.coronapoker.core.UpdateService;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -37,7 +39,7 @@ final class GdxGameTextTest {
 
         assertEquals(spanishKeys, englishKeys,
                 "GDX must never fall back to a different language or raw key");
-        assertEquals(493, spanishKeys.size(),
+        assertEquals(494, spanishKeys.size(),
                 "new GDX labels must be added symmetrically");
         for (String key : spanishKeys) {
             assertFalse(spanish.getProperty(key).isBlank(), key + " empty in es");
@@ -114,6 +116,8 @@ final class GdxGameTextTest {
                 text.translate("gdx.update.available", "24.12"));
         assertEquals("CoronaPoker 25.3 is available.",
                 text.translate("gdx.update.message", "25.3"));
+        assertEquals("Update to 25.3",
+                text.translate("gdx.update.menu_action", "25.3"));
         assertEquals("MOD 0.58 is available.",
                 text.translate("gdx.mod_update.message", "0.58"));
         assertEquals("The MOD is already up to date.",
@@ -170,6 +174,8 @@ final class GdxGameTextTest {
                 text.translate("gdx.update.available", "24.12"));
         assertEquals("CoronaPoker 25.3 está disponible.",
                 text.translate("gdx.update.message", "25.3"));
+        assertEquals("Actualizar a 25.3",
+                text.translate("gdx.update.menu_action", "25.3"));
         assertEquals("2 de 5",
                 text.translate("gdx.newgame.blind_editor.level_count", 2, 5));
         assertEquals("MÍNIMO", text.translate("gdx.dialog.minimum"));
@@ -182,6 +188,25 @@ final class GdxGameTextTest {
                 text.translate("about.titulo"));
         assertEquals("Hecho a mano en España y con amor por tonikelope (c) 2020",
                 text.translate("about.hecho_a_mano"));
+    }
+
+    @Test
+    void deferredUpdateRemainsReachableFromTheMainMenu() {
+        UpdateService.CheckResult available = new UpdateService.CheckResult(
+                UpdateService.Status.UPDATE_AVAILABLE, "25.14");
+        UpdateService.CheckResult current = new UpdateService.CheckResult(
+                UpdateService.Status.CURRENT, null);
+
+        assertTrue(GdxFrontendScreen.deferredUpdateAvailable(
+                true, false, available));
+        assertFalse(GdxFrontendScreen.deferredUpdateAvailable(
+                false, false, available));
+        assertFalse(GdxFrontendScreen.deferredUpdateAvailable(
+                true, true, available));
+        assertFalse(GdxFrontendScreen.deferredUpdateAvailable(
+                true, false, current));
+        assertFalse(GdxFrontendScreen.deferredUpdateAvailable(
+                true, false, null));
     }
 
     private static Properties messages(String language) throws Exception {

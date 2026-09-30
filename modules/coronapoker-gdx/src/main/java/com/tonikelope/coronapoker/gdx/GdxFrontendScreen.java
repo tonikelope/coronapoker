@@ -1197,6 +1197,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         keyHint(535f, 105f, "F11",
                 uppercase(gameText.translate("settings.modo_pantalla_completa")));
         drawSoundControl(1336f, 100f, 55f, 55f, false);
+        if (deferredUpdateAvailable(updatePromptDismissed,
+                updatePromptOpen, updateResult)) {
+            themedButton(1460f, 944f, 390f, 68f,
+                    uppercase(gameText.translate("gdx.update.menu_action",
+                            updateResult.version())),
+                    ButtonTone.FEATURED, this::showUpdatePrompt, true);
+        }
         String quote = menuQuotes.update(gameText.language(), frameDelta);
         if (!quote.isBlank()) {
             italicTextFit(smallFont, quote, WIDTH / 2f, 78f,
@@ -2481,6 +2488,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         updatePromptDismissed = false;
         updatePromptOpen = true;
         syncMusicForSurface();
+    }
+
+    static boolean deferredUpdateAvailable(boolean dismissed,
+            boolean promptOpen, UpdateService.CheckResult result) {
+        return dismissed && !promptOpen && result != null
+                && result.status() == UpdateService.Status.UPDATE_AVAILABLE;
     }
 
     private void dismissUpdatePrompt() {

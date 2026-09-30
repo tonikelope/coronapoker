@@ -846,6 +846,47 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void runItTwiceSideBReactivatesEveryRevealedPlayersHoleCards() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+        TableSnapshot.CardSnapshot disabledAce =
+                new TableSnapshot.CardSnapshot("A_C", true, true);
+        TableSnapshot.CardSnapshot disabledKing =
+                new TableSnapshot.CardSnapshot("K_C", true, true);
+        TableSnapshot.CardSnapshot disabledQueen =
+                new TableSnapshot.CardSnapshot("Q_D", true, true);
+        TableSnapshot.CardSnapshot disabledJack =
+                new TableSnapshot.CardSnapshot("J_D", true, true);
+
+        state.apply(new TableVisualEvent.RevealHoleCards(1, "ana",
+                disabledAce, disabledKing, "PAREJA"));
+        state.apply(new TableVisualEvent.RevealHoleCards(2, "borja",
+                disabledQueen, disabledJack, "CARTA ALTA"));
+        state.apply(new TableVisualEvent.HandResult(3, "ana", "PAREJA",
+                true, TableSnapshot.Street.SHOWDOWN));
+        state.apply(new TableVisualEvent.HandResult(4, "borja",
+                "CARTA ALTA", false, TableSnapshot.Street.SHOWDOWN));
+
+        assertTrue(state.presentedHoleCards("ana").stream()
+                .allMatch(TableSnapshot.CardSnapshot::disabled));
+        assertTrue(state.presentedHoleCards("borja").stream()
+                .allMatch(TableSnapshot.CardSnapshot::disabled));
+
+        state.apply(new TableVisualEvent.RunItTwiceBoard(5,
+                TableVisualEvent.RunItTwiceBoard.Side.B,
+                "BOTE (CARA-B):", 50d, List.of(3, 4)));
+
+        for (String nickname : List.of("ana", "borja")) {
+            assertTrue(state.presentedHoleCards(nickname).stream()
+                    .noneMatch(TableSnapshot.CardSnapshot::disabled));
+            assertTrue(player(state, nickname).holeCards().stream()
+                    .noneMatch(TableSnapshot.CardSnapshot::disabled));
+            assertTrue(state.presentedHoleCards(nickname).stream()
+                    .allMatch(card -> CoronaPokerGdxTable.restingCardAlpha(
+                            card.disabled(), null, false) == 1f));
+        }
+    }
+
+    @Test
     void showdownAndRunItTwiceNeverInventAllInFire() {
         GdxTableViewState state = new GdxTableViewState(snapshot());
         state.apply(new TableVisualEvent.PlayerAction(1, "ana",

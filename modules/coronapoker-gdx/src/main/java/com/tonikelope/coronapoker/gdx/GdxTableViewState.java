@@ -307,6 +307,12 @@ final class GdxTableViewState {
                 card.code(), card.faceUp(), true, card.visible());
     }
 
+    private static TableSnapshot.CardSnapshot enabledCard(
+            TableSnapshot.CardSnapshot card) {
+        return card.disabled() ? new TableSnapshot.CardSnapshot(
+                card.code(), card.faceUp(), false, card.visible()) : card;
+    }
+
     boolean hasRevealedHoleCards(String nickname) {
         return revealedHoleCards.containsKey(nickname);
     }
@@ -828,11 +834,27 @@ final class GdxTableViewState {
         resolvedHandNames.clear();
         resolvedHandWinners.clear();
         resolvedWonPotIndexes.clear();
+        // Swing's repaintLastAction() calls enfocar() on both hole cards for
+        // every player before SIDE-B.  The GDX projection must do the same to
+        // both its accepted reveal copy and the underlying snapshot; merely
+        // clearing the SIDE-A verdict leaves the CardSnapshot.disabled flag
+        // set and therefore keeps winners/losers faded during the second run.
+        revealedHoleCards.replaceAll((nickname, cards) -> cards.stream()
+                .map(GdxTableViewState::enabledCard)
+                .toList());
         List<TableSnapshot.PlayerSnapshot> players = snapshot.players().stream()
-                .map(player -> copyPlayer(player, player.stack(),
-                player.streetBet(), player.potContribution(), player.active(),
-                false, player.position(), player.lastAction(), "",
-                player.holeCards()))
+                .map(player -> {
+                    List<TableSnapshot.CardSnapshot> cards
+                            = revealedHoleCards.containsKey(player.nickname())
+                            ? player.holeCards().stream()
+                                    .map(GdxTableViewState::enabledCard)
+                                    .toList()
+                            : player.holeCards();
+                    return copyPlayer(player, player.stack(),
+                            player.streetBet(), player.potContribution(),
+                            player.active(), false, player.position(),
+                            player.lastAction(), "", cards);
+                })
                 .toList();
         snapshot = copySnapshot(snapshot, snapshot.pot(),
                 snapshot.currentTurnNickname(), players,

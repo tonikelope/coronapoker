@@ -317,6 +317,12 @@ Only the clean full-reactor command constitutes a distribution build. Building
 the GDX module directly is useful for local iteration but does not certify the
 complete product.
 
+GDX gameplay certification has one catalogue and one result. `fast`,
+`balanced` and `stress` execute exactly the same scenarios; they differ only in
+repetitions and soak depth (one, two and five passes respectively). `quick` is
+the explicit short subset for iteration. See [Testing and certification](docs/TESTING.md)
+for the exact costs and report format.
+
 Launch CoronaPoker:
 
 ```bash

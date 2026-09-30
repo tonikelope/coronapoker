@@ -93,49 +93,35 @@ if (-not (Test-Path -LiteralPath $contractPath)) {
     throw "GDX scenario contract not found: $contractPath"
 }
 
-# The Java contract is the single catalogue. GOLD is intentionally read from
-# its dedicated multi-process map; native GDX UI checks and GDX-only scenarios
-# are additive gates, never substitutes for a historical Swing scenario.
+# The Java contract contains one public certification catalogue: one command,
+# one schedule and one result. Historical provenance is enforced by Java
+# contract tests and never creates a second executable lane.
 $contractSource = Get-Content -LiteralPath $contractPath -Raw
 $entryPattern = [regex]::new(
     'Map\.entry\("([^"]+)"\s*,\s*Set\.of\((.*?)\)\)',
     [System.Text.RegularExpressions.RegexOptions]::Singleline)
 $quotedPattern = [regex]::new('"([^"]+)"')
 $catalogue = [System.Collections.Generic.List[object]]::new()
-$certificationMaps = @(
-    'SWING_GOLD_MULTIPROCESS_TESTS',
-    'NATIVE_GDX_UI_TESTS',
-    'GDX_ONLY_SCENARIOS'
-)
-foreach ($mapName in $certificationMaps) {
-    $mapStart = $contractSource.IndexOf($mapName)
-    if ($mapStart -lt 0) {
-        throw "Cannot locate $mapName in GdxScenarioContract.java."
+$catalogueName = 'CERTIFICATION_SCENARIOS'
+$mapStart = $contractSource.IndexOf($catalogueName)
+if ($mapStart -lt 0) {
+    throw "Cannot locate $catalogueName in GdxScenarioContract.java."
+}
+$constructor = $contractSource.IndexOf('private GdxScenarioContract', $mapStart)
+if ($constructor -le $mapStart) {
+    throw "Cannot delimit $catalogueName in GdxScenarioContract.java."
+}
+$mapBlock = $contractSource.Substring($mapStart, $constructor - $mapStart)
+foreach ($match in $entryPattern.Matches($mapBlock)) {
+    $methods = @($quotedPattern.Matches($match.Groups[2].Value) |
+        ForEach-Object { $_.Groups[1].Value })
+    if ($methods.Count -eq 0) {
+        throw "GDX scenario '$($match.Groups[1].Value)' has no tests."
     }
-    $nextMap = $contractSource.IndexOf('static final Map', $mapStart + $mapName.Length)
-    $constructor = $contractSource.IndexOf('private GdxScenarioContract', $mapStart)
-    $mapEnd = if ($nextMap -ge 0 -and
-            ($constructor -lt 0 -or $nextMap -lt $constructor)) {
-        $nextMap
-    } else {
-        $constructor
-    }
-    if ($mapEnd -le $mapStart) {
-        throw "Cannot delimit $mapName in GdxScenarioContract.java."
-    }
-    $mapBlock = $contractSource.Substring($mapStart, $mapEnd - $mapStart)
-    foreach ($match in $entryPattern.Matches($mapBlock)) {
-        $methods = @($quotedPattern.Matches($match.Groups[2].Value) |
-            ForEach-Object { $_.Groups[1].Value })
-        if ($methods.Count -eq 0) {
-            throw "GDX scenario '$($match.Groups[1].Value)' has no tests in $mapName."
-        }
-        $catalogue.Add([pscustomobject]@{
-                Scenario = $match.Groups[1].Value
-                Methods = $methods
-                Lane = $mapName
-            })
-    }
+    $catalogue.Add([pscustomobject]@{
+            Scenario = $match.Groups[1].Value
+            Methods = $methods
+        })
 }
 if ($catalogue.Count -eq 0) {
     throw 'No GDX certification scenarios were discovered.'

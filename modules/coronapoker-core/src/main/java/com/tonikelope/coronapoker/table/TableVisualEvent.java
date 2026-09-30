@@ -434,7 +434,9 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
 
     /** Values shown by the central community-card HUD. */
     record TableInfo(long sequence, double smallBlind, double bigBlind,
-            int handNumber) implements TableVisualEvent {
+            int handNumber, int blindIncreaseInterval,
+            int blindIncreaseType, int blindIncreaseCount)
+            implements TableVisualEvent {
 
         public TableInfo {
             requireMoney(smallBlind, "Small blind");
@@ -442,6 +444,14 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
             if (handNumber < 0) {
                 throw new IllegalArgumentException(
                         "Hand number must be non-negative");
+            }
+            if (blindIncreaseInterval < 0 || blindIncreaseCount < 0) {
+                throw new IllegalArgumentException(
+                        "Blind increase values must be non-negative");
+            }
+            if (blindIncreaseType < 1 || blindIncreaseType > 2) {
+                throw new IllegalArgumentException(
+                        "Blind increase type must be minutes or hands");
             }
         }
     }
@@ -541,7 +551,9 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
         }
 
         public enum Type {
-            ALL_IN
+            ALL_IN,
+            IWTSTH_REQUEST,
+            IWTSTH_DENIED
         }
 
         public enum Phase {
@@ -593,12 +605,27 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
     /** Exact per-player showdown verdict emitted by the canonical dealer. */
     record HandResult(long sequence, String nickname, String handName,
             boolean winner, TableSnapshot.Street street,
-            List<Integer> wonPotIndexes)
+            List<Integer> wonPotIndexes, boolean soleSurvivor)
             implements TableVisualEvent {
 
         public HandResult(long sequence, String nickname, String handName,
                 boolean winner, TableSnapshot.Street street) {
-            this(sequence, nickname, handName, winner, street, List.of());
+            this(sequence, nickname, handName, winner, street, List.of(),
+                    false);
+        }
+
+        public HandResult(long sequence, String nickname, String handName,
+                boolean winner, TableSnapshot.Street street,
+                List<Integer> wonPotIndexes) {
+            this(sequence, nickname, handName, winner, street,
+                    wonPotIndexes, false);
+        }
+
+        public HandResult(long sequence, String nickname, String handName,
+                boolean winner, TableSnapshot.Street street,
+                boolean soleSurvivor) {
+            this(sequence, nickname, handName, winner, street, List.of(),
+                    soleSurvivor);
         }
 
         public HandResult {
@@ -622,6 +649,10 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
             if (!winner && !wonPotIndexes.isEmpty()) {
                 throw new IllegalArgumentException(
                         "A losing hand cannot carry won pot indexes");
+            }
+            if (soleSurvivor && !winner) {
+                throw new IllegalArgumentException(
+                        "Only a winning result can settle a sole-survivor hand");
             }
         }
     }

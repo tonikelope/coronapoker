@@ -23,6 +23,7 @@ import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
 import com.tonikelope.coronapoker.core.game.GameDecisionSink;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.core.game.GameIdentityTrust;
+import com.tonikelope.coronapoker.core.game.GameEntropySource;
 import com.tonikelope.coronapoker.core.game.GameLaunchContext;
 import com.tonikelope.coronapoker.core.game.GameLogSink;
 import com.tonikelope.coronapoker.core.game.GamePeerController;
@@ -95,6 +96,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
     private final boolean modActive;
     private final Properties preferences;
     private final GameIdentityTrust identityTrust;
+    private final GameEntropySource gameEntropy;
 
     public CoreGameTableFactory(DatabaseService database) {
         this(database, GameText.keys(), GameLogSink.noop(), GameDialogSink.noop(),
@@ -147,6 +149,17 @@ public final class CoreGameTableFactory implements GameTableFactory {
             GameLogSink gameLog, GameDialogSink gameDialogs,
             GameDecisionSink gameDecisions,
             GamePresentationSettings presentationSettings,
+            GameCinematicAssets cinematicAssets,
+            GameEntropySource gameEntropy) {
+        this(database, gameText, gameLog, gameDialogs, gameDecisions,
+                presentationSettings, cinematicAssets, false,
+                new Properties(), GameIdentityTrust.unverified(), gameEntropy);
+    }
+
+    public CoreGameTableFactory(DatabaseService database, GameText gameText,
+            GameLogSink gameLog, GameDialogSink gameDialogs,
+            GameDecisionSink gameDecisions,
+            GamePresentationSettings presentationSettings,
             GameCinematicAssets cinematicAssets, boolean modActive) {
         this(database, gameText, gameLog, gameDialogs, gameDecisions,
                 presentationSettings, cinematicAssets, modActive,
@@ -170,6 +183,18 @@ public final class CoreGameTableFactory implements GameTableFactory {
             GamePresentationSettings presentationSettings,
             GameCinematicAssets cinematicAssets, boolean modActive,
             Properties preferences, GameIdentityTrust identityTrust) {
+        this(database, gameText, gameLog, gameDialogs, gameDecisions,
+                presentationSettings, cinematicAssets, modActive, preferences,
+                identityTrust, GameEntropySource.secure());
+    }
+
+    public CoreGameTableFactory(DatabaseService database, GameText gameText,
+            GameLogSink gameLog, GameDialogSink gameDialogs,
+            GameDecisionSink gameDecisions,
+            GamePresentationSettings presentationSettings,
+            GameCinematicAssets cinematicAssets, boolean modActive,
+            Properties preferences, GameIdentityTrust identityTrust,
+            GameEntropySource gameEntropy) {
         this.database = Objects.requireNonNull(database, "database");
         this.gameText = Objects.requireNonNull(gameText, "gameText");
         this.gameLog = Objects.requireNonNull(gameLog, "gameLog");
@@ -184,6 +209,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
         this.preferences = Objects.requireNonNull(preferences, "preferences");
         this.identityTrust = Objects.requireNonNull(identityTrust,
                 "identityTrust");
+        this.gameEntropy = Objects.requireNonNull(gameEntropy, "gameEntropy");
     }
 
     @Override
@@ -214,7 +240,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 initialConfiguration);
         TableEventBridge events = new TableEventBridge();
         ArrayList<CorePlayerController> players = createPlayers(lobby,
-                initialConfiguration.buyin());
+                initialConfiguration.buyin(), gameEntropy);
         CorePlayerController local = players.get(0);
         ChannelGameTransport transport = new ChannelGameTransport(context);
         Map<String, GamePeerController> peers = createPeers(lobby,
@@ -248,13 +274,13 @@ public final class CoreGameTableFactory implements GameTableFactory {
         GameWindowSink window = gameWindow(game, windowOpen,
                 dealerExecutor::shutdownNow);
         GameCinematicSink cinematics = request -> {
-            if (request.type() != GameCinematicSink.Type.ALL_IN
-                    || !events.isAttached()) {
+            if (!events.isAttached()) {
                 return CompletableFuture.completedFuture(
                         new GameCinematicSink.Result(false, false));
             }
             TableVisualEvent.Cinematic.Type type =
-                    TableVisualEvent.Cinematic.Type.ALL_IN;
+                    TableVisualEvent.Cinematic.Type.valueOf(
+                            request.type().name());
             return events.publish(sequence -> new TableVisualEvent.Cinematic(
                     sequence, type, TableVisualEvent.Cinematic.Phase.START,
                     request.nickname(), request.assetName(),
@@ -343,7 +369,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 GameRuntimeEnvironment.at(context.dataDirectory(), modActive),
                 cinematicState,
                 cinematicAssets, GameValueFormatter.plain(),
-                GameBotService.standalone(), events);
+                 GameBotService.standalone(), gameEntropy, events);
         dealer.initializeCommunicationRules(textToSpeech.get(),
                 voiceMessages.get());
 
@@ -915,7 +941,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
     }
 
     private static ArrayList<CorePlayerController> createPlayers(
-            LobbySnapshot lobby, int buyin) {
+            LobbySnapshot lobby, int buyin, GameEntropySource entropy) {
         ArrayList<CorePlayerController> players = new ArrayList<>();
         CorePlayerController local = CorePlayerController.local(
                 lobby.localNickname());
@@ -923,8 +949,13 @@ public final class CoreGameTableFactory implements GameTableFactory {
         players.add(local);
         for (LobbyParticipant participant : lobby.participants()) {
             if (participant.local()) continue;
+            java.util.Random botRandom = participant.bot()
+                    ? entropy.botDecisionRandom(participant.nickname()) : null;
             CorePlayerController player = participant.bot()
-                    ? CorePlayerController.bot(participant.nickname())
+                    ? botRandom == null
+                            ? CorePlayerController.bot(participant.nickname())
+                            : CorePlayerController.bot(participant.nickname(),
+                                    botRandom)
                     : CorePlayerController.remote(participant.nickname());
             initializePlayer(player, buyin);
             players.add(player);

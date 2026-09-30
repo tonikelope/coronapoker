@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tonikelope.coronapoker.Crupier;
 import com.tonikelope.coronapoker.core.DatabaseService;
 import com.tonikelope.coronapoker.core.LobbyCommand;
 import com.tonikelope.coronapoker.core.LobbySession;
@@ -33,6 +34,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -45,6 +47,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -1385,8 +1390,8 @@ class GdxReconnectScenarioTest {
 
                     // No renderer may claim a completed replay of hand 1. All
                     // three complete exactly the newly dealt global hand 2.
-                    hostRenderer.assertCompleteWithHistoricalBalances(1, 4, 5);
-                    survivorRenderer.assertCompleteWithHistoricalBalances(1, 4, 5);
+                    hostRenderer.assertCompleteWithHistoricalBalances(1, 5);
+                    survivorRenderer.assertCompleteWithHistoricalBalances(1, 5);
                     // A newcomer admitted during recovery warms up as a passive
                     // observer until the next hand boundary. The one fresh hand
                     // in this scenario may therefore finish without ever
@@ -1395,6 +1400,18 @@ class GdxReconnectScenarioTest {
                     assertEquals(2, hostRenderer.summary().handCount());
                     assertEquals(2, survivorRenderer.summary().handCount());
                     assertEquals(2, newcomerRenderer.summary().handCount());
+                    Set<String> recoveredRoster = Set.of("Anfitrion",
+                            "Invitado2", "Invitado3", "CoronaBot$1");
+                    // Validate the authoritative roster at the gameplay phase
+                    // where it matters.  Once CloseTable has been delivered,
+                    // independent lobby sessions may already exchange their
+                    // graceful EXIT testaments in a different teardown order.
+                    hostRenderer.assertHandStartedWithPlayers(2,
+                            recoveredRoster);
+                    survivorRenderer.assertHandStartedWithPlayers(2,
+                            recoveredRoster);
+                    newcomerRenderer.assertHandStartedWithPlayers(2,
+                            recoveredRoster);
                     Map<String, Double> balances
                             = hostRenderer.balancesByNickname();
                     // Swing's immutable reference contract retains the missing
@@ -1403,13 +1420,6 @@ class GdxReconnectScenarioTest {
                     // the exited peer out of the four active seats.
                     assertTrue(balances.containsKey("Invitado1"));
                     assertTrue(balances.containsKey("Invitado3"));
-                    assertEquals(Set.of("Anfitrion", "Invitado2", "Invitado3",
-                                    "CoronaBot$1"),
-                            hostRenderer.activeNicknames());
-                    assertEquals(hostRenderer.activeNicknames(),
-                            survivorRenderer.activeNicknames());
-                    assertEquals(hostRenderer.activeNicknames(),
-                            newcomerRenderer.activeNicknames());
                     assertEquals(balances,
                             survivorRenderer.balancesByNickname());
                     assertEquals(balances,
@@ -1999,7 +2009,8 @@ class GdxReconnectScenarioTest {
                     assertEquals(4, renderer.completedHands());
                     assertEquals(7, renderer.summary().handCount());
                     assertEquals(balances, renderer.balancesByNickname());
-                    assertEquals(expectedRoster, renderer.activeNicknames());
+                    assertEquals(expectedRoster, renderer.activeNicknames(),
+                            renderer::playerStateDiagnostic);
                 }
                 assertConservedLedger(hostRenderer.summary(), 5);
             } finally {
@@ -2034,6 +2045,27 @@ class GdxReconnectScenarioTest {
         String property = "coronapoker.qa.spectatorOnBrokeNicks";
         String previous = System.getProperty(property);
         System.setProperty(property, "Invitado1,Invitado2");
+        AtomicInteger falseSeatTamperWarnings = new AtomicInteger();
+        Logger dealerLogger = Logger.getLogger(Crupier.class.getName());
+        Handler seatTamperProbe = new Handler() {
+            @Override
+            public void publish(LogRecord record) {
+                String message = record == null ? null : record.getMessage();
+                if (message != null && message.contains(
+                        "reorders players I already had")) {
+                    falseSeatTamperWarnings.incrementAndGet();
+                }
+            }
+
+            @Override
+            public void flush() {
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+        dealerLogger.addHandler(seatTamperProbe);
         int port;
         try (ServerSocket reservation = new ServerSocket(0)) {
             port = reservation.getLocalPort();
@@ -2283,6 +2315,16 @@ class GdxReconnectScenarioTest {
                         Duration.ofSeconds(30));
                 assertTrue(java.util.Collections.disjoint(ruinedSpectators,
                         hostRenderer.playingNicknames()));
+                Set<String> expectedRoster = Set.of("Anfitrion", "Invitado1",
+                        "Invitado2", "Invitado3", "Invitado4", "Invitado5",
+                        "Invitado6", "CoronaBot$1");
+                // Assert the complete recovered roster at the authoritative
+                // PREPARE boundary, before releasing the held decision.  After
+                // CloseTable, independent lobby transports may already deliver
+                // a peer's graceful EXIT in a different teardown order.
+                for (GdxScenarioRenderer renderer : renderers) {
+                    renderer.assertHandStartedWithPlayers(5, expectedRoster);
+                }
                 restartedRenderer.releaseHeldAction();
 
                 await(() -> renderers.stream().allMatch(
@@ -2290,16 +2332,14 @@ class GdxReconnectScenarioTest {
                         Duration.ofSeconds(240));
                 Map<String, Double> balances
                         = hostRenderer.balancesByNickname();
-                Set<String> expectedRoster = Set.of("Anfitrion", "Invitado1",
-                        "Invitado2", "Invitado3", "Invitado4", "Invitado5",
-                        "Invitado6", "CoronaBot$1");
                 for (GdxScenarioRenderer renderer : renderers) {
                     assertEquals(4, renderer.completedHands());
                     assertEquals(8, renderer.summary().handCount());
                     assertEquals(balances, renderer.balancesByNickname());
-                    assertEquals(expectedRoster, renderer.activeNicknames());
                 }
                 assertConservedLedger(hostRenderer.summary(), 8);
+                assertEquals(0, falseSeatTamperWarnings.get(),
+                        "honest recovery newcomers must not trigger a seat-tampering warning");
             } finally {
                 for (int index = sessions.size() - 1;
                         index >= 0; index--) {
@@ -2311,6 +2351,7 @@ class GdxReconnectScenarioTest {
                 }
             }
         } finally {
+            dealerLogger.removeHandler(seatTamperProbe);
             for (int index = databases.size() - 1; index >= 0; index--) {
                 databases.get(index).close();
             }
@@ -3126,6 +3167,11 @@ class GdxReconnectScenarioTest {
                         Duration.ofSeconds(210));
                 Map<String, Double> balances = renderers.get(0)
                         .balancesByNickname();
+                Set<String> finalPlayingRing = new HashSet<>(
+                        balances.keySet());
+                if (!enableBotRebuy) {
+                    finalPlayingRing.removeAll(bustedBots);
+                }
                 for (GdxScenarioRenderer renderer : renderers) {
                     // Recovery is requested with global hand 4 still open.
                     // That hand is refunded/aborted by the canonical recovery
@@ -3133,8 +3179,14 @@ class GdxReconnectScenarioTest {
                     // recovered hands 5, 6 and 7 complete. The summary below
                     // also proves the global hand sequence reached 7, matching
                     // the immutable Swing scenario.
-                    renderer.assertCompleteWithHistoricalBalances(4,
-                            enableBotRebuy ? 5 : 4, 5);
+                    renderer.assertCompleteWithHistoricalBalances(4, 5);
+                    // The final live-ring oracle belongs to the authoritative
+                    // PREPARE boundary.  Once every table has received its
+                    // terminal CloseTable, independent client sessions may
+                    // close in any order and their EXIT is teardown, not a
+                    // change to the ring that played hand 7.
+                    renderer.assertHandStartedWithPlayers(7L,
+                            finalPlayingRing);
                     assertEquals(7, renderer.summary().handCount());
                     assertEquals(balances, renderer.balancesByNickname());
                 }
@@ -4445,7 +4497,7 @@ class GdxReconnectScenarioTest {
         public CompletionStage<Void> render(TableVisualEvent event) {
             GdxTableViewState projection = state.get();
             assertNotNull(projection, "renderer must open before events arrive");
-            projection.apply(event);
+            applyWithFunctionalLabelOracle(projection, event);
             if (event instanceof TableVisualEvent.ActionControls controls
                     && controls.state().callAction()
                     != ActionControlState.CallAction.DISABLED) {
@@ -4508,7 +4560,7 @@ class GdxReconnectScenarioTest {
                 TableVisualEvent event) {
             GdxTableViewState projection = state.get();
             assertNotNull(projection, "renderer must open before events arrive");
-            projection.apply(event);
+            applyWithFunctionalLabelOracle(projection, event);
             TableSnapshot snapshot = projection.snapshot();
             streets.add(snapshot.street());
             assertFalse(snapshot.localNickname().isBlank());
@@ -4708,5 +4760,12 @@ class GdxReconnectScenarioTest {
         }
         assertTrue(condition.getAsBoolean(),
                 "timed out waiting for GDX reconnect scenario");
+    }
+
+    private static void applyWithFunctionalLabelOracle(
+            GdxTableViewState projection, TableVisualEvent event) {
+        projection.apply(event);
+        GdxFunctionalLabelOracle.assertProjectedLabelContract(event,
+                projection);
     }
 }

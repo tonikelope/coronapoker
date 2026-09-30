@@ -604,6 +604,15 @@ public final class GdxMultiprocessNodeMain {
                             + "recovery rebuy cycle: " + config.nickname);
                 }
                 emitFinalOutcome(renderer);
+                // Keep every real network node alive until all peers have
+                // finished their visible-state oracles.  Without this barrier
+                // the first successful JVM closed its socket while slower
+                // peers were still validating the terminal frame, manufacturing
+                // a RECONNECTING projection that can never belong to gameplay.
+                marker("VALIDATION_READY",
+                        "scenario=spectator-recovery-mix nick="
+                        + config.nickname);
+                requireCommand("FINISH_SCENARIO");
             }
         }
     }

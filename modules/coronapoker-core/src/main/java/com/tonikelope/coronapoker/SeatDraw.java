@@ -295,6 +295,34 @@ public class SeatDraw {
         return out;
     }
 
+    /**
+     * Adds a newcomer batch without making the resulting cyclic ring depend on
+     * the private rotation stored by each peer. Appending directly to each
+     * peer's rotated list inserts the batch after a different existing seat,
+     * so honest peers later report a false recovery-seat tamper. Rotate the
+     * unchanged ring to its canonical nickname first, then append the already
+     * deterministic batch; the old cyclic order is preserved and every peer
+     * obtains the same full ring.
+     */
+    public static List<String> mergeNewcomers(List<String> currentRing,
+            List<String> newcomers) {
+        List<String> ring = new ArrayList<>(currentRing == null
+                ? Collections.emptyList() : currentRing);
+        List<String> orderedNewcomers = orderNewcomers(ring, newcomers);
+        if (ring.isEmpty()) {
+            return orderedNewcomers;
+        }
+        String pivot = Collections.min(ring);
+        int start = ring.indexOf(pivot);
+        List<String> merged = new ArrayList<>(ring.size()
+                + orderedNewcomers.size());
+        for (int index = 0; index < ring.size(); index++) {
+            merged.add(ring.get((start + index) % ring.size()));
+        }
+        merged.addAll(orderedNewcomers);
+        return merged;
+    }
+
     private static byte[] ringAnchor(List<String> currentRing) {
         List<String> canonical = new ArrayList<>(currentRing == null ? Collections.emptyList() : currentRing);
         Collections.sort(canonical);

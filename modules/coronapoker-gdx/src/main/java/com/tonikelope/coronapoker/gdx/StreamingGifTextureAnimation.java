@@ -58,7 +58,8 @@ final class StreamingGifTextureAnimation implements Disposable {
     private volatile int decodedHeight;
     private final boolean looping;
     private final long[] frameEndMs;
-    private final long durationMs;
+    private volatile long durationMs;
+    private volatile boolean decodingFinished;
     private Texture texture;
     private int textureWidth;
     private int textureHeight;
@@ -88,9 +89,13 @@ final class StreamingGifTextureAnimation implements Disposable {
                         decodedWidth = frame.width();
                         decodedHeight = frame.height();
                         try {
+                            long shiftedStart = frame.startMs()
+                                    + currentOffset;
+                            long shiftedEnd = frame.endMs()
+                                    + currentOffset;
+                            durationMs = Math.max(durationMs, shiftedEnd);
                             decoded.put(new CpuFrame(frame.width(),
-                                    frame.height(),
-                                    frame.startMs() + currentOffset,
+                                    frame.height(), shiftedStart, shiftedEnd,
                                     frame.rgba()));
                         } catch (InterruptedException interrupted) {
                             Thread.currentThread().interrupt();
@@ -100,6 +105,7 @@ final class StreamingGifTextureAnimation implements Disposable {
                     cycleOffset += durationMs;
                 } while (looping && durationMs > 0L && !disposed
                         && !Thread.currentThread().isInterrupted());
+                decodingFinished = !looping && !disposed;
             } catch (Throwable problem) {
                 if (!disposed) failure = problem;
             }
@@ -132,6 +138,14 @@ final class StreamingGifTextureAnimation implements Disposable {
         }
         return new StreamingGifTextureAnimation(
                 () -> Files.readAllBytes(path), path.toString(), maxWidth);
+    }
+
+    static StreamingGifTextureAnimation load(byte[] data, String label,
+            int maxWidth) {
+        Objects.requireNonNull(data, "data");
+        Objects.requireNonNull(label, "label");
+        if (maxWidth <= 0) throw new IllegalArgumentException("maxWidth <= 0");
+        return new StreamingGifTextureAnimation(() -> data, label, maxWidth);
     }
 
     /**
@@ -192,6 +206,14 @@ final class StreamingGifTextureAnimation implements Disposable {
     /** Returns the current frame, or {@code null} while the first one decodes. */
     Texture frameAt(float elapsedSeconds) {
         if (disposed) return null;
+        CpuFrame due = decodedFrameAt(elapsedSeconds);
+        if (due != null) upload(due);
+        return texture;
+    }
+
+    /** Returns the newest decoded frame due on the requested timeline. */
+    CpuFrame decodedFrameAt(float elapsedSeconds) {
+        if (disposed) return null;
         long elapsedMs = Math.max(0L, Math.round(elapsedSeconds * 1000f));
         CpuFrame due = null;
         while (true) {
@@ -201,8 +223,7 @@ final class StreamingGifTextureAnimation implements Disposable {
             }
             due = decoded.poll();
         }
-        if (due != null) upload(due);
-        return texture;
+        return due;
     }
 
     boolean failed() {
@@ -223,6 +244,20 @@ final class StreamingGifTextureAnimation implements Disposable {
 
     float durationSeconds() {
         return durationMs / 1000f;
+    }
+
+    /**
+     * Reports completion only after the decoder has discovered the real end
+     * of a non-looping GIF and the render thread has consumed every due frame.
+     * Streaming animations deliberately do not inspect the complete file on
+     * the render thread, so their duration starts at zero and grows while the
+     * worker decodes them.
+     */
+    boolean playbackComplete(float elapsedSeconds) {
+        if (failure != null) return true;
+        return decodingFinished && decoded.isEmpty()
+                && Math.max(0L, Math.round(elapsedSeconds * 1000f))
+                >= durationMs;
     }
 
     float frameStartSeconds(int oneBasedFrame) {
@@ -346,9 +381,10 @@ final class StreamingGifTextureAnimation implements Disposable {
                                 outputHeight);
                         int[] argb = output.getRGB(0, 0, outputWidth,
                                 outputHeight, null, 0, outputWidth);
-                        consumer.accept(new CpuFrame(outputWidth, outputHeight,
-                                elapsed, toRgba(argb)));
+                        long frameStart = elapsed;
                         elapsed += metadata.delayMs();
+                        consumer.accept(new CpuFrame(outputWidth, outputHeight,
+                                frameStart, elapsed, toRgba(argb)));
 
                         if ("restoreToBackgroundColor".equals(
                                 metadata.disposal())) {
@@ -553,10 +589,14 @@ final class StreamingGifTextureAnimation implements Disposable {
         }
     }
 
-    record CpuFrame(int width, int height, long startMs, byte[] rgba) {
+    record CpuFrame(int width, int height, long startMs, long endMs,
+            byte[] rgba) {
         CpuFrame {
             if (width <= 0 || height <= 0) {
                 throw new IllegalArgumentException("Invalid GIF frame size");
+            }
+            if (startMs < 0L || endMs <= startMs) {
+                throw new IllegalArgumentException("Invalid GIF frame timing");
             }
             Objects.requireNonNull(rgba, "rgba");
             if (rgba.length != width * height * 4) {

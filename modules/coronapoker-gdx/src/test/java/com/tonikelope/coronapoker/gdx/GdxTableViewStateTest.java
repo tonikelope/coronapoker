@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture.TextureFilter;
 import com.badlogic.gdx.math.Rectangle;
+import com.tonikelope.coronapoker.table.TableCommand;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableSessionSummary;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
@@ -101,6 +102,23 @@ final class GdxTableViewStateTest {
         assertTrue(CoronaPokerGdxTable.hasSettledPresentation(false, true));
         assertTrue(CoronaPokerGdxTable.hasSettledPresentation(true, false));
         assertFalse(CoronaPokerGdxTable.hasSettledPresentation(false, null));
+    }
+
+    @Test
+    void soleSurvivorResultSettlesOnlyTheLocalHud() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+        state.apply(new TableVisualEvent.PlayerAction(1L, "ana",
+                TableVisualEvent.PlayerAction.ActionKind.FOLD, "NO VA",
+                0d, 0d, 1_000d, 0d, 0d));
+
+        state.apply(new TableVisualEvent.HandResult(2L, "borja", "¡GANA!",
+                true, TableSnapshot.Street.SHOWDOWN, true));
+
+        assertEquals(Boolean.FALSE, state.resolvedHandWinner("ana"));
+        assertFalse(state.hasHandResult("ana"));
+        assertEquals("NO VA", state.actionLabel("ana"));
+        assertEquals(Boolean.TRUE, state.resolvedHandWinner("borja"));
+        assertTrue(state.hasHandResult("borja"));
     }
 
     @Test
@@ -751,7 +769,14 @@ final class GdxTableViewStateTest {
         assertEquals("BOTE (CARA-A):", state.runItTwicePotPrefix());
         assertEquals(50d, state.snapshot().pot());
 
-        state.apply(new TableVisualEvent.RunItTwiceBoard(5,
+        state.apply(new TableVisualEvent.CollectBets(5,
+                List.of(new TableVisualEvent.ChipTransfer(
+                        "ana", 100d, 900d, 0d, 100d)),
+                0d, 100d));
+        assertEquals(50d, state.snapshot().pot(),
+                "a late full-pot collection must not overwrite CARA A");
+
+        state.apply(new TableVisualEvent.RunItTwiceBoard(6,
                 TableVisualEvent.RunItTwiceBoard.Side.B,
                 "BOTE (CARA-B):", 50d, List.of(3, 4)));
         assertTrue(state.snapshot().communityCards().get(0).faceUp());
@@ -761,13 +786,35 @@ final class GdxTableViewStateTest {
         assertFalse(state.snapshot().communityCards().get(4).visible());
         assertEquals("BOTE (CARA-B):", state.runItTwicePotPrefix());
 
-        state.apply(new TableVisualEvent.DealCommunityCard(6, 3));
+        state.apply(new TableVisualEvent.DealCommunityCard(7, 3));
         assertTrue(state.snapshot().communityCards().get(3).visible());
         assertFalse(state.snapshot().communityCards().get(3).faceUp());
 
-        state.apply(new TableVisualEvent.HandBoundary(7, 2,
+        state.apply(new TableVisualEvent.HandBoundary(8, 2,
                 TableVisualEvent.HandBoundary.Phase.PREPARE, snapshot()));
         assertEquals("", state.runItTwicePotPrefix());
+    }
+
+    @Test
+    void runItTwicePayoutDropsTheBoardPrefixBeforeCombinedMoneyMoves() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+        state.apply(new TableVisualEvent.RunItTwiceBoard(1,
+                TableVisualEvent.RunItTwiceBoard.Side.B,
+                "BOTE (CARA-B):", 50d, List.of(3, 4)));
+
+        state.apply(new TableVisualEvent.HandBoundary(2, 1,
+                TableVisualEvent.HandBoundary.Phase.END,
+                snapshotAt(TableSnapshot.Street.SHOWDOWN)));
+        assertEquals("BOTE (CARA-B):", state.runItTwicePotPrefix());
+        assertEquals(50d, state.snapshot().pot(),
+                "END must retain the visible board half until payout");
+
+        state.apply(new TableVisualEvent.Payout(3, "ana", 40d, 1,
+                130d, 60d));
+
+        assertEquals("", state.runItTwicePotPrefix(),
+                "combined A+B payouts must use the ordinary BOTE label");
+        assertEquals(60d, state.snapshot().pot());
     }
 
     @Test
@@ -943,16 +990,55 @@ final class GdxTableViewStateTest {
 
         assertEquals("CIEGAS  (A) 0.1 / 0.2",
                 CoronaPokerGdxTable.communityBlindsText(
-                        spanish, 0.1d, 0.2d, true));
-        assertEquals("CIEGAS  0.1 / 0.2",
+                        spanish, 0.1d, 0.2d, true, 0, 1, 0));
+        assertEquals("CIEGAS  0.2 / 0.4 @ 3* (2)",
                 CoronaPokerGdxTable.communityBlindsText(
-                        spanish, 0.1d, 0.2d, false));
+                        spanish, 0.2d, 0.4d, false, 3, 2, 2));
+        assertEquals("CIEGAS  1 / 2 @ 15'",
+                CoronaPokerGdxTable.communityBlindsText(
+                        spanish, 1d, 2d, false, 15, 1, 0));
         assertEquals("MANO 10/60",
                 CoronaPokerGdxTable.communityHandText(
                         spanish, 10, 60, false));
         assertEquals("MANO 10",
                 CoronaPokerGdxTable.communityHandText(
                         spanish, 10, -1, false));
+    }
+
+    @Test
+    void tableInfoProjectsTheCurrentBlindRiseAsAuthoritativeState() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+
+        state.apply(new TableVisualEvent.TableInfo(
+                1, 0.50d, 1d, 7, 3, 2, 2));
+
+        assertEquals(0.50d, state.smallBlind());
+        assertEquals(1d, state.bigBlind());
+        assertEquals(3, state.blindIncreaseInterval());
+        assertEquals(2, state.blindIncreaseType());
+        assertEquals(2, state.blindIncreaseCount());
+    }
+
+    @Test
+    void communityPotTextUsesTheOrdinaryAndRunItTwiceLabelsExactly() {
+        GdxGameText spanish = new GdxGameText("es");
+        GdxGameText english = new GdxGameText("en");
+
+        assertEquals("BOTE: 12.5", CoronaPokerGdxTable.communityPotText(
+                spanish, "", 12.5d));
+        assertEquals("BOTE (CARA-A): 7.45",
+                CoronaPokerGdxTable.communityPotText(
+                        spanish, "BOTE (CARA-A):", 7.45d));
+        assertEquals("BOTE (CARA-B): 7.45",
+                CoronaPokerGdxTable.communityPotText(
+                        spanish, "BOTE (CARA-B):", 7.45d));
+        assertEquals("POT: 12.5", CoronaPokerGdxTable.communityPotText(
+                english, "", 12.5d));
+        assertEquals("POT (SIDE-B): 7.45",
+                CoronaPokerGdxTable.communityPotText(english,
+                        english.translate("runittwice.pot_label_full",
+                                english.translate("runittwice.pot_label_b")),
+                        7.45d));
     }
 
     @Test
@@ -1261,6 +1347,17 @@ final class GdxTableViewStateTest {
                 null, "PASA", text));
         assertEquals("CUSTOM", CoronaPokerGdxTable.localizedActionLabel(
                 null, "CUSTOM", text));
+
+        assertEquals("ALL IN", CoronaPokerGdxTable.localizedActionLabel(
+                null, "CoronaBot$4 ALL IN (9.8)", text));
+        assertEquals("CALL", CoronaPokerGdxTable.localizedActionLabel(
+                null, "Jugador con espacios VA (0.2)", text));
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
+                CoronaPokerGdxTable.actionKindFromLegacyLabel(
+                        "CoronaBot$4 ALL IN (9.8)"));
+        assertEquals("SE VA", CoronaPokerGdxTable.localizedActionLabel(
+                null, "SE VA", text),
+                "a departure caption must never be parsed as CALL");
     }
 
     @Test
@@ -2651,6 +2748,31 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void blinkingIwtsthSeatUsesTheNativeActivationPath() {
+        GdxTableViewState state = new GdxTableViewState(snapshotAt(
+                TableSnapshot.Street.SHOWDOWN));
+        state.apply(new TableVisualEvent.IwtsthCandidates(
+                1, List.of("borja")));
+        List<TableCommand> submitted = new java.util.ArrayList<>();
+        CoronaPokerGdxTable table = new CoronaPokerGdxTable(60, state,
+                submitted::add, () -> { }, new GdxGameLogSink(), null);
+
+        GdxGameText text = new GdxGameText("es");
+        assertEquals(text.translate("ui.pierde_3"),
+                CoronaPokerGdxTable.iwtsthCandidateLabel(
+                        true, false, text));
+        assertEquals(text.translate("iwtsth.iwtsth"),
+                CoronaPokerGdxTable.iwtsthCandidateLabel(
+                        true, true, text));
+        assertTrue(table.activateIwtsthCandidate("borja"));
+        assertEquals(List.of(new TableCommand.RequestIwtsth("borja")),
+                submitted);
+        assertTrue(state.iwtsthCandidates().isEmpty());
+        assertFalse(table.activateIwtsthCandidate("borja"),
+                "a second click must not enqueue a duplicate request");
+    }
+
+    @Test
     void iwtsthCandidatesRejectAmbiguousNames() {
         assertThrows(IllegalArgumentException.class,
                 () -> new TableVisualEvent.IwtsthCandidates(
@@ -2658,6 +2780,24 @@ final class GdxTableViewStateTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new TableVisualEvent.IwtsthCandidates(
                         1, List.of("")));
+    }
+
+    @Test
+    void authorizedIwtsthRevealReplacesGenericLossWithTheHandName() {
+        GdxTableViewState state = new GdxTableViewState(snapshotAt(
+                TableSnapshot.Street.SHOWDOWN));
+        state.apply(new TableVisualEvent.HandResult(1, "borja", "", false,
+                TableSnapshot.Street.SHOWDOWN));
+        assertEquals("", state.resolvedHandName("borja"),
+                "a mucked losing hand must initially remain private");
+
+        state.apply(new TableVisualEvent.RevealHoleCards(2, "borja",
+                card("Q_D"), card("10_D"), "PAREJA"));
+
+        assertEquals("PAREJA", state.resolvedHandName("borja"));
+        assertEquals(Boolean.FALSE, state.resolvedHandWinner("borja"),
+                "revealing the hand must not change the settled verdict");
+        assertEquals("PAREJA", player(state, "borja").handName());
     }
 
     @Test

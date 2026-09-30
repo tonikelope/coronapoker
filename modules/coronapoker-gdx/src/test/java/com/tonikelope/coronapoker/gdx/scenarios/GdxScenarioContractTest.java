@@ -72,57 +72,22 @@ class GdxScenarioContractTest {
                 .filter(method -> method.isAnnotationPresent(Test.class))
                 .map(java.lang.reflect.Method::getName)
                 .collect(java.util.stream.Collectors.toSet());
-        GdxScenarioContract.SUPPORTING_NETWORK_TESTS.forEach((scenario, tests) -> {
-            assertTrue(GdxScenarioContract.SWING_REFERENCE.contains(scenario)
-                            || scenario.equals("turn-timeout")
-                            || scenario.equals("live-rules-last-hand")
-                            || scenario.equals("paused-exit"),
-                    "unknown supporting scenario: " + scenario);
-            assertTrue(methods.containsAll(tests),
-                    "missing supporting GDX tests for " + scenario + ": "
-                            + tests.stream().filter(test -> !methods.contains(test)).toList());
-        });
-        GdxScenarioContract.AUXILIARY_HOMOLOGUE_TESTS.forEach((scenario, tests) -> {
-            assertTrue(GdxScenarioContract.SWING_REFERENCE.contains(scenario),
-                    "auxiliary GDX homologue is absent from Swing: " + scenario);
-            assertTrue(methods.containsAll(tests),
-                    "missing auxiliary GDX homologue for " + scenario + ": "
-                            + tests.stream().filter(test -> !methods.contains(test)).toList());
-        });
-        GdxScenarioContract.SWING_GOLD_MULTIPROCESS_TESTS.forEach(
-                (scenario, tests) -> assertTrue(methods.containsAll(tests),
-                        "missing multi-process GOLD test for " + scenario + ": "
-                                + tests.stream().filter(
-                                        test -> !methods.contains(test)).toList()));
-        GdxScenarioContract.NATIVE_GDX_UI_TESTS.forEach(
-                (scenario, tests) -> assertTrue(methods.containsAll(tests),
-                        "missing native GDX UI test for " + scenario + ": "
-                                + tests.stream().filter(
-                                        test -> !methods.contains(test)).toList()));
-        GdxScenarioContract.GDX_ONLY_SCENARIOS.forEach((scenario, tests) -> {
-            assertFalse(GdxScenarioContract.SWING_REFERENCE.contains(scenario),
-                    "GDX-only scenario duplicates the Swing baseline: " + scenario);
-            assertTrue(methods.containsAll(tests),
-                    "missing GDX-only scenario tests for " + scenario + ": "
-                            + tests.stream().filter(test -> !methods.contains(test)).toList());
-        });
+        GdxScenarioContract.CERTIFICATION_SCENARIOS.forEach(
+                (scenario, tests) -> {
+                    assertFalse(tests.isEmpty(),
+                            "empty GDX certification scenario: " + scenario);
+                    assertTrue(methods.containsAll(tests),
+                            "missing executable GDX tests for " + scenario + ": "
+                                    + tests.stream().filter(
+                                            test -> !methods.contains(test)).toList());
+                });
     }
 
     @Test
-    void everySwingScenarioRetainsAuxiliaryGdxCoverage() {
-        assertEquals(GdxScenarioContract.SWING_REFERENCE,
-                GdxScenarioContract.AUXILIARY_HOMOLOGUE_TESTS.keySet(),
-                "catalogue parity alone is insufficient: every Swing scenario "
-                        + "must retain auxiliary executable GDX coverage");
-
-        Set<String> uniqueTests = new HashSet<>();
-        GdxScenarioContract.AUXILIARY_HOMOLOGUE_TESTS.forEach((scenario, tests) -> {
-            assertTrue(!tests.isEmpty(),
-                    "auxiliary GDX coverage is empty for " + scenario);
-            tests.forEach(test -> assertTrue(uniqueTests.add(test),
-                    "one GDX test cannot certify two different Swing scenarios: "
-                            + test));
-        });
+    void unifiedCatalogueContainsEverySwingScenario() {
+        assertTrue(GdxScenarioContract.CERTIFICATION_SCENARIOS.keySet()
+                        .containsAll(GdxScenarioContract.SWING_REFERENCE),
+                "the unified GDX catalogue must contain every Swing scenario");
     }
 
     @Test
@@ -133,41 +98,54 @@ class GdxScenarioContractTest {
                 .map(Method::getName)
                 .collect(Collectors.toSet());
 
-        assertEquals(GdxScenarioContract.SWING_REFERENCE,
-                GdxScenarioContract.SWING_GOLD_MULTIPROCESS_TESTS.keySet(),
-                "every Swing GOLD scenario must have an official multi-process port");
-        GdxScenarioContract.SWING_GOLD_MULTIPROCESS_TESTS.forEach(
-                (scenario, tests) -> {
-                    assertTrue(!tests.isEmpty(),
-                            "empty multi-process GOLD mapping: " + scenario);
-                    assertTrue(tests.stream().allMatch(
-                                    multiprocessMethods::contains),
-                            "GOLD mapping contains an in-process substitute: "
-                                    + scenario);
-                });
+        GdxScenarioContract.SWING_REFERENCE.forEach(scenario -> {
+            Set<String> tests = GdxScenarioContract.CERTIFICATION_SCENARIOS
+                    .getOrDefault(scenario, Set.of());
+            assertTrue(tests.stream().anyMatch(multiprocessMethods::contains),
+                    "historical scenario lacks an independent-process port: "
+                            + scenario);
+        });
     }
 
     @Test
     void certificationMethodsBelongToOneScenarioOnly() {
         Set<String> uniqueTests = new HashSet<>();
-        GdxScenarioContract.SWING_GOLD_MULTIPROCESS_TESTS.values().stream()
+        GdxScenarioContract.CERTIFICATION_SCENARIOS.values().stream()
                 .flatMap(Set::stream)
                 .forEach(test -> assertTrue(uniqueTests.add(test),
-                        "duplicated GOLD certification test: " + test));
-        GdxScenarioContract.NATIVE_GDX_UI_TESTS.values().stream()
-                .flatMap(Set::stream)
-                .forEach(test -> assertTrue(uniqueTests.add(test),
-                        "native UI test duplicates another certification test: "
-                                + test));
-        GdxScenarioContract.GDX_ONLY_SCENARIOS.values().stream()
-                .flatMap(Set::stream)
-                .forEach(test -> assertTrue(uniqueTests.add(test),
-                        "GDX-only certification test duplicates another scenario: "
-                                + test));
+                        "GDX test belongs to more than one scenario: " + test));
     }
 
     @Test
-    void certificationMethodsStayOutOfTheNormalProductBuild() {
+    void criticalProductRegressionsRunInTheNormalBuild() {
+        Map<String, Method> methods = Arrays.stream(
+                        GdxNetworkHumanProjectionIntegrationTest.class
+                                .getDeclaredMethods())
+                .filter(method -> method.isAnnotationPresent(Test.class))
+                .collect(Collectors.toMap(Method::getName,
+                        Function.identity()));
+
+        Set.of("gdxIwtsthCandidateRequestsAndRevealsTheMuckedNetworkHand",
+                        "nativeGdxIwtsthOffersAndRevealsAMuckedBotLikeSwing",
+                        "realGdxHandsAdvanceBlindsUpdateBothHudProjectionsAndPlayTheGong")
+                .stream()
+                .forEach(name -> {
+                    Method method = methods.get(name);
+                    assertTrue(method != null,
+                            "missing critical product regression: " + name);
+                    Tag methodTag = method.getAnnotation(Tag.class);
+                    Tag classTag = method.getDeclaringClass().getAnnotation(Tag.class);
+                    assertFalse(methodTag != null
+                                    && methodTag.value().equals("certification")
+                                    || classTag != null
+                                    && classTag.value().equals("certification"),
+                            "critical product regression was removed from the normal build: "
+                                    + name);
+                });
+    }
+
+    @Test
+    void everyTaggedCertificationMethodBelongsToTheUnifiedCatalogue() {
         Map<String, Method> methods = Arrays.stream(
                 new Class<?>[]{GdxNetworkHumanProjectionIntegrationTest.class,
                     GdxReconnectScenarioTest.class,
@@ -176,32 +154,23 @@ class GdxScenarioContractTest {
                 .filter(method -> method.isAnnotationPresent(Test.class))
                 .collect(Collectors.toMap(Method::getName,
                         Function.identity()));
-        Set<String> certificationTests = new HashSet<>();
-        GdxScenarioContract.SWING_GOLD_MULTIPROCESS_TESTS.values().forEach(
-                certificationTests::addAll);
-        GdxScenarioContract.NATIVE_GDX_UI_TESTS.values().forEach(
-                certificationTests::addAll);
-        GdxScenarioContract.GDX_ONLY_SCENARIOS.values().forEach(
-                certificationTests::addAll);
-
-        certificationTests.forEach(name -> {
-            Method method = methods.get(name);
-            assertTrue(method != null, "missing certification method: " + name);
+        Set<String> unified = GdxScenarioContract.CERTIFICATION_SCENARIOS
+                .values().stream().flatMap(Set::stream).collect(Collectors.toSet());
+        Set<String> missing = methods.values().stream().filter(method -> {
             Tag methodTag = method.getAnnotation(Tag.class);
             Tag classTag = method.getDeclaringClass().getAnnotation(Tag.class);
-            assertTrue((methodTag != null
-                            && methodTag.value().equals("certification"))
-                            || (classTag != null
-                            && classTag.value().equals("certification")),
-                    "certification method is not isolated from the product build: "
-                            + name);
-        });
+            return methodTag != null && methodTag.value().equals("certification")
+                    || classTag != null && classTag.value().equals("certification");
+        }).map(Method::getName).filter(name -> !unified.contains(name))
+                .collect(Collectors.toSet());
+        assertTrue(missing.isEmpty(),
+                "tagged GDX scenarios outside the unified catalogue: " + missing);
     }
 
     @Test
     void blockingGdxUiScenariosAlsoExerciseNativeTableWiring() {
         BLOCKING_GDX_UI_SCENARIOS.forEach(scenario -> {
-            Set<String> tests = GdxScenarioContract.NATIVE_GDX_UI_TESTS
+            Set<String> tests = GdxScenarioContract.CERTIFICATION_SCENARIOS
                     .getOrDefault(scenario, Set.of());
             assertTrue(tests.stream().anyMatch(
                             test -> test.startsWith("nativeGdx")),
@@ -253,6 +222,51 @@ class GdxScenarioContractTest {
         }
         assertTrue(driver.contains("new CoronaPokerGdxTable("),
                 "the shared scenario driver must bind the product GDX table");
+    }
+
+    @Test
+    void everyScenarioRendererKeepsTheSemanticHudOracle()
+            throws IOException {
+        Path root = repositoryRoot();
+        String driver = Files.readString(root.resolve("modules/coronapoker-gdx/src/"
+                + "test/java/com/tonikelope/coronapoker/gdx/scenarios/"
+                + "GdxScenarioRenderer.java"), StandardCharsets.UTF_8);
+        String node = Files.readString(root.resolve("modules/coronapoker-gdx/src/"
+                + "test/java/com/tonikelope/coronapoker/gdx/"
+                + "GdxMultiprocessNodeMain.java"), StandardCharsets.UTF_8);
+        String oracle = Files.readString(root.resolve(
+                "modules/coronapoker-gdx/src/test/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFunctionalLabelOracle.java"),
+                StandardCharsets.UTF_8);
+        String integration = Files.readString(root.resolve(
+                "modules/coronapoker-gdx/src/test/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxNetworkHumanProjectionIntegrationTest.java"),
+                StandardCharsets.UTF_8);
+        String reconnect = Files.readString(root.resolve(
+                "modules/coronapoker-gdx/src/test/java/com/tonikelope/"
+                + "coronapoker/gdx/scenarios/GdxReconnectScenarioTest.java"),
+                StandardCharsets.UTF_8);
+
+        assertTrue(node.contains("new GdxScenarioRenderer("),
+                "official process scenarios must use the shared GDX renderer");
+        assertTrue(driver.contains(
+                "assertProjectedLabelContract(event, projection)"),
+                "multiprocess scenarios lost the shared label oracle");
+        for (String requiredOracle : Set.of(
+                "localizedActionLabel(", "communityPotText(",
+                "communityBlindsText(", "communityHandText(",
+                "projection.callCostText()", "PlayerDeparture departure",
+                "HandResult result")) {
+            assertTrue(oracle.contains(requiredOracle),
+                    "shared scenarios lost semantic HUD assertion: "
+                    + requiredOracle);
+        }
+        assertTrue(integration.contains(
+                "GdxFunctionalLabelOracle.assertProjectedLabelContract("),
+                "in-process network scenarios lost the shared label oracle");
+        assertTrue(reconnect.contains(
+                "GdxFunctionalLabelOracle.assertProjectedLabelContract("),
+                "recovery scenarios lost the shared label oracle");
     }
 
     @Test
@@ -350,8 +364,9 @@ class GdxScenarioContractTest {
         String launcher = Files.readString(root.resolve(
                 "tools/qa/certify.cmd"), StandardCharsets.UTF_8);
 
-        assertTrue(runner.contains("SWING_GOLD_MULTIPROCESS_TESTS"));
-        assertTrue(runner.contains("NATIVE_GDX_UI_TESTS"));
+        assertTrue(runner.contains("CERTIFICATION_SCENARIOS"));
+        assertFalse(runner.contains("$certificationMaps"),
+                "the public runner must not rebuild special scenario lanes");
         assertTrue(runner.contains("foreach ($method in $entry.Methods)"));
         assertTrue(runner.contains("$selector = $test.Class + '#' + $test.Method"));
         assertTrue(runner.contains("& $maven @arguments"));

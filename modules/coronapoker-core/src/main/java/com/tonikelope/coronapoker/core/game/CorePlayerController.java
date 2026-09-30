@@ -54,6 +54,14 @@ public final class CorePlayerController implements GamePlayerController {
         return new CorePlayerController(nickname, false, true);
     }
 
+    public static CorePlayerController bot(String nickname,
+            java.util.Random decisionRandom) {
+        CorePlayerController player = bot(nickname);
+        player.bot.setRng(Objects.requireNonNull(decisionRandom,
+                "decisionRandom"));
+        return player;
+    }
+
     public boolean isLocal() {
         return local;
     }
@@ -431,7 +439,11 @@ public final class CorePlayerController implements GamePlayerController {
         else ((RemotePlayerState) state).setResponseTime(response);
     }
     @Override public boolean isIwtsthCandidate() {
-        return !local && bot == null && isLoser() && isActivo()
+        // Swing allowed a winning human to request IWTSTH for either a remote
+        // human or a bot that auto-mucked. The host owns bot cards and already
+        // has the canonical reveal path for them; excluding bots here made the
+        // GDX option silently disappear in the common local-table case.
+        return !local && isLoser() && isActivo()
                 && firstCard.isVisible_card() && firstCard.isTapada();
     }
     @Override public boolean isSpectator() { return state.spectator(); }

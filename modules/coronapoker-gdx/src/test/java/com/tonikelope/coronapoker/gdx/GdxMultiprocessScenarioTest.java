@@ -1471,6 +1471,18 @@ class GdxMultiprocessScenarioTest {
                         + renderedHands
                         + " durableHands=7 reason=COMPLETED",
                         Duration.ofSeconds(300)), node.diagnostic());
+                assertTrue(node.await("CP_GDX_E2E_VALIDATION_READY"
+                        + " scenario=spectator-recovery-mix",
+                        Duration.ofSeconds(30)), node.diagnostic());
+            }
+            // Release teardown only after every independent GDX process has
+            // checked the complete visible lifecycle.  This preserves the
+            // strict no-unexpected-RECONECTANDO oracle while preventing one
+            // successful process from disconnecting underneath another.
+            for (NodeProcess node : nodes) {
+                node.send("FINISH_SCENARIO");
+            }
+            for (NodeProcess node : nodes) {
                 assertEquals(0, node.awaitExit(Duration.ofSeconds(20)),
                         node.diagnostic());
                 assertTrue(!node.contains("CP_GDX_E2E_FAIL"),

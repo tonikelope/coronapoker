@@ -65,6 +65,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.KeyAgreement;
@@ -102,6 +103,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
     private final BooleanSupplier receiveStats;
     private final BooleanSupplier shareStats;
     private final StatsSyncService statsSync;
+    private final Supplier<byte[]> sessionIds;
     private final ExecutorService executor;
     private final Set<Thread> workerThreads = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -124,6 +126,14 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
     public NetworkLobbyGateway(Path coronaDirectory, GameTableFactory gameTables,
             RecoverableGameRepository recoverableGames,
+            Supplier<byte[]> sessionIds) {
+        this(coronaDirectory, gameTables, recoverableGames,
+                IdentityTrustStore.unavailable(), () -> false, () -> false,
+                null, sessionIds);
+    }
+
+    public NetworkLobbyGateway(Path coronaDirectory, GameTableFactory gameTables,
+            RecoverableGameRepository recoverableGames,
             IdentityTrustStore identityTrust) {
         this(coronaDirectory, gameTables, recoverableGames, identityTrust,
                 () -> false, () -> false, null);
@@ -141,6 +151,16 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             RecoverableGameRepository recoverableGames,
             IdentityTrustStore identityTrust, BooleanSupplier receiveStats,
             BooleanSupplier shareStats, StatsSyncService statsSync) {
+        this(coronaDirectory, gameTables, recoverableGames, identityTrust,
+                receiveStats, shareStats, statsSync,
+                NetworkLobbyGateway::secureSessionId);
+    }
+
+    public NetworkLobbyGateway(Path coronaDirectory, GameTableFactory gameTables,
+            RecoverableGameRepository recoverableGames,
+            IdentityTrustStore identityTrust, BooleanSupplier receiveStats,
+            BooleanSupplier shareStats, StatsSyncService statsSync,
+            Supplier<byte[]> sessionIds) {
         this.coronaDirectory = Objects.requireNonNull(coronaDirectory, "coronaDirectory")
                 .toAbsolutePath().normalize();
         this.gameTables = Objects.requireNonNull(gameTables, "gameTables");
@@ -151,6 +171,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 "receiveStats");
         this.shareStats = Objects.requireNonNull(shareStats, "shareStats");
         this.statsSync = statsSync;
+        this.sessionIds = Objects.requireNonNull(sessionIds, "sessionIds");
         ThreadFactory threads = task -> {
             Thread thread = new Thread(() -> {
                 Thread worker = Thread.currentThread();
@@ -212,11 +233,17 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         receiveStats, shareStats, statsSync)
                         : Transport.openHost(request, coronaDirectory, executor,
                                 gameTables, recoverableGames, identityTrust,
-                                receiveStats, shareStats, statsSync);
+                                 receiveStats, shareStats, statsSync, sessionIds);
             } catch (Exception failure) {
                 throw new java.util.concurrent.CompletionException(failure);
             }
         }, executor);
+    }
+
+    private static byte[] secureSessionId() {
+        byte[] value = new byte[16];
+        new SecureRandom().nextBytes(value);
+        return value;
     }
 
     @Override
@@ -303,11 +330,15 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 ExecutorService executor, GameTableFactory gameTables,
                 RecoverableGameRepository recoverableGames,
                 IdentityTrustStore identityTrust, BooleanSupplier receiveStats,
-                BooleanSupplier shareStats, StatsSyncService statsSync)
+                BooleanSupplier shareStats, StatsSyncService statsSync,
+                Supplier<byte[]> sessionIds)
                 throws Exception {
             PlayerIdentity identity = PlayerIdentity.loadOrCreate(directory, request.connection().nickname());
-            byte[] sessionId = new byte[16];
-            new SecureRandom().nextBytes(sessionId);
+            byte[] sessionId = Objects.requireNonNull(sessionIds.get(),
+                    "session id").clone();
+            if (sessionId.length != 16) {
+                throw new IllegalArgumentException("Session id must contain 16 bytes");
+            }
             Transport transport = new Transport(true, request, directory, executor, sessionId,
                     identity, request.table(), gameTables, identityTrust,
                     receiveStats, shareStats, statsSync);

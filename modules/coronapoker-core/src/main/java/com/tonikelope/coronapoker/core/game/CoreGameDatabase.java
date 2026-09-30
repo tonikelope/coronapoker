@@ -5,6 +5,7 @@ import com.tonikelope.coronapoker.HandCreateTransaction;
 import com.tonikelope.coronapoker.core.DatabaseService;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Objects;
@@ -62,9 +63,12 @@ public final class CoreGameDatabase implements GameDatabase {
     }
 
     private static void ensureSchema(Connection connection) throws SQLException {
+        boolean gameTableExisted = tableExists(connection, "game");
+        boolean seatProvenanceExisted = gameTableExisted
+                && columnExists(connection, "game", "seats_verified");
         try (Statement statement = connection.createStatement()) {
             statement.setQueryTimeout(30);
-            statement.execute("CREATE TABLE IF NOT EXISTS game(id INTEGER PRIMARY KEY, start INTEGER, end INTEGER, play_time INTEGER, server TEXT, players TEXT, buyin INTEGER, sb REAL, blinds_time INTEGER, rebuy INTEGER, last_deck TEXT, blinds_time_type INTEGER, ugi TEXT, local INTEGER NOT NULL DEFAULT 0, recover_settings TEXT, private INTEGER NOT NULL DEFAULT 0, imported INTEGER NOT NULL DEFAULT 0, imported_from TEXT)");
+            statement.execute("CREATE TABLE IF NOT EXISTS game(id INTEGER PRIMARY KEY, start INTEGER, end INTEGER, play_time INTEGER, server TEXT, players TEXT, buyin INTEGER, sb REAL, blinds_time INTEGER, rebuy INTEGER, last_deck TEXT, blinds_time_type INTEGER, ugi TEXT, local INTEGER NOT NULL DEFAULT 0, recover_settings TEXT, private INTEGER NOT NULL DEFAULT 0, imported INTEGER NOT NULL DEFAULT 0, imported_from TEXT, seats_verified INTEGER NOT NULL DEFAULT 0)");
             statement.execute("CREATE TABLE IF NOT EXISTS hand(id INTEGER PRIMARY KEY, id_game INTEGER, counter INTEGER, sbval REAL, blinds_double INTEGER, dealer TEXT, sb TEXT, bb TEXT, start INTEGER, end INTEGER, com_cards TEXT, preflop_players TEXT, flop_players TEXT, turn_players TEXT, river_players TEXT, pot REAL, hand_id_b64 TEXT, FOREIGN KEY(id_game) REFERENCES game(id) ON DELETE CASCADE)");
             statement.execute("CREATE TABLE IF NOT EXISTS action(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, counter INTEGER, round INTEGER, action INTEGER, bet REAL, conta_raise INTEGER, response_time INTEGER, record_b64 TEXT, sig_b64 TEXT, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
             statement.execute("CREATE TABLE IF NOT EXISTS showdown(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, hole_cards TEXT, hand_cards TEXT, hand_val INTEGER, winner INTEGER, pay REAL, profit REAL, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
@@ -83,6 +87,45 @@ public final class CoreGameDatabase implements GameDatabase {
             statement.execute("CREATE INDEX IF NOT EXISTS idx_action_player_hand ON action(player, id_hand)");
             statement.execute("CREATE INDEX IF NOT EXISTS idx_showdown_player_winner ON showdown(player, winner, id_hand)");
         }
+        if (gameTableExisted && !seatProvenanceExisted) {
+            try (Statement statement = connection.createStatement()) {
+                statement.setQueryTimeout(30);
+                statement.execute("ALTER TABLE game ADD COLUMN seats_verified INTEGER NOT NULL DEFAULT 0");
+                // Older local games predate the explicit marker.  Backfill only
+                // during the one-time schema upgrade, before any recovery stream
+                // can import rows into a fresh database.
+                statement.execute("UPDATE game SET seats_verified=1 "
+                        + "WHERE COALESCE(imported,0)=0 AND "
+                        + "EXISTS(SELECT 1 FROM hand WHERE hand.id_game=game.id)");
+            }
+        }
         HandCreateTransaction.ensureUniqueBalanceRows(connection);
+    }
+
+    private static boolean tableExists(Connection connection, String table)
+            throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?")) {
+            statement.setQueryTimeout(30);
+            statement.setString(1, table);
+            try (ResultSet rs = statement.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    private static boolean columnExists(Connection connection, String table,
+            String column) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.setQueryTimeout(30);
+            try (ResultSet rs = statement.executeQuery("PRAGMA table_info(" + table + ")")) {
+                while (rs.next()) {
+                    if (column.equalsIgnoreCase(rs.getString("name"))) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
     }
 }

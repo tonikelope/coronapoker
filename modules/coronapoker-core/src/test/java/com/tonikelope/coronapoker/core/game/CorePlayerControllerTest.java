@@ -223,7 +223,7 @@ class CorePlayerControllerTest {
     }
 
     @Test
-    void nativeShowdownOutcomeOffersOnlyAnActuallyMuckedHumanLoserForIwtsth() {
+    void nativeShowdownOutcomeOffersAnActuallyMuckedHumanLoserForIwtsth() {
         CorePlayerController remote = CorePlayerController.remote("rival");
         remote.getHoleCard1().setVisibleCard(true);
         remote.getHoleCard2().setVisibleCard(true);
@@ -239,6 +239,20 @@ class CorePlayerControllerTest {
 
         remote.getHoleCard1().destapar(false);
         assertFalse(remote.isIwtsthCandidate());
+    }
+
+    @Test
+    void nativeShowdownOutcomeAlsoOffersAMuckedBotLikeSwing() {
+        CorePlayerController bot = CorePlayerController.bot("CoronaBot$1");
+        bot.getHoleCard1().setVisibleCard(true);
+        bot.getHoleCard2().setVisibleCard(true);
+        bot.getHoleCard1().iniciarConValorNumerico(1);
+        bot.getHoleCard2().iniciarConValorNumerico(2);
+
+        bot.applyShowdownResult(false, "loser");
+
+        assertTrue(bot.isLoser());
+        assertTrue(bot.isIwtsthCandidate());
     }
 
     private static final class StubDealer implements DealerView {

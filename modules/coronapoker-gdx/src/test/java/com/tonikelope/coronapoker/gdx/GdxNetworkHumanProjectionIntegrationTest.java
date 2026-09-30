@@ -23,6 +23,7 @@ import com.tonikelope.coronapoker.core.game.GameCinematicAssets;
 import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
 import com.tonikelope.coronapoker.core.game.GameDecisionSink;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
+import com.tonikelope.coronapoker.core.game.GameEntropySource;
 import com.tonikelope.coronapoker.core.game.GameLaunchContext;
 import com.tonikelope.coronapoker.core.game.GameLogSink;
 import com.tonikelope.coronapoker.core.game.GamePresentationSettings;
@@ -48,6 +49,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -75,6 +77,14 @@ import org.junit.jupiter.api.io.TempDir;
 class GdxNetworkHumanProjectionIntegrationTest {
 
     @TempDir Path temporary;
+
+    /*
+     * Functional IWTSTH scenarios must exercise a known showdown, not wait for
+     * an accidental deal to make the remote loser muck.  The production deck,
+     * shuffle proofs, bot and network path remain unchanged; only the entropy
+     * source of this isolated test JVM is replayable.
+     */
+    private static final long IWTSTH_SCENARIO_SEED = 0x495754535448L;
 
     private static int autoTarget(int selection, ActionControlState controls,
             boolean preflop, double bigBlind, boolean autoCallEnabled,
@@ -927,6 +937,103 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 assertTrue(hostRenderer.requested.get()
                                 ^ clientRenderer.requested.get(),
                         "only the winner should see the remote muck as a candidate");
+                hostRenderer.assertComplete();
+                clientRenderer.assertComplete();
+            } finally {
+                client.close();
+                host.close();
+            }
+        }
+    }
+
+    @Test
+    void nativeGdxIwtsthOffersAndRevealsAMuckedBotLikeSwing()
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        DatabaseService database = new DatabaseService(
+                temporary.resolve("iwtsth-bot.sqlite").toString());
+        database.start();
+        AtomicBoolean requestClaimed = new AtomicBoolean();
+        try (database;
+             NetworkLobbyGateway gateway = iwtsthGateway(
+                     temporary.resolve("iwtsth-bot"), database)) {
+            LobbySession host = gateway.open(iwtsthRequest(false,
+                    "Anfitrion", port)).get(5, TimeUnit.SECONDS);
+            try {
+                host.submit(new LobbyCommand.AddBot()).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                await(() -> host.snapshot().participants().size() == 2,
+                        Duration.ofSeconds(5));
+                host.submit(new LobbyCommand.StartGame()).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+
+                TableSession table = host.tableSession().toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                IwtsthProjectionRenderer renderer
+                        = new IwtsthProjectionRenderer(table, requestClaimed);
+                table.attach(renderer).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+
+                await(renderer::iwtsthComplete, Duration.ofSeconds(35));
+                assertTrue(renderer.candidate.get().startsWith("CoronaBot$"),
+                        "the local bot muck never became the Swing-compatible "
+                                + "blinking IWTSTH target");
+                renderer.assertComplete();
+            } finally {
+                host.close();
+            }
+        }
+    }
+
+    @Test
+    void realGdxHandsAdvanceBlindsUpdateBothHudProjectionsAndPlayTheGong()
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        DatabaseService hostDatabase = new DatabaseService(
+                temporary.resolve("blind-rise-host.sqlite").toString());
+        DatabaseService clientDatabase = new DatabaseService(
+                temporary.resolve("blind-rise-client.sqlite").toString());
+        hostDatabase.start();
+        clientDatabase.start();
+        try (hostDatabase; clientDatabase;
+             NetworkLobbyGateway hostGateway = gateway(
+                     temporary.resolve("blind-rise-host"), hostDatabase,
+                     GameDecisionSink.noop(), blindRiseSettings());
+             NetworkLobbyGateway clientGateway = gateway(
+                     temporary.resolve("blind-rise-client"), clientDatabase,
+                     GameDecisionSink.noop(), blindRiseSettings())) {
+            LobbySession host = hostGateway.open(blindRiseRequest(false,
+                    "Anfitrion", port)).get(5, TimeUnit.SECONDS);
+            LobbySession client = clientGateway.open(blindRiseRequest(true,
+                    "Invitado", port)).get(5, TimeUnit.SECONDS);
+            try {
+                await(() -> host.snapshot().participants().size() == 2,
+                        Duration.ofSeconds(5));
+                host.submit(new LobbyCommand.StartGame()).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+
+                TableSession hostTable = host.tableSession().toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                BlindRiseProjectionRenderer hostRenderer
+                        = new BlindRiseProjectionRenderer(hostTable);
+                hostTable.attach(hostRenderer).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                TableSession clientTable = client.tableSession().toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                BlindRiseProjectionRenderer clientRenderer
+                        = new BlindRiseProjectionRenderer(clientTable);
+                clientTable.attach(clientRenderer).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+
+                await(() -> hostRenderer.closed.get()
+                                && clientRenderer.closed.get(),
+                        Duration.ofSeconds(35));
                 hostRenderer.assertComplete();
                 clientRenderer.assertComplete();
             } finally {
@@ -2233,9 +2340,74 @@ class GdxNetworkHumanProjectionIntegrationTest {
         CoreGameTableFactory tables = new CoreGameTableFactory(database,
                 (key, arguments) -> key, GameLogSink.noop(), accept,
                 GameDecisionSink.noop(), iwtsthSettings(),
-                GameCinematicAssets.none());
+                GameCinematicAssets.none(), new ScenarioGameEntropy(
+                        IWTSTH_SCENARIO_SEED
+                                ^ data.getFileName().toString().hashCode()));
+        byte[] sessionId = new byte[16];
+        new Random(mixScenarioSeed(IWTSTH_SCENARIO_SEED
+                ^ data.getFileName().toString().hashCode()
+                ^ 0x53455353494f4eL)).nextBytes(sessionId);
         return new NetworkLobbyGateway(data, tables,
-                new RecoverableGameRepository(database));
+                new RecoverableGameRepository(database),
+                () -> sessionId.clone());
+    }
+
+    /** Independent deterministic domains restricted to scenario code. */
+    private static final class ScenarioGameEntropy implements GameEntropySource {
+
+        private final long seed;
+        private final Random handIds;
+        private final Random localShuffle;
+        private final Random peerShuffle;
+        private final Random botShuffle;
+
+        private ScenarioGameEntropy(long seed) {
+            this.seed = seed;
+            handIds = new Random(mix(seed ^ 0x48414e444944L));
+            localShuffle = new Random(mix(seed ^ 0x4c4f43414cL));
+            peerShuffle = new Random(mix(seed ^ 0x50454552L));
+            botShuffle = new Random(mix(seed ^ 0x424f54L));
+        }
+
+        @Override
+        public synchronized void fillHandId(byte[] target) {
+            handIds.nextBytes(target);
+        }
+
+        @Override
+        public synchronized void fillLocalShuffleSeed(byte[] target) {
+            localShuffle.nextBytes(target);
+        }
+
+        @Override
+        public synchronized void fillPeerShuffleSeed(String nickname,
+                byte[] target) {
+            peerShuffle.nextBytes(target);
+        }
+
+        @Override
+        public synchronized void fillBotShuffleSeed(String nickname,
+                byte[] target) {
+            botShuffle.nextBytes(target);
+        }
+
+        @Override
+        public Random botDecisionRandom(String nickname) {
+            return new Random(mix(seed ^ nickname.hashCode()
+                    ^ 0x4445434953494f4eL));
+        }
+
+        private static long mix(long value) {
+            return mixScenarioSeed(value);
+        }
+    }
+
+    private static long mixScenarioSeed(long value) {
+        value ^= value >>> 33;
+        value *= 0xff51afd7ed558ccdL;
+        value ^= value >>> 33;
+        value *= 0xc4ceb9fe1a85ec53L;
+        return value ^ value >>> 33;
     }
 
     static NetworkLobbyGateway cinematicGateway(Path data,
@@ -2283,7 +2455,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 new Class<?>[]{GamePresentationSettings.class},
                 (proxy, method, arguments) -> switch (method.getName()) {
                     case "testMode" -> true;
-                    case "ambientMusic", "cinematics", "gameOverCinematics",
+                    case "ambientMusic", "gameOverCinematics",
                             "blindDealerAnimation", "betAnimation",
                             "counterAnimation", "shuffleAnimation",
                             "dealAnimation", "flipAnimation", "swapAnimation",
@@ -2291,6 +2463,25 @@ class GdxNetworkHumanProjectionIntegrationTest {
                             "shuffleSound", "dealSound", "flipSound",
                             "cashSound", "iwtsthSound", "startSound",
                             "warningSound", "errorSound" -> false;
+                    default -> method.invoke(defaults, arguments);
+                });
+    }
+
+    private static GamePresentationSettings blindRiseSettings() {
+        GamePresentationSettings defaults = GamePresentationSettings.defaults();
+        return (GamePresentationSettings) Proxy.newProxyInstance(
+                GamePresentationSettings.class.getClassLoader(),
+                new Class<?>[]{GamePresentationSettings.class},
+                (proxy, method, arguments) -> switch (method.getName()) {
+                    case "testMode", "blindSound" -> true;
+                    case "ambientMusic", "cinematics", "gameOverCinematics",
+                            "blindDealerAnimation", "betAnimation",
+                            "counterAnimation", "shuffleAnimation",
+                            "dealAnimation", "flipAnimation", "swapAnimation",
+                            "callSound", "betSound", "shuffleSound",
+                            "dealSound", "flipSound", "cashSound",
+                            "iwtsthSound", "startSound", "warningSound",
+                            "errorSound" -> false;
                     default -> method.invoke(defaults, arguments);
                 });
     }
@@ -2466,6 +2657,28 @@ class GdxNetworkHumanProjectionIntegrationTest {
         table.setThinkTime(false);
         table.setShowdownSeconds(1);
         table.setIwtsth(true);
+        return new NewGameRequest(connection, table.snapshot());
+    }
+
+    private static NewGameRequest blindRiseRequest(boolean joining,
+            String nickname, int port) {
+        NewGameConnectionDraft.Submission connection
+                = new NewGameConnectionDraft.Submission(
+                        joining ? NewGameConnectionDraft.Mode.JOIN
+                                : NewGameConnectionDraft.Mode.CREATE,
+                        nickname, "", "127.0.0.1", Integer.toString(port),
+                        null, false, false, null);
+        if (joining) return new NewGameRequest(connection, null);
+        NewGameTableDraft table = new NewGameTableDraft();
+        table.setHandLimit(true);
+        table.setHandLimitCount(4);
+        table.setThinkTime(false);
+        table.setShowdownSeconds(1);
+        table.setBuyin(100);
+        table.setIncreaseBlinds(true);
+        table.setBlindIncreaseType(
+                NewGameTableDraft.BlindIncreaseType.HANDS);
+        table.setBlindInterval(1);
         return new NewGameRequest(connection, table.snapshot());
     }
 
@@ -2745,6 +2958,13 @@ class GdxNetworkHumanProjectionIntegrationTest {
         assertTrue(condition.getAsBoolean(), "timed out waiting for GDX network state");
     }
 
+    private static void applyWithFunctionalLabelOracle(
+            GdxTableViewState projection, TableVisualEvent event) {
+        projection.apply(event);
+        GdxFunctionalLabelOracle.assertProjectedLabelContract(event,
+                projection);
+    }
+
     static final class ProjectionRenderer implements TableRenderer {
         private final TableSession table;
         private final AtomicReference<GdxTableViewState> state = new AtomicReference<>();
@@ -2786,7 +3006,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         public synchronized CompletionStage<Void> render(TableVisualEvent event) {
             GdxTableViewState projection = state.get();
             assertNotNull(projection, "renderer must be opened before events arrive");
-            projection.apply(event);
+            applyWithFunctionalLabelOracle(projection, event);
             TableSnapshot snapshot = projection.snapshot();
             streets.add(snapshot.street());
             assertFalse(snapshot.localNickname().isBlank());
@@ -2966,7 +3186,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 TableVisualEvent event) {
             GdxTableViewState projection = state.get();
             assertNotNull(projection);
-            projection.apply(event);
+            applyWithFunctionalLabelOracle(projection, event);
             int order = eventOrder.incrementAndGet();
             if (event instanceof TableVisualEvent.ActionControls controls) {
                 if (controls.state().foldEnabled()) {
@@ -3059,7 +3279,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 TableVisualEvent event) {
             GdxTableViewState projection = state.get();
             assertNotNull(projection);
-            projection.apply(event);
+            applyWithFunctionalLabelOracle(projection, event);
             String local = projection.snapshot().localNickname();
 
             if (event instanceof TableVisualEvent.ActionControls controls) {
@@ -3162,7 +3382,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 TableVisualEvent event) {
             GdxTableViewState projection = state.get();
             assertNotNull(projection);
-            projection.apply(event);
+            applyWithFunctionalLabelOracle(projection, event);
             if (event instanceof TableVisualEvent.PreActionControls controls) {
                 queuedSelection = CoronaPokerGdxTable
                         .queuedPreActionAfterControlsEvent(queuedSelection,
@@ -3250,7 +3470,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 TableVisualEvent event) {
             GdxTableViewState projection = state.get();
             assertNotNull(projection);
-            projection.apply(event);
+            applyWithFunctionalLabelOracle(projection, event);
             if (event instanceof TableVisualEvent.PreActionControls controls) {
                 queuedSelection = CoronaPokerGdxTable
                         .queuedPreActionAfterControlsEvent(queuedSelection,
@@ -3379,6 +3599,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         private final AtomicBoolean requested = new AtomicBoolean();
         private final AtomicBoolean candidateCleared = new AtomicBoolean();
         private final AtomicBoolean candidateRevealed = new AtomicBoolean();
+        private final AtomicBoolean requestCinematic = new AtomicBoolean();
         private final AtomicReference<String> candidate = new AtomicReference<>();
         private final CopyOnWriteArrayList<String> reveals
                 = new CopyOnWriteArrayList<>();
@@ -3400,7 +3621,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         public CompletionStage<Void> render(TableVisualEvent event) {
             GdxTableViewState projection = state.get();
             assertNotNull(projection);
-            projection.apply(event);
+            applyWithFunctionalLabelOracle(projection, event);
             if (event instanceof TableVisualEvent.ActionControls controls
                     && controls.state().callAction()
                     != ActionControlState.CallAction.DISABLED) {
@@ -3412,8 +3633,19 @@ class GdxNetworkHumanProjectionIntegrationTest {
                     String nickname = candidates.nicknames().get(0);
                     candidate.set(nickname);
                     assertTrue(projection.isIwtsthCandidate(nickname));
-                    table.commands().submit(
-                            new TableCommand.RequestIwtsth(nickname));
+                    GdxGameText text = new GdxGameText("es");
+                    assertEquals(text.translate("ui.pierde_3"),
+                            CoronaPokerGdxTable.iwtsthCandidateLabel(
+                                    true, false, text));
+                    assertEquals(text.translate("iwtsth.iwtsth"),
+                            CoronaPokerGdxTable.iwtsthCandidateLabel(
+                                    true, true, text));
+                    CoronaPokerGdxTable nativeTable
+                            = new CoronaPokerGdxTable(60, projection,
+                                    table.commands(), () -> { },
+                                    new GdxGameLogSink(), null);
+                    assertTrue(nativeTable.activateIwtsthCandidate(nickname),
+                            "the projected blinking seat was not actionable");
                 } else if (candidates.nicknames().isEmpty()
                         && requested.get()) {
                     candidateCleared.set(true);
@@ -3427,6 +3659,13 @@ class GdxNetworkHumanProjectionIntegrationTest {
                             && !reveal.left().code().isBlank()
                             && !reveal.right().code().isBlank());
                 }
+            } else if (event instanceof TableVisualEvent.Cinematic cinematic
+                    && cinematic.type()
+                    == TableVisualEvent.Cinematic.Type.IWTSTH_REQUEST
+                    && cinematic.phase()
+                    == TableVisualEvent.Cinematic.Phase.START) {
+                assertEquals("iwtsth.gif", cinematic.assetName());
+                requestCinematic.set(true);
             } else if (event instanceof TableVisualEvent.CloseTable) {
                 closed.set(true);
             }
@@ -3435,6 +3674,8 @@ class GdxNetworkHumanProjectionIntegrationTest {
 
         void assertComplete() {
             if (requested.get()) {
+                assertTrue(requestCinematic.get(),
+                        "the canonical IWTSTH request never reached the GDX cinematic stream");
                 assertTrue(candidateCleared.get(),
                         "the IWTSTH hit target remained active after submission");
                 assertTrue(candidateRevealed.get(),
@@ -3447,6 +3688,93 @@ class GdxNetworkHumanProjectionIntegrationTest {
         boolean iwtsthComplete() {
             return requested.get() && candidateCleared.get()
                     && candidateRevealed.get();
+        }
+
+        @Override public void close() { }
+    }
+
+    private static final class BlindRiseProjectionRenderer
+            implements TableRenderer {
+        private final TableSession table;
+        private final AtomicReference<GdxTableViewState> state
+                = new AtomicReference<>();
+        private final CopyOnWriteArrayList<String> blindStates
+                = new CopyOnWriteArrayList<>();
+        private final AtomicInteger gongCount = new AtomicInteger();
+        private final AtomicInteger endedHands = new AtomicInteger();
+        private final AtomicBoolean closed = new AtomicBoolean();
+
+        BlindRiseProjectionRenderer(TableSession table) {
+            this.table = table;
+        }
+
+        @Override
+        public CompletionStage<Void> open(TableSnapshot initialState) {
+            state.set(new GdxTableViewState(initialState));
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public CompletionStage<Void> render(TableVisualEvent event) {
+            GdxTableViewState projection = state.get();
+            assertNotNull(projection);
+            applyWithFunctionalLabelOracle(projection, event);
+            if (event instanceof TableVisualEvent.ActionControls controls
+                    && controls.state().callAction()
+                    != ActionControlState.CallAction.DISABLED) {
+                table.commands().submit(new TableCommand.CheckOrCall());
+            } else if (event instanceof TableVisualEvent.TableInfo info) {
+                String stateKey = info.smallBlind() + "/" + info.bigBlind()
+                        + "@" + info.blindIncreaseInterval()
+                        + ":" + info.blindIncreaseType()
+                        + "(" + info.blindIncreaseCount() + ")";
+                if (!blindStates.contains(stateKey)) {
+                    blindStates.add(stateKey);
+                }
+                assertEquals(CoronaPokerGdxTable.communityBlindsText(
+                        new GdxGameText("es"), info.smallBlind(),
+                        info.bigBlind(), false,
+                        info.blindIncreaseInterval(),
+                        info.blindIncreaseType(),
+                        info.blindIncreaseCount()),
+                        CoronaPokerGdxTable.communityBlindsText(
+                                new GdxGameText("es"),
+                                projection.smallBlind(),
+                                projection.bigBlind(), false,
+                                projection.blindIncreaseInterval(),
+                                projection.blindIncreaseType(),
+                                projection.blindIncreaseCount()));
+            } else if (event instanceof TableVisualEvent.AudioCue cue
+                    && cue.operation()
+                    == TableVisualEvent.AudioCue.Operation.PLAY
+                    && "misc/double_blinds.wav".equals(cue.resource())) {
+                gongCount.incrementAndGet();
+            } else if (event instanceof TableVisualEvent.HandBoundary boundary
+                    && boundary.phase()
+                    == TableVisualEvent.HandBoundary.Phase.END) {
+                endedHands.incrementAndGet();
+            } else if (event instanceof TableVisualEvent.CloseTable) {
+                closed.set(true);
+            }
+            return CompletableFuture.completedFuture(null);
+        }
+
+        void assertComplete() {
+            assertEquals(4, endedHands.get());
+            assertTrue(blindStates.contains("0.1/0.2@1:2(0)"),
+                    "the initial configured blind schedule never reached GDX: "
+                            + blindStates);
+            assertTrue(blindStates.contains("0.2/0.4@1:2(1)"),
+                    "the first scheduled blind rise never reached GDX: "
+                            + blindStates);
+            assertTrue(blindStates.contains("0.3/0.6@1:2(2)"),
+                    "the second scheduled blind rise never reached GDX: "
+                            + blindStates);
+            assertTrue(blindStates.contains("0.5/1.0@1:2(3)"),
+                    "the third scheduled blind rise never reached GDX: "
+                            + blindStates);
+            assertEquals(3, gongCount.get(),
+                    "each real blind rise must emit exactly one Swing gong");
         }
 
         @Override public void close() { }
@@ -3484,7 +3812,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         @Override
         public CompletionStage<Void> render(TableVisualEvent event) {
             GdxTableViewState projection = state.get();
-            projection.apply(event);
+            applyWithFunctionalLabelOracle(projection, event);
             if (event instanceof TableVisualEvent.ActionControls controls
                     && controls.state().callAction()
                     != ActionControlState.CallAction.DISABLED) {
@@ -3546,7 +3874,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         public CompletionStage<Void> render(TableVisualEvent event) {
             GdxTableViewState projection = state.get();
             assertNotNull(projection);
-            projection.apply(event);
+            applyWithFunctionalLabelOracle(projection, event);
             assertTrue(projection.snapshot().players().stream().allMatch(player ->
                     player.stack() >= 0d && player.streetBet() >= 0d
                             && player.potContribution() >= 0d));
@@ -3600,6 +3928,16 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 = new AtomicReference<>();
         private final AtomicLong sideASequence = new AtomicLong();
         private final AtomicLong sideBSequence = new AtomicLong();
+        private final AtomicReference<Double> sideAPot
+                = new AtomicReference<>();
+        private final AtomicReference<Double> sideBPot
+                = new AtomicReference<>();
+        private final AtomicReference<String> sideBPrefix
+                = new AtomicReference<>();
+        private final AtomicBoolean sideBPotPreservedAtEnd
+                = new AtomicBoolean();
+        private final AtomicBoolean payoutRestoredOrdinaryPot
+                = new AtomicBoolean();
         private final CopyOnWriteArrayList<Integer> sideBDeals
                 = new CopyOnWriteArrayList<>();
         private final Set<String> revealedPlayers
@@ -3641,7 +3979,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         public CompletionStage<Void> render(TableVisualEvent event) {
             GdxTableViewState projection = state.get();
             assertNotNull(projection);
-            projection.apply(event);
+            applyWithFunctionalLabelOracle(projection, event);
             if (event instanceof TableVisualEvent.ActionControls controls) {
                 if (controls.state().allInEnabled()) {
                     allInSubmitted.set(true);
@@ -3660,10 +3998,29 @@ class GdxNetworkHumanProjectionIntegrationTest {
                     }
                 }
             } else if (event instanceof TableVisualEvent.RunItTwiceBoard board) {
+                assertTrue(board.potAmount() > 0d,
+                        "RIT board label cannot display a zero pot");
+                String tag = new GdxGameText("es").translate(board.side()
+                        == TableVisualEvent.RunItTwiceBoard.Side.A
+                                ? "runittwice.pot_label_a"
+                                : "runittwice.pot_label_b");
+                assertEquals(new GdxGameText("es").translate(
+                        "runittwice.pot_label_full", tag),
+                        board.potPrefix());
+                assertEquals(CoronaPokerGdxTable.communityPotText(
+                        new GdxGameText("es"), board.potPrefix(),
+                        board.potAmount()),
+                        CoronaPokerGdxTable.communityPotText(
+                                new GdxGameText("es"),
+                                projection.runItTwicePotPrefix(),
+                                projection.snapshot().pot()));
                 if (board.side() == TableVisualEvent.RunItTwiceBoard.Side.A) {
                     sideASequence.compareAndSet(0L, board.sequence());
+                    sideAPot.compareAndSet(null, board.potAmount());
                 } else {
                     sideBSequence.compareAndSet(0L, board.sequence());
+                    sideBPot.compareAndSet(null, board.potAmount());
+                    sideBPrefix.compareAndSet(null, board.potPrefix());
                 }
             } else if (event instanceof TableVisualEvent.DealCommunityCard deal
                     && sideBSequence.get() > 0L
@@ -3682,12 +4039,24 @@ class GdxNetworkHumanProjectionIntegrationTest {
                     && boundary.phase()
                     == TableVisualEvent.HandBoundary.Phase.END) {
                 endedHands.incrementAndGet();
+                if (sideBSequence.get() > 0L) {
+                    assertEquals(sideBPot.get(), projection.snapshot().pot(),
+                            "RIT END zeroed the CARA B label before payout");
+                    assertEquals(sideBPrefix.get(),
+                            projection.runItTwicePotPrefix());
+                    sideBPotPreservedAtEnd.set(true);
+                }
                 preservedRevealsAtEnd.set(revealedPlayers.stream().allMatch(
                         nickname -> projection.presentedHoleCards(nickname)
                                 .size() == 2
                         && projection.presentedHoleCards(nickname).stream()
                                 .allMatch(card -> card.visible()
                                 && card.faceUp())));
+            } else if (event instanceof TableVisualEvent.Payout
+                    && sideBSequence.get() > 0L) {
+                assertEquals("", projection.runItTwicePotPrefix(),
+                        "RIT payout retained the CARA B prefix");
+                payoutRestoredOrdinaryPot.set(true);
             } else if (event instanceof TableVisualEvent.CloseTable close) {
                 summary.set(close.summary());
                 closed.set(true);
@@ -3702,6 +4071,10 @@ class GdxNetworkHumanProjectionIntegrationTest {
             assertTrue(allInSubmitted.get());
             assertTrue(sideASequence.get() > 0L);
             assertTrue(sideBSequence.get() > sideASequence.get());
+            assertTrue(sideAPot.get() != null && sideAPot.get() > 0d);
+            assertTrue(sideBPot.get() != null && sideBPot.get() > 0d);
+            assertTrue(sideBPotPreservedAtEnd.get());
+            assertTrue(payoutRestoredOrdinaryPot.get());
             assertEquals(List.of(0, 1, 2, 3, 4), sideBDeals);
             assertEquals(Set.of("Anfitrion", "Invitado"), revealedPlayers);
             assertEquals(revealedPlayers, monteCarloPlayers);
@@ -3792,7 +4165,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         public CompletionStage<Void> render(TableVisualEvent event) {
             GdxTableViewState projection = state.get();
             assertNotNull(projection);
-            projection.apply(event);
+            applyWithFunctionalLabelOracle(projection, event);
             if (event instanceof TableVisualEvent.ActionControls controls) {
                 if (controls.state().allInEnabled()) {
                     allInHands.add(projection.handNumber());
@@ -3900,7 +4273,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         public CompletionStage<Void> render(TableVisualEvent event) {
             GdxTableViewState projection = state.get();
             assertNotNull(projection);
-            projection.apply(event);
+            applyWithFunctionalLabelOracle(projection, event);
             if (event instanceof TableVisualEvent.DealHoleCard deal
                     && deal.nickname().equals(localNickname)) {
                 localDeals.computeIfAbsent(projection.handNumber(), ignored
@@ -4018,7 +4391,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         public CompletionStage<Void> render(TableVisualEvent event) {
             GdxTableViewState projection = state.get();
             assertNotNull(projection);
-            projection.apply(event);
+            applyWithFunctionalLabelOracle(projection, event);
             if (event instanceof TableVisualEvent.LastHandStatus status) {
                 sawLastHand.set(status.enabled());
             } else if (event instanceof TableVisualEvent.HandLimitStatus status) {
@@ -4101,7 +4474,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         public CompletionStage<Void> render(TableVisualEvent event) {
             GdxTableViewState projection = state.get();
             assertNotNull(projection);
-            projection.apply(event);
+            applyWithFunctionalLabelOracle(projection, event);
             if (event instanceof TableVisualEvent.HandBoundary boundary
                     && boundary.phase()
                     == TableVisualEvent.HandBoundary.Phase.PREPARE) {

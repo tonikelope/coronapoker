@@ -38,6 +38,9 @@ final class GdxTableViewState {
     private double smallBlind;
     private double bigBlind;
     private int handNumber;
+    private int blindIncreaseInterval;
+    private int blindIncreaseType = 1;
+    private int blindIncreaseCount;
     private String callCostText = "";
     private String callCostAggressorNickname = "";
     private String runItTwicePotPrefix = "";
@@ -201,6 +204,18 @@ final class GdxTableViewState {
 
     double bigBlind() {
         return bigBlind;
+    }
+
+    int blindIncreaseInterval() {
+        return blindIncreaseInterval;
+    }
+
+    int blindIncreaseType() {
+        return blindIncreaseType;
+    }
+
+    int blindIncreaseCount() {
+        return blindIncreaseCount;
     }
 
     boolean anteEnabled() {
@@ -498,6 +513,9 @@ final class GdxTableViewState {
             smallBlind = info.smallBlind();
             bigBlind = info.bigBlind();
             handNumber = info.handNumber();
+            blindIncreaseInterval = info.blindIncreaseInterval();
+            blindIncreaseType = info.blindIncreaseType();
+            blindIncreaseCount = info.blindIncreaseCount();
         } else if (event instanceof TableVisualEvent.CallCost callCost) {
             callCostText = callCost.text();
             callCostAggressorNickname = callCost.aggressorNickname();
@@ -521,6 +539,16 @@ final class GdxTableViewState {
         } else if (event instanceof TableVisualEvent.RevealHoleCards reveal) {
             revealedHoleCards.put(reveal.nickname(),
                     List.of(reveal.left(), reveal.right()));
+            // A mucked loser reaches showdown with an intentionally blank
+            // HandResult so its hand is not leaked.  IWTSTH (or a later
+            // voluntary SHOW) subsequently publishes the authorized cards and
+            // evaluated hand. Complete that existing result now: the winner
+            // flag remains false, but the seat caption becomes PAREJA, COLOR,
+            // etc. instead of staying on the stale generic PIERDE verdict.
+            if (resolvedHandResults.contains(reveal.nickname())
+                    && !reveal.handName().isBlank()) {
+                resolvedHandNames.put(reveal.nickname(), reveal.handName());
+            }
             replacePlayer(reveal.nickname(), player -> copyPlayer(player,
                     player.stack(), player.streetBet(), player.potContribution(),
                     player.active(), player.winner(), player.position(),
@@ -540,6 +568,15 @@ final class GdxTableViewState {
             resolvedHandWinners.put(result.nickname(), result.winner());
             resolvedWonPotIndexes.put(result.nickname(),
                     result.wonPotIndexes());
+            // The sole-survivor event settles every peer's local HUD without
+            // fabricating HandResult rows for the other seats. Their captions
+            // therefore keep the real action (for example NO VA), while only
+            // the local player receives the derived losing outcome.
+            String localNickname = snapshot.localNickname();
+            if (result.soleSurvivor() && !localNickname.isBlank()
+                    && !localNickname.equals(result.nickname())) {
+                resolvedHandWinners.put(localNickname, false);
+            }
             snapshot = copySnapshot(snapshot, result.street(),
                     snapshot.pot(), snapshot.currentTurnNickname(),
                     snapshot.players(), snapshot.communityCards());
@@ -577,6 +614,11 @@ final class GdxTableViewState {
                 showdownHighlights.remove(highlight.nickname());
             }
         } else if (event instanceof TableVisualEvent.Payout payout) {
+            // Payouts consolidate winnings from BOTH Run It Twice boards. They
+            // must therefore return to the ordinary BOTE label before showing
+            // the combined remainder; retaining CARA B here falsely described
+            // the two-board total as the second board's half.
+            runItTwicePotPrefix = "";
             // Keep payout as a defensive winner signal as well. Canonical
             // single-survivor hands now publish HandResult before the
             // between-hands wait, but recovery/older producers may still only
@@ -616,6 +658,8 @@ final class GdxTableViewState {
             gameConfiguration = status.configuration();
             smallBlind = gameConfiguration.smallBlind();
             bigBlind = gameConfiguration.bigBlind();
+            blindIncreaseInterval = gameConfiguration.blindsDouble();
+            blindIncreaseType = gameConfiguration.blindsDoubleType();
             maximumHands = gameConfiguration.hands();
         } else if (event instanceof TableVisualEvent.RunItTwiceLockStatus status) {
             runItTwiceLocked = status.locked();
@@ -730,7 +774,22 @@ final class GdxTableViewState {
     }
 
     private void applyHandBoundary(TableVisualEvent.HandBoundary boundary) {
-        snapshot = boundary.snapshot();
+        TableSnapshot boundarySnapshot = boundary.snapshot();
+        // END is published after the dealer has closed the accounting model
+        // (whose canonical pot is already zero), but before the visible
+        // showdown payout flies to the winners.  Swing kept the last painted
+        // Run It Twice half on screen throughout that interval.  Replacing the
+        // whole projection here produced the impossible "BOTE (CARA-B): 0"
+        // captured in a real game.  The following Payout event remains the
+        // single owner of clearing the board prefix and moving the pot.
+        if (boundary.phase() == TableVisualEvent.HandBoundary.Phase.END
+                && !runItTwicePotPrefix.isBlank()) {
+            boundarySnapshot = copySnapshot(boundarySnapshot,
+                    snapshot.pot(), boundarySnapshot.currentTurnNickname(),
+                    boundarySnapshot.players(),
+                    boundarySnapshot.communityCards());
+        }
+        snapshot = boundarySnapshot;
         if (boundary.phase() == TableVisualEvent.HandBoundary.Phase.PREPARE) {
             showdownHighlights.clear();
             actionKinds.clear();
@@ -791,7 +850,15 @@ final class GdxTableViewState {
                     player.active(), player.winner(), player.position(),
                     player.lastAction(), player.handName(), player.holeCards()));
         }
-        snapshot = copySnapshot(snapshot, collect.potAfterLanding(),
+        // Run It Twice is announced as soon as the final all-in action closes,
+        // while the cosmetic collection of those action chips may still be
+        // queued behind it. The collection carries the canonical FULL pot;
+        // overwriting the board event's half here made CARA A jump back to the
+        // full amount. Once a board is active, its RunItTwiceBoard event owns
+        // the central amount until settlement begins.
+        double displayedPot = runItTwicePotPrefix.isBlank()
+                ? collect.potAfterLanding() : snapshot.pot();
+        snapshot = copySnapshot(snapshot, displayedPot,
                 snapshot.currentTurnNickname(), snapshot.players(),
                 snapshot.communityCards());
     }

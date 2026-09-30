@@ -2878,7 +2878,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return null;
     }
 
-    private static String formatAmount(double amount) {
+    static String formatAmount(double amount) {
         return java.math.BigDecimal.valueOf(amount)
                 .setScale(2, java.math.RoundingMode.HALF_UP)
                 .stripTrailingZeros()
@@ -3116,13 +3116,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             liveInitialStackFill = new LiveInitialStackFill(fill,
                     System.nanoTime(), barrier);
         } else if (event instanceof TableVisualEvent.Cinematic cinematic
-                && cinematic.type() == TableVisualEvent.Cinematic.Type.ALL_IN
                 && cinematic.phase() == TableVisualEvent.Cinematic.Phase.START) {
             if (liveCinematic != null) {
                 throw new IllegalStateException("A GDX cinematic is already active");
             }
             String asset = cinematic.assetName();
-            StreamingGifTextureAnimation animation = allInAnimation(asset);
+            StreamingGifTextureAnimation animation = cinematicAnimation(
+                    cinematic.type(), asset);
             // START belongs to the ordered state stream and must be consumed
             // as soon as the animation begins. Only its completion barrier is
             // delayed until the final GIF frame. Applying START at the end let
@@ -3137,7 +3137,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // instant the action chip leaves the seat (Swing's contract).
             // Starting it here could make it precede the chip flight when the
             // asynchronous cinematic START wins the event race.
-            Sound companion = liveAllInSoundEnabled()
+            Sound companion = cinematic.type()
+                    == TableVisualEvent.Cinematic.Type.ALL_IN
+                    && liveAllInSoundEnabled()
                     ? allInCompanionSound(asset) : null;
             if (companion != null) {
                 play(companion, 0.82f, 1f);
@@ -4818,11 +4820,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         String iwtsthCandidate = iwtsthCandidateAt(pointer.x, pointer.y);
         if (iwtsthCandidate != null) {
-            // Close the local hit target synchronously, as Swing does once the
-            // request starts. The dealer still validates every rule and owns
-            // the network request; this only prevents accidental double-clicks.
-            liveState.dismissIwtsthCandidates();
-            submit(new TableCommand.RequestIwtsth(iwtsthCandidate));
+            activateIwtsthCandidate(iwtsthCandidate);
             return;
         }
         if (rabbitCardContains(pointer.x, pointer.y)) {
@@ -7830,14 +7828,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float potW = basePotW * pulse;
         float potH = basePotH * pulse;
         double currentPot = Math.max(0d, livePot());
-        String currentPotPrefix = liveState.runItTwicePotPrefix().isBlank()
-                ? uppercase(gameText.translate("game.bote"))
-                : liveState.runItTwicePotPrefix();
+        String currentPotPrefix = communityPotPrefix(gameText,
+                liveState.runItTwicePotPrefix());
         if (Double.compare(currentPot, lastPotValue) != 0
                 || !currentPotPrefix.equals(lastPotPrefix)) {
             lastPotValue = currentPot;
             lastPotPrefix = currentPotPrefix;
-            potText = currentPotPrefix + " " + formatAmount(currentPot);
+            potText = communityPotText(gameText,
+                    liveState.runItTwicePotPrefix(), currentPot);
         }
         batch.setColor(Color.WHITE);
         batch.end();
@@ -8310,7 +8308,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         String blinds = communityBlindsText(gameText,
                 liveState.smallBlind(), liveState.bigBlind(),
-                liveState.anteEnabled());
+                liveState.anteEnabled(), liveState.blindIncreaseInterval(),
+                liveState.blindIncreaseType(),
+                liveState.blindIncreaseCount());
         if (tablePreference("show_time", false)) {
             blinds += "   " + formatPlayTime(liveState.playTimeSeconds());
         }
@@ -8362,13 +8362,37 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static String communityBlindsText(GdxGameText text, double smallBlind,
-            double bigBlind, boolean ante) {
+            double bigBlind, boolean ante, int blindIncreaseInterval,
+            int blindIncreaseType, int blindIncreaseCount) {
         String title = uppercase(text.translate("blinds.ciegas_titulo"), text);
         if (smallBlind <= 0d || bigBlind <= 0d) {
             return title + "  —";
         }
-        return title + "  " + (ante ? "(A) " : "")
-                + formatAmount(smallBlind) + " / " + formatAmount(bigBlind);
+        StringBuilder label = new StringBuilder(title).append("  ")
+                .append(ante ? "(A) " : "")
+                .append(formatAmount(smallBlind)).append(" / ")
+                .append(formatAmount(bigBlind));
+        if (blindIncreaseInterval > 0) {
+            label.append(" @ ").append(blindIncreaseInterval)
+                    .append(blindIncreaseType <= 1 ? "'" : "*");
+            if (blindIncreaseCount > 0) {
+                label.append(" (").append(blindIncreaseCount).append(')');
+            }
+        }
+        return label.toString();
+    }
+
+    static String communityPotText(GdxGameText text,
+            String runItTwicePrefix, double amount) {
+        return communityPotPrefix(text, runItTwicePrefix) + " "
+                + formatAmount(Math.max(0d, amount));
+    }
+
+    private static String communityPotPrefix(GdxGameText text,
+            String runItTwicePrefix) {
+        return runItTwicePrefix == null || runItTwicePrefix.isBlank()
+                ? uppercase(text.translate("game.bote"), text)
+                : runItTwicePrefix;
     }
 
     static String communityHandText(GdxGameText text, int handNumber,
@@ -8380,6 +8404,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (handNumber <= 0) return title + "  —";
         return title + " " + handNumber
                 + (maximumHands > 0 ? "/" + maximumHands : "");
+    }
+
+    /** Active catalogue used by the product renderer's semantic test oracle. */
+    GdxGameText presentationText() {
+        return gameText;
     }
 
     private void useRoundedCardShader() {
@@ -9439,6 +9468,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : streamingGif("cinematics/allin/rounders.gif", 563);
     }
 
+    private StreamingGifTextureAnimation cinematicAnimation(
+            TableVisualEvent.Cinematic.Type type, String filename) {
+        if (type == TableVisualEvent.Cinematic.Type.ALL_IN) {
+            return allInAnimation(filename);
+        }
+        if (presentationSettings != null) {
+            java.util.Optional<Path> external = presentationSettings.modAsset(
+                    "cinematics/misc/" + filename);
+            if (external.isPresent()) {
+                return streamingGif(external.get(), 563);
+            }
+        }
+        String bundledPath = "cinematics/misc/" + filename;
+        if (!Gdx.files.internal(bundledPath).exists()) {
+            throw new IllegalStateException(
+                    "Missing auxiliary cinematic " + bundledPath);
+        }
+        return streamingGif(bundledPath, 563);
+    }
+
     private static StreamingGifTextureAnimation streamingGif(String path,
             int maxWidth) {
         try {
@@ -9703,6 +9752,32 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return outcome + "\n" + text.translate("gdx.table.hud.pots", pots);
     }
 
+    /**
+     * Executes the same guarded action as a click on a blinking IWTSTH seat.
+     * Kept as a small semantic boundary so the real-game scenario can drive
+     * the production interaction instead of bypassing it with a raw command.
+     */
+    boolean activateIwtsthCandidate(String nickname) {
+        if (liveState == null || nickname == null
+                || !liveState.isIwtsthCandidate(nickname)) {
+            return false;
+        }
+        // Close the local hit target synchronously, as Swing does once the
+        // request starts. The dealer still validates every rule and owns the
+        // network request; this only prevents accidental double-clicks.
+        liveState.dismissIwtsthCandidates();
+        submit(new TableCommand.RequestIwtsth(nickname));
+        return true;
+    }
+
+    static String iwtsthCandidateLabel(boolean candidate, boolean blinkOn,
+            GdxGameText text) {
+        if (!candidate || !blinkOn) {
+            return text.translate("ui.pierde_3");
+        }
+        return text.translate("iwtsth.iwtsth");
+    }
+
     static boolean shouldDimSeat(boolean playerActive,
             boolean hasSettledPresentation, boolean foldedThisHand) {
         return foldedThisHand || !playerActive && !hasSettledPresentation;
@@ -9731,9 +9806,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return spectatorStatusLabel(player, gameText);
         }
         if (liveState.isIwtsthCandidate(player.nickname())) {
-            return iwtsthBlinkOn()
-                    ? gameText.translate("iwtsth.iwtsth")
-                    : gameText.translate("ui.pierde_3");
+            return iwtsthCandidateLabel(true, iwtsthBlinkOn(), gameText);
         }
         if (liveState.rabbitNoticeActive(player.nickname())) {
             return "RABBIT";
@@ -9864,10 +9937,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 .replaceAll("\\s+", " ");
     }
 
-    private static TableVisualEvent.PlayerAction.ActionKind
+    static TableVisualEvent.PlayerAction.ActionKind
             actionKindFromLegacyLabel(String label) {
         String normalized = normalizedCaption(label).replace('-', ' ')
                 .replaceAll("\\s+", " ");
+        // Core snapshots historically store the log-oriented form
+        // "<nickname> ALL IN (<amount>)".  Swing never painted that whole
+        // string: its seat widget rendered only the semantic action.  Recovery
+        // and roster snapshots may arrive before a PlayerAction event, so GDX
+        // must recover the final action token instead of leaking the nickname
+        // and amount into the seat caption.
+        Matcher loggedAction = Pattern.compile(
+                "(?:^|\\s)(NO VA|ALL IN|RESUBE|RERAISE|APUESTA|RAISE|"
+                + "CHECK|PASA|CALL|FOLD|SUBE|BET|VA)"
+                + "\\s+\\([^)]*\\)$")
+                .matcher(normalized);
+        if (loggedAction.find()) {
+            normalized = loggedAction.group(1);
+        }
         return switch (normalized) {
             case "NO VA", "FOLD" ->
                 TableVisualEvent.PlayerAction.ActionKind.FOLD;
@@ -9953,7 +10040,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean iwtsthBlinkOn() {
-        return ((long) (totalTime / 1.5f) & 1L) != 0L;
+        // Keep the invitation conspicuous without the nervous strobe produced
+        // by the former 0.45-second phase.
+        return ((long) (totalTime / 0.9f) & 1L) != 0L;
     }
 
     private void updateLiveHandProbability(TableVisualEvent.PartialHand partial) {
@@ -10339,9 +10428,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void updateLiveCinematic() {
         LiveCinematic active = liveCinematic;
-        if (active == null
-                || active.elapsedSeconds()
-                < active.event.durationMillis() / 1_000f) {
+        if (active == null || !active.playbackComplete()) {
             return;
         }
         try {
@@ -10458,6 +10545,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private double livePot() {
+        // A RunItTwiceBoard event owns the exact half shown for the active
+        // board. In-flight collection batches still contain the full pot and
+        // must not leak it back under a CARA A/CARA B prefix.
+        if (!liveState.runItTwicePotPrefix().isBlank()
+                && livePayout == null) {
+            return liveState.snapshot().pot();
+        }
         if (livePayout != null) {
             return displayedPayoutPot(livePayout.event.potAfter(),
                     livePayout.event.amount(), livePayout.landedContribution(
@@ -11809,20 +11903,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private static int settingsStepperDirection(float pointerX, float rowX,
             float rowWidth) {
-        float localX = pointerX - rowX;
-        if (localX >= rowWidth - 426f && localX <= rowWidth - 364f) {
-            return -1;
-        }
-        if (localX >= rowWidth - 74f && localX <= rowWidth - 12f) {
-            return 1;
-        }
-        return 0;
+        return GdxSettingsLayout.stepperRow(rowX, 0f, rowWidth,
+                GdxSettingsLayout.ROW_HEIGHT).directionAt(pointerX);
     }
 
     private static boolean settingsStepperValueContains(float pointerX,
             float rowX, float rowWidth) {
-        float localX = pointerX - rowX;
-        return localX > rowWidth - 364f && localX < rowWidth - 74f;
+        return GdxSettingsLayout.stepperRow(rowX, 0f, rowWidth,
+                GdxSettingsLayout.ROW_HEIGHT).valueContains(pointerX);
     }
 
     private Rectangle settingsPanelBounds() {
@@ -13255,7 +13343,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 panelW - 56f, contentH, 1f);
         if (dialog.showsNegative() && !dialog.waitingForExternalClose()) {
             drawDialogButton(negativeX, buttonY, negativeW, buttonH,
-                    dialog.isExitChoice() ? LEGACY_CHECK : BUTTON_LINE,
+                    dialog.isExitChoice() ? LATENCY_GREEN : BUTTON_LINE,
                     contains(pointer.x, pointer.y,
                             negativeX, buttonY, negativeW, buttonH), 1f);
         }
@@ -14510,12 +14598,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawSettingsStepperShape(float x, float y, float width,
             float alpha) {
+        GdxSettingsLayout.StepperRow row = GdxSettingsLayout.stepperRow(
+                x, y, width, GdxSettingsLayout.ROW_HEIGHT);
         drawSettingsToggleShape(x, y, width, false, alpha);
         shapes.setColor(0.025f, 0.060f, 0.105f, 0.98f * alpha);
-        roundedRect(x + width - 432f, y + 7f, 420f, 54f, 8f);
+        roundedRect(row.controls().x, row.controls().y,
+                row.controls().width, row.controls().height, 8f);
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.32f * alpha);
-        roundedRect(x + width - 426f, y + 10f, 62f, 48f, 7f);
-        roundedRect(x + width - 74f, y + 10f, 62f, 48f, 7f);
+        roundedRect(row.minusButton().x, row.minusButton().y,
+                row.minusButton().width, row.minusButton().height, 7f);
+        roundedRect(row.plusButton().x, row.plusButton().y,
+                row.plusButton().width, row.plusButton().height, 7f);
     }
 
     private void drawSettingsRowScrollbarShape(float x, float y,
@@ -15071,20 +15164,31 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawSettingsStepperText(float x, float y, float width,
             String label, String value, float alpha) {
-        drawLeftInBox(actionFont, label, x + 20f, y + 5f,
-                width - 466f, 58f, Color.WHITE, alpha);
-        drawFittedCenteredInBox(actionFont, "-", x + width - 426f,
-                y + 5f, 62f, 54f, Color.WHITE, alpha);
-        drawFittedCenteredInBox(smallFont, value, x + width - 362f,
-                y + 5f, 286f, 54f, POT_GOLD, alpha);
-        drawFittedCenteredInBox(actionFont, "+", x + width - 74f,
-                y + 5f, 62f, 54f, Color.WHITE, alpha);
-        registerPointerRepeatHit(x + width - 426f, y + 5f, 62f, 54f,
+        GdxSettingsLayout.StepperRow row = GdxSettingsLayout.stepperRow(
+                x, y, width, GdxSettingsLayout.ROW_HEIGHT);
+        drawLeftInBox(actionFont, label, row.label().x, row.label().y,
+                row.label().width, row.label().height, Color.WHITE, alpha);
+        drawFittedCenteredInBox(actionFont, "-", row.minusButton().x,
+                row.value().y, row.minusButton().width, row.value().height,
+                Color.WHITE, alpha);
+        drawFittedCenteredInBox(smallFont, value, row.value().x,
+                row.value().y, row.value().width, row.value().height,
+                POT_GOLD, alpha);
+        drawFittedCenteredInBox(actionFont, "+", row.plusButton().x,
+                row.value().y, row.plusButton().width, row.value().height,
+                Color.WHITE, alpha);
+        registerPointerRepeatHit(row.minusButton().x, row.value().y,
+                row.minusButton().width, row.value().height,
                 RepeatOwner.SETTINGS, null,
-                () -> handleSettingsClick(x + width - 395f, y + 32f));
-        registerPointerRepeatHit(x + width - 74f, y + 5f, 62f, 54f,
+                () -> handleSettingsClick(row.minusButton().x
+                        + row.minusButton().width / 2f,
+                        row.value().y + row.value().height / 2f));
+        registerPointerRepeatHit(row.plusButton().x, row.value().y,
+                row.plusButton().width, row.value().height,
                 RepeatOwner.SETTINGS, null,
-                () -> handleSettingsClick(x + width - 43f, y + 32f));
+                () -> handleSettingsClick(row.plusButton().x
+                        + row.plusButton().width / 2f,
+                        row.value().y + row.value().height / 2f));
     }
 
     private void drawCompactSettingsRowText(float x, float y, float width,
@@ -17836,6 +17940,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return Math.max(0L, System.nanoTime() - startedAtNanos)
                     / 1_000_000_000f;
         }
+
     }
 
     private static final class LiveActionChip {
@@ -18129,6 +18234,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float elapsedSeconds() {
             return Math.max(0L, System.nanoTime() - startedAtNanos)
                     / 1_000_000_000f;
+        }
+
+        float durationSeconds() {
+            float declared = event.durationMillis() / 1_000f;
+            return declared > 0f ? declared
+                    : animation.durationSeconds();
+        }
+
+        boolean playbackComplete() {
+            float elapsed = elapsedSeconds();
+            float declared = event.durationMillis() / 1_000f;
+            return declared > 0f
+                    ? elapsed >= declared
+                    : animation.playbackComplete(elapsed);
         }
     }
 

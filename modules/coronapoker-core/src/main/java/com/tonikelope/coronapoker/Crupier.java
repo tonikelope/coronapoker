@@ -56,6 +56,7 @@ import com.tonikelope.coronapoker.core.game.GameCinematicAssets;
 import com.tonikelope.coronapoker.core.game.GameAudioSink;
 import com.tonikelope.coronapoker.core.game.GameAsync;
 import com.tonikelope.coronapoker.core.game.GameBotService;
+import com.tonikelope.coronapoker.core.game.GameEntropySource;
 import com.tonikelope.coronapoker.core.game.GameCancellation;
 import com.tonikelope.coronapoker.core.game.GameCancellationException;
 import com.tonikelope.coronapoker.core.game.GameWindowSink;
@@ -164,7 +165,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GameRuntimeEnvironment runtime_environment;
     private final GameValueFormatter value_formatter;
     private final GameBotService bot_service;
+    private final GameEntropySource game_entropy;
     private final TableEventBridge table_events;
+    // Durable provenance: true only when this database derived the seating
+    // itself through commit-reveal (never merely from a recovery SEATS frame).
+    private volatile boolean local_seat_ring_verified;
     private volatile boolean communication_tts = true;
     private volatile boolean communication_voice_messages = true;
     private volatile boolean voluntary_show_visible;
@@ -176,7 +181,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 GameWindowSink.noop(),
                 GameUiExecutor.direct(),
                 GameAudioSink.silent(), GameAsync.standalone(), GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GameText.keys(), GameHandFactory.unavailable(), GamePotFactory.unavailable(), GameRuntimeEnvironment.defaults(), GameCinematicState.idle(), GameCinematicAssets.none(), GameValueFormatter.plain(),
-                GameBotService.standalone(), new TableEventBridge());
+                GameBotService.standalone(), GameEntropySource.secure(), new TableEventBridge());
     }
 
     Crupier(TableEventBridge tableEvents) {
@@ -184,7 +189,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 GameTransport.unavailable(), LobbyTransitionSink.noop(), TableDisplaySink.noop(),
                 GameWindowSink.noop(), GameUiExecutor.direct(), GameAudioSink.silent(), GameAsync.standalone(),
                 GamePresentationSettings.defaults(), GameIdentityTrust.unverified(), GameText.keys(), GameHandFactory.unavailable(), GamePotFactory.unavailable(), GameRuntimeEnvironment.defaults(), GameCinematicState.idle(), GameCinematicAssets.none(), GameValueFormatter.plain(),
-                GameBotService.standalone(), tableEvents);
+                GameBotService.standalone(), GameEntropySource.secure(), tableEvents);
     }
 
     Crupier(GameSession gameSession,
@@ -216,6 +221,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameCinematicAssets cinematicAssets,
             GameValueFormatter valueFormatter,
             GameBotService botService,
+             GameEntropySource gameEntropy,
             TableEventBridge tableEvents) {
         this.game_session = gameSession;
         this.player_controllers = controllerView(playerControllers);
@@ -255,6 +261,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.cinematic_assets = java.util.Objects.requireNonNull(cinematicAssets, "cinematicAssets");
         this.value_formatter = java.util.Objects.requireNonNull(valueFormatter, "valueFormatter");
         this.bot_service = java.util.Objects.requireNonNull(botService, "botService");
+        this.game_entropy = java.util.Objects.requireNonNull(gameEntropy,
+                "gameEntropy");
         this.table_events = java.util.Objects.requireNonNull(tableEvents, "tableEvents");
         if (this.player_controllers != null) {
             this.player_controllers.forEach(player -> player.bindDealer(this));
@@ -2485,7 +2493,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     .encodeDeck(RistrettoSRA.lockPoints(incomingPoints,
                             pocketLock));
             byte[] seed = new byte[48];
-            CryptoRandom.fill(seed);
+            game_entropy.fillPeerShuffleSeed(gameSession().localNickname(), seed);
             byte[] shuffled = DeterministicShuffle.shuffleDeck(locked, seed);
             String nick = Base64.getEncoder().encodeToString(
                     gameSession().localNickname()
@@ -3927,7 +3935,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // this id + the sorted player ids of the crypto-ring + the cascaded deck, so
         // H_0 is byte-identical across the table.
         this.current_hand_id = new byte[CanonicalActionRecord.HAND_ID_BYTES];
-        CryptoRandom.fill(this.current_hand_id);
+        game_entropy.fillHandId(this.current_hand_id);
 
         // ENCRYPTION AND SHUFFLE CASCADE
         //
@@ -4020,7 +4028,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         byte[] botLock = RistrettoSRA.generateLockScalar();
                         byte[] botUnlock = RistrettoSRA.getUnlockScalar(botLock);
                         byte[] botSeed = new byte[48];
-                        CryptoRandom.fill(botSeed);
+                        game_entropy.fillBotShuffleSeed(currNick, botSeed);
                         p.setReceived_token(botUnlock);
                         // Dual-lock: bot's community scalars. The lock will be used during
                         // rotation; the unlock is stored on the Participant so
@@ -8362,11 +8370,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         table_display.showBlinds(this.ciega_pequeña, this.ciega_grande);
         table_display.showHandNumber(this.conta_mano);
-        table_events.publishIfAttached(sequence -> new TableVisualEvent.TableInfo(
-                sequence, this.ciega_pequeña, this.ciega_grande,
-                this.conta_mano));
+        publishTableInfo();
 
         refreshCallCostOverlay();
+    }
+
+    private void publishTableInfo() {
+        table_events.publishIfAttached(sequence -> new TableVisualEvent.TableInfo(
+                sequence, this.ciega_pequeña, this.ciega_grande,
+                this.conta_mano, configuration().blindsDouble(),
+                configuration().blindsDoubleType(), this.ciegas_double));
     }
 
     // Optional overlay on the community cards: how much the local player would need to put in
@@ -10746,9 +10759,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         && (int) Math.floor((float) gameSession().playTimeSeconds()
                                 / (configuration().blindsDouble() * 60)) > this.ciegas_double);
             } else {
-                return (configuration().blindsDouble() > 0 && this.conta_mano > 1
-                        && ((int) Math.floor((float) (this.conta_mano - 1))
-                        / configuration().blindsDouble()) > this.ciegas_double);
+                // setPositions() runs before NUEVA_MANO increments conta_mano.
+                // Therefore conta_mano is exactly the number of completed
+                // hands. "Cada N manos" must advance before hand N+1, after N
+                // hands have actually used the current level.
+                return configuration().blindsDouble() > 0
+                        && (this.conta_mano
+                        / configuration().blindsDouble()) > this.ciegas_double;
             }
         }
     }
@@ -10769,6 +10786,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.ciega_pequeña = next[0];
 
         this.ciega_grande = next[1];
+
+        // Swing updated the shared blinds strip as part of the same operation.
+        // Publish the authoritative level immediately as well: otherwise a
+        // renderer can keep showing the previous blinds until an unrelated
+        // counter refresh happens later in the hand.
+        table_display.showBlinds(this.ciega_pequeña, this.ciega_grande);
+        publishTableInfo();
 
         if (presentation_settings.blindSound()) {
             game_audio.playWavResource("misc/double_blinds.wav");
@@ -10992,7 +11016,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Local entropy for our SRA shuffle (never leaves this process). 48 bytes:
         // first 32 feed the AES-256 key, last 16 feed the CTR IV.
         byte[] jvm_entropy = new byte[48];
-        CryptoRandom.fill(jvm_entropy);
+        game_entropy.fillLocalShuffleSeed(jvm_entropy);
 
         this.local_hand_seed = jvm_entropy;
 
@@ -11798,9 +11822,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
         if (!newcomers.isEmpty()) {
-            ArrayList<String> nicksList = new ArrayList<>(currentRing);
-            nicksList.addAll(SeatDraw.orderNewcomers(currentRing, newcomers));
-            this.nicks_permutados = nicksList.toArray(new String[0]);
+            this.nicks_permutados = SeatDraw.mergeNewcomers(
+                    currentRing, newcomers).toArray(new String[0]);
             this.update_game_seats = true;
             LOGGER.log(Level.INFO, "Injected {0} warm-up player(s) into the crypto ring in verifiable order.",
                     newcomers.size());
@@ -12955,7 +12978,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         synchronized (game_database.lock()) {
 
-            String sql = "INSERT INTO game(start, players, buyin, sb, blinds_time, rebuy, server, blinds_time_type, ugi, local) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO game(start, players, buyin, sb, blinds_time, rebuy, server, blinds_time_type, ugi, local, seats_verified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
             try (PreparedStatement statement = game_database.connection().prepareStatement(
                     sql, java.sql.Statement.RETURN_GENERATED_KEYS)) {
@@ -12991,6 +13014,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 statement.setString(9, configuration().sessionId());
 
                 statement.setInt(10, gameSession().isHost() ? 1 : 0);
+
+                statement.setInt(11, this.local_seat_ring_verified ? 1 : 0);
 
                 if (statement.executeUpdate() != 1) {
                     throw new SQLException("game insert affected an unexpected number of rows");
@@ -17724,8 +17749,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 sideHands.add(hands);
                 sideWinners.add(this.calcularGanadores(new HashMap<>(hands)));
             } else {
-                sideHands.add(new HashMap<>());
-                sideWinners.add(new HashMap<>());
+                HashMap<GamePlayerController, GameHandResult> uncontestedHands
+                        = new HashMap<>();
+                HashMap<GamePlayerController, GameHandResult> uncontestedWinners
+                        = new HashMap<>();
+                // This residual pot is awarded once, with SIDE-A. Include it
+                // in that board's immutable verdict so GDX can say BOTE #2;
+                // SIDE-B must not claim the same refund a second time.
+                if (board == 0) {
+                    GamePlayerController soleWinner
+                            = side.getPlayerControllers().get(0);
+                    GameHandResult knownHand = ganadores.get(soleWinner);
+                    if (knownHand == null) {
+                        knownHand = jugadas.get(soleWinner);
+                    }
+                    if (knownHand != null) {
+                        uncontestedHands.put(soleWinner, knownHand);
+                        uncontestedWinners.put(soleWinner, knownHand);
+                    }
+                }
+                sideHands.add(uncontestedHands);
+                sideWinners.add(uncontestedWinners);
             }
         }
         SettlementPresentation.Plan<GamePlayerController, GameHandResult> presentation = SettlementPresentation.plan(
@@ -21606,6 +21650,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    private boolean sqlRecoverSeatRingWasVerified() {
+        synchronized (game_database.lock()) {
+            String sql = "SELECT seats_verified FROM game WHERE id=?";
+            try (PreparedStatement statement = game_database.connection().prepareStatement(sql)) {
+                statement.setQueryTimeout(30);
+                statement.setInt(1, this.sqlite_id_game);
+                try (ResultSet rs = statement.executeQuery()) {
+                    return rs.next() && rs.getInt("seats_verified") == 1;
+                }
+            } catch (SQLException ex) {
+                LOGGER.log(Level.SEVERE, "Unable to read local seat-ring provenance", ex);
+                return false;
+            }
+        }
+    }
+
     /**
      * Returns the first candidate after/before {@code pivot} in a persisted
      * Base64 seat ring. The search is bounded to one full turn and fails closed
@@ -22411,6 +22471,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             String[] seated = SeatDraw.deriveOrder(roster, seed);
             LOGGER.log(Level.INFO, "Seat draw completed via commit-reveal ({0} contributor(s), {1} seat(s))",
                     new Object[]{reveals.size(), seated.length});
+            this.local_seat_ring_verified = true;
             return seated;
         }
     }
@@ -22806,6 +22867,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 return null;
                             }
                             byte[] seed = SeatDraw.deriveSeed(nonce, reveals);
+                            this.local_seat_ring_verified = true;
                             return SeatDraw.deriveOrder(roster, seed);
                         }
                         default:
@@ -22995,9 +23057,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // ignores players who joined or left in between and only flags a reordering of the shared seats
     // ({@link SeatDraw#recoveredSeatingConsistent}). ADVISORY + fail-safe: never blocks, never throws,
     // never changes the seating actually used — on a detected reorder it only warns. When there is no
-    // local ring to compare against (brand-new client, unreadable DB) it is a silent no-op.
+    // independently persisted hand history to compare against (brand-new client, unreadable DB)
+    // it is a silent no-op.  The current recovery lobby's game.players row alone is not
+    // independent evidence because a newcomer learned it from this same host.
     private void verifyRecoveredSeatsAgainstLocal(String[] hostOrder) {
         try {
+            if (!local_seat_ring_verified) {
+                return;
+            }
             String stored = this.sqlRecoverGameSeats();
             if (stored == null || stored.isEmpty()) {
                 return;
@@ -23010,6 +23077,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 localRing.add(new String(Base64.getDecoder().decode(b64), "UTF-8"));
             }
             if (!SeatDraw.recoveredSeatingConsistent(localRing, java.util.Arrays.asList(hostOrder))) {
+                LOGGER.log(Level.SEVERE,
+                        "ZERO-TRUST seat-ring mismatch detail: local={0}, persisted={1}, recovered={2}",
+                        new Object[]{gameSession().localNickname(), localRing,
+                            java.util.Arrays.asList(hostOrder)});
                 warnSeatTampered(game_transport.hostNickname());
             }
         } catch (Exception ignored) {
@@ -25006,6 +25077,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     create_client_recovery_game = true;
                 } else {
                     this.sqlite_id_game = gid;
+                    // Capture provenance now, before the host recovery stream can
+                    // synchronize hands into this database.  Re-querying later
+                    // would incorrectly promote a brand-new participant's imported
+                    // data to independent anti-tampering evidence.
+                    this.local_seat_ring_verified
+                            = sqlRecoverSeatRingWasVerified();
                 }
             }
         }
@@ -25280,7 +25357,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 -> new TableVisualEvent.HandResult(sequence,
                                                         soleSurvivor.getNickname(),
                                                         soleSurvivorMessage, true,
-                                                        TableSnapshot.Street.SHOWDOWN),
+                                                        TableSnapshot.Street.SHOWDOWN,
+                                                        true),
                                                 "Single-survivor result presentation barrier failed");
 
                                         if (soleSurvivor != localPlayer()) {
@@ -25445,6 +25523,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 } else {
                                                     jugadas_lateral = new HashMap<>();
                                                     ganadores_lateral = new HashMap<>();
+                                                    // An uncontested residual side pot is still a
+                                                    // real numbered pot. It is paid below without
+                                                    // evaluating a hand, but the showdown verdict
+                                                    // is built before that payout and must already
+                                                    // know that its sole eligible player won it.
+                                                    GamePlayerController soleWinner
+                                                            = lateral.getPlayerControllers().get(0);
+                                                    GameHandResult knownHand = ganadores.get(soleWinner);
+                                                    if (knownHand == null) {
+                                                        knownHand = jugadas.get(soleWinner);
+                                                    }
+                                                    if (knownHand != null) {
+                                                        jugadas_lateral.put(soleWinner, knownHand);
+                                                        ganadores_lateral.put(soleWinner, knownHand);
+                                                    }
                                                 }
                                                 jugadas_por_lateral.add(jugadas_lateral);
                                                 ganadores_por_lateral.add(ganadores_lateral);

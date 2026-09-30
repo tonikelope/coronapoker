@@ -200,6 +200,23 @@ public class SeatDrawTest {
     }
 
     @Test
+    public void newcomerMergeProducesOneCyclicRingForEveryPeerRotation() {
+        List<String> batch = Arrays.asList("zoe", "yan", "xena");
+        List<String> fromPeerA = SeatDraw.mergeNewcomers(
+                Arrays.asList("alice", "bob", "carol", "dave"), batch);
+        List<String> fromPeerB = SeatDraw.mergeNewcomers(
+                Arrays.asList("carol", "dave", "alice", "bob"), batch);
+        List<String> fromPeerC = SeatDraw.mergeNewcomers(
+                Arrays.asList("dave", "alice", "bob", "carol"), batch);
+
+        assertEquals(fromPeerA, fromPeerB);
+        assertEquals(fromPeerA, fromPeerC);
+        assertTrue(SeatDraw.recoveredSeatingConsistent(fromPeerA, fromPeerB));
+        assertTrue(SeatDraw.recoveredSeatingConsistent(
+                Arrays.asList("alice", "bob", "carol", "dave"), fromPeerA));
+    }
+
+    @Test
     public void recoverToleratesBustedPlayerWhoLeft() {
         // alice, bob, carol, dave sat down; bob busted out and left mid-game. On recover the host's
         // table no longer has bob, but the client's persisted ring still lists him — and the recovered

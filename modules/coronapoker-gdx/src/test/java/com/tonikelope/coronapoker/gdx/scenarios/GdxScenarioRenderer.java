@@ -69,6 +69,18 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final AtomicBoolean sawAllInCinematic = new AtomicBoolean();
     private final AtomicLong runItTwiceSideASequence = new AtomicLong();
     private final AtomicLong runItTwiceSideBSequence = new AtomicLong();
+    private final AtomicReference<Double> runItTwiceSideAPot
+            = new AtomicReference<>();
+    private final AtomicReference<Double> runItTwiceSideBPot
+            = new AtomicReference<>();
+    private final AtomicReference<String> runItTwiceSideAPrefix
+            = new AtomicReference<>();
+    private final AtomicReference<String> runItTwiceSideBPrefix
+            = new AtomicReference<>();
+    private final AtomicBoolean runItTwicePotPreservedAtEnd
+            = new AtomicBoolean();
+    private final AtomicBoolean runItTwicePayoutReturnedToOrdinaryPot
+            = new AtomicBoolean();
     private final List<Integer> runItTwiceSideBDeals
             = new CopyOnWriteArrayList<>();
     private final AtomicLong immediateRebuyHand = new AtomicLong(-1L);
@@ -117,6 +129,10 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final AtomicLong lastPreparedHand = new AtomicLong();
     private final AtomicInteger localStraddleDecisions = new AtomicInteger();
     private final AtomicLong localStraddleHand = new AtomicLong(-1L);
+    private final AtomicInteger checkedActionLabels = new AtomicInteger();
+    private final AtomicInteger checkedTableInfoLabels = new AtomicInteger();
+    private final AtomicInteger checkedPotLabels = new AtomicInteger();
+    private final AtomicInteger checkedResultLabels = new AtomicInteger();
 
     GdxScenarioRenderer(TableSession table, int expectedPlayers) {
         this(table, expectedPlayers, new AtomicReference<>());
@@ -229,6 +245,7 @@ final class GdxScenarioRenderer implements TableRenderer {
         GdxTableViewState projection = state.get();
         assertNotNull(projection, "renderer must open before events arrive");
         projection.apply(event);
+        assertProjectedLabelContract(event, projection);
         if (event instanceof TableVisualEvent.HandBoundary boundary) {
             if (boundary.phase()
                     == TableVisualEvent.HandBoundary.Phase.PREPARE) {
@@ -272,6 +289,15 @@ final class GdxScenarioRenderer implements TableRenderer {
                 assertTrue(endedHandIds.add(boundary.handId()),
                         "duplicate END for hand " + boundary.handId());
                 endedHands.incrementAndGet();
+                if (runItTwiceSideBSequence.get() > 0L) {
+                    assertEquals(runItTwiceSideBPot.get(),
+                            projection.snapshot().pot(),
+                            "RIT END replaced the visible CARA B amount");
+                    assertEquals(runItTwiceSideBPrefix.get(),
+                            projection.runItTwicePotPrefix(),
+                            "RIT END replaced the visible CARA B label");
+                    runItTwicePotPreservedAtEnd.set(true);
+                }
             }
         }
         TableSnapshot snapshot = projection.snapshot();
@@ -415,11 +441,35 @@ final class GdxScenarioRenderer implements TableRenderer {
                 immediateRebuys.remove(status.nickname());
             }
         } else if (event instanceof TableVisualEvent.RunItTwiceBoard board) {
+            assertTrue(board.potAmount() > 0d,
+                    "each RIT board must project a positive half-pot");
+            String tag = presentationText().translate(board.side()
+                    == TableVisualEvent.RunItTwiceBoard.Side.A
+                            ? "runittwice.pot_label_a"
+                            : "runittwice.pot_label_b");
+            assertEquals(presentationText().translate(
+                    "runittwice.pot_label_full", tag), board.potPrefix(),
+                    "RIT board label must match the visible GDX caption");
+            assertEquals(board.potAmount(), projection.snapshot().pot(),
+                    "RIT board amount was not projected into the HUD");
+            assertEquals(board.potPrefix(), projection.runItTwicePotPrefix(),
+                    "RIT board prefix was not projected into the HUD");
             if (board.side() == TableVisualEvent.RunItTwiceBoard.Side.A) {
                 runItTwiceSideASequence.compareAndSet(0L, board.sequence());
+                runItTwiceSideAPot.compareAndSet(null, board.potAmount());
+                runItTwiceSideAPrefix.compareAndSet(null,
+                        board.potPrefix());
             } else {
                 runItTwiceSideBSequence.compareAndSet(0L, board.sequence());
+                runItTwiceSideBPot.compareAndSet(null, board.potAmount());
+                runItTwiceSideBPrefix.compareAndSet(null,
+                        board.potPrefix());
             }
+        } else if (event instanceof TableVisualEvent.Payout
+                && runItTwiceSideBSequence.get() > 0L) {
+            assertEquals("", projection.runItTwicePotPrefix(),
+                    "RIT payout must return to the ordinary BOTE label");
+            runItTwicePayoutReturnedToOrdinaryPot.set(true);
         } else if (event instanceof TableVisualEvent.DealCommunityCard deal
                 && runItTwiceSideBSequence.get() > 0L
                 && deal.sequence() > runItTwiceSideBSequence.get()) {
@@ -510,7 +560,41 @@ final class GdxScenarioRenderer implements TableRenderer {
         return runItTwiceSideASequence.get() > 0L
                 && runItTwiceSideBSequence.get()
                 > runItTwiceSideASequence.get()
+                && runItTwiceSideAPot.get() != null
+                && runItTwiceSideBPot.get() != null
+                && runItTwiceSideAPrefix.get() != null
+                && runItTwiceSideBPrefix.get() != null
+                && !runItTwiceSideAPrefix.get().equals(
+                        runItTwiceSideBPrefix.get())
+                && runItTwicePotPreservedAtEnd.get()
+                && runItTwicePayoutReturnedToOrdinaryPot.get()
                 && runItTwiceSideBDeals.equals(List.of(0, 1, 2, 3, 4));
+    }
+
+    /**
+     * Shared oracle for every real GDX scenario.  Besides state/accounting,
+     * assert the semantic text that the product table can actually paint.
+     * This prevents a valid event sequence from hiding broken labels such as
+     * "CoronaBot$4 ALL IN (...)" or a zero-valued CARA B pot.
+     */
+    private void assertProjectedLabelContract(TableVisualEvent event,
+            GdxTableViewState projection) {
+        GdxFunctionalLabelOracle.assertProjectedLabelContract(event,
+                projection, presentationText());
+        if (event instanceof TableVisualEvent.PlayerAction action) {
+            checkedActionLabels.incrementAndGet();
+        } else if (event instanceof TableVisualEvent.HandResult result) {
+            checkedResultLabels.incrementAndGet();
+        } else if (event instanceof TableVisualEvent.TableInfo info) {
+            checkedTableInfoLabels.incrementAndGet();
+        }
+        checkedPotLabels.incrementAndGet();
+    }
+
+    private GdxGameText presentationText() {
+        CoronaPokerGdxTable table = productTable.get();
+        return table == null ? new GdxGameText("es")
+                : table.presentationText();
     }
 
     boolean sawLocalSpectator() {
@@ -732,8 +816,10 @@ final class GdxScenarioRenderer implements TableRenderer {
                         + " spectator must show two visible jokers");
                 if (player.nickname().equals(snapshot.localNickname())) {
                     String status = CoronaPokerGdxTable.localHudTurnStatus(
-                            false, false, player, new GdxGameText("es"));
-                    assertFalse("ESPERANDO TURNO".equals(status),
+                            false, false, player, presentationText());
+                    assertFalse(presentationText().translate(
+                            "gdx.table.hud.waiting_turn")
+                            .equalsIgnoreCase(status),
                             "a local spectator cannot be waiting for a turn");
                     assertFalse(status.isBlank(),
                             "a local spectator needs a canonical status");
@@ -797,6 +883,14 @@ final class GdxScenarioRenderer implements TableRenderer {
                     + " never received enabled local action controls; trace="
                     + actionTrace);
         }
+        assertTrue(checkedActionLabels.get() > 0,
+                "completed GDX scenario never checked an action label");
+        assertTrue(checkedTableInfoLabels.get() > 0,
+                "completed GDX scenario never checked blinds/hand labels");
+        assertTrue(checkedPotLabels.get() > 0,
+                "completed GDX scenario never checked the pot label");
+        assertTrue(checkedResultLabels.get() > 0,
+                "completed GDX scenario never checked showdown result labels");
         assertTrue(sawRemoteAction.get(), () -> localNickname()
                 + " never observed a remote action; trace=" + actionTrace);
         assertTrue(streets.containsAll(EnumSet.of(
@@ -807,10 +901,12 @@ final class GdxScenarioRenderer implements TableRenderer {
                 TableSnapshot.Street.SHOWDOWN)));
         if (expectedSnapshotPlayers != null) {
             assertEquals(expectedSnapshotPlayers,
-                    projection.snapshot().players().size());
+                    projection.snapshot().players().size(),
+                    this::playerStateDiagnostic);
         }
         if (expectedActivePlayers != null) {
-            assertEquals(expectedActivePlayers, activeNicknames().size());
+            assertEquals(expectedActivePlayers, activeNicknames().size(),
+                    this::playerStateDiagnostic);
         }
         assertEquals(5, projection.snapshot().communityCards().size());
         assertTrue(projection.snapshot().communityCards().stream()

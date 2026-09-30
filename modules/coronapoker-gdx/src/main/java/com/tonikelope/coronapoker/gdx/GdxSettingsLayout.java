@@ -125,6 +125,31 @@ final class GdxSettingsLayout {
                 width - indent, ROW_HEIGHT);
     }
 
+    /**
+     * Shared geometry for every minus/value/plus settings row.  The startup,
+     * waiting-room and live-table renderers used to carry slightly different
+     * constants, so the painted controls and their hit targets could drift
+     * apart as soon as one of them was polished independently.
+     */
+    static StepperRow stepperRow(float x, float y, float width,
+            float height) {
+        Rectangle bounds = new Rectangle(x, y, width, height);
+        float surfaceY = y + (height - 54f) / 2f;
+        float buttonY = y + (height - 48f) / 2f;
+        Rectangle controls = new Rectangle(x + width - 432f,
+                surfaceY, 420f, 54f);
+        Rectangle minus = new Rectangle(x + width - 426f,
+                buttonY, 62f, 48f);
+        Rectangle value = new Rectangle(x + width - 362f,
+                surfaceY, 286f, 54f);
+        Rectangle plus = new Rectangle(x + width - 74f,
+                buttonY, 62f, 48f);
+        Rectangle label = new Rectangle(x + 20f,
+                y + (height - 58f) / 2f,
+                Math.max(0f, width - 466f), 58f);
+        return new StepperRow(bounds, label, controls, minus, value, plus);
+    }
+
     static float scrollbarThumbHeight(float height, int totalRows,
             int visibleRows) {
         if (totalRows <= 0 || visibleRows <= 0) return height;
@@ -186,5 +211,27 @@ final class GdxSettingsLayout {
     record VolumeRow(Rectangle bounds, Rectangle label,
             Rectangle percentage, Rectangle slider, Rectangle minusButton,
             Rectangle plusButton) {
+    }
+
+    record StepperRow(Rectangle bounds, Rectangle label,
+            Rectangle controls, Rectangle minusButton, Rectangle value,
+            Rectangle plusButton) {
+
+        int directionAt(float pointerX) {
+            if (pointerX >= minusButton.x
+                    && pointerX <= minusButton.x + minusButton.width) {
+                return -1;
+            }
+            if (pointerX >= plusButton.x
+                    && pointerX <= plusButton.x + plusButton.width) {
+                return 1;
+            }
+            return 0;
+        }
+
+        boolean valueContains(float pointerX) {
+            return pointerX > value.x
+                    && pointerX < value.x + value.width;
+        }
     }
 }

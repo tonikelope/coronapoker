@@ -200,30 +200,32 @@ The public certification entry point is:
 .\tools\qa\certify.cmd -Mode balanced
 ```
 
-`tools/qa/reference/swing-gold-scenarios.tsv` preserves the final 37-scenario
-Swing catalogue. `GdxScenarioContract.SWING_GOLD_MULTIPROCESS_TESTS` maps every
-historical identifier to its release-certifying GDX port. Every mapped method
-lives in `GdxMultiprocessScenarioTest` and runs independent JVMs over real
-loopback sockets; an in-process simulation cannot satisfy GOLD parity.
+`GdxScenarioContract.CERTIFICATION_SCENARIOS` is the only executable scenario
+catalogue. It contains every complete GDX gameplay scenario: independent JVMs
+over real loopback sockets, native GDX controls, focused network flows, IWTSTH,
+blind increases and post-Swing behaviour such as Rabbit Hunting. The certifier
+reads that one map, resolves every named JUnit method and launches each one in a
+fresh Maven process. There is one command, one schedule and one result.
 
-`NATIVE_GDX_UI_TESTS` adds product-table and control checks, while
-`GDX_ONLY_SCENARIOS` holds post-Swing behaviour such as Rabbit Hunting. These
-lanes supplement GOLD and never replace it. The certifier reads the three maps
-directly, resolves every named JUnit method and launches each one in a fresh
-Maven process. There is no second hand-maintained executable list, and the Swing
-code is neither part of the product nor executed.
+`tools/qa/reference/swing-gold-scenarios.tsv` only preserves the final
+37-scenario Swing baseline. Contract tests require every historical identifier
+to remain in the unified catalogue and to retain at least one real
+independent-process port. It is not a second executable lane, and the Swing code
+is neither part of the product nor executed.
 
 ### Modes
 
 | Mode | Catalogue | Repetitions | Normal soak | Use |
 |---|---:|---:|---:|---|
 | `quick` | Critical subset | 1 | 5 hands | Inner-loop behavioural check |
-| `fast` | Complete | 1 | 5 hands | Full breadth before broader validation |
-| `balanced` | Complete | 2 | 20 hands | Normal release certificate |
-| `stress` | Complete | 5 | 50 hands | Major or adversarial validation |
+| `fast` | Complete (same catalogue) | 1 | 5 hands | Full breadth before broader validation |
+| `balanced` | Complete (same catalogue) | 2 | 20 hands | Normal release certificate |
+| `stress` | Complete (same catalogue) | 5 | 50 hands | Major or adversarial validation |
 
-Stress also deepens the heads-up, full mixed and full-human normal topologies.
-Explicit `-ScenarioRepeats` and `-SoakHands` values override the mode defaults.
+`fast`, `balanced` and `stress` never add or remove scenarios: only their number
+of passes and soak depth change. Stress also deepens the heads-up, full mixed
+and full-human normal topologies. Explicit `-ScenarioRepeats` and `-SoakHands`
+values override the mode defaults.
 
 Useful commands:
 

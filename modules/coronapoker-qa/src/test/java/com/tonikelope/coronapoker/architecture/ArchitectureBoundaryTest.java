@@ -171,7 +171,9 @@ final class ArchitectureBoundaryTest {
         assertFalse(projection.contains(
                 "copyPlayer(player, player.stack(), 0d, 0d"),
                 "GDX must not invent new-hand player accounting");
-        assertTrue(projection.contains("snapshot = boundary.snapshot();"),
+        assertTrue(projection.contains(
+                "TableSnapshot boundarySnapshot = boundary.snapshot();")
+                && projection.contains("snapshot = boundarySnapshot;"),
                 "GDX must consume the dealer's exact hand-boundary snapshot");
         assertFalse(projection.contains("roster.snapshot()"),
                 "Roster updates must not replace unrelated hand state");

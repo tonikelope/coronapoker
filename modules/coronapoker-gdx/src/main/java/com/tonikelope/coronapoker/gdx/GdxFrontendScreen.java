@@ -4190,11 +4190,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 CYAN_DARK, 1f);
         textFit(headingFont, prompt, 960f, 560f, Color.WHITE, true, 700f);
         themedButton(635f, 405f, 300f, 75f,
-                uppercase(gameText.translate(
-                        lobbyConfirmation == LobbyConfirmation.LEAVE
-                                ? "ui.seguir_jugando" : "ui.cancelar")),
-                lobbyConfirmation == LobbyConfirmation.LEAVE
-                        ? ButtonTone.POSITIVE : ButtonTone.NEUTRAL,
+                uppercase(gameText.translate("ui.cancelar")),
+                ButtonTone.NEUTRAL,
                 () -> lobbyConfirmation = null, true);
         themedButton(985f, 405f, 300f, 75f,
                 uppercase(gameText.translate(
@@ -5793,38 +5790,47 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void settingsStepper(float x, float y, float w, float h,
             String label, String value, Runnable minus, Runnable plus,
             Runnable valueAction, boolean enabled) {
+        GdxSettingsLayout.StepperRow row = GdxSettingsLayout.stepperRow(
+                x, y, w, h);
         outerBox(x, y, w, h,
                 enabled && hovered(x, y, w, h) ? CYAN
                         : enabled ? LINE : new Color(0x253044ff),
                 enabled ? PANEL_LIGHT : new Color(0x0b111ddd));
-        float buttonW = 62f;
-        // Device names, window modes and animation styles are substantially
-        // longer than numeric values. Keep one shared geometry that gives the
-        // selected value enough room instead of letting it collide with the
-        // decrement/increment controls.
-        float valueW = 280f;
-        float controlsX = x + w - buttonW * 2f - valueW;
-        embeddedButtonSurface(controlsX, y, buttonW, h, enabled);
-        embeddedButtonSurface(x + w - buttonW, y, buttonW, h, enabled);
+        Rectangle minusBounds = row.minusButton();
+        Rectangle valueBounds = row.value();
+        Rectangle plusBounds = row.plusButton();
+        embeddedButtonSurface(minusBounds.x, minusBounds.y,
+                minusBounds.width, minusBounds.height, enabled);
+        embeddedButtonSurface(plusBounds.x, plusBounds.y,
+                plusBounds.width, plusBounds.height, enabled);
         shapes.setColor(new Color(0x31445fff));
-        shapes.rect(controlsX + buttonW, y + 8f, 2f, h - 16f);
-        shapes.rect(controlsX + buttonW + valueW, y + 8f, 2f, h - 16f);
-        textFit(smallFont, label, x + 22f, y + h / 2f + 10f,
+        shapes.rect(valueBounds.x, valueBounds.y + 8f, 2f,
+                valueBounds.height - 16f);
+        shapes.rect(valueBounds.x + valueBounds.width,
+                valueBounds.y + 8f, 2f, valueBounds.height - 16f);
+        textFit(smallFont, label, row.label().x,
+                row.label().y + row.label().height / 2f + 10f,
                 enabled ? Color.WHITE : DISABLED, false,
-                controlsX - x - 38f);
-        text(headingFont, "-", controlsX + buttonW / 2f,
-                y + h / 2f + 14f, enabled ? Color.WHITE : DISABLED, true);
-        textFit(uiFont, value, controlsX + buttonW + valueW / 2f,
-                y + h / 2f + 11f, enabled ? GOLD : DISABLED, true,
-                valueW - 12f);
-        text(headingFont, "+", x + w - buttonW / 2f,
-                y + h / 2f + 14f, enabled ? Color.WHITE : DISABLED, true);
+                row.label().width);
+        text(headingFont, "-", minusBounds.x + minusBounds.width / 2f,
+                minusBounds.y + minusBounds.height / 2f + 14f,
+                enabled ? Color.WHITE : DISABLED, true);
+        textFit(uiFont, value, valueBounds.x + valueBounds.width / 2f,
+                valueBounds.y + valueBounds.height / 2f + 11f,
+                enabled ? GOLD : DISABLED, true,
+                valueBounds.width - 12f);
+        text(headingFont, "+", plusBounds.x + plusBounds.width / 2f,
+                plusBounds.y + plusBounds.height / 2f + 14f,
+                enabled ? Color.WHITE : DISABLED, true);
         if (enabled) {
-            repeatHit(controlsX, y, buttonW, h, minus);
+            repeatHit(minusBounds.x, minusBounds.y, minusBounds.width,
+                    minusBounds.height, minus);
             if (valueAction != null) {
-                hit(controlsX + buttonW, y, valueW, h, valueAction);
+                hit(valueBounds.x, valueBounds.y, valueBounds.width,
+                        valueBounds.height, valueAction);
             }
-            repeatHit(x + w - buttonW, y, buttonW, h, plus);
+            repeatHit(plusBounds.x, plusBounds.y, plusBounds.width,
+                    plusBounds.height, plus);
         }
     }
 

@@ -10,6 +10,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
@@ -46,6 +47,9 @@ class StreamingGifTextureAnimationTest {
             assertTrue(frames.get(i).startMs()
                     > frames.get(i - 1).startMs());
         }
+        assertTrue(frames.stream().allMatch(frame ->
+                frame.endMs() > frame.startMs()),
+                "every streaming frame must carry its real end time");
         assertFalse(hasVisiblePixel(frames.get(0)),
                 "the authored opening frame is black");
         assertTrue(frames.stream().skip(1)
@@ -92,6 +96,35 @@ class StreamingGifTextureAnimationTest {
             assertEquals(360, animation.width());
             assertTrue(animation.height() > 0);
             assertTrue(animation.durationSeconds() > 0f);
+        } finally {
+            animation.dispose();
+        }
+    }
+
+    @Test
+    void iwtsthStreamingGifCannotFinishBeforeItsFirstVisibleFrame()
+            throws Exception {
+        byte[] gif;
+        try (InputStream input = getClass().getResourceAsStream(
+                "/cinematics/misc/iwtsth.gif")) {
+            assertNotNull(input, "packaged IWTSTH GIF");
+            gif = input.readAllBytes();
+        }
+        StreamingGifTextureAnimation animation =
+                StreamingGifTextureAnimation.load(gif, "iwtsth.gif", 563);
+        try {
+            StreamingGifTextureAnimation.CpuFrame first = null;
+            long deadline = System.nanoTime() + 5_000_000_000L;
+            while (first == null && System.nanoTime() < deadline) {
+                first = animation.decodedFrameAt(0f);
+                if (first == null) Thread.sleep(5L);
+            }
+
+            assertNotNull(first, "the packaged IWTSTH GIF must decode frame zero");
+            assertTrue(animation.durationSeconds() > 0f,
+                    "streaming decode must publish discovered frame timing");
+            assertFalse(animation.playbackComplete(0.05f),
+                    "IWTSTH must not be disposed at the former 50 ms fallback");
         } finally {
             animation.dispose();
         }

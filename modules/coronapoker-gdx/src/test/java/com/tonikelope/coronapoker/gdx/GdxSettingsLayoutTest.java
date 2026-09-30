@@ -97,6 +97,25 @@ final class GdxSettingsLayoutTest {
     }
 
     @Test
+    void sharedStepperKeepsPaintingAndHitTargetsDisjoint() {
+        GdxSettingsLayout.StepperRow row = GdxSettingsLayout.stepperRow(
+                100f, 200f, 1_120f, GdxSettingsLayout.ROW_HEIGHT);
+
+        assertTrue(row.label().x + row.label().width
+                <= row.controls().x);
+        assertTrue(row.minusButton().x + row.minusButton().width
+                <= row.value().x);
+        assertTrue(row.value().x + row.value().width
+                <= row.plusButton().x);
+        assertTrue(row.plusButton().x + row.plusButton().width
+                <= row.bounds().x + row.bounds().width);
+        assertEquals(-1, row.directionAt(row.minusButton().x + 1f));
+        assertEquals(1, row.directionAt(row.plusButton().x + 1f));
+        assertEquals(0, row.directionAt(row.value().x + 1f));
+        assertTrue(row.valueContains(row.value().x + 1f));
+    }
+
+    @Test
     void denseTogglePagesKeepTheirLastRowInsideTheContentPanel() {
         float contentHeight = GdxSettingsLayout.frame(
                 1920f, 1080f, 4, 8).content().height;

@@ -369,6 +369,13 @@ class NetworkLobbyGatewayTest {
                         host.snapshot().tableSettings());
                 updated.setAnte(true);
                 updated.setRunItTwice(true);
+                updated.setIwtsth(true);
+                updated.setIncreaseBlinds(true);
+                updated.setBlindIncreaseType(
+                        NewGameTableDraft.BlindIncreaseType.HANDS);
+                updated.setBlindInterval(3);
+                updated.setBlindCap(true);
+                updated.setBlindCapRaises(2);
                 updated.setThinkSeconds(55);
                 NewGameTableDraft.Settings expectedSettings = updated.snapshot();
                 host.submit(new LobbyCommand.UpdateTableSettings(expectedSettings))
@@ -402,6 +409,13 @@ class NetworkLobbyGatewayTest {
                         clientContext.get().initialConfiguration().sessionId());
                 assertTrue(clientContext.get().initialConfiguration().ante());
                 assertTrue(clientContext.get().initialConfiguration().runItTwice());
+                assertTrue(clientContext.get().initialConfiguration().iwtsth());
+                assertEquals(3, clientContext.get().initialConfiguration()
+                        .blindsDouble());
+                assertEquals(2, clientContext.get().initialConfiguration()
+                        .blindsDoubleType());
+                assertEquals(0.6d, clientContext.get().initialConfiguration()
+                        .blindCap(), 0.000_001d);
                 assertEquals(55,
                         clientContext.get().initialConfiguration().thinkTime());
 

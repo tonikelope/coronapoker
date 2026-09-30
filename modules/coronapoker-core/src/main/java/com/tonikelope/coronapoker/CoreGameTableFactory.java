@@ -937,7 +937,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
         player.setBuyin(buyin);
     }
 
-    private static Map<String, GamePeerController> createPeers(
+    static Map<String, GamePeerController> createPeers(
             LobbySnapshot lobby,
             com.tonikelope.coronapoker.core.game.GameChannel channel,
             ConfirmationTracker confirmations) {

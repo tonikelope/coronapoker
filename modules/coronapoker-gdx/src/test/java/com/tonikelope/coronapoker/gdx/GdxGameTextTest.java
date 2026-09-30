@@ -37,7 +37,7 @@ final class GdxGameTextTest {
 
         assertEquals(spanishKeys, englishKeys,
                 "GDX must never fall back to a different language or raw key");
-        assertEquals(489, spanishKeys.size(),
+        assertEquals(493, spanishKeys.size(),
                 "new GDX labels must be added symmetrically");
         for (String key : spanishKeys) {
             assertFalse(spanish.getProperty(key).isBlank(), key + " empty in es");
@@ -79,6 +79,10 @@ final class GdxGameTextTest {
                 text.translate("gdx.settings.unsaved.title"));
         assertEquals("Waiting room", text.translate("gdx.lobby.title"));
         assertEquals("No limit", text.translate("gdx.lobby.no_hand_limit"));
+        assertEquals("Public IP:",
+                text.translate("gdx.lobby.public_address"));
+        assertEquals("Message copied to the clipboard",
+                text.translate("gdx.lobby.message_copied"));
         assertEquals("Room closed", text.translate("gdx.lobby.closed"));
         assertEquals("UPnP active",
                 GdxFrontendScreen.lobbyNetworkStatusText(
@@ -101,6 +105,7 @@ final class GdxGameTextTest {
                 text.translate("gdx.lobby.voice_playback_failed"));
         assertEquals("Preparing the table",
                 text.translate("gdx.lobby.preparing_table"));
+        assertEquals("Loading…", text.translate("gdx.loading"));
         assertEquals("Preparing the waiting room…",
                 text.translate("gdx.newgame.preparing_waiting_room"));
         assertEquals("Connecting to the waiting room…",

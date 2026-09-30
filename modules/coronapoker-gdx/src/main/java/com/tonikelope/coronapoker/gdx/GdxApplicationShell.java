@@ -43,6 +43,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private LobbySession lobby;
     private CoronaPokerGdxTable startupIntro;
     private volatile CoronaPokerGdxTable table;
+    private PendingTableOpen pendingTableOpen;
     private CoronaPokerGdxTable suspendedFinalTable;
     private boolean splashCloseScheduled;
 
@@ -198,6 +199,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
         CoronaPokerGdxTable current = table;
         if (current == null) {
             menu.render();
+            advancePendingTableOpen();
         } else {
             current.render();
         }
@@ -245,7 +247,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
         Objects.requireNonNull(opened, "opened");
         Objects.requireNonNull(openingBarrier, "openingBarrier");
         Gdx.app.postRunnable(() -> {
-            if (table != null) {
+            if (table != null || pendingTableOpen != null) {
                 openingBarrier.completeExceptionally(
                         new IllegalStateException("A GDX table scene is already open"));
                 return;
@@ -253,38 +255,60 @@ final class GdxApplicationShell extends ApplicationAdapter {
             CoronaPokerGdxTable candidate = null;
             try {
                 gameLog.reset();
-                menu.suspendForTable();
                 candidate = new CoronaPokerGdxTable(
                         refreshRate, new GdxTableViewState(initialState), commands,
                         () -> opened.accept(table), gameLog, preferences, lobby,
-                        presentationSettings);
-                candidate.create();
-                candidate.resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-                table = candidate;
-                // The lobby keeps its last hit map while the table is visible.
-                // Leaving it installed would make one table click reach the raw
-                // table input on press and a hidden lobby control on release.
-                Gdx.input.setInputProcessor(candidate.inputProcessor());
+                        presentationSettings, identityTrust);
+                candidate.beginCreate();
+                pendingTableOpen = new PendingTableOpen(candidate,
+                        openingBarrier);
             } catch (Throwable error) {
                 error.printStackTrace(System.err);
                 if (candidate != null) {
                     try {
-                        candidate.dispose();
+                        candidate.disposeFailedCreation();
                     } catch (Throwable cleanupError) {
                         error.addSuppressed(cleanupError);
                     }
                 }
                 table = null;
                 Gdx.input.setInputProcessor(menu);
-                // Opening paused whichever menu/lobby track was active. If
-                // table creation fails, restore that same surface without
-                // restarting or replacing its decoder.
-                menu.resumeMusic();
                 menu.showSessionError(gameText.translate(
                         "gdx.table.open_failed_detail", rootMessage(error)));
                 openingBarrier.completeExceptionally(error);
             }
         });
+    }
+
+    private void advancePendingTableOpen() {
+        PendingTableOpen pending = pendingTableOpen;
+        if (pending == null) return;
+        try {
+            if (!pending.table.createNextPhase()) return;
+            pendingTableOpen = null;
+            menu.suspendForTable();
+            pending.table.resize(Gdx.graphics.getWidth(),
+                    Gdx.graphics.getHeight());
+            table = pending.table;
+            // The lobby keeps its last hit map while the table is visible.
+            // Leaving it installed would make one table click reach the raw
+            // table input on press and a hidden lobby control on release.
+            Gdx.input.setInputProcessor(pending.table.inputProcessor());
+        } catch (Throwable error) {
+            pendingTableOpen = null;
+            error.printStackTrace(System.err);
+            try {
+                pending.table.disposeFailedCreation();
+            } catch (Throwable cleanupError) {
+                error.addSuppressed(cleanupError);
+            }
+            table = null;
+            Gdx.input.setInputProcessor(menu);
+            menu.resumeMusic();
+            menu.showSessionError(gameText.translate(
+                    "gdx.table.open_failed_detail", rootMessage(error)));
+            pending.openingBarrier.completeExceptionally(error);
+        }
     }
 
     void closeTable(CoronaPokerGdxTable expected) {
@@ -449,6 +473,14 @@ final class GdxApplicationShell extends ApplicationAdapter {
         if (current != null) {
             current.dispose();
         }
+        PendingTableOpen pending = pendingTableOpen;
+        pendingTableOpen = null;
+        if (pending != null) {
+            pending.table.disposeFailedCreation();
+            pending.openingBarrier.completeExceptionally(
+                    new java.util.concurrent.CancellationException(
+                            "GDX table creation was cancelled"));
+        }
         CoronaPokerGdxTable suspended = suspendedFinalTable;
         suspendedFinalTable = null;
         if (suspended != null && suspended != current) suspended.dispose();
@@ -457,5 +489,9 @@ final class GdxApplicationShell extends ApplicationAdapter {
             menu = null;
         }
         ACTIVE.compareAndSet(this, null);
+    }
+
+    private record PendingTableOpen(CoronaPokerGdxTable table,
+            CompletableFuture<Void> openingBarrier) {
     }
 }

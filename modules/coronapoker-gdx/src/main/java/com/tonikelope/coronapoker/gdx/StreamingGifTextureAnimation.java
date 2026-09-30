@@ -141,14 +141,18 @@ final class StreamingGifTextureAnimation implements Disposable {
      */
     static StreamingGifTextureAnimation loadLooping(String path, int maxWidth)
             throws IOException {
+        return loadLooping(prepareLooping(path, maxWidth));
+    }
+
+    static PreparedLooping prepareLooping(String path, int maxWidth)
+            throws IOException {
         Objects.requireNonNull(path, "path");
         if (maxWidth <= 0) throw new IllegalArgumentException("maxWidth <= 0");
         FileHandle handle = Gdx.files.internal(path);
         if (!handle.exists()) throw new IOException("Missing GIF " + path);
         byte[] data = handle.readBytes();
         GifTiming timing = inspect(data, path, maxWidth);
-        return new StreamingGifTextureAnimation(() -> data, path, maxWidth,
-                true, timing);
+        return new PreparedLooping(data, path, maxWidth, timing);
     }
 
     static StreamingGifTextureAnimation loadLooping(byte[] data, String label,
@@ -163,6 +167,11 @@ final class StreamingGifTextureAnimation implements Disposable {
 
     static StreamingGifTextureAnimation loadLooping(Path path, int maxWidth)
             throws IOException {
+        return loadLooping(prepareLooping(path, maxWidth));
+    }
+
+    static PreparedLooping prepareLooping(Path path, int maxWidth)
+            throws IOException {
         Objects.requireNonNull(path, "path");
         if (maxWidth <= 0) throw new IllegalArgumentException("maxWidth <= 0");
         if (!Files.isRegularFile(path)) {
@@ -170,8 +179,14 @@ final class StreamingGifTextureAnimation implements Disposable {
         }
         byte[] data = Files.readAllBytes(path);
         GifTiming timing = inspect(data, path.toString(), maxWidth);
-        return new StreamingGifTextureAnimation(() -> data, path.toString(),
-                maxWidth, true, timing);
+        return new PreparedLooping(data, path.toString(), maxWidth, timing);
+    }
+
+    static StreamingGifTextureAnimation loadLooping(
+            PreparedLooping prepared) {
+        Objects.requireNonNull(prepared, "prepared");
+        return new StreamingGifTextureAnimation(() -> prepared.data,
+                prepared.label, prepared.maxWidth, true, prepared.timing);
     }
 
     /** Returns the current frame, or {@code null} while the first one decodes. */
@@ -517,6 +532,25 @@ final class StreamingGifTextureAnimation implements Disposable {
 
     record GifTiming(int width, int height, long[] frameEndMs,
             long durationMs) {
+    }
+
+    /**
+     * Immutable CPU-side source and timing cache. Pixel decoding/resampling
+     * still runs on the animation worker and the renderer keeps a single GPU
+     * texture, avoiding the very large memory cost of caching every GIF frame.
+     */
+    record PreparedLooping(byte[] data, String label, int maxWidth,
+            GifTiming timing) {
+
+        PreparedLooping {
+            Objects.requireNonNull(data, "data");
+            Objects.requireNonNull(label, "label");
+            Objects.requireNonNull(timing, "timing");
+            if (data.length == 0 || maxWidth <= 0) {
+                throw new IllegalArgumentException(
+                        "Invalid prepared looping GIF");
+            }
+        }
     }
 
     record CpuFrame(int width, int height, long startMs, byte[] rgba) {

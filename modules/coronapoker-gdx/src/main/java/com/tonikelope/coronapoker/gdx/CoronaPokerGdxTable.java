@@ -45,6 +45,9 @@ import com.badlogic.gdx.utils.viewport.ExtendViewport;
 import com.tonikelope.coronapoker.core.BlindStructureRules;
 import com.tonikelope.coronapoker.core.BlindStructureCatalog;
 import com.tonikelope.coronapoker.core.ApplicationMetadata;
+import com.tonikelope.coronapoker.core.IdenticonFingerprint;
+import com.tonikelope.coronapoker.core.IdentityTrustStore;
+import com.tonikelope.coronapoker.core.LobbyParticipant;
 import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.core.LobbyChatMessage;
 import com.tonikelope.coronapoker.core.LobbySession;
@@ -165,6 +168,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final int SHUFFLE_AUDIO_STOP_FRAME = 53;
     private static final float SHUFFLE_AUDIO_FALLBACK_SECONDS = 2.720f;
     private static final float SHUFFLE_TEXT_CYCLE_SECONDS = 0.300f;
+    private static final int SHUFFLE_NATIVE_MAX_WIDTH = 960;
+    private static final int SHUFFLE_REFERENCE_HEIGHT = 1080;
+    private static final float SHUFFLE_LOW_RES_SCREEN_WIDTH_RATIO = 0.78f;
     private static final float CHIP_FLIGHT_DELAY = 0.12f;
     private static final float CHIP_FLIGHT_SECONDS = 0.92f;
     private static final int CLASSIC_DEAL_BASE_MILLIS = 250;
@@ -631,6 +637,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxTextToSpeechPlayback textToSpeech;
     private final GdxGamePresentationSettings presentationSettings;
     private final GdxGameText gameText;
+    private final LobbySession lobby;
+    private final IdentityTrustStore identityTrust;
     private final boolean tableRebuyAllowed;
     private final boolean tableHost;
     private final boolean startupIntroOnly;
@@ -650,6 +658,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxChatGalleryMedia tableGalleryMedia =
             new GdxChatGalleryMedia();
     private GdxTableDialog activeDialog;
+    private TableIdentityDialog tableIdentityDialog;
     private GdxTableDialog terminationConfirmation;
     private GdxTableDialog settingsDiscardConfirmation;
     private Runnable settingsDiscardAfterClose;
@@ -927,6 +936,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private int frameCursor;
     private int frameCount;
     private boolean intro = true;
+    private int creationPhase = -1;
+    private int creationCardIndex;
+    private int creationAvatarIndex;
+    private boolean creationComplete;
+    private CompletableFuture<StreamingGifTextureAnimation.PreparedLooping>
+            shufflePreparation;
+    private StreamingGifTextureAnimation.PreparedLooping preparedShuffle;
+    private String preparedShuffleDeck = "";
+    private int preparedShuffleMaxWidth;
     private boolean readySignalled;
     private boolean introVisibleSignalled;
     private boolean introLightsSignalled;
@@ -1231,6 +1249,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         public boolean touchDown(int screenX, int screenY, int pointerIndex,
                 int button) {
             if (isClientTransportReconnecting()) return true;
+            if (tableIdentityDialog != null) return true;
             if (activeDialog != null && !activeDialog.isAutoAction()) {
                 // Dialog buttons are resolved once per frame by
                 // handleDialogInput().  Consume the raw press here as well so
@@ -1318,6 +1337,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         @Override
         public boolean touchDragged(int screenX, int screenY, int pointerIndex) {
+            if (tableIdentityDialog != null) return true;
             if (activeDialog != null && !activeDialog.isAutoAction()) {
                 return true;
             }
@@ -1372,6 +1392,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         @Override
         public boolean touchUp(int screenX, int screenY, int pointerIndex,
                 int button) {
+            if (tableIdentityDialog != null) return true;
             if (activeDialog != null && !activeDialog.isAutoAction()) {
                 chatPointerSelectionDragging = false;
                 quickChatScrollDragging = false;
@@ -1621,13 +1642,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     CoronaPokerGdxTable(int detectedRefreshRate, Runnable onReady) {
         this(detectedRefreshRate, null, command -> { }, onReady,
-                () -> { }, new GdxGameLogSink(), null, null, null, true);
+                () -> { }, new GdxGameLogSink(), null, null, null,
+                IdentityTrustStore.unavailable(), true);
     }
 
     CoronaPokerGdxTable(int detectedRefreshRate, Runnable onReady,
             PreferencesService preferences) {
         this(detectedRefreshRate, null, command -> { }, onReady,
-                () -> { }, new GdxGameLogSink(), preferences, null, null, true);
+                () -> { }, new GdxGameLogSink(), preferences, null, null,
+                IdentityTrustStore.unavailable(), true);
     }
 
     CoronaPokerGdxTable(int detectedRefreshRate, Runnable onReady,
@@ -1640,14 +1663,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             GdxGamePresentationSettings presentationSettings) {
         this(detectedRefreshRate, null, command -> { }, onReady,
                 onIntroLightsOn, new GdxGameLogSink(), preferences,
-                null, presentationSettings, true);
+                null, presentationSettings, IdentityTrustStore.unavailable(),
+                true);
     }
 
     CoronaPokerGdxTable(int detectedRefreshRate, GdxTableViewState liveState,
             TableCommandSink commands, Runnable onReady,
             GdxGameLogSink gameLog, PreferencesService preferences) {
         this(detectedRefreshRate, liveState, commands, onReady, () -> { },
-                gameLog, preferences, null, null, false);
+                gameLog, preferences, null, null,
+                IdentityTrustStore.unavailable(), false);
     }
 
     CoronaPokerGdxTable(int detectedRefreshRate, GdxTableViewState liveState,
@@ -1655,7 +1680,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             GdxGameLogSink gameLog, PreferencesService preferences,
             LobbySession lobby) {
         this(detectedRefreshRate, liveState, commands, onReady, () -> { },
-                gameLog, preferences, lobby, null, false);
+                gameLog, preferences, lobby, null,
+                IdentityTrustStore.unavailable(), false);
     }
 
     CoronaPokerGdxTable(int detectedRefreshRate, GdxTableViewState liveState,
@@ -1664,7 +1690,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             LobbySession lobby,
             GdxGamePresentationSettings presentationSettings) {
         this(detectedRefreshRate, liveState, commands, onReady, () -> { },
-                gameLog, preferences, lobby, presentationSettings, false);
+                gameLog, preferences, lobby, presentationSettings,
+                IdentityTrustStore.unavailable(), false);
+    }
+
+    CoronaPokerGdxTable(int detectedRefreshRate, GdxTableViewState liveState,
+            TableCommandSink commands, Runnable onReady,
+            GdxGameLogSink gameLog, PreferencesService preferences,
+            LobbySession lobby,
+            GdxGamePresentationSettings presentationSettings,
+            IdentityTrustStore identityTrust) {
+        this(detectedRefreshRate, liveState, commands, onReady, () -> { },
+                gameLog, preferences, lobby, presentationSettings,
+                identityTrust, false);
     }
 
     private CoronaPokerGdxTable(int detectedRefreshRate,
@@ -1672,6 +1710,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Runnable onReady, Runnable onIntroLightsOn, GdxGameLogSink gameLog,
             PreferencesService preferences, LobbySession lobby,
             GdxGamePresentationSettings presentationSettings,
+            IdentityTrustStore identityTrust,
             boolean startupIntroOnly) {
         if (startupIntroOnly) {
             if (liveState != null) {
@@ -1690,6 +1729,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 onIntroLightsOn, "onIntroLightsOn");
         this.gameLog = Objects.requireNonNull(gameLog, "gameLog");
         this.preferences = preferences;
+        this.lobby = lobby;
+        this.identityTrust = Objects.requireNonNull(identityTrust,
+                "identityTrust");
         Properties audioProperties = preferences == null
                 ? new Properties() : preferences.properties();
         shortcutBindings = new GdxShortcutBindings(audioProperties);
@@ -2159,6 +2201,71 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     @Override
     public void create() {
+        beginCreate();
+        while (!createNextPhase()) {
+            // Startup-intro construction runs before the first frame. Live
+            // tables use createNextPhase() from GdxApplicationShell instead.
+        }
+    }
+
+    void beginCreate() {
+        if (creationPhase >= 0) {
+            throw new IllegalStateException("GDX table creation already started");
+        }
+        creationPhase = 0;
+        if (!startupIntroOnly) prepareShuffleAnimation(liveDeck);
+    }
+
+    boolean createNextPhase() {
+        if (creationComplete) return true;
+        if (creationPhase < 0) beginCreate();
+        switch (creationPhase) {
+            case 0 -> advanceCreation(this::createGraphicsCore);
+            case 1 -> advanceCreation(this::createSharedVisuals);
+            case 2 -> advanceCreation(this::createTableChrome);
+            case 3 -> advanceCreation(this::createTableCardsAndChips);
+            case 4 -> {
+                if (createNextCardFace()) creationPhase++;
+            }
+            case 5 -> {
+                if (createNextTableAvatar()) creationPhase++;
+            }
+            case 6 -> advanceCreation(this::createTableAudio);
+            case 7 -> advanceCreation(this::createPrimaryFonts);
+            case 8 -> advanceCreation(this::createReportAndLogFonts);
+            case 9 -> {
+                if (completeShufflePreparation()) {
+                    advanceCreation(this::finishTableCreation);
+                }
+            }
+            default -> creationComplete = true;
+        }
+        return creationComplete;
+    }
+
+    private void advanceCreation(Runnable phase) {
+        phase.run();
+        creationPhase++;
+    }
+
+    private boolean createNextCardFace() {
+        if (creationCardIndex >= INTRO_CARD_COUNT) return true;
+        liveCardFace(introCardCode(creationCardIndex++));
+        return creationCardIndex >= INTRO_CARD_COUNT;
+    }
+
+    private boolean createNextTableAvatar() {
+        if (tableChat == null) return true;
+        List<com.tonikelope.coronapoker.core.LobbyParticipant> participants
+                = tableChat.snapshot().participants();
+        if (creationAvatarIndex >= participants.size()) return true;
+        com.tonikelope.coronapoker.core.LobbyParticipant participant
+                = participants.get(creationAvatarIndex++);
+        if (participant.avatar() != null) tableAvatar(participant.nickname());
+        return creationAvatarIndex >= participants.size();
+    }
+
+    private void createGraphicsCore() {
         camera = new OrthographicCamera();
         viewport = new ExtendViewport(BASE_WIDTH, BASE_HEIGHT, 2560f, 1440f, camera);
         shapes = new ShapeRenderer();
@@ -2196,7 +2303,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         + backdropBlurShader.getLog());
             }
         }
+    }
 
+    private void createSharedVisuals() {
         // The intro enlarges the official logo substantially. Use its exact
         // 2x source there so the dock animation never magnifies the 525 px
         // menu asset and exposes jagged/pixelated edges.
@@ -2214,8 +2323,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             initialiseStars();
             Gdx.input.setCursorCatched(false);
+            creationComplete = true;
             return;
         }
+    }
+
+    private void createTableChrome() {
         avatarDefault = texture("images/avatar_default.png");
         avatarBot = texture("images/avatar_bot.png");
         dealerChip = texture("images/dealer.png");
@@ -2252,6 +2365,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             texture("images/stop.png"),
             silhouetteTexture("images/exit2.png", Color.WHITE)
         };
+    }
+
+    private void createTableCardsAndChips() {
         defaultCardBack = cardTexture("images/decks/goliat/hq/trasera.jpg");
         rabbitCardBack = cardTexture("images/bugs2.png");
         rabbitRevealOverlay = cardTexture("images/bugs2_b.png");
@@ -2262,6 +2378,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             createChipTexture(new Color(0xe2a72fff), new Color(0x936312ff))
         };
         pot = texture("images/pot.png");
+    }
+
+    private void createTableAudio() {
         FileHandle shuffleAudio = gameAudioResource("misc/shuffle.wav");
         shuffleSoundDurationSeconds = wavDurationSeconds(shuffleAudio,
                 SHUFFLE_AUDIO_FALLBACK_SECONDS);
@@ -2279,7 +2398,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         cardViewerSound = gameSound("misc/card_visor.wav");
         screenshotSound = gameSound("misc/screenshot.wav");
         feltChangeSound = gameSound("misc/mat.wav");
+    }
 
+    private void createPrimaryFonts() {
         FreeTypeFontGenerator generator = new FreeTypeFontGenerator(
                 Gdx.files.internal("fonts/McLaren-Regular.ttf"));
         uiFont = font(generator, 31, 1.2f);
@@ -2301,6 +2422,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 new Color(1f, 1f, 0f, 0.80f));
         pauseFont = font(generator, 76, 0f,
                 PAUSE_RED, new Color(0x640000cc));
+        finalButtonFont = font(generator, 26, 0.2f);
+        generator.dispose();
+    }
+
+    private void createReportAndLogFonts() {
         // BalanceScreen uses a bold Dialog face. Generate the GDX equivalents
         // natively at display size: enlarging uiFont's 31 px atlas made the
         // final title visibly pixelated at 1080p and above.
@@ -2319,11 +2445,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         finalDetailFont = font(balanceDetailGenerator, 38, 0f);
         finalCardFont = font(balanceDetailGenerator, 18, 0f);
         balanceDetailGenerator.dispose();
-        // Navigation is part of the shared game chrome, not of the balance
-        // report typography.  Keep it identical to the McLaren action buttons
-        // used by the main menu and the rest of the GDX interface.
-        finalButtonFont = font(generator, 26, 0.2f);
-        generator.dispose();
         FreeTypeFontGenerator logGenerator = gameLogFontGenerator(false);
         gameLogFont = font(logGenerator, 20, 0f);
         logGenerator.dispose();
@@ -2331,7 +2452,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         gameLogBoldFont = font(logBoldGenerator, 20, 0f);
         gameLogSuitFont = font(logBoldGenerator, 28, 0f);
         logBoldGenerator.dispose();
+    }
 
+    private void finishTableCreation() {
         initialiseSeats();
         backgroundMusic = gameMusic("misc/background_music.mp3");
         backgroundMusic.setLooping(true);
@@ -2341,6 +2464,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             backgroundMusic.play();
         }
         Gdx.input.setCursorCatched(false);
+        creationComplete = true;
     }
 
     private static Texture texture(String path) {
@@ -3520,6 +3644,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawUiLayer();
         drawTerminationOverlay();
         drawActiveDialog();
+        drawTableIdentityDialog();
         drawNetworkReconnectOverlay();
         drawRecoveryStopOverlay();
         drawScreenshotToast();
@@ -3641,6 +3766,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     && Gdx.input.isKeyJustPressed(Input.Keys.ENTER))) {
                 toggleFullscreen();
             }
+            return;
+        }
+        if (tableIdentityDialog != null) {
+            handleTableIdentityDialogInput();
             return;
         }
         // A visible confirmation is always the topmost modal surface. In
@@ -3779,6 +3908,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 || Gdx.input.isKeyJustPressed(Input.Keys.F11)
                 || (alt && Gdx.input.isKeyJustPressed(Input.Keys.ENTER))) {
             toggleFullscreen();
+        }
+        if (!intro && uiLayer == UI_NONE
+                && (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)
+                || Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT))) {
+            pointer.set(Gdx.input.getX(), Gdx.input.getY());
+            viewport.unproject(pointer);
+            Seat identitySeat = avatarSeatAt(pointer.x, pointer.y);
+            if (identitySeat != null
+                    && openTableIdentityDialog(identitySeat.name)) {
+                clearAvatarZoom();
+                return;
+            }
         }
         if (consumeAvatarZoomPointer()) {
             return;
@@ -4110,6 +4251,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     void showDialog(GdxTableDialog request) {
         Objects.requireNonNull(request, "request");
+        // Dealer/network decisions always outrank the optional identity view.
+        tableIdentityDialog = null;
         if (activeDialog == null) {
             activeDialog = request;
             request.opened(totalTime);
@@ -9073,22 +9216,90 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private StreamingGifTextureAnimation liveShuffleAnimation(String deck) {
         String selected = availableDeck(deck);
+        int maxWidth = shuffleDecodeWidth(
+                Gdx.graphics.getBackBufferWidth(),
+                Gdx.graphics.getBackBufferHeight());
+        StreamingGifTextureAnimation.PreparedLooping prepared
+                = preparedShuffle;
+        if (prepared != null && selected.equals(preparedShuffleDeck)
+                && maxWidth == preparedShuffleMaxWidth) {
+            return StreamingGifTextureAnimation.loadLooping(prepared);
+        }
         if ("goliat".equals(selected)) {
-            return loopingGif("images/decks/goliat/gif/shuffle.gif", 960);
+            return loopingGif("images/decks/goliat/gif/shuffle.gif", maxWidth);
         }
         java.util.Optional<Path> external = externalDeckAsset(selected,
                 "gif/shuffle.gif");
         if (external.isPresent()) {
-            return loopingGif(external.get(), 960);
+            return loopingGif(external.get(), maxWidth);
         }
         if (GdxGamePresentationSettings.OFFICIAL_DECKS.contains(selected)) {
             return loopingGif("images/decks/" + selected
-                    + "/gif/shuffle.gif", 960);
+                    + "/gif/shuffle.gif", maxWidth);
         }
         // Swing also permits a mod deck without its own shuffle animation.
         // In that case retain the canonical Goliat shuffle rather than trying
         // to resolve a non-existent classpath resource.
-        return loopingGif("images/decks/goliat/gif/shuffle.gif", 960);
+        return loopingGif("images/decks/goliat/gif/shuffle.gif", maxWidth);
+    }
+
+    static int shuffleDecodeWidth(int backBufferWidth,
+            int backBufferHeight) {
+        if (backBufferWidth <= 0 || backBufferHeight <= 0
+                || backBufferHeight >= SHUFFLE_REFERENCE_HEIGHT) {
+            return SHUFFLE_NATIVE_MAX_WIDTH;
+        }
+        int heightLimited = Math.round(SHUFFLE_NATIVE_MAX_WIDTH
+                * backBufferHeight / (float) SHUFFLE_REFERENCE_HEIGHT);
+        int widthLimited = Math.round(backBufferWidth
+                * SHUFFLE_LOW_RES_SCREEN_WIDTH_RATIO);
+        return Math.max(1, Math.min(SHUFFLE_NATIVE_MAX_WIDTH,
+                Math.min(heightLimited, widthLimited)));
+    }
+
+    private void prepareShuffleAnimation(String deck) {
+        String selected = availableDeck(deck);
+        int maxWidth = shuffleDecodeWidth(
+                Gdx.graphics.getBackBufferWidth(),
+                Gdx.graphics.getBackBufferHeight());
+        preparedShuffle = null;
+        preparedShuffleDeck = selected;
+        preparedShuffleMaxWidth = maxWidth;
+        Path external = externalDeckAsset(selected, "gif/shuffle.gif")
+                .orElse(null);
+        String bundled = external == null
+                ? GdxGamePresentationSettings.OFFICIAL_DECKS.contains(selected)
+                        ? "images/decks/" + selected + "/gif/shuffle.gif"
+                        : "images/decks/goliat/gif/shuffle.gif"
+                : null;
+        shufflePreparation = CompletableFuture.supplyAsync(() -> {
+            try {
+                return external == null
+                        ? StreamingGifTextureAnimation.prepareLooping(
+                                bundled, maxWidth)
+                        : StreamingGifTextureAnimation.prepareLooping(
+                                external, maxWidth);
+            } catch (IOException failure) {
+                throw new CompletionException(failure);
+            }
+        });
+    }
+
+    private boolean completeShufflePreparation() {
+        CompletableFuture<StreamingGifTextureAnimation.PreparedLooping>
+                preparation = shufflePreparation;
+        if (preparation == null) return true;
+        if (!preparation.isDone()) return false;
+        shufflePreparation = null;
+        try {
+            preparedShuffle = preparation.join();
+        } catch (CompletionException failure) {
+            preparedShuffle = null;
+            LOGGER.log(Level.WARNING,
+                    "Could not prepare the shuffle animation off the render thread",
+                    failure.getCause() == null ? failure : failure.getCause());
+        }
+        return true;
     }
 
     private static StreamingGifTextureAnimation loopingGif(String path,
@@ -13110,6 +13321,163 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
     }
 
+    /**
+     * In Swing, clicking a seat avatar remains the in-game route to the
+     * participant's long-lived Ed25519 identity. Keep that route in GDX rather
+     * than limiting identity inspection to the waiting room.
+     */
+    private boolean openTableIdentityDialog(String nickname) {
+        if (lobby == null || nickname == null) return false;
+        LobbyParticipant participant = lobby.snapshot().participants().stream()
+                .filter(candidate -> nickname.equals(candidate.nickname()))
+                .findFirst().orElse(null);
+        if (participant == null || participant.bot()
+                || participant.identityPublicKey() == null) {
+            return false;
+        }
+        byte[] publicKey = participant.identityPublicKey();
+        tableIdentityDialog = new TableIdentityDialog(participant.nickname(),
+                publicKey, IdenticonFingerprint.fromSeed(publicKey),
+                participant.local());
+        return true;
+    }
+
+    private Seat avatarSeatAt(float x, float y) {
+        float radiusSquared = AVATAR_OUTER_RADIUS * AVATAR_OUTER_RADIUS;
+        for (Seat seat : seats) {
+            if (seatPresenceAlpha(seat.index) <= 0f) continue;
+            float dx = x - seat.x;
+            float dy = y - seat.y;
+            if (dx * dx + dy * dy <= radiusSquared) return seat;
+        }
+        return null;
+    }
+
+    private void handleTableIdentityDialogInput() {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            tableIdentityDialog = null;
+            return;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F11)
+                || ((Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
+                || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT))
+                && Gdx.input.isKeyJustPressed(Input.Keys.ENTER))) {
+            toggleFullscreen();
+            return;
+        }
+        if (!Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) return;
+        pointer.set(Gdx.input.getX(), Gdx.input.getY());
+        viewport.unproject(pointer);
+        float panelX = viewport.getWorldWidth() / 2f - 410f;
+        float panelY = viewport.getWorldHeight() / 2f - 380f;
+        TableIdentityDialog dialog = tableIdentityDialog;
+        if (dialog == null) return;
+        if (!dialog.local() && contains(pointer.x, pointer.y,
+                panelX + 55f, panelY + 35f, 300f, 62f)) {
+            identityTrust.markVerified(dialog.nickname(), dialog.publicKey());
+        } else if (contains(pointer.x, pointer.y,
+                panelX + (dialog.local() ? 230f : 465f), panelY + 35f,
+                dialog.local() ? 360f : 300f, 62f)) {
+            tableIdentityDialog = null;
+        }
+    }
+
+    private void drawTableIdentityDialog() {
+        TableIdentityDialog dialog = tableIdentityDialog;
+        if (dialog == null) return;
+        pointer.set(Gdx.input.getX(), Gdx.input.getY());
+        viewport.unproject(pointer);
+        float width = viewport.getWorldWidth();
+        float height = viewport.getWorldHeight();
+        float panelW = 820f;
+        float panelH = 760f;
+        float panelX = width / 2f - panelW / 2f;
+        float panelY = height / 2f - panelH / 2f;
+        float verifyX = panelX + 55f;
+        float closeX = panelX + (dialog.local() ? 230f : 465f);
+        float closeW = dialog.local() ? 360f : 300f;
+        float buttonY = panelY + 35f;
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        GdxUiDialogStyle.drawBackdrop(shapes, width, height, 1f);
+        GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
+                panelW, panelH, CYAN, 1f);
+        GdxUiDialogStyle.drawInset(shapes, panelX + 40f, panelY + 122f,
+                panelW - 80f, panelH - 260f, 1f);
+        float cell = 50f;
+        float gridSize = cell * IdenticonFingerprint.GRID_SIZE;
+        float gridX = width / 2f - gridSize / 2f;
+        float gridY = panelY + 242f;
+        shapes.setColor(0.02f, 0.04f, 0.07f, 1f);
+        roundedRect(gridX - 12f, gridY - 12f,
+                gridSize + 24f, gridSize + 24f, 10f);
+        drawTableIdenticonGrid(dialog.fingerprint(), gridX, gridY, cell);
+        if (!dialog.local()) {
+            boolean verified = identityTrust.isVerified(dialog.nickname(),
+                    dialog.publicKey());
+            drawDialogButton(verifyX, buttonY, 300f, 62f,
+                    verified ? LEGACY_CHECK : POT_GOLD,
+                    contains(pointer.x, pointer.y,
+                            verifyX, buttonY, 300f, 62f), 1f);
+        }
+        drawDialogButton(closeX, buttonY, closeW, 62f, BUTTON_LINE,
+                contains(pointer.x, pointer.y,
+                        closeX, buttonY, closeW, 62f), 1f);
+        shapes.end();
+
+        batch.begin();
+        drawFittedCenteredInBox(finalTitleFont, dialog.nickname(),
+                panelX + 45f, panelY + panelH - 88f,
+                panelW - 90f, 50f, POT_GOLD, 1f);
+        drawFittedCenteredInBox(uiFont,
+                uppercase(gameText.translate("gdx.identicon.identity")),
+                panelX + 70f, panelY + panelH - 150f,
+                panelW - 140f, 38f, CYAN, 1f);
+        drawFittedCenteredInBox(uiFont, dialog.fingerprint().formatted(),
+                panelX + 55f, panelY + 178f,
+                panelW - 110f, 34f, Color.WHITE, 1f);
+        drawFittedCenteredInBox(smallFont,
+                gameText.translate("gdx.identicon.identity_help"),
+                panelX + 55f, panelY + 130f,
+                panelW - 110f, 34f, SEAT_RIM, 1f);
+        if (!dialog.local()) {
+            boolean verified = identityTrust.isVerified(dialog.nickname(),
+                    dialog.publicKey());
+            drawFittedCenteredInBox(actionFont,
+                    uppercase(gameText.translate(verified
+                            ? "ui.identicon.ya_verificada"
+                            : "ui.identicon.verificar_button")),
+                    verifyX + 12f, buttonY + 12f,
+                    276f, 38f, Color.WHITE, 1f);
+        }
+        drawFittedCenteredInBox(actionFont,
+                uppercase(gameText.translate("ui.cerrar")),
+                closeX + 12f, buttonY + 12f,
+                closeW - 24f, 38f, Color.WHITE, 1f);
+        batch.end();
+    }
+
+    private void drawTableIdenticonGrid(IdenticonFingerprint fingerprint,
+            float x, float y, float cell) {
+        for (int column = 0; column < IdenticonFingerprint.GRID_SIZE; column++) {
+            for (int row = 0; row < IdenticonFingerprint.GRID_SIZE; row++) {
+                if (!fingerprint.filled(column, row)) continue;
+                shapes.setColor(tableIdenticonColor(
+                        fingerprint.foregroundArgb(row)));
+                shapes.rect(x + column * cell, y + row * cell,
+                        cell + 0.5f, cell + 0.5f);
+            }
+        }
+    }
+
+    private static Color tableIdenticonColor(int argb) {
+        return new Color((argb >>> 16 & 0xff) / 255f,
+                (argb >>> 8 & 0xff) / 255f,
+                (argb & 0xff) / 255f,
+                (argb >>> 24 & 0xff) / 255f);
+    }
+
     private void drawGameOverDialog(GdxTableDialog dialog, float panelX,
             float panelY, float panelW, float panelH, float worldW,
             float worldH) {
@@ -16601,9 +16969,113 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         viewport.update(width, height, true);
     }
 
+    /** Releases whichever creation phases completed before the scene opened. */
+    void disposeFailedCreation() {
+        disposed = true;
+        cancelShufflePreparation();
+        disposeSafely(backgroundMusic);
+        disposeSafely(shuffleSound);
+        disposeSafely(dealSound);
+        disposeSafely(uncoverSound);
+        disposeSafely(checkSound);
+        disposeSafely(callSound);
+        disposeSafely(betSound);
+        disposeSafely(foldSound);
+        disposeSafely(allInSound);
+        disposeSafely(buttonOnSound);
+        disposeSafely(buttonOffSound);
+        disposeSafely(balanceCountSound);
+        disposeSafely(cardViewerSound);
+        disposeSafely(screenshotSound);
+        disposeSafely(feltChangeSound);
+        disposeSafely(uiFont);
+        disposeSafely(smallFont);
+        disposeSafely(versionFont);
+        disposeSafely(playerNameFont);
+        disposeSafely(stackFont);
+        disposeSafely(actionFont);
+        disposeSafely(seatActionFont);
+        disposeSafely(localOutcomeFont);
+        disposeSafely(callCostFont);
+        disposeSafely(pauseFont);
+        disposeSafely(finalHeroFont);
+        disposeSafely(finalAmountFont);
+        disposeSafely(finalTitleFont);
+        disposeSafely(finalDetailFont);
+        disposeSafely(finalButtonFont);
+        disposeSafely(finalCardFont);
+        disposeSafely(finalCardBoldFont);
+        disposeSafely(gameLogFont);
+        disposeSafely(gameLogBoldFont);
+        disposeSafely(gameLogSuitFont);
+        disposeSafely(logo);
+        disposeSafely(feltTexture);
+        disposeSafely(avatarDefault);
+        disposeSafely(avatarBot);
+        disposeSafely(allInFireCanvas);
+        disposeSafely(dealerChip);
+        disposeSafely(smallBlindChip);
+        disposeSafely(bigBlindChip);
+        disposeSafely(underTheGunIcon);
+        disposeSafely(logMoneyIcon);
+        disposeSafely(logStraddleIcon);
+        disposeSafely(logDealerStraddleIcon);
+        disposeSafely(communityStraddleIcon);
+        disposeSafely(soundIcon);
+        disposeSafely(muteIcon);
+        disposeSafely(blockedSoundIcon);
+        disposeSafely(lightsOnIcon);
+        disposeSafely(lightsOffIcon);
+        disposeSafely(pauseIcon);
+        disposeSafely(foldThumbIcon);
+        disposeSafely(callThumbIcon);
+        disposeSafely(timeoutIcon);
+        disposeSafely(talkIcon);
+        disposeSafely(finalMenuIcon);
+        disposeSafely(finalLogIcon);
+        disposeSafely(finalStatsIcon);
+        disposeSafely(finalContinueIcon);
+        disposeSafely(fastMenuIcon);
+        disposeSafely(defaultCardBack);
+        disposeSafely(rabbitCardBack);
+        disposeSafely(rabbitRevealOverlay);
+        disposeSafely(pot);
+        if (introCardFaces != null) {
+            for (Texture texture : introCardFaces) disposeSafely(texture);
+        }
+        if (flyingChips != null) {
+            for (Texture texture : flyingChips) disposeSafely(texture);
+        }
+        if (fastButtonIcons != null) {
+            for (Texture texture : fastButtonIcons) disposeSafely(texture);
+        }
+        for (Texture texture : liveCardFaces.values()) disposeSafely(texture);
+        liveCardFaces.clear();
+        disposeSafely(backdropBlurShader);
+        disposeSafely(allInFireShader);
+        disposeSafely(avatarShader);
+        disposeSafely(rabbitPeelShader);
+        disposeSafely(roundedCardShader);
+        disposeSafely(batch);
+        disposeSafely(shapes);
+        if (textToSpeech != null) textToSpeech.close();
+        if (tableChat != null) tableChat.close();
+    }
+
+    private static void disposeSafely(
+            com.badlogic.gdx.utils.Disposable disposable) {
+        if (disposable == null) return;
+        try {
+            disposable.dispose();
+        } catch (RuntimeException ignored) {
+            // Preserve the original creation failure.
+        }
+    }
+
     @Override
     public void dispose() {
         disposed = true;
+        cancelShufflePreparation();
         CompletableFuture<Void> closingSummaryBarrier = finalSummaryBarrier;
         finalSummaryBarrier = null;
         if (closingSummaryBarrier != null
@@ -16754,6 +17226,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         pauseIcon.dispose();
         foldThumbIcon.dispose();
         callThumbIcon.dispose();
+        timeoutIcon.dispose();
         talkIcon.dispose();
         finalMenuIcon.dispose();
         finalLogIcon.dispose();
@@ -16777,6 +17250,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         silentChatNotices.clear();
         blockedSeatMediaNotices.clear();
         if (tableChat != null) tableChat.close();
+    }
+
+    private void cancelShufflePreparation() {
+        CompletableFuture<StreamingGifTextureAnimation.PreparedLooping>
+                preparation = shufflePreparation;
+        shufflePreparation = null;
+        if (preparation != null) preparation.cancel(true);
     }
 
     private static final class SilentChatNotice {
@@ -17698,6 +18178,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             this.speed = speed;
             this.size = size;
             this.phase = phase;
+        }
+    }
+
+    private record TableIdentityDialog(String nickname, byte[] publicKey,
+            IdenticonFingerprint fingerprint, boolean local) {
+
+        private TableIdentityDialog {
+            publicKey = publicKey.clone();
+        }
+
+        @Override
+        public byte[] publicKey() {
+            return publicKey.clone();
         }
     }
 

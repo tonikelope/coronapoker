@@ -11,8 +11,17 @@ final class GdxUiDialogStyle {
     // from turning the panel into an almost opaque second visual language.
     static final int PANEL_RGBA = 0x071321cc;
     static final int INSET_RGBA = 0x08182870;
+    // AUTO MODE sits directly over the local player's cards and action HUD.
+    // Unlike a centred modal (which has a dim backdrop), that compact overlay
+    // must occlude the busy table below it just as Swing's opaque JPanel did.
+    static final int FOREGROUND_PANEL_RGBA = 0x071321fa;
+    static final int FOREGROUND_INSET_RGBA = 0x081828f2;
     private static final Color PANEL = new Color(PANEL_RGBA);
     private static final Color INSET = new Color(INSET_RGBA);
+    private static final Color FOREGROUND_PANEL =
+            new Color(FOREGROUND_PANEL_RGBA);
+    private static final Color FOREGROUND_INSET =
+            new Color(FOREGROUND_INSET_RGBA);
     private static final Color LINE = new Color(0x31445fff);
 
     private GdxUiDialogStyle() {
@@ -26,9 +35,22 @@ final class GdxUiDialogStyle {
 
     static void drawPanel(ShapeRenderer shapes, float x, float y,
             float width, float height, Color accent, float alpha) {
+        drawPanel(shapes, x, y, width, height, accent, alpha, PANEL);
+    }
+
+    static void drawForegroundPanel(ShapeRenderer shapes, float x, float y,
+            float width, float height, Color accent, float alpha) {
+        drawPanel(shapes, x, y, width, height, accent, alpha,
+                FOREGROUND_PANEL);
+    }
+
+    private static void drawPanel(ShapeRenderer shapes, float x, float y,
+            float width, float height, Color accent, float alpha,
+            Color material) {
         shapes.setColor(0f, 0f, 0f, 0.42f * alpha);
         roundedRect(shapes, x + 10f, y - 10f, width, height, 20f);
-        shapes.setColor(PANEL.r, PANEL.g, PANEL.b, PANEL.a * alpha);
+        shapes.setColor(material.r, material.g, material.b,
+                material.a * alpha);
         roundedRect(shapes, x, y, width, height, 18f);
         shapes.setColor(accent.r, accent.g, accent.b, 0.92f * alpha);
         roundedRectOutline(shapes, x + 1f, y + 1f,
@@ -39,7 +61,18 @@ final class GdxUiDialogStyle {
 
     static void drawInset(ShapeRenderer shapes, float x, float y,
             float width, float height, float alpha) {
-        shapes.setColor(INSET.r, INSET.g, INSET.b, INSET.a * alpha);
+        drawInset(shapes, x, y, width, height, alpha, INSET);
+    }
+
+    static void drawForegroundInset(ShapeRenderer shapes, float x, float y,
+            float width, float height, float alpha) {
+        drawInset(shapes, x, y, width, height, alpha, FOREGROUND_INSET);
+    }
+
+    private static void drawInset(ShapeRenderer shapes, float x, float y,
+            float width, float height, float alpha, Color material) {
+        shapes.setColor(material.r, material.g, material.b,
+                material.a * alpha);
         roundedRect(shapes, x, y, width, height, 14f);
         shapes.setColor(LINE.r, LINE.g, LINE.b, 0.82f * alpha);
         roundedRectOutline(shapes, x + 1f, y + 1f,

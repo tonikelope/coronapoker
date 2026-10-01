@@ -20,4 +20,17 @@ final class GdxUiDialogStyleTest {
         assertTrue(insetAlpha < panelAlpha,
                 "nested reading surfaces must not make the shell opaque");
     }
+
+    @Test
+    void foregroundAutoOverlayOccludesCardsWithoutChangingOtherDialogs() {
+        int foregroundPanelAlpha =
+                GdxUiDialogStyle.FOREGROUND_PANEL_RGBA & 0xff;
+        int foregroundInsetAlpha =
+                GdxUiDialogStyle.FOREGROUND_INSET_RGBA & 0xff;
+
+        assertTrue(foregroundPanelAlpha > (GdxUiDialogStyle.PANEL_RGBA & 0xff));
+        assertTrue(foregroundInsetAlpha > (GdxUiDialogStyle.INSET_RGBA & 0xff));
+        assertTrue(foregroundPanelAlpha >= 0xfa,
+                "AUTO MODE must hide the cards and HUD underneath it");
+    }
 }

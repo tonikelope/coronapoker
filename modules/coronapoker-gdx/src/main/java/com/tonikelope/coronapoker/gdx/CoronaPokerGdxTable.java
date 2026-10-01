@@ -4688,24 +4688,43 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float panelH = dialogHeight(dialog);
         float panelX = dialogX(dialog, panelW);
         float panelY = dialogY(dialog, panelH);
-        float negativeX = panelX + (dialog.isAutoAction() ? 30f : 42f);
+        GdxTableDialogLayout.AutoAction autoActionLayout =
+                dialog.isAutoAction()
+                        ? GdxTableDialogLayout.autoAction(panelX, panelY,
+                                panelW) : null;
+        GdxTableDialogLayout.AutoCall autoCallLayout = dialog.isAutoCall()
+                ? GdxTableDialogLayout.autoCall(panelX, panelY, panelW) : null;
+        float negativeX = dialog.isAutoAction()
+                ? autoActionLayout.cancel().x : panelX + 42f;
         float negativeW = dialog.isAutoAction()
-                ? panelW - 60f : 230f;
-        float buttonY = panelY + (dialog.isAutoAction() ? 22f : 34f);
-        float buttonH = dialog.isAutoAction() ? 52f : 64f;
+                ? autoActionLayout.cancel().width : 230f;
+        float buttonY = dialog.isAutoAction()
+                ? autoActionLayout.cancel().y : panelY + 34f;
+        float buttonH = dialog.isAutoAction()
+                ? autoActionLayout.cancel().height : 64f;
+        Rectangle amountValue = dialog.isAutoCall()
+                ? autoCallLayout.amount().value()
+                : new Rectangle(panelX + panelW / 2f - 110f,
+                        panelY + 155f, 220f, 64f);
+        Rectangle amountMinus = dialog.isAutoCall()
+                ? autoCallLayout.amount().minusButton()
+                : new Rectangle(panelX + panelW / 2f - 190f,
+                        panelY + 155f, 72f, 64f);
+        Rectangle amountPlus = dialog.isAutoCall()
+                ? autoCallLayout.amount().plusButton()
+                : new Rectangle(panelX + panelW / 2f + 118f,
+                        panelY + 155f, 72f, 64f);
         if (dialog.showsNegative()
                 && contains(pointer.x, pointer.y, negativeX,
                         buttonY, negativeW, buttonH)) {
             resolveActiveDialogChoice(false);
         } else if (dialog.isAutoCall()
-                && contains(pointer.x, pointer.y, panelX + 56f,
-                        panelY + 318f, panelW - 112f, 64f)) {
+                && autoCallLayout.enabled().contains(pointer.x, pointer.y)) {
             runSwitchAction(dialog.optionEnabled(),
                     dialog::toggleOptionEnabled);
             focusAutoCallAmount(dialog, dialog.autoCallAmountEditable());
         } else if (dialog.isAutoCall()
-                && contains(pointer.x, pointer.y, panelX + 56f,
-                        panelY + 244f, panelW - 112f, 64f)) {
+                && autoCallLayout.noLimit().contains(pointer.x, pointer.y)) {
             runSwitchAction(dialog.noLimit(), dialog::toggleNoLimit);
             focusAutoCallAmount(dialog, dialog.autoCallAmountEditable());
         } else if (dialog.isHandLimit()
@@ -4713,18 +4732,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         panelY + 244f, panelW - 112f, 64f)) {
             runSwitchAction(dialog.noLimit(), dialog::toggleNoLimit);
         } else if (dialog.isAutoCall()
-                && contains(pointer.x, pointer.y,
-                        panelX + panelW / 2f - 110f,
-                        panelY + 155f, 220f, 64f)) {
+                && amountValue.contains(pointer.x, pointer.y)) {
             focusAutoCallAmount(dialog, true);
         } else if (dialog.hasAmount()
-                && contains(pointer.x, pointer.y, panelX + panelW / 2f - 190f,
-                        panelY + 155f, 72f, 64f)) {
+                && amountMinus.contains(pointer.x, pointer.y)) {
             dialog.changeAmount(-1);
             focusAutoCallAmount(dialog, false);
         } else if (dialog.hasAmount()
-                && contains(pointer.x, pointer.y, panelX + panelW / 2f + 118f,
-                        panelY + 155f, 72f, 64f)) {
+                && amountPlus.contains(pointer.x, pointer.y)) {
             dialog.changeAmount(1);
             focusAutoCallAmount(dialog, false);
         } else if (dialog.showsPositive() && contains(pointer.x, pointer.y,
@@ -4799,7 +4814,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private static float dialogHeight(GdxTableDialog dialog) {
-        return dialog.isAutoAction() ? 230f
+        return dialog.isAutoAction() ? GdxTableDialogLayout.AUTO_ACTION_HEIGHT
                 : dialog.isGameOver()
                         ? (dialog.showsPositive() ? 570f : 390f)
                 : dialog.isAutoCall() || dialog.isHandLimit() ? 540f
@@ -13650,11 +13665,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawRecoveryDialog(dialog, width, height);
             return;
         }
+        GdxTableDialogLayout.AutoAction autoActionLayout =
+                dialog.isAutoAction()
+                        ? GdxTableDialogLayout.autoAction(panelX, panelY,
+                                panelW) : null;
+        GdxTableDialogLayout.AutoCall autoCallLayout = dialog.isAutoCall()
+                ? GdxTableDialogLayout.autoCall(panelX, panelY, panelW) : null;
         float acceptX = dialogPositiveX(dialog, panelX, panelW);
-        float negativeX = panelX + (dialog.isAutoAction() ? 30f : 42f);
-        float negativeW = dialog.isAutoAction() ? panelW - 60f : 230f;
-        float buttonY = panelY + (dialog.isAutoAction() ? 22f : 34f);
-        float buttonH = dialog.isAutoAction() ? 52f : 64f;
+        float negativeX = dialog.isAutoAction()
+                ? autoActionLayout.cancel().x : panelX + 42f;
+        float negativeW = dialog.isAutoAction()
+                ? autoActionLayout.cancel().width : 230f;
+        float buttonY = dialog.isAutoAction()
+                ? autoActionLayout.cancel().y : panelY + 34f;
+        float buttonH = dialog.isAutoAction()
+                ? autoActionLayout.cancel().height : 64f;
         Color accent = switch (dialog.kind()) {
             case ERROR -> FOLD_RED;
             case INFO -> CYAN;
@@ -13666,16 +13691,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Gdx.gl.glEnable(GL20.GL_BLEND);
         if (!dialog.isAutoAction()) {
             GdxUiDialogStyle.drawBackdrop(shapes, width, height, 1f);
+            GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
+                    panelW, panelH, accent, 1f);
+            GdxUiDialogStyle.drawInset(shapes, panelX + 28f,
+                    panelY + 125f, panelW - 56f, panelH - 222f, 1f);
+        } else {
+            GdxUiDialogStyle.drawForegroundPanel(shapes, panelX, panelY,
+                    panelW, panelH, accent, 1f);
+            Rectangle action = autoActionLayout.action();
+            GdxUiDialogStyle.drawForegroundInset(shapes, action.x, action.y,
+                    action.width, action.height, 1f);
         }
-        GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
-                panelW, panelH, accent, 1f);
-        float contentY = panelY + (dialog.isAutoAction() ? 88f : 125f);
-        float contentH = dialog.isAutoAction() ? 70f : panelH - 222f;
-        GdxUiDialogStyle.drawInset(shapes, panelX + 28f, contentY,
-                panelW - 56f, contentH, 1f);
         if (dialog.showsNegative() && !dialog.waitingForExternalClose()) {
             drawDialogButton(negativeX, buttonY, negativeW, buttonH,
-                    dialog.isExitChoice() ? LATENCY_GREEN : BUTTON_LINE,
+                    dialog.isExitChoice() ? LATENCY_GREEN
+                            : dialog.isAutoAction() ? FOLD_RED : BUTTON_LINE,
                     contains(pointer.x, pointer.y,
                             negativeX, buttonY, negativeW, buttonH), 1f);
         }
@@ -13686,28 +13716,38 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             panelY + 34f, 230f, 64f), 1f);
         }
         if (dialog.hasAmount()) {
-            float minusX = panelX + panelW / 2f - 190f;
-            float plusX = panelX + panelW / 2f + 118f;
             float amountAlpha = dialog.waitingForExternalClose() ? 0.34f
                     : dialog.isHandLimit() && dialog.noLimit()
                     || dialog.isAutoCall()
                     && (!dialog.optionEnabled() || dialog.noLimit())
                     ? 0.34f : 1f;
-            drawDialogButton(minusX, panelY + 155f, 72f, 64f,
-                    CYAN, contains(pointer.x, pointer.y, minusX,
-                            panelY + 155f, 72f, 64f),
-                    amountAlpha);
-            drawDialogButton(plusX, panelY + 155f, 72f, 64f,
-                    CYAN, contains(pointer.x, pointer.y, plusX,
-                            panelY + 155f, 72f, 64f),
-                    amountAlpha);
+            Rectangle minus = dialog.isAutoCall()
+                    ? autoCallLayout.amount().minusButton()
+                    : new Rectangle(panelX + panelW / 2f - 190f,
+                            panelY + 155f, 72f, 64f);
+            Rectangle plus = dialog.isAutoCall()
+                    ? autoCallLayout.amount().plusButton()
+                    : new Rectangle(panelX + panelW / 2f + 118f,
+                            panelY + 155f, 72f, 64f);
+            if (dialog.isAutoCall()) {
+                Rectangle amount = autoCallLayout.amount().bounds();
+                drawSettingsStepperShape(amount.x, amount.y, amount.width,
+                        amountAlpha);
+            } else {
+                drawDialogButton(minus.x, minus.y, minus.width, minus.height,
+                        CYAN, minus.contains(pointer.x, pointer.y), amountAlpha);
+                drawDialogButton(plus.x, plus.y, plus.width, plus.height,
+                        CYAN, plus.contains(pointer.x, pointer.y), amountAlpha);
+            }
             if (amountAlpha > 0.5f) {
-                registerPointerRepeatHit(minusX, panelY + 155f, 72f, 64f,
+                registerPointerRepeatHit(minus.x, minus.y,
+                        minus.width, minus.height,
                         RepeatOwner.DIALOG, dialog, () -> {
                             dialog.changeAmount(-1);
                             focusAutoCallAmount(dialog, false);
                         });
-                registerPointerRepeatHit(plusX, panelY + 155f, 72f, 64f,
+                registerPointerRepeatHit(plus.x, plus.y,
+                        plus.width, plus.height,
                         RepeatOwner.DIALOG, dialog, () -> {
                             dialog.changeAmount(1);
                             focusAutoCallAmount(dialog, false);
@@ -13715,10 +13755,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         if (dialog.isAutoCall()) {
-            drawSettingsToggleShape(panelX + 56f, panelY + 318f,
-                    panelW - 112f, dialog.optionEnabled(), 1f);
-            drawSettingsToggleShape(panelX + 56f, panelY + 244f,
-                    panelW - 112f, dialog.noLimit(),
+            drawSettingsToggleShape(autoCallLayout.enabled().x,
+                    autoCallLayout.enabled().y,
+                    autoCallLayout.enabled().width,
+                    dialog.optionEnabled(), 1f);
+            drawSettingsToggleShape(autoCallLayout.noLimit().x,
+                    autoCallLayout.noLimit().y,
+                    autoCallLayout.noLimit().width, dialog.noLimit(),
                     dialog.optionEnabled() ? 1f : 0.36f);
         } else if (dialog.isHandLimit()) {
             drawSettingsToggleShape(panelX + 56f, panelY + 244f,
@@ -13739,32 +13782,39 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             roundedRect(panelX + 42f + travel * normalized, progressY,
                     segmentW, 8f, 4f);
         } else if (dialog.seconds() > 0) {
-            float progressW = panelW - 84f;
-            float progressH = dialog.isAutoAction() ? 14f : 8f;
-            float progressY = panelY + (dialog.isAutoAction() ? 78f : 116f);
+            Rectangle progress = dialog.isAutoAction()
+                    ? autoActionLayout.progress()
+                    : new Rectangle(panelX + 42f, panelY + 116f,
+                            panelW - 84f, 8f);
             shapes.setColor(BUTTON_LINE.r, BUTTON_LINE.g,
                     BUTTON_LINE.b, 0.80f);
-            roundedRect(panelX + 42f, progressY,
-                    progressW, progressH, progressH / 2f);
-            float remaining = progressW * dialog.remainingFraction(totalTime);
+            roundedRect(progress.x, progress.y,
+                    progress.width, progress.height, progress.height / 2f);
+            float remaining = progress.width
+                    * dialog.remainingFraction(totalTime);
             if (remaining > 0f) {
                 shapes.setColor(accent.r, accent.g, accent.b, 0.94f);
-                roundedRect(panelX + 42f, progressY,
-                        remaining, progressH, progressH / 2f);
+                roundedRect(progress.x, progress.y,
+                        remaining, progress.height, progress.height / 2f);
             }
         }
         shapes.end();
 
         batch.begin();
-        drawLeftInBox(uiFont, dialog.title(), panelX + 42f,
-                panelY + panelH - (dialog.isAutoAction() ? 58f : 80f),
-                panelW - 84f, 46f,
+        Rectangle title = dialog.isAutoAction()
+                ? autoActionLayout.title()
+                : new Rectangle(panelX + 42f, panelY + panelH - 80f,
+                        panelW - 84f, 46f);
+        drawLeftInBox(uiFont, dialog.title(), title.x, title.y,
+                title.width, title.height,
                 accent, 1f);
         BitmapFont.BitmapFontData dialogFontData = uiFont.getData();
         float originalScaleX = dialogFontData.scaleX;
         float originalScaleY = dialogFontData.scaleY;
-        float messageW = panelW - 112f;
-        float messageH = dialog.isAutoAction() ? 54f
+        float messageW = dialog.isAutoAction()
+                ? autoActionLayout.action().width - 28f : panelW - 112f;
+        float messageH = dialog.isAutoAction()
+                ? autoActionLayout.action().height
                 : dialog.hasAmount() ? 86f : panelH - 240f;
         glyph.setText(uiFont, dialog.message(), Color.WHITE,
                 messageW, Align.center, true);
@@ -13775,19 +13825,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     messageW, Align.center, true);
         }
         uiFont.setColor(Color.WHITE);
-        uiFont.draw(batch, glyph, panelX + 56f,
+        float messageX = dialog.isAutoAction()
+                ? autoActionLayout.action().x + 14f : panelX + 56f;
+        uiFont.draw(batch, glyph, messageX,
                 dialog.isAutoCall() || dialog.isHandLimit() ? panelY + 414f
                         : dialog.hasAmount() ? panelY + 286f
                         : dialog.isAutoAction()
-                                ? panelY + 96f + glyph.height / 2f
+                                ? autoActionLayout.action().y
+                                        + (autoActionLayout.action().height
+                                                + glyph.height) / 2f
                                 : panelY + 125f
                                         + (panelH - 222f + glyph.height) / 2f);
         uiFont.setColor(Color.WHITE);
         dialogFontData.setScale(originalScaleX, originalScaleY);
         if (dialog.hasAmount()) {
-            drawFittedCenteredInBox(seatActionFont, "-",
-                    panelX + panelW / 2f - 190f, panelY + 155f,
-                    72f, 64f, Color.WHITE, 1f);
             String amountText = dialog.isHandLimit() && dialog.noLimit()
                     ? uppercase(gameText.translate("auto_call.sin_limite"))
                     : dialog.isAutoCall() ? dialog.amountText()
@@ -13797,13 +13848,37 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     && ((int) (totalTime * 2f) & 1) == 0) {
                 amountText += "|";
             }
-            drawFittedCenteredInBox(uiFont, amountText,
-                    panelX + panelW / 2f - 110f, panelY + 155f,
-                    220f, 64f, POT_GOLD,
-                    dialog.waitingForExternalClose() ? 0.52f : 1f);
-            drawFittedCenteredInBox(seatActionFont, "+",
-                    panelX + panelW / 2f + 118f, panelY + 155f,
-                    72f, 64f, Color.WHITE, 1f);
+            if (dialog.isAutoCall()) {
+                GdxSettingsLayout.StepperRow amount = autoCallLayout.amount();
+                drawLeftInBox(actionFont,
+                        uppercase(settingsGameText("value.maximum")),
+                        amount.label().x, amount.label().y,
+                        amount.label().width, amount.label().height,
+                        Color.WHITE, 1f);
+                drawFittedCenteredInBox(seatActionFont, "-",
+                        amount.minusButton().x, amount.minusButton().y,
+                        amount.minusButton().width, amount.minusButton().height,
+                        Color.WHITE, 1f);
+                drawFittedCenteredInBox(uiFont, amountText,
+                        amount.value().x, amount.value().y,
+                        amount.value().width, amount.value().height, POT_GOLD,
+                        dialog.waitingForExternalClose() ? 0.52f : 1f);
+                drawFittedCenteredInBox(seatActionFont, "+",
+                        amount.plusButton().x, amount.plusButton().y,
+                        amount.plusButton().width, amount.plusButton().height,
+                        Color.WHITE, 1f);
+            } else {
+                drawFittedCenteredInBox(seatActionFont, "-",
+                        panelX + panelW / 2f - 190f, panelY + 155f,
+                        72f, 64f, Color.WHITE, 1f);
+                drawFittedCenteredInBox(uiFont, amountText,
+                        panelX + panelW / 2f - 110f, panelY + 155f,
+                        220f, 64f, POT_GOLD,
+                        dialog.waitingForExternalClose() ? 0.52f : 1f);
+                drawFittedCenteredInBox(seatActionFont, "+",
+                        panelX + panelW / 2f + 118f, panelY + 155f,
+                        72f, 64f, Color.WHITE, 1f);
+            }
             if (!dialog.isRebuy()) {
                 drawFittedCenteredInBox(smallFont,
                         dialog.isHandLimit()
@@ -13818,13 +13893,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         if (dialog.isAutoCall()) {
-            drawSettingsRowText(panelX + 56f, panelY + 318f,
-                    panelW - 112f, dialog.optionEnabled()
+            drawSettingsRowText(autoCallLayout.enabled().x,
+                    autoCallLayout.enabled().y,
+                    autoCallLayout.enabled().width, dialog.optionEnabled()
                             ? uppercase(gameText.translate("auto_call.activado"))
                             : uppercase(gameText.translate(
                                     "auto_call.desactivado")), 1f);
-            drawSettingsRowText(panelX + 56f, panelY + 244f,
-                    panelW - 112f, uppercase(gameText.translate(
+            drawSettingsRowText(autoCallLayout.noLimit().x,
+                    autoCallLayout.noLimit().y,
+                    autoCallLayout.noLimit().width,
+                    uppercase(gameText.translate(
                             "auto_call.sin_limite")),
                     dialog.optionEnabled() ? 1f : 0.36f);
         } else if (dialog.isHandLimit()) {
@@ -14699,9 +14777,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     firstY - 140f, width, true);
             Rectangle confirmAutoRow = GdxSettingsLayout.optionRow(x,
                     firstY - 210f, width, true);
-            drawSettingsToggleShape(autoCallRow.x, autoCallRow.y,
+            // This row opens a three-part configurator (enabled, unlimited,
+            // maximum amount); presenting it as a switch hid that affordance
+            // and made "Sin límite" look like the only available value.
+            drawSettingsChoiceShape(autoCallRow.x, autoCallRow.y,
                     autoCallRow.width,
-                    autoCallEnabled, autoButtons ? alpha : alpha * 0.36f);
+                    autoButtons ? alpha : alpha * 0.36f);
             drawSettingsToggleShape(persistAutoRow.x, persistAutoRow.y,
                     persistAutoRow.width,
                     autoActionPersist, autoButtons ? alpha : alpha * 0.36f);
@@ -15246,10 +15327,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawSettingsRowText(autoCallRow.x, autoCallRow.y,
                     autoCallRow.width,
                     settingsGameText("row.auto_call") + "  -  "
-                            + (autoCallMax == 0d
-                                    ? settingsGameText("value.no_limit")
-                                    : settingsGameText("value.maximum") + " "
-                                    + formatAmount(autoCallMax)),
+                            + autoCallSettingsValue(),
                     autoButtons ? alpha : alpha * 0.36f);
             drawSettingsRowText(persistAutoRow.x, persistAutoRow.y,
                     persistAutoRow.width,
@@ -15617,6 +15695,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return liveSettingsDraft.hands() == -1
                 ? settingsGameText("value.no_limit")
                 : Integer.toString(liveSettingsDraft.hands());
+    }
+
+    private String autoCallSettingsValue() {
+        if (!autoCallEnabled) {
+            return gameText.translate("auto_call.desactivado");
+        }
+        return autoCallMax == 0d
+                ? settingsGameText("value.no_limit")
+                : settingsGameText("value.maximum") + " "
+                        + formatAmount(autoCallMax);
     }
 
     private List<GameConfigCodecV1.BlindLevel> draftBlindLevels() {

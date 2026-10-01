@@ -831,6 +831,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private BitmapFont playerNameFont;
     private BitmapFont stackFont;
     private BitmapFont actionFont;
+    private BitmapFont settingsTitleFont;
+    private BitmapFont settingsHeadingFont;
+    private BitmapFont settingsActionFont;
+    private BitmapFont settingsBodyFont;
+    private BitmapFont settingsSmallFont;
+    private BitmapFont settingsTinyFont;
     private BitmapFont seatActionFont;
     private BitmapFont localOutcomeFont;
     private BitmapFont callCostFont;
@@ -2511,8 +2517,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     new Color(1f, 1f, 0f, 0.80f));
             case 10 -> pauseFont = font(creationFontGenerator, 76, 0f,
                     PAUSE_RED, new Color(0x640000cc));
-            case 11 -> {
-                finalButtonFont = font(creationFontGenerator, 26, 0.2f);
+            case 11 -> finalButtonFont = font(creationFontGenerator, 26, 0.2f);
+            case 12 -> settingsTitleFont = font(creationFontGenerator,
+                    GdxSettingsStyle.TITLE_FONT_SIZE,
+                    GdxSettingsStyle.TITLE_FONT_BORDER);
+            case 13 -> settingsHeadingFont = font(creationFontGenerator,
+                    GdxSettingsStyle.HEADING_FONT_SIZE,
+                    GdxSettingsStyle.HEADING_FONT_BORDER);
+            case 14 -> settingsActionFont = font(creationFontGenerator,
+                    GdxSettingsStyle.ACTION_FONT_SIZE,
+                    GdxSettingsStyle.ACTION_FONT_BORDER);
+            case 15 -> settingsBodyFont = font(creationFontGenerator,
+                    GdxSettingsStyle.BODY_FONT_SIZE, 0f);
+            case 16 -> settingsSmallFont = font(creationFontGenerator,
+                    GdxSettingsStyle.SMALL_FONT_SIZE, 0f);
+            case 17 -> {
+                settingsTinyFont = font(creationFontGenerator,
+                        GdxSettingsStyle.TINY_FONT_SIZE, 0f);
                 disposeCreationFontGenerator();
                 return true;
             }
@@ -14581,20 +14602,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.end();
 
         batch.begin();
-        drawLeftInBox(uiFont,
+        drawFittedLeft(settingsTitleFont,
                 gameText.translate("settings.ajustes").toUpperCase(
                         Locale.forLanguageTag(gameText.language())),
                 panelX + 34f,
-                panelY + panelH - 70f, panelW - 68f, 42f,
+                panelY + panelH - 48f, panelW - 68f,
                 POT_GOLD, alpha);
-        drawLeftInBox(smallFont,
-                gameText.translate("gdx.settings.subtitle").toUpperCase(
-                        Locale.forLanguageTag(gameText.language())),
-                panelX + 35f, panelY + panelH - 112f,
-                panelW - 70f, 24f, CYAN, alpha);
         for (int i = 0; i < sections.size(); i++) {
             Rectangle tab = frame.mainTab(i);
-            drawFittedCenteredInBox(actionFont,
+            drawFittedCenteredInBox(settingsActionFont,
                     sections.get(i).label(gameText),
                     tab.x, tab.y, tab.width, tab.height,
                     Color.WHITE,
@@ -14602,7 +14618,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         for (int i = 0; i < subpages.size(); i++) {
             Rectangle tab = frame.subTab(i);
-            drawFittedCenteredInBox(smallFont, subpages.get(i),
+            drawFittedCenteredInBox(settingsSmallFont, subpages.get(i),
                     tab.x, tab.y, tab.width, tab.height,
                     i == activeSubpage ? POT_GOLD : Color.WHITE,
                     (i == activeSubpage ? 1f : 0.70f) * alpha);
@@ -14612,20 +14628,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawSettingsContentText(contentX, firstRowY, contentW, alpha);
         batch.flush();
         Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
-        drawFittedCenteredInBox(actionFont,
+        drawFittedCenteredInBox(settingsActionFont,
                 gameText.translate("ui.cancelar"),
                 cancel.x, cancel.y, cancel.width, cancel.height,
                 POT_GOLD, alpha);
         if (settingsSectionHasRestoreDefaults()) {
             Rectangle restore = frame.restoreButton();
-            drawFittedCenteredInBox(smallFont,
+            drawFittedCenteredInBox(settingsSmallFont,
                     gameText.translate("gdx.settings.restore_defaults")
                             .toUpperCase(Locale.forLanguageTag(
                                     gameText.language())),
                     restore.x, restore.y, restore.width, restore.height,
                     POT_GOLD, alpha);
         }
-        drawFittedCenteredInBox(actionFont,
+        drawFittedCenteredInBox(settingsActionFont,
                 gameText.translate("ui.guardar"),
                 save.x, save.y, save.width, save.height,
                 POT_GOLD, alpha);
@@ -15306,35 +15322,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawSettingsToggleShape(float x, float y, float width,
             boolean on, float alpha) {
-        shapes.setColor(BUTTON_LINE.r, BUTTON_LINE.g, BUTTON_LINE.b,
-                0.92f * alpha);
-        roundedRect(x, y, width, 68f, 11f);
-        shapes.setColor(0.025f, 0.060f, 0.105f, 0.94f * alpha);
-        roundedRect(x + 3f, y + 3f, width - 6f, 62f, 9f);
-        shapes.setColor(0.20f, 0.32f, 0.45f, 0.24f * alpha);
-        roundedRect(x + 10f, y + 43f, width - 20f, 14f, 6f);
-        float trackX = x + width - 82f;
+        drawCanonicalSettingsRow(x, y, width,
+                GdxSettingsLayout.ROW_HEIGHT, true, alpha);
         float animation = settingsToggleAnimation(x, y, width, on, false);
-        Color track = new Color(0x253248ff).lerp(
-                new Color(0x20c765ff), animation);
-        shapes.setColor(track.r, track.g, track.b, alpha);
-        roundedRect(trackX, y + 17f, 64f, 36f, 18f);
-        Color knob = new Color(0x8290a4ff).lerp(
-                new Color(0xb8ffc5ff), animation);
-        shapes.setColor(knob.r, knob.g, knob.b, alpha);
-        shapes.circle(trackX + 18f + 28f * animation,
-                y + 35f, 13f, 28);
+        GdxSettingsStyle.drawToggle(shapes, x, y, width, animation, alpha);
+    }
+
+    private void drawCanonicalSettingsRow(float x, float y, float width,
+            float height, boolean enabled, float alpha) {
+        Rectangle bounds = new Rectangle(x, y, width, height);
+        boolean hovered = enabled && bounds.contains(pointer);
+        boolean pressed = hovered && Gdx.input.isButtonPressed(
+                Input.Buttons.LEFT);
+        GdxSettingsStyle.drawRow(shapes, x, y, width, height,
+                enabled, hovered, pressed, alpha);
     }
 
     private void drawCompactSettingsRowShape(float x, float y, float width,
             float alpha) {
-        shapes.setColor(BUTTON_LINE.r, BUTTON_LINE.g, BUTTON_LINE.b,
-                0.90f * alpha);
-        roundedRect(x, y, width, 46f, 9f);
-        shapes.setColor(0.025f, 0.060f, 0.105f, 0.96f * alpha);
-        roundedRect(x + 3f, y + 3f, width - 6f, 40f, 7f);
-        shapes.setColor(0.20f, 0.32f, 0.45f, 0.22f * alpha);
-        roundedRect(x + 10f, y + 30f, width - 20f, 8f, 4f);
+        drawCanonicalSettingsRow(x, y, width, 46f, true, alpha);
     }
 
     private void drawCompactSettingsToggleShape(float x, float y, float width,
@@ -15342,12 +15348,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawCompactSettingsRowShape(x, y, width, alpha);
         float trackX = x + width - 74f;
         float animation = settingsToggleAnimation(x, y, width, on, true);
-        Color track = new Color(0x253248ff).lerp(
-                new Color(0x20c765ff), animation);
+        Color track = GdxSettingsStyle.toggleTrack(animation);
         shapes.setColor(track.r, track.g, track.b, alpha);
         roundedRect(trackX, y + 9f, 56f, 28f, 14f);
-        Color knob = new Color(0x8290a4ff).lerp(
-                new Color(0xb8ffc5ff), animation);
+        Color knob = GdxSettingsStyle.toggleKnob(animation);
         shapes.setColor(knob.r, knob.g, knob.b, alpha);
         shapes.circle(trackX + 15f + 26f * animation,
                 y + 23f, 10f, 24);
@@ -15388,10 +15392,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawSettingsChoiceShape(float x, float y, float width,
             float alpha) {
-        drawSettingsToggleShape(x, y, width, false, alpha);
-        // Cover the toggle track; choice rows use a chevron instead.
-        shapes.setColor(0.025f, 0.060f, 0.105f, 0.98f * alpha);
-        roundedRect(x + width - 96f, y + 7f, 84f, 54f, 8f);
+        drawCanonicalSettingsRow(x, y, width,
+                GdxSettingsLayout.ROW_HEIGHT, true, alpha);
         shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b, alpha);
         shapes.rectLine(x + width - 45f, y + 24f,
                 x + width - 33f, y + 35f, 3f);
@@ -15403,15 +15405,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float alpha) {
         GdxSettingsLayout.StepperRow row = GdxSettingsLayout.stepperRow(
                 x, y, width, GdxSettingsLayout.ROW_HEIGHT);
-        drawSettingsToggleShape(x, y, width, false, alpha);
-        shapes.setColor(0.025f, 0.060f, 0.105f, 0.98f * alpha);
-        roundedRect(row.controls().x, row.controls().y,
-                row.controls().width, row.controls().height, 8f);
-        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.32f * alpha);
-        roundedRect(row.minusButton().x, row.minusButton().y,
-                row.minusButton().width, row.minusButton().height, 7f);
-        roundedRect(row.plusButton().x, row.plusButton().y,
-                row.plusButton().width, row.plusButton().height, 7f);
+        drawCanonicalSettingsRow(x, y, width,
+                GdxSettingsLayout.ROW_HEIGHT, true, alpha);
+        drawCanonicalSettingsEmbeddedButton(row.minusButton(), alpha);
+        drawCanonicalSettingsEmbeddedButton(row.plusButton(), alpha);
+        shapes.setColor(new Color(GdxSettingsStyle.LINE_RGBA));
+        shapes.rect(row.value().x, row.value().y + 8f, 2f,
+                row.value().height - 16f);
+        shapes.rect(row.value().x + row.value().width,
+                row.value().y + 8f, 2f, row.value().height - 16f);
+    }
+
+    private void drawCanonicalSettingsEmbeddedButton(Rectangle bounds,
+            float alpha) {
+        boolean hovered = bounds.contains(pointer);
+        GdxUiButtonStyle.draw(shapes, bounds.x, bounds.y,
+                bounds.width, bounds.height, GdxUiButtonStyle.Tone.NEUTRAL,
+                true, hovered ? 1f : 0f,
+                hovered && Gdx.input.isButtonPressed(Input.Buttons.LEFT),
+                alpha, false);
     }
 
     private void drawSettingsRowScrollbarShape(float x,
@@ -15456,20 +15468,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 Rectangle percentage = row.percentage();
                 Rectangle minus = row.minusButton();
                 Rectangle plus = row.plusButton();
-                drawLeftInBox(smallFont, uppercase(gameText.translate(
+                drawLeftInBox(settingsSmallFont, uppercase(gameText.translate(
                         "gdx.settings.row.master_volume")),
                         label.x, label.y, label.width, label.height,
                         Color.WHITE, alpha);
-                drawFittedCenteredInBox(smallFont,
+                drawFittedCenteredInBox(settingsSmallFont,
                         GdxSettingsContract.markDefault(
                                 Math.round(effectsVolume * 100f) + "%",
                                 Float.compare(effectsVolume, 0.8f) == 0),
                         percentage.x, percentage.y, percentage.width,
                         percentage.height, POT_GOLD, alpha);
-                drawFittedCenteredInBox(actionFont, "-",
+                drawFittedCenteredInBox(settingsHeadingFont, "-",
                         minus.x, minus.y, minus.width, minus.height,
                         Color.WHITE, alpha);
-                drawFittedCenteredInBox(actionFont, "+",
+                drawFittedCenteredInBox(settingsHeadingFont, "+",
                         plus.x, plus.y, plus.width, plus.height,
                         Color.WHITE, alpha);
                 registerPointerRepeatHit(minus.x, minus.y, minus.width,
@@ -15518,10 +15530,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         - page.options().size() * 70f
                         + rows.offset() - 70f;
                 float half = (width - 12f) / 2f;
-                drawFittedCenteredInBox(smallFont,
+                drawFittedCenteredInBox(settingsSmallFont,
                         uppercase(gameText.translate("audio.ver_notas")),
                         x, actionY, half, 58f, Color.WHITE, alpha);
-                drawFittedCenteredInBox(smallFont,
+                drawFittedCenteredInBox(settingsSmallFont,
                         uppercase(gameText.translate("audio.purgar_notas")),
                         x + half + 12f, actionY, half, 58f,
                         Color.WHITE, alpha);
@@ -15779,7 +15791,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     flagW, settingsGameText("row.straddle"), enabledAlpha);
         } else if (contentPage == 5) {
             float compactGap = 58f;
-            drawFittedCenteredInBox(smallFont,
+            drawFittedCenteredInBox(settingsSmallFont,
                     GdxLiveSettingsSummary.purchaseHeading(gameText),
                     x, firstY + 48f, width, 28f,
                     Color.LIGHT_GRAY, alpha * 0.78f);
@@ -15814,7 +15826,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 Color color = row >= 6 ? CONTEXT_EXIT
                         : row == 4 && liveState != null && liveState.lastHand()
                                 ? STACK_GREEN : Color.WHITE;
-                drawLeftInBox(smallFont, settingsSessionActionLabel(row),
+                drawLeftInBox(settingsSmallFont, settingsSessionActionLabel(row),
                         x + 18f, firstY - row * compactGap + 7f,
                         width - 118f, 32f, color,
                         (enabled ? 0.94f : 0.36f) * alpha);
@@ -15841,7 +15853,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (!shortcutStatus.isBlank()) {
                 boolean warning = shortcutStatus.equals("conflict")
                         || shortcutStatus.equals("unsupported");
-                drawFittedCenteredInBox(smallFont,
+                drawFittedCenteredInBox(settingsSmallFont,
                         uppercase(gameText.translate(
                                 "gdx.settings.shortcut.status."
                                         + shortcutStatus)),
@@ -15850,7 +15862,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         } else if (contentPage == 9) {
             Rectangle copy = settingsDebugCopyButton();
-            drawFittedCenteredInBox(smallFont, uppercase(gameText.translate(
+            drawFittedCenteredInBox(settingsSmallFont, uppercase(gameText.translate(
                     "gdx.settings.debug.copy")), copy.x, copy.y,
                     copy.width, copy.height, Color.WHITE, alpha);
         }
@@ -16001,7 +16013,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawSettingsRowText(float x, float y, float width,
             String label, float alpha) {
-        drawLeftInBox(actionFont, label, x + 20f, y + 5f,
+        drawLeftInBox(settingsSmallFont, label, x + 20f, y + 5f,
                 width - 126f, 58f, Color.WHITE, alpha);
     }
 
@@ -16009,15 +16021,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             String label, String value, float alpha) {
         GdxSettingsLayout.StepperRow row = GdxSettingsLayout.stepperRow(
                 x, y, width, GdxSettingsLayout.ROW_HEIGHT);
-        drawLeftInBox(actionFont, label, row.label().x, row.label().y,
+        drawLeftInBox(settingsSmallFont, label, row.label().x, row.label().y,
                 row.label().width, row.label().height, Color.WHITE, alpha);
-        drawFittedCenteredInBox(actionFont, "-", row.minusButton().x,
+        drawFittedCenteredInBox(settingsHeadingFont, "-", row.minusButton().x,
                 row.value().y, row.minusButton().width, row.value().height,
                 Color.WHITE, alpha);
-        drawFittedCenteredInBox(smallFont, value, row.value().x,
+        drawFittedCenteredInBox(settingsBodyFont, value, row.value().x,
                 row.value().y, row.value().width, row.value().height,
                 POT_GOLD, alpha);
-        drawFittedCenteredInBox(actionFont, "+", row.plusButton().x,
+        drawFittedCenteredInBox(settingsHeadingFont, "+", row.plusButton().x,
                 row.value().y, row.plusButton().width, row.value().height,
                 Color.WHITE, alpha);
         registerPointerRepeatHit(row.minusButton().x, row.value().y,
@@ -16036,21 +16048,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawCompactSettingsRowText(float x, float y, float width,
             String label, float alpha) {
-        drawLeftInBox(smallFont, label, x + 18f, y + 3f,
+        drawLeftInBox(settingsTinyFont, label, x + 18f, y + 3f,
                 width - 112f, 40f, Color.WHITE, alpha);
     }
 
     private void drawCompactSettingsStepperText(float x, float y,
             float width, String label, String value, float alpha) {
-        drawLeftInBox(smallFont, label, x + 18f, y + 3f,
+        drawLeftInBox(settingsTinyFont, label, x + 18f, y + 3f,
                 width - 340f, 40f, Color.WHITE, alpha);
-        drawFittedCenteredInBox(actionFont, "-",
+        drawFittedCenteredInBox(settingsActionFont, "-",
                 x + width - 164f, y + 3f, 72f, 40f,
                 Color.WHITE, alpha);
-        drawFittedCenteredInBox(smallFont, value,
+        drawFittedCenteredInBox(settingsSmallFont, value,
                 x + width - 330f, y + 3f, 158f, 40f,
                 POT_GOLD, alpha);
-        drawFittedCenteredInBox(actionFont, "+",
+        drawFittedCenteredInBox(settingsActionFont, "+",
                 x + width - 78f, y + 3f, 72f, 40f,
                 Color.WHITE, alpha);
         registerPointerRepeatHit(x + width - 164f, y + 3f, 72f, 40f,
@@ -16326,10 +16338,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawSettingsShortcutText(float x, float y, float width,
             String key, String description, boolean capturing, float alpha) {
-        drawFittedCenteredInBox(capturing ? smallFont : actionFont, key,
+        drawFittedCenteredInBox(capturing ? settingsSmallFont
+                : settingsActionFont, key,
                 x + 12f, y + 8f, 216f, 46f,
                 capturing ? Color.WHITE : CYAN, alpha);
-        drawLeftInBox(smallFont, description, x + 248f, y + 5f,
+        drawLeftInBox(settingsSmallFont, description, x + 248f, y + 5f,
                 width - 264f, 52f, Color.WHITE, alpha);
     }
 
@@ -17973,6 +17986,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         data.setScale(originalScaleX, originalScaleY);
     }
 
+    private void drawFittedLeft(BitmapFont font, String text, float x,
+            float baselineY, float maxWidth, Color color, float alpha) {
+        BitmapFont.BitmapFontData data = font.getData();
+        float originalScaleX = data.scaleX;
+        float originalScaleY = data.scaleY;
+        glyph.setText(font, text);
+        if (glyph.width > maxWidth) {
+            float fit = maxWidth / glyph.width;
+            data.setScale(originalScaleX * fit, originalScaleY * fit);
+        }
+        font.setColor(color.r, color.g, color.b, alpha);
+        font.draw(batch, text, x, baselineY);
+        font.setColor(Color.WHITE);
+        data.setScale(originalScaleX, originalScaleY);
+    }
+
     private void drawFittedCenteredInBox(BitmapFont font, String text,
             float x, float y, float width, float height,
             Color color, float alpha) {
@@ -18250,6 +18279,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         playerNameFont.dispose();
         stackFont.dispose();
         actionFont.dispose();
+        settingsTitleFont.dispose();
+        settingsHeadingFont.dispose();
+        settingsActionFont.dispose();
+        settingsBodyFont.dispose();
+        settingsSmallFont.dispose();
+        settingsTinyFont.dispose();
         seatActionFont.dispose();
         localOutcomeFont.dispose();
         callCostFont.dispose();

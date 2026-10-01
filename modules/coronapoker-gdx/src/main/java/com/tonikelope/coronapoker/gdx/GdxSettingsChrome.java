@@ -15,10 +15,11 @@ import com.badlogic.gdx.math.Vector2;
  */
 final class GdxSettingsChrome {
 
-    private static final Color CYAN = new Color(0x36d9ffff);
-    private static final Color CYAN_DARK = new Color(0x176b83ff);
-    private static final Color GOLD = new Color(0xffe07aff);
-    private static final Color LINE = new Color(0x31445fff);
+    private static final Color CYAN = new Color(GdxSettingsStyle.CYAN_RGBA);
+    private static final Color CYAN_DARK = new Color(
+            GdxSettingsStyle.CYAN_DARK_RGBA);
+    private static final Color GOLD = new Color(GdxSettingsStyle.GOLD_RGBA);
+    private static final Color LINE = new Color(GdxSettingsStyle.LINE_RGBA);
     // Full-screen settings is another frontend surface, so its glass opacity
     // must match menu/statistics/table setup rather than an opaque modal.
     private static final Color PANEL = new Color(

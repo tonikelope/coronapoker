@@ -40,8 +40,8 @@ final class GdxSettingsLayoutTest {
                 menu.firstRowY());
         Rectangle firstMainTab = menu.mainTab(0);
         assertTrue(firstMainTab.y + firstMainTab.height
-                <= menu.panel().y + menu.panel().height - 148f,
-                "the subtitle must have a full line of clearance above tabs");
+                <= menu.panel().y + menu.panel().height - 100f,
+                "the title must have a full line of clearance above tabs");
         Rectangle firstSubTab = menu.subTab(0);
         assertTrue(firstSubTab.y + firstSubTab.height < firstMainTab.y,
                 "main and secondary tab labels must never overlap");

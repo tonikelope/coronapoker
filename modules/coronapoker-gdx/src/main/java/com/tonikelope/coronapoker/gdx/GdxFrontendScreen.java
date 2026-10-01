@@ -100,6 +100,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private static final float WIDTH = 1920f;
     private static final float HEIGHT = 1080f;
+    static final List<String> NEW_GAME_PAGE_LABEL_KEYS = List.of(
+            "gdx.settings.page.general",
+            "newgame.grupo_ciegas",
+            "newgame.grupo_compra",
+            "newgame.grupo_partida",
+            "newgame.grupo_bots",
+            "gdx.newgame.profile_title");
     static final String PASSWORD_MASK_GLYPH = "\u2022";
     static final String FRONTEND_EXTRA_FONT_CHARACTERS = "♥♦♠♣"
             + PASSWORD_MASK_GLYPH;
@@ -183,14 +190,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final Color BACKGROUND = new Color(0x031a14ff);
     static final int SCREEN_PANEL_RGBA = 0x101a2ecc;
     private static final Color PANEL = new Color(SCREEN_PANEL_RGBA);
-    private static final Color PANEL_LIGHT = new Color(0x111a2add);
-    private static final Color CYAN = new Color(0x36d9ffff);
-    private static final Color CYAN_DARK = new Color(0x176b83ff);
-    private static final Color GOLD = new Color(0xffe07aff);
+    private static final Color PANEL_LIGHT = new Color(
+            GdxSettingsStyle.PANEL_LIGHT_RGBA);
+    private static final Color CYAN = new Color(GdxSettingsStyle.CYAN_RGBA);
+    private static final Color CYAN_DARK = new Color(
+            GdxSettingsStyle.CYAN_DARK_RGBA);
+    private static final Color GOLD = new Color(GdxSettingsStyle.GOLD_RGBA);
     private static final Color ORANGE = new Color(0xff6b27ff);
-    private static final Color LINE = new Color(0x31445fff);
-    private static final Color MUTED = new Color(0xdbe5f3ff);
-    private static final Color DISABLED = new Color(0x526078ff);
+    private static final Color LINE = new Color(GdxSettingsStyle.LINE_RGBA);
+    private static final Color MUTED = new Color(GdxSettingsStyle.MUTED_RGBA);
+    private static final Color DISABLED = new Color(
+            GdxSettingsStyle.DISABLED_RGBA);
     private static final Color LATENCY_GREEN = new Color(0x4caf50ff);
     private static final Color LATENCY_YELLOW = new Color(0xffc107ff);
     private static final Color LATENCY_ORANGE = new Color(0xff9800ff);
@@ -605,24 +615,27 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         checkForUpdates();
         FreeTypeFontGenerator titleGenerator = new FreeTypeFontGenerator(
                 Gdx.files.internal("fonts/McLaren-Regular.ttf"));
-        titleFont = font(titleGenerator, 58, 0.35f);
+        titleFont = font(titleGenerator, GdxSettingsStyle.TITLE_FONT_SIZE,
+                GdxSettingsStyle.TITLE_FONT_BORDER);
         titleGenerator.dispose();
         FreeTypeFontGenerator displayGenerator = new FreeTypeFontGenerator(
                 Gdx.files.internal("fonts/McLaren-Regular.ttf"));
-        headingFont = font(displayGenerator, 30, 0.2f);
-        actionFont = font(displayGenerator, 26, 0.2f);
+        headingFont = font(displayGenerator, GdxSettingsStyle.HEADING_FONT_SIZE,
+                GdxSettingsStyle.HEADING_FONT_BORDER);
+        actionFont = font(displayGenerator, GdxSettingsStyle.ACTION_FONT_SIZE,
+                GdxSettingsStyle.ACTION_FONT_BORDER);
         displayGenerator.dispose();
         FreeTypeFontGenerator bodyGenerator = new FreeTypeFontGenerator(
                 Gdx.files.internal("fonts/McLaren-Regular.ttf"));
-        uiFont = font(bodyGenerator, 24, 0f);
+        uiFont = font(bodyGenerator, GdxSettingsStyle.BODY_FONT_SIZE, 0f);
         // The volume feedback is a global control, so it must retain the same
         // high-contrast McLaren face used over the busy table felt on every
         // frontend surface too (menu, lobby, settings and statistics).
         volumeOverlayFont = font(bodyGenerator,
                 GdxVolumeOverlayStyle.FONT_SIZE,
                 GdxVolumeOverlayStyle.FONT_BORDER);
-        smallFont = font(bodyGenerator, 18, 0f);
-        tinyFont = font(bodyGenerator, GdxProductVersionBrand.FONT_SIZE, 0f);
+        smallFont = font(bodyGenerator, GdxSettingsStyle.SMALL_FONT_SIZE, 0f);
+        tinyFont = font(bodyGenerator, GdxSettingsStyle.TINY_FONT_SIZE, 0f);
         bodyGenerator.dispose();
         Gdx.input.setInputProcessor(this);
         Gdx.input.setCursorCatched(false);
@@ -5509,10 +5522,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(titleFont, uppercase(gameText.translate("settings.ajustes")),
                 panelX + 34f,
                 panelY + panelH - 48f, GOLD, false, panelW - 68f);
-        textFit(smallFont, uppercase(gameText.translate("gdx.settings.subtitle")),
-                panelX + 36f, panelY + panelH - 116f, CYAN, false,
-                panelW - 72f);
-
         for (int i = 0; i < sections.size(); i++) {
             final int selected = i;
             Rectangle tab = frame.mainTab(i);
@@ -5887,11 +5896,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void settingsChoice(float x, float y, float w, float h,
             String label, String value, Runnable action, boolean enabled) {
-        Color border = enabled && hovered(x, y, w, h) ? CYAN
-                : enabled ? LINE : new Color(0x253044ff);
-        Color fill = enabled && pressed(x, y, w, h)
-                ? new Color(0x0b1424ff)
-                : enabled ? PANEL_LIGHT : new Color(0x0b111ddd);
+        Color border = GdxSettingsStyle.rowBorder(enabled,
+                enabled && hovered(x, y, w, h));
+        Color fill = GdxSettingsStyle.rowFill(enabled,
+                enabled && pressed(x, y, w, h));
         outerBox(x, y, w, h, border, fill);
         float valueX = x + w * 0.71f;
         textFit(smallFont, label, x + 22f, y + h / 2f + 10f,
@@ -5931,9 +5939,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxSettingsLayout.StepperRow row = GdxSettingsLayout.stepperRow(
                 x, y, w, h);
         outerBox(x, y, w, h,
-                enabled && hovered(x, y, w, h) ? CYAN
-                        : enabled ? LINE : new Color(0x253044ff),
-                enabled ? PANEL_LIGHT : new Color(0x0b111ddd));
+                GdxSettingsStyle.rowBorder(enabled,
+                        enabled && hovered(x, y, w, h)),
+                GdxSettingsStyle.rowFill(enabled, false));
         Rectangle minusBounds = row.minusButton();
         Rectangle valueBounds = row.value();
         Rectangle plusBounds = row.plusButton();
@@ -6789,14 +6797,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (joining) {
             return;
         }
-        String[] names = new String[]{uppercase(gameText.translate("gdx.connection")),
-                    uppercase(gameText.translate("newgame.grupo_ciegas")),
-                    uppercase(gameText.translate("newgame.grupo_compra")),
-                    uppercase(gameText.translate("newgame.grupo_partida")),
-                    uppercase(gameText.translate("newgame.grupo_bots")),
-                    uppercase(gameText.translate(
-                            "gdx.newgame.profile_title"))};
-        for (int i = 0; i < names.length; i++) {
+        List<String> names = NEW_GAME_PAGE_LABEL_KEYS.stream()
+                .map(gameText::translate)
+                .map(this::uppercase)
+                .toList();
+        for (int i = 0; i < names.size(); i++) {
             final int targetPage = i;
             float x = 55f;
             float y = 760f - i * 108f;
@@ -6815,7 +6820,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             drawNavIcon(i, x + 39f, y + 39f,
                     selected ? CYAN : DISABLED);
-            textFit(actionFont, names[i], x + 74f, y + 49f,
+            textFit(actionFont, names.get(i), x + 74f, y + 49f,
                     selected ? Color.WHITE : MUTED, false, 230f);
             hit(x, y, 320f, 78f, () -> {
                 clearActiveField();
@@ -8361,11 +8366,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void toggle(float x, float y, float w, String label,
             boolean value, Runnable action, boolean enabled,
             BitmapFont labelFont, boolean wrapLabel) {
-        Color border = enabled && hovered(x, y, w, GdxSettingsLayout.ROW_HEIGHT)
-                ? CYAN : enabled ? LINE : new Color(0x253044ff);
-        Color fill = enabled && pressed(x, y, w, GdxSettingsLayout.ROW_HEIGHT)
-                ? new Color(0x0b1424ff) : enabled ? PANEL_LIGHT : new Color(0x0b111ddd);
-        outerBox(x, y, w, GdxSettingsLayout.ROW_HEIGHT, border, fill);
+        GdxSettingsStyle.drawRow(shapes, x, y, w,
+                GdxSettingsLayout.ROW_HEIGHT, enabled,
+                enabled && hovered(x, y, w, GdxSettingsLayout.ROW_HEIGHT),
+                enabled && pressed(x, y, w, GdxSettingsLayout.ROW_HEIGHT),
+                1f);
         float labelWidth = Math.max(0f, w - 132f);
         if (wrapLabel) {
             List<String> lines = wrapText(labelFont, label, labelWidth, 2);
@@ -8379,20 +8384,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             textFit(labelFont, label, x + 22f, y + 43f,
                     enabled ? Color.WHITE : DISABLED, false, labelWidth);
         }
-        float tx = x + w - 88f;
         float target = value && enabled ? 1f : 0f;
         String animationKey = GdxToggleMotion.stableKey(
                 toggleAnimationContext(), label, x, y, w, wrapLabel);
         float animation = toggleAnimations.getOrDefault(animationKey, target);
         animation = GdxToggleMotion.next(animation, target, frameDelta);
         toggleAnimations.put(animationKey, animation);
-        Color track = new Color(0x253248ff).lerp(
-                new Color(0x20c765ff), animation);
-        shapes.setColor(track);
-        roundedRect(tx, y + 15f, 66f, 38f, 19f);
-        shapes.setColor(new Color(0x8290a4ff).lerp(
-                new Color(0xb8ffc5ff), animation));
-        shapes.circle(tx + 19f + 28f * animation, y + 34f, 14f, 32);
+        GdxSettingsStyle.drawToggle(shapes, x, y, w, animation, 1f);
         if (enabled) hit(x, y, w, GdxSettingsLayout.ROW_HEIGHT,
                 () -> GdxToggleSoundAction.run(value, action,
                         this::playFrontendSwitchSound));
@@ -8449,11 +8447,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             int min, int max, Runnable minus, Runnable plus,
             boolean enabled) {
         float height = GdxSettingsLayout.ROW_HEIGHT;
-        Color border = enabled && hovered(x, y, w, height)
-                ? CYAN : enabled ? LINE : new Color(0x253044ff);
-        Color fill = enabled && pressed(x, y, w, height)
-                ? new Color(0x0b1424ff)
-                : enabled ? PANEL_LIGHT : new Color(0x0b111ddd);
+        Color border = GdxSettingsStyle.rowBorder(enabled,
+                enabled && hovered(x, y, w, height));
+        Color fill = GdxSettingsStyle.rowFill(enabled,
+                enabled && pressed(x, y, w, height));
         outerBox(x, y, w, height, border, fill);
         float side = 66f;
         embeddedButtonSurface(x, y, side + 3f, height, enabled);
@@ -8493,10 +8490,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             String value, Runnable action, boolean enabled) {
         textFit(smallFont, label, x, y + 99f,
                 enabled ? MUTED : DISABLED, false, Math.max(0f, w));
-        Color border = enabled && hovered(x, y, w, h)
-                ? CYAN : enabled ? LINE : new Color(0x253044ff);
-        Color fill = enabled && pressed(x, y, w, h)
-                ? new Color(0x0b1424ff) : enabled ? PANEL_LIGHT : new Color(0x0b111ddd);
+        Color border = GdxSettingsStyle.rowBorder(enabled,
+                enabled && hovered(x, y, w, h));
+        Color fill = GdxSettingsStyle.rowFill(enabled,
+                enabled && pressed(x, y, w, h));
         outerBox(x, y, w, h, border, fill);
         textFit(uiFont, value, x + 22f, y + h / 2f + 10f,
                 enabled ? Color.WHITE : DISABLED, false, w - 88f);
@@ -8517,11 +8514,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float h = 72f;
         textFit(smallFont, label, x, y + 99f,
                 enabled ? MUTED : DISABLED, false, Math.max(0f, w));
-        Color border = enabled && hovered(x, y, w, h)
-                ? CYAN : enabled ? LINE : new Color(0x253044ff);
-        Color fill = enabled && pressed(x, y, w, h)
-                ? new Color(0x0b1424ff)
-                : enabled ? PANEL_LIGHT : new Color(0x0b111ddd);
+        Color border = GdxSettingsStyle.rowBorder(enabled,
+                enabled && hovered(x, y, w, h));
+        Color fill = GdxSettingsStyle.rowFill(enabled,
+                enabled && pressed(x, y, w, h));
         outerBox(x, y, w, h, border, fill);
         textFit(uiFont, value, x + 22f, y + 46f,
                 enabled ? Color.WHITE : DISABLED, false, w - 92f);

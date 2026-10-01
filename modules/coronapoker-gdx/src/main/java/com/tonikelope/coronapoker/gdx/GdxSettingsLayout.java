@@ -11,19 +11,18 @@ final class GdxSettingsLayout {
     static final float CONTENT_HORIZONTAL_INSET = 34f;
     /** Left-only inset used by every control governed by another switch. */
     static final float CHILD_ROW_INDENT = 38f;
-    // The subtitle baseline sits 116 px below the panel top.  The old tab row
-    // ended only four pixels below it, so real font ascenders/descenders at
-    // 125% Windows scaling visibly crossed the tab chrome.  Reserve a full
-    // text line between the header and the first row of controls.
-    static final float MAIN_TAB_TOP_INSET = 196f;
-    static final float SUB_TAB_TOP_INSET = 268f;
+    // There is one heading band only.  Settings used to reserve another band
+    // for the redundant "Configuracion de CoronaPoker" subtitle, leaving a
+    // conspicuous hole after that subtitle was removed.
+    static final float MAIN_TAB_TOP_INSET = 150f;
+    static final float SUB_TAB_TOP_INSET = 222f;
     static final int MAX_SUB_TABS_PER_ROW = 7;
     static final float SUB_TAB_ROW_GAP = 42f;
     // Subsection names already live in the tab row. Start the controls directly
     // below it instead of repeating the active tab as a yellow heading.
     static final float CONTENT_ROW_TOP_INSET = 92f;
     static final float CONTENT_BOTTOM_INSET = 112f;
-    static final float CONTENT_TOTAL_VERTICAL_INSET = 396f;
+    static final float CONTENT_TOTAL_VERTICAL_INSET = 350f;
     static final float FOOTER_BOTTOM_INSET = 24f;
     static final float FOOTER_BUTTON_HEIGHT = 58f;
     /** Common row geometry for menu, waiting-room and live-table settings. */

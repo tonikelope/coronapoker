@@ -6,7 +6,7 @@
     <parent>
         <groupId>com.tonikelope</groupId>
         <artifactId>coronapoker-modules</artifactId>
-        <version>25.23</version>
+        <version>25.24</version>
     </parent>
     <artifactId>coronapoker-gdx</artifactId>
     <name>CoronaPoker GDX application</name>
@@ -80,7 +80,7 @@
                         <phase>package</phase>
                         <goals><goal>shade</goal></goals>
                         <configuration>
-                            <outputFile>${project.build.directory}/CoronaPoker_25.23.staged.jar</outputFile>
+                            <outputFile>${project.build.directory}/CoronaPoker_25.24.staged.jar</outputFile>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
@@ -118,8 +118,8 @@
                             <executable>${java.home}/bin/java</executable>
                             <arguments>
                                 <argument>${maven.multiModuleProjectDirectory}/tools/build/AtomicJarPublisher.java</argument>
-                                <argument>${project.build.directory}/CoronaPoker_25.23.staged.jar</argument>
-                                <argument>${distribution.directory}/CoronaPoker_25.23.jar</argument>
+                                <argument>${project.build.directory}/CoronaPoker_25.24.staged.jar</argument>
+                                <argument>${distribution.directory}/CoronaPoker_25.24.jar</argument>
                             </arguments>
                         </configuration>
                     </execution>

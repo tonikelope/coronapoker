@@ -126,7 +126,7 @@ final class GdxSettingsLayoutTest {
                 <= content.x + content.width);
         assertTrue(button.y + button.height
                 <= content.y + content.height);
-        assertEquals(content.x + content.width,
+        assertEquals(content.x + content.width - 18f,
                 button.x + button.width);
         assertEquals(content.y + 14f, button.y);
     }

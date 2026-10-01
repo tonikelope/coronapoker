@@ -153,7 +153,7 @@ final class GdxSettingsLayout {
     }
 
     static Rectangle debugCopyButton(Rectangle content) {
-        return new Rectangle(content.x + content.width - 230f,
+        return new Rectangle(content.x + content.width - 248f,
                 content.y + 14f, 230f, 54f);
     }
 

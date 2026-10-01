@@ -2007,6 +2007,21 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void autoHudUsesTheCompleteLocalizedSwingWarning() {
+        GdxGameText spanish = new GdxGameText("es");
+        GdxGameText english = new GdxGameText("en");
+
+        assertEquals("Te vas a TIRAR", CoronaPokerGdxTable.autoActionMessage(
+                1, ActionControlState.CallAction.CALL, spanish));
+        assertEquals("Vas a PASAR", CoronaPokerGdxTable.autoActionMessage(
+                2, ActionControlState.CallAction.CHECK, spanish));
+        assertEquals("Vas a IGUALAR", CoronaPokerGdxTable.autoActionMessage(
+                2, ActionControlState.CallAction.CALL, spanish));
+        assertEquals("You will CALL", CoronaPokerGdxTable.autoActionMessage(
+                2, ActionControlState.CallAction.CALL, english));
+    }
+
+    @Test
     void pausedOverlayConsumesOnlyACompletedClickWhilePaused() {
         assertTrue(CoronaPokerGdxTable
                 .pauseOverlayConsumesRelease(true, true));

@@ -60,6 +60,7 @@ import com.tonikelope.coronapoker.table.TableVisualEvent;
 import com.tonikelope.coronapoker.core.game.ActionControlState;
 import com.tonikelope.coronapoker.core.game.AutoActionResolver;
 import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
+import com.tonikelope.coronapoker.core.game.GameText;
 import com.tonikelope.coronapoker.core.game.MoneyMath;
 import com.tonikelope.coronapoker.core.audio.VoiceWavContract;
 import com.tonikelope.coronapoker.DebugLog;
@@ -4688,20 +4689,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float panelH = dialogHeight(dialog);
         float panelX = dialogX(dialog, panelW);
         float panelY = dialogY(dialog, panelH);
-        GdxTableDialogLayout.AutoAction autoActionLayout =
-                dialog.isAutoAction()
-                        ? GdxTableDialogLayout.autoAction(panelX, panelY,
-                                panelW) : null;
         GdxTableDialogLayout.AutoCall autoCallLayout = dialog.isAutoCall()
                 ? GdxTableDialogLayout.autoCall(panelX, panelY, panelW) : null;
-        float negativeX = dialog.isAutoAction()
-                ? autoActionLayout.cancel().x : panelX + 42f;
-        float negativeW = dialog.isAutoAction()
-                ? autoActionLayout.cancel().width : 230f;
-        float buttonY = dialog.isAutoAction()
-                ? autoActionLayout.cancel().y : panelY + 34f;
-        float buttonH = dialog.isAutoAction()
-                ? autoActionLayout.cancel().height : 64f;
+        float negativeX = panelX + 42f;
+        float negativeW = 230f;
+        float buttonY = panelY + 34f;
+        float buttonH = 64f;
         Rectangle amountValue = dialog.isAutoCall()
                 ? autoCallLayout.amount().value()
                 : new Rectangle(panelX + panelW / 2f - 110f,
@@ -4770,10 +4763,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     /**
-     * Swing's AUTO MODE veto is intentionally non-modal: ESC cancels, SPACE
-     * accepts immediately, and pointer/keyboard input outside the overlay keeps
-     * reaching table utilities and menus. The poker action row itself remains
-     * disabled until the veto resolves, exactly like the classic frontend.
+     * AUTO MODE is intentionally non-modal: ESC cancels, SPACE accepts
+     * immediately, and pointer/keyboard input outside the local HUD keeps
+     * reaching table utilities and menus. The normal poker buttons are replaced
+     * by one status surface and its cancel button until the veto resolves.
      */
     private boolean handleAutoActionDialogInput() {
         if (activeDialog == null || !activeDialog.isAutoAction()) return false;
@@ -4788,25 +4781,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) return false;
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(pointer);
-        float panelW = dialogWidth(activeDialog);
-        float panelH = dialogHeight(activeDialog);
-        float panelX = dialogX(activeDialog, panelW);
-        float panelY = dialogY(activeDialog, panelH);
-        if (!contains(pointer.x, pointer.y, panelX, panelY, panelW, panelH)) {
+        GdxTableDialogLayout.AutoActionHud layout =
+                autoActionHudLayout(viewport.getWorldWidth());
+        if (!layout.bounds().contains(pointer.x, pointer.y)) {
             return false;
         }
         primaryPointer.capturePressedGesture();
-        handleDialogInput();
+        if (layout.cancel().contains(pointer.x, pointer.y)) {
+            activeDialog.dismiss();
+        }
         return true;
     }
 
     private float dialogWidth(GdxTableDialog dialog) {
-        if (dialog.isAutoAction()) {
-            float hudWidth = Math.min(1110f,
-                    viewport.getWorldWidth() - 620f);
-            float actionWidth = hudWidth - 230f - 12f;
-            return Math.min(620f, actionWidth);
-        }
         float requested = dialog.preferredWidth() > 0
                 ? dialog.preferredWidth() : 860f;
         if (dialog.isNotice()) requested = Math.max(requested, 980f);
@@ -4814,8 +4801,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private static float dialogHeight(GdxTableDialog dialog) {
-        return dialog.isAutoAction() ? GdxTableDialogLayout.AUTO_ACTION_HEIGHT
-                : dialog.isGameOver()
+        return dialog.isGameOver()
                         ? (dialog.showsPositive() ? 570f : 390f)
                 : dialog.isAutoCall() || dialog.isHandLimit() ? 540f
                 : dialog.isRebuy() ? 390f
@@ -4831,23 +4817,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private float dialogX(GdxTableDialog dialog, float panelW) {
-        if (dialog.isAutoAction()) {
-            float hudWidth = Math.min(1110f,
-                    viewport.getWorldWidth() - 620f);
-            float hudX = viewport.getWorldWidth() / 2f - hudWidth / 2f;
-            float actionX = hudX + 230f + 12f;
-            float actionW = hudWidth - 230f - 12f;
-            return actionX + (actionW - panelW) / 2f;
-        }
         return (viewport.getWorldWidth() - panelW) / 2f;
     }
 
     private float dialogY(GdxTableDialog dialog, float panelH) {
-        if (dialog.isAutoAction()) {
-            // Same causal/visual ownership as Swing's showOn(): over the local
-            // action row, not floating in the middle of the board.
-            return LOCAL_HUD_Y + 6f;
-        }
         return (viewport.getWorldHeight() - panelH) / 2f;
     }
 
@@ -5089,11 +5062,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             submit(command);
             return;
         }
-        String action = target == 1
-                ? uppercase(gameText.translate("action.no_ir"))
-                : controls.callAction() == ActionControlState.CallAction.CHECK
-                        ? uppercase(gameText.translate("action.pasar"))
-                        : uppercase(gameText.translate("ui.ir"));
+        String action = autoActionMessage(target, controls.callAction(),
+                gameText);
         GdxTableDialog confirmation = GdxTableDialog.autoAction(action,
                 gameText);
         confirmation.result().thenAccept(accepted -> {
@@ -5105,6 +5075,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         });
         showDialog(confirmation);
+    }
+
+    static String autoActionMessage(int target,
+            ActionControlState.CallAction callAction, GameText text) {
+        if (target == 1) return text.translate("modo_auto.tirar");
+        return text.translate(callAction == ActionControlState.CallAction.CHECK
+                ? "modo_auto.pasar" : "modo_auto.igualar");
     }
 
     static int retainedPreAction(int selection, int target,
@@ -5802,6 +5779,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (contains(x, y, plusX, actionY, 52f, actionHeight)) return 4;
         if (contains(x, y, allInX, actionY, 150f, actionHeight)) return 6;
         return 0;
+    }
+
+    private static GdxTableDialogLayout.AutoActionHud autoActionHudLayout(
+            float worldWidth) {
+        float hudWidth = Math.min(1110f, worldWidth - 620f);
+        float hudX = worldWidth / 2f - hudWidth / 2f;
+        float actionX = hudX + 230f + 12f;
+        return GdxTableDialogLayout.autoActionHud(actionX,
+                LOCAL_HUD_Y + 24f, hudWidth - 230f - 12f, 80f);
     }
 
     private void submit(TableCommand command) {
@@ -11271,6 +11257,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         ActionControlState controls = liveState.actionControls();
         boolean autoActionVeto = activeDialog != null
                 && activeDialog.isAutoAction();
+        GdxTableDialogLayout.AutoActionHud autoHud = autoActionVeto
+                ? autoActionHudLayout(width) : null;
         boolean preActions = !localTurn && autoPreActionsVisible();
         boolean foldEnabled = !autoActionVeto
                 && ((localTurn && controls.foldEnabled()) || preActions);
@@ -11435,7 +11423,29 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.rect(hudX + 16f, hudY + 34f, infoWidth - 32f, 2f);
         shapes.rect(hudX + 16f, hudY + 63f, infoWidth - 32f, 2f);
         shapes.rect(hudX + infoWidth / 2f, hudY + 13f, 2f, 18f);
-        if (settledLocalWinner == null) {
+        if (settledLocalWinner == null && autoActionVeto) {
+            boolean cancelHover = autoHud.cancel().contains(pointer.x,
+                    pointer.y);
+            drawHudActionSurface(autoHud.message().x, autoHud.message().y,
+                    autoHud.message().width, autoHud.message().height,
+                    BUTTON_LINE, false, false, false, true);
+            drawHudActionSurface(autoHud.cancel().x, autoHud.cancel().y,
+                    autoHud.cancel().width, autoHud.cancel().height,
+                    FOLD_RED, cancelHover, false,
+                    pointerDown && cancelHover, true);
+            Rectangle progress = autoHud.progress();
+            shapes.setColor(BUTTON_LINE.r, BUTTON_LINE.g, BUTTON_LINE.b,
+                    0.90f);
+            roundedRect(progress.x, progress.y, progress.width,
+                    progress.height, progress.height / 2f);
+            float remaining = progress.width
+                    * activeDialog.remainingFraction(totalTime);
+            if (remaining > 0f) {
+                shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b, 0.98f);
+                roundedRect(progress.x, progress.y, remaining,
+                        progress.height, progress.height / 2f);
+            }
+        } else if (settledLocalWinner == null) {
             drawHudActionSurface(foldX, actionY, foldWidth, actionHeight,
                     foldVisualColor, foldHover && foldEnabled,
                     foldSelected || armedHudTarget == 1,
@@ -11523,6 +11533,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     allInX + allInWidth - foldX - 48f,
                     actionHeight - 18f,
                     settledLocalWinner ? Color.BLACK : Color.WHITE, 1f);
+        } else if (autoActionVeto) {
+            String autoStatus = uppercase(activeDialog.title() + " ("
+                    + activeDialog.message() + ")");
+            drawFittedCenteredInBox(actionFont, autoStatus,
+                    autoHud.message().x + 12f, autoHud.message().y + 6f,
+                    autoHud.message().width - 24f,
+                    autoHud.message().height - 12f, POT_GOLD, 1f);
+            drawFittedCenteredInBox(actionFont,
+                    uppercase(activeDialog.negativeLabel()),
+                    autoHud.cancel().x + 10f, autoHud.cancel().y + 6f,
+                    autoHud.cancel().width - 20f,
+                    autoHud.cancel().height - 12f, Color.WHITE, 1f);
         } else {
             drawHudActionContent(foldThumbIcon,
                     preActions ? uppercase(gameText.translate("action.auto_fold"))
@@ -13647,7 +13669,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawActiveDialog() {
         GdxTableDialog dialog = activeDialog;
-        if (dialog == null) return;
+        // AUTO MODE is rendered inside the local HUD so it replaces the poker
+        // controls instead of behaving like a second floating window.
+        if (dialog == null || dialog.isAutoAction()) return;
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(pointer);
         float width = viewport.getWorldWidth();
@@ -13665,21 +13689,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawRecoveryDialog(dialog, width, height);
             return;
         }
-        GdxTableDialogLayout.AutoAction autoActionLayout =
-                dialog.isAutoAction()
-                        ? GdxTableDialogLayout.autoAction(panelX, panelY,
-                                panelW) : null;
         GdxTableDialogLayout.AutoCall autoCallLayout = dialog.isAutoCall()
                 ? GdxTableDialogLayout.autoCall(panelX, panelY, panelW) : null;
         float acceptX = dialogPositiveX(dialog, panelX, panelW);
-        float negativeX = dialog.isAutoAction()
-                ? autoActionLayout.cancel().x : panelX + 42f;
-        float negativeW = dialog.isAutoAction()
-                ? autoActionLayout.cancel().width : 230f;
-        float buttonY = dialog.isAutoAction()
-                ? autoActionLayout.cancel().y : panelY + 34f;
-        float buttonH = dialog.isAutoAction()
-                ? autoActionLayout.cancel().height : 64f;
+        float negativeX = panelX + 42f;
+        float negativeW = 230f;
+        float buttonY = panelY + 34f;
+        float buttonH = 64f;
         Color accent = switch (dialog.kind()) {
             case ERROR -> FOLD_RED;
             case INFO -> CYAN;
@@ -13689,23 +13705,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        if (!dialog.isAutoAction()) {
-            GdxUiDialogStyle.drawBackdrop(shapes, width, height, 1f);
-            GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
-                    panelW, panelH, accent, 1f);
-            GdxUiDialogStyle.drawInset(shapes, panelX + 28f,
-                    panelY + 125f, panelW - 56f, panelH - 222f, 1f);
-        } else {
-            GdxUiDialogStyle.drawForegroundPanel(shapes, panelX, panelY,
-                    panelW, panelH, accent, 1f);
-            Rectangle action = autoActionLayout.action();
-            GdxUiDialogStyle.drawForegroundInset(shapes, action.x, action.y,
-                    action.width, action.height, 1f);
-        }
+        GdxUiDialogStyle.drawBackdrop(shapes, width, height, 1f);
+        GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
+                panelW, panelH, accent, 1f);
+        GdxUiDialogStyle.drawInset(shapes, panelX + 28f,
+                panelY + 125f, panelW - 56f, panelH - 222f, 1f);
         if (dialog.showsNegative() && !dialog.waitingForExternalClose()) {
             drawDialogButton(negativeX, buttonY, negativeW, buttonH,
-                    dialog.isExitChoice() ? LATENCY_GREEN
-                            : dialog.isAutoAction() ? FOLD_RED : BUTTON_LINE,
+                    dialog.isExitChoice() ? LATENCY_GREEN : BUTTON_LINE,
                     contains(pointer.x, pointer.y,
                             negativeX, buttonY, negativeW, buttonH), 1f);
         }
@@ -13782,10 +13789,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             roundedRect(panelX + 42f + travel * normalized, progressY,
                     segmentW, 8f, 4f);
         } else if (dialog.seconds() > 0) {
-            Rectangle progress = dialog.isAutoAction()
-                    ? autoActionLayout.progress()
-                    : new Rectangle(panelX + 42f, panelY + 116f,
-                            panelW - 84f, 8f);
+            Rectangle progress = new Rectangle(panelX + 42f,
+                    panelY + 116f, panelW - 84f, 8f);
             shapes.setColor(BUTTON_LINE.r, BUTTON_LINE.g,
                     BUTTON_LINE.b, 0.80f);
             roundedRect(progress.x, progress.y,
@@ -13801,43 +13806,41 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.end();
 
         batch.begin();
-        Rectangle title = dialog.isAutoAction()
-                ? autoActionLayout.title()
-                : new Rectangle(panelX + 42f, panelY + panelH - 80f,
-                        panelW - 84f, 46f);
+        Rectangle title = new Rectangle(panelX + 42f,
+                panelY + panelH - 80f, panelW - 84f, 46f);
         drawLeftInBox(uiFont, dialog.title(), title.x, title.y,
                 title.width, title.height,
                 accent, 1f);
-        BitmapFont.BitmapFontData dialogFontData = uiFont.getData();
-        float originalScaleX = dialogFontData.scaleX;
-        float originalScaleY = dialogFontData.scaleY;
-        float messageW = dialog.isAutoAction()
-                ? autoActionLayout.action().width - 28f : panelW - 112f;
-        float messageH = dialog.isAutoAction()
-                ? autoActionLayout.action().height
-                : dialog.hasAmount() ? 86f : panelH - 240f;
-        glyph.setText(uiFont, dialog.message(), Color.WHITE,
-                messageW, Align.center, true);
-        if (glyph.height > messageH) {
-            float fit = messageH / glyph.height;
-            dialogFontData.setScale(originalScaleX * fit, originalScaleY * fit);
+        if (dialog.isAutoCall()) {
+            Rectangle detail = autoCallLayout.detail();
+            drawFittedWrappedCenteredInBox(smallFont, dialog.message(),
+                    detail.x, detail.y, detail.width, detail.height,
+                    Color.WHITE, 1f);
+        } else {
+            BitmapFont.BitmapFontData dialogFontData = uiFont.getData();
+            float originalScaleX = dialogFontData.scaleX;
+            float originalScaleY = dialogFontData.scaleY;
+            float messageW = panelW - 112f;
+            float messageH = dialog.hasAmount() ? 86f : panelH - 240f;
             glyph.setText(uiFont, dialog.message(), Color.WHITE,
                     messageW, Align.center, true);
-        }
-        uiFont.setColor(Color.WHITE);
-        float messageX = dialog.isAutoAction()
-                ? autoActionLayout.action().x + 14f : panelX + 56f;
-        uiFont.draw(batch, glyph, messageX,
-                dialog.isAutoCall() || dialog.isHandLimit() ? panelY + 414f
+            if (glyph.height > messageH) {
+                float fit = messageH / glyph.height;
+                dialogFontData.setScale(originalScaleX * fit,
+                        originalScaleY * fit);
+                glyph.setText(uiFont, dialog.message(), Color.WHITE,
+                        messageW, Align.center, true);
+            }
+            uiFont.setColor(Color.WHITE);
+            float messageX = panelX + 56f;
+            uiFont.draw(batch, glyph, messageX,
+                dialog.isHandLimit() ? panelY + 414f
                         : dialog.hasAmount() ? panelY + 286f
-                        : dialog.isAutoAction()
-                                ? autoActionLayout.action().y
-                                        + (autoActionLayout.action().height
-                                                + glyph.height) / 2f
-                                : panelY + 125f
+                        : panelY + 125f
                                         + (panelH - 222f + glyph.height) / 2f);
-        uiFont.setColor(Color.WHITE);
-        dialogFontData.setScale(originalScaleX, originalScaleY);
+            uiFont.setColor(Color.WHITE);
+            dialogFontData.setScale(originalScaleX, originalScaleY);
+        }
         if (dialog.hasAmount()) {
             String amountText = dialog.isHandLimit() && dialog.noLimit()
                     ? uppercase(gameText.translate("auto_call.sin_limite"))
@@ -17578,6 +17581,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         font.draw(batch, glyph,
                 x + (width - glyph.width) / 2f,
                 y + (height + glyph.height) / 2f);
+        font.setColor(Color.WHITE);
+        data.setScale(originalScaleX, originalScaleY);
+    }
+
+    private void drawFittedWrappedCenteredInBox(BitmapFont font, String text,
+            float x, float y, float width, float height,
+            Color color, float alpha) {
+        BitmapFont.BitmapFontData data = font.getData();
+        float originalScaleX = data.scaleX;
+        float originalScaleY = data.scaleY;
+        font.setColor(color.r, color.g, color.b, alpha);
+        glyph.setText(font, text, color, width, Align.center, true);
+        if (glyph.height > height) {
+            float fit = height / glyph.height;
+            data.setScale(originalScaleX * fit, originalScaleY * fit);
+            glyph.setText(font, text, color, width, Align.center, true);
+        }
+        font.draw(batch, glyph, x, y + (height + glyph.height) / 2f);
         font.setColor(Color.WHITE);
         data.setScale(originalScaleX, originalScaleY);
     }

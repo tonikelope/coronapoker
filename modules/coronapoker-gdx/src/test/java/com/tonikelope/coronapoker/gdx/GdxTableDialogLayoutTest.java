@@ -9,24 +9,23 @@ import org.junit.jupiter.api.Test;
 final class GdxTableDialogLayoutTest {
 
     @Test
-    void autoActionOwnsFourDisjointBandsInsideItsPanel() {
-        Rectangle panel = new Rectangle(400f, 20f, 620f,
-                GdxTableDialogLayout.AUTO_ACTION_HEIGHT);
-        GdxTableDialogLayout.AutoAction layout =
-                GdxTableDialogLayout.autoAction(panel.x, panel.y,
-                        panel.width);
+    void autoActionReplacesTheWholeHudActionArea() {
+        Rectangle actionArea = new Rectangle(642f, 36f, 868f, 80f);
+        GdxTableDialogLayout.AutoActionHud layout =
+                GdxTableDialogLayout.autoActionHud(actionArea.x,
+                        actionArea.y, actionArea.width, actionArea.height);
 
-        assertInside(panel, layout.cancel());
-        assertInside(panel, layout.progress());
-        assertInside(panel, layout.action());
-        assertInside(panel, layout.title());
-        assertTrue(layout.cancel().y + layout.cancel().height
-                < layout.progress().y);
+        assertEquals(actionArea, layout.bounds());
+        assertInside(actionArea, layout.message());
+        assertInside(actionArea, layout.cancel());
+        assertInside(actionArea, layout.progress());
+        assertEquals(actionArea.x, layout.progress().x);
+        assertEquals(actionArea.width, layout.progress().width);
         assertTrue(layout.progress().y + layout.progress().height
-                < layout.action().y,
-                "the countdown must never cross the action text panel");
-        assertTrue(layout.action().y + layout.action().height
-                < layout.title().y);
+                < layout.message().y,
+                "the full-width countdown belongs below the AUTO status");
+        assertTrue(layout.message().x + layout.message().width
+                < layout.cancel().x);
     }
 
     @Test
@@ -34,6 +33,9 @@ final class GdxTableDialogLayoutTest {
         GdxTableDialogLayout.AutoCall layout =
                 GdxTableDialogLayout.autoCall(500f, 200f, 820f);
 
+        assertTrue(layout.enabled().y + layout.enabled().height
+                < layout.detail().y,
+                "the description must not overlap the enabled control");
         assertTrue(layout.amount().bounds().y
                 + layout.amount().bounds().height < layout.noLimit().y);
         assertTrue(layout.noLimit().y + layout.noLimit().height

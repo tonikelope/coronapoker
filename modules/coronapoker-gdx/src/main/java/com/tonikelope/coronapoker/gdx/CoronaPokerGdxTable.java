@@ -13435,12 +13435,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Gdx.gl.glEnable(GL20.GL_BLEND);
         shapes.setColor(0f, 0f, 0f, 0.80f * alpha);
         shapes.rect(0f, 0f, width, height);
-        shapes.setColor(0f, 0f, 0f, 0.46f * alpha);
-        roundedRect(card.x - 18f, card.y - 20f,
-                card.width + 36f, card.height + 38f, 22f);
-        shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b, 0.90f * alpha);
-        roundedRect(card.x - 5f, card.y - 5f,
-                card.width + 10f, card.height + 10f, 18f);
+        // The zoom deliberately has no surrounding plate or accent frame:
+        // only the card shader's own rounded silhouette remains visible.
         shapes.end();
 
         batch.begin();

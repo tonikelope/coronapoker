@@ -100,9 +100,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private static final float WIDTH = 1920f;
     private static final float HEIGHT = 1080f;
+    static final String PASSWORD_MASK_GLYPH = "\u2022";
+    static final String FRONTEND_EXTRA_FONT_CHARACTERS = "♥♦♠♣"
+            + PASSWORD_MASK_GLYPH;
     static final float MENU_LOGO_X = 42f;
     static final float MENU_LOGO_TOP = 32f;
     static final float MENU_LOGO_WIDTH = 320f;
+    static final float MENU_SOUND_MARGIN = 35f;
+    static final float MENU_SOUND_SIZE = 55f;
     static final float LOBBY_LEFT_ACTION_X = 70f;
     static final float LOBBY_LEFT_ACTION_WIDTH = 360f;
     static final float LOBBY_LEFT_CONTENT_X = LOBBY_LEFT_ACTION_X;
@@ -250,6 +255,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final List<Hit> hits = new ArrayList<>();
     private final List<Hit> secondaryHits = new ArrayList<>();
     private final List<TextFieldHit> textFieldHits = new ArrayList<>();
+    private final List<PasswordRevealHit> passwordRevealHits =
+            new ArrayList<>();
     private final List<Hit> editMenuHits = new ArrayList<>();
     private final List<TooltipHit> tooltipHits = new ArrayList<>();
     private final Map<String, Texture> lobbyAvatarTextures = new HashMap<>();
@@ -340,6 +347,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private Surface pointerRepeatSurface;
     private EditMenu editMenu;
     private String pointerSelectionField;
+    private String revealedPasswordField;
     private Surface surface;
     private int historyIndex = -1;
     private boolean disposed;
@@ -674,7 +682,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         p.borderWidth = border * 2f;
         p.hinting = FreeTypeFontGenerator.Hinting.Full;
         p.kerning = true;
-        p.characters += "♥♦♠♣";
+        p.characters += FRONTEND_EXTRA_FONT_CHARACTERS;
         p.minFilter = TextureFilter.Linear;
         p.magFilter = TextureFilter.Linear;
         BitmapFont result = generator.generateFont(p);
@@ -723,6 +731,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         hits.clear();
         secondaryHits.clear();
         textFieldHits.clear();
+        passwordRevealHits.clear();
         editMenuHits.clear();
         tooltipHits.clear();
 
@@ -825,6 +834,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             hits.clear();
             secondaryHits.clear();
             textFieldHits.clear();
+            passwordRevealHits.clear();
             editMenuHits.clear();
             // SpriteBatch changes the current OpenGL pipeline. Restore alpha
             // blending before composing the modal shape pass; otherwise the
@@ -1209,9 +1219,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.translate("ui.salir"), 5, false,
                 Gdx.app::exit);
 
-        keyHint(535f, 105f, "F11",
-                uppercase(gameText.translate("settings.modo_pantalla_completa")));
-        drawSoundControl(1336f, 100f, 55f, 55f, false);
+        Rectangle sound = mainMenuSoundBounds();
+        drawSoundControl(sound.x, sound.y, sound.width, sound.height, false);
         if (deferredUpdateAvailable(updatePromptDismissed,
                 updatePromptOpen, updateResult)) {
             themedButton(1460f, 944f, 390f, 68f,
@@ -3149,10 +3158,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 LOBBY_LEFT_CONTENT_WIDTH,
                 state.host() ? LOBBY_GAME_INFO_HEIGHT : 138f);
         if (state.host()) {
-            button(LOBBY_LEFT_ACTION_X, LOBBY_PASSWORD_Y,
+            lobbyPasswordButton(LOBBY_LEFT_ACTION_X, LOBBY_PASSWORD_Y,
                     LOBBY_LEFT_ACTION_WIDTH, LOBBY_PASSWORD_HEIGHT,
-                    uppercase(gameText.translate("auth.menu_cambiar_password")),
-                    false, this::openLobbyPasswordDialog,
+                    uppercase(gameText.translate(lobbyPasswordActionKey(
+                            connection == null ? "" : connection.password()))),
+                    lobbyPasswordEnabled(connection == null
+                            ? "" : connection.password()),
+                    this::openLobbyPasswordDialog,
                     !lobbyCommandPending && !state.startingOrStarted());
             lobbyBotButton(LOBBY_LEFT_ACTION_X, LOBBY_BOT_BUTTON_Y,
                     LOBBY_LEFT_ACTION_WIDTH,
@@ -3673,7 +3685,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (LobbyChatBubbleItem item : lobbyChatBubbles) {
-            outerBox(item.x, item.y, item.width, item.height,
+            flatOuterBox(item.x, item.y, item.width, item.height,
                     item.border, item.fill);
         }
         shapes.end();
@@ -3972,7 +3984,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         String fieldId = lobbyImageMode ? "lobbyImage" : "lobbyChat";
         String draft = lobbyImageMode ? lobbyImageDraft : lobbyChatDraft;
         boolean focused = fieldId.equals(activeField);
-        outerBox(x, y, w, 70f,
+        flatOuterBox(x, y, w, 70f,
                 focused || hovered(x, y, w, 70f) ? CYAN : LINE,
                 pressed(x, y, w, 70f) ? new Color(0x0b1424ff) : PANEL_LIGHT);
         String placeholder = gameText.translate(lobbyImageMode
@@ -4291,12 +4303,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawLobbyPasswordDialog() {
         hits.clear();
         textFieldHits.clear();
+        passwordRevealHits.clear();
         editMenuHits.clear();
         GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
         GdxUiDialogStyle.drawPanel(shapes, 560f, 335f, 800f, 390f,
                 CYAN_DARK, 1f);
         textFit(headingFont, uppercase(gameText.translate(
-                "auth.menu_cambiar_password")), 960f, 650f, GOLD,
+                lobbyPasswordActionKey(connection == null
+                        ? "" : connection.password()))), 960f, 650f, GOLD,
                 true, 700f);
         field(660f, 490f, 600f,
                 gameText.translate("auth.input_nueva_password"),
@@ -4367,6 +4381,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawSettingsDiscardConfirmation() {
         hits.clear();
         textFieldHits.clear();
+        passwordRevealHits.clear();
         editMenuHits.clear();
         GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
         GdxUiDialogStyle.drawPanel(shapes, 560f, 350f, 800f, 330f,
@@ -5308,6 +5323,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         hits.clear();
         secondaryHits.clear();
         textFieldHits.clear();
+        passwordRevealHits.clear();
         editMenuHits.clear();
         GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
         GdxUiDialogStyle.drawPanel(shapes, 505f, 345f, 910f, 350f,
@@ -7069,6 +7085,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawPresetDialog() {
         hits.clear();
         textFieldHits.clear();
+        passwordRevealHits.clear();
         editMenuHits.clear();
         GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
         GdxUiDialogStyle.drawPanel(shapes, 560f, 350f, 800f, 360f,
@@ -7482,6 +7499,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawBlindStructureDialog() {
         hits.clear();
         textFieldHits.clear();
+        passwordRevealHits.clear();
         editMenuHits.clear();
         GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
         if (blindStructureDialog == BlindStructureDialog.DELETE) {
@@ -8039,23 +8057,49 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void field(float x, float y, float w, String label, String value,
             String id, boolean secret) {
         boolean focused = id.equals(activeField);
+        boolean revealed = secret && id.equals(revealedPasswordField);
         textFit(smallFont, label, x, y + 98f, MUTED, false,
                 Math.max(0f, w));
         outerBox(x, y, w, 70f, focused || hovered(x, y, w, 70f) ? CYAN : LINE,
                 pressed(x, y, w, 70f) ? new Color(0x0b1424ff) : PANEL_LIGHT);
-        String visible = secret && !value.isEmpty()
-                ? "•".repeat(value.codePointCount(0, value.length())) : value;
+        String visible = passwordDisplay(value, secret, revealed);
+        float textWidth = w - (secret ? 102f : 44f);
         FrontendInputWindow window = visible.isEmpty()
                 ? new FrontendInputWindow("—", 0, 0, 0f, 0f, 0f)
-                : frontendInputWindow(uiFont, value, visible, w - 44f,
+                : frontendInputWindow(uiFont, value, visible, textWidth,
                         focused);
         drawInputSelection(x + 22f, y + 17f, 36f, window, focused);
         text(uiFont, window.text(), x + 22f, y + 44f,
                 visible.isEmpty() ? DISABLED : Color.WHITE, false);
         drawInputCaret(x + 22f + window.caretOffset(), y + 17f, 36f,
                 focused);
+        if (secret) {
+            Rectangle revealBounds = passwordRevealBounds(x, y, w);
+            drawPasswordRevealButton(revealBounds, revealed);
+            passwordRevealHits.add(new PasswordRevealHit(id, revealBounds));
+            tooltip(revealBounds.x, revealBounds.y, revealBounds.width,
+                    revealBounds.height, "auth.mostrar_password_pulsar");
+        }
         textFieldHits.add(new TextFieldHit(id, new Rectangle(x, y, w, 70f)));
         hit(x, y, w, 70f, () -> activateField(id));
+    }
+
+    private void drawPasswordRevealButton(Rectangle bounds,
+            boolean revealed) {
+        boolean over = hovered(bounds.x, bounds.y,
+                bounds.width, bounds.height);
+        Color color = revealed ? GOLD : over ? CYAN : MUTED;
+        shapes.setColor(new Color(0x07111fff));
+        roundedRect(bounds.x, bounds.y, bounds.width, bounds.height, 8f);
+        shapes.setColor(color);
+        shapes.ellipse(bounds.x + 7f, bounds.y + 14f,
+                bounds.width - 14f, 18f);
+        shapes.setColor(new Color(0x07111fff));
+        shapes.ellipse(bounds.x + 10f, bounds.y + 17f,
+                bounds.width - 20f, 12f);
+        shapes.setColor(color);
+        shapes.circle(bounds.x + bounds.width / 2f,
+                bounds.y + bounds.height / 2f, revealed ? 6f : 5f, 24);
     }
 
     private FrontendInputWindow frontendInputWindow(BitmapFont font,
@@ -8550,12 +8594,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(uiFont, value, x + 790f, y + 18f, Color.WHITE, true, 280f);
     }
 
-    private void keyHint(float x, float y, String key, String action) {
-        outerBox(x, y, 64f, 48f, CYAN_DARK, new Color(0x07111fff));
-        text(smallFont, key, x + 32f, y + 32f, CYAN, true);
-        textFit(smallFont, action, x + 78f, y + 32f, MUTED, false, 360f);
-    }
-
     private void embeddedButtonSurface(float x, float y, float w, float h,
             boolean enabled) {
         boolean hover = enabled && hovered(x, y, w, h);
@@ -8601,6 +8639,41 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         divider.a = enabled ? 0.28f : 0.18f;
         shapes.setColor(divider);
         shapes.rect(x + 76f, y + 14f, 2f, h - 28f);
+    }
+
+    private void lobbyPasswordButton(float x, float y, float w, float h,
+            String label, boolean passwordEnabled, Runnable action,
+            boolean enabled) {
+        if (!passwordEnabled) {
+            button(x, y, w, h, label, false, action, enabled);
+            return;
+        }
+        themedButton(x, y, w, h, "", ButtonTone.NEUTRAL, action, enabled);
+        boolean hover = enabled && hovered(x, y, w, h);
+        Color iconColor = enabled ? (hover ? CYAN : GOLD) : DISABLED;
+        float centerX = x + 31f;
+        float centerY = y + h / 2f;
+        drawPasswordLock(centerX, centerY, iconColor);
+        Color divider = new Color(iconColor);
+        divider.a = enabled ? 0.28f : 0.18f;
+        shapes.setColor(divider);
+        shapes.rect(x + 58f, y + 10f, 2f, h - 20f);
+        textFit(actionFont, label, x + 72f, centerY + 8f,
+                GdxUiButtonStyle.labelColor(
+                        GdxUiButtonStyle.Tone.NEUTRAL, enabled),
+                false, w - 84f);
+    }
+
+    private void drawPasswordLock(float centerX, float centerY,
+            Color color) {
+        shapes.setColor(color);
+        shapes.rect(centerX - 8f, centerY + 2f, 3f, 9f);
+        shapes.rect(centerX + 5f, centerY + 2f, 3f, 9f);
+        roundedRect(centerX - 8f, centerY + 8f, 16f, 5f, 2f);
+        roundedRect(centerX - 11f, centerY - 10f, 22f, 15f, 3f);
+        shapes.setColor(new Color(0x07111fff));
+        shapes.circle(centerX, centerY - 3f, 2.5f, 16);
+        shapes.rect(centerX - 1.25f, centerY - 8f, 2.5f, 5f);
     }
 
     private void themedButton(float x, float y, float w, float h,
@@ -8896,12 +8969,22 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void outerBox(float x, float y, float w, float h, Color border,
             Color fill) {
+        outerBox(x, y, w, h, border, fill, true);
+    }
+
+    private void flatOuterBox(float x, float y, float w, float h,
+            Color border, Color fill) {
+        outerBox(x, y, w, h, border, fill, false);
+    }
+
+    private void outerBox(float x, float y, float w, float h, Color border,
+            Color fill, boolean sheen) {
         shapes.setColor(fill);
         roundedRect(x, y, w, h, 14f);
         shapes.setColor(border);
         roundedRectOutline(x + 1f, y + 1f, w - 2f, h - 2f,
                 13f, 2f);
-        if (h <= 90f && w > 90f) {
+        if (sheen && h <= 90f && w > 90f) {
             float inset = 14f;
             float sheenBottom = y + h * 0.54f;
             float sheenTop = y + h - 9f;
@@ -9176,6 +9259,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             editMenu = null;
             return true;
         }
+        if (button == Input.Buttons.LEFT) {
+            for (int i = passwordRevealHits.size() - 1; i >= 0; i--) {
+                PasswordRevealHit reveal = passwordRevealHits.get(i);
+                if (reveal.bounds.contains(pointer)) {
+                    activateField(reveal.id);
+                    revealedPasswordField = reveal.id;
+                    return true;
+                }
+            }
+        }
         for (int i = textFieldHits.size() - 1; i >= 0; i--) {
             TextFieldHit field = textFieldHits.get(i);
             if (field.bounds.contains(pointer)) {
@@ -9239,6 +9332,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public boolean touchUp(int screenX, int screenY, int pointerIndex, int button) {
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
+        boolean passwordWasRevealed = revealedPasswordField != null;
+        revealedPasswordField = null;
         Hit released = pressedHit;
         pressedHit = null;
         clearPointerRepeat();
@@ -9256,7 +9351,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             released.action.run();
             return true;
         }
-        return false;
+        return passwordWasRevealed;
     }
 
     private boolean beginScrollDrag(float x, float y) {
@@ -9771,13 +9866,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     index -> nextComposerBoundary(value, index),
                     index -> composerWidth(value.substring(start, index)));
         } else {
-            boolean masked = "password".equals(field.id)
-                    || "lobbyPassword".equals(field.id);
-            String display = masked
-                    ? "\u2022".repeat(value.codePointCount(0, value.length()))
-                    : value;
+            boolean masked = isPasswordField(field.id)
+                    && !field.id.equals(revealedPasswordField);
+            String display = masked ? maskedPassword(value) : value;
             FrontendInputWindow window = frontendInputWindow(uiFont, value,
-                    display, field.bounds.width - 44f, true);
+                    display, field.bounds.width
+                            - (isPasswordField(field.id) ? 102f : 44f), true);
             int start = window.sourceStart();
             target = GdxTextEditState.nearestBoundary(value, start,
                     window.sourceEnd(), localX,
@@ -9800,6 +9894,42 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return textWidth(uiFont, display.substring(displayStart, displayEnd));
     }
 
+    static String maskedPassword(String value) {
+        String safe = Objects.requireNonNullElse(value, "");
+        return PASSWORD_MASK_GLYPH.repeat(
+                safe.codePointCount(0, safe.length()));
+    }
+
+    static String passwordDisplay(String value, boolean secret,
+            boolean revealed) {
+        String safe = Objects.requireNonNullElse(value, "");
+        return secret && !revealed && !safe.isEmpty()
+                ? maskedPassword(safe) : safe;
+    }
+
+    static String lobbyPasswordActionKey(String password) {
+        return !lobbyPasswordEnabled(password)
+                ? "auth.menu_poner_password"
+                : "auth.menu_cambiar_password";
+    }
+
+    static boolean lobbyPasswordEnabled(String password) {
+        return password != null && !password.isBlank();
+    }
+
+    static Rectangle passwordRevealBounds(float x, float y, float width) {
+        return new Rectangle(x + width - 56f, y + 12f, 44f, 46f);
+    }
+
+    private static boolean isPasswordField(String id) {
+        return "password".equals(id) || "lobbyPassword".equals(id);
+    }
+
+    static Rectangle mainMenuSoundBounds() {
+        return new Rectangle(WIDTH - MENU_SOUND_MARGIN - MENU_SOUND_SIZE,
+                MENU_SOUND_MARGIN, MENU_SOUND_SIZE, MENU_SOUND_SIZE);
+    }
+
     private static boolean shiftPressed() {
         return Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
                 || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
@@ -9807,6 +9937,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void clearActiveField() {
         activeField = null;
+        revealedPasswordField = null;
         textEdit.blur();
         textDeleteRepeat.clear();
     }
@@ -10091,6 +10222,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private record TextFieldHit(String id, Rectangle bounds) {
+    }
+
+    private record PasswordRevealHit(String id, Rectangle bounds) {
     }
 
     private record TooltipHit(Rectangle bounds, String key) {

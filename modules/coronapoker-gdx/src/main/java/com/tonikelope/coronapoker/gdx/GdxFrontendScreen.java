@@ -622,7 +622,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 GdxVolumeOverlayStyle.FONT_SIZE,
                 GdxVolumeOverlayStyle.FONT_BORDER);
         smallFont = font(bodyGenerator, 18, 0f);
-        tinyFont = font(bodyGenerator, 15, 0f);
+        tinyFont = font(bodyGenerator, GdxProductVersionBrand.FONT_SIZE, 0f);
         bodyGenerator.dispose();
         Gdx.input.setInputProcessor(this);
         Gdx.input.setCursorCatched(false);
@@ -2979,8 +2979,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawFrontendVersionLabel() {
-        textFit(tinyFont, presentationSettings.productVersionLabel(),
-                16f, 20f, new Color(0xd5dfebc0), false, 620f);
+        textFit(tinyFont, GdxProductVersionBrand.label(presentationSettings),
+                GdxProductVersionBrand.X,
+                GdxProductVersionBrand.BASELINE_Y,
+                new Color((GdxProductVersionBrand.RGB << 8)
+                        | Math.round(GdxProductVersionBrand.ALPHA * 255f)),
+                false, GdxProductVersionBrand.MAX_WIDTH);
     }
 
     private Rectangle aboutModIconBounds(float coronaLogoHeight) {

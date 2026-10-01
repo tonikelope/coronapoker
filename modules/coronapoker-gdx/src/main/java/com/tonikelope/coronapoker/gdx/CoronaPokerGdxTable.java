@@ -44,7 +44,6 @@ import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.ExtendViewport;
 import com.tonikelope.coronapoker.core.BlindStructureRules;
 import com.tonikelope.coronapoker.core.BlindStructureCatalog;
-import com.tonikelope.coronapoker.core.ApplicationMetadata;
 import com.tonikelope.coronapoker.core.IdenticonFingerprint;
 import com.tonikelope.coronapoker.core.IdentityTrustStore;
 import com.tonikelope.coronapoker.core.LobbyParticipant;
@@ -199,7 +198,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float LOCAL_HUD_HEIGHT = 126f;
     private static final float LOCAL_HUD_SAFE_TOP = LOCAL_HUD_Y + LOCAL_HUD_HEIGHT + 32f;
     private static final float FAST_BAR_X = 18f;
-    private static final float FAST_BAR_Y = 18f;
+    static final float FAST_BAR_Y =
+            GdxProductVersionBrand.quickAccessY();
     private static final float FAST_BUTTON_SIZE = 52f;
     private static final float FAST_BUTTON_GAP = 7f;
     private static final float FAST_BAR_PADDING = 7f;
@@ -2495,7 +2495,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     GdxVolumeOverlayStyle.FONT_SIZE,
                     GdxVolumeOverlayStyle.FONT_BORDER);
             case 2 -> smallFont = font(creationFontGenerator, 21, 0.8f);
-            case 3 -> versionFont = font(creationFontGenerator, 15, 0f);
+            case 3 -> versionFont = font(creationFontGenerator,
+                    GdxProductVersionBrand.FONT_SIZE, 0f);
             case 4 -> playerNameFont = font(creationFontGenerator, 22, 1.6f);
             case 5 -> stackFont = font(creationFontGenerator, 24, 0f);
         // Action surfaces already provide their own contrast. A heavy glyph
@@ -6181,6 +6182,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // as if it never produced its speaking indicator.
         drawSeatChatNotices();
         drawSilentChatNotice();
+        drawProductVersionBrand(1f);
         drawFastAccessBar();
         drawVoiceRecordingOverlay(width, height);
         drawAvatarZoomOverlay(width, height);
@@ -6275,6 +6277,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     FAST_BAR_Y + FAST_BAR_PADDING + 5f,
                     FAST_BUTTON_SIZE - 10f, FAST_BUTTON_SIZE - 10f);
         }
+        batch.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    private void drawProductVersionBrand(float reveal) {
+        batch.begin();
+        drawLeftInBox(versionFont,
+                productVersionLabelFor(presentationSettings),
+                GdxProductVersionBrand.X, GdxProductVersionBrand.BOX_Y,
+                GdxProductVersionBrand.MAX_WIDTH,
+                GdxProductVersionBrand.BOX_HEIGHT,
+                new Color((GdxProductVersionBrand.RGB << 8) | 0xff),
+                GdxProductVersionBrand.ALPHA * reveal);
         batch.setColor(Color.WHITE);
         batch.end();
     }
@@ -17663,8 +17678,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         drawLeftInBox(versionFont,
                 productVersionLabelFor(presentationSettings),
-                16f, 2f, 240f, 20f,
-                new Color(0xd5dfebff), 0.74f * reveal);
+                GdxProductVersionBrand.X, GdxProductVersionBrand.BOX_Y,
+                GdxProductVersionBrand.MAX_WIDTH,
+                GdxProductVersionBrand.BOX_HEIGHT,
+                new Color((GdxProductVersionBrand.RGB << 8) | 0xff),
+                GdxProductVersionBrand.ALPHA * reveal);
         batch.setColor(Color.WHITE);
         batch.end();
 
@@ -17687,9 +17705,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static String productVersionLabelFor(
             GdxGamePresentationSettings presentationSettings) {
-        return presentationSettings == null
-                ? "CoronaPoker " + ApplicationMetadata.VERSION
-                : presentationSettings.productVersionLabel();
+        return GdxProductVersionBrand.label(presentationSettings);
     }
 
     private void drawFinalExitPending(float width, float height) {

@@ -740,6 +740,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             new HashMap<>();
     private float settingsDebugScroll;
     private int settingsDebugLineCount;
+    private List<String> settingsDebugSourceCache = List.of();
+    private List<GdxDebugLogFormatter.Line> settingsDebugVisualCache =
+            List.of();
+    private float settingsDebugWrapWidth = -1f;
     private boolean settingsDebugScrollDragging;
     private boolean settingsRowScrollDragging;
     private final GdxVoiceNoteLibrary voiceNoteLibrary =
@@ -1226,7 +1230,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     if (!settingsDebugViewportContains(pointer.x,
                             pointer.y)) return true;
                     float maximum = settingsDebugMaximumPixelScroll(
-                            settingsDebugLines().size());
+                            settingsDebugVisualLines().size());
                     // This view is anchored at the newest line when the offset
                     // is zero, like the game log. Wheel-down moves towards it.
                     settingsDebugScroll = quickChatPixelScrollAfterWheel(
@@ -12234,6 +12238,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     return;
                 }
             }
+        } else if (contentPage == 9
+                && settingsDebugCopyButton().contains(x, y)) {
+            copySettingsDebugLog();
+            return;
         }
         if (frame.cancelButton().contains(x, y)) {
             requestCancelTableSettings(null);
@@ -12597,13 +12605,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void updateSettingsDebugScrollFromTrack(float y) {
-        List<String> lines = settingsDebugLines();
-        float maximum = settingsDebugMaximumPixelScroll(lines.size());
+        int lineCount = settingsDebugVisualLines().size();
+        float maximum = settingsDebugMaximumPixelScroll(lineCount);
         GdxSettingsLayout.Frame frame = GdxSettingsLayout.frame(
                 viewport.getWorldWidth(), viewport.getWorldHeight(),
                 settingsSession.sections().size(),
                 settingsSubpageLabels().size());
-        float thumbHeight = settingsDebugThumbHeight(lines.size());
+        float thumbHeight = settingsDebugThumbHeight(lineCount);
         settingsDebugScroll = quickChatPixelScrollFromTrack(y,
                 frame.firstRowY() - 337f, SETTINGS_DEBUG_VIEWPORT_HEIGHT,
                 thumbHeight, maximum);
@@ -14941,21 +14949,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 GdxSettingsLayout.SCROLLBAR_WIDTH,
                 SETTINGS_DEBUG_VIEWPORT_HEIGHT,
                 GdxSettingsLayout.SCROLLBAR_WIDTH / 2f);
-        List<String> lines = settingsDebugLines();
-        float maximum = settingsDebugMaximumPixelScroll(lines.size());
+        int lineCount = settingsDebugVisualLines().size();
+        float maximum = settingsDebugMaximumPixelScroll(lineCount);
         settingsDebugScroll = preservePixelScrollOnAppend(
-                settingsDebugScroll, settingsDebugLineCount, lines.size(),
+                settingsDebugScroll, settingsDebugLineCount, lineCount,
                 SETTINGS_DEBUG_LINE_HEIGHT);
-        settingsDebugLineCount = lines.size();
+        settingsDebugLineCount = lineCount;
         settingsDebugScroll = MathUtils.clamp(settingsDebugScroll, 0f,
                 maximum);
-        float thumbH = settingsDebugThumbHeight(lines.size());
+        float thumbH = settingsDebugThumbHeight(lineCount);
         float travel = SETTINGS_DEBUG_VIEWPORT_HEIGHT - thumbH;
         float ratio = maximum == 0f ? 0f : settingsDebugScroll / maximum;
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.78f * alpha);
         roundedRect(trackX, firstY - 337f + travel * ratio,
                 GdxSettingsLayout.SCROLLBAR_WIDTH, thumbH,
                 GdxSettingsLayout.SCROLLBAR_WIDTH / 2f);
+        Rectangle copy = settingsDebugCopyButton();
+        drawDialogButton(copy.x, copy.y, copy.width, copy.height,
+                CYAN, copy.contains(pointer), alpha);
     }
 
     private void drawSettingsToggleShape(float x, float y, float width,
@@ -15502,16 +15513,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         x, firstY + 64f, width, 20f,
                         warning ? FOLD_RED : CYAN, alpha);
             }
+        } else if (contentPage == 9) {
+            Rectangle copy = settingsDebugCopyButton();
+            drawFittedCenteredInBox(smallFont, uppercase(gameText.translate(
+                    "gdx.settings.debug.copy")), copy.x, copy.y,
+                    copy.width, copy.height, Color.WHITE, alpha);
         }
     }
 
     private void drawSettingsDebugTextLayer(float x, float firstY,
             float width, float alpha) {
-        List<String> lines = settingsDebugLines();
-        List<GdxDebugLogFormatter.Line> formatted
-                = GdxDebugLogFormatter.format(lines);
+        List<GdxDebugLogFormatter.Line> formatted =
+                settingsDebugVisualLines();
         float viewportBottom = firstY - 337f;
-        float maximum = settingsDebugMaximumPixelScroll(lines.size());
+        float maximum = settingsDebugMaximumPixelScroll(formatted.size());
         settingsDebugScroll = MathUtils.clamp(settingsDebugScroll, 0f,
                 maximum);
         int screenX = Math.round(viewport.getScreenX()
@@ -15608,6 +15623,45 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private static List<String> settingsDebugLines() {
         return DebugLog.snapshot().lines().toList();
+    }
+
+    private List<GdxDebugLogFormatter.Line> settingsDebugVisualLines() {
+        Rectangle content = currentSettingsContent();
+        float width = content.width
+                - 2f * GdxSettingsLayout.CONTENT_HORIZONTAL_INSET - 46f;
+        List<String> source = settingsDebugLines();
+        if (Math.abs(width - settingsDebugWrapWidth) > 0.5f
+                || !source.equals(settingsDebugSourceCache)) {
+            settingsDebugSourceCache = List.copyOf(source);
+            settingsDebugWrapWidth = width;
+            settingsDebugVisualCache = GdxDebugLogFormatter.wrap(
+                    GdxDebugLogFormatter.format(source), width, run -> {
+                        BitmapFont font = run.bold()
+                                ? gameLogBoldFont : gameLogFont;
+                        glyph.setText(font, run.text());
+                        return glyph.width;
+                    });
+        }
+        return settingsDebugVisualCache;
+    }
+
+    private Rectangle settingsDebugCopyButton() {
+        Rectangle content = currentSettingsContent();
+        Rectangle inner = new Rectangle(
+                content.x + GdxSettingsLayout.CONTENT_HORIZONTAL_INSET,
+                content.y,
+                content.width
+                        - 2f * GdxSettingsLayout.CONTENT_HORIZONTAL_INSET,
+                content.height);
+        return GdxSettingsLayout.debugCopyButton(inner);
+    }
+
+    private void copySettingsDebugLog() {
+        Gdx.app.getClipboard().setContents(GdxDebugLogFormatter.clipboardText(
+                settingsDebugLines()));
+        screenshotToast = uppercase(gameText.translate(
+                "gdx.settings.debug.copied"));
+        screenshotToastUntil = totalTime + 1.5f;
     }
 
     private void drawSettingsRowText(float x, float y, float width,

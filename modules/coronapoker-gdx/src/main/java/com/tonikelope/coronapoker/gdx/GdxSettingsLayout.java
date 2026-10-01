@@ -152,6 +152,11 @@ final class GdxSettingsLayout {
         return new StepperRow(bounds, label, controls, minus, value, plus);
     }
 
+    static Rectangle debugCopyButton(Rectangle content) {
+        return new Rectangle(content.x + content.width - 230f,
+                content.y + 14f, 230f, 54f);
+    }
+
     static float scrollbarThumbHeight(float height, int totalRows,
             int visibleRows) {
         if (totalRows <= 0 || visibleRows <= 0) return height;

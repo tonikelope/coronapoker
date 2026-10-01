@@ -399,6 +399,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private float settingsShortcutScroll;
     private float settingsDebugScroll;
     private int settingsDebugLineCount;
+    private List<String> settingsDebugSourceCache = List.of();
+    private List<GdxDebugLogFormatter.Line> settingsDebugVisualCache =
+            List.of();
+    private float settingsDebugWrapWidth = -1f;
     private final Rectangle settingsDebugScrollTrack = new Rectangle();
     private float settingsDebugScrollThumbHeight;
     private float settingsDebugScrollMaximum;
@@ -6300,14 +6304,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawDebugSettings(float x, float y, float w, float h) {
+        Rectangle content = new Rectangle(x, y, w, h);
+        Rectangle copy = GdxSettingsLayout.debugCopyButton(content);
         float consoleX = x + 24f;
-        float consoleY = y + 28f;
+        float consoleY = y + 82f;
         float consoleW = w - 48f;
-        float consoleH = h - 56f;
+        float consoleH = h - 110f;
         outerBox(consoleX, consoleY, consoleW, consoleH, LINE,
                 new Color(0x03070cff));
+        compactButton(copy.x, copy.y, copy.width, copy.height,
+                uppercase(gameText.translate("gdx.settings.debug.copy")),
+                false, this::copySettingsDebugLog);
 
-        List<String> lines = debugLines();
+        List<GdxDebugLogFormatter.Line> lines = settingsDebugVisualLines(
+                consoleW - 50f);
         float viewportHeight = Math.max(0f, consoleH - 16f);
         float maximum = Math.max(0f, lines.size() * 25f - viewportHeight);
         settingsDebugScroll = CoronaPokerGdxTable
@@ -6322,10 +6332,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             if (lineY < consoleY || lineY > consoleY + consoleH + 25f) {
                 continue;
             }
-            String line = lines.get(i);
-            settingsDebugTexts.add(fittedTextItem(tinyFont, line,
-                    consoleX + 14f, lineY, debugLineColor(line), false,
-                    consoleW - 50f, false));
+            float runX = consoleX + 14f;
+            for (GdxDebugLogFormatter.Run run : lines.get(i).runs()) {
+                settingsDebugTexts.add(new TextItem(tinyFont, run.text(),
+                        runX, lineY, new Color(run.foreground()), false,
+                        false));
+                runX += textWidth(tinyFont, run.text());
+            }
         }
         settingsDebugViewport.set(consoleX + 8f, consoleY + 8f,
                 consoleW - 36f, viewportHeight);
@@ -6359,14 +6372,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return DebugLog.snapshot().lines().toList();
     }
 
-    private static Color debugLineColor(String line) {
-        if (line.startsWith("SEVERE:")) return new Color(0xff5b68ff);
-        if (line.startsWith("WARNING:")) return GOLD;
-        if (line.startsWith("CONFIG:")) return CYAN;
-        if (line.startsWith("FINE:") || line.startsWith("FINER:")
-                || line.startsWith("FINEST:")) return DISABLED;
-        if (line.startsWith("INFO:")) return new Color(0x6ee7a8ff);
-        return MUTED;
+    private List<GdxDebugLogFormatter.Line> settingsDebugVisualLines(
+            float width) {
+        List<String> source = debugLines();
+        if (Math.abs(width - settingsDebugWrapWidth) > 0.5f
+                || !source.equals(settingsDebugSourceCache)) {
+            settingsDebugSourceCache = List.copyOf(source);
+            settingsDebugWrapWidth = width;
+            settingsDebugVisualCache = GdxDebugLogFormatter.wrap(
+                    GdxDebugLogFormatter.format(source), width,
+                    run -> textWidth(tinyFont, run.text()));
+        }
+        return settingsDebugVisualCache;
+    }
+
+    private void copySettingsDebugLog() {
+        Gdx.app.getClipboard().setContents(GdxDebugLogFormatter.clipboardText(
+                debugLines()));
+        showToast(gameText.translate("gdx.settings.debug.copied"));
     }
 
     private void shortcutRow(float x, float y, float w, String key,

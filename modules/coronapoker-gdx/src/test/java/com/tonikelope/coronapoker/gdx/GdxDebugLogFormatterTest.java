@@ -12,6 +12,28 @@ import org.junit.jupiter.api.Test;
 class GdxDebugLogFormatterTest {
 
     @Test
+    void wrapsStyledRunsAndSplitsLongTechnicalTokens() {
+        List<GdxDebugLogFormatter.Line> wrapped = GdxDebugLogFormatter.wrap(
+                GdxDebugLogFormatter.format(List.of(
+                        "INFO: short 0123456789ABCDEF tail")),
+                10f, run -> run.text().length());
+
+        assertTrue(wrapped.size() >= 3);
+        assertTrue(wrapped.stream().allMatch(line -> line.runs().stream()
+                .mapToInt(run -> run.text().length()).sum() <= 10));
+        assertTrue(wrapped.stream().flatMap(line -> line.runs().stream())
+                .anyMatch(run -> run.bold()
+                        && run.text().contains("INFO:")),
+                "wrapping must retain the formatter style runs");
+    }
+
+    @Test
+    void clipboardKeepsTheOriginalUnwrappedLog() {
+        assertEquals("one" + System.lineSeparator() + "two",
+                GdxDebugLogFormatter.clipboardText(List.of("one", "two")));
+    }
+
+    @Test
     void mirrorsSwingHeaderLevelAndContinuationHierarchy() {
         List<GdxDebugLogFormatter.Line> lines = GdxDebugLogFormatter.format(
                 List.of(

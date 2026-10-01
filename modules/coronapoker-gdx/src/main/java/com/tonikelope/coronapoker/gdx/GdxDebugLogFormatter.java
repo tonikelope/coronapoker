@@ -5,6 +5,7 @@ import com.badlogic.gdx.graphics.Color;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.ToDoubleFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -35,6 +36,7 @@ final class GdxDebugLogFormatter {
             "^(Caused by: |Suppressed: )?[\\w.$]+(Exception|Error|Throwable)([:\\s].*)?$");
     private static final Pattern NUMBER_PATTERN = Pattern.compile(
             "(?<![\\w$/\\\\-])\\d+(?:[.,]\\d+)*(?![\\w$/\\\\-])");
+    private static final Pattern WRAP_TOKEN = Pattern.compile("\\s+|\\S+");
 
     private GdxDebugLogFormatter() {
     }
@@ -65,6 +67,79 @@ final class GdxDebugLogFormatter {
             }
         }
         return List.copyOf(result);
+    }
+
+    /**
+     * Converts logical log entries into visual rows without discarding their
+     * syntax colours. Words move together and exceptionally long hashes or
+     * identifiers are split by code point, so no run can escape the console.
+     */
+    static List<Line> wrap(List<Line> source, float maximumWidth,
+            ToDoubleFunction<Run> width) {
+        float available = Math.max(1f, maximumWidth);
+        ArrayList<Line> result = new ArrayList<>();
+        for (Line logical : source) {
+            ArrayList<Run> row = new ArrayList<>();
+            float rowWidth = 0f;
+            for (Run styled : logical.runs()) {
+                Matcher tokens = WRAP_TOKEN.matcher(styled.text());
+                while (tokens.find()) {
+                    String pending = tokens.group();
+                    boolean whitespace = pending.isBlank();
+                    while (!pending.isEmpty()) {
+                        if (whitespace && row.isEmpty()) break;
+                        Run piece = styled.withText(pending);
+                        float pieceWidth = (float) width.applyAsDouble(piece);
+                        if (rowWidth + pieceWidth <= available) {
+                            row.add(piece);
+                            rowWidth += pieceWidth;
+                            break;
+                        }
+                        if (!row.isEmpty()) {
+                            result.add(new Line(List.copyOf(row)));
+                            row.clear();
+                            rowWidth = 0f;
+                            if (whitespace) break;
+                            continue;
+                        }
+                        int fit = fittingPrefix(styled, pending, available,
+                                width);
+                        String prefix = pending.substring(0, fit);
+                        row.add(styled.withText(prefix));
+                        rowWidth = (float) width.applyAsDouble(
+                                styled.withText(prefix));
+                        pending = pending.substring(fit);
+                        if (!pending.isEmpty()) {
+                            result.add(new Line(List.copyOf(row)));
+                            row.clear();
+                            rowWidth = 0f;
+                        }
+                    }
+                }
+            }
+            if (!row.isEmpty() || logical.runs().isEmpty()) {
+                result.add(new Line(List.copyOf(row)));
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    static String clipboardText(List<String> source) {
+        return String.join(System.lineSeparator(), source);
+    }
+
+    private static int fittingPrefix(Run style, String value,
+            float maximumWidth, ToDoubleFunction<Run> width) {
+        int cursor = 0;
+        int fitting = 0;
+        while (cursor < value.length()) {
+            int next = value.offsetByCodePoints(cursor, 1);
+            if (width.applyAsDouble(style.withText(value.substring(0, next)))
+                    > maximumWidth) break;
+            fitting = next;
+            cursor = next;
+        }
+        return fitting > 0 ? fitting : value.offsetByCodePoints(0, 1);
     }
 
     private static Line header(String value) {
@@ -189,6 +264,10 @@ final class GdxDebugLogFormatter {
 
     record Run(String text, Color foreground, Color background,
             boolean bold) {
+
+        Run withText(String value) {
+            return new Run(value, foreground, background, bold);
+        }
     }
 
     record Line(List<Run> runs) {

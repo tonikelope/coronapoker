@@ -116,6 +116,22 @@ final class GdxSettingsLayoutTest {
     }
 
     @Test
+    void debugCopyButtonStaysInsideTheSharedContentFooter() {
+        Rectangle content = GdxSettingsLayout.frame(
+                1920f, 1080f, 5, 1).content();
+        Rectangle button = GdxSettingsLayout.debugCopyButton(content);
+
+        assertTrue(button.x >= content.x && button.y >= content.y);
+        assertTrue(button.x + button.width
+                <= content.x + content.width);
+        assertTrue(button.y + button.height
+                <= content.y + content.height);
+        assertEquals(content.x + content.width,
+                button.x + button.width);
+        assertEquals(content.y + 14f, button.y);
+    }
+
+    @Test
     void denseTogglePagesKeepTheirLastRowInsideTheContentPanel() {
         float contentHeight = GdxSettingsLayout.frame(
                 1920f, 1080f, 4, 8).content().height;

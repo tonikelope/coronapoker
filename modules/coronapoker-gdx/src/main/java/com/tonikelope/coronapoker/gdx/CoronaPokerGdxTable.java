@@ -2491,7 +2491,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return false;
         }
         switch (creationResourceIndex++) {
-            case 1 -> uiFont = font(creationFontGenerator, 31, 1.2f);
+            case 1 -> uiFont = font(creationFontGenerator,
+                    GdxVolumeOverlayStyle.FONT_SIZE,
+                    GdxVolumeOverlayStyle.FONT_BORDER);
             case 2 -> smallFont = font(creationFontGenerator, 21, 0.8f);
             case 3 -> versionFont = font(creationFontGenerator, 15, 0f);
             case 4 -> playerNameFont = font(creationFontGenerator, 22, 1.6f);
@@ -13786,15 +13788,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawVolumeOverlay() {
         if (totalTime >= volumeOverlayUntil) return;
-        float width = 520f;
-        float height = 100f;
+        float width = GdxVolumeOverlayStyle.WIDTH;
+        float height = GdxVolumeOverlayStyle.HEIGHT;
         float x = (viewport.getWorldWidth() - width) / 2f;
         float y = (viewport.getWorldHeight() - height) / 2f;
         float volume = effectsVolume;
         Color accent = volume > 0f ? CYAN : FOLD_RED;
-        float barX = x + 104f;
-        float barY = y + 37f;
-        float barW = width - 132f;
+        float barX = x + GdxVolumeOverlayStyle.BAR_X_OFFSET;
+        float barY = y + GdxVolumeOverlayStyle.BAR_Y_OFFSET;
+        float barW = width - GdxVolumeOverlayStyle.BAR_RIGHT_INSET;
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         shapes.setColor(0f, 0f, 0f, 0.58f);
@@ -13804,10 +13806,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.setColor(0.012f, 0.027f, 0.047f, 0.98f);
         roundedRect(x, y, width, height, 13f);
         shapes.setColor(0.15f, 0.20f, 0.28f, 1f);
-        roundedRect(barX, barY, barW, 26f, 7f);
+        roundedRect(barX, barY, barW,
+                GdxVolumeOverlayStyle.BAR_HEIGHT, 7f);
         if (volume > 0f) {
             shapes.setColor(accent);
-            roundedRect(barX, barY, barW * volume, 26f, 7f);
+            roundedRect(barX, barY, barW * volume,
+                    GdxVolumeOverlayStyle.BAR_HEIGHT, 7f);
         }
         shapes.end();
         batch.begin();
@@ -13815,7 +13819,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.draw(volume > 0f ? soundIcon : muteIcon,
                 x + 22f, y + 21f, 58f, 58f);
         drawFittedCenteredInBox(uiFont, Math.round(volume * 100f) + "%",
-                barX, barY, barW, 26f, Color.WHITE, 1f);
+                barX, barY, barW, GdxVolumeOverlayStyle.BAR_HEIGHT,
+                Color.WHITE, 1f);
         batch.end();
     }
 
@@ -17244,6 +17249,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void handleFinalSummaryInput() {
+        boolean alt = Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
+                || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT);
+        boolean control = Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)
+                || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT);
+        boolean shift = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
+                || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
+        String shortcut = shortcutBindings.justPressedAction(Gdx.input, alt,
+                control, shift);
+        if (GdxShortcutBindings.MUTE.equals(shortcut)) {
+            toggleMasterSound();
+        } else {
+            float delta = finalSummaryVolumeDelta(shortcut);
+            if (delta != 0f) adjustMasterVolume(delta);
+        }
         if (Gdx.input.isKeyJustPressed(Input.Keys.F11)
                 || (Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
                 && Gdx.input.isKeyJustPressed(Input.Keys.ENTER))) {
@@ -17264,6 +17283,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (finalExitPending) return;
         // Pointer presses are dispatched synchronously by tableInput so the
         // final surface consumes them before any control underneath.
+    }
+
+    static float finalSummaryVolumeDelta(String shortcut) {
+        if (GdxShortcutBindings.VOLUME_UP.equals(shortcut)) return 0.01f;
+        if (GdxShortcutBindings.VOLUME_DOWN.equals(shortcut)) return -0.01f;
+        return 0f;
     }
 
     private void handleFinalSummaryTarget(int target) {
@@ -17879,9 +17904,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float originalScaleY = data.scaleY;
         font.setColor(color.r, color.g, color.b, alpha);
         glyph.setText(font, text);
-        float fitX = glyph.width > 0f ? width / glyph.width : 1f;
-        float fitY = glyph.height > 0f ? height / glyph.height : 1f;
-        float fit = Math.min(1f, Math.min(fitX, fitY));
+        float fit = fittedSingleLineScale(glyph.width, glyph.height, width,
+                height);
         if (fit < 1f) {
             data.setScale(originalScaleX * fit, originalScaleY * fit);
             glyph.setText(font, text);
@@ -17891,6 +17915,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 y + (height + glyph.height) / 2f);
         font.setColor(Color.WHITE);
         data.setScale(originalScaleX, originalScaleY);
+    }
+
+    /** Scale-down-only guard used by HUD outcomes such as many side pots. */
+    static float fittedSingleLineScale(float textWidth, float textHeight,
+            float boxWidth, float boxHeight) {
+        float fitX = textWidth > 0f ? boxWidth / textWidth : 1f;
+        float fitY = textHeight > 0f ? boxHeight / textHeight : 1f;
+        return MathUtils.clamp(Math.min(fitX, fitY), 0f, 1f);
     }
 
     private void drawLeftInBox(BitmapFont font, String text,

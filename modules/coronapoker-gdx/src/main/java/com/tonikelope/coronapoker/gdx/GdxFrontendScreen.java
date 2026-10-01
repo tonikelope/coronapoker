@@ -332,6 +332,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private BitmapFont headingFont;
     private BitmapFont actionFont;
     private BitmapFont uiFont;
+    private BitmapFont volumeOverlayFont;
     private BitmapFont smallFont;
     private BitmapFont tinyFont;
     private int page;
@@ -614,6 +615,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         FreeTypeFontGenerator bodyGenerator = new FreeTypeFontGenerator(
                 Gdx.files.internal("fonts/McLaren-Regular.ttf"));
         uiFont = font(bodyGenerator, 24, 0f);
+        // The volume feedback is a global control, so it must retain the same
+        // high-contrast McLaren face used over the busy table felt on every
+        // frontend surface too (menu, lobby, settings and statistics).
+        volumeOverlayFont = font(bodyGenerator,
+                GdxVolumeOverlayStyle.FONT_SIZE,
+                GdxVolumeOverlayStyle.FONT_BORDER);
         smallFont = font(bodyGenerator, 18, 0f);
         tinyFont = font(bodyGenerator, 15, 0f);
         bodyGenerator.dispose();
@@ -8020,8 +8027,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawVolumeOverlayTopLayer() {
-        float width = 520f;
-        float height = 100f;
+        float width = GdxVolumeOverlayStyle.WIDTH;
+        float height = GdxVolumeOverlayStyle.HEIGHT;
         float x = (WIDTH - width) / 2f;
         float y = (HEIGHT - height) / 2f;
         float volume = masterVolume();
@@ -8029,15 +8036,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        outerBox(x, y, width, height, accent, PANEL_LIGHT);
-        float barX = x + 104f;
-        float barY = y + 37f;
-        float barW = width - 132f;
-        shapes.setColor(new Color(0x253248ff));
-        roundedRect(barX, barY, barW, 26f, 7f);
+        // Keep this composition pixel-for-pixel equivalent to the table
+        // overlay.  The old frontend variant lacked both its shadow and its
+        // outlined text, which made the percentage much harder to read.
+        shapes.setColor(0f, 0f, 0f, 0.58f);
+        roundedRect(x + 8f, y - 9f, width, height, 15f);
+        shapes.setColor(accent.r, accent.g, accent.b, 0.92f);
+        roundedRect(x - 2f, y - 2f, width + 4f, height + 4f, 15f);
+        shapes.setColor(0.012f, 0.027f, 0.047f, 0.98f);
+        roundedRect(x, y, width, height, 13f);
+        float barX = x + GdxVolumeOverlayStyle.BAR_X_OFFSET;
+        float barY = y + GdxVolumeOverlayStyle.BAR_Y_OFFSET;
+        float barW = width - GdxVolumeOverlayStyle.BAR_RIGHT_INSET;
+        shapes.setColor(0.15f, 0.20f, 0.28f, 1f);
+        roundedRect(barX, barY, barW, GdxVolumeOverlayStyle.BAR_HEIGHT, 7f);
         if (volume > 0f) {
             shapes.setColor(accent);
-            roundedRect(barX, barY, barW * volume, 26f, 7f);
+            roundedRect(barX, barY, barW * volume,
+                    GdxVolumeOverlayStyle.BAR_HEIGHT, 7f);
         }
         shapes.end();
 
@@ -8046,11 +8062,29 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         batch.draw(volume > 0f ? soundIcon : muteIcon,
                 x + 22f, y + 21f, 58f, 58f);
         String label = Math.round(volume * 100f) + "%";
-        uiFont.setColor(Color.WHITE);
-        glyph.setText(uiFont, label);
-        uiFont.draw(batch, label, barX + (barW - glyph.width) / 2f,
-                barY + 23f);
+        drawFittedCenteredInBox(volumeOverlayFont, label, barX, barY, barW,
+                GdxVolumeOverlayStyle.BAR_HEIGHT, Color.WHITE, 1f);
         batch.end();
+    }
+
+    private void drawFittedCenteredInBox(BitmapFont font, String text,
+            float x, float y, float width, float height,
+            Color color, float alpha) {
+        BitmapFont.BitmapFontData data = font.getData();
+        float originalScaleX = data.scaleX;
+        float originalScaleY = data.scaleY;
+        font.setColor(color.r, color.g, color.b, alpha);
+        glyph.setText(font, text);
+        float fit = CoronaPokerGdxTable.fittedSingleLineScale(glyph.width,
+                glyph.height, width, height);
+        if (fit < 1f) {
+            data.setScale(originalScaleX * fit, originalScaleY * fit);
+            glyph.setText(font, text);
+        }
+        font.draw(batch, glyph, x + (width - glyph.width) / 2f,
+                y + (height + glyph.height) / 2f);
+        font.setColor(Color.WHITE);
+        data.setScale(originalScaleX, originalScaleY);
     }
 
     private void panel(float x, float y, float w, float h, String title) {
@@ -10097,6 +10131,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         headingFont.dispose();
         actionFont.dispose();
         uiFont.dispose();
+        volumeOverlayFont.dispose();
         smallFont.dispose();
         tinyFont.dispose();
     }

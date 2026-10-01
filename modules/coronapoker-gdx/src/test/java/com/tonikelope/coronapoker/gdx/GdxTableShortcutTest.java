@@ -67,6 +67,16 @@ final class GdxTableShortcutTest {
     }
 
     @Test
+    void finalSummaryKeepsBothVolumeShortcutsAvailable() {
+        assertEquals(0.01f, CoronaPokerGdxTable.finalSummaryVolumeDelta(
+                GdxShortcutBindings.VOLUME_UP));
+        assertEquals(-0.01f, CoronaPokerGdxTable.finalSummaryVolumeDelta(
+                GdxShortcutBindings.VOLUME_DOWN));
+        assertEquals(0f, CoronaPokerGdxTable.finalSummaryVolumeDelta(
+                GdxShortcutBindings.PAUSE));
+    }
+
+    @Test
     void extraModifiersCannotTriggerAHighImpactAction() {
         GdxShortcutBindings bindings = bindings();
         assertNull(bindings.actionFor(Input.Keys.ENTER, false, true, true));

@@ -1851,6 +1851,16 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void longMultiPotOutcomeScalesDownBeforeEscapingTheHud() {
+        assertEquals(1f, CoronaPokerGdxTable.fittedSingleLineScale(
+                600f, 50f, 900f, 80f));
+        assertEquals(0.5f, CoronaPokerGdxTable.fittedSingleLineScale(
+                1_800f, 50f, 900f, 80f));
+        assertEquals(0.5f, CoronaPokerGdxTable.fittedSingleLineScale(
+                600f, 160f, 900f, 80f));
+    }
+
+    @Test
     void finalHandResultCarriesEveryWonPotWithoutAProvisionalLoss() {
         GdxTableViewState state = new GdxTableViewState(snapshot());
 

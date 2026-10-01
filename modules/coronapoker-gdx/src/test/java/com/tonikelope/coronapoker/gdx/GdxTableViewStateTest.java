@@ -1102,23 +1102,41 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void resolvedHandNeverClaimsTheLocalPlayerIsWaitingForATurn() {
+    void onlyAnActionableLocalPlayerAdvertisesATurnState() {
         GdxGameText spanish = new GdxGameText("es");
         GdxGameText english = new GdxGameText("en");
+        TableSnapshot.PlayerSnapshot active = playerWithAvailability(
+                "ana", true, false, false, false);
+        TableSnapshot.PlayerSnapshot inactive = playerWithAvailability(
+                "ana", false, false, false, false);
+        TableSnapshot.PlayerSnapshot exited = playerWithAvailability(
+                "ana", false, false, true, false);
         assertEquals("", CoronaPokerGdxTable.localHudTurnStatus(
-                false, true, null, spanish));
+                false, false, false, false, null, spanish));
+        assertEquals("", CoronaPokerGdxTable.localHudTurnStatus(
+                false, true, false, false, active, spanish));
+        assertEquals("", CoronaPokerGdxTable.localHudTurnStatus(
+                false, false, true, false, active, spanish));
+        assertEquals("", CoronaPokerGdxTable.localHudTurnStatus(
+                false, false, true, false, active, english));
+        assertEquals("", CoronaPokerGdxTable.localHudTurnStatus(
+                false, false, false, true, active, spanish));
+        assertEquals("", CoronaPokerGdxTable.localHudTurnStatus(
+                false, false, false, false, inactive, spanish));
+        assertEquals("", CoronaPokerGdxTable.localHudTurnStatus(
+                false, false, false, false, exited, spanish));
         assertEquals("TU TURNO",
                 CoronaPokerGdxTable.localHudTurnStatus(
-                        true, false, null, spanish));
+                        true, false, false, false, active, spanish));
         assertEquals("ESPERANDO TURNO",
                 CoronaPokerGdxTable.localHudTurnStatus(
-                        false, false, null, spanish));
+                        false, false, false, false, active, spanish));
         assertEquals("YOUR TURN",
                 CoronaPokerGdxTable.localHudTurnStatus(
-                        true, false, null, english));
+                        true, false, false, false, active, english));
         assertEquals("WAITING FOR TURN",
                 CoronaPokerGdxTable.localHudTurnStatus(
-                        false, false, null, english));
+                        false, false, false, false, active, english));
     }
 
     @Test
@@ -1135,7 +1153,7 @@ final class GdxTableViewStateTest {
         assertTrue(bustedState.presentedHoleCards("ana").stream()
                 .allMatch(card -> card.faceUp() && card.visible()));
         assertEquals("ESPECTADOR", CoronaPokerGdxTable.localHudTurnStatus(
-                false, false, busted, spanish));
+                false, false, false, false, busted, spanish));
         assertFalse(CoronaPokerGdxTable.usesTransientHolePresentation(
                 busted));
 
@@ -1150,7 +1168,7 @@ final class GdxTableViewStateTest {
                 warmingState.presentedHoleCards("ana").stream()
                         .map(TableSnapshot.CardSnapshot::code).toList());
         assertEquals("CALENTANDO", CoronaPokerGdxTable.localHudTurnStatus(
-                false, false, warming, spanish));
+                false, false, false, false, warming, spanish));
         assertFalse(CoronaPokerGdxTable.usesTransientHolePresentation(
                 warming));
         assertTrue(CoronaPokerGdxTable.usesTransientHolePresentation(

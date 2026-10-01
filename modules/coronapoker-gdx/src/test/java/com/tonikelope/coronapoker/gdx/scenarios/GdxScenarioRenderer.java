@@ -227,7 +227,7 @@ final class GdxScenarioRenderer implements TableRenderer {
         observeLiveConnectivity(initialState);
         streets.add(initialState.street());
         rememberSpectatorTransitions(initialState);
-        assertCanonicalSpectatorPresentation(initialState, projection);
+        assertCanonicalPlayerPresentation(initialState, projection);
         initialState.players().stream()
                 .filter(player -> player.nickname().equals(
                         initialState.localNickname()))
@@ -332,7 +332,7 @@ final class GdxScenarioRenderer implements TableRenderer {
             straddleHands.add(currentHand.get());
         }
         rememberSpectatorTransitions(snapshot);
-        assertCanonicalSpectatorPresentation(snapshot, projection);
+        assertCanonicalPlayerPresentation(snapshot, projection);
         TableSnapshot.PlayerSnapshot local = snapshot.players().stream()
                 .filter(player -> player.nickname().equals(
                         snapshot.localNickname()))
@@ -821,7 +821,7 @@ final class GdxScenarioRenderer implements TableRenderer {
                 "betting cannot overtake the accepted straddle reveal");
     }
 
-    private void assertCanonicalSpectatorPresentation(TableSnapshot snapshot,
+    private void assertCanonicalPlayerPresentation(TableSnapshot snapshot,
             GdxTableViewState projection) {
         for (TableSnapshot.PlayerSnapshot player : snapshot.players()) {
             List<TableSnapshot.CardSnapshot> cards
@@ -834,21 +834,40 @@ final class GdxScenarioRenderer implements TableRenderer {
                         && card.faceUp() && card.visible()),
                         player.nickname()
                         + " spectator must show two visible jokers");
-                if (player.nickname().equals(snapshot.localNickname())) {
-                    String status = CoronaPokerGdxTable.localHudTurnStatus(
-                            false, false, player, presentationText());
-                    assertFalse(presentationText().translate(
-                            "gdx.table.hud.waiting_turn")
-                            .equalsIgnoreCase(status),
-                            "a local spectator cannot be waiting for a turn");
-                    assertFalse(status.isBlank(),
-                            "a local spectator needs a canonical status");
-                }
             } else if (reactivatedSpectators.contains(player.nickname())) {
                 assertFalse(cards.size() == 2 && cards.stream().allMatch(
                         card -> "joker".equals(card.code())),
                         player.nickname()
                         + " kept spectator jokers after reactivation");
+            }
+            if (player.nickname().equals(snapshot.localNickname())) {
+                boolean folded = projection.foldedThisHand(player.nickname());
+                boolean allIn = projection.actionKind(player.nickname())
+                        == TableVisualEvent.PlayerAction.ActionKind.ALL_IN;
+                boolean settled = projection.hasHandResult(player.nickname());
+                boolean localTurn = player.nickname().equals(
+                        snapshot.currentTurnNickname());
+                String status = CoronaPokerGdxTable.localHudTurnStatus(
+                        localTurn, settled, folded, allIn,
+                        player, presentationText());
+                String waiting = presentationText().translate(
+                        "gdx.table.hud.waiting_turn");
+                if (player.spectator()) {
+                    assertFalse(waiting.equalsIgnoreCase(status),
+                            "a local spectator cannot be waiting for a turn");
+                    assertFalse(status.isBlank(),
+                            "a local spectator needs a canonical status");
+                } else if (settled || folded || allIn || player.exited()
+                        || !player.active()) {
+                    assertTrue(status.isBlank(),
+                            "a non-actionable local player cannot advertise a turn state");
+                } else {
+                    String expected = presentationText().translate(localTurn
+                            ? "gdx.table.hud.your_turn"
+                            : "gdx.table.hud.waiting_turn");
+                    assertTrue(expected.equalsIgnoreCase(status),
+                            "an actionable local player needs the matching turn state");
+                }
             }
         }
     }

@@ -11492,6 +11492,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean settledShowdown = hasSettledPresentation(
                 liveState.hasHandResult(seats[0].name), settledLocalWinner);
         TableSnapshot.PlayerSnapshot liveLocalPlayer = livePlayer(seats[0]);
+        boolean localAllIn = liveState.actionKind(seats[0].name)
+                == TableVisualEvent.PlayerAction.ActionKind.ALL_IN;
         boolean localFolded = shouldDimSeat(liveLocalPlayer == null
                 || liveLocalPlayer.active(), settledShowdown,
                 liveState.foldedThisHand(seats[0].name));
@@ -11702,7 +11704,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.begin();
         Seat local = seats[0];
         String turnStatus = localHudTurnStatus(localTurn, settledShowdown,
-                liveLocalPlayer, gameText);
+                localFolded, localAllIn, liveLocalPlayer, gameText);
         if (!turnStatus.isEmpty()) {
             drawFittedCenteredInBox(localTurn ? actionFont : smallFont,
                     turnStatus, hudX + 12f, hudY + 96f,
@@ -11841,12 +11843,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static String localHudTurnStatus(boolean localTurn,
-            boolean settledShowdown, TableSnapshot.PlayerSnapshot player,
+            boolean settledShowdown, boolean foldedThisHand,
+            boolean allInThisHand, TableSnapshot.PlayerSnapshot player,
             GdxGameText text) {
-        if (player != null && player.spectator()) {
+        if (player == null) {
+            return "";
+        }
+        if (player.spectator()) {
             return spectatorStatusLabel(player, text);
         }
-        if (settledShowdown) {
+        if (settledShowdown || foldedThisHand || allInThisHand
+                || player.exited() || !player.active()) {
             return "";
         }
         return uppercase(text.translate(localTurn

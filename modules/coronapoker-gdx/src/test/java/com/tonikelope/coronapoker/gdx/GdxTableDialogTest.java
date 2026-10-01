@@ -139,6 +139,8 @@ final class GdxTableDialogTest {
     void autoCallDialogKeepsEnabledUnlimitedAndFiveCentStepDistinct() {
         GdxTableDialog dialog = GdxTableDialog.autoCall(false, 0d);
         assertTrue(dialog.isAutoCall());
+        assertEquals(1040, dialog.preferredWidth(),
+                "the explanatory sentence must fit on one line");
         assertEquals("ACEPTAR", dialog.positiveLabel());
         assertFalse(dialog.optionEnabled());
         assertTrue(dialog.noLimit());

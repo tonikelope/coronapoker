@@ -31,7 +31,7 @@ final class GdxTableDialogLayoutTest {
     @Test
     void autoCallShowsUnlimitedAndMaximumAsSeparateControls() {
         GdxTableDialogLayout.AutoCall layout =
-                GdxTableDialogLayout.autoCall(500f, 200f, 820f);
+                GdxTableDialogLayout.autoCall(500f, 200f, 1040f);
 
         assertTrue(layout.enabled().y + layout.enabled().height
                 < layout.detail().y,

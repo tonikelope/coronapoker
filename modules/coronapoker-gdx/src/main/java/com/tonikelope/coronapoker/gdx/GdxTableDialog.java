@@ -101,7 +101,7 @@ final class GdxTableDialog {
                 tr(text, "gdx.auto_call.title", "AUTO IGUALAR"),
                 tr(text, "auto_call.nota",
                         "IMPORTE MÁXIMO QUE SE IGUALARÁ AUTOMÁTICAMENTE"),
-                GameDialogSink.Icon.NONE, 820, 0, false,
+                GameDialogSink.Icon.NONE, 1040, 0, false,
                 tr(text, "ui.cancelar", "CANCELAR"),
                 tr(text, "ui.aceptar", "ACEPTAR"), 5,
                 Integer.MAX_VALUE, cents);

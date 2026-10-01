@@ -13813,7 +13813,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 accent, 1f);
         if (dialog.isAutoCall()) {
             Rectangle detail = autoCallLayout.detail();
-            drawFittedWrappedCenteredInBox(smallFont, dialog.message(),
+            drawFittedCenteredInBox(smallFont, dialog.message(),
                     detail.x, detail.y, detail.width, detail.height,
                     Color.WHITE, 1f);
         } else {
@@ -17581,24 +17581,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         font.draw(batch, glyph,
                 x + (width - glyph.width) / 2f,
                 y + (height + glyph.height) / 2f);
-        font.setColor(Color.WHITE);
-        data.setScale(originalScaleX, originalScaleY);
-    }
-
-    private void drawFittedWrappedCenteredInBox(BitmapFont font, String text,
-            float x, float y, float width, float height,
-            Color color, float alpha) {
-        BitmapFont.BitmapFontData data = font.getData();
-        float originalScaleX = data.scaleX;
-        float originalScaleY = data.scaleY;
-        font.setColor(color.r, color.g, color.b, alpha);
-        glyph.setText(font, text, color, width, Align.center, true);
-        if (glyph.height > height) {
-            float fit = height / glyph.height;
-            data.setScale(originalScaleX * fit, originalScaleY * fit);
-            glyph.setText(font, text, color, width, Align.center, true);
-        }
-        font.draw(batch, glyph, x, y + (height + glyph.height) / 2f);
         font.setColor(Color.WHITE);
         data.setScale(originalScaleX, originalScaleY);
     }

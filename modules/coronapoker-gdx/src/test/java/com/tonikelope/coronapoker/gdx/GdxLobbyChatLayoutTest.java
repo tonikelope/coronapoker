@@ -106,6 +106,24 @@ final class GdxLobbyChatLayoutTest {
     }
 
     @Test
+    void lobbyInformationFramesAlignWithTheActionButtons() {
+        assertEquals(GdxFrontendScreen.LOBBY_LEFT_ACTION_X,
+                GdxFrontendScreen.LOBBY_LEFT_CONTENT_X);
+        assertEquals(GdxFrontendScreen.LOBBY_LEFT_ACTION_WIDTH,
+                GdxFrontendScreen.LOBBY_LEFT_CONTENT_WIDTH);
+    }
+
+    @Test
+    void participantCountHasOpticalAlignmentAndComfortableRightMargin() {
+        assertEquals(GdxFrontendScreen.LOBBY_ROSTER_TITLE_BASELINE + 4f,
+                GdxFrontendScreen.LOBBY_ROSTER_COUNT_BASELINE);
+        float rosterPanelRight = 1425f + 460f;
+        float countRight = GdxFrontendScreen.LOBBY_ROSTER_COUNT_X
+                + GdxFrontendScreen.LOBBY_ROSTER_COUNT_WIDTH / 2f;
+        assertEquals(21f, rosterPanelRight - countRight);
+    }
+
+    @Test
     void everyLobbyInformationRowStaysInsideItsFrameAtMaximumOccupancy() {
         int maximumVisibleRows = 3;
         float bottom = GdxFrontendScreen.LOBBY_GAME_INFO_Y;

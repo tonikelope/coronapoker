@@ -103,8 +103,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float MENU_LOGO_X = 42f;
     static final float MENU_LOGO_TOP = 32f;
     static final float MENU_LOGO_WIDTH = 320f;
-    static final float LOBBY_LEFT_CONTENT_X = 60f;
-    static final float LOBBY_LEFT_CONTENT_WIDTH = 380f;
+    static final float LOBBY_LEFT_ACTION_X = 70f;
+    static final float LOBBY_LEFT_ACTION_WIDTH = 360f;
+    static final float LOBBY_LEFT_CONTENT_X = LOBBY_LEFT_ACTION_X;
+    static final float LOBBY_LEFT_CONTENT_WIDTH = LOBBY_LEFT_ACTION_WIDTH;
     static final float LOBBY_CONNECTION_Y = 674f;
     static final float LOBBY_CONNECTION_HEIGHT = 82f;
     static final float LOBBY_PASSWORD_Y = 608f;
@@ -117,6 +119,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float LOBBY_KICK_BUTTON_HEIGHT = 62f;
     static final float LOBBY_PLAY_BUTTON_Y = 198f;
     static final float LOBBY_PLAY_BUTTON_HEIGHT = 76f;
+    static final float LOBBY_ROSTER_TITLE_BASELINE = 795f;
+    static final float LOBBY_ROSTER_COUNT_X = 1828f;
+    static final float LOBBY_ROSTER_COUNT_BASELINE = 799f;
+    static final float LOBBY_ROSTER_COUNT_WIDTH = 72f;
     private static final float MENU_REVEAL_SECONDS = 0.78f;
     private static final URI PUBLIC_ADDRESS_URI = URI.create(
             "https://api.ipify.org");
@@ -3143,11 +3149,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 LOBBY_LEFT_CONTENT_WIDTH,
                 state.host() ? LOBBY_GAME_INFO_HEIGHT : 138f);
         if (state.host()) {
-            button(70f, LOBBY_PASSWORD_Y, 360f, LOBBY_PASSWORD_HEIGHT,
+            button(LOBBY_LEFT_ACTION_X, LOBBY_PASSWORD_Y,
+                    LOBBY_LEFT_ACTION_WIDTH, LOBBY_PASSWORD_HEIGHT,
                     uppercase(gameText.translate("auth.menu_cambiar_password")),
                     false, this::openLobbyPasswordDialog,
                     !lobbyCommandPending && !state.startingOrStarted());
-            lobbyBotButton(70f, LOBBY_BOT_BUTTON_Y, 360f,
+            lobbyBotButton(LOBBY_LEFT_ACTION_X, LOBBY_BOT_BUTTON_Y,
+                    LOBBY_LEFT_ACTION_WIDTH,
                     LOBBY_BOT_BUTTON_HEIGHT,
                     uppercase(gameText.translate("ui.anadir_bot")),
                     () -> submitLobbyCommand(new LobbyCommand.AddBot(), null),
@@ -3156,13 +3164,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             && !state.startingOrStarted());
             boolean kickEnabled = selectedRemoteParticipant(state) != null
                     && !state.startingOrStarted();
-            themedButton(70f, LOBBY_KICK_BUTTON_Y, 360f,
+            themedButton(LOBBY_LEFT_ACTION_X, LOBBY_KICK_BUTTON_Y,
+                    LOBBY_LEFT_ACTION_WIDTH,
                     LOBBY_KICK_BUTTON_HEIGHT,
                     uppercase(gameText.translate("ui.expulsar_jugador")),
                     ButtonTone.DANGER,
                     this::kickSelectedParticipant,
                     !lobbyCommandPending && kickEnabled);
-            themedButton(70f, LOBBY_PLAY_BUTTON_Y, 360f,
+            themedButton(LOBBY_LEFT_ACTION_X, LOBBY_PLAY_BUTTON_Y,
+                    LOBBY_LEFT_ACTION_WIDTH,
                     LOBBY_PLAY_BUTTON_HEIGHT,
                     uppercase(gameText.translate("ui.a_jugar")),
                     ButtonTone.POSITIVE,
@@ -3219,10 +3229,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         panel(1425f, 180f, 460f, 650f, "");
         textFit(actionFont,
                 uppercase(gameText.translate("ui.participantes_conectados")),
-                1455f, 795f, GOLD, false, 335f);
+                1455f, LOBBY_ROSTER_TITLE_BASELINE, GOLD, false, 335f);
         textFit(actionFont, state.participants().size() + "/"
-                + LobbySnapshot.MAX_PARTICIPANTS, 1842f, 795f, CYAN,
-                true, 72f);
+                + LobbySnapshot.MAX_PARTICIPANTS, LOBBY_ROSTER_COUNT_X,
+                LOBBY_ROSTER_COUNT_BASELINE, CYAN, true,
+                LOBBY_ROSTER_COUNT_WIDTH);
         shapes.setColor(new Color(0x31445f90));
         shapes.rect(1455f, 759f, 400f, 1f);
         float participantY = 705f;

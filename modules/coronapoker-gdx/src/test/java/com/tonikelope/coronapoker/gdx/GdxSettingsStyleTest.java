@@ -18,6 +18,10 @@ final class GdxSettingsStyleTest {
 
     @Test
     void canonicalControlsRetainTheMainScreenPaletteAndGeometry() {
+        assertEquals(0xcc, GdxSettingsStyle.PANEL_RGBA & 0xff,
+                "all settings entry points must use 80% panel opacity");
+        assertEquals(0, GdxSettingsStyle.CONTENT_RGBA & 0xff,
+                "the content well must not compound the glass opacity");
         assertEquals(0x111a2add, GdxSettingsStyle.PANEL_LIGHT_RGBA);
         assertEquals(0x36d9ffff, GdxSettingsStyle.CYAN_RGBA);
         assertEquals(0xffe07aff, GdxSettingsStyle.GOLD_RGBA);

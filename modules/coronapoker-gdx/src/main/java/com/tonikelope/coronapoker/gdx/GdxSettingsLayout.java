@@ -11,18 +11,19 @@ final class GdxSettingsLayout {
     static final float CONTENT_HORIZONTAL_INSET = 34f;
     /** Left-only inset used by every control governed by another switch. */
     static final float CHILD_ROW_INDENT = 38f;
+    static final float TITLE_BASELINE_TOP_INSET = 48f;
     // There is one heading band only.  Settings used to reserve another band
     // for the redundant "Configuracion de CoronaPoker" subtitle, leaving a
     // conspicuous hole after that subtitle was removed.
-    static final float MAIN_TAB_TOP_INSET = 150f;
-    static final float SUB_TAB_TOP_INSET = 222f;
+    static final float MAIN_TAB_TOP_INSET = 164f;
+    static final float SUB_TAB_TOP_INSET = 236f;
     static final int MAX_SUB_TABS_PER_ROW = 7;
     static final float SUB_TAB_ROW_GAP = 42f;
     // Subsection names already live in the tab row. Start the controls directly
     // below it instead of repeating the active tab as a yellow heading.
     static final float CONTENT_ROW_TOP_INSET = 92f;
     static final float CONTENT_BOTTOM_INSET = 112f;
-    static final float CONTENT_TOTAL_VERTICAL_INSET = 350f;
+    static final float CONTENT_TOTAL_VERTICAL_INSET = 364f;
     static final float FOOTER_BOTTOM_INSET = 24f;
     static final float FOOTER_BUTTON_HEIGHT = 58f;
     /** Common row geometry for menu, waiting-room and live-table settings. */

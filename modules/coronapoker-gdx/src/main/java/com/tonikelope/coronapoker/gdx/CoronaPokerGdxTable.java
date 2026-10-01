@@ -14606,7 +14606,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 gameText.translate("settings.ajustes").toUpperCase(
                         Locale.forLanguageTag(gameText.language())),
                 panelX + 34f,
-                panelY + panelH - 48f, panelW - 68f,
+                panelY + panelH
+                        - GdxSettingsLayout.TITLE_BASELINE_TOP_INSET,
+                panelW - 68f,
                 POT_GOLD, alpha);
         for (int i = 0; i < sections.size(); i++) {
             Rectangle tab = frame.mainTab(i);

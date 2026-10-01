@@ -188,7 +188,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             + "    gl_FragColor = pixel;\n"
             + "}\n";
     private static final Color BACKGROUND = new Color(0x031a14ff);
-    static final int SCREEN_PANEL_RGBA = 0x101a2ecc;
+    static final int SCREEN_PANEL_RGBA = GdxSettingsStyle.PANEL_RGBA;
     private static final Color PANEL = new Color(SCREEN_PANEL_RGBA);
     private static final Color PANEL_LIGHT = new Color(
             GdxSettingsStyle.PANEL_LIGHT_RGBA);
@@ -5521,7 +5521,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // when the numeric coordinates appear separated.
         textFit(titleFont, uppercase(gameText.translate("settings.ajustes")),
                 panelX + 34f,
-                panelY + panelH - 48f, GOLD, false, panelW - 68f);
+                panelY + panelH - GdxSettingsLayout.TITLE_BASELINE_TOP_INSET,
+                GOLD, false, panelW - 68f);
         for (int i = 0; i < sections.size(); i++) {
             final int selected = i;
             Rectangle tab = frame.mainTab(i);

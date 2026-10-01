@@ -24,6 +24,10 @@ final class GdxSettingsStyle {
     static final int SMALL_FONT_SIZE = 18;
     static final int TINY_FONT_SIZE = 15;
 
+    /** One glass layer shared by menu, lobby and live-table settings. */
+    static final int PANEL_RGBA = 0x101a2ecc;
+    /** The content well is an outline only; it must not compound panel alpha. */
+    static final int CONTENT_RGBA = 0x101a2e00;
     static final int PANEL_LIGHT_RGBA = 0x111a2add;
     static final int CYAN_RGBA = 0x36d9ffff;
     static final int CYAN_DARK_RGBA = 0x176b83ff;

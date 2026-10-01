@@ -22,13 +22,13 @@ final class GdxSettingsChrome {
     private static final Color LINE = new Color(GdxSettingsStyle.LINE_RGBA);
     // Full-screen settings is another frontend surface, so its glass opacity
     // must match menu/statistics/table setup rather than an opaque modal.
-    private static final Color PANEL = new Color(
-            GdxFrontendScreen.SCREEN_PANEL_RGBA);
+    private static final Color PANEL = new Color(GdxSettingsStyle.PANEL_RGBA);
     // The content well sits inside PANEL. Reapplying the same translucent fill
     // here compounded both alpha layers (0.80 + 0.80 visually became about
     // 0.96), making settings look opaque. Keep only its outline so the whole
     // screen has one uniform glass layer; rows retain their own backgrounds.
-    private static final Color CONTENT = new Color(0x101a2e00);
+    private static final Color CONTENT = new Color(
+            GdxSettingsStyle.CONTENT_RGBA);
     private static final Color TAB = new Color(0x0b1729b8);
     private static final Color ACTIVE_TAB = new Color(0x123047e8);
     private static final Color ACTIVE_SUBTAB = new Color(0x171b1de8);

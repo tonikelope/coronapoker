@@ -33,6 +33,8 @@ final class GdxSettingsLayout {
     static final float SCROLLBAR_WIDTH = 14f;
     /** Generous mouse target around the visible bar. */
     static final float SCROLLBAR_HIT_WIDTH = 28f;
+    /** Same measured wheel travel used by the lobby and quick-table chats. */
+    static final float PIXEL_SCROLL_WHEEL_STEP = 48f;
 
     private GdxSettingsLayout() {
     }
@@ -158,6 +160,49 @@ final class GdxSettingsLayout {
     }
 
     /**
+     * Continuous row layout for settings lists.  Unlike the legacy
+     * first-row/page model, the offset is expressed in pixels so a wheel tick
+     * never has to discard a complete row (or a complete shortcuts page).
+     */
+    static PixelRows pixelRows(float firstRowY, float viewportBottom,
+            float viewportTop, int totalRows, float requestedOffset) {
+        float viewportHeight = Math.max(0f, viewportTop - viewportBottom);
+        float contentHeight = totalRows <= 0 ? 0f
+                : ROW_HEIGHT + Math.max(0, totalRows - 1) * ROW_STRIDE;
+        float maximum = Math.max(0f, contentHeight - viewportHeight);
+        float offset = Math.max(0f, Math.min(maximum, requestedOffset));
+        int first = totalRows <= 0 ? 0 : Math.max(0,
+                (int) Math.floor(offset / ROW_STRIDE));
+        int last = totalRows <= 0 ? 0 : Math.min(totalRows,
+                (int) Math.ceil((offset + viewportHeight) / ROW_STRIDE));
+        return new PixelRows(firstRowY, viewportBottom, viewportTop,
+                totalRows, first, last, offset, maximum, contentHeight);
+    }
+
+    static float pixelScrollAfterWheel(float current, float maximum,
+            float amountY) {
+        return Math.max(0f, Math.min(Math.max(0f, maximum),
+                current + amountY * PIXEL_SCROLL_WHEEL_STEP));
+    }
+
+    static float pixelScrollbarThumbHeight(float trackHeight,
+            float viewportHeight, float contentHeight) {
+        if (contentHeight <= 0f || viewportHeight <= 0f) return trackHeight;
+        return Math.min(trackHeight, Math.max(42f,
+                trackHeight * Math.min(1f, viewportHeight / contentHeight)));
+    }
+
+    /** Row zero is at the top, therefore the zero-offset thumb is at top. */
+    static float pixelScrollFromScrollbar(float pointerY, float trackY,
+            float trackHeight, float thumbHeight, float maximum) {
+        if (maximum <= 0f) return 0f;
+        float travel = Math.max(1f, trackHeight - thumbHeight);
+        float fromBottom = Math.max(0f, Math.min(1f,
+                (pointerY - trackY - thumbHeight / 2f) / travel));
+        return (1f - fromBottom) * maximum;
+    }
+
+    /**
      * Converts a pointer position on a settings scrollbar into its first
      * visible row. Row zero lives at the top, matching the visual thumb.
      */
@@ -232,6 +277,24 @@ final class GdxSettingsLayout {
         boolean valueContains(float pointerX) {
             return pointerX > value.x
                     && pointerX < value.x + value.width;
+        }
+    }
+
+    record PixelRows(float firstRowY, float viewportBottom,
+            float viewportTop, int totalRows, int firstIndex,
+            int lastExclusive, float offset, float maximum,
+            float contentHeight) {
+
+        float viewportHeight() {
+            return Math.max(0f, viewportTop - viewportBottom);
+        }
+
+        float rowY(int index) {
+            return firstRowY - index * ROW_STRIDE + offset;
+        }
+
+        boolean scrollable() {
+            return maximum > 0f;
         }
     }
 }

@@ -160,4 +160,43 @@ final class GdxSettingsLayoutTest {
         assertTrue(GdxSettingsLayout.SCROLLBAR_HIT_WIDTH
                 > GdxSettingsLayout.SCROLLBAR_WIDTH);
     }
+
+    @Test
+    void settingsListsScrollContinuouslyAndUseAllAvailableHeight() {
+        GdxSettingsLayout.PixelRows initial = GdxSettingsLayout.pixelRows(
+                600f, 182f, 668f, 20, 0f);
+
+        assertEquals(0f, initial.offset());
+        assertEquals(0, initial.firstIndex());
+        assertEquals(7, initial.lastExclusive(),
+                "shortcuts must fill the viewport instead of stopping at "
+                + "the old five-row page boundary");
+        assertEquals(912f, initial.maximum());
+
+        float afterWheel = GdxSettingsLayout.pixelScrollAfterWheel(
+                initial.offset(), initial.maximum(), 1f);
+        GdxSettingsLayout.PixelRows scrolled = GdxSettingsLayout.pixelRows(
+                600f, 182f, 668f, 20, afterWheel);
+        assertEquals(48f, scrolled.offset());
+        assertEquals(648f, scrolled.rowY(0),
+                "a wheel tick must move rows by pixels, not one full row");
+    }
+
+    @Test
+    void pixelScrollbarDragCoversTheWholeContinuousRange() {
+        float trackY = 100f;
+        float trackHeight = 486f;
+        float contentHeight = 1_398f;
+        float maximum = contentHeight - trackHeight;
+        float thumb = GdxSettingsLayout.pixelScrollbarThumbHeight(
+                trackHeight, trackHeight, contentHeight);
+
+        assertEquals(0f, GdxSettingsLayout.pixelScrollFromScrollbar(
+                trackY + trackHeight - thumb / 2f, trackY, trackHeight,
+                thumb, maximum), 0.001f);
+        assertEquals(maximum, GdxSettingsLayout.pixelScrollFromScrollbar(
+                trackY + thumb / 2f, trackY, trackHeight, thumb, maximum),
+                0.001f);
+        assertTrue(thumb > 42f && thumb < trackHeight);
+    }
 }

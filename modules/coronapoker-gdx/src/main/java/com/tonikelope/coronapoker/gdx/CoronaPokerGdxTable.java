@@ -17126,7 +17126,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     Color.WHITE, cardsReveal);
         }
         drawLeftInBox(versionFont,
-                "CoronaPoker " + ApplicationMetadata.VERSION,
+                productVersionLabelFor(presentationSettings),
                 16f, 2f, 240f, 20f,
                 new Color(0xd5dfebff), 0.74f * reveal);
         batch.setColor(Color.WHITE);
@@ -17147,6 +17147,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 play(screenshotSound, 0.92f, 1f);
             }
         }
+    }
+
+    static String productVersionLabelFor(
+            GdxGamePresentationSettings presentationSettings) {
+        return presentationSettings == null
+                ? "CoronaPoker " + ApplicationMetadata.VERSION
+                : presentationSettings.productVersionLabel();
     }
 
     private void drawFinalExitPending(float width, float height) {

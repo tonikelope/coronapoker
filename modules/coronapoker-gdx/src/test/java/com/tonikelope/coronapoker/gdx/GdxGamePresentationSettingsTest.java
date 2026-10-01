@@ -405,6 +405,8 @@ final class GdxGamePresentationSettingsTest {
             assertEquals("secret", settings.modUpdatePassword());
             assertEquals("CoronaPoker " + ApplicationMetadata.VERSION
                     + " (Test v1)", settings.productVersionLabel());
+            assertEquals(settings.productVersionLabel(),
+                    CoronaPokerGdxTable.productVersionLabelFor(settings));
         } finally {
             preferences.close();
         }
@@ -418,5 +420,11 @@ final class GdxGamePresentationSettingsTest {
         assertEquals("Chilean MOD",
                 GdxGamePresentationSettings.modDisplayName(
                         "Chilean MOD", ""));
+    }
+
+    @Test
+    void tableVersionLabelFallsBackWhenPresentationSettingsAreUnavailable() {
+        assertEquals("CoronaPoker " + ApplicationMetadata.VERSION,
+                CoronaPokerGdxTable.productVersionLabelFor(null));
     }
 }

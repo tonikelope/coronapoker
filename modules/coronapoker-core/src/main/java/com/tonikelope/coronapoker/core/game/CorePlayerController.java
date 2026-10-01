@@ -32,6 +32,11 @@ public final class CorePlayerController implements GamePlayerController {
     private volatile Supplier<Integer> committedRebuy = () -> null;
 
     private CorePlayerController(String nickname, boolean local, boolean automated) {
+        this(nickname, local, automated, null);
+    }
+
+    private CorePlayerController(String nickname, boolean local,
+            boolean automated, java.util.Random botRandom) {
         this.local = local;
         this.state = local ? new LocalPlayerState(nickname)
                 : new RemotePlayerState(nickname);
@@ -40,7 +45,7 @@ public final class CorePlayerController implements GamePlayerController {
         this.state.bindHoleCards(firstCard.getState(), secondCard.getState());
         this.state.setActive(true);
         if (state instanceof RemotePlayerState remote) remote.setBot(automated);
-        this.bot = automated ? new Bot(this) : null;
+        this.bot = automated ? new Bot(this, botRandom) : null;
     }
 
     public static CorePlayerController local(String nickname) {
@@ -57,10 +62,8 @@ public final class CorePlayerController implements GamePlayerController {
 
     public static CorePlayerController bot(String nickname,
             java.util.Random decisionRandom) {
-        CorePlayerController player = bot(nickname);
-        player.bot.setRng(Objects.requireNonNull(decisionRandom,
-                "decisionRandom"));
-        return player;
+        return new CorePlayerController(nickname, false, true,
+                Objects.requireNonNull(decisionRandom, "decisionRandom"));
     }
 
     public boolean isLocal() {

@@ -356,6 +356,54 @@ class GdxScenarioContractTest {
     }
 
     @Test
+    void everyScenarioFactoryInjectsReplayableEntropyAndSessionIds()
+            throws IOException {
+        Path root = repositoryRoot();
+        String integration = Files.readString(root.resolve(
+                "modules/coronapoker-gdx/src/test/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxNetworkHumanProjectionIntegrationTest.java"),
+                StandardCharsets.UTF_8);
+        String node = Files.readString(root.resolve(
+                "modules/coronapoker-gdx/src/test/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxMultiprocessNodeMain.java"),
+                StandardCharsets.UTF_8);
+        String multiprocess = Files.readString(root.resolve(
+                "modules/coronapoker-gdx/src/test/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxMultiprocessScenarioTest.java"),
+                StandardCharsets.UTF_8);
+
+        assertEquals(occurrences(integration, "new CoreGameTableFactory"),
+                occurrences(integration, ".entropy()"),
+                "a scenario table factory bypasses replayable game entropy");
+        assertEquals(occurrences(integration, "new NetworkLobbyGateway"),
+                occurrences(integration, ".sessionIds()"),
+                "a scenario gateway bypasses replayable session ids");
+        assertTrue(node.contains("coronapoker.qa.scenarioSeedKey"),
+                "multiprocess nodes must isolate entropy by scenario/peer/phase");
+        assertTrue(multiprocess.contains("coronapoker.qa.scenarioSeed"),
+                "the scenario seed must reach every child JVM");
+    }
+
+    @Test
+    void dealerGamePathRandomnessCannotBypassInjectedEntropy()
+            throws IOException {
+        String dealer = Files.readString(repositoryRoot().resolve(
+                "modules/coronapoker-core/src/main/java/com/tonikelope/"
+                + "coronapoker/Crupier.java"), StandardCharsets.UTF_8);
+        Set.of("CryptoRandom.nextInt(", "CryptoRandom.nextDouble(",
+                        "CryptoRandom.shuffle(", "Math.random(",
+                        "ThreadLocalRandom.current(", "Collections.shuffle(")
+                .forEach(source -> assertFalse(dealer.contains(source),
+                        "game-path entropy bypasses GameEntropySource: "
+                                + source));
+    }
+
+    private static int occurrences(String text, String needle) {
+        return (text.length() - text.replace(needle, "").length())
+                / needle.length();
+    }
+
+    @Test
     void officialRunnerIsolatesEveryMappedTestInItsOwnMavenProcess()
             throws IOException {
         Path root = repositoryRoot();

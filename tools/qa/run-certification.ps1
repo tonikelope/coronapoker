@@ -291,6 +291,7 @@ for ($index = 0; $index -lt $schedule.Count; $index++) {
         '-Dsurefire.failIfNoSpecifiedTests=false',
         '-Dcoronapoker.gdx.excludedGroups=',
         "-Dqa.sim.seed=$scenarioSeed",
+        "-Dcoronapoker.qa.scenarioSeed=$scenarioSeed",
         "-Dcoronapoker.qa.gdx.soakHands=$SoakHands",
         "-Dcoronapoker.qa.gdx.headsUpHands=$($modeDefaults.HeadsUp)",
         "-Dcoronapoker.qa.gdx.fullMixedHands=$($modeDefaults.FullMixed)",

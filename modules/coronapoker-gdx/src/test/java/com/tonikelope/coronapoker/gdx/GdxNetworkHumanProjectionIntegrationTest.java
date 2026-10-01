@@ -1,6 +1,7 @@
 package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -61,6 +62,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
@@ -84,7 +86,16 @@ class GdxNetworkHumanProjectionIntegrationTest {
      * shuffle proofs, bot and network path remain unchanged; only the entropy
      * source of this isolated test JVM is replayable.
      */
-    private static final long IWTSTH_SCENARIO_SEED = 0x495754535448L;
+    private static final long IWTSTH_SCENARIO_DOMAIN = 0x495754535448L;
+    private static final long DEFAULT_SCENARIO_SEED = 0x434f524f4e41514cL;
+    private static final String SCENARIO_SEED_PROPERTY
+            = "coronapoker.qa.scenarioSeed";
+    private static final String SCENARIO_SEED_KEY_PROPERTY
+            = "coronapoker.qa.scenarioSeedKey";
+    private static final ConcurrentHashMap<String, AtomicLong>
+            SCENARIO_GENERATIONS = new ConcurrentHashMap<>();
+    private static final Duration IWTSTH_SCENARIO_TIMEOUT
+            = Duration.ofSeconds(60);
 
     private static int autoTarget(int selection, ActionControlState controls,
             boolean preflop, double bigBlind, boolean autoCallEnabled,
@@ -101,6 +112,82 @@ class GdxNetworkHumanProjectionIntegrationTest {
             case ALL_IN -> 6;
             case NONE -> 0;
         };
+    }
+
+    @Test
+    void scenarioEntropyReplaysEveryGamePathRandomDomainIndependently() {
+        ScenarioGameEntropy first = new ScenarioGameEntropy(123456789L);
+        ScenarioGameEntropy replay = new ScenarioGameEntropy(123456789L);
+
+        byte[] firstHand = new byte[32];
+        byte[] replayHand = new byte[32];
+        first.fillHandId(firstHand);
+        replay.fillHandId(replayHand);
+        assertArrayEquals(firstHand, replayHand);
+
+        byte[] firstLocal = new byte[48];
+        byte[] replayLocal = new byte[48];
+        first.fillLocalShuffleSeed(firstLocal);
+        replay.fillLocalShuffleSeed(replayLocal);
+        assertArrayEquals(firstLocal, replayLocal);
+
+        byte[] firstPeerA = new byte[48];
+        byte[] firstPeerB = new byte[48];
+        byte[] replayPeerA = new byte[48];
+        byte[] replayPeerB = new byte[48];
+        first.fillPeerShuffleSeed("A", firstPeerA);
+        first.fillPeerShuffleSeed("B", firstPeerB);
+        replay.fillPeerShuffleSeed("A", replayPeerA);
+        replay.fillPeerShuffleSeed("B", replayPeerB);
+        assertArrayEquals(firstPeerA, replayPeerA);
+        assertArrayEquals(firstPeerB, replayPeerB);
+
+        byte[] firstBot = new byte[48];
+        byte[] replayBot = new byte[48];
+        first.fillBotShuffleSeed("CoronaBot$1", firstBot);
+        replay.fillBotShuffleSeed("CoronaBot$1", replayBot);
+        assertArrayEquals(firstBot, replayBot);
+
+        byte[] firstSeatNonce = new byte[32];
+        byte[] replaySeatNonce = new byte[32];
+        byte[] firstSeatReveal = new byte[32];
+        byte[] replaySeatReveal = new byte[32];
+        first.fillSeatDrawNonce(firstSeatNonce);
+        replay.fillSeatDrawNonce(replaySeatNonce);
+        first.fillSeatDrawReveal("Anfitrion", firstSeatReveal);
+        replay.fillSeatDrawReveal("Anfitrion", replaySeatReveal);
+        assertArrayEquals(firstSeatNonce, replaySeatNonce);
+        assertArrayEquals(firstSeatReveal, replaySeatReveal);
+        assertEquals(first.botDecisionRandom("CoronaBot$1").nextLong(),
+                replay.botDecisionRandom("CoronaBot$1").nextLong());
+        assertEquals(first.botStraddleDecision("CoronaBot$1"),
+                replay.botStraddleDecision("CoronaBot$1"));
+
+        List<Integer> firstSeats = new java.util.ArrayList<>(
+                List.of(1, 2, 3, 4, 5));
+        List<Integer> replaySeats = new java.util.ArrayList<>(
+                List.of(1, 2, 3, 4, 5));
+        first.shuffleSeatOrder(firstSeats);
+        replay.shuffleSeatOrder(replaySeats);
+        assertEquals(firstSeats, replaySeats);
+
+        List<Integer> firstOdds = new java.util.ArrayList<>(
+                List.of(1, 2, 3, 4, 5));
+        List<Integer> replayOdds = new java.util.ArrayList<>(
+                List.of(1, 2, 3, 4, 5));
+        first.shuffleOddsDeck(firstOdds);
+        replay.shuffleOddsDeck(replayOdds);
+        assertEquals(firstOdds, replayOdds);
+
+        List<Integer> firstCinematics = new java.util.ArrayList<>(
+                List.of(1, 2, 3, 4, 5));
+        List<Integer> replayCinematics = new java.util.ArrayList<>(
+                List.of(1, 2, 3, 4, 5));
+        first.shuffleAllInCinematicBag(firstCinematics);
+        replay.shuffleAllInCinematicBag(replayCinematics);
+        assertEquals(firstCinematics, replayCinematics);
+        assertEquals(first.allInCinematicSwapIndex(4),
+                replay.allInCinematicSwapIndex(4));
     }
 
     @Tag("certification")
@@ -606,14 +693,20 @@ class GdxNetworkHumanProjectionIntegrationTest {
         hostDatabase.start();
         clientDatabase.start();
         AtomicReference<GameLaunchContext> hostContext = new AtomicReference<>();
+        ScenarioRandomness hostRandomness = scenarioRandomness(
+                temporary.resolve("peer-timeout-host"));
+        ScenarioRandomness clientRandomness = scenarioRandomness(
+                temporary.resolve("peer-timeout-client"));
         CoreGameTableFactory hostCore = new CoreGameTableFactory(hostDatabase,
                 (key, arguments) -> key, GameLogSink.noop(),
                 GameDialogSink.noop(), GameDecisionSink.noop(),
-                acceleratedSettings(), GameCinematicAssets.none());
+                acceleratedSettings(), GameCinematicAssets.none(),
+                hostRandomness.entropy());
         CoreGameTableFactory clientCore = new CoreGameTableFactory(clientDatabase,
                 (key, arguments) -> key, GameLogSink.noop(),
                 GameDialogSink.noop(), GameDecisionSink.noop(),
-                acceleratedSettings(), GameCinematicAssets.none());
+                acceleratedSettings(), GameCinematicAssets.none(),
+                clientRandomness.entropy());
         GameTableFactory hostTables = context -> {
             hostContext.set(context);
             return hostCore.create(context);
@@ -622,10 +715,12 @@ class GdxNetworkHumanProjectionIntegrationTest {
         try (hostDatabase; clientDatabase;
              NetworkLobbyGateway hostGateway = new NetworkLobbyGateway(
                      temporary.resolve("peer-timeout-host"), hostTables,
-                     new RecoverableGameRepository(hostDatabase));
+                     new RecoverableGameRepository(hostDatabase),
+                     hostRandomness.sessionIds());
              NetworkLobbyGateway clientGateway = new NetworkLobbyGateway(
                      temporary.resolve("peer-timeout-client"), clientTables,
-                     new RecoverableGameRepository(clientDatabase))) {
+                     new RecoverableGameRepository(clientDatabase),
+                     clientRandomness.sessionIds())) {
             LobbySession host = hostGateway.open(request(false,
                     "Anfitrion", port)).get(5, TimeUnit.SECONDS);
             LobbySession client = clientGateway.open(request(true,
@@ -933,7 +1028,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
 
                 await(() -> hostRenderer.iwtsthComplete()
                                 || clientRenderer.iwtsthComplete(),
-                        Duration.ofSeconds(35));
+                        IWTSTH_SCENARIO_TIMEOUT);
                 assertTrue(hostRenderer.requested.get()
                                 ^ clientRenderer.requested.get(),
                         "only the winner should see the remote muck as a candidate");
@@ -977,7 +1072,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 table.attach(renderer).toCompletableFuture()
                         .get(5, TimeUnit.SECONDS);
 
-                await(renderer::iwtsthComplete, Duration.ofSeconds(35));
+                await(renderer::iwtsthComplete, IWTSTH_SCENARIO_TIMEOUT);
                 assertTrue(renderer.candidate.get().startsWith("CoronaBot$"),
                         "the local bot muck never became the Swing-compatible "
                                 + "blinking IWTSTH target");
@@ -2306,12 +2401,14 @@ class GdxNetworkHumanProjectionIntegrationTest {
 
     private static NetworkLobbyGateway gateway(Path data, DatabaseService database,
             GameDecisionSink decisions, GamePresentationSettings settings) {
+        ScenarioRandomness randomness = scenarioRandomness(data);
         CoreGameTableFactory tables = new CoreGameTableFactory(database,
                 new GdxGameText("es"), GameLogSink.noop(),
                 GameDialogSink.noop(), decisions,
-                settings, GameCinematicAssets.none());
+                settings, GameCinematicAssets.none(), randomness.entropy());
         return new NetworkLobbyGateway(data, tables,
-                new RecoverableGameRepository(database));
+                new RecoverableGameRepository(database),
+                randomness.sessionIds());
     }
 
     private static NetworkLobbyGateway iwtsthGateway(Path data,
@@ -2337,19 +2434,15 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 return CompletableFuture.completedFuture(null);
             }
         };
+        ScenarioRandomness randomness = scenarioRandomness(data,
+                IWTSTH_SCENARIO_DOMAIN);
         CoreGameTableFactory tables = new CoreGameTableFactory(database,
                 (key, arguments) -> key, GameLogSink.noop(), accept,
                 GameDecisionSink.noop(), iwtsthSettings(),
-                GameCinematicAssets.none(), new ScenarioGameEntropy(
-                        IWTSTH_SCENARIO_SEED
-                                ^ data.getFileName().toString().hashCode()));
-        byte[] sessionId = new byte[16];
-        new Random(mixScenarioSeed(IWTSTH_SCENARIO_SEED
-                ^ data.getFileName().toString().hashCode()
-                ^ 0x53455353494f4eL)).nextBytes(sessionId);
+                GameCinematicAssets.none(), randomness.entropy());
         return new NetworkLobbyGateway(data, tables,
                 new RecoverableGameRepository(database),
-                () -> sessionId.clone());
+                randomness.sessionIds());
     }
 
     /** Independent deterministic domains restricted to scenario code. */
@@ -2360,6 +2453,13 @@ class GdxNetworkHumanProjectionIntegrationTest {
         private final Random localShuffle;
         private final Random peerShuffle;
         private final Random botShuffle;
+        private final Random seatNonce;
+        private final Map<String, Random> seatReveals
+                = new java.util.HashMap<>();
+        private final Random botStraddle;
+        private final Random seatOrder;
+        private final Random oddsSimulation;
+        private final Random allInCinematic;
 
         private ScenarioGameEntropy(long seed) {
             this.seed = seed;
@@ -2367,6 +2467,11 @@ class GdxNetworkHumanProjectionIntegrationTest {
             localShuffle = new Random(mix(seed ^ 0x4c4f43414cL));
             peerShuffle = new Random(mix(seed ^ 0x50454552L));
             botShuffle = new Random(mix(seed ^ 0x424f54L));
+            seatNonce = new Random(mix(seed ^ 0x534541544e4f4e43L));
+            botStraddle = new Random(mix(seed ^ 0x5354524144444c45L));
+            seatOrder = new Random(mix(seed ^ 0x534541544f524445L));
+            oddsSimulation = new Random(mix(seed ^ 0x4f4444534d4f4e54L));
+            allInCinematic = new Random(mix(seed ^ 0x414c4c494e43494eL));
         }
 
         @Override
@@ -2392,9 +2497,46 @@ class GdxNetworkHumanProjectionIntegrationTest {
         }
 
         @Override
+        public synchronized void fillSeatDrawNonce(byte[] target) {
+            seatNonce.nextBytes(target);
+        }
+
+        @Override
+        public synchronized void fillSeatDrawReveal(String nickname,
+                byte[] target) {
+            seatReveals.computeIfAbsent(nickname, key -> new Random(mix(seed
+                    ^ key.hashCode() ^ 0x534541545245564cL))).nextBytes(target);
+        }
+
+        @Override
         public Random botDecisionRandom(String nickname) {
             return new Random(mix(seed ^ nickname.hashCode()
                     ^ 0x4445434953494f4eL));
+        }
+
+        @Override
+        public synchronized double botStraddleDecision(String nickname) {
+            return botStraddle.nextDouble();
+        }
+
+        @Override
+        public synchronized <T> void shuffleSeatOrder(List<T> values) {
+            java.util.Collections.shuffle(values, seatOrder);
+        }
+
+        @Override
+        public synchronized <T> void shuffleOddsDeck(List<T> values) {
+            java.util.Collections.shuffle(values, oddsSimulation);
+        }
+
+        @Override
+        public synchronized <T> void shuffleAllInCinematicBag(List<T> values) {
+            java.util.Collections.shuffle(values, allInCinematic);
+        }
+
+        @Override
+        public synchronized int allInCinematicSwapIndex(int bound) {
+            return allInCinematic.nextInt(bound);
         }
 
         private static long mix(long value) {
@@ -2410,8 +2552,56 @@ class GdxNetworkHumanProjectionIntegrationTest {
         return value ^ value >>> 33;
     }
 
+    private static ScenarioRandomness scenarioRandomness(Path data) {
+        return scenarioRandomness(data, 0L);
+    }
+
+    private static ScenarioRandomness scenarioRandomness(Path data,
+            long salt) {
+        String configuredKey = System.getProperty(
+                SCENARIO_SEED_KEY_PROPERTY, "").trim();
+        String key = configuredKey.isEmpty() ? scenarioDataKey(data)
+                : configuredKey + "/" + scenarioDataKey(data);
+        long generation = SCENARIO_GENERATIONS
+                .computeIfAbsent(key, ignored -> new AtomicLong())
+                .getAndIncrement();
+        long configuredSeed = Long.decode(System.getProperty(
+                SCENARIO_SEED_PROPERTY, System.getProperty("qa.sim.seed",
+                        "0x" + Long.toHexString(DEFAULT_SCENARIO_SEED))));
+        long seed = configuredSeed ^ salt ^ key.hashCode()
+                ^ generation * 0x9e3779b97f4a7c15L;
+        Random sessionRandom = new Random(mixScenarioSeed(seed
+                ^ 0x53455353494f4eL));
+        Supplier<byte[]> sessionIds = () -> {
+            byte[] sessionId = new byte[16];
+            synchronized (sessionRandom) {
+                sessionRandom.nextBytes(sessionId);
+            }
+            return sessionId;
+        };
+        return new ScenarioRandomness(new ScenarioGameEntropy(seed),
+                sessionIds);
+    }
+
+    private static String scenarioDataKey(Path data) {
+        Path name = data.toAbsolutePath().normalize().getFileName();
+        String leaf = name == null ? "scenario" : name.toString();
+        if (!"network".equals(leaf)) {
+            return leaf;
+        }
+        Path parent = data.toAbsolutePath().normalize().getParent();
+        Path parentName = parent == null ? null : parent.getFileName();
+        return (parentName == null ? "node" : parentName.toString())
+                + "/" + leaf;
+    }
+
+    private record ScenarioRandomness(GameEntropySource entropy,
+            Supplier<byte[]> sessionIds) {
+    }
+
     static NetworkLobbyGateway cinematicGateway(Path data,
             DatabaseService database) {
+        ScenarioRandomness randomness = scenarioRandomness(data);
         CoreGameTableFactory tables = new CoreGameTableFactory(database,
                 new GdxGameText("es"), GameLogSink.noop(),
                 GameDialogSink.noop(), GameDecisionSink.noop(),
@@ -2427,9 +2617,10 @@ class GdxNetworkHumanProjectionIntegrationTest {
                     @Override public boolean hasCompanionAudio(String filename) {
                         return false;
                     }
-                });
+                }, randomness.entropy());
         return new NetworkLobbyGateway(data, tables,
-                new RecoverableGameRepository(database));
+                new RecoverableGameRepository(database),
+                randomness.sessionIds());
     }
 
     static NetworkLobbyGateway automaticRebuyGateway(Path data,
@@ -2657,6 +2848,9 @@ class GdxNetworkHumanProjectionIntegrationTest {
         table.setThinkTime(false);
         table.setShowdownSeconds(1);
         table.setIwtsth(true);
+        // A calling-station-heavy pool reaches a real checked-down showdown
+        // reliably without replacing the production bot with a test double.
+        table.setBotDifficulty(NewGameTableDraft.BotDifficulty.EASY);
         return new NewGameRequest(connection, table.snapshot());
     }
 

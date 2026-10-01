@@ -47,6 +47,9 @@ public final class GdxMultiprocessNodeMain {
             marker("FAIL", "uncaught=" + failure.getClass().getName());
         });
         Config config = Config.parse(args);
+        System.setProperty("coronapoker.qa.scenarioSeedKey",
+                config.scenario + "|" + config.role + "|"
+                        + config.nickname + "|" + config.phase);
         if ("spectator-rebuy-cycle".equals(config.scenario)) {
             System.setProperty("coronapoker.qa.spectatorOnBrokeNicks",
                     "client1,client2");

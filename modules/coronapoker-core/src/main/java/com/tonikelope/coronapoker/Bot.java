@@ -273,7 +273,16 @@ public class Bot {
      * skill/style personality.
      */
     public Bot(BotPlayerView player) {
+        this(player, null);
+    }
+
+    /**
+     * Creates a replayable bot whose personality and later decisions consume
+     * the same injected random stream from the very first roll.
+     */
+    public Bot(BotPlayerView player, java.util.Random rng) {
         this.cpuPlayer = player;
+        this.rng = rng;
         assignPersonality();
     }
 

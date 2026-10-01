@@ -168,6 +168,15 @@ On failure, rerun the exact printed seed before using a new seed. Fix either the
 product or the harness according to the first violated contract. Do not weaken
 the oracle to make a failing product pass.
 
+All factories used by a GDX scenario must obtain `GameEntropySource` and
+session IDs from the seeded scenario helper. Never call `CryptoRandom`,
+`ThreadLocalRandom`, `Math.random` or an unseeded `Random` for a choice that can
+change cards, seats, bot actions, labels, animation selection or lifecycle.
+Keep security-only entropy (keys, proofs, IVs and transport challenges) secure:
+replayability applies to the functional path, not to cryptographic byte-for-byte
+identity. The contract suite rejects dealer game-path randomness that bypasses
+the injected source.
+
 ## Completion checklist
 
 - [ ] The invariant and expected failure mode are explicit.

@@ -2,7 +2,10 @@
 package com.tonikelope.coronapoker.core.game;
 
 import com.tonikelope.coronapoker.crypto.CryptoRandom;
+import java.util.Collections;
+import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Supplies the independent entropy domains that affect a game's observable
@@ -20,9 +23,47 @@ public interface GameEntropySource {
 
     void fillBotShuffleSeed(String nickname, byte[] target);
 
+    /** Nonce for the verifiable commit-reveal seat draw. */
+    default void fillSeatDrawNonce(byte[] target) {
+        CryptoRandom.fill(target);
+    }
+
+    /** Local human contribution to the verifiable seat draw. */
+    default void fillSeatDrawReveal(String nickname, byte[] target) {
+        CryptoRandom.fill(target);
+    }
+
     /** A dedicated bot stream for replayable scenarios; null uses the CSPRNG. */
     default Random botDecisionRandom(String nickname) {
         return null;
+    }
+
+    /** Random draw used by the host's automated voluntary-straddle choice. */
+    default double botStraddleDecision(String nickname) {
+        return CryptoRandom.nextDouble();
+    }
+
+    /** Randomises newcomers without coupling recovery to process-global state. */
+    default <T> void shuffleSeatOrder(List<T> values) {
+        CryptoRandom.shuffle(values);
+    }
+
+    /**
+     * Randomises display-only Monte Carlo samples. Production deliberately
+     * keeps the fast PRNG; replayable scenarios override this domain.
+     */
+    default <T> void shuffleOddsDeck(List<T> values) {
+        Collections.shuffle(values, ThreadLocalRandom.current());
+    }
+
+    /** Chooses the observable all-in cinematic cycle. */
+    default <T> void shuffleAllInCinematicBag(List<T> values) {
+        CryptoRandom.shuffle(values);
+    }
+
+    /** Avoids repeating the last all-in cinematic across bag boundaries. */
+    default int allInCinematicSwapIndex(int bound) {
+        return CryptoRandom.nextInt(bound);
     }
 
     static GameEntropySource secure() {

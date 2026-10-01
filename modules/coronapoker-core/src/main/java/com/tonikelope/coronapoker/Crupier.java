@@ -7082,12 +7082,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             for (int i = 0; i < total; i++) {
                 this.allin_cinematic_bag.add(i);
             }
-            CryptoRandom.shuffle(this.allin_cinematic_bag);
+            game_entropy.shuffleAllInCinematicBag(this.allin_cinematic_bag);
             // Consumed from the end (O(1) remove): if the first draw after a reshuffle would
             // repeat the last one shown, swap it with a random position (only possible with
             // 2+ animations).
             if (total > 1 && this.allin_cinematic_bag.get(total - 1) == this.last_allin_cinematic) {
-                Collections.swap(this.allin_cinematic_bag, total - 1, CryptoRandom.nextInt(total - 1));
+                Collections.swap(this.allin_cinematic_bag, total - 1,
+                        game_entropy.allInCinematicSwapIndex(total - 1));
             }
         }
         this.last_allin_cinematic = this.allin_cinematic_bag.remove(this.allin_cinematic_bag.size() - 1);
@@ -16435,7 +16436,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (MoneyMath.compare(bot.getStack(), 5 * amount) < 0) {
             return GameDecisionSink.NO_STRADDLE;
         }
-        return (CryptoRandom.nextDouble() < BOT_STRADDLE_PROBABILITY)
+        return (game_entropy.botStraddleDecision(bot.getNickname())
+                < BOT_STRADDLE_PROBABILITY)
                 ? GameDecisionSink.POST_STRADDLE : GameDecisionSink.NO_STRADDLE;
     }
 
@@ -21626,7 +21628,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (nick.equals(grande)) {
 
                         // New players are placed right after the CURRENT BIG BLIND
-                        CryptoRandom.shuffle(actuales);
+                        game_entropy.shuffleSeatOrder(actuales);
                         permutados_aux.addAll(actuales);
                         actuales.clear();
                     }
@@ -22427,12 +22429,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             final ArrayList<String> remoteHumans = liveRemoteHumanNicks();
 
             final byte[] nonce = new byte[SeatDraw.NONCE_BYTES];
-            CryptoRandom.fill(nonce);
+            game_entropy.fillSeatDrawNonce(nonce);
             final String nonceB64 = Base64.getEncoder().encodeToString(nonce);
 
             // Host's own contribution — its reveal is fixed HERE, before any reveal is exchanged.
             byte[] localReveal = new byte[SeatDraw.REVEAL_BYTES];
-            CryptoRandom.fill(localReveal);
+            game_entropy.fillSeatDrawReveal(localNick, localReveal);
             byte[] localCommit = SeatDraw.commit(nonce, localNick, localReveal);
             byte[] localSig = signSeatCommitLocal(nonce, localNick, localCommit);
             if (localSig == null) {
@@ -22815,7 +22817,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 nonce = Base64.getDecoder().decode(nonceB64);
                                 roster = newRoster;
                                 myReveal = new byte[SeatDraw.REVEAL_BYTES];
-                                CryptoRandom.fill(myReveal);
+                                game_entropy.fillSeatDrawReveal(myNick,
+                                        myReveal);
                                 myCommit = SeatDraw.commit(nonce, myNick, myReveal);
                                 commitTable = null;
                             }
@@ -26804,7 +26807,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // here, and the DRBG cost ~45k draws per deal on the game thread (a stutter
             // on slow PCs' all-ins). Does NOT affect the fair, verifiable deal, which
             // goes through the crypto cascade.
-            Collections.shuffle(deck_iteration, java.util.concurrent.ThreadLocalRandom.current());
+            game_entropy.shuffleOddsDeck(deck_iteration);
 
             org.alberta.poker.Hand board_iteration = new org.alberta.poker.Hand(board);
 

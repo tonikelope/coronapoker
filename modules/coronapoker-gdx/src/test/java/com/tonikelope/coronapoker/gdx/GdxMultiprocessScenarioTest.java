@@ -2231,7 +2231,12 @@ class GdxMultiprocessScenarioTest {
         String classpath = System.getProperty("surefire.test.class.path",
                 System.getProperty("java.class.path"));
         ProcessBuilder builder = new ProcessBuilder(java,
-                "-Duser.home=" + home.toAbsolutePath(), "-cp", classpath,
+                "-Duser.home=" + home.toAbsolutePath(),
+                "-Dcoronapoker.qa.scenarioSeed="
+                        + System.getProperty("coronapoker.qa.scenarioSeed",
+                                System.getProperty("qa.sim.seed",
+                                        "0x434f524f4e41514c")),
+                "-cp", classpath,
                 GdxMultiprocessNodeMain.class.getName(), role, nick,
                 Integer.toString(port), Integer.toString(clients),
                 Integer.toString(bots), Integer.toString(hands), scenario,

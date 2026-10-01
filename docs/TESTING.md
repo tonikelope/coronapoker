@@ -248,6 +248,16 @@ The certifier clean-compiles the GDX scenario reactor first. It then stops at
 the first failed test and writes per-test logs plus `summary.csv` and
 `summary.json` below `target/certification/<timestamp>-<mode>/`.
 
+The printed scenario seed controls every game-path entropy domain used by the
+GDX harness: hand and shuffle seeds, commit-reveal seating, bot personality and
+decisions, automated straddle choices, recovery seating and observable
+cinematic selection. Each domain is derived independently, so adding a draw in
+one cannot shift the others. Cryptographic keys, proof randomness, transport
+nonces and encryption IVs deliberately remain secure and may differ on replay;
+they do not change the resulting cards or functional scenario path. A direct
+JUnit replay may use `-Dcoronapoker.qa.scenarioSeed=<seed>`; the certifier sets
+that property automatically from the seed recorded in its report.
+
 A continuation report is not a standalone certificate. Keep it together with
 the preceding partial report. If a fix changes shared protocol, scheduling or
 harness semantics, restart the complete required mode instead of resuming.

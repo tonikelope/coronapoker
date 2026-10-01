@@ -9,10 +9,22 @@ import com.tonikelope.coronapoker.bot.context.DealerView;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableSnapshotMapper;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 class CorePlayerControllerTest {
+
+    @Test
+    void replayableBotUsesInjectedEntropyForItsInitialPersonality() {
+        CountingRandom replay = new CountingRandom(12345L);
+
+        CorePlayerController.bot("CoronaBot$1", replay);
+
+        assertEquals(2, replay.boundedCalls.get(),
+                "skill and style must be drawn from scenario entropy during "
+                + "construction, never from the process CSPRNG");
+    }
 
     @Test
     void everyContributionRegistersThePlayerInTheCurrentPot() {
@@ -27,6 +39,20 @@ class CorePlayerControllerTest {
         assertEquals(2, registrations.get());
         assertEquals(0.25d, player.getBote());
         assertEquals(9.75d, player.getStack());
+    }
+
+    private static final class CountingRandom extends Random {
+        private final AtomicInteger boundedCalls = new AtomicInteger();
+
+        private CountingRandom(long seed) {
+            super(seed);
+        }
+
+        @Override
+        public int nextInt(int bound) {
+            boundedCalls.incrementAndGet();
+            return super.nextInt(bound);
+        }
     }
 
     @Test

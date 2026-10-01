@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
+import java.util.function.BooleanSupplier;
 
 /** Native in-table decisions requested by the canonical dealer. */
 final class GdxGameDecisionSink implements GameDecisionSink {
@@ -38,6 +39,7 @@ final class GdxGameDecisionSink implements GameDecisionSink {
             gameOverAudio;
     private final long gameOverAudioSafetyTimeout;
     private final TimeUnit gameOverAudioSafetyTimeoutUnit;
+    private final BooleanSupplier gameOverCinematicsEnabled;
 
     GdxGameDecisionSink() {
         this(GameText.keys());
@@ -46,20 +48,23 @@ final class GdxGameDecisionSink implements GameDecisionSink {
     GdxGameDecisionSink(GameText text) {
         this(text, GdxGameDecisionSink::present,
                 GdxGameDecisionSink::submitRecoveredAction,
-                GdxGameDecisionSink::presentGameOverAudio);
+                GdxGameDecisionSink::presentGameOverAudio,
+                GdxGameDecisionSink::activeGameOverCinematicsEnabled);
     }
 
     GdxGameDecisionSink(GameText text,
             Consumer<GdxTableDialog> presenter) {
         this(text, presenter, GdxGameDecisionSink::submitRecoveredAction,
-                GdxGameDecisionSink::presentGameOverAudio);
+                GdxGameDecisionSink::presentGameOverAudio,
+                GdxGameDecisionSink::activeGameOverCinematicsEnabled);
     }
 
     GdxGameDecisionSink(GameText text,
             Consumer<GdxTableDialog> presenter,
             Consumer<TableCommand> recoveredActionSubmitter) {
         this(text, presenter, recoveredActionSubmitter,
-                GdxGameDecisionSink::presentGameOverAudio);
+                GdxGameDecisionSink::presentGameOverAudio,
+                GdxGameDecisionSink::activeGameOverCinematicsEnabled);
     }
 
     GdxGameDecisionSink(GameText text,
@@ -67,6 +72,17 @@ final class GdxGameDecisionSink implements GameDecisionSink {
             Consumer<TableCommand> recoveredActionSubmitter,
             Function<GameOverAudioCue, CompletionStage<Void>> gameOverAudio) {
         this(text, presenter, recoveredActionSubmitter, gameOverAudio,
+                () -> false,
+                GAME_OVER_AUDIO_SAFETY_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+    }
+
+    GdxGameDecisionSink(GameText text,
+            Consumer<GdxTableDialog> presenter,
+            Consumer<TableCommand> recoveredActionSubmitter,
+            Function<GameOverAudioCue, CompletionStage<Void>> gameOverAudio,
+            BooleanSupplier gameOverCinematicsEnabled) {
+        this(text, presenter, recoveredActionSubmitter, gameOverAudio,
+                gameOverCinematicsEnabled,
                 GAME_OVER_AUDIO_SAFETY_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 
@@ -76,12 +92,26 @@ final class GdxGameDecisionSink implements GameDecisionSink {
             Function<GameOverAudioCue, CompletionStage<Void>> gameOverAudio,
             long gameOverAudioSafetyTimeout,
             TimeUnit gameOverAudioSafetyTimeoutUnit) {
+        this(text, presenter, recoveredActionSubmitter, gameOverAudio,
+                () -> false, gameOverAudioSafetyTimeout,
+                gameOverAudioSafetyTimeoutUnit);
+    }
+
+    GdxGameDecisionSink(GameText text,
+            Consumer<GdxTableDialog> presenter,
+            Consumer<TableCommand> recoveredActionSubmitter,
+            Function<GameOverAudioCue, CompletionStage<Void>> gameOverAudio,
+            BooleanSupplier gameOverCinematicsEnabled,
+            long gameOverAudioSafetyTimeout,
+            TimeUnit gameOverAudioSafetyTimeoutUnit) {
         this.text = Objects.requireNonNull(text, "text");
         this.presenter = Objects.requireNonNull(presenter, "presenter");
         this.recoveredActionSubmitter = Objects.requireNonNull(
                 recoveredActionSubmitter, "recoveredActionSubmitter");
         this.gameOverAudio = Objects.requireNonNull(gameOverAudio,
                 "gameOverAudio");
+        this.gameOverCinematicsEnabled = Objects.requireNonNull(
+                gameOverCinematicsEnabled, "gameOverCinematicsEnabled");
         if (gameOverAudioSafetyTimeout <= 0L) {
             throw new IllegalArgumentException(
                     "game-over audio safety timeout must be positive");
@@ -126,15 +156,15 @@ final class GdxGameDecisionSink implements GameDecisionSink {
         // player continues; the amount belongs to the subsequent mandatory
         // RebuyDialog.  Combining both in one modal used the wrong timeout and
         // could commit an amount before the player had actually chosen rebuy.
+        boolean cinematics = gameOverCinematicsEnabled.getAsBoolean();
         GdxTableDialog choice = GdxTableDialog.gameOverChoice(
-                request.timeoutSeconds(), text);
+                request.timeoutSeconds(), text, cinematics);
         CompletableFuture<GameOverResult> result = new CompletableFuture<>();
         choice.result().thenAccept(continuePlaying -> {
             if (!continuePlaying) {
-                GdxTableDialog finalDialog = GdxTableDialog.gameOverFinal(0f);
-                presenter.accept(finalDialog);
+                choice.holdGameOverFinalFrame();
                 afterGameOverAudio(GameOverAudioCue.SPECTATOR, () -> {
-                    finalDialog.dismiss();
+                    choice.releaseExternalClose();
                     result.complete(new GameOverResult(false, 0));
                 });
                 return;
@@ -151,8 +181,22 @@ final class GdxGameDecisionSink implements GameDecisionSink {
                 presenter.accept(rebuy);
             });
         });
-        signalGameOverAudio(GameOverAudioCue.OPEN);
         presenter.accept(choice);
+        if (cinematics) {
+            CompletionStage<Void> opening;
+            try {
+                opening = gameOverAudio.apply(GameOverAudioCue.OPEN);
+            } catch (RuntimeException failure) {
+                opening = CompletableFuture.completedFuture(null);
+            }
+            if (opening == null) {
+                choice.timeout();
+            } else {
+                opening.whenComplete((ignored, failure) -> {
+                    if (!choice.complete()) choice.timeout();
+                });
+            }
+        }
         return result;
     }
 
@@ -185,15 +229,9 @@ final class GdxGameDecisionSink implements GameDecisionSink {
                 : shell.playGameOverAudio(cue);
     }
 
-    private void signalGameOverAudio(GameOverAudioCue cue) {
-        try {
-            CompletionStage<Void> stage = gameOverAudio.apply(cue);
-            if (stage != null) {
-                stage.exceptionally(failure -> null);
-            }
-        } catch (RuntimeException ignored) {
-            // Audio is presentation-only and may never strand the dealer.
-        }
+    private static boolean activeGameOverCinematicsEnabled() {
+        GdxApplicationShell shell = GdxApplicationShell.active();
+        return shell != null && shell.gameOverCinematicsEnabled();
     }
 
     private void afterGameOverAudio(GameOverAudioCue cue,

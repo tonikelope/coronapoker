@@ -31,4 +31,12 @@ final class GdxAudioWaitWatchdogTest {
         assertTrue(CoronaPokerGdxTable.audioWaitMustFinish(
                 "misc/badbeat.wav", 10f, 22f, true));
     }
+
+    @Test
+    void gameOverAudioIsNotCutAtTheGenericTwelveSecondWatchdog() {
+        assertFalse(CoronaPokerGdxTable.audioWaitMustFinish(
+                "misc/game_over.wav", 10f, 23.99f, true));
+        assertTrue(CoronaPokerGdxTable.audioWaitMustFinish(
+                "misc/game_over.wav", 10f, 26f, true));
+    }
 }

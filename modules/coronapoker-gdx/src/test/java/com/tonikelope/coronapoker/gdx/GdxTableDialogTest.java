@@ -33,9 +33,31 @@ final class GdxTableDialogTest {
         assertEquals(10, dialog.remainingSeconds(4f));
         assertEquals(8, dialog.remainingSeconds(6.01f));
         assertFalse(dialog.expired(13.99f));
-        assertTrue(dialog.expired(14f));
+        assertEquals(0, dialog.remainingSeconds(14f));
+        assertFalse(dialog.expired(14.99f),
+                "zero must remain visible before automatic spectator mode");
+        assertTrue(dialog.expired(15f));
         dialog.timeout();
         assertFalse(dialog.result().toCompletableFuture().join());
+    }
+
+    @Test
+    void animatedGameOverIsDrivenByItsAudioAndRetainsOneFinalFrame() {
+        GdxTableDialog dialog = GdxTableDialog.gameOverChoice(10,
+                com.tonikelope.coronapoker.core.game.GameText.keys(), true);
+        dialog.opened(4f);
+
+        assertFalse(dialog.expired(100f));
+        dialog.dismiss();
+        dialog.holdGameOverFinalFrame();
+        assertTrue(dialog.gameOverFinalFrame());
+        assertTrue(dialog.isGameOverChoice());
+        assertFalse(dialog.showsNegative());
+        assertFalse(dialog.showsPositive());
+        assertFalse(dialog.readyToClose());
+
+        dialog.releaseExternalClose();
+        assertTrue(dialog.readyToClose());
     }
 
     @Test

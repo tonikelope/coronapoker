@@ -259,6 +259,8 @@ final class GdxApplicationShell extends ApplicationAdapter {
                         refreshRate, new GdxTableViewState(initialState), commands,
                         () -> opened.accept(table), gameLog, preferences, lobby,
                         presentationSettings, identityTrust);
+                candidate.inheritBackgroundMusicPosition(
+                        menu.backgroundMusicPosition());
                 candidate.beginCreate();
                 pendingTableOpen = new PendingTableOpen(candidate,
                         openingBarrier);
@@ -439,6 +441,11 @@ final class GdxApplicationShell extends ApplicationAdapter {
             }
         });
         return result;
+    }
+
+    boolean gameOverCinematicsEnabled() {
+        CoronaPokerGdxTable current = table;
+        return current != null && current.gameOverCinematicsEnabled();
     }
 
     /** Replays one dealer-approved recovered action through the live table. */

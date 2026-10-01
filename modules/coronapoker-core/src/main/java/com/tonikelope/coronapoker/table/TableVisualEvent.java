@@ -39,6 +39,7 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
         TableVisualEvent.RabbitNotice,
         TableVisualEvent.ShowdownHighlight, TableVisualEvent.Payout,
         TableVisualEvent.Rebuy,
+        TableVisualEvent.RebuyDecision,
         TableVisualEvent.ImmediateRebuyStatus,
         TableVisualEvent.DeckChanged, TableVisualEvent.SeatRoster,
         TableVisualEvent.LastHandStatus, TableVisualEvent.HandLimitStatus,
@@ -836,6 +837,33 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
                 throw new IllegalArgumentException(
                         "Rebuy duration must be positive");
             }
+        }
+    }
+
+    /**
+     * Visible end-of-hand decision state for a busted remote human.
+     *
+     * <p>This used to reach only Swing through {@code TableDisplaySink}.  It is
+     * gameplay information rather than renderer decoration: every frontend
+     * must know when the player is deciding, when a rebuy was accepted, and
+     * when the visual must be cleared.</p>
+     */
+    record RebuyDecision(long sequence, String nickname, Phase phase)
+            implements TableVisualEvent {
+
+        public RebuyDecision {
+            nickname = Objects.requireNonNull(nickname, "nickname").trim();
+            Objects.requireNonNull(phase, "phase");
+            if (nickname.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Rebuy-decision nickname must not be blank");
+            }
+        }
+
+        public enum Phase {
+            WAITING,
+            REBOUGHT,
+            CLEARED
         }
     }
 

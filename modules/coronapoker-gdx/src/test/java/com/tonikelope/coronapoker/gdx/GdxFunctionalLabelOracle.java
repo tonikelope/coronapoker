@@ -71,6 +71,31 @@ final class GdxFunctionalLabelOracle {
                             "table.player_reconnecting"))
                     .contains(departure.label()),
                     "a definitive departure cannot say RECONNECTING");
+        } else if (event instanceof TableVisualEvent.RebuyDecision decision) {
+            TableVisualEvent.RebuyDecision.Phase projected
+                    = projection.rebuyDecision(decision.nickname());
+            if (decision.phase()
+                    == TableVisualEvent.RebuyDecision.Phase.CLEARED) {
+                assertEquals(null, projected,
+                        "cleared rebuy decision remained visible");
+            } else {
+                assertEquals(decision.phase(), projected,
+                        "remote rebuy caption state is stale");
+            }
+            if (decision.phase()
+                    == TableVisualEvent.RebuyDecision.Phase.WAITING) {
+                assertEquals(text.translate("rebuy.recompra_3"),
+                        CoronaPokerGdxTable.remoteRebuyLabel(
+                                decision.phase(), 10, true, text));
+                assertEquals(text.translate("rebuy.recompra_3") + " (10)",
+                        CoronaPokerGdxTable.remoteRebuyLabel(
+                                decision.phase(), 10, false, text));
+            } else if (decision.phase()
+                    == TableVisualEvent.RebuyDecision.Phase.REBOUGHT) {
+                assertEquals(text.translate("rebuy.recompra_4"),
+                        CoronaPokerGdxTable.remoteRebuyLabel(
+                                decision.phase(), 0, false, text));
+            }
         } else if (event instanceof TableVisualEvent.HandResult result) {
             assertEquals(result.handName(),
                     projection.resolvedHandName(result.nickname()),

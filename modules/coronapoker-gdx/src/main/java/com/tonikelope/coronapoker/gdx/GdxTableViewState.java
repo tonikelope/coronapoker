@@ -59,6 +59,8 @@ final class GdxTableViewState {
             showdownHighlights = new HashMap<>();
     private final Map<String, TableVisualEvent.PlayerAction.ActionKind>
             actionKinds = new HashMap<>();
+    private final Map<String, TableVisualEvent.RebuyDecision.Phase>
+            rebuyDecisions = new HashMap<>();
     private final Map<String, String> actionLabels = new HashMap<>();
     private final Map<String, Float> partialHandPercentages = new HashMap<>();
     private final Map<String, Integer> immediateRebuys = new HashMap<>();
@@ -371,6 +373,10 @@ final class GdxTableViewState {
         return actionKinds.get(nickname);
     }
 
+    TableVisualEvent.RebuyDecision.Phase rebuyDecision(String nickname) {
+        return rebuyDecisions.get(nickname);
+    }
+
     String actionLabel(String nickname) {
         return actionLabels.getOrDefault(nickname, "");
     }
@@ -648,6 +654,13 @@ final class GdxTableViewState {
                         player.position(), player.lastAction(), player.handName(),
                         player.holeCards()));
             }
+        } else if (event instanceof TableVisualEvent.RebuyDecision decision) {
+            if (decision.phase()
+                    == TableVisualEvent.RebuyDecision.Phase.CLEARED) {
+                rebuyDecisions.remove(decision.nickname());
+            } else {
+                rebuyDecisions.put(decision.nickname(), decision.phase());
+            }
         } else if (event instanceof TableVisualEvent.ImmediateRebuyStatus status) {
             if (status.enabled()) {
                 immediateRebuys.put(status.nickname(), status.amount());
@@ -798,6 +811,7 @@ final class GdxTableViewState {
             showdownHighlights.clear();
             actionKinds.clear();
             actionLabels.clear();
+            rebuyDecisions.clear();
             partialHandPercentages.clear();
             resolvedHandResults.clear();
             resolvedHandNames.clear();

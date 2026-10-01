@@ -7728,9 +7728,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GamePeerController participante = peers().get(nick);
             if (jugador != localPlayer() && !jugador.isExit()
                     && participante != null && !participante.isCpu()) {
-                table_display.setRebuyWaiting(jugador.getNickname(), true, false);
+                setRebuyWaitingVisual(jugador.getNickname(), true, false);
             }
         }
+    }
+
+    private void setRebuyWaitingVisual(String nickname, boolean waiting,
+            boolean rebought) {
+        table_display.setRebuyWaiting(nickname, waiting, rebought);
+        TableVisualEvent.RebuyDecision.Phase phase = waiting
+                ? TableVisualEvent.RebuyDecision.Phase.WAITING
+                : rebought
+                        ? TableVisualEvent.RebuyDecision.Phase.REBOUGHT
+                        : TableVisualEvent.RebuyDecision.Phase.CLEARED;
+        table_events.publishIfAttached(sequence
+                -> new TableVisualEvent.RebuyDecision(sequence, nickname,
+                        phase));
+    }
+
+    private void showRebuyOutcomeVisual(String nickname, boolean rebought) {
+        table_display.showRebuyOutcome(nickname, rebought);
+        TableVisualEvent.RebuyDecision.Phase phase = rebought
+                ? TableVisualEvent.RebuyDecision.Phase.REBOUGHT
+                : TableVisualEvent.RebuyDecision.Phase.CLEARED;
+        table_events.publishIfAttached(sequence
+                -> new TableVisualEvent.RebuyDecision(sequence, nickname,
+                        phase));
     }
 
     private static int parseRequestedRebuy(String raw) {
@@ -7893,9 +7916,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             if (skip_countdown) {
                                 // No remote countdown was started (local player also
                                 // busted): just reflect the outcome.
-                                table_display.showRebuyOutcome(jugador.getNickname(), recompra);
+                                showRebuyOutcomeVisual(jugador.getNickname(),
+                                        recompra);
                             } else {
-                                table_display.setRebuyWaiting(jugador.getNickname(), false, recompra);
+                                setRebuyWaitingVisual(jugador.getNickname(),
+                                        false, recompra);
                             }
                         }
 
@@ -7960,7 +7985,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // Left mid-rebuy (closed/disconnected): drop from the wait and clear
                         // the countdown visual (setRebuying's exit guard leaves the LEFT visual alone).
                         if (jp != localPlayer()) {
-                            table_display.setRebuyWaiting(jp.getNickname(), false, false);
+                            setRebuyWaitingVisual(jp.getNickname(), false,
+                                    false);
                         }
                         iterator.remove();
                     }
@@ -7989,7 +8015,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // Stop the countdown visual; with spectator already set, the
                             // restore is skipped and setSpectator's repaint takes over.
                             if (jpk != null && jpk != localPlayer()) {
-                                table_display.setRebuyWaiting(jpk.getNickname(), false, false);
+                                setRebuyWaitingVisual(jpk.getNickname(), false,
+                                        false);
                             }
                         }
                         timeout = true;

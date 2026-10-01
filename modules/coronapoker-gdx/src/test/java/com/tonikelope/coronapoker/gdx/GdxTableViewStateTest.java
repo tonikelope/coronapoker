@@ -135,14 +135,24 @@ final class GdxTableViewStateTest {
                 true, new GdxGameText("es")));
         assertEquals("YOU LOSE", CoronaPokerGdxTable.localHandOutcomeLabel(
                 false, new GdxGameText("en")));
-        assertEquals("¡GANAS!\nBOTE #2", CoronaPokerGdxTable
+        assertEquals("¡GANAS! (BOTE #2)", CoronaPokerGdxTable
                 .localHandOutcomeLabel(true, List.of(2),
                         new GdxGameText("es")));
-        assertEquals("¡GANAS!\nBOTE #1+#2", CoronaPokerGdxTable
+        assertEquals("¡GANAS! (BOTE #1+#2)", CoronaPokerGdxTable
                 .localHandOutcomeLabel(true, List.of(1, 2),
                         new GdxGameText("es")));
         assertEquals("YOU LOSE", CoronaPokerGdxTable.localHandOutcomeLabel(
                 false, List.of(), new GdxGameText("en")));
+        assertEquals("BOTE #1+#2", CoronaPokerGdxTable.wonPotsLabel(
+                List.of(1, 2), new GdxGameText("es")));
+        assertEquals("POT #2", CoronaPokerGdxTable.derivedPotOverlayLabel(
+                false, true, List.of(2), new GdxGameText("en")));
+        assertEquals("", CoronaPokerGdxTable.derivedPotOverlayLabel(
+                true, true, List.of(1), new GdxGameText("es")),
+                "the local player uses the large HUD result, never a seat overlay");
+        assertEquals("", CoronaPokerGdxTable.derivedPotOverlayLabel(
+                false, false, List.of(), new GdxGameText("es")),
+                "ordinary hands and losers must not acquire a pot overlay");
     }
 
     @Test
@@ -1850,7 +1860,7 @@ final class GdxTableViewStateTest {
 
         assertEquals(Boolean.TRUE, state.resolvedHandWinner("borja"));
         assertEquals(List.of(1, 3), state.resolvedWonPotIndexes("borja"));
-        assertEquals("¡GANAS!\nBOTE #1+#3",
+        assertEquals("¡GANAS! (BOTE #1+#3)",
                 CoronaPokerGdxTable.localHandOutcomeLabel(true,
                         state.resolvedWonPotIndexes("borja"),
                         new GdxGameText("es")));
@@ -2933,6 +2943,25 @@ final class GdxTableViewStateTest {
         assertFalse(departed.timedOut());
         assertEquals("SE VA", departed.lastAction());
         assertTrue(state.snapshot().currentTurnNickname().isBlank());
+    }
+
+    @Test
+    void remoteRebuyDecisionIsOrderedAndClearedAtTheNextHand() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+
+        state.apply(new TableVisualEvent.RebuyDecision(1, "borja",
+                TableVisualEvent.RebuyDecision.Phase.WAITING));
+        assertEquals(TableVisualEvent.RebuyDecision.Phase.WAITING,
+                state.rebuyDecision("borja"));
+
+        state.apply(new TableVisualEvent.RebuyDecision(2, "borja",
+                TableVisualEvent.RebuyDecision.Phase.REBOUGHT));
+        assertEquals(TableVisualEvent.RebuyDecision.Phase.REBOUGHT,
+                state.rebuyDecision("borja"));
+
+        state.apply(new TableVisualEvent.HandBoundary(3, 2,
+                TableVisualEvent.HandBoundary.Phase.PREPARE, snapshot()));
+        assertEquals(null, state.rebuyDecision("borja"));
     }
 
     private static TableSnapshot.CardSnapshot card(String code) {

@@ -52,6 +52,9 @@ final class GdxTableDialog {
     private boolean deferCloseAfterDecision;
     private boolean externalCloseReleased;
     private boolean exitChoice;
+    private boolean gameOverChoice;
+    private boolean gameOverCinematics;
+    private boolean gameOverFinalFrame;
     private String waitingMessage = "";
 
     GdxTableDialog(Kind kind, String message, GameDialogSink.Icon icon,
@@ -149,10 +152,19 @@ final class GdxTableDialog {
     }
 
     static GdxTableDialog gameOverChoice(int seconds, GameText text) {
-        return new GdxTableDialog(Kind.GAME_OVER, "GAME OVER", "",
+        return gameOverChoice(seconds, text, false);
+    }
+
+    static GdxTableDialog gameOverChoice(int seconds, GameText text,
+            boolean cinematics) {
+        GdxTableDialog dialog = new GdxTableDialog(Kind.GAME_OVER,
+                "GAME OVER", "",
                 GameDialogSink.Icon.STOP, 900, seconds, false,
                 tr(text, "player.espectador", "ESPECTADOR"),
                 tr(text, "ui.continuar", "CONTINUAR"), 0, 0, 0);
+        dialog.gameOverChoice = true;
+        dialog.gameOverCinematics = cinematics;
+        return dialog;
     }
 
     static GdxTableDialog gameOverFinal(float dwellSeconds) {
@@ -232,13 +244,20 @@ final class GdxTableDialog {
     int seconds() { return seconds; }
     String negativeLabel() { return negativeLabel; }
     String positiveLabel() { return positiveLabel; }
-    boolean showsNegative() { return !negativeLabel.isBlank(); }
-    boolean showsPositive() { return !positiveLabel.isBlank(); }
+    boolean showsNegative() {
+        return !gameOverFinalFrame && !negativeLabel.isBlank();
+    }
+    boolean showsPositive() {
+        return !gameOverFinalFrame && !positiveLabel.isBlank();
+    }
     boolean hasAmount() { return kind == Kind.REBUY || kind == Kind.AUTO_CALL
             || kind == Kind.HAND_LIMIT; }
     boolean isAutoCall() { return kind == Kind.AUTO_CALL; }
     boolean isAutoAction() { return kind == Kind.AUTO_ACTION; }
     boolean isGameOver() { return kind == Kind.GAME_OVER; }
+    boolean isGameOverChoice() { return gameOverChoice; }
+    boolean gameOverCinematics() { return gameOverCinematics; }
+    boolean gameOverFinalFrame() { return gameOverFinalFrame; }
     boolean isNotice() { return kind == Kind.ERROR || kind == Kind.INFO; }
     boolean isRecovery() { return recovery; }
     boolean isRebuy() { return kind == Kind.REBUY; }
@@ -315,6 +334,10 @@ final class GdxTableDialog {
     }
 
     private float timedLifetimeSeconds() {
+        if (gameOverChoice && gameOverCinematics) return 0f;
+        // The static fallback owns a visible zero just like Swing. Keep it for
+        // one complete frame-second before choosing spectator automatically.
+        if (gameOverChoice && seconds > 0) return seconds + 1f;
         return seconds > 0 ? seconds : autoDismissSeconds;
     }
 
@@ -392,6 +415,14 @@ final class GdxTableDialog {
     void releaseExternalClose() {
         externalCloseReleased = true;
         if (!result.isDone()) result.complete(false);
+    }
+
+    void holdGameOverFinalFrame() {
+        if (!gameOverChoice) return;
+        gameOverFinalFrame = true;
+        externallyControlled = true;
+        deferCloseAfterDecision = true;
+        externalCloseReleased = false;
     }
 
     private java.util.Optional<BigDecimal> parsedAutoCallText() {

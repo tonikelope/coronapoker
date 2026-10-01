@@ -210,6 +210,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final float COMPOSER_EMOJI_ADVANCE = 36f;
     private static final DateTimeFormatter CHAT_TIME = DateTimeFormatter
             .ofPattern("HH:mm").withZone(ZoneId.systemDefault());
+    private static final DateTimeFormatter LOBBY_CLOCK = DateTimeFormatter
+            .ofPattern("HH:mm").withZone(ZoneId.systemDefault());
     private static final DateTimeFormatter STATS_TIME = DateTimeFormatter
             .ofPattern("dd-MM-yyyy HH:mm").withZone(ZoneId.systemDefault());
     static final float STATS_VIEW_HEADER_SEPARATOR_Y = 709f;
@@ -401,6 +403,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private int selectedGamePreset = -1;
     private Dropdown dropdown = Dropdown.NONE;
     private int dropdownScroll;
+    private List<String> hostAddressOptions =
+            List.of(GdxLocalServerAddresses.LOOPBACK_NAME);
+    private int hostAddressLoadGeneration;
     private String presetNameDraft = "";
     private Surface settingsReturnSurface = Surface.MENU;
     private final GdxSettingsSession settingsSession =
@@ -3111,6 +3116,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(titleFont, lobbyTitle, WIDTH / 2f + 4f, 1000f,
                 new Color(0x000000aa), true, 900f);
         textFit(titleFont, lobbyTitle, WIDTH / 2f, 1004f, GOLD, true, 900f);
+        drawLobbyDigitalClock(LOBBY_CLOCK.format(Instant.now()));
 
         panel(35f, 180f, 430f, 650f,
                 uppercase(gameText.translate("game.timba")));
@@ -3263,6 +3269,26 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 this::openSettings);
         drawSoundControl(1553f, 62f, 55f, 58f, false);
 
+    }
+
+    private void drawLobbyDigitalClock(String time) {
+        final float digitWidth = 74f;
+        final float digitHeight = 126f;
+        final float digitGap = 14f;
+        final float colonWidth = 20f;
+        final float displayWidth = digitWidth * 4f + digitGap * 4f
+                + colonWidth;
+        final float x = WIDTH - 48f - displayWidth;
+        final float y = 912f;
+
+        outerBox(x - 14f, y - 10f, displayWidth + 28f, digitHeight + 20f,
+                new Color(0x785a20aa), new Color(0x080b0ecc));
+        GdxSevenSegmentDisplay.draw(shapes, time, x, y,
+                digitWidth, digitHeight, digitGap, colonWidth,
+                new Color(0xffbd38ff), new Color(0x59461f40),
+                new Color(0xffa51f44),
+                GdxSevenSegmentDisplay.colonsVisible(
+                        System.currentTimeMillis()));
     }
 
     private void drawLobbyParticipant(LobbyParticipant participant, float x,
@@ -6686,6 +6712,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         syncMusicForSurface();
     }
 
+    float backgroundMusicPosition() {
+        return backgroundMusic == null ? 0f : backgroundMusic.getPosition();
+    }
+
     void resumeBackgroundMusicAt(float positionSeconds) {
         tableAudioSuspended = false;
         if (backgroundMusic == null) return;
@@ -6699,6 +6729,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         recoveryLoadGeneration++;
         autoSubmitRecovery = false;
         connection = defaultConnection(initialProperties, mode);
+        if (mode == NewGameConnectionDraft.Mode.CREATE) {
+            refreshHostAddressOptions();
+        } else {
+            hostAddressLoadGeneration++;
+            hostAddressOptions = List.of(GdxLocalServerAddresses.LOOPBACK_NAME);
+        }
         refreshSelectedAvatarTexture();
         table = new NewGameTableDraft();
         refreshGamePresets(null);
@@ -6811,9 +6847,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         field(610f, 475f, 450f,
                 gameText.translate("gdx.newgame.password_optional"),
                 connection.password(), "password", true);
-        field(1170f, 630f, 430f,
+        dropdownChoice(1170f, 630f, 430f,
                 gameText.translate("gdx.newgame.server_required"),
-                connection.server(), "server", false);
+                connection.server(), () -> openDropdown(
+                        Dropdown.HOST_ADDRESS), true);
         field(1630f, 630f, 175f, gameText.translate("gdx.port"),
                 connection.port(), "port", false);
         tooltip(1170f, 630f, 430f, 72f, "tooltip.cfg.server_ip");
@@ -8463,6 +8500,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         int selected = switch (target) {
             case PROFILE -> selectedGamePreset + 1;
             case BLIND_STRUCTURE -> selectedBlindStructureOption();
+            case HOST_ADDRESS -> selectedHostAddressOption();
             default -> 0;
         };
         int count = dropdownOptions(target).size();
@@ -8483,7 +8521,40 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return 0;
     }
 
+    private int selectedHostAddressOption() {
+        int selected = hostAddressOptions.indexOf(connection.server());
+        return Math.max(0, selected);
+    }
+
+    private void refreshHostAddressOptions() {
+        int generation = ++hostAddressLoadGeneration;
+        NewGameConnectionDraft target = connection;
+        hostAddressOptions = List.of(GdxLocalServerAddresses.LOOPBACK_NAME);
+        target.setServer(GdxLocalServerAddresses.LOOPBACK_NAME);
+        CompletableFuture.supplyAsync(GdxLocalServerAddresses::discover,
+                networkInfoExecutor).whenComplete((addresses, failure) -> {
+                    if (failure != null) {
+                        LOGGER.log(Level.FINE,
+                                "Unable to enumerate local server addresses",
+                                failure);
+                    }
+                    Gdx.app.postRunnable(() -> {
+                        if (disposed || generation != hostAddressLoadGeneration
+                                || connection != target) {
+                            return;
+                        }
+                        hostAddressOptions = failure == null
+                                && addresses != null && !addresses.isEmpty()
+                                ? addresses
+                                : List.of(GdxLocalServerAddresses.LOOPBACK_NAME);
+                    });
+                });
+    }
+
     private List<String> dropdownOptions(Dropdown target) {
+        if (target == Dropdown.HOST_ADDRESS) {
+            return hostAddressOptions;
+        }
         List<String> values = new ArrayList<>();
         values.add(target == Dropdown.PROFILE
                 ? gameText.translate("newgame.preset_por_defecto")
@@ -8502,9 +8573,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         int visible = Math.min(6, options.size());
         dropdownScroll = MathUtils.clamp(dropdownScroll, 0,
                 Math.max(0, options.size() - visible));
-        float x = dropdown == Dropdown.PROFILE ? 500f : 470f;
-        float w = dropdown == Dropdown.PROFILE ? 1285f : 590f;
-        float top = dropdown == Dropdown.PROFILE ? 570f : 680f;
+        float x = switch (dropdown) {
+            case PROFILE -> 500f;
+            case HOST_ADDRESS -> 1170f;
+            default -> 470f;
+        };
+        float w = switch (dropdown) {
+            case PROFILE -> 1285f;
+            case HOST_ADDRESS -> 430f;
+            default -> 590f;
+        };
+        float top = switch (dropdown) {
+            case PROFILE -> 570f;
+            case HOST_ADDRESS -> 700f;
+            default -> 680f;
+        };
         float rowH = 56f;
         float y = top - visible * rowH;
         hit(0f, 0f, WIDTH, HEIGHT, () -> dropdown = Dropdown.NONE);
@@ -8512,8 +8595,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         roundedRect(x + 8f, y - 8f, w, visible * rowH, 10f);
         outerBox(x, y, w, visible * rowH, CYAN_DARK,
                 new Color(0x071221ff));
-        int selected = dropdown == Dropdown.PROFILE
-                ? selectedGamePreset + 1 : selectedBlindStructureOption();
+        int selected = switch (dropdown) {
+            case PROFILE -> selectedGamePreset + 1;
+            case HOST_ADDRESS -> selectedHostAddressOption();
+            default -> selectedBlindStructureOption();
+        };
         for (int row = 0; row < visible; row++) {
             int option = dropdownScroll + row;
             float rowY = top - (row + 1) * rowH;
@@ -8531,10 +8617,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     active ? GOLD : Color.WHITE, false, w - 56f);
             int selectedOption = option;
             hit(x + 6f, rowY + 3f, w - 12f, rowH - 6f, () -> {
-                if (dropdown == Dropdown.PROFILE) {
-                    selectGamePresetOption(selectedOption);
-                } else {
-                    selectBlindStructureOption(selectedOption);
+                switch (dropdown) {
+                    case PROFILE -> selectGamePresetOption(selectedOption);
+                    case HOST_ADDRESS -> {
+                        connection.setServer(options.get(selectedOption));
+                        dropdown = Dropdown.NONE;
+                    }
+                    default -> selectBlindStructureOption(selectedOption);
                 }
             });
         }
@@ -10211,7 +10300,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private enum Dropdown {
-        NONE, PROFILE, BLIND_STRUCTURE
+        NONE, PROFILE, BLIND_STRUCTURE, HOST_ADDRESS
     }
 
     private enum ButtonTone {

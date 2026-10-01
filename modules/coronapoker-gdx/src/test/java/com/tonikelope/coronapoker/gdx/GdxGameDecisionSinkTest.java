@@ -252,9 +252,9 @@ final class GdxGameDecisionSinkTest {
         declinedDialogs.get(0).dismiss();
         assertEquals(new GameDecisionSink.GameOverResult(false, 0),
                 declined.toCompletableFuture().get(1, TimeUnit.SECONDS));
-        assertEquals(2, declinedDialogs.size());
-        assertTrue(declinedDialogs.get(1).isGameOver(),
-                "the final GAME OVER frame must remain available while its audio finishes");
+        assertEquals(1, declinedDialogs.size(),
+                "the same GAME OVER surface owns the zero frame");
+        assertTrue(declinedDialogs.get(0).gameOverFinalFrame());
 
         List<GdxTableDialog> timedDialogs = new ArrayList<>();
         GdxGameDecisionSink timedDecisions = new GdxGameDecisionSink(
@@ -264,7 +264,8 @@ final class GdxGameDecisionSinkTest {
         timedDialogs.get(0).timeout();
         assertEquals(new GameDecisionSink.GameOverResult(false, 0),
                 timed.toCompletableFuture().get(1, TimeUnit.SECONDS));
-        assertEquals(2, timedDialogs.size());
+        assertEquals(1, timedDialogs.size());
+        assertTrue(timedDialogs.get(0).gameOverFinalFrame());
     }
 
     @Test
@@ -272,23 +273,27 @@ final class GdxGameDecisionSinkTest {
             throws Exception {
         List<GdxTableDialog> shown = new ArrayList<>();
         List<GdxGameDecisionSink.GameOverAudioCue> cues = new ArrayList<>();
+        CompletableFuture<Void> openingAudio = new CompletableFuture<>();
         CompletableFuture<Void> spectatorAudio = new CompletableFuture<>();
         GdxGameDecisionSink decisions = new GdxGameDecisionSink(
                 GameText.keys(), shown::add, ignored -> { }, cue -> {
                     cues.add(cue);
-                    return cue == GdxGameDecisionSink.GameOverAudioCue.SPECTATOR
-                            ? spectatorAudio
-                            : CompletableFuture.completedFuture(null);
-                });
+                    return switch (cue) {
+                        case OPEN -> openingAudio;
+                        case SPECTATOR -> spectatorAudio;
+                        case CONTINUE -> CompletableFuture.completedFuture(null);
+                    };
+                }, () -> true);
 
         var result = decisions.showGameOver(
                 new GameDecisionSink.GameOverRequest(false, 2, 20, 10, 10));
         assertEquals(List.of(GdxGameDecisionSink.GameOverAudioCue.OPEN), cues);
 
         shown.get(0).dismiss();
-        assertEquals(2, shown.size());
-        GdxTableDialog finalFrame = shown.get(1);
+        assertEquals(1, shown.size());
+        GdxTableDialog finalFrame = shown.get(0);
         assertTrue(finalFrame.isGameOver());
+        assertTrue(finalFrame.gameOverFinalFrame());
         assertTrue(finalFrame.isExternallyControlled());
         assertEquals(List.of(GdxGameDecisionSink.GameOverAudioCue.OPEN,
                 GdxGameDecisionSink.GameOverAudioCue.SPECTATOR), cues);
@@ -302,15 +307,50 @@ final class GdxGameDecisionSinkTest {
     }
 
     @Test
+    void authoredGameOverAudioSelectsSpectatorOnTheSameZeroFrame()
+            throws Exception {
+        List<GdxTableDialog> shown = new ArrayList<>();
+        CompletableFuture<Void> openingAudio = new CompletableFuture<>();
+        CompletableFuture<Void> spectatorAudio = new CompletableFuture<>();
+        GdxGameDecisionSink decisions = new GdxGameDecisionSink(
+                GameText.keys(), shown::add, ignored -> { }, cue -> switch (cue) {
+                    case OPEN -> openingAudio;
+                    case SPECTATOR -> spectatorAudio;
+                    case CONTINUE -> CompletableFuture.completedFuture(null);
+                }, () -> true);
+
+        var result = decisions.showGameOver(
+                new GameDecisionSink.GameOverRequest(false, 2, 20, 10, 10));
+        GdxTableDialog surface = shown.get(0);
+        assertFalse(surface.complete());
+
+        openingAudio.complete(null);
+        assertTrue(surface.complete());
+        assertTrue(surface.gameOverFinalFrame());
+        assertFalse(surface.readyToClose());
+        assertEquals(1, shown.size(),
+                "audio completion must swap the existing surface, not flash a second dialog");
+
+        spectatorAudio.complete(null);
+        assertTrue(surface.readyToClose());
+        assertEquals(new GameDecisionSink.GameOverResult(false, 0),
+                result.toCompletableFuture().get(1, TimeUnit.SECONDS));
+    }
+
+    @Test
     void spectatorPathCannotBeStrandedByMissingBackendAudioCallback()
             throws Exception {
         List<GdxTableDialog> shown = new ArrayList<>();
+        CompletableFuture<Void> openingAudio = new CompletableFuture<>();
         CompletableFuture<Void> missingBackendCallback = new CompletableFuture<>();
         GdxGameDecisionSink decisions = new GdxGameDecisionSink(
                 GameText.keys(), shown::add, ignored -> { }, cue ->
                         cue == GdxGameDecisionSink.GameOverAudioCue.SPECTATOR
                                 ? missingBackendCallback
-                                : CompletableFuture.completedFuture(null),
+                                : cue == GdxGameDecisionSink.GameOverAudioCue.OPEN
+                                        ? openingAudio
+                                        : CompletableFuture.completedFuture(null),
+                () -> true,
                 20, TimeUnit.MILLISECONDS);
 
         var result = decisions.showGameOver(
@@ -319,8 +359,8 @@ final class GdxGameDecisionSinkTest {
 
         assertEquals(new GameDecisionSink.GameOverResult(false, 0),
                 result.toCompletableFuture().get(1, TimeUnit.SECONDS));
-        assertEquals(2, shown.size());
-        assertTrue(shown.get(1).complete(),
+        assertEquals(1, shown.size());
+        assertTrue(shown.get(0).complete(),
                 "the final GAME OVER frame must release with the decision");
         assertTrue(missingBackendCallback.isDone());
     }
@@ -328,12 +368,16 @@ final class GdxGameDecisionSinkTest {
     @Test
     void continueStopsGameOverAudioBeforeOpeningMandatoryRebuy() {
         List<GdxTableDialog> shown = new ArrayList<>();
+        CompletableFuture<Void> openingAudio = new CompletableFuture<>();
         CompletableFuture<Void> continueAudio = new CompletableFuture<>();
         GdxGameDecisionSink decisions = new GdxGameDecisionSink(
                 GameText.keys(), shown::add, ignored -> { }, cue ->
                         cue == GdxGameDecisionSink.GameOverAudioCue.CONTINUE
                                 ? continueAudio
-                                : CompletableFuture.completedFuture(null));
+                                : cue == GdxGameDecisionSink.GameOverAudioCue.OPEN
+                                        ? openingAudio
+                                        : CompletableFuture.completedFuture(null),
+                () -> true);
 
         var result = decisions.showGameOver(
                 new GameDecisionSink.GameOverRequest(false, 2, 20, 10, 10));

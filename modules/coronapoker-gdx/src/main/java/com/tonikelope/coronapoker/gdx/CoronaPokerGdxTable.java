@@ -4829,8 +4829,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float dialogWidth(GdxTableDialog dialog) {
         float requested = dialog.preferredWidth() > 0
                 ? dialog.preferredWidth() : 860f;
+        if (dialog.isZeroTrust()) requested = Math.max(requested, 1160f);
         if (dialog.isNotice()) requested = Math.max(requested, 980f);
-        return MathUtils.clamp(requested, 620f, 1200f);
+        return MathUtils.clamp(requested, 620f,
+                dialog.isZeroTrust() ? 1260f : 1200f);
     }
 
     private static float dialogHeight(GdxTableDialog dialog) {
@@ -4838,6 +4840,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         ? (dialog.isGameOverChoice() ? 570f : 390f)
                 : dialog.isAutoCall() || dialog.isHandLimit() ? 540f
                 : dialog.isRebuy() ? 390f
+                : dialog.isZeroTrust() ? 760f
                 : dialog.isNotice() ? 470f
                 : dialog.hasAmount() ? 470f : 390f;
     }
@@ -4917,11 +4920,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         viewport.unproject(pointer);
         // The pause shade owns the whole table, just like Swing's glass pane.
         // Route it before cards, seat notices and HUD controls so the release
-        // cannot click through the visible modal overlay.  The full overlay is
-        // deliberately clickable; the white banner is only its visual focus.
-        if (pauseOverlayConsumesRelease(liveState.snapshot().paused(),
+        // cannot click through the visible modal overlay.  Only the white
+        // full-width banner and the explicit REANUDAR button resume the game;
+        // the rest of the shade merely consumes the click.
+        boolean paused = liveState.snapshot().paused();
+        if (pauseOverlayConsumesRelease(paused,
                 leftButtonReleasedThisFrame)) {
-            togglePauseAction();
+            if (pauseOverlayRequestsResume(paused,
+                    leftButtonReleasedThisFrame, pointer.x, pointer.y,
+                    viewport.getWorldWidth(), pauseBannerY(),
+                    pauseBannerHeight(), communityPauseX, communityPauseY,
+                    communityPauseWidth, communityPauseHeight)) {
+                togglePauseAction();
+            }
             return;
         }
         if (handleSeatChatNoticeClick(pointer.x, pointer.y, false)) {
@@ -5156,6 +5167,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static boolean pauseOverlayConsumesRelease(boolean paused,
             boolean released) {
         return paused && released;
+    }
+
+    static boolean pauseOverlayRequestsResume(boolean paused,
+            boolean released, float pointerX, float pointerY,
+            float worldWidth, float bannerY, float bannerHeight,
+            float resumeX, float resumeY, float resumeWidth,
+            float resumeHeight) {
+        if (!paused || !released) return false;
+        return contains(pointerX, pointerY, 0f, bannerY,
+                worldWidth, bannerHeight)
+                || contains(pointerX, pointerY, resumeX, resumeY,
+                        resumeWidth, resumeHeight);
     }
 
     private int activeDealtPlayerCount() {
@@ -5997,6 +6020,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.setShader(null);
         batch.setColor(Color.WHITE);
         batch.end();
+    }
+
+    static float zeroTrustTextScale(float measuredHeight,
+            float availableHeight) {
+        if (measuredHeight <= 0f || availableHeight <= 0f
+                || measuredHeight <= availableHeight) {
+            return 1f;
+        }
+        // Security text must never collapse into the tiny-font failure mode of
+        // a generic fitted dialog. The dedicated wide/tall layout is sized for
+        // every current message; this floor is a final readability safeguard.
+        return Math.max(0.78f, availableHeight / measuredHeight);
     }
 
     static float introLogoDockProgress(float timeSeconds) {
@@ -13854,7 +13889,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float buttonY = panelY + 34f;
         float buttonH = 64f;
         Color accent = switch (dialog.kind()) {
-            case ERROR -> FOLD_RED;
+            case ERROR, ZERO_TRUST -> FOLD_RED;
             case INFO -> CYAN;
             case CONFIRM, TIMED_WARNING, AUTO_ACTION, REBUY, AUTO_CALL,
                     HAND_LIMIT, GAME_OVER -> POT_GOLD;
@@ -13965,14 +14000,40 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.begin();
         Rectangle title = new Rectangle(panelX + 42f,
                 panelY + panelH - 80f, panelW - 84f, 46f);
-        drawLeftInBox(uiFont, dialog.title(), title.x, title.y,
-                title.width, title.height,
-                accent, 1f);
+        if (dialog.isZeroTrust()) {
+            drawFittedCenteredInBox(uiFont, dialog.title(), title.x, title.y,
+                    title.width, title.height, accent, 1f);
+        } else {
+            drawLeftInBox(uiFont, dialog.title(), title.x, title.y,
+                    title.width, title.height, accent, 1f);
+        }
         if (dialog.isAutoCall()) {
             Rectangle detail = autoCallLayout.detail();
             drawFittedCenteredInBox(smallFont, dialog.message(),
                     detail.x, detail.y, detail.width, detail.height,
                     Color.WHITE, 1f);
+        } else if (dialog.isZeroTrust()) {
+            BitmapFont.BitmapFontData dialogFontData = uiFont.getData();
+            float originalScaleX = dialogFontData.scaleX;
+            float originalScaleY = dialogFontData.scaleY;
+            float messageX = panelX + 64f;
+            float messageY = panelY + 128f;
+            float messageW = panelW - 128f;
+            float messageH = panelH - 250f;
+            glyph.setText(uiFont, dialog.message(), Color.WHITE,
+                    messageW, Align.left, true);
+            float readableScale = zeroTrustTextScale(glyph.height, messageH);
+            if (readableScale < 1f) {
+                dialogFontData.setScale(originalScaleX * readableScale,
+                        originalScaleY * readableScale);
+                glyph.setText(uiFont, dialog.message(), Color.WHITE,
+                        messageW, Align.left, true);
+            }
+            uiFont.setColor(Color.WHITE);
+            uiFont.draw(batch, glyph, messageX,
+                    messageY + (messageH + glyph.height) / 2f);
+            dialogFontData.setScale(originalScaleX, originalScaleY);
+            uiFont.setColor(Color.WHITE);
         } else {
             BitmapFont.BitmapFontData dialogFontData = uiFont.getData();
             float originalScaleX = dialogFontData.scaleX;

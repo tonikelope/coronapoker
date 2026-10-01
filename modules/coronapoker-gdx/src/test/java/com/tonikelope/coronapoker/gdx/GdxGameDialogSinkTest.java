@@ -37,5 +37,12 @@ final class GdxGameDialogSinkTest {
                 GameDialogSink.Icon.EXIT, 0, 0);
         assertFalse(info.showsNegative());
         assertEquals("CLOSE", info.positiveLabel());
+
+        GdxTableDialog zeroTrust = sink.request(
+                GdxTableDialog.Kind.ZERO_TRUST, "Cryptographic anomaly",
+                GameDialogSink.Icon.NONE, 700, 0);
+        assertEquals("ZERO-TRUST", zeroTrust.title());
+        assertFalse(zeroTrust.showsNegative());
+        assertEquals("CLOSE", zeroTrust.positiveLabel());
     }
 }

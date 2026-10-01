@@ -2042,13 +2042,54 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void pausedOverlayConsumesOnlyACompletedClickWhilePaused() {
+    void pausedOverlayConsumesEveryCompletedClickWithoutClickThrough() {
         assertTrue(CoronaPokerGdxTable
                 .pauseOverlayConsumesRelease(true, true));
         assertFalse(CoronaPokerGdxTable
                 .pauseOverlayConsumesRelease(true, false));
         assertFalse(CoronaPokerGdxTable
                 .pauseOverlayConsumesRelease(false, true));
+    }
+
+    @Test
+    void pausedOverlayResumesOnlyFromBannerOrResumeButton() {
+        float worldWidth = 1_920f;
+        float bannerY = 465f;
+        float bannerHeight = 150f;
+        float buttonX = 830f;
+        float buttonY = 360f;
+        float buttonWidth = 260f;
+        float buttonHeight = 52f;
+
+        assertTrue(CoronaPokerGdxTable.pauseOverlayRequestsResume(true, true,
+                120f, 520f, worldWidth, bannerY, bannerHeight,
+                buttonX, buttonY, buttonWidth, buttonHeight),
+                "the full-width pause banner must resume the game");
+        assertTrue(CoronaPokerGdxTable.pauseOverlayRequestsResume(true, true,
+                900f, 380f, worldWidth, bannerY, bannerHeight,
+                buttonX, buttonY, buttonWidth, buttonHeight),
+                "the explicit REANUDAR control must resume the game");
+        assertFalse(CoronaPokerGdxTable.pauseOverlayRequestsResume(true, true,
+                120f, 120f, worldWidth, bannerY, bannerHeight,
+                buttonX, buttonY, buttonWidth, buttonHeight),
+                "an unrelated table click must remain consumed without resuming");
+        assertFalse(CoronaPokerGdxTable.pauseOverlayRequestsResume(false, true,
+                120f, 520f, worldWidth, bannerY, bannerHeight,
+                buttonX, buttonY, buttonWidth, buttonHeight));
+        assertFalse(CoronaPokerGdxTable.pauseOverlayRequestsResume(true, false,
+                120f, 520f, worldWidth, bannerY, bannerHeight,
+                buttonX, buttonY, buttonWidth, buttonHeight));
+    }
+
+    @Test
+    void zeroTrustTextNeverShrinksBelowItsReadableFloor() {
+        assertEquals(1f, CoronaPokerGdxTable.zeroTrustTextScale(400f, 500f),
+                0.000_001f);
+        assertEquals(0.9f, CoronaPokerGdxTable.zeroTrustTextScale(500f, 450f),
+                0.000_001f);
+        assertEquals(0.78f,
+                CoronaPokerGdxTable.zeroTrustTextScale(900f, 450f),
+                0.000_001f);
     }
 
     @Test

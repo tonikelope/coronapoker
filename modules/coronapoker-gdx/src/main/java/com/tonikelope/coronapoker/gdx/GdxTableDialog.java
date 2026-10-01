@@ -16,6 +16,7 @@ final class GdxTableDialog {
 
     enum Kind {
         ERROR,
+        ZERO_TRUST,
         INFO,
         CONFIRM,
         TIMED_WARNING,
@@ -258,7 +259,9 @@ final class GdxTableDialog {
     boolean isGameOverChoice() { return gameOverChoice; }
     boolean gameOverCinematics() { return gameOverCinematics; }
     boolean gameOverFinalFrame() { return gameOverFinalFrame; }
-    boolean isNotice() { return kind == Kind.ERROR || kind == Kind.INFO; }
+    boolean isNotice() { return kind == Kind.ERROR
+            || kind == Kind.ZERO_TRUST || kind == Kind.INFO; }
+    boolean isZeroTrust() { return kind == Kind.ZERO_TRUST; }
     boolean isRecovery() { return recovery; }
     boolean isRebuy() { return kind == Kind.REBUY; }
     boolean allowsDismissal() { return !isRebuy() || showsNegative(); }
@@ -467,6 +470,7 @@ final class GdxTableDialog {
     private static String defaultTitle(Kind kind) {
         return switch (kind) {
             case ERROR -> "ERROR";
+            case ZERO_TRUST -> "ZERO-TRUST";
             case INFO -> "INFORMACIÓN";
             case CONFIRM -> "CONFIRMACIÓN";
             case TIMED_WARNING -> "AVISO";

@@ -40,6 +40,16 @@ public interface GameDialogSink {
         return showInfo(message, icon, 0);
     }
 
+    /**
+     * Shows a security/cryptographic alert. Renderers may give every such
+     * notice one unmistakable, shared presentation; the default preserves
+     * compatibility with non-visual and test sinks.
+     */
+    default CompletionStage<Void> showZeroTrustAlert(String message,
+            int preferredWidth) {
+        return showError(message, preferredWidth);
+    }
+
     static GameDialogSink noop() {
         return new GameDialogSink() {
             @Override

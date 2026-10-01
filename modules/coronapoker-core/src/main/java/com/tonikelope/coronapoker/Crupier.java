@@ -1297,7 +1297,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         game_async.execute(() -> {
             // Modal: blocks this background thread until the user clicks OK.
-            awaitDialog(game_dialogs.showError(
+            awaitDialog(game_dialogs.showZeroTrustAlert(
                     game_text.translate("zero_trust.suspicious_header")
                     + fullReason + "\n\n"
                     + game_text.translate("zero_trust.suspicious_body"),
@@ -1419,7 +1419,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             game_async.execute(() -> {
                 try {
-                    awaitDialog(game_dialogs.showError(
+                    awaitDialog(game_dialogs.showZeroTrustAlert(
                             game_text.translate("zero_trust.peer_suspicious_header")
                             + line + "\n\n"
                             + game_text.translate("zero_trust.peer_suspicious_body"),
@@ -1494,7 +1494,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         } catch (Exception ignored) {
         }
         game_async.execute(() -> {
-            awaitDialog(game_dialogs.showError(
+            awaitDialog(game_dialogs.showZeroTrustAlert(
                     game_text.translate("zero_trust.suspicious_header")
                     + MessageFormat.format(game_text.translate("zero_trust.deck_unverified"), hostNick) + "\n\n"
                     + game_text.translate("zero_trust.deck_unverified_body"),
@@ -1854,9 +1854,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             game_async.execute(() -> {
-                awaitDialog(game_dialogs.showError(
-                        game_text.translate("zero_trust.critical_alert_header")
-                        + fullReason + "\n\n"
+                awaitDialog(game_dialogs.showZeroTrustAlert(
+                        fullReason + "\n\n"
                         + game_text.translate("zero_trust.critical_alert_body"),
                         zeroTrustPopupWidth()));
                 // After the lockdown popup, the game is over for this peer. The HOST finds
@@ -10524,9 +10523,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // their reader thread resumes from the popup; TCP ordering means the reader thread
         // blocking during the modal only delays delivery, harmlessly.
         try {
-            awaitDialog(game_dialogs.showError(game_text.translate("game.mano_anulada")
-                    + " " + game_text.translate(motivo) + "<b>"
-                    + game_text.translate("game.mano_anulada_footer") + "</b>"));
+            String message = game_text.translate("game.mano_anulada")
+                    + " " + game_text.translate(motivo) + "\n\n<b>"
+                    + game_text.translate("game.mano_anulada_footer") + "</b>";
+            awaitDialog(peligro_grave
+                    ? game_dialogs.showZeroTrustAlert(message,
+                            zeroTrustPopupWidth())
+                    : game_dialogs.showError(message));
         } finally {
             // The danger alert loops until the user closes the popup.
             game_audio.stopDangerAlertLoop();
@@ -14886,7 +14889,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      */
     private void showConsensusPopup(String title, String body) {
         String composed = (title != null ? title + "\n\n" : "") + body;
-        game_dialogs.showInfo(composed, GameDialogSink.Icon.NONE, zeroTrustPopupWidth());
+        game_dialogs.showZeroTrustAlert(composed, zeroTrustPopupWidth());
     }
 
     private HashMap<String, Object> recibirDatosClaveRecuperados() {
@@ -23149,7 +23152,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         game_async.execute(() -> {
             try {
-                awaitDialog(game_dialogs.showError(
+                awaitDialog(game_dialogs.showZeroTrustAlert(
                         MessageFormat.format(game_text.translate("zero_trust.seat_redraw"), host)
                         + "\n\n" + game_text.translate("zero_trust.seat_redraw_body"),
                         zeroTrustPopupWidth()));
@@ -23217,7 +23220,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         game_async.execute(() -> {
             try {
-                awaitDialog(game_dialogs.showError(
+                awaitDialog(game_dialogs.showZeroTrustAlert(
                         MessageFormat.format(game_text.translate("zero_trust.seat_recover_mismatch"), host)
                         + "\n\n" + game_text.translate("zero_trust.seat_recover_mismatch_body"),
                         zeroTrustPopupWidth()));

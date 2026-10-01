@@ -33,6 +33,13 @@ final class GdxGameDialogSink implements GameDialogSink {
     }
 
     @Override
+    public CompletionStage<Void> showZeroTrustAlert(String message,
+            int preferredWidth) {
+        return show(GdxTableDialog.Kind.ZERO_TRUST, message, Icon.NONE,
+                preferredWidth, 0).thenApply(ignored -> null);
+    }
+
+    @Override
     public CompletionStage<Boolean> confirm(String message, Icon icon) {
         return show(GdxTableDialog.Kind.CONFIRM, message, icon, 0, 0);
     }
@@ -60,6 +67,7 @@ final class GdxGameDialogSink implements GameDialogSink {
             Icon icon, int preferredWidth, int seconds) {
         String title = switch (kind) {
             case ERROR -> tr("gdx.dialog.error", "ERROR");
+            case ZERO_TRUST -> "ZERO-TRUST";
             case INFO -> tr("gdx.dialog.information", "INFORMACIÓN");
             case CONFIRM -> tr("gdx.dialog.confirmation", "CONFIRMACIÓN");
             case TIMED_WARNING -> tr("gdx.dialog.warning", "AVISO");
@@ -71,6 +79,7 @@ final class GdxGameDialogSink implements GameDialogSink {
                 Objects.requireNonNull(icon, "icon"), preferredWidth,
                 seconds, kind == GdxTableDialog.Kind.TIMED_WARNING,
                 kind == GdxTableDialog.Kind.ERROR
+                        || kind == GdxTableDialog.Kind.ZERO_TRUST
                         || kind == GdxTableDialog.Kind.INFO
                                 ? "" : tr("ui.cancelar", "CANCELAR"),
                 kind == GdxTableDialog.Kind.CONFIRM

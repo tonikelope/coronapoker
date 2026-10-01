@@ -15,7 +15,7 @@ import org.junit.jupiter.api.io.TempDir;
 final class GdxGamePresentationSettingsTest {
 
     @Test
-    void gameplayAnimationsIgnoreTheExcludedSwingMasterAndHonorSpecificSwitches(
+    void gameplayAnimationsHonorTheGlobalMasterAndSpecificSwitches(
             @TempDir Path temporary) {
         PreferencesService preferences = new PreferencesService(
                 temporary.resolve("coronapoker.properties"));
@@ -45,8 +45,8 @@ final class GdxGamePresentationSettingsTest {
         assertFalse(settings.flipAnimation());
 
         preferences.properties().setProperty("animaciones", "false");
-        assertTrue(settings.dealAnimation(),
-                "the hidden Swing master must not disable GDX animations");
+        assertFalse(settings.dealAnimation());
+        assertFalse(settings.cinematics());
     }
 
     @Test
@@ -148,6 +148,24 @@ final class GdxGamePresentationSettingsTest {
         assertFalse(settings.ownHoleFlipSound());
         assertFalse(settings.checkSound());
         assertFalse(settings.allInSound());
+    }
+
+    @Test
+    void funnySoundsPreferenceIsObservedLiveByTheCanonicalDealer(
+            @TempDir Path temporary) {
+        PreferencesService preferences = new PreferencesService(
+                temporary.resolve("coronapoker.properties"));
+        GdxGamePresentationSettings settings =
+                new GdxGamePresentationSettings(preferences);
+
+        assertFalse(settings.sillySounds());
+        preferences.properties().setProperty("sonidos_chorra", "true");
+        assertTrue(settings.sillySounds());
+        preferences.properties().setProperty("sonido_efectos", "false");
+        assertTrue(settings.sillySounds(),
+                "Swing keeps funny sounds independent from the effects family");
+        preferences.properties().setProperty("sonidos_chorra", "false");
+        assertFalse(settings.sillySounds());
     }
 
     @Test

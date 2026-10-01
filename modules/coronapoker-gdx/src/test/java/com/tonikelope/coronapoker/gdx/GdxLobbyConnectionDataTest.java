@@ -8,14 +8,24 @@ import org.junit.jupiter.api.Test;
 class GdxLobbyConnectionDataTest {
 
     @Test
-    void onlyTheHostCanCopyThePublishedLobbyEndpoint() {
+    void onlyTheHostCanCopyBothPublishedLobbyEndpoints() {
+        assertEquals("[CoronaPoker] localhost:2345"
+                + System.lineSeparator()
+                + "[CoronaPoker] 83.39.59.168:2345",
+                GdxFrontendScreen.lobbyConnectionClipboardText(
+                        true, "  localhost:2345  ", "83.39.59.168"));
+        assertEquals("[CoronaPoker] localhost:2345"
+                + System.lineSeparator()
+                + "[CoronaPoker] [2001:db8::1]:2345",
+                GdxFrontendScreen.lobbyConnectionClipboardText(
+                        true, "localhost:2345", "2001:db8::1"));
         assertEquals("[CoronaPoker] localhost:2345",
                 GdxFrontendScreen.lobbyConnectionClipboardText(
-                        true, "  localhost:2345  "));
+                        true, "localhost:2345", ""));
         assertEquals("", GdxFrontendScreen.lobbyConnectionClipboardText(
-                false, "localhost:2345"));
+                false, "localhost:2345", "83.39.59.168"));
         assertEquals("", GdxFrontendScreen.lobbyConnectionClipboardText(
-                true, "  "));
+                true, "  ", "83.39.59.168"));
     }
 
     @Test

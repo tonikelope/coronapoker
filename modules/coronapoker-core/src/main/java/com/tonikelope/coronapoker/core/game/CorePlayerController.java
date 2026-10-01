@@ -27,6 +27,7 @@ public final class CorePlayerController implements GamePlayerController {
     private volatile int parguelaCount;
     private volatile Runnable turnCompletionSignal = () -> { };
     private volatile Runnable potRegistration = () -> { };
+    private volatile Runnable acceptedLocalFoldSignal = () -> { };
     private volatile Runnable acceptedLocalAllInSignal = () -> { };
     private volatile Supplier<Integer> committedRebuy = () -> null;
 
@@ -80,6 +81,11 @@ public final class CorePlayerController implements GamePlayerController {
         potRegistration = Objects.requireNonNull(registration, "registration");
     }
 
+    /** Runs the frontend-neutral fold presentation after accepting the action. */
+    public void bindAcceptedLocalFoldSignal(Runnable signal) {
+        acceptedLocalFoldSignal = Objects.requireNonNull(signal, "signal");
+    }
+
     /** Runs the frontend-neutral all-in presentation before releasing the dealer. */
     public void bindAcceptedLocalAllInSignal(Runnable signal) {
         acceptedLocalAllInSignal = Objects.requireNonNull(signal, "signal");
@@ -116,7 +122,10 @@ public final class CorePlayerController implements GamePlayerController {
                 || isSpectator()) return false;
         DealerView currentDealer = requireDealer();
         switch (decision) {
-            case FOLD -> setDecision(FOLD, "FOLD");
+            case FOLD -> {
+                setDecision(FOLD, "FOLD");
+                acceptedLocalFoldSignal.run();
+            }
             case CHECK -> {
                 double target = currentDealer.getApuesta_actual();
                 if (MoneyMath.compare(target - getBet(), getStack()) >= 0) return false;

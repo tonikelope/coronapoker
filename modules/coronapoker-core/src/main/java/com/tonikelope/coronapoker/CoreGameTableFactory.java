@@ -378,6 +378,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
         players.forEach(player -> player.bindCommittedRebuy(
                 () -> dealer.consumeCommittedRebuy(
                         player.getNickname(), player.getStack())));
+        local.bindAcceptedLocalFoldSignal(dealer::soundFold);
         local.bindAcceptedLocalAllInSignal(() -> {
             if (!dealer.localCinematicAllin()) {
                 dealer.soundAllin();

@@ -85,7 +85,9 @@ final class GdxSettingsContractTest {
 
         GdxSettingsContract.TogglePage animations =
                 GdxSettingsContract.APPEARANCE_PAGES.get(1);
-        assertTrue(animations.options().stream().allMatch(option ->
+        assertFalse(GdxSettingsContract.isChildOption(animations,
+                animations.options().get(0)));
+        assertTrue(animations.options().stream().skip(1).allMatch(option ->
                 GdxSettingsContract.isChildOption(animations, option)));
     }
 
@@ -309,7 +311,7 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.APPEARANCE_PAGES.stream()
                         .map(GdxSettingsContract.TogglePage::title).toList());
         assertFalse(keys.contains("auto_zoom"));
-        assertFalse(keys.contains("animaciones"));
+        assertTrue(keys.contains("animaciones"));
         assertFalse(keys.contains("cinematicas_accion"));
         assertFalse(keys.contains("animacion_cascada_overlay"));
         assertFalse(keys.contains("animacion_downgrade"));
@@ -321,9 +323,9 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.APPEARANCE_PAGES.get(1);
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
-        assertEquals(8, page.options().size());
+        assertEquals(9, page.options().size());
         assertEquals(5, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(13, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(14, GdxSettingsContract.appearanceRowCount(page));
     }
 
     @Test
@@ -351,12 +353,12 @@ final class GdxSettingsContractTest {
     }
 
     @Test
-    void childAppearanceControlsIgnoreTheExcludedSwingMasterAndRespectCinematics() {
+    void childAppearanceControlsRespectAnimationAndCinematicMasters() {
         Properties properties = new Properties();
         GdxSettingsContract.ToggleOption cinematic =
                 GdxSettingsContract.APPEARANCE_PAGES.get(0).options().get(2);
         GdxSettingsContract.ToggleOption deal =
-                GdxSettingsContract.APPEARANCE_PAGES.get(1).options().get(1);
+                GdxSettingsContract.APPEARANCE_PAGES.get(1).options().get(2);
 
         assertTrue(GdxSettingsContract.enabled(cinematic, properties, true));
         assertTrue(GdxSettingsContract.enabled(deal, properties, true));
@@ -365,7 +367,7 @@ final class GdxSettingsContractTest {
         assertTrue(GdxSettingsContract.enabled(deal, properties, true));
         properties.setProperty("animaciones", "false");
         assertFalse(GdxSettingsContract.enabled(cinematic, properties, true));
-        assertTrue(GdxSettingsContract.enabled(deal, properties, true));
+        assertFalse(GdxSettingsContract.enabled(deal, properties, true));
     }
 
     @Test
@@ -449,7 +451,7 @@ final class GdxSettingsContractTest {
         assertEquals("verde", properties.getProperty("color_tapete"));
         assertEquals("50", properties.getProperty("nivel_luz"));
         assertEquals("false", properties.getProperty("gdx_show_fps"));
-        assertEquals("false", properties.getProperty("animaciones"));
+        assertEquals("true", properties.getProperty("animaciones"));
         assertEquals("620", properties.getProperty("card_flip_duration"));
         assertEquals("windowed", properties.getProperty("gdx_window_mode"));
         assertEquals("0", properties.getProperty("gdx_msaa_samples"));

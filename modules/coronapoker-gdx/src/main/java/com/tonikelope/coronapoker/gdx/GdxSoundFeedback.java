@@ -10,6 +10,10 @@ final class GdxSoundFeedback {
     static final String LAST_HAND_OFF = "misc/last_hand_off.wav";
     static final String YOUR_TURN = "misc/yourturn.wav";
     static final String VOLUME_CHANGE = "misc/volume_change.wav";
+    static final String ZOOM_IN = "misc/zoom_in.wav";
+    static final String ZOOM_OUT = "misc/zoom_out.wav";
+    static final String FUNNY_RAISE = "misc/raise.wav";
+    static final String FUNNY_NO_REBUY = "misc/norebuy.wav";
 
     private GdxSoundFeedback() {
     }
@@ -28,5 +32,29 @@ final class GdxSoundFeedback {
         return timer.phase() == TableVisualEvent.TurnTimer.Phase.START
                 && !localNickname.isBlank()
                 && localNickname.equals(timer.nickname());
+    }
+
+    static boolean funnyRaise(TableVisualEvent.PlayerAction.ActionKind kind,
+            boolean sillySounds) {
+        return sillySounds && (kind
+                == TableVisualEvent.PlayerAction.ActionKind.RAISE
+                || kind == TableVisualEvent.PlayerAction.ActionKind.RERAISE);
+    }
+
+    static String avatarZoomTransition(boolean before, boolean after) {
+        if (before == after) return "";
+        return after ? ZOOM_IN : ZOOM_OUT;
+    }
+
+    static boolean funnyResource(String resource) {
+        if (resource == null) return false;
+        return resource.startsWith("joke/")
+                || resource.equals(FUNNY_RAISE)
+                || resource.equals(FUNNY_NO_REBUY)
+                || resource.equals("misc/showyourcards.wav")
+                || resource.equals("misc/indivisible.wav")
+                || resource.equals("misc/lastcard.wav")
+                || resource.equals("misc/badbeat.wav")
+                || resource.equals("misc/youarelucky.wav");
     }
 }

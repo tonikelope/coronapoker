@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tonikelope.coronapoker.Crupier;
 import com.tonikelope.coronapoker.table.TableEventBridge;
 import com.tonikelope.coronapoker.table.TableRenderer;
 import com.tonikelope.coronapoker.table.TableSnapshot;
@@ -39,6 +40,32 @@ final class TableEventGameAudioSinkTest {
                 (TableVisualEvent.AudioCue) renderer.events.get(1);
         assertEquals("misc/warning.wav", warning.resource());
         assertTrue(warning.waitForCompletion());
+    }
+
+    @Test
+    void everyBundledFunnySoundFamilyCrossesTheNeutralAudioBridge() {
+        TableEventBridge bridge = new TableEventBridge();
+        RecordingRenderer renderer = new RecordingRenderer();
+        bridge.attach(renderer, emptySnapshot()).toCompletableFuture().join();
+        TableEventGameAudioSink audio = new TableEventGameAudioSink(bridge,
+                Set.of());
+
+        audio.playRandomWavResource(Map.ofEntries(Crupier.ALLIN_SOUNDS_ES));
+        audio.playRandomWavResourceAndWait(Map.ofEntries(
+                Crupier.FOLD_SOUNDS_ES));
+        audio.playRandomWavResource(Map.ofEntries(Crupier.SHOWDOWN_SOUNDS_ES));
+        audio.playRandomWavResource(Map.ofEntries(Crupier.WINNER_SOUNDS_ES));
+        audio.playRandomWavResource(Map.ofEntries(Crupier.LOSER_SOUNDS_ES));
+
+        assertEquals(5, renderer.events.size());
+        assertEquals(List.of("joke/es/allin/", "joke/es/fold/",
+                "joke/es/showdown/", "joke/es/winner/",
+                "joke/es/loser/"), renderer.events.stream()
+                        .map(TableVisualEvent.AudioCue.class::cast)
+                        .map(TableVisualEvent.AudioCue::resource)
+                        .map(resource -> resource.substring(0,
+                                resource.lastIndexOf('/') + 1))
+                        .toList());
     }
 
     @Test

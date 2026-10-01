@@ -4167,16 +4167,44 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         LobbySnapshot state = lobby;
         String value = lobbyConnectionClipboardText(
                 state != null && state.host(),
-                state == null ? "" : state.serverAddress());
+                state == null ? "" : state.serverAddress(),
+                lobbyPublicAddress);
         if (value.isEmpty()) return;
         Gdx.app.getClipboard().setContents(value);
         showToast(gameText.translate("conn.datos_de_conexion_copiados_en"));
     }
 
-    static String lobbyConnectionClipboardText(boolean host, String address) {
-        String endpoint = Objects.requireNonNullElse(address, "").trim();
-        return host && !endpoint.isEmpty()
-                ? "[CoronaPoker] " + endpoint : "";
+    static String lobbyConnectionClipboardText(boolean host,
+            String localEndpoint, String publicAddress) {
+        String endpoint = Objects.requireNonNullElse(localEndpoint, "").trim();
+        if (!host || endpoint.isEmpty()) return "";
+        String publicIp = Objects.requireNonNullElse(publicAddress, "").trim();
+        String port = endpointPort(endpoint);
+        if (publicIp.isEmpty() || port.isEmpty()) {
+            return "[CoronaPoker] " + endpoint;
+        }
+        String publicEndpoint = publicIp.indexOf(':') >= 0
+                && !(publicIp.startsWith("[") && publicIp.endsWith("]"))
+                        ? "[" + publicIp + "]:" + port
+                        : publicIp + ":" + port;
+        if (endpoint.equalsIgnoreCase(publicEndpoint)) {
+            return "[CoronaPoker] " + endpoint;
+        }
+        return "[CoronaPoker] " + endpoint + System.lineSeparator()
+                + "[CoronaPoker] " + publicEndpoint;
+    }
+
+    private static String endpointPort(String endpoint) {
+        int separator = endpoint.lastIndexOf(':');
+        if (separator < 0 || separator + 1 >= endpoint.length()) return "";
+        String port = endpoint.substring(separator + 1).trim();
+        if (!port.matches("\\d{1,5}")) return "";
+        try {
+            int value = Integer.parseInt(port);
+            return value > 0 && value <= 65_535 ? port : "";
+        } catch (NumberFormatException invalidPort) {
+            return "";
+        }
     }
 
     private void drawLobbyConfirmation() {
@@ -5490,7 +5518,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             boolean value = GdxSettingsContract.displayedValue(option,
                     initialProperties, audioControl.enabled());
             Runnable action = "sonidos".equals(option.key())
-                    ? this::toggleMasterSound
+                    ? this::toggleMasterSoundState
                     : () -> togglePreference(option.key(), option.fallback());
             Rectangle row = GdxSettingsLayout.optionRow(baseX, rowY,
                     baseWidth,
@@ -6334,13 +6362,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if ("sonido_efectos".equals(key)
                 && !preferenceBoolean(key, fallback)) {
             soundEnabledCue.stop();
-            soundDisabledCue.stop();
+            // Keep the just-started OFF cue alive while the remaining effect
+            // families are silenced.
             participantJoinedCue.stop();
             participantLeftCue.stop();
         }
-        boolean displayed = key.equals("audio_block_voice_messages")
-                || key.equals("audio_block_tts_local") ? !next : next;
-        playFrontendSwitchSound(displayed);
     }
 
     private void playFrontendSwitchSound(boolean enabled) {
@@ -6476,15 +6502,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void toggleMasterSound() {
-        boolean wasEnabled = audioControl.enabled();
-        if (wasEnabled && preferenceBoolean("sonido_efectos", true)) {
-            soundDisabledCue.play(0.72f);
-        }
+        GdxToggleSoundAction.run(audioControl.enabled(),
+                this::toggleMasterSoundState,
+                this::playFrontendSwitchSound);
+    }
+
+    private void toggleMasterSoundState() {
         boolean enabled = audioControl.toggle(surface != Surface.SETTINGS);
         if (!enabled) GdxVoicePlayback.stop();
-        if (enabled && preferenceBoolean("sonido_efectos", true)) {
-            soundEnabledCue.play(0.72f);
-        }
         syncMusicForSurface();
     }
 
@@ -8165,9 +8190,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         float tx = x + w - 88f;
         float target = value && enabled ? 1f : 0f;
-        float animation = toggleAnimations.getOrDefault(label, target);
-        animation += (target - animation) * Math.min(1f, frameDelta * 15f);
-        toggleAnimations.put(label, animation);
+        String animationKey = GdxToggleMotion.stableKey(
+                toggleAnimationContext(), label, x, y, w, wrapLabel);
+        float animation = toggleAnimations.getOrDefault(animationKey, target);
+        animation = GdxToggleMotion.next(animation, target, frameDelta);
+        toggleAnimations.put(animationKey, animation);
         Color track = new Color(0x253248ff).lerp(
                 new Color(0x20c765ff), animation);
         shapes.setColor(track);
@@ -8175,9 +8202,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.setColor(new Color(0x8290a4ff).lerp(
                 new Color(0xb8ffc5ff), animation));
         shapes.circle(tx + 19f + 28f * animation, y + 34f, 14f, 32);
-        if (enabled) {
-            hit(x, y, w, GdxSettingsLayout.ROW_HEIGHT, action);
+        if (enabled) hit(x, y, w, GdxSettingsLayout.ROW_HEIGHT,
+                () -> GdxToggleSoundAction.run(value, action,
+                        this::playFrontendSwitchSound));
+    }
+
+    private String toggleAnimationContext() {
+        if (surface == Surface.SETTINGS) {
+            return surface.name() + ':' + settingsReturnSurface.name() + ':'
+                    + settingsSession.section().name() + ':'
+                    + settingsSubpageIndex();
         }
+        if (surface == Surface.NEW_GAME) {
+            return surface.name() + ':' + page;
+        }
+        return surface.name();
     }
 
     private void stepper(float x, float y, float w, String label, int value,

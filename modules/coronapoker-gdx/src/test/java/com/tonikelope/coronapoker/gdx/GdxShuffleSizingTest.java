@@ -26,4 +26,20 @@ final class GdxShuffleSizingTest {
         assertTrue(narrow <= Math.round(1024 * 0.78f));
         assertTrue(hd < laptop && laptop < 960);
     }
+
+    @Test
+    void textOnlyShufflePulseIsSlowAndBounded() {
+        float minimum = Float.POSITIVE_INFINITY;
+        float maximum = Float.NEGATIVE_INFINITY;
+        for (int sample = 0; sample <= 240; sample++) {
+            float pulse = CoronaPokerGdxTable.shuffleFallbackPulse(
+                    sample / 60f);
+            minimum = Math.min(minimum, pulse);
+            maximum = Math.max(maximum, pulse);
+        }
+
+        assertTrue(minimum >= 0f);
+        assertTrue(maximum <= 1f);
+        assertTrue(maximum - minimum > 0.95f);
+    }
 }

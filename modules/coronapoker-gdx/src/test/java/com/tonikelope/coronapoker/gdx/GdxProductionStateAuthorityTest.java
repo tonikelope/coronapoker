@@ -11,6 +11,7 @@ import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
 import java.nio.file.Path;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -181,6 +182,70 @@ final class GdxProductionStateAuthorityTest {
         assertEquals(3L, projection.lastSequence());
     }
 
+    @Test
+    void disabledChipFlightsStillUpdateAndSettleTheCentralPot(
+            @TempDir Path temporary) throws Exception {
+        TableSnapshot input = new TableSnapshot(1L, "human",
+                TableSnapshot.Street.PREFLOP, 0.3d, "remote", false,
+                List.of(player("human"), player("remote")), List.of());
+        GdxTableViewState projection = new GdxTableViewState(input);
+        CoronaPokerGdxTable table = nonAnimatedTable(temporary, projection,
+                true);
+
+        CompletableFuture<Void> action = new CompletableFuture<>();
+        table.acceptEvent(new TableVisualEvent.PlayerAction(1L, "remote",
+                TableVisualEvent.PlayerAction.ActionKind.CALL, "CALL", 1d,
+                1d, 9d, 1d, 1d), action);
+
+        assertTrue(action.isDone());
+        assertEquals(1.3d, displayedPot(table), 0.000_001d,
+                "without a flight the accepted contribution must land now");
+
+        CompletableFuture<Void> payout = new CompletableFuture<>();
+        table.acceptEvent(new TableVisualEvent.Payout(2L, "human", 1.3d, 0,
+                11.3d, 0d), payout);
+
+        assertTrue(payout.isDone());
+        assertEquals(0d, displayedPot(table), 0.000_001d,
+                "canonical payout remainder must replace cached deltas");
+        assertEquals(11.3d, player(projection, "human").stack(), 0.000_001d);
+    }
+
+    @Test
+    void globalAnimationMasterUsesImmediateStatePathsForTableEvents(
+            @TempDir Path temporary) throws Exception {
+        TableSnapshot input = new TableSnapshot(1L, "human",
+                TableSnapshot.Street.PREFLOP, 0.3d, "remote", false,
+                List.of(player("human"), player("remote")), List.of());
+        GdxTableViewState projection = new GdxTableViewState(input);
+        CoronaPokerGdxTable table = nonAnimatedTable(temporary, projection,
+                false);
+
+        CompletableFuture<Void> action = new CompletableFuture<>();
+        table.acceptEvent(new TableVisualEvent.PlayerAction(1L, "remote",
+                TableVisualEvent.PlayerAction.ActionKind.CALL, "CALL", 1d,
+                1d, 9d, 1d, 1d), action);
+        CompletableFuture<Void> collection = new CompletableFuture<>();
+        table.acceptEvent(new TableVisualEvent.CollectBets(2L, List.of(
+                new TableVisualEvent.ChipTransfer("remote", 1d, 9d, 0d,
+                        1d)), 0.3d, 1.3d), collection);
+        CompletableFuture<Void> deal = new CompletableFuture<>();
+        table.acceptEvent(new TableVisualEvent.DealHoleCard(3L, "human", 0,
+                card("A_C", true)), deal);
+        CompletableFuture<Void> runout = new CompletableFuture<>();
+        table.acceptEvent(new TableVisualEvent.AllInRunoutPause(4L, 800L),
+                runout);
+
+        assertTrue(action.isDone());
+        assertTrue(collection.isDone());
+        assertTrue(deal.isDone());
+        assertTrue(runout.isDone());
+        assertEquals(1.3d, displayedPot(table), 0.000_001d);
+        assertEquals("A_C", player(projection, "human")
+                .holeCards().get(0).code());
+        assertEquals(4L, projection.lastSequence());
+    }
+
     private static void assertAnimatedEventCommitsBeforeTelemetry(Path file,
             TableVisualEvent animatedEvent) {
         TableSnapshot input = new TableSnapshot(1L, "human",
@@ -209,6 +274,28 @@ final class GdxProductionStateAuthorityTest {
         return new CoronaPokerGdxTable(240, projection,
                 command -> { }, () -> { }, new GdxGameLogSink(), preferences,
                 null, new GdxGamePresentationSettings(preferences));
+    }
+
+    private static CoronaPokerGdxTable nonAnimatedTable(Path directory,
+            GdxTableViewState projection, boolean masterEnabled) {
+        PreferencesService preferences = new PreferencesService(
+                directory.resolve("coronapoker.properties"));
+        preferences.properties().setProperty("sonido_efectos", "false");
+        preferences.properties().setProperty("animaciones",
+                Boolean.toString(masterEnabled));
+        preferences.properties().setProperty("animacion_apuestas", "false");
+        preferences.properties().setProperty("animacion_contadores", "false");
+        preferences.properties().setProperty("animacion_reparto", "true");
+        return new CoronaPokerGdxTable(240, projection,
+                command -> { }, () -> { }, new GdxGameLogSink(), preferences,
+                null, new GdxGamePresentationSettings(preferences));
+    }
+
+    private static double displayedPot(CoronaPokerGdxTable table)
+            throws Exception {
+        Method method = CoronaPokerGdxTable.class.getDeclaredMethod("livePot");
+        method.setAccessible(true);
+        return (double) method.invoke(table);
     }
 
     private static TableVisualEvent.TelemetryStatus telemetry(long sequence) {

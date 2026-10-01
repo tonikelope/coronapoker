@@ -82,7 +82,7 @@ final class GdxAppearanceOptionsTest {
     }
 
     @Test
-    void animationChoicesFollowTheirParentSwitchesButIgnoreTheSwingMaster() {
+    void animationChoicesFollowTheMasterAndTheirParentSwitches() {
         Properties properties = new Properties();
         GdxAppearanceOptions.Choice deal =
                 GdxAppearanceOptions.ANIMATION_CHOICES.get(0);
@@ -105,9 +105,9 @@ final class GdxAppearanceOptionsTest {
         assertTrue(GdxAppearanceOptions.enabled(swap, properties));
 
         properties.setProperty("animaciones", "false");
-        assertTrue(GdxAppearanceOptions.enabled(deal, properties));
+        assertFalse(GdxAppearanceOptions.enabled(deal, properties));
         assertFalse(GdxAppearanceOptions.enabled(flip, properties));
-        assertTrue(GdxAppearanceOptions.enabled(swap, properties));
+        assertFalse(GdxAppearanceOptions.enabled(swap, properties));
     }
 
     @Test

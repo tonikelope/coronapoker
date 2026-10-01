@@ -90,12 +90,8 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     }
 
     private boolean effects() { return bool("sonido_efectos", true); }
-    /**
-     * Semantic GDX animation cannot be disabled globally. Individual
-     * animation switches remain available and are applied below; this also
-     * prevents a persisted Swing-only master value from degrading GDX.
-     */
-    private boolean animations() { return true; }
+    /** Master switch shared by every semantic table animation. */
+    boolean animations() { return bool("animaciones", true); }
 
     @Override public String language() {
         return properties.getProperty("lenguaje", "es").toLowerCase(Locale.ROOT);

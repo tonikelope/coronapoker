@@ -227,6 +227,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float RIVAL_HAND_CENTER_X_INSET = 183f;
     private static final float RIVAL_HAND_SIDE_DISTANCE = 34f;
     private static final float RIVAL_LEFT_CARD_SHIFT = 16f;
+    private static final float REMOTE_CHAT_MAX_WIDTH = 390f;
+    private static final float REMOTE_CHAT_VIEWPORT_MARGIN = 6f;
     private static final int UI_NONE = 0;
     private static final int UI_SETTINGS = 2;
     private static final int UI_GAME_LOG = 3;
@@ -735,6 +737,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private int settingsAppearanceRow;
     private int settingsAudioPage;
     private int settingsAudioRow;
+    private final Map<String, Float> settingsToggleAnimations =
+            new HashMap<>();
     private float settingsDebugScroll;
     private int settingsDebugLineCount;
     private boolean settingsDebugScrollDragging;
@@ -901,6 +905,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Sound checkSound;
     private Sound callSound;
     private Sound betSound;
+    private Sound raiseSound;
     private Sound foldSound;
     private Sound allInSound;
     private Sound buttonOnSound;
@@ -1850,14 +1855,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             GdxSettingsContract.ToggleOption option) {
         switch (option.key()) {
             case "sonidos" -> toggleMasterSound();
-            case "tts_server" -> settingsTextToSpeechDraft
-                    = !settingsTextToSpeechDraft;
-            case "voice_messages" -> settingsVoiceMessagesDraft
-                    = !settingsVoiceMessagesDraft;
+            case "tts_server" -> runSwitchAction(settingsTextToSpeechDraft,
+                    () -> settingsTextToSpeechDraft
+                            = !settingsTextToSpeechDraft);
+            case "voice_messages" -> runSwitchAction(
+                    settingsVoiceMessagesDraft,
+                    () -> settingsVoiceMessagesDraft
+                            = !settingsVoiceMessagesDraft);
             default -> toggleTablePreference(option.key(), option.fallback());
-        }
-        if (GdxSettingsContract.isGlobalCommunicationOption(option)) {
-            playSwitchSound(settingsOptionDisplayedValue(option));
         }
     }
 
@@ -1908,7 +1913,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean finalCounterAnimationEnabled() {
-        return tablePreference("animacion_contador_final", true);
+        return liveAnimationsEnabled()
+                && tablePreference("animacion_contador_final", true);
     }
 
     private static boolean isTestMode() {
@@ -1946,33 +1952,36 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void toggleTablePreference(String key, boolean fallback) {
-        boolean next = !tablePreference(key, fallback);
-        persistBooleanPreference(key, next);
-        if ("musica".equals(key) || "sonido_ascensor".equals(key)) {
-            if (musicEnabled()) {
-                backgroundMusic.play();
-            } else {
-                backgroundMusic.pause();
-            }
-        }
-        if ("sonido_efectos".equals(key)) {
-            refreshDealerLoopVolumes();
-            if (!next) {
-                stopShuffleSound();
-                shuffleSound.stop();
-                dealSound.stop();
-                uncoverSound.stop();
-                checkSound.stop();
-                callSound.stop();
-                betSound.stop();
-                foldSound.stop();
-                allInSound.stop();
-                for (Sound cue : liveAudioCueSounds.values()) cue.stop();
-            }
-        }
+        boolean current = tablePreference(key, fallback);
         boolean displayed = key.equals("audio_block_voice_messages")
-                || key.equals("audio_block_tts_local") ? !next : next;
-        playSwitchSound(displayed);
+                || key.equals("audio_block_tts_local") ? !current : current;
+        runSwitchAction(displayed, () -> {
+            boolean next = !current;
+            persistBooleanPreference(key, next);
+            if ("musica".equals(key) || "sonido_ascensor".equals(key)) {
+                if (musicEnabled()) {
+                    backgroundMusic.play();
+                } else {
+                    backgroundMusic.pause();
+                }
+            }
+            if ("sonido_efectos".equals(key)) {
+                refreshDealerLoopVolumes();
+                if (!next) {
+                    stopShuffleSound();
+                    shuffleSound.stop();
+                    dealSound.stop();
+                    uncoverSound.stop();
+                    checkSound.stop();
+                    callSound.stop();
+                    betSound.stop();
+                    raiseSound.stop();
+                    foldSound.stop();
+                    allInSound.stop();
+                    for (Sound cue : liveAudioCueSounds.values()) cue.stop();
+                }
+            }
+        });
     }
 
     private void beginTableSettings() {
@@ -2448,14 +2457,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case 3 -> checkSound = gameSound("misc/check.wav");
             case 4 -> callSound = gameSound("misc/call.wav");
             case 5 -> betSound = gameSound("misc/bet.wav");
-            case 6 -> foldSound = gameSound("misc/fold.wav");
-            case 7 -> allInSound = gameSound("misc/allin.wav");
-            case 8 -> buttonOnSound = gameSound("misc/button_on.wav");
-            case 9 -> buttonOffSound = gameSound("misc/button_off.wav");
-            case 10 -> balanceCountSound = gameSound("misc/balance_count.wav");
-            case 11 -> cardViewerSound = gameSound("misc/card_visor.wav");
-            case 12 -> screenshotSound = gameSound("misc/screenshot.wav");
-            case 13 -> {
+            case 6 -> raiseSound = gameSound(GdxSoundFeedback.FUNNY_RAISE);
+            case 7 -> foldSound = gameSound("misc/fold.wav");
+            case 8 -> allInSound = gameSound("misc/allin.wav");
+            case 9 -> buttonOnSound = gameSound("misc/button_on.wav");
+            case 10 -> buttonOffSound = gameSound("misc/button_off.wav");
+            case 11 -> balanceCountSound = gameSound("misc/balance_count.wav");
+            case 12 -> cardViewerSound = gameSound("misc/card_visor.wav");
+            case 13 -> screenshotSound = gameSound("misc/screenshot.wav");
+            case 14 -> {
                 feltChangeSound = gameSound("misc/mat.wav");
                 return true;
             }
@@ -3008,6 +3018,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             syncSeatsFromLiveState();
             barrier.complete(null);
         } else if (event instanceof TableVisualEvent.AllInRunoutPause pause) {
+            if (!liveAnimationsEnabled()) {
+                liveState.apply(event);
+                barrier.complete(null);
+                return;
+            }
             if (liveAllInRunoutPause != null) {
                 throw new IllegalStateException(
                         "A GDX all-in runout pause is already active");
@@ -3018,6 +3033,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // and make the subsequent reveal look immediate.
             liveAllInRunoutPause = new LiveAllInRunoutPause(pause, barrier);
         } else if (event instanceof TableVisualEvent.PositionRotation rotation) {
+            if (!livePositionAnimationEnabled()) {
+                liveState.apply(event);
+                syncSeatsFromLiveState();
+                barrier.complete(null);
+                return;
+            }
             if (livePositionRotation != null) {
                 throw new IllegalStateException("A GDX position rotation is already active");
             }
@@ -3028,6 +3049,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             livePositionRotation = new LivePositionRotation(rotation,
                     System.nanoTime(), barrier);
         } else if (event instanceof TableVisualEvent.CollectBets collect) {
+            if (!liveBetAnimationEnabled()) {
+                liveState.apply(event);
+                livePotContributions.clear();
+                syncSeatsFromLiveState();
+                barrier.complete(null);
+                return;
+            }
             if (liveChipBatch != null || pendingCollectBets != null) {
                 throw new IllegalStateException("A GDX chip batch is already active");
             }
@@ -3050,6 +3078,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && action.contributionDelta() > 0d) {
             if (!liveBetAnimationEnabled()) {
                 liveState.apply(event);
+                // With no visual flight there is no landing callback to add the
+                // accepted contribution to the displayed central pot. Commit
+                // that presentation delta now; CollectBets or Payout later
+                // replaces it with the canonical pot and clears this cache.
+                livePotContributions.merge(action.nickname(),
+                        action.contributionDelta(), Double::sum);
                 syncSeatsFromLiveState();
                 playPlayerActionSoundForAcceptedEvent(action, 0);
                 barrier.complete(null);
@@ -3075,6 +3109,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (livePayout != null) {
                 throw new IllegalStateException("A GDX payout is already active");
             }
+            // Payout carries the exact canonical remainder. Never let a
+            // presentation-only contribution cached by the no-flight path be
+            // added on top of it.
+            livePotContributions.clear();
             if (!liveBetAnimationEnabled()
                     || presentationSettings != null
                     && presentationSettings.testMode()) {
@@ -3112,11 +3150,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             liveState.apply(event);
             syncSeatsFromLiveState();
+            if (!liveCounterAnimationEnabled()) {
+                barrier.complete(null);
+                return;
+            }
             playResourceSound(fill.soundResource(), 0.72f, 1f);
             liveInitialStackFill = new LiveInitialStackFill(fill,
                     System.nanoTime(), barrier);
         } else if (event instanceof TableVisualEvent.Cinematic cinematic
                 && cinematic.phase() == TableVisualEvent.Cinematic.Phase.START) {
+            if (!liveCinematicsEnabled()) {
+                liveState.apply(event);
+                barrier.complete(null);
+                return;
+            }
             if (liveCinematic != null) {
                 throw new IllegalStateException("A GDX cinematic is already active");
             }
@@ -3150,6 +3197,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             int dealOrder = liveHoleDealCount++;
             int activePlayers = activeDealtPlayerCount();
             boolean animated = liveDealAnimationEnabled();
+            if (!animated) {
+                liveState.apply(event);
+                syncSeatsFromLiveState();
+                barrier.complete(null);
+                return;
+            }
             float flightSeconds = animated
                     ? liveDealFlightSeconds(activePlayers,
                             liveDealSpeedPercent()) : 0f;
@@ -3180,6 +3233,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else if (event instanceof TableVisualEvent.DealCommunityCard deal) {
             int activePlayers = activeDealtPlayerCount();
             boolean animated = liveDealAnimationEnabled();
+            if (!animated) {
+                liveState.apply(event);
+                barrier.complete(null);
+                return;
+            }
             float flightSeconds = animated
                     ? liveDealFlightSeconds(activePlayers,
                             liveDealSpeedPercent()) : 0f;
@@ -3204,6 +3262,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (liveCommunityReveal != null) {
                 throw new IllegalStateException(
                         "A GDX community-card reveal is already active");
+            }
+            if (!liveFlipAnimationEnabled()) {
+                liveState.apply(event);
+                barrier.complete(null);
+                return;
             }
             LiveCommunityReveal animation = new LiveCommunityReveal(reveal,
                     System.nanoTime(), barrier, cardFlipSeconds(),
@@ -3285,6 +3348,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // for the entire animation and auxiliary snapshots can revive them.
             liveState.apply(event);
             syncSeatsFromLiveState();
+            if (!liveFlipAnimationEnabled()) {
+                if (liveFoldSoundEnabled()) {
+                    play(foldSound, 0.58f, 1f);
+                }
+                barrier.complete(null);
+                return;
+            }
             liveHoleFold = new LiveHoleFold(fold, System.nanoTime(), barrier);
             if (liveFoldSoundEnabled()) {
                 play(foldSound, 0.58f, 1f);
@@ -3619,6 +3689,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return new Rectangle(left,
                 RIVAL_HAND_VERTICAL_OFFSET - rotatedHalfHeight,
                 right - left, rotatedHalfHeight * 2f);
+    }
+
+    /**
+     * Upper intersection of the two inward-facing card edges, relative to the
+     * seat centre.  This is deliberately a few pixels below the rotated-card
+     * envelope: it is the real visual ceiling of the shared fan, not a corner
+     * of either individual card.
+     */
+    static float rivalHandUpperCrossingY(float cardAspect) {
+        float cardWidth = rivalHoleCardWidth(cardAspect);
+        float cardHeight = cardWidth * cardAspect;
+        float angle = RIVAL_CARD_FAN_ANGLE * MathUtils.degreesToRadians;
+        float firstCenter = RIVAL_HAND_CENTER_X_INSET
+                - RIVAL_HAND_SIDE_DISTANCE + RIVAL_LEFT_CARD_SHIFT;
+        float secondCenter = RIVAL_HAND_CENTER_X_INSET
+                + RIVAL_HAND_SIDE_DISTANCE;
+        float halfCentreDistance = (secondCenter - firstCenter) / 2f;
+        return RIVAL_HAND_VERTICAL_OFFSET
+                + cardHeight / (2f * MathUtils.cos(angle))
+                + halfCentreDistance * MathUtils.sin(angle)
+                        / MathUtils.cos(angle);
     }
 
     static boolean rivalCardGeometryFits(float cardAspect) {
@@ -4480,7 +4571,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void requestLastHandChange() {
         if (liveState == null || !tableHost) return;
         if (liveState.lastHand()) {
-            submit(new TableCommand.SetLastHand(false));
+            runSwitchAction(true,
+                    () -> submit(new TableCommand.SetLastHand(false)));
             return;
         }
         GdxTableDialog confirmation = new GdxTableDialog(
@@ -4492,7 +4584,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 uppercase(gameText.translate("ui.cancelar")),
                 uppercase(gameText.translate("game.ultima_mano_3")));
         confirmation.result().thenAccept(accepted -> {
-            if (accepted) submit(new TableCommand.SetLastHand(true));
+            if (accepted) runSwitchAction(false,
+                    () -> submit(new TableCommand.SetLastHand(true)));
         });
         showDialog(confirmation);
     }
@@ -4613,17 +4706,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else if (dialog.isAutoCall()
                 && contains(pointer.x, pointer.y, panelX + 56f,
                         panelY + 318f, panelW - 112f, 64f)) {
-            dialog.toggleOptionEnabled();
+            runSwitchAction(dialog.optionEnabled(),
+                    dialog::toggleOptionEnabled);
             focusAutoCallAmount(dialog, dialog.autoCallAmountEditable());
         } else if (dialog.isAutoCall()
                 && contains(pointer.x, pointer.y, panelX + 56f,
                         panelY + 244f, panelW - 112f, 64f)) {
-            dialog.toggleNoLimit();
+            runSwitchAction(dialog.noLimit(), dialog::toggleNoLimit);
             focusAutoCallAmount(dialog, dialog.autoCallAmountEditable());
         } else if (dialog.isHandLimit()
                 && contains(pointer.x, pointer.y, panelX + 56f,
                         panelY + 244f, panelW - 112f, 64f)) {
-            dialog.toggleNoLimit();
+            runSwitchAction(dialog.noLimit(), dialog::toggleNoLimit);
         } else if (dialog.isAutoCall()
                 && contains(pointer.x, pointer.y,
                         panelX + panelW / 2f - 110f,
@@ -5338,6 +5432,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         checkSound.stop();
         callSound.stop();
         betSound.stop();
+        raiseSound.stop();
         foldSound.stop();
         allInSound.stop();
         CompletableFuture.supplyAsync(() -> recorder.start(
@@ -6482,8 +6577,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (presence <= 0f || !isSeatActive(seat)) {
                 continue;
             }
-            float activePulse = 0.5f + 0.5f
-                    * MathUtils.sin(totalTime * 4.8f);
+            float activePulse = liveAnimationsEnabled()
+                    ? 0.5f + 0.5f * MathUtils.sin(totalTime * 4.8f)
+                    : 0.5f;
             if (seat.index != 0) {
                 shapes.setColor(ACTIVE_TURN_GOLD.r, ACTIVE_TURN_GOLD.g,
                         ACTIVE_TURN_GOLD.b,
@@ -6511,6 +6607,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      * boundary; this effect neither completes nor delays a dealer barrier.
      */
     private void drawAllInSeatFlames() {
+        if (!liveAnimationsEnabled()) {
+            return;
+        }
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
@@ -6745,14 +6844,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (avatarZoomDelayReached(totalTime - avatarHoverStartedAt)) {
             avatarZoomNickname = hovered.name;
-            playPreferenceSound("misc/zoom_in.wav", "sonido_zoom", 0.72f);
+            playPreferenceSound(GdxSoundFeedback.avatarZoomTransition(
+                            false, true),
+                    "sonido_zoom", 0.72f);
         }
     }
 
     private void clearAvatarZoom() {
+        boolean wasZoomed = avatarZoomNickname != null;
         avatarHoverNickname = null;
         avatarZoomNickname = null;
         avatarZoomBounds.set(0f, 0f, 0f, 0f);
+        if (wasZoomed) {
+            playPreferenceSound(GdxSoundFeedback.avatarZoomTransition(
+                            true, false),
+                    "sonido_zoom", 0.72f);
+        }
     }
 
     private boolean consumeAvatarZoomPointer() {
@@ -6992,7 +7099,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }));
     }
 
-    /** Mirrors Swing's talk.png notification over the cards of the sender. */
+    /** Mirrors Swing's sender notification over the cards of the sender. */
     private void drawSeatChatNotices() {
         if (seatChatNotices.isEmpty()) return;
         batch.begin();
@@ -7060,21 +7167,51 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private Rectangle seatChatNoticeBounds(Seat seat, Texture icon) {
-        Rectangle target;
         if (seat.index == 0) {
             float width = viewport.getWorldWidth();
             float hudWidth = Math.min(1110f, width - 620f);
             float hudX = width / 2f - hudWidth / 2f;
-            target = new Rectangle(hudX, LOCAL_HUD_Y,
-                    230f, LOCAL_HUD_HEIGHT);
-        } else {
-            target = new Rectangle(seat.podX, seat.podY,
-                    PLAYER_POD_WIDTH, PLAYER_POD_HEIGHT);
+            return fitSeatChatNoticeBounds(new Rectangle(hudX, LOCAL_HUD_Y,
+                    230f, LOCAL_HUD_HEIGHT), icon.getWidth(), icon.getHeight());
         }
-        // Media belongs to the player's HUD, never to the physical cards.
-        // Covering the hole-card envelope made an intact hand look absent.
+        Rectangle target = seatChatNoticeTarget(seat);
         return fitSeatChatNoticeBounds(target, icon.getWidth(),
                 icon.getHeight());
+    }
+
+    private Rectangle seatChatNoticeTarget(Seat seat) {
+        if (seat.index == 0) {
+            float width = viewport.getWorldWidth();
+            float hudWidth = Math.min(1110f, width - 620f);
+            return new Rectangle(width / 2f - hudWidth / 2f,
+                    LOCAL_HUD_Y, 230f, LOCAL_HUD_HEIGHT);
+        }
+        Texture cardBack = activeCardBack();
+        float cardAspect = cardBack.getHeight() / (float) cardBack.getWidth();
+        return remoteSeatChatNoticeTarget(seat.podX, seat.y, seat.podY,
+                viewport.getWorldWidth(), viewport.getWorldHeight(), cardAspect);
+    }
+
+    static Rectangle remoteSeatChatNoticeTarget(float podX, float seatY,
+            float podY, float viewportWidth, float viewportHeight,
+            float cardAspect) {
+        float cardCrossingCenterX = podX
+                + (RIVAL_HAND_CENTER_X_INSET - RIVAL_HAND_SIDE_DISTANCE
+                        + RIVAL_LEFT_CARD_SHIFT
+                        + RIVAL_HAND_CENTER_X_INSET
+                        + RIVAL_HAND_SIDE_DISTANCE) / 2f;
+        float width = Math.min(REMOTE_CHAT_MAX_WIDTH,
+                Math.max(1f, viewportWidth - REMOTE_CHAT_VIEWPORT_MARGIN * 2f));
+        float x = MathUtils.clamp(cardCrossingCenterX - width / 2f,
+                REMOTE_CHAT_VIEWPORT_MARGIN,
+                Math.max(REMOTE_CHAT_VIEWPORT_MARGIN,
+                        viewportWidth - REMOTE_CHAT_VIEWPORT_MARGIN - width));
+        float bottom = Math.max(REMOTE_CHAT_VIEWPORT_MARGIN,
+                podY + PLAYER_POD_HEIGHT + 3f);
+        float crossingTop = seatY + rivalHandUpperCrossingY(cardAspect);
+        float top = Math.min(viewportHeight - REMOTE_CHAT_VIEWPORT_MARGIN,
+                crossingTop);
+        return new Rectangle(x, bottom, width, Math.max(1f, top - bottom));
     }
 
     static Rectangle fitSeatChatNoticeBounds(Rectangle target,
@@ -7096,8 +7233,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Seat seat = seatByNickname(entry.getKey());
             if (seat == null) continue;
             SeatChatNotice notice = entry.getValue();
-            if (!seatChatNoticeBounds(seat,
-                    seatChatNoticeTexture(notice)).contains(x, y)) {
+            Rectangle noticeHit = seat.index == 0
+                    ? seatChatNoticeBounds(seat, seatChatNoticeTexture(notice))
+                    : seatChatNoticeTarget(seat);
+            if (!noticeHit.contains(x, y)) {
                 continue;
             }
             if (blockRemoteMedia && seat.index != 0) {
@@ -7822,7 +7961,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawLiveCommunityCards(cx, cardY, cardW, cardH, gap, firstX, cardBack);
         batch.setShader(null);
 
-        float pulse = 1f + MathUtils.sin(totalTime * 3.3f) * 0.035f;
+        float pulse = liveAnimationsEnabled()
+                ? 1f + MathUtils.sin(totalTime * 3.3f) * 0.035f : 1f;
         float basePotW = 76f;
         float basePotH = basePotW * pot.getHeight() / pot.getWidth();
         float potW = basePotW * pulse;
@@ -8051,7 +8191,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         if (!paused) return;
 
-        if (((long) totalTime & 1L) != 0L) {
+        if (liveAnimationsEnabled() && ((long) totalTime & 1L) != 0L) {
             return;
         }
         String text = uppercase(gameText.translate("game.timba_pausada"));
@@ -8709,9 +8849,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         sound.play(volume * effectsVolume, pitch, 0f);
     }
 
+    private void playFunny(Sound sound, float volume, float pitch) {
+        if (voiceOpening || voiceLive || voiceStopping
+                || chatTextToSpeechDucking || !funnySoundsEnabled()) {
+            return;
+        }
+        sound.play(volume * effectsVolume, pitch, 0f);
+    }
+
     private void playSwitchSound(boolean enabled) {
         if (!tablePreference("sonido_interruptor", true)) return;
         play(enabled ? buttonOnSound : buttonOffSound, 0.60f, 1f);
+    }
+
+    private void runSwitchAction(boolean enabledBefore, Runnable action) {
+        GdxToggleSoundAction.run(enabledBefore, action,
+                this::playSwitchSound);
     }
 
     private void playPreferenceSound(String resource, String preferenceKey,
@@ -8788,15 +8941,41 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         CompletableFuture<Void> audio = new CompletableFuture<>();
         audio.whenComplete((ignored, failure) -> {
-            restoreGameOverLoopDucking();
-            if (failure == null) result.complete(null);
-            else result.completeExceptionally(failure);
+            if (failure != null) {
+                completeGameOverAudio(result, failure);
+                return;
+            }
+            if (!funnySoundsEnabled()) {
+                completeGameOverAudio(result, null);
+                return;
+            }
+            CompletableFuture<Void> funny = new CompletableFuture<>();
+            funny.whenComplete((unused, funnyFailure) ->
+                    completeGameOverAudio(result, funnyFailure));
+            // Swing plays this after nocontinue.wav and keeps the final dialog
+            // visible until the joke has finished.
+            playAudioCue(GdxSoundFeedback.FUNNY_NO_REBUY, true, true,
+                    false, funny);
         });
         // This cue is part of Swing's dealer timeline.  A disabled preference
         // therefore means volume zero, not skipping the WAV and releasing the
         // game-over decision early.
         playAudioCue("misc/nocontinue.wav", true, true,
                 !gameOverSoundEnabled(), audio);
+    }
+
+    private void completeGameOverAudio(CompletableFuture<Void> result,
+            Throwable failure) {
+        restoreGameOverLoopDucking();
+        if (failure == null) result.complete(null);
+        else result.completeExceptionally(failure);
+    }
+
+    private boolean funnySoundsEnabled() {
+        boolean selected = presentationSettings == null
+                ? tablePreference("sonidos_chorra", false)
+                : presentationSettings.sillySounds();
+        return selected && audioControl.enabled();
     }
 
     private boolean gameOverCinematicsEnabled() {
@@ -8820,16 +8999,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void playSpecialCardSound(String cardCode) {
-        if (presentationSettings == null || !presentationSettings.sillySounds()) {
-            return;
-        }
+        if (!funnySoundsEnabled()) return;
         String resource = "decks/" + availableDeck(liveDeck) + "/"
                 + cardCode + ".wav";
         FileHandle file = gameAudioResource(resource);
         if (file == null) return;
         Sound special = liveAudioCueSounds.computeIfAbsent(resource,
                 ignored -> Gdx.audio.newSound(file));
-        play(special, 0.86f, 1f);
+        playFunny(special, 0.86f, 1f);
     }
 
     private void acceptAudioCue(TableVisualEvent.AudioCue cue,
@@ -8882,8 +9059,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void playAudioCue(String resource, boolean waitForCompletion,
             boolean forceClose, boolean forceSilent,
             CompletableFuture<Void> barrier) {
+        boolean familyEnabled = GdxSoundFeedback.funnyResource(resource)
+                ? funnySoundsEnabled()
+                : tablePreference("sonido_efectos", true);
         boolean audible = !forceSilent && audioControl.enabled()
-                && tablePreference("sonido_efectos", true)
+                && familyEnabled
                 && !voiceOpening && !voiceLive && !voiceStopping
                 && !chatTextToSpeechDucking;
         FileHandle file = gameAudioResource(resource);
@@ -9059,7 +9239,29 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private boolean liveShuffleAnimationEnabled() {
         return presentationSettings == null
-                || presentationSettings.shuffleAnimation();
+                ? tablePreference("animaciones", true)
+                    && tablePreference("animacion_barajado", true)
+                : presentationSettings.shuffleAnimation();
+    }
+
+    private boolean liveAnimationsEnabled() {
+        return presentationSettings == null
+                ? tablePreference("animaciones", true)
+                : presentationSettings.animations();
+    }
+
+    private boolean livePositionAnimationEnabled() {
+        return presentationSettings == null
+                ? tablePreference("animaciones", true)
+                    && tablePreference("animacion_ciegas_dealer", true)
+                : presentationSettings.blindDealerAnimation();
+    }
+
+    private boolean liveCinematicsEnabled() {
+        return presentationSettings == null
+                ? tablePreference("animaciones", true)
+                    && tablePreference("cinematicas", true)
+                : presentationSettings.cinematics();
     }
 
     private boolean liveDealSoundEnabled() {
@@ -9070,27 +9272,37 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private boolean liveDealAnimationEnabled() {
         return presentationSettings == null
-                || presentationSettings.dealAnimation();
+                ? tablePreference("animaciones", true)
+                    && tablePreference("animacion_reparto", true)
+                : presentationSettings.dealAnimation();
     }
 
     private boolean liveFlipAnimationEnabled() {
         return presentationSettings == null
-                || presentationSettings.flipAnimation();
+                ? tablePreference("animaciones", true)
+                    && tablePreference("animacion_destape", true)
+                : presentationSettings.flipAnimation();
     }
 
     private boolean liveSwapAnimationEnabled() {
         return presentationSettings == null
-                || presentationSettings.swapAnimation();
+                ? tablePreference("animaciones", true)
+                    && tablePreference("animacion_swap", true)
+                : presentationSettings.swapAnimation();
     }
 
     private boolean liveBetAnimationEnabled() {
         return presentationSettings == null
-                || presentationSettings.betAnimation();
+                ? tablePreference("animaciones", true)
+                    && tablePreference("animacion_apuestas", true)
+                : presentationSettings.betAnimation();
     }
 
     private boolean liveCounterAnimationEnabled() {
         return presentationSettings == null
-                || presentationSettings.counterAnimation();
+                ? tablePreference("animaciones", true)
+                    && tablePreference("animacion_contadores", true)
+                : presentationSettings.counterAnimation();
     }
 
     private float liveSwapDurationSeconds() {
@@ -9183,6 +9395,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (liveBetSoundEnabled()) {
                     play(betSound, 0.48f, 0.98f + color * 0.02f);
                 }
+                if (GdxSoundFeedback.funnyRaise(kind,
+                        funnySoundsEnabled())) {
+                    playFunny(raiseSound, 0.88f, 1f);
+                }
             }
             case ALL_IN -> {
                 if (liveAllInSoundEnabled()) {
@@ -9209,6 +9425,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             checkSound.stop();
             callSound.stop();
             betSound.stop();
+            raiseSound.stop();
             foldSound.stop();
             allInSound.stop();
             for (Sound cue : liveAudioCueSounds.values()) cue.stop();
@@ -10041,8 +10258,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private boolean iwtsthBlinkOn() {
         // Keep the invitation conspicuous without the nervous strobe produced
-        // by the former 0.45-second phase.
-        return ((long) (totalTime / 0.9f) & 1L) != 0L;
+        // by the former 0.45-second phase. With the master switch off the
+        // invitation remains steadily visible instead of disappearing for
+        // half of each cycle.
+        return !liveAnimationsEnabled()
+                || ((long) (totalTime / 0.9f) & 1L) != 0L;
     }
 
     private void updateLiveHandProbability(TableVisualEvent.PartialHand partial) {
@@ -10211,10 +10431,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float worldWidth = viewport.getWorldWidth();
         float worldHeight = viewport.getWorldHeight();
         if (!active.animationEnabled) {
-            batch.begin();
-            drawCentered(actionFont, gameText.translate("game.barajando") + "…",
-                    tableCenterX, tableCenterY + 16f, POT_GOLD, 1f);
-            batch.end();
+            drawTextOnlyShuffleOverlay(active, worldWidth);
             return;
         }
         float width = active.animation.width() * worldWidth
@@ -10230,6 +10447,66 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             batch.draw(frame, x, y, width, height);
             batch.end();
         }
+    }
+
+    private void drawTextOnlyShuffleOverlay(LiveShuffle active,
+            float worldWidth) {
+        Texture cardBack = activeCardBack();
+        float tableWidth = Math.min(1510f, worldWidth * 0.78f);
+        float cardWidth = Math.min(COMMUNITY_CARD_MAX_WIDTH,
+                tableWidth / 10f);
+        float cardHeight = cardWidth * cardBack.getHeight()
+                / cardBack.getWidth();
+        float gap = cardWidth + 18f;
+        float boardWidth = cardWidth + 4f * gap;
+        float cardBottom = tableCenterY - cardHeight * 0.36f;
+        float centerY = cardBottom + cardHeight / 2f;
+        float panelHeight = Math.min(142f, cardHeight * 0.72f);
+        float panelX = tableCenterX - boardWidth / 2f;
+        float panelY = centerY - panelHeight / 2f;
+        float pulse = shuffleFallbackPulse(active.elapsedSeconds());
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapes.setColor(0f, 0f, 0f, 0.44f);
+        roundedRect(panelX + 7f, panelY - 8f,
+                boardWidth, panelHeight, 18f);
+        shapes.setColor(CYAN.r, CYAN.g, CYAN.b,
+                0.10f + 0.12f * pulse);
+        roundedRect(panelX - 7f, panelY - 7f,
+                boardWidth + 14f, panelHeight + 14f, 22f);
+        shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
+                0.72f + 0.24f * pulse);
+        roundedRect(panelX - 2f, panelY - 2f,
+                boardWidth + 4f, panelHeight + 4f, 18f);
+        shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.96f);
+        roundedRect(panelX, panelY, boardWidth, panelHeight, 16f);
+        shapes.setColor(CYAN.r, CYAN.g, CYAN.b,
+                0.54f + 0.28f * pulse);
+        roundedRect(panelX + 24f, panelY + 12f,
+                boardWidth - 48f, 4f, 2f);
+        shapes.end();
+
+        String label = gameText.translate("game.barajando") + "…";
+        BitmapFont.BitmapFontData data = pauseFont.getData();
+        float scaleX = data.scaleX;
+        float scaleY = data.scaleY;
+        float scale = 0.92f + 0.055f * pulse;
+        data.setScale(scaleX * scale, scaleY * scale);
+        glyph.setText(pauseFont, label);
+        float baseline = centerY + glyph.height / 2f;
+        batch.begin();
+        drawCentered(pauseFont, label, tableCenterX + 3f,
+                baseline - 4f, Color.BLACK, 0.62f);
+        drawCentered(pauseFont, label, tableCenterX, baseline,
+                POT_GOLD, 0.88f + 0.12f * pulse);
+        batch.end();
+        data.setScale(scaleX, scaleY);
+    }
+
+    static float shuffleFallbackPulse(float elapsedSeconds) {
+        return 0.5f + 0.5f * MathUtils.sin(elapsedSeconds * 4.2f);
     }
 
     private void drawLiveCinematicOverlay() {
@@ -10273,6 +10550,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawLiveWinnerGlow() {
+        if (!liveAnimationsEnabled()) {
+            return;
+        }
         List<TableSnapshot.PlayerSnapshot> players = liveState.snapshot().players();
         boolean hasWinner = false;
         for (TableSnapshot.PlayerSnapshot player : players) {
@@ -11681,35 +11961,47 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return;
             }
             if (autoButtons && persistAutoRow.contains(x, y)) {
-                autoActionPersist = !autoActionPersist;
-                persistBooleanPreference("auto_action_persist", autoActionPersist);
+                runSwitchAction(autoActionPersist, () -> {
+                    autoActionPersist = !autoActionPersist;
+                    persistBooleanPreference("auto_action_persist",
+                            autoActionPersist);
+                });
                 return;
             }
             if (autoButtons && confirmAutoRow.contains(x, y)) {
-                autoModeConfirm = !autoModeConfirm;
-                persistBooleanPreference("modo_auto_confirm", autoModeConfirm);
+                runSwitchAction(autoModeConfirm, () -> {
+                    autoModeConfirm = !autoModeConfirm;
+                    persistBooleanPreference("modo_auto_confirm",
+                            autoModeConfirm);
+                });
                 return;
             }
             if (contains(x, y, contentX,
                     firstRowY - 280f, rowW, 68f)) {
-                confirmActions = !confirmActions;
-                persistBooleanPreference("confirmar_todo", confirmActions);
+                runSwitchAction(confirmActions, () -> {
+                    confirmActions = !confirmActions;
+                    persistBooleanPreference("confirmar_todo",
+                            confirmActions);
+                });
                 return;
             }
             if (tableRebuyAllowed && contains(x, y, contentX,
                     firstRowY - 350f, rowW, 68f)) {
-                autoRebuy = !autoRebuy;
-                if (presentationSettings != null) {
-                    presentationSettings.setAutoRebuyOnBroke(autoRebuy);
-                }
+                runSwitchAction(autoRebuy, () -> {
+                    autoRebuy = !autoRebuy;
+                    if (presentationSettings != null) {
+                        presentationSettings.setAutoRebuyOnBroke(autoRebuy);
+                    }
+                });
                 return;
             }
         } else if (contentPage == 3
                 && GdxLiveSettingsPolicy.canEditGameRules(tableHost,
                         liveSettingsDraft)) {
             if (contains(x, y, contentX, firstRowY, rowW, 68f)) {
-                liveSettingsDraft = liveSettingsDraft.withIwtsth(
-                        !liveSettingsDraft.iwtsth());
+                boolean enabled = liveSettingsDraft.iwtsth();
+                runSwitchAction(enabled, () -> liveSettingsDraft =
+                        liveSettingsDraft.withIwtsth(!enabled));
                 return;
             }
             if (GdxLiveSettingsPolicy.canEditRunItTwice(tableHost,
@@ -11717,8 +12009,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     liveState != null && liveState.runItTwiceLocked())
                     && contains(x, y, contentX, firstRowY - 70f,
                             rowW, 68f)) {
-                liveSettingsDraft = liveSettingsDraft.withRunItTwice(
-                        !liveSettingsDraft.runItTwice());
+                boolean enabled = liveSettingsDraft.runItTwice();
+                runSwitchAction(enabled, () -> liveSettingsDraft =
+                        liveSettingsDraft.withRunItTwice(!enabled));
                 return;
             }
             if (contains(x, y, contentX, firstRowY - 140f, rowW, 68f)) {
@@ -11799,14 +12092,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float flagGap = 12f;
             float flagW = (rowW - flagGap) / 2f;
             if (contains(x, y, contentX, flagsY, flagW, 46f)) {
-                liveSettingsDraft = liveSettingsDraft.withAnte(
-                        !liveSettingsDraft.ante());
+                boolean enabled = liveSettingsDraft.ante();
+                runSwitchAction(enabled, () -> liveSettingsDraft =
+                        liveSettingsDraft.withAnte(!enabled));
                 return;
             }
             if (contains(x, y, contentX + flagW + flagGap,
                     flagsY, flagW, 46f)) {
-                liveSettingsDraft = liveSettingsDraft.withStraddle(
-                        !liveSettingsDraft.straddle());
+                boolean enabled = liveSettingsDraft.straddle();
+                runSwitchAction(enabled, () -> liveSettingsDraft =
+                        liveSettingsDraft.withStraddle(!enabled));
                 return;
             }
         } else if (contentPage == 6
@@ -11821,13 +12116,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     liveSettingsDraft)
                     && contains(x, y, contentX, firstRowY - 88f,
                             rowW, 68f)) {
-                liveSettingsDraft = liveSettingsDraft.withBotRebuy(
-                        !liveSettingsDraft.botRebuy());
+                boolean enabled = liveSettingsDraft.botRebuy();
+                runSwitchAction(enabled, () -> liveSettingsDraft =
+                        liveSettingsDraft.withBotRebuy(!enabled));
                 return;
             }
             if (contains(x, y, contentX, firstRowY - 176f, rowW, 68f)) {
-                liveSettingsDraft = liveSettingsDraft.withBotBalanceToHumans(
-                        !liveSettingsDraft.botBalanceToHumans());
+                boolean enabled = liveSettingsDraft.botBalanceToHumans();
+                runSwitchAction(enabled, () -> liveSettingsDraft =
+                        liveSettingsDraft.withBotBalanceToHumans(!enabled));
                 return;
             }
         } else if (contentPage == 7) {
@@ -11839,7 +12136,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     continue;
                 }
                 switch (row) {
-                    case 0 -> toggleFullscreen();
+                    case 0 -> runSwitchAction(
+                            GdxDisplayModeController.isFullscreenLike(),
+                            this::toggleFullscreen);
                     case 1 -> {
                         requestCancelTableSettings(this::openScreenshotViewer);
                     }
@@ -14534,12 +14833,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.setColor(0.20f, 0.32f, 0.45f, 0.24f * alpha);
         roundedRect(x + 10f, y + 43f, width - 20f, 14f, 6f);
         float trackX = x + width - 82f;
-        Color track = on ? new Color(0x20c765ff) : new Color(0x253248ff);
+        float animation = settingsToggleAnimation(x, y, width, on, false);
+        Color track = new Color(0x253248ff).lerp(
+                new Color(0x20c765ff), animation);
         shapes.setColor(track.r, track.g, track.b, alpha);
         roundedRect(trackX, y + 17f, 64f, 36f, 18f);
-        Color knob = on ? new Color(0xb8ffc5ff) : new Color(0x8290a4ff);
+        Color knob = new Color(0x8290a4ff).lerp(
+                new Color(0xb8ffc5ff), animation);
         shapes.setColor(knob.r, knob.g, knob.b, alpha);
-        shapes.circle(trackX + (on ? 46f : 18f), y + 35f, 13f, 28);
+        shapes.circle(trackX + 18f + 28f * animation,
+                y + 35f, 13f, 28);
     }
 
     private void drawCompactSettingsRowShape(float x, float y, float width,
@@ -14557,12 +14860,31 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             boolean on, float alpha) {
         drawCompactSettingsRowShape(x, y, width, alpha);
         float trackX = x + width - 74f;
-        Color track = on ? new Color(0x20c765ff) : new Color(0x253248ff);
+        float animation = settingsToggleAnimation(x, y, width, on, true);
+        Color track = new Color(0x253248ff).lerp(
+                new Color(0x20c765ff), animation);
         shapes.setColor(track.r, track.g, track.b, alpha);
         roundedRect(trackX, y + 9f, 56f, 28f, 14f);
-        Color knob = on ? new Color(0xb8ffc5ff) : new Color(0x8290a4ff);
+        Color knob = new Color(0x8290a4ff).lerp(
+                new Color(0xb8ffc5ff), animation);
         shapes.setColor(knob.r, knob.g, knob.b, alpha);
-        shapes.circle(trackX + (on ? 41f : 15f), y + 23f, 10f, 24);
+        shapes.circle(trackX + 15f + 26f * animation,
+                y + 23f, 10f, 24);
+    }
+
+    private float settingsToggleAnimation(float x, float y, float width,
+            boolean on, boolean compact) {
+        String context = uiLayer == UI_SETTINGS
+                ? settingsSection().name() + ':' + settingsSubpageIndex()
+                : activeDialog == null ? "dialog"
+                : "dialog:" + activeDialog.kind().name();
+        String key = GdxToggleMotion.stableKey(context, x, y, width, compact);
+        float target = on ? 1f : 0f;
+        float animation = settingsToggleAnimations.getOrDefault(key, target);
+        animation = GdxToggleMotion.next(animation, target,
+                Math.min(Gdx.graphics.getDeltaTime(), 0.05f));
+        settingsToggleAnimations.put(key, animation);
+        return animation;
     }
 
     private void drawCompactSettingsStepperShape(float x, float y,
@@ -15374,13 +15696,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void toggleDraftBlindIncrease() {
         if (liveSettingsDraft == null) return;
-        int interval = liveSettingsDraft.blindsDouble() > 0
-                ? 0 : 60;
-        liveSettingsDraft = liveSettingsDraft.withBlindSettings(
-                liveSettingsDraft.smallBlind(), liveSettingsDraft.bigBlind(),
-                interval, liveSettingsDraft.blindsDoubleType(),
-                interval == 0 ? 0d : liveSettingsDraft.blindCap(),
-                liveSettingsDraft.blindStructure());
+        boolean enabled = liveSettingsDraft.blindsDouble() > 0;
+        runSwitchAction(enabled, () -> {
+            int interval = enabled ? 0 : 60;
+            liveSettingsDraft = liveSettingsDraft.withBlindSettings(
+                    liveSettingsDraft.smallBlind(),
+                    liveSettingsDraft.bigBlind(), interval,
+                    liveSettingsDraft.blindsDoubleType(),
+                    interval == 0 ? 0d : liveSettingsDraft.blindCap(),
+                    liveSettingsDraft.blindStructure());
+        });
     }
 
     private void changeDraftBlindInterval(int direction) {
@@ -15409,19 +15734,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void toggleDraftBlindCap() {
         if (liveSettingsDraft == null
                 || liveSettingsDraft.blindsDouble() <= 0) return;
+        boolean enabled = liveSettingsDraft.blindCap() > 0d;
         double cap = 0d;
-        if (liveSettingsDraft.blindCap() <= 0d) {
+        if (!enabled) {
             List<GameConfigCodecV1.BlindLevel> levels = draftBlindLevels();
             int current = draftBlindLevelIndex();
             if (current < 0 || levels.isEmpty()) return;
             cap = levels.get(Math.min(current + 1,
                     levels.size() - 1)).bigBlind();
         }
-        liveSettingsDraft = liveSettingsDraft.withBlindSettings(
-                liveSettingsDraft.smallBlind(), liveSettingsDraft.bigBlind(),
-                liveSettingsDraft.blindsDouble(),
-                liveSettingsDraft.blindsDoubleType(), cap,
-                liveSettingsDraft.blindStructure());
+        double nextCap = cap;
+        runSwitchAction(enabled, () -> liveSettingsDraft =
+                liveSettingsDraft.withBlindSettings(
+                        liveSettingsDraft.smallBlind(),
+                        liveSettingsDraft.bigBlind(),
+                        liveSettingsDraft.blindsDouble(),
+                        liveSettingsDraft.blindsDoubleType(), nextCap,
+                        liveSettingsDraft.blindStructure()));
     }
 
     private void changeDraftBlindCap(int direction) {
@@ -17191,6 +17520,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeSafely(checkSound);
         disposeSafely(callSound);
         disposeSafely(betSound);
+        disposeSafely(raiseSound);
         disposeSafely(foldSound);
         disposeSafely(allInSound);
         disposeSafely(buttonOnSound);
@@ -17420,6 +17750,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         checkSound.dispose();
         callSound.dispose();
         betSound.dispose();
+        raiseSound.dispose();
         foldSound.dispose();
         allInSound.dispose();
         buttonOnSound.dispose();

@@ -66,15 +66,14 @@ final class GdxAppearanceOptions {
         properties.setProperty(choice.key(), choice.values().get(next));
     }
 
-    /**
-     * A speed or style selector is editable only while its owning animation is
-     * enabled. GDX deliberately ignores Swing's global animation master: the
-     * renderer's semantic animations cannot all be disabled as a group.
-     */
+    /** A selector is editable only while the master and its owner are on. */
     static boolean enabled(Choice choice, Properties properties) {
         String parent = parentKey(choice);
-        return parent == null || Boolean.parseBoolean(properties.getProperty(
-                parent, "true"));
+        boolean animations = Boolean.parseBoolean(properties.getProperty(
+                "animaciones", "true"));
+        return animations && (parent == null
+                || Boolean.parseBoolean(properties.getProperty(parent,
+                        "true")));
     }
 
     /** Choice rows are children of the animation switch that enables them. */

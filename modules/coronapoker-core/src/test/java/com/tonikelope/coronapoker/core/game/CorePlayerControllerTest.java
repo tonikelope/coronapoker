@@ -160,6 +160,35 @@ class CorePlayerControllerTest {
     }
 
     @Test
+    void everyAcceptedLocalFoldEmitsItsPresentationSignalExactlyOnce() {
+        CorePlayerController player = CorePlayerController.local("player");
+        player.setStack(10d);
+        player.bindDealer(new StubDealer(0.20d));
+        AtomicInteger folds = new AtomicInteger();
+        player.bindAcceptedLocalFoldSignal(folds::incrementAndGet);
+        player.esTuTurno();
+
+        assertTrue(player.submitDecision(GamePlayerController.FOLD, 0d));
+        assertEquals(1, folds.get());
+        assertFalse(player.submitDecision(GamePlayerController.FOLD, 0d));
+        assertEquals(1, folds.get(),
+                "a stale duplicate input must not replay the funny fold cue");
+    }
+
+    @Test
+    void nonFoldActionsNeverEmitTheLocalFoldSignal() {
+        CorePlayerController player = CorePlayerController.local("player");
+        player.setStack(10d);
+        player.bindDealer(new StubDealer(0d));
+        AtomicInteger folds = new AtomicInteger();
+        player.bindAcceptedLocalFoldSignal(folds::incrementAndGet);
+        player.esTuTurno();
+
+        assertTrue(player.submitDecision(GamePlayerController.CHECK, 0d));
+        assertEquals(0, folds.get());
+    }
+
+    @Test
     void staleTimeoutCannotOverrideACompletedManualDecision() {
         CorePlayerController player = CorePlayerController.local("player");
         player.setStack(10d);

@@ -20,7 +20,10 @@ import java.util.function.IntConsumer;
 /** Native in-table decisions requested by the canonical dealer. */
 final class GdxGameDecisionSink implements GameDecisionSink {
 
-    private static final long GAME_OVER_AUDIO_SAFETY_TIMEOUT_SECONDS = 4L;
+    // nocontinue.wav followed by the optional Swing-compatible norebuy.wav
+    // lasts just under seven seconds. Keep a bounded margin without cutting
+    // the second cue in the normal path.
+    private static final long GAME_OVER_AUDIO_SAFETY_TIMEOUT_SECONDS = 8L;
 
     enum GameOverAudioCue {
         OPEN,

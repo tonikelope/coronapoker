@@ -152,6 +152,8 @@ final class GdxSettingsContract {
     private static final TogglePage AUDIO_DEVICE_PAGE = page("DISPOSITIVOS");
     private static final TogglePage APPEARANCE_ANIMATIONS_PAGE = page(
             "ANIMACIONES",
+            option("animaciones", "TODAS LAS ANIMACIONES", true,
+                    Gate.NONE),
             option("animacion_barajado", "BARAJADO", true,
                     Gate.ANIMATIONS),
             option("animacion_reparto", "REPARTO", true,
@@ -608,6 +610,8 @@ final class GdxSettingsContract {
                 "musica", "true"));
         boolean effects = Boolean.parseBoolean(properties.getProperty(
                 "sonido_efectos", "true"));
+        boolean animations = Boolean.parseBoolean(properties.getProperty(
+                "animaciones", "true"));
         boolean cinematics = Boolean.parseBoolean(properties.getProperty(
                 "cinematicas", "true"));
         return switch (option.gate()) {
@@ -615,12 +619,8 @@ final class GdxSettingsContract {
             case SOUND -> soundEnabled;
             case MUSIC -> soundEnabled && music;
             case EFFECTS -> soundEnabled && effects;
-            // GDX intentionally has no global "disable every animation"
-            // switch: its semantic animations are part of the renderer
-            // contract.  Keep the gate for the individual rows, but never let
-            // a hidden legacy Swing preference disable the whole GDX table.
-            case ANIMATIONS -> true;
-            case CINEMATICS -> cinematics;
+            case ANIMATIONS -> animations;
+            case CINEMATICS -> animations && cinematics;
         };
     }
 

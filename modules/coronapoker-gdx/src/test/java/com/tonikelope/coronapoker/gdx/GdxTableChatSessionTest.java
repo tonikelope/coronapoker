@@ -99,7 +99,7 @@ final class GdxTableChatSessionTest {
     }
 
     @Test
-    void mediaConfirmationFitsInsideThePlayerHudInsteadOfHidingCards() {
+    void mediaConfirmationPreservesItsAspectRatioInsideAnyTarget() {
         com.badlogic.gdx.math.Rectangle target =
                 new com.badlogic.gdx.math.Rectangle(100f, 200f, 286f, 120f);
 
@@ -112,6 +112,30 @@ final class GdxTableChatSessionTest {
         assertTrue(target.contains(tall));
         assertEquals(274f, wide.width, 0.001f);
         assertEquals(108f, tall.height, 0.001f);
+    }
+
+    @Test
+    void remoteMediaUsesTheUpperCardCrossingAsItsScreenSafeCeiling() {
+        float aspect = 1242f / 923f;
+        float podX = 900f;
+        float seatY = 920f;
+        float podY = seatY - 120f - 42f;
+        com.badlogic.gdx.math.Rectangle target = CoronaPokerGdxTable
+                .remoteSeatChatNoticeTarget(podX, seatY, podY,
+                        1920f, 1080f, aspect);
+
+        float crossingTop = seatY + CoronaPokerGdxTable
+                .rivalHandUpperCrossingY(aspect);
+        assertEquals(crossingTop, target.y + target.height, 0.001f);
+        assertTrue(target.y >= podY + 120f,
+                "the notice must stop before the nickname panel");
+        assertTrue(target.y + target.height <= 1080f - 6f,
+                "the notice must stay inside the viewport");
+
+        com.badlogic.gdx.math.Rectangle clamped = CoronaPokerGdxTable
+                .remoteSeatChatNoticeTarget(podX, 1080f, podY,
+                        1920f, 1080f, aspect);
+        assertEquals(1080f - 6f, clamped.y + clamped.height, 0.001f);
     }
 
     @Test

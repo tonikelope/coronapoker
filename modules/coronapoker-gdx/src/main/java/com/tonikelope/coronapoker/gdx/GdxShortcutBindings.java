@@ -236,7 +236,9 @@ final class GdxShortcutBindings {
             entries.add(new ShortcutEntry(definition.id,
                     text == null ? shortcutDescription(definition.id)
                             : shortcutDescription(definition.id, text),
-                    display(current.get(definition.id))));
+                    display(current.get(definition.id)),
+                    Objects.equals(current.get(definition.id),
+                            definition.fallback)));
         }
         return List.copyOf(entries);
     }
@@ -475,7 +477,13 @@ final class GdxShortcutBindings {
         ASSIGNED, CONFLICT, UNSUPPORTED
     }
 
-    record ShortcutEntry(String id, String description, String display) {
+    record ShortcutEntry(String id, String description, String display,
+            boolean factoryDefault) {
+
+        String markedDescription() {
+            return GdxSettingsContract.markDefault(description,
+                    factoryDefault);
+        }
     }
 
     private record Binding(int awtKeyCode, int gdxKeyCode, int modifiers) {

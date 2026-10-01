@@ -15355,10 +15355,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 drawSettingsShortcutText(x, firstY - row * 70f, width,
                         capturing ? uppercase(gameText.translate(
                                 "gdx.settings.shortcut.press_key"))
-                                : GdxSettingsContract.markDefault(
-                                        entry.display(), shortcutBindings
-                                                .isDefault(entry.id())),
-                        uppercase(entry.description()), capturing, alpha);
+                                : entry.display(),
+                        uppercase(entry.markedDescription()), capturing,
+                        alpha);
             }
             if (!shortcutStatus.isBlank()) {
                 boolean warning = shortcutStatus.equals("conflict")

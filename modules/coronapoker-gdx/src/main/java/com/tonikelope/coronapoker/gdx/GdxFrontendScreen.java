@@ -6240,9 +6240,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             shortcutRow(x + 34f, firstY - row * 70f, w - 68f,
                     capturing ? uppercase(gameText.translate(
                             "gdx.settings.shortcut.press_key"))
-                            : GdxSettingsContract.markDefault(entry.display(),
-                                    shortcutBindings.isDefault(entry.id())),
-                    uppercase(entry.description()), capturing);
+                            : entry.display(),
+                    uppercase(entry.markedDescription()), capturing);
             hit(x + 34f, firstY - row * 70f, w - 68f, 62f, () -> {
                 settingsShortcutCaptureId = entry.id();
                 settingsShortcutStatus = "prompt";

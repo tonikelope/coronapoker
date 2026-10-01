@@ -219,6 +219,7 @@ final class GdxTableShortcutTest {
         assertEquals(GdxShortcutBindings.PAUSE, pause.id());
         assertEquals("ALT + P", pause.display());
         assertEquals("PAUSAR LA TIMBA", pause.description());
+        assertEquals("PAUSAR LA TIMBA *", pause.markedDescription());
         assertEquals("Pause game", bindings.editableEntries(
                 new GdxGameText("en")).get(0).description());
         assertEquals(GdxShortcutBindings.SCREENSHOT,
@@ -235,6 +236,10 @@ final class GdxTableShortcutTest {
                 bindings.assign(GdxShortcutBindings.PAUSE, Input.Keys.K,
                         true, false, false));
         assertFalse(bindings.isDefault(GdxShortcutBindings.PAUSE));
+        GdxShortcutBindings.ShortcutEntry pause
+                = bindings.editableEntries().get(0);
+        assertEquals("ALT + K", pause.display());
+        assertEquals("PAUSAR LA TIMBA", pause.markedDescription());
     }
 
     private static GdxShortcutBindings bindings() {

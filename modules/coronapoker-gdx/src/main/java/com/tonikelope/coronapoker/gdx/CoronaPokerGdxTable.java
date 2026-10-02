@@ -12050,7 +12050,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             TableSnapshot.PlayerSnapshot player) {
         boolean showingBuyIn = player != null
                 && totalTime < seat.buyInVisibleUntil;
-        if (!showingBuyIn && liveState.immediateRebuyAmount(seat.name) > 0) {
+        if (showingBuyIn) {
+            return Color.LIGHT_GRAY;
+        }
+        if (liveState.immediateRebuyAmount(seat.name) > 0) {
             return POT_GOLD;
         }
         return player != null && player.rebuyCount() > 0
@@ -12058,8 +12061,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private Color playerStackTextColor(Seat seat) {
-        return totalTime >= seat.buyInVisibleUntil
-                && liveState.immediateRebuyAmount(seat.name) > 0
+        TableSnapshot.PlayerSnapshot player = livePlayer(seat);
+        boolean showingBuyIn = player != null
+                && totalTime < seat.buyInVisibleUntil;
+        boolean cyanRebuyStack = player != null && player.rebuyCount() > 0;
+        return showingBuyIn || cyanRebuyStack
+                || liveState.immediateRebuyAmount(seat.name) > 0
                         ? Color.BLACK : Color.WHITE;
     }
 

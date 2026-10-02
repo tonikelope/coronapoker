@@ -111,6 +111,58 @@ final class GdxTableTerminationWiringTest {
     }
 
     @Test
+    void exitImmediatelyCancelsAutoModeInsteadOfWaitingForItsTimer() {
+        ArrayList<TableCommand> submitted = new ArrayList<>();
+        CoronaPokerGdxTable table = table(submitted);
+        GdxTableDialog autoAction = GdxTableDialog.autoAction("IGUALAR");
+        table.showDialog(autoAction);
+
+        GdxTableDialog exit = table.requestExit();
+
+        assertTrue(autoAction.complete());
+        assertFalse(autoAction.result().toCompletableFuture().join());
+        assertFalse(exit.complete());
+        assertTrue(table.resolveActiveDialogChoice(true));
+        assertTrue(exit.complete());
+        assertEquals(1, submitted.size());
+        assertInstanceOf(TableCommand.ExitGame.class, submitted.get(0));
+    }
+
+    @Test
+    void stopImmediatelyCancelsAutoModeInsteadOfWaitingForItsTimer() {
+        CoronaPokerGdxTable table = table(new ArrayList<>());
+        GdxTableDialog autoAction = GdxTableDialog.autoAction("IGUALAR");
+        table.showDialog(autoAction);
+
+        GdxTableDialog stop = table.newStopGameConfirmation();
+        table.showDialog(stop);
+
+        assertTrue(autoAction.complete());
+        assertFalse(autoAction.result().toCompletableFuture().join());
+        assertFalse(stop.complete());
+        assertTrue(table.resolveActiveDialogChoice(false));
+        assertTrue(stop.complete());
+    }
+
+    @Test
+    void anyForegroundDialogImmediatelyPreemptsAutoMode() {
+        CoronaPokerGdxTable table = table(new ArrayList<>());
+        GdxTableDialog autoAction = GdxTableDialog.autoAction("PASAR");
+        GdxTableDialog foreground = new GdxTableDialog(
+                GdxTableDialog.Kind.CONFIRM, "DETENER",
+                com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.EXIT,
+                760, 0);
+        table.showDialog(autoAction);
+
+        table.showDialog(foreground);
+
+        assertTrue(autoAction.complete());
+        assertFalse(autoAction.result().toCompletableFuture().join());
+        assertTrue(table.resolveActiveDialogChoice(true));
+        assertTrue(foreground.complete());
+    }
+
+    @Test
     void nativeWindowCloseUsesTheSameExitConfirmation() {
         ArrayList<TableCommand> submitted = new ArrayList<>();
         CoronaPokerGdxTable table = table(submitted);

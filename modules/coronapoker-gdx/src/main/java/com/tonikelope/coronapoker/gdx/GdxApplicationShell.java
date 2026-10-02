@@ -38,6 +38,8 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private final GdxGameText gameText;
     private final Consumer<String> languageChanged;
     private final IdentityTrustStore identityTrust;
+    private GdxScreenWakeLock screenWakeLock;
+    private Boolean independentWakeLockRequired;
     private PreferencesService preferences;
     private GdxFrontendScreen menu;
     private LobbySession lobby;
@@ -125,6 +127,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
         // flag alone can otherwise remain tied to the primary display.
         Gdx.graphics.setVSync(true);
         verifyGrantedBackBufferQuality();
+        synchronizeScreenWakeLock();
     }
 
     private void verifyGrantedBackBufferQuality() {
@@ -190,6 +193,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
 
     @Override
     public void render() {
+        synchronizeScreenWakeLock();
         CoronaPokerGdxTable intro = startupIntro;
         if (intro != null) {
             intro.render();
@@ -204,6 +208,28 @@ final class GdxApplicationShell extends ApplicationAdapter {
             current.render();
         }
         scheduleJvmSplashClose();
+    }
+
+    /**
+     * GLFW owns display-sleep inhibition while its window is attached to a
+     * monitor in exclusive fullscreen. Borderless fullscreen is still a
+     * windowed GLFW surface, so CoronaPoker supplies the native inhibitor for
+     * that mode and for an ordinary window.
+     */
+    private void synchronizeScreenWakeLock() {
+        boolean required = GdxDisplayModeController
+                .requiresIndependentWakeLock(Gdx.graphics.isFullscreen());
+        if (Boolean.valueOf(required).equals(independentWakeLockRequired)) {
+            return;
+        }
+        independentWakeLockRequired = required;
+        if (!required) {
+            if (screenWakeLock != null) screenWakeLock.close();
+            screenWakeLock = null;
+            return;
+        }
+        screenWakeLock = GdxScreenWakeLock.forCurrentPlatform();
+        screenWakeLock.acquire();
     }
 
     private void scheduleJvmSplashClose() {
@@ -472,6 +498,11 @@ final class GdxApplicationShell extends ApplicationAdapter {
 
     @Override
     public void dispose() {
+        // Release the native per-thread execution state before any resource
+        // teardown can fail. Windows also clears it automatically if this
+        // process terminates abnormally.
+        if (screenWakeLock != null) screenWakeLock.close();
+        screenWakeLock = null;
         CoronaPokerGdxTable intro = startupIntro;
         startupIntro = null;
         if (intro != null) intro.dispose();

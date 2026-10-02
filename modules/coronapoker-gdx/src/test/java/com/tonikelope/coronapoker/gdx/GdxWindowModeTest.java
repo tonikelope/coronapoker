@@ -91,4 +91,12 @@ final class GdxWindowModeTest {
                         GdxWindowMode.WINDOWED,
                         GdxWindowMode.EXCLUSIVE));
     }
+
+    @Test
+    void nativeWakeLockComplementsGlfwOnlyOutsideExclusiveFullscreen() {
+        assertEquals(false, GdxDisplayModeController
+                .requiresIndependentWakeLock(true));
+        assertEquals(true, GdxDisplayModeController
+                .requiresIndependentWakeLock(false));
+    }
 }

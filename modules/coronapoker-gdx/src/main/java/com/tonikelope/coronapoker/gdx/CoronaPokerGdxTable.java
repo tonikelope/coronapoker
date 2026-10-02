@@ -4624,6 +4624,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Objects.requireNonNull(request, "request");
         // Dealer/network decisions always outrank the optional identity view.
         tableIdentityDialog = null;
+        // AUTO MODE is a cancelable veto, not a modal owner. A user request or
+        // a dealer/network dialog must replace it immediately instead of
+        // waiting behind its five-second timer. Dismissing it also guarantees
+        // that the queued poker action cannot fire after the new dialog opens.
+        if (activeDialog != null && activeDialog.isAutoAction()
+                && !request.isAutoAction()) {
+            activeDialog.dismiss();
+            activeDialog = null;
+        }
         if (activeDialog == null) {
             activeDialog = request;
             request.opened(totalTime);

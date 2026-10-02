@@ -42,6 +42,7 @@ public final class GdxLauncher {
     }
 
     public static void main(String[] args) {
+        if (GdxMacFirstThread.relaunchIfRequired(args)) return;
         Path debugFile = GdxDebugFile.install();
         DebugLog.install();
         Logger.getLogger(GdxLauncher.class.getName()).log(Level.INFO,

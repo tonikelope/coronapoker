@@ -21,6 +21,10 @@ final class GdxDisplayModeController {
                 || activeMode() == GdxWindowMode.BORDERLESS;
     }
 
+    static boolean requiresIndependentWakeLock(boolean exclusiveFullscreen) {
+        return !exclusiveFullscreen;
+    }
+
     static void toggle(GdxWindowMode configuredMode) {
         if (!(Gdx.graphics instanceof Lwjgl3Graphics graphics)) return;
         GdxWindowMode preferred = fullscreenPreference(configuredMode,

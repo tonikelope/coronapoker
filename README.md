@@ -302,6 +302,15 @@ target/CoronaPoker_<version>.jar
 The application is shaded into a module-local staging JAR and published to
 `target/` only after that archive is complete. This prevents a running table
 from reading a partially rewritten JAR.
+The same JAR carries the LWJGL desktop natives for Windows, Linux and macOS on
+x64 and ARM64. A matching JDK 17 or newer is still required on the target
+machine. On macOS the launcher transparently restarts itself on Cocoa's first
+thread, so the normal `java -jar` command remains valid. In exclusive
+fullscreen GLFW owns display-sleep inhibition. In windowed and borderless
+modes, Windows uses its execution-state API, macOS uses an IOKit power
+assertion and Linux uses the standard `systemd-inhibit` session facility when
+available to prevent idle display and system suspension. No platform path
+simulates keyboard or mouse input.
 The root `pom.xml` is the canonical product entry point and delegates to the
 module reactor.
 

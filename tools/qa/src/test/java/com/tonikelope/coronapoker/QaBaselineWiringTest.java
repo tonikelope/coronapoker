@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -185,12 +186,71 @@ class QaBaselineWiringTest {
                 "README must link the canonical testing manual");
         assertTrue(testing.contains("diagrams/testing-certification-flow.png"),
                 "testing manual must render its certification diagram");
+        assertTrue(testing.contains("## Adding scenarios"),
+                "scenario contributor guidance must live in the canonical testing manual");
+        assertFalse(Files.exists(root.resolve("docs/ADDING_TEST_SCENARIOS.md")),
+                "scenario guidance must not be split into a second manual");
         assertTrue(Files.isRegularFile(root.resolve(
                 "docs/diagrams/testing-certification-flow.drawio")),
                 "editable Draw.io source is required");
+        String diagram = Files.readString(root.resolve(
+                "docs/diagrams/testing-certification-flow.drawio"));
+        assertTrue(diagram.contains("One executable catalogue"),
+                "testing diagram must describe one executable scenario catalogue");
+        assertTrue(diagram.contains("Language-neutral label oracles"),
+                "testing diagram must include language-neutral functional labels");
+        assertFalse(diagram.contains("GDX-only scenarios"),
+                "testing diagram must not present new scenarios as a separate lane");
         assertTrue(Files.size(root.resolve(
                 "docs/diagrams/testing-certification-flow.png")) > 100_000,
                 "exported 2x testing diagram is missing or unexpectedly small");
+    }
+
+    @Test
+    void publicDocumentationStaysVersionAgnosticAndUsesPlainProse()
+            throws IOException {
+        Path root = locateRoot();
+        String productVersion = projectVersion(root.resolve("pom.xml"),
+                "coronapoker");
+        List<Path> documents = new ArrayList<>(List.of(
+                root.resolve("README.md"),
+                root.resolve("CONTRIBUTORS.md"),
+                root.resolve("modules/README.md")));
+        try (var paths = Files.walk(root.resolve("docs"))) {
+            documents.addAll(paths.filter(path -> Files.isRegularFile(path)
+                    && path.getFileName().toString().endsWith(".md")).toList());
+        }
+        try (var paths = Files.walk(root.resolve("tools/qa/src/test/java"))) {
+            documents.addAll(paths.filter(path -> Files.isRegularFile(path)
+                    && path.getFileName().toString().equals("README.md")).toList());
+        }
+
+        for (Path document : documents) {
+            String text = Files.readString(document);
+            assertFalse(text.contains(productVersion),
+                    "documentation must not require edits on every release: "
+                    + document);
+            assertPlainProseOutsideCode(document, text);
+        }
+    }
+
+    private static void assertPlainProseOutsideCode(Path document,
+            String text) {
+        boolean fencedCode = false;
+        int lineNumber = 0;
+        for (String line : text.split("\\R", -1)) {
+            lineNumber++;
+            if (line.stripLeading().startsWith("```")) {
+                fencedCode = !fencedCode;
+            } else if (!fencedCode) {
+                assertFalse(line.contains(";"),
+                        "semicolon in prose at " + document + ":" + lineNumber);
+                assertFalse(line.contains("—") || line.contains("–"),
+                        "typographic dash in prose at " + document + ":"
+                        + lineNumber);
+            }
+        }
+        assertFalse(fencedCode, "unclosed code fence in " + document);
     }
 
     private static void assertLauncher(Path root, String launcher, String script) throws IOException {

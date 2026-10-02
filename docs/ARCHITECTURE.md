@@ -66,11 +66,11 @@ These types contain no libGDX classes.
 `TableSession` exposes a prepared table to the application shell while the
 publishing `LobbySession` remains its lifetime owner. It contains:
 
-- the initial `TableSnapshot`;
-- the `TableCommandSink` used by the frontend;
-- the `TableEventBridge` used by the engine;
-- the starter that begins the dealer after the table scene is ready;
-- the resources closed when the table ends.
+- the initial `TableSnapshot`
+- the `TableCommandSink` used by the frontend
+- the `TableEventBridge` used by the engine
+- the starter that begins the dealer after the table scene is ready
+- the resources closed when the table ends
 
 `TableSession.attach(renderer)` performs the following sequence:
 
@@ -121,14 +121,14 @@ authority to the renderer.
 
 `TableSnapshot` contains the complete state required to open a table. Ordered
 events carry later state changes. GDX renders and animates its local scene every
-frame; it does not request or copy a full snapshot every frame.
+frame. It does not request or copy a full snapshot every frame.
 
 The boundary therefore has a small runtime cost:
 
-- one snapshot when the table opens;
-- one typed command for each user action;
-- one typed event for each relevant game state change;
-- an animation completion only where the engine must wait for presentation.
+- one snapshot when the table opens
+- one typed command for each user action
+- one typed event for each relevant game state change
+- an animation completion only where the engine must wait for presentation
 
 ## Maven modules
 

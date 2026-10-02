@@ -14,7 +14,7 @@ This layer addresses vectors that the raw mental-poker cascade alone cannot dete
 
 | Vector | Defense |
 |---|---|
-| Hostile host substituting another player's established identity | Ed25519 long-term keys + TOFU pinning; a changed key is reported as `CHANGED`, replaces the stored pin and clears OOB verification, so continuity requires an OOB fingerprint comparison |
+| Hostile host substituting another player's established identity | Ed25519 long-term keys plus TOFU pinning. A changed key is reported as `CHANGED`, replaces the stored pin and clears OOB verification, so continuity requires an OOB fingerprint comparison |
 | Hostile host rewriting hand history (action injection, reordering) | Per-action Ed25519 signatures + `H_t` hash chain with `PREV_H` binding |
 | Hostile host or peer reporting a false pot payout | Each peer recomputes and conserves the settlement independently, binds it into `H_final`, and refuses durable close when receipts diverge (§5.3, §6) |
 | Network MITM on the ECDH handshake | `SecureChannelCodec.deriveChannelSecret` (HMAC-SHA512 binding with the shared password) + session-key identicon for OOB compare (waiting room, right-click your own nick) |
@@ -28,7 +28,7 @@ This layer addresses vectors that the raw mental-poker cascade alone cannot dete
 - **Collusion of N-1 peers against 1 victim.** Inherent to any consensus without a trusted third party. Divergent/missing receipts automatically block durable close, but colluders can still deny service or present one consistent dishonest view.
 - **Cross-device identity portability.** Each install generates its own keypair per nick. A player using the same nick on two machines will present a different pubkey on each. That is the natural and correct behavior.
 - **Identification by pubkey for stats/recover.** Nick remains the logical identity for SQLite stats and recovery. The balance table is migrated to exactly one row per `(id_hand, player)`.
-- **Live state recovery after a full process loss.** A transient socket reconnect can resume the same running process and in-progress hand. If the JVM exits, the table follows the persisted MISDEAL/recovery flow instead of treating a new process as the same live hand participant; the returning player can rejoin that recovered game through the recovery protocol.
+- **Live state recovery after a full process loss.** A transient socket reconnect can resume the same running process and in-progress hand. If the JVM exits, the table follows the persisted MISDEAL/recovery flow instead of treating a new process as the same live hand participant. The returning player can rejoin that recovered game through the recovery protocol.
 
 ---
 
@@ -50,7 +50,7 @@ An Ed25519 keypair is generated on first use of a given nick on a given machine.
   - Windows: `icacls /inheritance:r /grant:r <user>:(F)`: strip inheritance, grant full control to the current user only.
   - The `.pub` sidecar is public by definition and gets no restrictive ACL.
 - **At-rest encryption**: deliberately not done. FS permissions are the user's responsibility. A leaked privkey ⇒ delete the file and treat the next encounter as a fresh TOFU transition (`CHANGED` for peers that still have the old pin).
-- **No automatic rotation while the key files exist**: deleting the file generates a fresh keypair next launch. Peers with an existing pin accept the changed key, replace their stored pin and clear `verified_oob`; users who need continuity must verify the new fingerprint out of band.
+- **No automatic rotation while the key files exist**: deleting the file generates a fresh keypair next launch. Peers with an existing pin accept the changed key, replace their stored pin and clear `verified_oob`. Users who need continuity must verify the new fingerprint out of band.
 - **Fail-loud at use**: if `<user.home>/.coronapoker/` cannot be created or the keypair cannot be written/loaded, the manager records the error and reports `isReady() == false`. Networked code paths check `isReady()`. Any attempt to `sign()` without a ready identity throws. The app does not fall back to an ephemeral in-memory identity for networked games.
 - **Lifecycle**: `PlayerIdentity.loadOrCreate(directory, nick)` loads or creates the keypair for the canonical nick selected by the current GDX session.
 
@@ -61,8 +61,8 @@ The nick identifies a **player**. The keypair is bound to that nick **on a speci
 Implications, all expected and correct:
 
 - Two players sharing one machine: two nicks, two distinct keypair files. `known_identities` has one row per nick.
-- One player using two machines: the same nick yields a different keypair on each machine, so peers with an existing pin record `CHANGED`, replace the stored key and clear `verified_oob`; they do not reject the second machine automatically.
-- An impostor claiming an already-pinned nick can pass the cryptographic JOIN self-signature with its own key and is admitted as `CHANGED`; only an OOB comparison can establish that the new key is really the expected one. First contact remains ordinary TOFU and therefore still needs password/OOB verification when that risk matters.
+- One player using two machines: the same nick yields a different keypair on each machine, so peers with an existing pin record `CHANGED`, replace the stored key and clear `verified_oob`. They do not reject the second machine automatically.
+- An impostor claiming an already-pinned nick can pass the cryptographic JOIN self-signature with its own key and is admitted as `CHANGED`. Only an OOB comparison can establish that the new key is really the expected one. First contact remains ordinary TOFU and therefore still needs password/OOB verification when that risk matters.
 
 ### 2.3 Fingerprint format
 
@@ -77,8 +77,8 @@ Exposed via `getShortFingerprint()` / `getFullFingerprint()`.
 
 Two distinct identicons exist. [`IdenticonFingerprint.java`](../modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/core/IdenticonFingerprint.java) derives the deterministic `7x7` symmetric grid from a `SHA-256` hash, and [`GdxFrontendScreen.java`](../modules/coronapoker-gdx/src/main/java/com/tonikelope/coronapoker/gdx/GdxFrontendScreen.java) renders it:
 
-- **Session identicon**: hashes the negotiated session **AES key**, for network-MITM detection. It is reachable from the waiting room by right-clicking anywhere in the participant list. A client opens the AES identicon of its channel with the host; the host opens the per-client mosaic of every channel.
-- **Identity identicon**: hashes a peer's **Ed25519 pubkey**, for identity OOB verification, with the full fingerprint hex shown in the title. Reachable at the table by clicking a human player's avatar. Clicking a **remote** human's avatar shows the "Verify identity" button; clicking **your own** avatar shows the same identicon and fingerprint with a copy-to-share hint instead, since there is no peer to verify against.
+- **Session identicon**: hashes the negotiated session **AES key**, for network-MITM detection. It is reachable from the waiting room by right-clicking anywhere in the participant list. A client opens the AES identicon of its channel with the host. The host opens the per-client mosaic of every channel.
+- **Identity identicon**: hashes a peer's **Ed25519 pubkey**, for identity OOB verification, with the full fingerprint hex shown in the title. Reachable at the table by clicking a human player's avatar. Clicking a **remote** human's avatar shows the "Verify identity" button. Clicking **your own** avatar shows the same identicon and fingerprint with a copy-to-share hint instead, since there is no peer to verify against.
 
 ---
 
@@ -121,9 +121,9 @@ After verifying the self-sig, each peer resolves `(nick, pubkey)` against its lo
 |---|---|---|
 | `NEW`: unknown nick | `INSERT` row, `sessions_count=1`, `verified_oob=0` | 0 (unverified) |
 | `MATCH`: known nick, pubkey byte-identical | `UPDATE last_seen`, `sessions_count++`. `verified_oob` untouched | unchanged (0 or 1) |
-| `CHANGED`: known nick string, pubkey differs | `UPDATE pubkey, last_seen, sessions_count, verified_oob=0`; return `CHANGED` | 0 (the new key must be checked OOB again) |
+| `CHANGED`: known nick string, pubkey differs | `UPDATE pubkey, last_seen, sessions_count, verified_oob=0`, then return `CHANGED` | 0 (the new key must be checked OOB again) |
 
-**TOFU is not an admission gate, and there is no modal.** The host-side initial `JOIN` requires the six-field payload and a valid `JOIN` self-signature; after that structural and signature check, the participant is admitted and the `NEW`, `MATCH` or `CHANGED` result is logged. On a client, server intro and roster entries are admitted by their separate capacity, nickname collision and avatar checks. `PlayerIdentity` NFC-normalizes the local key binding and JOIN signature; `SqlIdentityTrustStore` indexes the nickname supplied by its caller. There is still no passive at-a-glance indicator.
+**TOFU is not an admission gate, and there is no modal.** The host-side initial `JOIN` requires the six-field payload and a valid `JOIN` self-signature. After that structural and signature check, the participant is admitted and the `NEW`, `MATCH` or `CHANGED` result is logged. On a client, server intro and roster entries are admitted by their separate capacity, nickname collision and avatar checks. `PlayerIdentity` NFC-normalizes the local key binding and JOIN signature. `SqlIdentityTrustStore` indexes the nickname supplied by its caller. There is still no passive at-a-glance indicator.
 
 ### Manual verification
 
@@ -166,7 +166,7 @@ All defensive against honest cross-platform bugs, none against malicious source-
    ```java
    amount_cents = MoneyCents.fromFloat(amount_float).cents();
    ```
-   `fromFloat` canonicalises through the float's decimal string. `fromDouble` requires an exact cent value, except for an insignificant tolerance bounded by four ULPs (and `1e-12`) around the nearest cent. Non-finite, negative, out-of-domain and genuinely sub-cent values are rejected. `MoneyCents` is the single implementation; reproducing conversion elsewhere is an integrity bug.
+   `fromFloat` canonicalises through the float's decimal string. `fromDouble` requires an exact cent value, except for an insignificant tolerance bounded by four ULPs (and `1e-12`) around the nearest cent. Non-finite, negative, out-of-domain and genuinely sub-cent values are rejected. `MoneyCents` is the single implementation. Reproducing conversion elsewhere is an integrity bug.
 
 3. **Locale-independent parsing**: `Float.parseFloat` / `Long.parseLong` are already locale-independent. Any `NumberFormat` for amounts must use `Locale.ROOT`.
 
@@ -239,7 +239,7 @@ A peer also drops any `COMM_REVEAL` whose `STREET` doesn't match the street it i
 | Event | Handling |
 |---|---|
 | Showdown card reveal | Transported outside the 92-byte record. Remote keys are gathered by `REQ_SHOWDOWN_KEY` / `RESP_SHOWDOWN_KEY` (unicast to the host), then the host re-broadcasts every revealer's key in one atomic `POTCARDS` message. The same signature also rides the voluntary mid-hand `SHOWCARDS`. It **is** individually signed under the `"SHOWDOWN\0"` domain (payload `HAND_ID \|\| nick \|\| k_pocket`) and cross-checked, but lives outside `H_t`. `HAND_ID` is bound inside the signature, not carried as a wire field. |
-| EXIT | Session-level event on the regular encrypted/HMAC'd channel (no separate Ed25519 signature over the event). Its current wire body atomically carries the departing peer's community testament and, only when that peer is already all-in, its `SHOWDOWN`-signed pocket key. A controlled departure is removed from future receipt expectations because it cannot sign a future close. Without the required testament or all-in proof, the table cannot unlock safely and deterministically MISDEALS/refunds. A hostile host can falsely report a departure and thereby deny service; without the missing peer secret it cannot make an unsafe hand complete, but this event alone does not provide cryptographic attribution. |
+| EXIT | Session-level event on the regular encrypted/HMAC'd channel (no separate Ed25519 signature over the event). Its current wire body atomically carries the departing peer's community testament and, only when that peer is already all-in, its `SHOWDOWN`-signed pocket key. A controlled departure is removed from future receipt expectations because it cannot sign a future close. Without the required testament or all-in proof, the table cannot unlock safely and deterministically MISDEALS/refunds. A hostile host can falsely report a departure and thereby deny service. Without the missing peer secret it cannot make an unsafe hand complete, but this event alone does not provide cryptographic attribution. |
 | REBUY | Between hands, doesn't affect the current `H_t`. |
 
 ### 4.9 Wire encoding of a signed action
@@ -299,7 +299,7 @@ HAND_ID(16) || VERSION(0x02) || N(uint8)
   || closing_remainder_cents(int64)
 ```
 
-`bote_cents` is the player's total contribution and `pagar_cents` the amount paid. The two remainder fields distinguish carry entering and leaving the hand. `Crupier.settlementAmountToCents` rejects non-finite, negative or out-of-range floating-point inputs. A recovered negative carry separately latches `settlement_accounting_invalid`. Once values are integer cents, `SettlementRecord.amountsBalance` enforces with overflow-safe arithmetic: `Σ pagar + closing_remainder = Σ bote + opening_remainder`. Participants are sorted by `PLAYER_ID`; duplicate ids are rejected. Settlement v2 is the only supported settlement encoding.
+`bote_cents` is the player's total contribution and `pagar_cents` the amount paid. The two remainder fields distinguish carry entering and leaving the hand. `Crupier.settlementAmountToCents` rejects non-finite, negative or out-of-range floating-point inputs. A recovered negative carry separately latches `settlement_accounting_invalid`. Once values are integer cents, `SettlementRecord.amountsBalance` enforces with overflow-safe arithmetic: `Σ pagar + closing_remainder = Σ bote + opening_remainder`. Participants are sorted by `PLAYER_ID`. Duplicate ids are rejected. Settlement v2 is the only supported settlement encoding.
 
 Absorb (a distinct domain separator keeps a settlement table from ever being parsed as an action record):
 
@@ -349,18 +349,18 @@ The outcomes, in descending priority (only the strongest is surfaced):
 
 | Outcome | Meaning | Severity | `disputed_hands` |
 |---|---|---|---|
-| `DIVERGENT` | a receipt's sig fails or its `H_final` differs | SEVERE (inconsistent relay/state; intent not inferred) | `reason='DIVERGENT'` |
+| `DIVERGENT` | a receipt's sig fails or its `H_final` differs | SEVERE (inconsistent relay/state, intent not inferred) | `reason='DIVERGENT'` |
 | `MISSING` | a peer's receipt is absent / wrong length / stale `HAND_ID` / pubkey unavailable | WARNING (ambiguous: network or crash) | `reason='MISSING'` |
 | `INVALID_SIG_SEEN` | all sigs valid and `H_final`s match, but some peer flagged an invalid action sig (bit0) | WARNING (popup to the table) | `reason='INVALID_SIG_SEEN'` |
 | `DECK_NO_PROOF` | otherwise clean, but some peer never received the shuffle proof (bit1+bit2), host may be withholding it | WARNING (popup to the table) | `reason='DECK_NO_PROOF'` |
 | `DECK_UNVERIFIED` | otherwise clean, but some peer's proof is still verifying (bit1 alone, slow peer) | WARNING (silent: JUL + row, no popup) | `reason='DECK_UNVERIFIED'` |
 | `OK` | all present, unanimous, no flag bit set | INFO | No |
 
-Consensus gates durable close for `DIVERGENT`, `MISSING` and `INVALID_SIG_SEEN`. The engine ends transmission and skips SQL close, reset and advancement. It does not reverse the already-computed payout; the open SQL hand and in-memory accounting remain available for recovery. `DECK_NO_PROOF` and `DECK_UNVERIFIED` remain forensic receipt outcomes because the separate shuffle-proof gate already blocked any unverified community unlock before reveal.
+Consensus gates durable close for `DIVERGENT`, `MISSING` and `INVALID_SIG_SEEN`. The engine ends transmission and skips SQL close, reset and advancement. It does not reverse the already-computed payout. The open SQL hand and in-memory accounting remain available for recovery. `DECK_NO_PROOF` and `DECK_UNVERIFIED` remain forensic receipt outcomes because the separate shuffle-proof gate already blocked any unverified community unlock before reveal.
 
 #### What divergence proves
 
-Every action is individually Ed25519-signed by its emitter and the `H_t` chain is computed locally by each peer from the actions received over TCP. Byte-different `H_final` values therefore prove that the peers did not receive or apply one identical ordered history. Host manipulation is one explanation; a serious relay or state-machine defect is another. The evidence is sufficient to stop durable close, but it does not by itself distinguish malicious intent from a software fault. `MISSING` remains ambiguous and is classified separately.
+Every action is individually Ed25519-signed by its emitter and the `H_t` chain is computed locally by each peer from the actions received over TCP. Byte-different `H_final` values therefore prove that the peers did not receive or apply one identical ordered history. Host manipulation is one explanation. A serious relay or state-machine defect is another. The evidence is sufficient to stop durable close, but it does not by itself distinguish malicious intent from a software fault. `MISSING` remains ambiguous and is classified separately.
 
 #### Why preserve rather than refund
 
@@ -368,7 +368,7 @@ The payout calculation may already exist in memory when receipt consensus fails.
 
 ### 6.4 User-facing messaging
 
-The Crupier log shows one of the verification outcomes at hand close. Divergence, missing receipt and invalid-signature outcomes show a modal, terminate transmission and block durable close; deck-proof receipt flags remain forensic as described above. `DECK_UNVERIFIED` stays deliberately silent. JUL records INFO / WARNING / SEVERE accordingly.
+The Crupier log shows one of the verification outcomes at hand close. Divergence, missing receipt and invalid-signature outcomes show a modal, terminate transmission and block durable close. Deck-proof receipt flags remain forensic as described above. `DECK_UNVERIFIED` stays deliberately silent. JUL records INFO / WARNING / SEVERE accordingly.
 
 ---
 
@@ -410,7 +410,7 @@ The `receipts` blob is stored **as collected** (the receipts are already signed,
 | `<PIECE> # <nick_b64> # <payload_b64>` | Host → each recipient | Per-recipient encrypted community piece (`FLOP/TURN/RIVER_PIECE`, `RABBIT_*_PIECE`) |
 | `COMM_REVEAL # <record_b64> # <sig_b64>` | Host → all | Signed community-card announcement, absorbed into `H_t` |
 | `RABBIT_REQ # <request_b64>` | Requester → host | Hand-bound request carrying the requester's Ed25519 proof (`"RABBIT\0"`) |
-| `RABBIT_AUTH # <authorization_b64>` | Host → all | Canonical count/fee plus the unchanged signed request; every peer verifies requester authorship before charging |
+| `RABBIT_AUTH # <authorization_b64>` | Host → all | Canonical count/fee plus the unchanged signed request. Every peer verifies requester authorship before charging |
 | `HANDVERIFY` (no payload) | Host → all | Consensus trigger |
 | `HANDVERIFY # <nick_b64> # <receipt_b64>` | Each peer → all | Signed end-of-hand receipt |
 

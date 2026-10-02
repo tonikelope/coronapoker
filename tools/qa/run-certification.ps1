@@ -25,10 +25,10 @@ Usage:
   .\tools\qa\certify.cmd -StartAtScenario reconnect-every-street -StartAtRepeat 2 -Seed 42
   .\tools\qa\certify.cmd -ListOnly
 
-This command certifies game behaviour. It runs the authoritative GDX scenario
-mapping: every historical Swing GOLD scenario plus the GDX-only product
-scenarios. Each mapped test receives a fresh Maven process and therefore a
-fresh JVM. Code tests and mass headless campaigns are separate lanes.
+This command certifies game behaviour. It runs the one authoritative GDX
+scenario catalogue. Historical ports and new product scenarios share the same
+mapping and result. Each mapped test receives a fresh Maven process and a fresh
+JVM. Code tests and mass headless campaigns are separate layers.
 
 Modes:
   quick      Critical iteration subset, one pass, 5-hand normal soak
@@ -42,7 +42,7 @@ Options:
   -StartAtRepeat <1..10>    Repetition used with -StartAtScenario
   -ScenarioRepeats <1..10>  Override the mode repetition count
   -SoakHands <5..1000>      Override the normal soak length
-  -Seed <long>              Replay a base seed; otherwise one is generated
+  -Seed <long>              Replay a base seed. Otherwise one is generated
   -ListOnly                 Print the executable catalogue without running it
   -VerboseOutput            Stream Maven output as well as writing logs
   -Help                     Show this help
@@ -152,7 +152,7 @@ foreach ($entry in $catalogue) {
             }
         }
         if ($owners.Count -ne 1) {
-            throw "GDX test '$method' must have one owning class; found $($owners.Count)."
+            throw "GDX test '$method' must have one owning class. Found $($owners.Count)."
         }
         $resolved.Add([pscustomobject]@{
                 Scenario = $entry.Scenario

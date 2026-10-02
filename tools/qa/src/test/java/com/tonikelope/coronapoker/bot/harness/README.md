@@ -107,7 +107,7 @@ harness/
 
 Every `*Test` class above is annotated `@Tag("slow")`, so the default fast
 Surefire lane skips them all. See section 9 for how to run them. This directory is
-the bot-quality lane, not a normal game-code regression suite; it is selected
+the bot-quality lane, not a normal game-code regression suite. It is selected
 only by the explicit `qa-bots` profile. The deterministic evaluator adapter
 test remains in the fast lane, but statistical quality tests never do.
 
@@ -214,10 +214,10 @@ remaining seats with the "villain" difficulty:
 
 | Test class                              | Hero       | Villains | Floor (DELTA bb/100) | PASS condition                       |
 |-----------------------------------------|------------|----------|----------------------|--------------------------------------|
-| `Multiway_HardVs5MediumTest`            | `HARD`     | 5× MEDIUM | **+30**             | DELTA > 30 **AND** &#124;t&#124; > 2 |
+| `Multiway_HardVs5MediumTest`            | `HARD`     | 5× MEDIUM | **+30**             | DELTA > 30 **AND** \|t\| > 2 |
 | `Multiway_HardVs5EasyTest`              | `HARD`     | 5× EASY  | +30                  | same                                 |
 | `Multiway_MediumVs5EasyTest`            | `MEDIUM`   | 5× EASY  | +30                  | same                                 |
-| `MixedMatchup_*Test` (HU equivalents)   | hi vs lo   | one each | +50                  | DELTA > 50 **AND** &#124;t&#124; > 2 |
+| `MixedMatchup_*Test` (HU equivalents)   | hi vs lo   | one each | +50                  | DELTA > 50 **AND** \|t\| > 2 |
 
 A failing gradient test means the difficulty ordering inverted or
 collapsed at that level pair, i.e. the user cannot tell two adjacent
@@ -379,9 +379,8 @@ Surefire lane sets `qa.excludedGroups=slow` (see `tools/qa/pom.xml`), so a bare
 explicitly, with one of the flows below.
 
 Only statistical playing-strength regressions belong in this package. Use the
-layer selector in [Adding tests and real-game
-scenarios](../../../../../../../../../../docs/ADDING_TEST_SCENARIOS.md) before
-adding a harness class; deterministic game-integrity behavior belongs in the
+layer selector in [Adding scenarios](../../../../../../../../../../docs/TESTING.md#adding-scenarios)
+before adding a harness class. Deterministic game-integrity behavior belongs in the
 fast, protocol-simulation or real-game E2E layer.
 
 ### 9.1 Reactor (preferred)
@@ -398,7 +397,7 @@ mvn -f tools/reactor/pom.xml verify -P qa-bots
 mvn -f tools/reactor/pom.xml verify -P qa-all
 ```
 
-The `qa-heavy` and `qa-all` profiles are declared in `tools/qa/pom.xml`;
+The `qa-heavy` and `qa-all` profiles are declared in `tools/qa/pom.xml`.
 `-P` activates them on the qa module inside the reactor. Add `-o` (offline) once the local
 Maven cache is warm. `forkCount=0.6C` (≈ 5 concurrent JVMs on an 8-core
 machine) is set in `tools/qa/pom.xml`'s `maven-surefire-plugin` configuration.
@@ -469,7 +468,7 @@ FAIL on significance only). Re-run at full volume to sign off a change.
 
 The hand evaluator is memoized (`MemoizedAlbertaEvaluator`, ~8× faster than the
 raw Alberta path on Windows), so a reduced-volume iteration pass returns in
-seconds; the bot lane itself runs the matchups at the 10 000-hand default and
+seconds. The bot lane itself runs the matchups at the 10 000-hand default and
 is deliberately separate from `qa-all` (see `tools/qa/pom.xml`).
 
 ---

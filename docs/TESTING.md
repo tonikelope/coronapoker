@@ -6,7 +6,7 @@ interpret.
 
 ## If you changed Java code: what to run
 
-Use the repository-root console entry point; it prevents accidentally building
+Use the repository-root console entry point. It prevents accidentally building
 one module while omitting another test layer:
 
 ### Explicit prerequisites
@@ -22,7 +22,7 @@ one module while omitting another test layer:
   unsupported versions.
 - Internet access on the first run, unless every required Maven dependency is
   already present in the ignored checkout-local `.m2/repository`. Later runs
-  reuse that cache; the script does not depend on the user's global Maven
+  reuse that cache. The script does not depend on the user's global Maven
   repository.
 - For scenarios, permission to start child Java processes and bind local
   loopback ports. They do not require an Internet opponent, router forwarding
@@ -34,16 +34,16 @@ MOD, database, language setting or manually installed test fixture is assumed.
 Generated game homes, reports and build output stay in ignored directories.
 The tool does not install Java or Maven. Maven still reads its standard
 `settings.xml` for repository mirrors, proxies and credentials when your
-network requires them; no private mirror, proxy, toolchain or IDE setting is
+network requires them. No private mirror, proxy, toolchain or IDE setting is
 required by the repository itself. The checkout and its ignored `.m2` and
 `target` directories must be writable and have enough free space for
 dependencies, intermediate classes, reports and the self-contained JAR.
 
 ```powershell
-# Quick rebuild + runnable target/CoronaPoker_<version>.jar; tests are skipped.
+# Quick rebuild plus runnable target/CoronaPoker_<version>.jar. Tests are skipped.
 .\qa.cmd build
 
-# Normal code check: clean build + all automated non-bot tests; no scenarios.
+# Normal code check. Clean build plus all automated non-bot tests. No scenarios.
 .\qa.cmd test
 
 # Gameplay-wiring check: run only the complete GDX catalogue once.
@@ -62,7 +62,7 @@ Scenarios never start implicitly. Choose `scenarios <mode>` when you only need
 end-to-end gameplay evidence, or `all <mode>` to run the tests first.
 
 `fast`, `balanced` and `stress` do not select different scenario categories:
-they run the same unified catalogue; only repetitions and soak depth change.
+they run the same unified catalogue. Only repetitions and soak depth change.
 When used through `all`, their product and test stages are identical. `quick`
 is the only explicit critical subset and is intended for iteration, not
 release evidence.
@@ -87,7 +87,7 @@ The command uses the checkout-local `.m2/repository` and stops at the first
 failed stage. `test` and `all` clean-build and install the current product
 before the additional test suite, so those tests cannot silently resolve a
 different locally installed CoronaPoker version. Successful build/test
-execution leaves the runnable JAR in `target/`; scenarios write evidence to
+execution leaves the runnable JAR in `target/`. Scenarios write evidence to
 `target/certification/`, and every non-list run writes an overall
 machine-readable summary below `target/qa/`.
 
@@ -98,7 +98,7 @@ machine-readable summary below `target/qa/`.
 | Layer | Purpose | Typical cost | Main command |
 |---|---|---|---|
 | Product tests | Rules, networking, persistence, security, GDX contracts and architecture | A few minutes | `mvn clean verify` |
-| Extended QA | Large opt-in regression suite under `tools/qa` | Minutes for the default lane; longer for slow profiles | `mvn -f tools/reactor/pom.xml verify` |
+| Extended QA | Large opt-in regression suite under `tools/qa` | Minutes for the default lane. Longer for slow profiles | `mvn -f tools/reactor/pom.xml verify` |
 | Headless campaigns | Seeded high-volume protocol and fault simulation | Proportional to the requested hands and faults | `.\tools\qa\headless-sim.cmd` |
 | GDX certification | Complete gameplay scenarios, including real sockets and separate processes where required | From a targeted run to a long stress run | `.\tools\qa\certify.cmd -Mode balanced` |
 
@@ -106,7 +106,7 @@ The layers are complementary. A build failure is a code-test failure. A
 certification failure is a gameplay-scenario failure. `certify.cmd` does not
 silently run the other layers.
 
-`qa.cmd` deliberately composes those existing layers; it is the public
+`qa.cmd` deliberately composes those existing layers. It is the public
 all-in-one console tool. The Maven commands and `certify.cmd` documented below
 are lower-level entry points for focused diagnosis, CI or resuming a scenario
 schedule. They are not additional or competing scenario catalogues.
@@ -122,9 +122,9 @@ diagnostic equivalents, not a hidden prerequisite for `qa.cmd`.
 | Execution | Starts when | Included work |
 |---|---|---|
 | Product build gate | Every `mvn verify`, `mvn package`, `mvn clean verify` or `mvn clean package` unless tests are explicitly skipped | Product unit tests, deterministic integration tests and architecture rules |
-| Extended QA | Only when `tools/reactor/pom.xml` or `tools/qa/pom.xml` is invoked | The selected `qa-*` profile; the recommended reactor also runs the product gate against the same checkout |
-| Headless campaign | Only when `headless-sim.cmd` is invoked | Configurable seeded protocol and fault simulations; by default it first runs the product gate |
-| GDX certification | Only when `certify.cmd` is invoked | Isolated behavioural scenarios selected by mode or name |
+| Extended QA | Only when `tools/reactor/pom.xml` or `tools/qa/pom.xml` is invoked | The selected `qa-*` profile. The recommended reactor also runs the product gate against the same checkout |
+| Headless campaign | Only when `headless-sim.cmd` is invoked | Configurable seeded protocol and fault simulations. By default it first runs the product gate |
+| GDX certification | When `qa.cmd scenarios`, `qa.cmd all` or `certify.cmd` is invoked | Isolated behavioural scenarios selected by mode or name |
 
 The dependency is one-way: a product build never enters `tools/qa`, but the
 recommended QA reactor runs the product modules before its selected tool suite.
@@ -136,8 +136,8 @@ the background and are not prerequisites for an ordinary local compile.
 
 The commands are self-contained unless stated otherwise. The extended QA
 reactor runs the product build and its tests before `tools/qa`. The headless
-runner uses that reactor by default unless `-SkipGameBuild` is explicitly used;
-that switch requires compatible product artifacts to be installed already.
+runner uses that reactor by default unless `-SkipGameBuild` is explicitly used.
+That switch requires compatible product artifacts to be installed already.
 The certifier performs a clean GDX test compilation with tests skipped and then
 starts only each scheduled scenario test in an isolated Maven process.
 
@@ -167,8 +167,8 @@ mvn clean verify
 
 This runs the tests in the product reactor:
 
-- `coronapoker-core`: rules, protocol, networking, storage and shared logic;
-- `coronapoker-gdx`: frontend state, command/event wiring and GDX contracts;
+- `coronapoker-core`: rules, protocol, networking, storage and shared logic
+- `coronapoker-gdx`: frontend state, command/event wiring and GDX contracts
 - `coronapoker-qa`: architecture and source-ownership rules.
 
 The product build excludes tests tagged `certification`. Those scenarios are
@@ -176,7 +176,7 @@ run only through `certify.cmd`, where each mapped method receives an isolated
 Maven process and the selected certification mode.
 
 The runnable output is `target/CoronaPoker_<version>.jar`. Use
-`-DskipTests` only to diagnose packaging; it is not a verified build.
+`-DskipTests` only to diagnose packaging. It is not a verified build.
 
 A focused product test can be selected without failing the other modules for
 having no matching class:
@@ -216,14 +216,14 @@ on runtime characteristics rather than mirroring every source package:
 | `qa-all` | Fast and slow replayable QA except bot-strength statistics | High | Complete extended regression on a suitable developer or build host |
 | `qa-bots` | Statistical matchups, hand-potential sampling and bot game-flow smoke | Very high | Only after bot decision or evaluator changes, and before a release that changes bots |
 
-`qa-fast` is contained in `qa-all` and `qa-headless-all`; running either broad
+`qa-fast` is contained in `qa-all` and `qa-headless-all`. Running either broad
 lane immediately after `qa-fast` repeats those fast checks. `qa-crypto` and
 `qa-network` are focused subsets of the slow coverage in `qa-heavy` and
 `qa-all`. `qa-bots` is deliberately independent and is never pulled in by an
 aggregate profile. The protocol simulator can be invoked directly through the
 profile, but `headless-sim.cmd` is preferred because it validates arguments,
 records or generates a replay seed and builds the current checkout by default.
-Focused profiles select only their named workload; run the default fast lane
+Focused profiles select only their named workload. Run the default fast lane
 first unless `qa-all` or `qa-headless-all` will cover it in the same validation.
 
 ```powershell
@@ -254,7 +254,7 @@ mvn -f tools/reactor/pom.xml verify -P qa-headless-all
 
 `qa-bots` remains separate because it measures playing strength statistically
 and consumes substantially more CPU than integrity regressions. `qa-all`
-intentionally excludes it. Neither profile is a gameplay certificate; only
+intentionally excludes it. Neither profile is a gameplay certificate. Only
 `certify.cmd` produces scenario-certification evidence.
 
 To run one extended test:
@@ -351,26 +351,226 @@ GDX harness: hand and shuffle seeds, commit-reveal seating, bot personality and
 decisions, automated straddle choices, recovery seating and observable
 cinematic selection. Each domain is derived independently, so adding a draw in
 one cannot shift the others. Cryptographic keys, proof randomness, transport
-nonces and encryption IVs deliberately remain secure and may differ on replay;
-they do not change the resulting cards or functional scenario path. A direct
-JUnit replay may use `-Dcoronapoker.qa.scenarioSeed=<seed>`; the certifier sets
+nonces and encryption IVs deliberately remain secure and may differ on replay.
+They do not change the resulting cards or functional scenario path. A direct
+JUnit replay may use `-Dcoronapoker.qa.scenarioSeed=<seed>`. The certifier sets
 that property automatically from the seed recorded in its report.
 
 A continuation report is not a standalone certificate. Keep it together with
 the preceding partial report. If a fix changes shared protocol, scheduling or
 harness semantics, restart the complete required mode instead of resuming.
 
+## Adding scenarios
+
+Add coverage at the lowest layer that can prove the invariant. A mocked
+projection test cannot certify a reconnect, a crashed client or a process
+boundary.
+
+| Change | Primary test layer |
+|---|---|
+| Pure rule, codec, persistence or money calculation | Unit test in `coronapoker-core` |
+| GDX command, projection, dialog state or lifecycle binding | Focused test in `coronapoker-gdx` |
+| Complete game flow with production core objects | `GdxReconnectScenarioTest` |
+| Real sockets, separate client processes, crashes or recovery | `GdxMultiprocessScenarioTest` |
+| Large seeded protocol volume | `tools/qa/headless-sim.cmd` campaign |
+
+Every complete gameplay scenario belongs to the same
+`GdxScenarioContract.CERTIFICATION_SCENARIOS` map regardless of its origin or
+implementation class. Do not create a second list in Java, PowerShell or
+documentation.
+
+### Scenario architecture
+
+The scenario system has four contracts:
+
+1. `tools/qa/reference/swing-gold-scenarios.tsv` preserves the immutable list
+   of 37 historical gameplay scenarios used as the migration baseline. It is a
+   reference manifest, not an executable lane.
+2. `GdxScenarioContract.java` owns the single executable map
+   `CERTIFICATION_SCENARIOS`. Historical ports and new scenarios live together
+   in this map. Its contract test rejects missing, duplicated, in-process or
+   invented historical coverage.
+3. `GdxMultiprocessScenarioTest.java` launches host and client JVMs used by
+   release certification. `GdxMultiprocessNodeMain.java` is the node process.
+4. `tools/qa/run-certification.ps1` reads the Java map and defines execution
+   policy only. It controls mode depth, repetitions, seeds, isolation and
+   reports.
+
+New coverage that has no Swing predecessor still goes into the same Java map.
+Change the historical TSV only when correcting the recorded baseline and
+explain that correction in the commit.
+
+Important files:
+
+| File | Responsibility |
+|---|---|
+| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/scenarios/GdxScenarioContract.java` | Single executable scenario catalogue plus the immutable Swing reference set |
+| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/scenarios/GdxScenarioContractTest.java` | Mapping and coverage invariants |
+| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/scenarios/GdxReconnectScenarioTest.java` | Production-core game scenarios observed through GDX |
+| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/GdxMultiprocessScenarioTest.java` | Parent process, topology, process faults and final assertions |
+| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/GdxMultiprocessNodeMain.java` | Host or client process behaviour and semantic markers |
+| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/scenarios/GdxScenarioRenderer.java` | Test renderer, native action readiness and observations |
+| `tools/qa/run-certification.ps1` | Mode depth, process isolation, seed schedule and reports |
+
+### 1. Define the behaviour
+
+Write the precondition, trigger and observable result before editing the
+harness. A useful contract answers these questions:
+
+- Which peer owns the action?
+- At which hand and street may it occur?
+- What event proves the peer is ready?
+- Which socket or process fault is applied?
+- Which peer must remain alive?
+- What ledger, stack, hand counter or consensus value must match at the end?
+- What output proves that the intended branch executed?
+
+Elapsed time is not proof that the game reached a state.
+
+### 2. Add the smallest failing regression
+
+Add a focused unit or GDX integration test first. Every complete gameplay
+scenario also goes into `CERTIFICATION_SCENARIOS`. A historical scenario keeps
+at least one independent-JVM port. Product-table or focused network tests may
+sit beside that port under the same scenario key. A critical method may remain
+untagged so the ordinary build also runs it, but this does not create a second
+catalogue. A certification method may belong to one scenario only.
+
+Run the mapping guard while developing the scenario:
+
+```powershell
+mvn -f modules/pom.xml -pl coronapoker-gdx -am test `
+  '-Dtest=GdxScenarioContractTest' `
+  '-Dsurefire.failIfNoSpecifiedTests=false'
+```
+
+### 3. Synchronize on meaning
+
+Coordinate parent and node processes with explicit state or semantic markers.
+Useful gates include:
+
+- a specific hand and street
+- an active local turn
+- a native button becoming enabled
+- a reconnect count changing
+- a recovery lobby opening
+- a player becoming spectator or active
+- a committed action appearing in the durable ledger
+
+Never replace a semantic gate with a fixed sleep. A short polling interval is
+acceptable inside a bounded wait, but its predicate must represent game
+progress. Every wait needs a timeout and diagnostics that name the missing
+state.
+
+When an action is submitted through GDX, first assert the same readiness used
+by the real control. Calling a helper immediately after socket reconnection can
+otherwise create a harness race that a user could never trigger.
+
+Functional label checks must use the production `GdxFunctionalLabelOracle` or
+the equivalent semantic observation exposed by the harness. Assert canonical
+meaning for action, pot, blind and result labels. Do not assert one translated
+display string or force the user's configured language. The oracle must accept
+every supported translation while still rejecting the wrong poker meaning.
+
+### 4. Add multiprocess coverage
+
+Add one method to `GdxMultiprocessScenarioTest` when the behaviour crosses a
+process boundary. Reuse the existing host and client launchers plus isolated
+homes. Assert the intended transition, not only process exit code zero.
+
+The final oracle normally checks that:
+
+- every expected process reached its completion marker
+- no fatal or unexpected dialog marker was emitted
+- canonical ledgers match across surviving peers
+- stacks and buy-ins conserve money
+- the expected number of durable hands was committed
+- required recovery, reconnect, Run It Twice, straddle or spectator markers occurred
+- no stale process remains after teardown
+
+Scale timeouts by the work being performed. Large tables need a
+participant-aware budget, not only a hand-count budget. Do not increase a
+timeout until the log shows semantic progress throughout the extra interval.
+
+### 5. Register once
+
+Register the method under one scenario key in
+`GdxScenarioContract.CERTIFICATION_SCENARIOS`. If it ports a historical Swing
+scenario, keep at least one method for that key in
+`GdxMultiprocessScenarioTest`. Native or focused coverage may be additional
+methods under the same key, but it cannot replace the process-isolated port.
+Add the scenario name to the certifier's `quickScenarios` only when it belongs
+in the short iteration subset.
+
+Do not add a second method list to PowerShell. The certifier discovers the Java
+map and derives every execution seed from the printed base seed.
+
+### 6. Validate in increasing scope
+
+Run the focused test first:
+
+```powershell
+mvn -f modules/pom.xml -pl coronapoker-gdx -am test `
+  '-Dtest=GdxMultiprocessScenarioTest#yourMethodName' `
+  '-Dsurefire.failIfNoSpecifiedTests=false' `
+  '-Dqa.sim.seed=42'
+```
+
+Run the complete behavioural catalogue once:
+
+```powershell
+.\qa.cmd scenarios fast
+```
+
+For race, watchdog, scheduling or recovery changes, finish with a fresh-seed
+stress pass:
+
+```powershell
+.\qa.cmd scenarios stress
+```
+
+On failure, rerun the exact printed seed before using a new seed. Fix the
+product or harness according to the first violated contract. Never weaken an
+oracle merely to make a failing product pass.
+
+All factories used by a GDX scenario obtain `GameEntropySource` and session IDs
+from the seeded scenario helper. Never call `CryptoRandom`,
+`ThreadLocalRandom`, `Math.random` or an unseeded `Random` for a choice that can
+change cards, seats, bot actions, labels, animation selection or lifecycle.
+Keep security-only entropy for keys, proofs, IVs and transport challenges
+secure. Replayability applies to the functional path, not to cryptographic
+byte-for-byte identity. The contract suite rejects dealer game-path randomness
+that bypasses the injected source.
+
+### Completion checklist
+
+- [ ] The invariant and expected failure mode are explicit.
+- [ ] The lowest useful regression is red before the fix and green after it.
+- [ ] Historical mappings remain one-to-one and complete.
+- [ ] Multiprocess scenarios use separate JVMs and isolated homes.
+- [ ] Synchronization is semantic and every wait is bounded.
+- [ ] Native GDX readiness is checked before submitting an action.
+- [ ] Functional labels are checked by canonical meaning in every supported language.
+- [ ] Final ledgers, stacks, buy-ins and durable hand counts are asserted.
+- [ ] The scenario is registered once in the Java map.
+- [ ] The exact failing seed passes after the fix.
+- [ ] The required `fast`, `balanced` or `stress` gate finishes with a PASS banner.
+
+Visual alignment, animation quality, physical audio hardware and real Internet
+or NAT behaviour remain manual checks. They complement the automated
+certificate and do not replace it.
+
 ## Choosing the right gate
 
 | Change | Required validation |
 |---|---|
 | Local calculation or parser | Focused regression, then `mvn clean verify` |
-| GDX layout or cosmetic presentation | Focused contract/layout tests and product build; manual visual review |
+| GDX layout or cosmetic presentation | Focused contract/layout tests and product build. Manual visual review remains required |
 | Shared game rules or table lifecycle | Product build, extended QA, affected scenario, then `balanced` when release-bound |
 | Sockets, reconnect, crash or recovery | Product build, extended QA, affected multiprocess scenario, then `fast` or `balanced` |
-| Crypto or signed protocol | Product build, `qa-crypto`, headless campaign, affected scenarios; `stress` for broad changes |
-| Bot decision quality | Product build and `qa-bots`; scenario certification only if game flow changed |
-| Test harness only | Harness contracts and affected scenarios; broaden only if common semantics changed |
+| Crypto or signed protocol | Product build, `qa-crypto`, headless campaign and affected scenarios. Use `stress` for broad changes |
+| Bot decision quality | Product build and `qa-bots`. Scenario certification is needed only if game flow changed |
+| Test harness only | Harness contracts and affected scenarios. Broaden only if common semantics changed |
 | Normal release | Product build, appropriate extended QA and `balanced` certification |
 | Major release baseline | `fast`, then fresh-seed `stress` after all narrower lanes pass |
 
@@ -406,7 +606,7 @@ BUILD SUCCESS
 
 `BUILD FAILURE`, a non-zero `Failures` or `Errors` value, or an `[ERROR]` block
 is a real failure. The first failing test name and its surefire report are the
-starting point; reports live under the corresponding module's
+starting point. Reports live under the corresponding module's
 `target/surefire-reports/` directory.
 
 Game integration tests intentionally emit extensive dealer, bot, networking
@@ -431,7 +631,7 @@ Success ends in `CORONAPOKER GDX CERTIFICATION PASS`. On failure the runner
 prints `FAIL`, shows the last part of that test's log, writes `summary.csv` and
 `summary.json`, and stops. Preserve the printed seed: rerun the failing scenario
 with `-Scenario <name> -Seed <BaseSeed>`. The per-row `Seed` in the CSV is the
-derived seed passed to that isolated test; the report records both values.
+derived seed passed to that isolated test. The report records both values.
 
 The functional label oracles compare canonical meaning rather than the current
 configured language. They validate action, pot, blind and result information
@@ -444,7 +644,7 @@ checks even when the scenario certificate is green.
 At the end, `qa.cmd` writes
 `target/qa/<timestamp>-<command>[-<mode>]/summary.txt` and `summary.json`.
 These identify the first failed layer and its exit code. The scenario directory
-remains the detailed evidence for gameplay failures; the central summary does
+remains the detailed evidence for gameplay failures. The central summary does
 not replace its logs.
 
 ## Generated state
@@ -459,6 +659,3 @@ Use `mvn clean` for product build cleanup. Because extended QA is deliberately
 outside the product reactor, use `mvn -f tools/reactor/pom.xml clean` when its
 generated `tools/qa/target` state should also be removed. Do not delete caches
 or reports while another Maven, certification or game process is using them.
-
-See [Adding GDX test scenarios](ADDING_TEST_SCENARIOS.md) for contributor rules
-and scenario wiring.

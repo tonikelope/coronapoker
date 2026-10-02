@@ -40,11 +40,11 @@ Examples:
   .\tools\qa\headless-sim.cmd -Hands 200 -Faults 200 -BotHands 10 -Seed 42
   .\tools\qa\headless-sim.cmd -AllNonVisual
 
-This fast layer exercises production protocol and domain components without a
+This headless layer exercises production protocol and domain components without
 complete GDX table lifecycle. Use certify.cmd for complete
 local multiplayer games.
 The exact checkout is built into the ignored local .m2/repository cache. An
-omitted seed is generated and printed before Maven starts; pass it back with
+omitted seed is generated and printed before Maven starts. Pass it back with
 -Seed to replay a failure.
 '@ | Write-Host
     exit 0

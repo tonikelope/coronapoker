@@ -33,7 +33,7 @@ CoronaPoker is built around one security goal: **detect or prevent cheating, spy
 Every card is shuffled and locked collectively by **every human member of the hand's cryptographic ring** through a commutative Mental Poker (SRA) protocol, with a zero-knowledge **verifiable shuffle** that every ring member re-checks independently, so a malicious host cannot silently peek, duplicate or relocate a card in a completed deal. Pocket cards stay sealed end-to-end until showdown. Community cards unlock per street. **No single participant, not even the host, can learn another player's hole cards or the board before its legitimate reveal**. *(Built from scratch over Ristretto255, with DLEQ-chained dealing and a Bayer-Groth shuffle.)*
 
 ### Per-nick cryptographic identity & signed actions
-Every human player carries a persistent **Ed25519 keypair** stored locally with restricted ACLs (POSIX 0600 / Windows owner-only ACL). Betting actions, community and showdown reveals, straddle decisions, Rabbit requests, seat-draw commitments and closing receipts use distinct signed domains. A **hash chain** ratchets over each hand (`H_{t+1} = SHA-256(record || sig)`), committing every peer to the exact action history, and its closing state folds in the hand's **settlement** (who put in how much and who was paid how much). Before durable close, every peer enforces exact-cent conservation (`paid + closing carry = contributed + opening carry`) and exchanges signed receipts with the currently expected human ring members; controlled departures are excluded because they cannot sign a future close. A conservation error, divergent or missing expected receipt, or invalid-signature flag stops SQLite close and hand advancement, preserving the open state for recovery. TOFU records the first key seen for a nick; a later different key is accepted as `CHANGED`, replaces the stored key, increments the session count and clears the out-of-band verification flag. This transition is non-blocking and has no modal, so compare the identity identicon/fingerprint out-of-band whenever key continuity matters.
+Every human player carries a persistent **Ed25519 keypair** stored locally with restricted ACLs (POSIX 0600 / Windows owner-only ACL). Betting actions, community and showdown reveals, straddle decisions, Rabbit requests, seat-draw commitments and closing receipts use distinct signed domains. A **hash chain** ratchets over each hand (`H_{t+1} = SHA-256(record || sig)`), committing every peer to the exact action history, and its closing state folds in the hand's **settlement** (who put in how much and who was paid how much). Before durable close, every peer enforces exact-cent conservation (`paid + closing carry = contributed + opening carry`) and exchanges signed receipts with the currently expected human ring members. Controlled departures are excluded because they cannot sign a future close. A conservation error, divergent or missing expected receipt, or invalid-signature flag stops SQLite close and hand advancement, preserving the open state for recovery. TOFU records the first key seen for a nick. A later different key is accepted as `CHANGED`, replaces the stored key, increments the session count and clears the out-of-band verification flag. This transition is non-blocking and has no modal, so compare the identity identicon/fingerprint out-of-band whenever key continuity matters.
 
 ### End-to-end encrypted channels
 Post-handshake application traffic between a client and the host is encrypted with **AES-256-CBC + HMAC-SHA256** over keys negotiated via **ECDH key exchange**. A network observer sees opaque authenticated frames rather than game state, chat or actions. The recovery payload reader installs a strict **`ObjectInputFilter` whitelist** (HashMap / String / numeric boxes only, 10 MB cap, 20-deep) so a malicious host cannot supply arbitrary Java deserialization types.
@@ -54,7 +54,7 @@ Peer-hosted, with no external central game server, accounts or third-party hand 
 - **Adjustable listening port**: defaults to 7234, configurable per game.
 - **Optional password protection** for the table itself, on top of channel encryption.
 - **Smart reconnection**: if a player drops, a 45-second base grace window holds their seat. Once the peer's reauthenticated reconnect intent reaches the host, the window extends to 80 seconds so a flaky link gets a real second chance before the table asks whether to remove them.
-- **Crash recovery**: every hand is checkpointed to a local **SQLite** database (per-action history, balances, dealer/SB/BB, crypto fossil with the full cascaded deck and the keys you'd need to re-derive your hole cards), so a game can resume from the exact stop point after a crash, power loss or reboot, for both host and clients. Hand creation commits the hand row and its complete unique balance roster atomically and publishes the generated id only after commit. Normal close and MISDEAL likewise commit metadata and the exact final/refunded roster atomically; any failed row rolls the operation back and prevents advancement. An interrupted hand keeps its durable hand number; if showdown had already completed, recovery advances to the following hand number on both the table and the game log.
+- **Crash recovery**: every hand is checkpointed to a local **SQLite** database (per-action history, balances, dealer/SB/BB, crypto fossil with the full cascaded deck and the keys you'd need to re-derive your hole cards), so a game can resume from the exact stop point after a crash, power loss or reboot, for both host and clients. Hand creation commits the hand row and its complete unique balance roster atomically and publishes the generated id only after commit. Normal close and MISDEAL likewise commit metadata and the exact final/refunded roster atomically. Any failed row rolls the operation back and prevents advancement. An interrupted hand keeps its durable hand number. If showdown had already completed, recovery advances to the following hand number on both the table and the game log.
 - **Late-joiner observer mode**: a player invited mid-recovery watches the in-progress hand as a passive spectator (no cards dealt, no actions requested) and joins normally on the next hand.
 - **Recent-server list**: persisted history of past tables. Browse it with the up and down arrow keys in the Join dialog to reconnect to anyone you've played with before.
 - **Per-peer link telemetry**: host tracks round-trip latency and reconnection count per seat and broadcasts it so flaky links surface early.
@@ -137,7 +137,7 @@ These aren't the fold-everything-and-wait kind. CoronaPoker bots play like real 
 - **Per-bot opponent tracking** (VPIP / PFR / AF, calling-station & maniac reads): they remember your tendencies and *stop bluffing the player who never folds*
 - **Heads-up vs multi-way awareness**: ranges and bluff frequencies are gated to the table size
 - **Calibrated mistake injection** scaled by difficulty: Hard is razor-sharp, Easy makes human-shaped errors in the right spots
-- **Dedicated QA**: deterministic bot integration runs with normal game QA; statistical strength benchmarks against fixed-strategy opponents are a separate opt-in lane when bot behaviour changes
+- **Dedicated QA**: deterministic bot integration runs with normal game QA. Statistical strength benchmarks against fixed-strategy opponents are a separate opt-in lane when bot behaviour changes
 
 > Full bot AI write-up, covering architecture, the hand-evaluation maths, the personality model and the per-turn decision pipeline (with two diagrams), lives in **[`docs/BOTS.md`](docs/BOTS.md)**.
 
@@ -158,7 +158,7 @@ Walkie-talkie style, push-to-record: **hold a key (F9 by default, rebindable), s
 Right-click any speaker icon for the audio settings dialog: **master volume** (two-way synced with the global Shift + Up/Down shortcut, persisted across sessions), **output device** selection with instant hot-switching (background music jumps to the new device immediately), and **microphone** enablement, device selection and push-to-record key binding for voice messages.
 
 ### Player avatars
-Each player picks a local **avatar image** (or falls back to a built-in default) that the host distributes to the rest of the table at join time. Remote PNG/JPEG/GIF avatars are rejected before rasterization when their Base64/decoded size, dimensions, frame count or total canvas work exceeds the bounded policy; temporary files and thumbnails are owned by the room session and cleaned together. Client rosters are capped at the same ten participants as the host before any avatar allocation. Bots use a dedicated bot avatar. Avatars are decorative, not authoritative. Identity binding lives in the Ed25519 keypair (see the Security section), and a separate **identicon dialog** lets you compare deterministic mosaics out-of-band: at the table, click a player's avatar for their **Ed25519 pubkey** identicon (with a TOFU "mark verified" button to remember future connections). In the waiting room, right-click your own nick for the **session-key (AES channel)** identicon for detecting a network MITM.
+Each player picks a local **avatar image** (or falls back to a built-in default) that the host distributes to the rest of the table at join time. Remote PNG/JPEG/GIF avatars are rejected before rasterization when their Base64/decoded size, dimensions, frame count or total canvas work exceeds the bounded policy. Temporary files and thumbnails are owned by the room session and cleaned together. Client rosters are capped at the same ten participants as the host before any avatar allocation. Bots use a dedicated bot avatar. Avatars are decorative, not authoritative. Identity binding lives in the Ed25519 keypair (see the Security section), and a separate **identicon dialog** lets you compare deterministic mosaics out-of-band: at the table, click a player's avatar for their **Ed25519 pubkey** identicon (with a TOFU "mark verified" button to remember future connections). In the waiting room, right-click your own nick for the **session-key (AES channel)** identicon for detecting a network MITM.
 
 ### Action sounds & character voices
 Distinct sounds for every action (deal, check, call, raise, fold, all-in, showdown, winner) plus comedy voice clips that can be triggered on common actions. Everything is toggleable and replaceable.
@@ -211,7 +211,7 @@ Every visual and audio asset is replaceable through redistributable MOD packs:
 ## 🧱 Stack
 
 - **Java 17+** for both building and running
-- **Single-version protocol**: Every participant in a game must run the exact same CoronaPoker version; the host refuses mismatched versions instead of enabling compatibility modes.
+- **Single-version protocol**: Every participant in a game must run the exact same CoronaPoker version. The host refuses mismatched versions instead of enabling compatibility modes.
 - **LibGDX** desktop UI with an LWJGL3 backend
 - **Maven** multi-module build producing one self-contained application JAR
   from the game core, assets and GDX frontend
@@ -241,7 +241,7 @@ events, is in
 **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**.
 
 Product Java sources have one physical owner. Game logic and renderer-neutral
-contracts live in `modules/coronapoker-core`; presentation and input live in
+contracts live in `modules/coronapoker-core`. Presentation and input live in
 `modules/coronapoker-gdx`. Shared assets remain in `src/main/resources` and are
 packaged by `modules/coronapoker-assets`. Architecture tests enforce these
 ownership boundaries, prohibit GDX dependencies in the core and reject
@@ -277,7 +277,7 @@ profiles and unified scenario catalogue are documented in
 
 Requirements: JDK 17 or newer for both building and running, and Apache Maven
 3.x. Maven compiles against the Java 17 API baseline. The checked-in `qa.cmd`
-also requires Windows PowerShell; it detects and prints the Maven/JDK selected
+also requires Windows PowerShell. It detects and prints the Maven/JDK selected
 for the run and does not install either dependency. A first build requires
 access to the configured Maven repositories unless its dependency cache is
 already populated. Exact environment discovery and network assumptions are
@@ -330,10 +330,10 @@ first failed layer:
 .\qa.cmd all balanced
 ```
 
-Running `.\qa.cmd` without arguments is the same as `test`; scenarios never
+Running `.\qa.cmd` without arguments is the same as `test`. Scenarios never
 start accidentally. Use `scenarios stress` or `all stress` for major protocol,
 recovery or concurrency work. The scenario modes change only GDX repetitions
-and soak depth; they do not create separate catalogues.
+and soak depth. They do not create separate catalogues.
 Run `.\qa.cmd -Help` for focused scenario, seed replay and bot-quality options.
 The detailed interpretation guide is in
 [Testing and certification](docs/TESTING.md).
@@ -358,7 +358,7 @@ the GDX module directly is useful for local iteration but does not certify the
 complete product.
 
 GDX gameplay certification has one catalogue and one result. `fast`,
-`balanced` and `stress` execute exactly the same scenarios; they differ only in
+`balanced` and `stress` execute exactly the same scenarios. They differ only in
 repetitions and soak depth (one, two and five passes respectively). `quick` is
 the explicit short subset for iteration. See [Testing and certification](docs/TESTING.md)
 for the exact costs and report format.
@@ -377,12 +377,11 @@ self-update mechanism requires that special helper at the repository root.
 The normal product build runs code and architecture tests. Extended QA,
 headless campaigns and GDX behavioural certification are separate layers and
 are never packaged in the game JAR. `qa.cmd` is the recommended single entry
-point; the individual Maven and runner commands remain available for diagnosis.
+point. The individual Maven and runner commands remain available for diagnosis.
 
 **[Testing and certification](docs/TESTING.md)** is the canonical guide for
-test groups, expected cost, dependencies, command order, scenario modes and
-release gates. Contributors adding a regression or a multi-process scenario
-should also follow **[Adding GDX test scenarios](docs/ADDING_TEST_SCENARIOS.md)**.
+test groups, expected cost, dependencies, command order, scenario modes,
+release gates and adding scenarios to the unified catalogue.
 
 ---
 

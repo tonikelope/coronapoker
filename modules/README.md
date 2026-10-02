@@ -36,7 +36,7 @@ This discovers Maven, verifies the Maven/JDK versions, performs a clean product
 build and runs the complete replayable non-bot suite. Use `.\qa.cmd build`
 only when a quick package with tests deliberately skipped is wanted. The
 explicit prerequisites, discovery order and lower-level Maven equivalents are
-documented in `../docs/TESTING.md`; no NetBeans installation is required.
+documented in `../docs/TESTING.md`. No NetBeans installation is required.
 
 When Maven is already on `PATH`, `mvn clean verify` is the lower-level product
 gate. The tracked `.mvn/maven.config` uses the ignored checkout-local
@@ -59,7 +59,7 @@ not additional distributions.
 The `coronapoker-qa` module checks the architecture during the normal product
 build. The extended suite under `tools/qa` adds opt-in protocol, recovery,
 security and simulation tests. GDX behavioural certification is executed from
-the scenario contract in `coronapoker-gdx`; see `../docs/TESTING.md`.
+the scenario contract in `coronapoker-gdx`. See `../docs/TESTING.md`.
 
 A successful automated build does not validate visual fidelity, audio quality
 or frame pacing. Those release checks require a manual run on the supported

@@ -34,7 +34,7 @@ Usage:
   .\qa.cmd list
 
 Commands:
-  build      Clean package only; skip tests and leave the runnable JAR
+  build      Clean package only. Skip tests and leave the runnable JAR
   test       Default. Clean build + all product and replayable non-bot tests
   scenarios  Run only the unified GDX scenario catalogue
   all        Run test, then scenarios (normal release command)
@@ -59,7 +59,7 @@ The runnable JAR is left in target\. Scenario evidence is stored below
 target\certification\ and the overall run summary below target\qa\.
 
 Requires Windows PowerShell, JDK 17+ and Maven 3+. The tool detects and prints
-the selected Maven/JDK; it does not install them. A first run also needs access
+the selected Maven/JDK. It does not install them. A first run also needs access
 to the configured Maven repositories unless the checkout-local cache is full.
 '@ | Write-Host
     exit 0
@@ -81,7 +81,7 @@ if ($Action -eq 'help') {
 }
 if ($Action -eq 'list') {
     if ($modeWasProvided) {
-        throw 'list does not accept a scenario mode; it always shows the full catalogue.'
+        throw 'list does not accept a scenario mode. It always shows the full catalogue.'
     }
     & $certifier -ListOnly
     exit $LASTEXITCODE
@@ -148,12 +148,12 @@ if (-not $javaMajorMatch.Success) {
 }
 $javaMajor = [int]$javaMajorMatch.Groups[1].Value
 if ($mavenMajor -lt 3) {
-    throw "Apache Maven 3 or newer is required; detected: $mavenVersionLine"
+    throw "Apache Maven 3 or newer is required. Detected: $mavenVersionLine"
 }
 if ($javaMajor -lt 17) {
-    throw "JDK 17 or newer is required; detected: $javaVersionLine"
+    throw "JDK 17 or newer is required. Detected: $javaVersionLine"
 }
-Write-Host "Environment: $mavenVersionLine; $javaVersionLine"
+Write-Host "Environment: $mavenVersionLine | $javaVersionLine"
 
 $results = [System.Collections.Generic.List[object]]::new()
 $runStarted = Get-Date

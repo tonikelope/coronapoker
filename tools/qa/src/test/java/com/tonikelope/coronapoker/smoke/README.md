@@ -2,13 +2,12 @@
 
 This package contains the invariant smoke tests run before code changes are
 merged. [`docs/TESTING.md`](../../../../../../../../../docs/TESTING.md) is the
-canonical source for test lanes and execution order. See
-[`docs/ADDING_TEST_SCENARIOS.md`](../../../../../../../../../docs/ADDING_TEST_SCENARIOS.md)
-for choosing the right layer and adding regressions.
+canonical source for test lanes, execution order and
+[adding scenarios](../../../../../../../../../docs/TESTING.md#adding-scenarios).
 
 ## Purpose
 
-These tests do not measure playing quality; the 10,000-hand `Baseline*` and
+These tests do not measure playing quality. The 10,000-hand `Baseline*` and
 `Multiway_*` matchups under `bot/harness/` do that. Smoke tests verify that the
 code still satisfies fundamental invariants: chip conservation, no NaN or
 infinite values, non-negative stacks, monotonic counters and no exceptions.
@@ -46,7 +45,7 @@ Fast smoke tests take a few seconds. `GameFlowSmoke` adds up to approximately
 - SRA cryptography: `sra/`.
 - Real socket protocol behavior: `net/`, including framing, stall/back-pressure
   and send-queue tests. Full multiplayer GDX games run in separate JVMs through
-  `tools/qa/certify.cmd`; see `docs/TESTING.md`.
+  `tools/qa/certify.cmd`. See `docs/TESTING.md`.
 - Pixel-level GDX paint and layout inspection remains manual. Functional GDX,
   socket and `Crupier` transitions are automated by the multiprocess suite.
 
@@ -74,7 +73,7 @@ The default fast lane runs every smoke below except `GameFlowSmoke`.
 4. Assert specific observables rather than only asserting that no crash occurs.
 5. Add the class to the table above.
 
-Before adding one, use the layer selector in the
-[test and scenario contributor guide](../../../../../../../../../docs/ADDING_TEST_SCENARIOS.md).
-A normal domain regression usually belongs beside its package; a flow requiring
+Before adding one, use the layer selector in
+[Adding scenarios](../../../../../../../../../docs/TESTING.md#adding-scenarios).
+A normal domain regression usually belongs beside its package. A flow requiring
 real sockets or `Crupier` belongs in the multi-JVM simulator.

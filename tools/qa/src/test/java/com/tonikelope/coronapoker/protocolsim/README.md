@@ -6,10 +6,10 @@ production betting reducer, deterministic shuffle, canonical action/community
 records, Ed25519 signatures, RIT pot division, settlement record and
 `HANDVERIFY` receipt parser.
 
-For a new regression, first use the layer selector in [Adding tests and
-real-game scenarios](../../../../../../../../../docs/ADDING_TEST_SCENARIOS.md).
+For a new regression, first use the layer selector in
+[Adding scenarios](../../../../../../../../../docs/TESTING.md#adding-scenarios).
 Add a case here when high-volume deterministic protocol/domain coverage is the
-claim; use the real-game E2E path when the defect depends on production
+claim. Use the real-game E2E path when the defect depends on production
 `Crupier`, GDX, sockets or recovery orchestration.
 
 Run from the repository root. The script uses the Maven reactor, so it always
@@ -39,17 +39,17 @@ protocol campaigns, crypto/SRA and production-bot simulations) is:
 .\tools\qa\headless-sim.cmd -Hands 2000 -Faults 2000 -BotHands 100 -AllNonVisual
 ```
 
-It forces `java.awt.headless=true`; a display/window dependency therefore fails
+It forces `java.awt.headless=true`. A display/window dependency therefore fails
 the lane. `IdentityKeypairAclSmoke` remains separate because its exact Windows
 ACL shape is environment-specific, not game behavior. Statistical bot-strength
-tests remain in `qa-bots`; the umbrella lane replaces their noisy win-rate
+tests remain in `qa-bots`. The umbrella lane replaces their noisy win-rate
 thresholds with hard per-hand conservation, liveness and validity invariants.
 
 ## Current production coverage
 
 - Three independent peers: host, human client and host-authored bot.
 - Exact preflop reducer with randomized cent values: raise, call/check, folds,
-  full all-in and short all-in; deterministic boundary hands include 1, 2, 99
+  full all-in and short all-in. Deterministic boundary hands include 1, 2, 99
   and 100-cent big blinds.
 - Canonical signed action records and stale-`PREV_H` rejection.
 - Deterministic 52-card permutation and signed community records.
@@ -111,14 +111,14 @@ integration guarantees from this headless campaign by itself.
   its game harness is not `Crupier`.
 - Full `Crupier` SRA request/response orchestration and proof-chain scheduling
   are covered by the separate real-game scenarios, not this campaign.
-- Complete multi-street betting plus `Crupier` side-pot/settlement wiring; the
+- Complete multi-street betting plus `Crupier` side-pot/settlement wiring. The
   production side-pot constructor itself is randomized above.
-- Full `Crupier` Rabbit request/pause/showdown orchestration; the production
+- Full `Crupier` Rabbit request/pause/showdown orchestration. The production
   signed ledger and all fee modes are randomized above.
 - Full `Crupier` EXIT/MISDEAL/refund and recovery orchestration is covered by
-  separate real-game scenarios; it is intentionally not duplicated here.
+  separate real-game scenarios. It is intentionally not duplicated here.
 - Real sockets, executors, GDX render-loop activity and lobby lifecycle are
   outside this simulator and belong to the multiprocess GDX layer.
 
 Those items are added incrementally by composing or extracting production
-components; protocol logic must not be copied into a parallel implementation.
+components. Protocol logic must not be copied into a parallel implementation.

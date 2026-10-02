@@ -375,7 +375,7 @@ mvn -f tools/reactor/pom.xml verify -P qa-bots
 The other QA profiles and their intended use are defined in
 [Testing and certification](TESTING.md).
 
-Scale the iteration volume with `-Dqa.sessions=N -Dqa.hands=N`; the default
+Scale the iteration volume with `-Dqa.sessions=N -Dqa.hands=N`. The default
 validation volume is **10,000 hands per matchup** (200 sessions × 50 hands).
 
 > Hard-won rule: a finding that is *technically* a bug is not necessarily worth

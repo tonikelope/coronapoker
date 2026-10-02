@@ -1,7 +1,10 @@
 package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -71,5 +74,15 @@ final class GdxSettingsNavigationContractTest {
                         .toList());
         assertEquals(CoronaPokerGdxTable.FastAccessAction.NONE,
                 CoronaPokerGdxTable.fastAccessActionAt(9, true));
+    }
+
+    @Test
+    void autoModeDoesNotBlockHoverDrivenTableUtilities() {
+        assertFalse(CoronaPokerGdxTable.blocksTableUtilities(null));
+        assertFalse(CoronaPokerGdxTable.blocksTableUtilities(
+                GdxTableDialog.autoAction("VAS A PASAR")));
+        assertTrue(CoronaPokerGdxTable.blocksTableUtilities(
+                new GdxTableDialog(GdxTableDialog.Kind.CONFIRM,
+                        "CONFIRMAR", GameDialogSink.Icon.NONE, 720, 0)));
     }
 }

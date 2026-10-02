@@ -6,7 +6,7 @@
 
     <groupId>com.tonikelope</groupId>
     <artifactId>coronapoker-modules</artifactId>
-    <version>25.38</version>
+    <version>25.39</version>
     <packaging>pom</packaging>
     <name>CoronaPoker product modules</name>
 
@@ -20,7 +20,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>17</maven.compiler.release>
-        <coronapoker.version>25.38</coronapoker.version>
+        <coronapoker.version>25.39</coronapoker.version>
         <libgdx.version>1.14.2</libgdx.version>
         <lwjgl.version>3.4.1</lwjgl.version>
         <junit.version>5.10.2</junit.version>

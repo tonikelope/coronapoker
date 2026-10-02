@@ -1192,7 +1192,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             boolean control = Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)
                     || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT);
             if (isQuickChatToggleCharacter(character, control)
-                    && activeDialog == null && liveState != null) {
+                    && !blocksTableUtilities(activeDialog)
+                    && liveState != null) {
                 if (uiLayer == UI_CHAT && !chatImageMode) {
                     closeTableChat();
                 } else if (uiLayer == UI_NONE && canUseTableChat()) {
@@ -1203,7 +1204,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 // leak through to a control below the popup.
                 return true;
             }
-            if (uiLayer != UI_CHAT || activeDialog != null) return false;
+            if (uiLayer != UI_CHAT
+                    || blocksTableUtilities(activeDialog)) return false;
             if (character == '\b') return true;
             if (character >= 32 && character != 127) {
                 chatEdit.focus("tableChat", chatDraft);
@@ -1334,7 +1336,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     return true;
                 }
             }
-            if (uiLayer == UI_CHAT && activeDialog == null
+            if (uiLayer == UI_CHAT && !blocksTableUtilities(activeDialog)
                     && button == Input.Buttons.LEFT && !chatEditMenuOpen) {
                 pointer.set(screenX, screenY);
                 viewport.unproject(pointer);
@@ -1357,7 +1359,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (uiLayer != UI_GAME_LOG || button != Input.Buttons.LEFT
                     || gameLogEditMenuOpen) {
                 if (button == Input.Buttons.LEFT && uiLayer == UI_NONE
-                        && activeDialog == null && liveState != null) {
+                        && !blocksTableUtilities(activeDialog)
+                        && liveState != null) {
                     pointer.set(screenX, screenY);
                     viewport.unproject(pointer);
                     feltClickCandidate = emptyFeltGestureContains(
@@ -4294,7 +4297,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private String iwtsthCandidateAt(float x, float y) {
         if (liveState == null || liveState.snapshot().paused()
-                || uiLayer != UI_NONE || activeDialog != null) {
+                || uiLayer != UI_NONE || blocksTableUtilities(activeDialog)) {
             return null;
         }
         for (Seat seat : seats) {
@@ -4435,7 +4438,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean emptyFeltGestureContains(float x, float y) {
         if (intro || startupIntroOnly || liveState == null
                 || liveState.snapshot().paused() || uiLayer != UI_NONE
-                || activeDialog != null || liveCardContains(x, y)) {
+                || blocksTableUtilities(activeDialog)
+                || liveCardContains(x, y)) {
             return false;
         }
         for (Seat seat : seats) {
@@ -5440,7 +5444,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void updateFastAccessBar(float delta) {
         if (intro || startupIntroOnly || liveState == null || uiLayer != UI_NONE
-                || activeDialog != null) {
+                || blocksTableUtilities(activeDialog)) {
             return;
         }
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
@@ -5817,7 +5821,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return switch (hit.owner) {
             case HUD -> uiLayer == UI_NONE && activeDialog == null
                     && hasActiveLocalTurn();
-            case SETTINGS -> uiLayer == UI_SETTINGS && activeDialog == null;
+            case SETTINGS -> uiLayer == UI_SETTINGS
+                    && !blocksTableUtilities(activeDialog);
             case DIALOG -> activeDialog == hit.dialog
                     && activeDialog != null
                     && !activeDialog.waitingForExternalClose();
@@ -7278,7 +7283,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void updateAvatarZoomHover() {
         if (liveState == null || finalSummary != null || uiLayer != UI_NONE
-                || activeDialog != null
+                || blocksTableUtilities(activeDialog)
                 || !tablePreference("resaltar_avatares", false)) {
             clearAvatarZoom();
             return;
@@ -7319,6 +7324,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             false, true),
                     "sonido_zoom", 0.72f);
         }
+    }
+
+    /** AUTO MODE lives in the local HUD and must not modal-block table tools. */
+    static boolean blocksTableUtilities(GdxTableDialog dialog) {
+        return dialog != null && !dialog.isAutoAction();
     }
 
     private void clearAvatarZoom() {

@@ -1030,6 +1030,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float communityHandY = Float.NaN;
     private float communityHandWidth;
     private float communityHandHeight;
+    private float communityHudX = Float.NaN;
+    private float communityHudY = Float.NaN;
+    private float communityHudWidth;
+    private float communityHudHeight;
     private boolean userLightsOff;
     private boolean leftButtonReleasedThisFrame;
     private final GdxPointerCapture primaryPointer = new GdxPointerCapture();
@@ -4177,6 +4181,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Seat identitySeat = avatarSeatAt(pointer.x, pointer.y);
             if (identitySeat != null
                     && openTableIdentityDialog(identitySeat.name)) {
+                primaryPointer.capturePressedGesture();
                 clearAvatarZoom();
                 return;
             }
@@ -4225,9 +4230,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             Seat stackSeat = stackSeatAt(pointer.x, pointer.y,
                     viewport.getWorldWidth());
-            if (stackSeat != null && stackSeat.index == 0
-                    && canToggleImmediateRebuy()) {
-                submit(new TableCommand.ToggleImmediateRebuy());
+            if (stackSeat != null) {
+                // A visible stack owns the pointer even when right-click has
+                // no action for that player.  Never let the card fan painted
+                // behind the pod receive the same click.
+                if (stackSeat.index == 0 && canToggleImmediateRebuy()) {
+                    submit(new TableCommand.ToggleImmediateRebuy());
+                }
+                return;
+            }
+            if (tableChromeOccludesCards(pointer.x, pointer.y,
+                    viewport.getWorldWidth())) {
                 return;
             }
             if (uiLayer == UI_NONE && liveState != null
@@ -4292,6 +4305,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     PLAYER_POD_WIDTH - 14f, 44f)) {
                 return seat.name;
             }
+            if (tableChromeOccludesCards(x, y, viewport.getWorldWidth())) {
+                continue;
+            }
             TableSnapshot.PlayerSnapshot player = livePlayer(seat);
             int cards = player == null ? 0
                     : Math.min(2, player.holeCards().size());
@@ -4313,10 +4329,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             List<TableSnapshot.CardSnapshot> holeCards
                     = liveState.presentedHoleCards(player.nickname());
             int limit = Math.min(2, holeCards.size());
+            boolean transientPresentation = hasActiveHolePresentation(
+                    player.nickname());
             // Slot 1 is painted above slot 0 in the fan, so hit-test it first.
             for (int slot = limit - 1; slot >= 0; slot--) {
                 TableSnapshot.CardSnapshot card = holeCards.get(slot);
-                if (!isRestingHoleCardVisible(card)) continue;
+                if (!restingHoleCardOwnsPointer(card,
+                        transientPresentation)) continue;
                 if (placementContains(liveHolePlacement(seat, slot), x, y)) {
                     return viewedCard(card);
                 }
@@ -4334,7 +4353,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 = liveState.snapshot().communityCards();
         for (int slot = 0; slot < Math.min(5, board.size()); slot++) {
             TableSnapshot.CardSnapshot card = board.get(slot);
-            if (!card.visible()) continue;
+            if (!restingCommunityCardOwnsPointer(card, liveShuffle != null,
+                    hasActiveCommunityFlight(slot))) continue;
             LiveCardPlacement placement = new LiveCardPlacement(
                     firstX + slot * gap + cardW / 2f,
                     cardY + cardH / 2f, cardW, cardH, 0f);
@@ -4352,6 +4372,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             TableSnapshot.CardSnapshot card) {
         return card != null && card.visible()
                 && (!card.disabled() || card.faceUp());
+    }
+
+    static boolean restingHoleCardOwnsPointer(
+            TableSnapshot.CardSnapshot card, boolean transientPresentation) {
+        return !transientPresentation && isRestingHoleCardVisible(card);
+    }
+
+    static boolean restingCommunityCardOwnsPointer(
+            TableSnapshot.CardSnapshot card, boolean shuffleActive,
+            boolean cardInFlight) {
+        return card != null && card.visible() && !shuffleActive && !cardInFlight;
     }
 
     private boolean rabbitCardContains(float x, float y) {
@@ -4429,6 +4460,66 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 ? fastExpandedWidth() : FAST_BUTTON_SIZE + 2f * FAST_BAR_PADDING;
         return !contains(x, y, FAST_BAR_X, FAST_BAR_Y,
                 fastWidth, FAST_BUTTON_SIZE + 2f * FAST_BAR_PADDING);
+    }
+
+    /**
+     * Returns whether visible non-card table chrome covers this point.
+     *
+     * <p>Resting hole cards are deliberately painted behind player pods,
+     * avatars and the local HUD. Their rotated rectangles can extend into
+     * those foreground surfaces, but the hidden portion is not an input
+     * target. The same rule also protects the fast-access panel.</p>
+     */
+    private boolean tableChromeOccludesCards(float x, float y,
+            float worldWidth) {
+        float fastWidth = fastBarExpanded
+                ? fastExpandedWidth() : FAST_BUTTON_SIZE + 2f * FAST_BAR_PADDING;
+        if (contains(x, y, FAST_BAR_X, FAST_BAR_Y, fastWidth,
+                FAST_BUTTON_SIZE + 2f * FAST_BAR_PADDING)) {
+            return true;
+        }
+        if (avatarZoomNickname != null && avatarZoomBounds.contains(x, y)) {
+            return true;
+        }
+        float hudWidth = Math.min(1110f, worldWidth - 620f);
+        float hudX = worldWidth / 2f - hudWidth / 2f;
+        if (contains(x, y, hudX - 8f, LOCAL_HUD_Y - 8f,
+                hudWidth + 16f, LOCAL_HUD_HEIGHT + 25f)) {
+            return true;
+        }
+        if (!Float.isNaN(communityHudX)
+                && contains(x, y, communityHudX - 2f, communityHudY - 4f,
+                        communityHudWidth + 5f, communityHudHeight + 6f)) {
+            return true;
+        }
+        if (contains(x, y, potCenterX - 197f,
+                potCenterY - POT_PANEL_HEIGHT / 2f - 2f,
+                394f, POT_PANEL_HEIGHT + 4f)) {
+            return true;
+        }
+        float avatarRadiusSquared = AVATAR_OUTER_RADIUS * AVATAR_OUTER_RADIUS;
+        for (Seat seat : seats) {
+            if (seatPresenceAlpha(seat.index) <= 0f) continue;
+            float dx = x - seat.x;
+            float dy = y - seat.y;
+            if (dx * dx + dy * dy <= avatarRadiusSquared) {
+                return true;
+            }
+            if (seat.index > 0 && contains(x, y, seat.podX, seat.podY,
+                    PLAYER_POD_WIDTH, PLAYER_POD_HEIGHT)) {
+                return true;
+            }
+            if (seat.index > 0 && sidePotWinnerOverlayVisible(seat)
+                    && sidePotWinnerOverlayBounds(seat).contains(x, y)) {
+                return true;
+            }
+            if (seat.index > 0 && remoteRebuyCinematicActive()
+                    && remoteRebuyStartedAt.containsKey(seat.name)
+                    && remoteRebuyOverlayBounds(seat).contains(x, y)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void registerEmptyFeltClick(float x, float y, long nowNanos) {
@@ -4991,6 +5082,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             int fastIndex = fastButtonAt(pointer.x, pointer.y);
             if (visibleFastAccessActionAt(fastIndex) == FastAccessAction.VOICE
                     && fastButtonEnabled(fastIndex)) {
+                primaryPointer.capturePressedGesture();
                 micPointerHeld = true;
                 beginVoiceRecording();
                 return;
@@ -5026,21 +5118,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             requestKickTimedOutPlayer(timedOutPlayer);
             return;
         }
+        Seat stackSeat = stackSeatAt(pointer.x, pointer.y,
+                viewport.getWorldWidth());
+        if (stackSeat != null) {
+            stackSeat.buyInVisibleUntil = totalTime + 1.5f;
+            return;
+        }
         String iwtsthCandidate = iwtsthCandidateAt(pointer.x, pointer.y);
         if (iwtsthCandidate != null) {
             activateIwtsthCandidate(iwtsthCandidate);
             return;
         }
-        if (rabbitCardContains(pointer.x, pointer.y)) {
-            liveState.dismissRabbitRequest();
-            submit(new TableCommand.RequestRabbit());
-            return;
-        }
-        ViewedCard viewedCard = liveCardAt(pointer.x, pointer.y);
-        if (viewedCard != null) {
-            openCardViewer(viewedCard);
-            return;
-        }
+        // Resolve controls in reverse paint order.  The card viewer is the
+        // final fallback, never the first hit-test for a rectangle that may
+        // extend behind HUD or seat chrome.
         if (handleFastAccessClick(pointer.x, pointer.y)) {
             return;
         }
@@ -5069,16 +5160,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             requestLastHandChange();
             return;
         }
-        Seat stackSeat = stackSeatAt(pointer.x, pointer.y,
+        if (rabbitCardContains(pointer.x, pointer.y)) {
+            liveState.dismissRabbitRequest();
+            submit(new TableCommand.RequestRabbit());
+            return;
+        }
+        int localHudTarget = hudTarget(pointer.x, pointer.y,
                 viewport.getWorldWidth());
-        if (stackSeat != null) {
-            stackSeat.buyInVisibleUntil = totalTime + 1.5f;
-            return;
-        }
-        if (autoActionVeto) {
-            return;
-        }
-        switch (hudTarget(pointer.x, pointer.y, viewport.getWorldWidth())) {
+        if (localHudTarget != 0 && !autoActionVeto) {
+            switch (localHudTarget) {
             case 1 -> {
                 if (localTurn) {
                     activateFoldAction();
@@ -5110,6 +5200,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
             default -> { }
+            }
+        }
+        if (localHudTarget != 0) {
+            // Disabled buttons still occupy the foreground.  They do nothing,
+            // but the click must not fall through to a local hole card.
+            return;
+        }
+        if (tableChromeOccludesCards(pointer.x, pointer.y,
+                viewport.getWorldWidth())) {
+            return;
+        }
+        ViewedCard viewedCard = liveCardAt(pointer.x, pointer.y);
+        if (viewedCard != null) {
+            openCardViewer(viewedCard);
         }
     }
 
@@ -6766,25 +6870,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         record Overlay(Seat seat, String label, float x, float y,
                 float width, float height) { }
         ArrayList<Overlay> overlays = new ArrayList<>();
-        float viewportWidth = viewport.getWorldWidth();
-        float viewportHeight = viewport.getWorldHeight();
         for (Seat seat : seats) {
             if (seat.index == 0 || seatPresenceAlpha(seat.index) <= 0f) {
                 continue;
             }
-            String label = derivedPotOverlayLabel(false,
-                    liveState.resolvedHandWinner(seat.name),
-                    liveState.resolvedWonPotIndexes(seat.name), gameText);
+            String label = sidePotWinnerOverlayLabel(seat);
             if (label.isEmpty()) continue;
-            float width = 190f;
-            float height = 46f;
-            float x = MathUtils.clamp(
-                    seat.podX + (PLAYER_POD_WIDTH - width) / 2f,
-                    8f, viewportWidth - width - 8f);
-            float y = MathUtils.clamp(
-                    seat.podY + PLAYER_POD_HEIGHT + 8f,
-                    8f, viewportHeight - height - 8f);
-            overlays.add(new Overlay(seat, label, x, y, width, height));
+            Rectangle bounds = sidePotWinnerOverlayBounds(seat);
+            overlays.add(new Overlay(seat, label, bounds.x, bounds.y,
+                    bounds.width, bounds.height));
         }
         if (overlays.isEmpty()) return;
 
@@ -6804,6 +6898,28 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     Color.WHITE, 1f);
         }
         batch.end();
+    }
+
+    private String sidePotWinnerOverlayLabel(Seat seat) {
+        return derivedPotOverlayLabel(false,
+                liveState.resolvedHandWinner(seat.name),
+                liveState.resolvedWonPotIndexes(seat.name), gameText);
+    }
+
+    private boolean sidePotWinnerOverlayVisible(Seat seat) {
+        return !sidePotWinnerOverlayLabel(seat).isEmpty();
+    }
+
+    private Rectangle sidePotWinnerOverlayBounds(Seat seat) {
+        float width = 190f;
+        float height = 46f;
+        float x = MathUtils.clamp(
+                seat.podX + (PLAYER_POD_WIDTH - width) / 2f,
+                8f, viewport.getWorldWidth() - width - 8f);
+        float y = MathUtils.clamp(
+                seat.podY + PLAYER_POD_HEIGHT + 8f,
+                8f, viewport.getWorldHeight() - height - 8f);
+        return new Rectangle(x, y, width, height);
     }
 
     private void drawTimedOutKickOverlays() {
@@ -7216,7 +7332,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(pointer);
-        return avatarZoomBounds.contains(pointer);
+        boolean consumed = avatarZoomBounds.contains(pointer);
+        if (consumed && Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+            // The zoom overlay is resolved on press while cards are resolved
+            // on release. Keep the complete gesture on the topmost surface.
+            primaryPointer.capturePressedGesture();
+        }
+        return consumed;
     }
 
     private void updateTableChat() {
@@ -8700,6 +8822,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // fits in the measured safe gap below the turn timer without touching
         // either those cards or the community row at any supported viewport.
         float height = COMMUNITY_HUD_HEIGHT;
+        communityHudX = x;
+        communityHudY = y;
+        communityHudWidth = width;
+        communityHudHeight = height;
         float padding = 6f;
         float soundWidth = 46f;
         float lightsWidth = 54f;
@@ -14518,6 +14644,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         if (!Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) return;
+        // The dialog acts on press while table cards act on release. Capture
+        // this complete gesture before CERRAR removes the modal, otherwise the
+        // matching release can reach a card that was behind the button.
+        primaryPointer.capturePressedGesture();
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(pointer);
         float panelX = viewport.getWorldWidth() / 2f - 410f;
@@ -14561,7 +14691,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float gridSize = cell * IdenticonFingerprint.GRID_SIZE;
         float gridX = width / 2f - gridSize / 2f;
         float gridY = panelY + 242f;
-        shapes.setColor(0.02f, 0.04f, 0.07f, 1f);
+        // Match the established waiting-room identity view. Empty cells are
+        // white, not transparent over the dialog's dark inset.
+        shapes.setColor(Color.WHITE);
         roundedRect(gridX - 12f, gridY - 12f,
                 gridSize + 24f, gridSize + 24f, 10f);
         drawTableIdenticonGrid(dialog.fingerprint(), gridX, gridY, cell);
@@ -14806,20 +14938,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             releaseRemoteRebuyAnimationOnly();
             return;
         }
-        float cardAspect = activeCardBack().getHeight()
-                / (float) activeCardBack().getWidth();
-        Rectangle envelope = rivalHandEnvelope(cardAspect);
-        float sourceAspect = 782f / 326f;
         for (String nickname : remoteRebuyStartedAt.keySet()) {
             Seat seat = seatByNickname(nickname);
             if (seat == null || seat.index == 0) continue;
-            float areaX = seat.podX + envelope.x;
-            float areaY = seat.y + envelope.y;
-            float imageW = envelope.width;
-            float imageH = Math.min(envelope.height, imageW / sourceAspect);
-            imageW = imageH * sourceAspect;
-            float imageX = areaX + (envelope.width - imageW) / 2f;
-            float imageY = areaY + (envelope.height - imageH) / 2f;
+            Rectangle bounds = remoteRebuyOverlayBounds(seat);
+            float imageX = bounds.x;
+            float imageY = bounds.y;
+            float imageW = bounds.width;
+            float imageH = bounds.height;
             shapes.begin(ShapeRenderer.ShapeType.Filled);
             Gdx.gl.glEnable(GL20.GL_BLEND);
             shapes.setColor(Color.BLACK);
@@ -14832,6 +14958,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 batch.end();
             }
         }
+    }
+
+    private Rectangle remoteRebuyOverlayBounds(Seat seat) {
+        float cardAspect = activeCardBack().getHeight()
+                / (float) activeCardBack().getWidth();
+        Rectangle envelope = rivalHandEnvelope(cardAspect);
+        float sourceAspect = 782f / 326f;
+        float areaX = seat.podX + envelope.x;
+        float areaY = seat.y + envelope.y;
+        float imageW = envelope.width;
+        float imageH = Math.min(envelope.height, imageW / sourceAspect);
+        imageW = imageH * sourceAspect;
+        float imageX = areaX + (envelope.width - imageW) / 2f;
+        float imageY = areaY + (envelope.height - imageH) / 2f;
+        return new Rectangle(imageX, imageY, imageW, imageH);
     }
 
     private void releaseRemoteRebuyAnimationOnly() {

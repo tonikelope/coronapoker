@@ -285,8 +285,9 @@ final class GdxTableViewStateTest {
 
     @Test
     void onlyPaintedHoleCardsCanOwnThePointer() {
-        assertTrue(CoronaPokerGdxTable.isRestingHoleCardVisible(
-                new TableSnapshot.CardSnapshot("A_C", true, false, true)));
+        TableSnapshot.CardSnapshot restingFaceUp
+                = new TableSnapshot.CardSnapshot("A_C", true, false, true);
+        assertTrue(CoronaPokerGdxTable.isRestingHoleCardVisible(restingFaceUp));
         assertTrue(CoronaPokerGdxTable.isRestingHoleCardVisible(
                 new TableSnapshot.CardSnapshot("A_C", true, true, true)),
                 "a visible disabled face-up card remains inspectable");
@@ -296,6 +297,29 @@ final class GdxTableViewStateTest {
         assertFalse(CoronaPokerGdxTable.isRestingHoleCardVisible(
                 new TableSnapshot.CardSnapshot("A_C", true, false, false)));
         assertFalse(CoronaPokerGdxTable.isRestingHoleCardVisible(null));
+        assertTrue(CoronaPokerGdxTable.restingHoleCardOwnsPointer(
+                restingFaceUp, false));
+        assertFalse(CoronaPokerGdxTable.restingHoleCardOwnsPointer(
+                restingFaceUp, true),
+                "a card moving or flipping must not leave a target at rest");
+    }
+
+    @Test
+    void communityCardsCannotKeepTargetsWhileHiddenOrInFlight() {
+        TableSnapshot.CardSnapshot visible
+                = new TableSnapshot.CardSnapshot("K_D", true, false, true);
+
+        assertTrue(CoronaPokerGdxTable.restingCommunityCardOwnsPointer(
+                visible, false, false));
+        assertFalse(CoronaPokerGdxTable.restingCommunityCardOwnsPointer(
+                visible, true, false),
+                "the shuffle overlay hides the whole previous board");
+        assertFalse(CoronaPokerGdxTable.restingCommunityCardOwnsPointer(
+                visible, false, true),
+                "a dealt card in flight has no resting target yet");
+        assertFalse(CoronaPokerGdxTable.restingCommunityCardOwnsPointer(
+                new TableSnapshot.CardSnapshot("", false, false, false),
+                false, false));
     }
 
     @Test

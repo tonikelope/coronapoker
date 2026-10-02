@@ -4310,11 +4310,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : liveState.snapshot().players()) {
             Seat seat = seatByNickname(player.nickname());
             if (seat == null) continue;
-            int limit = Math.min(2, player.holeCards().size());
+            List<TableSnapshot.CardSnapshot> holeCards
+                    = liveState.presentedHoleCards(player.nickname());
+            int limit = Math.min(2, holeCards.size());
             // Slot 1 is painted above slot 0 in the fan, so hit-test it first.
             for (int slot = limit - 1; slot >= 0; slot--) {
-                TableSnapshot.CardSnapshot card = player.holeCards().get(slot);
-                if (!card.visible()) continue;
+                TableSnapshot.CardSnapshot card = holeCards.get(slot);
+                if (!isRestingHoleCardVisible(card)) continue;
                 if (placementContains(liveHolePlacement(seat, slot), x, y)) {
                     return viewedCard(card);
                 }
@@ -4339,6 +4341,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (placementContains(placement, x, y)) return viewedCard(card);
         }
         return null;
+    }
+
+    /**
+     * Keeps pointer ownership identical to the resting-card renderer. A
+     * face-down disabled card has already disappeared from the table and must
+     * not retain an invisible card-viewer target.
+     */
+    static boolean isRestingHoleCardVisible(
+            TableSnapshot.CardSnapshot card) {
+        return card != null && card.visible()
+                && (!card.disabled() || card.faceUp());
     }
 
     private boolean rabbitCardContains(float x, float y) {
@@ -7684,8 +7697,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     // face-up card disabled by the showdown must remain on the
                     // table and be drawn dimmed; hiding it loses the canonical
                     // winning-five-card focus.
-                    if (!card.visible()
-                            || card.disabled() && !card.faceUp()) {
+                    if (!isRestingHoleCardVisible(card)) {
                         continue;
                     }
                     LiveCardPlacement placement = liveHolePlacement(seat, slot);

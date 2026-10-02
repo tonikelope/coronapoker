@@ -284,6 +284,21 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void onlyPaintedHoleCardsCanOwnThePointer() {
+        assertTrue(CoronaPokerGdxTable.isRestingHoleCardVisible(
+                new TableSnapshot.CardSnapshot("A_C", true, false, true)));
+        assertTrue(CoronaPokerGdxTable.isRestingHoleCardVisible(
+                new TableSnapshot.CardSnapshot("A_C", true, true, true)),
+                "a visible disabled face-up card remains inspectable");
+        assertFalse(CoronaPokerGdxTable.isRestingHoleCardVisible(
+                new TableSnapshot.CardSnapshot("", false, true, true)),
+                "a folded face-down card must not keep an invisible target");
+        assertFalse(CoronaPokerGdxTable.isRestingHoleCardVisible(
+                new TableSnapshot.CardSnapshot("A_C", true, false, false)));
+        assertFalse(CoronaPokerGdxTable.isRestingHoleCardVisible(null));
+    }
+
+    @Test
     void officialDeckKeepsTheLocalCenterLaneClearWithoutRuntimeAssertions() {
         float officialAspect = 1242f / 923f;
 

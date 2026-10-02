@@ -99,12 +99,43 @@ class QaBaselineWiringTest {
         Path root = locateRoot();
         assertLauncher(root, "certify.cmd", "run-certification.ps1");
         assertLauncher(root, "headless-sim.cmd", "run-headless-sim.ps1");
+        String qaLauncher = Files.readString(root.resolve("qa.cmd"))
+                .replace("\r\n", "\n");
+        assertTrue(qaLauncher.contains("powershell.exe -NoLogo -NoProfile "
+                + "-ExecutionPolicy Bypass -File \"%~dp0tools\\qa\\run-all.ps1\" %*"),
+                "root QA launcher must forward every argument to run-all.ps1");
+        assertTrue(qaLauncher.contains("exit /b %ERRORLEVEL%"),
+                "root QA launcher must preserve the failing stage exit code");
 
         String testing = Files.readString(root.resolve("docs/TESTING.md"));
+        assertTrue(testing.contains(".\\qa.cmd test"));
+        assertTrue(testing.contains(".\\qa.cmd scenarios fast"));
         assertTrue(testing.contains(".\\tools\\qa\\certify.cmd"));
         assertTrue(testing.contains(".\\tools\\qa\\headless-sim.cmd"));
         assertFalse(testing.contains("gdx-scenarios.cmd"),
                 "the retired duplicate scenario launcher must stay undocumented");
+    }
+
+    @Test
+    void centralQaRunnerKeepsBuildTestsAndScenariosExplicit() throws IOException {
+        Path root = locateRoot();
+        String runner = Files.readString(root.resolve("tools/qa/run-all.ps1"));
+
+        assertTrue(runner.contains("'build', 'test', 'scenarios', 'all', 'list', 'help'"));
+        assertTrue(runner.contains("$Action = 'test'"),
+                "plain qa.cmd must default to tests, never scenarios");
+        assertTrue(runner.contains("'-DskipTests', 'clean', 'package'"),
+                "build must be an explicit no-test package operation");
+        assertTrue(runner.contains("'clean', 'install'"),
+                "test must install the exact checkout before standalone QA");
+        assertTrue(runner.contains("'test', '-Pqa-all'"),
+                "test must include every replayable non-bot QA lane");
+        assertTrue(runner.contains("& $certifier @certificationArgs"),
+                "scenario execution must delegate to the one public catalogue");
+        assertTrue(runner.contains(".m2\\repository"),
+                "the public runner must use the checkout-local dependency cache");
+        assertTrue(runner.contains("summary.json"));
+        assertTrue(runner.contains("summary.txt"));
     }
 
     @Test
@@ -116,7 +147,8 @@ class QaBaselineWiringTest {
         assertTrue(seedHelper.contains("ToUInt32"),
                 "QA seeds must stay in the safe range used for derived scenario seeds");
 
-        for (String runner : List.of("run-certification.ps1", "run-headless-sim.ps1")) {
+        for (String runner : List.of("run-all.ps1", "run-certification.ps1",
+                "run-headless-sim.ps1")) {
             String script = Files.readString(root.resolve("tools/qa").resolve(runner));
             assertTrue(script.contains(". (Join-Path $PSScriptRoot 'qa-seed.ps1')"),
                     runner + " must use the shared seed generator");

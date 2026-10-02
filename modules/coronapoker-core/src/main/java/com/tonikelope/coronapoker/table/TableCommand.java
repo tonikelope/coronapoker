@@ -24,7 +24,8 @@ public sealed interface TableCommand permits TableCommand.Fold,
         TableCommand.ToggleImmediateRebuy, TableCommand.SetLastHand,
         TableCommand.SetHandLimit, TableCommand.ApplyGameConfiguration,
         TableCommand.SetBotDifficulty, TableCommand.SetCommunicationRules,
-        TableCommand.ForceReconnectPlayers {
+        TableCommand.ForceReconnectPlayers,
+        TableCommand.KickTimedOutPlayer {
 
     record Fold() implements TableCommand {
     }
@@ -66,6 +67,17 @@ public sealed interface TableCommand permits TableCommand.Fold,
 
     /** Host-only replacement of every remote-human transport connection. */
     record ForceReconnectPlayers() implements TableCommand {
+    }
+
+    /** Host-only removal of one remote human that is still in timeout. */
+    record KickTimedOutPlayer(String nickname) implements TableCommand {
+
+        public KickTimedOutPlayer {
+            Objects.requireNonNull(nickname, "nickname");
+            if (nickname.isBlank()) {
+                throw new IllegalArgumentException("nickname cannot be blank");
+            }
+        }
     }
 
     record TogglePause() implements TableCommand {

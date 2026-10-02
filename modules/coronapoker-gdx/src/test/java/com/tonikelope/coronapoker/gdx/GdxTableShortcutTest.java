@@ -44,6 +44,8 @@ final class GdxTableShortcutTest {
                 bindings.actionFor(Input.Keys.ENTER, false, false, false));
         assertEquals(GdxShortcutBindings.ALL_IN,
                 bindings.actionFor(Input.Keys.ENTER, false, false, true));
+        assertEquals(GdxShortcutBindings.FULLSCREEN,
+                bindings.actionFor(Input.Keys.F11, false, false, false));
     }
 
     @Test
@@ -230,6 +232,11 @@ final class GdxTableShortcutTest {
         assertEquals("ALT + P", pause.display());
         assertEquals("PAUSAR LA TIMBA", pause.description());
         assertEquals("PAUSAR LA TIMBA *", pause.markedDescription());
+        assertEquals("F11", bindings.displayFor(
+                GdxShortcutBindings.FULLSCREEN));
+        assertEquals("UP", bindings.displayFor(GdxShortcutBindings.BET_UP));
+        assertEquals("DOWN", bindings.displayFor(
+                GdxShortcutBindings.BET_DOWN));
         assertEquals("Pause game", bindings.editableEntries(
                 new GdxGameText("en")).get(0).description());
         assertEquals(GdxShortcutBindings.SCREENSHOT,

@@ -45,6 +45,20 @@ final class GdxGameDialogSink implements GameDialogSink {
     }
 
     @Override
+    public CompletionStage<Boolean> confirm(String message, Icon icon,
+            String negativeLabel, String positiveLabel) {
+        GdxTableDialog request = request(GdxTableDialog.Kind.CONFIRM,
+                message, icon, 0, 0, negativeLabel, positiveLabel);
+        GdxApplicationShell shell = GdxApplicationShell.active();
+        if (shell == null) {
+            request.dismiss();
+            return request.result();
+        }
+        shell.showDialog(request);
+        return request.result();
+    }
+
+    @Override
     public CompletionStage<Void> showTimedWarning(String message, int seconds) {
         return show(GdxTableDialog.Kind.TIMED_WARNING, message, Icon.NONE,
                 0, seconds).thenApply(ignored -> null);
@@ -65,6 +79,13 @@ final class GdxGameDialogSink implements GameDialogSink {
 
     GdxTableDialog request(GdxTableDialog.Kind kind, String message,
             Icon icon, int preferredWidth, int seconds) {
+        return request(kind, message, icon, preferredWidth, seconds, null,
+                null);
+    }
+
+    GdxTableDialog request(GdxTableDialog.Kind kind, String message,
+            Icon icon, int preferredWidth, int seconds, String negativeLabel,
+            String positiveLabel) {
         String title = switch (kind) {
             case ERROR -> tr("gdx.dialog.error", "ERROR");
             case ZERO_TRUST -> "ZERO-TRUST";
@@ -78,13 +99,15 @@ final class GdxGameDialogSink implements GameDialogSink {
                 Objects.requireNonNull(message, "message"),
                 Objects.requireNonNull(icon, "icon"), preferredWidth,
                 seconds, kind == GdxTableDialog.Kind.TIMED_WARNING,
-                kind == GdxTableDialog.Kind.ERROR
-                        || kind == GdxTableDialog.Kind.ZERO_TRUST
-                        || kind == GdxTableDialog.Kind.INFO
-                                ? "" : tr("ui.cancelar", "CANCELAR"),
-                kind == GdxTableDialog.Kind.CONFIRM
-                        ? tr("ui.aceptar", "ACEPTAR")
-                        : tr("ui.cerrar", "CERRAR"));
+                negativeLabel != null ? negativeLabel
+                        : (kind == GdxTableDialog.Kind.ERROR
+                                || kind == GdxTableDialog.Kind.ZERO_TRUST
+                                || kind == GdxTableDialog.Kind.INFO
+                                        ? "" : tr("ui.cancelar", "CANCELAR")),
+                positiveLabel != null ? positiveLabel
+                        : (kind == GdxTableDialog.Kind.CONFIRM
+                                ? tr("ui.aceptar", "ACEPTAR")
+                                : tr("ui.cerrar", "CERRAR")));
     }
 
     private String tr(String key, String fallback) {

@@ -180,6 +180,10 @@ final class GdxTableViewState {
         return immediateRebuys.getOrDefault(nickname, 0) > 0;
     }
 
+    int immediateRebuyAmount(String nickname) {
+        return Math.max(0, immediateRebuys.getOrDefault(nickname, 0));
+    }
+
     GameConfigCodecV1.Configuration gameConfiguration() {
         return gameConfiguration;
     }
@@ -648,11 +652,8 @@ final class GdxTableViewState {
                     snapshot.communityCards());
         } else if (event instanceof TableVisualEvent.Rebuy rebuy) {
             for (TableVisualEvent.ChipTransfer transfer : rebuy.transfers()) {
-                replacePlayer(transfer.nickname(), player -> copyPlayer(player,
-                        transfer.stackAfter(), transfer.streetBetAfter(),
-                        transfer.potContributionAfter(), player.active(), player.winner(),
-                        player.position(), player.lastAction(), player.handName(),
-                        player.holeCards()));
+                replacePlayer(transfer.nickname(), player -> copyPlayerRebuy(
+                        player, transfer));
             }
         } else if (event instanceof TableVisualEvent.RebuyDecision decision) {
             if (decision.phase()
@@ -999,7 +1000,8 @@ final class GdxTableViewState {
                 telemetry.latency(), telemetry.previousLatency(),
                 telemetry.reconnectionCount(), telemetry.measuredAtMillis(),
                 source.winner(), source.underTheGun(), source.position(),
-                source.lastAction(), source.handName(), source.holeCards());
+                source.lastAction(), source.handName(), source.holeCards(),
+                source.buyIn(), source.rebuyCount());
     }
 
     private static TableSnapshot.PlayerSnapshot copyPlayerTimeout(
@@ -1010,7 +1012,8 @@ final class GdxTableViewState {
                 source.latency(), source.previousLatency(),
                 source.reconnectionCount(), source.telemetryAt(),
                 source.winner(), source.underTheGun(), source.position(),
-                source.lastAction(), source.handName(), source.holeCards());
+                source.lastAction(), source.handName(), source.holeCards(),
+                source.buyIn(), source.rebuyCount());
     }
 
     private static TableSnapshot.PlayerSnapshot copyPlayerDeparture(
@@ -1021,7 +1024,8 @@ final class GdxTableViewState {
                 source.latency(), source.previousLatency(),
                 source.reconnectionCount(), source.telemetryAt(),
                 source.winner(), source.underTheGun(), source.position(),
-                label, source.handName(), source.holeCards());
+                label, source.handName(), source.holeCards(), source.buyIn(),
+                source.rebuyCount());
     }
 
     private static TableSnapshot.PlayerSnapshot copyPlayerUnderTheGun(
@@ -1032,7 +1036,8 @@ final class GdxTableViewState {
                 source.timedOut(), source.latency(), source.previousLatency(),
                 source.reconnectionCount(), source.telemetryAt(),
                 source.winner(), underTheGun, source.position(),
-                source.lastAction(), source.handName(), source.holeCards());
+                source.lastAction(), source.handName(), source.holeCards(),
+                source.buyIn(), source.rebuyCount());
     }
 
     private static List<TableSnapshot.CardSnapshot> padded(
@@ -1068,6 +1073,21 @@ final class GdxTableViewState {
                 source.exited(), source.timedOut(), source.latency(),
                 source.previousLatency(), source.reconnectionCount(),
                 source.telemetryAt(), winner, source.underTheGun(), position,
-                action, hand, cards);
+                action, hand, cards, source.buyIn(), source.rebuyCount());
+    }
+
+    private static TableSnapshot.PlayerSnapshot copyPlayerRebuy(
+            TableSnapshot.PlayerSnapshot source,
+            TableVisualEvent.ChipTransfer transfer) {
+        int amount = (int) Math.max(0L, Math.round(transfer.amount()));
+        return new TableSnapshot.PlayerSnapshot(source.nickname(),
+                transfer.stackAfter(), transfer.streetBetAfter(),
+                transfer.potContributionAfter(), source.active(),
+                source.spectator(), source.exited(), source.timedOut(),
+                source.latency(), source.previousLatency(),
+                source.reconnectionCount(), source.telemetryAt(),
+                source.winner(), source.underTheGun(), source.position(),
+                source.lastAction(), source.handName(), source.holeCards(),
+                source.buyIn() + amount, source.rebuyCount() + 1);
     }
 }

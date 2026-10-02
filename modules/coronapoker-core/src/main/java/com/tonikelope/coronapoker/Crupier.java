@@ -406,6 +406,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return communityCardControllers()[index];
     }
 
+    private TableSnapshot tableSnapshot() {
+        return TableSnapshotMapper.from(gameSession().table().snapshot(),
+                this::getRebuyCount);
+    }
+
     /**
      * Samples the exact controller state at an ordered hand boundary.  The
      * neutral TableState hand aggregate is intentionally not used for street,
@@ -415,8 +420,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * a plausible-looking hand of its own.
      */
     private TableSnapshot handBoundarySnapshot(TableSnapshot.Street street) {
-        TableSnapshot base = TableSnapshotMapper.from(
-                gameSession().table().snapshot());
+        TableSnapshot base = tableSnapshot();
         java.util.List<TableSnapshot.CardSnapshot> board
                 = java.util.Arrays.stream(communityCards())
                         .map(GameCardController::getState)
@@ -444,6 +448,35 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             throw new IllegalArgumentException("Unknown timeout player");
         }
         setPlayerTimeout(player, timedOut);
+    }
+
+    /**
+     * Removes one remote human only while its canonical timeout flag is still
+     * active.  The renderer may show a stale frame while the connection is
+     * recovering, so all authority checks are repeated here at execution
+     * time instead of trusting the clicked overlay.
+     */
+    public void kickTimedOutRemotePlayer(String nickname) {
+        java.util.Objects.requireNonNull(nickname, "nickname");
+        GamePlayerController player = nick2player.get(nickname);
+        if (player == null) {
+            throw new IllegalArgumentException("Unknown timeout player");
+        }
+        if (player == localPlayer()) {
+            throw new IllegalArgumentException(
+                    "The local player cannot be kicked as a remote timeout");
+        }
+        if (!peers().containsKey(nickname)) {
+            throw new IllegalArgumentException(
+                    "Only a remote human peer can be kicked");
+        }
+        if (player.isExit()) {
+            return;
+        }
+        if (!player.isTimeout()) {
+            return;
+        }
+        remotePlayerQuit(nickname);
     }
 
     private void setPlayerTimeout(GamePlayerController player,
@@ -6651,6 +6684,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    private void cancelImmediateRebuy(String nickname) {
+        if (gameSession().isHost()) {
+            synchronized (lock_game_broadcast) {
+                synchronized (lock_rebuynow) {
+                    if (rebuy_now.containsKey(nickname)) {
+                        rebuyNowInternalLocked(nickname, 0, true);
+                    }
+                }
+            }
+        } else {
+            synchronized (lock_rebuynow) {
+                if (rebuy_now.containsKey(nickname)) {
+                    rebuyNowInternalLocked(nickname, 0, false);
+                }
+            }
+        }
+    }
+
     /**
      * Applies a REBUYNOW received from one authenticated peer. The socket
      * reader assigns the sequence before dispatching to the cached pool. If two
@@ -6977,8 +7028,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 GamePlayerController local = localPlayer();
                 if (local == null || tableWaitCancelled()) return;
                 String nickname = local.getNickname();
-                if (rebuy_now.containsKey(nickname)) {
-                    rebuyNow(nickname, -1);
+                int pendingAmount = rebuy_now.getOrDefault(nickname, 0);
+                if (pendingAmount > 0) {
+                    boolean cancel = awaitConfirmation(game_dialogs.confirm(
+                            game_text.translate("rebuy.recompra_pendiente",
+                                    pendingAmount),
+                            GameDialogSink.Icon.NONE,
+                            game_text.translate("ui.volver"),
+                            game_text.translate("rebuy.anular_recompra")));
+                    if (cancel && !tableWaitCancelled()) {
+                        cancelImmediateRebuy(nickname);
+                    }
                     return;
                 }
                 if (!configuration().rebuy()) {
@@ -10342,8 +10402,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // any action so a freshly attached GDX renderer cannot display a
             // busted spectator as active until the next hand boundary.
             awaitAttachedTableEvent(sequence -> new TableVisualEvent.SeatRoster(
-                    sequence, TableSnapshotMapper.from(
-                            gameSession().table().snapshot()).players()),
+                    sequence, tableSnapshot().players()),
                     "Recovered seat-roster presentation barrier failed");
         }
 
@@ -11908,8 +11967,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         if (spectatorReactivated) {
             awaitAttachedTableEvent(sequence -> new TableVisualEvent.SeatRoster(
-                    sequence, TableSnapshotMapper.from(
-                            gameSession().table().snapshot()).players()),
+                    sequence, tableSnapshot().players()),
                     "Reactivated-spectator roster presentation failed");
         }
 
@@ -12198,8 +12256,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // these funded newcomers into the new crypto ring.
                         awaitAttachedTableEvent(sequence
                                 -> new TableVisualEvent.SeatRoster(sequence,
-                                        TableSnapshotMapper.from(gameSession()
-                                                .table().snapshot()).players()),
+                                        tableSnapshot().players()),
                                 "Recovered spectator-rescue roster presentation failed");
                     }
                 }
@@ -24337,8 +24394,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // intentionally remain in the game model/auditor; the GDX view
             // filters those seats without mutating dealer state.
             awaitAttachedTableEvent(sequence -> new TableVisualEvent.SeatRoster(
-                    sequence, TableSnapshotMapper.from(
-                            gameSession().table().snapshot()).players()),
+                    sequence, tableSnapshot().players()),
                     "Post-exit seat-roster presentation barrier failed");
             nick2player.clear();
             for (GamePlayerController jugador : players()) {
@@ -25226,8 +25282,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // authoritative roster before any hand event so every later nickname
         // resolves to the same clockwise seat used by rondaApuestas/dealing.
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.SeatRoster(
-                sequence, TableSnapshotMapper.from(gameSession().table().snapshot())
-                        .players()),
+                sequence, tableSnapshot().players()),
                 "Canonical seat-roster presentation barrier failed");
 
         if (create_client_recovery_game && !sqlNewGame()) {
@@ -26105,8 +26160,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             if (spectatorChanged) {
                 awaitAttachedTableEvent(sequence -> new TableVisualEvent.SeatRoster(
-                        sequence, TableSnapshotMapper.from(
-                                gameSession().table().snapshot()).players()),
+                        sequence, tableSnapshot().players()),
                         "Busted-spectator roster presentation failed");
             }
             this.rebuy_time = false;
@@ -26357,8 +26411,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // game-over decision, before the next hand can rebuild its active ring.
         if (rebuyRosterMayChange) {
             awaitAttachedTableEvent(sequence -> new TableVisualEvent.SeatRoster(
-                    sequence, TableSnapshotMapper.from(
-                            gameSession().table().snapshot()).players()),
+                    sequence, tableSnapshot().players()),
                     "Post-rebuy spectator roster presentation failed");
         }
 

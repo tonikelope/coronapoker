@@ -28,6 +28,8 @@ final class GdxProductVersionBrandTest {
     @Test
     void canonicalBrandHasEnoughWidthForProductAndModMetadata() {
         assertEquals(15, GdxProductVersionBrand.FONT_SIZE);
+        assertEquals(16f, GdxProductVersionBrand.X);
+        assertEquals(20f, GdxProductVersionBrand.BASELINE_Y);
         assertEquals(620f, GdxProductVersionBrand.MAX_WIDTH);
     }
 }

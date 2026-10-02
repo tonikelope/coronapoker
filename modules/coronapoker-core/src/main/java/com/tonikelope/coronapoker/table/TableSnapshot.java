@@ -84,7 +84,22 @@ public record TableSnapshot(
             Position position,
             String lastAction,
             String handName,
-            List<CardSnapshot> holeCards) {
+            List<CardSnapshot> holeCards,
+            int buyIn,
+            int rebuyCount) {
+
+        public PlayerSnapshot(String nickname, double stack,
+                double streetBet, double potContribution, boolean active,
+                boolean spectator, boolean exited, boolean timedOut,
+                int latency, int previousLatency, int reconnectionCount,
+                long telemetryAt, boolean winner, boolean underTheGun,
+                Position position, String lastAction, String handName,
+                List<CardSnapshot> holeCards) {
+            this(nickname, stack, streetBet, potContribution, active,
+                    spectator, exited, timedOut, latency, previousLatency,
+                    reconnectionCount, telemetryAt, winner, underTheGun,
+                    position, lastAction, handName, holeCards, 0, 0);
+        }
 
         public PlayerSnapshot(String nickname, double stack,
                 double streetBet, double potContribution, boolean active,
@@ -96,7 +111,7 @@ public record TableSnapshot(
             this(nickname, stack, streetBet, potContribution, active,
                     spectator, exited, timedOut, latency, previousLatency,
                     reconnectionCount, telemetryAt, winner, false, position,
-                    lastAction, handName, holeCards);
+                    lastAction, handName, holeCards, 0, 0);
         }
 
         public PlayerSnapshot {
@@ -105,6 +120,8 @@ public record TableSnapshot(
             lastAction = lastAction == null ? "" : lastAction;
             handName = handName == null ? "" : handName;
             holeCards = List.copyOf(holeCards);
+            buyIn = Math.max(0, buyIn);
+            rebuyCount = Math.max(0, rebuyCount);
         }
     }
 }

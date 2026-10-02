@@ -1,4 +1,4 @@
-# CoronaPoker 25.17 product modules
+# CoronaPoker product modules
 
 This directory contains the Maven reactor for the CoronaPoker desktop
 application. The modules provide compile-time boundaries inside one product.
@@ -29,19 +29,25 @@ product data, not a second Java source tree.
 From the repository root:
 
 ```powershell
-& 'C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd' `
-  -B clean verify
+.\qa.cmd test
 ```
 
-The tracked `.mvn/maven.config` uses the ignored checkout-local
-`.m2/repository`, so the build does not depend on the user's global Maven
-cache.
+This discovers Maven, verifies the Maven/JDK versions, performs a clean product
+build and runs the complete replayable non-bot suite. Use `.\qa.cmd build`
+only when a quick package with tests deliberately skipped is wanted. The
+explicit prerequisites, discovery order and lower-level Maven equivalents are
+documented in `../docs/TESTING.md`; no NetBeans installation is required.
+
+When Maven is already on `PATH`, `mvn clean verify` is the lower-level product
+gate. The tracked `.mvn/maven.config` uses the ignored checkout-local
+`.m2/repository`, so commands launched from the repository root do not depend
+on the user's global Maven cache.
 
 The reactor publishes the runnable application to the repository's product
 artifact directory:
 
 ```text
-target/CoronaPoker_25.17.jar
+target/CoronaPoker_<version>.jar
 ```
 
 The root `coronaupdater.jar` is retained because the self-updater requires that

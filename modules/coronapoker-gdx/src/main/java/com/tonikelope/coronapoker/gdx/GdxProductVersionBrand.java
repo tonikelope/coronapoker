@@ -22,8 +22,6 @@ final class GdxProductVersionBrand {
     static final int FONT_SIZE = 15;
     static final float X = 16f;
     static final float BASELINE_Y = 20f;
-    static final float BOX_Y = 2f;
-    static final float BOX_HEIGHT = 20f;
     static final float MAX_WIDTH = 620f;
     static final float ALPHA = 0.75f;
     static final int RGB = 0xd5dfeb;
@@ -39,7 +37,7 @@ final class GdxProductVersionBrand {
     }
 
     static float top() {
-        return BOX_Y + BOX_HEIGHT;
+        return BASELINE_Y + 2f;
     }
 
     static float quickAccessY() {

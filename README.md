@@ -267,13 +267,21 @@ The cryptographic subsystem, covering verifiable **SRA / Ristretto255** dealing 
 
 The **bot AI**, covering its architecture, hand-evaluation maths, personality model and per-turn decision pipeline, is documented in depth, with its own two diagrams (a component architecture and a decision-flow chart), in **[`docs/BOTS.md`](docs/BOTS.md)**.
 
-The complete QA model, test lanes, real-game simulator, certification profiles and scenario catalogue are documented in **[`docs/TESTING.md`](docs/TESTING.md)**.
+The complete QA model, test lanes, seeded headless campaigns, certification
+profiles and unified scenario catalogue are documented in
+**[`docs/TESTING.md`](docs/TESTING.md)**.
 
 ---
 
 ## Build and certify from source
 
-Requirements: JDK 17 or newer for both building and running, and Apache Maven 3.x. Maven compiles against the Java 17 API baseline, and the local certification suite builds and tests on JDK 17.
+Requirements: JDK 17 or newer for both building and running, and Apache Maven
+3.x. Maven compiles against the Java 17 API baseline. The checked-in `qa.cmd`
+also requires Windows PowerShell; it detects and prints the Maven/JDK selected
+for the run and does not install either dependency. A first build requires
+access to the configured Maven repositories unless its dependency cache is
+already populated. Exact environment discovery and network assumptions are
+documented in [Testing and certification](docs/TESTING.md).
 
 For an ordinary build from a clean clone, use the product reactor. It builds
 the core, assets and GDX application and then packages one executable:
@@ -294,18 +302,50 @@ target/CoronaPoker_<version>.jar
 The application is shaded into a module-local staging JAR and published to
 `target/` only after that archive is complete. This prevents a running table
 from reading a partially rewritten JAR.
-The root `pom.xml` is the canonical 25.11 product entry point and delegates to
-the module reactor.
+The root `pom.xml` is the canonical product entry point and delegates to the
+module reactor.
 
 The local distribution and the GitHub release asset use the historical name
-`target/CoronaPoker_25.11.jar`. The updater downloads that versioned asset and
-installs it beside the running application as `CoronaPoker.jar`, then relaunches
-that stable filename. No manual rename is required.
+`target/CoronaPoker_<version>.jar`. The updater downloads that versioned asset
+and installs it beside the running application as `CoronaPoker.jar`, then
+relaunches that stable filename. No manual rename is required.
+
+### The simple local workflow
+
+After changing a `.java` file, use the repository-root QA command. It chooses
+the Maven executable, uses the checkout-local dependency cache and stops at the
+first failed layer:
+
+```powershell
+# Rebuild and leave the runnable JAR in target/, without tests.
+.\qa.cmd build
+
+# Rebuild and run all automated non-bot tests, without scenarios.
+.\qa.cmd test
+
+# Run only every GDX scenario once when gameplay wiring needs certification.
+.\qa.cmd scenarios fast
+
+# Normal release gate: build + tests + the complete scenario catalogue twice.
+.\qa.cmd all balanced
+```
+
+Running `.\qa.cmd` without arguments is the same as `test`; scenarios never
+start accidentally. Use `scenarios stress` or `all stress` for major protocol,
+recovery or concurrency work. The scenario modes change only GDX repetitions
+and soak depth; they do not create separate catalogues.
+Run `.\qa.cmd -Help` for focused scenario, seed replay and bot-quality options.
+The detailed interpretation guide is in
+[Testing and certification](docs/TESTING.md).
 
 Use the lifecycle according to intent:
 
 | Goal | Command |
 |---|---|
+| Rebuild runnable JAR without tests | `.\qa.cmd build` |
+| Rebuild and run all automated non-bot tests | `.\qa.cmd test` |
+| Run the complete scenario catalogue once | `.\qa.cmd scenarios fast` |
+| Normal release gate | `.\qa.cmd all balanced` |
 | Compile and run the product module tests | `mvn verify` |
 | Produce a clean GDX distribution | `mvn clean package` |
 | Build without tests for packaging diagnosis only | `mvn clean package -DskipTests` |
@@ -335,8 +375,9 @@ self-update mechanism requires that special helper at the repository root.
 ## 🧪 Testing & certification
 
 The normal product build runs code and architecture tests. Extended QA,
-headless campaigns and GDX behavioural certification are separate opt-in
-layers and are never packaged in the game JAR.
+headless campaigns and GDX behavioural certification are separate layers and
+are never packaged in the game JAR. `qa.cmd` is the recommended single entry
+point; the individual Maven and runner commands remain available for diagnosis.
 
 **[Testing and certification](docs/TESTING.md)** is the canonical guide for
 test groups, expected cost, dependencies, command order, scenario modes and

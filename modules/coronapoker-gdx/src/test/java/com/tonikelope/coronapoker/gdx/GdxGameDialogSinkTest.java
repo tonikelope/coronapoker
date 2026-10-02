@@ -44,5 +44,12 @@ final class GdxGameDialogSinkTest {
         assertEquals("ZERO-TRUST", zeroTrust.title());
         assertFalse(zeroTrust.showsNegative());
         assertEquals("CLOSE", zeroTrust.positiveLabel());
+
+        GdxTableDialog pendingRebuy = sink.request(
+                GdxTableDialog.Kind.CONFIRM, "Pending rebuy",
+                GameDialogSink.Icon.NONE, 0, 0,
+                "BACK", "CANCEL REBUY");
+        assertEquals("BACK", pendingRebuy.negativeLabel());
+        assertEquals("CANCEL REBUY", pendingRebuy.positiveLabel());
     }
 }

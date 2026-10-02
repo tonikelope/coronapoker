@@ -41,6 +41,34 @@ final class GdxTableHostMaintenanceWiringTest {
     }
 
     @Test
+    void hostConfirmationSubmitsTimedOutRemoteKickCommand() {
+        ArrayList<TableCommand> submitted = new ArrayList<>();
+        CoronaPokerGdxTable table = table(submitted, hostLobby(true), true);
+
+        GdxTableDialog dialog = table.requestKickTimedOutPlayer("remote");
+
+        assertNotNull(dialog);
+        assertEquals(GdxTableDialog.Kind.CONFIRM, dialog.kind());
+        assertEquals(0, submitted.size());
+        dialog.accept();
+        assertEquals(1, submitted.size());
+        TableCommand.KickTimedOutPlayer command = assertInstanceOf(
+                TableCommand.KickTimedOutPlayer.class, submitted.get(0));
+        assertEquals("remote", command.nickname());
+    }
+
+    @Test
+    void timedOutKickIsUnavailableForHealthyRemoteOrLocalPlayer() {
+        ArrayList<TableCommand> submitted = new ArrayList<>();
+        CoronaPokerGdxTable healthy = table(submitted, hostLobby(true));
+        CoronaPokerGdxTable timedOut = table(submitted, hostLobby(true), true);
+
+        assertNull(healthy.requestKickTimedOutPlayer("remote"));
+        assertNull(timedOut.requestKickTimedOutPlayer("local"));
+        assertEquals(0, submitted.size());
+    }
+
+    @Test
     void cancellingForceReconnectDoesNotSubmitACommand() {
         ArrayList<TableCommand> submitted = new ArrayList<>();
         CoronaPokerGdxTable table = table(submitted, hostLobby(true));
@@ -100,9 +128,15 @@ final class GdxTableHostMaintenanceWiringTest {
 
     private static CoronaPokerGdxTable table(List<TableCommand> submitted,
             LobbySession lobby) {
+        return table(submitted, lobby, false);
+    }
+
+    private static CoronaPokerGdxTable table(List<TableCommand> submitted,
+            LobbySession lobby, boolean remoteTimedOut) {
         TableSnapshot snapshot = new TableSnapshot(1L, "local",
                 TableSnapshot.Street.PREFLOP, 0.3d, "remote", false,
-                List.of(player("local"), player("remote")), List.of());
+                List.of(player("local", false),
+                        player("remote", remoteTimedOut)), List.of());
         return new CoronaPokerGdxTable(240,
                 new GdxTableViewState(snapshot), submitted::add, () -> { },
                 new GdxGameLogSink(), null, lobby);
@@ -144,9 +178,10 @@ final class GdxTableHostMaintenanceWiringTest {
                 LobbyParticipant.NO_LATENCY);
     }
 
-    private static TableSnapshot.PlayerSnapshot player(String nickname) {
+    private static TableSnapshot.PlayerSnapshot player(String nickname,
+            boolean timedOut) {
         return new TableSnapshot.PlayerSnapshot(nickname, 10d, 0d, 0d,
-                true, false, false, false, -1, -1, 0, 0L, false,
+                true, false, false, timedOut, -1, -1, 0, 0L, false,
                 TableSnapshot.Position.NONE, "", "", List.of());
     }
 }

@@ -996,8 +996,8 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 participant.nickname(), buyin, 0d, 0d, true, false, false,
                 false, LobbyParticipant.NO_LATENCY,
                 LobbyParticipant.NO_LATENCY, 0, 0L,
-                false, TableSnapshot.Position.NONE, "", "",
-                List.of()))
+                false, false, TableSnapshot.Position.NONE, "", "",
+                List.of(), buyin, 0))
                 .toList();
         return new TableSnapshot(0L, lobby.localNickname(),
                 TableSnapshot.Street.WAITING, 0d, "", false, players,
@@ -1105,6 +1105,13 @@ public final class CoreGameTableFactory implements GameTableFactory {
             // Do not queue it behind live-settings consensus: the host chose
             // this action specifically to recover those transports now.
             channel.forceReconnectRemotePeers();
+        } else if (command instanceof TableCommand.KickTimedOutPlayer kick) {
+            if (!host) {
+                throw new IllegalStateException(
+                        "Only the host can kick a timed-out player");
+            }
+            controlExecutor.execute(()
+                    -> dealer.kickTimedOutRemotePlayer(kick.nickname()));
         } else if (command instanceof TableCommand.TogglePause) {
             pauseCoordinator.toggleLocal();
         } else if (command instanceof TableCommand.ChangeDeck) {

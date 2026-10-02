@@ -31,8 +31,7 @@ final class ProductDistributionContractTest {
                 StandardCharsets.UTF_8);
 
         String reactorVersion = projectVersion(parent);
-        String releaseVersion = reactorVersion.replaceFirst("-SNAPSHOT$", "");
-        String productJar = "CoronaPoker_" + releaseVersion + ".jar";
+        String productJar = "CoronaPoker_${coronapoker.version}.jar";
 
         assertTrue(parent.contains("<distribution.directory>"
                         + "${maven.multiModuleProjectDirectory}/target"

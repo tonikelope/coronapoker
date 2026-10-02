@@ -30,6 +30,11 @@ public interface GameDialogSink {
 
     CompletionStage<Boolean> confirm(String message, Icon icon);
 
+    default CompletionStage<Boolean> confirm(String message, Icon icon,
+            String negativeLabel, String positiveLabel) {
+        return confirm(message, icon);
+    }
+
     CompletionStage<Void> showTimedWarning(String message, int seconds);
 
     default CompletionStage<Void> showError(String message) {

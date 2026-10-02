@@ -26,6 +26,39 @@ import org.junit.jupiter.api.Test;
 final class GdxTableViewStateTest {
 
     @Test
+    void timedOutKickOverlayIsRestrictedToHostAndRemoteHumans() {
+        assertTrue(CoronaPokerGdxTable.timedOutKickEligible(
+                true, false, false, true, false));
+        assertFalse(CoronaPokerGdxTable.timedOutKickEligible(
+                false, false, false, true, false));
+        assertFalse(CoronaPokerGdxTable.timedOutKickEligible(
+                true, true, false, true, false));
+        assertFalse(CoronaPokerGdxTable.timedOutKickEligible(
+                true, false, true, true, false));
+        assertFalse(CoronaPokerGdxTable.timedOutKickEligible(
+                true, false, false, false, false));
+        assertFalse(CoronaPokerGdxTable.timedOutKickEligible(
+                true, false, false, true, true));
+    }
+
+    @Test
+    void timedOutKickOverlayStaysOnScreenAndClearsSidePotOverlay() {
+        Rectangle ordinary = CoronaPokerGdxTable.timedOutKickOverlayBounds(
+                900f, 650f, 1_920f, 1_080f, false);
+        Rectangle aboveSidePot = CoronaPokerGdxTable
+                .timedOutKickOverlayBounds(900f, 650f,
+                        1_920f, 1_080f, true);
+        Rectangle clamped = CoronaPokerGdxTable.timedOutKickOverlayBounds(
+                1_900f, 1_060f, 1_920f, 1_080f, true);
+
+        assertEquals(54f, aboveSidePot.y - ordinary.y, 0.001f);
+        assertTrue(clamped.x >= 8f);
+        assertTrue(clamped.y >= 8f);
+        assertTrue(clamped.x + clamped.width <= 1_912f);
+        assertTrue(clamped.y + clamped.height <= 1_072f);
+    }
+
+    @Test
     void cardsUseOneBilinearMipLevelWithoutTrilinearBlur() {
         assertTrue(CoronaPokerGdxTable.cardMipMapsEnabled());
         assertEquals(TextureFilter.MipMapLinearNearest,
@@ -2768,9 +2801,32 @@ final class GdxTableViewStateTest {
 
         state.apply(new TableVisualEvent.ImmediateRebuyStatus(1, "ana", 10));
         assertTrue(state.immediateRebuyEnabled("ana"));
+        assertEquals(10, state.immediateRebuyAmount("ana"));
 
         state.apply(new TableVisualEvent.ImmediateRebuyStatus(2, "ana", 0));
         assertFalse(state.immediateRebuyEnabled("ana"));
+        assertEquals(0, state.immediateRebuyAmount("ana"));
+    }
+
+    @Test
+    void completedRebuyUpdatesBuyInAndCyanEligibilityInTheProjection() {
+        TableSnapshot.PlayerSnapshot ana = new TableSnapshot.PlayerSnapshot(
+                "ana", 5d, 0d, 0d, true, false, false, false,
+                0, 0, 0, 0L, false, false,
+                TableSnapshot.Position.NONE, "", "", List.of(), 10, 0);
+        GdxTableViewState state = new GdxTableViewState(new TableSnapshot(
+                0L, "ana", TableSnapshot.Street.WAITING, 0d, "", false,
+                List.of(ana), List.of()));
+
+        state.apply(new TableVisualEvent.Rebuy(1L,
+                List.of(new TableVisualEvent.ChipTransfer(
+                        "ana", 10d, 15d, 0d, 0d)), 500L));
+
+        TableSnapshot.PlayerSnapshot rebought = state.snapshot().players()
+                .get(0);
+        assertEquals(20, rebought.buyIn());
+        assertEquals(1, rebought.rebuyCount());
+        assertEquals(15d, rebought.stack());
     }
 
     @Test

@@ -63,7 +63,7 @@ final class GdxShortcutBindings {
     GdxShortcutBindings(Properties properties) {
         this.properties = Objects.requireNonNull(properties, "properties");
         define(PAUSE, KeyEvent.VK_P, InputEvent.ALT_DOWN_MASK);
-        define(FULLSCREEN, KeyEvent.VK_F, InputEvent.ALT_DOWN_MASK);
+        define(FULLSCREEN, KeyEvent.VK_F11, 0);
         define(LIGHTS, KeyEvent.VK_L, InputEvent.ALT_DOWN_MASK);
         define(HALT, KeyEvent.VK_H, InputEvent.ALT_DOWN_MASK);
         define(LOG, KeyEvent.VK_R, InputEvent.ALT_DOWN_MASK);
@@ -332,10 +332,13 @@ final class GdxShortcutBindings {
 
     private static String keyName(int awtKeyCode) {
         return switch (awtKeyCode) {
-            case KeyEvent.VK_UP -> "↑";
-            case KeyEvent.VK_DOWN -> "↓";
-            case KeyEvent.VK_LEFT -> "←";
-            case KeyEvent.VK_RIGHT -> "→";
+            // The game font deliberately has a compact glyph set and does not
+            // contain the Unicode arrow characters. Keep these key names
+            // textual so the shortcut pill can never render blank.
+            case KeyEvent.VK_UP -> "UP";
+            case KeyEvent.VK_DOWN -> "DOWN";
+            case KeyEvent.VK_LEFT -> "LEFT";
+            case KeyEvent.VK_RIGHT -> "RIGHT";
             case KeyEvent.VK_ESCAPE -> "ESC";
             case KeyEvent.VK_SPACE -> "SPACE";
             case KeyEvent.VK_BACK_SPACE -> "BACK";

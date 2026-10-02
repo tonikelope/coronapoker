@@ -121,6 +121,37 @@ final class GdxSettingsLayoutTest {
     }
 
     @Test
+    void gamePagesUseOneCanonicalTwoColumnGridWithoutOverlap() {
+        GdxSettingsLayout.Frame frame = GdxSettingsLayout.frame(
+                1920f, 1080f, 5, 6);
+        Rectangle content = frame.content();
+        float rowX = content.x + GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
+        float rowWidth = content.width
+                - 2f * GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
+        GdxSettingsLayout.GameColumns columns =
+                GdxSettingsLayout.gameColumns(rowX, rowWidth);
+
+        Rectangle leftFirst = columns.left(frame.firstRowY(), 0);
+        Rectangle rightFirst = columns.right(frame.firstRowY(), 0);
+        Rectangle leftLast = columns.left(frame.firstRowY(), 4);
+        Rectangle rightLast = columns.right(frame.firstRowY(), 4);
+
+        assertEquals(GdxSettingsLayout.ROW_HEIGHT, leftFirst.height);
+        assertEquals(GdxSettingsLayout.ROW_HEIGHT, rightFirst.height);
+        assertEquals(GdxSettingsLayout.GAME_COLUMN_GAP,
+                rightFirst.x - (leftFirst.x + leftFirst.width));
+        assertEquals(leftFirst.y - 4f * GdxSettingsLayout.ROW_STRIDE,
+                leftLast.y);
+        assertEquals(rightFirst.y - 4f * GdxSettingsLayout.ROW_STRIDE,
+                rightLast.y);
+        assertTrue(leftLast.y >= content.y);
+        assertTrue(rightLast.y >= content.y);
+        assertTrue(rightFirst.x + rightFirst.width
+                <= content.x + content.width
+                - GdxSettingsLayout.CONTENT_HORIZONTAL_INSET);
+    }
+
+    @Test
     void debugCopyButtonStaysInsideTheSharedContentFooter() {
         Rectangle content = GdxSettingsLayout.frame(
                 1920f, 1080f, 5, 1).content();

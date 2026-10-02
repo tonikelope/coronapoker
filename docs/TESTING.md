@@ -4,6 +4,93 @@ CoronaPoker separates code verification from game-behaviour certification.
 This keeps everyday feedback fast and makes a certification result easy to
 interpret.
 
+## If you changed Java code: what to run
+
+Use the repository-root console entry point; it prevents accidentally building
+one module while omitting another test layer:
+
+### Explicit prerequisites
+
+- Windows with `powershell.exe` available (the checked-in `qa.cmd` wrapper uses
+  Windows PowerShell with `-NoProfile` and an execution-policy bypass limited to
+  that process).
+- A JDK 17 or newer selected through the normal Maven `JAVA_HOME`/`PATH`
+  mechanism. A JRE alone is insufficient.
+- Apache Maven 3 or newer. The tool searches, in order: repository `mvnw.cmd`,
+  `mvn.cmd`/`mvn` on `PATH`, then the standard Apache NetBeans Maven location.
+  It prints the detected Maven and Java versions before doing work and refuses
+  unsupported versions.
+- Internet access on the first run, unless every required Maven dependency is
+  already present in the ignored checkout-local `.m2/repository`. Later runs
+  reuse that cache; the script does not depend on the user's global Maven
+  repository.
+- For scenarios, permission to start child Java processes and bind local
+  loopback ports. They do not require an Internet opponent, router forwarding
+  or a graphical desktop, but an over-restrictive firewall/security product can
+  still block local process/socket tests.
+
+Run commands from the repository root. No IDE, persisted game configuration,
+MOD, database, language setting or manually installed test fixture is assumed.
+Generated game homes, reports and build output stay in ignored directories.
+The tool does not install Java or Maven. Maven still reads its standard
+`settings.xml` for repository mirrors, proxies and credentials when your
+network requires them; no private mirror, proxy, toolchain or IDE setting is
+required by the repository itself. The checkout and its ignored `.m2` and
+`target` directories must be writable and have enough free space for
+dependencies, intermediate classes, reports and the self-contained JAR.
+
+```powershell
+# Quick rebuild + runnable target/CoronaPoker_<version>.jar; tests are skipped.
+.\qa.cmd build
+
+# Normal code check: clean build + all automated non-bot tests; no scenarios.
+.\qa.cmd test
+
+# Gameplay-wiring check: run only the complete GDX catalogue once.
+.\qa.cmd scenarios fast
+
+# Normal release gate: tests + catalogue with two passes and deeper soak.
+.\qa.cmd all balanced
+
+# Major protocol/recovery/concurrency gate: five scenario passes and deepest soak.
+.\qa.cmd all stress
+```
+
+Running `.\qa.cmd` without arguments is identical to `test`. Use `build` only
+when you deliberately want a quick compilation/package without validation.
+Scenarios never start implicitly. Choose `scenarios <mode>` when you only need
+end-to-end gameplay evidence, or `all <mode>` to run the tests first.
+
+`fast`, `balanced` and `stress` do not select different scenario categories:
+they run the same unified catalogue; only repetitions and soak depth change.
+When used through `all`, their product and test stages are identical. `quick`
+is the only explicit critical subset and is intended for iteration, not
+release evidence.
+
+Useful focused forms:
+
+```powershell
+# Show every scenario and the exact JUnit method that implements it.
+.\qa.cmd list
+
+# Reproduce one scenario with a known seed.
+.\qa.cmd scenarios fast -Scenario spectator-rebuy-cycle -Seed 42
+
+# Add the separate, very slow statistical bot-strength lane.
+.\qa.cmd all balanced -IncludeBots
+
+# Display every option without running anything.
+.\qa.cmd -Help
+```
+
+The command uses the checkout-local `.m2/repository` and stops at the first
+failed stage. `test` and `all` clean-build and install the current product
+before the additional test suite, so those tests cannot silently resolve a
+different locally installed CoronaPoker version. Successful build/test
+execution leaves the runnable JAR in `target/`; scenarios write evidence to
+`target/certification/`, and every non-list run writes an overall
+machine-readable summary below `target/qa/`.
+
 ![CoronaPoker testing and certification flow](diagrams/testing-certification-flow.png)
 
 ## The four layers
@@ -18,6 +105,17 @@ interpret.
 The layers are complementary. A build failure is a code-test failure. A
 certification failure is a gameplay-scenario failure. `certify.cmd` does not
 silently run the other layers.
+
+`qa.cmd` deliberately composes those existing layers; it is the public
+all-in-one console tool. The Maven commands and `certify.cmd` documented below
+are lower-level entry points for focused diagnosis, CI or resuming a scenario
+schedule. They are not additional or competing scenario catalogues.
+
+Commands written below as bare `mvn` require Maven on `PATH`. When launched
+from the repository root they inherit the tracked `.mvn/maven.config` and use
+the same checkout-local cache, but they do not perform `qa.cmd`'s executable
+discovery, version preflight, stage summary or argument validation. They are
+diagnostic equivalents, not a hidden prerequisite for `qa.cmd`.
 
 ## Automatic and opt-in execution
 
@@ -289,6 +387,65 @@ historical scenario catalogue.
 They do not certify subjective rendering quality, exact pixels, physical audio
 devices, real Internet/NAT behaviour or every operating-system display setup.
 Those checks remain manual and complement the automated certificate.
+
+## How to read a manual run
+
+`qa.cmd` prints a cyan heading for each layer and ends every completed layer in
+`PASS` or `FAIL`. Its process exit code is `0` only when every requested layer
+passes. It stops immediately on the first failure, so later layers shown in the
+documentation but absent from the console were not executed.
+
+### Maven product and extended-test output
+
+The authoritative final lines are:
+
+```text
+Tests run: <n>, Failures: 0, Errors: 0, Skipped: <n>
+BUILD SUCCESS
+```
+
+`BUILD FAILURE`, a non-zero `Failures` or `Errors` value, or an `[ERROR]` block
+is a real failure. The first failing test name and its surefire report are the
+starting point; reports live under the corresponding module's
+`target/surefire-reports/` directory.
+
+Game integration tests intentionally emit extensive dealer, bot, networking
+and zero-trust `INFO` logs. Some negative tests also provoke and assert rejected
+input, corrupt preferences, malformed XML or cooperative thread interruption,
+so an isolated `WARNING` or `SEVERE` line is not by itself a failed test. On
+recent JDKs, SQLite can also print a native-access warning. Judge these lines in
+context: Maven's test counts, final build result and exit code are authoritative.
+
+### GDX scenario output
+
+The certifier first prints its `Mode`, generated or supplied `BaseSeed`, number
+of scenarios/tests, repetitions and soak hands. Each isolated test then appears
+as:
+
+```text
+[12/<scheduled>] r1 scenario-name -> package.TestClass#method
+  PASS (12.345 s)
+```
+
+Success ends in `CORONAPOKER GDX CERTIFICATION PASS`. On failure the runner
+prints `FAIL`, shows the last part of that test's log, writes `summary.csv` and
+`summary.json`, and stops. Preserve the printed seed: rerun the failing scenario
+with `-Scenario <name> -Seed <BaseSeed>`. The per-row `Seed` in the CSV is the
+derived seed passed to that isolated test; the report records both values.
+
+The functional label oracles compare canonical meaning rather than the current
+configured language. They validate action, pot, blind and result information
+without requiring a particular translation. Pixel quality, font appearance,
+audio hardware, real Internet/NAT and operating-system rendering remain manual
+checks even when the scenario certificate is green.
+
+### Central summary
+
+At the end, `qa.cmd` writes
+`target/qa/<timestamp>-<command>[-<mode>]/summary.txt` and `summary.json`.
+These identify the first failed layer and its exit code. The scenario directory
+remains the detailed evidence for gameplay failures; the central summary does
+not replace its logs.
 
 ## Generated state
 

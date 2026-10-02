@@ -6,9 +6,19 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableSnapshotMapper;
+import com.tonikelope.coronapoker.table.TableCommand;
 import org.junit.jupiter.api.Test;
 
 class GameStateTest {
+    @Test void timedOutKickCommandRequiresOneConcreteNickname() {
+        assertEquals("Remote", new TableCommand.KickTimedOutPlayer(
+                "Remote").nickname());
+        assertThrows(NullPointerException.class,
+                () -> new TableCommand.KickTimedOutPlayer(null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new TableCommand.KickTimedOutPlayer("  "));
+    }
+
     @Test void cardCodesKeepTheExistingProtocolOrder() {
         assertEquals("A_P", CardCode.fromIndex(0).shortCode());
         assertEquals("K_D", CardCode.fromIndex(51).shortCode());
@@ -55,6 +65,7 @@ class GameStateTest {
         TableState table = new TableState("Local");
         LocalPlayerState local = new LocalPlayerState("Local");
         local.setStack(125d);
+        local.setBuyIn(30);
         local.setActive(true);
         local.firstCard().initialize(CardCode.parseShortCode("A_P"), true);
         local.firstCard().setVisible(true);
@@ -63,11 +74,14 @@ class GameStateTest {
         table.hand().pot().setTotal(40d);
         table.hand().turn().begin("Local", 10L, 30);
 
-        TableSnapshot snapshot = TableSnapshotMapper.from(table.snapshot());
+        TableSnapshot snapshot = TableSnapshotMapper.from(table.snapshot(),
+                nickname -> nickname.equals("Local") ? 2 : 0);
 
         assertEquals(TableSnapshot.Street.PREFLOP, snapshot.street());
         assertEquals(40d, snapshot.pot());
         assertEquals("Local", snapshot.currentTurnNickname());
         assertEquals("A_P", snapshot.players().get(0).holeCards().get(0).code());
+        assertEquals(30, snapshot.players().get(0).buyIn());
+        assertEquals(2, snapshot.players().get(0).rebuyCount());
     }
 }

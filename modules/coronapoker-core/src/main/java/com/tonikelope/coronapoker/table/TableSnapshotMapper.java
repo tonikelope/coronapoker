@@ -6,6 +6,7 @@ import com.tonikelope.coronapoker.core.game.HandState;
 import com.tonikelope.coronapoker.core.game.PlayerState;
 import com.tonikelope.coronapoker.core.game.TableState;
 import java.util.Objects;
+import java.util.function.ToIntFunction;
 
 /** Converts authoritative neutral state into the immutable renderer contract. */
 public final class TableSnapshotMapper {
@@ -14,16 +15,28 @@ public final class TableSnapshotMapper {
     }
 
     public static TableSnapshot from(TableState.Snapshot state) {
+        return from(state, ignored -> 0);
+    }
+
+    public static TableSnapshot from(TableState.Snapshot state,
+            ToIntFunction<String> rebuyCount) {
         Objects.requireNonNull(state, "state");
+        Objects.requireNonNull(rebuyCount, "rebuyCount");
         HandState.Snapshot hand = state.hand();
         return new TableSnapshot(state.revision(), state.localNickname(),
                 street(hand.street(), state.finished()), hand.pot().total(),
                 hand.turn().nickname(), state.paused(),
-                state.players().stream().map(TableSnapshotMapper::player).toList(),
+                state.players().stream().map(player -> player(player,
+                        rebuyCount.applyAsInt(player.nickname()))).toList(),
                 hand.communityCards().stream().map(TableSnapshotMapper::card).toList());
     }
 
     public static TableSnapshot.PlayerSnapshot player(PlayerState.Snapshot state) {
+        return player(state, 0);
+    }
+
+    public static TableSnapshot.PlayerSnapshot player(PlayerState.Snapshot state,
+            int rebuyCount) {
         Objects.requireNonNull(state, "state");
         return new TableSnapshot.PlayerSnapshot(state.nickname(), state.stack(),
                 state.bet(), state.potContribution(), state.active(),
@@ -33,7 +46,8 @@ public final class TableSnapshotMapper {
                 state.winner(), state.underTheGun(),
                 position(state.position()), state.lastAction(), state.handName(),
                 state.holeCards().stream()
-                        .map(TableSnapshotMapper::card).toList());
+                        .map(TableSnapshotMapper::card).toList(),
+                state.buyIn(), rebuyCount);
     }
 
     public static TableSnapshot.CardSnapshot card(CardState.Snapshot state) {

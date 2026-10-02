@@ -3142,7 +3142,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(titleFont, lobbyTitle, WIDTH / 2f, 1004f, GOLD, true, 900f);
         drawLobbyDigitalClock(LOBBY_CLOCK.format(Instant.now()));
 
-        panel(35f, 180f, 430f, 650f,
+        lobbyPanel(35f, 180f, 430f, 650f,
                 uppercase(gameText.translate("game.timba")));
         float connectionY = state.host() ? LOBBY_CONNECTION_Y : 694f;
         float connectionHeight = state.host()
@@ -3150,9 +3150,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         outerBox(LOBBY_LEFT_CONTENT_X, connectionY,
                 LOBBY_LEFT_CONTENT_WIDTH, connectionHeight,
                 new Color(0x31445fcc), new Color(0x081525a8));
+        float connectionLabelX = LOBBY_LEFT_CONTENT_X + 16f;
+        float connectionValueX = LOBBY_LEFT_CONTENT_X + 164f;
         float serverBaseline = 733f;
         text(tinyFont, uppercase(gameText.translate("ui.servidor")),
-                76f, serverBaseline, MUTED, false);
+                connectionLabelX, serverBaseline, MUTED, false);
         if (state.host()) {
             String networkStatus = lobbyNetworkStatusText(
                     state.statusDetail(), gameText);
@@ -3164,21 +3166,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         true, 102f);
             }
         }
-        float serverAddressWidth = state.host() ? 144f : 245f;
-        textFit(smallFont, state.serverAddress(), 176f, serverBaseline,
+        float serverAddressWidth = state.host() ? 116f : 190f;
+        textFit(smallFont, state.serverAddress(), connectionValueX,
+                serverBaseline,
                 Color.WHITE, false, serverAddressWidth);
         if (state.host()) {
             text(tinyFont, uppercase(gameText.translate(
-                    "gdx.lobby.public_address")), 76f, 695f, MUTED, false);
+                    "gdx.lobby.public_address")), connectionLabelX, 695f,
+                    MUTED, false);
             String publicAddress = lobbyPublicAddressLoading
                     ? gameText.translate("gdx.loading")
                     : lobbyPublicAddress.isBlank()
                             ? gameText.translate(
                                     "gdx.lobby.public_address_unavailable")
                             : lobbyPublicAddress;
-            textFit(smallFont, publicAddress, 205f, 695f,
+            textFit(smallFont, publicAddress, connectionValueX, 695f,
                     lobbyPublicAddress.isBlank() ? DISABLED : Color.WHITE,
-                    false, 225f);
+                    false, LOBBY_LEFT_CONTENT_WIDTH - 180f);
             hit(LOBBY_LEFT_CONTENT_X, connectionY,
                     LOBBY_LEFT_CONTENT_WIDTH, connectionHeight,
                     this::copyLobbyConnectionData);
@@ -3226,7 +3230,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     MUTED, true, 340f);
         }
 
-        panel(495f, 180f, 900f, 650f,
+        lobbyPanel(495f, 180f, 900f, 650f,
                 uppercase(gameText.translate("chat.chat_de_la_timba")));
         if (lobbyImageMode) {
             drawLobbyImageGallery(525f, 315f, 840f, 430f);
@@ -3268,7 +3272,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             drawLobbyVoiceStatus(535f, 312f, 820f);
         }
 
-        panel(1425f, 180f, 460f, 650f, "");
+        lobbyPanel(1425f, 180f, 460f, 650f, "");
         textFit(actionFont,
                 uppercase(gameText.translate("ui.participantes_conectados")),
                 1455f, LOBBY_ROSTER_TITLE_BASELINE, GOLD, false, 335f);
@@ -6022,10 +6026,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawLobbyBlindSettings(float x, float w, float y,
             boolean enabled) {
-        float columnGap = 24f;
-        float columnWidth = (w - 68f - columnGap) / 2f;
-        float leftX = x + 34f;
-        float rightX = leftX + columnWidth + columnGap;
+        GdxSettingsLayout.GameColumns columns =
+                GdxSettingsLayout.gameColumns(x + 34f, w - 68f);
+        float columnWidth = columns.width();
+        float leftX = columns.leftX();
+        float rightX = columns.rightX();
         settingsStepper(leftX, y, columnWidth, 70f,
                 settingsGameText("row.structure"),
                 settingsTable.structureName() == null
@@ -8109,6 +8114,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 new Color(0f, 0f, 0f, 0.075f),
                 new Color(0f, 0f, 0f, 0f),
                 new Color(0f, 0f, 0f, 0f));
+        shapes.setColor(new Color(0x36d9ff70));
+        shapes.rect(x + 18f, y + h - 8f, w - 36f, 2f);
+        if (!title.isBlank()) {
+            textFit(headingFont, title, x + 34f, y + h - 29f, GOLD,
+                    false, Math.max(0f, w - 68f));
+            shapes.setColor(new Color(0x31445f90));
+            shapes.rect(x + 30f, y + h - 71f, w - 60f, 1f);
+        }
+    }
+
+    /** Waiting-room columns use one uninterrupted glass fill. */
+    private void lobbyPanel(float x, float y, float w, float h,
+            String title) {
+        outerBox(x, y, w, h, LINE, PANEL);
         shapes.setColor(new Color(0x36d9ff70));
         shapes.rect(x + 18f, y + h - 8f, w - 36f, 2f);
         if (!title.isBlank()) {

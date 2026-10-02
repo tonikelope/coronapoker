@@ -29,6 +29,7 @@ final class GdxSettingsLayout {
     /** Common row geometry for menu, waiting-room and live-table settings. */
     static final float ROW_HEIGHT = 68f;
     static final float ROW_STRIDE = 70f;
+    static final float GAME_COLUMN_GAP = 24f;
     /** Same visible width as the in-game log scrollbar. */
     static final float SCROLLBAR_WIDTH = 14f;
     /** Generous mouse target around the visible bar. */
@@ -150,6 +151,13 @@ final class GdxSettingsLayout {
                 y + (height - 58f) / 2f,
                 Math.max(0f, width - 466f), 58f);
         return new StepperRow(bounds, label, controls, minus, value, plus);
+    }
+
+    /** Canonical two-column grid used by every dense Game settings page. */
+    static GameColumns gameColumns(float rowX, float rowWidth) {
+        float columnWidth = (rowWidth - GAME_COLUMN_GAP) / 2f;
+        return new GameColumns(rowX,
+                rowX + columnWidth + GAME_COLUMN_GAP, columnWidth);
     }
 
     static Rectangle debugCopyButton(Rectangle content) {
@@ -282,6 +290,19 @@ final class GdxSettingsLayout {
         boolean valueContains(float pointerX) {
             return pointerX > value.x
                     && pointerX < value.x + value.width;
+        }
+    }
+
+    record GameColumns(float leftX, float rightX, float width) {
+
+        Rectangle left(float firstRowY, int row) {
+            return new Rectangle(leftX,
+                    firstRowY - row * ROW_STRIDE, width, ROW_HEIGHT);
+        }
+
+        Rectangle right(float firstRowY, int row) {
+            return new Rectangle(rightX,
+                    firstRowY - row * ROW_STRIDE, width, ROW_HEIGHT);
         }
     }
 

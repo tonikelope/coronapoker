@@ -388,35 +388,53 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void upperPairsUseTheWidestCollisionSafeLane() {
-        for (int playerCount : new int[]{5, 7}) {
+    void fivePlayerRowsShareTheVerticalRangeUniformly() {
+        float[][] anchors = CoronaPokerGdxTable.createSeatAnchors(5);
+
+        assertEquals(0.930f, anchors[2][1], 0.000_001f);
+        assertEquals(anchors[2][1], anchors[3][1], 0.000_001f);
+        assertEquals((anchors[0][1] + anchors[2][1]) / 2f,
+                anchors[1][1], 0.000_001f);
+        assertEquals(anchors[1][1], anchors[4][1], 0.000_001f);
+        assertEquals(anchors[1][1] - anchors[0][1],
+                anchors[2][1] - anchors[1][1], 0.000_001f,
+                "five-player rows must be vertically equidistant");
+    }
+
+    @Test
+    void upperRowsDistributeTheirPhysicalFreeSpaceUniformly() {
+        for (int playerCount : new int[]{5, 7, 9, 10}) {
             float[][] anchors = CoronaPokerGdxTable.createSeatAnchors(
                     playerCount);
-            int upperLeft = playerCount / 2;
-            int upperRight = upperLeft + 1;
+            int upperSeatCount = playerCount == 10 ? 3 : 2;
+            int firstUpperSeat = playerCount == 10 ? 4 : playerCount / 2;
+            float podWidth = 286f;
+            float leftLaneEdge = podWidth + 8f;
+            float previousRight = leftLaneEdge;
+            float expectedGap = Float.NaN;
 
-            assertEquals(0.250f, anchors[upperLeft][0], 0.000_001f,
-                    "upper-left seat for " + playerCount + " players");
-            assertEquals(0.750f, anchors[upperRight][0], 0.000_001f,
-                    "upper-right seat for " + playerCount + " players");
-            assertEquals(0.500f,
-                    anchors[upperRight][0] - anchors[upperLeft][0],
-                    0.000_001f, "upper-row span for " + playerCount
+            for (int offset = 0; offset < upperSeatCount; offset++) {
+                float center = anchors[firstUpperSeat + offset][0] * 1920f;
+                float left = center - podWidth / 2f;
+                float gap = left - previousRight;
+                if (offset == 0) {
+                    expectedGap = gap;
+                } else {
+                    assertEquals(expectedGap, gap, 0.001f,
+                            "inter-seat upper gap for " + playerCount
+                                    + " players");
+                }
+                previousRight = center + podWidth / 2f;
+            }
+            assertEquals(expectedGap, 1920f - leftLaneEdge - previousRight,
+                    0.001f, "right upper margin for " + playerCount
                             + " players");
+            assertEquals(1f,
+                    anchors[firstUpperSeat][0]
+                    + anchors[firstUpperSeat + upperSeatCount - 1][0],
+                    0.000_001f, "upper row must remain centred for "
+                            + playerCount + " players");
         }
-
-        float[][] nine = CoronaPokerGdxTable.createSeatAnchors(9);
-        assertEquals(1f, nine[4][0] + nine[5][0], 0.000_001f,
-                "nine-player upper row must remain centred");
-        assertTrue(nine[4][0] > 0.250f,
-                "nine-player upper-left seat needs diagonal pod clearance");
-        assertTrue(nine[5][0] < 0.750f,
-                "nine-player upper-right seat needs diagonal pod clearance");
-        float leftClearance = (nine[4][0] - nine[3][0]) * 1920f;
-        assertEquals(303f, leftClearance, 0.001f,
-                "upper pair must use the widest collision-safe lane");
-        assertTrue((nine[5][0] - nine[4][0]) * 1920f > 900f,
-                "nine-player upper pair must not remain centre-compressed");
     }
 
     @Test
@@ -446,13 +464,14 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void tenPlayerLayoutRemainsTheCanonicalReference() {
+    void tenPlayerLayoutKeepsTheCanonicalPerimeterOutsideTheUpperRow() {
         float[][] anchors = CoronaPokerGdxTable.createSeatAnchors(10);
+        float redistributedLeft = 555.5f / 1920f;
         float[][] expected = {
             {0.500f, 0.185f},
             {0.125f, 0.280f}, {0.024f, 0.530f},
-            {0.024f, 0.780f}, {0.250f, 0.890f},
-            {0.500f, 0.930f}, {0.750f, 0.890f},
+            {0.024f, 0.780f}, {redistributedLeft, 0.890f},
+            {0.500f, 0.930f}, {1f - redistributedLeft, 0.890f},
             {0.976f, 0.780f}, {0.976f, 0.530f},
             {0.875f, 0.280f}
         };

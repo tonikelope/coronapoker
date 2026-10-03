@@ -3700,26 +3700,49 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             anchors[2][1] = middleSideY;
             anchors[playerCount - 2][1] = middleSideY;
         }
-        if (playerCount == 7 || playerCount == 9) {
+        if (playerCount == 5) {
             /*
-             * With two seats in the upper row, perimeter interpolation pulls
-             * them progressively towards the centre as the player count
-             * grows.  Use the canonical ten-player shoulders so the pair
-             * occupies the complete safe upper lane, just like the balanced
-             * five-player arrangement.
+             * The five-player interpolation lands its upper pair on the
+             * lower shoulders of the ten-player outline, too close to the
+             * pot.  Use the real top lane and keep each side seat exactly
+             * halfway between that lane and the local seat.
              */
-            int upperLeft = playerCount / 2;
-            int upperRight = upperLeft + 1;
-            float adjacentCenterX = centeredRivalX(
-                    anchors[upperLeft - 1][0], BASE_WIDTH);
-            float collisionSafeLeft = (adjacentCenterX
-                    + PLAYER_POD_WIDTH + 17f) / BASE_WIDTH;
-            float upperLeftX = Math.max(TEN_PLAYER_SEAT_OUTLINE[4][0],
-                    collisionSafeLeft);
-            anchors[upperLeft][0] = upperLeftX;
-            anchors[upperRight][0] = 1f - upperLeftX;
+            float upperY = TEN_PLAYER_SEAT_OUTLINE[5][1];
+            float sideY = (anchors[0][1] + upperY) / 2f;
+            anchors[1][1] = sideY;
+            anchors[2][1] = upperY;
+            anchors[3][1] = upperY;
+            anchors[4][1] = sideY;
+        }
+        if (playerCount == 5 || playerCount == 7 || playerCount == 9) {
+            redistributeUpperRow(anchors, playerCount / 2, 2);
+        } else if (playerCount == 10) {
+            redistributeUpperRow(anchors, 4, 3);
         }
         return anchors;
+    }
+
+    /**
+     * Shares the free width of the upper lane between its physical pods.
+     *
+     * The side columns already occupy one pod width at either edge.  Dividing
+     * normalized centre coordinates over the whole screen therefore leaves
+     * a large empty central gap and tiny outer gaps.  Work in pixels instead
+     * and make the two outer gaps and every inter-pod gap identical.
+     */
+    private static void redistributeUpperRow(float[][] anchors,
+            int firstSeat, int seatCount) {
+        float laneLeft = PLAYER_POD_WIDTH + 8f;
+        float laneRight = BASE_WIDTH - laneLeft;
+        float freeWidth = laneRight - laneLeft
+                - seatCount * PLAYER_POD_WIDTH;
+        float gap = freeWidth / (seatCount + 1f);
+        float firstCenter = laneLeft + gap + PLAYER_POD_WIDTH / 2f;
+        for (int offset = 0; offset < seatCount; offset++) {
+            float centerX = firstCenter
+                    + offset * (PLAYER_POD_WIDTH + gap);
+            anchors[firstSeat + offset][0] = centerX / BASE_WIDTH;
+        }
     }
 
     /**

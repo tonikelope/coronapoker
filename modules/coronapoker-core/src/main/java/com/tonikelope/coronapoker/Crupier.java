@@ -173,6 +173,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean communication_tts = true;
     private volatile boolean communication_voice_messages = true;
     private volatile boolean voluntary_show_visible;
+    private volatile VoluntaryShowOffer visible_voluntary_show_offer
+            = VoluntaryShowOffer.NONE;
+    private volatile VoluntaryShowOffer pending_voluntary_show_offer
+            = VoluntaryShowOffer.NONE;
+
+    private enum VoluntaryShowOffer {
+        NONE,
+        STANDARD,
+        COUNTED_FOLD
+    }
 
     public Crupier() {
         this(null, null, null, null, null, GameIdentity.unavailable(), GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(), GameDatabase.unavailable(), HostGameConfigurationSource.unavailable(), GameStateMirror.noop(), RecoveredSettingsSynchronizer.noop(), GameCinematicSink.noop(), GameProgressSink.noop(), PauseGate.open(),
@@ -8637,15 +8647,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void requestVoluntaryShowCards(String nick) {
         game_async.execute(() -> {
             GamePlayerController player;
+            boolean countedFold;
             synchronized (lock_mostrar) {
                 player = nick2player.get(nick);
                 if (!show_time || !voluntary_show_visible || player == null
                         || player != localPlayer() || player.isMuestra()) {
                     return;
                 }
+                countedFold = visible_voluntary_show_offer
+                        == VoluntaryShowOffer.COUNTED_FOLD;
                 player.setMuestra(true);
+                if (countedFold) {
+                    player.consumeParguelaShow();
+                }
             }
             setVoluntaryShowAction(false, false);
+            if (countedFold && presentation_settings.sillySounds()) {
+                game_audio.playWavResource("misc/showyourcards.wav");
+            }
             showAndBroadcastPlayerCards(nick);
         });
     }
@@ -8726,7 +8745,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // crupier's show_time close — holding it during the animation would stall them. The
         // animated method's own destape_animado_lock handles idempotency against concurrent
         // reveals of the same player.
-        if (jugador.getHoleCard1().isTapada()) {
+        if (jugador.getHoleCard1().isTapada() || isLocal) {
             // Defensive clone: pass a copy to Hand so it doesn't reorder the UI's cards.
             ArrayList<GameCardController> evalList = new ArrayList<>();
             evalList.addAll(cardControllers(jugador.getHoleCards()));
@@ -8743,7 +8762,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // Reuse the same ordered event/barrier as normal showdown so
                 // cards and their evaluated label cannot overtake each other.
                 if (!presentHoleCardsToAttachedRenderer(
-                        jugador, jugada.getName())) {
+                        jugador, jugada.getName())
+                        && jugador.getHoleCard1().isTapada()) {
                     mostrarAnimacionDestaparCartasJugador(jugador, true);
                 }
                 table_display.showPlayerCards(jugador.getNickname(), jugada.getName());
@@ -8758,8 +8778,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            setTiempo_pausa(presentation_settings.testMode() ? PAUSA_ENTRE_MANOS_TEST : configuration().showdownTime());
-        } else if (isLocal) {
             setTiempo_pausa(presentation_settings.testMode() ? PAUSA_ENTRE_MANOS_TEST : configuration().showdownTime());
         }
     }
@@ -13709,7 +13727,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void presentAcceptedActionToAttachedRenderer(GamePlayerController player, int decision,
-            double oldPlayerBet) {
+            double oldPlayerBet, double oldTableBet) {
         if (!table_events.isAttached()) {
             return;
         }
@@ -13734,9 +13752,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         String actionLabel = kind == TableVisualEvent.PlayerAction.ActionKind.RERAISE
                 ? "RE" + game_text.translate(labelKey)
                 : game_text.translate(labelKey);
+        double raiseIncrement = MoneyMath.clean(
+                Math.max(0d, actionAmount - oldTableBet));
+        if (raiseIncrement > 0d
+                && (kind == TableVisualEvent.PlayerAction.ActionKind.RAISE
+                || kind == TableVisualEvent.PlayerAction.ActionKind.RERAISE
+                || kind == TableVisualEvent.PlayerAction.ActionKind.ALL_IN)) {
+            actionLabel += " (+" + value_formatter.money(raiseIncrement)
+                    + ")";
+        }
+        final String presentedActionLabel = actionLabel;
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.PlayerAction(
                 sequence, player.getNickname(), kind,
-                actionLabel,
+                presentedActionLabel,
                 actionAmount, contribution,
                 MoneyMath.clean(player.getStack()),
                 MoneyMath.clean(player.getBet()),
@@ -13908,9 +13936,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void setVoluntaryShowAction(boolean visible, boolean countdown) {
         voluntary_show_visible = visible;
+        visible_voluntary_show_offer = !visible
+                ? VoluntaryShowOffer.NONE
+                : countdown ? VoluntaryShowOffer.COUNTED_FOLD
+                        : VoluntaryShowOffer.STANDARD;
         if (table_events.isAttached()) {
             ActionControlState controls = ActionControlState.disabled()
-                    .withShowCards(visible);
+                    .withShowCards(visible,
+                            visible && countdown
+                                    ? localPlayer().getParguela_counter() : -1);
             awaitAttachedTableEvent(sequence -> new TableVisualEvent.ActionControls(
                     sequence, controls), "Show-action presentation barrier failed");
         } else if (visible) {
@@ -13933,12 +13967,40 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private void restoreVoluntaryShowAction() {
         if (table_events.isAttached()) {
             ActionControlState controls = ActionControlState.disabled()
-                    .withShowCards(voluntary_show_visible);
+                    .withShowCards(voluntary_show_visible,
+                            visible_voluntary_show_offer
+                                    == VoluntaryShowOffer.COUNTED_FOLD
+                                            ? localPlayer().getParguela_counter()
+                                            : -1);
             awaitAttachedTableEvent(sequence -> new TableVisualEvent.ActionControls(
                     sequence, controls), "Show-action restore barrier failed");
         } else {
             table_display.restoreVoluntaryShowAction();
         }
+    }
+
+    /**
+     * Records an offer while showdown results are still being resolved. The
+     * HUD must not expose it until the post-showdown pause has actually begun.
+     */
+    private void queueVoluntaryShowAction(boolean countedFold) {
+        pending_voluntary_show_offer = countedFold
+                ? VoluntaryShowOffer.COUNTED_FOLD
+                : VoluntaryShowOffer.STANDARD;
+    }
+
+    private void presentQueuedVoluntaryShowAction() {
+        VoluntaryShowOffer offer = pending_voluntary_show_offer;
+        pending_voluntary_show_offer = VoluntaryShowOffer.NONE;
+        if (show_time && offer != VoluntaryShowOffer.NONE) {
+            setVoluntaryShowAction(true,
+                    offer == VoluntaryShowOffer.COUNTED_FOLD);
+        }
+    }
+
+    private void clearVoluntaryShowAction() {
+        pending_voluntary_show_offer = VoluntaryShowOffer.NONE;
+        setVoluntaryShowAction(false, false);
     }
 
     // Sorts the local player's hand (high card on the left) once dealing finishes. If the swap
@@ -19093,6 +19155,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 double old_player_bet = current_player.getBet();
+                double old_table_bet = this.apuesta_actual;
                 LOGGER.log(Level.INFO, "Read DECISION from {0}", current_player.getNickname());
 
                 boolean localPreActionsEligible = localPreActionsEligible(
@@ -19466,7 +19529,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 presentAcceptedActionToAttachedRenderer(
-                        current_player, decision, old_player_bet);
+                        current_player, decision, old_player_bet,
+                        old_table_bet);
 
                 // Legacy source-contract marker: Bot.OpponentTracker stats
                 GameOpponentStats stats = bot_service.opponent(current_player.getNickname());
@@ -25008,7 +25072,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // If the local player mucked (cards face-down), enable the voluntary
                         // SHOW button
                         if (!mustShow) {
-                            setVoluntaryShowAction(true, true);
+                            queueVoluntaryShowAction(false);
                         }
                     } else {
                         // Pass 1's uncover can be asynchronous in the classic fallback, so
@@ -25542,7 +25606,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             carta.desenfocar();
                                         }
                                         if (soleSurvivor == localPlayer()) {
-                                            setVoluntaryShowAction(true, false);
+                                            queueVoluntaryShowAction(false);
                                         }
                                         if (soleSurvivor == localPlayer()) {
                                             this.soundWinner(0, false);
@@ -25782,7 +25846,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                             if (!presentation_settings.testMode() && !resisten.contains(localPlayer())) {
                                 if (localPlayer().isActivo() && localPlayer().getParguela_counter() > 0) {
-                                    setVoluntaryShowAction(true, true);
+                                    queueVoluntaryShowAction(true);
                                 }
                                 this.soundShowdown();
                             }
@@ -25890,6 +25954,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                             if (!presentation_settings.testMode()) {
                                 if (getJugadoresActivos() > 1 && !localPlayer().isExit()) {
+                                    presentQueuedVoluntaryShowAction();
                                     this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? ((resisten.size() > 1 || configuration().rabbitHunting() != 0) ? configuration().showdownTime() : Math.round(0.5f * configuration().showdownTime())) : Math.round(1.5f * configuration().showdownTime()));
                                 }
 
@@ -25920,7 +25985,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 synchronized (lock_mostrar) {
                                     setShowTime(false);
                                 }
-                                setVoluntaryShowAction(false, false);
+                                clearVoluntaryShowAction();
                                 updateShowdownCardsInLog();
 
                                 if (!this.isLast_hand()) {
@@ -25943,11 +26008,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 if (table_events.isAttached()) {
                                     this.animateShowdownPayout();
                                 }
+                                presentQueuedVoluntaryShowAction();
                                 this.pausaConBarra(Crupier.PAUSA_ENTRE_MANOS_TEST);
                                 synchronized (lock_mostrar) {
                                     setShowTime(false);
                                 }
-                                setVoluntaryShowAction(false, false);
+                                clearVoluntaryShowAction();
                                 updateShowdownCardsInLog();
                                 if (!this.isLast_hand()) {
                                     checkRebuyTime();

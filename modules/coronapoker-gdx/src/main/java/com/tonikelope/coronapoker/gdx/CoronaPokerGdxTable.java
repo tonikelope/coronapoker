@@ -718,6 +718,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float fastBarOutsideSeconds;
     private float fastBarAlpha = 1f;
     private int armedHudTarget;
+    /*
+     * The command sink may need a few frames to return the dealer's
+     * authoritative PlayerAction. Once an action is submitted, the local
+     * controls must nevertheless disappear immediately and the remembered
+     * action must already use its subdued, post-turn presentation. This is a
+     * presentation latch only. The dealer event still owns every game-state
+     * mutation and replaces this value as soon as it arrives.
+     */
+    private TableVisualEvent.PlayerAction.ActionKind pendingLocalActionKind;
+    private long pendingLocalActionControlsSequence = -1L;
     private final Set<String> allInActionSoundsPlayed = new HashSet<>();
     private final Map<String, LiveHandProbability> liveHandProbabilities =
             new HashMap<>();
@@ -3155,6 +3165,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && action.contributionDelta() > 0d) {
             if (!liveBetAnimationEnabled()) {
                 liveState.apply(event);
+                clearPendingLocalAction(action);
                 // With no visual flight there is no landing callback to add the
                 // accepted contribution to the displayed central pot. Commit
                 // that presentation delta now; CollectBets or Payout later
@@ -3172,6 +3183,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // The canonical sequence fixes both the action label and the exact
             // post-action balances. Counter interpolation remains cosmetic.
             liveState.apply(event);
+            clearPendingLocalAction(action);
             syncSeatsFromLiveState();
             if (action.kind()
                     == TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
@@ -3186,6 +3198,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (livePayout != null) {
                 throw new IllegalStateException("A GDX payout is already active");
             }
+            // Preserve the exact pot already visible on the table. Rebuilding
+            // it from pending winner payments can differ by a cent after pot
+            // splitting and used to make the label grow just before payout.
+            double payoutPotBefore = livePot();
+            displayedPayoutPot(payoutPotBefore, payout.potAfter(),
+                    payout.amount(), 0d);
             // Payout carries the exact canonical remainder. Never let a
             // presentation-only contribution cached by the no-flight path be
             // added on top of it.
@@ -3202,7 +3220,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             liveState.apply(event);
             livePayout = new LivePayout(payout, System.nanoTime(), barrier,
-                    liveCounterDenomination());
+                    liveCounterDenomination(), payoutPotBefore);
             syncSeatsFromLiveState();
         } else if (event instanceof TableVisualEvent.Rebuy rebuy) {
             if (liveRebuy != null) {
@@ -3486,6 +3504,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else {
             if (event instanceof TableVisualEvent.HandBoundary boundary
                     && boundary.phase() != TableVisualEvent.HandBoundary.Phase.END) {
+                clearPendingLocalAction();
                 livePotContributions.clear();
                 liveWinnerStarts.clear();
                 liveHoleDealCount = 0;
@@ -3503,6 +3522,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             boolean wasLastHand = liveState.lastHand();
             liveState.apply(event);
+            if (event instanceof TableVisualEvent.PlayerAction action) {
+                clearPendingLocalAction(action);
+            }
             if (event instanceof TableVisualEvent.LastHandStatus) {
                 String cue = GdxSoundFeedback.lastHandTransition(wasLastHand,
                         liveState.lastHand());
@@ -5058,7 +5080,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         ActionControlState controls = liveState.actionControls();
         boolean autoActionVeto = activeDialog != null
                 && activeDialog.isAutoAction();
-        boolean localTurn = hasActiveLocalTurn();
+        boolean localTurn = hasActiveLocalTurn()
+                && !hasPendingLocalActionSubmission();
         maybeExecuteQueuedPreAction(localTurn, controls);
         TableShortcut shortcut = tableShortcut(shortcutAction);
         if (shortcut == TableShortcut.PAUSE) {
@@ -5184,8 +5207,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         boolean voluntaryShow = !autoActionVeto && controls.showCards();
-        boolean hudActionsVisible = localTurn || autoPreActionsVisible()
-                || voluntaryShow;
+        boolean localMonteCarlo = showsLocalMonteCarloHud(
+                liveState.actionKind(seats[0].name)
+                        == TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
+                liveState.partialHandPercentage(seats[0].name),
+                liveState.hasHandResult(seats[0].name));
+        boolean localShownHand = liveState.hasLateShownHand(seats[0].name);
+        Boolean clickOutcome = localHandOutcome(
+                liveState.resolvedHandWinner(seats[0].name),
+                liveState.foldedThisHand(seats[0].name));
+        boolean clickSettled = hasSettledPresentation(
+                liveState.hasHandResult(seats[0].name), clickOutcome);
+        boolean localActionMemory = !autoActionVeto && !voluntaryShow
+                && !localShownHand && !clickSettled
+                && showsLocalActionMemory(localTurn,
+                        liveState.actionKind(seats[0].name),
+                        clickSettled,
+                        localMonteCarlo);
+        boolean hudActionsVisible = !localShownHand && !localMonteCarlo
+                && !localActionMemory
+                && (localTurn || autoPreActionsVisible()
+                || voluntaryShow);
         int localHudTarget = hudActionsVisible
                 ? hudTarget(pointer.x, pointer.y, viewport.getWorldWidth()) : 0;
         if (localHudTarget != 0 && !autoActionVeto) {
@@ -5902,7 +5944,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     /** Canonical fold activation shared by pointer, shortcut and scenarios. */
     boolean activateFoldAction() {
-        if (!hasActiveLocalTurn()) return false;
+        if (hasPendingLocalActionSubmission() || !hasActiveLocalTurn()) {
+            return false;
+        }
         if (!liveState.actionControls().foldEnabled()) return false;
         submitConfirmedAction(1, new TableCommand.Fold());
         return true;
@@ -5917,14 +5961,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     /** Whether the native check/call control can submit at this instant. */
     boolean canActivateCheckOrCallAction() {
-        return hasActiveLocalTurn()
+        return !hasPendingLocalActionSubmission() && hasActiveLocalTurn()
                 && liveState.actionControls().callAction()
                 != ActionControlState.CallAction.DISABLED;
     }
 
     /** Canonical bet/raise activation shared by pointer, shortcut and scenarios. */
     boolean activateBetAction() {
-        if (!hasActiveLocalTurn()) return false;
+        if (hasPendingLocalActionSubmission() || !hasActiveLocalTurn()) {
+            return false;
+        }
         ActionControlState controls = liveState.actionControls();
         if (controls.raiseAction()
                 == ActionControlState.RaiseAction.DISABLED) return false;
@@ -5977,7 +6023,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     /** Canonical ALL-IN activation shared by pointer, shortcut and tests. */
     boolean activateAllInAction() {
-        if (!hasActiveLocalTurn()) return false;
+        if (hasPendingLocalActionSubmission() || !hasActiveLocalTurn()) {
+            return false;
+        }
         ActionControlState controls = liveState.actionControls();
         if (controls.showCards() || !controls.allInEnabled()) return false;
         submitConfirmedAction(6, new TableCommand.AllIn());
@@ -6079,7 +6127,96 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void submit(TableCommand command) {
-        commands.submit(command);
+        TableVisualEvent.PlayerAction.ActionKind submittedKind
+                = submittedLocalActionKind(command,
+                        liveState == null ? null
+                                : liveState.actionControls());
+        if (submittedKind != null && hasActiveLocalTurn()) {
+            pendingLocalActionKind = submittedKind;
+            pendingLocalActionControlsSequence = liveState
+                    .actionControlsSequence();
+        }
+        try {
+            commands.submit(command);
+        } catch (RuntimeException failure) {
+            if (pendingLocalActionKind == submittedKind) {
+                clearPendingLocalAction();
+            }
+            throw failure;
+        }
+    }
+
+    static TableVisualEvent.PlayerAction.ActionKind submittedLocalActionKind(
+            TableCommand command, ActionControlState controls) {
+        if (command instanceof TableCommand.Fold) {
+            return TableVisualEvent.PlayerAction.ActionKind.FOLD;
+        }
+        if (command instanceof TableCommand.CheckOrCall && controls != null) {
+            return switch (controls.callAction()) {
+                case CHECK -> TableVisualEvent.PlayerAction.ActionKind.CHECK;
+                case CALL -> TableVisualEvent.PlayerAction.ActionKind.CALL;
+                case DISABLED -> null;
+            };
+        }
+        if (command instanceof TableCommand.Bet && controls != null) {
+            return switch (controls.raiseAction()) {
+                case BET -> TableVisualEvent.PlayerAction.ActionKind.BET;
+                case RAISE -> TableVisualEvent.PlayerAction.ActionKind.RAISE;
+                case RERAISE ->
+                    TableVisualEvent.PlayerAction.ActionKind.RERAISE;
+                case DISABLED -> null;
+            };
+        }
+        if (command instanceof TableCommand.AllIn) {
+            return TableVisualEvent.PlayerAction.ActionKind.ALL_IN;
+        }
+        return null;
+    }
+
+    static boolean beginsActionableTurn(ActionControlState controls) {
+        return controls != null && (controls.foldEnabled()
+                || controls.callAction()
+                        != ActionControlState.CallAction.DISABLED
+                || controls.raiseAction()
+                        != ActionControlState.RaiseAction.DISABLED
+                || controls.allInEnabled());
+    }
+
+    TableVisualEvent.PlayerAction.ActionKind pendingLocalActionKind() {
+        refreshPendingLocalAction();
+        return pendingLocalActionKind;
+    }
+
+    private boolean hasPendingLocalActionSubmission() {
+        refreshPendingLocalAction();
+        return pendingLocalActionKind != null;
+    }
+
+    private void refreshPendingLocalAction() {
+        if (pendingLocalActionKind != null && liveState != null
+                && liveState.actionControlsSequence()
+                        > pendingLocalActionControlsSequence
+                && beginsActionableTurn(liveState.actionControls())) {
+            // A later enabled ActionControls event is authoritative proof that
+            // the dealer has advanced to another local turn. This also covers
+            // controlled exits where the preceding PlayerAction presentation
+            // can be intentionally absent from a peer's projection.
+            clearPendingLocalAction();
+        }
+    }
+
+    private void clearPendingLocalAction() {
+        pendingLocalActionKind = null;
+        pendingLocalActionControlsSequence = -1L;
+    }
+
+    private void clearPendingLocalAction(
+            TableVisualEvent.PlayerAction action) {
+        if (pendingLocalActionKind != null && liveState != null
+                && action.nickname().equals(
+                        liveState.snapshot().localNickname())) {
+            clearPendingLocalAction();
+        }
     }
 
     void submitExternal(TableCommand command) {
@@ -10487,10 +10624,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static Boolean localHandOutcome(Boolean resolvedWinner,
             boolean foldedThisHand) {
         // Folding removes the local controls immediately, but it is not a
-        // settled result: the player may still reveal voluntarily and the
-        // hand can continue for several opponents. Show GANAS/PIERDES only
-        // after the authoritative HandResult arrives.
-        return resolvedWinner;
+        // showdown loss: the player may still reveal voluntarily and the hand
+        // can continue for several opponents. Some closing snapshots include
+        // a false winner flag for every non-winner, including folded players;
+        // that must never replace NO VAS with PIERDES.
+        return foldedThisHand ? null : resolvedWinner;
     }
 
     static String localHandOutcomeLabel(boolean winner, GdxGameText text) {
@@ -10587,7 +10725,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return gameText.translate("table.player_reconnecting");
         }
         if (isLiveThinkingSeat(seats[seat])) {
-            return uppercase(gameText.translate("ui.pensando")) + "...";
+            return uppercase(gameText.translate("ui.pensando"));
         }
         if (player.spectator()) {
             return spectatorStatusLabel(player, gameText);
@@ -10597,6 +10735,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (liveState.rabbitNoticeActive(player.nickname())) {
             return "RABBIT";
+        }
+        if (liveState.hasLateShownHand(player.nickname())) {
+            String shownName = liveState.resolvedHandName(player.nickname());
+            if (shownName.isBlank()) shownName = player.handName();
+            if (!shownName.isBlank()) {
+                return localizedHandName(shownName, gameText);
+            }
+        }
+        if (liveState.foldedThisHand(player.nickname())) {
+            return localizedActionLabel(
+                    TableVisualEvent.PlayerAction.ActionKind.FOLD,
+                    liveState.actionLabel(player.nickname()), gameText);
         }
         if (liveState.hasHandResult(player.nickname())) {
             String resolvedName = liveState.resolvedHandName(player.nickname());
@@ -10698,7 +10848,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         TableVisualEvent.PlayerAction.ActionKind resolved = kind == null
                 ? actionKindFromLegacyLabel(label) : kind;
         if (resolved == null) return label;
-        return switch (resolved) {
+        String localized = switch (resolved) {
             case FOLD -> text.translate("action.label.fold2");
             case CHECK -> text.translate("action.label.check2");
             case CALL -> text.translate("action.label.call2");
@@ -10708,6 +10858,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case ALL_IN -> text.translate("action.label.allin");
             case WAITING, SMALL_BLIND, BIG_BLIND, STRADDLE -> label;
         };
+        return localized + actionIncreaseSuffix(resolved, label);
     }
 
     /**
@@ -10791,6 +10942,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return POT_GOLD;
         }
         Boolean resolvedWinner = liveState.resolvedHandWinner(player.nickname());
+        boolean foldedThisHand = liveState.foldedThisHand(player.nickname());
+        if (foldedThisHand || liveState.hasLateShownHand(player.nickname())) {
+            return seatOutcomeColor(foldedThisHand, resolvedWinner,
+                    SEAT_RIM);
+        }
         if (resolvedWinner != null) {
             return resolvedWinner ? LEGACY_WINNER : LEGACY_LOSER;
         }
@@ -10831,6 +10987,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return Color.WHITE;
         }
         Boolean resolvedWinner = liveState.resolvedHandWinner(player.nickname());
+        if (liveState.hasLateShownHand(player.nickname())) {
+            return lateShownHandTextColor(
+                    liveState.foldedThisHand(player.nickname()),
+                    resolvedWinner);
+        }
         if (resolvedWinner != null) {
             return resolvedWinner ? Color.BLACK : Color.WHITE;
         }
@@ -10959,6 +11120,28 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return winner ? LEGACY_WINNER : LEGACY_LOSER;
     }
 
+    /**
+     * A late reveal does not replace the player's state colour. Light blue is
+     * reserved for the MOSTRAR button itself: a folded player stays grey and
+     * an auto-mucked winner or loser keeps the normal green/red verdict.
+     */
+    static Color seatOutcomeColor(boolean foldedThisHand,
+            Boolean resolvedWinner, Color unresolvedFallback) {
+        if (foldedThisHand) return LEGACY_FOLD;
+        if (resolvedWinner != null) {
+            return settledShowdownColor(resolvedWinner);
+        }
+        return unresolvedFallback == null ? SEAT_RIM : unresolvedFallback;
+    }
+
+    static Color lateShownHandTextColor(boolean foldedThisHand,
+            Boolean resolvedWinner) {
+        if (foldedThisHand || !Boolean.TRUE.equals(resolvedWinner)) {
+            return Color.WHITE;
+        }
+        return Color.BLACK;
+    }
+
     static Color localOutcomeSurfaceColor(boolean winner) {
         // Keep the canonical green/red semantics on the rim, but use a calmer
         // glass tint for the large HUD surface. Pure legacy red over the whole
@@ -10978,6 +11161,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 || kind == TableVisualEvent.PlayerAction.ActionKind.BET
                 || kind == TableVisualEvent.PlayerAction.ActionKind.RAISE
                 ? Color.BLACK : Color.WHITE;
+    }
+
+    static Color localHudStatusTextColor(boolean foldedThisHand,
+            Boolean resolvedWinner,
+            TableVisualEvent.PlayerAction.ActionKind actionKind) {
+        if (foldedThisHand
+                || actionKind
+                        == TableVisualEvent.PlayerAction.ActionKind.FOLD) {
+            return WAITING_TURN_TEXT;
+        }
+        if (resolvedWinner != null) {
+            return resolvedWinner ? Color.BLACK : Color.WHITE;
+        }
+        return liveActionTextColor(actionKind);
     }
 
     static float composedAlpha(Color color, float visualAlpha,
@@ -11374,11 +11571,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return Math.max(0d, canonicalStackAfter - incoming + landed);
     }
 
-    static double displayedPayoutPot(double canonicalPotAfter,
-            double payoutAmount, double landedAmount) {
+    static double displayedPayoutPot(double displayedPotBefore,
+            double canonicalPotAfter, double payoutAmount,
+            double landedAmount) {
+        double start = Math.max(0d, MoneyMath.clean(displayedPotBefore));
+        double end = Math.max(0d, MoneyMath.clean(canonicalPotAfter));
+        if (MoneyMath.compare(end, start) > 0) {
+            throw new IllegalArgumentException(
+                    "Payout cannot increase the displayed pot");
+        }
         double payout = Math.max(0d, payoutAmount);
         double landed = Math.min(payout, Math.max(0d, landedAmount));
-        return Math.max(0d, canonicalPotAfter + payout - landed);
+        double progress = payout == 0d ? 1d : landed / payout;
+        return Math.max(0d, MoneyMath.clean(
+                start + (end - start) * progress));
     }
 
     static double[] splitVisualCounterAmounts(double exactAmount,
@@ -11421,7 +11627,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return liveState.snapshot().pot();
         }
         if (livePayout != null) {
-            return displayedPayoutPot(livePayout.event.potAfter(),
+            return displayedPayoutPot(livePayout.potBefore,
+                    livePayout.event.potAfter(),
                     livePayout.event.amount(), livePayout.landedContribution(
                             livePayout.elapsedSeconds()));
         }
@@ -11812,6 +12019,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return backgroundMusic == null ? 0f : backgroundMusic.getPosition();
     }
 
+    /**
+     * Paints the single canonical inactive-action surface. Keeping both layers
+     * here prevents an accepted action, its optional reveal button and the
+     * revealed result from drifting through different apparent colours.
+     */
+    private void drawSubduedLocalHudSurface(float hudX, float hudY,
+            float hudWidth, float hudHeight, Color semanticColor) {
+        shapes.setColor(0.025f, 0.085f, 0.095f, 0.56f);
+        roundedRect(hudX - 3f, hudY - 3f,
+                hudWidth + 6f, hudHeight + 15f, 16f);
+        shapes.setColor(semanticColor.r, semanticColor.g,
+                semanticColor.b, 0.30f);
+        roundedRect(hudX - 3f, hudY - 3f,
+                hudWidth + 6f, hudHeight + 15f, 16f);
+    }
+
     private void drawLocalHud(float width, float height) {
         // Functional parity with CoronaPoker's current LocalPlayer controls, laid
         // out horizontally: NO IR, PASAR/IR, numeric bet spinner, APOSTAR, ALL IN.
@@ -11835,13 +12058,39 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float betX = minusX + stepperWidth + betInnerGap;
         float plusX = betX + betWidth + betInnerGap;
         float allInX = plusX + stepperWidth + gap;
-        boolean localTurn = hasActiveLocalTurn();
+        boolean localActionSubmissionPending
+                = hasPendingLocalActionSubmission();
+        boolean localTurn = hasActiveLocalTurn()
+                && !localActionSubmissionPending;
         ActionControlState controls = liveState.actionControls();
         boolean autoActionVeto = activeDialog != null
                 && activeDialog.isAutoAction();
         GdxTableDialogLayout.AutoActionHud autoHud = autoActionVeto
                 ? autoActionHudLayout(width) : null;
-        boolean preActions = !localTurn && autoPreActionsVisible();
+        TableVisualEvent.PlayerAction.ActionKind localActionKind
+                = localActionSubmissionPending ? pendingLocalActionKind
+                        : liveState.actionKind(seats[0].name);
+        boolean localAllIn = localActionKind
+                == TableVisualEvent.PlayerAction.ActionKind.ALL_IN;
+        boolean localMonteCarlo = showsLocalMonteCarloHud(localAllIn,
+                liveState.partialHandPercentage(seats[0].name),
+                liveState.hasHandResult(seats[0].name));
+        boolean voluntaryShow = showsVoluntaryShowButton(controls,
+                autoActionVeto);
+        boolean localShownHand = liveState.hasLateShownHand(seats[0].name);
+        Boolean settledLocalWinner = localHandOutcome(
+                liveState.resolvedHandWinner(seats[0].name),
+                liveState.foldedThisHand(seats[0].name));
+        boolean settledShowdown = hasSettledPresentation(
+                liveState.hasHandResult(seats[0].name), settledLocalWinner);
+        boolean localActionMemory = !autoActionVeto && !voluntaryShow
+                && !localShownHand && !settledShowdown
+                && showsLocalActionMemory(localTurn, localActionKind,
+                        settledShowdown,
+                        localMonteCarlo);
+        boolean preActions = !localTurn && !localMonteCarlo
+                && !localShownHand && !localActionMemory
+                && autoPreActionsVisible();
         boolean foldEnabled = !autoActionVeto
                 && ((localTurn && controls.foldEnabled()) || preActions);
         boolean checkEnabled = !autoActionVeto
@@ -11852,18 +12101,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         != ActionControlState.RaiseAction.DISABLED;
         boolean allInEnabled = !autoActionVeto && localTurn
                 && controls.allInEnabled();
-        boolean voluntaryShow = showsVoluntaryShowButton(controls,
-                autoActionVeto);
-        Boolean settledLocalWinner = localHandOutcome(
-                liveState.resolvedHandWinner(seats[0].name),
-                liveState.foldedThisHand(seats[0].name));
-        boolean settledShowdown = hasSettledPresentation(
-                liveState.hasHandResult(seats[0].name), settledLocalWinner);
         TableSnapshot.PlayerSnapshot liveLocalPlayer = livePlayer(seats[0]);
         Seat localSeat = seats[0];
         int pendingRebuy = liveState.immediateRebuyAmount(localSeat.name);
-        boolean localAllIn = liveState.actionKind(seats[0].name)
-                == TableVisualEvent.PlayerAction.ActionKind.ALL_IN;
         boolean localFolded = shouldDimSeat(liveLocalPlayer == null
                 || liveLocalPlayer.active(), settledShowdown,
                 liveState.foldedThisHand(seats[0].name));
@@ -11872,8 +12112,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean waitingForTurn = showsWaitingTurnMessage(localTurn,
                 preActions, settledShowdown, localFolded, localAllIn,
                 liveLocalPlayer);
+        boolean subduedLocalHud = settledLocalWinner == null
+                && !localMonteCarlo && !autoActionVeto
+                && (localActionMemory || waitingForTurn || localFolded);
         String lastLocalActionLabel = lastActionLabelForSeat(0);
         Color lastLocalActionColor = lastActionColorForSeat(0);
+        Color localHudActionColor = localActionSubmissionPending
+                ? liveActionColor(localActionKind) : lastLocalActionColor;
         Color foldButtonColor = preActions ? SWING_FOLD_BUTTON
                 : controls.callAction() == ActionControlState.CallAction.CHECK
                 ? SWING_FOLD_DANGER_BUTTON : SWING_FOLD_BUTTON;
@@ -11883,7 +12128,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : hudCallTextColor(controls.callAction());
         Color betButtonColor = hudRaiseSurfaceColor(controls.raiseAction());
         Color betTextColor = hudRaiseTextColor(controls.raiseAction());
-        Color allInButtonColor = LEGACY_ALL_IN;
+        Color allInButtonColor = voluntaryShow ? LEGACY_SHOW : LEGACY_ALL_IN;
         boolean foldSelected = preActions && queuedPreAction == 1;
         boolean checkSelected = preActions && queuedPreAction == 2;
         // A protected first press must be unmistakable without replacing the
@@ -11938,11 +12183,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         float turnPulse = 0.5f + 0.5f * MathUtils.sin(totalTime * 5.2f);
-        Color hudFrame = settledShowdown
+        Color hudFrame = localShownHand
+                ? settledLocalWinner == null ? lastLocalActionColor
+                        : settledShowdownColor(settledLocalWinner)
+                : localMonteCarlo || localActionMemory
+                        ? localHudActionColor
+                : localFolded ? LEGACY_FOLD
+                : settledShowdown
                 ? settledShowdownColor(Boolean.TRUE.equals(settledLocalWinner))
                 : timeoutAwareRim(liveLocalPlayer,
                         danger ? FOLD_RED : localTurn ? ACTIVE_TURN_GOLD
-                                : localFolded ? BUTTON_LINE : SEAT_RIM);
+                                : SEAT_RIM);
         if (danger) {
             shapes.setColor(FOLD_RED.r, FOLD_RED.g, FOLD_RED.b,
                     0.24f + dangerPulse * 0.50f);
@@ -11953,8 +12204,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             roundedRect(hudX - 14f, hudY - 14f,
                     hudWidth + 28f, hudHeight + 37f, 24f);
         }
-        shapes.setColor(hudFrame.r, hudFrame.g, hudFrame.b,
-                settledShowdown ? 0.78f + outcomePulse * 0.18f
+        float idleFrameLighten = subduedLocalHud ? 0.24f : 0f;
+        shapes.setColor(
+                MathUtils.lerp(hudFrame.r, 1f, idleFrameLighten),
+                MathUtils.lerp(hudFrame.g, 1f, idleFrameLighten),
+                MathUtils.lerp(hudFrame.b, 1f, idleFrameLighten),
+                subduedLocalHud ? 0.40f
+                        : localShownHand || localMonteCarlo ? 0.90f
+                        : settledShowdown ? 0.78f + outcomePulse * 0.18f
                         : danger ? 0.62f + dangerPulse * 0.38f
                         : localTurn ? 0.72f + turnPulse * 0.26f
                                 : localHudIdleFrameAlpha(localFolded));
@@ -11962,7 +12219,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 hudWidth + 16f, hudHeight + 25f, 19f);
         // A unified HUD does not need an opaque black slab. Keep a subtle
         // smoked-glass tint so the felt remains visible behind the controls.
-        if (settledLocalWinner != null) {
+        if (localShownHand) {
+            if (settledLocalWinner != null) {
+                Color shownOutcomeColor = localOutcomeSurfaceColor(
+                        settledLocalWinner);
+                shapes.setColor(0.012f, 0.025f, 0.040f, 0.68f);
+                roundedRect(hudX - 3f, hudY - 3f,
+                        hudWidth + 6f, hudHeight + 15f, 16f);
+                shapes.setColor(shownOutcomeColor.r, shownOutcomeColor.g,
+                        shownOutcomeColor.b, 0.58f);
+                roundedRect(hudX - 3f, hudY - 3f,
+                        hudWidth + 6f, hudHeight + 15f, 16f);
+            } else {
+                drawSubduedLocalHudSurface(hudX, hudY, hudWidth, hudHeight,
+                        lastLocalActionColor);
+            }
+        } else if (settledLocalWinner != null) {
             Color outcomeColor = localOutcomeSurfaceColor(
                     settledLocalWinner);
             shapes.setColor(0.012f, 0.025f, 0.040f, 0.68f);
@@ -11972,8 +12244,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     0.58f + outcomePulse * 0.06f);
             roundedRect(hudX - 3f, hudY - 3f,
                     hudWidth + 6f, hudHeight + 15f, 16f);
+        } else if (localMonteCarlo) {
+            shapes.setColor(0.012f, 0.025f, 0.040f, 0.68f);
+            roundedRect(hudX - 3f, hudY - 3f,
+                    hudWidth + 6f, hudHeight + 15f, 16f);
+            shapes.setColor(lastLocalActionColor.r,
+                    lastLocalActionColor.g, lastLocalActionColor.b, 0.62f);
+            roundedRect(hudX - 3f, hudY - 3f,
+                    hudWidth + 6f, hudHeight + 15f, 16f);
+        } else if (localFolded) {
+            drawSubduedLocalHudSurface(hudX, hudY, hudWidth, hudHeight,
+                    LEGACY_FOLD);
+        } else if (localActionMemory) {
+            // Use the exact full-HUD surface employed by waiting/reveal
+            // presentations. The opaque identity panel is painted immediately
+            // afterwards, so only the right message area remains translucent.
+            drawSubduedLocalHudSurface(hudX, hudY, hudWidth, hudHeight,
+                    localHudActionColor);
         } else {
-            shapes.setColor(0.025f, 0.085f, 0.095f, 0.56f);
+            shapes.setColor(0.025f, 0.085f, 0.095f,
+                    subduedLocalHud ? 0.28f : 0.56f);
             roundedRect(hudX - 3f, hudY - 3f,
                     hudWidth + 6f, hudHeight + 15f, 16f);
         }
@@ -12001,11 +12291,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 localPotBackground.b, localPotBackground.a * 0.94f);
         roundedRect(hudX + infoWidth * 0.51f, hudY + 8f,
                 infoWidth * 0.45f, 25f, 6f);
-        if (localTimedOut || !lastLocalActionLabel.isEmpty()) {
+        if (!localMonteCarlo
+                && (localTimedOut || !lastLocalActionLabel.isEmpty())) {
             shapes.setColor(lastLocalActionColor.r, lastLocalActionColor.g,
                     lastLocalActionColor.b, lastLocalActionColor.a
-                    * seatActionSurfaceAlpha(localFolded,
-                            settledShowdown));
+                    * seatActionSurfaceAlpha(localFolded, settledShowdown));
             roundedRect(hudX + 14f, hudY + 37f,
                     infoWidth - 28f, 24f, 6f);
         }
@@ -12020,6 +12310,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawHudActionSurface(allInX, actionY, allInWidth, actionHeight,
                     allInVisualColor, allInHover,
                     false, pointerDown && allInHover, true);
+        } else if (localShownHand) {
+            // A voluntary late reveal owns the presentation area with the
+            // evaluated hand. The previous fold/result is no longer a live
+            // control and must not leave any invisible action target behind.
+        } else if (localMonteCarlo) {
+            // Monte Carlo owns the action area while an all-in board is being
+            // completed. The local player has no meaningful poker controls at
+            // this point, and the large HUD presentation replaces the former
+            // cramped label in the identity column.
+        } else if (localActionMemory) {
+            // The accepted local action remains visible in the now inactive
+            // action area. It is deliberately not drawn as a button, so the
+            // presentation cannot keep an obsolete action clickable.
         } else if (settledLocalWinner == null && autoActionVeto) {
             boolean cancelHover = autoHud.cancel().contains(pointer.x,
                     pointer.y);
@@ -12120,11 +12423,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             batch.setColor(Color.WHITE);
             batch.draw(timeoutIcon, hudX + 16f, hudY + 39f, 20f, 20f);
         }
-        if (!lastLocalActionLabel.isEmpty()) {
+        if (!localMonteCarlo && !lastLocalActionLabel.isEmpty()) {
             drawFittedCenteredInBox(actionFont, lastLocalActionLabel,
                     hudX + (localTimedOut ? 40f : 18f), hudY + 37f,
                     infoWidth - (localTimedOut ? 58f : 36f), 25f,
-                    localFolded ? Color.GRAY : lastActionTextColorForSeat(0),
+                    localFolded ? Color.GRAY
+                            : lastActionTextColorForSeat(0),
                     seatActionTextAlpha(localFolded));
         }
         drawFittedCenteredInBox(stackFont,
@@ -12137,14 +12441,32 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 lastLocalActionLabel.isEmpty() ? Color.WHITE
                         : lastActionTextColorForSeat(0), 1f);
 
+        float statusX = foldX + 24f;
+        float statusRight = voluntaryShow ? allInX - 12f
+                : allInX + allInWidth - 24f;
+        float statusWidth = Math.max(1f, statusRight - statusX);
         if (voluntaryShow) {
             drawHudActionContent(
-                    uppercase(gameText.translate("action.mostrar")),
+                    voluntaryShowLabel(controls, gameText),
                     allInX, actionY, allInWidth, actionHeight,
                     Color.WHITE, 1f);
+        }
+        if (localShownHand) {
+            drawScaledFittedCenteredInBox(localOutcomeFont, 0.70f,
+                    localShownOutcomeLabel(localFolded,
+                            settledLocalWinner,
+                            settledLocalWinner != null
+                                    && settledLocalWinner
+                                    ? liveState.resolvedWonPotIndexes(
+                                            seats[0].name)
+                                    : List.of(),
+                            gameText),
+                    statusX, actionY + 8f, statusWidth,
+                    actionHeight - 16f,
+                    localHudStatusTextColor(localFolded,
+                            settledLocalWinner, localActionKind),
+                    1f);
         } else if (settledLocalWinner != null) {
-            float outcomeX = foldX + 24f;
-            float outcomeWidth = allInX + allInWidth - foldX - 48f;
             Color outcomeColor = settledLocalWinner
                     ? Color.BLACK : Color.WHITE;
             drawFittedCenteredInBox(localOutcomeFont,
@@ -12154,8 +12476,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                             seats[0].name)
                                     : List.of(),
                             gameText),
-                    outcomeX, actionY + 8f, outcomeWidth,
+                    statusX, actionY + 8f, statusWidth,
                     actionHeight - 16f, outcomeColor, 1f);
+        } else if (localMonteCarlo) {
+            drawScaledFittedCenteredInBox(localOutcomeFont, 0.70f,
+                    lastLocalActionLabel,
+                    statusX, actionY + 8f, statusWidth,
+                    actionHeight - 16f,
+                    lastActionTextColorForSeat(0), 1f);
+        } else if (localActionMemory) {
+            String canonical = localActionSubmissionPending ? ""
+                    : liveState.actionLabel(localSeat.name);
+            String fallback = canonical.isBlank() && liveLocalPlayer != null
+                    ? liveLocalPlayer.lastAction() : canonical;
+            drawScaledFittedCenteredInBox(localOutcomeFont, 0.70f,
+                    localActionMemoryLabel(localActionKind, fallback,
+                            gameText),
+                    statusX, actionY + 8f, statusWidth,
+                    actionHeight - 16f,
+                    localHudStatusTextColor(false, null, localActionKind),
+                    1f);
         } else if (autoActionVeto) {
             String autoStatus = uppercase(activeDialog.title() + " ("
                     + activeDialog.message() + ")");
@@ -12169,12 +12509,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     autoHud.cancel().width - 20f,
                     autoHud.cancel().height - 12f, Color.WHITE, 1f);
         } else if (localFolded || waitingForTurn) {
-            float waitingX = foldX + 24f;
-            float waitingWidth = allInX + allInWidth - foldX - 48f;
-            drawFittedCenteredInBox(localOutcomeFont,
+            drawScaledFittedCenteredInBox(localOutcomeFont, 0.70f,
                     localHudIdleMessage(localFolded, waitingForTurn,
                             gameText),
-                    waitingX, actionY + 8f, waitingWidth,
+                    statusX, actionY + 8f, statusWidth,
                     actionHeight - 16f, WAITING_TURN_TEXT, 1f);
         } else if (localTurn || preActions) {
             drawHudActionContent(foldThumbIcon,
@@ -12358,6 +12696,90 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static boolean showsVoluntaryShowButton(ActionControlState controls,
             boolean autoActionVeto) {
         return !autoActionVeto && controls != null && controls.showCards();
+    }
+
+    static boolean showsLocalMonteCarloHud(boolean allInThisHand,
+            Float partialHandPercentage, boolean hasHandResult) {
+        return allInThisHand && partialHandPercentage != null
+                && !hasHandResult;
+    }
+
+    static boolean showsLocalActionMemory(boolean localTurn,
+            TableVisualEvent.PlayerAction.ActionKind kind,
+            boolean settledPresentation, boolean monteCarlo) {
+        if (localTurn || settledPresentation || monteCarlo || kind == null) {
+            return false;
+        }
+        return switch (kind) {
+            case FOLD, CHECK, CALL, BET, RAISE, RERAISE, ALL_IN -> true;
+            case WAITING, SMALL_BLIND, BIG_BLIND, STRADDLE -> false;
+        };
+    }
+
+    static String localActionMemoryLabel(
+            TableVisualEvent.PlayerAction.ActionKind kind,
+            String fallback, GdxGameText text) {
+        if (kind == null) {
+            return fallback == null ? "" : fallback;
+        }
+        String localized = switch (kind) {
+            case FOLD -> text.translate("action.label.fold");
+            case CHECK -> text.translate("action.label.check");
+            case CALL -> text.translate("action.label.call");
+            case BET -> text.translate("action.label.bet");
+            case RAISE -> text.translate("action.label.raise");
+            case RERAISE -> "RE" + text.translate("action.label.raise");
+            case ALL_IN -> text.translate("action.label.allin");
+            case WAITING, SMALL_BLIND, BIG_BLIND, STRADDLE ->
+                fallback == null ? "" : fallback;
+        };
+        return localized + actionIncreaseSuffix(kind, fallback);
+    }
+
+    static String localShownHandLabel(String handName, GdxGameText text) {
+        String shownHand = handName == null ? "" : handName.trim();
+        if (shownHand.isEmpty()) {
+            return "";
+        }
+        return uppercase(text.translate("ui.muestras") + shownHand
+                + text.translate("ui.suffix_close"), text);
+    }
+
+    static String localShownOutcomeLabel(boolean foldedThisHand,
+            Boolean resolvedWinner, List<Integer> wonPotIndexes,
+            GdxGameText text) {
+        String state = resolvedWinner != null
+                ? localHandOutcomeLabel(resolvedWinner,
+                        Boolean.TRUE.equals(resolvedWinner)
+                                ? wonPotIndexes : List.of(), text)
+                : foldedThisHand
+                        ? text.translate("action.label.fold") : "";
+        String shown = text.translate("gdx.table.hud.shows_cards");
+        return uppercase(state.isBlank()
+                ? shown : state + " (" + shown + ")", text);
+    }
+
+    private static String actionIncreaseSuffix(
+            TableVisualEvent.PlayerAction.ActionKind kind,
+            String fallback) {
+        if (kind != TableVisualEvent.PlayerAction.ActionKind.RAISE
+                && kind != TableVisualEvent.PlayerAction.ActionKind.RERAISE
+                && kind != TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
+            return "";
+        }
+        String label = fallback == null ? "" : fallback.trim();
+        int suffixStart = label.lastIndexOf(" (+");
+        return suffixStart >= 0 && label.endsWith(")")
+                ? label.substring(suffixStart) : "";
+    }
+
+    static String voluntaryShowLabel(ActionControlState controls,
+            GdxGameText text) {
+        String label = uppercase(text.translate("action.mostrar"), text);
+        return controls != null && controls.showCards()
+                && controls.showCardsUsesRemaining() >= 0
+                        ? label + " (" + controls.showCardsUsesRemaining() + ")"
+                        : label;
     }
 
     static String localHudIdleMessage(boolean foldedThisHand,
@@ -18542,6 +18964,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         data.setScale(originalScaleX, originalScaleY);
     }
 
+    private void drawScaledFittedCenteredInBox(BitmapFont font,
+            float scale, String text, float x, float y, float width,
+            float height, Color color, float alpha) {
+        BitmapFont.BitmapFontData data = font.getData();
+        float originalScaleX = data.scaleX;
+        float originalScaleY = data.scaleY;
+        data.setScale(originalScaleX * scale, originalScaleY * scale);
+        drawFittedCenteredInBox(font, text, x, y, width, height,
+                color, alpha);
+        data.setScale(originalScaleX, originalScaleY);
+    }
+
     /** Scale-down-only guard used by HUD outcomes such as many side pots. */
     static float fittedSingleLineScale(float textWidth, float textHeight,
             float boxWidth, float boxHeight) {
@@ -19477,12 +19911,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final long startedAtNanos;
         final CompletableFuture<Void> barrier;
         final List<LivePayoutChip> chips;
+        final double potBefore;
 
         LivePayout(TableVisualEvent.Payout event, long startedAtNanos,
-                CompletableFuture<Void> barrier, double minimumChip) {
+                CompletableFuture<Void> barrier, double minimumChip,
+                double potBefore) {
             this.event = event;
             this.startedAtNanos = startedAtNanos;
             this.barrier = barrier;
+            this.potBefore = Math.max(0d, MoneyMath.clean(potBefore));
             List<LivePayoutChip> created = new ArrayList<>(18);
             double[] amounts = splitVisualCounterAmounts(event.amount(), 18,
                     minimumChip);

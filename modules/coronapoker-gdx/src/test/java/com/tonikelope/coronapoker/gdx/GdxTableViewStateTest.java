@@ -3,6 +3,7 @@ package com.tonikelope.coronapoker.gdx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -20,6 +21,7 @@ import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
 
@@ -160,6 +162,10 @@ final class GdxTableViewStateTest {
                 CoronaPokerGdxTable.localHandOutcome(true, false));
         assertEquals(Boolean.FALSE,
                 CoronaPokerGdxTable.localHandOutcome(false, false));
+        assertEquals(null,
+                CoronaPokerGdxTable.localHandOutcome(false, true));
+        assertEquals(null,
+                CoronaPokerGdxTable.localHandOutcome(true, true));
         assertEquals(null,
                 CoronaPokerGdxTable.localHandOutcome(null, true));
         assertEquals(null,
@@ -431,13 +437,32 @@ final class GdxTableViewStateTest {
                 18d, 10d, 11d));
 
         assertEquals(10d, CoronaPokerGdxTable.displayedPayoutPot(
-                0d, 10d, 0d));
+                10d, 0d, 10d, 0d));
         assertEquals(6d, CoronaPokerGdxTable.displayedPayoutPot(
-                0d, 10d, 4d));
+                10d, 0d, 10d, 4d));
         assertEquals(0d, CoronaPokerGdxTable.displayedPayoutPot(
-                0d, 10d, 10d));
+                10d, 0d, 10d, 10d));
         assertEquals(0d, CoronaPokerGdxTable.displayedPayoutPot(
-                0d, 10d, 11d));
+                10d, 0d, 10d, 11d));
+
+        // The pending payout can differ by a cent after a split. It must not
+        // replace the pot that was already visible before chips start moving.
+        assertEquals(4.89d, CoronaPokerGdxTable.displayedPayoutPot(
+                4.89d, 0d, 4.90d, 0d));
+        assertEquals(0d, CoronaPokerGdxTable.displayedPayoutPot(
+                4.89d, 0d, 4.90d, 4.90d));
+
+        double previous = Double.POSITIVE_INFINITY;
+        for (double landed = 0d; landed <= 4.90d; landed += 0.01d) {
+            double displayed = CoronaPokerGdxTable.displayedPayoutPot(
+                    4.89d, 0d, 4.90d, landed);
+            assertTrue(displayed <= previous,
+                    "A payout must never increase the displayed pot");
+            previous = displayed;
+        }
+        assertThrows(IllegalArgumentException.class,
+                () -> CoronaPokerGdxTable.displayedPayoutPot(
+                        4.89d, 4.90d, 0.01d, 0d));
     }
 
     @Test
@@ -1253,11 +1278,16 @@ final class GdxTableViewStateTest {
     @Test
     void foldedPlayerCanStillUseVoluntaryShowAtShowdown() {
         ActionControlState show = ActionControlState.disabled()
-                .withShowCards(true);
+                .withShowCards(true, 5);
         assertTrue(CoronaPokerGdxTable.showsVoluntaryShowButton(show, false));
         assertFalse(CoronaPokerGdxTable.showsVoluntaryShowButton(show, true));
         assertFalse(CoronaPokerGdxTable.showsVoluntaryShowButton(
                 ActionControlState.disabled(), false));
+        GdxGameText spanish = new GdxGameText("es");
+        assertEquals("MOSTRAR (5)",
+                CoronaPokerGdxTable.voluntaryShowLabel(show, spanish));
+        assertEquals("MOSTRAR", CoronaPokerGdxTable.voluntaryShowLabel(
+                ActionControlState.disabled().withShowCards(true), spanish));
 
         GdxTableViewState state = new GdxTableViewState(snapshotAt(
                 TableSnapshot.Street.SHOWDOWN));
@@ -1272,6 +1302,227 @@ final class GdxTableViewStateTest {
                 ActionControlState.disabled()));
         assertFalse(table.activateVoluntaryShowAction());
         assertEquals(1, submitted.size());
+    }
+
+    @Test
+    void localAllInMonteCarloOwnsTheHudUntilTheFinalHandResult() {
+        assertTrue(CoronaPokerGdxTable.showsLocalMonteCarloHud(
+                true, -1f, false));
+        assertTrue(CoronaPokerGdxTable.showsLocalMonteCarloHud(
+                true, 63.25f, false));
+        assertFalse(CoronaPokerGdxTable.showsLocalMonteCarloHud(
+                false, 63.25f, false));
+        assertFalse(CoronaPokerGdxTable.showsLocalMonteCarloHud(
+                true, null, false));
+        assertFalse(CoronaPokerGdxTable.showsLocalMonteCarloHud(
+                true, 63.25f, true));
+    }
+
+    @Test
+    void acceptedLocalPokerActionsOwnTheIdleHudUntilStateAdvances() {
+        for (TableVisualEvent.PlayerAction.ActionKind kind : List.of(
+                TableVisualEvent.PlayerAction.ActionKind.FOLD,
+                TableVisualEvent.PlayerAction.ActionKind.CHECK,
+                TableVisualEvent.PlayerAction.ActionKind.CALL,
+                TableVisualEvent.PlayerAction.ActionKind.BET,
+                TableVisualEvent.PlayerAction.ActionKind.RAISE,
+                TableVisualEvent.PlayerAction.ActionKind.RERAISE,
+                TableVisualEvent.PlayerAction.ActionKind.ALL_IN)) {
+            assertTrue(CoronaPokerGdxTable.showsLocalActionMemory(
+                    false, kind, false, false));
+        }
+        assertFalse(CoronaPokerGdxTable.showsLocalActionMemory(
+                true, TableVisualEvent.PlayerAction.ActionKind.CALL,
+                false, false));
+        assertFalse(CoronaPokerGdxTable.showsLocalActionMemory(
+                false, TableVisualEvent.PlayerAction.ActionKind.CALL,
+                true, false));
+        assertFalse(CoronaPokerGdxTable.showsLocalActionMemory(
+                false, TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
+                false, true));
+        assertFalse(CoronaPokerGdxTable.showsLocalActionMemory(
+                false, TableVisualEvent.PlayerAction.ActionKind.WAITING,
+                false, false));
+    }
+
+    @Test
+    void submittedActionImmediatelyOwnsTheSubduedHudAndBlocksDuplicates() {
+        GdxTableViewState state = new GdxTableViewState(
+                snapshot(false, "ana"));
+        ActionControlState controls = new ActionControlState(true,
+                ActionControlState.CallAction.CALL, 2d,
+                ActionControlState.RaiseAction.RERAISE,
+                2d, 10d, 1d, 2d, true, false, -1, 4d, 100d);
+        state.apply(new TableVisualEvent.ActionControls(1, controls));
+        List<TableCommand> submitted = new java.util.ArrayList<>();
+        CoronaPokerGdxTable table = new CoronaPokerGdxTable(60, state,
+                submitted::add, () -> { }, new GdxGameLogSink(), null);
+
+        assertTrue(table.activateFoldAction());
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.FOLD,
+                table.pendingLocalActionKind());
+        assertFalse(table.activateFoldAction(),
+                "a submitted decision must disable the live controls immediately");
+        assertEquals(List.of(new TableCommand.Fold()), submitted);
+        assertTrue(CoronaPokerGdxTable.showsLocalActionMemory(false,
+                table.pendingLocalActionKind(), false, false));
+
+        CompletableFuture<Void> accepted = new CompletableFuture<>();
+        table.acceptEvent(new TableVisualEvent.PlayerAction(2, "ana",
+                TableVisualEvent.PlayerAction.ActionKind.FOLD,
+                "NO VA", 0d, 0d, 1_000d, 0d, 0d), accepted);
+        assertTrue(accepted.isDone());
+        assertNull(table.pendingLocalActionKind(),
+                "the dealer event must replace the presentation latch");
+    }
+
+    @Test
+    void nextActionableTurnReleasesAStaleSubmissionLatch() {
+        GdxTableViewState state = new GdxTableViewState(
+                snapshot(false, "ana"));
+        ActionControlState controls = new ActionControlState(true,
+                ActionControlState.CallAction.CHECK, 0d,
+                ActionControlState.RaiseAction.BET,
+                2d, 10d, 1d, 2d, true, false, -1, 0d, 100d);
+        state.apply(new TableVisualEvent.ActionControls(1, controls));
+        List<TableCommand> submitted = new java.util.ArrayList<>();
+        CoronaPokerGdxTable table = new CoronaPokerGdxTable(60, state,
+                submitted::add, () -> { }, new GdxGameLogSink(), null);
+
+        assertTrue(table.activateCheckOrCallAction());
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.CHECK,
+                table.pendingLocalActionKind());
+
+        state.apply(new TableVisualEvent.ActionControls(2, controls));
+
+        assertNull(table.pendingLocalActionKind(),
+                "a new dealer-owned turn must release any stale HUD latch");
+        assertTrue(table.activateCheckOrCallAction(),
+                "the next turn must never inherit the previous submission lock");
+    }
+
+    @Test
+    void submittedCommandsUseTheVisibleCanonicalActionKind() {
+        ActionControlState controls = new ActionControlState(true,
+                ActionControlState.CallAction.CALL, 2d,
+                ActionControlState.RaiseAction.RERAISE,
+                2d, 10d, 1d, 2d, true, false, -1, 4d, 100d);
+
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.FOLD,
+                CoronaPokerGdxTable.submittedLocalActionKind(
+                        new TableCommand.Fold(), controls));
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.CALL,
+                CoronaPokerGdxTable.submittedLocalActionKind(
+                        new TableCommand.CheckOrCall(), controls));
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.RERAISE,
+                CoronaPokerGdxTable.submittedLocalActionKind(
+                        new TableCommand.Bet(2d), controls));
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
+                CoronaPokerGdxTable.submittedLocalActionKind(
+                        new TableCommand.AllIn(), controls));
+        assertNull(CoronaPokerGdxTable.submittedLocalActionKind(
+                new TableCommand.ShowCards(), controls));
+    }
+
+    @Test
+    void foldedHudKeepsOneTextPaletteBeforeDuringAndAfterReveal() {
+        Color submitted = CoronaPokerGdxTable.localHudStatusTextColor(
+                false, null,
+                TableVisualEvent.PlayerAction.ActionKind.FOLD);
+        Color accepted = CoronaPokerGdxTable.localHudStatusTextColor(
+                true, null,
+                TableVisualEvent.PlayerAction.ActionKind.FOLD);
+        Color revealed = CoronaPokerGdxTable.localHudStatusTextColor(
+                true, null,
+                TableVisualEvent.PlayerAction.ActionKind.FOLD);
+
+        assertEquals(submitted, accepted);
+        assertEquals(accepted, revealed);
+        assertEquals(1f, submitted.a, 0.000_001f);
+    }
+
+    @Test
+    void localActionMemoryUsesSecondPersonLabelsInEveryLanguage() {
+        GdxGameText spanish = new GdxGameText("es");
+        GdxGameText english = new GdxGameText("en");
+        assertEquals("NO VAS", CoronaPokerGdxTable.localActionMemoryLabel(
+                TableVisualEvent.PlayerAction.ActionKind.FOLD, "", spanish));
+        assertEquals("PASAS", CoronaPokerGdxTable.localActionMemoryLabel(
+                TableVisualEvent.PlayerAction.ActionKind.CHECK, "", spanish));
+        assertEquals("VAS", CoronaPokerGdxTable.localActionMemoryLabel(
+                TableVisualEvent.PlayerAction.ActionKind.CALL, "", spanish));
+        assertEquals("APUESTAS", CoronaPokerGdxTable.localActionMemoryLabel(
+                TableVisualEvent.PlayerAction.ActionKind.BET, "", spanish));
+        assertEquals("SUBES", CoronaPokerGdxTable.localActionMemoryLabel(
+                TableVisualEvent.PlayerAction.ActionKind.RAISE, "", spanish));
+        assertEquals("RESUBES (+7)", CoronaPokerGdxTable
+                .localActionMemoryLabel(
+                        TableVisualEvent.PlayerAction.ActionKind.RERAISE,
+                        "RESUBE (+7)", spanish));
+        assertEquals("ALL IN", CoronaPokerGdxTable.localActionMemoryLabel(
+                TableVisualEvent.PlayerAction.ActionKind.ALL_IN, "", english));
+        assertEquals("ALL IN (+3)", CoronaPokerGdxTable
+                .localActionMemoryLabel(
+                        TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
+                        "ALL IN (+3)", english));
+        assertEquals("RAISE (+2.5)", CoronaPokerGdxTable
+                .localizedActionLabel(
+                        TableVisualEvent.PlayerAction.ActionKind.RAISE,
+                        "SUBE (+2.5)", english));
+    }
+
+    @Test
+    void voluntarilyShownLocalHandUsesTheOriginalSecondPersonCaption() {
+        assertEquals("MUESTRAS (PAREJA)", CoronaPokerGdxTable
+                .localShownHandLabel("PAREJA", new GdxGameText("es")));
+        assertEquals("YOU SHOW (PAIR)", CoronaPokerGdxTable
+                .localShownHandLabel("PAIR", new GdxGameText("en")));
+        assertEquals("", CoronaPokerGdxTable.localShownHandLabel(
+                "", new GdxGameText("es")));
+    }
+
+    @Test
+    void voluntarilyShownLocalHandKeepsItsOutcomeBeforeTheReveal() {
+        GdxGameText spanish = new GdxGameText("es");
+        GdxGameText english = new GdxGameText("en");
+
+        assertEquals("NO VAS (MUESTRAS CARTAS)", CoronaPokerGdxTable
+                .localShownOutcomeLabel(true, null, List.of(), spanish));
+        assertEquals("PIERDES (MUESTRAS CARTAS)", CoronaPokerGdxTable
+                .localShownOutcomeLabel(false, Boolean.FALSE, List.of(),
+                        spanish));
+        assertEquals("¡GANAS! (MUESTRAS CARTAS)", CoronaPokerGdxTable
+                .localShownOutcomeLabel(false, Boolean.TRUE, List.of(),
+                        spanish));
+        assertEquals("YOU WIN! (YOU SHOW CARDS)", CoronaPokerGdxTable
+                .localShownOutcomeLabel(false, Boolean.TRUE, List.of(),
+                        english));
+    }
+
+    @Test
+    void lateShowNeverRecolorsTheActionLabelBlue() {
+        Color unresolved = new Color(0.1f, 0.2f, 0.3f, 1f);
+
+        assertEquals(new Color(0x808080ff),
+                CoronaPokerGdxTable.seatOutcomeColor(
+                        true, Boolean.FALSE, unresolved));
+        assertEquals(new Color(0xff0000ff),
+                CoronaPokerGdxTable.seatOutcomeColor(
+                        false, Boolean.FALSE, unresolved));
+        assertEquals(new Color(0x00ff00ff),
+                CoronaPokerGdxTable.seatOutcomeColor(
+                        false, Boolean.TRUE, unresolved));
+        assertEquals(unresolved, CoronaPokerGdxTable.seatOutcomeColor(
+                false, null, unresolved));
+        assertEquals(Color.WHITE,
+                CoronaPokerGdxTable.lateShownHandTextColor(
+                        true, Boolean.FALSE));
+        assertEquals(Color.WHITE,
+                CoronaPokerGdxTable.lateShownHandTextColor(
+                        false, Boolean.FALSE));
+        assertEquals(Color.BLACK,
+                CoronaPokerGdxTable.lateShownHandTextColor(
+                        false, Boolean.TRUE));
     }
 
     @Test
@@ -1533,11 +1784,11 @@ final class GdxTableViewStateTest {
         ActionControlState disabledWithCall = new ActionControlState(true,
                 ActionControlState.CallAction.DISABLED, 0.2d,
                 ActionControlState.RaiseAction.DISABLED,
-                0d, 0d, 0d, 0d, false, false, 0.2d, 10d);
+                0d, 0d, 0d, 0d, false, false, -1, 0.2d, 10d);
         ActionControlState disabledCheck = new ActionControlState(true,
                 ActionControlState.CallAction.DISABLED, 0d,
                 ActionControlState.RaiseAction.DISABLED,
-                0d, 0d, 0d, 0d, false, false, 0d, 10d);
+                0d, 0d, 0d, 0d, false, false, -1, 0d, 10d);
 
         assertEquals("IR (+0.2)",
                 CoronaPokerGdxTable.callLabel(disabledWithCall, spanish));
@@ -3103,15 +3354,51 @@ final class GdxTableViewStateTest {
                 TableSnapshot.Street.SHOWDOWN));
         state.apply(new TableVisualEvent.HandResult(1, "borja", "", false,
                 TableSnapshot.Street.SHOWDOWN));
+        state.apply(new TableVisualEvent.IwtsthCandidates(2,
+                List.of("borja")));
         assertEquals("", state.resolvedHandName("borja"),
                 "a mucked losing hand must initially remain private");
 
-        state.apply(new TableVisualEvent.RevealHoleCards(2, "borja",
+        state.apply(new TableVisualEvent.RevealHoleCards(3, "borja",
                 card("Q_D"), card("10_D"), "PAREJA"));
 
         assertEquals("PAREJA", state.resolvedHandName("borja"));
         assertEquals(Boolean.FALSE, state.resolvedHandWinner("borja"),
                 "revealing the hand must not change the settled verdict");
+        assertEquals("PAREJA", player(state, "borja").handName());
+        assertTrue(state.hasLateShownHand("borja"));
+        assertTrue(state.iwtsthCandidates().isEmpty(),
+                "a voluntarily or forcibly revealed hand is no longer an "
+                + "IWTSTH candidate");
+    }
+
+    @Test
+    void foldedPlayerRevealUsesTheActualHandAndClearsAtNextHand() {
+        GdxTableViewState state = new GdxTableViewState(snapshotAt(
+                TableSnapshot.Street.SHOWDOWN));
+        state.apply(new TableVisualEvent.FoldHoleCards(1, "borja"));
+        state.apply(new TableVisualEvent.RevealHoleCards(2, "borja",
+                card("Q_D"), card("10_D"), "COLOR"));
+
+        assertEquals("COLOR", player(state, "borja").handName());
+        assertTrue(state.hasLateShownHand("borja"));
+
+        state.apply(new TableVisualEvent.HandBoundary(3, 2,
+                TableVisualEvent.HandBoundary.Phase.PREPARE, snapshot()));
+        assertFalse(state.hasLateShownHand("borja"));
+    }
+
+    @Test
+    void uncontestedWinnerCanRevealLateWithoutLosingTheWinnerVerdict() {
+        GdxTableViewState state = new GdxTableViewState(snapshotAt(
+                TableSnapshot.Street.SHOWDOWN));
+        state.apply(new TableVisualEvent.Payout(1, "borja", 10d, 0,
+                1_010d, 0d));
+        state.apply(new TableVisualEvent.RevealHoleCards(2, "borja",
+                card("A_D"), card("A_C"), "PAREJA"));
+
+        assertTrue(state.hasLateShownHand("borja"));
+        assertEquals(Boolean.TRUE, state.resolvedHandWinner("borja"));
         assertEquals("PAREJA", player(state, "borja").handName());
     }
 

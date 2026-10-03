@@ -250,6 +250,9 @@ public interface GamePlayerController
 
     int getParguela_counter();
 
+    /** Consumes one remaining voluntary reveal after folding. */
+    void consumeParguelaShow();
+
     void disableUTG();
 
     void setUTG();

@@ -16,6 +16,17 @@ import org.junit.jupiter.api.Test;
 class CorePlayerControllerTest {
 
     @Test
+    void foldedShowAllowanceStartsAtFiveAndNeverBecomesNegative() {
+        CorePlayerController player = CorePlayerController.local("player");
+
+        assertEquals(5, player.getParguela_counter());
+        for (int i = 0; i < 7; i++) {
+            player.consumeParguelaShow();
+        }
+        assertEquals(0, player.getParguela_counter());
+    }
+
+    @Test
     void replayableBotUsesInjectedEntropyForItsInitialPersonality() {
         CountingRandom replay = new CountingRandom(12345L);
 

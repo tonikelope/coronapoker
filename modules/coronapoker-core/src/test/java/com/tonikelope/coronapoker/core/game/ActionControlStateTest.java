@@ -55,4 +55,15 @@ final class ActionControlStateTest {
         assertEquals(ActionControlState.disabled(),
                 controls.withShowCards(false));
     }
+
+    @Test
+    void countedFoldShowCarriesItsRemainingUsesOnlyWhileVisible() {
+        ActionControlState controls = ActionControlState.disabled()
+                .withShowCards(true, 5);
+
+        assertTrue(controls.showCards());
+        assertEquals(5, controls.showCardsUsesRemaining());
+        assertEquals(ActionControlState.disabled(),
+                controls.withShowCards(false));
+    }
 }

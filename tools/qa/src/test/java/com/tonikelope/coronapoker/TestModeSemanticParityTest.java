@@ -13,8 +13,11 @@ class TestModeSemanticParityTest {
     @Test
     void everyProductionTestModeShortcutBelongsToTheReviewedInventory()
             throws Exception {
+        // SHOWCARDS now shares one pause assignment for face-down and local
+        // already-visible cards. This removes a duplicate test-mode branch
+        // without changing the accelerated pause value or its scope.
         Map<String, Integer> reviewedOccurrences = Map.of(
-                "Crupier.java", 23);
+                "Crupier.java", 22);
 
         try (var coreSources = Files.walk(coreSourceRoot());
                 var gdxSources = Files.walk(gdxSourceRoot());

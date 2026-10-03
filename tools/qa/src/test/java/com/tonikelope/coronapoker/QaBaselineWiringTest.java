@@ -131,8 +131,10 @@ class QaBaselineWiringTest {
                 "test must install the exact checkout before standalone QA");
         assertTrue(runner.contains("'test', '-Pqa-all'"),
                 "test must include every replayable non-bot QA lane");
-        assertTrue(runner.contains("& $certifier @certificationArgs"),
-                "scenario execution must delegate to the one public catalogue");
+        assertTrue(runner.contains("$certificationParams = @{"),
+                "PowerShell scripts require named-parameter hashtable splatting");
+        assertTrue(runner.contains("& $certifier @certificationParams"),
+                "scenario execution must delegate named options to the one public catalogue");
         assertTrue(runner.contains(".m2\\repository"),
                 "the public runner must use the checkout-local dependency cache");
         assertTrue(runner.contains("summary.json"));

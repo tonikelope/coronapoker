@@ -11,6 +11,7 @@ import java.util.function.Supplier;
 public final class CorePlayerController implements GamePlayerController {
 
     private static final String ALBERTA_SUITS = "TDCP";
+    private static final int VOLUNTARY_FOLD_SHOW_LIMIT = 5;
 
     private final PlayerState state;
     private final CoreCardController firstCard;
@@ -24,7 +25,7 @@ public final class CorePlayerController implements GamePlayerController {
     private volatile boolean chipForcedHidden;
     private volatile int winCount;
     private volatile int rabbitCount;
-    private volatile int parguelaCount;
+    private volatile int parguelaCount = VOLUNTARY_FOLD_SHOW_LIMIT;
     private volatile Runnable turnCompletionSignal = () -> { };
     private volatile Runnable potRegistration = () -> { };
     private volatile Runnable acceptedLocalFoldSignal = () -> { };
@@ -531,6 +532,9 @@ public final class CorePlayerController implements GamePlayerController {
     }
     @Override public void setChipForcedHidden(boolean hidden) { chipForcedHidden = hidden; }
     @Override public int getParguela_counter() { return parguelaCount; }
+    @Override public void consumeParguelaShow() {
+        if (parguelaCount > 0) parguelaCount--;
+    }
     @Override public void disableUTG() { state.setUnderTheGun(false); }
     @Override public void setUTG() { state.setUnderTheGun(true); }
 

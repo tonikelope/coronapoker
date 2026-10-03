@@ -45,6 +45,7 @@ final class GdxTableViewState {
     private String callCostAggressorNickname = "";
     private String runItTwicePotPrefix = "";
     private ActionControlState actionControls = ActionControlState.disabled();
+    private long actionControlsSequence;
     private boolean preActionControlsActive;
     private boolean lastHand;
     private int maximumHands = -1;
@@ -65,6 +66,7 @@ final class GdxTableViewState {
     private final Map<String, Float> partialHandPercentages = new HashMap<>();
     private final Map<String, Integer> immediateRebuys = new HashMap<>();
     private final java.util.Set<String> resolvedHandResults = new HashSet<>();
+    private final java.util.Set<String> lateShownHands = new HashSet<>();
     private final java.util.Set<String> iwtsthCandidates = new HashSet<>();
     private final java.util.Set<Integer> rabbitCardSlots = new HashSet<>();
     private boolean rabbitRequestable;
@@ -164,6 +166,10 @@ final class GdxTableViewState {
         return actionControls;
     }
 
+    long actionControlsSequence() {
+        return actionControlsSequence;
+    }
+
     boolean preActionControlsActive() {
         return preActionControlsActive;
     }
@@ -258,6 +264,10 @@ final class GdxTableViewState {
 
     boolean hasHandResult(String nickname) {
         return resolvedHandResults.contains(nickname);
+    }
+
+    boolean hasLateShownHand(String nickname) {
+        return lateShownHands.contains(nickname);
     }
 
     boolean foldedThisHand(String nickname) {
@@ -537,6 +547,7 @@ final class GdxTableViewState {
             callCostAggressorNickname = callCost.aggressorNickname();
         } else if (event instanceof TableVisualEvent.ActionControls controls) {
             actionControls = controls.state();
+            actionControlsSequence = controls.sequence();
         } else if (event instanceof TableVisualEvent.PreActionControls controls) {
             preActionControlsActive = controls.active();
         } else if (event instanceof TableVisualEvent.PlayerAction action) {
@@ -553,6 +564,16 @@ final class GdxTableViewState {
             // is what preserves the accepted ALL IN/CALL label for its full
             // dramatic beat before reveals and partial hands arrive.
         } else if (event instanceof TableVisualEvent.RevealHoleCards reveal) {
+            if (!reveal.handName().isBlank()
+                    && (resolvedHandResults.contains(reveal.nickname())
+                    || resolvedHandWinners.containsKey(reveal.nickname())
+                    || foldedThisHand.contains(reveal.nickname()))) {
+                lateShownHands.add(reveal.nickname());
+            }
+            // A voluntary or forced late reveal is no longer a valid IWTSTH
+            // target. Remove it immediately instead of waiting for another
+            // full candidate-list publication.
+            iwtsthCandidates.remove(reveal.nickname());
             revealedHoleCards.put(reveal.nickname(),
                     List.of(reveal.left(), reveal.right()));
             // A mucked loser reaches showdown with an intentionally blank
@@ -779,6 +800,7 @@ final class GdxTableViewState {
         showdownHighlights.remove(nickname);
         partialHandPercentages.remove(nickname);
         resolvedHandResults.remove(nickname);
+        lateShownHands.remove(nickname);
         resolvedHandNames.remove(nickname);
         resolvedHandWinners.remove(nickname);
         resolvedWonPotIndexes.remove(nickname);
@@ -815,6 +837,7 @@ final class GdxTableViewState {
             rebuyDecisions.clear();
             partialHandPercentages.clear();
             resolvedHandResults.clear();
+            lateShownHands.clear();
             resolvedHandNames.clear();
             resolvedHandWinners.clear();
             resolvedWonPotIndexes.clear();
@@ -844,6 +867,7 @@ final class GdxTableViewState {
         showdownHighlights.clear();
         partialHandPercentages.clear();
         resolvedHandResults.clear();
+        lateShownHands.clear();
         resolvedHandNames.clear();
         resolvedHandWinners.clear();
         resolvedWonPotIndexes.clear();

@@ -8,8 +8,8 @@ import java.math.RoundingMode;
 public record ActionControlState(boolean foldEnabled, CallAction callAction,
         double callAmount, RaiseAction raiseAction, double raiseMinimum,
         double raiseMaximum, double raiseStep, double raiseAmount,
-        boolean allInEnabled, boolean showCards, double currentBet,
-        double playerStack) {
+        boolean allInEnabled, boolean showCards, int showCardsUsesRemaining,
+        double currentBet, double playerStack) {
 
     public enum CallAction { DISABLED, CHECK, CALL }
     public enum RaiseAction { DISABLED, BET, RAISE, RERAISE }
@@ -29,18 +29,28 @@ public record ActionControlState(boolean foldEnabled, CallAction callAction,
                 || playerStack < 0d) {
             throw new IllegalArgumentException("Action amounts cannot be negative");
         }
+        if (showCardsUsesRemaining < -1) {
+            throw new IllegalArgumentException(
+                    "Show-card uses must be -1 (unlimited) or non-negative");
+        }
     }
 
     public static ActionControlState disabled() {
         return new ActionControlState(false, CallAction.DISABLED, 0d,
                 RaiseAction.DISABLED, 0d, 0d, 0d, 0d,
-                false, false, 0d, 0d);
+                false, false, -1, 0d, 0d);
     }
 
     public ActionControlState withShowCards(boolean visible) {
+        return withShowCards(visible, -1);
+    }
+
+    public ActionControlState withShowCards(boolean visible,
+            int usesRemaining) {
         return new ActionControlState(foldEnabled, callAction, callAmount,
                 raiseAction, raiseMinimum, raiseMaximum, raiseStep, raiseAmount,
-                allInEnabled, visible, currentBet, playerStack);
+                allInEnabled, visible, visible ? usesRemaining : -1,
+                currentBet, playerStack);
     }
 
     public static ActionControlState forTurn(double currentBet,
@@ -93,7 +103,7 @@ public record ActionControlState(boolean foldEnabled, CallAction callAction,
         return new ActionControlState(true, callAction, call.doubleValue(),
                 raiseAction, minimum.doubleValue(), maximum.doubleValue(),
                 raiseAction == RaiseAction.DISABLED ? 0d : small.doubleValue(),
-                minimum.doubleValue(), allIn, false, current.doubleValue(),
+                minimum.doubleValue(), allIn, false, -1, current.doubleValue(),
                 stack.doubleValue());
     }
 

@@ -277,13 +277,16 @@ if ($runsTests) {
 }
 
 if ($runsScenarios) {
-    $certificationArgs = @('-Mode', $Mode, '-Scenario', $Scenario)
-    $certificationArgs += @('-Seed', $Seed)
+    $certificationParams = @{
+        Mode = $Mode
+        Scenario = $Scenario
+        Seed = $Seed
+    }
     if ($VerboseScenarios) {
-        $certificationArgs += '-VerboseOutput'
+        $certificationParams.VerboseOutput = $true
     }
     Invoke-QaStage "GDX scenarios ($Mode)" {
-        & $certifier @certificationArgs
+        & $certifier @certificationParams
     }
 }
 

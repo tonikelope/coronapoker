@@ -8,7 +8,7 @@ import java.util.Properties;
 /** Renderer-neutral application identity for the CoronaPoker product. */
 public final class ApplicationMetadata {
 
-    private static final String FALLBACK_VERSION = "25.42";
+    private static final String FALLBACK_VERSION = "25.43";
     private static final String VERSION_RESOURCE
             = "/META-INF/coronapoker-version.properties";
 

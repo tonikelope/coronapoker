@@ -3049,6 +3049,28 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void neutralShowdownRevealCannotReuseThePreviousActionOrShowBlue() {
+        boolean neutral = CoronaPokerGdxTable.showsNeutralShowdownHand(
+                true, false, null, null);
+
+        assertTrue(neutral);
+        assertFalse(CoronaPokerGdxTable.showsLocalActionMemory(false,
+                TableVisualEvent.PlayerAction.ActionKind.CHECK,
+                neutral, false),
+                "a revealed showdown hand must replace stale PASAR memory");
+        assertColor(0x80, 0x80, 0x80, 0xff,
+                CoronaPokerGdxTable.SHOWDOWN_NEUTRAL);
+        assertFalse(CoronaPokerGdxTable.showsNeutralShowdownHand(
+                true, true, false, null));
+        assertFalse(CoronaPokerGdxTable.showsNeutralShowdownHand(
+                true, false, true, null));
+        assertFalse(CoronaPokerGdxTable.showsNeutralShowdownHand(
+                true, false, null, 54f));
+        assertFalse(CoronaPokerGdxTable.showsNeutralShowdownHand(
+                false, false, null, null));
+    }
+
+    @Test
     void partialHandCarriesTheDealersMonteCarloResultUntilShowdown() {
         GdxTableViewState state = new GdxTableViewState(snapshot());
 

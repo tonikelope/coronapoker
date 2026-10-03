@@ -621,6 +621,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     // Exact semantic palette from Swing LocalPlayer/RemotePlayer. These are
     // learned gameplay signals, not decorative colors for the new renderer.
     private static final Color LEGACY_FOLD = new Color(0x808080ff);
+    static final Color SHOWDOWN_NEUTRAL = new Color(0x808080ff);
     private static final Color SWING_FOLD_BUTTON = new Color(0x404040ff);
     private static final Color SWING_FOLD_DANGER_BUTTON = new Color(0xff0000ff);
     private static final Color LEGACY_CHECK = new Color(0x008200ff);
@@ -631,7 +632,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final Color ARMED_ACTION_GREEN = new Color(0x20df72ff);
     private static final Color ARMED_ACTION_TEXT = new Color(0x071b12ff);
     static final Color LEGACY_THINKING = new Color(0xcccccc4b);
-    private static final Color LEGACY_SHOW = new Color(0x3399ffff);
     private static final Color LEGACY_WINNER = new Color(0x00ff00ff);
     private static final Color LEGACY_LOSER = new Color(0xff0000ff);
     private static final Color LOCAL_OUTCOME_WIN = new Color(0x35b968ff);
@@ -10750,6 +10750,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return hasHandResult || resolvedWinner != null;
     }
 
+    /**
+     * The dealer reveals and evaluates each showdown hand before publishing the
+     * ordered winner/loser verdicts. During that short interval the hand is a
+     * neutral presentation, not a new poker action and not a SHOW-button state.
+     */
+    static boolean showsNeutralShowdownHand(boolean handLabelVisible,
+            boolean hasHandResult, Boolean resolvedWinner,
+            Float partialHandPercentage) {
+        return handLabelVisible && !hasHandResult && resolvedWinner == null
+                && partialHandPercentage == null;
+    }
+
     static Boolean localHandOutcome(Boolean resolvedWinner,
             boolean foldedThisHand) {
         // Folding removes the local controls immediately, but it is not a
@@ -11084,7 +11096,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return player.winner() ? PARTIAL_HAND_WINNER : PARTIAL_HAND_LOSER;
             }
             if (!liveState.hasHandResult(player.nickname())) {
-                return LEGACY_SHOW;
+                // Swing's sequential showdown uses the action label's resting
+                // grey while a revealed hand is still awaiting its ordered
+                // winner/loser result.  The old SHOW-button blue must never
+                // leak into a player state.
+                return SHOWDOWN_NEUTRAL;
             }
             return player.winner() ? LEGACY_WINNER : LEGACY_LOSER;
         }
@@ -12189,6 +12205,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && activeDialog.isAutoAction();
         GdxTableDialogLayout.AutoActionHud autoHud = autoActionVeto
                 ? autoActionHudLayout(width) : null;
+        TableSnapshot.PlayerSnapshot liveLocalPlayer = livePlayer(seats[0]);
+        Seat localSeat = seats[0];
         TableVisualEvent.PlayerAction.ActionKind localActionKind
                 = localActionSubmissionPending ? pendingLocalActionKind
                         : liveState.actionKind(seats[0].name);
@@ -12205,13 +12223,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 liveState.foldedThisHand(seats[0].name));
         boolean settledShowdown = hasSettledPresentation(
                 liveState.hasHandResult(seats[0].name), settledLocalWinner);
+        boolean neutralShowdownHand = liveLocalPlayer != null
+                && showsNeutralShowdownHand(
+                        liveHandLabelVisible(liveLocalPlayer),
+                        liveState.hasHandResult(seats[0].name),
+                        liveState.resolvedHandWinner(seats[0].name),
+                        liveState.partialHandPercentage(seats[0].name));
+        boolean showdownPresentation = settledShowdown || neutralShowdownHand;
         boolean localActionMemory = !autoActionVeto && !voluntaryShow
-                && !localShownHand && !settledShowdown
+                && !localShownHand && !showdownPresentation
                 && showsLocalActionMemory(localTurn, localActionKind,
-                        settledShowdown,
+                        showdownPresentation,
                         localMonteCarlo);
         boolean preActions = !localTurn && !localMonteCarlo
                 && !localShownHand && !localActionMemory
+                && !neutralShowdownHand
                 && autoPreActionsVisible();
         boolean foldEnabled = !autoActionVeto
                 && ((localTurn && controls.foldEnabled()) || preActions);
@@ -12223,8 +12249,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         != ActionControlState.RaiseAction.DISABLED;
         boolean allInEnabled = !autoActionVeto && localTurn
                 && controls.allInEnabled();
-        TableSnapshot.PlayerSnapshot liveLocalPlayer = livePlayer(seats[0]);
-        Seat localSeat = seats[0];
         String localActionMemoryText = "";
         if (localActionMemory) {
             String canonical = localActionSubmissionPending ? ""
@@ -12241,11 +12265,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean localTimedOut = liveLocalPlayer != null
                 && liveLocalPlayer.timedOut();
         boolean waitingForTurn = showsWaitingTurnMessage(localTurn,
-                preActions, settledShowdown, localFolded, localAllIn,
+                preActions, showdownPresentation, localFolded, localAllIn,
                 liveLocalPlayer);
         boolean subduedLocalHud = settledLocalWinner == null
                 && !localMonteCarlo && !autoActionVeto
-                && (localActionMemory || waitingForTurn || localFolded);
+                && (neutralShowdownHand || localActionMemory
+                        || waitingForTurn || localFolded);
         String lastLocalActionLabel = lastActionLabelForSeat(0);
         Color lastLocalActionColor = lastActionColorForSeat(0);
         Color localHudActionColor = localActionSubmissionPending
@@ -12259,7 +12284,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : hudCallTextColor(controls.callAction());
         Color betButtonColor = hudRaiseSurfaceColor(controls.raiseAction());
         Color betTextColor = hudRaiseTextColor(controls.raiseAction());
-        Color allInButtonColor = voluntaryShow ? LEGACY_SHOW : LEGACY_ALL_IN;
+        Color allInButtonColor = voluntaryShow ? BUTTON_LINE : LEGACY_ALL_IN;
         boolean foldSelected = preActions && queuedPreAction == 1;
         boolean checkSelected = preActions && queuedPreAction == 2;
         // A protected first press must be unmistakable without replacing the
@@ -12322,7 +12347,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         float turnPulse = 0.5f + 0.5f * MathUtils.sin(totalTime * 5.2f);
-        Color hudFrame = localShownHand
+        Color hudFrame = neutralShowdownHand ? SHOWDOWN_NEUTRAL
+                : localShownHand
                 ? settledLocalWinner == null ? lastLocalActionColor
                         : settledShowdownColor(settledLocalWinner)
                 : localMonteCarlo || localActionMemory
@@ -12391,6 +12417,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     lastLocalActionColor.g, lastLocalActionColor.b, 0.62f);
             roundedRect(hudX - 3f, hudY - 3f,
                     hudWidth + 6f, hudHeight + 15f, 16f);
+        } else if (neutralShowdownHand) {
+            drawSubduedLocalHudSurface(hudX, hudY, hudWidth, hudHeight,
+                    SHOWDOWN_NEUTRAL);
         } else if (localFolded) {
             drawSubduedLocalHudSurface(hudX, hudY, hudWidth, hudHeight,
                     LEGACY_FOLD);
@@ -12523,7 +12552,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.begin();
         Seat local = localSeat;
         String turnStatus = localHudMiniStatus(localActionMemoryText,
-                localHudTurnStatus(localTurn, settledShowdown,
+                localHudTurnStatus(localTurn, showdownPresentation,
                         localFolded, localAllIn, liveLocalPlayer, gameText));
         if (!turnStatus.isEmpty()) {
             drawFittedCenteredInBox(localTurn ? actionFont : smallFont,
@@ -12623,6 +12652,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     statusX, actionY + 8f, statusWidth,
                     actionHeight - 16f,
                     lastActionTextColorForSeat(0), 1f);
+        } else if (neutralShowdownHand) {
+            // The evaluated hand already appears in the small identity strip.
+            // Keep the main action area quiet until the ordered GANAS/PIERDES
+            // verdict arrives instead of repeating a stale PASAR/APUESTAS.
         } else if (localActionMemory) {
             drawScaledFittedCenteredInBox(localOutcomeFont, 0.70f,
                     localActionMemoryText,

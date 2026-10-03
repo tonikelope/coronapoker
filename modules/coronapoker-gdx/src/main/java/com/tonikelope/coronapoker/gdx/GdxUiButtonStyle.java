@@ -27,18 +27,11 @@ final class GdxUiButtonStyle {
     static void draw(ShapeRenderer shapes, float x, float y, float width,
             float height, Tone tone, boolean enabled, float hoverAmount,
             boolean pressed, float alpha) {
-        draw(shapes, x, y, width, height, tone, enabled, hoverAmount,
-                pressed, alpha, true);
-    }
-
-    static void draw(ShapeRenderer shapes, float x, float y, float width,
-            float height, Tone tone, boolean enabled, float hoverAmount,
-            boolean pressed, float alpha, boolean shadow) {
         float hover = Math.max(0f, Math.min(1f, hoverAmount));
         Color border = enabled ? accent(tone, hover > 0.5f) : LINE;
         Color fill = fill(tone, enabled, pressed);
         drawMaterial(shapes, x, y, width, height, border, fill, enabled,
-                hover, pressed, alpha, shadow,
+                hover, pressed, alpha,
                 tone == Tone.FEATURED ? 0.52f : 0.42f, true);
     }
 
@@ -50,7 +43,7 @@ final class GdxUiButtonStyle {
         drawMaterial(shapes, x, y, width, height,
                 enabled ? accent(tone, hover > 0.5f) : LINE,
                 fill(tone, enabled, pressed), enabled, hover, pressed, alpha,
-                false, tone == Tone.FEATURED ? 0.52f : 0.42f, false);
+                tone == Tone.FEATURED ? 0.52f : 0.42f, false);
     }
 
     /**
@@ -61,28 +54,19 @@ final class GdxUiButtonStyle {
     static void drawPalette(ShapeRenderer shapes, float x, float y,
             float width, float height, Color accent, float surfaceRed,
             float surfaceGreen, float surfaceBlue, float surfaceAlpha,
-            boolean enabled, float hoverAmount, boolean pressed, float alpha,
-            boolean shadow) {
+            boolean enabled, float hoverAmount, boolean pressed, float alpha) {
         float hover = Math.max(0f, Math.min(1f, hoverAmount));
         CUSTOM_SURFACE.set(surfaceRed, surfaceGreen, surfaceBlue,
                 surfaceAlpha);
         drawMaterial(shapes, x, y, width, height,
                 enabled ? accent : LINE, CUSTOM_SURFACE, enabled, hover,
-                pressed, alpha, shadow, 0.42f, true);
+                pressed, alpha, 0.42f, true);
     }
 
     private static void drawMaterial(ShapeRenderer shapes, float x, float y,
             float width, float height, Color border, Color fill,
             boolean enabled, float hover, boolean pressed, float alpha,
-            boolean shadow, float glowStrength, boolean borderVisible) {
-        // Keep the shadow aligned with the control. A horizontal displacement
-        // exposes the circular end caps and makes them look like detached
-        // bubbles below short dialog buttons.
-        if (shadow) {
-            shapes.setColor(0f, 0f, 0f, 0.34f * alpha);
-            roundedRect(shapes, x, y - 4f, width, height, 14f);
-        }
-
+            float glowStrength, boolean borderVisible) {
         // Hover is deliberately outline-only: it cannot produce patches or
         // alter the perceived shape of the button.
         if (borderVisible && enabled && hover > 0.01f) {

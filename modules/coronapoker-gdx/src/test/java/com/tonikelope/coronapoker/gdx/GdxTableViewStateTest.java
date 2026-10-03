@@ -666,26 +666,37 @@ final class GdxTableViewStateTest {
 
     @Test
     void startupLogoFinishesExactlyDockedBeforeTheMenuReveal() {
-        assertEquals(0f, CoronaPokerGdxTable.introLogoDockProgress(3.0f));
-        assertTrue(CoronaPokerGdxTable.introLogoDockProgress(4.0f) > 0f);
-        assertTrue(CoronaPokerGdxTable.introLogoDockProgress(4.0f) < 1f);
-        assertEquals(1f, CoronaPokerGdxTable.introLogoDockProgress(4.8f));
+        assertEquals(0f, CoronaPokerGdxTable.introLogoDockProgress(3.5f));
+        assertTrue(CoronaPokerGdxTable.introLogoDockProgress(4.5f) > 0f);
+        assertTrue(CoronaPokerGdxTable.introLogoDockProgress(4.5f) < 1f);
+        assertEquals(1f, CoronaPokerGdxTable.introLogoDockProgress(5.32f));
     }
 
     @Test
-    void startupIntroShowsShuffledCardsThenTurnsOnLightsAfterTwoSeconds() {
+    void startupIntroFadesTheCreditBeforeTurningOnTheLights() {
+        assertEquals(0f, CoronaPokerGdxTable.startupPresentationAlpha(0f));
+        assertTrue(CoronaPokerGdxTable.startupPresentationAlpha(0.17f) > 0f);
+        assertEquals(1f, CoronaPokerGdxTable.startupPresentationAlpha(0.34f),
+                0.000_001f);
+        assertEquals(1f, CoronaPokerGdxTable.startupPresentationAlpha(2f),
+                0.000_001f);
+        assertTrue(CoronaPokerGdxTable.startupPresentationAlpha(2.26f) > 0f);
+        assertTrue(CoronaPokerGdxTable.startupPresentationAlpha(2.26f) < 1f);
+        assertEquals(0f, CoronaPokerGdxTable.startupPresentationAlpha(2.52f),
+                0.000_001f);
+
         assertFalse(CoronaPokerGdxTable.introLightSwitchReached(0f));
         assertEquals(0f, CoronaPokerGdxTable.introLightProgress(0f));
         assertEquals(0f, CoronaPokerGdxTable.introCardAppearProgress(0f));
 
-        assertFalse(CoronaPokerGdxTable.introLightSwitchReached(1.99f));
-        assertEquals(0f, CoronaPokerGdxTable.introLightProgress(1.99f));
+        assertFalse(CoronaPokerGdxTable.introLightSwitchReached(2.51f));
+        assertEquals(0f, CoronaPokerGdxTable.introLightProgress(2.51f));
         assertEquals(1f, CoronaPokerGdxTable.introCardAppearProgress(0.28f),
                 0.000_001f);
 
-        assertTrue(CoronaPokerGdxTable.introLightSwitchReached(2.0f));
-        assertTrue(CoronaPokerGdxTable.introLightProgress(2.17f) > 0f);
-        assertEquals(1f, CoronaPokerGdxTable.introLightProgress(2.34f),
+        assertTrue(CoronaPokerGdxTable.introLightSwitchReached(2.52f));
+        assertTrue(CoronaPokerGdxTable.introLightProgress(2.69f) > 0f);
+        assertEquals(1f, CoronaPokerGdxTable.introLightProgress(2.86f),
                 0.000_001f);
     }
 
@@ -1469,6 +1480,18 @@ final class GdxTableViewStateTest {
                 .localizedActionLabel(
                         TableVisualEvent.PlayerAction.ActionKind.RAISE,
                         "SUBE (+2.5)", english));
+    }
+
+    @Test
+    void miniHudStatusDoesNotRepeatTheRememberedAction() {
+        for (String action : List.of("NO VAS", "PASAS", "VAS", "APUESTAS",
+                "SUBES (+3)", "RESUBES (+7)", "ALL IN (+10)")) {
+            assertEquals("", CoronaPokerGdxTable.localHudMiniStatus(
+                    action, "ESPERANDO TURNO"));
+        }
+        assertEquals("ESPERANDO TURNO",
+                CoronaPokerGdxTable.localHudMiniStatus("",
+                        "ESPERANDO TURNO"));
     }
 
     @Test
@@ -2321,7 +2344,7 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void newCommunityStreetClearsExpiredActionsButKeepsFoldVisible() {
+    void newCommunityStreetKeepsActionsThroughRevealAndClearsThemAtFirstTurn() {
         GdxTableViewState state = new GdxTableViewState(snapshot());
         state.apply(new TableVisualEvent.PlayerAction(1, "ana",
                 TableVisualEvent.PlayerAction.ActionKind.RAISE,
@@ -2333,6 +2356,14 @@ final class GdxTableViewStateTest {
 
         state.apply(new TableVisualEvent.RevealCommunityCards(4, 0,
                 List.of(card("A_C"), card("K_C"), card("Q_C"))));
+
+        assertEquals("RESUBE", state.actionLabel("ana"));
+        assertEquals("RESUBE", player(state, "ana").lastAction());
+        assertEquals("NO VA", state.actionLabel("borja"));
+        assertEquals("+0.2", state.callCostText());
+
+        state.apply(new TableVisualEvent.TurnTimer(5, "ana", 30_000,
+                30_000, TableVisualEvent.TurnTimer.Phase.START));
 
         assertEquals("", state.actionLabel("ana"));
         assertEquals("", player(state, "ana").lastAction());

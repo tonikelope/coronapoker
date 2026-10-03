@@ -201,6 +201,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final Color MUTED = new Color(GdxSettingsStyle.MUTED_RGBA);
     private static final Color DISABLED = new Color(
             GdxSettingsStyle.DISABLED_RGBA);
+    private static final Color POSITIVE_ICON = new Color(0xd8ffe0ff);
     private static final Color LATENCY_GREEN = new Color(0x4caf50ff);
     private static final Color LATENCY_YELLOW = new Color(0xffc107ff);
     private static final Color LATENCY_ORANGE = new Color(0xff9800ff);
@@ -985,6 +986,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         pressedHit = null;
     }
 
+    void completeStartupReveal() {
+        menuRevealStartedAt = Float.NaN;
+        pressedHit = null;
+    }
+
     void openLobby(LobbySession session) {
         stopLobbyTransientAudio();
         closeLobbySubscription();
@@ -1223,7 +1229,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // behind the upper menu buttons.
         plainPanel(515f, 175f, 890f, 602f);
         mainMenuButton(595f, 645f, 730f, 82f,
-                gameText.translate("game.crear_timba"), 0, true,
+                gameText.translate("game.crear_timba"), 0,
+                ButtonTone.POSITIVE,
                 () -> openNewGame(NewGameConnectionDraft.Mode.CREATE));
         mainMenuButton(595f, 540f, 730f, 82f,
                 gameText.translate("game.unirme_a_timba"), 1, false,
@@ -2878,10 +2885,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> activateAboutEasterEgg(true));
         themedButton(WIDTH / 2f - 325f, y + 18f, 310f, 58f,
                 uppercase(gameText.translate("menu.generador_de_jugadas")),
-                ButtonTone.FEATURED, this::openHandGenerator, true, false);
+                ButtonTone.FEATURED, this::openHandGenerator, true);
         themedButton(WIDTH / 2f + 15f, y + 18f, 310f, 58f,
                 uppercase(gameText.translate("ui.cerrar")),
-                ButtonTone.NEUTRAL, this::closeAboutDialog, true, false);
+                ButtonTone.NEUTRAL, this::closeAboutDialog, true);
     }
 
     private void drawHandGeneratorDialog() {
@@ -2913,7 +2920,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 "‹  " + uppercase(gameText.translate(
                         "gdx.hand_generator.previous")),
                 ButtonTone.NEUTRAL, handGenerator::previous,
-                handGenerator.canPrevious(), false);
+                handGenerator.canPrevious());
         textFit(smallFont,
                 (handGenerator.index() + 1) + " / " + handGenerator.size(),
                 WIDTH / 2f, y + 122f, MUTED, true, 180f);
@@ -2921,10 +2928,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 uppercase(gameText.translate("gdx.hand_generator.next"))
                         + "  ›",
                 ButtonTone.NEUTRAL, handGenerator::next,
-                handGenerator.canNext(), false);
+                handGenerator.canNext());
         themedButton(WIDTH / 2f - 110f, y + 34f, 220f, 62f,
                 uppercase(gameText.translate("ui.volver")),
-                ButtonTone.FEATURED, this::closeHandGenerator, true, false);
+                ButtonTone.FEATURED, this::closeHandGenerator, true);
     }
 
     private void drawHandGeneratorCards() {
@@ -6774,13 +6781,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // This is a full frontend screen, not a modal. Do not dim the complete
         // background: the shared felt and fixed logo must remain visible just
         // as they do in the menu, settings and statistics screens.
-        shapes.setColor(0f, 0f, 0f, 0.42f);
         boolean joining = connection.mode() == NewGameConnectionDraft.Mode.JOIN;
         float frameX = joining ? 190f : 50f;
         float frameY = joining ? 120f : 35f;
         float frameW = joining ? 1540f : 1820f;
         float frameH = joining ? 820f : 990f;
-        roundedRect(frameX, frameY, frameW, frameH, 24f);
         outerBox(frameX - 10f, frameY + 10f, frameW + 20f, frameH,
                 CYAN_DARK, PANEL);
         shapes.setColor(new Color(0x36d9ffcc));
@@ -6809,7 +6814,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             GdxUiButtonStyle.drawPalette(shapes, x, y, 320f, 78f,
                     border, fill.r, fill.g, fill.b, fill.a,
                     true, hover ? 1f : 0f,
-                    pressed(x, y, 320f, 78f), 1f, true);
+                    pressed(x, y, 320f, 78f), 1f);
             if (selected) {
                 shapes.setColor(GOLD);
                 roundedRect(x + 5f, y + 15f, 4f, 48f, 2f);
@@ -8042,10 +8047,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         // Keep this composition pixel-for-pixel equivalent to the table
-        // overlay.  The old frontend variant lacked both its shadow and its
-        // outlined text, which made the percentage much harder to read.
-        shapes.setColor(0f, 0f, 0f, 0.58f);
-        roundedRect(x + 8f, y - 9f, width, height, 15f);
+        // overlay, including its outlined text, without projecting a shadow.
         shapes.setColor(accent.r, accent.g, accent.b, 0.92f);
         roundedRect(x - 2f, y - 2f, width + 4f, height + 4f, 15f);
         shapes.setColor(0.012f, 0.027f, 0.047f, 0.98f);
@@ -8269,8 +8271,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float y = editMenu.bounds.y;
         float w = editMenu.bounds.width;
         float row = 48f;
-        shapes.setColor(new Color(0x00000066));
-        roundedRect(x + 7f, y - 7f, w, editMenu.bounds.height, 10f);
         outerBox(x, y, w, editMenu.bounds.height, CYAN_DARK,
                 new Color(0x071221fc));
         editMenuItem(x + 8f, y + 152f, w - 16f, row,
@@ -8342,8 +8342,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        shapes.setColor(new Color(0x00000088));
-        roundedRect(x + 6f, y - 6f, boxW, boxH, 8f);
         outerBox(x, y, boxW, boxH, CYAN_DARK,
                 new Color(0x071221f8));
         shapes.end();
@@ -8635,8 +8633,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float rowH = 56f;
         float y = top - visible * rowH;
         hit(0f, 0f, WIDTH, HEIGHT, () -> dropdown = Dropdown.NONE);
-        shapes.setColor(new Color(0x00000077));
-        roundedRect(x + 8f, y - 8f, w, visible * rowH, 10f);
         outerBox(x, y, w, visible * rowH, CYAN_DARK,
                 new Color(0x071221ff));
         int selected = switch (dropdown) {
@@ -8733,7 +8729,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxUiButtonStyle.draw(shapes, x, y, w, h,
                 GdxUiButtonStyle.Tone.NEUTRAL, enabled,
                 hover ? 1f : 0f, enabled && pressed(x, y, w, h),
-                1f, false);
+                1f);
     }
 
     private void button(float x, float y, float w, float h, String label,
@@ -8757,7 +8753,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             String label, boolean primary, Runnable action, boolean enabled) {
         themedButton(x, y, w, h, label,
                 primary ? ButtonTone.FEATURED : ButtonTone.NEUTRAL,
-                action, enabled, true, smallFont);
+                action, enabled, smallFont);
     }
 
     private void lobbyBotButton(float x, float y, float w, float h,
@@ -8811,19 +8807,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void themedButton(float x, float y, float w, float h,
             String label, ButtonTone tone, Runnable action, boolean enabled) {
-        themedButton(x, y, w, h, label, tone, action, enabled, true);
+        themedButton(x, y, w, h, label, tone, action, enabled, actionFont);
     }
 
     private void themedButton(float x, float y, float w, float h,
             String label, ButtonTone tone, Runnable action, boolean enabled,
-            boolean shadow) {
-        themedButton(x, y, w, h, label, tone, action, enabled, shadow,
-                actionFont);
-    }
-
-    private void themedButton(float x, float y, float w, float h,
-            String label, ButtonTone tone, Runnable action, boolean enabled,
-            boolean shadow, BitmapFont labelFont) {
+            BitmapFont labelFont) {
         boolean hover = enabled && hovered(x, y, w, h);
         float hoverTarget = hover ? 1f : 0f;
         String hoverKey = buttonHoverKey(label, x, y, w, h);
@@ -8835,7 +8824,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxUiButtonStyle.Tone sharedTone = GdxUiButtonStyle.Tone.valueOf(
                 tone.name());
         GdxUiButtonStyle.draw(shapes, x, y, w, h, sharedTone, enabled,
-                hoverAmount, down, 1f, shadow);
+                hoverAmount, down, 1f);
         Color labelColor = GdxUiButtonStyle.labelColor(sharedTone, enabled);
         textFit(labelFont, label, x + w / 2f, y + h / 2f + 8f,
                 labelColor, true, w - 30f);
@@ -8858,15 +8847,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void mainMenuButton(float x, float y, float w, float h,
             String label, int icon, boolean primary, Runnable action) {
-        button(x, y, w, h, label, primary, action);
+        mainMenuButton(x, y, w, h, label, icon,
+                primary ? ButtonTone.FEATURED : ButtonTone.NEUTRAL, action);
+    }
+
+    private void mainMenuButton(float x, float y, float w, float h,
+            String label, int icon, ButtonTone tone, Runnable action) {
+        themedButton(x, y, w, h, label, tone, action, true);
         boolean hover = hovered(x, y, w, h);
-        Color color = hover ? CYAN : GOLD;
+        Color color = tone == ButtonTone.POSITIVE
+                ? (hover ? Color.WHITE : POSITIVE_ICON)
+                : hover ? CYAN : GOLD;
         float iconX = x + 43f;
         float iconY = y + h / 2f;
         shapes.setColor(color);
         drawMainMenuIcon(icon, iconX, iconY, color);
         Color divider = new Color(color);
-        divider.a = primary ? 0.34f : 0.24f + (hover ? 0.20f : 0f);
+        divider.a = tone == ButtonTone.NEUTRAL
+                ? 0.24f + (hover ? 0.20f : 0f) : 0.34f;
         shapes.setColor(divider);
         shapes.rect(x + 82f, y + 17f, 2f, h - 34f);
     }
@@ -8874,10 +8872,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawMainMenuIcon(int icon, float cx, float cy, Color color) {
         switch (icon) {
             case 0 -> {
-                // Poker table with two seated players.
-                roundedRect(cx - 22f, cy - 10f, 44f, 20f, 10f);
-                shapes.circle(cx - 16f, cy + 16f, 6f, 24);
-                shapes.circle(cx + 16f, cy + 16f, 6f, 24);
+                // New game.
+                roundedRect(cx - 5.5f, cy - 26f, 11f, 52f, 4.5f);
+                roundedRect(cx - 26f, cy - 5.5f, 52f, 11f, 4.5f);
             }
             case 1 -> {
                 // Arrow entering a table/session.

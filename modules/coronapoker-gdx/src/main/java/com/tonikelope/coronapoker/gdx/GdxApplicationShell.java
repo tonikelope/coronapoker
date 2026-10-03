@@ -487,10 +487,12 @@ final class GdxApplicationShell extends ApplicationAdapter {
 
     private void finishStartupIntro() {
         CoronaPokerGdxTable intro = startupIntro;
+        boolean skipped = intro != null && intro.startupSequenceSkipped();
         startupIntro = null;
         if (intro != null) intro.dispose();
         if (menu != null) {
-            menu.beginStartupReveal();
+            if (skipped) menu.completeStartupReveal();
+            else menu.beginStartupReveal();
             menu.resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
             Gdx.input.setInputProcessor(menu);
         }

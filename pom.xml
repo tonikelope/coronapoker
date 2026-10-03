@@ -6,7 +6,7 @@
 
     <groupId>com.tonikelope</groupId>
     <artifactId>coronapoker</artifactId>
-    <version>25.41</version>
+    <version>25.42</version>
     <packaging>pom</packaging>
     <name>CoronaPoker</name>
     <description>CoronaPoker product reactor for the shared core and GDX application.</description>

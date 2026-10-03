@@ -47,6 +47,7 @@ final class GdxTableViewState {
     private ActionControlState actionControls = ActionControlState.disabled();
     private long actionControlsSequence;
     private boolean preActionControlsActive;
+    private boolean newStreetActionResetPending;
     private boolean lastHand;
     private int maximumHands = -1;
     private GameConfigCodecV1.Configuration gameConfiguration;
@@ -522,7 +523,11 @@ final class GdxTableViewState {
                             card.code(), card.faceUp(), true,
                             card.visible())).toList()));
         } else if (event instanceof TableVisualEvent.RevealCommunityCards reveal) {
-            resetActionsForNewStreet();
+            // Keep the completed street visible for the whole reveal. The
+            // first START timer of the next street is the authoritative point
+            // at which a player can act again, and therefore the first point
+            // at which the old actions may disappear.
+            newStreetActionResetPending = true;
             List<TableSnapshot.CardSnapshot> board = snapshot.communityCards();
             for (int offset = 0; offset < reveal.cards().size(); offset++) {
                 board = replaceCard(board, reveal.firstSlot() + offset,
@@ -532,6 +537,11 @@ final class GdxTableViewState {
                     reveal.street(), snapshot.pot(),
                     snapshot.currentTurnNickname(), snapshot.players(), board);
         } else if (event instanceof TableVisualEvent.TurnTimer timer) {
+            if (timer.phase() == TableVisualEvent.TurnTimer.Phase.START
+                    && newStreetActionResetPending) {
+                resetActionsForNewStreet();
+                newStreetActionResetPending = false;
+            }
             applyTurnTimer(timer);
         } else if (event instanceof TableVisualEvent.SharedProgress progress) {
             applySharedProgress(progress);
@@ -852,6 +862,7 @@ final class GdxTableViewState {
             callCostAggressorNickname = "";
             runItTwicePotPrefix = "";
             preActionControlsActive = false;
+            newStreetActionResetPending = false;
         }
         stopTurn();
     }

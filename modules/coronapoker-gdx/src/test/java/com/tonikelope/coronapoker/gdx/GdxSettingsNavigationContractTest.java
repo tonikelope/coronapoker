@@ -77,6 +77,26 @@ final class GdxSettingsNavigationContractTest {
     }
 
     @Test
+    void fastAccessSurfaceOwnsButtonsPaddingAndGaps() {
+        // Closed bar owns its complete painted panel, not only the icon.
+        assertTrue(CoronaPokerGdxTable.fastAccessSurfaceContains(
+                19f, CoronaPokerGdxTable.FAST_BAR_Y + 1f, false, true));
+        assertTrue(CoronaPokerGdxTable.fastAccessSurfaceContains(
+                83f, CoronaPokerGdxTable.FAST_BAR_Y + 60f, false, true));
+        assertFalse(CoronaPokerGdxTable.fastAccessSurfaceContains(
+                85f, CoronaPokerGdxTable.FAST_BAR_Y + 30f, false, true));
+
+        // Expanded host bar includes the gap before STOP and the complete EXIT
+        // button, precisely where it overlaps the local HUD at 1920x1080.
+        assertTrue(CoronaPokerGdxTable.fastAccessSurfaceContains(
+                434f, CoronaPokerGdxTable.FAST_BAR_Y + 30f, true, true));
+        assertTrue(CoronaPokerGdxTable.fastAccessSurfaceContains(
+                548f, CoronaPokerGdxTable.FAST_BAR_Y + 30f, true, true));
+        assertFalse(CoronaPokerGdxTable.fastAccessSurfaceContains(
+                557f, CoronaPokerGdxTable.FAST_BAR_Y + 30f, true, true));
+    }
+
+    @Test
     void autoModeDoesNotBlockHoverDrivenTableUtilities() {
         assertFalse(CoronaPokerGdxTable.blocksTableUtilities(null));
         assertFalse(CoronaPokerGdxTable.blocksTableUtilities(

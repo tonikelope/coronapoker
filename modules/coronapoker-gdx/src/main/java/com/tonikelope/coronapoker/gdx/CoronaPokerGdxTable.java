@@ -105,23 +105,36 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private static final float BASE_WIDTH = 1920f;
     private static final float BASE_HEIGHT = 1080f;
-    private static final float INTRO_SECONDS = 4.8f;
+    static final float STARTUP_PRESENTATION_HOLD_SECONDS = 2.0f;
+    private static final float STARTUP_PRESENTATION_FADE_IN_SECONDS = 0.34f;
+    private static final float STARTUP_PRESENTATION_FADE_OUT_SECONDS = 0.52f;
+    static final float STARTUP_PRESENTATION_END_SECONDS =
+            STARTUP_PRESENTATION_HOLD_SECONDS
+                    + STARTUP_PRESENTATION_FADE_OUT_SECONDS;
+    private static final String STARTUP_PRESENTATION_TITLE =
+            "Tonikelope Solutions S.L.";
+    private static final String STARTUP_PRESENTATION_SUBTITLE = "presents";
+    private static final float INTRO_SECONDS = 5.32f;
     static final float FINAL_AMOUNT_ROLL_SECONDS = 1.5f;
     static final float FINAL_AMOUNT_BLINK_STEP_SECONDS = 0.13f;
     static final int FINAL_AMOUNT_BLINK_STEPS = 6;
     static final float FINAL_SUMMARY_REVEAL_SECONDS = 0.60f;
-    private static final float INTRO_LOGO_DOCK_START = 3.42f;
+    private static final float INTRO_LOGO_DOCK_START = 3.94f;
     private static final float INTRO_LOGO_DOCK_SECONDS = 1.28f;
-    private static final float INTRO_LIGHT_SWITCH_TIME = 2.0f;
+    private static final float INTRO_LIGHT_SWITCH_TIME =
+            STARTUP_PRESENTATION_END_SECONDS;
     private static final float INTRO_LIGHT_FADE_SECONDS = 0.34f;
     private static final float INTRO_CARD_APPEAR_SECONDS = 0.28f;
     private static final float INTRO_DARKNESS_ALPHA = 0.78f;
     private static final int INTRO_CARD_COUNT = 52;
-    private static final float INTRO_CARD_CLEAR_START = 2.02f;
+    private static final float INTRO_CARD_CLEAR_START =
+            STARTUP_PRESENTATION_END_SECONDS + 0.02f;
     private static final String[] INTRO_CARD_RANKS = {
         "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"
     };
     private static final String[] INTRO_CARD_SUITS = {"C", "D", "P", "T"};
+    private static final Color STARTUP_PRESENTATION_TEXT_COLOR =
+            new Color(0xe9edf3ff);
     private static final String[] FAST_BUTTON_ICON_PATHS = {
         "images/menu/gear.png", "images/fast_panel/chat.png",
         "images/fast_panel/mic.png", "images/fast_panel/image.png",
@@ -873,8 +886,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private BitmapFont gameLogFont;
     private BitmapFont gameLogBoldFont;
     private BitmapFont gameLogSuitFont;
+    private BitmapFont startupPresentationFont;
+    private BitmapFont startupPresentationSubtitleFont;
 
     private Texture logo;
+    private Texture startupPresentationSpadeTexture;
     private Texture feltTexture;
     private boolean secretFeltTexture;
     private Texture avatarDefault;
@@ -989,6 +1005,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private int frameCursor;
     private int frameCount;
     private boolean intro = true;
+    private boolean startupSequenceSkipped;
     private int creationPhase = -1;
     private int creationResourceIndex;
     private int creationCardIndex;
@@ -2416,6 +2433,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     ? "verde" : presentationSettings.felt());
         }
         if (startupIntroOnly) {
+            startupPresentationSpadeTexture = texture(
+                    "images/menu/pica_roja.png");
+            startupPresentationSpadeTexture.setFilter(
+                    TextureFilter.Linear, TextureFilter.Linear);
+            FreeTypeFontGenerator startupFontGenerator =
+                    new FreeTypeFontGenerator(Gdx.files.internal(
+                            "fonts/McLaren-Regular.ttf"));
+            try {
+                startupPresentationFont = font(startupFontGenerator,
+                        58, 0f);
+                startupPresentationSubtitleFont = font(startupFontGenerator,
+                        40, 0f);
+            } finally {
+                startupFontGenerator.dispose();
+            }
             defaultCardBack = cardTexture(
                     "images/decks/goliat/hq/trasera.jpg");
             introCardFaces = new Texture[INTRO_CARD_COUNT];
@@ -4018,11 +4050,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void renderStartupIntroFrame(float delta) {
+        if (startupSequenceSkipRequested()) {
+            startupSequenceSkipped = true;
+            finishIntro();
+            return;
+        }
         updateStars(delta);
         recordFrame(delta);
-        if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
-            finishIntro();
-        }
 
         ScreenUtils.clear(BACKGROUND_BOTTOM, true);
         viewport.apply();
@@ -4034,10 +4068,79 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             signalIntroLightsOnIfDue();
             drawIntro();
             drawIntroBlackout();
+            drawStartupPresentation();
             if (sceneTime >= INTRO_SECONDS) {
                 finishIntro();
             }
         }
+    }
+
+    private boolean startupSequenceSkipRequested() {
+        return Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)
+                || Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
+                || Gdx.input.isKeyJustPressed(Input.Keys.NUMPAD_ENTER)
+                || Gdx.input.isKeyJustPressed(Input.Keys.SPACE);
+    }
+
+    private void drawStartupPresentation() {
+        float alpha = startupPresentationAlpha(sceneTime);
+        if (alpha <= 0f) return;
+        float centerX = viewport.getWorldWidth() / 2f;
+        float centerY = viewport.getWorldHeight() / 2f;
+        float iconHeight = 88f;
+        float iconWidth = iconHeight
+                * startupPresentationSpadeTexture.getWidth()
+                / startupPresentationSpadeTexture.getHeight();
+        glyph.setText(startupPresentationFont, STARTUP_PRESENTATION_TITLE);
+        float titleWidth = glyph.width;
+        float titleHeight = glyph.height;
+        glyph.setText(startupPresentationSubtitleFont,
+                STARTUP_PRESENTATION_SUBTITLE);
+        float subtitleWidth = glyph.width;
+        float subtitleHeight = glyph.height;
+        float gap = 24f;
+        float titleCenterY = centerY + 30f;
+        float rowLeft = centerX
+                - (iconWidth + gap + titleWidth) / 2f;
+
+        batch.begin();
+        batch.setColor(1f, 1f, 1f, alpha);
+        batch.draw(startupPresentationSpadeTexture, rowLeft,
+                titleCenterY - iconHeight / 2f, iconWidth, iconHeight);
+        startupPresentationFont.setColor(
+                STARTUP_PRESENTATION_TEXT_COLOR.r,
+                STARTUP_PRESENTATION_TEXT_COLOR.g,
+                STARTUP_PRESENTATION_TEXT_COLOR.b, alpha);
+        startupPresentationFont.draw(batch, STARTUP_PRESENTATION_TITLE,
+                rowLeft + iconWidth + gap,
+                titleCenterY + titleHeight / 2f);
+        startupPresentationSubtitleFont.setColor(
+                STARTUP_PRESENTATION_TEXT_COLOR.r,
+                STARTUP_PRESENTATION_TEXT_COLOR.g,
+                STARTUP_PRESENTATION_TEXT_COLOR.b, alpha);
+        startupPresentationSubtitleFont.draw(batch,
+                STARTUP_PRESENTATION_SUBTITLE,
+                centerX - subtitleWidth / 2f,
+                centerY - 58f + subtitleHeight / 2f);
+        batch.setColor(Color.WHITE);
+        startupPresentationFont.setColor(Color.WHITE);
+        startupPresentationSubtitleFont.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    static float startupPresentationAlpha(float timeSeconds) {
+        float fadeIn = Interpolation.smoother.apply(MathUtils.clamp(
+                timeSeconds / STARTUP_PRESENTATION_FADE_IN_SECONDS, 0f, 1f));
+        float fadeOut = timeSeconds <= STARTUP_PRESENTATION_HOLD_SECONDS
+                ? 1f : Interpolation.smoother.apply(MathUtils.clamp(
+                        (STARTUP_PRESENTATION_END_SECONDS - timeSeconds)
+                                / STARTUP_PRESENTATION_FADE_OUT_SECONDS,
+                        0f, 1f));
+        return Math.min(fadeIn, fadeOut);
+    }
+
+    boolean startupSequenceSkipped() {
+        return startupSequenceSkipped;
     }
 
     private void handleInput() {
@@ -4256,6 +4359,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && uiLayer == UI_NONE) {
             pointer.set(Gdx.input.getX(), Gdx.input.getY());
             viewport.unproject(pointer);
+            // The fast-access bar is foreground chrome.  Its complete painted
+            // surface owns either mouse button, including padding and the gaps
+            // between icons, so a seat or card underneath can never observe
+            // the same gesture.
+            if (fastAccessSurfaceContains(pointer.x, pointer.y)) {
+                return;
+            }
             if (uiLayer == UI_NONE && liveState != null
                     && handleSeatChatNoticeClick(pointer.x, pointer.y, true)) {
                 return;
@@ -5151,6 +5261,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             return;
         }
+        // Resolve the topmost fast-access surface before any seat, stack, HUD
+        // or card target.  This is pointer ownership, not merely button hit
+        // testing: even transparent-looking padding between its icons consumes
+        // the release instead of falling through to the local HUD.
+        if (handleFastAccessClick(pointer.x, pointer.y)) {
+            return;
+        }
         if (handleSeatChatNoticeClick(pointer.x, pointer.y, false)) {
             return;
         }
@@ -5173,9 +5290,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // Resolve controls in reverse paint order.  The card viewer is the
         // final fallback, never the first hit-test for a rectangle that may
         // extend behind HUD or seat chrome.
-        if (handleFastAccessClick(pointer.x, pointer.y)) {
-            return;
-        }
         if (contains(pointer.x, pointer.y, communityPauseX,
                 communityPauseY, communityPauseWidth,
                 communityPauseHeight)) {
@@ -5540,6 +5654,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 + (count - 1) * FAST_BUTTON_GAP;
     }
 
+    private boolean fastAccessSurfaceContains(float x, float y) {
+        return fastAccessSurfaceContains(x, y, fastBarExpanded, tableHost);
+    }
+
+    /**
+     * Defines the single pointer-ownership boundary for the fast-access bar.
+     * Rendering, hover suppression and click routing must all agree on this
+     * rectangle so foreground chrome cannot leak input to the local HUD.
+     */
+    static boolean fastAccessSurfaceContains(float x, float y,
+            boolean expanded, boolean host) {
+        int count = host ? 9 : 8;
+        float width = expanded
+                ? 2f * FAST_BAR_PADDING + count * FAST_BUTTON_SIZE
+                        + (count - 1) * FAST_BUTTON_GAP
+                : FAST_BUTTON_SIZE + 2f * FAST_BAR_PADDING;
+        return contains(x, y, FAST_BAR_X, FAST_BAR_Y, width,
+                FAST_BUTTON_SIZE + 2f * FAST_BAR_PADDING);
+    }
+
     private int fastButtonCount() {
         return tableHost ? 9 : 8;
     }
@@ -5635,11 +5769,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 fastBarOutsideSeconds = 0f;
                 return true;
             }
-            return false;
+            return fastAccessSurfaceContains(x, y);
         }
         int button = fastButtonAt(x, y);
         if (button < 0) {
-            return false;
+            // The visible panel padding and inter-button gaps are still an
+            // opaque input surface.  Consuming them prevents clicks from
+            // reaching the HUD or cards painted underneath.
+            return fastAccessSurfaceContains(x, y);
         }
         if (!fastButtonEnabled(button)) {
             return true;
@@ -6564,9 +6701,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(0f, 0f, 0f, 0.42f * alpha);
-        roundedRect(FAST_BAR_X + 4f, FAST_BAR_Y - 4f,
-                panelW, panelH, 13f);
         shapes.setColor(SEAT_RIM.r, SEAT_RIM.g, SEAT_RIM.b,
                 0.76f * alpha);
         roundedRect(FAST_BAR_X - 1.5f, FAST_BAR_Y - 1.5f,
@@ -6699,8 +6833,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float y = Math.max(LOCAL_HUD_SAFE_TOP + 12f, height * 0.18f);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(0f, 0f, 0f, 0.45f);
-        roundedRect(x + 5f, y - 5f, panelW, panelH, 16f);
         shapes.setColor(0.008f, 0.035f, 0.055f, 0.95f);
         roundedRect(x, y, panelW, panelH, 15f);
         shapes.setColor(active ? new Color(0xe53935ff) : BUTTON_LINE);
@@ -6730,7 +6862,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         liveShowdownHoverNickname = null;
         if (liveState == null || uiLayer != UI_NONE
                 || !tablePreference("resaltar_jugada_showdown", true)
-                || !liveState.hasShowdownHighlights()) {
+                || !liveState.hasShowdownHighlights()
+                || fastAccessSurfaceContains(pointer.x, pointer.y)) {
             return;
         }
         for (Seat seat : seats) {
@@ -7786,8 +7919,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Color accent = notice.senderBlocked ? POT_GOLD : FOLD_RED;
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(0f, 0f, 0f, 0.62f * alpha);
-        roundedRect(x + 7f, y - 7f, width, height, 13f);
         shapes.setColor(accent.r, accent.g, accent.b, 0.94f * alpha);
         roundedRect(x - 2f, y - 2f, width + 4f, height + 4f, 13f);
         shapes.setColor(0.012f, 0.027f, 0.047f, 0.98f * alpha);
@@ -7939,7 +8070,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
     }
 
-    private static Color latencyColor(TableSnapshot.PlayerSnapshot player) {
+    static Color latencyColor(TableSnapshot.PlayerSnapshot player) {
         if (player.telemetryAt() <= 0L
                 || System.currentTimeMillis() - player.telemetryAt()
                 > LATENCY_STALE_MILLIS) {
@@ -9059,8 +9190,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(0f, 0f, 0f, 0.52f);
-        roundedRect(x + 3f, y - 4f, width, height, 10f);
         shapes.setColor(SEAT_RIM.r, SEAT_RIM.g, SEAT_RIM.b, 0.72f);
         roundedRect(x - 2f, y - 2f, width + 4f, height + 4f, 11f);
         // Smoked glass: the felt remains visible through the HUD.
@@ -11254,9 +11383,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-        shapes.setColor(0f, 0f, 0f, 0.44f);
-        roundedRect(panelX + 7f, panelY - 8f,
-                boardWidth, panelHeight, 18f);
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b,
                 0.10f + 0.12f * pulse);
         roundedRect(panelX - 7f, panelY - 7f,
@@ -11913,7 +12039,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         GdxUiButtonStyle.drawPalette(shapes, x, y, width, height,
                 rimColor, surfaceR, surfaceG, surfaceB,
                 enabled || hover ? 1f : 0.78f, enabled,
-                hover ? 1f : 0f, pressed || selected, 1f, true);
+                hover ? 1f : 0f, pressed || selected, 1f);
     }
 
     static Color hudActionRimColor(Color semanticColor, boolean selected) {
@@ -11974,8 +12100,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float remaining = sharedTurnRemaining();
         Color timerColor = remaining > 0.55f ? SWING_STACK_GREEN
                 : remaining > 0.25f ? POT_GOLD : FOLD_RED;
-        shapes.setColor(0f, 0f, 0f, 0.58f);
-        roundedRect(x + 2f, y - 2f, width, height, 5f);
         shapes.setColor(0.018f, 0.032f, 0.055f, 0.96f);
         roundedRect(x, y, width, height, 5f);
         if (remaining > 0.002f) {
@@ -11987,8 +12111,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawSharedProgressBar(float x, float y, float width) {
         float height = COMMUNITY_TIMER_HEIGHT;
-        shapes.setColor(0f, 0f, 0f, 0.58f);
-        roundedRect(x + 2f, y - 2f, width, height, 5f);
         shapes.setColor(0.018f, 0.032f, 0.055f, 0.96f);
         roundedRect(x, y, width, height, 5f);
         if (liveState.sharedProgressIndeterminate()) {
@@ -12103,6 +12225,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && controls.allInEnabled();
         TableSnapshot.PlayerSnapshot liveLocalPlayer = livePlayer(seats[0]);
         Seat localSeat = seats[0];
+        String localActionMemoryText = "";
+        if (localActionMemory) {
+            String canonical = localActionSubmissionPending ? ""
+                    : liveState.actionLabel(localSeat.name);
+            String fallback = canonical.isBlank() && liveLocalPlayer != null
+                    ? liveLocalPlayer.lastAction() : canonical;
+            localActionMemoryText = localActionMemoryLabel(localActionKind,
+                    fallback, gameText);
+        }
         int pendingRebuy = liveState.immediateRebuyAmount(localSeat.name);
         boolean localFolded = shouldDimSeat(liveLocalPlayer == null
                 || liveLocalPlayer.active(), settledShowdown,
@@ -12155,18 +12286,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : Color.WHITE;
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(pointer);
+        boolean hudOwnsPointer = !fastAccessSurfaceContains(pointer.x,
+                pointer.y);
 
-        boolean foldHover = pointer.x >= foldX && pointer.x <= foldX + foldWidth
+        boolean foldHover = hudOwnsPointer
+                && pointer.x >= foldX && pointer.x <= foldX + foldWidth
                 && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
-        boolean checkHover = pointer.x >= checkX && pointer.x <= checkX + checkWidth
+        boolean checkHover = hudOwnsPointer
+                && pointer.x >= checkX && pointer.x <= checkX + checkWidth
                 && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
-        boolean minusHover = pointer.x >= minusX && pointer.x <= minusX + stepperWidth
+        boolean minusHover = hudOwnsPointer
+                && pointer.x >= minusX && pointer.x <= minusX + stepperWidth
                 && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
-        boolean betHover = pointer.x >= betX && pointer.x <= betX + betWidth
+        boolean betHover = hudOwnsPointer
+                && pointer.x >= betX && pointer.x <= betX + betWidth
                 && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
-        boolean plusHover = pointer.x >= plusX && pointer.x <= plusX + stepperWidth
+        boolean plusHover = hudOwnsPointer
+                && pointer.x >= plusX && pointer.x <= plusX + stepperWidth
                 && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
-        boolean allInHover = pointer.x >= allInX && pointer.x <= allInX + allInWidth
+        boolean allInHover = hudOwnsPointer
+                && pointer.x >= allInX && pointer.x <= allInX + allInWidth
                 && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
         boolean pointerDown = Gdx.input.isButtonPressed(Input.Buttons.LEFT);
         float foldContentAlpha = foldEnabled ? 1f : 0.34f;
@@ -12273,8 +12412,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             roundedRect(hudX - 3f, hudY - 3f,
                     hudWidth + 6f, hudHeight + 15f, 16f);
         }
-        shapes.setColor(0.01f, 0.04f, 0.055f, 0.38f);
-        roundedRect(hudX + 5f, hudY - 4f, infoWidth, hudHeight, 15f);
         shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.84f);
         roundedRect(hudX, hudY, infoWidth, hudHeight, 15f);
         shapes.setColor(0.03f, 0.06f, 0.11f, 0.98f);
@@ -12385,13 +12522,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         batch.begin();
         Seat local = localSeat;
-        String turnStatus = localHudTurnStatus(localTurn, settledShowdown,
-                localFolded, localAllIn, liveLocalPlayer, gameText);
+        String turnStatus = localHudMiniStatus(localActionMemoryText,
+                localHudTurnStatus(localTurn, settledShowdown,
+                        localFolded, localAllIn, liveLocalPlayer, gameText));
         if (!turnStatus.isEmpty()) {
             drawFittedCenteredInBox(localTurn ? actionFont : smallFont,
                     turnStatus, hudX + 12f, hudY + 96f,
                     infoWidth - 24f, 24f,
-                    localTurn ? POT_GOLD : SEAT_RIM, 1f);
+                    localTurn ? POT_GOLD : SEAT_RIM,
+                    1f);
         }
         boolean localUnderTheGun = liveLocalPlayer != null
                 && liveLocalPlayer.underTheGun();
@@ -12409,7 +12548,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         float pendingIconX = hudX + infoWidth - 34f;
         float pendingIconY = hudY + 66f;
-        boolean pendingIconHover = pendingRebuy > 0
+        boolean pendingIconHover = hudOwnsPointer && pendingRebuy > 0
                 && contains(pointer.x, pointer.y, pendingIconX,
                         pendingIconY, 24f, 24f);
         if (pendingRebuy > 0 && fastButtonIcons != null
@@ -12485,13 +12624,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     actionHeight - 16f,
                     lastActionTextColorForSeat(0), 1f);
         } else if (localActionMemory) {
-            String canonical = localActionSubmissionPending ? ""
-                    : liveState.actionLabel(localSeat.name);
-            String fallback = canonical.isBlank() && liveLocalPlayer != null
-                    ? liveLocalPlayer.lastAction() : canonical;
             drawScaledFittedCenteredInBox(localOutcomeFont, 0.70f,
-                    localActionMemoryLabel(localActionKind, fallback,
-                            gameText),
+                    localActionMemoryText,
                     statusX, actionY + 8f, statusWidth,
                     actionHeight - 16f,
                     localHudStatusTextColor(false, null, localActionKind),
@@ -12637,7 +12771,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 0.085f + actionColor.b * sideTint,
                 sideAlpha, enabled,
                 minusHover ? 1f : 0f, pointerDown && minusHover,
-                1f, true);
+                1f);
         drawHudActionSurface(actionX, y, actionWidth, height,
                 actionColor, actionHover, selected,
                 pointerDown && actionHover, enabled);
@@ -12648,7 +12782,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 0.085f + actionColor.b * sideTint,
                 sideAlpha, enabled,
                 plusHover ? 1f : 0f, pointerDown && plusHover,
-                1f, true);
+                1f);
     }
 
     static Color hudCallSurfaceColor(ActionControlState.CallAction action) {
@@ -12681,6 +12815,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return uppercase(text.translate(localTurn
                 ? "gdx.table.hud.your_turn"
                 : "gdx.table.hud.waiting_turn"), text);
+    }
+
+    static String localHudMiniStatus(String actionMemoryLabel,
+            String turnStatus) {
+        // The remembered action already appears in both the mini action strip
+        // and the large HUD. Keep this narrow status line visually empty while
+        // that presentation is active instead of repeating the same caption a
+        // third time. It remains available for real turn/lifecycle statuses.
+        return actionMemoryLabel != null && !actionMemoryLabel.isBlank()
+                ? "" : turnStatus == null ? "" : turnStatus;
     }
 
     static boolean showsWaitingTurnMessage(boolean localTurn,
@@ -14023,9 +14167,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         };
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(0f, 0f, 0f, 0.58f * alpha);
-        roundedRect(chatEditMenuX + 6f, chatEditMenuY - 6f,
-                width, height, 10f);
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.76f * alpha);
         roundedRect(chatEditMenuX - 1f, chatEditMenuY - 1f,
                 width + 2f, height + 2f, 10f);
@@ -14300,9 +14441,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             gameLogSelectionAnchor >= 0 && gameLogSelectionCaret >= 0 };
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(0f, 0f, 0f, 0.58f * alpha);
-        roundedRect(gameLogEditMenuX + 6f, gameLogEditMenuY - 6f,
-                width, height, 10f);
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.76f * alpha);
         roundedRect(gameLogEditMenuX - 1f, gameLogEditMenuY - 1f,
                 width + 2f, height + 2f, 10f);
@@ -14776,8 +14914,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float width = 430f;
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(0f, 0f, 0f, 0.62f * alpha);
-        roundedRect(x + 6f, y - 7f, width, 64f, 11f);
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.88f * alpha);
         roundedRect(x - 2f, y - 2f, width + 4f, 64f, 11f);
         shapes.setColor(0.012f, 0.027f, 0.047f, 0.98f * alpha);
@@ -14803,8 +14939,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float barW = width - GdxVolumeOverlayStyle.BAR_RIGHT_INSET;
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(0f, 0f, 0f, 0.58f);
-        roundedRect(x + 8f, y - 9f, width, height, 15f);
         shapes.setColor(accent.r, accent.g, accent.b, 0.92f);
         roundedRect(x - 2f, y - 2f, width + 4f, height + 4f, 15f);
         shapes.setColor(0.012f, 0.027f, 0.047f, 0.98f);
@@ -16370,7 +16504,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 enabled, hovered ? 1f : 0f,
                 enabled && hovered
                 && Gdx.input.isButtonPressed(Input.Buttons.LEFT),
-                alpha, false);
+                alpha);
     }
 
     private void drawSettingsRowScrollbarShape(float x,
@@ -17843,8 +17977,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(0f, 0f, 0f, 0.42f * alpha);
-        roundedRect(panelX + 5f, panelY - 5f, panelW, panelH, 10f);
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.72f * alpha);
         roundedRect(panelX - 1.5f, panelY - 1.5f,
                 panelW + 3f, panelH + 3f, 10f);
@@ -18870,8 +19002,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(0f, 0f, 0f, 0.48f);
-        roundedRect(x + 3f, y - 3f, panelWidth, panelHeight, 11f);
         shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.88f);
         roundedRect(x, y, panelWidth, panelHeight, 11f);
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.86f);
@@ -19097,7 +19227,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeSafely(gameLogFont);
         disposeSafely(gameLogBoldFont);
         disposeSafely(gameLogSuitFont);
+        disposeSafely(startupPresentationFont);
+        disposeSafely(startupPresentationSubtitleFont);
         disposeSafely(logo);
+        disposeSafely(startupPresentationSpadeTexture);
         disposeSafely(feltTexture);
         disposeSafely(avatarDefault);
         disposeSafely(avatarBot);
@@ -19191,7 +19324,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             batch.dispose();
             shapes.dispose();
             roundedCardShader.dispose();
+            startupPresentationFont.dispose();
+            startupPresentationSubtitleFont.dispose();
             logo.dispose();
+            startupPresentationSpadeTexture.dispose();
             feltTexture.dispose();
             defaultCardBack.dispose();
             for (Texture texture : liveCardFaces.values()) texture.dispose();

@@ -43,9 +43,6 @@ final class GdxSettingsChrome {
         Rectangle panel = frame.panel();
         Rectangle content = frame.content();
 
-        shapes.setColor(0f, 0f, 0f, 0.40f * alpha);
-        roundedRect(shapes, panel.x + 10f, panel.y - 10f,
-                panel.width, panel.height, 20f);
         outerBox(shapes, panel, CYAN_DARK, PANEL, alpha);
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.72f * alpha);
         shapes.rect(panel.x + 22f, panel.y + panel.height - 11f,
@@ -61,7 +58,7 @@ final class GdxSettingsChrome {
             GdxUiButtonStyle.drawPalette(shapes, tab.x, tab.y,
                     tab.width, tab.height, border,
                     fill.r, fill.g, fill.b, fill.a,
-                    true, hover ? 1f : 0f, false, alpha, false);
+                    true, hover ? 1f : 0f, false, alpha);
             if (active) {
                 shapes.setColor(GOLD.r, GOLD.g, GOLD.b, alpha);
                 roundedRect(shapes, tab.x + 10f, tab.y + 2f,
@@ -88,7 +85,7 @@ final class GdxSettingsChrome {
             GdxUiButtonStyle.drawPalette(shapes, tab.x, tab.y,
                     tab.width, tab.height, border,
                     fill.r, fill.g, fill.b, fill.a,
-                    true, hover ? 1f : 0f, false, alpha, false);
+                    true, hover ? 1f : 0f, false, alpha);
         }
 
         drawFooterButton(shapes, frame.cancelButton(),

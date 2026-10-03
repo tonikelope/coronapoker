@@ -131,6 +131,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private static final Logger LOGGER = Logger.getLogger(Crupier.class.getName());
     private static final int WAIT_QUEUES = GameTiming.QUEUE_POLL_MILLIS;
+    private static final long TELEMETRY_INTERVAL_MILLIS = 5_000L;
     private final GameSession game_session;
     private final java.util.ArrayList<GamePlayerController> player_controllers;
     private final GamePlayerController local_player_controller;
@@ -2415,6 +2416,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     return true;
                 } catch (Exception failure) {
                     failClientCriticalHostCommand("VOICEMSGRULE", failure);
+                    return true;
+                }
+            case "TELEMETRY":
+                try {
+                    applyTelemetryFrameLocally(
+                            parseTelemetryCommand(command));
+                    return true;
+                } catch (Exception failure) {
+                    failClientCriticalHostCommand("TELEMETRY", failure);
                     return true;
                 }
             case "RIT_VOTE_REQ":
@@ -21422,7 +21432,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         try {
             java.util.Map<String, GamePeerController> parts
                     = peers();
-            if (parts == null || parts.isEmpty()) {
+            if (parts == null) {
                 return;
             }
             java.util.Map<String, int[]> perPeer = new java.util.HashMap<>(parts.size() + 1);
@@ -21468,11 +21478,37 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    /** Starts the host-owned, table-scoped connection telemetry projection. */
+    private void startTelemetryProjection() {
+        if (!gameSession().isHost()) {
+            return;
+        }
+        game_async.execute(() -> {
+            while (!isFin_de_la_transmision() && !termination_pending
+                    && game_window.isOpen()) {
+                broadcastTelemetryFrame();
+                game_async.pause(TELEMETRY_INTERVAL_MILLIS);
+            }
+        });
+    }
+
+    static TelemetryFrame parseTelemetryCommand(String command) {
+        String prefix = "TELEMETRY#";
+        if (command == null || !command.startsWith(prefix)) {
+            throw new IllegalArgumentException("Invalid TELEMETRY command");
+        }
+        TelemetryFrame frame = TelemetryCodec.decode(
+                command.substring(prefix.length()));
+        if (frame == null) {
+            throw new IllegalArgumentException(
+                    "TELEMETRY has an invalid payload");
+        }
+        return frame;
+    }
+
     /**
-     * Telemetry: applies a TelemetryFrame to the local Players. Used by: - the
-     * host's broadcastTelemetryFrame() (self-apply, since the host doesn't
-     * receive its own broadcast). - the client's "TELEMETRY" case (on receiving
-     * the host's broadcast).
+     * Applies a telemetry frame to local player state. Used by the host after
+     * broadcasting and by clients when they receive the host's frame.
      */
     public void applyTelemetryFrameLocally(TelemetryFrame frame) {
         if (frame == null || frame.perPeer == null) {
@@ -25348,6 +25384,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.SeatRoster(
                 sequence, tableSnapshot().players()),
                 "Canonical seat-roster presentation barrier failed");
+
+        startTelemetryProjection();
 
         if (create_client_recovery_game && !sqlNewGame()) {
             LOGGER.log(Level.SEVERE, "Client recovery could not create a valid local game row");

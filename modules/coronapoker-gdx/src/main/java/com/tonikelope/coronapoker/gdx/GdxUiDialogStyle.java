@@ -26,8 +26,6 @@ final class GdxUiDialogStyle {
 
     static void drawPanel(ShapeRenderer shapes, float x, float y,
             float width, float height, Color accent, float alpha) {
-        shapes.setColor(0f, 0f, 0f, 0.42f * alpha);
-        roundedRect(shapes, x + 10f, y - 10f, width, height, 20f);
         shapes.setColor(PANEL.r, PANEL.g, PANEL.b, PANEL.a * alpha);
         roundedRect(shapes, x, y, width, height, 18f);
         shapes.setColor(accent.r, accent.g, accent.b, 0.92f * alpha);

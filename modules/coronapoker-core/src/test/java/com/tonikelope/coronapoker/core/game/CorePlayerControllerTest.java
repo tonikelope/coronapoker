@@ -163,6 +163,27 @@ class CorePlayerControllerTest {
     }
 
     @Test
+    void recoveredHoleCardsStayHiddenUntilTheirDealLands() {
+        CorePlayerController player = CorePlayerController.remote("rival");
+        player.getHoleCard1().iniciarCarta(true);
+        player.getHoleCard2().iniciarCarta(true);
+
+        player.nuevaMano();
+        player.getHoleCard1().iniciarConValorNumerico(1);
+        player.getHoleCard2().iniciarConValorNumerico(2);
+
+        assertTrue(player.getHoleCard1().isIniciadaConValor());
+        assertTrue(player.getHoleCard2().isIniciadaConValor());
+        assertFalse(player.getHoleCard1().isVisible_card());
+        assertFalse(player.getHoleCard2().isVisible_card());
+
+        player.getHoleCard1().iniciarCarta();
+
+        assertTrue(player.getHoleCard1().isVisible_card());
+        assertFalse(player.getHoleCard2().isVisible_card());
+    }
+
+    @Test
     void dealerManagedTimeoutChecksWhenNothingMustBeCalled() {
         CorePlayerController player = CorePlayerController.local("player");
         player.setStack(10d);

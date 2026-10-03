@@ -262,8 +262,13 @@ public final class CorePlayerController implements GamePlayerController {
         double winnings = getPagar();
         if (MoneyMath.compare(winnings, 0d) > 0) setStack(getStack() + winnings);
         state.setPendingPayment(0d);
-        firstCard.resetearCarta();
-        secondCard.resetearCarta();
+        // A new hand starts with no card occupying either visual slot.  The
+        // ordered DealHoleCard events make each back appear when its flight
+        // actually starts.  Keeping the slots visible here is harmless while
+        // they have no value, but recovery restores the persisted values before
+        // dealing and would therefore expose both remote backs immediately.
+        firstCard.resetearCarta(false);
+        secondCard.resetearCarta(false);
         applyCurrentHandPosition();
     }
 

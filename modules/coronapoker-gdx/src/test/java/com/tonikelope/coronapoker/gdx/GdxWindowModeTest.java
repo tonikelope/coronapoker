@@ -77,6 +77,49 @@ final class GdxWindowModeTest {
     }
 
     @Test
+    void everySuccessfulRuntimeTransitionSynchronizesTheSettingsValue() {
+        Properties properties = new Properties();
+        properties.setProperty(GdxWindowMode.PREFERENCE_KEY, "borderless");
+
+        GdxDisplayModeController.synchronizePreference(properties,
+                GdxWindowMode.WINDOWED);
+        assertEquals(GdxWindowMode.WINDOWED,
+                GdxWindowMode.configured(properties));
+
+        GdxDisplayModeController.synchronizePreference(properties,
+                GdxWindowMode.EXCLUSIVE);
+        assertEquals(GdxWindowMode.EXCLUSIVE,
+                GdxWindowMode.configured(properties));
+
+        GdxDisplayModeController.synchronizePreference(properties,
+                GdxWindowMode.BORDERLESS);
+        assertEquals(GdxWindowMode.BORDERLESS,
+                GdxWindowMode.configured(properties));
+    }
+
+    @Test
+    void repeatedF11AndSettingsCyclesNeverDiverge() {
+        Properties properties = new Properties();
+        GdxDisplayModeController.synchronizePreference(properties,
+                GdxWindowMode.EXCLUSIVE);
+        GdxWindowMode active = GdxWindowMode.EXCLUSIVE;
+        GdxWindowMode preferred = GdxWindowMode.EXCLUSIVE;
+
+        for (int pass = 0; pass < 12; pass++) {
+            active = GdxDisplayModeController.toggleTarget(active, preferred);
+            GdxDisplayModeController.synchronizePreference(properties, active);
+            assertEquals(active, GdxWindowMode.configured(properties));
+
+            GdxWindowMode adjusted = GdxWindowMode.adjusted(properties, 1);
+            GdxDisplayModeController.synchronizePreference(properties,
+                    adjusted);
+            active = adjusted;
+            if (active != GdxWindowMode.WINDOWED) preferred = active;
+            assertEquals(active, GdxWindowMode.configured(properties));
+        }
+    }
+
+    @Test
     void configuredFullscreenKindWinsOverStalePreviewMemory() {
         assertEquals(GdxWindowMode.BORDERLESS,
                 GdxDisplayModeController.fullscreenPreference(

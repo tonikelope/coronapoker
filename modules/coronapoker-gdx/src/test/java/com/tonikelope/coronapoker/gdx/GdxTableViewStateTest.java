@@ -1212,6 +1212,82 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void idleHudReplacesButtonsOnlyWhileAnActivePlayerWaits() {
+        TableSnapshot.PlayerSnapshot active = playerWithAvailability(
+                "ana", true, false, false, false);
+        TableSnapshot.PlayerSnapshot inactive = playerWithAvailability(
+                "ana", false, false, false, false);
+        TableSnapshot.PlayerSnapshot spectator = playerWithAvailability(
+                "ana", false, true, false, false);
+
+        assertTrue(CoronaPokerGdxTable.showsWaitingTurnMessage(
+                false, false, false, false, false, active));
+        assertFalse(CoronaPokerGdxTable.showsWaitingTurnMessage(
+                true, false, false, false, false, active));
+        assertFalse(CoronaPokerGdxTable.showsWaitingTurnMessage(
+                false, true, false, false, false, active));
+        assertFalse(CoronaPokerGdxTable.showsWaitingTurnMessage(
+                false, false, true, false, false, active));
+        assertFalse(CoronaPokerGdxTable.showsWaitingTurnMessage(
+                false, false, false, true, false, active));
+        assertFalse(CoronaPokerGdxTable.showsWaitingTurnMessage(
+                false, false, false, false, true, active));
+        assertFalse(CoronaPokerGdxTable.showsWaitingTurnMessage(
+                false, false, false, false, false, inactive));
+        assertFalse(CoronaPokerGdxTable.showsWaitingTurnMessage(
+                false, false, false, false, false, spectator));
+
+        GdxGameText spanish = new GdxGameText("es");
+        GdxGameText english = new GdxGameText("en");
+        assertEquals("NO VAS", CoronaPokerGdxTable.localHudIdleMessage(
+                true, false, spanish));
+        assertEquals("FOLD", CoronaPokerGdxTable.localHudIdleMessage(
+                true, false, english));
+        assertEquals("ESPERANDO TURNO",
+                CoronaPokerGdxTable.localHudIdleMessage(
+                        false, true, spanish));
+        assertEquals("", CoronaPokerGdxTable.localHudIdleMessage(
+                false, false, spanish));
+    }
+
+    @Test
+    void foldedPlayerCanStillUseVoluntaryShowAtShowdown() {
+        ActionControlState show = ActionControlState.disabled()
+                .withShowCards(true);
+        assertTrue(CoronaPokerGdxTable.showsVoluntaryShowButton(show, false));
+        assertFalse(CoronaPokerGdxTable.showsVoluntaryShowButton(show, true));
+        assertFalse(CoronaPokerGdxTable.showsVoluntaryShowButton(
+                ActionControlState.disabled(), false));
+
+        GdxTableViewState state = new GdxTableViewState(snapshotAt(
+                TableSnapshot.Street.SHOWDOWN));
+        state.apply(new TableVisualEvent.ActionControls(1, show));
+        List<TableCommand> submitted = new java.util.ArrayList<>();
+        CoronaPokerGdxTable table = new CoronaPokerGdxTable(60, state,
+                submitted::add, () -> { }, new GdxGameLogSink(), null);
+        assertTrue(table.activateVoluntaryShowAction());
+        assertEquals(List.of(new TableCommand.ShowCards()), submitted);
+
+        state.apply(new TableVisualEvent.ActionControls(2,
+                ActionControlState.disabled()));
+        assertFalse(table.activateVoluntaryShowAction());
+        assertEquals(1, submitted.size());
+    }
+
+    @Test
+    void rivalMoneyCellsShareOneBalancedGeometry() {
+        float investedX = CoronaPokerGdxTable.RIVAL_MONEY_CELL_X
+                + CoronaPokerGdxTable.RIVAL_MONEY_CELL_WIDTH
+                + CoronaPokerGdxTable.RIVAL_MONEY_CELL_GAP;
+
+        assertEquals(6f, investedX
+                - (CoronaPokerGdxTable.RIVAL_MONEY_CELL_X
+                        + CoronaPokerGdxTable.RIVAL_MONEY_CELL_WIDTH));
+        assertEquals(279f, investedX
+                + CoronaPokerGdxTable.RIVAL_MONEY_CELL_WIDTH);
+    }
+
+    @Test
     void everySpectatorVariantUsesJokersAndItsCanonicalStatus() {
         GdxGameText spanish = new GdxGameText("es");
         TableSnapshot.PlayerSnapshot busted = playerWithAvailability(

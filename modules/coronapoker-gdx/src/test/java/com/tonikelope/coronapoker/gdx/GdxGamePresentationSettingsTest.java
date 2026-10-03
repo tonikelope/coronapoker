@@ -9,10 +9,41 @@ import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.core.media.ModMediaCatalog;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class GdxGamePresentationSettingsTest {
+
+    @Test
+    void animationSpeedSelectorsFeedTheLiveGdxTimelines(
+            @TempDir Path temporary) {
+        PreferencesService preferences = new PreferencesService(
+                temporary.resolve("coronapoker.properties"));
+        GdxGamePresentationSettings settings =
+                new GdxGamePresentationSettings(preferences);
+        Properties properties = preferences.properties();
+
+        assertEquals(100, settings.dealSpeed());
+        assertEquals(320, settings.swapAnimationDuration());
+        assertEquals(0.620f, CoronaPokerGdxTable.cardFlipSeconds(properties),
+                0.000_001f);
+
+        GdxAppearanceOptions.adjust(
+                GdxAppearanceOptions.ANIMATION_CHOICES.get(0), properties, 1);
+        GdxAppearanceOptions.adjust(
+                GdxAppearanceOptions.ANIMATION_CHOICES.get(1), properties, 1);
+        GdxAppearanceOptions.adjust(
+                GdxAppearanceOptions.ANIMATION_CHOICES.get(3), properties, 1);
+
+        assertEquals(60, settings.dealSpeed());
+        assertEquals(200, settings.swapAnimationDuration());
+        assertEquals(0.480f, CoronaPokerGdxTable.cardFlipSeconds(properties),
+                0.000_001f);
+        assertEquals(0.090f, CoronaPokerGdxTable
+                .liveDealFlightSeconds(10, settings.dealSpeed()),
+                0.000_001f);
+    }
 
     @Test
     void gameplayAnimationsHonorTheGlobalMasterAndSpecificSwitches(

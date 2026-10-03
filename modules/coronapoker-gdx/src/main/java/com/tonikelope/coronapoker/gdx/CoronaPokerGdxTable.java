@@ -188,6 +188,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float RABBIT_PEEL_MAX_DIAGONAL = 1.34f;
     private static final float PLAYER_POD_WIDTH = 286f;
     private static final float PLAYER_POD_HEIGHT = 120f;
+    static final float RIVAL_MONEY_CELL_X = 63f;
+    static final float RIVAL_MONEY_CELL_WIDTH = 105f;
+    static final float RIVAL_MONEY_CELL_GAP = 6f;
     private static final float POT_PANEL_HEIGHT = 82f;
     private static final float POT_BOARD_GAP = 24f;
     private static final float COMMUNITY_TIMER_HEIGHT = 14f;
@@ -585,6 +588,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final Color ORANGE = new Color(0xff6b27ff);
     private static final Color PANEL = new Color(0x101a2ee6);
     private static final Color SEAT_RIM = new Color(0x647594ff);
+    private static final Color WAITING_TURN_TEXT = new Color(0x9aa0a8ff);
     private static final Color SEAT_INNER = new Color(0x111a2aff);
     private static final Color STACK_GREEN = new Color(0x9fffd2ff);
     private static final Color SWING_STACK_GREEN = new Color(0x339900ff);
@@ -1905,7 +1909,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private float cardFlipSeconds() {
-        Properties properties = tableSettingsProperties();
+        return cardFlipSeconds(tableSettingsProperties());
+    }
+
+    static float cardFlipSeconds(Properties properties) {
         try {
             int millis = MathUtils.clamp(Integer.parseInt(properties
                     .getProperty("card_flip_duration", "620")), 150, 1500);
@@ -5059,18 +5066,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else if (shortcut == TableShortcut.LIGHTS
                 && !liveState.snapshot().paused()) {
             toggleUserLights();
+        } else if (!autoActionVeto
+                && shortcut == TableShortcut.CHECK_OR_SHOW
+                && controls.showCards()) {
+            activateVoluntaryShowAction();
         } else if (!autoActionVeto && localTurn) {
             switch (shortcut) {
                 case FOLD -> {
                     activateFoldAction();
                 }
-                case CHECK_OR_SHOW -> {
-                    if (controls.showCards()) {
-                        submit(new TableCommand.ShowCards());
-                    } else {
-                        activateCheckOrCallAction();
-                    }
-                }
+                case CHECK_OR_SHOW -> activateCheckOrCallAction();
                 case BET_DOWN -> adjustLiveBet(-1);
                 case BET_UP -> adjustLiveBet(1);
                 case BET -> {
@@ -5178,8 +5183,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             submit(new TableCommand.RequestRabbit());
             return;
         }
-        int localHudTarget = hudTarget(pointer.x, pointer.y,
-                viewport.getWorldWidth());
+        boolean voluntaryShow = !autoActionVeto && controls.showCards();
+        boolean hudActionsVisible = localTurn || autoPreActionsVisible()
+                || voluntaryShow;
+        int localHudTarget = hudActionsVisible
+                ? hudTarget(pointer.x, pointer.y, viewport.getWorldWidth()) : 0;
         if (localHudTarget != 0 && !autoActionVeto) {
             switch (localHudTarget) {
             case 1 -> {
@@ -5206,8 +5214,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (localTurn) activateBetAction();
             }
             case 6 -> {
-                if (localTurn && controls.showCards()) {
-                    submit(new TableCommand.ShowCards());
+                if (voluntaryShow) {
+                    activateVoluntaryShowAction();
                 } else {
                     activateAllInAction();
                 }
@@ -5976,6 +5984,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return true;
     }
 
+    /** Canonical voluntary reveal path shared by pointer, shortcut and tests. */
+    boolean activateVoluntaryShowAction() {
+        boolean autoActionVeto = activeDialog != null
+                && activeDialog.isAutoAction();
+        if (liveState == null || !showsVoluntaryShowButton(
+                liveState.actionControls(), autoActionVeto)) {
+            return false;
+        }
+        submit(new TableCommand.ShowCards());
+        return true;
+    }
+
     /** Canonical pause activation shared by overlay, button, shortcut and tests. */
     boolean togglePauseAction() {
         if (liveState == null) return false;
@@ -6109,22 +6129,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void toggleFullscreen() {
-        GdxDisplayModeController.toggle(GdxWindowMode.configured(
-                tableSettingsProperties()));
+        if (GdxDisplayModeController.toggle(tableSettingsProperties())
+                && preferences != null && uiLayer != UI_SETTINGS) {
+            preferences.saveDeferred();
+        }
     }
 
     private void adjustTableWindowMode(int direction) {
         Properties properties = tableSettingsProperties();
-        String previous = properties.getProperty(GdxWindowMode.PREFERENCE_KEY);
-        GdxWindowMode next = GdxWindowMode.adjust(properties, direction);
-        if (!GdxDisplayModeController.apply(next)) {
-            if (previous == null) {
-                properties.remove(GdxWindowMode.PREFERENCE_KEY);
-            } else {
-                properties.setProperty(GdxWindowMode.PREFERENCE_KEY, previous);
-            }
-            return;
-        }
+        GdxWindowMode next = GdxWindowMode.adjusted(properties, direction);
+        GdxDisplayModeController.apply(properties, next);
     }
 
     private String tableWindowModeSettingLabel() {
@@ -6749,15 +6763,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 Color stackSurface = playerStackSurface(seat, livePlayer);
                 shapes.setColor(stackSurface.r, stackSurface.g,
                         stackSurface.b, (folded ? 0.30f : 0.92f) * presence);
-                roundedRect(seat.podX + 63f, seat.podY + 59f,
-                        132f, 29f, 7f);
+                roundedRect(seat.podX + RIVAL_MONEY_CELL_X,
+                        seat.podY + 59f, RIVAL_MONEY_CELL_WIDTH, 29f, 7f);
                 Color potBackground = actionLabel.isEmpty()
                         ? BUTTON_LINE : actionColor;
                 shapes.setColor(potBackground.r, potBackground.g,
                         potBackground.b, composedAlpha(potBackground,
                                 folded ? 0.30f : 0.92f, presence));
-                roundedRect(seat.podX + 201f, seat.podY + 59f,
-                        78f, 29f, 7f);
+                roundedRect(seat.podX + RIVAL_MONEY_CELL_X
+                                + RIVAL_MONEY_CELL_WIDTH
+                                + RIVAL_MONEY_CELL_GAP,
+                        seat.podY + 59f, RIVAL_MONEY_CELL_WIDTH, 29f, 7f);
                 if (showActionSurface) {
                     shapes.setColor(actionColor.r, actionColor.g, actionColor.b,
                             composedAlpha(actionColor,
@@ -6782,7 +6798,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         PLAYER_POD_WIDTH - 24f, 2f);
                 shapes.rect(seat.podX + 12f, seat.podY + 89f,
                         PLAYER_POD_WIDTH - 24f, 2f);
-                shapes.rect(seat.podX + 198f, seat.podY + 61f, 2f, 24f);
+                shapes.rect(seat.podX + RIVAL_MONEY_CELL_X
+                                + RIVAL_MONEY_CELL_WIDTH
+                                + RIVAL_MONEY_CELL_GAP / 2f - 1f,
+                        seat.podY + 61f, 2f, 24f);
             }
             shapes.setColor(PANEL.r, PANEL.g, PANEL.b, PANEL.a * presence);
             shapes.circle(seat.x, seat.y, AVATAR_OUTER_RADIUS, 48);
@@ -6866,11 +6885,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
                 drawFittedCenteredInBox(stackFont,
                         playerStackText(seat, livePlayer),
-                        seat.podX + 68f, seat.podY + 62f, 124f, 23f,
+                        seat.podX + RIVAL_MONEY_CELL_X + 4f,
+                        seat.podY + 62f,
+                        RIVAL_MONEY_CELL_WIDTH - 8f, 23f,
                         folded ? Color.GRAY
                                 : playerStackTextColor(seat), presence);
                 drawFittedCenteredInBox(stackFont, seat.investedText,
-                        seat.podX + 202f, seat.podY + 62f, 76f, 23f,
+                        seat.podX + RIVAL_MONEY_CELL_X
+                                + RIVAL_MONEY_CELL_WIDTH
+                                + RIVAL_MONEY_CELL_GAP + 4f,
+                        seat.podY + 62f,
+                        RIVAL_MONEY_CELL_WIDTH - 8f, 23f,
                         folded ? Color.GRAY
                                 : lastActionTextColorForSeat(seat.index), presence);
             }
@@ -11826,7 +11851,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && controls.raiseAction()
                         != ActionControlState.RaiseAction.DISABLED;
         boolean allInEnabled = !autoActionVeto && localTurn
-                && (controls.allInEnabled() || controls.showCards());
+                && controls.allInEnabled();
+        boolean voluntaryShow = showsVoluntaryShowButton(controls,
+                autoActionVeto);
         Boolean settledLocalWinner = localHandOutcome(
                 liveState.resolvedHandWinner(seats[0].name),
                 liveState.foldedThisHand(seats[0].name));
@@ -11842,6 +11869,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 liveState.foldedThisHand(seats[0].name));
         boolean localTimedOut = liveLocalPlayer != null
                 && liveLocalPlayer.timedOut();
+        boolean waitingForTurn = showsWaitingTurnMessage(localTurn,
+                preActions, settledShowdown, localFolded, localAllIn,
+                liveLocalPlayer);
         String lastLocalActionLabel = lastActionLabelForSeat(0);
         Color lastLocalActionColor = lastActionColorForSeat(0);
         Color foldButtonColor = preActions ? SWING_FOLD_BUTTON
@@ -11986,7 +12016,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.rect(hudX + 16f, hudY + 34f, infoWidth - 32f, 2f);
         shapes.rect(hudX + 16f, hudY + 63f, infoWidth - 32f, 2f);
         shapes.rect(hudX + infoWidth / 2f, hudY + 13f, 2f, 18f);
-        if (settledLocalWinner == null && autoActionVeto) {
+        if (voluntaryShow) {
+            drawHudActionSurface(allInX, actionY, allInWidth, actionHeight,
+                    allInVisualColor, allInHover,
+                    false, pointerDown && allInHover, true);
+        } else if (settledLocalWinner == null && autoActionVeto) {
             boolean cancelHover = autoHud.cancel().contains(pointer.x,
                     pointer.y);
             drawHudActionSurface(autoHud.message().x, autoHud.message().y,
@@ -12008,7 +12042,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 roundedRect(progress.x, progress.y, remaining,
                         progress.height, progress.height / 2f);
             }
-        } else if (settledLocalWinner == null) {
+        } else if (settledLocalWinner == null && (localTurn || preActions)) {
             drawHudActionSurface(foldX, actionY, foldWidth, actionHeight,
                     foldVisualColor, foldHover && foldEnabled,
                     foldSelected || armedHudTarget == 1,
@@ -12103,7 +12137,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 lastLocalActionLabel.isEmpty() ? Color.WHITE
                         : lastActionTextColorForSeat(0), 1f);
 
-        if (settledLocalWinner != null) {
+        if (voluntaryShow) {
+            drawHudActionContent(
+                    uppercase(gameText.translate("action.mostrar")),
+                    allInX, actionY, allInWidth, actionHeight,
+                    Color.WHITE, 1f);
+        } else if (settledLocalWinner != null) {
             float outcomeX = foldX + 24f;
             float outcomeWidth = allInX + allInWidth - foldX - 48f;
             Color outcomeColor = settledLocalWinner
@@ -12129,7 +12168,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     autoHud.cancel().x + 10f, autoHud.cancel().y + 6f,
                     autoHud.cancel().width - 20f,
                     autoHud.cancel().height - 12f, Color.WHITE, 1f);
-        } else {
+        } else if (localFolded || waitingForTurn) {
+            float waitingX = foldX + 24f;
+            float waitingWidth = allInX + allInWidth - foldX - 48f;
+            drawFittedCenteredInBox(localOutcomeFont,
+                    localHudIdleMessage(localFolded, waitingForTurn,
+                            gameText),
+                    waitingX, actionY + 8f, waitingWidth,
+                    actionHeight - 16f, WAITING_TURN_TEXT, 1f);
+        } else if (localTurn || preActions) {
             drawHudActionContent(foldThumbIcon,
                     preActions ? uppercase(gameText.translate("action.auto_fold"))
                             : uppercase(gameText.translate("action.no_ir")),
@@ -12173,8 +12220,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         for (Seat seat : seats) {
             if (seat.index > 0 && seatPresenceAlpha(seat.index) > 0f
-                    && contains(x, y, seat.podX + 63f, seat.podY + 59f,
-                            132f, 29f)) {
+                    && contains(x, y,
+                            seat.podX + RIVAL_MONEY_CELL_X,
+                            seat.podY + 59f,
+                            RIVAL_MONEY_CELL_WIDTH, 29f)) {
                 return seat;
             }
         }
@@ -12294,6 +12343,31 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return uppercase(text.translate(localTurn
                 ? "gdx.table.hud.your_turn"
                 : "gdx.table.hud.waiting_turn"), text);
+    }
+
+    static boolean showsWaitingTurnMessage(boolean localTurn,
+            boolean preActionsVisible, boolean settledShowdown,
+            boolean foldedThisHand, boolean allInThisHand,
+            TableSnapshot.PlayerSnapshot player) {
+        return !localTurn && !preActionsVisible && player != null
+                && !player.spectator() && !settledShowdown
+                && !foldedThisHand && !allInThisHand
+                && !player.exited() && player.active();
+    }
+
+    static boolean showsVoluntaryShowButton(ActionControlState controls,
+            boolean autoActionVeto) {
+        return !autoActionVeto && controls != null && controls.showCards();
+    }
+
+    static String localHudIdleMessage(boolean foldedThisHand,
+            boolean waitingForTurn, GdxGameText text) {
+        if (foldedThisHand) {
+            return uppercase(text.translate("action.label.fold"), text);
+        }
+        return waitingForTurn
+                ? uppercase(text.translate("gdx.table.hud.waiting_turn"), text)
+                : "";
     }
 
     static String spectatorStatusLabel(TableSnapshot.PlayerSnapshot player,

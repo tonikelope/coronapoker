@@ -66,12 +66,21 @@ enum GdxWindowMode {
     }
 
     static GdxWindowMode adjust(Properties properties, int direction) {
+        GdxWindowMode next = adjusted(properties, direction);
+        persist(properties, next);
+        return next;
+    }
+
+    static GdxWindowMode adjusted(Properties properties, int direction) {
         GdxWindowMode current = configured(properties);
         int size = values().length;
         int index = Math.floorMod(current.ordinal()
                 + Integer.signum(direction), size);
-        GdxWindowMode next = values()[index];
-        properties.setProperty(PREFERENCE_KEY, next.persistedValue);
-        return next;
+        return values()[index];
+    }
+
+    static void persist(Properties properties, GdxWindowMode mode) {
+        if (properties == null || mode == null) return;
+        properties.setProperty(PREFERENCE_KEY, mode.persistedValue);
     }
 }

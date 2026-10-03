@@ -6607,19 +6607,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void adjustWindowMode(int direction) {
-        String previous = initialProperties.getProperty(
-                GdxWindowMode.PREFERENCE_KEY);
-        GdxWindowMode next = GdxWindowMode.adjust(initialProperties,
+        GdxWindowMode next = GdxWindowMode.adjusted(initialProperties,
                 direction);
-        if (!GdxDisplayModeController.apply(next)) {
-            if (previous == null) {
-                initialProperties.remove(GdxWindowMode.PREFERENCE_KEY);
-            } else {
-                initialProperties.setProperty(
-                        GdxWindowMode.PREFERENCE_KEY, previous);
-            }
-            return;
-        }
+        GdxDisplayModeController.apply(initialProperties, next);
     }
 
     private void drawSoundControl(float x, float y, float w, float h,
@@ -9798,8 +9788,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void toggleFullscreenMode() {
-        GdxDisplayModeController.toggle(
-                GdxWindowMode.configured(initialProperties));
+        if (GdxDisplayModeController.toggle(initialProperties)
+                && surface != Surface.SETTINGS) {
+            preferences.saveDeferred();
+        }
     }
 
     private static boolean isTextDeletionKey(int keycode) {

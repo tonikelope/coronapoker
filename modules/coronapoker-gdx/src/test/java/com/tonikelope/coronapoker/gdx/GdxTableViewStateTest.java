@@ -1276,14 +1276,20 @@ final class GdxTableViewStateTest {
         GdxGameText spanish = new GdxGameText("es");
         GdxGameText english = new GdxGameText("en");
         assertEquals("NO VAS", CoronaPokerGdxTable.localHudIdleMessage(
-                true, false, spanish));
+                true, false, false, spanish));
         assertEquals("FOLD", CoronaPokerGdxTable.localHudIdleMessage(
-                true, false, english));
+                true, false, false, english));
         assertEquals("ESPERANDO TURNO",
                 CoronaPokerGdxTable.localHudIdleMessage(
-                        false, true, spanish));
+                        false, true, false, spanish));
+        assertEquals("ESPECTADOR",
+                CoronaPokerGdxTable.localHudIdleMessage(
+                        false, false, true, spanish));
+        assertEquals("SPECTATOR",
+                CoronaPokerGdxTable.localHudIdleMessage(
+                        false, false, true, english));
         assertEquals("", CoronaPokerGdxTable.localHudIdleMessage(
-                false, false, spanish));
+                false, false, false, spanish));
     }
 
     @Test
@@ -1487,11 +1493,14 @@ final class GdxTableViewStateTest {
         for (String action : List.of("NO VAS", "PASAS", "VAS", "APUESTAS",
                 "SUBES (+3)", "RESUBES (+7)", "ALL IN (+10)")) {
             assertEquals("", CoronaPokerGdxTable.localHudMiniStatus(
-                    action, "ESPERANDO TURNO"));
+                    action, "TU TURNO", false));
         }
-        assertEquals("ESPERANDO TURNO",
-                CoronaPokerGdxTable.localHudMiniStatus("",
-                        "ESPERANDO TURNO"));
+        assertEquals("", CoronaPokerGdxTable.localHudMiniStatus("",
+                "ESPERANDO TURNO", true));
+        assertEquals("", CoronaPokerGdxTable.localHudMiniStatus("",
+                "ESPECTADOR", true));
+        assertEquals("TU TURNO", CoronaPokerGdxTable.localHudMiniStatus("",
+                "TU TURNO", false));
     }
 
     @Test
@@ -3058,8 +3067,6 @@ final class GdxTableViewStateTest {
                 TableVisualEvent.PlayerAction.ActionKind.CHECK,
                 neutral, false),
                 "a revealed showdown hand must replace stale PASAR memory");
-        assertColor(0x80, 0x80, 0x80, 0xff,
-                CoronaPokerGdxTable.SHOWDOWN_NEUTRAL);
         assertFalse(CoronaPokerGdxTable.showsNeutralShowdownHand(
                 true, true, false, null));
         assertFalse(CoronaPokerGdxTable.showsNeutralShowdownHand(

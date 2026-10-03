@@ -361,12 +361,62 @@ final class GdxTableViewStateTest {
         assertEquals(0.90025f, anchors[7][0], 0.000_001f);
 
         assertEquals(0.3425f, anchors[1][1], 0.000_001f);
-        assertEquals(0.655f, anchors[2][1], 0.000_001f);
+        assertEquals(0.6025f, anchors[2][1], 0.000_001f);
         assertEquals(0.8625f, anchors[3][1], 0.000_001f);
         assertEquals(0.930f, anchors[4][1], 0.000_001f);
         assertEquals(anchors[3][1], anchors[5][1], 0.000_001f);
         assertEquals(anchors[2][1], anchors[6][1], 0.000_001f);
         assertEquals(anchors[1][1], anchors[7][1], 0.000_001f);
+        assertEquals(anchors[2][1] - anchors[1][1],
+                anchors[3][1] - anchors[2][1], 0.000_001f,
+                "left-side seats must be vertically equidistant");
+        assertEquals(anchors[6][1] - anchors[7][1],
+                anchors[5][1] - anchors[6][1], 0.000_001f,
+                "right-side seats must be vertically equidistant");
+    }
+
+    @Test
+    void ninePlayerSideColumnsAreVerticallyEquidistant() {
+        float[][] anchors = CoronaPokerGdxTable.createSeatAnchors(9);
+
+        assertEquals(anchors[2][1] - anchors[1][1],
+                anchors[3][1] - anchors[2][1], 0.000_001f,
+                "left-side seats must be vertically equidistant");
+        assertEquals(anchors[7][1] - anchors[8][1],
+                anchors[6][1] - anchors[7][1], 0.000_001f,
+                "right-side seats must be vertically equidistant");
+    }
+
+    @Test
+    void upperPairsUseTheWidestCollisionSafeLane() {
+        for (int playerCount : new int[]{5, 7}) {
+            float[][] anchors = CoronaPokerGdxTable.createSeatAnchors(
+                    playerCount);
+            int upperLeft = playerCount / 2;
+            int upperRight = upperLeft + 1;
+
+            assertEquals(0.250f, anchors[upperLeft][0], 0.000_001f,
+                    "upper-left seat for " + playerCount + " players");
+            assertEquals(0.750f, anchors[upperRight][0], 0.000_001f,
+                    "upper-right seat for " + playerCount + " players");
+            assertEquals(0.500f,
+                    anchors[upperRight][0] - anchors[upperLeft][0],
+                    0.000_001f, "upper-row span for " + playerCount
+                            + " players");
+        }
+
+        float[][] nine = CoronaPokerGdxTable.createSeatAnchors(9);
+        assertEquals(1f, nine[4][0] + nine[5][0], 0.000_001f,
+                "nine-player upper row must remain centred");
+        assertTrue(nine[4][0] > 0.250f,
+                "nine-player upper-left seat needs diagonal pod clearance");
+        assertTrue(nine[5][0] < 0.750f,
+                "nine-player upper-right seat needs diagonal pod clearance");
+        float leftClearance = (nine[4][0] - nine[3][0]) * 1920f;
+        assertEquals(303f, leftClearance, 0.001f,
+                "upper pair must use the widest collision-safe lane");
+        assertTrue((nine[5][0] - nine[4][0]) * 1920f > 900f,
+                "nine-player upper pair must not remain centre-compressed");
     }
 
     @Test

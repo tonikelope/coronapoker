@@ -3689,6 +3689,36 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     TEN_PLAYER_SEAT_OUTLINE[before][1],
                     TEN_PLAYER_SEAT_OUTLINE[after][1], progress);
         }
+        if (playerCount == 8 || playerCount == 9) {
+            /*
+             * Perimeter interpolation leaves the middle seat of each
+             * three-seat side column closer to the upper seat than to the
+             * lower one.  Keep the proven horizontal anchors, but centre the
+             * two middle seats vertically between their column neighbours.
+             */
+            float middleSideY = (anchors[1][1] + anchors[3][1]) / 2f;
+            anchors[2][1] = middleSideY;
+            anchors[playerCount - 2][1] = middleSideY;
+        }
+        if (playerCount == 7 || playerCount == 9) {
+            /*
+             * With two seats in the upper row, perimeter interpolation pulls
+             * them progressively towards the centre as the player count
+             * grows.  Use the canonical ten-player shoulders so the pair
+             * occupies the complete safe upper lane, just like the balanced
+             * five-player arrangement.
+             */
+            int upperLeft = playerCount / 2;
+            int upperRight = upperLeft + 1;
+            float adjacentCenterX = centeredRivalX(
+                    anchors[upperLeft - 1][0], BASE_WIDTH);
+            float collisionSafeLeft = (adjacentCenterX
+                    + PLAYER_POD_WIDTH + 17f) / BASE_WIDTH;
+            float upperLeftX = Math.max(TEN_PLAYER_SEAT_OUTLINE[4][0],
+                    collisionSafeLeft);
+            anchors[upperLeft][0] = upperLeftX;
+            anchors[upperRight][0] = 1f - upperLeftX;
+        }
         return anchors;
     }
 

@@ -329,13 +329,16 @@ first failed layer:
 # Rebuild and leave the runnable JAR in target/, without tests.
 .\qa.cmd build
 
-# Rebuild and run all automated non-bot tests, without scenarios.
+# Rebuild and run the product module and architecture tests.
 .\qa.cmd test
+
+# Add the slow replayable non-bot regression lane.
+.\qa.cmd extended
 
 # Run only every GDX scenario once when gameplay wiring needs certification.
 .\qa.cmd scenarios fast
 
-# Normal release gate: build + tests + the complete scenario catalogue twice.
+# Complete release gate: product tests + extended QA + scenarios twice.
 .\qa.cmd all balanced
 ```
 
@@ -352,9 +355,10 @@ Use the lifecycle according to intent:
 | Goal | Command |
 |---|---|
 | Rebuild runnable JAR without tests | `.\qa.cmd build` |
-| Rebuild and run all automated non-bot tests | `.\qa.cmd test` |
+| Rebuild and run product and architecture tests | `.\qa.cmd test` |
+| Add the slow replayable non-bot regression lane | `.\qa.cmd extended` |
 | Run the complete scenario catalogue once | `.\qa.cmd scenarios fast` |
-| Normal release gate | `.\qa.cmd all balanced` |
+| Complete release gate | `.\qa.cmd all balanced` |
 | Compile and run the product module tests | `mvn verify` |
 | Produce a clean GDX distribution | `mvn clean package` |
 | Build without tests for packaging diagnosis only | `mvn clean package -DskipTests` |
@@ -383,7 +387,7 @@ self-update mechanism requires that special helper at the repository root.
 
 ## 🧪 Testing & certification
 
-The normal product build runs code and architecture tests. Extended QA,
+The `test` command runs code and architecture tests. Extended QA,
 headless campaigns and GDX behavioural certification are separate layers and
 are never packaged in the game JAR. `qa.cmd` is the recommended single entry
 point. The individual Maven and runner commands remain available for diagnosis.

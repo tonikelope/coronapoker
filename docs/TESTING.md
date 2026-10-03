@@ -43,13 +43,16 @@ dependencies, intermediate classes, reports and the self-contained JAR.
 # Quick rebuild plus runnable target/CoronaPoker_<version>.jar. Tests are skipped.
 .\qa.cmd build
 
-# Normal code check. Clean build plus all automated non-bot tests. No scenarios.
+# Normal code check. Clean build plus product and architecture tests.
 .\qa.cmd test
+
+# Slow replayable non-bot regression lane. No GDX scenarios.
+.\qa.cmd extended
 
 # Gameplay-wiring check: run only the complete GDX catalogue once.
 .\qa.cmd scenarios fast
 
-# Normal release gate: tests + catalogue with two passes and deeper soak.
+# Complete release gate: product tests + extended QA + scenario catalogue.
 .\qa.cmd all balanced
 
 # Major protocol/recovery/concurrency gate: five scenario passes and deepest soak.
@@ -58,8 +61,10 @@ dependencies, intermediate classes, reports and the self-contained JAR.
 
 Running `.\qa.cmd` without arguments is identical to `test`. Use `build` only
 when you deliberately want a quick compilation/package without validation.
-Scenarios never start implicitly. Choose `scenarios <mode>` when you only need
-end-to-end gameplay evidence, or `all <mode>` to run the tests first.
+Use `extended` only when the change justifies the slower replayable regression
+lane. Scenarios never start implicitly. Choose `scenarios <mode>` when you only
+need end-to-end gameplay evidence. Choose `all <mode>` to combine the product,
+extended and GDX scenario lanes. Standalone headless campaigns remain explicit.
 
 `fast`, `balanced` and `stress` do not select different scenario categories:
 they run the same unified catalogue. Only repetitions and soak depth change.
@@ -76,20 +81,20 @@ Useful focused forms:
 # Reproduce one scenario with a known seed.
 .\qa.cmd scenarios fast -Scenario spectator-rebuy-cycle -Seed 42
 
-# Add the separate, very slow statistical bot-strength lane.
-.\qa.cmd all balanced -IncludeBots
+# Add the separate statistical bot-strength lane to extended QA.
+.\qa.cmd extended -IncludeBots
 
 # Display every option without running anything.
 .\qa.cmd -Help
 ```
 
 The command uses the checkout-local `.m2/repository` and stops at the first
-failed stage. `test` and `all` clean-build and install the current product
-before the additional test suite, so those tests cannot silently resolve a
-different locally installed CoronaPoker version. Successful build/test
-execution leaves the runnable JAR in `target/`. Scenarios write evidence to
-`target/certification/`, and every non-list run writes an overall
-machine-readable summary below `target/qa/`.
+failed stage. `test` stops after the product reactor. `extended` and `all`
+clean-build and install the current product before entering `tools/qa`, so the
+extended tests cannot silently resolve another locally installed CoronaPoker
+version. Successful build/test execution leaves the runnable JAR in `target/`.
+Scenarios write evidence to `target/certification/`, and every non-list run
+writes an overall machine-readable summary below `target/qa/`.
 
 ![CoronaPoker testing and certification flow](diagrams/testing-certification-flow.png)
 
@@ -106,7 +111,9 @@ The layers are complementary. A build failure is a code-test failure. A
 certification failure is a gameplay-scenario failure. `certify.cmd` does not
 silently run the other layers.
 
-`qa.cmd` deliberately composes those existing layers. It is the public
+`qa.cmd` deliberately composes those existing layers. `test` runs only the
+product gate, `extended` adds `qa-all`, `scenarios` runs only behavioural
+certification, and `all` composes the three. It is the public
 all-in-one console tool. The Maven commands and `certify.cmd` documented below
 are lower-level entry points for focused diagnosis, CI or resuming a scenario
 schedule. They are not additional or competing scenario catalogues.

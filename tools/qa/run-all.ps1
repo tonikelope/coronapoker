@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('build', 'test', 'scenarios', 'all', 'list', 'help')]
+    [ValidateSet('build', 'test', 'extended', 'scenarios', 'all', 'list', 'help')]
     [string] $Action = 'test',
 
     [Parameter(Position = 1)]
@@ -28,6 +28,7 @@ CoronaPoker local build, tests and GDX scenarios
 Usage:
   .\qa.cmd build
   .\qa.cmd test
+  .\qa.cmd extended
   .\qa.cmd scenarios fast
   .\qa.cmd all balanced
   .\qa.cmd scenarios fast -Scenario spectator-rebuy-cycle -Seed 42
@@ -35,9 +36,10 @@ Usage:
 
 Commands:
   build      Clean package only. Skip tests and leave the runnable JAR
-  test       Default. Clean build + all product and replayable non-bot tests
+  test       Default. Clean build + product module and architecture tests
+  extended   Run test, then the slow replayable non-bot QA lane
   scenarios  Run only the unified GDX scenario catalogue
-  all        Run test, then scenarios (normal release command)
+  all        Run extended, then scenarios (complete release command)
   list       Print the executable GDX scenario catalogue
   help       Show this help
 
@@ -50,7 +52,7 @@ Scenario depth (only scenario repetitions/depth change):
 Options:
   -Scenario <name>       Run only one GDX scenario and its mapped tests
   -Seed <long>           Replay a scenario base seed
-  -IncludeBots           Also run the very slow statistical bot-quality lane
+  -IncludeBots           Add statistical bot QA to extended or all
   -VerboseScenarios      Stream scenario Maven output (logs are always saved)
   -Help                  Show this help
 
@@ -72,7 +74,8 @@ $rootPom = Join-Path $repoRoot 'pom.xml'
 $qaPom = Join-Path $repoRoot 'tools\qa\pom.xml'
 $seedWasProvided = $PSBoundParameters.ContainsKey('Seed')
 $modeWasProvided = $PSBoundParameters.ContainsKey('Mode')
-$runsTests = $Action -in @('test', 'all')
+$runsTests = $Action -in @('test', 'extended', 'all')
+$runsExtended = $Action -in @('extended', 'all')
 $runsScenarios = $Action -in @('scenarios', 'all')
 
 if ($Action -eq 'help') {
@@ -97,8 +100,8 @@ if (-not $runsScenarios -and ($Scenario -ne 'all' -or $seedWasProvided -or
         $VerboseScenarios)) {
     throw '-Scenario, -Seed and -VerboseScenarios require scenarios or all.'
 }
-if (-not $runsTests -and $IncludeBots) {
-    throw '-IncludeBots requires test or all.'
+if (-not $runsExtended -and $IncludeBots) {
+    throw '-IncludeBots requires extended or all.'
 }
 if ($runsScenarios -and -not $seedWasProvided) {
     . (Join-Path $PSScriptRoot 'qa-seed.ps1')
@@ -256,6 +259,9 @@ if ($runsTests) {
     Invoke-QaStage 'Product build and tests' {
         & $maven @productArgs
     }
+}
+
+if ($runsExtended) {
     $extendedArgs = @(
         '-B', '-f', $qaPom,
         "-Dmaven.repo.local=$($mavenRepo.Replace('\', '/'))",

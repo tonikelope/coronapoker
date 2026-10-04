@@ -6907,6 +6907,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawHandOverlay();
         drawShowdownOverlay();
         drawLocalHud(width, height);
+        if (liveAllInCinematicVisible()) {
+            // The ALL-IN GIF deliberately covers the middle of the table, but
+            // the authoritative pot must remain a tangible destination. Chips
+            // are painted immediately afterwards so they cross the cinematic
+            // and visibly land on this foreground pot surface.
+            drawPotPanelSurface();
+        }
         // The physical chip flies above every money surface, including the
         // local HUD counter. Its counter changes on the same landing frame,
         // producing the same contact effect as the central pot label.
@@ -7328,10 +7335,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         stackSurface.b, (folded ? 0.30f : 0.92f) * presence);
                 roundedRect(seat.podX + RIVAL_MONEY_CELL_X,
                         seat.podY + 59f, RIVAL_MONEY_CELL_WIDTH, 29f, 7f);
-                // The invested counter is accounting, not an action/result
-                // badge. Showdown hover may highlight the hand and cards, but
-                // must never recolour this money cell.
-                Color potBackground = BUTTON_LINE;
+                // Match the local invested counter: its palette follows the
+                // canonical last poker action and returns to neutral when the
+                // new-street reset removes that action. Deliberately do not
+                // use lastActionColorForSeat here because showdown hover and
+                // result colours must never leak into an accounting cell.
+                TableVisualEvent.PlayerAction.ActionKind remoteActionKind
+                        = livePlayer == null ? null
+                                : liveState.actionKind(livePlayer.nickname());
+                Color potBackground = investedCounterSurface(
+                        remoteActionKind);
                 shapes.setColor(potBackground.r, potBackground.g,
                         potBackground.b, composedAlpha(potBackground,
                                 folded ? 0.30f : 0.92f, presence));
@@ -7426,6 +7439,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
                 String actionLabel = lastActionLabelForSeat(seat.index);
                 TableSnapshot.PlayerSnapshot livePlayer = livePlayer(seat);
+                TableVisualEvent.PlayerAction.ActionKind remoteActionKind
+                        = livePlayer == null ? null
+                                : liveState.actionKind(livePlayer.nickname());
                 boolean timedOut = livePlayer != null && livePlayer.timedOut();
                 if (timedOut) {
                     batch.setColor(1f, 1f, 1f, presence);
@@ -7454,7 +7470,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 + RIVAL_MONEY_CELL_GAP + 4f,
                         seat.podY + 62f,
                         RIVAL_MONEY_CELL_WIDTH - 8f, 23f,
-                        folded ? Color.GRAY : Color.WHITE, presence);
+                        folded ? Color.GRAY
+                                : investedCounterText(remoteActionKind),
+                        presence);
             }
         }
         batch.end();
@@ -9202,7 +9220,28 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.begin();
         drawLiveCommunityCards(cx, cardY, cardW, cardH, gap, firstX, cardBack);
         batch.setShader(null);
+        batch.setColor(Color.WHITE);
+        batch.end();
 
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        float boardWidth = cardW + 4f * gap;
+        if (liveState.turnTimerVisible()) {
+            drawSharedTurnBar(firstX, cardY - COMMUNITY_TIMER_Y_OFFSET,
+                    boardWidth, 0f);
+        } else if (liveState.sharedProgressVisible()) {
+            drawSharedProgressBar(firstX,
+                    cardY - COMMUNITY_TIMER_Y_OFFSET, boardWidth);
+        }
+        shapes.end();
+
+        drawPotPanelSurface();
+        drawCommunityHud(firstX, cardY - COMMUNITY_HUD_Y_OFFSET,
+                boardWidth);
+    }
+
+    private void drawPotPanelSurface() {
         float pulse = liveAnimationsEnabled()
                 ? 1f + MathUtils.sin(totalTime * 3.3f) * 0.035f : 1f;
         float basePotW = 76f;
@@ -9219,10 +9258,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             potText = communityPotText(gameText,
                     liveState.runItTwicePotPrefix(), currentPot);
         }
-        batch.setColor(Color.WHITE);
-        batch.end();
 
-        float alpha = 1f;
         float panelWidth = 390f;
         float panelHeight = POT_PANEL_HEIGHT;
         float panelX = potCenterX - panelWidth / 2f;
@@ -9230,23 +9266,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-        float boardWidth = cardW + 4f * gap;
-        if (liveState.turnTimerVisible()) {
-            drawSharedTurnBar(firstX, cardY - COMMUNITY_TIMER_Y_OFFSET,
-                    boardWidth, 0f);
-        } else if (liveState.sharedProgressVisible()) {
-            drawSharedProgressBar(firstX,
-                    cardY - COMMUNITY_TIMER_Y_OFFSET, boardWidth);
-        }
-        shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b, 0.78f * alpha);
+        shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b, 0.78f);
         roundedRect(panelX - 2f, panelY - 2f,
                 panelWidth + 4f, panelHeight + 4f, 13f);
-        shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.94f * alpha);
+        shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.94f);
         roundedRect(panelX, panelY, panelWidth, panelHeight, 11f);
         shapes.end();
 
         batch.begin();
-        batch.setColor(1f, 1f, 1f, alpha);
+        batch.setColor(Color.WHITE);
         float iconCenterX = panelX + 52f;
         float iconCenterY = panelY + panelHeight / 2f;
         batch.draw(pot, iconCenterX - potW / 2f, iconCenterY - potH / 2f,
@@ -9255,12 +9283,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float textAreaWidth = panelWidth - 112f;
         drawFittedCentered(uiFont, potText,
                 textAreaX + textAreaWidth / 2f, panelY + 51f,
-                textAreaWidth, POT_GOLD, alpha);
+                textAreaWidth, POT_GOLD, 1f);
         batch.setColor(Color.WHITE);
         batch.end();
-
-        drawCommunityHud(firstX, cardY - COMMUNITY_HUD_Y_OFFSET,
-                boardWidth);
     }
 
     /** Mirrors Swing's call-cost label: unrevealed board suffix, then river aggressor. */
@@ -11739,6 +11764,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         };
     }
 
+    static Color investedCounterSurface(
+            TableVisualEvent.PlayerAction.ActionKind kind) {
+        return kind == null
+                || kind == TableVisualEvent.PlayerAction.ActionKind.WAITING
+                        ? BUTTON_LINE : liveActionColor(kind);
+    }
+
+    static Color investedCounterText(
+            TableVisualEvent.PlayerAction.ActionKind kind) {
+        return kind == null
+                || kind == TableVisualEvent.PlayerAction.ActionKind.WAITING
+                        ? Color.WHITE : liveActionTextColor(kind);
+    }
+
     static Color settledShowdownColor(boolean winner) {
         return winner ? LEGACY_WINNER : LEGACY_LOSER;
     }
@@ -11946,6 +11985,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             batch.draw(frame, x, y, width, height);
         }
         batch.end();
+    }
+
+    private boolean liveAllInCinematicVisible() {
+        return liveCinematic != null
+                && potStaysAboveCinematic(liveCinematic.event.type());
+    }
+
+    static boolean potStaysAboveCinematic(
+            TableVisualEvent.Cinematic.Type type) {
+        return type == TableVisualEvent.Cinematic.Type.ALL_IN;
     }
 
     private void drawShowdownOverlay() {

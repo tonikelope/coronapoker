@@ -12,6 +12,28 @@ import org.junit.jupiter.api.Test;
 final class GdxLobbyChatLayoutTest {
 
     @Test
+    void lobbyEmojiPickerPreservesBreathingRoomAroundNativeArtwork() {
+        assertEquals(54f, GdxFrontendScreen.LOBBY_EMOJI_PICKER_CELL_SIZE);
+        assertEquals(32f, GdxFrontendScreen.LOBBY_EMOJI_PICKER_IMAGE_SIZE);
+        assertTrue(GdxFrontendScreen.LOBBY_EMOJI_PICKER_IMAGE_SIZE
+                < GdxFrontendScreen.LOBBY_EMOJI_PICKER_CELL_SIZE);
+        assertEquals(11f, (GdxFrontendScreen.LOBBY_EMOJI_PICKER_CELL_SIZE
+                - GdxFrontendScreen.LOBBY_EMOJI_PICKER_IMAGE_SIZE) / 2f);
+    }
+
+    @Test
+    void lobbyImageGalleryHasAStandardTopRightCloseControl() {
+        Rectangle close = GdxFrontendScreen.lobbyImageGalleryCloseBounds(
+                525f, 315f, 840f, 430f);
+        assertEquals(1297f, close.x);
+        assertEquals(677f, close.y);
+        assertEquals(44f, close.width);
+        assertEquals(48f, close.height);
+        assertEquals(1,
+                GdxFrontendScreen.LOBBY_IMAGE_GALLERY_CONTENT_DELAY_FRAMES);
+    }
+
+    @Test
     void textComposerPreservesTheSwingHalfSecondAntiFloodContract() {
         assertTrue(GdxFrontendScreen.lobbyTextSendReady(
                 10.5f, 10.5f, " hola "));

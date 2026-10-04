@@ -21,7 +21,13 @@ final class GdxSettingsLayout {
     static final float SUB_TAB_ROW_GAP = 42f;
     // Subsection names already live in the tab row. Start the controls directly
     // below it instead of repeating the active tab as a yellow heading.
-    static final float CONTENT_ROW_TOP_INSET = 92f;
+    /**
+     * Leaves the first row four pixels below the content scissor so its
+     * rounded outline is never cut at the upper edge. Every settings page
+     * uses this same origin, regardless of whether its first control is a
+     * toggle, stepper or information row.
+     */
+    static final float CONTENT_ROW_TOP_INSET = 96f;
     static final float CONTENT_BOTTOM_INSET = 112f;
     static final float CONTENT_TOTAL_VERTICAL_INSET = 364f;
     static final float FOOTER_BOTTOM_INSET = 24f;

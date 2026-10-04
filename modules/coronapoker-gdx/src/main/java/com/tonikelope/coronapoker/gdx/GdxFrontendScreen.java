@@ -112,8 +112,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float MENU_LOGO_X = 42f;
     static final float MENU_LOGO_TOP = 32f;
     static final float MENU_LOGO_WIDTH = 320f;
-    static final float MENU_SOUND_MARGIN = 35f;
-    static final float MENU_SOUND_SIZE = 55f;
+    static final float MENU_SOUND_RIGHT_MARGIN = 35f;
+    static final float MENU_SOUND_BOTTOM_MARGIN = 20f;
+    static final float MENU_SOUND_SIZE = 40f;
+    static final float MENU_QUOTE_SIDE_MARGIN = 24f;
+    static final float MENU_QUOTE_MAX_WIDTH = WIDTH
+            - 2f * MENU_QUOTE_SIDE_MARGIN;
+    static final float MENU_QUOTE_SINGLE_BASELINE = 88f;
+    static final float MENU_QUOTE_TWO_LINE_TOP_BASELINE = 112f;
+    static final float MENU_QUOTE_LINE_HEIGHT = 24f;
+    static final int MENU_QUOTE_MAX_LINES = 2;
     static final float LOBBY_LEFT_ACTION_X = 70f;
     static final float LOBBY_LEFT_ACTION_WIDTH = 360f;
     static final float LOBBY_LEFT_CONTENT_X = LOBBY_LEFT_ACTION_X;
@@ -210,6 +218,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final int EMOJI_COLUMNS = 8;
     private static final int EMOJI_ROWS = 4;
     private static final int EMOJI_PAGE_SIZE = EMOJI_COLUMNS * EMOJI_ROWS;
+    static final float LOBBY_EMOJI_PICKER_CELL_SIZE = 54f;
+    static final float LOBBY_EMOJI_PICKER_IMAGE_SIZE = 32f;
+    static final int LOBBY_IMAGE_GALLERY_CONTENT_DELAY_FRAMES = 1;
     private static final Pattern EMOJI_TOKEN = Pattern.compile("#([0-9]{1,4})#");
     private static final Pattern CHAT_WRAP_TOKEN = Pattern.compile(
             "#[0-9]{1,4}#|\\s+|[^\\s#]+|#");
@@ -396,6 +407,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private float lobbyImageSendAllowedAt;
     private boolean lobbyEmojiPickerOpen;
     private boolean lobbyImageMode;
+    private int lobbyImageGalleryContentDelayFrames;
     private int lobbyEmojiPage;
     private volatile GdxVoiceRecorder lobbyVoiceRecorder;
     private boolean lobbyVoiceOpening;
@@ -1360,9 +1372,25 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     ButtonTone.FEATURED, this::showUpdatePrompt, true);
         }
         String quote = menuQuotes.update(gameText.language(), frameDelta);
-        if (!quote.isBlank()) {
-            italicTextFit(smallFont, quote, WIDTH / 2f, 35f,
-                    Color.WHITE, true, 1180f);
+        drawMainMenuQuote(quote);
+    }
+
+    /**
+     * Keeps every menu quote at the same 18 px size. Only exceptional long
+     * quotes wrap to a second line; unlike fitted UI labels they never switch
+     * to the smaller fallback font.
+     */
+    private void drawMainMenuQuote(String quote) {
+        if (quote.isBlank()) return;
+        List<String> lines = wrapText(smallFont, quote,
+                MENU_QUOTE_MAX_WIDTH, MENU_QUOTE_MAX_LINES);
+        float baseline = lines.size() > 1
+                ? MENU_QUOTE_TWO_LINE_TOP_BASELINE
+                : MENU_QUOTE_SINGLE_BASELINE;
+        for (String line : lines) {
+            texts.add(new TextItem(smallFont, line, WIDTH / 2f, baseline,
+                    new Color(Color.WHITE), true, true));
+            baseline -= MENU_QUOTE_LINE_HEIGHT;
         }
     }
 
@@ -3635,6 +3663,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> {
                     lobbyEmojiPickerOpen = false;
                     lobbyImageMode = !lobbyImageMode;
+                    lobbyImageGalleryContentDelayFrames = lobbyImageMode
+                            ? LOBBY_IMAGE_GALLERY_CONTENT_DELAY_FRAMES : 0;
                     activateField(lobbyImageMode ? "lobbyImage" : "lobbyChat");
                     if (lobbyImageMode) refreshLobbyHistoryMedia();
                 });
@@ -5217,7 +5247,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 x + 24f, y + h - 58f, MUTED, false, w - 410f);
         boolean autoReceive = GdxChatImageHistory.autoReceive(
                 initialProperties);
-        themedButton(x + w - 382f, y + h - 68f, 220f, 48f,
+        themedButton(x + w - 436f, y + h - 68f, 220f, 48f,
                 uppercase(gameText.translate(autoReceive
                         ? "gdx.lobby.received_images_on"
                         : "gdx.lobby.received_images_off")),
@@ -5227,10 +5257,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             !autoReceive);
                     if (preferences != null) preferences.saveDeferred();
                 }, true);
-        themedButton(x + w - 152f, y + h - 68f, 128f, 48f,
+        themedButton(x + w - 206f, y + h - 68f, 128f, 48f,
                 uppercase(gameText.translate("gdx.lobby.clear")),
                 ButtonTone.NEUTRAL, this::clearLobbyImageHistory,
                 !lobbyImageHistory.isEmpty());
+        Rectangle close = lobbyImageGalleryCloseBounds(x, y, w, h);
+        themedButton(close.x, close.y, close.width, close.height, "\u00d7",
+                ButtonTone.DANGER, this::closeLobbyImageGallery, true);
+
+        // Present the complete dialog chrome for one frame before adding the
+        // potentially cold thumbnail grid. This avoids the first-open flash
+        // of detached placeholder cells while media textures warm up.
+        if (lobbyImageGalleryContentDelayFrames > 0) {
+            lobbyImageGalleryContentDelayFrames--;
+            return;
+        }
 
         if (lobbyImageHistory.isEmpty()) {
             textFit(headingFont, uppercase(gameText.translate(
@@ -5291,6 +5332,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         clearLobbyHistoryMedia();
     }
 
+    private void closeLobbyImageGallery() {
+        lobbyImageMode = false;
+        lobbyImageGalleryContentDelayFrames = 0;
+        activateField("lobbyChat");
+    }
+
+    static Rectangle lobbyImageGalleryCloseBounds(float x, float y,
+            float width, float height) {
+        return new Rectangle(x + width - 68f, y + height - 68f, 44f, 48f);
+    }
+
     private void drawLobbyEmojiPicker(float x, float y, float w, float h) {
         GdxUiDialogStyle.drawPanel(shapes, x, y, w, h, CYAN_DARK, 1f);
         int first = lobbyEmojiPage * EMOJI_PAGE_SIZE + 1;
@@ -5303,7 +5355,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 x + w - 330f, y + h - 30f, MUTED, false, 300f);
         float cellW = 82f;
         float cellH = 62f;
-        float gridWidth = (EMOJI_COLUMNS - 1) * cellW + 54f;
+        float gridWidth = (EMOJI_COLUMNS - 1) * cellW
+                + LOBBY_EMOJI_PICKER_CELL_SIZE;
         float startX = x + (w - gridWidth) / 2f;
         float startY = y + h - 112f;
         for (int slot = 0; slot < EMOJI_PAGE_SIZE; slot++) {
@@ -5313,12 +5366,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             int row = slot / EMOJI_COLUMNS;
             float cellX = startX + column * cellW;
             float cellY = startY - row * cellH;
-            outerBox(cellX, cellY, 54f, 54f,
-                    hovered(cellX, cellY, 54f, 54f) ? CYAN : LINE,
+            outerBox(cellX, cellY, LOBBY_EMOJI_PICKER_CELL_SIZE,
+                    LOBBY_EMOJI_PICKER_CELL_SIZE,
+                    hovered(cellX, cellY, LOBBY_EMOJI_PICKER_CELL_SIZE,
+                            LOBBY_EMOJI_PICKER_CELL_SIZE) ? CYAN : LINE,
                     new Color(0x0d1b2dcc));
+            float imageInset = (LOBBY_EMOJI_PICKER_CELL_SIZE
+                    - LOBBY_EMOJI_PICKER_IMAGE_SIZE) / 2f;
             uiImages.add(new UiImageItem(lobbyEmojiTexture(number),
-                    cellX + 7f, cellY + 7f, 40f, 40f));
-            hit(cellX, cellY, 54f, 54f, () -> {
+                    cellX + imageInset, cellY + imageInset,
+                    LOBBY_EMOJI_PICKER_IMAGE_SIZE,
+                    LOBBY_EMOJI_PICKER_IMAGE_SIZE));
+            hit(cellX, cellY, LOBBY_EMOJI_PICKER_CELL_SIZE,
+                    LOBBY_EMOJI_PICKER_CELL_SIZE, () -> {
                 activateField("lobbyChat");
                 replaceActiveSelection(" #" + number + "# ");
             });
@@ -6240,7 +6300,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (GdxSettingsContract.hasVoiceRetention(page)) {
             int retentionRow = GdxSettingsContract.voiceRetentionRow(page);
             rowY = rows.rowY(retentionRow);
-            settingsStepper(x + 34f, rowY, w - 68f, 70f,
+            settingsStepper(x + 34f, rowY, w - 68f,
+                    GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.settings.row.keep_voice_notes")),
                     GdxSettingsContract.markDefault(
@@ -6374,7 +6435,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     gameText),
                             "goliat".equalsIgnoreCase(configuredDeck())),
                     this::selectPreviousDeck, this::selectNextDeck);
-            settingsStepper(x + 34f, rowY - rowStride, w - 68f, 70f,
+            settingsStepper(x + 34f, rowY - rowStride, w - 68f,
+                    GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.settings.row.card_back")),
                     GdxSettingsContract.markDefault(
@@ -6382,14 +6444,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     gameText),
                             "default".equalsIgnoreCase(configuredBack())),
                     this::selectPreviousBack, this::selectNextBack);
-            settingsStepper(x + 34f, rowY - 2f * rowStride, w - 68f, 70f,
+            settingsStepper(x + 34f, rowY - 2f * rowStride, w - 68f,
+                    GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate("gdx.settings.row.felt")),
                     GdxSettingsContract.markDefault(
                             GdxAppearanceOptions.feltLabel(configuredFelt(),
                                     gameText),
                             "verde".equalsIgnoreCase(configuredFelt())),
                     this::selectPreviousFelt, this::selectNextFelt);
-            settingsStepper(x + 34f, rowY - 3f * rowStride, w - 68f, 70f,
+            settingsStepper(x + 34f, rowY - 3f * rowStride, w - 68f,
+                    GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.settings.row.light_off")),
                     GdxSettingsContract.markDefault(
@@ -6399,7 +6463,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     "nivel_luz", "50"))),
                     () -> adjustLightLevel(-1),
                     () -> adjustLightLevel(1));
-            settingsStepper(x + 34f, rowY - 4f * rowStride, w - 68f, 70f,
+            settingsStepper(x + 34f, rowY - 4f * rowStride, w - 68f,
+                    GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.settings.row.window_mode")),
                     GdxSettingsContract.markDefault(windowModeSettingLabel(),
@@ -6407,7 +6472,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     == GdxWindowMode.BORDERLESS),
                     this::selectPreviousWindowMode,
                     this::selectNextWindowMode);
-            settingsStepper(x + 34f, rowY - 5f * rowStride, w - 68f, 70f,
+            settingsStepper(x + 34f, rowY - 5f * rowStride, w - 68f,
+                    GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.settings.row.antialiasing")),
                     GdxSettingsContract.markDefault(msaaSettingLabel(),
@@ -6417,7 +6483,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             performanceTooltip(new Rectangle(x + 34f,
                     rowY - 5f * rowStride, w - 68f, 70f),
                     "gdx_msaa_samples");
-            settingsInfoRow(x + 34f, rowY - 6f * rowStride, w - 68f, 70f,
+            settingsInfoRow(x + 34f, rowY - 6f * rowStride, w - 68f,
+                    GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.settings.row.gpu_renderer")),
                     GdxGraphicsInfo.displayValue(gameText));
@@ -6461,7 +6528,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 Rectangle rowBounds = GdxSettingsLayout.optionRow(baseX,
                         currentY, baseWidth,
                         GdxAppearanceOptions.isChildChoice(option));
-                settingsStepper(rowBounds.x, rowBounds.y, rowBounds.width, 70f,
+                settingsStepper(rowBounds.x, rowBounds.y, rowBounds.width,
+                        GdxSettingsLayout.ROW_HEIGHT,
                         option.label(gameText),
                         GdxSettingsContract.markDefault(
                                 GdxAppearanceOptions.selectedLabel(option,
@@ -10804,8 +10872,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     static Rectangle mainMenuSoundBounds() {
-        return new Rectangle(WIDTH - MENU_SOUND_MARGIN - MENU_SOUND_SIZE,
-                MENU_SOUND_MARGIN, MENU_SOUND_SIZE, MENU_SOUND_SIZE);
+        return new Rectangle(WIDTH - MENU_SOUND_RIGHT_MARGIN
+                        - MENU_SOUND_SIZE,
+                MENU_SOUND_BOTTOM_MARGIN, MENU_SOUND_SIZE, MENU_SOUND_SIZE);
     }
 
     private static boolean shiftPressed() {

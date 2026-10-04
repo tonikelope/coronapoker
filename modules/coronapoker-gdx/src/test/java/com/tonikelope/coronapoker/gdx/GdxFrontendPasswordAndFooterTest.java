@@ -47,10 +47,25 @@ final class GdxFrontendPasswordAndFooterTest {
     @Test
     void mainMenuKeepsOnlyTheAudioControlInTheBottomRightCorner() {
         Rectangle bounds = GdxFrontendScreen.mainMenuSoundBounds();
-        assertEquals(GdxFrontendScreen.MENU_SOUND_MARGIN, bounds.y);
+        assertEquals(GdxFrontendScreen.MENU_SOUND_BOTTOM_MARGIN, bounds.y);
         assertEquals(GdxFrontendScreen.MENU_SOUND_SIZE, bounds.width);
         assertEquals(GdxFrontendScreen.MENU_SOUND_SIZE, bounds.height);
-        assertEquals(GdxFrontendScreen.MENU_SOUND_MARGIN,
+        assertEquals(GdxFrontendScreen.MENU_SOUND_RIGHT_MARGIN,
                 1920f - bounds.x - bounds.width);
+        assertTrue(bounds.y + bounds.height
+                < GdxFrontendScreen.MENU_QUOTE_SINGLE_BASELINE,
+                "the smaller audio control must stay below the quote line");
+    }
+
+    @Test
+    void mainMenuQuotesUseTheFullWidthAtOneFixedSize() {
+        assertEquals(1920f - 2f * GdxFrontendScreen.MENU_QUOTE_SIDE_MARGIN,
+                GdxFrontendScreen.MENU_QUOTE_MAX_WIDTH);
+        assertEquals(2, GdxFrontendScreen.MENU_QUOTE_MAX_LINES);
+        assertEquals(GdxSettingsStyle.SMALL_FONT_SIZE, 18);
+        assertTrue(GdxFrontendScreen.MENU_QUOTE_TWO_LINE_TOP_BASELINE
+                - GdxFrontendScreen.MENU_QUOTE_LINE_HEIGHT
+                > GdxFrontendScreen.MENU_SOUND_BOTTOM_MARGIN
+                + GdxFrontendScreen.MENU_SOUND_SIZE);
     }
 }

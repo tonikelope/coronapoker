@@ -121,6 +121,18 @@ final class GdxSettingsLayoutTest {
     }
 
     @Test
+    void canonicalFirstRowKeepsItsOutlineBelowTheSettingsClipTop() {
+        GdxSettingsLayout.Frame frame = GdxSettingsLayout.frame(
+                1920f, 1080f, 4, 5);
+        Rectangle content = frame.content();
+        float clipTop = content.y + content.height - 24f;
+
+        assertEquals(4f, clipTop
+                - (frame.firstRowY() + GdxSettingsLayout.ROW_HEIGHT),
+                "every first-row outline needs the same visible clearance");
+    }
+
+    @Test
     void gamePagesUseOneCanonicalTwoColumnGridWithoutOverlap() {
         GdxSettingsLayout.Frame frame = GdxSettingsLayout.frame(
                 1920f, 1080f, 5, 6);

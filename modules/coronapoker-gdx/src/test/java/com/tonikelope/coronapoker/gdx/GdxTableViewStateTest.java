@@ -1904,6 +1904,36 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void remoteInvestmentCounterTracksOnlyTheCanonicalPokerAction() {
+        assertColor(0x31, 0x44, 0x5f, 0xff,
+                CoronaPokerGdxTable.investedCounterSurface(null));
+        assertColor(0x31, 0x44, 0x5f, 0xff,
+                CoronaPokerGdxTable.investedCounterSurface(
+                        TableVisualEvent.PlayerAction.ActionKind.WAITING));
+        assertColor(0xff, 0xff, 0xff, 0xff,
+                CoronaPokerGdxTable.investedCounterSurface(
+                        TableVisualEvent.PlayerAction.ActionKind.CALL));
+        assertColor(0x7d, 0x05, 0xe1, 0xff,
+                CoronaPokerGdxTable.investedCounterSurface(
+                        TableVisualEvent.PlayerAction.ActionKind.RERAISE));
+        assertColor(0xff, 0xff, 0xff, 0xff,
+                CoronaPokerGdxTable.investedCounterText(null));
+        assertColor(0x00, 0x00, 0x00, 0xff,
+                CoronaPokerGdxTable.investedCounterText(
+                        TableVisualEvent.PlayerAction.ActionKind.CALL));
+    }
+
+    @Test
+    void onlyAllInCinematicsKeepThePotInTheForeground() {
+        assertTrue(CoronaPokerGdxTable.potStaysAboveCinematic(
+                TableVisualEvent.Cinematic.Type.ALL_IN));
+        assertFalse(CoronaPokerGdxTable.potStaysAboveCinematic(
+                TableVisualEvent.Cinematic.Type.IWTSTH_REQUEST));
+        assertFalse(CoronaPokerGdxTable.potStaysAboveCinematic(
+                TableVisualEvent.Cinematic.Type.IWTSTH_DENIED));
+    }
+
+    @Test
     void disabledCallNeverBecomesAnUnlabelledWhiteButton() {
         GdxGameText spanish = new GdxGameText("es");
         GdxGameText english = new GdxGameText("en");

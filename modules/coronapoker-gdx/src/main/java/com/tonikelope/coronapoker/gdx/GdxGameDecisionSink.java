@@ -183,18 +183,17 @@ final class GdxGameDecisionSink implements GameDecisionSink {
         });
         presenter.accept(choice);
         if (cinematics) {
-            CompletionStage<Void> opening;
             try {
-                opening = gameOverAudio.apply(GameOverAudioCue.OPEN);
-            } catch (RuntimeException failure) {
-                opening = CompletableFuture.completedFuture(null);
-            }
-            if (opening == null) {
-                choice.timeout();
-            } else {
-                opening.whenComplete((ignored, failure) -> {
-                    if (!choice.complete()) choice.timeout();
-                });
+                CompletionStage<Void> opening = gameOverAudio.apply(
+                        GameOverAudioCue.OPEN);
+                if (opening != null) {
+                    // Opening audio is presentation only.  Its natural end,
+                    // a missing output device or a backend failure must never
+                    // resolve the player's GAME OVER choice.
+                    opening.exceptionally(failure -> null);
+                }
+            } catch (RuntimeException ignored) {
+                // Keep the decision surface alive on audio backend failures.
             }
         }
         return result;

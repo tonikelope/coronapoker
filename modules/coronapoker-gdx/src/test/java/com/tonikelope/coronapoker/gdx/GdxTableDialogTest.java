@@ -42,12 +42,15 @@ final class GdxTableDialogTest {
     }
 
     @Test
-    void animatedGameOverIsDrivenByItsAudioAndRetainsOneFinalFrame() {
+    void animatedGameOverOwnsAnIndependentTimerAndRetainsOneFinalFrame() {
         GdxTableDialog dialog = GdxTableDialog.gameOverChoice(10,
                 com.tonikelope.coronapoker.core.game.GameText.keys(), true);
         dialog.opened(4f);
 
-        assertFalse(dialog.expired(100f));
+        assertFalse(dialog.expired(13.99f));
+        assertEquals(0, dialog.remainingSeconds(14f));
+        assertFalse(dialog.expired(14.99f));
+        assertTrue(dialog.expired(15f));
         dialog.dismiss();
         dialog.holdGameOverFinalFrame();
         assertTrue(dialog.gameOverFinalFrame());

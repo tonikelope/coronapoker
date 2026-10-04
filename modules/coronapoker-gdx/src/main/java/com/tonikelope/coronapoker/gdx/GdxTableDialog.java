@@ -337,9 +337,9 @@ final class GdxTableDialog {
     }
 
     private float timedLifetimeSeconds() {
-        if (gameOverChoice && gameOverCinematics) return 0f;
-        // The static fallback owns a visible zero just like Swing. Keep it for
-        // one complete frame-second before choosing spectator automatically.
+        // GAME OVER always owns its decision clock.  Cinematic audio is only
+        // presentation: unavailable or failed audio must not select spectator.
+        // Keep zero visible for one complete frame-second before timing out.
         if (gameOverChoice && seconds > 0) return seconds + 1f;
         return seconds > 0 ? seconds : autoDismissSeconds;
     }

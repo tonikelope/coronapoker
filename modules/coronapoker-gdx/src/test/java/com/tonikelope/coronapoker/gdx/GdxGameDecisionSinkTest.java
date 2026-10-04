@@ -307,7 +307,7 @@ final class GdxGameDecisionSinkTest {
     }
 
     @Test
-    void authoredGameOverAudioSelectsSpectatorOnTheSameZeroFrame()
+    void openingAudioCompletionCannotSelectSpectator()
             throws Exception {
         List<GdxTableDialog> shown = new ArrayList<>();
         CompletableFuture<Void> openingAudio = new CompletableFuture<>();
@@ -325,16 +325,42 @@ final class GdxGameDecisionSinkTest {
         assertFalse(surface.complete());
 
         openingAudio.complete(null);
+        assertFalse(surface.complete(),
+                "audio completion must not resolve the player's choice");
+        assertFalse(result.toCompletableFuture().isDone());
+
+        surface.timeout();
         assertTrue(surface.complete());
         assertTrue(surface.gameOverFinalFrame());
         assertFalse(surface.readyToClose());
         assertEquals(1, shown.size(),
-                "audio completion must swap the existing surface, not flash a second dialog");
+                "timeout must reuse the existing surface, not flash a second dialog");
 
         spectatorAudio.complete(null);
         assertTrue(surface.readyToClose());
         assertEquals(new GameDecisionSink.GameOverResult(false, 0),
                 result.toCompletableFuture().get(1, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void unavailableAudioDeviceCannotSelectSpectator() {
+        List<GdxTableDialog> shown = new ArrayList<>();
+        GdxGameDecisionSink decisions = new GdxGameDecisionSink(
+                GameText.keys(), shown::add, ignored -> { }, cue -> {
+                    if (cue == GdxGameDecisionSink.GameOverAudioCue.OPEN) {
+                        return CompletableFuture.failedFuture(
+                                new IllegalStateException("no audio output device"));
+                    }
+                    return CompletableFuture.completedFuture(null);
+                }, () -> true);
+
+        var result = decisions.showGameOver(
+                new GameDecisionSink.GameOverRequest(false, 2, 20, 10, 10));
+
+        assertEquals(1, shown.size());
+        assertFalse(shown.get(0).complete());
+        assertFalse(result.toCompletableFuture().isDone(),
+                "an audio backend failure must leave the decision to the player");
     }
 
     @Test

@@ -1904,7 +1904,7 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void remoteInvestmentCounterTracksOnlyTheCanonicalPokerAction() {
+    void everyInvestmentCounterTracksOnlyTheCanonicalPokerAction() {
         assertColor(0x31, 0x44, 0x5f, 0xff,
                 CoronaPokerGdxTable.investedCounterSurface(null));
         assertColor(0x31, 0x44, 0x5f, 0xff,
@@ -2299,6 +2299,26 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void autoHudKeepsOnlyItsTwoButtonsAtOppositeActionAreaEdges() {
+        CoronaPokerGdxTable.LocalHudLayout hud
+                = CoronaPokerGdxTable.localHudLayout(1920f);
+        CoronaPokerGdxTable.PreActionHudLayout auto
+                = CoronaPokerGdxTable.preActionHudLayout(1920f);
+        float y = auto.bounds().y + auto.bounds().height / 2f;
+
+        assertEquals(hud.actionX(), auto.fold().x, 0.000_001f);
+        assertEquals(hud.actionX() + hud.actionWidth(),
+                auto.call().x + auto.call().width, 0.000_001f);
+        assertTrue(auto.fold().x + auto.fold().width < auto.status().x);
+        assertTrue(auto.status().x + auto.status().width < auto.call().x);
+        assertEquals(1, auto.targetAt(auto.fold().x + 1f, y));
+        assertEquals(2, auto.targetAt(auto.call().x + 1f, y));
+        assertEquals(0, auto.targetAt(
+                auto.status().x + auto.status().width / 2f, y));
+        assertEquals(0, auto.targetAt(auto.bounds().x - 1f, y));
+    }
+
+    @Test
     void localMoneyModulesKeepFixedPremiumGeometryAroundCentredActions() {
         CoronaPokerGdxTable.LocalHudLayout layout
                 = CoronaPokerGdxTable.localHudLayout(1920f);
@@ -2625,6 +2645,71 @@ final class GdxTableViewStateTest {
 
         state.apply(new TableVisualEvent.PreActionControls(2, false, true));
         assertFalse(state.preActionControlsActive());
+    }
+
+    @Test
+    void rememberedActionDoesNotHideOtherwiseEligibleAutoButtons() {
+        assertTrue(CoronaPokerGdxTable.showsAutoPreActions(
+                true, true, false, false, false,
+                false, false, false, false, false, false));
+        assertTrue(CoronaPokerGdxTable.showsAutoPreActions(
+                true, true, false, false, true,
+                false, false, false, false, false, false));
+        assertFalse(CoronaPokerGdxTable.showsAutoPreActions(
+                false, true, false, false, true,
+                false, false, false, false, false, false));
+        assertFalse(CoronaPokerGdxTable.showsAutoPreActions(
+                true, false, false, false, true,
+                false, false, false, false, false, false));
+        assertFalse(CoronaPokerGdxTable.showsAutoPreActions(
+                true, true, false, true, true,
+                false, false, false, false, false, false));
+        assertFalse(CoronaPokerGdxTable.showsAutoPreActions(
+                true, true, false, false, true,
+                false, false, false, false, false, true));
+    }
+
+    @Test
+    void autoButtonsBridgeDealerSignalGapsWhileThePlayerIsWaiting() {
+        TableSnapshot.PlayerSnapshot waiting = playerWithAvailability(
+                "ana", true, false, false, false);
+        TableSnapshot.PlayerSnapshot folded = playerWithAvailability(
+                "ana", false, false, false, false);
+
+        assertTrue(CoronaPokerGdxTable.autoPreActionFallbackEligible(
+                false, waiting, null, false));
+        assertTrue(CoronaPokerGdxTable.autoPreActionFallbackEligible(
+                false, folded,
+                TableVisualEvent.PlayerAction.ActionKind.FOLD, false),
+                "a folded player may queue an AUTO choice for the next hand");
+        assertTrue(CoronaPokerGdxTable.showsAutoPreActions(
+                true, false, true, false, true,
+                false, false, false, false, false, false));
+
+        assertFalse(CoronaPokerGdxTable.autoPreActionFallbackEligible(
+                true, waiting, null, false));
+        assertFalse(CoronaPokerGdxTable.autoPreActionFallbackEligible(
+                false, waiting,
+                TableVisualEvent.PlayerAction.ActionKind.ALL_IN, false));
+        assertFalse(CoronaPokerGdxTable.autoPreActionFallbackEligible(
+                false, player("ana", true), null, false));
+        assertFalse(CoronaPokerGdxTable.autoPreActionFallbackEligible(
+                false, playerWithAvailability(
+                        "ana", true, true, false, false), null, false));
+        assertFalse(CoronaPokerGdxTable.autoPreActionFallbackEligible(
+                false, waiting, null, true));
+    }
+
+    @Test
+    void pendingManualActionOwnsBothAutoPaintingAndHitTesting() {
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
+                CoronaPokerGdxTable.effectiveLocalActionKind(true,
+                        TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
+                        TableVisualEvent.PlayerAction.ActionKind.CHECK));
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.CHECK,
+                CoronaPokerGdxTable.effectiveLocalActionKind(false,
+                        TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
+                        TableVisualEvent.PlayerAction.ActionKind.CHECK));
     }
 
     @Test

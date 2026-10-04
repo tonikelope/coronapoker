@@ -225,6 +225,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             = LOCAL_HUD_COUNTER_HEIGHT;
     private static final float LOCAL_HUD_COUNTER_GAP = 12f;
     private static final float LOCAL_HUD_ACTION_WIDTH = 868f;
+    private static final float LOCAL_HUD_PRE_ACTION_GAP = 12f;
+    private static final float LOCAL_HUD_PRE_FOLD_WIDTH = 150f;
+    private static final float LOCAL_HUD_PRE_CALL_WIDTH = 200f;
     private static final float LOCAL_NAME_PLATE_WIDTH = 270f;
     private static final float LOCAL_NAME_PLATE_HEIGHT = 40f;
     private static final float LOCAL_NAME_PLATE_VERTICAL_OFFSET = 12f;
@@ -710,6 +713,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxTooltipDelay settingsPerformanceTooltipDelay =
             new GdxTooltipDelay();
     private final ArrayDeque<GdxTableDialog> dialogQueue = new ArrayDeque<>();
+    private final GdxDialogInputGate dialogInputGate =
+            new GdxDialogInputGate();
     private final Map<String, SeatChatNotice> seatChatNotices = new HashMap<>();
     private final ArrayDeque<SilentChatNotice> silentChatNotices =
             new ArrayDeque<>();
@@ -4342,6 +4347,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // dialog; routing final-summary input first made its buttons visible
         // but permanently unreachable.
         if (activeDialog != null) {
+            boolean dialogDecisionInputHeld = Gdx.input.isButtonPressed(
+                    Input.Buttons.LEFT)
+                    || Gdx.input.isKeyPressed(Input.Keys.ESCAPE)
+                    || Gdx.input.isKeyPressed(Input.Keys.ENTER)
+                    || Gdx.input.isKeyPressed(Input.Keys.NUMPAD_ENTER)
+                    || Gdx.input.isKeyPressed(Input.Keys.SPACE);
+            if (!dialogInputGate.accepts(activeDialog,
+                    dialogDecisionInputHeld)) {
+                return;
+            }
             if (activeDialog.isAutoAction()) {
                 if (handleAutoActionDialogInput()) return;
             } else {
@@ -4357,6 +4372,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
                 return;
             }
+        } else {
+            dialogInputGate.accepts(null, false);
         }
         // Terminal and reconnecting surfaces own the complete input frame.
         // Keeping these gates in the main router is essential: consuming raw
@@ -5358,9 +5375,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         ActionControlState controls = liveState.actionControls();
         boolean autoActionVeto = activeDialog != null
                 && activeDialog.isAutoAction();
+        boolean localActionSubmissionPending
+                = hasPendingLocalActionSubmission();
         boolean localTurn = hasActiveLocalTurn()
-                && !hasPendingLocalActionSubmission();
+                && !localActionSubmissionPending;
         maybeExecuteQueuedPreAction(localTurn, controls);
+        // maybeExecuteQueuedPreAction can install the AUTO veto in this same
+        // frame or submit directly. Refresh both ownership and turn state so
+        // no shortcut or HUD release can slip underneath before the next
+        // render/input cycle.
+        autoActionVeto = activeDialog != null && activeDialog.isAutoAction();
+        localActionSubmissionPending = hasPendingLocalActionSubmission();
+        localTurn = hasActiveLocalTurn() && !localActionSubmissionPending;
         TableShortcut shortcut = tableShortcut(shortcutAction);
         if (shortcut == TableShortcut.PAUSE) {
             togglePauseAction();
@@ -5488,42 +5514,70 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         boolean voluntaryShow = !autoActionVeto && controls.showCards();
+        TableVisualEvent.PlayerAction.ActionKind clickActionKind
+                = effectiveLocalActionKind(localActionSubmissionPending,
+                        pendingLocalActionKind,
+                        liveState.actionKind(seats[0].name));
+        boolean clickLocalAllIn = clickActionKind
+                == TableVisualEvent.PlayerAction.ActionKind.ALL_IN;
         boolean localMonteCarlo = showsLocalMonteCarloHud(
-                liveState.actionKind(seats[0].name)
-                        == TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
+                clickLocalAllIn,
                 liveState.partialHandPercentage(seats[0].name),
                 liveState.hasHandResult(seats[0].name));
         boolean localShownHand = liveState.hasLateShownHand(seats[0].name);
+        TableSnapshot.PlayerSnapshot clickLocalPlayer = livePlayer(seats[0]);
+        boolean localSpectator = clickLocalPlayer != null
+                && clickLocalPlayer.spectator();
         Boolean clickOutcome = localHandOutcome(
                 liveState.resolvedHandWinner(seats[0].name),
                 liveState.foldedThisHand(seats[0].name));
         boolean clickSettled = hasSettledPresentation(
                 liveState.hasHandResult(seats[0].name), clickOutcome);
+        boolean clickNeutralShowdown = !localSpectator
+                && clickLocalPlayer != null
+                && showsNeutralShowdownHand(
+                        liveHandLabelVisible(clickLocalPlayer),
+                        liveState.hasHandResult(seats[0].name),
+                        liveState.resolvedHandWinner(seats[0].name),
+                        liveState.partialHandPercentage(seats[0].name));
+        boolean clickShowdownPresentation = clickSettled
+                || clickNeutralShowdown;
         boolean localActionMemory = !autoActionVeto && !voluntaryShow
-                && !localShownHand && !clickSettled
+                && !localShownHand && !clickShowdownPresentation
                 && showsLocalActionMemory(localTurn,
-                        liveState.actionKind(seats[0].name),
-                        clickSettled,
+                        clickActionKind,
+                        clickShowdownPresentation,
                         localMonteCarlo);
-        boolean hudActionsVisible = !localShownHand && !localMonteCarlo
-                && !localActionMemory
-                && (localTurn || autoPreActionsVisible()
-                || voluntaryShow);
-        int localHudTarget = hudActionsVisible
-                ? hudTarget(pointer.x, pointer.y, viewport.getWorldWidth()) : 0;
+        boolean preActionFallback = autoPreActionFallbackEligible(
+                localTurn, clickLocalPlayer, clickActionKind,
+                clickShowdownPresentation);
+        boolean preActions = showsAutoPreActions(autoButtons,
+                liveState.preActionControlsActive(), preActionFallback,
+                localTurn, localActionMemory,
+                localSpectator, clickLocalAllIn, localMonteCarlo, localShownHand,
+                clickShowdownPresentation, autoActionVeto);
+        boolean regularHudActionsVisible = !localShownHand
+                && !localMonteCarlo && !localActionMemory
+                && (localTurn || voluntaryShow);
+        int localHudTarget = preActions
+                ? preActionHudLayout(viewport.getWorldWidth())
+                        .targetAt(pointer.x, pointer.y)
+                : regularHudActionsVisible
+                        ? hudTarget(pointer.x, pointer.y,
+                                viewport.getWorldWidth()) : 0;
         if (localHudTarget != 0 && !autoActionVeto) {
             switch (localHudTarget) {
             case 1 -> {
                 if (localTurn) {
                     activateFoldAction();
-                } else if (!localTurn && autoPreActionsVisible()) {
+                } else if (preActions) {
                     toggleQueuedPreAction(1);
                 }
             }
             case 2 -> {
                 if (localTurn) {
                     activateCheckOrCallAction();
-                } else if (!localTurn && autoPreActionsVisible()) {
+                } else if (preActions) {
                     toggleQueuedPreAction(2);
                 }
             }
@@ -5769,9 +5823,36 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return localTurn ? selection : 0;
     }
 
-    private boolean autoPreActionsVisible() {
-        return autoButtons && liveState != null
-                && liveState.preActionControlsActive();
+    static boolean showsAutoPreActions(boolean enabledByPreference,
+            boolean controlsActive, boolean fallbackEligible,
+            boolean localTurn, boolean localActionMemory, boolean spectator,
+            boolean allIn, boolean monteCarlo, boolean shownHand,
+            boolean showdownPresentation, boolean autoActionVeto) {
+        // A remembered action is presentation, not an interaction lock. AUTO
+        // choices remain available beside it. The fallback bridges the short
+        // gaps before/after canonical PreActionControls events; the explicit
+        // lifecycle exclusions still prevent stale or impossible choices.
+        return enabledByPreference && (controlsActive || fallbackEligible)
+                && !localTurn && !spectator && !allIn
+                && !monteCarlo && !shownHand
+                && !showdownPresentation && !autoActionVeto;
+    }
+
+    static boolean autoPreActionFallbackEligible(boolean localTurn,
+            TableSnapshot.PlayerSnapshot player,
+            TableVisualEvent.PlayerAction.ActionKind actionKind,
+            boolean showdownPresentation) {
+        return !localTurn && player != null && !player.spectator()
+                && !player.exited() && !showdownPresentation
+                && actionKind
+                        != TableVisualEvent.PlayerAction.ActionKind.ALL_IN;
+    }
+
+    static TableVisualEvent.PlayerAction.ActionKind effectiveLocalActionKind(
+            boolean submissionPending,
+            TableVisualEvent.PlayerAction.ActionKind pendingKind,
+            TableVisualEvent.PlayerAction.ActionKind acceptedKind) {
+        return submissionPending ? pendingKind : acceptedKind;
     }
 
     private void updateFastAccessBar(float delta) {
@@ -6487,6 +6568,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (contains(x, y, plusX, actionY, 52f, actionHeight)) return 4;
         if (contains(x, y, allInX, actionY, 150f, actionHeight)) return 6;
         return 0;
+    }
+
+    static PreActionHudLayout preActionHudLayout(float worldWidth) {
+        LocalHudLayout hud = localHudLayout(worldWidth);
+        Rectangle bounds = new Rectangle(hud.actionX(), hud.actionY(),
+                hud.actionWidth(), hud.actionHeight());
+        Rectangle fold = new Rectangle(bounds.x, bounds.y,
+                LOCAL_HUD_PRE_FOLD_WIDTH, bounds.height);
+        Rectangle call = new Rectangle(
+                bounds.x + bounds.width - LOCAL_HUD_PRE_CALL_WIDTH,
+                bounds.y, LOCAL_HUD_PRE_CALL_WIDTH, bounds.height);
+        Rectangle status = new Rectangle(
+                fold.x + fold.width + LOCAL_HUD_PRE_ACTION_GAP,
+                bounds.y,
+                call.x - LOCAL_HUD_PRE_ACTION_GAP
+                        - (fold.x + fold.width
+                                + LOCAL_HUD_PRE_ACTION_GAP),
+                bounds.height);
+        return new PreActionHudLayout(bounds, fold, status, call);
     }
 
     private static GdxTableDialogLayout.AutoActionHud autoActionHudLayout(
@@ -12799,6 +12899,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float betX = minusX + stepperWidth + betInnerGap;
         float plusX = betX + betWidth + betInnerGap;
         float allInX = plusX + stepperWidth + gap;
+        PreActionHudLayout preActionHud = preActionHudLayout(width);
         boolean localActionSubmissionPending
                 = hasPendingLocalActionSubmission();
         boolean localTurn = hasActiveLocalTurn()
@@ -12813,8 +12914,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Rectangle namePlate = localNamePlateBounds(localSeat, width);
         Rectangle actionBadge = localActionBadgeBounds(localSeat, width);
         TableVisualEvent.PlayerAction.ActionKind localActionKind
-                = localActionSubmissionPending ? pendingLocalActionKind
-                        : liveState.actionKind(seats[0].name);
+                = effectiveLocalActionKind(localActionSubmissionPending,
+                        pendingLocalActionKind,
+                        liveState.actionKind(seats[0].name));
         boolean localSpectator = liveLocalPlayer != null
                 && liveLocalPlayer.spectator();
         boolean localAllIn = !localSpectator && localActionKind
@@ -12847,10 +12949,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && showsLocalActionMemory(localTurn, localActionKind,
                         showdownPresentation,
                         localMonteCarlo);
-        boolean preActions = !localTurn && !localMonteCarlo
-                && !localShownHand && !localActionMemory
-                && !neutralShowdownHand
-                && autoPreActionsVisible();
+        boolean preActions = showsAutoPreActions(autoButtons,
+                liveState.preActionControlsActive(),
+                autoPreActionFallbackEligible(localTurn, liveLocalPlayer,
+                        localActionKind, showdownPresentation),
+                localTurn, localActionMemory,
+                localSpectator, localAllIn, localMonteCarlo, localShownHand,
+                showdownPresentation, autoActionVeto);
         boolean foldEnabled = !autoActionVeto
                 && ((localTurn && controls.foldEnabled()) || preActions);
         boolean checkEnabled = !autoActionVeto
@@ -12887,15 +12992,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         || waitingForTurn || localFolded);
         String lastLocalActionLabel = lastActionLabelForSeat(0);
         Color lastLocalActionColor = lastActionColorForSeat(0);
-        boolean hasLocalActionPalette = localActionSubmissionPending
-                || !lastLocalActionLabel.isEmpty();
-        Color localInvestmentSurface = localActionSubmissionPending
-                ? liveActionColor(localActionKind)
-                : hasLocalActionPalette ? lastLocalActionColor : BUTTON_LINE;
-        Color localInvestmentText = localActionSubmissionPending
-                ? liveActionTextColor(localActionKind)
-                : hasLocalActionPalette
-                        ? lastActionTextColorForSeat(0) : Color.WHITE;
+        // Accounting follows only the canonical action palette. Showdown
+        // hover may turn the action badge gold, but must never recolour the
+        // invested-money counter (same contract as remote seats).
+        Color localInvestmentSurface = investedCounterSurface(localActionKind);
+        Color localInvestmentText = investedCounterText(localActionKind);
         Color localHudActionColor = localActionSubmissionPending
                 ? liveActionColor(localActionKind) : lastLocalActionColor;
         Color foldButtonColor = preActions ? SWING_FOLD_BUTTON
@@ -12910,23 +13011,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Color allInButtonColor = voluntaryShow ? BUTTON_LINE : LEGACY_ALL_IN;
         boolean foldSelected = preActions && queuedPreAction == 1;
         boolean checkSelected = preActions && queuedPreAction == 2;
+        boolean foldArmed = !preActions && armedHudTarget == 1;
+        boolean checkArmed = !preActions && armedHudTarget == 2;
         // A protected first press must be unmistakable without replacing the
         // action caption with a generic "CONFIRMAR". Keep every normal poker
         // colour unchanged; only the armed action becomes vivid green until
         // the second press executes it or a new control state disarms it.
         Color foldVisualColor = hudArmedSurfaceColor(
                 foldSelected ? LEGACY_BET : foldButtonColor,
-                armedHudTarget == 1);
+                foldArmed);
         Color checkVisualColor = hudArmedSurfaceColor(
                 checkSelected ? LEGACY_BET : checkButtonColor,
-                armedHudTarget == 2);
+                checkArmed);
         Color betVisualColor = hudArmedSurfaceColor(betButtonColor,
                 armedHudTarget == 5);
         Color allInVisualColor = hudArmedSurfaceColor(allInButtonColor,
                 armedHudTarget == 6);
-        Color foldVisualText = armedHudTarget == 1 ? ARMED_ACTION_TEXT
+        Color foldVisualText = foldArmed ? ARMED_ACTION_TEXT
                 : foldSelected ? Color.BLACK : Color.WHITE;
-        Color checkVisualText = armedHudTarget == 2 ? ARMED_ACTION_TEXT
+        Color checkVisualText = checkArmed ? ARMED_ACTION_TEXT
                 : checkSelected ? Color.BLACK : checkTextColor;
         Color betVisualText = armedHudTarget == 5 ? ARMED_ACTION_TEXT
                 : betTextColor;
@@ -12938,21 +13041,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 pointer.y);
 
         boolean foldHover = hudOwnsPointer
-                && pointer.x >= foldX && pointer.x <= foldX + foldWidth
-                && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
+                && (preActions
+                        ? preActionHud.fold().contains(pointer.x, pointer.y)
+                        : contains(pointer.x, pointer.y, foldX, actionY,
+                                foldWidth, actionHeight));
         boolean checkHover = hudOwnsPointer
-                && pointer.x >= checkX && pointer.x <= checkX + checkWidth
-                && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
-        boolean minusHover = hudOwnsPointer
+                && (preActions
+                        ? preActionHud.call().contains(pointer.x, pointer.y)
+                        : contains(pointer.x, pointer.y, checkX, actionY,
+                                checkWidth, actionHeight));
+        boolean minusHover = hudOwnsPointer && !preActions
                 && pointer.x >= minusX && pointer.x <= minusX + stepperWidth
                 && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
-        boolean betHover = hudOwnsPointer
+        boolean betHover = hudOwnsPointer && !preActions
                 && pointer.x >= betX && pointer.x <= betX + betWidth
                 && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
-        boolean plusHover = hudOwnsPointer
+        boolean plusHover = hudOwnsPointer && !preActions
                 && pointer.x >= plusX && pointer.x <= plusX + stepperWidth
                 && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
-        boolean allInHover = hudOwnsPointer
+        boolean allInHover = hudOwnsPointer && !preActions
                 && pointer.x >= allInX && pointer.x <= allInX + allInWidth
                 && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
         boolean pointerDown = Gdx.input.isButtonPressed(Input.Buttons.LEFT);
@@ -13120,7 +13227,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // completed. The local player has no meaningful poker controls at
             // this point, and the large HUD presentation replaces the former
             // cramped label in the identity column.
-        } else if (localActionMemory) {
+        } else if (localActionMemory && !preActions) {
             // The accepted local action remains visible in the now inactive
             // action area. It is deliberately not drawn as a button, so the
             // presentation cannot keep an obsolete action clickable.
@@ -13147,31 +13254,49 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         progress.height, progress.height / 2f);
             }
         } else if (settledLocalWinner == null && (localTurn || preActions)) {
-            drawHudActionSurface(foldX, actionY, foldWidth, actionHeight,
-                    foldVisualColor, foldHover && foldEnabled,
-                    foldSelected || armedHudTarget == 1,
-                    pointerDown && foldHover && foldEnabled, foldEnabled);
-            drawHudActionSurface(checkX, actionY, checkWidth, actionHeight,
-                    checkVisualColor, checkHover && checkEnabled,
-                    checkSelected || armedHudTarget == 2,
-                    pointerDown && checkHover && checkEnabled, checkEnabled);
+            if (preActions) {
+                Rectangle preFold = preActionHud.fold();
+                Rectangle preCall = preActionHud.call();
+                drawHudActionSurface(preFold.x, preFold.y,
+                        preFold.width, preFold.height,
+                        foldVisualColor, foldHover && foldEnabled,
+                        foldSelected, pointerDown && foldHover && foldEnabled,
+                        foldEnabled);
+                drawHudActionSurface(preCall.x, preCall.y,
+                        preCall.width, preCall.height,
+                        checkVisualColor, checkHover && checkEnabled,
+                        checkSelected,
+                        pointerDown && checkHover && checkEnabled,
+                        checkEnabled);
+            } else {
+                drawHudActionSurface(foldX, actionY, foldWidth, actionHeight,
+                        foldVisualColor, foldHover && foldEnabled,
+                        armedHudTarget == 1,
+                        pointerDown && foldHover && foldEnabled, foldEnabled);
+                drawHudActionSurface(checkX, actionY, checkWidth, actionHeight,
+                        checkVisualColor, checkHover && checkEnabled,
+                        armedHudTarget == 2,
+                        pointerDown && checkHover && checkEnabled,
+                        checkEnabled);
 
-            drawGroupedBetControl(minusX, betX, plusX, actionY,
-                    stepperWidth, betWidth, actionHeight,
-                    betVisualColor, minusHover, betHover, plusHover,
-                    armedHudTarget == 5, pointerDown, betEnabled);
-            if (betEnabled) {
-                registerPointerRepeatHit(minusX, actionY, stepperWidth,
-                        actionHeight, RepeatOwner.HUD, null,
-                        () -> adjustLiveBet(-1));
-                registerPointerRepeatHit(plusX, actionY, stepperWidth,
-                        actionHeight, RepeatOwner.HUD, null,
-                        () -> adjustLiveBet(1));
+                drawGroupedBetControl(minusX, betX, plusX, actionY,
+                        stepperWidth, betWidth, actionHeight,
+                        betVisualColor, minusHover, betHover, plusHover,
+                        armedHudTarget == 5, pointerDown, betEnabled);
+                if (betEnabled) {
+                    registerPointerRepeatHit(minusX, actionY, stepperWidth,
+                            actionHeight, RepeatOwner.HUD, null,
+                            () -> adjustLiveBet(-1));
+                    registerPointerRepeatHit(plusX, actionY, stepperWidth,
+                            actionHeight, RepeatOwner.HUD, null,
+                            () -> adjustLiveBet(1));
+                }
+                drawHudActionSurface(allInX, actionY, allInWidth, actionHeight,
+                        allInVisualColor, allInHover && allInEnabled,
+                        armedHudTarget == 6,
+                        pointerDown && allInHover && allInEnabled,
+                        allInEnabled);
             }
-            drawHudActionSurface(allInX, actionY, allInWidth, actionHeight,
-                    allInVisualColor, allInHover && allInEnabled,
-                    armedHudTarget == 6,
-                    pointerDown && allInHover && allInEnabled, allInEnabled);
         }
         if (danger) {
             // Finish with a very light wash so the whole HUD, including its
@@ -13248,9 +13373,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 investedBounds.width - 24f, investedBounds.height - 16f,
                 localInvestmentText, 1f);
 
-        float statusX = foldX + 24f;
-        float statusRight = voluntaryShow ? allInX - 12f
-                : allInX + allInWidth - 24f;
+        Rectangle preActionStatus = preActionHud.status();
+        float statusX = preActions ? preActionStatus.x : foldX + 24f;
+        float statusRight = preActions
+                ? preActionStatus.x + preActionStatus.width
+                : voluntaryShow ? allInX - 12f
+                        : allInX + allInWidth - 24f;
         float statusWidth = Math.max(1f, statusRight - statusX);
         if (voluntaryShow) {
             drawHudActionContent(
@@ -13295,6 +13423,31 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // The evaluated hand already appears in the small identity strip.
             // Keep the main action area quiet until the ordered GANAS/PIERDES
             // verdict arrives instead of repeating a stale PASAR/APUESTAS.
+        } else if (preActions) {
+            if (localActionMemory) {
+                drawScaledFittedCenteredInBox(localOutcomeFont, 0.70f,
+                        localActionMemoryText,
+                        statusX, actionY + 8f, statusWidth,
+                        actionHeight - 16f,
+                        localHudStatusTextColor(false, null,
+                                localActionKind),
+                        1f);
+            } else {
+                drawScaledFittedCenteredInBox(localOutcomeFont, 0.70f,
+                        localHudIdleMessage(false, true, false, gameText),
+                        statusX, actionY + 8f, statusWidth,
+                        actionHeight - 16f, WAITING_TURN_TEXT, 1f);
+            }
+            Rectangle preFold = preActionHud.fold();
+            Rectangle preCall = preActionHud.call();
+            drawHudActionContent(foldThumbIcon,
+                    uppercase(gameText.translate("action.auto_fold")),
+                    preFold.x, preFold.y, preFold.width, preFold.height,
+                    foldVisualText, foldContentAlpha);
+            drawHudActionContent(callThumbIcon,
+                    uppercase(gameText.translate("action.auto_call")),
+                    preCall.x, preCall.y, preCall.width, preCall.height,
+                    checkVisualText, checkContentAlpha);
         } else if (localActionMemory) {
             drawScaledFittedCenteredInBox(localOutcomeFont, 0.70f,
                     localActionMemoryText,
@@ -13320,15 +13473,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             localSpectator, gameText),
                     statusX, actionY + 8f, statusWidth,
                     actionHeight - 16f, WAITING_TURN_TEXT, 1f);
-        } else if (localTurn || preActions) {
+        } else if (localTurn) {
             drawHudActionContent(foldThumbIcon,
-                    preActions ? uppercase(gameText.translate("action.auto_fold"))
-                            : uppercase(gameText.translate("action.no_ir")),
+                    uppercase(gameText.translate("action.no_ir")),
                     foldX, actionY, foldWidth, actionHeight,
                     foldVisualText, foldContentAlpha);
             drawHudActionContent(callThumbIcon,
-                    preActions ? uppercase(gameText.translate("action.auto_call"))
-                            : callLabel(controls, gameText),
+                    callLabel(controls, gameText),
                     checkX, actionY, checkWidth, actionHeight,
                     checkVisualText, checkContentAlpha);
             drawHudActionContent(raiseLabel(controls, gameText) + " "
@@ -20555,6 +20706,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         Rectangle bounds() {
             return new Rectangle(x, y, width, height);
+        }
+    }
+
+    static record PreActionHudLayout(Rectangle bounds, Rectangle fold,
+            Rectangle status, Rectangle call) {
+
+        int targetAt(float x, float y) {
+            if (!bounds.contains(x, y)) return 0;
+            if (fold.contains(x, y)) return 1;
+            if (call.contains(x, y)) return 2;
+            return 0;
         }
     }
 

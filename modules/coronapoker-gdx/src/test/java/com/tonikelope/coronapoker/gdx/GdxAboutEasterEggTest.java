@@ -19,8 +19,9 @@ final class GdxAboutEasterEggTest {
                 GdxFrontendScreen.ABOUT_PANEL_RGBA);
         assertEquals(0xff, GdxFrontendScreen.ABOUT_PANEL_RGBA & 0xff,
                 "the reading surface must be opaque");
-        assertFalse(GdxFrontendScreen.renderMainMenuBehindAbout(true));
-        assertTrue(GdxFrontendScreen.renderMainMenuBehindAbout(false));
+        assertFalse(GdxFrontendScreen.renderMainMenuContent(true, false));
+        assertFalse(GdxFrontendScreen.renderMainMenuContent(false, true));
+        assertTrue(GdxFrontendScreen.renderMainMenuContent(false, false));
         int panelRed = GdxFrontendScreen.ABOUT_PANEL_RGBA >>> 24;
         int memorialRed = GdxFrontendScreen.ABOUT_MEMORIAL_RGBA >>> 24;
         assertTrue(memorialRed > panelRed,

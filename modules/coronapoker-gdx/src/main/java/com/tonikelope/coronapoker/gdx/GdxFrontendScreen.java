@@ -801,7 +801,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         if (surface == Surface.MENU) {
-            if (renderMainMenuBehindAbout(aboutOpen)) drawMainMenu();
+            if (renderMainMenuContent(aboutOpen, updatePromptOpen)) {
+                drawMainMenu();
+            }
         } else if (surface == Surface.LOBBY) {
             drawLobby();
         } else if (surface == Surface.SETTINGS) {
@@ -3100,8 +3102,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 false, GdxProductVersionBrand.MAX_WIDTH);
     }
 
-    static boolean renderMainMenuBehindAbout(boolean aboutOpen) {
-        return !aboutOpen;
+    static boolean renderMainMenuContent(boolean aboutOpen,
+            boolean updatePromptOpen) {
+        return !aboutOpen && !updatePromptOpen;
+    }
+
+    static boolean menuRevealBlocksInteraction(boolean menuSurface,
+            float revealProgress, boolean foregroundModal) {
+        return menuSurface && revealProgress < 0.98f && !foregroundModal;
+    }
+
+    private boolean menuRevealBlocksInteraction() {
+        return menuRevealBlocksInteraction(surface == Surface.MENU,
+                menuRevealProgress(), aboutOpen || updatePromptOpen);
     }
 
     private Rectangle aboutModIconBounds(float coronaLogoHeight) {
@@ -3211,7 +3224,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawStartupMenuReveal() {
         float progress = menuRevealProgress();
-        if (surface != Surface.MENU || progress >= 1f) {
+        if (surface != Surface.MENU || progress >= 1f
+                || !renderMainMenuContent(aboutOpen, updatePromptOpen)) {
             return;
         }
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -9635,7 +9649,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void hit(float x, float y, float w, float h, Runnable action) {
-        if (surface == Surface.MENU && menuRevealProgress() < 0.98f) {
+        if (menuRevealBlocksInteraction()) {
             return;
         }
         Rectangle bounds = clippedSettingsHit(x, y, w, h);
@@ -9644,7 +9658,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void repeatHit(float x, float y, float w, float h,
             Runnable action) {
-        if (surface == Surface.MENU && menuRevealProgress() < 0.98f) {
+        if (menuRevealBlocksInteraction()) {
             return;
         }
         Rectangle bounds = clippedSettingsHit(x, y, w, h);
@@ -9672,7 +9686,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private boolean hovered(float x, float y, float w, float h) {
-        if (surface == Surface.MENU && menuRevealProgress() < 0.98f) {
+        if (menuRevealBlocksInteraction()) {
             return false;
         }
         return (!settingsRowsActive || settingsRowsClip.contains(pointer))

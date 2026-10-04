@@ -47,6 +47,53 @@ final class GdxSettingsContractTest {
     }
 
     @Test
+    void performanceImpactHighlightsOnlyMeaningfulRenderSettings() {
+        Properties properties = new Properties();
+
+        assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
+                GdxSettingsContract.performanceImpact(
+                        "animacion_barajado", properties));
+        assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
+                GdxSettingsContract.performanceImpact(
+                        "animacion_fuego_allin", properties));
+        assertEquals(GdxSettingsContract.PerformanceImpact.MEDIUM,
+                GdxSettingsContract.performanceImpact(
+                        "animacion_efecto_ganador", properties));
+        assertEquals(GdxSettingsContract.PerformanceImpact.MEDIUM,
+                GdxSettingsContract.performanceImpact(
+                        "cinematicas_allin", properties));
+        assertEquals(GdxSettingsContract.PerformanceImpact.NONE,
+                GdxSettingsContract.performanceImpact(
+                        "show_time", properties));
+    }
+
+    @Test
+    void performanceImpactReflectsTheSelectedGraphicsCost() {
+        Properties properties = new Properties();
+        properties.setProperty("gdx_msaa_samples", "0");
+        assertEquals(GdxSettingsContract.PerformanceImpact.LOW,
+                GdxSettingsContract.performanceImpact(
+                        "gdx_msaa_samples", properties));
+        properties.setProperty("gdx_msaa_samples", "2");
+        assertEquals(GdxSettingsContract.PerformanceImpact.MEDIUM,
+                GdxSettingsContract.performanceImpact(
+                        "gdx_msaa_samples", properties));
+        properties.setProperty("gdx_msaa_samples", "8");
+        assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
+                GdxSettingsContract.performanceImpact(
+                        "gdx_msaa_samples", properties));
+
+        properties.setProperty("card_flip_zoom", "100");
+        assertEquals(GdxSettingsContract.PerformanceImpact.LOW,
+                GdxSettingsContract.performanceImpact(
+                        "card_flip_zoom", properties));
+        properties.setProperty("card_flip_zoom", "145");
+        assertEquals(GdxSettingsContract.PerformanceImpact.MEDIUM,
+                GdxSettingsContract.performanceImpact(
+                        "card_flip_zoom", properties));
+    }
+
+    @Test
     void menuUsesTheCanonicalSwingTabOrder() {
         assertEquals(java.util.List.of(
                 GdxSettingsContract.Section.APPEARANCE,
@@ -301,7 +348,8 @@ final class GdxSettingsContractTest {
                 "animacion_destape", "animacion_ciegas_dealer",
                 "animacion_apuestas", "animacion_contadores",
                 "animacion_swap",
-                "animacion_contador_final", "gdx_show_fps",
+                "animacion_contador_final", "animacion_fuego_allin",
+                "animacion_efecto_ganador", "gdx_show_fps",
                 "mostrar_coste_igualar",
                 "chat_images_ingame", "chat_game_notifications",
                 "resaltar_jugada_showdown",
@@ -323,9 +371,9 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.APPEARANCE_PAGES.get(1);
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
-        assertEquals(9, page.options().size());
+        assertEquals(11, page.options().size());
         assertEquals(5, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(14, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(16, GdxSettingsContract.appearanceRowCount(page));
     }
 
     @Test
@@ -452,6 +500,10 @@ final class GdxSettingsContractTest {
         assertEquals("50", properties.getProperty("nivel_luz"));
         assertEquals("false", properties.getProperty("gdx_show_fps"));
         assertEquals("true", properties.getProperty("animaciones"));
+        assertEquals("true", properties.getProperty(
+                "animacion_fuego_allin"));
+        assertEquals("true", properties.getProperty(
+                "animacion_efecto_ganador"));
         assertEquals("620", properties.getProperty("card_flip_duration"));
         assertEquals("windowed", properties.getProperty("gdx_window_mode"));
         assertEquals("0", properties.getProperty("gdx_msaa_samples"));

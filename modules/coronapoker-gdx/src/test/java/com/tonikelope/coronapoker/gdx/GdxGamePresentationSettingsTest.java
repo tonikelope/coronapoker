@@ -51,6 +51,8 @@ final class GdxGamePresentationSettingsTest {
         PreferencesService preferences = new PreferencesService(
                 temporary.resolve("coronapoker.properties"));
         preferences.properties().setProperty("animaciones", "false");
+        preferences.properties().setProperty("animacion_fuego_allin", "false");
+        preferences.properties().setProperty("animacion_efecto_ganador", "false");
         preferences.properties().setProperty("animacion_ciegas_dealer", "false");
         preferences.properties().setProperty("animacion_apuestas", "false");
         preferences.properties().setProperty("animacion_contadores", "false");
@@ -69,14 +71,22 @@ final class GdxGamePresentationSettingsTest {
         assertFalse(settings.dealAnimation());
         assertFalse(settings.flipAnimation());
         assertFalse(settings.swapAnimation());
+        assertFalse(settings.allInFireAnimation());
+        assertFalse(settings.winnerEffectAnimation());
 
         preferences.properties().setProperty("animaciones", "true");
         preferences.properties().setProperty("animacion_reparto", "true");
+        preferences.properties().setProperty("animacion_fuego_allin", "true");
+        preferences.properties().setProperty("animacion_efecto_ganador", "true");
         assertTrue(settings.dealAnimation());
+        assertTrue(settings.allInFireAnimation());
+        assertTrue(settings.winnerEffectAnimation());
         assertFalse(settings.flipAnimation());
 
         preferences.properties().setProperty("animaciones", "false");
         assertFalse(settings.dealAnimation());
+        assertFalse(settings.allInFireAnimation());
+        assertFalse(settings.winnerEffectAnimation());
         assertFalse(settings.cinematics());
     }
 

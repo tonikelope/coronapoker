@@ -272,6 +272,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             new ArrayList<>();
     private final List<Hit> editMenuHits = new ArrayList<>();
     private final List<TooltipHit> tooltipHits = new ArrayList<>();
+    private final GdxTooltipDelay tooltipDelay = new GdxTooltipDelay();
     private final Map<String, Texture> lobbyAvatarTextures = new HashMap<>();
     private final Map<String, Texture> handGeneratorCardTextures =
             new HashMap<>();
@@ -828,6 +829,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
         if (dropdown == Dropdown.NONE && !hasBlockingFrontendModal()) {
             drawTooltipTopLayer();
+        } else {
+            tooltipDelay.clear();
         }
 
         // Modal surfaces must be composed after every underlying glyph. Texts
@@ -3336,6 +3339,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 x + 8f, y + 6f, 42f));
         shapes.setColor(lobbyLatencyColor(participant));
         shapes.circle(x + 55f, y + h / 2f, 4f, 20);
+        int effectiveLatency = lobbyEffectiveLatencyMillis(participant);
+        tooltip(x + 43f, y + h / 2f - 12f, 24f, 24f,
+                "gdx.table.latency_tooltip",
+                effectiveLatency < 0 ? "—" : Integer.toString(effectiveLatency));
         textFit(smallFont, participant.nickname(), x + 68f, y + 35f,
                 participant.asyncWaiting() ? DISABLED : Color.WHITE,
                 false, w - 190f);
@@ -3519,16 +3526,30 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private static Color lobbyLatencyColor(LobbyParticipant participant) {
         if (!participant.connected()) return LATENCY_RED;
-        if (!participant.latencyAvailable()) return LATENCY_STALE;
-        int first = participant.latency();
-        int second = participant.previousLatency();
-        int best = first < 0 ? second : second < 0 ? first
-                : Math.min(first, second);
+        if (!participant.latencyAvailable()
+                && !participant.local() && !participant.bot()) {
+            return LATENCY_STALE;
+        }
+        int best = lobbyEffectiveLatencyMillis(participant);
         if (best < 0) return LATENCY_RED;
         if (best <= 100) return LATENCY_GREEN;
         if (best <= 250) return LATENCY_YELLOW;
         if (best <= 400) return LATENCY_ORANGE;
         return LATENCY_RED;
+    }
+
+    static int lobbyEffectiveLatencyMillis(LobbyParticipant participant) {
+        if (!participant.connected()) return -1;
+        if (!participant.latencyAvailable()) {
+            // The host and its bots have no network channel to sample. They
+            // are local endpoints, so their actual transport latency is zero
+            // rather than unknown/stale.
+            return participant.local() || participant.bot() ? 0 : -1;
+        }
+        int first = participant.latency();
+        int second = participant.previousLatency();
+        return first < 0 ? second : second < 0 ? first
+                : Math.min(first, second);
     }
 
     private static Texture filteredTexture(String asset) {
@@ -5768,7 +5789,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 0, pages - 1);
         float rowY = y + h - GdxSettingsLayout.CONTENT_ROW_TOP_INSET;
         if (settingsAppearancePage == 0) {
-            float rowStride = GdxSettingsLayout.rowStride(h, 6);
+            float rowStride = GdxSettingsLayout.rowStride(h, 7);
             settingsStepper(x + 34f, rowY, w - 68f, 70f,
                     uppercase(gameText.translate("gdx.settings.row.deck")),
                     GdxSettingsContract.markDefault(
@@ -5816,6 +5837,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             "4".equals(initialProperties.getProperty(
                                     "gdx_msaa_samples", "4"))),
                     this::selectPreviousMsaa, this::selectNextMsaa);
+            performanceTooltip(new Rectangle(x + 34f,
+                    rowY - 5f * rowStride, w - 68f, 70f),
+                    "gdx_msaa_samples");
+            settingsInfoRow(x + 34f, rowY - 6f * rowStride, w - 68f, 70f,
+                    uppercase(gameText.translate(
+                            "gdx.settings.row.gpu_renderer")),
+                    GdxGraphicsInfo.displayValue(gameText));
             return;
         }
         GdxSettingsContract.TogglePage page =
@@ -5846,6 +5874,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                 value == option.fallback()), value,
                         () -> togglePreference(option.key(),
                                 option.fallback()), enabled);
+                performanceTooltip(rowBounds, option.key());
             } else {
                 GdxAppearanceOptions.Choice option =
                         GdxAppearanceOptions.ANIMATION_CHOICES.get(
@@ -5871,6 +5900,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             GdxAppearanceOptions.adjust(option,
                                     initialProperties, 1);
                         }, enabled);
+                performanceTooltip(rowBounds, option.key());
             }
         }
         drawSettingsRowScrollbar(x + w - 24f, rows);
@@ -5990,6 +6020,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             repeatHit(plusBounds.x, plusBounds.y, plusBounds.width,
                     plusBounds.height, plus);
         }
+    }
+
+    private void settingsInfoRow(float x, float y, float w, float h,
+            String label, String value) {
+        outerBox(x, y, w, h, GdxSettingsStyle.rowBorder(true, false),
+                GdxSettingsStyle.rowFill(true, false));
+        float valueWidth = Math.min(660f, w * 0.58f);
+        textFit(smallFont, label, x + 20f, y + h / 2f + 10f,
+                Color.WHITE, false, w - valueWidth - 52f);
+        textFit(uiFont, value, x + w - valueWidth / 2f - 18f,
+                y + h / 2f + 11f, GOLD, true, valueWidth);
     }
 
     private void adjustLightLevel(int direction) {
@@ -8316,8 +8357,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return glyph.width;
     }
 
-    private void tooltip(float x, float y, float w, float h, String key) {
-        tooltipHits.add(new TooltipHit(new Rectangle(x, y, w, h), key));
+    private void tooltip(float x, float y, float w, float h, String key,
+            Object... arguments) {
+        tooltipHits.add(new TooltipHit(new Rectangle(x, y, w, h), key,
+                arguments == null ? new Object[0] : arguments.clone(),
+                GdxSettingsContract.PerformanceImpact.NONE));
+    }
+
+    private void performanceTooltip(Rectangle bounds, String settingKey) {
+        GdxSettingsContract.PerformanceImpact impact =
+                GdxSettingsContract.performanceImpact(settingKey,
+                        initialProperties);
+        if (impact == GdxSettingsContract.PerformanceImpact.NONE) return;
+        tooltipHits.add(new TooltipHit(new Rectangle(bounds),
+                "gdx.settings.performance_impact",
+                new Object[]{impact.label(gameText)}, impact));
     }
 
     private void drawTooltipTopLayer() {
@@ -8328,8 +8382,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 break;
             }
         }
-        if (hovered == null) return;
-        String value = gameText.translate(hovered.key);
+        if (hovered == null) {
+            tooltipDelay.clear();
+            return;
+        }
+        if (!tooltipDelay.ready(hovered.identity())) return;
+        String value = gameText.translate(hovered.key, hovered.arguments);
         List<String> lines = wrapText(tinyFont, value, 430f, 5);
         float widest = 0f;
         for (String line : lines) widest = Math.max(widest,
@@ -8342,17 +8400,33 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        outerBox(x, y, boxW, boxH, CYAN_DARK,
+        Color accent = performanceImpactColor(hovered.performanceImpact);
+        outerBox(x, y, boxW, boxH,
+                hovered.performanceImpact
+                        == GdxSettingsContract.PerformanceImpact.NONE
+                                ? CYAN_DARK : accent,
                 new Color(0x071221f8));
         shapes.end();
         batch.begin();
-        tinyFont.setColor(Color.WHITE);
+        tinyFont.setColor(hovered.performanceImpact
+                == GdxSettingsContract.PerformanceImpact.NONE
+                        ? Color.WHITE : accent);
         float baseline = y + boxH - 16f;
         for (String line : lines) {
             tinyFont.draw(batch, line, x + 17f, baseline);
             baseline -= 22f;
         }
         batch.end();
+    }
+
+    private static Color performanceImpactColor(
+            GdxSettingsContract.PerformanceImpact impact) {
+        return switch (impact) {
+            case LOW -> new Color(0x4caf50ff);
+            case MEDIUM -> new Color(0xffc107ff);
+            case HIGH -> new Color(0xf44336ff);
+            case NONE -> CYAN_DARK;
+        };
     }
 
     private void toggle(float x, float y, float w, String label,
@@ -10360,7 +10434,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private record PasswordRevealHit(String id, Rectangle bounds) {
     }
 
-    private record TooltipHit(Rectangle bounds, String key) {
+    private record TooltipHit(Rectangle bounds, String key,
+            Object[] arguments,
+            GdxSettingsContract.PerformanceImpact performanceImpact) {
+
+        String identity() {
+            return key + '@' + Float.floatToIntBits(bounds.x) + ':'
+                    + Float.floatToIntBits(bounds.y) + ':'
+                    + Float.floatToIntBits(bounds.width) + ':'
+                    + Float.floatToIntBits(bounds.height);
+        }
     }
 
     private static final class EditMenu {

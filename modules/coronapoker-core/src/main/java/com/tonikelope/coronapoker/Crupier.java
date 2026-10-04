@@ -3217,6 +3217,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // run-it-twice board separately.  The ordinary between-hands payout must
     // then stay silent or it would fly the accumulated amount a second time.
     private volatile boolean rit_board_payouts_presented = false;
+    // Presentation-only classification of uncontested residual side pots.
+    // The money remains part of getPagar() for accounting, but returning an
+    // overbet to its sole eligible player is not a poker win.
+    private final HashMap<GamePlayerController, Double>
+            returned_side_pot_payouts = new HashMap<>();
     // Hand voided by MISDEAL (cancelarManoYDevolverApuestas already refunded the bets,
     // rollbackAbortedHand closed the hand in SQL and raised fin_de_la_transmision). Signals paths that
     // settled money BEFORE the abort — the run-it-twice SIDE-A settle — that they must revert their
@@ -5675,28 +5680,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (table_events.isAttached()) {
-            double remainingPayout = players().stream()
-                    .filter(java.util.Objects::nonNull)
-                    .mapToDouble(player -> MoneyMath.clean(player.getPagar()))
-                    .filter(pay -> MoneyMath.compare(0f, pay) < 0)
-                    .sum();
+            java.util.ArrayList<TableVisualEvent.PayoutBatch.Transfer>
+                    transfers = new java.util.ArrayList<>();
             for (GamePlayerController player : players()) {
                 if (player == null) {
                     continue;
                 }
                 double pay = MoneyMath.clean(player.getPagar());
                 if (MoneyMath.compare(0f, pay) < 0) {
-                    remainingPayout = MoneyMath.clean(remainingPayout - pay);
-                    if (MoneyMath.compare(remainingPayout, 0d) < 0) {
-                        throw new IllegalStateException(
-                                "Negative canonical payout remainder");
-                    }
-                    final double potAfter = remainingPayout;
-                    awaitAttachedTableEvent(sequence -> new TableVisualEvent.Payout(
-                            sequence, player.getNickname(), pay, 0,
-                            MoneyMath.clean(player.getStack() + pay), potAfter),
-                            "Showdown payout presentation barrier failed");
+                    transfers.add(new TableVisualEvent.PayoutBatch.Transfer(
+                            player.getNickname(), pay,
+                            consumeReturnedSidePotAmount(player, pay),
+                            MoneyMath.clean(player.getStack() + pay)));
                 }
+            }
+            if (!transfers.isEmpty()) {
+                awaitAttachedTableEvent(sequence
+                        -> new TableVisualEvent.PayoutBatch(sequence,
+                                transfers, 0d, 0d),
+                        "Showdown payout presentation barrier failed");
             }
             return;
         }
@@ -5762,7 +5764,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      */
     private void animateRunItTwiceBoardPayout(
             Map<GamePlayerController, Double> payoutBefore,
-            double paidThisBoard) {
+            double paidThisBoard, double investedAmountAfter) {
         if (!table_events.isAttached()) {
             return;
         }
@@ -5787,25 +5789,51 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     "Run It Twice payout delta does not match board settlement");
         }
 
+        java.util.ArrayList<TableVisualEvent.PayoutBatch.Transfer>
+                transfers = new java.util.ArrayList<>();
         for (GamePlayerController player : players()) {
             Double amount = boardPayouts.get(player);
             if (amount == null) {
                 continue;
             }
-            remaining = MoneyMath.clean(remaining - amount);
-            if (MoneyMath.compare(remaining, 0d) < 0) {
-                throw new IllegalStateException(
-                        "Negative Run It Twice payout remainder");
-            }
-            final double potAfter = remaining;
-            final double stackAfter = MoneyMath.clean(player.getStack()
-                    + player.getPagar());
-            awaitAttachedTableEvent(sequence -> new TableVisualEvent.Payout(
-                    sequence, player.getNickname(), amount, 0,
-                    stackAfter, potAfter),
+            transfers.add(new TableVisualEvent.PayoutBatch.Transfer(
+                    player.getNickname(), amount,
+                    consumeReturnedSidePotAmount(player, amount),
+                    MoneyMath.clean(player.getStack() + player.getPagar())));
+        }
+        if (!transfers.isEmpty()) {
+            awaitAttachedTableEvent(sequence
+                    -> new TableVisualEvent.PayoutBatch(sequence,
+                            transfers, 0d,
+                            Math.max(0d, MoneyMath.clean(
+                                    investedAmountAfter))),
                     "Run It Twice board payout presentation barrier failed");
         }
         this.rit_board_payouts_presented = true;
+    }
+
+    private void recordReturnedSidePot(GamePlayerController player,
+            double amount) {
+        double clean = MoneyMath.clean(amount);
+        if (player != null && MoneyMath.compare(clean, 0d) > 0) {
+            returned_side_pot_payouts.merge(player, clean,
+                    (left, right) -> MoneyMath.clean(left + right));
+        }
+    }
+
+    private double consumeReturnedSidePotAmount(
+            GamePlayerController player, double payoutAmount) {
+        double available = MoneyMath.clean(
+                returned_side_pot_payouts.getOrDefault(player, 0d));
+        double returned = Math.min(Math.max(0d, payoutAmount),
+                Math.max(0d, available));
+        double remaining = MoneyMath.clean(available - returned);
+        if (MoneyMath.compare(remaining, 0d) > 0) {
+            returned_side_pot_payouts.put(player, remaining);
+        } else {
+            returned_side_pot_payouts.remove(player);
+        }
+        return MoneyMath.clean(returned);
     }
     public int getGame_recovered() {
         return game_recovered;
@@ -12095,6 +12123,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // silenced, re-enable it at the start of the new hand.
         this.rit_suppress_showdown_sql = false;
         this.rit_board_payouts_presented = false;
+        this.returned_side_pot_payouts.clear();
         // Same defensive reasoning: after a MISDEAL this Crupier has no more hands
         // (fin_de_la_transmision stays raised), but a fresh hand should never start marked
         // aborted regardless.
@@ -17727,7 +17756,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         // ---- SIDE-A (board already on the table) ----
         double paidA = settleRunItTwiceBoard(resisten, 0, wonAnySide);
-        animateRunItTwiceBoardPayout(pagarSnapshot, paidA);
+        animateRunItTwiceBoardPayout(pagarSnapshot, paidA,
+                Math.max(0d, MoneyMath.clean(ritPotTotal - paidA)));
         game_log.print(game_text.translate("runittwice.log_fin_a"));
 
         if (!presentation_settings.testMode() && !isFin_de_la_transmision()
@@ -17856,7 +17886,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             HashMap<GamePlayerController, Double> pagarBeforeB
                     = snapshotPendingPayouts();
             paidB = settleRunItTwiceBoard(resisten, 1, wonAnySide);
-            animateRunItTwiceBoardPayout(pagarBeforeB, paidB);
+            animateRunItTwiceBoardPayout(pagarBeforeB, paidB, 0d);
             game_log.print(game_text.translate("runittwice.log_fin_b"));
         }
 
@@ -17988,27 +18018,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 sideHands.add(hands);
                 sideWinners.add(this.calcularGanadores(new HashMap<>(hands)));
             } else {
-                HashMap<GamePlayerController, GameHandResult> uncontestedHands
-                        = new HashMap<>();
-                HashMap<GamePlayerController, GameHandResult> uncontestedWinners
-                        = new HashMap<>();
-                // This residual pot is awarded once, with SIDE-A. Include it
-                // in that board's immutable verdict so GDX can say BOTE #2;
-                // SIDE-B must not claim the same refund a second time.
-                if (board == 0) {
-                    GamePlayerController soleWinner
-                            = side.getPlayerControllers().get(0);
-                    GameHandResult knownHand = ganadores.get(soleWinner);
-                    if (knownHand == null) {
-                        knownHand = jugadas.get(soleWinner);
-                    }
-                    if (knownHand != null) {
-                        uncontestedHands.put(soleWinner, knownHand);
-                        uncontestedWinners.put(soleWinner, knownHand);
-                    }
-                }
-                sideHands.add(uncontestedHands);
-                sideWinners.add(uncontestedWinners);
+                // A one-player residual side pot is an overbet return. It is
+                // paid once on SIDE-A, but it must not turn a losing hand into
+                // a winner or produce a numbered-pot victory badge.
+                sideHands.add(new HashMap<>());
+                sideWinners.add(new HashMap<>());
             }
         }
         SettlementPresentation.Plan<GamePlayerController, GameHandResult> presentation = SettlementPresentation.plan(
@@ -18055,7 +18069,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     bote_tapete = bote_tapete + " + #" + String.valueOf(sec) + "{" + value_formatter.money(current_pot.getTotal()) + "}";
                     GamePlayerController only = current_pot.getPlayerControllers().get(0);
                     only.pagar(current_pot.getTotal(), null);
-                    only.marcarBotePot(sec);
+                    recordReturnedSidePot(only, current_pot.getTotal());
                     paidThisBoard += current_pot.getTotal();
                     game_log.print(only.getNickname() + " " + game_text.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(sec) + " (" + value_formatter.money(current_pot.getTotal()) + ")");
                     this.sqlUpdateShowdownPay(only);
@@ -25789,23 +25803,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                     jugadas_lateral = this.calcularJugadas(lateral.getPlayerControllers());
                                                     ganadores_lateral = this.calcularGanadores(new HashMap<>(jugadas_lateral));
                                                 } else {
+                                                    // This is an overbet return, not a won side
+                                                    // pot. Keep it out of the showdown verdict;
+                                                    // the explicit payout classification below
+                                                    // owns its black BOTE SOBRANTE overlay.
                                                     jugadas_lateral = new HashMap<>();
                                                     ganadores_lateral = new HashMap<>();
-                                                    // An uncontested residual side pot is still a
-                                                    // real numbered pot. It is paid below without
-                                                    // evaluating a hand, but the showdown verdict
-                                                    // is built before that payout and must already
-                                                    // know that its sole eligible player won it.
-                                                    GamePlayerController soleWinner
-                                                            = lateral.getPlayerControllers().get(0);
-                                                    GameHandResult knownHand = ganadores.get(soleWinner);
-                                                    if (knownHand == null) {
-                                                        knownHand = jugadas.get(soleWinner);
-                                                    }
-                                                    if (knownHand != null) {
-                                                        jugadas_lateral.put(soleWinner, knownHand);
-                                                        ganadores_lateral.put(soleWinner, knownHand);
-                                                    }
                                                 }
                                                 jugadas_por_lateral.add(jugadas_lateral);
                                                 ganadores_por_lateral.add(ganadores_lateral);
@@ -25834,7 +25837,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             while (current_pot != null) {
                                                 if (current_pot.getPlayerControllers().size() == 1) {
                                                     bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + value_formatter.money(current_pot.getTotal()) + "}";
-                                                    current_pot.getPlayerControllers().get(0).pagar(current_pot.getTotal(), conta_bote_secundario);
+                                                    GamePlayerController refundRecipient
+                                                            = current_pot.getPlayerControllers().get(0);
+                                                    refundRecipient.pagar(current_pot.getTotal(), conta_bote_secundario);
+                                                    recordReturnedSidePot(refundRecipient,
+                                                            current_pot.getTotal());
                                                     this.bote_total -= current_pot.getTotal();
                                                     game_log.print(current_pot.getPlayerControllers().get(0).getNickname() + " " + game_text.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(conta_bote_secundario) + " (" + value_formatter.money(current_pot.getTotal()) + ")");
                                                     this.sqlUpdateShowdownPay(current_pot.getPlayerControllers().get(0));

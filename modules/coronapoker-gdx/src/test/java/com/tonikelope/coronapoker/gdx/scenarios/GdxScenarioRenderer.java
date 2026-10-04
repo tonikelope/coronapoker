@@ -489,6 +489,21 @@ final class GdxScenarioRenderer implements TableRenderer {
                     runItTwiceSideBSettled.set(true);
                 }
             }
+        } else if (event instanceof TableVisualEvent.PayoutBatch payout
+                && runItTwiceSideASequence.get() > 0L) {
+            assertEquals(0, endedHands.get(),
+                    "RIT payout arrived after the hand had already ended");
+            if (runItTwiceSideBSequence.get() == 0L) {
+                assertEquals(runItTwiceSideAPrefix.get(),
+                        projection.runItTwicePotPrefix(),
+                        "CARA A payout lost its board label");
+                runItTwiceSideASettled.set(true);
+            } else {
+                assertEquals(runItTwiceSideBPrefix.get(),
+                        projection.runItTwicePotPrefix(),
+                        "CARA B payout lost its board label");
+                runItTwiceSideBSettled.set(true);
+            }
         } else if (event instanceof TableVisualEvent.DealCommunityCard deal
                 && runItTwiceSideBSequence.get() > 0L
                 && deal.sequence() > runItTwiceSideBSequence.get()) {

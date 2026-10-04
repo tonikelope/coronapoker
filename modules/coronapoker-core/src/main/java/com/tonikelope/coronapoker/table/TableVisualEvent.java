@@ -9,6 +9,7 @@
 package com.tonikelope.coronapoker.table;
 
 import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
+import com.tonikelope.coronapoker.core.game.MoneyMath;
 import java.util.List;
 import java.util.Objects;
 
@@ -38,6 +39,7 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
         TableVisualEvent.RabbitCards, TableVisualEvent.RabbitResult,
         TableVisualEvent.RabbitNotice,
         TableVisualEvent.ShowdownHighlight, TableVisualEvent.Payout,
+        TableVisualEvent.PayoutBatch,
         TableVisualEvent.Rebuy,
         TableVisualEvent.RebuyDecision,
         TableVisualEvent.ImmediateRebuyStatus,
@@ -757,6 +759,61 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
             requireMoney(potAfter, "Pot after payout");
             if (potIndex < 0) {
                 throw new IllegalArgumentException("Pot index cannot be negative");
+            }
+        }
+    }
+
+    /**
+     * One atomic pot distribution. Every recipient in the batch is animated
+     * concurrently, while the central pot and all affected counters advance
+     * from the same clock. A returned residual side pot is deliberately
+     * carried as a different semantic kind: it belongs to its sole eligible
+     * player, but it is not a poker win.
+     */
+    record PayoutBatch(long sequence, List<Transfer> transfers,
+            double potAfter, double investedAmountAfter)
+            implements TableVisualEvent {
+
+        public PayoutBatch {
+            transfers = List.copyOf(Objects.requireNonNull(
+                    transfers, "payout transfers"));
+            if (transfers.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Payout batch requires at least one transfer");
+            }
+            requireMoney(potAfter, "Pot after payout batch");
+            requireMoney(investedAmountAfter,
+                    "Invested amount after payout batch");
+        }
+
+        public double amount() {
+            return transfers.stream().mapToDouble(Transfer::amount).sum();
+        }
+
+        public record Transfer(String nickname, double amount,
+                double returnedAmount, double stackAfter) {
+
+            public Transfer {
+                nickname = Objects.requireNonNull(nickname, "nickname").trim();
+                if (nickname.isEmpty()) {
+                    throw new IllegalArgumentException(
+                            "Payout nickname cannot be empty");
+                }
+                requireMoney(amount, "Payout amount");
+                requireMoney(returnedAmount, "Returned side-pot amount");
+                requireMoney(stackAfter, "Stack after payout");
+                if (MoneyMath.compare(returnedAmount, amount) > 0) {
+                    throw new IllegalArgumentException(
+                            "Returned amount cannot exceed payout amount");
+                }
+            }
+
+            public double winningsAmount() {
+                return MoneyMath.clean(amount - returnedAmount);
+            }
+
+            public boolean returnsResidualSidePot() {
+                return MoneyMath.compare(returnedAmount, 0d) > 0;
             }
         }
     }

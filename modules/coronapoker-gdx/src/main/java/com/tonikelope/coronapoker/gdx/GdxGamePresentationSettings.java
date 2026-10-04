@@ -356,6 +356,12 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     @Override public boolean swapAnimation() {
         return animations() && bool("animacion_swap", true);
     }
+    boolean allInFireAnimation() {
+        return animations() && bool("animacion_fuego_allin", true);
+    }
+    boolean winnerEffectAnimation() {
+        return animations() && bool("animacion_efecto_ganador", true);
+    }
     @Override public boolean callSound() { return effects() && bool("sonido_igualar", true); }
     @Override public boolean betSound() { return effects() && bool("sonido_apostar", true); }
     @Override public boolean blindSound() { return effects() && bool("sonido_ciegas", true); }

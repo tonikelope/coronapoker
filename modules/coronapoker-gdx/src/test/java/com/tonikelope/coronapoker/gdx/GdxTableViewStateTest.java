@@ -735,38 +735,48 @@ final class GdxTableViewStateTest {
 
     @Test
     void startupLogoFinishesExactlyDockedBeforeTheMenuReveal() {
-        assertEquals(0f, CoronaPokerGdxTable.introLogoDockProgress(3.5f));
-        assertTrue(CoronaPokerGdxTable.introLogoDockProgress(4.5f) > 0f);
-        assertTrue(CoronaPokerGdxTable.introLogoDockProgress(4.5f) < 1f);
-        assertEquals(1f, CoronaPokerGdxTable.introLogoDockProgress(5.32f));
+        assertEquals(0f, CoronaPokerGdxTable.introLogoDockProgress(6f));
+        assertTrue(CoronaPokerGdxTable.introLogoDockProgress(6.86f) > 0f);
+        assertTrue(CoronaPokerGdxTable.introLogoDockProgress(6.86f) < 1f);
+        assertEquals(1f, CoronaPokerGdxTable.introLogoDockProgress(7.5f),
+                0.000_001f);
     }
 
     @Test
     void startupIntroFadesTheCreditBeforeTurningOnTheLights() {
         assertEquals(0f, CoronaPokerGdxTable.startupPresentationAlpha(0f));
-        assertTrue(CoronaPokerGdxTable.startupPresentationAlpha(0.17f) > 0f);
-        assertEquals(1f, CoronaPokerGdxTable.startupPresentationAlpha(0.34f),
+        assertEquals(0f, CoronaPokerGdxTable.startupPresentationAlpha(1f));
+        assertTrue(CoronaPokerGdxTable.startupPresentationAlpha(1.45f) > 0f);
+        assertEquals(1f, CoronaPokerGdxTable.startupPresentationAlpha(1.9f),
                 0.000_001f);
-        assertEquals(1f, CoronaPokerGdxTable.startupPresentationAlpha(2f),
+        assertEquals(1f, CoronaPokerGdxTable.startupPresentationAlpha(3.9f),
                 0.000_001f);
-        assertTrue(CoronaPokerGdxTable.startupPresentationAlpha(2.26f) > 0f);
-        assertTrue(CoronaPokerGdxTable.startupPresentationAlpha(2.26f) < 1f);
-        assertEquals(0f, CoronaPokerGdxTable.startupPresentationAlpha(2.52f),
+        assertTrue(CoronaPokerGdxTable.startupPresentationAlpha(4.35f) > 0f);
+        assertTrue(CoronaPokerGdxTable.startupPresentationAlpha(4.35f) < 1f);
+        assertEquals(0f, CoronaPokerGdxTable.startupPresentationAlpha(4.8f),
                 0.000_001f);
 
         assertFalse(CoronaPokerGdxTable.introLightSwitchReached(0f));
         assertEquals(0f, CoronaPokerGdxTable.introLightProgress(0f));
         assertEquals(0f, CoronaPokerGdxTable.introCardAppearProgress(0f));
 
-        assertFalse(CoronaPokerGdxTable.introLightSwitchReached(2.51f));
-        assertEquals(0f, CoronaPokerGdxTable.introLightProgress(2.51f));
+        assertFalse(CoronaPokerGdxTable.introLightSwitchReached(4.79f));
+        assertEquals(0f, CoronaPokerGdxTable.introLightProgress(4.79f));
         assertEquals(1f, CoronaPokerGdxTable.introCardAppearProgress(0.28f),
                 0.000_001f);
 
-        assertTrue(CoronaPokerGdxTable.introLightSwitchReached(2.52f));
-        assertTrue(CoronaPokerGdxTable.introLightProgress(2.69f) > 0f);
-        assertEquals(1f, CoronaPokerGdxTable.introLightProgress(2.86f),
+        assertTrue(CoronaPokerGdxTable.introLightSwitchReached(4.8f));
+        assertTrue(CoronaPokerGdxTable.introLightProgress(4.97f) > 0f);
+        assertEquals(1f, CoronaPokerGdxTable.introLightProgress(5.14f),
                 0.000_001f);
+    }
+
+    @Test
+    void foldedCardsReachZeroOpacityWithoutAVisibleFinalJump() {
+        assertEquals(1f, CoronaPokerGdxTable.foldCardAlpha(0f), 0.000_001f);
+        assertTrue(CoronaPokerGdxTable.foldCardAlpha(0.5f) > 0f);
+        assertTrue(CoronaPokerGdxTable.foldCardAlpha(0.99f) > 0f);
+        assertEquals(0f, CoronaPokerGdxTable.foldCardAlpha(1f), 0.000_001f);
     }
 
     @Test
@@ -2345,6 +2355,49 @@ final class GdxTableViewStateTest {
         assertTrue(player(state, "borja").winner());
         assertEquals(Boolean.TRUE, state.resolvedHandWinner("borja"));
         assertFalse(state.hasHandResult("borja"));
+    }
+
+    @Test
+    void payoutBatchProjectsAllRecipientsAtomically() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+
+        state.apply(new TableVisualEvent.PayoutBatch(1, List.of(
+                new TableVisualEvent.PayoutBatch.Transfer(
+                        "ana", 30d, 0d, 1_030d),
+                new TableVisualEvent.PayoutBatch.Transfer(
+                        "borja", 30d, 0d, 1_030d)), 0d, 0d));
+
+        assertEquals(1_030d, player(state, "ana").stack());
+        assertEquals(1_030d, player(state, "borja").stack());
+        assertEquals(Boolean.TRUE, state.resolvedHandWinner("ana"));
+        assertEquals(Boolean.TRUE, state.resolvedHandWinner("borja"));
+        assertEquals(0d, state.snapshot().pot());
+    }
+
+    @Test
+    void returnedResidualSidePotDoesNotCreateAWinner() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+
+        state.apply(new TableVisualEvent.HandResult(1, "borja",
+                "CARTA ALTA", false, TableSnapshot.Street.SHOWDOWN));
+        state.apply(new TableVisualEvent.PayoutBatch(2, List.of(
+                new TableVisualEvent.PayoutBatch.Transfer(
+                        "borja", 20d, 20d, 1_020d)), 0d, 0d));
+
+        assertEquals(Boolean.FALSE, state.resolvedHandWinner("borja"));
+        assertFalse(player(state, "borja").winner());
+        assertTrue(state.returnedSidePot("borja"));
+        assertTrue(state.resolvedWonPotIndexes("borja").isEmpty());
+    }
+
+    @Test
+    void payoutInvestmentRollsTowardTheBatchTarget() {
+        assertEquals(6d, CoronaPokerGdxTable.displayedPayoutInvestment(
+                10d, 20d, 12d, 8d, 8d));
+        assertEquals(8d, CoronaPokerGdxTable.displayedPayoutInvestment(
+                10d, 20d, 12d, 8d, 4d));
+        assertEquals(0d, CoronaPokerGdxTable.displayedPayoutInvestment(
+                10d, 20d, 0d, 20d, 20d));
     }
 
     @Test

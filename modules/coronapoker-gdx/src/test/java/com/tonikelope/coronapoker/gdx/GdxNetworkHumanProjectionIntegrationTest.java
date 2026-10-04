@@ -3397,7 +3397,8 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 localOutcomeAtResult.set(CoronaPokerGdxTable.localHandOutcome(
                         projection.resolvedHandWinner(local),
                         projection.foldedThisHand(local)));
-            } else if (event instanceof TableVisualEvent.Payout) {
+            } else if (event instanceof TableVisualEvent.Payout
+                    || event instanceof TableVisualEvent.PayoutBatch) {
                 payoutOrder.compareAndSet(-1, order);
             } else if (event instanceof TableVisualEvent.HandBoundary boundary
                     && boundary.phase()
@@ -4136,6 +4137,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 = new AtomicBoolean();
         private final AtomicBoolean sideBSettledAtEnd
                 = new AtomicBoolean();
+        private final AtomicInteger payoutBatchCount = new AtomicInteger();
         private final CopyOnWriteArrayList<Integer> sideBDeals
                 = new CopyOnWriteArrayList<>();
         private final Set<String> revealedPlayers
@@ -4272,6 +4274,20 @@ class GdxNetworkHumanProjectionIntegrationTest {
                         sideBSettled.set(true);
                     }
                 }
+            } else if (event instanceof TableVisualEvent.PayoutBatch
+                    && sideASequence.get() > 0L) {
+                payoutBatchCount.incrementAndGet();
+                assertEquals(0, endedHands.get(),
+                        "RIT payout arrived after the hand had already ended");
+                if (sideBSequence.get() == 0L) {
+                    assertEquals(sideAPrefix.get(),
+                            projection.runItTwicePotPrefix());
+                    sideASettled.set(true);
+                } else {
+                    assertEquals(sideBPrefix.get(),
+                            projection.runItTwicePotPrefix());
+                    sideBSettled.set(true);
+                }
             } else if (event instanceof TableVisualEvent.CloseTable close) {
                 summary.set(close.summary());
                 closed.set(true);
@@ -4291,6 +4307,8 @@ class GdxNetworkHumanProjectionIntegrationTest {
             assertTrue(sideASettled.get());
             assertTrue(sideBSettled.get());
             assertTrue(sideBSettledAtEnd.get());
+            assertEquals(2, payoutBatchCount.get(),
+                    "Run It Twice must publish one payout batch per board");
             assertEquals(List.of(0, 1, 2, 3, 4), sideBDeals);
             assertEquals(Set.of("Anfitrion", "Invitado"), revealedPlayers);
             assertEquals(revealedPlayers, monteCarloPlayers);

@@ -4,6 +4,7 @@ import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
 import com.tonikelope.coronapoker.core.game.ActionControlState;
 import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
+import com.tonikelope.coronapoker.core.game.MoneyMath;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -90,6 +91,8 @@ final class GdxTableViewState {
     private final Map<String, Boolean> resolvedHandWinners = new HashMap<>();
     private final Map<String, List<Integer>> resolvedWonPotIndexes
             = new HashMap<>();
+    private final java.util.Set<String> returnedSidePotPlayers
+            = new HashSet<>();
     /*
      * RevealHoleCards is also ordered presentation state. A later exact
      * HandBoundary/roster snapshot may still contain the legacy controller's
@@ -285,6 +288,10 @@ final class GdxTableViewState {
 
     List<Integer> resolvedWonPotIndexes(String nickname) {
         return resolvedWonPotIndexes.getOrDefault(nickname, List.of());
+    }
+
+    boolean returnedSidePot(String nickname) {
+        return returnedSidePotPlayers.contains(nickname);
     }
 
     List<TableSnapshot.CardSnapshot> presentedHoleCards(String nickname) {
@@ -660,6 +667,27 @@ final class GdxTableViewState {
             } else {
                 showdownHighlights.remove(highlight.nickname());
             }
+        } else if (event instanceof TableVisualEvent.PayoutBatch payout) {
+            for (TableVisualEvent.PayoutBatch.Transfer transfer
+                    : payout.transfers()) {
+                if (transfer.returnsResidualSidePot()) {
+                    returnedSidePotPlayers.add(transfer.nickname());
+                }
+                boolean won = MoneyMath.compare(
+                        transfer.winningsAmount(), 0d) > 0;
+                if (won) {
+                    resolvedHandWinners.put(transfer.nickname(), true);
+                }
+                replacePlayer(transfer.nickname(), player -> copyPlayer(player,
+                        transfer.stackAfter(), player.streetBet(),
+                        player.potContribution(), player.active(),
+                        won || player.winner(), player.position(),
+                        player.lastAction(), player.handName(),
+                        player.holeCards()));
+            }
+            snapshot = copySnapshot(snapshot, payout.potAfter(),
+                    snapshot.currentTurnNickname(), snapshot.players(),
+                    snapshot.communityCards());
         } else if (event instanceof TableVisualEvent.Payout payout) {
             // Run It Twice now publishes one payout stream per board. Preserve
             // the active CARA-A/CARA-B prefix while that board's chips leave
@@ -814,6 +842,7 @@ final class GdxTableViewState {
         resolvedHandNames.remove(nickname);
         resolvedHandWinners.remove(nickname);
         resolvedWonPotIndexes.remove(nickname);
+        returnedSidePotPlayers.remove(nickname);
     }
 
     private void recordWonPotIndex(String nickname, int potIndex) {
@@ -851,6 +880,7 @@ final class GdxTableViewState {
             resolvedHandNames.clear();
             resolvedHandWinners.clear();
             resolvedWonPotIndexes.clear();
+            returnedSidePotPlayers.clear();
             revealedHoleCards.clear();
             foldedThisHand.clear();
             iwtsthCandidates.clear();
@@ -882,6 +912,7 @@ final class GdxTableViewState {
         resolvedHandNames.clear();
         resolvedHandWinners.clear();
         resolvedWonPotIndexes.clear();
+        returnedSidePotPlayers.clear();
         // Swing's repaintLastAction() calls enfocar() on both hole cards for
         // every player before SIDE-B.  The GDX projection must do the same to
         // both its accepted reveal copy and the underlying snapshot; merely

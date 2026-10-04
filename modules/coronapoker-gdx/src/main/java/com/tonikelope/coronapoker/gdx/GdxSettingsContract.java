@@ -27,6 +27,17 @@ final class GdxSettingsContract {
         NONE, SOUND, MUSIC, EFFECTS, ANIMATIONS, CINEMATICS
     }
 
+    enum PerformanceImpact {
+        NONE, LOW, MEDIUM, HIGH;
+
+        String label(GdxGameText text) {
+            return translatedUpper(text,
+                    "gdx.settings.performance_impact."
+                            + name().toLowerCase(Locale.ROOT),
+                    name());
+        }
+    }
+
     record ToggleOption(String key, String label, boolean fallback,
             Gate gate, boolean inverted) {
 
@@ -152,7 +163,7 @@ final class GdxSettingsContract {
     private static final TogglePage AUDIO_DEVICE_PAGE = page("DISPOSITIVOS");
     private static final TogglePage APPEARANCE_ANIMATIONS_PAGE = page(
             "ANIMACIONES",
-            option("animaciones", "TODAS LAS ANIMACIONES", true,
+            option("animaciones", "USAR ANIMACIONES", true,
                     Gate.NONE),
             option("animacion_barajado", "BARAJADO", true,
                     Gate.ANIMATIONS),
@@ -169,6 +180,10 @@ final class GdxSettingsContract {
             option("animacion_swap", "ORDENAR LA MANO", true,
                     Gate.ANIMATIONS),
             option("animacion_contador_final", "RECUENTO FINAL", true,
+                    Gate.ANIMATIONS),
+            option("animacion_fuego_allin", "FUEGO DE ALL-IN", true,
+                    Gate.ANIMATIONS),
+            option("animacion_efecto_ganador", "EFECTO DE GANADOR", true,
                     Gate.ANIMATIONS));
 
     private static final int[] VOICE_RETENTION_DAYS = {7, 15, 30, 90, 0};
@@ -334,6 +349,7 @@ final class GdxSettingsContract {
             "chat_images_ingame", CHAT_GAME_NOTIFICATIONS_KEY,
             "resaltar_jugada_showdown", "resaltar_avatares",
             "screenshot_fin_timba", "animacion_contador_final",
+            "animacion_fuego_allin", "animacion_efecto_ganador",
             "animaciones", "cinematicas", "cinematicas_accion",
             "cinematicas_allin", "cinematicas_gameover",
             "animacion_barajado", "animacion_reparto",
@@ -350,6 +366,47 @@ final class GdxSettingsContract {
             "modo_auto_confirm", "auto_call_enabled", "auto_call_max");
 
     private GdxSettingsContract() {
+    }
+
+    /**
+     * Conservative user-facing estimate of the render cost controlled by one
+     * setting. It describes the cost while the feature is active, not a GPU
+     * benchmark, and deliberately omits options whose effect is negligible.
+     */
+    static PerformanceImpact performanceImpact(String key,
+            Properties properties) {
+        if (key == null || key.isBlank()) return PerformanceImpact.NONE;
+        Properties values = properties == null ? new Properties() : properties;
+        return switch (key) {
+            case "animaciones", "animacion_barajado",
+                    "animacion_fuego_allin" -> PerformanceImpact.HIGH;
+            case "cinematicas", "cinematicas_allin",
+                    "animacion_reparto", "animacion_destape",
+                    "animacion_apuestas", "animacion_contador_final",
+                    "animacion_efecto_ganador" -> PerformanceImpact.MEDIUM;
+            case "cinematicas_gameover", "animacion_ciegas_dealer",
+                    "animacion_contadores", "animacion_swap" ->
+                PerformanceImpact.LOW;
+            case "card_flip_zoom" -> integer(values, key, 100) <= 100
+                    ? PerformanceImpact.LOW : PerformanceImpact.MEDIUM;
+            case "gdx_msaa_samples" -> {
+                int samples = integer(values, key, 4);
+                yield samples <= 0 ? PerformanceImpact.LOW
+                        : samples <= 2 ? PerformanceImpact.MEDIUM
+                                : PerformanceImpact.HIGH;
+            }
+            default -> PerformanceImpact.NONE;
+        };
+    }
+
+    private static int integer(Properties properties, String key,
+            int fallback) {
+        try {
+            return Integer.parseInt(properties.getProperty(key,
+                    Integer.toString(fallback)));
+        } catch (NumberFormatException invalid) {
+            return fallback;
+        }
     }
 
     private static TogglePage page(String title, ToggleOption... options) {

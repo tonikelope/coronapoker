@@ -105,24 +105,31 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private static final float BASE_WIDTH = 1920f;
     private static final float BASE_HEIGHT = 1080f;
-    static final float STARTUP_PRESENTATION_HOLD_SECONDS = 2.0f;
-    private static final float STARTUP_PRESENTATION_FADE_IN_SECONDS = 0.34f;
-    private static final float STARTUP_PRESENTATION_FADE_OUT_SECONDS = 0.52f;
+    static final float STARTUP_PRESENTATION_DELAY_SECONDS = 1f;
+    private static final float STARTUP_PRESENTATION_FADE_IN_SECONDS = 0.90f;
+    static final float STARTUP_PRESENTATION_HOLD_SECONDS = 2f;
+    private static final float STARTUP_PRESENTATION_FADE_OUT_SECONDS = 0.90f;
+    private static final float STARTUP_PRESENTATION_FADE_OUT_START_SECONDS =
+            STARTUP_PRESENTATION_DELAY_SECONDS
+                    + STARTUP_PRESENTATION_FADE_IN_SECONDS
+                    + STARTUP_PRESENTATION_HOLD_SECONDS;
     static final float STARTUP_PRESENTATION_END_SECONDS =
-            STARTUP_PRESENTATION_HOLD_SECONDS
+            STARTUP_PRESENTATION_FADE_OUT_START_SECONDS
                     + STARTUP_PRESENTATION_FADE_OUT_SECONDS;
     private static final String STARTUP_PRESENTATION_TITLE =
             "Tonikelope Solutions S.L.";
     private static final String STARTUP_PRESENTATION_SUBTITLE = "presents";
-    private static final float INTRO_SECONDS = 5.32f;
     static final float FINAL_AMOUNT_ROLL_SECONDS = 1.5f;
     static final float FINAL_AMOUNT_BLINK_STEP_SECONDS = 0.13f;
     static final int FINAL_AMOUNT_BLINK_STEPS = 6;
     static final float FINAL_SUMMARY_REVEAL_SECONDS = 0.60f;
-    private static final float INTRO_LOGO_DOCK_START = 3.94f;
-    private static final float INTRO_LOGO_DOCK_SECONDS = 1.28f;
     private static final float INTRO_LIGHT_SWITCH_TIME =
             STARTUP_PRESENTATION_END_SECONDS;
+    private static final float INTRO_LOGO_DOCK_START =
+            INTRO_LIGHT_SWITCH_TIME + 1.42f;
+    private static final float INTRO_LOGO_DOCK_SECONDS = 1.28f;
+    private static final float INTRO_SECONDS = INTRO_LOGO_DOCK_START
+            + INTRO_LOGO_DOCK_SECONDS + 0.10f;
     private static final float INTRO_LIGHT_FADE_SECONDS = 0.34f;
     private static final float INTRO_CARD_APPEAR_SECONDS = 0.28f;
     private static final float INTRO_DARKNESS_ALPHA = 0.78f;
@@ -680,6 +687,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final float[] frameScratch = new float[FRAME_SAMPLE_COUNT];
     private final GlyphLayout glyph = new GlyphLayout();
     private final Vector2 pointer = new Vector2();
+    private final GdxTooltipDelay latencyTooltipDelay =
+            new GdxTooltipDelay();
+    private final GdxTooltipDelay fastAccessTooltipDelay =
+            new GdxTooltipDelay();
+    private final GdxTooltipDelay pendingRebuyTooltipDelay =
+            new GdxTooltipDelay();
+    private final GdxTooltipDelay settingsPerformanceTooltipDelay =
+            new GdxTooltipDelay();
     private final ArrayDeque<GdxTableDialog> dialogQueue = new ArrayDeque<>();
     private final Map<String, SeatChatNotice> seatChatNotices = new HashMap<>();
     private final ArrayDeque<SilentChatNotice> silentChatNotices =
@@ -1025,7 +1040,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private PendingCollectBets pendingCollectBets;
     private LiveChipBatch liveChipBatch;
     private final Map<String, Double> livePotContributions = new HashMap<>();
+    private final Map<String, Double> liveShowdownInvestments
+            = new HashMap<>();
     private final Map<String, Long> liveWinnerStarts = new HashMap<>();
+    private final ArrayList<Seat> allInFireSeats = new ArrayList<>(SEAT_COUNT);
     private LivePayout livePayout;
     private LiveRebuy liveRebuy;
     private LiveInitialStackFill liveInitialStackFill;
@@ -2056,6 +2074,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void beginTableSettings() {
+        settingsPerformanceTooltipDelay.clear();
         settingsSession.begin(GdxSettingsSession.Context.LIVE_TABLE,
                 preferences == null ? null : preferences.properties());
         settingsOpenedWindowMode = GdxDisplayModeController.activeMode();
@@ -2086,6 +2105,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void closeTableSettings(boolean save) {
+        settingsPerformanceTooltipDelay.clear();
         boolean restartNotice = save && presentationSettings != null
                 && GdxSettingsContract.requiresMsaaRestart(
                         settingsOpenedMsaaSamples,
@@ -3225,34 +3245,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // Exactly like Swing's launchChipToPot, the flight is cosmetic and
             // must not hold the dealer or the following player's turn.
             barrier.complete(null);
+        } else if (event instanceof TableVisualEvent.PayoutBatch payout) {
+            acceptPayout(event, payout.transfers(), payout.amount(),
+                    payout.potAfter(), payout.investedAmountAfter(), barrier);
         } else if (event instanceof TableVisualEvent.Payout payout) {
-            if (livePayout != null) {
-                throw new IllegalStateException("A GDX payout is already active");
-            }
-            // Preserve the exact pot already visible on the table. Rebuilding
-            // it from pending winner payments can differ by a cent after pot
-            // splitting and used to make the label grow just before payout.
-            double payoutPotBefore = livePot();
-            displayedPayoutPot(payoutPotBefore, payout.potAfter(),
-                    payout.amount(), 0d);
-            // Payout carries the exact canonical remainder. Never let a
-            // presentation-only contribution cached by the no-flight path be
-            // added on top of it.
-            livePotContributions.clear();
-            if (!liveBetAnimationEnabled()
-                    || presentationSettings != null
-                    && presentationSettings.testMode()) {
-                liveState.apply(event);
-                liveWinnerStarts.putIfAbsent(payout.nickname(),
-                        System.nanoTime());
-                syncSeatsFromLiveState();
-                barrier.complete(null);
-                return;
-            }
-            liveState.apply(event);
-            livePayout = new LivePayout(payout, System.nanoTime(), barrier,
-                    liveCounterDenomination(), payoutPotBefore);
-            syncSeatsFromLiveState();
+            // Backward-compatible single-recipient event used by recovery and
+            // focused contract tests. New dealer code publishes one batch so
+            // every winner is paid from the same visual clock.
+            TableVisualEvent.PayoutBatch.Transfer transfer
+                    = new TableVisualEvent.PayoutBatch.Transfer(
+                            payout.nickname(), payout.amount(), 0d,
+                            payout.stackAfter());
+            captureShowdownInvestments();
+            double investedAfter = Math.max(0d,
+                    showdownInvestmentTotal() - payout.amount());
+            acceptPayout(event, List.of(transfer), payout.amount(),
+                    payout.potAfter(), investedAfter, barrier);
         } else if (event instanceof TableVisualEvent.Rebuy rebuy) {
             if (liveRebuy != null) {
                 throw new IllegalStateException("A GDX rebuy is already active");
@@ -3537,12 +3545,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     && boundary.phase() != TableVisualEvent.HandBoundary.Phase.END) {
                 clearPendingLocalAction();
                 livePotContributions.clear();
+                liveShowdownInvestments.clear();
                 liveWinnerStarts.clear();
                 liveHoleDealCount = 0;
                 liveShowdownHoverNickname = null;
                 allInActionSoundsPlayed.clear();
                 liveHandProbabilities.clear();
                 releaseRemoteRebuyPresentation();
+            }
+            if (event instanceof TableVisualEvent.HandBoundary boundary
+                    && boundary.phase()
+                    == TableVisualEvent.HandBoundary.Phase.END) {
+                captureShowdownInvestments();
             }
             if (event instanceof TableVisualEvent.RunItTwiceBoard board
                     && board.side()
@@ -3630,6 +3644,43 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             syncSeatsFromLiveState();
             barrier.complete(null);
         }
+    }
+
+    private void acceptPayout(TableVisualEvent event,
+            List<TableVisualEvent.PayoutBatch.Transfer> transfers,
+            double payoutAmount, double potAfter,
+            double investedAmountAfter, CompletableFuture<Void> barrier) {
+        if (livePayout != null) {
+            throw new IllegalStateException("A GDX payout is already active");
+        }
+        captureShowdownInvestments();
+        // Preserve the exact pot already visible on the table. Rebuilding it
+        // from split payments can differ by a cent and make the label grow
+        // immediately before the chips leave it.
+        double payoutPotBefore = livePot();
+        displayedPayoutPot(payoutPotBefore, potAfter, payoutAmount, 0d);
+        livePotContributions.clear();
+        if (!liveBetAnimationEnabled()
+                || presentationSettings != null
+                && presentationSettings.testMode()) {
+            liveState.apply(event);
+            applyShowdownInvestmentTarget(investedAmountAfter);
+            long now = System.nanoTime();
+            transfers.stream()
+                    .filter(transfer -> MoneyMath.compare(
+                    transfer.winningsAmount(), 0d) > 0)
+                    .forEach(transfer -> liveWinnerStarts.putIfAbsent(
+                    transfer.nickname(), now));
+            syncSeatsFromLiveState();
+            barrier.complete(null);
+            return;
+        }
+        liveState.apply(event);
+        livePayout = new LivePayout(transfers, payoutAmount, potAfter,
+                investedAmountAfter, System.nanoTime(), barrier,
+                liveCounterDenomination(), payoutPotBefore,
+                liveShowdownInvestments);
+        syncSeatsFromLiveState();
     }
 
     static boolean holeCardsAlreadyRevealed(
@@ -4018,6 +4069,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else {
             drawFinalSummary();
         }
+        if (finalSummary == null && preparationPhase
+                == TableVisualEvent.PreparationStatus.Phase.READY) {
+            // Table utilities remain usable while the game is paused. They
+            // are painted above the pause glass pane, while every UI layer and
+            // dialog below is still painted later and remains truly modal.
+            drawFastAccessBar();
+        }
         if (blurSettingsBackdrop) {
             settingsBackdrop.end();
             drawBlurredSettingsBackdrop();
@@ -4181,9 +4239,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static float startupPresentationAlpha(float timeSeconds) {
+        if (timeSeconds <= STARTUP_PRESENTATION_DELAY_SECONDS) return 0f;
+        float presentationTime = timeSeconds
+                - STARTUP_PRESENTATION_DELAY_SECONDS;
         float fadeIn = Interpolation.smoother.apply(MathUtils.clamp(
-                timeSeconds / STARTUP_PRESENTATION_FADE_IN_SECONDS, 0f, 1f));
-        float fadeOut = timeSeconds <= STARTUP_PRESENTATION_HOLD_SECONDS
+                presentationTime / STARTUP_PRESENTATION_FADE_IN_SECONDS,
+                0f, 1f));
+        float fadeOut = timeSeconds
+                <= STARTUP_PRESENTATION_FADE_OUT_START_SECONDS
                 ? 1f : Interpolation.smoother.apply(MathUtils.clamp(
                         (STARTUP_PRESENTATION_END_SECONDS - timeSeconds)
                                 / STARTUP_PRESENTATION_FADE_OUT_SECONDS,
@@ -5296,11 +5359,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(pointer);
-        // The pause shade owns the whole table, just like Swing's glass pane.
-        // Route it before cards, seat notices and HUD controls so the release
-        // cannot click through the visible modal overlay.  Only the white
-        // full-width banner and the explicit REANUDAR button resume the game;
-        // the rest of the shade merely consumes the click.
+        // Resolve the topmost fast-access surface before any seat, stack, HUD
+        // or card target.  This is pointer ownership, not merely button hit
+        // testing: even transparent-looking padding between its icons consumes
+        // the release instead of falling through to the local HUD.
+        if (handleFastAccessClick(pointer.x, pointer.y)) {
+            return;
+        }
+        // The pause shade owns the rest of the table, just like Swing's glass
+        // pane. The fast-access bar above is deliberately exempt so utilities
+        // such as settings, log and exit remain available while paused. Only
+        // the white banner and explicit REANUDAR control resume the game.
         boolean paused = liveState.snapshot().paused();
         if (pauseOverlayConsumesRelease(paused,
                 leftButtonReleasedThisFrame)) {
@@ -5311,13 +5380,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     communityPauseWidth, communityPauseHeight)) {
                 togglePauseAction();
             }
-            return;
-        }
-        // Resolve the topmost fast-access surface before any seat, stack, HUD
-        // or card target.  This is pointer ownership, not merely button hit
-        // testing: even transparent-looking padding between its icons consumes
-        // the release instead of falling through to the local HUD.
-        if (handleFastAccessClick(pointer.x, pointer.y)) {
             return;
         }
         if (handleSeatChatNoticeClick(pointer.x, pointer.y, false)) {
@@ -6734,8 +6796,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // as if it never produced its speaking indicator.
         drawSeatChatNotices();
         drawSilentChatNotice();
+        drawLatencyTooltip();
         drawProductVersionBrand(1f);
-        drawFastAccessBar();
         drawVoiceRecordingOverlay(width, height);
         drawAvatarZoomOverlay(width, height);
         if (tablePreference("gdx_show_fps", false)) {
@@ -6750,6 +6812,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : FAST_BUTTON_SIZE + 2f * FAST_BAR_PADDING;
         float panelH = FAST_BUTTON_SIZE + 2f * FAST_BAR_PADDING;
         int hovered = fastButtonAt(pointer.x, pointer.y);
+        boolean showTooltip = fastBarExpanded && hovered >= 0
+                && fastAccessTooltipDelay.ready("fast-access:" + hovered);
+        if (!fastBarExpanded || hovered < 0) {
+            fastAccessTooltipDelay.clear();
+        }
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -6774,7 +6841,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     FAST_BUTTON_SIZE, FAST_BUTTON_SIZE, tone, enabled,
                     hover ? 1f : 0f, false, alpha);
         }
-        if (fastBarExpanded && hovered >= 0) {
+        if (showTooltip) {
             String hoveredLabel = fastButtonLabel(hovered);
             float tipW = Math.max(180f,
                     Math.min(260f, hoveredLabel.length() * 13f));
@@ -6802,7 +6869,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         FAST_BAR_Y + FAST_BAR_PADDING + 5f,
                         FAST_BUTTON_SIZE - 10f, FAST_BUTTON_SIZE - 10f);
             }
-            if (hovered >= 0) {
+            if (showTooltip) {
                 String hoveredLabel = fastButtonLabel(hovered);
                 float tipW = Math.max(180f,
                         Math.min(260f, hoveredLabel.length() * 13f));
@@ -7087,8 +7154,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         stackSurface.b, (folded ? 0.30f : 0.92f) * presence);
                 roundedRect(seat.podX + RIVAL_MONEY_CELL_X,
                         seat.podY + 59f, RIVAL_MONEY_CELL_WIDTH, 29f, 7f);
-                Color potBackground = actionLabel.isEmpty()
-                        ? BUTTON_LINE : actionColor;
+                // The invested counter is accounting, not an action/result
+                // badge. Showdown hover may highlight the hand and cards, but
+                // must never recolour this money cell.
+                Color potBackground = BUTTON_LINE;
                 shapes.setColor(potBackground.r, potBackground.g,
                         potBackground.b, composedAlpha(potBackground,
                                 folded ? 0.30f : 0.92f, presence));
@@ -7218,8 +7287,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 + RIVAL_MONEY_CELL_GAP + 4f,
                         seat.podY + 62f,
                         RIVAL_MONEY_CELL_WIDTH - 8f, 23f,
-                        folded ? Color.GRAY
-                                : lastActionTextColorForSeat(seat.index), presence);
+                        folded ? Color.GRAY : Color.WHITE, presence);
             }
         }
         batch.end();
@@ -7229,7 +7297,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawSidePotWinnerOverlays() {
         record Overlay(Seat seat, String label, float x, float y,
-                float width, float height) { }
+                float width, float height, boolean returnedPot) { }
         ArrayList<Overlay> overlays = new ArrayList<>();
         for (Seat seat : seats) {
             if (seat.index == 0 || seatPresenceAlpha(seat.index) <= 0f) {
@@ -7239,7 +7307,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (label.isEmpty()) continue;
             Rectangle bounds = sidePotWinnerOverlayBounds(seat);
             overlays.add(new Overlay(seat, label, bounds.x, bounds.y,
-                    bounds.width, bounds.height));
+                    bounds.width, bounds.height,
+                    liveState.returnedSidePot(seat.name)));
         }
         if (overlays.isEmpty()) return;
 
@@ -7253,15 +7322,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         batch.begin();
         for (Overlay overlay : overlays) {
-            drawFittedCenteredInBox(localOutcomeFont, overlay.label(),
-                    overlay.x() + 10f, overlay.y() + 5f,
-                    overlay.width() - 20f, overlay.height() - 10f,
-                    Color.WHITE, 1f);
+            if (overlay.returnedPot()) {
+                drawScaledFittedCenteredInBox(localOutcomeFont, 0.78f,
+                        overlay.label(), overlay.x() + 10f,
+                        overlay.y() + 5f, overlay.width() - 20f,
+                        overlay.height() - 10f, Color.WHITE, 1f);
+            } else {
+                drawFittedCenteredInBox(localOutcomeFont, overlay.label(),
+                        overlay.x() + 10f, overlay.y() + 5f,
+                        overlay.width() - 20f, overlay.height() - 10f,
+                        Color.WHITE, 1f);
+            }
         }
         batch.end();
     }
 
     private String sidePotWinnerOverlayLabel(Seat seat) {
+        if (liveState.returnedSidePot(seat.name)) {
+            return uppercase(gameText.translate("game.bote_sobrante"));
+        }
         return derivedPotOverlayLabel(false,
                 liveState.resolvedHandWinner(seat.name),
                 liveState.resolvedWonPotIndexes(seat.name), gameText);
@@ -7430,7 +7509,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      * boundary; this effect neither completes nor delays a dealer barrier.
      */
     private void drawAllInSeatFlames() {
-        if (!liveAnimationsEnabled()) {
+        if (!liveAllInFireEnabled()) {
+            return;
+        }
+        allInFireSeats.clear();
+        for (Seat seat : seats) {
+            if (seatPresenceAlpha(seat.index) > 0f
+                    && seatHasAllInFire(liveState, seat.name)) {
+                allInFireSeats.add(seat);
+            }
+        }
+        // Avoid two SpriteBatch passes plus a ShapeRenderer pass on every
+        // frame when no seat owns an ALL-IN effect. The actual fire path keeps
+        // the same shader layers, bloom and embers.
+        if (allInFireSeats.isEmpty()) {
             return;
         }
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -7447,12 +7539,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 batch.setBlendFunction(GL20.GL_SRC_ALPHA,
                         bloom ? GL20.GL_ONE : GL20.GL_ONE_MINUS_SRC_ALPHA);
                 batch.begin();
-                for (Seat seat : seats) {
+                for (Seat seat : allInFireSeats) {
                     float presence = seatPresenceAlpha(seat.index);
-                    if (presence <= 0f
-                            || !seatHasAllInFire(liveState, seat.name)) {
-                        continue;
-                    }
                     for (int layer = 0; layer < 3; layer++) {
                         Rectangle fire = allInFireLayerBounds(seat.x, seat.y,
                                 layer);
@@ -7486,12 +7574,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // and make the fire read as a hot, living combustion bed.
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        for (Seat seat : seats) {
+        for (Seat seat : allInFireSeats) {
             float presence = seatPresenceAlpha(seat.index);
-            if (presence <= 0f
-                    || !seatHasAllInFire(liveState, seat.name)) {
-                continue;
-            }
             for (int ember = 0; ember < 25; ember++) {
                 float speed = 0.27f + (ember % 7) * 0.033f;
                 float life = (totalTime * speed + ember * 0.173f
@@ -8122,16 +8206,89 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
     }
 
+    private void drawLatencyTooltip() {
+        if (liveState == null || uiLayer != UI_NONE || activeDialog != null) {
+            latencyTooltipDelay.clear();
+            return;
+        }
+        Seat hoveredSeat = latencySeatAt(pointer.x, pointer.y);
+        if (hoveredSeat == null) {
+            latencyTooltipDelay.clear();
+            return;
+        }
+        TableSnapshot.PlayerSnapshot player = livePlayer(hoveredSeat);
+        if (player == null) {
+            latencyTooltipDelay.clear();
+            return;
+        }
+        if (!latencyTooltipDelay.ready("table-latency:" + hoveredSeat.index)) {
+            return;
+        }
+
+        int latency = effectiveLatencyMillis(player);
+        String value = latency < 0 ? "—" : Integer.toString(latency);
+        String label = gameText.translate("gdx.table.latency_tooltip", value);
+        glyph.setText(smallFont, label);
+        float width = Math.max(132f, glyph.width + 30f);
+        float height = 40f;
+        float dotX = hoveredSeat.x - 42f;
+        float dotY = hoveredSeat.y + 41f;
+        float x = MathUtils.clamp(dotX - width / 2f, 10f,
+                viewport.getWorldWidth() - width - 10f);
+        float y = dotY + 18f;
+        if (y + height > viewport.getWorldHeight() - 10f) {
+            y = dotY - height - 18f;
+        }
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapes.setColor(0.005f, 0.020f, 0.032f, 0.97f);
+        roundedRect(x, y, width, height, 8f);
+        Color quality = latencyColor(player);
+        shapes.setColor(quality.r, quality.g, quality.b, 0.94f);
+        shapes.rect(x + 10f, y + height - 3f, width - 20f, 2f);
+        shapes.end();
+
+        batch.begin();
+        drawFittedCenteredInBox(smallFont, label, x + 10f, y + 5f,
+                width - 20f, height - 10f, Color.WHITE, 1f);
+        batch.end();
+    }
+
+    private Seat latencySeatAt(float x, float y) {
+        for (int index = seats.length - 1; index >= 0; index--) {
+            Seat seat = seats[index];
+            if (seatPresenceAlpha(seat.index) <= 0f) continue;
+            TableSnapshot.PlayerSnapshot player = livePlayer(seat);
+            if (player != null && latencyDotContains(x, y,
+                    seat.x - 42f, seat.y + 41f)) {
+                return seat;
+            }
+        }
+        return null;
+    }
+
+    static boolean latencyDotContains(float pointerX, float pointerY,
+            float dotX, float dotY) {
+        float dx = pointerX - dotX;
+        float dy = pointerY - dotY;
+        return dx * dx + dy * dy <= 14f * 14f;
+    }
+
+    static int effectiveLatencyMillis(TableSnapshot.PlayerSnapshot player) {
+        int first = player.latency();
+        int second = player.previousLatency();
+        return first < 0 ? second : second < 0 ? first
+                : Math.min(first, second);
+    }
+
     static Color latencyColor(TableSnapshot.PlayerSnapshot player) {
         if (player.telemetryAt() <= 0L
                 || System.currentTimeMillis() - player.telemetryAt()
                 > LATENCY_STALE_MILLIS) {
             return LATENCY_STALE;
         }
-        int first = player.latency();
-        int second = player.previousLatency();
-        int best = first < 0 ? second : second < 0 ? first
-                : Math.min(first, second);
+        int best = effectiveLatencyMillis(player);
         if (best < 0) return LATENCY_RED;
         if (best <= 100) return LATENCY_GREEN;
         if (best <= 250) return LATENCY_YELLOW;
@@ -8625,12 +8782,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawLiveHoleFold(TableSnapshot.PlayerSnapshot player,
             Seat seat, Texture cardBack) {
-        float disabled = Interpolation.smooth.apply(liveHoleFold.progress());
-        float alpha = MathUtils.lerp(1f, DISABLED_CARD_ALPHA, disabled);
+        float alpha = foldCardAlpha(liveHoleFold.progress());
         for (int slot = 0; slot < player.holeCards().size() && slot < 2; slot++) {
             drawLiveRestingCard(player.holeCards().get(slot),
                     liveHolePlacement(seat, slot), cardBack, 1f, alpha, false);
         }
+    }
+
+    static float foldCardAlpha(float progress) {
+        return 1f - Interpolation.smoother.apply(MathUtils.clamp(
+                progress, 0f, 1f));
     }
 
     private void drawLiveRestingCard(TableSnapshot.CardSnapshot card,
@@ -10109,6 +10270,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : presentationSettings.animations();
     }
 
+    private boolean liveAllInFireEnabled() {
+        return presentationSettings == null
+                ? liveAnimationsEnabled()
+                    && tablePreference("animacion_fuego_allin", true)
+                : presentationSettings.allInFireAnimation();
+    }
+
+    private boolean liveWinnerEffectEnabled() {
+        return presentationSettings == null
+                ? liveAnimationsEnabled()
+                    && tablePreference("animacion_efecto_ganador", true)
+                : presentationSettings.winnerEffectAnimation();
+    }
+
     private boolean livePositionAnimationEnabled() {
         return presentationSettings == null
                 ? tablePreference("animaciones", true)
@@ -11530,7 +11705,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawLiveWinnerGlow() {
-        if (!liveAnimationsEnabled()) {
+        if (!liveWinnerEffectEnabled()) {
             return;
         }
         List<TableSnapshot.PlayerSnapshot> players = liveState.snapshot().players();
@@ -11633,8 +11808,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         try {
-            liveWinnerStarts.putIfAbsent(active.event.nickname(),
-                    System.nanoTime());
+            applyShowdownInvestmentTarget(active.investedAmountAfter);
+            long now = System.nanoTime();
+            active.transfers.stream()
+                    .filter(transfer -> MoneyMath.compare(
+                    transfer.winningsAmount(), 0d) > 0)
+                    .forEach(transfer -> liveWinnerStarts.putIfAbsent(
+                    transfer.nickname(), now));
             active.barrier.complete(null);
         } catch (Throwable error) {
             active.barrier.completeExceptionally(error);
@@ -11716,12 +11896,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         - action.landedContribution(action.elapsedSeconds());
             }
         }
-        double payoutTotal = livePayout == null
-                || !livePayout.event.nickname().equals(seat.name) ? 0d
-                : livePayout.event.amount();
-        double paid = livePayout == null
-                || !livePayout.event.nickname().equals(seat.name) ? 0d
-                : livePayout.landedContribution(livePayout.elapsedSeconds());
+        double payoutTotal = livePayout == null ? 0d
+                : livePayout.payoutAmount(seat.name);
+        double paid = livePayout == null ? 0d
+                : livePayout.landedContribution(seat.name,
+                        livePayout.elapsedSeconds());
         double rebuyTotal = liveRebuy == null ? 0d
                 : liveRebuy.totalContribution(seat.name);
         double rebought = liveRebuy == null ? 0d
@@ -11737,8 +11916,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // chips into the central pot must never erase that counter. Only hold
         // back the still-airborne part of the current action so the number and
         // chip animation land together.
-        double invested = displayedPotContribution(
-                player.potContribution(), actionRemaining);
+        double invested;
+        if (livePayout != null) {
+            invested = livePayout.displayedInvestment(seat.name,
+                    livePayout.elapsedSeconds());
+        } else if (liveShowdownInvestments.containsKey(seat.name)) {
+            invested = liveShowdownInvestments.get(seat.name);
+        } else {
+            invested = displayedPotContribution(
+                    player.potContribution(), actionRemaining);
+        }
         if (Double.compare(stack, seat.displayedStackAmount) != 0) {
             seat.displayedStackAmount = stack;
             seat.stackText = formatAmount(stack);
@@ -11753,6 +11940,62 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             double airborneContribution) {
         return Math.max(0d, canonicalContribution
                 - Math.max(0d, airborneContribution));
+    }
+
+    private void captureShowdownInvestments() {
+        if (!liveShowdownInvestments.isEmpty()) {
+            return;
+        }
+        for (Seat seat : seats) {
+            TableSnapshot.PlayerSnapshot player = livePlayer(seat);
+            if (player == null) continue;
+            double canonical = Math.max(0d,
+                    MoneyMath.clean(player.potContribution()));
+            double displayed = Math.max(0d,
+                    MoneyMath.clean(seat.displayedInvestedAmount));
+            double amount = MoneyMath.compare(canonical, 0d) > 0
+                    ? canonical : displayed;
+            if (MoneyMath.compare(amount, 0d) > 0) {
+                liveShowdownInvestments.put(seat.name, amount);
+            }
+        }
+    }
+
+    private double showdownInvestmentTotal() {
+        return MoneyMath.clean(liveShowdownInvestments.values().stream()
+                .mapToDouble(Double::doubleValue).sum());
+    }
+
+    private void applyShowdownInvestmentTarget(double targetTotal) {
+        double before = showdownInvestmentTotal();
+        if (MoneyMath.compare(before, 0d) <= 0) {
+            return;
+        }
+        double target = Math.min(before,
+                Math.max(0d, MoneyMath.clean(targetTotal)));
+        double scale = target / before;
+        liveShowdownInvestments.replaceAll((nickname, amount)
+                -> MoneyMath.clean(amount * scale));
+        // Keep explicit zeroes until PREPARE. They are the presentation
+        // witness that the payout has already consumed this hand; otherwise a
+        // later END snapshot could recapture the pre-reset canonical values
+        // and make the invested counters flash back on screen.
+    }
+
+    static double displayedPayoutInvestment(double investedBefore,
+            double totalBefore, double totalAfter, double payoutAmount,
+            double landedAmount) {
+        double before = Math.max(0d, MoneyMath.clean(totalBefore));
+        if (MoneyMath.compare(before, 0d) <= 0) return 0d;
+        double after = Math.min(before,
+                Math.max(0d, MoneyMath.clean(totalAfter)));
+        double payout = Math.max(0d, MoneyMath.clean(payoutAmount));
+        double landed = Math.min(payout,
+                Math.max(0d, MoneyMath.clean(landedAmount)));
+        double progress = payout == 0d ? 1d : landed / payout;
+        double currentTotal = before + (after - before) * progress;
+        return Math.max(0d, MoneyMath.clean(
+                Math.max(0d, investedBefore) * currentTotal / before));
     }
 
     static boolean actionChipSoundDue(float firstChipProgress) {
@@ -11823,8 +12066,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (livePayout != null) {
             return displayedPayoutPot(livePayout.potBefore,
-                    livePayout.event.potAfter(),
-                    livePayout.event.amount(), livePayout.landedContribution(
+                    livePayout.potAfter,
+                    livePayout.payoutAmount, livePayout.landedContribution(
                             livePayout.elapsedSeconds()));
         }
         double pending = 0d;
@@ -11936,10 +12179,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         if (payout != null) {
-            Seat winner = seatByNickname(payout.event.nickname());
-            if (winner != null) {
-                float elapsed = payout.elapsedSeconds();
-                for (LivePayoutChip chip : payout.chips) {
+            float elapsed = payout.elapsedSeconds();
+            for (LivePayoutChip chip : payout.chips) {
+                Seat winner = seatByNickname(chip.nickname);
+                if (winner != null) {
                     drawLivePayoutChip(winner, chip, elapsed);
                 }
             }
@@ -12509,8 +12752,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 localStackSurface.b, 0.94f);
         roundedRect(hudX + 12f, hudY + 8f,
                 infoWidth * 0.49f - 12f, 25f, 6f);
-        Color localPotBackground = lastLocalActionLabel.isEmpty()
-                ? BUTTON_LINE : lastLocalActionColor;
+        Color localPotBackground = BUTTON_LINE;
         shapes.setColor(localPotBackground.r, localPotBackground.g,
                 localPotBackground.b, localPotBackground.a * 0.94f);
         roundedRect(hudX + infoWidth * 0.51f, hudY + 8f,
@@ -12665,8 +12907,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawFittedCenteredInBox(stackFont, local.investedText,
                 hudX + infoWidth * 0.52f, hudY + 10f,
                 infoWidth * 0.43f, 20f,
-                lastLocalActionLabel.isEmpty() ? Color.WHITE
-                        : lastActionTextColorForSeat(0), 1f);
+                Color.WHITE, 1f);
 
         float statusX = foldX + 24f;
         float statusRight = voluntaryShow ? allInX - 12f
@@ -12770,8 +13011,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     Color.WHITE, betContentAlpha);
         }
         batch.end();
-        if (pendingIconHover) {
+        if (pendingIconHover && pendingRebuyTooltipDelay.ready(
+                "pending-rebuy:" + pendingRebuy)) {
             drawPendingRebuyTooltip(hudX, hudY, infoWidth, pendingRebuy);
+        } else if (!pendingIconHover) {
+            pendingRebuyTooltipDelay.clear();
         }
     }
 
@@ -15829,7 +16073,113 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (settingsContentPage() == 9) {
             drawSettingsDebugTextLayer(contentX, firstRowY, contentW, alpha);
         }
+        drawSettingsPerformanceTooltip(contentX, firstRowY, contentW, alpha);
         if (voiceNotesOpen) drawTableVoiceNotesDialog();
+    }
+
+    private void drawSettingsPerformanceTooltip(float x, float firstY,
+            float width, float alpha) {
+        SettingsPerformanceHover hovered = settingsPerformanceHover(x,
+                firstY, width);
+        if (hovered == null) {
+            settingsPerformanceTooltipDelay.clear();
+            return;
+        }
+        if (!settingsPerformanceTooltipDelay.ready(
+                "settings-performance:" + hovered.settingKey())) {
+            return;
+        }
+        String label = gameText.translate(
+                "gdx.settings.performance_impact",
+                hovered.impact().label(gameText));
+        glyph.setText(settingsSmallFont, label);
+        float boxW = Math.max(280f, glyph.width + 38f);
+        float boxH = 44f;
+        float boxX = MathUtils.clamp(pointer.x + 18f, 12f,
+                viewport.getWorldWidth() - boxW - 12f);
+        float boxY = pointer.y - boxH - 18f;
+        if (boxY < 12f) {
+            boxY = Math.min(viewport.getWorldHeight() - boxH - 12f,
+                    pointer.y + 22f);
+        }
+        Color accent = settingsPerformanceImpactColor(hovered.impact());
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapes.setColor(0.005f, 0.020f, 0.032f, 0.97f * alpha);
+        roundedRect(boxX, boxY, boxW, boxH, 8f);
+        shapes.setColor(accent.r, accent.g, accent.b, 0.95f * alpha);
+        shapes.rect(boxX + 10f, boxY + boxH - 3f, boxW - 20f, 2f);
+        shapes.end();
+
+        batch.begin();
+        drawFittedCenteredInBox(settingsSmallFont, label,
+                boxX + 12f, boxY + 5f, boxW - 24f, boxH - 10f,
+                accent, alpha);
+        batch.end();
+    }
+
+    private SettingsPerformanceHover settingsPerformanceHover(float x,
+            float firstY, float width) {
+        if (settingsContentPage() != 1) return null;
+        Rectangle content = currentSettingsContent();
+        Rectangle viewportBounds = settingsRowsViewport(content, firstY);
+        Properties properties = tableSettingsProperties();
+        if (settingsAppearancePage == 0) {
+            Rectangle bounds = new Rectangle(x, firstY - 350f, width, 68f);
+            return settingsPerformanceHover(bounds, "gdx_msaa_samples",
+                    viewportBounds, properties);
+        }
+
+        GdxSettingsContract.TogglePage page =
+                settingsAppearanceTogglePage();
+        int rowCount = GdxSettingsContract.appearanceRowCount(page);
+        GdxSettingsLayout.PixelRows rows = settingsPixelRows(content,
+                firstY, rowCount, settingsAppearanceScroll);
+        for (int row = rows.firstIndex(); row < rows.lastExclusive(); row++) {
+            String key;
+            boolean child;
+            if (row < page.options().size()) {
+                GdxSettingsContract.ToggleOption option =
+                        page.options().get(row);
+                key = option.key();
+                child = GdxSettingsContract.isChildOption(page, option);
+            } else {
+                GdxAppearanceOptions.Choice option =
+                        GdxAppearanceOptions.ANIMATION_CHOICES.get(
+                                row - page.options().size());
+                key = option.key();
+                child = GdxAppearanceOptions.isChildChoice(option);
+            }
+            Rectangle bounds = GdxSettingsLayout.optionRow(x,
+                    rows.rowY(row), width, child);
+            SettingsPerformanceHover hovered = settingsPerformanceHover(
+                    bounds, key, viewportBounds, properties);
+            if (hovered != null) return hovered;
+        }
+        return null;
+    }
+
+    private SettingsPerformanceHover settingsPerformanceHover(
+            Rectangle bounds, String key, Rectangle viewportBounds,
+            Properties properties) {
+        if (!viewportBounds.contains(pointer) || !bounds.contains(pointer)) {
+            return null;
+        }
+        GdxSettingsContract.PerformanceImpact impact =
+                GdxSettingsContract.performanceImpact(key, properties);
+        return impact == GdxSettingsContract.PerformanceImpact.NONE
+                ? null : new SettingsPerformanceHover(key, impact);
+    }
+
+    private static Color settingsPerformanceImpactColor(
+            GdxSettingsContract.PerformanceImpact impact) {
+        return switch (impact) {
+            case LOW -> LATENCY_GREEN;
+            case MEDIUM -> LATENCY_YELLOW;
+            case HIGH -> LATENCY_RED;
+            case NONE -> CYAN;
+        };
     }
 
     private void enableTableScissor(Rectangle bounds) {
@@ -16266,6 +16616,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 drawSettingsStepperShape(x, firstY - 280f, width, alpha);
                 drawSettingsStepperShape(x, firstY - 350f, width,
                         presentationSettings != null, alpha);
+                drawSettingsInfoShape(x, firstY - 420f, width, alpha);
             } else {
                 GdxSettingsContract.TogglePage page =
                         settingsAppearanceTogglePage();
@@ -16536,6 +16887,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 enabled, hovered, pressed, alpha);
     }
 
+    private void drawSettingsInfoShape(float x, float y, float width,
+            float alpha) {
+        GdxSettingsStyle.drawRow(shapes, x, y, width,
+                GdxSettingsLayout.ROW_HEIGHT, true, false, false, alpha);
+    }
+
     private float settingsToggleAnimation(float x, float y, float width,
             boolean on, boolean compact) {
         String context = uiLayer == UI_SETTINGS
@@ -16797,6 +17154,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 "4".equals(tableSettingsProperties()
                                         .getProperty("gdx_msaa_samples", "4"))),
                         presentationSettings != null, alpha);
+                drawSettingsInfoText(x, firstY - 420f, width,
+                        uppercase(gameText.translate(
+                                "gdx.settings.row.gpu_renderer")),
+                        GdxGraphicsInfo.displayValue(gameText), alpha);
             } else {
                 GdxSettingsContract.TogglePage page =
                         settingsAppearanceTogglePage();
@@ -17210,6 +17571,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawLeftInBox(settingsSmallFont, label, x + 20f, y + 5f,
                 width - 126f, 58f, enabled ? color : SETTINGS_DISABLED,
                 alpha);
+    }
+
+    private void drawSettingsInfoText(float x, float y, float width,
+            String label, String value, float alpha) {
+        float valueWidth = Math.min(660f, width * 0.58f);
+        drawLeftInBox(settingsSmallFont, label, x + 20f, y + 5f,
+                width - valueWidth - 52f, 58f, Color.WHITE, alpha);
+        drawFittedCenteredInBox(settingsBodyFont, value,
+                x + width - valueWidth - 18f, y + 5f,
+                valueWidth, 58f, POT_GOLD, alpha);
     }
 
     private void drawSettingsStepperText(float x, float y, float width,
@@ -19978,6 +20349,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             GdxSettingsLayout.PixelRows rows) {
     }
 
+    private record SettingsPerformanceHover(String settingKey,
+            GdxSettingsContract.PerformanceImpact impact) {
+    }
+
     private static final class LiveHandProbability {
 
         private final float from;
@@ -20139,26 +20514,46 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private static final class LivePayout {
 
-        final TableVisualEvent.Payout event;
+        final List<TableVisualEvent.PayoutBatch.Transfer> transfers;
+        final double payoutAmount;
+        final double potAfter;
+        final double investedAmountAfter;
         final long startedAtNanos;
         final CompletableFuture<Void> barrier;
         final List<LivePayoutChip> chips;
         final double potBefore;
+        final Map<String, Double> investmentsBefore;
+        final double investmentTotalBefore;
 
-        LivePayout(TableVisualEvent.Payout event, long startedAtNanos,
+        LivePayout(List<TableVisualEvent.PayoutBatch.Transfer> transfers,
+                double payoutAmount, double potAfter,
+                double investedAmountAfter, long startedAtNanos,
                 CompletableFuture<Void> barrier, double minimumChip,
-                double potBefore) {
-            this.event = event;
+                double potBefore, Map<String, Double> investmentsBefore) {
+            this.transfers = List.copyOf(transfers);
+            this.payoutAmount = Math.max(0d,
+                    MoneyMath.clean(payoutAmount));
+            this.potAfter = Math.max(0d, MoneyMath.clean(potAfter));
+            this.investedAmountAfter = Math.max(0d,
+                    MoneyMath.clean(investedAmountAfter));
             this.startedAtNanos = startedAtNanos;
             this.barrier = barrier;
             this.potBefore = Math.max(0d, MoneyMath.clean(potBefore));
-            List<LivePayoutChip> created = new ArrayList<>(18);
-            double[] amounts = splitVisualCounterAmounts(event.amount(), 18,
-                    minimumChip);
-            for (int index = 0; index < 18; index++) {
-                created.add(new LivePayoutChip(index,
-                        0.18f + index * 0.035f, 1.05f,
-                        index % 4, amounts[index]));
+            this.investmentsBefore = Map.copyOf(investmentsBefore);
+            this.investmentTotalBefore = MoneyMath.clean(
+                    investmentsBefore.values().stream()
+                            .mapToDouble(Double::doubleValue).sum());
+            List<LivePayoutChip> created = new ArrayList<>(
+                    18 * transfers.size());
+            for (TableVisualEvent.PayoutBatch.Transfer transfer
+                    : transfers) {
+                double[] amounts = splitVisualCounterAmounts(
+                        transfer.amount(), 18, minimumChip);
+                for (int index = 0; index < 18; index++) {
+                    created.add(new LivePayoutChip(transfer.nickname(), index,
+                            0.18f + index * 0.035f, 1.05f,
+                            index % 4, amounts[index]));
+                }
             }
             chips = List.copyOf(created);
         }
@@ -20178,6 +20573,31 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return total;
         }
 
+        double landedContribution(String nickname, float elapsed) {
+            double total = 0d;
+            for (LivePayoutChip chip : chips) {
+                if (chip.nickname.equals(nickname)
+                        && chip.progress(elapsed) >= 1f) {
+                    total += chip.amount;
+                }
+            }
+            return total;
+        }
+
+        double payoutAmount(String nickname) {
+            return transfers.stream()
+                    .filter(transfer -> transfer.nickname().equals(nickname))
+                    .mapToDouble(TableVisualEvent.PayoutBatch.Transfer::amount)
+                    .sum();
+        }
+
+        double displayedInvestment(String nickname, float elapsed) {
+            return displayedPayoutInvestment(
+                    investmentsBefore.getOrDefault(nickname, 0d),
+                    investmentTotalBefore, investedAmountAfter,
+                    payoutAmount, landedContribution(elapsed));
+        }
+
         boolean complete(float elapsed) {
             return chips.stream().allMatch(chip -> chip.progress(elapsed) >= 1f);
         }
@@ -20185,6 +20605,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private static final class LivePayoutChip {
 
+        final String nickname;
         final int index;
         final float startSeconds;
         final float durationSeconds;
@@ -20192,8 +20613,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final double amount;
         boolean soundPlayed;
 
-        LivePayoutChip(int index, float startSeconds, float durationSeconds,
-                int color, double amount) {
+        LivePayoutChip(String nickname, int index, float startSeconds,
+                float durationSeconds, int color, double amount) {
+            this.nickname = nickname;
             this.index = index;
             this.startSeconds = startSeconds;
             this.durationSeconds = durationSeconds;

@@ -1,15 +1,18 @@
 package com.tonikelope.coronapoker.architecture;
 
 import java.io.IOException;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -54,6 +57,22 @@ final class ProductDistributionContractTest {
         assertFalse(root.contains("maven-shade-plugin"),
                 "The root aggregator must not build a third application JAR");
         assertFalse(gdx.contains("CoronaPoker-24.10"));
+    }
+
+    @Test
+    void runtimeIdentityMatchesTheProductVersion() throws IOException {
+        String reactorVersion = projectVersion(read("pom.xml"));
+        Properties metadata = new Properties();
+        metadata.load(new StringReader(read(
+                "coronapoker-core/src/main/resources/META-INF/"
+                        + "coronapoker-version.properties")));
+
+        assertEquals(reactorVersion, metadata.getProperty("version"),
+                "The displayed runtime version must match the Maven product version");
+        assertTrue(read("coronapoker-core/src/main/java/com/tonikelope/"
+                + "coronapoker/core/ApplicationMetadata.java").contains(
+                        "FALLBACK_VERSION = \"" + reactorVersion + "\""),
+                "The fallback runtime version must match the Maven product version");
     }
 
     @Test

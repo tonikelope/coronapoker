@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -21,12 +22,14 @@ final class GdxSettingsSession {
 
     private Context context = Context.MENU;
     private int tabIndex;
+    private final Map<Context, Integer> lastTabByContext =
+            new EnumMap<>(Context.class);
     private Map<String, String> preferenceSnapshot = Map.of();
     private boolean open;
 
     void begin(Context nextContext, Properties properties) {
         context = nextContext == null ? Context.MENU : nextContext;
-        tabIndex = 0;
+        tabIndex = lastTabByContext.getOrDefault(context, 0);
         preferenceSnapshot = properties == null
                 ? Map.of() : GdxSettingsContract.snapshot(properties);
         open = true;
@@ -76,6 +79,7 @@ final class GdxSettingsSession {
 
     void selectTab(int requested) {
         tabIndex = Math.max(0, Math.min(requested, sections().size() - 1));
+        lastTabByContext.put(context, tabIndex);
     }
 
     boolean propertiesChanged(Properties properties) {

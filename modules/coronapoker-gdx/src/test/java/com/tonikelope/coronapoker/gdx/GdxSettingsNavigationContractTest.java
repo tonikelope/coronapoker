@@ -45,15 +45,16 @@ final class GdxSettingsNavigationContractTest {
                 CoronaPokerGdxTable.FastAccessAction.IMAGE,
                 CoronaPokerGdxTable.FastAccessAction.REBUY,
                 CoronaPokerGdxTable.FastAccessAction.GAME_LOG,
+                CoronaPokerGdxTable.FastAccessAction.SCREENSHOTS,
                 CoronaPokerGdxTable.FastAccessAction.FULLSCREEN,
                 CoronaPokerGdxTable.FastAccessAction.EXIT),
-                java.util.stream.IntStream.range(0, 8)
+                java.util.stream.IntStream.range(0, 9)
                         .mapToObj(CoronaPokerGdxTable::fastAccessActionAt)
                         .toList());
         assertEquals(CoronaPokerGdxTable.FastAccessAction.NONE,
                 CoronaPokerGdxTable.fastAccessActionAt(-1));
         assertEquals(CoronaPokerGdxTable.FastAccessAction.NONE,
-                CoronaPokerGdxTable.fastAccessActionAt(8));
+                CoronaPokerGdxTable.fastAccessActionAt(9));
     }
 
     @Test
@@ -65,15 +66,16 @@ final class GdxSettingsNavigationContractTest {
                 CoronaPokerGdxTable.FastAccessAction.IMAGE,
                 CoronaPokerGdxTable.FastAccessAction.REBUY,
                 CoronaPokerGdxTable.FastAccessAction.GAME_LOG,
+                CoronaPokerGdxTable.FastAccessAction.SCREENSHOTS,
                 CoronaPokerGdxTable.FastAccessAction.FULLSCREEN,
                 CoronaPokerGdxTable.FastAccessAction.STOP,
                 CoronaPokerGdxTable.FastAccessAction.EXIT),
-                java.util.stream.IntStream.range(0, 9)
+                java.util.stream.IntStream.range(0, 10)
                         .mapToObj(index -> CoronaPokerGdxTable
                                 .fastAccessActionAt(index, true))
                         .toList());
         assertEquals(CoronaPokerGdxTable.FastAccessAction.NONE,
-                CoronaPokerGdxTable.fastAccessActionAt(9, true));
+                CoronaPokerGdxTable.fastAccessActionAt(10, true));
     }
 
     @Test
@@ -91,9 +93,9 @@ final class GdxSettingsNavigationContractTest {
         assertTrue(CoronaPokerGdxTable.fastAccessSurfaceContains(
                 434f, CoronaPokerGdxTable.FAST_BAR_Y + 30f, true, true));
         assertTrue(CoronaPokerGdxTable.fastAccessSurfaceContains(
-                548f, CoronaPokerGdxTable.FAST_BAR_Y + 30f, true, true));
+                614f, CoronaPokerGdxTable.FAST_BAR_Y + 30f, true, true));
         assertFalse(CoronaPokerGdxTable.fastAccessSurfaceContains(
-                557f, CoronaPokerGdxTable.FAST_BAR_Y + 30f, true, true));
+                616f, CoronaPokerGdxTable.FAST_BAR_Y + 30f, true, true));
     }
 
     @Test

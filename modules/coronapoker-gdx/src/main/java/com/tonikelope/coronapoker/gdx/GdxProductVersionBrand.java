@@ -19,7 +19,7 @@ import com.tonikelope.coronapoker.core.ApplicationMetadata;
  */
 final class GdxProductVersionBrand {
 
-    static final int FONT_SIZE = 15;
+    static final int FONT_SIZE = 14;
     static final float X = 16f;
     static final float BASELINE_Y = 20f;
     static final float MAX_WIDTH = 620f;

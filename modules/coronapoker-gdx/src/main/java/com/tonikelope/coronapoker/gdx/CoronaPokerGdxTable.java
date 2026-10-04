@@ -64,7 +64,6 @@ import com.tonikelope.coronapoker.core.game.GameTiming;
 import com.tonikelope.coronapoker.core.game.MoneyMath;
 import com.tonikelope.coronapoker.core.audio.VoiceWavContract;
 import com.tonikelope.coronapoker.DebugLog;
-import java.awt.image.BufferedImage;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -89,7 +88,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.imageio.ImageIO;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 
@@ -146,8 +144,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         "images/menu/gear.png", "images/fast_panel/chat.png",
         "images/fast_panel/mic.png", "images/fast_panel/image.png",
         "images/fast_panel/rebuy.png", "images/fast_panel/log.png",
-        "images/fast_panel/fullscreen.png", "images/stop.png",
-        "images/exit2.png"
+        "images/menu/camera.png", "images/fast_panel/fullscreen.png",
+        "images/stop.png", "images/exit2.png"
     };
     private static final String[] HAND_TRANSLATION_KEYS = {
         "hand.high_card", "hand.one_pair", "hand.two_pair",
@@ -255,8 +253,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final String[] FAST_BUTTON_TEXT_KEYS = {
         "settings.ajustes", "chat.chat_rapido", "audio.nota_de_voz",
         "chat.enviar_imagen", "rebuy.recomprar_2",
-        "log.registro_de_la_timba", "view.pantalla_completa",
-        "menu.detener_timba", "game.salir_de_la_timba_2"
+        "log.registro_de_la_timba", "menu.visor_capturas",
+        "view.pantalla_completa", "menu.detener_timba",
+        "game.salir_de_la_timba_2"
     };
     private static final float LOCAL_HOLE_CENTER_DISTANCE = 102f;
     private static final float RIVAL_REVEAL_HUD_GAP = 20f;
@@ -953,6 +952,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Texture finalLogIcon;
     private Texture finalStatsIcon;
     private Texture finalContinueIcon;
+    private Texture finalScreenshotIcon;
     private Texture defaultCardBack;
     private Texture rabbitCardBack;
     private Texture rabbitRevealOverlay;
@@ -1013,6 +1013,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Texture screenshotTexture;
     private boolean screenshotRequested;
     private String screenshotError = "";
+    private String screenshotMetadata = "";
     private String screenshotToast = "";
     private float screenshotToastUntil;
     private boolean screenshotOperationPending;
@@ -1374,7 +1375,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 // an InputMultiplexer can never deliver it underneath.
                 return true;
             }
-            if (finalSummary != null && uiLayer != UI_GAME_LOG) {
+            if (finalSummary != null && uiLayer == UI_NONE) {
                 if (button == Input.Buttons.LEFT) {
                     pointer.set(screenX, screenY);
                     viewport.unproject(pointer);
@@ -1389,6 +1390,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
                 return true;
             }
+            if (finalSummary != null && uiLayer == UI_SCREENSHOTS) return true;
             if (uiLayer == UI_SETTINGS && button == Input.Buttons.LEFT) {
                 pointer.set(screenX, screenY);
                 viewport.unproject(pointer);
@@ -1460,7 +1462,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (activeDialog != null && !activeDialog.isAutoAction()) {
                 return true;
             }
-            if (finalSummary != null && uiLayer != UI_GAME_LOG) {
+            if (finalSummary != null && uiLayer == UI_NONE) {
                 if (finalSummaryPointerCaptured) {
                     pointer.set(screenX, screenY);
                     viewport.unproject(pointer);
@@ -1473,6 +1475,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
                 return true;
             }
+            if (finalSummary != null && uiLayer == UI_SCREENSHOTS) return true;
             pointer.set(screenX, screenY);
             viewport.unproject(pointer);
             if (feltClickCandidate
@@ -1522,7 +1525,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 feltClickCandidate = false;
                 return true;
             }
-            if (finalSummary != null && uiLayer != UI_GAME_LOG) {
+            if (finalSummary != null && uiLayer == UI_NONE) {
                 feltClickCandidate = false;
                 boolean activate = button == Input.Buttons.LEFT
                         && finalSummaryPointerCaptured;
@@ -1542,6 +1545,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
                 return true;
             }
+            if (finalSummary != null && uiLayer == UI_SCREENSHOTS) return true;
             if (chatPointerSelectionDragging) {
                 chatPointerSelectionDragging = false;
                 return true;
@@ -2099,11 +2103,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         settingsOpenedWindowMode = GdxDisplayModeController.activeMode();
         settingsOpenedMsaaSamples = presentationSettings == null ? 0
                 : presentationSettings.requestedMsaaSamples();
-        settingsGamePage = 0;
         settingsGameScroll = 0f;
-        settingsAppearancePage = 0;
         settingsAppearanceScroll = 0f;
-        settingsAudioPage = 0;
         settingsAudioScroll = 0f;
         settingsDebugScroll = 0;
         shortcutScroll = 0f;
@@ -2529,9 +2530,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case 21 -> finalLogIcon = texture("images/menu/log2.png");
             case 22 -> finalStatsIcon = texture("images/stats.png");
             case 23 -> finalContinueIcon = texture("images/continue.png");
-            case 24 -> fastMenuIcon = texture("images/fast_panel/menu.png");
+            case 24 -> finalScreenshotIcon = texture("images/menu/camera.png");
+            case 25 -> fastMenuIcon = texture("images/fast_panel/menu.png");
             default -> {
-                int fastIcon = resource - 25;
+                int fastIcon = resource - 26;
                 if (fastIcon >= FAST_BUTTON_ICON_PATHS.length) return true;
                 if (fastButtonIcons == null) {
                     fastButtonIcons = new Texture[FAST_BUTTON_ICON_PATHS.length];
@@ -5593,6 +5595,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         IMAGE,
         REBUY,
         GAME_LOG,
+        SCREENSHOTS,
         FULLSCREEN,
         STOP,
         EXIT,
@@ -5830,7 +5833,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      */
     static boolean fastAccessSurfaceContains(float x, float y,
             boolean expanded, boolean host) {
-        int count = host ? 9 : 8;
+        int count = host ? 10 : 9;
         float width = expanded
                 ? 2f * FAST_BAR_PADDING + count * FAST_BUTTON_SIZE
                         + (count - 1) * FAST_BUTTON_GAP
@@ -5840,12 +5843,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private int fastButtonCount() {
-        return tableHost ? 9 : 8;
+        return tableHost ? 10 : 9;
     }
 
     private boolean fastButtonEnabled(int index) {
         return switch (visibleFastAccessActionAt(index)) {
-            case SETTINGS, GAME_LOG, FULLSCREEN, EXIT -> true;
+            case SETTINGS, GAME_LOG, SCREENSHOTS, FULLSCREEN, EXIT -> true;
             case STOP -> tableHost;
             case CHAT -> canUseTableChat();
             case VOICE -> canUseTableVoice();
@@ -5861,9 +5864,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static FastAccessAction fastAccessActionAt(int index, boolean host) {
         if (index < 0) return FastAccessAction.NONE;
-        if (index <= 6) return FastAccessAction.values()[index];
-        if (host && index == 7) return FastAccessAction.STOP;
-        if (index == (host ? 8 : 7)) return FastAccessAction.EXIT;
+        if (index <= 7) return FastAccessAction.values()[index];
+        if (host && index == 8) return FastAccessAction.STOP;
+        if (index == (host ? 9 : 8)) return FastAccessAction.EXIT;
         return FastAccessAction.NONE;
     }
 
@@ -5873,7 +5876,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private int fastButtonResourceIndex(int index) {
         // A client skips the host-only stop resource, leaving EXIT last.
-        return !tableHost && index == 7 ? 8 : index;
+        return !tableHost && index == 8 ? 9 : index;
     }
 
     private boolean canToggleImmediateRebuy() {
@@ -5957,6 +5960,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 gameLogScroll = 0;
                 openUiLayer(UI_GAME_LOG);
             }
+            case SCREENSHOTS -> openScreenshotViewer();
             case FULLSCREEN -> toggleFullscreen();
             case STOP -> requestStopGame();
             case EXIT -> requestExit();
@@ -6949,14 +6953,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     + index * (FAST_BUTTON_SIZE + FAST_BUTTON_GAP);
             boolean enabled = !fastBarExpanded || fastButtonEnabled(index);
             boolean hover = fastBarExpanded && hovered == index;
+            FastAccessAction action = visibleFastAccessActionAt(index);
             GdxUiButtonStyle.Tone tone = fastBarExpanded
-                    && visibleFastAccessActionAt(index) == FastAccessAction.EXIT
+                    && action == FastAccessAction.EXIT
                             ? GdxUiButtonStyle.Tone.DANGER
                             : GdxUiButtonStyle.Tone.NEUTRAL;
             GdxUiButtonStyle.drawBorderless(shapes, buttonX,
                     FAST_BAR_Y + FAST_BAR_PADDING,
                     FAST_BUTTON_SIZE, FAST_BUTTON_SIZE, tone, enabled,
                     hover ? 1f : 0f, false, alpha);
+            if (fastBarExpanded && action == FastAccessAction.SCREENSHOTS) {
+                drawFastAccessCameraIcon(buttonX + FAST_BUTTON_SIZE / 2f,
+                        FAST_BAR_Y + FAST_BAR_PADDING
+                                + FAST_BUTTON_SIZE / 2f,
+                        enabled ? alpha : 0.36f * alpha);
+            }
         }
         if (showTooltip) {
             String hoveredLabel = fastButtonLabel(hovered);
@@ -6979,6 +6990,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             for (int index = 0; index < fastButtonCount(); index++) {
                 float buttonX = FAST_BAR_X + FAST_BAR_PADDING
                         + index * (FAST_BUTTON_SIZE + FAST_BUTTON_GAP);
+                if (visibleFastAccessActionAt(index)
+                        == FastAccessAction.SCREENSHOTS) {
+                    continue;
+                }
                 float tint = fastButtonEnabled(index) ? 1f : 0.36f;
                 batch.setColor(tint, tint, tint, alpha);
                 batch.draw(fastButtonIcons[fastButtonResourceIndex(index)],
@@ -7012,6 +7027,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         batch.setColor(Color.WHITE);
         batch.end();
+    }
+
+    private void drawFastAccessCameraIcon(float cx, float cy, float alpha) {
+        shapes.setColor(1f, 1f, 1f, alpha);
+        roundedRect(cx - 18f, cy - 12f, 36f, 25f, 4f);
+        roundedRect(cx - 10f, cy + 10f, 20f, 7f, 3f);
+        shapes.setColor(0.035f, 0.075f, 0.12f, alpha);
+        shapes.circle(cx, cy, 8.5f, 32);
+        shapes.setColor(1f, 1f, 1f, alpha);
+        shapes.circle(cx, cy, 4.5f, 24);
     }
 
     private void drawProductVersionBrand(float reveal) {
@@ -9521,7 +9546,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         batch.begin();
         batch.setColor(Color.WHITE);
-        batch.draw(fastButtonIcons[7], panelX + 36f,
+        batch.draw(fastButtonIcons[8], panelX + 36f,
                 panelY + 75f, 58f, 58f);
         drawFittedCenteredInBox(actionFont,
                 uppercase(gameText.translate(
@@ -15285,19 +15310,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static Path screenshotDirectory() {
-        return Path.of(System.getProperty("user.home"),
-                ".coronapoker", "Screenshots");
+        return GdxScreenshotStore.directory();
     }
 
     static String screenshotFilename(long timestamp) {
-        return "coronapoker_screenshot_" + timestamp + ".png";
+        return GdxScreenshotStore.filename(timestamp);
     }
 
     static boolean isScreenshotFile(Path file) {
-        if (file == null || file.getFileName() == null) return false;
-        String name = file.getFileName().toString().toLowerCase(Locale.ROOT);
-        return name.startsWith("coronapoker_screenshot_")
-                && name.endsWith(".png");
+        return GdxScreenshotStore.isScreenshotFile(file);
     }
 
     private void openScreenshotViewer() {
@@ -15307,18 +15328,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void refreshScreenshotFiles(int preferredIndex) {
         try {
-            if (Files.isDirectory(screenshotDirectory())) {
-                try (var paths = Files.list(screenshotDirectory())) {
-                    screenshotFiles = paths.filter(Files::isRegularFile)
-                            .filter(CoronaPokerGdxTable::isScreenshotFile)
-                            .sorted((left, right) -> right.getFileName()
-                                    .toString().compareToIgnoreCase(
-                                            left.getFileName().toString()))
-                            .toList();
-                }
-            } else {
-                screenshotFiles = List.of();
-            }
+            screenshotFiles = GdxScreenshotStore.scan().stream()
+                    .map(GdxScreenshotStore.Shot::file).toList();
             screenshotError = "";
         } catch (IOException failure) {
             screenshotFiles = List.of();
@@ -15336,6 +15347,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeScreenshotTexture();
         screenshotFiles = List.of();
         screenshotError = "";
+        screenshotMetadata = "";
         screenshotOperationPending = false;
     }
 
@@ -15348,12 +15360,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void loadScreenshotTexture() {
         disposeScreenshotTexture();
+        screenshotMetadata = "";
         if (screenshotFiles.isEmpty()) return;
         screenshotIndex = MathUtils.clamp(screenshotIndex,
                 0, screenshotFiles.size() - 1);
+        Path selected = screenshotFiles.get(screenshotIndex);
+        screenshotMetadata = GdxScreenshotStore.displayTitle(
+                new GdxScreenshotStore.Shot(selected,
+                        GdxScreenshotStore.creationMillis(selected)),
+                screenshotIndex, screenshotFiles.size(), gameText.language());
         try {
+            // Decode for the native clipboard in parallel with GDX's texture
+            // load, rather than beginning only after the image is visible.
+            GdxImageClipboard.prepare(selected);
             screenshotTexture = new Texture(Gdx.files.absolute(
-                    screenshotFiles.get(screenshotIndex).toString()), true);
+                    selected.toString()), true);
             screenshotTexture.setFilter(TextureFilter.MipMapLinearLinear,
                     TextureFilter.Linear);
             screenshotError = "";
@@ -15373,41 +15394,52 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void handleScreenshotViewerClick(float x, float y) {
         float width = viewport.getWorldWidth();
         float height = viewport.getWorldHeight();
-        if (contains(x, y, width - 76f, height - 76f, 48f, 48f)) {
+        float left = (width - BASE_WIDTH) / 2f;
+        float bottom = (height - BASE_HEIGHT) / 2f;
+        if (contains(x, y, left + 1812f, bottom + 1008f, 58f, 50f)) {
             closeScreenshotViewer();
             return;
         }
         if (screenshotIndex > 0
-                && contains(x, y, 24f, height / 2f - 70f, 64f, 140f)) {
+                && contains(x, y, left + 35f, bottom + 470f, 64f, 110f)) {
             showRelativeScreenshot(-1);
         } else if (screenshotIndex + 1 < screenshotFiles.size()
-                && contains(x, y, width - 88f,
-                        height / 2f - 70f, 64f, 140f)) {
+                && contains(x, y, left + 1821f,
+                        bottom + 470f, 64f, 110f)) {
             showRelativeScreenshot(1);
         } else if (screenshotTexture != null && !screenshotOperationPending
-                && screenshotCopyBounds(width).contains(x, y)) {
+                && screenshotCopyBounds(width, height).contains(x, y)) {
             copyCurrentScreenshot();
         } else if (screenshotTexture != null && !screenshotOperationPending
-                && screenshotDeleteBounds(width).contains(x, y)) {
+                && screenshotDeleteBounds(width, height).contains(x, y)) {
             confirmDeleteCurrentScreenshot();
         }
     }
 
     static Rectangle screenshotCopyBounds(float worldWidth) {
-        return new Rectangle(worldWidth / 2f - 258f, 24f, 240f, 58f);
+        return screenshotCopyBounds(worldWidth, BASE_HEIGHT);
     }
 
     static Rectangle screenshotDeleteBounds(float worldWidth) {
-        return new Rectangle(worldWidth / 2f + 18f, 24f, 240f, 58f);
+        return screenshotDeleteBounds(worldWidth, BASE_HEIGHT);
+    }
+
+    private static Rectangle screenshotCopyBounds(float worldWidth,
+            float worldHeight) {
+        float bottom = (worldHeight - BASE_HEIGHT) / 2f;
+        return new Rectangle(worldWidth / 2f - 300f,
+                bottom + 48f, 280f, 70f);
+    }
+
+    private static Rectangle screenshotDeleteBounds(float worldWidth,
+            float worldHeight) {
+        float bottom = (worldHeight - BASE_HEIGHT) / 2f;
+        return new Rectangle(worldWidth / 2f + 20f,
+                bottom + 48f, 280f, 70f);
     }
 
     static boolean isManagedScreenshot(Path directory, Path file) {
-        if (directory == null || file == null || !isScreenshotFile(file)) {
-            return false;
-        }
-        Path root = directory.toAbsolutePath().normalize();
-        Path candidate = file.toAbsolutePath().normalize();
-        return root.equals(candidate.getParent());
+        return GdxScreenshotStore.isManaged(directory, file);
     }
 
     private void copyCurrentScreenshot() {
@@ -15415,8 +15447,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Path selected = screenshotFiles.get(screenshotIndex);
         screenshotOperationPending = true;
         runScreenshotOperation("coronapoker-gdx-copy-screenshot", () -> {
-            BufferedImage image = ImageIO.read(selected.toFile());
-            if (image == null || !GdxImageClipboard.copy(image)) {
+            if (!GdxImageClipboard.copy(selected)) {
                 throw new IOException("Clipboard rejected screenshot");
             }
         }, "ui.imagen_copiada", "ui.copiar_imagen_error", null);
@@ -15441,6 +15472,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (!isManagedScreenshot(screenshotDirectory(), selected)) {
                     throw new IOException("Screenshot outside managed folder");
                 }
+                GdxImageClipboard.discard(selected);
                 Files.delete(selected);
             }, "", "ui.borrar_captura_error", () -> {
                 if (uiLayer == UI_SCREENSHOTS) {
@@ -15472,7 +15504,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     String key = completed ? successKey : failureKey;
                     if (key != null && !key.isBlank()) {
                         screenshotToast = uppercase(gameText.translate(key));
-                        screenshotToastUntil = totalTime + 1.5f;
+                        screenshotToastUntil = totalTime + 1.8f;
                     }
                 });
             }
@@ -15490,30 +15522,35 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float alpha = uiFade();
         float width = viewport.getWorldWidth();
         float height = viewport.getWorldHeight();
+        float left = (width - BASE_WIDTH) / 2f;
+        float bottom = (height - BASE_HEIGHT) / 2f;
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(0.008f, 0.012f, 0.018f, 0.985f * alpha);
+        shapes.setColor(0.005f, 0.012f, 0.022f, 0.99f * alpha);
         shapes.rect(0f, 0f, width, height);
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.84f * alpha);
-        shapes.rect(24f, height - 88f, width - 48f, 3f);
+        shapes.rect(left + 40f, bottom + 995f, BASE_WIDTH - 80f, 3f);
         if (screenshotIndex > 0) {
-            drawDialogButton(24f, height / 2f - 70f, 64f, 140f,
-                    CYAN, contains(pointer.x, pointer.y, 24f,
-                            height / 2f - 70f, 64f, 140f), alpha);
+            drawDialogButton(left + 35f, bottom + 470f, 64f, 110f,
+                    CYAN, contains(pointer.x, pointer.y, left + 35f,
+                            bottom + 470f, 64f, 110f), alpha);
+            drawScreenshotNavigationGlyph(left + 67f, bottom + 525f,
+                    -1, alpha);
         }
         if (screenshotIndex + 1 < screenshotFiles.size()) {
-            drawDialogButton(width - 88f, height / 2f - 70f,
-                    64f, 140f, CYAN, contains(pointer.x, pointer.y,
-                            width - 88f, height / 2f - 70f,
-                            64f, 140f), alpha);
+            drawDialogButton(left + 1821f, bottom + 470f,
+                    64f, 110f, CYAN, contains(pointer.x, pointer.y,
+                            left + 1821f, bottom + 470f,
+                            64f, 110f), alpha);
+            drawScreenshotNavigationGlyph(left + 1853f, bottom + 525f,
+                    1, alpha);
         }
-        shapes.setColor(FOLD_RED.r, FOLD_RED.g, FOLD_RED.b,
-                (contains(pointer.x, pointer.y, width - 76f,
-                        height - 76f, 48f, 48f) ? 0.92f : 0.52f) * alpha);
-        roundedRect(width - 76f, height - 76f, 48f, 48f, 9f);
+        drawDialogButton(left + 1812f, bottom + 1008f, 58f, 50f,
+                CYAN, contains(pointer.x, pointer.y,
+                        left + 1812f, bottom + 1008f, 58f, 50f), alpha);
         if (screenshotTexture != null) {
-            Rectangle copy = screenshotCopyBounds(width);
-            Rectangle delete = screenshotDeleteBounds(width);
+            Rectangle copy = screenshotCopyBounds(width, height);
+            Rectangle delete = screenshotDeleteBounds(width, height);
             drawDialogButton(copy.x, copy.y, copy.width, copy.height,
                     CYAN, copy.contains(pointer), alpha);
             drawDialogButton(delete.x, delete.y, delete.width, delete.height,
@@ -15525,40 +15562,35 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.setColor(1f, 1f, 1f, alpha);
         if (screenshotTexture != null) {
             Rectangle bounds = fitInside(screenshotTexture.getWidth(),
-                    screenshotTexture.getHeight(), 106f, 96f,
-                    width - 212f, height - 210f, true);
+                    screenshotTexture.getHeight(), left + 125f, bottom + 150f,
+                    BASE_WIDTH - 250f, 760f, true);
             batch.draw(screenshotTexture, bounds.x, bounds.y,
                     bounds.width, bounds.height);
         }
         String viewerTitle = uppercase(gameText.translate(
                 "menu.visor_capturas"));
-        String title = screenshotFiles.isEmpty()
-                ? viewerTitle
-                : viewerTitle + "  -  " + (screenshotIndex + 1)
-                        + " / " + screenshotFiles.size();
-        drawFittedCenteredInBox(uiFont, title, 150f, height - 80f,
-                width - 300f, 62f, POT_GOLD, alpha);
+        drawFittedCenteredInBox(uiFont, viewerTitle,
+                left + 420f, bottom + 1000f, 1080f, 58f,
+                POT_GOLD, alpha);
+        if (!screenshotFiles.isEmpty()) {
+            drawFittedCenteredInBox(smallFont, screenshotMetadata,
+                    left + 400f, bottom + 925f, 1120f, 54f,
+                    Color.WHITE, alpha);
+        }
         String message = !screenshotError.isBlank() ? screenshotError
                 : screenshotFiles.isEmpty()
                         ? uppercase(gameText.translate("ui.no_capturas")) : "";
         if (!message.isBlank()) {
             drawFittedCenteredInBox(uiFont, message,
-                    width / 2f - 360f, height / 2f - 45f,
+                    width / 2f - 360f, bottom + 505f,
                     720f, 90f, new Color(0xe8edf4ff), alpha);
         }
-        if (screenshotIndex > 0) {
-            drawFittedCenteredInBox(uiFont, "‹", 24f,
-                    height / 2f - 70f, 64f, 140f, Color.WHITE, alpha);
-        }
-        if (screenshotIndex + 1 < screenshotFiles.size()) {
-            drawFittedCenteredInBox(uiFont, "›", width - 88f,
-                    height / 2f - 70f, 64f, 140f, Color.WHITE, alpha);
-        }
-        drawFittedCenteredInBox(actionFont, "×", width - 76f,
-                height - 76f, 48f, 48f, Color.WHITE, alpha);
+        drawFittedCenteredInBox(actionFont, "X",
+                left + 1812f, bottom + 1008f, 58f, 50f,
+                POT_GOLD, alpha);
         if (screenshotTexture != null) {
-            Rectangle copy = screenshotCopyBounds(width);
-            Rectangle delete = screenshotDeleteBounds(width);
+            Rectangle copy = screenshotCopyBounds(width, height);
+            Rectangle delete = screenshotDeleteBounds(width, height);
             float enabledAlpha = screenshotOperationPending
                     ? alpha * 0.45f : alpha;
             drawFittedCenteredInBox(actionFont,
@@ -15572,6 +15604,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     delete.height - 10f, Color.WHITE, enabledAlpha);
         }
         batch.end();
+    }
+
+    private void drawScreenshotNavigationGlyph(float cx, float cy,
+            int direction, float alpha) {
+        shapes.setColor(1f, 1f, 1f, alpha);
+        if (direction < 0) {
+            shapes.triangle(cx - 15f, cy,
+                    cx + 9f, cy + 21f, cx + 9f, cy - 21f);
+            shapes.rect(cx + 6f, cy - 4f, 13f, 8f);
+        } else {
+            shapes.triangle(cx + 15f, cy,
+                    cx - 9f, cy + 21f, cx - 9f, cy - 21f);
+            shapes.rect(cx - 19f, cy - 4f, 13f, 8f);
+        }
     }
 
     static Rectangle fitInside(int sourceWidth, int sourceHeight,
@@ -15597,19 +15643,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float remaining = MathUtils.clamp(
                 (screenshotToastUntil - totalTime) / 0.22f, 0f, 1f);
         float alpha = Interpolation.fade.apply(remaining);
-        float x = 26f;
-        float y = viewport.getWorldHeight() - 132f;
-        float width = 430f;
+        float worldWidth = viewport.getWorldWidth();
+        float worldHeight = viewport.getWorldHeight();
+        boolean viewer = uiLayer == UI_SCREENSHOTS;
+        float x = viewer ? worldWidth / 2f - 270f : 26f;
+        float y = viewer
+                ? (worldHeight - BASE_HEIGHT) / 2f + 875f
+                : worldHeight - 132f;
+        float width = viewer ? 540f : 430f;
+        float height = viewer ? 64f : 60f;
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.88f * alpha);
-        roundedRect(x - 2f, y - 2f, width + 4f, 64f, 11f);
+        roundedRect(x - 2f, y - 2f, width + 4f, height + 4f, 11f);
         shapes.setColor(0.012f, 0.027f, 0.047f, 0.98f * alpha);
-        roundedRect(x, y, width, 60f, 9f);
+        roundedRect(x, y, width, height, 9f);
         shapes.end();
         batch.begin();
         drawFittedCenteredInBox(actionFont, screenshotToast,
-                x + 18f, y + 6f, width - 36f, 48f,
+                x + 18f, y + 6f, width - 36f, height - 12f,
                 Color.WHITE, alpha);
         batch.end();
     }
@@ -19309,15 +19361,33 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && Gdx.input.isKeyJustPressed(Input.Keys.ENTER))) {
             toggleFullscreen();
         }
-        if (uiLayer == UI_GAME_LOG) {
+        if (uiLayer == UI_GAME_LOG || uiLayer == UI_SCREENSHOTS) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-                uiLayer = UI_NONE;
+                if (uiLayer == UI_SCREENSHOTS) {
+                    closeScreenshotViewer();
+                } else {
+                    uiLayer = UI_NONE;
+                }
                 return;
+            }
+            if (uiLayer == UI_SCREENSHOTS) {
+                if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT)) {
+                    showRelativeScreenshot(-1);
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.RIGHT)) {
+                    showRelativeScreenshot(1);
+                    return;
+                }
             }
             if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
                 pointer.set(Gdx.input.getX(), Gdx.input.getY());
                 viewport.unproject(pointer);
-                handleGameLogClick(pointer.x, pointer.y);
+                if (uiLayer == UI_SCREENSHOTS) {
+                    handleScreenshotViewerClick(pointer.x, pointer.y);
+                } else {
+                    handleGameLogClick(pointer.x, pointer.y);
+                }
             }
             return;
         }
@@ -19334,14 +19404,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void handleFinalSummaryTarget(int target) {
         if (finalExitPending || finalSummary == null
-                || uiLayer == UI_GAME_LOG) return;
+                || uiLayer != UI_NONE) return;
         if (handleFinalSummaryNavigationAction(target)) return;
         float width = viewport.getWorldWidth();
         int visible = finalSummaryVisibleCards(width);
         int maximum = Math.max(0, finalSummary.balances().size() - visible);
-        if (target == 5 && finalSummaryPage > 0) {
+        if (target == 6 && finalSummaryPage > 0) {
             finalSummaryPage = Math.max(0, finalSummaryPage - visible);
-        } else if (target == 6 && finalSummaryPage < maximum) {
+        } else if (target == 7 && finalSummaryPage < maximum) {
             finalSummaryPage = Math.min(maximum,
                     finalSummaryPage + visible);
         }
@@ -19349,7 +19419,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     boolean handleFinalSummaryNavigationAction(int action) {
         if (finalExitPending || finalSummary == null
-                || uiLayer == UI_GAME_LOG) return false;
+                || uiLayer != UI_NONE) return false;
         if (action == 0) {
             if (retainedFinalMenuAction != null) {
                 finalExitPending = true;
@@ -19391,6 +19461,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return true;
         }
         if (action == 4) {
+            openScreenshotViewer();
+            return true;
+        }
+        if (action == 5) {
             toggleMasterSound();
             return true;
         }
@@ -19400,16 +19474,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static int finalSummaryActionAt(float width, float height,
             float x, float y) {
         float navGap = 18f;
-        float navWidth = Math.min(350f,
-                (width - 160f - navGap * 3f) / 4f);
-        float navStart = (width - (navWidth * 4f + navGap * 3f)) / 2f;
+        float navWidth = Math.min(300f,
+                (width - 160f - navGap * 4f) / 5f);
+        float navStart = (width - (navWidth * 5f + navGap * 4f)) / 2f;
         float navY = height - 82f;
-        for (int index : new int[]{0, 1, 2, 3}) {
+        for (int index = 0; index < 5; index++) {
             if (contains(x, y, navStart + index * (navWidth + navGap),
                     navY, navWidth, 54f)) return index;
         }
         return contains(x, y, width - 74f, height - 78f, 46f, 46f)
-                ? 4 : -1;
+                ? 5 : -1;
     }
 
     static int finalSummaryPointerTargetAt(float width, float height,
@@ -19418,9 +19492,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (action >= 0) return action;
         int visible = finalSummaryVisibleCards(width);
         int maximum = Math.max(0, balanceCount - visible);
-        if (page > 0 && contains(x, y, 12f, 48f, 58f, 226f)) return 5;
+        if (page > 0 && contains(x, y, 12f, 48f, 58f, 226f)) return 6;
         if (page < maximum
-                && contains(x, y, width - 70f, 48f, 58f, 226f)) return 6;
+                && contains(x, y, width - 70f, 48f, 58f, 226f)) return 7;
         return -1;
     }
 
@@ -19462,9 +19536,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
 
         float navGap = 18f;
-        float navWidth = Math.min(350f,
-                (width - 160f - navGap * 3f) / 4f);
-        float navStart = (width - (navWidth * 4f + navGap * 3f)) / 2f;
+        float navWidth = Math.min(300f,
+                (width - 160f - navGap * 4f) / 5f);
+        float navStart = (width - (navWidth * 5f + navGap * 4f)) / 2f;
         float navY = height - 82f;
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
@@ -19472,7 +19546,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // Swing's BalanceScreen is transparent over the selected table felt.
         // Do not apply a second green/black veil here: it made every custom
         // tapete visibly darker when the final summary opened.
-        for (int index = 0; index < 4; index++) {
+        for (int index = 0; index < 5; index++) {
             float x = navStart + index * (navWidth + navGap);
             boolean enabled = finalSummaryNavEnabled(index);
             drawFinalNavSurface(x, navY, navWidth, 54f, enabled,
@@ -19518,16 +19592,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.draw(logo, 42f, height - 24f - finalLogoHeight,
                 finalLogoWidth, finalLogoHeight);
         Texture[] navIcons = {finalMenuIcon, finalLogIcon,
-            finalStatsIcon, finalContinueIcon};
+            finalStatsIcon, finalContinueIcon, finalScreenshotIcon};
         String[] navLabels = {
             uppercase(gameText.translate("ui.menu_principal")),
             uppercase(gameText.translate("log.registro_de_la_timba")),
             uppercase(gameText.translate("stats.estadisticas")),
             uppercase(gameText.translate(tableHost
                     ? "game.continuar_esta_timba"
-                    : "gdx.final.reconnect_server"))
+                    : "gdx.final.reconnect_server")),
+            uppercase(gameText.translate("menu.visor_capturas"))
         };
-        for (int index = 0; index < 4; index++) {
+        for (int index = 0; index < 5; index++) {
             float x = navStart + index * (navWidth + navGap);
             boolean enabled = finalSummaryNavEnabled(index);
             boolean hover = enabled && contains(pointer.x, pointer.y,
@@ -19818,7 +19893,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static boolean finalSummaryNavEnabled(int index) {
-        return index >= 0 && index < 4;
+        return index >= 0 && index < 5;
     }
 
     private static String finalSummaryTitle(
@@ -20130,6 +20205,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeSafely(finalLogIcon);
         disposeSafely(finalStatsIcon);
         disposeSafely(finalContinueIcon);
+        disposeSafely(finalScreenshotIcon);
         disposeSafely(fastMenuIcon);
         disposeSafely(defaultCardBack);
         disposeSafely(rabbitCardBack);
@@ -20339,6 +20415,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         finalLogIcon.dispose();
         finalStatsIcon.dispose();
         finalContinueIcon.dispose();
+        finalScreenshotIcon.dispose();
         fastMenuIcon.dispose();
         for (Texture fastButtonIcon : fastButtonIcons) {
             fastButtonIcon.dispose();

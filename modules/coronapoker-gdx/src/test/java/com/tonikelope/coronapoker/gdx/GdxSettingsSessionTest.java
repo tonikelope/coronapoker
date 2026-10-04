@@ -25,6 +25,33 @@ final class GdxSettingsSessionTest {
                 session.gamePages());
         assertEquals(GdxSettingsContract.Section.APPEARANCE,
                 session.section());
+
+        session.close();
+        session.begin(GdxSettingsSession.Context.MENU, new Properties());
+        assertEquals(GdxSettingsContract.Section.DEBUG, session.section());
+    }
+
+    @Test
+    void remembersTheLastTabOnlyForTheCurrentRuntimeContext() {
+        GdxSettingsSession session = new GdxSettingsSession();
+
+        session.begin(GdxSettingsSession.Context.WAITING_ROOM,
+                new Properties());
+        assertEquals(GdxSettingsContract.Section.APPEARANCE,
+                session.section());
+        session.selectTab(3);
+        assertEquals(GdxSettingsContract.Section.GAME, session.section());
+        session.close();
+
+        session.begin(GdxSettingsSession.Context.WAITING_ROOM,
+                new Properties());
+        assertEquals(GdxSettingsContract.Section.GAME, session.section());
+
+        session.close();
+        session.begin(GdxSettingsSession.Context.LIVE_TABLE,
+                new Properties());
+        assertEquals(GdxSettingsContract.Section.APPEARANCE,
+                session.section());
     }
 
     @Test

@@ -51,7 +51,6 @@ import org.dosse.upnp.UPnP;
 import java.awt.FileDialog;
 import java.awt.Frame;
 import java.awt.Desktop;
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -86,11 +85,11 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.time.ZoneId;
 import java.time.Instant;
 import java.time.Duration;
 import java.time.format.DateTimeFormatter;
-import javax.imageio.ImageIO;
 
 /** Native menu and staged NewGameDialog replacement. */
 final class GdxFrontendScreen extends ApplicationAdapter implements InputProcessor {
@@ -358,6 +357,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private BitmapFont volumeOverlayFont;
     private BitmapFont smallFont;
     private BitmapFont tinyFont;
+    private BitmapFont versionFont;
     private int page;
     private String activeField;
     private long toastUntil;
@@ -521,6 +521,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private StatsConfirmation statsConfirmation = StatsConfirmation.NONE;
     private StatsPicker statsPicker = StatsPicker.NONE;
     private int statsPickerPage;
+    private Surface screenshotReturnSurface = Surface.MENU;
+    private List<GdxScreenshotStore.Shot> screenshots = List.of();
+    private int screenshotIndex;
+    private Texture screenshotTexture;
+    private String screenshotError = "";
+    private String screenshotToast = "";
+    private float screenshotToastUntil;
+    private boolean screenshotOperationPending;
+    private boolean screenshotDeleteConfirmation;
+    private long screenshotGeneration;
 
     GdxFrontendScreen(PreferencesService preferences,
             NewGameSessionGateway gateway, RecoverableGameRepository recoverableGames,
@@ -657,6 +667,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 GdxVolumeOverlayStyle.FONT_BORDER);
         smallFont = font(bodyGenerator, GdxSettingsStyle.SMALL_FONT_SIZE, 0f);
         tinyFont = font(bodyGenerator, GdxSettingsStyle.TINY_FONT_SIZE, 0f);
+        versionFont = font(bodyGenerator, GdxProductVersionBrand.FONT_SIZE, 0f);
         bodyGenerator.dispose();
         Gdx.input.setInputProcessor(this);
         Gdx.input.setCursorCatched(false);
@@ -810,6 +821,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             drawSettingsScreen();
         } else if (surface == Surface.STATS) {
             drawStatsScreen();
+        } else if (surface == Surface.SCREENSHOTS) {
+            drawScreenshotViewer();
         } else {
             drawNewGameDialogFrame();
             drawHeader();
@@ -892,7 +905,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         || blindStructureDialog != BlindStructureDialog.NONE))
                 || (surface == Surface.STATS
                 && (statsConfirmation != StatsConfirmation.NONE
-                        || statsPicker != StatsPicker.NONE))) {
+                        || statsPicker != StatsPicker.NONE))
+                || (surface == Surface.SCREENSHOTS
+                        && screenshotDeleteConfirmation)) {
             texts.clear();
             // A visual modal must also own the complete interaction map.
             // Keeping the underlying page hits allowed invisible lobby/menu
@@ -939,6 +954,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 } else {
                     drawStatsPicker();
                 }
+            } else if (surface == Surface.SCREENSHOTS) {
+                drawScreenshotDeleteConfirmation();
             } else if (lobbyPasswordDialog) {
                 drawLobbyPasswordDialog();
             } else if (fingerprintDialog != null) {
@@ -1003,9 +1020,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             batch.end();
         }
-        // This feedback must be the final composited layer. Drawing only its
-        // shapes in the first pass lets the already queued page glyphs and
-        // images bleed through the panel when SpriteBatch runs afterwards.
+        // Transient feedback must be the final composited layer. Drawing only
+        // its shapes in the first pass lets queued page images cover the panel.
+        if (surface == Surface.SCREENSHOTS
+                && !screenshotDeleteConfirmation
+                && !screenshotToast.isBlank()
+                && elapsed < screenshotToastUntil) {
+            drawScreenshotToastTopLayer();
+        }
         if (elapsed < volumeOverlayUntil) drawVolumeOverlayTopLayer();
     }
 
@@ -1021,7 +1043,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || blindStructureDialog != BlindStructureDialog.NONE
                 || settingsDiscardConfirmation || voiceNotesOpen
                 || statsConfirmation != StatsConfirmation.NONE
-                || statsPicker != StatsPicker.NONE;
+                || statsPicker != StatsPicker.NONE
+                || screenshotDeleteConfirmation;
     }
 
     void beginStartupReveal() {
@@ -1301,31 +1324,30 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawMainMenu() {
-        // A titleless panel must not inherit the decorative content bands used
-        // by titled data panels. Those bands formed an unrelated rectangle
-        // behind the upper menu buttons.
-        plainPanel(515f, 175f, 890f, 602f);
-        mainMenuButton(595f, 645f, 730f, 82f,
+        mainMenuButton(595f, 730f, 730f, 82f,
                 gameText.translate("game.crear_timba"), 0,
                 ButtonTone.POSITIVE,
                 () -> openNewGame(NewGameConnectionDraft.Mode.CREATE));
-        mainMenuButton(595f, 540f, 730f, 82f,
+        mainMenuButton(595f, 625f, 730f, 82f,
                 gameText.translate("game.unirme_a_timba"), 1, false,
                 () -> openNewGame(NewGameConnectionDraft.Mode.JOIN));
-        mainMenuButton(595f, 435f, 730f, 82f,
+        mainMenuButton(595f, 520f, 730f, 82f,
                 gameText.translate("stats.estadisticas_2"), 2, false,
                 this::openStats);
-        mainMenuButton(595f, 330f, 350f, 82f,
+        mainMenuButton(595f, 415f, 730f, 82f,
+                gameText.translate("menu.visor_capturas"), 6, false,
+                this::openScreenshotViewer);
+        mainMenuButton(595f, 310f, 350f, 82f,
                 uppercase(gameText.translate("menu.ajustes")), 3, false,
                 this::openSettings);
-        choice(975f, 330f, 350f, 82f, "",
+        choice(975f, 310f, 350f, 82f, "",
                 gameText.translate("gdx.language_name"),
                 this::toggleLanguage);
-        mainMenuButton(595f, 225f, 350f, 82f,
+        mainMenuButton(595f, 205f, 350f, 82f,
                 uppercase(gameText.translate("menu.acerca_de")), 4, false,
                 this::openAboutDialog);
-        mainMenuButton(975f, 225f, 350f, 82f,
-                gameText.translate("ui.salir"), 5, false,
+        mainMenuButton(975f, 205f, 350f, 82f,
+                gameText.translate("ui.salir"), 5, ButtonTone.DANGER,
                 Gdx.app::exit);
 
         Rectangle sound = mainMenuSoundBounds();
@@ -1339,7 +1361,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         String quote = menuQuotes.update(gameText.language(), frameDelta);
         if (!quote.isBlank()) {
-            italicTextFit(smallFont, quote, WIDTH / 2f, 78f,
+            italicTextFit(smallFont, quote, WIDTH / 2f, 35f,
                     Color.WHITE, true, 1180f);
         }
     }
@@ -1387,6 +1409,248 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             surface = Surface.MENU;
             syncMusicForSurface();
         }
+    }
+
+    private void openScreenshotViewer() {
+        clearActiveField();
+        screenshotReturnSurface = surface == Surface.LOBBY
+                ? Surface.LOBBY : Surface.MENU;
+        screenshotDeleteConfirmation = false;
+        screenshotOperationPending = false;
+        surface = Surface.SCREENSHOTS;
+        refreshScreenshotFiles(0);
+        syncMusicForSurface();
+    }
+
+    private void closeScreenshotViewer() {
+        screenshotGeneration++;
+        disposeScreenshotTexture();
+        screenshots = List.of();
+        screenshotError = "";
+        screenshotToast = "";
+        screenshotDeleteConfirmation = false;
+        screenshotOperationPending = false;
+        surface = screenshotReturnSurface;
+        syncMusicForSurface();
+    }
+
+    private void refreshScreenshotFiles(int preferredIndex) {
+        try {
+            screenshots = GdxScreenshotStore.scan();
+            screenshotError = "";
+        } catch (IOException failure) {
+            screenshots = List.of();
+            screenshotError = uppercase(gameText.translate(
+                    "gdx.screenshot.folder_failed"));
+        }
+        screenshotIndex = screenshots.isEmpty() ? 0
+                : MathUtils.clamp(preferredIndex, 0,
+                        screenshots.size() - 1);
+        loadScreenshotTexture();
+    }
+
+    private void disposeScreenshotTexture() {
+        if (screenshotTexture != null) {
+            screenshotTexture.dispose();
+            screenshotTexture = null;
+        }
+    }
+
+    private void loadScreenshotTexture() {
+        disposeScreenshotTexture();
+        if (screenshots.isEmpty()) return;
+        screenshotIndex = MathUtils.clamp(screenshotIndex, 0,
+                screenshots.size() - 1);
+        try {
+            Path selected = screenshots.get(screenshotIndex).file();
+            // Start the AWT decode before GDX performs its own PNG decode and
+            // GPU upload. By the time the texture becomes visible, the
+            // clipboard bitmap is normally ready even for an immediate click.
+            GdxImageClipboard.prepare(selected);
+            screenshotTexture = new Texture(Gdx.files.absolute(
+                    selected.toString()), true);
+            screenshotTexture.setFilter(TextureFilter.MipMapLinearLinear,
+                    TextureFilter.Linear);
+            screenshotError = "";
+        } catch (RuntimeException failure) {
+            screenshotError = uppercase(gameText.translate(
+                    "gdx.screenshot.open_failed"));
+        }
+    }
+
+    private void showRelativeScreenshot(int delta) {
+        int target = screenshotIndex + delta;
+        if (target < 0 || target >= screenshots.size()) return;
+        screenshotIndex = target;
+        loadScreenshotTexture();
+    }
+
+    private void copyCurrentScreenshot() {
+        if (screenshots.isEmpty() || screenshotOperationPending) return;
+        Path selected = screenshots.get(screenshotIndex).file();
+        screenshotOperationPending = true;
+        runScreenshotOperation("coronapoker-gdx-frontend-copy-screenshot",
+                () -> {
+                    if (!GdxImageClipboard.copy(selected)) {
+                        throw new IOException("Clipboard rejected screenshot");
+                    }
+                }, "ui.imagen_copiada", "ui.copiar_imagen_error", null);
+    }
+
+    private void requestDeleteCurrentScreenshot() {
+        if (screenshots.isEmpty() || screenshotOperationPending) return;
+        screenshotDeleteConfirmation = true;
+    }
+
+    private void deleteCurrentScreenshot() {
+        if (screenshots.isEmpty() || screenshotOperationPending) return;
+        Path selected = screenshots.get(screenshotIndex).file();
+        int selectedIndex = screenshotIndex;
+        screenshotDeleteConfirmation = false;
+        screenshotOperationPending = true;
+        runScreenshotOperation("coronapoker-gdx-frontend-delete-screenshot",
+                () -> {
+                    if (!GdxScreenshotStore.isManaged(
+                            GdxScreenshotStore.directory(), selected)) {
+                        throw new IOException(
+                                "Screenshot outside managed folder");
+                    }
+                    GdxImageClipboard.discard(selected);
+                    Files.delete(selected);
+                }, "", "ui.borrar_captura_error",
+                () -> refreshScreenshotFiles(selectedIndex));
+    }
+
+    private void runScreenshotOperation(String threadName,
+            ScreenshotOperation operation, String successKey,
+            String failureKey, Runnable afterSuccess) {
+        long generation = screenshotGeneration;
+        Thread worker = new Thread(() -> {
+            boolean success = false;
+            try {
+                operation.run();
+                success = true;
+            } catch (Exception failure) {
+                LOGGER.log(Level.WARNING,
+                        "GDX screenshot operation failed", failure);
+            }
+            boolean completed = success;
+            if (Gdx.app != null) {
+                Gdx.app.postRunnable(() -> {
+                    if (disposed || generation != screenshotGeneration) {
+                        return;
+                    }
+                    screenshotOperationPending = false;
+                    if (completed && afterSuccess != null) afterSuccess.run();
+                    String key = completed ? successKey : failureKey;
+                    if (key != null && !key.isBlank()) {
+                        screenshotToast = uppercase(gameText.translate(key));
+                        screenshotToastUntil = elapsed + 1.8f;
+                    }
+                });
+            }
+        }, threadName);
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    @FunctionalInterface
+    private interface ScreenshotOperation {
+        void run() throws Exception;
+    }
+
+    private void drawScreenshotViewer() {
+        shapes.setColor(0.005f, 0.012f, 0.022f, 0.99f);
+        shapes.rect(0f, 0f, WIDTH, HEIGHT);
+        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.84f);
+        shapes.rect(40f, 995f, WIDTH - 80f, 3f);
+
+        textFit(headingFont,
+                uppercase(gameText.translate("menu.visor_capturas")),
+                WIDTH / 2f, 1040f, GOLD, true, 1080f);
+        if (!screenshots.isEmpty()) {
+            textFit(smallFont, GdxScreenshotStore.displayTitle(
+                    screenshots.get(screenshotIndex), screenshotIndex,
+                    screenshots.size(), gameText.language()),
+                    WIDTH / 2f, 965f, Color.WHITE, true, 1120f);
+        }
+
+        if (screenshotTexture != null) {
+            Rectangle bounds = CoronaPokerGdxTable.fitInside(
+                    screenshotTexture.getWidth(), screenshotTexture.getHeight(),
+                    125f, 150f, WIDTH - 250f, 760f, true);
+            uiImages.add(new UiImageItem(screenshotTexture, bounds.x, bounds.y,
+                    bounds.width, bounds.height));
+        }
+        String message = !screenshotError.isBlank() ? screenshotError
+                : screenshots.isEmpty()
+                        ? uppercase(gameText.translate("ui.no_capturas")) : "";
+        if (!message.isBlank()) {
+            textFit(uiFont, message, WIDTH / 2f, 550f,
+                    new Color(0xe8edf4ff), true, 920f);
+        }
+
+        boolean modal = screenshotDeleteConfirmation;
+        themedButton(1812f, 1008f, 58f, 50f, "X", ButtonTone.NEUTRAL,
+                this::closeScreenshotViewer, !modal);
+        if (screenshotIndex > 0) {
+            screenshotNavigationButton(35f, 470f, 64f, 110f, -1,
+                    () -> showRelativeScreenshot(-1), !modal);
+        }
+        if (screenshotIndex + 1 < screenshots.size()) {
+            screenshotNavigationButton(1821f, 470f, 64f, 110f, 1,
+                    () -> showRelativeScreenshot(1), !modal);
+        }
+        if (screenshotTexture != null) {
+            themedButton(660f, 48f, 280f, 70f,
+                    uppercase(gameText.translate(
+                            "ui.copiar_imagen_portapapeles")),
+                    ButtonTone.FEATURED, this::copyCurrentScreenshot,
+                    !modal && !screenshotOperationPending);
+            themedButton(980f, 48f, 280f, 70f,
+                    uppercase(gameText.translate("ui.borrar_captura")),
+                    ButtonTone.DANGER, this::requestDeleteCurrentScreenshot,
+                    !modal && !screenshotOperationPending);
+        }
+
+    }
+
+    private void screenshotNavigationButton(float x, float y, float w,
+            float h, int direction, Runnable action, boolean enabled) {
+        themedButton(x, y, w, h, "", ButtonTone.NEUTRAL, action, enabled);
+        boolean hover = enabled && hovered(x, y, w, h);
+        Color color = enabled ? (hover ? Color.WHITE : GOLD) : DISABLED;
+        float cx = x + w / 2f;
+        float cy = y + h / 2f;
+        shapes.setColor(color);
+        if (direction < 0) {
+            shapes.triangle(cx - 15f, cy,
+                    cx + 9f, cy + 21f, cx + 9f, cy - 21f);
+            shapes.rect(cx + 6f, cy - 4f, 13f, 8f);
+        } else {
+            shapes.triangle(cx + 15f, cy,
+                    cx - 9f, cy + 21f, cx - 9f, cy - 21f);
+            shapes.rect(cx - 19f, cy - 4f, 13f, 8f);
+        }
+    }
+
+    private void drawScreenshotDeleteConfirmation() {
+        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
+        GdxUiDialogStyle.drawPanel(shapes, 560f, 365f, 800f, 320f,
+                CYAN_DARK, 1f);
+        textFit(headingFont,
+                uppercase(gameText.translate("ui.borrar_captura")),
+                600f, 650f, GOLD, false, 720f);
+        centeredWrappedText(smallFont,
+                gameText.translate("ui.borrar_captura_confirm"),
+                WIDTH / 2f, 560f, 670f, 30f, 3, Color.WHITE);
+        themedButton(635f, 415f, 300f, 75f,
+                uppercase(gameText.translate("ui.cancelar")),
+                ButtonTone.NEUTRAL,
+                () -> screenshotDeleteConfirmation = false, true);
+        themedButton(985f, 415f, 300f, 75f,
+                uppercase(gameText.translate("ui.aceptar")),
+                ButtonTone.DANGER, this::deleteCurrentScreenshot, true);
     }
 
     private void loadStatsGames() {
@@ -3094,7 +3358,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawFrontendVersionLabel() {
-        textFit(tinyFont, GdxProductVersionBrand.label(presentationSettings),
+        textFit(versionFont, GdxProductVersionBrand.label(presentationSettings),
                 GdxProductVersionBrand.X,
                 GdxProductVersionBrand.BASELINE_Y,
                 new Color((GdxProductVersionBrand.RGB << 8)
@@ -3409,9 +3673,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             participantY -= 57f;
         }
 
-        button(35f, 55f, 220f, 70f,
-                uppercase(gameText.translate("ui.salir")), false,
+        themedButton(35f, 55f, 220f, 70f,
+                uppercase(gameText.translate("ui.salir")), ButtonTone.DANGER,
                 () -> lobbyConfirmation = LobbyConfirmation.LEAVE,
+                !lobbyCommandPending);
+        iconButton(285f, 55f, 360f, 70f,
+                uppercase(gameText.translate("menu.visor_capturas")), 6,
+                ButtonTone.NEUTRAL, this::openScreenshotViewer,
                 !lobbyCommandPending);
         button(1640f, 55f, 245f, 70f,
                 uppercase(gameText.translate("menu.ajustes")), false,
@@ -5566,11 +5834,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsSession.begin(settingsReturnSurface == Surface.LOBBY
                 ? GdxSettingsSession.Context.WAITING_ROOM
                 : GdxSettingsSession.Context.MENU, initialProperties);
-        settingsAppearancePage = 0;
         settingsAppearanceScroll = 0f;
-        settingsAudioPage = 0;
         settingsAudioScroll = 0f;
-        settingsGamePage = 0;
         settingsShortcutScroll = 0f;
         settingsDebugScroll = 0;
         settingsDebugLineCount = 0;
@@ -7023,6 +7288,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         aboutMusic.setVolume(0.90f * volume);
         statsMusic.setVolume(0.30f * volume);
         boolean lobbyMusic = surface == Surface.LOBBY
+                || (surface == Surface.SCREENSHOTS
+                        && screenshotReturnSurface == Surface.LOBBY)
                 || (surface == Surface.STATS
                         && statsConfirmation != StatsConfirmation.NONE)
                 || (surface == Surface.SETTINGS
@@ -8389,6 +8656,27 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(uiFont, toast, WIDTH / 2f, 193f, Color.WHITE, true, w - 52f);
     }
 
+    private void drawScreenshotToastTopLayer() {
+        float alpha = MathUtils.clamp(
+                (screenshotToastUntil - elapsed) / 0.25f, 0f, 1f);
+        float x = 690f;
+        float y = 875f;
+        float w = 540f;
+        float h = 64f;
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.90f * alpha);
+        roundedRect(x - 2f, y - 2f, w + 4f, h + 4f, 12f);
+        shapes.setColor(0.01f, 0.03f, 0.05f, 0.96f * alpha);
+        roundedRect(x, y, w, h, 10f);
+        shapes.end();
+        batch.begin();
+        drawFittedCenteredInBox(actionFont, screenshotToast,
+                x + 18f, y + 7f, w - 36f, h - 14f, Color.WHITE, alpha);
+        batch.end();
+    }
+
     private void drawVolumeOverlayTopLayer() {
         float width = GdxVolumeOverlayStyle.WIDTH;
         float height = GdxVolumeOverlayStyle.HEIGHT;
@@ -9240,16 +9528,44 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void mainMenuButton(float x, float y, float w, float h,
             String label, int icon, ButtonTone tone, Runnable action) {
         themedButton(x, y, w, h, label, tone, action, true);
-        boolean hover = hovered(x, y, w, h);
-        Color color = tone == ButtonTone.POSITIVE
-                ? (hover ? Color.WHITE : POSITIVE_ICON)
-                : hover ? CYAN : GOLD;
+        drawButtonIconColumn(x, y, w, h, icon, tone, true);
+    }
+
+    private void iconButton(float x, float y, float w, float h,
+            String label, int icon, ButtonTone tone, Runnable action,
+            boolean enabled) {
+        // The icon owns a fixed leading column. Drawing the normal centered
+        // label underneath it made long lobby labels collide with the camera.
+        themedButton(x, y, w, h, "", tone, action, enabled);
+        drawButtonIconColumn(x, y, w, h, icon, tone, enabled);
+        float labelX = x + 84f;
+        float labelW = w - 84f;
+        Color labelColor = GdxUiButtonStyle.labelColor(
+                GdxUiButtonStyle.Tone.valueOf(tone.name()), enabled);
+        textFit(actionFont, label, labelX + labelW / 2f,
+                y + h / 2f + 8f, labelColor, true,
+                Math.max(0f, labelW - 30f));
+    }
+
+    private void drawButtonIconColumn(float x, float y, float w, float h,
+            int icon, ButtonTone tone, boolean enabled) {
+        boolean hover = enabled && hovered(x, y, w, h);
+        Color color;
+        if (!enabled) {
+            color = DISABLED;
+        } else if (tone == ButtonTone.POSITIVE) {
+            color = hover ? Color.WHITE : POSITIVE_ICON;
+        } else if (tone == ButtonTone.DANGER) {
+            color = Color.WHITE;
+        } else {
+            color = hover ? CYAN : GOLD;
+        }
         float iconX = x + 43f;
         float iconY = y + h / 2f;
         shapes.setColor(color);
         drawMainMenuIcon(icon, iconX, iconY, color);
         Color divider = new Color(color);
-        divider.a = tone == ButtonTone.NEUTRAL
+        divider.a = !enabled ? 0.18f : tone == ButtonTone.NEUTRAL
                 ? 0.24f + (hover ? 0.20f : 0f) : 0.34f;
         shapes.setColor(divider);
         shapes.rect(x + 82f, y + 17f, 2f, h - 34f);
@@ -9306,6 +9622,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 shapes.rect(cx - 10f, cy - 4f, 27f, 8f);
                 shapes.triangle(cx + 24f, cy,
                         cx + 11f, cy + 13f, cx + 11f, cy - 13f);
+            }
+            case 6 -> {
+                // Screenshot viewer camera.
+                roundedRect(cx - 25f, cy - 17f, 50f, 34f, 7f);
+                roundedRect(cx - 11f, cy + 16f, 22f, 7f, 3f);
+                Color cutout = new Color(0x0b1729ff);
+                shapes.setColor(cutout);
+                shapes.circle(cx, cy, 10f, 32);
+                shapes.setColor(color);
+                shapes.circle(cx, cy, 4.5f, 24);
             }
             default -> {
             }
@@ -10010,6 +10336,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 settingsRestartNotice = false;
                 return true;
             }
+            if (surface == Surface.SCREENSHOTS) {
+                if (screenshotDeleteConfirmation) {
+                    screenshotDeleteConfirmation = false;
+                } else {
+                    closeScreenshotViewer();
+                }
+                return true;
+            }
             if (surface == Surface.STATS) {
                 if (statsPicker != StatsPicker.NONE) {
                     statsPicker = StatsPicker.NONE;
@@ -10123,6 +10457,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if ((keycode == Input.Keys.ENTER || keycode == Input.Keys.NUMPAD_ENTER)
                 && "blindStructureName".equals(activeField)) {
             submitBlindStructureName();
+            return true;
+        }
+        if (surface == Surface.SCREENSHOTS) {
+            if (!screenshotDeleteConfirmation && keycode == Input.Keys.LEFT) {
+                showRelativeScreenshot(-1);
+            } else if (!screenshotDeleteConfirmation
+                    && keycode == Input.Keys.RIGHT) {
+                showRelativeScreenshot(1);
+            }
             return true;
         }
         if (hasBlockingFrontendModal()) {
@@ -10490,6 +10833,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxVoicePlayback.stop();
         clearLobbyMedia();
         disposeAboutEasterEgg();
+        disposeScreenshotTexture();
         lobbyHistoryMedia.dispose();
         submissions.cancel();
         closeLobbySubscription();
@@ -10547,6 +10891,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         volumeOverlayFont.dispose();
         smallFont.dispose();
         tinyFont.dispose();
+        versionFont.dispose();
     }
 
     @Override public boolean keyUp(int keycode) {
@@ -10683,7 +11028,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private enum Surface {
-        MENU, NEW_GAME, LOBBY, SETTINGS, STATS
+        MENU, NEW_GAME, LOBBY, SETTINGS, STATS, SCREENSHOTS
     }
 
     private enum ScrollDrag {

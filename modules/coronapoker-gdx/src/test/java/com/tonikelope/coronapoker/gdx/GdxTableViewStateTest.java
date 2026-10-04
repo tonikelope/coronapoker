@@ -709,7 +709,7 @@ final class GdxTableViewStateTest {
 
     @Test
     void screenshotContractMatchesSwingAndGalleryNeverUpscales() {
-        assertFalse(GdxImageClipboard.copy(null));
+        assertFalse(GdxImageClipboard.copy((java.awt.Image) null));
         assertEquals("coronapoker_screenshot_1234.png",
                 CoronaPokerGdxTable.screenshotFilename(1234L));
         assertTrue(CoronaPokerGdxTable.isScreenshotFile(
@@ -727,6 +727,11 @@ final class GdxTableViewStateTest {
 
         Rectangle copy = CoronaPokerGdxTable.screenshotCopyBounds(1_920f);
         Rectangle delete = CoronaPokerGdxTable.screenshotDeleteBounds(1_920f);
+        assertEquals(660f, copy.x);
+        assertEquals(48f, copy.y);
+        assertEquals(280f, copy.width);
+        assertEquals(70f, copy.height);
+        assertEquals(980f, delete.x);
         assertTrue(copy.x + copy.width < delete.x);
         assertEquals(copy.y, delete.y);
         assertEquals(copy.height, delete.height);
@@ -854,8 +859,9 @@ final class GdxTableViewStateTest {
         assertTrue(CoronaPokerGdxTable.finalSummaryNavEnabled(1));
         assertTrue(CoronaPokerGdxTable.finalSummaryNavEnabled(2));
         assertTrue(CoronaPokerGdxTable.finalSummaryNavEnabled(3));
+        assertTrue(CoronaPokerGdxTable.finalSummaryNavEnabled(4));
         assertFalse(CoronaPokerGdxTable.finalSummaryNavEnabled(-1));
-        assertFalse(CoronaPokerGdxTable.finalSummaryNavEnabled(4));
+        assertFalse(CoronaPokerGdxTable.finalSummaryNavEnabled(5));
     }
 
     @Test
@@ -863,9 +869,9 @@ final class GdxTableViewStateTest {
         float width = 1920f;
         float height = 1080f;
         float gap = 18f;
-        float buttonWidth = Math.min(350f,
-                (width - 160f - gap * 3f) / 4f);
-        float start = (width - (buttonWidth * 4f + gap * 3f)) / 2f;
+        float buttonWidth = Math.min(300f,
+                (width - 160f - gap * 4f) / 5f);
+        float start = (width - (buttonWidth * 5f + gap * 4f)) / 2f;
         float y = height - 55f;
 
         assertEquals(0, CoronaPokerGdxTable.finalSummaryActionAt(width,
@@ -879,6 +885,9 @@ final class GdxTableViewStateTest {
                 height, start + 3f * (buttonWidth + gap)
                         + buttonWidth / 2f, y));
         assertEquals(4, CoronaPokerGdxTable.finalSummaryActionAt(width,
+                height, start + 4f * (buttonWidth + gap)
+                        + buttonWidth / 2f, y));
+        assertEquals(5, CoronaPokerGdxTable.finalSummaryActionAt(width,
                 height, width - 51f, height - 55f));
     }
 
@@ -887,9 +896,9 @@ final class GdxTableViewStateTest {
         float width = 1920f;
         float height = 1080f;
         float gap = 18f;
-        float buttonWidth = Math.min(350f,
-                (width - 160f - gap * 3f) / 4f);
-        float start = (width - (buttonWidth * 4f + gap * 3f)) / 2f;
+        float buttonWidth = Math.min(300f,
+                (width - 160f - gap * 4f) / 5f);
+        float start = (width - (buttonWidth * 5f + gap * 4f)) / 2f;
         float y = height - 55f;
 
         assertEquals(0, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
@@ -899,9 +908,9 @@ final class GdxTableViewStateTest {
                         + buttonWidth / 2f, y, 0, 12));
         assertEquals(-1, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
                 width, height, 41f, 158f, 0, 12));
-        assertEquals(6, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
+        assertEquals(7, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
                 width, height, width - 41f, 158f, 0, 12));
-        assertEquals(5, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
+        assertEquals(6, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
                 width, height, 41f, 158f, 3, 12));
     }
 

@@ -26,7 +26,13 @@ final class GdxUiDialogStyle {
 
     static void drawPanel(ShapeRenderer shapes, float x, float y,
             float width, float height, Color accent, float alpha) {
-        shapes.setColor(PANEL.r, PANEL.g, PANEL.b, PANEL.a * alpha);
+        drawPanel(shapes, x, y, width, height, PANEL, accent, alpha);
+    }
+
+    static void drawPanel(ShapeRenderer shapes, float x, float y,
+            float width, float height, Color fill, Color accent,
+            float alpha) {
+        shapes.setColor(fill.r, fill.g, fill.b, fill.a * alpha);
         roundedRect(shapes, x, y, width, height, 18f);
         shapes.setColor(accent.r, accent.g, accent.b, 0.92f * alpha);
         roundedRectOutline(shapes, x + 1f, y + 1f,
@@ -37,9 +43,16 @@ final class GdxUiDialogStyle {
 
     static void drawInset(ShapeRenderer shapes, float x, float y,
             float width, float height, float alpha) {
-        shapes.setColor(INSET.r, INSET.g, INSET.b, INSET.a * alpha);
+        drawInset(shapes, x, y, width, height, INSET, LINE, alpha);
+    }
+
+    static void drawInset(ShapeRenderer shapes, float x, float y,
+            float width, float height, Color fill, Color border,
+            float alpha) {
+        shapes.setColor(fill.r, fill.g, fill.b, fill.a * alpha);
         roundedRect(shapes, x, y, width, height, 14f);
-        shapes.setColor(LINE.r, LINE.g, LINE.b, 0.82f * alpha);
+        shapes.setColor(border.r, border.g, border.b,
+                border.a * 0.82f * alpha);
         roundedRectOutline(shapes, x + 1f, y + 1f,
                 width - 2f, height - 2f, 13f, 1.5f);
     }

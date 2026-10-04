@@ -234,15 +234,22 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final float IMAGE_SEND_COOLDOWN_SECONDS = 2f;
     private static final float TEXT_SEND_COOLDOWN_SECONDS = 0.5f;
     private static final float ABOUT_LOGO_WIDTH = 180f;
-    private static final float ABOUT_LOGO_Y = 758f;
-    static final int ABOUT_PANEL_RGBA = GdxUiDialogStyle.PANEL_RGBA;
-    static final float ABOUT_MUSIC_PANEL_Y = 300f;
-    static final float ABOUT_MUSIC_PANEL_HEIGHT = 214f;
-    static final float ABOUT_MEMORIAL_CENTER_Y = 574f;
+    private static final float ABOUT_LOGO_Y = 748f;
+    // About is a dedicated reading surface, not translucent glass over the
+    // main menu. Its opaque, lighter slate keeps both copy and the original
+    // black mourning ribbon legible without changing every other dialog.
+    static final int ABOUT_PANEL_RGBA = 0x2b415cff;
+    static final int ABOUT_INSET_RGBA = 0x1b2e46ff;
+    static final int ABOUT_MEMORIAL_RGBA = 0x536b86ff;
+    static final float ABOUT_MUSIC_PANEL_Y = 306f;
+    static final float ABOUT_MUSIC_PANEL_HEIGHT = 164f;
+    static final float ABOUT_FOOTER_PANEL_Y = 146f;
+    static final float ABOUT_FOOTER_PANEL_HEIGHT = 128f;
+    static final float ABOUT_MEMORIAL_CENTER_Y = 542f;
     static final float ABOUT_MOURNING_ICON_SIZE = 68f;
-    static final float ABOUT_MUSIC_FIRST_LINE_Y = 490f;
-    static final float ABOUT_MUSIC_LINE_GAP = 31f;
-    static final float ABOUT_COPYRIGHT_Y = 342f;
+    static final float ABOUT_MUSIC_FIRST_LINE_Y = 448f;
+    static final float ABOUT_MUSIC_LINE_GAP = 29f;
+    static final float ABOUT_COPYRIGHT_Y = 326f;
     static final float ABOUT_INNER_PANEL_WIDTH = 1060f;
     static final float HAND_GENERATOR_PANEL_X = 410f;
     static final float HAND_GENERATOR_PANEL_Y = 178f;
@@ -794,7 +801,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         if (surface == Surface.MENU) {
-            drawMainMenu();
+            if (renderMainMenuBehindAbout(aboutOpen)) drawMainMenu();
         } else if (surface == Surface.LOBBY) {
             drawLobby();
         } else if (surface == Surface.SETTINGS) {
@@ -2864,20 +2871,26 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float y = 58f;
         float w = 1300f;
         float h = 964f;
-        // About is information-rich, but it is still one dialog. Use the
-        // shared glass shell and quiet inset cards instead of stacking a
-        // second unrelated slate material over the rest of the frontend.
-        GdxUiDialogStyle.drawPanel(shapes, x, y, w, h, CYAN_DARK, 1f);
+        Color aboutPanel = new Color(ABOUT_PANEL_RGBA);
+        Color aboutInset = new Color(ABOUT_INSET_RGBA);
+        Color aboutMemorial = new Color(ABOUT_MEMORIAL_RGBA);
+        GdxUiDialogStyle.drawPanel(shapes, x, y, w, h,
+                aboutPanel, CYAN, 1f);
         float innerPanelX = WIDTH / 2f - ABOUT_INNER_PANEL_WIDTH / 2f;
         GdxUiDialogStyle.drawInset(shapes, innerPanelX, ABOUT_MUSIC_PANEL_Y,
                 ABOUT_INNER_PANEL_WIDTH,
-                ABOUT_MUSIC_PANEL_HEIGHT, 1f);
-        GdxUiDialogStyle.drawInset(shapes, innerPanelX, 142f,
-                ABOUT_INNER_PANEL_WIDTH, 156f, 1f);
-        textFit(titleFont, uppercase(gameText.translate("about.titulo")),
-                WIDTH / 2f, y + h - 58f, GOLD, true, w - 120f);
-        textFit(smallFont, "CORONAPOKER  " + ApplicationMetadata.VERSION,
-                WIDTH / 2f, y + h - 112f, CYAN, true, w - 120f);
+                ABOUT_MUSIC_PANEL_HEIGHT, aboutInset, LINE, 1f);
+        GdxUiDialogStyle.drawInset(shapes, innerPanelX,
+                ABOUT_FOOTER_PANEL_Y, ABOUT_INNER_PANEL_WIDTH,
+                ABOUT_FOOTER_PANEL_HEIGHT, aboutInset, LINE, 1f);
+        GdxUiDialogStyle.drawInset(shapes, innerPanelX,
+                ABOUT_MEMORIAL_CENTER_Y - 38f,
+                ABOUT_INNER_PANEL_WIDTH, 76f,
+                aboutMemorial, CYAN_DARK, 1f);
+        textFit(titleFont, "CORONAPOKER  " + ApplicationMetadata.VERSION,
+                WIDTH / 2f, y + h - 52f, Color.WHITE, true, w - 120f);
+        textFit(headingFont, gameText.translate("about.merecemos"),
+                WIDTH / 2f, y + h - 108f, GOLD, true, w - 150f);
 
         float aboutLogoHeight = ABOUT_LOGO_WIDTH * logo.getHeight()
                 / logo.getWidth();
@@ -2902,22 +2915,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     : gameText.translate("gdx.about.mod_loaded",
                             presentationSettings.modDisplayName());
             textFit(tinyFont, modLabel,
-                    WIDTH / 2f, 748f, Color.WHITE, true, 620f);
+                    WIDTH / 2f, ABOUT_LOGO_Y - 14f,
+                    Color.WHITE, true, 620f);
         }
 
-        centeredWrappedText(smallFont,
-                gameText.translate("about.merecemos"), WIDTH / 2f,
-                presentationSettings.modActive() ? 714f : 730f,
-                w - 150f, 25f, 2, Color.WHITE);
         centeredWrappedText(tinyFont,
                 gameText.translate("about.gracias_1"), WIDTH / 2f,
-                674f, w - 130f, 21f, 2, MUTED);
+                682f, w - 130f, 21f, 2, MUTED);
         centeredWrappedText(tinyFont,
                 gameText.translate("about.gracias_2"), WIDTH / 2f,
-                644f, w - 130f, 21f, 2, MUTED);
+                653f, w - 130f, 21f, 2, MUTED);
         centeredWrappedText(tinyFont,
                 gameText.translate("about.centimos"), WIDTH / 2f,
-                612f, w - 130f, 21f, 2, MUTED);
+                624f, w - 130f, 21f, 2, MUTED);
 
         textFit(headingFont, gameText.translate("about.dedicado"),
                 WIDTH / 2f, ABOUT_MEMORIAL_CENTER_Y,
@@ -3088,6 +3098,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 new Color((GdxProductVersionBrand.RGB << 8)
                         | Math.round(GdxProductVersionBrand.ALPHA * 255f)),
                 false, GdxProductVersionBrand.MAX_WIDTH);
+    }
+
+    static boolean renderMainMenuBehindAbout(boolean aboutOpen) {
+        return !aboutOpen;
     }
 
     private Rectangle aboutModIconBounds(float coronaLogoHeight) {

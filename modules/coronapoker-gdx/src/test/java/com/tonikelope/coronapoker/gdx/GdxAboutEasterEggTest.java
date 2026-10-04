@@ -3,6 +3,8 @@ package com.tonikelope.coronapoker.gdx;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.io.ByteArrayInputStream;
 import java.awt.image.BufferedImage;
@@ -12,9 +14,17 @@ import org.junit.jupiter.api.Test;
 final class GdxAboutEasterEggTest {
 
     @Test
-    void readingSurfaceUsesTheSharedDialogGlass() {
-        assertEquals(GdxUiDialogStyle.PANEL_RGBA,
+    void readingSurfaceIsOpaqueAndDoesNotRenderOverTheMenu() {
+        assertNotEquals(GdxUiDialogStyle.PANEL_RGBA,
                 GdxFrontendScreen.ABOUT_PANEL_RGBA);
+        assertEquals(0xff, GdxFrontendScreen.ABOUT_PANEL_RGBA & 0xff,
+                "the reading surface must be opaque");
+        assertFalse(GdxFrontendScreen.renderMainMenuBehindAbout(true));
+        assertTrue(GdxFrontendScreen.renderMainMenuBehindAbout(false));
+        int panelRed = GdxFrontendScreen.ABOUT_PANEL_RGBA >>> 24;
+        int memorialRed = GdxFrontendScreen.ABOUT_MEMORIAL_RGBA >>> 24;
+        assertTrue(memorialRed > panelRed,
+                "the black ribbon needs a lighter memorial band");
     }
 
     @Test
@@ -37,6 +47,10 @@ final class GdxAboutEasterEggTest {
         assertTrue(lastMusicLine
                 - GdxFrontendScreen.ABOUT_COPYRIGHT_Y >= 24f,
                 "the copyright note must not overlap the last music credit");
+        float footerTop = GdxFrontendScreen.ABOUT_FOOTER_PANEL_Y
+                + GdxFrontendScreen.ABOUT_FOOTER_PANEL_HEIGHT;
+        assertTrue(GdxFrontendScreen.ABOUT_MUSIC_PANEL_Y - footerTop >= 18f,
+                "the information cards need visible breathing room");
     }
 
     @Test

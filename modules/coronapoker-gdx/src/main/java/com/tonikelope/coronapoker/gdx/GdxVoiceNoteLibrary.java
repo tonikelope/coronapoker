@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 /** Native, UI-free access to the voice-note library shared with Swing. */
 final class GdxVoiceNoteLibrary {
@@ -53,6 +54,48 @@ final class GdxVoiceNoteLibrary {
             throw new IOException("Invalid CoronaPoker voice note");
         }
         return wav;
+    }
+
+    Entry store(String nickname, byte[] wav) throws IOException {
+        if (!VoiceWavContract.isValid(wav)) {
+            throw new IOException("Invalid CoronaPoker voice note");
+        }
+        Files.createDirectories(root);
+        if (!Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS)
+                || Files.isSymbolicLink(root)) {
+            throw new IOException("Voice note library is unavailable");
+        }
+        long timestamp = System.currentTimeMillis();
+        String safeNickname = (nickname == null ? "player" : nickname)
+                .replaceAll("[^a-zA-Z0-9._-]", "_");
+        if (safeNickname.isBlank()) safeNickname = "player";
+        String suffix = UUID.randomUUID().toString()
+                .replace("-", "").substring(0, 8);
+        Path destination = root.resolve(timestamp + "_" + safeNickname
+                + "_" + suffix + ".wav");
+        Files.write(destination, wav);
+        return new Entry(destination.toAbsolutePath().normalize(), timestamp,
+                safeNickname, VoiceWavContract.durationMillis(wav));
+    }
+
+    int purgeExpired(int retentionDays, long nowMillis) throws IOException {
+        if (retentionDays <= 0
+                || !Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS)
+                || Files.isSymbolicLink(root)) {
+            return 0;
+        }
+        long cutoff = nowMillis - retentionDays * 24L * 60L * 60L * 1000L;
+        int deleted = 0;
+        try (var children = Files.list(root)) {
+            for (Path child : children.toList()) {
+                if (isSafeDirectWav(child)
+                        && Files.getLastModifiedTime(child).toMillis() < cutoff
+                        && Files.deleteIfExists(child)) {
+                    deleted++;
+                }
+            }
+        }
+        return deleted;
     }
 
     boolean delete(Entry entry) throws IOException {

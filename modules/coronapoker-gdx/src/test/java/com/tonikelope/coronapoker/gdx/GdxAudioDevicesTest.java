@@ -52,6 +52,19 @@ final class GdxAudioDevicesTest {
     }
 
     @Test
+    void hotplugTopologyIgnoresOrderingButDetectsRealDeviceChanges() {
+        assertFalse(GdxAudioDevices.outputTopologyChanged(
+                List.of("Altavoces", "Auriculares"),
+                List.of("Auriculares", "Altavoces")));
+        assertFalse(GdxAudioDevices.outputTopologyChanged(
+                List.of("Altavoces", "Altavoces", " "),
+                List.of("Altavoces")));
+        assertTrue(GdxAudioDevices.outputTopologyChanged(
+                List.of("Altavoces"),
+                List.of("Altavoces", "Auriculares USB")));
+    }
+
+    @Test
     void missingConfiguredMicrophoneDoesNotFallBackToAnotherInput() {
         Properties properties = new Properties();
         properties.setProperty(GdxAudioDevices.CAPTURE_KEY,

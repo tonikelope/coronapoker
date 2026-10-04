@@ -245,10 +245,18 @@ final class GdxTableChatSessionTest {
                 LobbyChatMessage.Type.IMAGE,
                 false, true, false, false, true),
                 "Swing always shows the sender's own image as confirmation");
+        assertTrue(CoronaPokerGdxTable.shouldShowSeatNotice(
+                LobbyChatMessage.Type.VOICE,
+                false, true, true, false, true),
+                "Playing an own voice note is independent from remote chat notifications");
         org.junit.jupiter.api.Assertions.assertFalse(
                 CoronaPokerGdxTable.shouldShowSeatNotice(
                         LobbyChatMessage.Type.IMAGE,
                         false, true, false, false, false));
+        org.junit.jupiter.api.Assertions.assertFalse(
+                CoronaPokerGdxTable.shouldShowSeatNotice(
+                        LobbyChatMessage.Type.VOICE,
+                        false, true, true, false, false));
     }
 
     private static LobbySession lobby() {

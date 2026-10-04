@@ -87,6 +87,42 @@ class GdxVoiceNoteLibraryTest {
         assertEquals(note(200).length, Files.size(nested));
     }
 
+    @Test
+    void storesValidatedNotesWithSafeMetadata() throws Exception {
+        GdxVoiceNoteLibrary library = new GdxVoiceNoteLibrary(temporary);
+        byte[] wav = note(250);
+
+        GdxVoiceNoteLibrary.Entry stored = library.store("Ana / Bob", wav);
+
+        assertEquals("Ana___Bob", stored.nickname());
+        assertEquals(250L, stored.durationMillis());
+        assertEquals(temporary.toAbsolutePath().normalize(),
+                stored.path().getParent());
+        assertArrayEquals(wav, library.read(stored));
+        assertEquals(1, library.list().size());
+        assertThrows(java.io.IOException.class,
+                () -> library.store("bad", new byte[]{1, 2, 3}));
+    }
+
+    @Test
+    void retentionPurgeKeepsRecentNotesAndForeverMode() throws Exception {
+        GdxVoiceNoteLibrary library = new GdxVoiceNoteLibrary(temporary);
+        long now = 100L * 24L * 60L * 60L * 1000L;
+        Path expired = temporary.resolve("old.wav");
+        Path recent = temporary.resolve("recent.wav");
+        Files.write(expired, note(200));
+        Files.write(recent, note(200));
+        Files.setLastModifiedTime(expired,
+                FileTime.fromMillis(now - 8L * 24L * 60L * 60L * 1000L));
+        Files.setLastModifiedTime(recent,
+                FileTime.fromMillis(now - 6L * 24L * 60L * 60L * 1000L));
+
+        assertEquals(1, library.purgeExpired(7, now));
+        assertFalse(Files.exists(expired));
+        assertEquals(0, library.purgeExpired(0, now));
+        assertEquals(note(200).length, Files.size(recent));
+    }
+
     private static byte[] note(int millis) throws Exception {
         int samples = Math.round(GdxVoiceRecorder.SAMPLE_RATE * millis
                 / 1000f);

@@ -21,6 +21,31 @@ final class GdxAudioDevices {
     private static final String DEFAULT = "";
     private static volatile List<String> captureDevices = List.of();
 
+    static final class OutputHotplugMonitor {
+
+        private static final float POLL_SECONDS = 1f;
+        private List<String> previousTopology;
+        private float elapsed;
+
+        boolean update(Properties properties, float deltaSeconds) {
+            elapsed += Math.max(0f, deltaSeconds);
+            if (elapsed < POLL_SECONDS) return false;
+            elapsed = 0f;
+            List<String> current = normalizedTopology(
+                    availableOutputDevices());
+            if (previousTopology == null) {
+                previousTopology = current;
+                return false;
+            }
+            if (!outputTopologyChanged(previousTopology, current)) {
+                return false;
+            }
+            previousTopology = current;
+            refreshCaptureDevicesAsync();
+            return rebindConfiguredOutput(properties, current);
+        }
+    }
+
     static {
         refreshCaptureDevicesAsync();
     }
@@ -73,6 +98,29 @@ final class GdxAudioDevices {
         } catch (RuntimeException unavailable) {
             properties.setProperty(OUTPUT_KEY, DEFAULT);
         }
+    }
+
+    private static boolean rebindConfiguredOutput(Properties properties,
+            List<String> available) {
+        String selected = normalizeDevice(properties.getProperty(OUTPUT_KEY,
+                DEFAULT));
+        // Preserve an explicit preference while it is unplugged. Playback
+        // temporarily follows the system default and returns to the chosen
+        // device if it reappears on a later topology poll.
+        String target = selected.isEmpty() || available.contains(selected)
+                ? selected : DEFAULT;
+        try {
+            return Gdx.audio != null && Gdx.audio.switchOutputDevice(
+                    target.isEmpty() ? null : target);
+        } catch (RuntimeException unavailable) {
+            return false;
+        }
+    }
+
+    static boolean outputTopologyChanged(List<String> previous,
+            List<String> current) {
+        return !normalizedTopology(previous).equals(
+                normalizedTopology(current));
     }
 
     /**
@@ -136,6 +184,13 @@ final class GdxAudioDevices {
 
     private static String normalizeDevice(String device) {
         return device == null ? DEFAULT : device.strip();
+    }
+
+    private static List<String> normalizedTopology(List<String> devices) {
+        if (devices == null) return List.of();
+        return devices.stream().filter(Objects::nonNull)
+                .map(String::strip).filter(name -> !name.isEmpty())
+                .distinct().sorted().toList();
     }
 
     private static String label(String device, GdxGameText text) {

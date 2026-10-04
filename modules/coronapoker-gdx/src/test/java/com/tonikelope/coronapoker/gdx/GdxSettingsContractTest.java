@@ -252,10 +252,11 @@ final class GdxSettingsContractTest {
                 "musica_about",
                 "tts_server",
                 "voice_messages", "audio_mic_enabled",
+                 GdxSettingsContract.AUDIO_MIC_AUTO_GAIN_KEY,
                 "audio_block_voice_messages", "audio_play_own_voice",
                 "audio_block_tts_local")));
         assertEquals(java.util.List.of("GENERAL", "MÚSICA", "EFECTOS",
-                "CHAT Y VOZ", "VOZ LOCAL", "DISPOSITIVOS"),
+                "NOTAS Y CHAT DE VOZ", "DISPOSITIVOS"),
                 GdxSettingsContract.AUDIO_PAGES.stream()
                         .map(GdxSettingsContract.TogglePage::title).toList());
         assertFalse(keys.contains("sonido_vista_compacta"));
@@ -268,6 +269,33 @@ final class GdxSettingsContractTest {
     }
 
     @Test
+    void audioScrollRowsIncludeVoiceActionsAndDeviceSelectors() {
+        GdxSettingsContract.TogglePage voice =
+                GdxSettingsContract.AUDIO_PAGES.stream()
+                        .filter(page -> GdxSettingsContract.hasVoiceRetention(
+                                page))
+                        .findFirst().orElseThrow();
+        GdxSettingsContract.TogglePage devices =
+                GdxSettingsContract.AUDIO_PAGES.stream()
+                        .filter(page -> GdxSettingsContract.hasAudioDevices(
+                                page))
+                        .findFirst().orElseThrow();
+
+        assertEquals(voice.options().size() + 2,
+                GdxSettingsContract.audioRowCount(voice));
+        assertEquals(voice.options().size(),
+                GdxSettingsContract.voiceRetentionRow(voice));
+        assertEquals(voice.options().size() + 1,
+                GdxSettingsContract.voiceActionsRow(voice));
+
+        assertEquals(3, GdxSettingsContract.audioRowCount(devices));
+        assertEquals(2, GdxSettingsContract.audioLeadingRows(devices));
+        assertEquals(2, GdxSettingsContract.audioOptionRow(devices, 0));
+        assertEquals(GdxSettingsContract.AUDIO_MIC_AUTO_GAIN_KEY,
+                devices.options().get(0).key());
+    }
+
+    @Test
     void roomJoinCueIsNotMislabelledAsThePendingAdmissionCue() {
         GdxSettingsContract.ToggleOption joined =
                 GdxSettingsContract.AUDIO_PAGES.stream()
@@ -277,6 +305,40 @@ final class GdxSettingsContractTest {
 
         assertEquals("CREAR PARTIDA / NUEVO JUGADOR", joined.label());
         assertFalse(joined.label().contains("QUIERE ENTRAR"));
+    }
+
+    @Test
+    void audioPreviewCatalogKeepsSwingResourcesAndTimeLimits() {
+        GdxSettingsContract.ToggleOption bet =
+                GdxSettingsContract.AUDIO_PAGES.stream()
+                .flatMap(page -> page.options().stream())
+                .filter(option -> option.key().equals("sonido_apostar"))
+                .findFirst().orElseThrow();
+        GdxSettingsContract.ToggleOption stacks =
+                GdxSettingsContract.AUDIO_PAGES.stream()
+                .flatMap(page -> page.options().stream())
+                .filter(option -> option.key().equals(
+                        "sonido_carga_stacks"))
+                .findFirst().orElseThrow();
+
+        assertEquals(new GdxSettingsContract.AudioPreview(
+                "misc/bet.wav", 1f, 10f),
+                GdxSettingsContract.audioPreview(bet, "es"));
+        assertEquals(1f,
+                GdxSettingsContract.audioPreview(stacks, "es")
+                        .limitSeconds());
+        for (GdxSettingsContract.ToggleOption option
+                : GdxSettingsContract.AUDIO_PAGES.stream()
+                        .flatMap(page -> page.options().stream()).toList()) {
+            GdxSettingsContract.AudioPreview preview =
+                    GdxSettingsContract.audioPreview(option, "es");
+            if (preview == null) continue;
+            boolean bundled = getClass().getResource(
+                    "/sounds/" + preview.resource()) != null
+                    || getClass().getResource(
+                            "/cinematics/" + preview.resource()) != null;
+            assertTrue(bundled, option.key() + " -> " + preview.resource());
+        }
     }
 
     @Test
@@ -425,6 +487,8 @@ final class GdxSettingsContractTest {
         properties.setProperty("sonidos", "false");
         properties.setProperty("sonidos_chorra", "true");
         properties.setProperty("audio_mic_enabled", "true");
+        properties.setProperty(GdxSettingsContract.AUDIO_MIC_AUTO_GAIN_KEY,
+                "false");
         properties.setProperty("audio_block_voice_messages", "true");
         properties.setProperty("audio_voice_note_retention_days", "7");
         properties.setProperty(GdxAudioDevices.OUTPUT_KEY, "Altavoces");
@@ -438,6 +502,8 @@ final class GdxSettingsContractTest {
         assertEquals("true", properties.getProperty("sonidos"));
         assertEquals("false", properties.getProperty("sonidos_chorra"));
         assertEquals("false", properties.getProperty("audio_mic_enabled"));
+        assertEquals("true", properties.getProperty(
+                GdxSettingsContract.AUDIO_MIC_AUTO_GAIN_KEY));
         assertEquals("false", properties.getProperty(
                 "audio_block_voice_messages"));
         assertEquals("90", properties.getProperty(

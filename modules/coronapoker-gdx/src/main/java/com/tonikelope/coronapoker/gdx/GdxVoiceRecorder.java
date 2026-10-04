@@ -5,6 +5,7 @@ import com.tonikelope.coronapoker.core.audio.VoiceWavContract;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
@@ -36,6 +37,8 @@ final class GdxVoiceRecorder {
     private static final int MAX_PCM_BYTES = (int) SAMPLE_RATE * 2 * MAX_SECONDS;
     private static final int MIN_PCM_BYTES = (int) SAMPLE_RATE * 2 * MIN_MILLIS / 1000;
     private static final int SILENCE_PEAK = 8;
+    private static final int CAPTURE_TARGET_PEAK = 29_490;
+    private static final float MAX_CAPTURE_GAIN = 4f;
 
     @FunctionalInterface
     interface LineProvider {
@@ -43,6 +46,7 @@ final class GdxVoiceRecorder {
     }
 
     private final LineProvider lineProvider;
+    private final boolean automaticGain;
     private final ByteArrayOutputStream pcm = new ByteArrayOutputStream();
     private final CountDownLatch finished = new CountDownLatch(1);
     private volatile TargetDataLine line;
@@ -52,15 +56,21 @@ final class GdxVoiceRecorder {
     private volatile Outcome outcome = Outcome.ABORTED;
 
     GdxVoiceRecorder() {
-        this(format -> AudioSystem.getTargetDataLine(format));
+        this(format -> AudioSystem.getTargetDataLine(format), true);
     }
 
     GdxVoiceRecorder(Properties properties) {
-        this(format -> GdxAudioDevices.openCapture(properties, format));
+        this(format -> GdxAudioDevices.openCapture(properties, format),
+                automaticGainEnabled(properties));
     }
 
     GdxVoiceRecorder(LineProvider lineProvider) {
+        this(lineProvider, true);
+    }
+
+    GdxVoiceRecorder(LineProvider lineProvider, boolean automaticGain) {
         this.lineProvider = Objects.requireNonNull(lineProvider, "lineProvider");
+        this.automaticGain = automaticGain;
     }
 
     /** Opens the device synchronously; callers must invoke it off the render thread. */
@@ -142,7 +152,8 @@ final class GdxVoiceRecorder {
             return failed(Outcome.SILENT);
         }
         try {
-            byte[] encoded = encodePcm(bytes);
+            byte[] encoded = encodePcm(automaticGain
+                    ? applySafeCaptureGain(bytes) : bytes);
             finish(Outcome.OK);
             return encoded;
         } catch (Exception encodingFailure) {
@@ -238,5 +249,39 @@ final class GdxVoiceRecorder {
             peak = Math.max(peak, sample);
         }
         return peak;
+    }
+
+    /**
+     * Raises quiet captures without touching the operating-system microphone
+     * level. The peak target leaves ten percent headroom and the +12 dB cap
+     * avoids turning normal microphone noise into full-scale audio.
+     */
+    static byte[] applySafeCaptureGain(byte[] pcmBytes) {
+        Objects.requireNonNull(pcmBytes, "pcmBytes");
+        if (pcmBytes.length % PCM_FORMAT.getFrameSize() != 0) {
+            throw new IllegalArgumentException("Unaligned PCM voice payload");
+        }
+        int peak = peakAmplitude(pcmBytes);
+        if (peak <= 0 || peak >= CAPTURE_TARGET_PEAK) {
+            return Arrays.copyOf(pcmBytes, pcmBytes.length);
+        }
+        float gain = Math.min(MAX_CAPTURE_GAIN,
+                CAPTURE_TARGET_PEAK / (float) peak);
+        byte[] boosted = new byte[pcmBytes.length];
+        for (int index = 0; index + 1 < pcmBytes.length; index += 2) {
+            short source = (short) ((pcmBytes[index] & 0xff)
+                    | (pcmBytes[index + 1] << 8));
+            int sample = Math.round(source * gain);
+            sample = Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE,
+                    sample));
+            boosted[index] = (byte) sample;
+            boosted[index + 1] = (byte) (sample >>> 8);
+        }
+        return boosted;
+    }
+
+    static boolean automaticGainEnabled(Properties properties) {
+        return properties == null || Boolean.parseBoolean(properties.getProperty(
+                GdxSettingsContract.AUDIO_MIC_AUTO_GAIN_KEY, "true"));
     }
 }

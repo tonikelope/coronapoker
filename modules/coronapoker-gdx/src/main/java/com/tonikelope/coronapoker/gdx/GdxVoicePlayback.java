@@ -5,6 +5,8 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.files.FileHandle;
 import com.tonikelope.coronapoker.core.audio.VoiceWavContract;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,6 +17,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.sound.sampled.AudioFileFormat;
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.UnsupportedAudioFileException;
 
 /**
  * Serial, non-blocking playback for the shared voice-note WAV format.
@@ -90,6 +97,22 @@ final class GdxVoicePlayback {
         Gdx.app.postRunnable(() -> finish(music, completion, null));
     }
 
+    static void pause() {
+        Music music = ACTIVE.get();
+        if (music == null || Gdx.app == null) return;
+        Gdx.app.postRunnable(() -> {
+            if (ACTIVE.get() == music) music.pause();
+        });
+    }
+
+    static void resume() {
+        Music music = ACTIVE.get();
+        if (music == null || Gdx.app == null) return;
+        Gdx.app.postRunnable(() -> {
+            if (ACTIVE.get() == music) music.play();
+        });
+    }
+
     private static void playQueued(byte[] wav, float volume,
             Runnable playbackStarted, long generation) {
         if (!VoiceWavContract.isValid(wav)) {
@@ -104,7 +127,7 @@ final class GdxVoicePlayback {
         Path temporary = null;
         try {
             temporary = Files.createTempFile("coronapoker-voice-", ".wav");
-            Files.write(temporary, wav);
+            Files.write(temporary, playbackPcmWav(wav));
             Path ready = temporary;
             CompletableFuture<Void> completion = new CompletableFuture<>();
             Gdx.app.postRunnable(() -> start(ready, volume,
@@ -120,6 +143,37 @@ final class GdxVoicePlayback {
                     temporary.toFile().deleteOnExit();
                 }
             }
+        }
+    }
+
+    /**
+     * Decodes the shared G.711 mu-law voice-note format for OpenAL playback.
+     * The original payload remains untouched for storage and network transport.
+     */
+    static byte[] playbackPcmWav(byte[] wav) throws IOException {
+        if (!VoiceWavContract.isValid(wav)) {
+            throw new IOException("Invalid CoronaPoker voice-note WAV");
+        }
+        try (AudioInputStream source = AudioSystem.getAudioInputStream(
+                new ByteArrayInputStream(wav))) {
+            AudioFormat sourceFormat = source.getFormat();
+            AudioFormat pcmFormat = new AudioFormat(
+                    AudioFormat.Encoding.PCM_SIGNED,
+                    sourceFormat.getSampleRate(),
+                    16,
+                    sourceFormat.getChannels(),
+                    sourceFormat.getChannels() * 2,
+                    sourceFormat.getSampleRate(),
+                    false);
+            try (AudioInputStream pcm = AudioSystem.getAudioInputStream(
+                    pcmFormat, source);
+                    ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                AudioSystem.write(pcm, AudioFileFormat.Type.WAVE, output);
+                return output.toByteArray();
+            }
+        } catch (UnsupportedAudioFileException | IllegalArgumentException failure) {
+            throw new IOException("Unable to decode CoronaPoker voice note",
+                    failure);
         }
     }
 

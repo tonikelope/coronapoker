@@ -20,6 +20,7 @@ final class GdxSettingsContract {
     static final float DEFAULT_MASTER_VOLUME = 0.8f;
     static final String CHAT_GAME_NOTIFICATIONS_KEY =
             "chat_game_notifications";
+    static final String AUDIO_MIC_AUTO_GAIN_KEY = "audio_mic_auto_gain";
     private static final String LEGACY_GDX_CHAT_NOTIFICATIONS_KEY =
             "chat_notifications_ingame";
 
@@ -52,6 +53,64 @@ final class GdxSettingsContract {
         String title(GdxGameText text) {
             return translatedUpper(text, pageTranslationKey(title), title);
         }
+    }
+
+    record AudioPreview(String resource, float volume, float limitSeconds) {
+    }
+
+    static AudioPreview audioPreview(ToggleOption option, String language) {
+        if (option == null) return null;
+        String resource = switch (option.key()) {
+            case "sonido_ascensor" -> "misc/background_music.mp3";
+            case "musica_sala_espera" -> "misc/waiting_room.mp3";
+            case "musica_about" -> "misc/about_music.mp3";
+            case "sonido_apostar" -> "misc/bet.wav";
+            case "sonido_igualar" -> "misc/call.wav";
+            case "sonido_pasar" -> "misc/check.wav";
+            case "sonido_allin" -> "misc/allin.wav";
+            case "sonido_fold" -> "misc/fold.wav";
+            case "sonido_barajado" -> "misc/shuffle.wav";
+            case "sonido_reparto" -> "misc/deal.wav";
+            case "sonido_destape", "sonido_destape_mis_cartas" ->
+                "misc/uncover.wav";
+            case "sonido_entra" -> "misc/laser.wav";
+            case "sonido_entrar_sala" -> "misc/new_user.wav";
+            case "sonido_conexion" -> "misc/yahoo.wav";
+            case "sonido_sale" -> "misc/toilet.wav";
+            case "sonido_aviso" -> "misc/warning.wav";
+            case "sonido_error" -> "misc/danger_alert.wav";
+            case "sonido_error_red" -> "misc/network_error_"
+                    + ("en".equalsIgnoreCase(language) ? "en" : "es")
+                    + ".wav";
+            case "sonido_inicio" -> "misc/startplay.wav";
+            case "sonido_ciegas" -> "misc/double_blinds.wav";
+            case "sonido_caja" -> "misc/cash_register.wav";
+            case "sonido_ultima_mano" -> "misc/last_hand_on.wav";
+            case "sonido_conteo", "sonido_carga_stacks" ->
+                "misc/balance_count.wav";
+            case "sonido_iwtsth" -> "misc/showyourcards.wav";
+            case "sonido_interruptor" -> "misc/button_on.wav";
+            case "sonido_pausa" -> "misc/pause.wav";
+            case "sonido_fin_partida" -> "misc/game_over.wav";
+            case "sonido_tu_turno" -> "misc/yourturn.wav";
+            case "sonido_aviso_tiempo" -> "misc/hurryup.wav";
+            case "sonido_zoom" -> "misc/zoom_in.wav";
+            case "sonido_screenshot" -> "misc/screenshot.wav";
+            case "sonido_tapete" -> "misc/mat.wav";
+            case "sonido_visor" -> "misc/card_visor.wav";
+            case "sonido_volumen" -> "misc/volume_change.wav";
+            case "sonido_arranque" -> "misc/init.wav";
+            default -> null;
+        };
+        if (resource == null) return null;
+        float volume = switch (option.key()) {
+            case "sonido_ascensor" -> 0.4f;
+            case "musica_sala_espera", "musica_about" -> 0.9f;
+            default -> 1f;
+        };
+        float limit = "sonido_carga_stacks".equals(option.key())
+                ? 1f : 10f;
+        return new AudioPreview(resource, volume, limit);
     }
 
     enum Section {
@@ -150,8 +209,11 @@ final class GdxSettingsContract {
     }
 
     /** Audio controls present in Swing and applicable to the GDX frontend. */
-    private static final TogglePage AUDIO_LOCAL_VOICE_PAGE = page(
-            "VOZ LOCAL",
+    private static final TogglePage AUDIO_VOICE_CHAT_PAGE = page(
+            "NOTAS Y CHAT DE VOZ",
+            option("voice_messages", "NOTAS DE VOZ", true,
+                    Gate.SOUND),
+            option("tts_server", "VOZ (TTS)", true, Gate.SOUND),
             option("audio_mic_enabled", "MICRÓFONO", true, Gate.SOUND),
             invertedOption("audio_block_voice_messages",
                     "NOTAS DE VOZ (LOCAL)", false, Gate.SOUND),
@@ -160,7 +222,10 @@ final class GdxSettingsContract {
             invertedOption("audio_block_tts_local", "TTS (LOCAL)", false,
                     Gate.SOUND));
 
-    private static final TogglePage AUDIO_DEVICE_PAGE = page("DISPOSITIVOS");
+    private static final TogglePage AUDIO_DEVICE_PAGE = page(
+            "DISPOSITIVOS",
+            option(AUDIO_MIC_AUTO_GAIN_KEY,
+                    "GANANCIA AUTOMÁTICA DEL MICRÓFONO", true, Gate.SOUND));
     private static final TogglePage APPEARANCE_ANIMATIONS_PAGE = page(
             "ANIMACIONES",
             option("animaciones", "USAR ANIMACIONES", true,
@@ -263,11 +328,7 @@ final class GdxSettingsContract {
                             Gate.EFFECTS),
                     option("sonido_error_red", "ERROR DE RED", true,
                             Gate.EFFECTS)),
-            page("CHAT Y VOZ",
-                    option("voice_messages", "NOTAS DE VOZ", true,
-                            Gate.SOUND),
-                    option("tts_server", "VOZ (TTS)", true, Gate.SOUND)),
-            AUDIO_LOCAL_VOICE_PAGE,
+            AUDIO_VOICE_CHAT_PAGE,
             AUDIO_DEVICE_PAGE);
 
     /**
@@ -282,7 +343,6 @@ final class GdxSettingsContract {
             AUDIO_SOURCE_PAGES.get(1),
             AUDIO_EFFECTS_PAGE,
             AUDIO_SOURCE_PAGES.get(9),
-            AUDIO_LOCAL_VOICE_PAGE,
             AUDIO_DEVICE_PAGE);
 
     /** Appearance switches shared with Swing; choice controls are separate. */
@@ -341,7 +401,8 @@ final class GdxSettingsContract {
             "sonido_error_red", "tts_server", "voice_messages",
             "audio_output_device", "gdx_audio_output_device",
             "audio_capture_device",
-            "audio_mic_enabled", "audio_play_own_voice",
+            "audio_mic_enabled", AUDIO_MIC_AUTO_GAIN_KEY,
+            "audio_play_own_voice",
             "audio_block_voice_messages", "audio_block_tts_local",
             "audio_voice_note_retention_days",
             "baraja", "trasera", "color_tapete", "nivel_luz",
@@ -444,11 +505,38 @@ final class GdxSettingsContract {
     }
 
     static boolean hasVoiceRetention(TogglePage page) {
-        return page == AUDIO_LOCAL_VOICE_PAGE;
+        return page == AUDIO_VOICE_CHAT_PAGE;
     }
 
     static boolean hasAudioDevices(TogglePage page) {
         return page == AUDIO_DEVICE_PAGE;
+    }
+
+    /**
+     * Rows placed before the page's normal switches. Device selectors are
+     * first so microphone gain remains directly below the microphone it
+     * affects, while still sharing the normal toggle renderer.
+     */
+    static int audioLeadingRows(TogglePage page) {
+        return hasAudioDevices(page) ? 2 : 0;
+    }
+
+    static int audioOptionRow(TogglePage page, int optionIndex) {
+        return audioLeadingRows(page) + optionIndex;
+    }
+
+    /** Every painted audio row participates in the same scroll model. */
+    static int audioRowCount(TogglePage page) {
+        return audioLeadingRows(page) + page.options().size()
+                + (hasVoiceRetention(page) ? 2 : 0);
+    }
+
+    static int voiceRetentionRow(TogglePage page) {
+        return audioLeadingRows(page) + page.options().size();
+    }
+
+    static int voiceActionsRow(TogglePage page) {
+        return voiceRetentionRow(page) + 1;
     }
 
     /** One validated volume contract for the menu, lobby and live table. */
@@ -620,9 +708,9 @@ final class GdxSettingsContract {
             case "PANTALLA" -> "gdx.settings.page.display";
             case "AVISOS Y CHAT" -> "gdx.settings.page.alerts_chat";
             case "SISTEMA" -> "gdx.settings.page.system";
-            case "CHAT Y VOZ" -> "gdx.settings.page.chat_voice";
+            case "NOTAS Y CHAT DE VOZ" ->
+                "gdx.settings.page.voice_notes_chat";
             case "CHAT" -> "gdx.settings.page.chat";
-            case "VOZ LOCAL" -> "gdx.settings.page.local_voice";
             case "DISPOSITIVOS" -> "gdx.settings.page.devices";
             case "CINEMÁTICAS" -> "gdx.settings.page.cinematics";
             case "ANIMACIONES" -> "gdx.settings.page.animations";

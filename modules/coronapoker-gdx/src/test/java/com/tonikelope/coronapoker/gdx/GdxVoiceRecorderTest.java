@@ -9,6 +9,7 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.time.Duration;
+import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -65,6 +66,34 @@ class GdxVoiceRecorderTest {
         }
     }
 
+    @Test
+    void quietCaptureGetsBoundedSoftwareGainWithoutClipping() {
+        byte[] quiet = constantPcm(1_000, 200);
+
+        byte[] boosted = GdxVoiceRecorder.applySafeCaptureGain(quiet);
+
+        assertEquals(4_000, firstSample(boosted));
+    }
+
+    @Test
+    void alreadyLoudCaptureKeepsItsOriginalLevel() {
+        byte[] loud = constantPcm(30_000, 200);
+
+        byte[] unchanged = GdxVoiceRecorder.applySafeCaptureGain(loud);
+
+        assertEquals(30_000, firstSample(unchanged));
+    }
+
+    @Test
+    void automaticGainIsEnabledByDefaultAndCanBeDisabled() {
+        Properties properties = new Properties();
+        assertEquals(true, GdxVoiceRecorder.automaticGainEnabled(properties));
+
+        properties.setProperty(GdxSettingsContract.AUDIO_MIC_AUTO_GAIN_KEY,
+                "false");
+        assertEquals(false, GdxVoiceRecorder.automaticGainEnabled(properties));
+    }
+
     private static GdxVoiceRecorder recorder(SimulatedCapture capture) {
         return new GdxVoiceRecorder(format -> capture.line());
     }
@@ -85,6 +114,19 @@ class GdxVoiceRecorderTest {
             pcm[i + 1] = 0x03;
         }
         return pcm;
+    }
+
+    private static byte[] constantPcm(int sample, int bytes) {
+        byte[] pcm = new byte[bytes];
+        for (int index = 0; index + 1 < pcm.length; index += 2) {
+            pcm[index] = (byte) sample;
+            pcm[index + 1] = (byte) (sample >>> 8);
+        }
+        return pcm;
+    }
+
+    private static int firstSample(byte[] pcm) {
+        return (short) ((pcm[0] & 0xff) | (pcm[1] << 8));
     }
 
     private static final class SimulatedCapture implements InvocationHandler {

@@ -469,16 +469,22 @@ final class GdxTableViewStateTest {
         float redistributedLeft = 555.5f / 1920f;
         float[][] expected = {
             {0.500f, 0.185f},
-            {0.125f, 0.280f}, {0.024f, 0.530f},
-            {0.024f, 0.780f}, {redistributedLeft, 0.890f},
+            {0.125f, 0.310f}, {0.024f, 0.560f},
+            {0.024f, 0.810f}, {redistributedLeft, 0.890f},
             {0.500f, 0.930f}, {1f - redistributedLeft, 0.890f},
-            {0.976f, 0.780f}, {0.976f, 0.530f},
-            {0.875f, 0.280f}
+            {0.976f, 0.810f}, {0.976f, 0.560f},
+            {0.875f, 0.310f}
         };
         for (int seat = 0; seat < expected.length; seat++) {
             assertEquals(expected[seat][0], anchors[seat][0], 0.000_001f);
             assertEquals(expected[seat][1], anchors[seat][1], 0.000_001f);
         }
+        assertEquals(anchors[2][1] - anchors[1][1],
+                anchors[3][1] - anchors[2][1], 0.000_001f,
+                "left-side lift must preserve uniform row spacing");
+        assertEquals(anchors[8][1] - anchors[9][1],
+                anchors[7][1] - anchors[8][1], 0.000_001f,
+                "right-side lift must preserve uniform row spacing");
     }
 
     @Test
@@ -2235,15 +2241,43 @@ final class GdxTableViewStateTest {
 
     @Test
     void liveHudHitMapRoutesEveryCanonicalPokerAction() {
-        assertEquals(1, CoronaPokerGdxTable.hudTarget(700f, 70f, 1920f));
-        assertEquals(2, CoronaPokerGdxTable.hudTarget(900f, 70f, 1920f));
-        assertEquals(3, CoronaPokerGdxTable.hudTarget(1045f, 70f, 1920f));
-        assertEquals(5, CoronaPokerGdxTable.hudTarget(1180f, 70f, 1920f));
-        assertEquals(4, CoronaPokerGdxTable.hudTarget(1325f, 70f, 1920f));
-        assertEquals(0, CoronaPokerGdxTable.hudTarget(1076f, 70f, 1920f));
-        assertEquals(0, CoronaPokerGdxTable.hudTarget(1298f, 70f, 1920f));
-        assertEquals(6, CoronaPokerGdxTable.hudTarget(1420f, 70f, 1920f));
-        assertEquals(0, CoronaPokerGdxTable.hudTarget(300f, 70f, 1920f));
+        CoronaPokerGdxTable.LocalHudLayout layout
+                = CoronaPokerGdxTable.localHudLayout(1920f);
+        float x = layout.actionX();
+        float y = layout.actionY() + layout.actionHeight() / 2f;
+        assertEquals(1, CoronaPokerGdxTable.hudTarget(x + 75f, y, 1920f));
+        assertEquals(2, CoronaPokerGdxTable.hudTarget(x + 262f, y, 1920f));
+        assertEquals(3, CoronaPokerGdxTable.hudTarget(x + 400f, y, 1920f));
+        assertEquals(5, CoronaPokerGdxTable.hudTarget(x + 540f, y, 1920f));
+        assertEquals(4, CoronaPokerGdxTable.hudTarget(x + 680f, y, 1920f));
+        assertEquals(0, CoronaPokerGdxTable.hudTarget(x + 429f, y, 1920f));
+        assertEquals(0, CoronaPokerGdxTable.hudTarget(x + 651f, y, 1920f));
+        assertEquals(6, CoronaPokerGdxTable.hudTarget(x + 793f, y, 1920f));
+        assertEquals(0, CoronaPokerGdxTable.hudTarget(
+                layout.stackBounds().x + 20f, y, 1920f));
+        assertEquals(0, CoronaPokerGdxTable.hudTarget(
+                layout.investedBounds().x + 20f, y, 1920f));
+    }
+
+    @Test
+    void localMoneyModulesKeepFixedPremiumGeometryAroundCentredActions() {
+        CoronaPokerGdxTable.LocalHudLayout layout
+                = CoronaPokerGdxTable.localHudLayout(1920f);
+        Rectangle stack = layout.stackBounds();
+        Rectangle invested = layout.investedBounds();
+
+        assertEquals(188f, stack.width, 0.000_001f);
+        assertEquals(135f, stack.height, 0.000_001f);
+        assertEquals(135f, invested.width, 0.000_001f);
+        assertEquals(135f, invested.height, 0.000_001f);
+        assertEquals(868f, layout.actionWidth(), 0.000_001f);
+        assertEquals(960f,
+                layout.actionX() + layout.actionWidth() / 2f,
+                0.000_001f);
+        assertEquals(12f, layout.actionX() - stack.x - stack.width,
+                0.000_001f);
+        assertEquals(12f, invested.x - layout.actionX()
+                - layout.actionWidth(), 0.000_001f);
     }
 
     @Test

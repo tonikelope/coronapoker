@@ -39,6 +39,8 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private final Consumer<String> languageChanged;
     private final IdentityTrustStore identityTrust;
     private GdxScreenWakeLock screenWakeLock;
+    private final GdxAudioDevices.OutputHotplugMonitor outputHotplugMonitor =
+            new GdxAudioDevices.OutputHotplugMonitor();
     private Boolean independentWakeLockRequired;
     private PreferencesService preferences;
     private GdxFrontendScreen menu;
@@ -194,6 +196,10 @@ final class GdxApplicationShell extends ApplicationAdapter {
     @Override
     public void render() {
         synchronizeScreenWakeLock();
+        if (preferences != null) {
+            outputHotplugMonitor.update(preferences.properties(),
+                    Math.min(Gdx.graphics.getDeltaTime(), 0.1f));
+        }
         CoronaPokerGdxTable intro = startupIntro;
         if (intro != null) {
             intro.render();
@@ -368,15 +374,18 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 // Disposal performs substantial resource cleanup; doing it
                 // first created an audible gap in the continuous soundtrack.
                 menu.resumeBackgroundMusicAt(musicPosition);
+                expected.silenceBackgroundMusicForHandoff();
                 long sessionClosed = System.nanoTime();
-                expected.dispose();
-                long disposedAt = System.nanoTime();
                 System.out.printf(java.util.Locale.ROOT,
-                        "GDX table close timings: menu=%.1f ms, session=%.1f ms, resources=%.1f ms%n",
+                        "GDX table close timings: menu=%.1f ms, session=%.1f ms%n",
                         (menuReady - closeStarted) / 1_000_000d,
-                        (sessionClosed - menuReady) / 1_000_000d,
-                        (disposedAt - sessionClosed) / 1_000_000d);
-                if (applicationExitRequested) Gdx.app.exit();
+                        (sessionClosed - menuReady) / 1_000_000d);
+                if (applicationExitRequested) {
+                    expected.dispose();
+                    Gdx.app.exit();
+                } else {
+                    disposeTableAfterAudioHandoff(expected);
+                }
             }
         });
     }
@@ -430,8 +439,22 @@ final class GdxApplicationShell extends ApplicationAdapter {
             }
         }
         menu.resumeBackgroundMusicAt(musicPosition);
-        expected.dispose();
-        if (applicationExitRequested) Gdx.app.exit();
+        expected.silenceBackgroundMusicForHandoff();
+        if (applicationExitRequested) {
+            expected.dispose();
+            Gdx.app.exit();
+        } else {
+            disposeTableAfterAudioHandoff(expected);
+        }
+    }
+
+    private void disposeTableAfterAudioHandoff(
+            CoronaPokerGdxTable retiredTable) {
+        // Run resource destruction on the following render turn. The menu
+        // decoder gets one complete frame to begin playback before hundreds
+        // of table OpenAL objects are released, avoiding the brief dropout
+        // observed when returning from the final summary.
+        Gdx.app.postRunnable(retiredTable::dispose);
     }
 
     void showDialog(GdxTableDialog request) {

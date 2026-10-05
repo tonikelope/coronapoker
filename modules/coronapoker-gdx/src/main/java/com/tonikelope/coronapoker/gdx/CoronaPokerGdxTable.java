@@ -5521,7 +5521,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean clickLocalAllIn = clickActionKind
                 == TableVisualEvent.PlayerAction.ActionKind.ALL_IN;
         boolean localMonteCarlo = showsLocalMonteCarloHud(
-                clickLocalAllIn,
                 liveState.partialHandPercentage(seats[0].name),
                 liveState.hasHandResult(seats[0].name));
         boolean localShownHand = liveState.hasLateShownHand(seats[0].name);
@@ -7253,14 +7252,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             boolean hovering;
             if (seat.index == 0) {
-                TableVisualEvent.PlayerAction.ActionKind actionKind
-                        = effectiveLocalActionKind(
-                                hasPendingLocalActionSubmission(),
-                                pendingLocalActionKind,
-                                liveState.actionKind(player.nickname()));
                 boolean localMonteCarlo = showsLocalMonteCarloHud(
-                        actionKind
-                                == TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
                         liveState.partialHandPercentage(player.nickname()),
                         liveState.hasHandResult(player.nickname()));
                 String renderedLabel = lastActionLabelForSeat(0);
@@ -7687,12 +7679,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private String sidePotWinnerOverlayLabel(Seat seat) {
-        if (liveState.returnedSidePot(seat.name)) {
-            return uppercase(gameText.translate("game.bote_sobrante"));
-        }
-        return derivedPotOverlayLabel(false,
+        return sidePotOverlayLabel(liveState.returnedSidePot(seat.name),
                 liveState.resolvedHandWinner(seat.name),
                 liveState.resolvedWonPotIndexes(seat.name), gameText);
+    }
+
+    static String sidePotOverlayLabel(boolean returnedResidualSidePot,
+            Boolean winner, List<Integer> wonPotIndexes, GdxGameText text) {
+        if (returnedResidualSidePot) {
+            return uppercase(text.translate("game.bote_sobrante"), text);
+        }
+        return derivedPotOverlayLabel(false, winner, wonPotIndexes, text);
     }
 
     private boolean sidePotWinnerOverlayVisible(Seat seat) {
@@ -7752,9 +7749,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private Rectangle timedOutKickOverlayBounds(Seat seat,
             float viewportWidth, float viewportHeight) {
-        boolean sidePotOverlay = !derivedPotOverlayLabel(false,
-                liveState.resolvedHandWinner(seat.name),
-                liveState.resolvedWonPotIndexes(seat.name), gameText).isEmpty();
+        boolean sidePotOverlay = sidePotWinnerOverlayVisible(seat);
         return timedOutKickOverlayBounds(seat.podX, seat.podY,
                 viewportWidth, viewportHeight, sidePotOverlay);
     }
@@ -13000,9 +12995,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean localAllIn = !localSpectator && localActionKind
                 == TableVisualEvent.PlayerAction.ActionKind.ALL_IN;
         boolean localMonteCarlo = !localSpectator
-                && showsLocalMonteCarloHud(localAllIn,
-                liveState.partialHandPercentage(seats[0].name),
-                liveState.hasHandResult(seats[0].name));
+                && showsLocalMonteCarloHud(
+                        liveState.partialHandPercentage(seats[0].name),
+                        liveState.hasHandResult(seats[0].name));
         boolean voluntaryShow = !localSpectator
                 && showsVoluntaryShowButton(controls, autoActionVeto);
         boolean localShownHand = !localSpectator
@@ -13757,10 +13752,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return !autoActionVeto && controls != null && controls.showCards();
     }
 
-    static boolean showsLocalMonteCarloHud(boolean allInThisHand,
-            Float partialHandPercentage, boolean hasHandResult) {
-        return allInThisHand && partialHandPercentage != null
-                && !hasHandResult;
+    static boolean showsLocalMonteCarloHud(Float partialHandPercentage,
+            boolean hasHandResult) {
+        // PartialHand is the canonical signal that this player participates in
+        // the live all-in evaluation. The local player may cover every rival
+        // and reach that showdown by calling rather than going all-in, so the
+        // last local action must not gate the Monte Carlo presentation.
+        return partialHandPercentage != null && !hasHandResult;
     }
 
     static boolean showsLocalActionMemory(boolean localTurn,

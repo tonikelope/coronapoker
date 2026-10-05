@@ -192,6 +192,11 @@ final class GdxTableViewStateTest {
         assertEquals("", CoronaPokerGdxTable.derivedPotOverlayLabel(
                 false, false, List.of(), new GdxGameText("es")),
                 "ordinary hands and losers must not acquire a pot overlay");
+        assertEquals("BOTE SOBRANTE", CoronaPokerGdxTable.sidePotOverlayLabel(
+                true, false, List.of(), new GdxGameText("es")),
+                "an uncontested overbet return is not a numbered-pot win");
+        assertEquals("POT #2", CoronaPokerGdxTable.sidePotOverlayLabel(
+                false, true, List.of(2), new GdxGameText("en")));
     }
 
     @Test
@@ -1416,17 +1421,32 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void localAllInMonteCarloOwnsTheHudUntilTheFinalHandResult() {
+    void localMonteCarloOwnsTheHudForAllInAndCoveringCallersUntilResult() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+        state.apply(new TableVisualEvent.PlayerAction(1, "ana",
+                TableVisualEvent.PlayerAction.ActionKind.CALL,
+                "VA", 10d, 10d, 990d, 10d, 20d));
+        state.apply(new TableVisualEvent.PartialHand(2, "ana", "PAREJA",
+                true, 63.25f));
+
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.CALL,
+                state.actionKind("ana"));
+        assertEquals(63.25f, state.partialHandPercentage("ana"));
         assertTrue(CoronaPokerGdxTable.showsLocalMonteCarloHud(
-                true, -1f, false));
-        assertTrue(CoronaPokerGdxTable.showsLocalMonteCarloHud(
-                true, 63.25f, false));
+                state.partialHandPercentage("ana"),
+                state.hasHandResult("ana")),
+                "a covering CALL must not hide its live Monte Carlo hand");
+
+        state.apply(new TableVisualEvent.HandResult(3, "ana", "PAREJA",
+                false, TableSnapshot.Street.SHOWDOWN));
         assertFalse(CoronaPokerGdxTable.showsLocalMonteCarloHud(
-                false, 63.25f, false));
+                state.partialHandPercentage("ana"),
+                state.hasHandResult("ana")),
+                "the final verdict must replace the partial presentation");
+
+        assertTrue(CoronaPokerGdxTable.showsLocalMonteCarloHud(-1f, false));
         assertFalse(CoronaPokerGdxTable.showsLocalMonteCarloHud(
-                true, null, false));
-        assertFalse(CoronaPokerGdxTable.showsLocalMonteCarloHud(
-                true, 63.25f, true));
+                null, false));
     }
 
     @Test
@@ -2518,6 +2538,11 @@ final class GdxTableViewStateTest {
         assertFalse(player(state, "borja").winner());
         assertTrue(state.returnedSidePot("borja"));
         assertTrue(state.resolvedWonPotIndexes("borja").isEmpty());
+
+        state.apply(new TableVisualEvent.HandBoundary(3, 2,
+                TableVisualEvent.HandBoundary.Phase.PREPARE, snapshot()));
+        assertFalse(state.returnedSidePot("borja"),
+                "BOTE SOBRANTE must not leak into the next hand");
     }
 
     @Test

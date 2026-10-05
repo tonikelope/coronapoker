@@ -197,8 +197,20 @@ final class GdxApplicationShell extends ApplicationAdapter {
     public void render() {
         synchronizeScreenWakeLock();
         if (preferences != null) {
-            outputHotplugMonitor.update(preferences.properties(),
+            boolean topologyChanged = outputHotplugMonitor.update(
+                    preferences.properties(),
                     Math.min(Gdx.graphics.getDeltaTime(), 0.1f));
+            if (topologyChanged) {
+                boolean available = outputHotplugMonitor.outputAvailable();
+                if (!available) GdxVoicePlayback.stop();
+                if (menu != null) {
+                    menu.audioOutputAvailabilityChanged(available);
+                }
+                CoronaPokerGdxTable current = table;
+                if (current != null) {
+                    current.audioOutputAvailabilityChanged(available);
+                }
+            }
         }
         CoronaPokerGdxTable intro = startupIntro;
         if (intro != null) {
@@ -214,6 +226,10 @@ final class GdxApplicationShell extends ApplicationAdapter {
             current.render();
         }
         scheduleJvmSplashClose();
+    }
+
+    boolean audioOutputAvailable() {
+        return outputHotplugMonitor.outputAvailable();
     }
 
     /**

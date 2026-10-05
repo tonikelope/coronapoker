@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker.gdx;
 
+import com.tonikelope.coronapoker.core.audio.VoiceWavContract;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -53,5 +54,7 @@ final class GdxVoicePlaybackTest {
                     format.getSampleRate());
             assertFalse(format.isBigEndian());
         }
+        assertEquals(VoiceWavContract.durationMillis(ulawWav) + 1_500L,
+                GdxVoicePlayback.playbackWatchdogMillis(ulawWav));
     }
 }

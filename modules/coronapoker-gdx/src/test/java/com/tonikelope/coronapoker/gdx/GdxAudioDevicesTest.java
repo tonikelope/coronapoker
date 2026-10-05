@@ -62,6 +62,24 @@ final class GdxAudioDevicesTest {
         assertTrue(GdxAudioDevices.outputTopologyChanged(
                 List.of("Altavoces"),
                 List.of("Altavoces", "Auriculares USB")));
+        assertFalse(GdxAudioDevices.topologyHasOutput(List.of()));
+        assertFalse(GdxAudioDevices.topologyHasOutput(
+                java.util.Arrays.asList(null, " ")));
+        assertTrue(GdxAudioDevices.topologyHasOutput(
+                List.of("Altavoces")));
+    }
+
+    @Test
+    void hotplugMonitorTracksDisconnectAndReconnectWithoutChangingPreference() {
+        GdxAudioDevices.OutputHotplugMonitor monitor =
+                new GdxAudioDevices.OutputHotplugMonitor();
+        assertFalse(monitor.acceptTopology(List.of("Altavoces")));
+        assertTrue(monitor.outputAvailable());
+        assertTrue(monitor.acceptTopology(List.of()));
+        assertFalse(monitor.outputAvailable());
+        assertFalse(monitor.acceptTopology(List.of()));
+        assertTrue(monitor.acceptTopology(List.of("Auriculares USB")));
+        assertTrue(monitor.outputAvailable());
     }
 
     @Test

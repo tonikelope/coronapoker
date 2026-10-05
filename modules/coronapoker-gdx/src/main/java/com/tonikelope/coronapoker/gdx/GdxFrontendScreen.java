@@ -286,6 +286,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             "https://github.com/tonikelope/coronapoker");
     static final URI ABOUT_RULES_URI = URI.create(
             "https://github.com/tonikelope/coronapoker/raw/master/robert_rules.pdf");
+    private static final Color AUDIO_UNAVAILABLE_RED =
+            new Color(0xef3340ff);
 
     private final FitViewport viewport = new FitViewport(WIDTH, HEIGHT);
     private final List<TextItem> texts = new ArrayList<>();
@@ -937,8 +939,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         batch.setColor(Color.WHITE);
         for (UiImageItem item : uiImages) {
+            batch.setColor(item.tint);
             batch.draw(item.texture, item.x, item.y, item.width, item.height);
         }
+        batch.setColor(Color.WHITE);
         for (TextItem item : texts) {
             drawTextItem(item);
         }
@@ -1340,18 +1344,22 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void playLobbyRosterChange(LobbySnapshot previous,
             LobbySnapshot next) {
         LobbyRosterChange change = lobbyRosterChange(previous, next);
-        if (!audioControl.enabled()
+        if (!audioOutputAvailable() || !audioControl.enabled()
                 || !preferenceBoolean("sonido_efectos", true)) {
             return;
         }
         float volume = masterVolume();
-        if (change.joined()
-                && preferenceBoolean("sonido_entra", true)) {
-            participantJoinedCue.play(volume);
-        }
-        if (change.left()
-                && preferenceBoolean("sonido_sale", true)) {
-            participantLeftCue.play(volume);
+        try {
+            if (change.joined()
+                    && preferenceBoolean("sonido_entra", true)) {
+                participantJoinedCue.play(volume);
+            }
+            if (change.left()
+                    && preferenceBoolean("sonido_sale", true)) {
+                participantLeftCue.play(volume);
+            }
+        } catch (RuntimeException unavailable) {
+            // Output may disappear between the central poll and this event.
         }
     }
 
@@ -5714,6 +5722,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void toggleVoiceNotePreview(GdxVoiceNoteLibrary.Entry entry) {
+        if (!audioOutputAvailable()) {
+            showToast(gameText.translate("gdx.audio.no_output_device"));
+            return;
+        }
         if (entry.equals(voiceNotePlaying)) {
             GdxVoicePlayback.stop();
             voiceNotePlaying = null;
@@ -6374,9 +6386,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void playLobbyVoice(LobbyChatMessage message) {
-        if (!audioControl.enabled()
+        if (!audioOutputAvailable() || !audioControl.enabled()
                 || preferenceBoolean("audio_block_voice_messages", false)) {
-            showToast(gameText.translate("gdx.lobby.voice_playback_disabled"));
+            showToast(gameText.translate(audioOutputAvailable()
+                    ? "gdx.lobby.voice_playback_disabled"
+                    : "gdx.audio.no_output_device"));
             return;
         }
         try {
@@ -6406,9 +6420,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void playLobbyVoice(LobbyChatMessage message, long sequence) {
-        if (!audioControl.enabled()
+        if (!audioOutputAvailable() || !audioControl.enabled()
                 || preferenceBoolean("audio_block_voice_messages", false)) {
-            showToast(gameText.translate("gdx.lobby.voice_playback_disabled"));
+            showToast(gameText.translate(audioOutputAvailable()
+                    ? "gdx.lobby.voice_playback_disabled"
+                    : "gdx.audio.no_output_device"));
             lobbyChatVoiceSequence = -1L;
             return;
         }
@@ -6451,7 +6467,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void playLobbyVoice(byte[] wav) {
-        if (!audioControl.enabled()
+        if (!audioOutputAvailable() || !audioControl.enabled()
                 || preferenceBoolean("audio_block_voice_messages", false)) {
             return;
         }
@@ -7968,9 +7984,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void playFrontendSound(Sound sound, float volume) {
-        if (!audioControl.enabled()
+        if (!audioOutputAvailable() || !audioControl.enabled()
                 || !preferenceBoolean("sonido_efectos", true)) return;
-        sound.play(volume * masterVolume());
+        try {
+            sound.play(volume * masterVolume());
+        } catch (RuntimeException unavailable) {
+            // Device hotplug can race the one-second topology poll.
+        }
     }
 
     private String configuredDeck() {
@@ -8058,16 +8078,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float iconSize = Math.min(52f, h);
         float iconX = showLabel ? x + w - iconSize
                 : x + (w - iconSize) / 2f;
-        uiImages.add(new UiImageItem(audioControl.enabled()
+        boolean outputAvailable = audioOutputAvailable();
+        uiImages.add(new UiImageItem(outputAvailable && audioControl.enabled()
                 ? soundIcon : muteIcon, iconX,
-                y + (h - iconSize) / 2f, iconSize, iconSize));
+                y + (h - iconSize) / 2f, iconSize, iconSize,
+                outputAvailable ? Color.WHITE : AUDIO_UNAVAILABLE_RED));
         float hitX = showLabel ? x - 12f : x - 8f;
         float hitW = showLabel ? w + 24f : w + 16f;
         hit(hitX, y - 6f, hitW, h + 12f,
                 this::toggleMasterSound);
+        if (!outputAvailable) {
+            tooltip(hitX, y - 6f, hitW, h + 12f,
+                    "gdx.audio.no_output_device");
+        }
     }
 
     private void toggleMasterSound() {
+        if (!audioOutputAvailable()) return;
         GdxToggleSoundAction.run(audioControl.enabled(),
                 this::toggleMasterSoundState,
                 this::playFrontendSwitchSound);
@@ -8087,7 +8114,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private boolean musicMasterEnabled() {
-        return audioControl.enabled() && preferenceBoolean("musica", true);
+        return audioOutputAvailable() && audioControl.enabled()
+                && preferenceBoolean("musica", true);
+    }
+
+    private boolean audioOutputAvailable() {
+        GdxApplicationShell shell = GdxApplicationShell.active();
+        return shell == null || shell.audioOutputAvailable();
+    }
+
+    void audioOutputAvailabilityChanged(boolean available) {
+        if (!available) GdxVoicePlayback.stop();
+        syncMusicForSurface();
     }
 
     private void syncMusicForSurface() {
@@ -8095,10 +8133,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || aboutMusic == null || statsMusic == null) return;
         float volume = masterVolume();
         GdxVoicePlayback.refreshVolume(volume);
-        backgroundMusic.setVolume(0.40f * volume);
-        waitingRoomMusic.setVolume(0.90f * volume);
-        aboutMusic.setVolume(0.90f * volume);
-        statsMusic.setVolume(0.30f * volume);
+        setMusicVolume(backgroundMusic, 0.40f * volume);
+        setMusicVolume(waitingRoomMusic, 0.90f * volume);
+        setMusicVolume(aboutMusic, 0.90f * volume);
+        setMusicVolume(statsMusic, 0.30f * volume);
         boolean lobbyMusic = surface == Surface.LOBBY
                 || (surface == Surface.SCREENSHOTS
                         && screenshotReturnSurface == Surface.LOBBY)
@@ -8128,11 +8166,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         syncTrack(statsMusic, playStats);
     }
 
+    private static void setMusicVolume(Music music, float volume) {
+        try {
+            music.setVolume(volume);
+        } catch (RuntimeException unavailable) {
+            // A physical endpoint may disappear during this render turn.
+        }
+    }
+
     private static void syncTrack(Music music, boolean play) {
-        if (play) {
-            if (!music.isPlaying()) music.play();
-        } else if (music.isPlaying()) {
-            music.pause();
+        try {
+            if (play) {
+                if (!music.isPlaying()) music.play();
+            } else if (music.isPlaying()) {
+                music.pause();
+            }
+        } catch (RuntimeException unavailable) {
+            // The physical endpoint can disappear between the topology poll
+            // and this render turn. The next hotplug poll restores playback.
         }
     }
 
@@ -9492,7 +9543,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float x = (WIDTH - width) / 2f;
         float y = (HEIGHT - height) / 2f;
         float volume = masterVolume();
-        Color accent = volume > 0f ? CYAN : LATENCY_RED;
+        boolean outputAvailable = audioOutputAvailable();
+        Color accent = outputAvailable && volume > 0f
+                ? CYAN : LATENCY_RED;
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
@@ -9515,8 +9568,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.end();
 
         batch.begin();
-        batch.setColor(Color.WHITE);
-        batch.draw(volume > 0f ? soundIcon : muteIcon,
+        batch.setColor(outputAvailable ? Color.WHITE : AUDIO_UNAVAILABLE_RED);
+        batch.draw(outputAvailable && volume > 0f ? soundIcon : muteIcon,
                 x + 22f, y + 21f, 58f, 58f);
         String label = Math.round(volume * 100f) + "%";
         drawFittedCenteredInBox(volumeOverlayFont, label, barX, barY, barW,
@@ -12117,7 +12170,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private record UiImageItem(Texture texture, float x, float y,
-            float width, float height) {
+            float width, float height, Color tint) {
+
+        private UiImageItem(Texture texture, float x, float y,
+                float width, float height) {
+            this(texture, x, y, width, height, Color.WHITE);
+        }
     }
 
     private record ComposerRun(String text, int emojiId, float width) {

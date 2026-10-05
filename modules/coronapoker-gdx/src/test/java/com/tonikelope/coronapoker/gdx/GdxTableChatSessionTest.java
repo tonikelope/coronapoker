@@ -46,6 +46,24 @@ final class GdxTableChatSessionTest {
     }
 
     @Test
+    void deliversEveryConsecutiveMessageFromTheSameLocalPlayer() {
+        LobbySession lobby = lobby();
+        GdxTableChatSession chat = new GdxTableChatSession(lobby);
+
+        LobbyChatMessage first = message(1, "uno");
+        LobbyChatMessage second = message(2, "dos");
+        LobbyChatMessage third = message(3, "tres");
+        lobby.publish(snapshot(List.of(first)));
+        assertEquals(List.of(first), chat.drainIncoming());
+        lobby.publish(snapshot(List.of(first, second)));
+        assertEquals(List.of(second), chat.drainIncoming());
+        lobby.publish(snapshot(List.of(first, second, third)));
+        assertEquals(List.of(third), chat.drainIncoming());
+
+        chat.close();
+    }
+
+    @Test
     void sendsImageAndGifUrlsThroughTheCanonicalLobbyCommandSink() {
         AtomicReference<LobbyCommand> sent = new AtomicReference<>();
         LobbySession lobby = new LobbySession(snapshot(List.of()), command -> {
@@ -151,10 +169,10 @@ final class GdxTableChatSessionTest {
     }
 
     @Test
-    void lostAudioCallbackCannotLeaveTheTalkIconForTwoMinutes() {
-        assertEquals(7.5f, CoronaPokerGdxTable.seatChatPlaybackWatchdog(
+    void textIndicatorNeverInheritsTheLongAudioWatchdog() {
+        assertEquals(3f, CoronaPokerGdxTable.seatChatPlaybackWatchdog(
                 LobbyChatMessage.Type.TEXT, "hola"));
-        assertEquals(10f, CoronaPokerGdxTable.seatChatPlaybackWatchdog(
+        assertEquals(4f, CoronaPokerGdxTable.seatChatPlaybackWatchdog(
                 LobbyChatMessage.Type.TEXT, "x".repeat(76)));
         assertEquals(16f, CoronaPokerGdxTable.seatChatPlaybackWatchdog(
                 LobbyChatMessage.Type.VOICE, "UklGRg=="));

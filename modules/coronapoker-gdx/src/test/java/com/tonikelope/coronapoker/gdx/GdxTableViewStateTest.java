@@ -698,6 +698,10 @@ final class GdxTableViewStateTest {
 
     @Test
     void tableTtsUsesTheSameNotificationGatesAsSwing() {
+        assertTrue(CoronaPokerGdxTable.chatAudioAvailable(true, true));
+        assertFalse(CoronaPokerGdxTable.chatAudioAvailable(true, false),
+                "a missing physical output must select the mute notice and skip TTS");
+        assertFalse(CoronaPokerGdxTable.chatAudioAvailable(false, true));
         assertTrue(CoronaPokerGdxTable.shouldSpeakTableChat(
                 LobbyChatMessage.Type.TEXT, true, true, true, false, false));
         assertFalse(CoronaPokerGdxTable.shouldSpeakTableChat(
@@ -734,6 +738,16 @@ final class GdxTableViewStateTest {
                 0.000_001f);
         assertEquals(1f, GdxTextToSpeechPlayback.ttsVolume(0.5d), 0f);
         assertEquals(1f, GdxTextToSpeechPlayback.ttsVolume(1d), 0f);
+    }
+
+    @Test
+    void ttsPlaybackWatchdogIsShortAndScalesWithMessageLength() {
+        assertEquals(5L, GdxTextToSpeechPlayback.playbackWatchdogSeconds(
+                "hola"));
+        assertEquals(10L, GdxTextToSpeechPlayback.playbackWatchdogSeconds(
+                "x".repeat(76)));
+        assertEquals(16L, GdxTextToSpeechPlayback.playbackWatchdogSeconds(
+                "x".repeat(150)));
     }
 
     @Test

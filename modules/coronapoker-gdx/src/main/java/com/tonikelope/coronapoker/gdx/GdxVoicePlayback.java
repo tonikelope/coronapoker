@@ -13,8 +13,11 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.sound.sampled.AudioFileFormat;
@@ -53,7 +56,7 @@ final class GdxVoicePlayback {
 
     static CompletableFuture<Void> play(byte[] wav, float masterVolume,
             Runnable playbackStarted) {
-        if (wav == null || wav.length == 0) {
+        if (wav == null || wav.length == 0 || !audioOutputAvailable()) {
             return CompletableFuture.completedFuture(null);
         }
         byte[] payload = Arrays.copyOf(wav, wav.length);
@@ -85,7 +88,11 @@ final class GdxVoicePlayback {
         Music music = ACTIVE.get();
         if (music == null || Gdx.app == null) return;
         Gdx.app.postRunnable(() -> {
-            if (ACTIVE.get() == music) music.setVolume(activeVolume);
+            try {
+                if (ACTIVE.get() == music) music.setVolume(activeVolume);
+            } catch (RuntimeException unavailable) {
+                stop();
+            }
         });
     }
 
@@ -101,7 +108,11 @@ final class GdxVoicePlayback {
         Music music = ACTIVE.get();
         if (music == null || Gdx.app == null) return;
         Gdx.app.postRunnable(() -> {
-            if (ACTIVE.get() == music) music.pause();
+            try {
+                if (ACTIVE.get() == music) music.pause();
+            } catch (RuntimeException unavailable) {
+                finish(music, ACTIVE_COMPLETION.get(), unavailable);
+            }
         });
     }
 
@@ -109,7 +120,13 @@ final class GdxVoicePlayback {
         Music music = ACTIVE.get();
         if (music == null || Gdx.app == null) return;
         Gdx.app.postRunnable(() -> {
-            if (ACTIVE.get() == music) music.play();
+            try {
+                if (ACTIVE.get() == music && audioOutputAvailable()) {
+                    music.play();
+                }
+            } catch (RuntimeException unavailable) {
+                finish(music, ACTIVE_COMPLETION.get(), unavailable);
+            }
         });
     }
 
@@ -132,7 +149,28 @@ final class GdxVoicePlayback {
             CompletableFuture<Void> completion = new CompletableFuture<>();
             Gdx.app.postRunnable(() -> start(ready, volume,
                     playbackStarted, completion, generation));
-            completion.join();
+            try {
+                completion.get(playbackWatchdogMillis(wav),
+                        TimeUnit.MILLISECONDS);
+            } catch (TimeoutException stalledBackend) {
+                TimeoutException failure = new TimeoutException(
+                        "OpenAL voice playback did not complete");
+                Gdx.app.postRunnable(() -> finish(ACTIVE.get(),
+                        completion, failure));
+                try {
+                    // Keep the temporary stream alive until render-thread
+                    // disposal releases its file handle.
+                    completion.get(2, TimeUnit.SECONDS);
+                } catch (Exception ignored) {
+                    // The timeout below remains the meaningful failure.
+                }
+                throw new CompletionException(failure);
+            } catch (ExecutionException failure) {
+                throw new CompletionException(failure.getCause());
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new CompletionException(interrupted);
+            }
         } catch (IOException failure) {
             throw new CompletionException(failure);
         } finally {
@@ -179,7 +217,7 @@ final class GdxVoicePlayback {
 
     private static void start(Path wav, float volume, Runnable playbackStarted,
             CompletableFuture<Void> completion, long generation) {
-        if (generation != GENERATION.get()) {
+        if (generation != GENERATION.get() || !audioOutputAvailable()) {
             completion.complete(null);
             return;
         }
@@ -195,9 +233,27 @@ final class GdxVoicePlayback {
                     completion, null));
             music.play();
             playbackStarted.run();
+            Gdx.app.postRunnable(() -> {
+                try {
+                    if (ACTIVE.get() == playing && !completion.isDone()
+                            && !playing.isPlaying()) {
+                        finish(playing, completion, new IllegalStateException(
+                                "OpenAL voice playback could not start"));
+                    }
+                } catch (RuntimeException unavailable) {
+                    finish(playing, completion, unavailable);
+                }
+            });
         } catch (Throwable failure) {
             finish(music, completion, failure);
         }
+    }
+
+    static long playbackWatchdogMillis(byte[] wav) {
+        long duration = VoiceWavContract.durationMillis(wav);
+        if (duration < 0L) return 1_500L;
+        return Math.min(VoiceWavContract.MAX_SECONDS * 1_000L + 1_500L,
+                Math.max(1_500L, duration + 1_500L));
     }
 
     private static void finish(Music music, CompletableFuture<Void> completion,
@@ -210,11 +266,20 @@ final class GdxVoicePlayback {
             } catch (RuntimeException ignored) {
                 // The backend may already have completed the source.
             }
-            music.dispose();
+            try {
+                music.dispose();
+            } catch (RuntimeException ignored) {
+                // Best effort after device loss or during teardown.
+            }
         }
         if (completion == null || completion.isDone()) return;
         if (failure == null) completion.complete(null);
         else completion.completeExceptionally(failure);
+    }
+
+    private static boolean audioOutputAvailable() {
+        GdxApplicationShell shell = GdxApplicationShell.active();
+        return shell == null || shell.audioOutputAvailable();
     }
 
     private GdxVoicePlayback() {

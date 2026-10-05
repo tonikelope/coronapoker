@@ -25,24 +25,36 @@ final class GdxAudioDevices {
 
         private static final float POLL_SECONDS = 1f;
         private List<String> previousTopology;
+        private boolean outputAvailable = true;
         private float elapsed;
 
         boolean update(Properties properties, float deltaSeconds) {
+            if (previousTopology == null) {
+                acceptTopology(availableOutputDevices());
+                return false;
+            }
             elapsed += Math.max(0f, deltaSeconds);
             if (elapsed < POLL_SECONDS) return false;
             elapsed = 0f;
             List<String> current = normalizedTopology(
                     availableOutputDevices());
-            if (previousTopology == null) {
-                previousTopology = current;
-                return false;
-            }
-            if (!outputTopologyChanged(previousTopology, current)) {
-                return false;
-            }
-            previousTopology = current;
+            if (!acceptTopology(current)) return false;
             refreshCaptureDevicesAsync();
-            return rebindConfiguredOutput(properties, current);
+            rebindConfiguredOutput(properties, current);
+            return true;
+        }
+
+        boolean acceptTopology(List<String> devices) {
+            List<String> current = normalizedTopology(devices);
+            boolean changed = previousTopology != null
+                    && outputTopologyChanged(previousTopology, current);
+            previousTopology = current;
+            outputAvailable = topologyHasOutput(current);
+            return changed;
+        }
+
+        boolean outputAvailable() {
+            return outputAvailable;
         }
     }
 
@@ -60,6 +72,10 @@ final class GdxAudioDevices {
 
     static boolean hasCaptureDevices() {
         return !captureDevices.isEmpty();
+    }
+
+    static boolean topologyHasOutput(List<String> devices) {
+        return !normalizedTopology(devices).isEmpty();
     }
 
     static String outputLabel(Properties properties, GdxGameText text) {

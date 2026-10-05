@@ -18,7 +18,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
 import java.util.regex.Matcher;
@@ -56,7 +58,9 @@ final class GdxTextToSpeechPlayback implements AutoCloseable {
     private final DoubleSupplier volume;
     private final Consumer<Boolean> ducking;
     private final AtomicBoolean closed = new AtomicBoolean();
+    private final AtomicLong generation = new AtomicLong();
     private volatile Music activeMusic;
+    private volatile CompletableFuture<Boolean> activeCompletion;
 
     GdxTextToSpeechPlayback(DoubleSupplier volume,
             Consumer<Boolean> ducking) {
@@ -73,17 +77,18 @@ final class GdxTextToSpeechPlayback implements AutoCloseable {
         Objects.requireNonNull(playbackStarted, "playbackStarted");
         String speech = serviceText(cleanChatMessage(chatMessage));
         if (speech.isEmpty() || speech.length() > MAX_TTS_LENGTH
-                || closed.get()) return CompletableFuture.completedFuture(false);
+                || closed.get() || !audioOutputAvailable()) {
+            return CompletableFuture.completedFuture(false);
+        }
         String speechLanguage = "es".equalsIgnoreCase(language) ? "es" : "en";
+        long requestedGeneration = generation.get();
         CompletableFuture<Boolean> result = new CompletableFuture<>();
         worker.execute(() -> {
             boolean played = false;
             try {
-                played = GdxSpokenAudioGate.call(() -> fetchAndPlay(
-                        speech, speechLanguage, playbackStarted));
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-            } catch (Exception ignored) {
+                played = fetchAndPlay(speech, speechLanguage,
+                        playbackStarted, requestedGeneration);
+            } catch (RuntimeException ignored) {
                 // Speech is best effort; the chat message remains available.
             }
             result.complete(played);
@@ -95,7 +100,11 @@ final class GdxTextToSpeechPlayback implements AutoCloseable {
     void refreshVolume() {
         Music music = activeMusic;
         if (music != null) {
-            music.setVolume(ttsVolume(volume.getAsDouble()));
+            try {
+                music.setVolume(ttsVolume(volume.getAsDouble()));
+            } catch (RuntimeException unavailable) {
+                stop();
+            }
         }
     }
 
@@ -104,21 +113,47 @@ final class GdxTextToSpeechPlayback implements AutoCloseable {
     }
 
     private boolean fetchAndPlay(String speech, String language,
-            Runnable playbackStarted) {
+            Runnable playbackStarted, long requestedGeneration) {
         Path mp3 = null;
+        CompletableFuture<Boolean> finished = null;
         try {
+            if (requestedGeneration != generation.get()) return false;
             byte[] audio = download(speech, language);
             if (audio.length == 0 || closed.get()
+                    || requestedGeneration != generation.get()
                     || Thread.currentThread().isInterrupted()) return false;
             mp3 = Files.createTempFile("coronapoker-gdx-tts-", ".mp3");
             Files.write(mp3, audio);
-            CompletableFuture<Boolean> finished = new CompletableFuture<>();
+            finished = new CompletableFuture<>();
             Path playbackFile = mp3;
-            Gdx.app.postRunnable(() -> startPlayback(playbackFile, finished,
-                    playbackStarted));
-            return finished.get(2, TimeUnit.MINUTES);
+            CompletableFuture<Boolean> playbackFinished = finished;
+            return GdxSpokenAudioGate.call(() -> {
+                if (closed.get() || !audioOutputAvailable()
+                        || requestedGeneration != generation.get()) {
+                    return false;
+                }
+                Gdx.app.postRunnable(() -> startPlayback(playbackFile,
+                        playbackFinished,
+                        playbackStarted, requestedGeneration));
+                return playbackFinished.get(
+                        playbackWatchdogSeconds(speech), TimeUnit.SECONDS);
+            });
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
+        } catch (TimeoutException stalledBackend) {
+            // OpenAL may accept play() with no physical output device and
+            // never fire its completion listener. Release the serial spoken
+            // audio gate and dispose the stalled stream on the render thread.
+            if (finished != null) {
+                abortPlayback(finished);
+                try {
+                    // Keep the temporary MP3 alive until render-thread
+                    // disposal releases the streaming file handle.
+                    finished.get(2, TimeUnit.SECONDS);
+                } catch (Exception ignored) {
+                    // The watchdog remains a best-effort recovery path.
+                }
+            }
         } catch (Exception ignored) {
             // TTS is best effort: chat and its seat icon remain available.
         } finally {
@@ -134,8 +169,9 @@ final class GdxTextToSpeechPlayback implements AutoCloseable {
     }
 
     private void startPlayback(Path mp3, CompletableFuture<Boolean> finished,
-            Runnable playbackStarted) {
-        if (closed.get()) {
+            Runnable playbackStarted, long requestedGeneration) {
+        if (closed.get() || !audioOutputAvailable()
+                || requestedGeneration != generation.get()) {
             finished.complete(false);
             return;
         }
@@ -143,36 +179,100 @@ final class GdxTextToSpeechPlayback implements AutoCloseable {
             Music music = Gdx.audio.newMusic(Gdx.files.absolute(
                     mp3.toAbsolutePath().toString()));
             activeMusic = music;
+            activeCompletion = finished;
             ducking.accept(true);
             music.setVolume(ttsVolume(volume.getAsDouble()));
-            AtomicBoolean ended = new AtomicBoolean();
             music.setOnCompletionListener(ignored -> finishPlayback(
-                    music, finished, ended));
+                    music, finished, true));
             music.play();
             try {
                 playbackStarted.run();
             } catch (RuntimeException ignored) {
                 // A visual notification must never abort audible playback.
             }
+            // Verify on the following render turn. Some OpenAL backends do
+            // not throw when no output device exists; isPlaying() is then the
+            // only prompt failure signal available to us.
+            Gdx.app.postRunnable(() -> {
+                try {
+                    if (activeMusic == music && activeCompletion == finished
+                            && !finished.isDone() && !music.isPlaying()) {
+                        finishPlayback(music, finished, false);
+                    }
+                } catch (RuntimeException unavailable) {
+                    finishPlayback(music, finished, false);
+                }
+            });
         } catch (RuntimeException failure) {
             activeMusic = null;
+            activeCompletion = null;
             ducking.accept(false);
             finished.complete(false);
         }
     }
 
-    private void finishPlayback(Music music,
+    private synchronized void finishPlayback(Music music,
             CompletableFuture<Boolean> finished,
-            AtomicBoolean ended) {
-        if (!ended.compareAndSet(false, true)) return;
+            boolean played) {
+        if (finished.isDone()) return;
         if (activeMusic == music) activeMusic = null;
+        if (activeCompletion == finished) activeCompletion = null;
         try {
-            music.stop();
-            music.dispose();
+            disposeMusic(music);
         } finally {
             ducking.accept(false);
-            finished.complete(true);
+            // Complete after disposal so the worker cannot delete the
+            // temporary streaming file while OpenAL still owns it.
+            finished.complete(played);
         }
+    }
+
+    private static void disposeMusic(Music music) {
+        try {
+            music.stop();
+        } catch (RuntimeException ignored) {
+            // A missing/replaced OpenAL device may already own no source.
+        }
+        try {
+            music.dispose();
+        } catch (RuntimeException ignored) {
+            // Best effort during device loss and application teardown.
+        }
+    }
+
+    private void abortPlayback(CompletableFuture<Boolean> finished) {
+        if (Gdx.app == null) {
+            finished.complete(false);
+            return;
+        }
+        Gdx.app.postRunnable(() -> {
+            Music music = activeMusic;
+            if (music != null && activeCompletion == finished) {
+                finishPlayback(music, finished, false);
+            } else {
+                finished.complete(false);
+            }
+        });
+    }
+
+    static long playbackWatchdogSeconds(String speech) {
+        String value = Objects.requireNonNullElse(speech, "");
+        int length = value.codePointCount(0, value.length());
+        return Math.max(5L, Math.min(18L,
+                (long) Math.ceil(length / 12d) + 3L));
+    }
+
+    private static boolean audioOutputAvailable() {
+        GdxApplicationShell shell = GdxApplicationShell.active();
+        return shell == null || shell.audioOutputAvailable();
+    }
+
+    /** Cancels active and queued speech without closing the reusable worker. */
+    void stop() {
+        generation.incrementAndGet();
+        CompletableFuture<Boolean> completion = activeCompletion;
+        if (completion == null) return;
+        abortPlayback(completion);
     }
 
     static String cleanChatMessage(String message) {
@@ -253,14 +353,17 @@ final class GdxTextToSpeechPlayback implements AutoCloseable {
     @Override
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
+        generation.incrementAndGet();
         worker.shutdownNow();
         Music music = activeMusic;
-        activeMusic = null;
-        if (music != null) {
-            try {
-                music.stop();
-                music.dispose();
-            } finally {
+        CompletableFuture<Boolean> completion = activeCompletion;
+        if (music != null && completion != null) {
+            finishPlayback(music, completion, false);
+        } else {
+            activeMusic = null;
+            activeCompletion = null;
+            if (music != null) {
+                disposeMusic(music);
                 ducking.accept(false);
             }
         }

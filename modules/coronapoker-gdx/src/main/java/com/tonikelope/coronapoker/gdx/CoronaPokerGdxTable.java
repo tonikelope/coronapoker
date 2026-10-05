@@ -727,6 +727,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final Vector2 pointer = new Vector2();
     private final GdxTooltipDelay latencyTooltipDelay =
             new GdxTooltipDelay();
+    private final GdxTooltipDelay audioOutputTooltipDelay =
+            new GdxTooltipDelay();
     private final GdxTooltipDelay fastAccessTooltipDelay =
             new GdxTooltipDelay();
     private final GdxTooltipDelay pendingRebuyTooltipDelay =
@@ -6266,6 +6268,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         String nickname = tableChat.snapshot().localNickname();
         persistTableVoiceNote(nickname, wav);
         if (!audioControl.enabled()
+                || !audioOutputAvailable()
                 || tablePreference("audio_block_voice_messages", false)
                 || !tablePreference("audio_play_own_voice", true)) return;
         SeatChatNotice notice = new SeatChatNotice(
@@ -7082,6 +7085,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawSeatChatNotices();
         drawSilentChatNotice();
         drawLatencyTooltip();
+        drawAudioOutputUnavailableTooltip();
         drawProductVersionBrand(1f);
         drawVoiceRecordingOverlay(width, height);
         drawAvatarZoomOverlay(width, height);
@@ -8236,13 +8240,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             boolean senderBlocked = blockedSeatMediaNotices.contains(
                     message.nickname());
-            boolean voiceNotice = shouldShowVoiceSeatNotice(
+            // The in-game switch is not enough: OpenAL remains instantiated
+            // when Windows has no physical output endpoint. In that state a
+            // text message follows the existing mute-notice path and is never
+            // submitted to TTS.
+            boolean audibleOutput = chatAudioAvailable(
                     audioControl.enabled(),
+                    audioOutputAvailable());
+            boolean voiceNotice = shouldShowVoiceSeatNotice(
+                    audibleOutput,
                     tablePreference("audio_block_voice_messages", false),
                     ownMessage,
                     tablePreference("audio_play_own_voice", true));
             boolean spokenText = shouldSpeakTableChat(message.type(),
-                    notifications, audioControl.enabled(),
+                    notifications, audibleOutput,
                     globalTextToSpeechEnabled(),
                     tablePreference("audio_block_tts_local", false),
                     senderBlocked);
@@ -8253,6 +8264,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (shouldShowSilentTextNotice(message.type(), eligibleNotice,
                     spokenText)
                     && seatByNickname(message.nickname()) != null) {
+                // A burst from the same player is one live notification, not
+                // a backlog of stale three-second cards. Replacing it also
+                // guarantees that every new message restarts the animation.
+                silentChatNotices.removeIf(notice -> notice.nickname.equals(
+                        message.nickname()));
                 silentChatNotices.addLast(new SilentChatNotice(
                         message.nickname(),
                         GdxTextToSpeechPlayback.cleanChatMessage(
@@ -8271,36 +8287,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     totalTime + seatChatNoticeDuration(message.type(),
                             message.content()));
             if (spokenText) {
+                // The chat indicator acknowledges the message, not the audio
+                // backend. OpenAL can accept play() without an output device
+                // and then never report completion; tying the icon to that
+                // callback made the first icon linger and prevented later
+                // queued messages from showing any icon at all.
+                SeatChatNotice previous = seatChatNotices.remove(
+                        message.nickname());
+                if (previous != null) previous.dispose();
+                seatChatNotices.put(message.nickname(), notice);
                 textToSpeech.enqueue(message.content(),
                         presentationSettings == null
                                 ? tablePreferenceText("lenguaje", "es")
-                                : presentationSettings.language(),
-                        () -> {
-                            if (disposed || seatByNickname(
-                                    message.nickname()) == null) return;
-                            SeatChatNotice previous = seatChatNotices.remove(
-                                    message.nickname());
-                            if (previous != null) previous.dispose();
-                            // Swing only makes talk.png visible once playback
-                            // really starts. The normal completion replaces
-                            // this bounded backend-failure guard with Swing's
-                            // 500 ms tail below.
-                            notice.startedAt = totalTime;
-                            notice.expiresAt = totalTime
-                                    + seatChatPlaybackWatchdog(
-                                            message.type(), message.content());
-                            seatChatNotices.put(message.nickname(), notice);
-                        })
-                        .thenAccept(played -> {
-                            if (!played || Gdx.app == null) return;
-                            Gdx.app.postRunnable(() -> {
-                                if (!disposed
-                                        && seatChatNotices.get(
-                                                message.nickname()) == notice) {
-                                    notice.expiresAt = totalTime + 0.5f;
-                                }
-                            });
-                        });
+                                : presentationSettings.language());
                 continue;
             }
             if (message.type() == LobbyChatMessage.Type.VOICE) {
@@ -8404,6 +8403,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private CompletableFuture<Void> playTableVoice(LobbyChatMessage message,
             Runnable playbackStarted, boolean manualReplay) {
         if (!audioControl.enabled()
+                || !audioOutputAvailable()
                 || tablePreference("audio_block_voice_messages", false)
                 || (message.nickname().equals(tableChat.snapshot().localNickname())
                 && !manualReplay
@@ -8719,6 +8719,57 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawFittedCenteredInBox(smallFont, label, x + 10f, y + 5f,
                 width - 20f, height - 10f, Color.WHITE, 1f);
         batch.end();
+    }
+
+    private void drawAudioOutputUnavailableTooltip() {
+        if (audioOutputAvailable() || liveState == null
+                || uiLayer != UI_NONE || activeDialog != null
+                || !contains(pointer.x, pointer.y, communitySoundX,
+                        communitySoundY, communitySoundWidth,
+                        communitySoundHeight)) {
+            audioOutputTooltipDelay.clear();
+            return;
+        }
+        if (!audioOutputTooltipDelay.ready("table-no-audio-output")) return;
+        String label = gameText.translate("gdx.audio.no_output_device");
+        glyph.setText(smallFont, label);
+        float width = Math.max(210f, glyph.width + 30f);
+        float height = 40f;
+        float x = MathUtils.clamp(pointer.x - width / 2f, 10f,
+                viewport.getWorldWidth() - width - 10f);
+        float y = communitySoundY + communitySoundHeight + 12f;
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapes.setColor(0.005f, 0.020f, 0.032f, 0.97f);
+        roundedRect(x, y, width, height, 8f);
+        shapes.setColor(LATENCY_RED.r, LATENCY_RED.g, LATENCY_RED.b, 0.94f);
+        shapes.rect(x + 10f, y + height - 3f, width - 20f, 2f);
+        shapes.end();
+
+        batch.begin();
+        drawFittedCenteredInBox(smallFont, label, x + 10f, y + 5f,
+                width - 20f, height - 10f, Color.WHITE, 1f);
+        batch.end();
+    }
+
+    private boolean audioOutputAvailable() {
+        GdxApplicationShell shell = GdxApplicationShell.active();
+        return shell == null || shell.audioOutputAvailable();
+    }
+
+    void audioOutputAvailabilityChanged(boolean available) {
+        if (!available) {
+            GdxVoicePlayback.stop();
+            if (textToSpeech != null) textToSpeech.stop();
+        }
+        if (available && musicEnabled()) {
+            try {
+                backgroundMusic.play();
+            } catch (RuntimeException ignored) {
+                // A second topology change may race this render turn.
+            }
+        }
     }
 
     private Seat latencySeatAt(float x, float y) {
@@ -9987,7 +10038,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean pauseHover = contains(pointer.x, pointer.y,
                 communityPauseX, communityPauseY,
                 communityPauseWidth, communityPauseHeight);
-        boolean soundHover = contains(pointer.x, pointer.y,
+        boolean outputAvailable = audioOutputAvailable();
+        boolean soundHover = outputAvailable && contains(pointer.x, pointer.y,
                 communitySoundX, communitySoundY,
                 communitySoundWidth, communitySoundHeight);
         boolean paused = liveState.snapshot().paused();
@@ -10025,7 +10077,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.rect(handX - padding / 2f, y + 6f, 2f, height - 12f);
         drawHudActionSurface(communitySoundX, communitySoundY,
                 communitySoundWidth, communitySoundHeight,
-                SEAT_RIM, soundHover, false, true);
+                outputAvailable ? SEAT_RIM : LATENCY_RED,
+                soundHover, false, outputAvailable);
         drawHudActionSurface(communityLightsX, communityLightsY,
                 communityLightsWidth, communityLightsHeight,
                 userLightsOff ? ORANGE : SEAT_RIM, lightsHover,
@@ -10083,8 +10136,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawFittedCenteredInBox(actionFont, hand,
                 handX + 4f, y + 5f, handWidth - 12f, height - 10f,
                 Color.WHITE, 1f);
-        Texture masterSoundIcon = audioControl.enabled() ? soundIcon : muteIcon;
-        batch.setColor(Color.WHITE);
+        Texture masterSoundIcon = outputAvailable && audioControl.enabled()
+                ? soundIcon : muteIcon;
+        batch.setColor(outputAvailable ? Color.WHITE : LATENCY_RED);
         float soundIconSize = height - 4f;
         batch.draw(masterSoundIcon,
                 communitySoundX + (communitySoundWidth - soundIconSize) / 2f,
@@ -10449,19 +10503,29 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void play(Sound sound, float volume, float pitch) {
         if (voiceOpening || voiceLive || voiceStopping
                 || chatTextToSpeechDucking
+                || !audioOutputAvailable()
                 || !audioControl.enabled()
                 || !tablePreference("sonido_efectos", true)) {
             return;
         }
-        sound.play(volume * effectsVolume, pitch, 0f);
+        try {
+            sound.play(volume * effectsVolume, pitch, 0f);
+        } catch (RuntimeException unavailable) {
+            // Output can disappear between topology polls.
+        }
     }
 
     private void playFunny(Sound sound, float volume, float pitch) {
         if (voiceOpening || voiceLive || voiceStopping
-                || chatTextToSpeechDucking || !funnySoundsEnabled()) {
+                || chatTextToSpeechDucking || !audioOutputAvailable()
+                || !funnySoundsEnabled()) {
             return;
         }
-        sound.play(volume * effectsVolume, pitch, 0f);
+        try {
+            sound.play(volume * effectsVolume, pitch, 0f);
+        } catch (RuntimeException unavailable) {
+            // Output can disappear between topology polls.
+        }
     }
 
     private void playSwitchSound(boolean enabled) {
@@ -10669,7 +10733,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean familyEnabled = GdxSoundFeedback.funnyResource(resource)
                 ? funnySoundsEnabled()
                 : tablePreference("sonido_efectos", true);
-        boolean audible = !forceSilent && audioControl.enabled()
+        boolean outputAvailable = audioOutputAvailable();
+        boolean audible = outputAvailable && !forceSilent
+                && audioControl.enabled()
                 && familyEnabled
                 && !voiceOpening && !voiceLive && !voiceStopping
                 && !chatTextToSpeechDucking;
@@ -10679,14 +10745,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             barrier.complete(null);
             return;
         }
+        if (!outputAvailable) {
+            barrier.complete(null);
+            return;
+        }
         if (!waitForCompletion) {
             if (!audible) {
                 barrier.complete(null);
                 return;
             }
-            Sound sound = liveAudioCueSounds.computeIfAbsent(resource,
-                    ignored -> Gdx.audio.newSound(file));
-            sound.play(effectsVolume);
+            try {
+                Sound sound = liveAudioCueSounds.computeIfAbsent(resource,
+                        ignored -> Gdx.audio.newSound(file));
+                sound.play(effectsVolume);
+            } catch (RuntimeException unavailable) {
+                // The output may disappear after the availability check.
+            }
             barrier.complete(null);
             return;
         }
@@ -10711,8 +10785,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void finishAudioCue(LiveAudioPlayback active, Throwable failure) {
         if (!liveAudioCueWaits.remove(active)) return;
         try {
-            active.music.stop();
-            active.music.dispose();
+            try {
+                active.music.stop();
+            } catch (RuntimeException ignored) {
+            }
+            try {
+                active.music.dispose();
+            } catch (RuntimeException ignored) {
+            }
         } finally {
             if (failure == null) active.barrier.complete(null);
             else active.barrier.completeExceptionally(failure);
@@ -10756,55 +10836,83 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void stopAudioCue(String resource) {
         Sound sound = liveAudioCueSounds.get(resource);
-        if (sound != null) sound.stop();
+        if (sound != null) {
+            try {
+                sound.stop();
+            } catch (RuntimeException ignored) {
+            }
+        }
         for (LiveAudioPlayback active : List.copyOf(liveAudioCueWaits)) {
             if (active.resource.equals(resource)) finishAudioCue(active, null);
         }
     }
 
     private void playAudioLoop(String resource) {
+        if (!audioOutputAvailable()) return;
         if ("misc/background_music.mp3".equals(resource)) {
-            if (!backgroundMusic.isPlaying()) backgroundMusic.play();
+            try {
+                if (!backgroundMusic.isPlaying()) backgroundMusic.play();
+            } catch (RuntimeException unavailable) {
+                return;
+            }
             refreshDealerLoopVolumes();
             return;
         }
         FileHandle file = gameAudioResource(resource);
         if (file == null) return;
-        Music loop = liveAudioCueLoops.computeIfAbsent(resource, ignored -> {
-            Music created = Gdx.audio.newMusic(file);
-            created.setLooping(true);
-            return created;
-        });
-        if (!loop.isPlaying()) loop.play();
+        Music loop;
+        try {
+            loop = liveAudioCueLoops.computeIfAbsent(resource, ignored -> {
+                Music created = Gdx.audio.newMusic(file);
+                created.setLooping(true);
+                return created;
+            });
+            if (!loop.isPlaying()) loop.play();
+        } catch (RuntimeException unavailable) {
+            return;
+        }
         refreshDealerLoopVolumes();
     }
 
     private void stopAudioLoop(String resource) {
-        if ("misc/background_music.mp3".equals(resource)) {
-            backgroundMusic.stop();
-            return;
+        try {
+            if ("misc/background_music.mp3".equals(resource)) {
+                backgroundMusic.stop();
+                return;
+            }
+            Music loop = liveAudioCueLoops.get(resource);
+            if (loop != null) loop.stop();
+        } catch (RuntimeException ignored) {
+            // Device loss may already have destroyed the OpenAL source.
         }
-        Music loop = liveAudioCueLoops.get(resource);
-        if (loop != null) loop.stop();
     }
 
     private void refreshDealerLoopVolumes() {
-        float volume = audioControl.enabled() && !liveAudioLoopsMuted
+        float volume = audioOutputAvailable() && audioControl.enabled()
+                && !liveAudioLoopsMuted
                 && tablePreference("sonido_ascensor", true)
                 ? musicVolume * (chatTextToSpeechDucking ? 0.30f : 1f) : 0f;
-        backgroundMusic.setVolume(volume);
-        for (Music loop : liveAudioCueLoops.values()) loop.setVolume(volume);
-        for (LiveAudioPlayback active : liveAudioCueWaits) {
-            active.music.setVolume(audioControl.enabled()
-                    && tablePreference("sonido_efectos", true)
-                    && !chatTextToSpeechDucking
-                    ? effectsVolume : 0f);
-        }
-        if (liveDangerAlertSound != null && liveDangerAlertSoundId >= 0L) {
-            liveDangerAlertSound.setVolume(liveDangerAlertSoundId,
-                    audioControl.enabled()
-                    && tablePreference("sonido_efectos", true)
-                    && !chatTextToSpeechDucking ? effectsVolume : 0f);
+        try {
+            backgroundMusic.setVolume(volume);
+            for (Music loop : liveAudioCueLoops.values()) {
+                loop.setVolume(volume);
+            }
+            for (LiveAudioPlayback active : liveAudioCueWaits) {
+                active.music.setVolume(audioOutputAvailable()
+                        && audioControl.enabled()
+                        && tablePreference("sonido_efectos", true)
+                        && !chatTextToSpeechDucking
+                        ? effectsVolume : 0f);
+            }
+            if (liveDangerAlertSound != null
+                    && liveDangerAlertSoundId >= 0L) {
+                liveDangerAlertSound.setVolume(liveDangerAlertSoundId,
+                        audioOutputAvailable() && audioControl.enabled()
+                        && tablePreference("sonido_efectos", true)
+                        && !chatTextToSpeechDucking ? effectsVolume : 0f);
+            }
+        } catch (RuntimeException unavailable) {
+            // OpenAL can invalidate sources during a physical hot-unplug.
         }
     }
 
@@ -10816,27 +10924,46 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void startDangerAudioLoop(String resource) {
         stopDangerAudioLoop();
         FileHandle file = gameAudioResource(resource);
-        if (file == null || !audioControl.enabled()
+        if (file == null || !audioOutputAvailable() || !audioControl.enabled()
                 || !tablePreference("sonido_efectos", true)) return;
-        liveDangerAlertSound = Gdx.audio.newSound(file);
-        liveDangerAlertSoundId = liveDangerAlertSound.loop(
-                chatTextToSpeechDucking ? 0f : effectsVolume);
+        try {
+            liveDangerAlertSound = Gdx.audio.newSound(file);
+            liveDangerAlertSoundId = liveDangerAlertSound.loop(
+                    chatTextToSpeechDucking ? 0f : effectsVolume);
+        } catch (RuntimeException unavailable) {
+            liveDangerAlertSound = null;
+            liveDangerAlertSoundId = -1L;
+        }
     }
 
     private void stopDangerAudioLoop() {
         if (liveDangerAlertSound == null) return;
         if (liveDangerAlertSoundId >= 0L) {
-            liveDangerAlertSound.stop(liveDangerAlertSoundId);
+            try {
+                liveDangerAlertSound.stop(liveDangerAlertSoundId);
+            } catch (RuntimeException ignored) {
+                // Source may already have vanished with its output device.
+            }
         }
-        liveDangerAlertSound.dispose();
+        try {
+            liveDangerAlertSound.dispose();
+        } catch (RuntimeException ignored) {
+            // Best effort after device loss.
+        }
         liveDangerAlertSound = null;
         liveDangerAlertSoundId = -1L;
     }
 
     private void startShuffleSound() {
-        if (audioControl.enabled() && !chatTextToSpeechDucking
+        if (audioOutputAvailable() && audioControl.enabled()
+                && !chatTextToSpeechDucking
                 && liveShuffleSoundEnabled()) {
-            shuffleSoundId = shuffleSound.play(0.62f * effectsVolume, 1f, 0f);
+            try {
+                shuffleSoundId = shuffleSound.play(
+                        0.62f * effectsVolume, 1f, 0f);
+            } catch (RuntimeException unavailable) {
+                shuffleSoundId = -1L;
+            }
         }
     }
 
@@ -11034,6 +11161,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void toggleMasterSound() {
+        if (!audioOutputAvailable()) return;
         boolean wasEnabled = audioControl.enabled();
         if (wasEnabled) playSwitchSound(false);
         boolean enabled = audioControl.toggle(uiLayer != UI_SETTINGS);
@@ -11080,7 +11208,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean musicEnabled() {
-        return audioControl.enabled()
+        return audioOutputAvailable() && audioControl.enabled()
                 && tablePreference("musica", true)
                 && tablePreference("sonido_ascensor", true);
     }
@@ -16239,7 +16367,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float x = (viewport.getWorldWidth() - width) / 2f;
         float y = (viewport.getWorldHeight() - height) / 2f;
         float volume = effectsVolume;
-        Color accent = volume > 0f ? CYAN : FOLD_RED;
+        boolean outputAvailable = audioOutputAvailable();
+        Color accent = outputAvailable && volume > 0f ? CYAN : FOLD_RED;
         float barX = x + GdxVolumeOverlayStyle.BAR_X_OFFSET;
         float barY = y + GdxVolumeOverlayStyle.BAR_Y_OFFSET;
         float barW = width - GdxVolumeOverlayStyle.BAR_RIGHT_INSET;
@@ -16259,8 +16388,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         shapes.end();
         batch.begin();
-        batch.setColor(Color.WHITE);
-        batch.draw(volume > 0f ? soundIcon : muteIcon,
+        batch.setColor(outputAvailable ? Color.WHITE : FOLD_RED);
+        batch.draw(outputAvailable && volume > 0f ? soundIcon : muteIcon,
                 x + 22f, y + 21f, 58f, 58f);
         drawFittedCenteredInBox(uiFont, Math.round(volume * 100f) + "%",
                 barX, barY, barW, GdxVolumeOverlayStyle.BAR_HEIGHT,
@@ -19893,22 +20022,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return Math.max(3f, (float) Math.ceil(length / 25d));
     }
 
-    /**
-     * Last-resort visual timeout when an OpenAL completion callback is lost.
-     * It is not the normal icon duration: successful TTS/voice playback still
-     * removes the indicator 500 ms after the real audio completion.  Voice
-     * notes are contractually capped at 15 seconds; text gets a conservative
-     * allowance derived from the same length estimate used by Swing.
-     */
+    /** Last-resort visual timeout when an audio completion callback is lost. */
     static float seatChatPlaybackWatchdog(LobbyChatMessage.Type type,
             String content) {
         if (type == LobbyChatMessage.Type.VOICE) {
             return VoiceWavContract.MAX_SECONDS + 1f;
         }
-        if (type == LobbyChatMessage.Type.TEXT) {
-            return MathUtils.clamp(seatChatNoticeDuration(type, content) * 2.5f,
-                    4f, 18f);
-        }
+        // Text visuals are deliberately independent from TTS. Keeping this
+        // fallback equal to the normal duration prevents future call sites
+        // from reintroducing the old 7.5-18 second stuck-icon behaviour.
         return seatChatNoticeDuration(type, content);
     }
 
@@ -19940,11 +20062,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static boolean shouldDisplaySeatNotice(LobbyChatMessage.Type type,
             boolean eligibleNotice, boolean spokenText) {
-        // Swing prepares talk.png for every text notification but only makes
-        // it visible from Audio.TTS once playback really starts. A muted,
-        // disabled or blocked TTS message uses Swing's separate mute/blocked
-        // notice without impersonating active speech on its seat. Voice notes
-        // have their own playback gate in shouldShowVoiceSeatNotice.
+        // Spoken text gets a seat acknowledgement immediately; its lifecycle
+        // must never depend on an OpenAL device or a TTS callback. Muted,
+        // disabled or blocked TTS still uses the separate silent notice.
         return eligibleNotice
                 && (type != LobbyChatMessage.Type.TEXT || spokenText);
     }
@@ -19963,6 +20083,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return type == LobbyChatMessage.Type.TEXT && notificationsEnabled
                 && soundEnabled && textToSpeechEnabled
                 && !textToSpeechBlocked && !senderBlocked;
+    }
+
+    static boolean chatAudioAvailable(boolean soundEnabled,
+            boolean outputDeviceAvailable) {
+        return soundEnabled && outputDeviceAvailable;
     }
 
     private void drawTableInputCaret(float x, float y, float caretHeight,
@@ -20502,8 +20627,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     x + 52f, navY + 6f, navWidth - 64f, 42f,
                     navColor, alpha);
         }
-        Texture speaker = audioControl.enabled() ? soundIcon : muteIcon;
-        batch.setColor(1f, 1f, 1f, reveal);
+        boolean outputAvailable = audioOutputAvailable();
+        Texture speaker = outputAvailable && audioControl.enabled()
+                ? soundIcon : muteIcon;
+        Color speakerColor = outputAvailable ? Color.WHITE : LATENCY_RED;
+        batch.setColor(speakerColor.r, speakerColor.g, speakerColor.b, reveal);
         batch.draw(speaker, width - 66f, height - 70f, 30f, 30f);
 
         drawFittedCentered(finalTitleFont,

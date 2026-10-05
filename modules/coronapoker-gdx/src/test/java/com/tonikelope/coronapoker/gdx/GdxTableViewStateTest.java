@@ -238,6 +238,12 @@ final class GdxTableViewStateTest {
     void disabledCardsRemainReadableAndKeepTheirOriginalColour() {
         assertTrue(CoronaPokerGdxTable.DISABLED_CARD_ALPHA >= 0.25f);
         assertTrue(CoronaPokerGdxTable.DISABLED_CARD_ALPHA <= 0.30f);
+        assertTrue(CoronaPokerGdxTable.shouldCompositeDisabledHoleCards(
+                false, false));
+        assertFalse(CoronaPokerGdxTable.shouldCompositeDisabledHoleCards(
+                true, false), "dealing flights render on their own layer");
+        assertFalse(CoronaPokerGdxTable.shouldCompositeDisabledHoleCards(
+                false, true), "settings owns the framebuffer while open");
     }
 
     @Test

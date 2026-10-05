@@ -898,6 +898,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private ShaderProgram backdropBlurShader;
     private FrameBuffer settingsBackdrop;
     private FrameBuffer settingsBlurScratch;
+    private FrameBuffer disabledHoleCardsLayer;
 
     private BitmapFont uiFont;
     private BitmapFont smallFont;
@@ -8707,6 +8708,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawLiveHoleCards(boolean foregroundFlights) {
         Texture cardBack = activeCardBack();
+        boolean compositeDisabledCards = shouldCompositeDisabledHoleCards(
+                foregroundFlights, uiLayer == UI_SETTINGS);
+        if (compositeDisabledCards) {
+            drawDisabledHoleCardsLayer(cardBack);
+        }
         batch.begin();
         if (!foregroundFlights) {
             for (TableSnapshot.PlayerSnapshot player : liveState.snapshot().players()) {
@@ -8753,6 +8759,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         continue;
                     }
                     LiveCardPlacement placement = slot == 0 ? first : second;
+                    if (liveRestingCardAlpha(card, player.nickname(), slot,
+                            false, placement) < 1f
+                            && compositeDisabledCards) {
+                        // The whole pocket is already present in the shared
+                        // translucent layer, avoiding card-on-card bleed.
+                        continue;
+                    }
                     drawLiveRestingCard(card, placement, cardBack,
                             player.nickname(), slot, false);
                 }
@@ -8826,6 +8839,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.setShader(null);
         batch.setColor(Color.WHITE);
         batch.end();
+    }
+
+    static boolean shouldCompositeDisabledHoleCards(boolean foregroundFlights,
+            boolean settingsOpen) {
+        return !foregroundFlights && !settingsOpen;
     }
 
     private void drawLiveHoleSwap(Seat seat, Texture cardBack) {
@@ -9009,15 +9027,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (rabbitCard) {
             drawLiveRabbitCard(card, placement, 1f);
         } else {
-            // A settled two-card hand must keep its physical painter order even
-            // when only one card belongs to the winning five.  Using alpha for
-            // a disabled front card lets the rear card bleed through; an opaque
-            // luminance tint preserves the same dim cue and the front card's
-            // silhouette, so the right-hand index can never be covered.
-            float visualTint = !communityCard && alpha < 1f ? alpha : 1f;
-            float visualAlpha = !communityCard && alpha < 1f ? 1f : alpha;
             drawLiveRestingCard(card, placement, cardBack,
-                    visualTint, visualAlpha, showdownTint);
+                    1f, alpha, showdownTint);
         }
     }
 
@@ -9106,6 +9117,78 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return hovered && alpha < 1f ? 1f : alpha;
     }
 
+    private void drawDisabledHoleCardsLayer(Texture cardBack) {
+        boolean hasDisabledCards = false;
+        for (TableSnapshot.PlayerSnapshot player : liveState.snapshot().players()) {
+            Seat seat = seatByNickname(player.nickname());
+            if (seat == null || hasActiveHolePresentation(player.nickname())) {
+                continue;
+            }
+            List<TableSnapshot.CardSnapshot> holeCards
+                    = liveState.presentedHoleCards(player.nickname());
+            for (int slot = 0; slot < holeCards.size() && slot < 2; slot++) {
+                TableSnapshot.CardSnapshot card = holeCards.get(slot);
+                if (card.visible() && card.faceUp()
+                        && liveRestingCardAlpha(card, player.nickname(), slot,
+                                false, liveHolePlacement(seat, slot)) < 1f) {
+                    hasDisabledCards = true;
+                    break;
+                }
+            }
+            if (hasDisabledCards) break;
+        }
+        if (!hasDisabledCards) return;
+
+        ensureDisabledHoleCardsLayer();
+        disabledHoleCardsLayer.begin();
+        Gdx.gl.glViewport(0, 0, disabledHoleCardsLayer.getWidth(),
+                disabledHoleCardsLayer.getHeight());
+        Gdx.gl.glClearColor(0f, 0f, 0f, 0f);
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+        batch.setProjectionMatrix(camera.combined);
+        batch.begin();
+        for (TableSnapshot.PlayerSnapshot player : liveState.snapshot().players()) {
+            Seat seat = seatByNickname(player.nickname());
+            if (seat == null || hasActiveHolePresentation(player.nickname())) {
+                continue;
+            }
+            List<TableSnapshot.CardSnapshot> holeCards
+                    = liveState.presentedHoleCards(player.nickname());
+            LiveCardPlacement first = liveHolePlacement(seat, 0);
+            LiveCardPlacement second = liveHolePlacement(seat, 1);
+            int visibleSlots = Math.min(2, holeCards.size());
+            for (int layer = 0; layer < visibleSlots; layer++) {
+                int slot = visibleSlots == 1 ? 0
+                        : holeCardSlotForLayer(first.x, second.x, layer);
+                TableSnapshot.CardSnapshot card = holeCards.get(slot);
+                LiveCardPlacement placement = slot == 0 ? first : second;
+                if (!card.visible() || !card.faceUp()
+                        || liveRestingCardAlpha(card, player.nickname(), slot,
+                                false, placement) >= 1f) {
+                    continue;
+                }
+                drawLiveRestingCard(card, placement, cardBack,
+                        1f, 1f, false);
+            }
+        }
+        batch.setShader(null);
+        batch.setColor(Color.WHITE);
+        batch.end();
+        disabledHoleCardsLayer.end();
+
+        viewport.apply();
+        camera.update();
+        batch.setProjectionMatrix(camera.combined);
+        Texture layer = disabledHoleCardsLayer.getColorBufferTexture();
+        batch.begin();
+        batch.setColor(1f, 1f, 1f, DISABLED_CARD_ALPHA);
+        batch.draw(layer, 0f, 0f, viewport.getWorldWidth(),
+                viewport.getWorldHeight(), 0, 0, layer.getWidth(),
+                layer.getHeight(), false, true);
+        batch.setColor(Color.WHITE);
+        batch.end();
+    }
+
     private boolean hasActiveHolePresentation(String nickname) {
         TableSnapshot.PlayerSnapshot player = livePlayer(nickname);
         if (!usesTransientHolePresentation(player)) {
@@ -9117,6 +9200,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && liveHoleFold.event.nickname().equals(nickname)
                 || liveHoleReveal != null
                 && liveHoleReveal.event.nickname().equals(nickname);
+    }
+
+    private void ensureDisabledHoleCardsLayer() {
+        int width = Math.max(1, Gdx.graphics.getBackBufferWidth());
+        int height = Math.max(1, Gdx.graphics.getBackBufferHeight());
+        if (disabledHoleCardsLayer != null
+                && disabledHoleCardsLayer.getWidth() == width
+                && disabledHoleCardsLayer.getHeight() == height) {
+            return;
+        }
+        if (disabledHoleCardsLayer != null) disabledHoleCardsLayer.dispose();
+        disabledHoleCardsLayer = new FrameBuffer(Pixmap.Format.RGBA8888,
+                width, height, false);
+        disabledHoleCardsLayer.getColorBufferTexture().setFilter(
+                TextureFilter.Linear, TextureFilter.Linear);
     }
 
     private void drawLiveHoleFold(TableSnapshot.PlayerSnapshot player,
@@ -20630,6 +20728,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (backdropBlurShader != null) backdropBlurShader.dispose();
         if (settingsBackdrop != null) settingsBackdrop.dispose();
         if (settingsBlurScratch != null) settingsBlurScratch.dispose();
+        if (disabledHoleCardsLayer != null) disabledHoleCardsLayer.dispose();
         uiFont.dispose();
         smallFont.dispose();
         versionFont.dispose();

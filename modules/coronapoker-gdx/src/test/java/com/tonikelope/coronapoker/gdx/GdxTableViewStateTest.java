@@ -1270,6 +1270,28 @@ final class GdxTableViewStateTest {
         assertEquals("MANO 10",
                 CoronaPokerGdxTable.communityHandText(
                         spanish, 10, -1, false));
+        assertEquals("MANO 10/60",
+                CoronaPokerGdxTable.communityHandText(
+                        spanish, 10, 60, true),
+                "the last-hand badge must not replace the hand counter");
+    }
+
+    @Test
+    void closingOverlayWaitsLongEnoughToAvoidFlashingOnFastMenuReturn() {
+        assertFalse(CoronaPokerGdxTable.showFinalClosingOverlay(false, 2f));
+        assertFalse(CoronaPokerGdxTable.showFinalClosingOverlay(true, 0.19f));
+        assertTrue(CoronaPokerGdxTable.showFinalClosingOverlay(true, 0.20f));
+    }
+
+    @Test
+    void lastHandBadgeLeavesTheCommunityCardsCompletelyClear() {
+        float potBottom = 500f;
+        float badgeCenter = CoronaPokerGdxTable.lastHandBadgeCenterY(
+                potBottom);
+        float badgeBottom = badgeCenter - 31f / 2f;
+        float boardTop = potBottom - 24f;
+
+        assertEquals(3f, badgeBottom - boardTop, 0.000_001f);
     }
 
     @Test
@@ -2543,6 +2565,25 @@ final class GdxTableViewStateTest {
                 TableVisualEvent.HandBoundary.Phase.PREPARE, snapshot()));
         assertFalse(state.returnedSidePot("borja"),
                 "BOTE SOBRANTE must not leak into the next hand");
+    }
+
+    @Test
+    void mixedDeadMoneyAndResidualReturnKeepsTheRealSidePotWin() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+
+        state.apply(new TableVisualEvent.HandResult(1, "borja",
+                "PAREJA", true, TableSnapshot.Street.SHOWDOWN,
+                List.of(2)));
+        state.apply(new TableVisualEvent.PayoutBatch(2, List.of(
+                new TableVisualEvent.PayoutBatch.Transfer(
+                        "borja", 65d, 5d, 1_065d)), 0d, 0d));
+
+        assertEquals(Boolean.TRUE, state.resolvedHandWinner("borja"));
+        assertTrue(player(state, "borja").winner());
+        assertTrue(state.returnedSidePot("borja"));
+        assertEquals(List.of(2), state.resolvedWonPotIndexes("borja"));
+        assertEquals("BOTE SOBRANTE", CoronaPokerGdxTable.sidePotOverlayLabel(
+                true, true, List.of(2), new GdxGameText("es")));
     }
 
     @Test

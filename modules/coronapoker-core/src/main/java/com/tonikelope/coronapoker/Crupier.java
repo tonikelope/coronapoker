@@ -18032,14 +18032,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         java.util.ArrayList<HashMap<GamePlayerController, GameHandResult>> sideHands = new java.util.ArrayList<>();
         java.util.ArrayList<HashMap<GamePlayerController, GameHandResult>> sideWinners = new java.util.ArrayList<>();
         for (GamePot side = this.bote.getSidePot(); side != null; side = side.getSidePot()) {
-            if (side.getPlayerControllers().size() > 1) {
+            if (side.getPlayerControllers().size() > 1
+                    || MoneyMath.compare(side.getTotal(),
+                            side.getUncalledBet()) > 0) {
                 HashMap<GamePlayerController, GameHandResult> hands = this.calcularJugadas(side.getPlayerControllers());
                 sideHands.add(hands);
                 sideWinners.add(this.calcularGanadores(new HashMap<>(hands)));
             } else {
-                // A one-player residual side pot is an overbet return. It is
-                // paid once on SIDE-A, but it must not turn a losing hand into
-                // a winner or produce a numbered-pot victory badge.
+                // A pure one-player residual layer is only an uncalled return.
+                // A layer containing folded dead money is handled above as a
+                // real side-pot win plus any genuinely uncalled excess.
                 sideHands.add(new HashMap<>());
                 sideWinners.add(new HashMap<>());
             }
@@ -18081,16 +18083,40 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         int sideIndex = 0;
         while (current_pot != null) {
             if (current_pot.getPlayerControllers().size() == 1) {
-                // Undisputed side pot: full refund, ONCE only (SIDE-A); not split
-                // between boards (nothing to compete for).
+                // Undisputed layer: pay it ONCE on SIDE-A. Only the amount above
+                // the largest folded contribution is an uncalled return; any
+                // dead money in the layer is a real side-pot win.
                 if (board == 0) {
                     // Only appears in SIDE-A's breakdown (not paid on SIDE-B).
                     bote_tapete = bote_tapete + " + #" + String.valueOf(sec) + "{" + value_formatter.money(current_pot.getTotal()) + "}";
                     GamePlayerController only = current_pot.getPlayerControllers().get(0);
                     only.pagar(current_pot.getTotal(), null);
-                    recordReturnedSidePot(only, current_pot.getTotal());
+                    double returned = current_pot.getUncalledBet();
+                    double winnings = MoneyMath.clean(
+                            current_pot.getTotal() - returned);
+                    recordReturnedSidePot(only, returned);
+                    if (MoneyMath.compare(winnings, 0d) > 0) {
+                        wonAnySide.add(only);
+                        only.marcarBotePot(sec);
+                        GameHandResult hand = sideWinners.get(sideIndex)
+                                .get(only);
+                        game_log.print(only.getNickname() + " ("
+                                + GameCards.displayCollection(cardControllers(
+                                        only.getHoleCards()))
+                                + game_text.translate(
+                                        "game.gana_bote_secundario")
+                                + String.valueOf(sec) + " ("
+                                + value_formatter.money(winnings) + ") -> "
+                                + hand);
+                    }
                     paidThisBoard += current_pot.getTotal();
-                    game_log.print(only.getNickname() + " " + game_text.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(sec) + " (" + value_formatter.money(current_pot.getTotal()) + ")");
+                    if (MoneyMath.compare(returned, 0d) > 0) {
+                        game_log.print(only.getNickname() + " "
+                                + game_text.translate(
+                                        "game.recupera_bote_sobrante_secundario")
+                                + String.valueOf(sec) + " ("
+                                + value_formatter.money(returned) + ")");
+                    }
                     this.sqlUpdateShowdownPay(only);
                 }
             } else {
@@ -25818,14 +25844,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             for (GamePot lateral = this.bote.getSidePot(); lateral != null; lateral = lateral.getSidePot()) {
                                                 HashMap<GamePlayerController, GameHandResult> jugadas_lateral;
                                                 HashMap<GamePlayerController, GameHandResult> ganadores_lateral;
-                                                if (lateral.getPlayerControllers().size() > 1) {
+                                                if (lateral.getPlayerControllers().size() > 1
+                                                        || MoneyMath.compare(lateral.getTotal(),
+                                                                lateral.getUncalledBet()) > 0) {
                                                     jugadas_lateral = this.calcularJugadas(lateral.getPlayerControllers());
                                                     ganadores_lateral = this.calcularGanadores(new HashMap<>(jugadas_lateral));
                                                 } else {
-                                                    // This is an overbet return, not a won side
-                                                    // pot. Keep it out of the showdown verdict;
-                                                    // the explicit payout classification below
-                                                    // owns its black BOTE SOBRANTE overlay.
+                                                    // Pure uncalled return: it must not become a
+                                                    // winner or receive a numbered-pot badge.
                                                     jugadas_lateral = new HashMap<>();
                                                     ganadores_lateral = new HashMap<>();
                                                 }
@@ -25858,11 +25884,37 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                     bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + value_formatter.money(current_pot.getTotal()) + "}";
                                                     GamePlayerController refundRecipient
                                                             = current_pot.getPlayerControllers().get(0);
-                                                    refundRecipient.pagar(current_pot.getTotal(), conta_bote_secundario);
-                                                    recordReturnedSidePot(refundRecipient,
-                                                            current_pot.getTotal());
+                                                    double returned = current_pot.getUncalledBet();
+                                                    double winnings = MoneyMath.clean(
+                                                            current_pot.getTotal() - returned);
+                                                    refundRecipient.pagar(current_pot.getTotal(), null);
+                                                    recordReturnedSidePot(refundRecipient, returned);
+                                                    if (MoneyMath.compare(winnings, 0d) > 0) {
+                                                        refundRecipient.marcarBotePot(
+                                                                conta_bote_secundario);
+                                                        GameHandResult hand
+                                                                = ganadores_por_lateral
+                                                                        .get(indice_lateral)
+                                                                        .get(refundRecipient);
+                                                        game_log.print(refundRecipient.getNickname()
+                                                                + " (" + GameCards.displayCollection(
+                                                                        cardControllers(refundRecipient
+                                                                                .getHoleCards()))
+                                                                + game_text.translate(
+                                                                        "game.gana_bote_secundario")
+                                                                + String.valueOf(conta_bote_secundario)
+                                                                + " (" + value_formatter.money(winnings)
+                                                                + ") -> " + hand);
+                                                    }
                                                     this.bote_total -= current_pot.getTotal();
-                                                    game_log.print(current_pot.getPlayerControllers().get(0).getNickname() + " " + game_text.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(conta_bote_secundario) + " (" + value_formatter.money(current_pot.getTotal()) + ")");
+                                                    if (MoneyMath.compare(returned, 0d) > 0) {
+                                                        game_log.print(refundRecipient.getNickname()
+                                                                + " " + game_text.translate(
+                                                                        "game.recupera_bote_sobrante_secundario")
+                                                                + String.valueOf(conta_bote_secundario)
+                                                                + " (" + value_formatter.money(returned)
+                                                                + ")");
+                                                    }
                                                     this.sqlUpdateShowdownPay(current_pot.getPlayerControllers().get(0));
                                                 } else {
                                                     // Reuse what was already computed above: recomputing here

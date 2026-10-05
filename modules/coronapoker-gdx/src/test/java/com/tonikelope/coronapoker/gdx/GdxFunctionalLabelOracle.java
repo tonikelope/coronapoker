@@ -131,7 +131,7 @@ final class GdxFunctionalLabelOracle {
             String visibleHand = CoronaPokerGdxTable.communityHandText(text,
                     projection.handNumber(), projection.maximumHands(),
                     projection.lastHand());
-            if (info.handNumber() > 0 && !projection.lastHand()) {
+            if (info.handNumber() > 0) {
                 assertTrue(visibleHand.contains(
                         Integer.toString(info.handNumber())),
                         "GDX hand label omits the authoritative hand number: "

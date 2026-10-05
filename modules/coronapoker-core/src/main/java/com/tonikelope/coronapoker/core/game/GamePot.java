@@ -10,6 +10,9 @@ public interface GamePot {
 
     double getTotal();
 
+    /** Amount contributed by the sole eligible player that nobody matched. */
+    double getUncalledBet();
+
     int getSide_pot_count();
 
     GamePot getSidePot();

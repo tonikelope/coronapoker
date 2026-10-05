@@ -2,6 +2,11 @@
 package com.tonikelope.coronapoker.gdx;
 
 import com.tonikelope.coronapoker.core.game.GameLogSink;
+import com.tonikelope.coronapoker.Crupier;
+import com.tonikelope.coronapoker.table.TableSessionSummary;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -86,6 +91,73 @@ final class GdxGameLogSink implements GameLogSink {
     synchronized void reset() {
         lines.clear();
         showdown = List.of();
+    }
+
+    synchronized void appendFinalSummary(TableSessionSummary summary,
+            GdxGameText text) {
+        Objects.requireNonNull(summary, "summary");
+        Objects.requireNonNull(text, "text");
+        if (!summary.hasBalances()
+                || summary.reason()
+                == TableSessionSummary.CloseReason.RECOVERABLE_STOP) {
+            return;
+        }
+        print(text.translate("game.la_timba_ha_terminado_2") + " -> "
+                + finalSummaryDate(summary.endedAtMillis()) + " ("
+                + finalSummaryDuration(summary.durationSeconds()) + ")");
+        print(finalResultTable(summary, text));
+    }
+
+    static String finalResultTable(TableSessionSummary summary,
+            GdxGameText text) {
+        String resultTitle = text.translate("ui.resultado");
+        int nickWidth = "NICK".length();
+        int resultWidth = resultTitle.length();
+        ArrayList<String[]> rows = new ArrayList<>();
+        for (TableSessionSummary.PlayerBalance balance : summary.balances()) {
+            double result = balance.netResult();
+            String resultText = result < 0d
+                    ? text.translate("ui.pierde_2") + " "
+                            + CoronaPokerGdxTable.formatAmount(-result)
+                    : result > 0d
+                            ? text.translate("ui.gana_4") + " "
+                                    + CoronaPokerGdxTable.formatAmount(result)
+                            : text.translate("ui.ni_gana_ni_pierde");
+            nickWidth = Math.max(nickWidth, balance.nickname().length());
+            resultWidth = Math.max(resultWidth, resultText.length());
+            rows.add(new String[]{balance.nickname(), resultText});
+        }
+        int[] columns = {nickWidth, resultWidth};
+        StringBuilder table = new StringBuilder("(##) ")
+                .append(Crupier.gridBorderLine('\u250c', '\u252c', '\u2510', columns))
+                .append("\n(##) ").append(Crupier.gridRowLine(
+                        String.format("%-" + nickWidth + "s", "NICK"),
+                        String.format("%-" + resultWidth + "s", resultTitle)))
+                .append("\n(##) ")
+                .append(Crupier.gridBorderLine('\u251c', '\u253c', '\u2524', columns));
+        for (String[] row : rows) {
+            table.append("\n(  ) ").append(Crupier.gridRowLine(
+                    String.format("%-" + nickWidth + "s", row[0]),
+                    String.format("%-" + resultWidth + "s", row[1])));
+        }
+        return table.append("\n(##) ")
+                .append(Crupier.gridBorderLine('\u2514', '\u2534', '\u2518', columns))
+                .toString();
+    }
+
+    private static String finalSummaryDate(long endedAtMillis) {
+        return Instant.ofEpochMilli(endedAtMillis)
+                .atZone(ZoneId.systemDefault())
+                .format(DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss"));
+    }
+
+    private static String finalSummaryDuration(long seconds) {
+        long hours = seconds / 3_600L;
+        long minutes = (seconds % 3_600L) / 60L;
+        long remainder = seconds % 60L;
+        return hours > 0L
+                ? String.format("%d:%02d:%02d", hours, minutes, remainder)
+                : String.format("%02d:%02d", minutes, remainder);
     }
 
     record Snapshot(List<String> lines, List<ShowdownEntry> showdown) {

@@ -211,6 +211,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static final float RIVAL_MONEY_CELL_GAP = 6f;
     private static final float POT_PANEL_HEIGHT = 82f;
     private static final float POT_BOARD_GAP = 24f;
+    private static final float LAST_HAND_BADGE_HEIGHT = 31f;
+    private static final float LAST_HAND_CARD_CLEARANCE = 3f;
     private static final float COMMUNITY_TIMER_HEIGHT = 14f;
     private static final float COMMUNITY_TIMER_Y_OFFSET = 18f;
     private static final float COMMUNITY_HUD_Y_OFFSET = 48f;
@@ -744,6 +746,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private CompletableFuture<Void> recoveryStopBarrier;
     private float recoveryStopUntil;
     private boolean finalExitPending;
+    private float finalExitPendingAt;
     private boolean terminationRequested;
     private boolean recoverableTerminationRequested;
     private TableVisualEvent.PreparationStatus.Phase preparationPhase
@@ -895,7 +898,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private ShaderProgram backdropBlurShader;
     private FrameBuffer settingsBackdrop;
     private FrameBuffer settingsBlurScratch;
-    private FrameBuffer disabledHoleCardsLayer;
 
     private BitmapFont uiFont;
     private BitmapFont smallFont;
@@ -3131,6 +3133,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             dialogQueue.clear();
             uiLayer = UI_NONE;
             finalSummary = close.summary();
+            gameLog.appendFinalSummary(finalSummary, gameText);
             finalSummaryBarrier = barrier;
             finalSummaryOpenedAt = totalTime;
             finalSummaryPage = 0;
@@ -5037,7 +5040,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             if (!accepted || finalSummary == null || finalExitPending) return;
             if (retainedFinalApplicationExitAction != null) {
-                finalExitPending = true;
+                beginFinalExitPending();
                 retainedFinalApplicationExitAction.run();
                 return;
             }
@@ -5047,7 +5050,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // can never complete. Release the summary first; the shell exits
             // only after closeTable has disposed the table resources.
             finalApplicationExitRequested = true;
-            finalExitPending = true;
+            beginFinalExitPending();
             CompletableFuture<Void> barrier = finalSummaryBarrier;
             if (barrier != null && !barrier.isDone()) barrier.complete(null);
         });
@@ -8704,11 +8707,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawLiveHoleCards(boolean foregroundFlights) {
         Texture cardBack = activeCardBack();
-        boolean compositeDisabledCards = !foregroundFlights
-                && uiLayer != UI_SETTINGS;
-        if (compositeDisabledCards) {
-            drawDisabledHoleCardsLayer(cardBack);
-        }
         batch.begin();
         if (!foregroundFlights) {
             for (TableSnapshot.PlayerSnapshot player : liveState.snapshot().players()) {
@@ -8737,7 +8735,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
                 List<TableSnapshot.CardSnapshot> holeCards
                         = liveState.presentedHoleCards(player.nickname());
-                for (int slot = 0; slot < holeCards.size() && slot < 2; slot++) {
+                LiveCardPlacement first = liveHolePlacement(seat, 0);
+                LiveCardPlacement second = liveHolePlacement(seat, 1);
+                int visibleSlots = Math.min(2, holeCards.size());
+                for (int layer = 0; layer < visibleSlots; layer++) {
+                    int slot = visibleSlots == 1 ? 0
+                            : holeCardSlotForLayer(first.x, second.x, layer);
                     if (hasActiveHoleFlight(player.nickname(), slot)) {
                         continue;
                     }
@@ -8749,14 +8752,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     if (!isRestingHoleCardVisible(card)) {
                         continue;
                     }
-                    LiveCardPlacement placement = liveHolePlacement(seat, slot);
-                    if (liveRestingCardAlpha(card, player.nickname(), slot,
-                            false, placement) < 1f && compositeDisabledCards) {
-                        // Disabled hands are composited as one translucent
-                        // layer. Drawing each card with alpha independently
-                        // makes the rear card visible through the front card.
-                        continue;
-                    }
+                    LiveCardPlacement placement = slot == 0 ? first : second;
                     drawLiveRestingCard(card, placement, cardBack,
                             player.nickname(), slot, false);
                 }
@@ -8896,7 +8892,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawLiveHoleRevealResting(Seat seat, Texture cardBack) {
-        for (int slot = 0; slot < 2; slot++) {
+        LiveCardPlacement first = liveHolePlacement(seat, 0);
+        LiveCardPlacement second = liveHolePlacement(seat, 1);
+        for (int layer = 0; layer < 2; layer++) {
+            int slot = holeCardSlotForLayer(first.x, second.x, layer);
             float progress = liveHoleReveal.progress(slot);
             if (progress > 0f && progress < 1f) {
                 continue;
@@ -8904,7 +8903,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             TableSnapshot.CardSnapshot card = progress >= 1f
                     ? liveHoleReveal.revealedCard(slot)
                     : liveHoleReveal.originalCard(slot);
-            drawLiveRestingCard(card, liveHolePlacement(seat, slot), cardBack);
+            drawLiveRestingCard(card, slot == 0 ? first : second, cardBack);
         }
     }
 
@@ -9010,8 +9009,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (rabbitCard) {
             drawLiveRabbitCard(card, placement, 1f);
         } else {
+            // A settled two-card hand must keep its physical painter order even
+            // when only one card belongs to the winning five.  Using alpha for
+            // a disabled front card lets the rear card bleed through; an opaque
+            // luminance tint preserves the same dim cue and the front card's
+            // silhouette, so the right-hand index can never be covered.
+            float visualTint = !communityCard && alpha < 1f ? alpha : 1f;
+            float visualAlpha = !communityCard && alpha < 1f ? 1f : alpha;
             drawLiveRestingCard(card, placement, cardBack,
-                    1f, alpha, showdownTint);
+                    visualTint, visualAlpha, showdownTint);
         }
     }
 
@@ -9100,74 +9106,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return hovered && alpha < 1f ? 1f : alpha;
     }
 
-    private void drawDisabledHoleCardsLayer(Texture cardBack) {
-        boolean hasDisabledCards = false;
-        for (TableSnapshot.PlayerSnapshot player : liveState.snapshot().players()) {
-            Seat seat = seatByNickname(player.nickname());
-            if (seat == null || hasActiveHolePresentation(player.nickname())) {
-                continue;
-            }
-            List<TableSnapshot.CardSnapshot> holeCards
-                    = liveState.presentedHoleCards(player.nickname());
-            for (int slot = 0; slot < holeCards.size() && slot < 2;
-                    slot++) {
-                TableSnapshot.CardSnapshot card = holeCards.get(slot);
-                if (card.visible() && card.faceUp()
-                        && liveRestingCardAlpha(card, player.nickname(), slot,
-                                false, liveHolePlacement(seat, slot)) < 1f) {
-                    hasDisabledCards = true;
-                    break;
-                }
-            }
-            if (hasDisabledCards) break;
-        }
-        if (!hasDisabledCards) return;
-
-        ensureDisabledHoleCardsLayer();
-        disabledHoleCardsLayer.begin();
-        Gdx.gl.glViewport(0, 0, disabledHoleCardsLayer.getWidth(),
-                disabledHoleCardsLayer.getHeight());
-        Gdx.gl.glClearColor(0f, 0f, 0f, 0f);
-        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-        batch.setProjectionMatrix(camera.combined);
-        batch.begin();
-        for (TableSnapshot.PlayerSnapshot player : liveState.snapshot().players()) {
-            Seat seat = seatByNickname(player.nickname());
-            if (seat == null || hasActiveHolePresentation(player.nickname())) {
-                continue;
-            }
-            List<TableSnapshot.CardSnapshot> holeCards
-                    = liveState.presentedHoleCards(player.nickname());
-            for (int slot = 0; slot < holeCards.size() && slot < 2;
-                    slot++) {
-                TableSnapshot.CardSnapshot card = holeCards.get(slot);
-                if (!card.visible() || !card.faceUp()
-                        || liveRestingCardAlpha(card, player.nickname(), slot,
-                                false, liveHolePlacement(seat, slot)) >= 1f) {
-                    continue;
-                }
-                drawLiveRestingCard(card, liveHolePlacement(seat, slot),
-                        cardBack, 1f, 1f, false);
-            }
-        }
-        batch.setShader(null);
-        batch.setColor(Color.WHITE);
-        batch.end();
-        disabledHoleCardsLayer.end();
-
-        viewport.apply();
-        camera.update();
-        batch.setProjectionMatrix(camera.combined);
-        Texture layer = disabledHoleCardsLayer.getColorBufferTexture();
-        batch.begin();
-        batch.setColor(1f, 1f, 1f, DISABLED_CARD_ALPHA);
-        batch.draw(layer, 0f, 0f, viewport.getWorldWidth(),
-                viewport.getWorldHeight(), 0, 0, layer.getWidth(),
-                layer.getHeight(), false, true);
-        batch.setColor(Color.WHITE);
-        batch.end();
-    }
-
     private boolean hasActiveHolePresentation(String nickname) {
         TableSnapshot.PlayerSnapshot player = livePlayer(nickname);
         if (!usesTransientHolePresentation(player)) {
@@ -9181,27 +9119,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && liveHoleReveal.event.nickname().equals(nickname);
     }
 
-    private void ensureDisabledHoleCardsLayer() {
-        int width = Math.max(1, Gdx.graphics.getBackBufferWidth());
-        int height = Math.max(1, Gdx.graphics.getBackBufferHeight());
-        if (disabledHoleCardsLayer != null
-                && disabledHoleCardsLayer.getWidth() == width
-                && disabledHoleCardsLayer.getHeight() == height) {
-            return;
-        }
-        if (disabledHoleCardsLayer != null) disabledHoleCardsLayer.dispose();
-        disabledHoleCardsLayer = new FrameBuffer(Pixmap.Format.RGBA8888,
-                width, height, false);
-        disabledHoleCardsLayer.getColorBufferTexture().setFilter(
-                TextureFilter.Linear, TextureFilter.Linear);
-    }
-
     private void drawLiveHoleFold(TableSnapshot.PlayerSnapshot player,
             Seat seat, Texture cardBack) {
         float alpha = foldCardAlpha(liveHoleFold.progress());
-        for (int slot = 0; slot < player.holeCards().size() && slot < 2; slot++) {
+        LiveCardPlacement first = liveHolePlacement(seat, 0);
+        LiveCardPlacement second = liveHolePlacement(seat, 1);
+        int visibleSlots = Math.min(2, player.holeCards().size());
+        for (int layer = 0; layer < visibleSlots; layer++) {
+            int slot = visibleSlots == 1 ? 0
+                    : holeCardSlotForLayer(first.x, second.x, layer);
             drawLiveRestingCard(player.holeCards().get(slot),
-                    liveHolePlacement(seat, slot), cardBack, 1f, alpha, false);
+                    slot == 0 ? first : second, cardBack, 1f, alpha, false);
         }
     }
 
@@ -9433,6 +9361,40 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 textAreaX + textAreaWidth / 2f, panelY + 51f,
                 textAreaWidth, POT_GOLD, 1f);
         batch.setColor(Color.WHITE);
+        batch.end();
+
+        if (liveState.lastHand()) {
+            drawLastHandBadge(panelX + panelWidth / 2f,
+                    lastHandBadgeCenterY(panelY));
+        }
+    }
+
+    static float lastHandBadgeCenterY(float potPanelBottomY) {
+        // The board's top edge is exactly POT_BOARD_GAP below the pot panel.
+        // Anchor the badge from that edge upwards so every deck aspect ratio
+        // retains a hard clear strip and not one card pixel can be covered.
+        return potPanelBottomY - POT_BOARD_GAP
+                + LAST_HAND_BADGE_HEIGHT / 2f
+                + LAST_HAND_CARD_CLEARANCE;
+    }
+
+    private void drawLastHandBadge(float centerX, float centerY) {
+        float width = 190f;
+        float height = LAST_HAND_BADGE_HEIGHT;
+        float x = centerX - width / 2f;
+        float y = centerY - height / 2f;
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapes.setColor(0.10f, 0.07f, 0.01f, 0.72f);
+        roundedRect(x - 2f, y - 2f, width + 4f, height + 4f, 9f);
+        shapes.setColor(POT_GOLD);
+        roundedRect(x, y, width, height, 7f);
+        shapes.end();
+        batch.begin();
+        drawFittedCenteredInBox(actionFont,
+                uppercase(gameText.translate("game.ultima_mano")),
+                x + 8f, y + 3f, width - 16f, height - 6f,
+                Color.BLACK, 1f);
         batch.end();
     }
 
@@ -9841,10 +9803,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean handHover = tableHost && contains(pointer.x, pointer.y,
                 communityHandX, communityHandY,
                 communityHandWidth, communityHandHeight);
-        if (liveState.lastHand() || handHover) {
-            Color handAccent = liveState.lastHand() ? POT_GOLD : CYAN;
-            shapes.setColor(handAccent.r, handAccent.g, handAccent.b,
-                    liveState.lastHand() ? 0.34f : 0.16f);
+        if (handHover) {
+            shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.16f);
             roundedRect(handX + 3f, y + 3f,
                     handWidth - 7f, height - 6f, 7f);
         }
@@ -9915,7 +9875,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         drawFittedCenteredInBox(actionFont, hand,
                 handX + 4f, y + 5f, handWidth - 12f, height - 10f,
-                liveState.lastHand() ? POT_GOLD : Color.WHITE, 1f);
+                Color.WHITE, 1f);
         Texture masterSoundIcon = audioControl.enabled() ? soundIcon : muteIcon;
         batch.setColor(Color.WHITE);
         float soundIconSize = height - 4f;
@@ -9980,9 +9940,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static String communityHandText(GdxGameText text, int handNumber,
             int maximumHands, boolean lastHand) {
-        if (lastHand) {
-            return uppercase(text.translate("game.ultima_mano"), text);
-        }
         String title = uppercase(text.translate("game.mano_2"), text);
         if (handNumber <= 0) return title + "  —";
         return title + " " + handNumber
@@ -12929,6 +12886,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (backgroundMusic == null) return;
         backgroundMusic.setVolume(0f);
         backgroundMusic.pause();
+    }
+
+    void softenBackgroundMusicForHandoff() {
+        if (backgroundMusic == null) return;
+        backgroundMusic.setVolume(Math.min(musicVolume, 0.10f));
     }
 
     /**
@@ -19711,11 +19673,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 || uiLayer != UI_NONE) return false;
         if (action == 0) {
             if (retainedFinalMenuAction != null) {
-                finalExitPending = true;
+                beginFinalExitPending();
                 retainedFinalMenuAction.run();
                 return true;
             }
-            finalExitPending = true;
+            beginFinalExitPending();
             CompletableFuture<Void> barrier = finalSummaryBarrier;
             if (barrier != null && !barrier.isDone()) barrier.complete(null);
             return true;
@@ -19727,24 +19689,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (action == 2) {
             if (retainedFinalStatsAction != null) {
-                finalExitPending = true;
+                beginFinalExitPending();
                 retainedFinalStatsAction.run();
                 return true;
             }
             finalStatsRequested = true;
-            finalExitPending = true;
+            beginFinalExitPending();
             CompletableFuture<Void> barrier = finalSummaryBarrier;
             if (barrier != null && !barrier.isDone()) barrier.complete(null);
             return true;
         }
         if (action == 3) {
             if (retainedFinalContinueAction != null) {
-                finalExitPending = true;
+                beginFinalExitPending();
                 retainedFinalContinueAction.run();
                 return true;
             }
             finalContinueRequested = true;
-            finalExitPending = true;
+            beginFinalExitPending();
             CompletableFuture<Void> barrier = finalSummaryBarrier;
             if (barrier != null && !barrier.isDone()) barrier.complete(null);
             return true;
@@ -20009,7 +19971,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.setColor(Color.WHITE);
         batch.end();
 
-        if (finalExitPending) drawFinalExitPending(width, height);
+        if (showFinalClosingOverlay(finalExitPending,
+                totalTime - finalExitPendingAt)) {
+            drawFinalExitPending(width, height);
+        }
 
         if (!finalSummaryScreenshotTaken
                 && tablePreference("screenshot_fin_timba", false)
@@ -20059,6 +20024,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 boxX + 98f, boxY + 24f, boxW - 122f, boxH - 48f,
                 Color.WHITE, 1f);
         batch.end();
+    }
+
+    static boolean showFinalClosingOverlay(boolean pending,
+            float pendingSeconds) {
+        return pending && pendingSeconds >= 0.20f;
+    }
+
+    private void beginFinalExitPending() {
+        finalExitPending = true;
+        finalExitPendingAt = totalTime;
     }
 
     /** True only when the final-screen recovery action was selected. */
@@ -20653,7 +20628,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (backdropBlurShader != null) backdropBlurShader.dispose();
         if (settingsBackdrop != null) settingsBackdrop.dispose();
         if (settingsBlurScratch != null) settingsBlurScratch.dispose();
-        if (disabledHoleCardsLayer != null) disabledHoleCardsLayer.dispose();
         uiFont.dispose();
         smallFont.dispose();
         versionFont.dispose();

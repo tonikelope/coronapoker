@@ -374,7 +374,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 // Disposal performs substantial resource cleanup; doing it
                 // first created an audible gap in the continuous soundtrack.
                 menu.resumeBackgroundMusicAt(musicPosition);
-                expected.silenceBackgroundMusicForHandoff();
+                expected.softenBackgroundMusicForHandoff();
                 long sessionClosed = System.nanoTime();
                 System.out.printf(java.util.Locale.ROOT,
                         "GDX table close timings: menu=%.1f ms, session=%.1f ms%n",
@@ -439,7 +439,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
             }
         }
         menu.resumeBackgroundMusicAt(musicPosition);
-        expected.silenceBackgroundMusicForHandoff();
+        expected.softenBackgroundMusicForHandoff();
         if (applicationExitRequested) {
             expected.dispose();
             Gdx.app.exit();
@@ -450,11 +450,16 @@ final class GdxApplicationShell extends ApplicationAdapter {
 
     private void disposeTableAfterAudioHandoff(
             CoronaPokerGdxTable retiredTable) {
-        // Run resource destruction on the following render turn. The menu
-        // decoder gets one complete frame to begin playback before hundreds
-        // of table OpenAL objects are released, avoiding the brief dropout
-        // observed when returning from the final summary.
-        Gdx.app.postRunnable(retiredTable::dispose);
+        // Keep the retiring decoder barely audible for one complete menu
+        // frame. Starting and immediately pausing two independent OpenAL music
+        // streams in the same callback can expose a tiny decoder gap even when
+        // both report the same position. The next-frame callback silences the
+        // old stream, then defers the heavy OpenAL/resource destruction once
+        // more so it cannot starve that first clean menu frame.
+        Gdx.app.postRunnable(() -> {
+            retiredTable.silenceBackgroundMusicForHandoff();
+            Gdx.app.postRunnable(retiredTable::dispose);
+        });
     }
 
     void showDialog(GdxTableDialog request) {

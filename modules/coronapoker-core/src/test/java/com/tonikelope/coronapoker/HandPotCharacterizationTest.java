@@ -179,8 +179,33 @@ public class HandPotCharacterizationTest {
 
         CoreGamePot side2 = side1.getSidePot();
         assertEquals(5.0, side2.getTotal(), EPS, "second side pot = 5 x 1");
+        assertEquals(5.0, side2.getUncalledBet(), EPS,
+                "the unmatched top layer is returned in full");
 
         assertEquals(17.0, sumAllPots(pot), EPS, "conservation: 2 + 5 + 10");
+    }
+
+    @Test
+    void runItTwiceSplitsEveryRealLayerButReturnsTheTopResidualOnlyOnce() {
+        CoreGamePot pot = topPot(
+                p("a", 2.0, GamePlayerController.ALLIN, true),
+                p("b", 5.0, GamePlayerController.ALLIN, true),
+                p("c", 10.0, GamePlayerController.BET, true));
+
+        CoreGamePot side1 = pot.getSidePot();
+        CoreGamePot residual = side1.getSidePot();
+        double sideA = Crupier.splitPotForRunItTwice(pot.getTotal())[0]
+                + Crupier.splitPotForRunItTwice(side1.getTotal())[0]
+                + residual.getUncalledBet();
+        double sideB = Crupier.splitPotForRunItTwice(pot.getTotal())[1]
+                + Crupier.splitPotForRunItTwice(side1.getTotal())[1];
+
+        assertEquals(11.0, sideA, EPS,
+                "SIDE-A pays its halves plus the single residual return");
+        assertEquals(6.0, sideB, EPS,
+                "SIDE-B pays only its halves of contested pots");
+        assertEquals(17.0, sideA + sideB, EPS,
+                "the residual is returned once, never split or duplicated");
     }
 
     @Test
@@ -220,6 +245,8 @@ public class HandPotCharacterizationTest {
         CoreGamePot side = pot.getSidePot();
         assertEquals(65.0, side.getTotal(), EPS,
                 "side pot = c's 35 above the cap + b's 30 of dead money above the cap");
+        assertEquals(5.0, side.getUncalledBet(), EPS,
+                "only c's 5 above b's dead 30 is genuinely uncalled");
 
         assertEquals(80.0, sumAllPots(pot), EPS, "conservation: 5 + 35 + 40");
     }
@@ -243,6 +270,8 @@ public class HandPotCharacterizationTest {
 
         CoreGamePot side2 = side1.getSidePot();
         assertEquals(20.0, side2.getTotal(), EPS, "d's last 10 + c's last 10 of dead money");
+        assertEquals(0.0, side2.getUncalledBet(), EPS,
+                "folded dead money fully matches the sole eligible player");
 
         assertEquals(55.0, sumAllPots(pot), EPS, "conservation: 5 + 10 + 20 + 20");
     }

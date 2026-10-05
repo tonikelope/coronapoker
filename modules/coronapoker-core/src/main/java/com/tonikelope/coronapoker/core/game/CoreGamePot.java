@@ -39,6 +39,20 @@ public final class CoreGamePot implements GamePot {
     }
 
     @Override
+    public double getUncalledBet() {
+        if (players.size() != 1) {
+            return 0d;
+        }
+        double highestOtherContribution = 0d;
+        for (GamePlayerController player : deadMoney) {
+            highestOtherContribution = Math.max(highestOtherContribution,
+                    deadContribution(player));
+        }
+        return MoneyMath.clean(Math.max(0d,
+                bet - highestOtherContribution));
+    }
+
+    @Override
     public int getSide_pot_count() {
         int count = 0;
         for (CoreGamePot current = sidePot; current != null;

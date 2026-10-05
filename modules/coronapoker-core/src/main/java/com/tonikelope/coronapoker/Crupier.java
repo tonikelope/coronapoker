@@ -13812,7 +13812,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 : game_text.translate(labelKey);
         double raiseIncrement = MoneyMath.clean(
                 Math.max(0d, actionAmount - oldTableBet));
-        if (raiseIncrement > 0d
+        if (kind == TableVisualEvent.PlayerAction.ActionKind.BET
+                && actionAmount > 0d) {
+            actionLabel += " " + value_formatter.money(actionAmount);
+        } else if (raiseIncrement > 0d
                 && (kind == TableVisualEvent.PlayerAction.ActionKind.RAISE
                 || kind == TableVisualEvent.PlayerAction.ActionKind.RERAISE
                 || kind == TableVisualEvent.PlayerAction.ActionKind.ALL_IN)) {

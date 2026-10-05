@@ -11625,7 +11625,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case ALL_IN -> text.translate("action.label.allin");
             case WAITING, SMALL_BLIND, BIG_BLIND, STRADDLE -> label;
         };
-        return localized + actionIncreaseSuffix(resolved, label);
+        return localized + actionAmountSuffix(resolved, label);
     }
 
     /**
@@ -11669,7 +11669,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Matcher loggedAction = Pattern.compile(
                 "(?:^|\\s)(NO VA|ALL IN|RESUBE|RERAISE|APUESTA|RAISE|"
                 + "CHECK|PASA|CALL|FOLD|SUBE|BET|VA)"
-                + "\\s+\\([^)]*\\)$")
+                + "(?:\\s+\\([^)]*\\)|\\s+[0-9]+(?:[.,][0-9]+)?)$")
                 .matcher(normalized);
         if (loggedAction.find()) {
             normalized = loggedAction.group(1);
@@ -13752,7 +13752,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case WAITING, SMALL_BLIND, BIG_BLIND, STRADDLE ->
                 fallback == null ? "" : fallback;
         };
-        return localized + actionIncreaseSuffix(kind, fallback);
+        return localized + actionAmountSuffix(kind, fallback);
     }
 
     static String localShownHandLabel(String handName, GdxGameText text) {
@@ -13778,15 +13778,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 ? shown : state + " (" + shown + ")", text);
     }
 
-    private static String actionIncreaseSuffix(
+    private static String actionAmountSuffix(
             TableVisualEvent.PlayerAction.ActionKind kind,
             String fallback) {
+        String label = fallback == null ? "" : fallback.trim();
+        if (kind == TableVisualEvent.PlayerAction.ActionKind.BET) {
+            Matcher amount = Pattern.compile(
+                    "\\s+([0-9]+(?:[.,][0-9]+)?)$").matcher(label);
+            return amount.find() ? " " + amount.group(1) : "";
+        }
         if (kind != TableVisualEvent.PlayerAction.ActionKind.RAISE
                 && kind != TableVisualEvent.PlayerAction.ActionKind.RERAISE
                 && kind != TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
             return "";
         }
-        String label = fallback == null ? "" : fallback.trim();
         int suffixStart = label.lastIndexOf(" (+");
         return suffixStart >= 0 && label.endsWith(")")
                 ? label.substring(suffixStart) : "";

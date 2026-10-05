@@ -1604,9 +1604,14 @@ final class GdxTableViewStateTest {
                 TableVisualEvent.PlayerAction.ActionKind.CHECK, "", spanish));
         assertEquals("VAS", CoronaPokerGdxTable.localActionMemoryLabel(
                 TableVisualEvent.PlayerAction.ActionKind.CALL, "", spanish));
-        assertEquals("APUESTAS 4", CoronaPokerGdxTable.localActionMemoryLabel(
+        assertEquals("VAS (+1.2)", CoronaPokerGdxTable
+                .localActionMemoryLabel(
+                        TableVisualEvent.PlayerAction.ActionKind.CALL,
+                        "VA (+1.2)", spanish));
+        assertEquals("APUESTAS (+4)", CoronaPokerGdxTable
+                .localActionMemoryLabel(
                 TableVisualEvent.PlayerAction.ActionKind.BET,
-                "APUESTA 4", spanish));
+                "APUESTA (+4)", spanish));
         assertEquals("SUBES", CoronaPokerGdxTable.localActionMemoryLabel(
                 TableVisualEvent.PlayerAction.ActionKind.RAISE, "", spanish));
         assertEquals("RESUBES (+7)", CoronaPokerGdxTable
@@ -1623,9 +1628,9 @@ final class GdxTableViewStateTest {
                 .localizedActionLabel(
                         TableVisualEvent.PlayerAction.ActionKind.RAISE,
                         "SUBE (+2.5)", english));
-        assertEquals("BET 4", CoronaPokerGdxTable.localizedActionLabel(
+        assertEquals("BET (+4)", CoronaPokerGdxTable.localizedActionLabel(
                 TableVisualEvent.PlayerAction.ActionKind.BET,
-                "APUESTA 4", english));
+                "APUESTA (+4)", english));
     }
 
     @Test
@@ -2012,13 +2017,16 @@ final class GdxTableViewStateTest {
         assertEquals("VA", CoronaPokerGdxTable.localizedActionLabel(
                 TableVisualEvent.PlayerAction.ActionKind.CALL,
                 "CALL", text));
+        assertEquals("VA (+1.2)", CoronaPokerGdxTable.localizedActionLabel(
+                TableVisualEvent.PlayerAction.ActionKind.CALL,
+                "CALL (+1.2)", text));
         assertEquals("RESUBE", CoronaPokerGdxTable.localizedActionLabel(
                 TableVisualEvent.PlayerAction.ActionKind.RERAISE,
                 "RERAISE", text));
         assertEquals("NO VA", CoronaPokerGdxTable.localizedActionLabel(
                 null, "FOLD", text));
-        assertEquals("APUESTA 4", CoronaPokerGdxTable.localizedActionLabel(
-                null, "BET 4", text));
+        assertEquals("APUESTA (+4)", CoronaPokerGdxTable.localizedActionLabel(
+                null, "BET (+4)", text));
 
         text.setLanguage("en");
         assertEquals("CALL", CoronaPokerGdxTable.localizedActionLabel(
@@ -2036,8 +2044,10 @@ final class GdxTableViewStateTest {
                 null, "CoronaBot$4 ALL IN (9.8)", text));
         assertEquals("CALL", CoronaPokerGdxTable.localizedActionLabel(
                 null, "Jugador con espacios VA (0.2)", text));
-        assertEquals("BET 4", CoronaPokerGdxTable.localizedActionLabel(
-                null, "APUESTA 4", text));
+        assertEquals("CALL (+1.2)", CoronaPokerGdxTable
+                .localizedActionLabel(null, "VA (+1.2)", text));
+        assertEquals("BET (+4)", CoronaPokerGdxTable.localizedActionLabel(
+                null, "APUESTA (+4)", text));
         assertEquals(TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
                 CoronaPokerGdxTable.actionKindFromLegacyLabel(
                         "CoronaBot$4 ALL IN (9.8)"));

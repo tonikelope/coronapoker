@@ -13814,7 +13814,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 Math.max(0d, actionAmount - oldTableBet));
         if (kind == TableVisualEvent.PlayerAction.ActionKind.BET
                 && actionAmount > 0d) {
-            actionLabel += " " + value_formatter.money(actionAmount);
+            actionLabel += " (+" + value_formatter.money(actionAmount)
+                    + ")";
+        } else if (kind == TableVisualEvent.PlayerAction.ActionKind.CALL
+                && contribution > 0d) {
+            actionLabel += " (+" + value_formatter.money(contribution)
+                    + ")";
         } else if (raiseIncrement > 0d
                 && (kind == TableVisualEvent.PlayerAction.ActionKind.RAISE
                 || kind == TableVisualEvent.PlayerAction.ActionKind.RERAISE

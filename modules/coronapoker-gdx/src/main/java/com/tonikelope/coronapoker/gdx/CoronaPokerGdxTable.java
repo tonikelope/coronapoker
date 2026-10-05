@@ -11669,7 +11669,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Matcher loggedAction = Pattern.compile(
                 "(?:^|\\s)(NO VA|ALL IN|RESUBE|RERAISE|APUESTA|RAISE|"
                 + "CHECK|PASA|CALL|FOLD|SUBE|BET|VA)"
-                + "(?:\\s+\\([^)]*\\)|\\s+[0-9]+(?:[.,][0-9]+)?)$")
+                + "\\s+\\([^)]*\\)$")
                 .matcher(normalized);
         if (loggedAction.find()) {
             normalized = loggedAction.group(1);
@@ -13782,12 +13782,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             TableVisualEvent.PlayerAction.ActionKind kind,
             String fallback) {
         String label = fallback == null ? "" : fallback.trim();
-        if (kind == TableVisualEvent.PlayerAction.ActionKind.BET) {
-            Matcher amount = Pattern.compile(
-                    "\\s+([0-9]+(?:[.,][0-9]+)?)$").matcher(label);
-            return amount.find() ? " " + amount.group(1) : "";
-        }
-        if (kind != TableVisualEvent.PlayerAction.ActionKind.RAISE
+        if (kind != TableVisualEvent.PlayerAction.ActionKind.CALL
+                && kind != TableVisualEvent.PlayerAction.ActionKind.BET
+                && kind != TableVisualEvent.PlayerAction.ActionKind.RAISE
                 && kind != TableVisualEvent.PlayerAction.ActionKind.RERAISE
                 && kind != TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
             return "";

@@ -39,7 +39,7 @@ final class GdxGameTextTest {
 
         assertEquals(spanishKeys, englishKeys,
                 "GDX must never fall back to a different language or raw key");
-        assertEquals(508, spanishKeys.size(),
+        assertEquals(511, spanishKeys.size(),
                 "new GDX labels must be added symmetrically");
         for (String key : spanishKeys) {
             assertFalse(spanish.getProperty(key).isBlank(), key + " empty in es");
@@ -138,6 +138,8 @@ final class GdxGameTextTest {
                 text.translate("gdx.screenshot.folder_failed"));
         assertEquals("CLOSE AFTER SENDING",
                 text.translate("gdx.table.chat.close_on_send"));
+        assertEquals("TOTAL BET",
+                text.translate("gdx.table.hud.total_bet"));
         assertEquals("RESUME", text.translate("gdx.table.resume"));
         assertEquals("Probability: 46",
                 text.translate("gdx.hand_generator.probability", 46));
@@ -181,6 +183,8 @@ final class GdxGameTextTest {
         assertEquals("MÍNIMO", text.translate("gdx.dialog.minimum"));
         assertEquals("SIN MENSAJES",
                 text.translate("gdx.table.chat.no_messages"));
+        assertEquals("APUESTA TOTAL",
+                text.translate("gdx.table.hud.total_bet"));
         assertEquals("REANUDAR", text.translate("gdx.table.resume"));
         assertEquals("Probabilidad: 46",
                 text.translate("gdx.hand_generator.probability", 46));

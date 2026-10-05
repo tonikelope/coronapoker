@@ -222,7 +222,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             = LOCAL_HUD_HEIGHT + 9f;
     private static final float LOCAL_HUD_STACK_WIDTH = 188f;
     private static final float LOCAL_HUD_INVESTED_WIDTH
-            = LOCAL_HUD_COUNTER_HEIGHT;
+            = LOCAL_HUD_STACK_WIDTH;
     private static final float LOCAL_HUD_COUNTER_GAP = 12f;
     private static final float LOCAL_HUD_ACTION_WIDTH = 868f;
     private static final float LOCAL_HUD_PRE_ACTION_GAP = 12f;
@@ -7233,6 +7233,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void updateLiveShowdownHover(float worldWidth) {
         liveShowdownHoverNickname = null;
         if (liveState == null || uiLayer != UI_NONE
+                || activeDialog != null
                 || !tablePreference("resaltar_jugada_showdown", true)
                 || !liveState.hasShowdownHighlights()
                 || fastAccessSurfaceContains(pointer.x, pointer.y)) {
@@ -7252,8 +7253,30 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             boolean hovering;
             if (seat.index == 0) {
-                hovering = localActionBadgeBounds(seat, worldWidth)
-                        .contains(pointer.x, pointer.y);
+                TableVisualEvent.PlayerAction.ActionKind actionKind
+                        = effectiveLocalActionKind(
+                                hasPendingLocalActionSubmission(),
+                                pendingLocalActionKind,
+                                liveState.actionKind(player.nickname()));
+                boolean localMonteCarlo = showsLocalMonteCarloHud(
+                        actionKind
+                                == TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
+                        liveState.partialHandPercentage(player.nickname()),
+                        liveState.hasHandResult(player.nickname()));
+                String renderedLabel = lastActionLabelForSeat(0);
+                String rawHandName = liveState.resolvedHandName(
+                        player.nickname());
+                if (rawHandName.isBlank()) {
+                    rawHandName = player.handName();
+                }
+                boolean labelShowsHand = !rawHandName.isBlank()
+                        && renderedLabel.equals(localizedHandName(rawHandName,
+                                gameText));
+                hovering = visibleLocalShowdownHoverAllowed(
+                        !localMonteCarlo && !renderedLabel.isEmpty(),
+                        labelShowsHand,
+                        localActionBadgeBounds(seat, worldWidth)
+                                .contains(pointer.x, pointer.y));
             } else {
                 hovering = contains(pointer.x, pointer.y,
                         seat.podX + 7f, seat.podY + 7f,
@@ -7264,6 +7287,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return;
             }
         }
+    }
+
+    static boolean visibleLocalShowdownHoverAllowed(boolean labelRendered,
+            boolean labelShowsHand, boolean pointerInsideLabel) {
+        // The badge and its cards are one hover target, but only while the
+        // badge is genuinely presenting an evaluated hand. This prevents a
+        // stale rectangle from tinting the HUD during Monte Carlo, reveal
+        // transitions, action-memory states or any other hidden-label mode.
+        return labelRendered && labelShowsHand && pointerInsideLabel;
     }
 
     private static Rectangle localNamePlateBounds(Seat local,
@@ -7307,7 +7339,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // distributed around the felt, not arranged around a casino oval. Every
         // rival is one fixed unit: avatar left, private cards right, HUD below.
         LocalHudLayout localHud = localHudLayout(width);
-        Rectangle localStack = localHud.stackBounds();
         for (int i = 0; i < seats.length; i++) {
             float anchorX = seatAnchor(i, 0) * width;
             seats[i].y = seatAnchor(i, 1) * height;
@@ -7316,9 +7347,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 // Local money physically lives in the left HUD counter. Bets
                 // launch from this chip icon and payouts/rebuys land on it,
                 // matching the remote-seat stack contract.
-                seats[i].stackX = localStack.x + 43f;
-                seats[i].stackY = localStack.y
-                        + localStack.height / 2f - 3f;
+                seats[i].stackX = localHud.stackChipCenterX();
+                seats[i].stackY = localHud.counterChipCenterY();
                 // Keep the role puck above the right edge of the floating
                 // nameplate. It must not hide behind the avatar/name unit.
                 Rectangle namePlate = localNamePlateBounds(seats[i], width);
@@ -7624,20 +7654,33 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     /** Drawn inside an active SpriteBatch. */
     private void drawSeatChipStack(Seat seat, float alpha) {
-        float chipSize = seat.index == 0 ? 34f : 26f;
+        drawChipStack(seat.stackX, seat.stackY, seat.index, alpha,
+                seat.index == 0, false);
+    }
+
+    private void drawLocalCounterChipStack(float centerX, float centerY,
+            float alpha, boolean mirrored) {
+        drawChipStack(centerX, centerY, 0, alpha, true, mirrored);
+    }
+
+    private void drawChipStack(float centerX, float centerY,
+            int paletteIndex, float alpha, boolean localSize,
+            boolean mirrored) {
+        float chipSize = localSize ? 34f : 26f;
         float halfChip = chipSize / 2f;
-        float columnGap = seat.index == 0 ? 26f : 20f;
-        float verticalGap = seat.index == 0 ? 5f : 4f;
-        float firstColumn = seat.index == 0 ? -23f : -19f;
+        float columnGap = localSize ? 26f : 20f;
+        float verticalGap = localSize ? 5f : 4f;
+        float firstColumn = localSize ? -23f : -19f;
         for (int column = 0; column < 2; column++) {
             int chipCount = column == 0 ? 6 : 4;
             Texture stackChip = flyingChips[Math.floorMod(
-                    seat.index + column, flyingChips.length)];
-            float columnX = seat.stackX + firstColumn + column * columnGap;
+                    paletteIndex + column, flyingChips.length)];
+            float relativeX = firstColumn + column * columnGap;
+            float columnX = centerX + (mirrored ? -relativeX : relativeX);
             batch.setColor(1f, 1f, 1f, alpha);
             for (int chip = 0; chip < chipCount; chip++) {
                 batch.draw(stackChip, columnX - halfChip,
-                        seat.stackY - halfChip + chip * verticalGap,
+                        centerY - halfChip + chip * verticalGap,
                         chipSize, chipSize);
             }
         }
@@ -9036,9 +9079,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             selected = liveState.showdownCardSelected(nickname, slot,
                     communityCard);
         }
-        boolean hovered = uiLayer == UI_NONE && activeDialog == null
-                && placementContains(placement, pointer.x, pointer.y);
+        boolean hovered = restingCardHoverAllowed(uiLayer == UI_NONE,
+                activeDialog == null,
+                tableChromeOccludesCards(pointer.x, pointer.y,
+                        viewport.getWorldWidth()),
+                placementContains(placement, pointer.x, pointer.y));
         return restingCardAlpha(card.disabled(), selected, hovered);
+    }
+
+    static boolean restingCardHoverAllowed(boolean noUiLayer,
+            boolean noDialog, boolean coveredByChrome,
+            boolean pointerInsideCard) {
+        return noUiLayer && noDialog && !coveredByChrome
+                && pointerInsideCard;
     }
 
     static float restingCardAlpha(boolean disabled, Boolean selected,
@@ -9435,7 +9488,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 right.y - right.height / 2f);
         float maxY = Math.max(left.y + left.height / 2f,
                 right.y + right.height / 2f);
-        drawCallCostText(minX, minY, maxX - minX, maxY - minY);
+        // Keep the river aggressor's call amount visibly detached from the
+        // PlayerPod name row. The positional puck may sit behind this overlay;
+        // preserving a clean nickname is the stronger visual contract.
+        drawCallCostText(minX, minY + 22f, maxX - minX, maxY - minY);
     }
 
     private void drawCallCostText(float x, float y, float width, float height) {
@@ -11447,6 +11503,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return folded ? FOLDED_ACTION_TEXT_ALPHA : 1f;
     }
 
+    static boolean dimLocalActionBadge(boolean folded,
+            boolean lateShownHand) {
+        // A voluntarily revealed folded hand is a fresh showdown caption,
+        // not the stale folded action underneath it. Keep the neutral folded
+        // colour, but restore normal opacity so the evaluated hand remains
+        // visible without requiring hover.
+        return folded && !lateShownHand;
+    }
+
     private String lastActionLabelForSeat(int seat) {
         TableSnapshot.PlayerSnapshot player = livePlayer(seats[seat]);
         if (player == null) return "";
@@ -11678,6 +11743,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private Color lastActionColorForSeat(int seat) {
         TableSnapshot.PlayerSnapshot player = livePlayer(seats[seat]);
+        return showdownHoverSurfaceColor(lastActionSemanticColorForSeat(seat),
+                player != null
+                        && player.nickname().equals(liveShowdownHoverNickname),
+                true);
+    }
+
+    private Color lastActionSemanticColorForSeat(int seat) {
+        TableSnapshot.PlayerSnapshot player = livePlayer(seats[seat]);
         if (player == null) return SEAT_RIM;
         if (player.timedOut()) return LEGACY_TIMEOUT;
         if (player.exited()) return LATENCY_ORANGE;
@@ -11687,9 +11760,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (isLiveThinkingSeat(seats[seat])) return LEGACY_THINKING;
         if (liveState.isIwtsthCandidate(player.nickname())) {
             return iwtsthBlinkOn() ? Color.WHITE : LEGACY_LOSER;
-        }
-        if (player.nickname().equals(liveShowdownHoverNickname)) {
-            return POT_GOLD;
         }
         Boolean resolvedWinner = liveState.resolvedHandWinner(player.nickname());
         boolean foldedThisHand = liveState.foldedThisHand(player.nickname());
@@ -11708,6 +11778,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return player.winner() ? LEGACY_WINNER : LEGACY_LOSER;
         }
         return liveActionColor(liveState.actionKind(player.nickname()));
+    }
+
+    static Color showdownHoverSurfaceColor(Color semanticColor,
+            boolean showdownHovered, boolean actionBadge) {
+        // Hover explains a hand: only its small caption and selected cards
+        // change. The large local HUD and both money counters must keep their
+        // canonical action/outcome palette.
+        return showdownHovered && actionBadge ? POT_GOLD : semanticColor;
     }
 
     private Color lastActionTextColorForSeat(int seat) {
@@ -12982,6 +13060,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 liveState.foldedThisHand(seats[0].name));
         boolean localTimedOut = liveLocalPlayer != null
                 && liveLocalPlayer.timedOut();
+        boolean dimLocalActionBadge = dimLocalActionBadge(localFolded,
+                localShownHand);
         boolean waitingForTurn = showsWaitingTurnMessage(localTurn,
                 preActions, showdownPresentation, localFolded, localAllIn,
                 liveLocalPlayer);
@@ -12991,6 +13071,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         || localSpectator
                         || waitingForTurn || localFolded);
         String lastLocalActionLabel = lastActionLabelForSeat(0);
+        Color localHudSemanticColor = lastActionSemanticColorForSeat(0);
         Color lastLocalActionColor = lastActionColorForSeat(0);
         // Accounting follows only the canonical action palette. Showdown
         // hover may turn the action badge gold, but must never recolour the
@@ -12998,7 +13079,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Color localInvestmentSurface = investedCounterSurface(localActionKind);
         Color localInvestmentText = investedCounterText(localActionKind);
         Color localHudActionColor = localActionSubmissionPending
-                ? liveActionColor(localActionKind) : lastLocalActionColor;
+                ? liveActionColor(localActionKind) : localHudSemanticColor;
         Color foldButtonColor = preActions ? SWING_FOLD_BUTTON
                 : controls.callAction() == ActionControlState.CallAction.CHECK
                 ? SWING_FOLD_DANGER_BUTTON : SWING_FOLD_BUTTON;
@@ -13078,7 +13159,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Gdx.gl.glEnable(GL20.GL_BLEND);
         float turnPulse = 0.5f + 0.5f * MathUtils.sin(totalTime * 5.2f);
         Color hudFrame = localShownHand
-                ? settledLocalWinner == null ? lastLocalActionColor
+                ? settledLocalWinner == null ? localHudSemanticColor
                         : settledShowdownColor(settledLocalWinner)
                 : localMonteCarlo || localActionMemory
                         ? localHudActionColor
@@ -13126,7 +13207,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         hudWidth + 6f, hudHeight + 15f, 16f);
             } else {
                 drawSubduedLocalHudSurface(hudX, hudY, hudWidth, hudHeight,
-                        lastLocalActionColor);
+                        localHudSemanticColor);
             }
         } else if (settledLocalWinner != null) {
             Color outcomeColor = localOutcomeSurfaceColor(
@@ -13142,8 +13223,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             shapes.setColor(0.012f, 0.025f, 0.040f, 0.68f);
             roundedRect(hudX - 3f, hudY - 3f,
                     hudWidth + 6f, hudHeight + 15f, 16f);
-            shapes.setColor(lastLocalActionColor.r,
-                    lastLocalActionColor.g, lastLocalActionColor.b, 0.62f);
+            shapes.setColor(localHudSemanticColor.r,
+                    localHudSemanticColor.g, localHudSemanticColor.b, 0.62f);
             roundedRect(hudX - 3f, hudY - 3f,
                     hudWidth + 6f, hudHeight + 15f, 16f);
         } else if (localFolded) {
@@ -13210,7 +13291,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && (localTimedOut || !lastLocalActionLabel.isEmpty())) {
             shapes.setColor(lastLocalActionColor.r, lastLocalActionColor.g,
                     lastLocalActionColor.b, lastLocalActionColor.a
-                    * seatActionSurfaceAlpha(localFolded, settledShowdown));
+                    * seatActionSurfaceAlpha(dimLocalActionBadge,
+                            settledShowdown || localShownHand));
             roundedRect(actionBadge.x, actionBadge.y,
                     actionBadge.width, actionBadge.height, 6f);
         }
@@ -13312,6 +13394,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.begin();
         Seat local = localSeat;
         drawSeatChipStack(local, 1f);
+        drawLocalCounterChipStack(layout.investedChipCenterX(),
+                layout.counterChipCenterY(), 1f, true);
         if (localTurn) {
             drawFittedCenteredInBox(smallFont,
                     uppercase(gameText.translate(
@@ -13358,19 +13442,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawFittedCenteredInBox(actionFont, lastLocalActionLabel,
                     actionBadge.x + 10f, actionBadge.y,
                     actionBadge.width - 20f, actionBadge.height,
-                    localFolded ? Color.GRAY
-                            : lastActionTextColorForSeat(0),
-                    seatActionTextAlpha(localFolded));
+                    lastActionTextColorForSeat(0),
+                    seatActionTextAlpha(dimLocalActionBadge));
         }
+        Rectangle stackCaption = layout.stackCaptionBounds();
+        Rectangle stackValue = layout.stackValueBounds();
+        Rectangle investedCaption = layout.investedCaptionBounds();
+        Rectangle investedValue = layout.investedValueBounds();
+        drawLocalCounterCaptions(stackCaption, investedCaption,
+                liveLocalPlayer != null
+                        && totalTime < localSeat.buyInVisibleUntil,
+                playerStackTextColor(local), localInvestmentText);
         drawScaledFittedCenteredInBox(localOutcomeFont, 0.78f,
                 playerStackText(local, liveLocalPlayer),
-                stackBounds.x + 82f, stackBounds.y + 8f,
-                stackBounds.width - 92f, stackBounds.height - 16f,
+                stackValue.x, stackValue.y,
+                stackValue.width, stackValue.height,
                 playerStackTextColor(local), 1f);
         drawScaledFittedCenteredInBox(localOutcomeFont, 0.78f,
                 local.investedText,
-                investedBounds.x + 12f, investedBounds.y + 8f,
-                investedBounds.width - 24f, investedBounds.height - 16f,
+                investedValue.x, investedValue.y,
+                investedValue.width, investedValue.height,
                 localInvestmentText, 1f);
 
         Rectangle preActionStatus = preActionHud.status();
@@ -20242,6 +20333,59 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         data.setScale(originalScaleX, originalScaleY);
     }
 
+    private void drawCenteredInBox(BitmapFont font, String text,
+            float x, float y, float width, float height,
+            Color color, float alpha) {
+        font.setColor(color.r, color.g, color.b, alpha);
+        glyph.setText(font, text);
+        font.draw(batch, glyph,
+                x + (width - glyph.width) / 2f,
+                y + (height + glyph.height) / 2f);
+        font.setColor(Color.WHITE);
+    }
+
+    private void drawLocalCounterCaptions(Rectangle stackBounds,
+            Rectangle investedBounds, boolean showingBuyIn,
+            Color stackTextColor,
+            Color investedTextColor) {
+        String stackCaption = localStackCaption(showingBuyIn, gameText);
+        String investedCaption = uppercase(gameText.translate(
+                "gdx.table.hud.total_bet"), gameText);
+        // stackFont has no glyph border. Captions deliberately inherit the
+        // exact same contrast colour as their amount, so both labels track
+        // every light/dark counter palette without a permanent black outline.
+        BitmapFont.BitmapFontData data = stackFont.getData();
+        float originalScaleX = data.scaleX;
+        float originalScaleY = data.scaleY;
+        glyph.setText(stackFont, investedCaption);
+        float sharedScale = localCounterCaptionScale(glyph.width,
+                glyph.height, investedBounds.width, investedBounds.height);
+        data.setScale(originalScaleX * sharedScale,
+                originalScaleY * sharedScale);
+        drawCenteredInBox(stackFont, stackCaption,
+                stackBounds.x, stackBounds.y,
+                stackBounds.width, stackBounds.height,
+                stackTextColor, 1f);
+        drawCenteredInBox(stackFont, investedCaption,
+                investedBounds.x, investedBounds.y,
+                investedBounds.width, investedBounds.height,
+                investedTextColor, 1f);
+        data.setScale(originalScaleX, originalScaleY);
+    }
+
+    static String localStackCaption(boolean showingBuyIn,
+            GdxGameText text) {
+        return uppercase(text.translate(showingBuyIn
+                ? "stats.buyin" : "stats.stack"), text);
+    }
+
+    static float localCounterCaptionScale(float referenceWidth,
+            float referenceHeight, float boxWidth, float boxHeight) {
+        if (referenceWidth <= 0f || referenceHeight <= 0f) return 1f;
+        return Math.min(boxWidth / referenceWidth,
+                boxHeight / referenceHeight) * 0.94f;
+    }
+
     private void drawScaledFittedCenteredInBox(BitmapFont font,
             float scale, String text, float x, float y, float width,
             float height, Color color, float alpha) {
@@ -20702,6 +20846,58 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return new Rectangle(actionX + actionWidth
                     + LOCAL_HUD_COUNTER_GAP, LOCAL_HUD_COUNTER_Y,
                     investedWidth, LOCAL_HUD_COUNTER_HEIGHT);
+        }
+
+        float stackChipCenterX() {
+            return stackBounds().x + 43f;
+        }
+
+        float investedChipCenterX() {
+            Rectangle invested = investedBounds();
+            return invested.x + invested.width - 43f;
+        }
+
+        float counterChipCenterY() {
+            Rectangle stack = stackBounds();
+            // The two columns grow upward from their texture origins. Their
+            // real combined visual centre is 12.5 px above the draw anchor.
+            return stack.y + stack.height / 2f - 12.5f;
+        }
+
+        Rectangle stackChipVisualBounds() {
+            return new Rectangle(stackChipCenterX() - 40f,
+                    counterChipCenterY() - 17f, 60f, 59f);
+        }
+
+        Rectangle investedChipVisualBounds() {
+            return new Rectangle(investedChipCenterX() - 20f,
+                    counterChipCenterY() - 17f, 60f, 59f);
+        }
+
+        Rectangle stackCaptionBounds() {
+            Rectangle stack = stackBounds();
+            return new Rectangle(stack.x + 8f,
+                    stack.y + stack.height - 32f,
+                    stack.width - 16f, 24f);
+        }
+
+        Rectangle stackValueBounds() {
+            Rectangle stack = stackBounds();
+            return new Rectangle(stack.x + 82f, stack.y + 8f,
+                    stack.width - 92f, stack.height - 43f);
+        }
+
+        Rectangle investedCaptionBounds() {
+            Rectangle invested = investedBounds();
+            return new Rectangle(invested.x + 8f,
+                    invested.y + invested.height - 32f,
+                    invested.width - 16f, 24f);
+        }
+
+        Rectangle investedValueBounds() {
+            Rectangle invested = investedBounds();
+            return new Rectangle(invested.x + 10f, invested.y + 8f,
+                    invested.width - 92f, invested.height - 43f);
         }
 
         Rectangle bounds() {

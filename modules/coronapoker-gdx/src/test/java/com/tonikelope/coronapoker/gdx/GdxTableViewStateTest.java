@@ -1649,6 +1649,9 @@ final class GdxTableViewStateTest {
         assertEquals(Color.BLACK,
                 CoronaPokerGdxTable.lateShownHandTextColor(
                         false, Boolean.TRUE));
+        assertTrue(CoronaPokerGdxTable.dimLocalActionBadge(true, false));
+        assertFalse(CoronaPokerGdxTable.dimLocalActionBadge(true, true),
+                "a late shown hand must remain legible without hover");
     }
 
     @Test
@@ -2327,7 +2330,7 @@ final class GdxTableViewStateTest {
 
         assertEquals(188f, stack.width, 0.000_001f);
         assertEquals(135f, stack.height, 0.000_001f);
-        assertEquals(135f, invested.width, 0.000_001f);
+        assertEquals(188f, invested.width, 0.000_001f);
         assertEquals(135f, invested.height, 0.000_001f);
         assertEquals(868f, layout.actionWidth(), 0.000_001f);
         assertEquals(960f,
@@ -2337,6 +2340,40 @@ final class GdxTableViewStateTest {
                 0.000_001f);
         assertEquals(12f, invested.x - layout.actionX()
                 - layout.actionWidth(), 0.000_001f);
+        assertEquals(stack.x + 43f, layout.stackChipCenterX(),
+                0.000_001f);
+        assertEquals(invested.x + invested.width - 43f,
+                layout.investedChipCenterX(), 0.000_001f);
+        assertEquals(layout.stackCaptionBounds().width,
+                layout.investedCaptionBounds().width, 0.000_001f);
+        assertEquals(layout.stackValueBounds().width,
+                layout.investedValueBounds().width, 0.000_001f);
+        Rectangle stackChips = layout.stackChipVisualBounds();
+        Rectangle investedChips = layout.investedChipVisualBounds();
+        assertEquals(stackChips.x - stack.x,
+                invested.x + invested.width
+                        - (investedChips.x + investedChips.width),
+                0.000_001f,
+                "mirrored chip stacks must keep equal outer margins");
+        assertEquals(stack.y + stack.height / 2f,
+                stackChips.y + stackChips.height / 2f, 0.000_001f);
+        assertEquals(invested.y + invested.height / 2f,
+                investedChips.y + investedChips.height / 2f, 0.000_001f);
+        assertEquals(stack.x + stack.width / 2f,
+                layout.stackCaptionBounds().x
+                        + layout.stackCaptionBounds().width / 2f,
+                0.000_001f);
+        assertEquals(invested.x + invested.width / 2f,
+                layout.investedCaptionBounds().x
+                        + layout.investedCaptionBounds().width / 2f,
+                0.000_001f);
+        assertEquals(0.94f, CoronaPokerGdxTable.localCounterCaptionScale(
+                100f, 20f, 100f, 20f), 0.000_001f);
+        GdxGameText text = new GdxGameText("es");
+        assertEquals("STACK", CoronaPokerGdxTable.localStackCaption(
+                false, text));
+        assertEquals("BUYIN", CoronaPokerGdxTable.localStackCaption(
+                true, text));
     }
 
     @Test
@@ -3159,6 +3196,37 @@ final class GdxTableViewStateTest {
                 CoronaPokerGdxTable.restingCardAlpha(false, null, false));
         assertEquals(1f,
                 CoronaPokerGdxTable.restingCardAlpha(true, false, true));
+        assertTrue(CoronaPokerGdxTable.restingCardHoverAllowed(
+                true, true, false, true));
+        assertFalse(CoronaPokerGdxTable.restingCardHoverAllowed(
+                true, true, true, true),
+                "foreground HUD chrome must stop hover reaching a card");
+        assertFalse(CoronaPokerGdxTable.restingCardHoverAllowed(
+                true, true, false, false));
+        assertTrue(CoronaPokerGdxTable.visibleLocalShowdownHoverAllowed(
+                true, true, true),
+                "a visible local hand badge must highlight its cards");
+        assertFalse(CoronaPokerGdxTable.visibleLocalShowdownHoverAllowed(
+                false, true, true),
+                "a hidden local badge must not leave a hover hotspot");
+        assertFalse(CoronaPokerGdxTable.visibleLocalShowdownHoverAllowed(
+                true, false, true),
+                "an action or Monte Carlo caption is not a showdown hand");
+        assertFalse(CoronaPokerGdxTable.visibleLocalShowdownHoverAllowed(
+                true, true, false),
+                "the pointer must be inside the visible hand badge");
+        Color semanticHud = new Color(0.18f, 0.42f, 0.73f, 1f);
+        assertEquals(semanticHud,
+                CoronaPokerGdxTable.showdownHoverSurfaceColor(
+                        semanticHud, true, false),
+                "showdown hover must never recolour the large local HUD");
+        assertFalse(semanticHud.equals(
+                CoronaPokerGdxTable.showdownHoverSurfaceColor(
+                        semanticHud, true, true)),
+                "the visible hand badge keeps its yellow hover feedback");
+        assertEquals(semanticHud,
+                CoronaPokerGdxTable.showdownHoverSurfaceColor(
+                        semanticHud, false, true));
     }
 
     @Test

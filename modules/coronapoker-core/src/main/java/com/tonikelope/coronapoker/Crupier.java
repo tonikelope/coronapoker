@@ -343,7 +343,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             double highest = players().stream()
                     .filter(java.util.Objects::nonNull)
                     .filter(player -> !player.isExit() && !player.isSpectator())
-                    .mapToDouble(GamePlayerController::getStack)
+                    // Chips committed to the current hand still belong to the
+                    // player's table bankroll for rebuy-cap purposes. Looking
+                    // only at the visible stack would make the cap shrink as
+                    // soon as the current chip leader bets.
+                    .mapToDouble(Crupier::rebuyTableExposure)
                     .max().orElse(0d);
             return Math.max(standard, (int) Math.floor(highest));
         }
@@ -353,6 +357,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private int rebuyHeadroom(double stack) {
         return Math.max(0, buyinCap() - (int) Math.ceil(stack));
+    }
+
+    private int immediateRebuyHeadroom(GamePlayerController player) {
+        return rebuyHeadroom(player == null
+                ? 0d : rebuyTableExposure(player));
+    }
+
+    static double rebuyTableExposure(double stack, double potContribution) {
+        return MoneyMath.clean(Math.max(0d, stack)
+                + Math.max(0d, potContribution));
+    }
+
+    private static double rebuyTableExposure(GamePlayerController player) {
+        return rebuyTableExposure(player.getStack(), player.getBote());
     }
 
     private double bigBlindForSmallBlind(double smallBlind) {
@@ -6784,12 +6802,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 denied_by_limit = true;
                 broadcast_now = false;
             } else {
-                // The host is the bank: clamp to headroom (table ceiling - current stack)
+                // The host is the bank: clamp to headroom (table ceiling minus
+                // every chip the player still has in play: stack + hand investment)
                 // so a tampered client can't fabricate chips or exceed the ceiling via
                 // REBUYNOW#nick#<arbitrary int>. The RebuyDialog spinner already clamps
                 // this; here is the server-side defense.
                 GamePlayerController jp = nick2player.get(nick);
-                int headroom = rebuyHeadroom(jp != null ? jp.getStack() : 0f);
+                int headroom = immediateRebuyHeadroom(jp);
                 int safe_buyin = canonicalImmediateRebuyAmount(buyin, headroom);
                 if (safe_buyin <= 0) {
                     // No headroom left (already at the ceiling): ignore the request.
@@ -6888,7 +6907,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     rebuy_remote_sequences.put(nick, arrivalSequence);
                 }
                 GamePlayerController player = nick2player.get(nick);
-                int headroom = rebuyHeadroom(player != null ? player.getStack() : 0f);
+                int headroom = immediateRebuyHeadroom(player);
                 int safeAmount = canonicalImmediateRebuyAmount(canonicalAmount, headroom);
                 if (safeAmount > 0) {
                     rebuy_now.put(nick, safeAmount);
@@ -7100,7 +7119,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             configuration().rebuyLimit())));
                     return;
                 }
-                int headroom = rebuyHeadroom(local.getStack());
+                int headroom = immediateRebuyHeadroom(local);
                 int minimum = configuration().fixedBuyin()
                         ? 1 : buyinRange().min();
                 if (headroom < minimum) {

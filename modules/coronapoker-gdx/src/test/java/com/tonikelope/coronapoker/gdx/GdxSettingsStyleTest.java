@@ -1,7 +1,9 @@
 package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
+import com.badlogic.gdx.graphics.Color;
 import org.junit.jupiter.api.Test;
 
 final class GdxSettingsStyleTest {
@@ -28,5 +30,17 @@ final class GdxSettingsStyleTest {
         assertEquals(66f, GdxSettingsStyle.TOGGLE_WIDTH);
         assertEquals(38f, GdxSettingsStyle.TOGGLE_HEIGHT);
         assertEquals(28f, GdxSettingsStyle.TOGGLE_KNOB_TRAVEL);
+    }
+
+    @Test
+    void hotPathPaletteObjectsAreReusedInsteadOfAllocatedPerFrame() {
+        assertSame(GdxSettingsStyle.rowBorder(true, false),
+                GdxSettingsStyle.rowBorder(true, false));
+        assertSame(GdxSettingsStyle.rowFill(true, false),
+                GdxSettingsStyle.rowFill(true, false));
+        Color track = GdxSettingsStyle.toggleTrack(0f);
+        assertEquals(new Color(GdxSettingsStyle.TOGGLE_OFF_RGBA), track);
+        assertSame(track, GdxSettingsStyle.toggleTrack(1f));
+        assertEquals(new Color(GdxSettingsStyle.TOGGLE_ON_RGBA), track);
     }
 }

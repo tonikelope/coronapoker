@@ -15,6 +15,17 @@ final class GdxUiButtonStyle {
     private static final Color POSITIVE = new Color(0x4caf50ff);
     private static final Color DANGER = new Color(0xf44336ff);
     private static final Color DISABLED = new Color(0x71809aff);
+    private static final Color POSITIVE_HOVER = new Color(0x8af59aff);
+    private static final Color DANGER_HOVER = new Color(0xff8080ff);
+    private static final Color DISABLED_FILL = new Color(0x0b1220b8);
+    private static final Color POSITIVE_FILL = new Color(0x195335e8);
+    private static final Color POSITIVE_PRESSED_FILL = new Color(0x123a25f2);
+    private static final Color DANGER_FILL = new Color(0x65202ae8);
+    private static final Color DANGER_PRESSED_FILL = new Color(0x47141df2);
+    private static final Color FEATURED_FILL = new Color(0x123047e8);
+    private static final Color FEATURED_PRESSED_FILL = new Color(0x091827f2);
+    private static final Color NEUTRAL_FILL = new Color(0x0b1729c7);
+    private static final Color NEUTRAL_PRESSED_FILL = new Color(0x07111fd9);
     private static final Color GRADIENT_BOTTOM_LEFT = new Color();
     private static final Color GRADIENT_BOTTOM_RIGHT = new Color();
     private static final Color GRADIENT_TOP_RIGHT = new Color();
@@ -124,24 +135,22 @@ final class GdxUiButtonStyle {
 
     private static Color accent(Tone tone, boolean hover) {
         return switch (tone) {
-            case POSITIVE -> hover ? new Color(0x8af59aff) : POSITIVE;
-            case DANGER -> hover ? new Color(0xff8080ff) : DANGER;
+            case POSITIVE -> hover ? POSITIVE_HOVER : POSITIVE;
+            case DANGER -> hover ? DANGER_HOVER : DANGER;
             case FEATURED -> GOLD;
             case NEUTRAL -> hover ? CYAN : CYAN_DARK;
         };
     }
 
     private static Color fill(Tone tone, boolean enabled, boolean pressed) {
-        if (!enabled) return new Color(0x0b1220b8);
+        if (!enabled) return DISABLED_FILL;
         return switch (tone) {
-            case POSITIVE -> pressed ? new Color(0x123a25f2)
-                    : new Color(0x195335e8);
-            case DANGER -> pressed ? new Color(0x47141df2)
-                    : new Color(0x65202ae8);
-            case FEATURED -> pressed ? new Color(0x091827f2)
-                    : new Color(0x123047e8);
-            case NEUTRAL -> pressed ? new Color(0x07111fd9)
-                    : new Color(0x0b1729c7);
+            case POSITIVE -> pressed
+                    ? POSITIVE_PRESSED_FILL : POSITIVE_FILL;
+            case DANGER -> pressed ? DANGER_PRESSED_FILL : DANGER_FILL;
+            case FEATURED -> pressed
+                    ? FEATURED_PRESSED_FILL : FEATURED_FILL;
+            case NEUTRAL -> pressed ? NEUTRAL_PRESSED_FILL : NEUTRAL_FILL;
         };
     }
 

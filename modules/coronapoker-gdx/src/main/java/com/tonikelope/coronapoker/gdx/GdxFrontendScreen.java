@@ -214,6 +214,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final Color LATENCY_ORANGE = new Color(0xff9800ff);
     private static final Color LATENCY_RED = new Color(0xf44336ff);
     private static final Color LATENCY_STALE = new Color(0x9e9e9eff);
+    private static final Color BOX_SHEEN_BOTTOM = new Color(
+            1f, 1f, 1f, 0.018f);
+    private static final Color BOX_SHEEN_TOP = new Color(
+            1f, 1f, 1f, 0.115f);
+    private static final Color BOX_SHADE_BOTTOM = new Color(
+            0f, 0f, 0f, 0.11f);
+    private static final Color BOX_SHADE_TOP = new Color(
+            0f, 0f, 0f, 0.01f);
     private static final int EMOJI_COUNT = 1826;
     private static final int EMOJI_COLUMNS = 8;
     private static final int EMOJI_ROWS = 4;
@@ -6139,8 +6147,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float panelH = panel.height;
         float panelX = panel.x;
         float panelY = panel.y;
-        int activeSubpage = MathUtils.clamp(settingsSubpageIndex(), 0,
-                subpages.size() - 1);
+        int activeSubpage = subpages.isEmpty() ? -1
+                : MathUtils.clamp(settingsSubpageIndex(), 0,
+                        subpages.size() - 1);
         float contentX = content.x;
         float contentY = content.y;
         float contentW = content.width;
@@ -6698,15 +6707,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 pages.size() - 1);
         boolean editable = lobby.host();
         boolean economyEditable = editable && !settingsTable.economyLocked();
+        String serverLockKey = "gdx.settings.game.server_only";
+        String economyLockKey = editable
+                ? "gdx.settings.game.economy_locked" : serverLockKey;
         float rowY = y + h - GdxSettingsLayout.CONTENT_ROW_TOP_INSET;
         switch (settingsGamePage) {
-            case 0 -> drawLobbyBlindSettings(x, w, rowY, economyEditable);
+            case 0 -> drawLobbyBlindSettings(x, w, rowY, economyEditable,
+                    economyLockKey);
             case 1 -> drawLobbyPurchaseSettings(x, w, rowY, editable,
-                    economyEditable);
-            case 2 -> drawLobbyRebuySettings(x, w, rowY, editable);
-            case 3 -> drawLobbyBotSettings(x, w, rowY, editable);
-            case 4 -> drawLobbyRoundSettings(x, w, rowY, editable);
-            default -> drawLobbyRuleSettings(x, w, rowY, editable);
+                    economyEditable, serverLockKey, economyLockKey);
+            case 2 -> drawLobbyRebuySettings(x, w, rowY, editable,
+                    serverLockKey);
+            case 3 -> drawLobbyBotSettings(x, w, rowY, editable,
+                    serverLockKey);
+            case 4 -> drawLobbyRoundSettings(x, w, rowY, editable,
+                    serverLockKey);
+            default -> drawLobbyRuleSettings(x, w, rowY, editable,
+                    serverLockKey);
         }
         if (!editable) {
             textFit(tinyFont, settingsGameText("host_only"),
@@ -6718,7 +6735,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawLobbyBlindSettings(float x, float w, float y,
-            boolean enabled) {
+            boolean enabled, String lockKey) {
         GdxSettingsLayout.GameColumns columns =
                 GdxSettingsLayout.gameColumns(x + 34f, w - 68f);
         float columnWidth = columns.width();
@@ -6773,10 +6790,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> adjustSettingsBlindCap(-1),
                 () -> adjustSettingsBlindCap(1),
                 enabled && settingsTable.blindCapRaisesEnabled());
+        if (!enabled) {
+            for (int row = 0; row < 5; row++) {
+                tooltip(leftX, y - row * GdxSettingsLayout.ROW_STRIDE,
+                        columnWidth, GdxSettingsLayout.ROW_HEIGHT, lockKey);
+                tooltip(rightX, y - row * GdxSettingsLayout.ROW_STRIDE,
+                        columnWidth, GdxSettingsLayout.ROW_HEIGHT, lockKey);
+            }
+        }
     }
 
     private void drawLobbyPurchaseSettings(float x, float w, float y,
-            boolean editable, boolean economyEditable) {
+            boolean editable, boolean economyEditable, String serverLockKey,
+            String economyLockKey) {
         toggle(x + 34f, y, w - 68f,
                 settingsGameText("row.fixed_buyin"),
                 settingsTable.fixedBuyin(), () -> settingsTable
@@ -6809,10 +6835,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 this::cycleSettingsRebuyCap,
                 this::cycleSettingsRebuyCap,
                 editable && settingsTable.rebuy());
+        if (!economyEditable) {
+            for (int row = 0; row < 4; row++) {
+                tooltip(x + 34f,
+                        y - row * GdxSettingsLayout.ROW_STRIDE, w - 68f,
+                        GdxSettingsLayout.ROW_HEIGHT, economyLockKey);
+            }
+        }
+        if (!editable) {
+            tooltip(x + 34f, y - 4f * GdxSettingsLayout.ROW_STRIDE,
+                    w - 68f, GdxSettingsLayout.ROW_HEIGHT, serverLockKey);
+        }
     }
 
     private void drawLobbyRebuySettings(float x, float w, float y,
-            boolean editable) {
+            boolean editable, String lockKey) {
         toggle(x + 34f, y, w - 68f, settingsGameText("row.rebuy"),
                 settingsTable.rebuy(),
                 () -> settingsTable.setRebuy(!settingsTable.rebuy()),
@@ -6830,10 +6867,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> settingsTable.setRebuyLimitCount(
                         settingsTable.rebuyLimitCount() + 1),
                 editable && settingsTable.rebuyLimitCountEnabled());
+        if (!editable) addLobbySettingsLockTooltips(x + 34f, y, w - 68f,
+                3, lockKey);
     }
 
     private void drawLobbyBotSettings(float x, float w, float y,
-            boolean editable) {
+            boolean editable, String lockKey) {
         settingsStepper(x + 34f, y, w - 68f, 70f,
                 settingsGameText("row.bot_difficulty"),
                 settingsBotDifficulty(),
@@ -6850,10 +6889,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 settingsTable.botBalanceToHumans(), () -> settingsTable
                         .setBotBalanceToHumans(
                                 !settingsTable.botBalanceToHumans()), editable);
+        if (!editable) addLobbySettingsLockTooltips(x + 34f, y, w - 68f,
+                3, lockKey);
     }
 
     private void drawLobbyRoundSettings(float x, float w, float y,
-            boolean editable) {
+            boolean editable, String lockKey) {
         toggle(x + 34f, y, w - 68f,
                 settingsGameText("row.hand_limit"),
                 settingsTable.handLimit(), () -> settingsTable
@@ -6884,10 +6925,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         settingsTable.showdownSeconds() - 5),
                 () -> settingsTable.setShowdownSeconds(
                         settingsTable.showdownSeconds() + 5), editable);
+        if (!editable) addLobbySettingsLockTooltips(x + 34f, y, w - 68f,
+                5, lockKey);
     }
 
     private void drawLobbyRuleSettings(float x, float w, float y,
-            boolean editable) {
+            boolean editable, String lockKey) {
         toggle(x + 34f, y, w - 68f, "IWTSTH",
                 settingsTable.iwtsth(), () -> settingsTable
                         .setIwtsth(!settingsTable.iwtsth()), editable);
@@ -6898,6 +6941,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 settingsGameText("row.rabbit_hunting"), settingsRabbitText(),
                 () -> adjustSettingsRabbit(-1),
                 () -> adjustSettingsRabbit(1), editable);
+        if (!editable) addLobbySettingsLockTooltips(x + 34f, y, w - 68f,
+                3, lockKey);
+    }
+
+    private void addLobbySettingsLockTooltips(float x, float firstY,
+            float width, int rows, String key) {
+        for (int row = 0; row < rows; row++) {
+            tooltip(x, firstY - row * GdxSettingsLayout.ROW_STRIDE, width,
+                    GdxSettingsLayout.ROW_HEIGHT, key);
+        }
     }
 
     private void settingsStepper(float x, float y, float w, String label,
@@ -7404,9 +7457,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
      * transient, however, and must never leak into the active hand.
      */
     void suspendForTable() {
+        suspendForTable(false);
+    }
+
+    void suspendForTable(boolean preserveBackgroundTrack) {
         tableAudioSuspended = true;
         stopLobbyTransientAudio();
-        if (backgroundMusic != null) backgroundMusic.pause();
+        if (!preserveBackgroundTrack && backgroundMusic != null) {
+            backgroundMusic.pause();
+        }
         if (waitingRoomMusic != null) waitingRoomMusic.pause();
         if (aboutMusic != null) aboutMusic.pause();
         if (statsMusic != null) statsMusic.pause();
@@ -7422,17 +7481,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         syncMusicForSurface();
     }
 
-    float backgroundMusicPosition() {
-        return backgroundMusic == null ? 0f : backgroundMusic.getPosition();
-    }
-
-    void resumeBackgroundMusicAt(float positionSeconds) {
-        tableAudioSuspended = false;
-        if (backgroundMusic == null) return;
-        if (Float.isFinite(positionSeconds) && positionSeconds >= 0f) {
-            backgroundMusic.setPosition(positionSeconds);
-        }
-        syncMusicForSurface();
+    Music tableBackgroundMusic() {
+        return backgroundMusic;
     }
 
     private void openNewGame(NewGameConnectionDraft.Mode mode) {
@@ -9904,15 +9954,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             float sheenTop = y + h - 9f;
             shapes.rect(x + inset, sheenBottom, w - inset * 2f,
                     sheenTop - sheenBottom,
-                    new Color(1f, 1f, 1f, 0.018f),
-                    new Color(1f, 1f, 1f, 0.018f),
-                    new Color(1f, 1f, 1f, 0.115f),
-                    new Color(1f, 1f, 1f, 0.115f));
+                    BOX_SHEEN_BOTTOM, BOX_SHEEN_BOTTOM,
+                    BOX_SHEEN_TOP, BOX_SHEEN_TOP);
             shapes.rect(x + inset, y + 8f, w - inset * 2f, h * 0.18f,
-                    new Color(0f, 0f, 0f, 0.11f),
-                    new Color(0f, 0f, 0f, 0.11f),
-                    new Color(0f, 0f, 0f, 0.01f),
-                    new Color(0f, 0f, 0f, 0.01f));
+                    BOX_SHADE_BOTTOM, BOX_SHADE_BOTTOM,
+                    BOX_SHADE_TOP, BOX_SHADE_TOP);
         }
     }
 

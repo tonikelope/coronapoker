@@ -15,25 +15,14 @@ final class GdxSettingsNavigationContractTest {
         assertEquals(List.of("CIEGAS", "COMPRA", "RECOMPRA", "BOTS",
                 "PARTIDA", "REGLAS"),
                 GdxSettingsContract.WAITING_ROOM_GAME_PAGES);
-        assertEquals(List.of("CONTROLES", "TIMBA", "CIEGAS", "COMPRA",
-                "BOTS", "SESIÓN"),
+        assertEquals(List.of("TIMBA", "CIEGAS", "COMPRA", "BOTS"),
                 GdxSettingsContract.LIVE_TABLE_GAME_PAGES);
     }
 
     @Test
-    void liveTableSettingsExposeARealSecondLevelSessionPage() {
-        assertEquals(List.of("CONTROLES", "TIMBA", "CIEGAS", "COMPRA",
-                "BOTS", "SESIÓN"),
+    void liveTableSettingsExcludeFastAccessSessionOperations() {
+        assertEquals(List.of("TIMBA", "CIEGAS", "COMPRA", "BOTS"),
                 CoronaPokerGdxTable.settingsGamePageLabels());
-    }
-
-    @Test
-    void sessionPageKeepsOnlyLiveTableOperationalActions() {
-        assertEquals(List.of("Pantalla completa", "Visor de capturas",
-                "Registro de la timba", "Reglas de Robert",
-                "Marcar última mano", "Forzar reconexión de jugadores",
-                "Detener timba", "Salir de la timba"),
-                CoronaPokerGdxTable.settingsSessionActionLabels());
     }
 
     @Test

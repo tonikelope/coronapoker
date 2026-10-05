@@ -291,8 +291,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
                         refreshRate, new GdxTableViewState(initialState), commands,
                         () -> opened.accept(table), gameLog, preferences, lobby,
                         presentationSettings, identityTrust);
-                candidate.inheritBackgroundMusicPosition(
-                        menu.backgroundMusicPosition());
+                candidate.shareBackgroundMusic(menu.tableBackgroundMusic());
                 candidate.beginCreate();
                 pendingTableOpen = new PendingTableOpen(candidate,
                         openingBarrier);
@@ -320,7 +319,8 @@ final class GdxApplicationShell extends ApplicationAdapter {
         try {
             if (!pending.table.createNextPhase()) return;
             pendingTableOpen = null;
-            menu.suspendForTable();
+            menu.suspendForTable(true);
+            pending.table.activateBackgroundMusic();
             pending.table.resize(Gdx.graphics.getWidth(),
                     Gdx.graphics.getHeight());
             table = pending.table;
@@ -353,7 +353,6 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 boolean statsRequested = table.finalStatsRequested();
                 boolean applicationExitRequested =
                         table.finalApplicationExitRequested();
-                float musicPosition = table.backgroundMusicPosition();
                 table = null;
                 menu.refreshFeltFromSettings();
                 Gdx.input.setInputProcessor(menu);
@@ -370,11 +369,11 @@ final class GdxApplicationShell extends ApplicationAdapter {
                         menu.returnFromTable(completedLobby);
                     }
                 }
-                // Start the menu decoder before releasing the table decoder.
-                // Disposal performs substantial resource cleanup; doing it
-                // first created an audible gap in the continuous soundtrack.
-                menu.resumeBackgroundMusicAt(musicPosition);
-                expected.softenBackgroundMusicForHandoff();
+                // Menu and table deliberately share one persistent decoder.
+                // Resuming the menu only changes ownership of the same stream:
+                // there is no pause, seek or decoder replacement to expose an
+                // audible discontinuity.
+                menu.resumeMusic();
                 long sessionClosed = System.nanoTime();
                 System.out.printf(java.util.Locale.ROOT,
                         "GDX table close timings: menu=%.1f ms, session=%.1f ms%n",
@@ -416,7 +415,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private void restoreRetainedFinalSummary(CoronaPokerGdxTable expected) {
         if (suspendedFinalTable != expected) return;
         suspendedFinalTable = null;
-        menu.suspendForTable();
+        menu.suspendForTable(true);
         expected.resumeRetainedFinalSummary();
         table = expected;
         expected.resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
@@ -426,7 +425,6 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private void finishRetainedFinalSummary(CoronaPokerGdxTable expected,
             boolean continueRequested, boolean applicationExitRequested) {
         if (table != expected && suspendedFinalTable != expected) return;
-        float musicPosition = expected.backgroundMusicPosition();
         table = null;
         suspendedFinalTable = null;
         Gdx.input.setInputProcessor(menu);
@@ -438,8 +436,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 menu.returnFromTable(completedLobby);
             }
         }
-        menu.resumeBackgroundMusicAt(musicPosition);
-        expected.softenBackgroundMusicForHandoff();
+        menu.resumeMusic();
         if (applicationExitRequested) {
             expected.dispose();
             Gdx.app.exit();
@@ -450,14 +447,10 @@ final class GdxApplicationShell extends ApplicationAdapter {
 
     private void disposeTableAfterAudioHandoff(
             CoronaPokerGdxTable retiredTable) {
-        // Keep the retiring decoder barely audible for one complete menu
-        // frame. Starting and immediately pausing two independent OpenAL music
-        // streams in the same callback can expose a tiny decoder gap even when
-        // both report the same position. The next-frame callback silences the
-        // old stream, then defers the heavy OpenAL/resource destruction once
-        // more so it cannot starve that first clean menu frame.
+        // The persistent background decoder belongs to the frontend and is not
+        // disposed with the table. Defer the remaining OpenAL/resource cleanup
+        // for two frames so it cannot starve the first clean menu frame.
         Gdx.app.postRunnable(() -> {
-            retiredTable.silenceBackgroundMusicForHandoff();
             Gdx.app.postRunnable(retiredTable::dispose);
         });
     }

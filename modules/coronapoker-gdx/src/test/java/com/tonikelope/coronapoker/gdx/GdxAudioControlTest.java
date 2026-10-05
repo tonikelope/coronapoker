@@ -32,11 +32,8 @@ final class GdxAudioControlTest {
     }
 
     @Test
-    void tableMusicInheritanceRejectsInvalidPositionsWithoutResettingValidOnes() {
-        assertEquals(137.25f,
-                CoronaPokerGdxTable.sanitizedMusicPosition(137.25f));
-        assertEquals(0f, CoronaPokerGdxTable.sanitizedMusicPosition(-1f));
-        assertEquals(0f, CoronaPokerGdxTable.sanitizedMusicPosition(
-                Float.NaN));
+    void sharedMenuMusicRemainsOwnedByThePersistentFrontend() {
+        assertFalse(CoronaPokerGdxTable.shouldDisposeBackgroundMusic(true));
+        assertTrue(CoronaPokerGdxTable.shouldDisposeBackgroundMusic(false));
     }
 }

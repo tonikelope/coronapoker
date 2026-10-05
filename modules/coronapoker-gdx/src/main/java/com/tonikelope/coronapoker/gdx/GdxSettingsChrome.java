@@ -67,9 +67,15 @@ final class GdxSettingsChrome {
         }
 
         Rectangle firstMainTab = frame.mainTab(0);
-        Rectangle firstSubTab = frame.subTab(0);
-        float separatorY = (firstMainTab.y
-                + firstSubTab.y + firstSubTab.height) / 2f;
+        float separatorY;
+        if (subpageCount == 0) {
+            separatorY = (firstMainTab.y
+                    + content.y + content.height) / 2f;
+        } else {
+            Rectangle firstSubTab = frame.subTab(0);
+            separatorY = (firstMainTab.y
+                    + firstSubTab.y + firstSubTab.height) / 2f;
+        }
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.46f * alpha);
         shapes.rect(panel.x + GdxSettingsLayout.HORIZONTAL_INSET + 10f,
                 separatorY,

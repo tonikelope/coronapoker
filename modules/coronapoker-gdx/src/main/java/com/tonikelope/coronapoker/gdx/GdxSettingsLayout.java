@@ -30,12 +30,15 @@ final class GdxSettingsLayout {
     static final float CONTENT_ROW_TOP_INSET = 96f;
     static final float CONTENT_BOTTOM_INSET = 112f;
     static final float CONTENT_TOTAL_VERTICAL_INSET = 364f;
+    /** Reclaims the secondary-tab band for primary pages without subpages. */
+    static final float NO_SUBPAGE_CONTENT_GAIN = 56f;
     static final float FOOTER_BOTTOM_INSET = 24f;
     static final float FOOTER_BUTTON_HEIGHT = 58f;
     /** Common row geometry for menu, waiting-room and live-table settings. */
     static final float ROW_HEIGHT = 68f;
     static final float ROW_STRIDE = 70f;
     static final float GAME_COLUMN_GAP = 24f;
+    static final float GAME_INNER_GAP = 12f;
     /** Same visible width as the in-game log scrollbar. */
     static final float SCROLLBAR_WIDTH = 14f;
     /** Generous mouse target around the visible bar. */
@@ -62,23 +65,26 @@ final class GdxSettingsLayout {
      */
     static Frame frame(float worldWidth, float worldHeight, int sectionCount,
             int subpageCount) {
-        if (sectionCount < 1 || subpageCount < 1) {
+        if (sectionCount < 1 || subpageCount < 0) {
             throw new IllegalArgumentException(
-                    "Settings tabs require at least one item");
+                    "Settings require a primary tab and nonnegative subpages");
         }
         Rectangle panel = panelBounds(worldWidth, worldHeight);
         float innerWidth = panel.width - 2f * HORIZONTAL_INSET;
-        int subTabRows = (subpageCount + MAX_SUB_TABS_PER_ROW - 1)
+        int layoutSubpageCount = Math.max(1, subpageCount);
+        int subTabRows = (layoutSubpageCount + MAX_SUB_TABS_PER_ROW - 1)
                 / MAX_SUB_TABS_PER_ROW;
-        int subTabColumns = (subpageCount + subTabRows - 1)
+        int subTabColumns = (layoutSubpageCount + subTabRows - 1)
                 / subTabRows;
         float extraSubTabHeight = (subTabRows - 1) * SUB_TAB_ROW_GAP;
+        float noSubpageGain = subpageCount == 0
+                ? NO_SUBPAGE_CONTENT_GAIN : 0f;
         Rectangle content = new Rectangle(
                 panel.x + HORIZONTAL_INSET,
                 panel.y + CONTENT_BOTTOM_INSET,
                 innerWidth,
                 panel.height - CONTENT_TOTAL_VERTICAL_INSET
-                - extraSubTabHeight);
+                - extraSubTabHeight + noSubpageGain);
         return new Frame(panel, content,
                 panel.y + panel.height - MAIN_TAB_TOP_INSET,
                 innerWidth / sectionCount,
@@ -145,6 +151,24 @@ final class GdxSettingsLayout {
         Rectangle bounds = new Rectangle(x, y, width, height);
         float surfaceY = y + (height - 54f) / 2f;
         float buttonY = y + (height - 48f) / 2f;
+        if (width < 520f) {
+            float controlsWidth = Math.max(190f, width * 0.58f);
+            float controlsX = x + width - controlsWidth - 12f;
+            float buttonWidth = 48f;
+            Rectangle controls = new Rectangle(controlsX, surfaceY,
+                    controlsWidth, 54f);
+            Rectangle minus = new Rectangle(controlsX + 3f, buttonY,
+                    buttonWidth, 48f);
+            Rectangle value = new Rectangle(controlsX + buttonWidth + 3f,
+                    surfaceY, controlsWidth - 2f * buttonWidth - 6f, 54f);
+            Rectangle plus = new Rectangle(
+                    controlsX + controlsWidth - buttonWidth - 3f, buttonY,
+                    buttonWidth, 48f);
+            Rectangle label = new Rectangle(x + 20f,
+                    y + (height - 58f) / 2f,
+                    Math.max(0f, controlsX - x - 30f), 58f);
+            return new StepperRow(bounds, label, controls, minus, value, plus);
+        }
         Rectangle controls = new Rectangle(x + width - 432f,
                 surfaceY, 420f, 54f);
         Rectangle minus = new Rectangle(x + width - 426f,
@@ -164,6 +188,15 @@ final class GdxSettingsLayout {
         float columnWidth = (rowWidth - GAME_COLUMN_GAP) / 2f;
         return new GameColumns(rowX,
                 rowX + columnWidth + GAME_COLUMN_GAP, columnWidth);
+    }
+
+    /** Two equal controls inside one Game column, as used by New Game. */
+    static SplitRow splitGameRow(Rectangle bounds) {
+        float width = (bounds.width - GAME_INNER_GAP) / 2f;
+        return new SplitRow(
+                new Rectangle(bounds.x, bounds.y, width, bounds.height),
+                new Rectangle(bounds.x + width + GAME_INNER_GAP, bounds.y,
+                        width, bounds.height));
     }
 
     static Rectangle debugCopyButton(Rectangle content) {
@@ -310,6 +343,9 @@ final class GdxSettingsLayout {
             return new Rectangle(rightX,
                     firstRowY - row * ROW_STRIDE, width, ROW_HEIGHT);
         }
+    }
+
+    record SplitRow(Rectangle left, Rectangle right) {
     }
 
     record PixelRows(float firstRowY, float viewportBottom,

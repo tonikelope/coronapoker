@@ -43,6 +43,28 @@ final class GdxSettingsStyle {
     static final int TOGGLE_KNOB_OFF_RGBA = 0x8290a4ff;
     static final int TOGGLE_KNOB_ON_RGBA = 0xb8ffc5ff;
 
+    private static final Color ROW_DISABLED_BORDER = new Color(
+            DISABLED_LINE_RGBA);
+    private static final Color ROW_HOVER_BORDER = new Color(CYAN_RGBA);
+    private static final Color ROW_BORDER = new Color(LINE_RGBA);
+    private static final Color ROW_DISABLED_FILL = new Color(
+            DISABLED_FILL_RGBA);
+    private static final Color ROW_PRESSED_FILL = new Color(
+            PRESSED_FILL_RGBA);
+    private static final Color ROW_FILL = new Color(PANEL_LIGHT_RGBA);
+    private static final Color TOGGLE_OFF = new Color(TOGGLE_OFF_RGBA);
+    private static final Color TOGGLE_ON = new Color(TOGGLE_ON_RGBA);
+    private static final Color TOGGLE_KNOB_OFF = new Color(
+            TOGGLE_KNOB_OFF_RGBA);
+    private static final Color TOGGLE_KNOB_ON = new Color(
+            TOGGLE_KNOB_ON_RGBA);
+    private static final Color TOGGLE_TRACK_SCRATCH = new Color();
+    private static final Color TOGGLE_KNOB_SCRATCH = new Color();
+    private static final Color GRADIENT_BOTTOM_LEFT = new Color();
+    private static final Color GRADIENT_BOTTOM_RIGHT = new Color();
+    private static final Color GRADIENT_TOP_RIGHT = new Color();
+    private static final Color GRADIENT_TOP_LEFT = new Color();
+
     static final float TOGGLE_WIDTH = 66f;
     static final float TOGGLE_HEIGHT = 38f;
     static final float TOGGLE_RIGHT_INSET = 22f;
@@ -55,23 +77,23 @@ final class GdxSettingsStyle {
     }
 
     static Color rowBorder(boolean enabled, boolean hovered) {
-        return new Color(!enabled ? DISABLED_LINE_RGBA
-                : hovered ? CYAN_RGBA : LINE_RGBA);
+        return !enabled ? ROW_DISABLED_BORDER
+                : hovered ? ROW_HOVER_BORDER : ROW_BORDER;
     }
 
     static Color rowFill(boolean enabled, boolean pressed) {
-        return new Color(!enabled ? DISABLED_FILL_RGBA
-                : pressed ? PRESSED_FILL_RGBA : PANEL_LIGHT_RGBA);
+        return !enabled ? ROW_DISABLED_FILL
+                : pressed ? ROW_PRESSED_FILL : ROW_FILL;
     }
 
     static Color toggleTrack(float animation) {
-        return new Color(TOGGLE_OFF_RGBA).lerp(
-                new Color(TOGGLE_ON_RGBA), animation);
+        return TOGGLE_TRACK_SCRATCH.set(TOGGLE_OFF).lerp(
+                TOGGLE_ON, animation);
     }
 
     static Color toggleKnob(float animation) {
-        return new Color(TOGGLE_KNOB_OFF_RGBA).lerp(
-                new Color(TOGGLE_KNOB_ON_RGBA), animation);
+        return TOGGLE_KNOB_SCRATCH.set(TOGGLE_KNOB_OFF).lerp(
+                TOGGLE_KNOB_ON, animation);
     }
 
     static void drawRow(ShapeRenderer shapes, float x, float y, float width,
@@ -90,18 +112,22 @@ final class GdxSettingsStyle {
             float inset = 14f;
             float sheenBottom = y + height * 0.54f;
             float sheenTop = y + height - 9f;
+            GRADIENT_BOTTOM_LEFT.set(1f, 1f, 1f, 0.018f * alpha);
+            GRADIENT_BOTTOM_RIGHT.set(GRADIENT_BOTTOM_LEFT);
+            GRADIENT_TOP_RIGHT.set(1f, 1f, 1f, 0.115f * alpha);
+            GRADIENT_TOP_LEFT.set(GRADIENT_TOP_RIGHT);
             shapes.rect(x + inset, sheenBottom, width - inset * 2f,
                     sheenTop - sheenBottom,
-                    new Color(1f, 1f, 1f, 0.018f * alpha),
-                    new Color(1f, 1f, 1f, 0.018f * alpha),
-                    new Color(1f, 1f, 1f, 0.115f * alpha),
-                    new Color(1f, 1f, 1f, 0.115f * alpha));
+                    GRADIENT_BOTTOM_LEFT, GRADIENT_BOTTOM_RIGHT,
+                    GRADIENT_TOP_RIGHT, GRADIENT_TOP_LEFT);
+            GRADIENT_BOTTOM_LEFT.set(0f, 0f, 0f, 0.11f * alpha);
+            GRADIENT_BOTTOM_RIGHT.set(GRADIENT_BOTTOM_LEFT);
+            GRADIENT_TOP_RIGHT.set(0f, 0f, 0f, 0.01f * alpha);
+            GRADIENT_TOP_LEFT.set(GRADIENT_TOP_RIGHT);
             shapes.rect(x + inset, y + 8f, width - inset * 2f,
                     height * 0.18f,
-                    new Color(0f, 0f, 0f, 0.11f * alpha),
-                    new Color(0f, 0f, 0f, 0.11f * alpha),
-                    new Color(0f, 0f, 0f, 0.01f * alpha),
-                    new Color(0f, 0f, 0f, 0.01f * alpha));
+                    GRADIENT_BOTTOM_LEFT, GRADIENT_BOTTOM_RIGHT,
+                    GRADIENT_TOP_RIGHT, GRADIENT_TOP_LEFT);
         }
     }
 

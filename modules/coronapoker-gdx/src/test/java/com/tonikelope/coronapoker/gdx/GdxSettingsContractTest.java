@@ -149,7 +149,7 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.subpageLabels(
                         GdxSettingsContract.Section.GAME,
                         java.util.List.of("CIEGAS", "COMPRA"), 0, 5));
-        assertEquals(java.util.List.of("CONTROLES"),
+        assertEquals(java.util.List.of(),
                 GdxSettingsContract.subpageLabels(
                         GdxSettingsContract.Section.SHORTCUTS,
                         java.util.List.of(), 11, 5));

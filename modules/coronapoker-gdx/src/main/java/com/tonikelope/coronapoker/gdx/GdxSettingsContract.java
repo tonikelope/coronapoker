@@ -117,7 +117,7 @@ final class GdxSettingsContract {
         APPEARANCE("APARIENCIA", "settings.tab_apariencia"),
         AUDIO("AUDIO", "settings.tab_audio"),
         GAME("JUEGO", "settings.tab_partida"),
-        SHORTCUTS("ATAJOS", "settings.tab_atajos"),
+        SHORTCUTS("CONTROLES", "settings.tab_atajos"),
         DEBUG("DEBUG", "settings.tab_debug");
 
         private final String label;
@@ -149,13 +149,13 @@ final class GdxSettingsContract {
     /**
      * Context-specific Game pages from Swing's two mutually exclusive panels.
      * The chrome is shared, but the waiting room exposes the complete pre-game
-     * draft while the running table exposes only live controls plus immutable
-     * summaries and session actions.
+     * draft while the running table exposes only actual game settings. Runtime
+     * session operations belong exclusively to the table's fast-access bar.
      */
     static final List<String> WAITING_ROOM_GAME_PAGES = List.of(
             "CIEGAS", "COMPRA", "RECOMPRA", "BOTS", "PARTIDA", "REGLAS");
     static final List<String> LIVE_TABLE_GAME_PAGES = List.of(
-            "CONTROLES", "TIMBA", "CIEGAS", "COMPRA", "BOTS", "SESIÓN");
+            "TIMBA", "CIEGAS", "COMPRA", "BOTS");
 
     static List<String> subpageLabels(Section section,
             List<String> gamePages, int shortcutEntries,
@@ -182,10 +182,10 @@ final class GdxSettingsContract {
                     .map(page -> translatedUpper(text,
                             gamePageTranslationKey(page), page))
                     .toList();
-            case SHORTCUTS -> {
-                yield List.of(translatedUpper(text,
-                        "gdx.settings.page.controls", "CONTROLES"));
-            }
+            // Controls is already the primary tab. A second, identically
+            // named tab added no navigation value and made the AUTO controls
+            // look as if they belonged to the Game section.
+            case SHORTCUTS -> List.of();
             case DEBUG -> List.of(translatedUpper(text,
                     "gdx.settings.page.technical_log",
                     "REGISTRO TÉCNICO"));
@@ -730,7 +730,6 @@ final class GdxSettingsContract {
             case "REGLAS" -> "gdx.settings.game.rules";
             case "CONTROLES" -> "gdx.settings.game.controls";
             case "TIMBA" -> "gdx.settings.game.table";
-            case "SESIÓN" -> "gdx.settings.game.session";
             default -> "gdx.settings.game." + title;
         };
     }

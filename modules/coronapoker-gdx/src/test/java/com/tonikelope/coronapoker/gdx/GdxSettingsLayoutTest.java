@@ -75,13 +75,17 @@ final class GdxSettingsLayoutTest {
     }
 
     @Test
-    void sharedFrameRejectsEmptyTabRows() {
+    void sharedFrameRequiresPrimaryTabsButAllowsAParentOnlyPage() {
         org.junit.jupiter.api.Assertions.assertThrows(
                 IllegalArgumentException.class,
                 () -> GdxSettingsLayout.frame(1920f, 1080f, 0, 1));
-        org.junit.jupiter.api.Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> GdxSettingsLayout.frame(1920f, 1080f, 1, 0));
+        GdxSettingsLayout.Frame withSubpage = GdxSettingsLayout.frame(
+                1920f, 1080f, 1, 1);
+        GdxSettingsLayout.Frame parentOnly = GdxSettingsLayout.frame(
+                1920f, 1080f, 1, 0);
+        assertEquals(withSubpage.content().height
+                        + GdxSettingsLayout.NO_SUBPAGE_CONTENT_GAIN,
+                parentOnly.content().height);
     }
 
     @Test
@@ -161,6 +165,30 @@ final class GdxSettingsLayoutTest {
         assertTrue(rightFirst.x + rightFirst.width
                 <= content.x + content.width
                 - GdxSettingsLayout.CONTENT_HORIZONTAL_INSET);
+    }
+
+    @Test
+    void newGameStyleSplitRowsKeepCompactSteppersInsideEachHalf() {
+        Rectangle column = new Rectangle(100f, 400f, 740f,
+                GdxSettingsLayout.ROW_HEIGHT);
+        GdxSettingsLayout.SplitRow split =
+                GdxSettingsLayout.splitGameRow(column);
+        GdxSettingsLayout.StepperRow left = GdxSettingsLayout.stepperRow(
+                split.left().x, split.left().y, split.left().width,
+                split.left().height);
+        GdxSettingsLayout.StepperRow right = GdxSettingsLayout.stepperRow(
+                split.right().x, split.right().y, split.right().width,
+                split.right().height);
+
+        assertEquals(GdxSettingsLayout.GAME_INNER_GAP,
+                split.right().x - (split.left().x + split.left().width));
+        assertTrue(left.label().x + left.label().width <= left.controls().x);
+        assertTrue(left.plusButton().x + left.plusButton().width
+                <= split.left().x + split.left().width);
+        assertTrue(right.label().x + right.label().width
+                <= right.controls().x);
+        assertTrue(right.plusButton().x + right.plusButton().width
+                <= split.right().x + split.right().width);
     }
 
     @Test

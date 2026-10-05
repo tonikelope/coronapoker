@@ -174,6 +174,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     // folded/losing hand is still readable instead of turning into a muddy
     // near-invisible silhouette.
     static final float DISABLED_CARD_ALPHA = 0.28f;
+    static final int DISABLED_HOLE_CARD_BASE_PASS = 1;
+    static final int DISABLED_HOLE_CARD_UPPER_PASS = 2;
     private static final float LOCAL_CARD_FAN_ANGLE = 8.5f;
     private static final float LOCAL_SWAP_DELAY = 0.14f;
     private static final float LOCAL_SWAP_SECONDS = 0.68f;
@@ -8765,7 +8767,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean compositeDisabledCards = shouldCompositeDisabledHoleCards(
                 foregroundFlights, uiLayer == UI_SETTINGS);
         if (compositeDisabledCards) {
-            drawDisabledHoleCardsLayer(cardBack);
+            drawDisabledHoleCardsLayer(cardBack,
+                    DISABLED_HOLE_CARD_BASE_PASS);
         }
         batch.begin();
         if (!foregroundFlights) {
@@ -8893,11 +8896,36 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.setShader(null);
         batch.setColor(Color.WHITE);
         batch.end();
+        if (compositeDisabledCards) {
+            // A selected/full-opacity rear card is painted in the main pass.
+            // Repaint any dimmed front card afterwards so the physical card on
+            // the right remains the upper layer even when showdown selection
+            // gives the two cards different opacities.
+            drawDisabledHoleCardsLayer(cardBack,
+                    DISABLED_HOLE_CARD_UPPER_PASS);
+        }
     }
 
     static boolean shouldCompositeDisabledHoleCards(boolean foregroundFlights,
             boolean settingsOpen) {
         return !foregroundFlights && !settingsOpen;
+    }
+
+    /**
+     * Selects the off-screen pass for a dimmed hole card.  Most dimmed cards
+     * are composed before opaque cards.  The sole exception is a dimmed upper
+     * card whose lower neighbour is opaque: that card must be composed after
+     * the opaque pass or the rear card would incorrectly cover its index.
+     */
+    static int disabledHoleCardPass(int slot, int lowerSlot, int upperSlot,
+            float lowerAlpha, float upperAlpha) {
+        float alpha = slot == lowerSlot ? lowerAlpha
+                : slot == upperSlot ? upperAlpha : 1f;
+        if (alpha >= 1f) return 0;
+        return lowerSlot != upperSlot && slot == upperSlot
+                && lowerAlpha >= 1f
+                ? DISABLED_HOLE_CARD_UPPER_PASS
+                : DISABLED_HOLE_CARD_BASE_PASS;
     }
 
     private void drawLiveHoleSwap(Seat seat, Texture cardBack) {
@@ -9171,7 +9199,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return hovered && alpha < 1f ? 1f : alpha;
     }
 
-    private void drawDisabledHoleCardsLayer(Texture cardBack) {
+    private void drawDisabledHoleCardsLayer(Texture cardBack, int pass) {
         boolean hasDisabledCards = false;
         for (TableSnapshot.PlayerSnapshot player : liveState.snapshot().players()) {
             Seat seat = seatByNickname(player.nickname());
@@ -9180,11 +9208,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             List<TableSnapshot.CardSnapshot> holeCards
                     = liveState.presentedHoleCards(player.nickname());
-            for (int slot = 0; slot < holeCards.size() && slot < 2; slot++) {
+            LiveCardPlacement first = liveHolePlacement(seat, 0);
+            LiveCardPlacement second = liveHolePlacement(seat, 1);
+            int visibleSlots = Math.min(2, holeCards.size());
+            int lowerSlot = visibleSlots == 1 ? 0
+                    : holeCardSlotForLayer(first.x, second.x, 0);
+            int upperSlot = visibleSlots == 1 ? 0
+                    : holeCardSlotForLayer(first.x, second.x, 1);
+            float lowerAlpha = visibleSlots == 0 ? 1f
+                    : liveRestingCardAlpha(holeCards.get(lowerSlot),
+                            player.nickname(), lowerSlot, false,
+                            lowerSlot == 0 ? first : second);
+            float upperAlpha = visibleSlots < 2 ? lowerAlpha
+                    : liveRestingCardAlpha(holeCards.get(upperSlot),
+                            player.nickname(), upperSlot, false,
+                            upperSlot == 0 ? first : second);
+            for (int slot = 0; slot < visibleSlots; slot++) {
                 TableSnapshot.CardSnapshot card = holeCards.get(slot);
                 if (card.visible() && card.faceUp()
-                        && liveRestingCardAlpha(card, player.nickname(), slot,
-                                false, liveHolePlacement(seat, slot)) < 1f) {
+                        && disabledHoleCardPass(slot, lowerSlot, upperSlot,
+                                lowerAlpha, upperAlpha) == pass) {
                     hasDisabledCards = true;
                     break;
                 }
@@ -9211,14 +9254,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             LiveCardPlacement first = liveHolePlacement(seat, 0);
             LiveCardPlacement second = liveHolePlacement(seat, 1);
             int visibleSlots = Math.min(2, holeCards.size());
+            int lowerSlot = visibleSlots == 1 ? 0
+                    : holeCardSlotForLayer(first.x, second.x, 0);
+            int upperSlot = visibleSlots == 1 ? 0
+                    : holeCardSlotForLayer(first.x, second.x, 1);
+            float lowerAlpha = visibleSlots == 0 ? 1f
+                    : liveRestingCardAlpha(holeCards.get(lowerSlot),
+                            player.nickname(), lowerSlot, false,
+                            lowerSlot == 0 ? first : second);
+            float upperAlpha = visibleSlots < 2 ? lowerAlpha
+                    : liveRestingCardAlpha(holeCards.get(upperSlot),
+                            player.nickname(), upperSlot, false,
+                            upperSlot == 0 ? first : second);
             for (int layer = 0; layer < visibleSlots; layer++) {
                 int slot = visibleSlots == 1 ? 0
                         : holeCardSlotForLayer(first.x, second.x, layer);
                 TableSnapshot.CardSnapshot card = holeCards.get(slot);
                 LiveCardPlacement placement = slot == 0 ? first : second;
                 if (!card.visible() || !card.faceUp()
-                        || liveRestingCardAlpha(card, player.nickname(), slot,
-                                false, placement) >= 1f) {
+                        || disabledHoleCardPass(slot, lowerSlot, upperSlot,
+                                lowerAlpha, upperAlpha) != pass) {
                     continue;
                 }
                 drawLiveRestingCard(card, placement, cardBack,

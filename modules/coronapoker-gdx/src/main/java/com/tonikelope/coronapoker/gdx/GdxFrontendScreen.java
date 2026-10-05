@@ -267,18 +267,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     // main menu. Its opaque, lighter slate keeps both copy and the original
     // black mourning ribbon legible without changing every other dialog.
     static final int ABOUT_PANEL_RGBA = 0x2b415cff;
-    static final int ABOUT_INSET_RGBA = 0x1b2e46ff;
-    static final int ABOUT_MEMORIAL_RGBA = 0x536b86ff;
-    static final float ABOUT_MUSIC_PANEL_Y = 306f;
-    static final float ABOUT_MUSIC_PANEL_HEIGHT = 164f;
-    static final float ABOUT_FOOTER_PANEL_Y = 146f;
-    static final float ABOUT_FOOTER_PANEL_HEIGHT = 128f;
     static final float ABOUT_MEMORIAL_CENTER_Y = 542f;
     static final float ABOUT_MOURNING_ICON_SIZE = 68f;
     static final float ABOUT_MUSIC_FIRST_LINE_Y = 448f;
     static final float ABOUT_MUSIC_LINE_GAP = 29f;
     static final float ABOUT_COPYRIGHT_Y = 326f;
-    static final float ABOUT_INNER_PANEL_WIDTH = 1060f;
+    static final float ABOUT_CONTENT_WIDTH = 1060f;
     static final float HAND_GENERATOR_PANEL_X = 410f;
     static final float HAND_GENERATOR_PANEL_Y = 178f;
     static final float HAND_GENERATOR_PANEL_WIDTH = 1100f;
@@ -3832,21 +3826,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float w = 1300f;
         float h = 964f;
         Color aboutPanel = new Color(ABOUT_PANEL_RGBA);
-        Color aboutInset = new Color(ABOUT_INSET_RGBA);
-        Color aboutMemorial = new Color(ABOUT_MEMORIAL_RGBA);
         GdxUiDialogStyle.drawPanel(shapes, x, y, w, h,
                 aboutPanel, CYAN, 1f);
-        float innerPanelX = WIDTH / 2f - ABOUT_INNER_PANEL_WIDTH / 2f;
-        GdxUiDialogStyle.drawInset(shapes, innerPanelX, ABOUT_MUSIC_PANEL_Y,
-                ABOUT_INNER_PANEL_WIDTH,
-                ABOUT_MUSIC_PANEL_HEIGHT, aboutInset, LINE, 1f);
-        GdxUiDialogStyle.drawInset(shapes, innerPanelX,
-                ABOUT_FOOTER_PANEL_Y, ABOUT_INNER_PANEL_WIDTH,
-                ABOUT_FOOTER_PANEL_HEIGHT, aboutInset, LINE, 1f);
-        GdxUiDialogStyle.drawInset(shapes, innerPanelX,
-                ABOUT_MEMORIAL_CENTER_Y - 38f,
-                ABOUT_INNER_PANEL_WIDTH, 76f,
-                aboutMemorial, CYAN_DARK, 1f);
+        float contentX = WIDTH / 2f - ABOUT_CONTENT_WIDTH / 2f;
         textFit(titleFont, "CORONAPOKER  " + ApplicationMetadata.VERSION,
                 WIDTH / 2f, y + h - 52f, Color.WHITE, true, w - 120f);
         textFit(headingFont, gameText.translate("about.merecemos"),
@@ -3912,9 +3894,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         "gdx.about.open_failed"));
         textFit(smallFont, gameText.translate("about.hecho_a_mano"),
                 WIDTH / 2f, 226f, Color.WHITE, true,
-                ABOUT_INNER_PANEL_WIDTH - 90f);
-        float footerStart = innerPanelX + 26f;
-        float footerWidth = ABOUT_INNER_PANEL_WIDTH - 52f;
+                ABOUT_CONTENT_WIDTH - 90f);
+        float footerStart = contentX + 26f;
+        float footerWidth = ABOUT_CONTENT_WIDTH - 52f;
         float buildWidth = footerWidth * 0.18f;
         float runtimeWidth = footerWidth * 0.24f;
         float systemWidth = footerWidth - buildWidth - runtimeWidth;

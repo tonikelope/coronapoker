@@ -18,6 +18,8 @@ final class ArchitectureBoundaryTest {
 
     private static final Pattern GRAPHICS_IMPORT = Pattern.compile(
             "(?m)^\\s*import\\s+(?:java\\.awt|javax\\.swing|com\\.badlogic\\.gdx)(?:\\.|;)");
+    private static final Path LOCAL_EASTER_EGG_SOURCE = Path.of(
+            "com/tonikelope/coronapoker/Huevos.java");
     private final Path reactor = Path.of(System.getProperty("architecture.reactor.dir"))
             .toAbsolutePath().normalize();
 
@@ -52,6 +54,12 @@ final class ArchitectureBoundaryTest {
             try (Stream<Path> files = Files.walk(legacyRoot)) {
                 List<Path> leftovers = files
                         .filter(Files::isRegularFile)
+                        // Huevos.java is the intentionally ignored local-only
+                        // easter-egg source. Release packaging may compile its
+                        // class, but the source must never enter Git or become
+                        // a second product-module owner.
+                        .filter(path -> !legacyRoot.relativize(path)
+                                .equals(LOCAL_EASTER_EGG_SOURCE))
                         .toList();
                 assertTrue(leftovers.isEmpty(),
                         "Legacy source tree must be empty: " + leftovers);

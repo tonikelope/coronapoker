@@ -8,6 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.io.ByteArrayInputStream;
 import java.awt.image.BufferedImage;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 
@@ -22,36 +25,37 @@ final class GdxAboutEasterEggTest {
         assertFalse(GdxFrontendScreen.renderMainMenuContent(true, false));
         assertFalse(GdxFrontendScreen.renderMainMenuContent(false, true));
         assertTrue(GdxFrontendScreen.renderMainMenuContent(false, false));
-        int panelRed = GdxFrontendScreen.ABOUT_PANEL_RGBA >>> 24;
-        int memorialRed = GdxFrontendScreen.ABOUT_MEMORIAL_RGBA >>> 24;
-        assertTrue(memorialRed > panelRed,
-                "the black ribbon needs a lighter memorial band");
     }
 
     @Test
-    void memorialAndCopyrightStayInsideTheirOwnVisualBands() {
-        float musicPanelTop = GdxFrontendScreen.ABOUT_MUSIC_PANEL_Y
-                + GdxFrontendScreen.ABOUT_MUSIC_PANEL_HEIGHT;
+    void aboutCopyKeepsClearRhythmOnTheSingleDialogBackground() {
         float mourningIconBottom = GdxFrontendScreen.ABOUT_MEMORIAL_CENTER_Y
                 - GdxFrontendScreen.ABOUT_MOURNING_ICON_SIZE / 2f;
 
-        assertTrue(mourningIconBottom > musicPanelTop + 20f,
-                "the memorial ribbon must not invade the music panel");
-        assertTrue(GdxFrontendScreen.ABOUT_COPYRIGHT_Y
-                > GdxFrontendScreen.ABOUT_MUSIC_PANEL_Y,
-                "the copyright note must be inside the music panel");
-        assertTrue(GdxFrontendScreen.ABOUT_COPYRIGHT_Y
-                < musicPanelTop,
-                "the copyright note must not escape above the music panel");
+        assertTrue(mourningIconBottom
+                > GdxFrontendScreen.ABOUT_MUSIC_FIRST_LINE_Y + 20f,
+                "the memorial must remain visually separate from music copy");
         float lastMusicLine = GdxFrontendScreen.ABOUT_MUSIC_FIRST_LINE_Y
                 - 3f * GdxFrontendScreen.ABOUT_MUSIC_LINE_GAP;
         assertTrue(lastMusicLine
                 - GdxFrontendScreen.ABOUT_COPYRIGHT_Y >= 24f,
                 "the copyright note must not overlap the last music credit");
-        float footerTop = GdxFrontendScreen.ABOUT_FOOTER_PANEL_Y
-                + GdxFrontendScreen.ABOUT_FOOTER_PANEL_HEIGHT;
-        assertTrue(GdxFrontendScreen.ABOUT_MUSIC_PANEL_Y - footerTop >= 18f,
-                "the information cards need visible breathing room");
+        assertTrue(GdxFrontendScreen.ABOUT_COPYRIGHT_Y - 226f >= 80f,
+                "copyright and handmade credits need breathing room");
+    }
+
+    @Test
+    void aboutCopyIsDrawnDirectlyOnTheDialogWithoutInteriorBoxes()
+            throws Exception {
+        String source = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+        int start = source.indexOf("private void drawAboutDialog()");
+        int end = source.indexOf("private void drawHandGeneratorDialog()",
+                start);
+        assertTrue(start >= 0 && end > start);
+        assertFalse(source.substring(start, end).contains("drawInset("),
+                "about content must sit directly on the dialog background");
     }
 
     @Test

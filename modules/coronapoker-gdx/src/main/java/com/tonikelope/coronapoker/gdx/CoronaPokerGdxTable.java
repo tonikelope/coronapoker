@@ -120,7 +120,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static final float FINAL_AMOUNT_ROLL_SECONDS = 1.5f;
     static final float FINAL_AMOUNT_BLINK_STEP_SECONDS = 0.13f;
     static final int FINAL_AMOUNT_BLINK_STEPS = 6;
-    static final float FINAL_SUMMARY_REVEAL_SECONDS = 0.60f;
+    static final float FINAL_CARD_DEAL_START_SECONDS = 0.12f;
+    static final float FINAL_CARD_DEAL_STAGGER_SECONDS = 0.07f;
+    static final float FINAL_CARD_DEAL_SECONDS = 0.62f;
+    static final float FINAL_SUMMARY_REVEAL_SECONDS = 1.32f;
+    static final float FINAL_SUMMARY_TEXT_SHIFT_Y = -64f;
     private static final float INTRO_LIGHT_SWITCH_TIME =
             STARTUP_PRESENTATION_END_SECONDS;
     private static final float INTRO_LOGO_DOCK_START =
@@ -278,6 +282,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final int UI_CHAT = 4;
     private static final int UI_CARD_VIEWER = 5;
     private static final int UI_SCREENSHOTS = 6;
+    private static final float UI_FADE_SECONDS = 0.16f;
+    static final float TABLE_IMAGE_GALLERY_CHROME_SECONDS = UI_FADE_SECONDS;
     private static final int EMOJI_COUNT = 1826;
     private static final int EMOJI_COLUMNS = 8;
     private static final int EMOJI_ROWS = 5;
@@ -848,6 +854,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private int emojiPage;
     private boolean emojiPickerOpen;
     private boolean chatImageMode;
+    private boolean tableImageGalleryMediaPending;
+    private boolean tableImageClearConfirmation;
     private boolean chatSending;
     private List<String> tableImageHistory = List.of();
     private float tableImageSendAllowedAt;
@@ -1141,6 +1149,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         @Override
         public boolean keyDown(int keycode) {
             if (isClientTransportReconnecting()) return true;
+            if (tableImageClearConfirmation) return true;
             if (activeDialog != null && activeDialog.isAutoCall()
                     && handleAutoCallAmountEditingKey(keycode)) {
                 if (isTextDeletionKey(keycode)) {
@@ -1270,6 +1279,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         @Override
         public boolean keyTyped(char character) {
             if (isClientTransportReconnecting()) return true;
+            if (tableImageClearConfirmation) return true;
             if (activeDialog != null && activeDialog.isAutoCall()) {
                 handleAutoCallAmountTyped(character);
                 return true;
@@ -1307,6 +1317,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         @Override
         public boolean scrolled(float amountX, float amountY) {
+            if (tableImageClearConfirmation) return true;
             if (activeDialog != null && !activeDialog.isAutoAction()) {
                 return true;
             }
@@ -1379,6 +1390,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         public boolean touchDown(int screenX, int screenY, int pointerIndex,
                 int button) {
             if (isClientTransportReconnecting()) return true;
+            if (tableImageClearConfirmation) return true;
             if (tableIdentityDialog != null) return true;
             if (activeDialog != null && !activeDialog.isAutoAction()) {
                 // Dialog buttons are resolved once per frame by
@@ -2113,6 +2125,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         settingsLockTooltipDelay.clear();
         settingsSession.begin(GdxSettingsSession.Context.LIVE_TABLE,
                 preferences == null ? null : tableProperties);
+        settingsAppearancePage = settingsSession.subpageIndex(
+                GdxSettingsContract.Section.APPEARANCE);
+        settingsAudioPage = settingsSession.subpageIndex(
+                GdxSettingsContract.Section.AUDIO);
+        settingsGamePage = settingsSession.subpageIndex(
+                GdxSettingsContract.Section.GAME);
         settingsOpenedWindowMode = GdxDisplayModeController.activeMode();
         settingsOpenedMsaaSamples = presentationSettings == null ? 0
                 : presentationSettings.requestedMsaaSamples();
@@ -3302,9 +3320,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // focused contract tests. New dealer code publishes one batch so
             // every winner is paid from the same visual clock.
             TableVisualEvent.PayoutBatch.Transfer transfer
-                    = new TableVisualEvent.PayoutBatch.Transfer(
-                            payout.nickname(), payout.amount(), 0d,
-                            payout.stackAfter());
+                    = TableVisualEvent.PayoutBatch.Transfer.fromLegacy(payout);
             captureShowdownInvestments();
             double investedAfter = Math.max(0d,
                     showdownInvestmentTotal() - payout.amount());
@@ -4485,7 +4501,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
             if (uiLayer == UI_CHAT) {
-                closeTableChat();
+                if (tableImageClearConfirmation) {
+                    tableImageClearConfirmation = false;
+                } else {
+                    closeTableChat();
+                }
             } else if (uiLayer == UI_CARD_VIEWER) {
                 closeCardViewer();
             } else if (uiLayer == UI_SCREENSHOTS) {
@@ -4546,7 +4566,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             handleGameLogEditMenuClick(pointer.x, pointer.y);
             return;
         }
-        if (uiLayer == UI_CHAT
+        if (uiLayer == UI_CHAT && !tableImageClearConfirmation
                 && Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)) {
             pointer.set(Gdx.input.getX(), Gdx.input.getY());
             viewport.unproject(pointer);
@@ -4599,6 +4619,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         if (uiLayer != UI_NONE) {
+            if (uiLayer == UI_CHAT && tableImageClearConfirmation) {
+                if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+                    primaryPointer.capturePressedGesture();
+                    pointer.set(Gdx.input.getX(), Gdx.input.getY());
+                    viewport.unproject(pointer);
+                    handleTableImageClearConfirmationClick(
+                            pointer.x, pointer.y);
+                }
+                return;
+            }
             if (uiLayer == UI_SCREENSHOTS) {
                 if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT)) {
                     showRelativeScreenshot(-1);
@@ -6053,8 +6083,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         fastBarExpanded = false;
         switch (visibleFastAccessActionAt(button)) {
-            case SETTINGS -> openSettingsSection(
-                    GdxSettingsContract.Section.GAME);
+            case SETTINGS -> openSettings();
             case CHAT -> openQuickChat();
             case IMAGE -> openTableImageGallery();
             case REBUY -> submit(new TableCommand.ToggleImmediateRebuy());
@@ -6077,6 +6106,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!canUseTableChat()) return;
         chatError = "";
         chatImageMode = false;
+        tableImageGalleryMediaPending = false;
+        tableImageClearConfirmation = false;
         emojiPickerOpen = false;
         quickChatHistoryIndex = quickChatHistory.size();
         quickChatPendingDraft = chatDraft;
@@ -6092,10 +6123,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!canUseTableImages() || !canUseTableChat()) return;
         chatError = "";
         chatImageMode = true;
+        tableImageClearConfirmation = false;
         emojiPickerOpen = false;
         tableImageHistory = preferences == null ? List.of()
                 : GdxChatImageHistory.read(tableProperties);
-        tableGalleryMedia.refresh(tableImageHistory, 8, "table-history");
+        tableImageGalleryMediaPending = true;
         chatEdit.focus("tableChat", chatDraft);
         chatEdit.end(chatDraft, false);
         openUiLayer(UI_CHAT);
@@ -6104,6 +6136,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void closeTableChat() {
         uiLayer = UI_NONE;
         chatImageMode = false;
+        tableImageGalleryMediaPending = false;
+        tableImageClearConfirmation = false;
         emojiPickerOpen = false;
         chatEditMenuOpen = false;
         quickChatPendingDraft = chatDraft;
@@ -13885,8 +13919,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             TableVisualEvent.PlayerAction.ActionKind kind,
             String fallback) {
         String label = fallback == null ? "" : fallback.trim();
-        if (kind != TableVisualEvent.PlayerAction.ActionKind.CALL
-                && kind != TableVisualEvent.PlayerAction.ActionKind.BET
+        if (kind != TableVisualEvent.PlayerAction.ActionKind.BET
                 && kind != TableVisualEvent.PlayerAction.ActionKind.RAISE
                 && kind != TableVisualEvent.PlayerAction.ActionKind.RERAISE
                 && kind != TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
@@ -14026,10 +14059,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         && !participant.bot() && participant.connected());
     }
 
-    private void openSettingsSection(GdxSettingsContract.Section section) {
+    private void openSettings() {
         beginTableSettings();
-        int requested = settingsSession.sections().indexOf(section);
-        settingsSession.selectTab(requested < 0 ? 0 : requested);
         openUiLayer(UI_SETTINGS);
     }
 
@@ -14042,12 +14073,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case UI_SCREENSHOTS -> handleScreenshotViewerClick(x, y);
             default -> {
             }
-        }
-        if (uiLayer == UI_CHAT && chatEditMenuOpen) {
-            drawTableChatEditMenu();
-        }
-        if (uiLayer == UI_GAME_LOG && gameLogEditMenuOpen) {
-            drawGameLogEditMenu();
         }
     }
 
@@ -14074,11 +14099,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (frame.mainTab(i).contains(x, y)) {
                 audioPreview.stop();
                 settingsSession.selectTab(i);
-                settingsGamePage = 0;
                 settingsGameScroll = 0f;
-                settingsAppearancePage = 0;
                 settingsAppearanceScroll = 0f;
-                settingsAudioPage = 0;
                 settingsAudioScroll = 0f;
                 shortcutScroll = 0f;
                 shortcutCaptureId = null;
@@ -14650,6 +14672,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void selectSettingsSubpage(int index) {
         audioPreview.stop();
+        settingsSession.selectSubpage(index);
         switch (settingsSection()) {
             case APPEARANCE -> {
                 settingsAppearancePage = index;
@@ -14973,18 +14996,36 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float emojiX = sendX - 150f;
         float historyY = panelY + 118f;
         float historyH = panelH - 220f;
-        if (contains(x, y, panelX + panelW - 216f,
-                panelY + panelH - 62f, 136f, 34f)) {
-            if (preferences != null) {
-                GdxChatImageHistory.clear(tableProperties);
+        if (contains(x, y, panelX + panelW - 620f,
+                panelY + panelH - 62f, 190f, 34f)) {
+            try {
+                if (!Gdx.net.openURI("https://images.google.com/")) {
+                    chatError = gameText.translate(
+                            "gdx.lobby.search_images_failed");
+                }
+            } catch (RuntimeException failure) {
+                LOGGER.log(Level.WARNING,
+                        "Could not open Google Images", failure);
+                chatError = gameText.translate(
+                        "gdx.lobby.search_images_failed");
             }
-            tableImageHistory = List.of();
-            tableGalleryMedia.clear();
-            if (preferences != null) preferences.saveDeferred();
-            chatError = "";
             return;
         }
-        if (contains(x, y, panelX + 34f, historyY,
+        if (contains(x, y, panelX + panelW - 420f,
+                panelY + panelH - 62f, 190f, 34f)) {
+            boolean enabled = GdxChatImageHistory.autoReceive(tableProperties);
+            GdxChatImageHistory.setAutoReceive(tableProperties, !enabled);
+            if (preferences != null) preferences.saveDeferred();
+            return;
+        }
+        if (contains(x, y, panelX + panelW - 216f,
+                panelY + panelH - 62f, 136f, 34f)) {
+            tableImageClearConfirmation = true;
+            chatEditMenuOpen = false;
+            return;
+        }
+        if (tableImageGalleryContentReady(uiOpenedAt, totalTime)
+                && contains(x, y, panelX + 34f, historyY,
                 panelW - 68f, historyH)) {
             int visible = Math.min(8, tableImageHistory.size());
             for (int index = 0; index < visible; index++) {
@@ -15003,6 +15044,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (contains(x, y, emojiX, inputY, 132f, 60f)) {
             if (chatImageMode) {
                 chatImageMode = false;
+                tableImageGalleryMediaPending = false;
                 emojiPickerOpen = false;
                 chatDraft = "";
             } else {
@@ -15017,8 +15059,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (contains(x, y, panelX + panelW - 62f,
                 panelY + panelH - 62f, 34f, 34f)) {
-            uiLayer = UI_NONE;
-            emojiPickerOpen = false;
+            closeTableChat();
             return;
         }
         if (!emojiPickerOpen) return;
@@ -15049,6 +15090,72 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
         }
+    }
+
+    private void handleTableImageClearConfirmationClick(float x, float y) {
+        float width = viewport.getWorldWidth();
+        float height = viewport.getWorldHeight();
+        float panelW = Math.min(760f, width - 80f);
+        float panelH = 300f;
+        float panelX = (width - panelW) / 2f;
+        float panelY = (height - panelH) / 2f;
+        if (contains(x, y, panelX + 46f, panelY + 38f,
+                300f, 68f)) {
+            tableImageClearConfirmation = false;
+            return;
+        }
+        if (contains(x, y, panelX + panelW - 346f, panelY + 38f,
+                300f, 68f)) {
+            if (preferences != null) {
+                GdxChatImageHistory.clear(tableProperties);
+            }
+            tableImageHistory = List.of();
+            tableGalleryMedia.clear();
+            if (preferences != null) preferences.saveDeferred();
+            tableImageClearConfirmation = false;
+            chatError = "";
+        }
+    }
+
+    private void drawTableImageClearConfirmation() {
+        float width = viewport.getWorldWidth();
+        float height = viewport.getWorldHeight();
+        float panelW = Math.min(760f, width - 80f);
+        float panelH = 300f;
+        float panelX = (width - panelW) / 2f;
+        float panelY = (height - panelH) / 2f;
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        GdxUiDialogStyle.drawBackdrop(shapes, width, height, 1f);
+        GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
+                panelW, panelH, CYAN, 1f);
+        drawDialogButton(panelX + 46f, panelY + 38f,
+                300f, 68f, BUTTON_LINE,
+                contains(pointer.x, pointer.y, panelX + 46f,
+                        panelY + 38f, 300f, 68f), 1f);
+        drawDialogButton(panelX + panelW - 346f, panelY + 38f,
+                300f, 68f, FOLD_RED,
+                contains(pointer.x, pointer.y, panelX + panelW - 346f,
+                        panelY + 38f, 300f, 68f), 1f);
+        shapes.end();
+        batch.begin();
+        drawFittedCenteredInBox(uiFont,
+                uppercase(gameText.translate("ui.seguro")),
+                panelX + 30f, panelY + panelH - 78f,
+                panelW - 60f, 44f, POT_GOLD, 1f);
+        drawFittedCenteredInBox(smallFont, gameText.translate(
+                "gdx.lobby.clear_images_confirm"),
+                panelX + 46f, panelY + 132f,
+                panelW - 92f, 50f, Color.WHITE, 1f);
+        drawFittedCenteredInBox(actionFont,
+                uppercase(gameText.translate("ui.cancelar")),
+                panelX + 46f, panelY + 38f,
+                300f, 68f, Color.WHITE, 1f);
+        drawFittedCenteredInBox(actionFont,
+                uppercase(gameText.translate("gdx.lobby.clear")),
+                panelX + panelW - 346f, panelY + 38f,
+                300f, 68f, Color.WHITE, 1f);
+        batch.end();
     }
 
     static Rectangle tableGalleryCellBounds(int index, float x, float y,
@@ -15209,17 +15316,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         };
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.76f * alpha);
+        shapes.setColor(GdxEditMenuStyle.BORDER);
         roundedRect(chatEditMenuX - 1f, chatEditMenuY - 1f,
                 width + 2f, height + 2f, 10f);
-        shapes.setColor(0.006f, 0.018f, 0.031f, 0.99f * alpha);
+        shapes.setColor(GdxEditMenuStyle.BACKGROUND);
         roundedRect(chatEditMenuX, chatEditMenuY, width, height, 9f);
         for (int row = 0; row < labels.length; row++) {
             float rowY = chatEditMenuY + 8f + row * rowHeight;
             boolean hover = enabled[row] && contains(pointer.x, pointer.y,
                     chatEditMenuX + 8f, rowY, width - 16f, rowHeight);
-            shapes.setColor(CYAN.r, CYAN.g, CYAN.b,
-                    (hover ? 0.22f : 0.045f) * alpha);
+            shapes.setColor(hover ? GdxEditMenuStyle.ROW_HOVER
+                    : GdxEditMenuStyle.ROW);
             roundedRect(chatEditMenuX + 8f, rowY,
                     width - 16f, rowHeight - 2f, 6f);
         }
@@ -15548,17 +15655,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             gameLogSelectionAnchor >= 0 && gameLogSelectionCaret >= 0 };
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.76f * alpha);
+        shapes.setColor(GdxEditMenuStyle.BORDER);
         roundedRect(gameLogEditMenuX - 1f, gameLogEditMenuY - 1f,
                 width + 2f, height + 2f, 10f);
-        shapes.setColor(0.006f, 0.018f, 0.031f, 0.99f * alpha);
+        shapes.setColor(GdxEditMenuStyle.BACKGROUND);
         roundedRect(gameLogEditMenuX, gameLogEditMenuY, width, height, 9f);
         for (int row = 0; row < labels.length; row++) {
             float rowY = gameLogEditMenuY + 8f + row * rowHeight;
             boolean hover = enabled[row] && contains(pointer.x, pointer.y,
                     gameLogEditMenuX + 8f, rowY, width - 16f, rowHeight);
-            shapes.setColor(CYAN.r, CYAN.g, CYAN.b,
-                    (hover ? 0.22f : 0.045f) * alpha);
+            shapes.setColor(hover ? GdxEditMenuStyle.ROW_HOVER
+                    : GdxEditMenuStyle.ROW);
             roundedRect(gameLogEditMenuX + 8f, rowY,
                     width - 16f, rowHeight - 2f, 6f);
         }
@@ -15598,6 +15705,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case UI_SCREENSHOTS -> drawScreenshotViewer();
             default -> {
             }
+        }
+        if (uiLayer == UI_CHAT && chatEditMenuOpen
+                && !tableImageClearConfirmation) {
+            drawTableChatEditMenu();
+        }
+        if (uiLayer == UI_GAME_LOG && gameLogEditMenuOpen) {
+            drawGameLogEditMenu();
+        }
+        if (uiLayer == UI_CHAT && tableImageClearConfirmation) {
+            drawTableImageClearConfirmation();
         }
     }
 
@@ -16773,7 +16890,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private float uiFade() {
         return Interpolation.fade.apply(MathUtils.clamp(
-                (totalTime - uiOpenedAt) / 0.16f, 0f, 1f));
+                (totalTime - uiOpenedAt) / UI_FADE_SECONDS, 0f, 1f));
+    }
+
+    static boolean tableImageGalleryContentReady(float openedAt,
+            float currentTime) {
+        return currentTime - openedAt >= TABLE_IMAGE_GALLERY_CHROME_SECONDS;
     }
 
     private void drawSettingsDialog() {
@@ -19387,7 +19509,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float historyH = panelH - 220f;
         if (emojiPickerOpen && !chatImageMode) ensureEmojiPageTextures();
 
-        int visibleImages = Math.min(8, tableImageHistory.size());
+        boolean contentReady = tableImageGalleryContentReady(uiOpenedAt,
+                totalTime);
+        if (contentReady && tableImageGalleryMediaPending) {
+            tableImageGalleryMediaPending = false;
+            tableGalleryMedia.refresh(tableImageHistory, 8, "table-history");
+        }
+        int visibleImages = contentReady
+                ? Math.min(8, tableImageHistory.size()) : 0;
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -19424,6 +19553,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 chatSending ? BUTTON_LINE : STACK_GREEN,
                 !chatSending && contains(pointer.x, pointer.y,
                         sendX, inputY, 180f, 60f), alpha);
+        drawDialogButton(panelX + panelW - 620f,
+                panelY + panelH - 62f, 190f, 34f, BUTTON_LINE,
+                contains(pointer.x, pointer.y, panelX + panelW - 620f,
+                        panelY + panelH - 62f, 190f, 34f), alpha);
+        boolean autoReceive = GdxChatImageHistory.autoReceive(
+                tableProperties);
+        drawDialogButton(panelX + panelW - 420f,
+                panelY + panelH - 62f, 190f, 34f,
+                autoReceive ? STACK_GREEN : BUTTON_LINE,
+                contains(pointer.x, pointer.y, panelX + panelW - 420f,
+                        panelY + panelH - 62f, 190f, 34f), alpha);
         drawDialogButton(panelX + panelW - 216f,
                 panelY + panelH - 62f, 136f, 34f, BUTTON_LINE,
                 contains(pointer.x, pointer.y, panelX + panelW - 216f,
@@ -19442,25 +19582,34 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.begin();
         drawLeftInBox(uiFont, uppercase(gameText.translate(
                 "gdx.lobby.image_gallery")), panelX + 34f,
-                panelY + panelH - 72f, panelW - 320f, 42f,
+                panelY + panelH - 72f, panelW - 670f, 42f,
                 Color.WHITE, alpha);
         drawLeftInBox(smallFont, uppercase(gameText.translate(
                 "gdx.lobby.image_gallery_help")),
                 panelX + 35f, panelY + panelH - 103f,
-                panelW - 280f, 24f, CYAN, alpha);
+                panelW - 670f, 24f, CYAN, alpha);
         drawFittedCenteredInBox(actionFont, "×",
                 panelX + panelW - 62f, panelY + panelH - 62f,
                 34f, 34f, Color.WHITE, alpha);
         drawFittedCenteredInBox(smallFont, uppercase(gameText.translate(
+                "gdx.lobby.search_images")),
+                panelX + panelW - 620f, panelY + panelH - 62f,
+                190f, 34f, Color.WHITE, alpha);
+        drawFittedCenteredInBox(smallFont, uppercase(gameText.translate(
+                autoReceive ? "gdx.lobby.received_images_on"
+                        : "gdx.lobby.received_images_off")),
+                panelX + panelW - 420f, panelY + panelH - 62f,
+                190f, 34f, Color.WHITE, alpha);
+        drawFittedCenteredInBox(smallFont, uppercase(gameText.translate(
                 "gdx.lobby.clear")),
                 panelX + panelW - 216f, panelY + panelH - 62f,
                 136f, 34f, Color.WHITE, alpha);
-        if (tableImageHistory.isEmpty()) {
+        if (contentReady && tableImageHistory.isEmpty()) {
             drawFittedCenteredInBox(smallFont, uppercase(gameText.translate(
                     "gdx.lobby.image_gallery_empty")),
                     historyX + 20f, historyY + historyH / 2f - 18f,
                     historyW - 40f, 36f, Color.GRAY, alpha);
-        } else {
+        } else if (contentReady) {
             for (int index = 0; index < visibleImages; index++) {
                 String url = tableImageHistory.get(index);
                 Rectangle cell = tableGalleryCellBounds(index, historyX,
@@ -20179,7 +20328,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float reveal = Interpolation.fade.apply(
                 MathUtils.clamp(elapsed / 0.34f, 0f, 1f));
         float cardsReveal = Interpolation.swingOut.apply(
-                MathUtils.clamp((elapsed - 0.12f) / 0.46f, 0f, 1f));
+                MathUtils.clamp((elapsed - FINAL_CARD_DEAL_START_SECONDS)
+                        / FINAL_CARD_DEAL_SECONDS, 0f, 1f));
         TableSessionSummary.PlayerBalance local = summary.localBalance();
         double net = local == null ? 0d : local.netResult();
         Color resultColor = finalSummaryResultColor(net);
@@ -20195,7 +20345,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 (cardsAreaW - gap * Math.max(0, capacity - 1)) / capacity);
         float rowW = shown * cardW + Math.max(0, shown - 1) * gap;
         float firstX = centerX - rowW / 2f;
-        float cardY = 28f - (1f - cardsReveal) * 22f;
+        float cardY = 28f;
         float cardH = MathUtils.clamp(cardW * 1.36f, 228f, 250f);
 
         // BalanceScreen is transparent over the selected table surface. Repaint
@@ -20236,14 +20386,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (index >= summary.balances().size()) break;
             TableSessionSummary.PlayerBalance balance
                     = summary.balances().get(index);
-            float x = firstX + offset * (cardW + gap);
-            shapes.setColor(0f, 0f, 0f, 0.30f * cardsReveal);
-            roundedRect(x + 4f, cardY - 4f, cardW, cardH, 12f);
-            shapes.setColor(0.78f, 0.78f, 0.76f, cardsReveal);
-            roundedRect(x - 1f, cardY - 1f, cardW + 2f,
-                    cardH + 2f, 11f);
-            shapes.setColor(0.985f, 0.985f, 0.975f, cardsReveal);
-            roundedRect(x, cardY, cardW, cardH, 10f);
+            float targetX = firstX + offset * (cardW + gap);
+            FinalCardMotion motion = finalSummaryCardMotion(elapsed, offset,
+                    targetX, cardY, cardW, cardH, centerX);
+            if (motion.glow() > 0f) {
+                shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
+                        0.28f * motion.glow());
+                roundedRect(motion.x() - 5f, motion.y() - 5f,
+                        motion.width() + 10f, motion.height() + 10f, 15f);
+            }
+            shapes.setColor(0f, 0f, 0f, 0.30f * motion.alpha());
+            roundedRect(motion.x() + 4f, motion.y() - 4f,
+                    motion.width(), motion.height(), 12f);
+            shapes.setColor(0.78f, 0.78f, 0.76f, motion.alpha());
+            roundedRect(motion.x() - 1f, motion.y() - 1f,
+                    motion.width() + 2f, motion.height() + 2f, 11f);
+            shapes.setColor(0.985f, 0.985f, 0.975f, motion.alpha());
+            roundedRect(motion.x(), motion.y(), motion.width(),
+                    motion.height(), 10f);
         }
         if (finalSummaryPage > 0) {
             shapes.setColor(0f, 0f, 0f, 0.58f * cardsReveal);
@@ -20293,14 +20453,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         drawFittedCentered(finalTitleFont,
                 finalSummaryTitle(summary.reason(), gameText),
-                centerX, height - 168f, width - 150f, Color.WHITE, reveal);
+                centerX, height - 168f + FINAL_SUMMARY_TEXT_SHIFT_Y,
+                width - 150f, Color.WHITE, reveal);
         String details = finalSummaryDate(summary.endedAtMillis())
                 + "   (" + finalSummaryDuration(summary.durationSeconds())
                 + ")   [" + summary.handCount() + " "
                 + gameText.translate(summary.handCount() == 1
                         ? "gdx.final.hand" : "gdx.final.hands") + "]";
         drawFittedCentered(finalDetailFont, details, centerX,
-                height - 240f, width - 180f, Color.WHITE, 0.94f * reveal);
+                height - 240f + FINAL_SUMMARY_TEXT_SHIFT_Y,
+                width - 180f, Color.WHITE, 0.94f * reveal);
         boolean moneyCounterVisible = local != null
                 && summary.reason()
                         != TableSessionSummary.CloseReason.RECOVERABLE_STOP
@@ -20319,7 +20481,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 local.finalStack())
                         : Math.abs(net);
                 drawFittedCentered(finalAmountFont, formatAmount(value),
-                        centerX, height - 475f, width - 130f,
+                        centerX, height - 475f + FINAL_SUMMARY_TEXT_SHIFT_Y,
+                        width - 130f,
                         resultColor, reveal);
             }
         }
@@ -20329,16 +20492,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (index >= summary.balances().size()) break;
             TableSessionSummary.PlayerBalance balance
                     = summary.balances().get(index);
-            float x = firstX + offset * (cardW + gap);
+            float targetX = firstX + offset * (cardW + gap);
+            FinalCardMotion motion = finalSummaryCardMotion(elapsed, offset,
+                    targetX, cardY, cardW, cardH, centerX);
+            float x = motion.x();
+            float animatedCardY = motion.y();
+            float animatedCardW = motion.width();
+            float animatedCardH = motion.height();
+            float cardAlpha = motion.alpha();
             boolean localCard = balance.nickname().equals(
                     summary.localNickname());
-            float identitySize = Math.min(104f, cardW - 34f);
-            float identityY = cardY + cardH - identitySize - 12f;
+            float identitySize = Math.min(104f * motion.scale(),
+                    animatedCardW - 34f * motion.scale());
+            float identityY = animatedCardY + animatedCardH - identitySize
+                    - 12f * motion.scale();
             if (localCard) {
-                float logoW = Math.min(112f, cardW - 34f);
+                float logoW = Math.min(112f * motion.scale(),
+                        animatedCardW - 34f * motion.scale());
                 float logoH = logoW * logo.getHeight() / logo.getWidth();
-                batch.setColor(1f, 1f, 1f, cardsReveal);
-                batch.draw(logo, x + (cardW - logoW) / 2f,
+                batch.setColor(1f, 1f, 1f, cardAlpha);
+                batch.draw(logo, x + (animatedCardW - logoW) / 2f,
                         identityY + (identitySize - logoH) / 2f,
                         logoW, logoH);
             } else {
@@ -20346,13 +20519,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 // The old fallback replaced every remote human's custom
                 // avatar with the generic silhouette on the final screen.
                 Texture avatar = tableAvatar(balance.nickname());
-                batch.setColor(1f, 1f, 1f, cardsReveal);
-                batch.draw(avatar, x + (cardW - identitySize) / 2f,
+                batch.setColor(1f, 1f, 1f, cardAlpha);
+                batch.draw(avatar,
+                        x + (animatedCardW - identitySize) / 2f,
                         identityY, identitySize, identitySize);
             }
             drawFittedCenteredInBox(finalCardBoldFont, balance.nickname(),
-                    x + 10f, identityY - 31f, cardW - 20f, 27f,
-                    new Color(0x11151bff), cardsReveal);
+                    x + 10f * motion.scale(),
+                    identityY - 31f * motion.scale(),
+                    animatedCardW - 20f * motion.scale(),
+                    27f * motion.scale(), new Color(0x11151bff), cardAlpha);
             Color cardResult = balance.netResult() > 0d ? FINAL_WINNER
                     : balance.netResult() < 0d ? FINAL_LOSER
                             : new Color(0x707070ff);
@@ -20366,18 +20542,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             : uppercase(gameText.translate(
                                     "ui.ni_gana_ni_pierde"));
             drawFittedCenteredInBox(finalCardBoldFont, result,
-                    x + 10f, identityY - 66f, cardW - 20f, 25f,
-                    cardResult, cardsReveal);
+                    x + 10f * motion.scale(),
+                    identityY - 66f * motion.scale(),
+                    animatedCardW - 20f * motion.scale(),
+                    25f * motion.scale(), cardResult, cardAlpha);
             drawFittedCenteredInBox(finalCardFont,
                     uppercase(gameText.translate("balance.fichas")) + " "
                             + formatAmount(balance.finalStack()),
-                    x + 10f, cardY + 46f, cardW - 20f, 26f,
-                    new Color(0x2c3138ff), 0.92f * cardsReveal);
+                    x + 10f * motion.scale(),
+                    animatedCardY + 46f * motion.scale(),
+                    animatedCardW - 20f * motion.scale(),
+                    26f * motion.scale(), new Color(0x2c3138ff),
+                    0.92f * cardAlpha);
             drawFittedCenteredInBox(finalCardFont,
                     uppercase(gameText.translate("stats.buyin")) + " "
                             + formatAmount(balance.totalBuyin()),
-                    x + 10f, cardY + 16f, cardW - 20f, 25f,
-                    new Color(0x4e555eff), 0.90f * cardsReveal);
+                    x + 10f * motion.scale(),
+                    animatedCardY + 16f * motion.scale(),
+                    animatedCardW - 20f * motion.scale(),
+                    25f * motion.scale(), new Color(0x4e555eff),
+                    0.90f * cardAlpha);
         }
         if (finalSummaryPage > 0) {
             drawCentered(uiFont, "<", 41f, 169f,
@@ -20568,7 +20752,35 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // hero is the only element in the large gap between the header and
         // player cards. Centre that single line in the useful vertical area;
         // retaining the two-line origin would leave it visibly top-heavy.
-        return height - (moneyCounterVisible ? 325f : 490f);
+        return height - (moneyCounterVisible ? 325f : 490f)
+                + FINAL_SUMMARY_TEXT_SHIFT_Y;
+    }
+
+    static FinalCardMotion finalSummaryCardMotion(float elapsedSeconds,
+            int visibleIndex, float targetX, float targetY, float cardWidth,
+            float cardHeight, float centerX) {
+        float start = FINAL_CARD_DEAL_START_SECONDS
+                + Math.max(0, visibleIndex) * FINAL_CARD_DEAL_STAGGER_SECONDS;
+        float progress = MathUtils.clamp(
+                (elapsedSeconds - start) / FINAL_CARD_DEAL_SECONDS, 0f, 1f);
+        float travel = Interpolation.pow3Out.apply(progress);
+        float bounce = Interpolation.swingOut.apply(progress);
+        float scale = 0.74f + 0.26f * bounce;
+        float width = cardWidth * scale;
+        float height = cardHeight * scale;
+        float targetCenterX = targetX + cardWidth / 2f;
+        float animatedCenterX = MathUtils.lerp(centerX, targetCenterX, travel);
+        float x = animatedCenterX - width / 2f;
+        float settledY = targetY + (cardHeight - height) / 2f;
+        float y = MathUtils.lerp(-cardHeight * 0.72f, settledY, bounce);
+        float alpha = Interpolation.fade.apply(MathUtils.clamp(
+                progress / 0.28f, 0f, 1f));
+        float glow = MathUtils.sin(MathUtils.PI * progress) * alpha;
+        return new FinalCardMotion(x, y, width, height, scale, alpha, glow);
+    }
+
+    record FinalCardMotion(float x, float y, float width, float height,
+            float scale, float alpha, float glow) {
     }
 
     /** A neutral result has a headline, never a redundant giant zero. */

@@ -10,8 +10,8 @@ import org.junit.jupiter.api.Test;
 final class GdxProductVersionBrandTest {
 
     @Test
-    void fallbackAlwaysIncludesTheProductVersion() {
-        assertEquals("CoronaPoker " + ApplicationMetadata.VERSION,
+    void fallbackUsesTheCompactProductVersion() {
+        assertEquals("v" + ApplicationMetadata.VERSION,
                 GdxProductVersionBrand.label(null));
     }
 
@@ -26,7 +26,7 @@ final class GdxProductVersionBrandTest {
     }
 
     @Test
-    void canonicalBrandHasEnoughWidthForProductAndModMetadata() {
+    void canonicalBrandHasEnoughWidthForVersionAndModMetadata() {
         assertEquals(14, GdxProductVersionBrand.FONT_SIZE);
         assertEquals(16f, GdxProductVersionBrand.X);
         assertEquals(20f, GdxProductVersionBrand.BASELINE_Y);

@@ -63,6 +63,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -249,6 +250,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float STATS_MODE_SELECTOR_Y = 665f;
     static final float STATS_MODE_SELECTOR_HEIGHT = 40f;
     static final float STATS_CONTENT_TOP = 655f;
+    static final float STATS_PICKER_VIEW_BOTTOM = 190f;
+    static final float STATS_PICKER_VIEW_TOP = 838f;
+    static final float STATS_PICKER_ROW_HEIGHT = 58f;
+    static final float STATS_PICKER_ROW_STRIDE = 67f;
+    private static final float STATS_PICKER_SCROLL_SPEED = 3f
+            * STATS_PICKER_ROW_STRIDE;
+    static final int STATS_RESULT_VISIBLE_ROWS = 10;
+    private static final URI GOOGLE_IMAGES_URI = URI.create(
+            "https://images.google.com/");
     private static final float IMAGE_SEND_COOLDOWN_SECONDS = 2f;
     private static final float TEXT_SEND_COOLDOWN_SECONDS = 0.5f;
     private static final float ABOUT_LOGO_WIDTH = 180f;
@@ -415,6 +425,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private float lobbyImageSendAllowedAt;
     private boolean lobbyEmojiPickerOpen;
     private boolean lobbyImageMode;
+    private boolean lobbyImageClearConfirmation;
     private int lobbyImageGalleryContentDelayFrames;
     private int lobbyEmojiPage;
     private volatile GdxVoiceRecorder lobbyVoiceRecorder;
@@ -478,6 +489,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private float settingsRowScrollMaximum;
     private final List<TextItem> settingsDebugTexts = new ArrayList<>();
     private final List<TextItem> settingsRowTexts = new ArrayList<>();
+    private final List<TextItem> statsChartTexts = new ArrayList<>();
     private final Rectangle settingsRowsClip = new Rectangle();
     private boolean settingsRowsActive;
     private ScrollDrag scrollDrag = ScrollDrag.NONE;
@@ -540,7 +552,37 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private String statsError = "";
     private StatsConfirmation statsConfirmation = StatsConfirmation.NONE;
     private StatsPicker statsPicker = StatsPicker.NONE;
-    private int statsPickerPage;
+    private boolean statsSyncExclusionsOpen;
+    private boolean statsExcludePrivateDraft;
+    private boolean statsExcludeNicksEnabledDraft;
+    private String statsExcludeNicksDraft = "";
+    private float statsPickerScroll;
+    private float statsPickerScrollTarget;
+    private float statsPickerScrollMaximum;
+    private final Rectangle statsPickerScrollTrack = new Rectangle();
+    private float statsPickerScrollThumbHeight;
+    private float statsResultScroll;
+    private float statsResultScrollTarget;
+    private float statsResultScrollMaximum;
+    private final Rectangle statsResultScrollTrack = new Rectangle();
+    private float statsResultScrollThumbHeight;
+    private float statsSummaryPlayersScroll;
+    private float statsSummaryPlayersScrollTarget;
+    private float statsChartZoom = 1f;
+    private float statsChartPanX = 0.5f;
+    private float statsChartPanY = 0.5f;
+    private float statsChartPanTargetX = 0.5f;
+    private float statsChartPanTargetY = 0.5f;
+    private final Rectangle statsChartViewport = new Rectangle();
+    private final Rectangle statsChartHorizontalTrack = new Rectangle();
+    private final Rectangle statsChartVerticalTrack = new Rectangle();
+    private float statsChartHorizontalThumbWidth;
+    private float statsChartVerticalThumbHeight;
+    private boolean statsChartCanvasActive;
+    private int statsSortColumn = -1;
+    private boolean statsSortAscending = true;
+    private StatsMode statsSortMode = StatsMode.BALANCE;
+    private boolean statsSortHandScope;
     private Surface screenshotReturnSurface = Surface.MENU;
     private List<GdxScreenshotStore.Shot> screenshots = List.of();
     private int screenshotIndex;
@@ -771,6 +813,27 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public void render() {
         frameDelta = Math.min(Gdx.graphics.getDeltaTime(), 1f / 20f);
         elapsed += frameDelta;
+        statsPickerScroll += (statsPickerScrollTarget - statsPickerScroll)
+                * Math.min(1f, frameDelta * 14f);
+        if (Math.abs(statsPickerScrollTarget - statsPickerScroll) < 0.1f) {
+            statsPickerScroll = statsPickerScrollTarget;
+        }
+        statsResultScroll += (statsResultScrollTarget - statsResultScroll)
+                * Math.min(1f, frameDelta * 14f);
+        if (Math.abs(statsResultScrollTarget - statsResultScroll) < 0.1f) {
+            statsResultScroll = statsResultScrollTarget;
+        }
+        statsSummaryPlayersScroll += (statsSummaryPlayersScrollTarget
+                - statsSummaryPlayersScroll)
+                * Math.min(1f, frameDelta * 14f);
+        if (Math.abs(statsSummaryPlayersScrollTarget
+                - statsSummaryPlayersScroll) < 0.1f) {
+            statsSummaryPlayersScroll = statsSummaryPlayersScrollTarget;
+        }
+        statsChartPanX += (statsChartPanTargetX - statsChartPanX)
+                * Math.min(1f, frameDelta * 14f);
+        statsChartPanY += (statsChartPanTargetY - statsChartPanY)
+                * Math.min(1f, frameDelta * 14f);
         resolveStartupUpdateGate();
         if (surface == Surface.MENU
                 && !startupMenuWaitingForUpdate
@@ -804,6 +867,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyVoiceControls.clear();
         settingsDebugTexts.clear();
         settingsRowTexts.clear();
+        statsChartTexts.clear();
+        statsChartViewport.set(0f, 0f, 0f, 0f);
+        statsChartHorizontalTrack.set(0f, 0f, 0f, 0f);
+        statsChartVerticalTrack.set(0f, 0f, 0f, 0f);
+        statsChartCanvasActive = false;
         settingsRowsClip.set(0f, 0f, 0f, 0f);
         settingsRowsActive = false;
         settingsDebugViewport.set(0f, 0f, 0f, 0f);
@@ -861,14 +929,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (System.currentTimeMillis() < toastUntil) {
             drawToast();
         }
-        if (editMenu != null && !aboutOpen && lobbyConfirmation == null
-                && !lobbyPasswordDialog
-                && presetDialog == PresetDialog.NONE
-                && blindStructureDialog == BlindStructureDialog.NONE
-                && !settingsDiscardConfirmation
-                && !lobbyTableTransitionActive(lobbyGameStarting, lobby)) {
-            drawEditMenu();
-        }
         shapes.end();
 
         batch.begin();
@@ -893,6 +953,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (shieldBackgroundPointer) pointer.set(livePointerX, livePointerY);
 
         drawSettingsRowsTextLayer();
+        drawStatsChartTextLayer();
         drawLobbyChatLayer();
         drawSettingsDebugLayer();
 
@@ -911,6 +972,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || (surface == Surface.MENU && (aboutOpen || updatePromptOpen))
                 || (surface == Surface.LOBBY
                 && (lobbyConfirmation != null || lobbyPasswordDialog
+                        || lobbyImageClearConfirmation
                         || lobbyTableTransitionActive(lobbyGameStarting, lobby)
                         || fingerprintDialog != null))
                 || (surface == Surface.SETTINGS
@@ -925,7 +987,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         || blindStructureDialog != BlindStructureDialog.NONE))
                 || (surface == Surface.STATS
                 && (statsConfirmation != StatsConfirmation.NONE
-                        || statsPicker != StatsPicker.NONE))
+                        || statsPicker != StatsPicker.NONE
+                        || statsSyncExclusionsOpen))
                 || (surface == Surface.SCREENSHOTS
                         && screenshotDeleteConfirmation)) {
             texts.clear();
@@ -969,7 +1032,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     drawPresetDialog();
                 }
             } else if (surface == Surface.STATS) {
-                if (statsConfirmation != StatsConfirmation.NONE) {
+                if (statsSyncExclusionsOpen) {
+                    drawStatsSyncExclusions();
+                } else if (statsConfirmation != StatsConfirmation.NONE) {
                     drawStatsConfirmation();
                 } else {
                     drawStatsPicker();
@@ -982,6 +1047,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 drawFingerprintDialog();
             } else if (lobbyConfirmation != null) {
                 drawLobbyConfirmation();
+            } else if (lobbyImageClearConfirmation) {
+                drawLobbyImageClearConfirmation();
             } else {
                 drawLobbyLoadingOverlay();
             }
@@ -1040,6 +1107,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             batch.end();
         }
+        if (shouldDrawEditMenu()) drawEditMenuTopLayer();
         // Transient feedback must be the final composited layer. Drawing only
         // its shapes in the first pass lets queued page images cover the panel.
         if (surface == Surface.SCREENSHOTS
@@ -1055,6 +1123,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return startupMenuWaitingForUpdate
                 || settingsRestartNotice || aboutOpen || updatePromptOpen
                 || lobbyConfirmation != null || lobbyPasswordDialog
+                || lobbyImageClearConfirmation
                 || fingerprintDialog != null
                 || lobbyTableTransitionActive(lobbyGameStarting, lobby)
                 || submissions.submitting()
@@ -1064,6 +1133,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || settingsDiscardConfirmation || voiceNotesOpen
                 || statsConfirmation != StatsConfirmation.NONE
                 || statsPicker != StatsPicker.NONE
+                || statsSyncExclusionsOpen
                 || screenshotDeleteConfirmation;
     }
 
@@ -1403,7 +1473,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void openStats() {
-        clearActiveField();
+        captureFrontendModalInput();
+        // Statistics is a single canonical surface.  Reclaim input here as
+        // well as in the shell transition so opening it from the final table
+        // summary cannot leave the retained table processor consuming wheel
+        // events.
+        Gdx.input.setInputProcessor(this);
         surface = Surface.STATS;
         statsGameIndex = -1;
         statsHandIndex = -1;
@@ -1420,7 +1495,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         statsBestHands = List.of();
         statsConfirmation = StatsConfirmation.NONE;
         statsPicker = StatsPicker.NONE;
-        statsPickerPage = 0;
+        statsSyncExclusionsOpen = false;
+        statsPickerScroll = 0f;
+        statsPickerScrollTarget = 0f;
+        statsPickerScrollMaximum = 0f;
+        statsChartPanX = statsChartPanTargetX = 0.5f;
+        statsChartPanY = statsChartPanTargetY = 0.5f;
+        statsSortColumn = -1;
+        statsSortAscending = true;
+        statsSortMode = statsMode;
+        statsSortHandScope = false;
+        resetStatsResultScroll();
         loadStatsGames();
         syncMusicForSurface();
     }
@@ -1437,6 +1522,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         statsError = "";
         statsConfirmation = StatsConfirmation.NONE;
         statsPicker = StatsPicker.NONE;
+        statsSyncExclusionsOpen = false;
         Runnable returnAction = statsReturnAction;
         statsReturnAction = null;
         if (returnAction != null) {
@@ -1757,10 +1843,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void selectStatsGameAt(int index) {
         if (statsLoading || index < -1 || index >= statsGames.size()) return;
         statsGameIndex = index;
+        statsSummaryPlayersScroll = 0f;
+        statsSummaryPlayersScrollTarget = 0f;
         statsHandIndex = -1;
         statsHands = List.of();
         statsShowdown = List.of();
         statsPicker = StatsPicker.NONE;
+        resetStatsResultScroll();
         loadStatsScope();
     }
 
@@ -1778,6 +1867,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || index >= statsHands.size()) return;
         statsHandIndex = index;
         statsPicker = StatsPicker.NONE;
+        resetStatsResultScroll();
         loadStatsScope();
     }
 
@@ -1793,6 +1883,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             statsGameIndex = 0;
         }
         statsPicker = StatsPicker.NONE;
+        resetStatsResultScroll();
         loadStatsScope();
     }
 
@@ -1821,7 +1912,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     : statsPlayers.indexOf(statsPlayerFilter) + 1;
             case NONE -> 0;
         };
-        statsPickerPage = Math.max(0, selected / 8);
+        int itemCount = statsPickerItemCount(picker);
+        statsPickerScrollMaximum = statsPickerMaximumScroll(itemCount);
+        statsPickerScrollTarget = statsPickerScrollForSelection(selected,
+                statsPickerScrollMaximum);
+        statsPickerScroll = statsPickerScrollTarget;
     }
 
     private void selectStatsModeAt(int index) {
@@ -1830,6 +1925,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         statsMode = values[index];
         if (!statsMode.supportsHandScope()) statsHandIndex = -1;
         statsPicker = StatsPicker.NONE;
+        resetStatsResultScroll();
         loadStatsScope();
     }
 
@@ -1930,6 +2026,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         updated.set(index, game.withPrivateGame(value));
                         statsGames = List.copyOf(updated);
                     }
+                    statsAllGames = statsAllGames.stream()
+                            .map(candidate -> candidate.id() == game.id()
+                                    ? candidate.withPrivateGame(value)
+                                    : candidate)
+                            .toList();
                     statsLoading = false;
                 });
             } catch (Exception failure) {
@@ -2019,6 +2120,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         choice(535f, STATS_MODE_SELECTOR_Y, 1280f,
                 STATS_MODE_SELECTOR_HEIGHT, "", statsModeLabel(),
                 () -> openStatsPicker(StatsPicker.MODE), !statsLoading);
+        if (statsHandIndex < 0 && (statsMode == StatsMode.BALANCE
+                || statsMode == StatsMode.PERFORMANCE
+                || statsMode == StatsMode.BEST_HANDS)) {
+            textExactFit(tinyFont, uppercase(gameText.translate(
+                    "stats.global_chart_zoom")), 1370f, 743f, MUTED,
+                    false, 210f);
+            themedButton(1590f, 716f, 48f, 38f, "-", ButtonTone.NEUTRAL,
+                    () -> adjustStatsChartZoom(-0.1f),
+                    statsChartZoom > 0.8f && !statsLoading);
+            textFit(tinyFont, Math.round(statsChartZoom * 100f) + "%",
+                    1690f, 742f, GOLD, true, 90f);
+            themedButton(1742f, 716f, 48f, 38f, "+", ButtonTone.NEUTRAL,
+                    () -> adjustStatsChartZoom(0.1f),
+                    statsChartZoom < 2f && !statsLoading);
+        }
         if (statsLoading) {
             textFit(headingFont, gameText.translate("gdx.lobby.media_loading"),
                     1175f, 440f, CYAN, true, 1000f);
@@ -2034,6 +2150,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } else {
             drawStatsSummary();
         }
+        updateStatsResultScrollBounds();
         if (statsMode == StatsMode.BALANCE && statsHandIndex >= 0) {
             drawStatsShowdown();
         } else if (statsMode == StatsMode.BALANCE) {
@@ -2045,6 +2162,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } else {
             drawStatsMetrics();
         }
+        drawStatsResultScrollbar();
         if (!statsLoading && !statsPlayerFilter.isBlank()
                 && !statsGames.isEmpty() && statsHandIndex < 0) {
             themedButton(86f, 222f, 348f, 48f,
@@ -2064,9 +2182,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } else if (!statsLoading && statsGameIndex >= 0
                 && statsHandIndex < 0) {
             StatsRepository.GameSummary game = statsGames.get(statsGameIndex);
-            toggle(86f, 222f, 348f,
-                    gameText.translate("gdx.stats.private_game"),
-                    game.privateGame(), this::toggleStatsPrivate, true);
+            themedButton(86f, 222f, 348f, 48f,
+                    uppercase(gameText.translate(game.privateGame()
+                            ? "stats.quitar_privada"
+                            : "stats.hacer_privada")),
+                    game.privateGame() ? ButtonTone.FEATURED
+                            : ButtonTone.NEUTRAL,
+                    this::toggleStatsPrivate, true);
             themedButton(86f, 154f, 348f, 48f,
                     gameText.translate("gdx.stats.delete_game"),
                     ButtonTone.DANGER,
@@ -2089,12 +2211,83 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     preferenceBoolean("sync_stats_share", true),
                     () -> toggleStatsSyncPreference("sync_stats_share"),
                     true);
+            themedButton(86f, 86f, 348f, 46f,
+                    gameText.translate("stats.sync_exclude"),
+                    ButtonTone.NEUTRAL, this::openStatsSyncExclusions, true);
         }
     }
 
     private void toggleStatsSyncPreference(String key) {
         togglePreference(key, true);
         preferences.saveDeferred();
+    }
+
+    private void adjustStatsChartZoom(float delta) {
+        statsChartZoom = MathUtils.clamp(
+                Math.round((statsChartZoom + delta) * 10f) / 10f,
+                0.8f, 2f);
+        if (statsChartZoom <= 1f) {
+            statsChartPanX = statsChartPanTargetX = 0.5f;
+            statsChartPanY = statsChartPanTargetY = 0.5f;
+        }
+    }
+
+    private void openStatsSyncExclusions() {
+        statsExcludePrivateDraft = preferenceBoolean(
+                "sync_stats_exclude_private", true);
+        statsExcludeNicksDraft = initialProperties.getProperty(
+                "sync_stats_exclude_nicks", "").trim();
+        statsExcludeNicksEnabledDraft = preferenceBoolean(
+                "sync_stats_exclude_nicks_enabled", false)
+                && !statsExcludeNicksDraft.isBlank();
+        statsSyncExclusionsOpen = true;
+        clearActiveField();
+    }
+
+    private void saveStatsSyncExclusions() {
+        String nicks = statsExcludeNicksDraft.trim();
+        initialProperties.setProperty("sync_stats_exclude_private",
+                Boolean.toString(statsExcludePrivateDraft));
+        initialProperties.setProperty("sync_stats_exclude_nicks_enabled",
+                Boolean.toString(statsExcludeNicksEnabledDraft
+                        && !nicks.isBlank()));
+        initialProperties.setProperty("sync_stats_exclude_nicks", nicks);
+        preferences.saveDeferred();
+        statsSyncExclusionsOpen = false;
+        clearActiveField();
+    }
+
+    private void closeStatsSyncExclusions() {
+        statsSyncExclusionsOpen = false;
+        clearActiveField();
+    }
+
+    private void drawStatsSyncExclusions() {
+        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
+        GdxUiDialogStyle.drawPanel(shapes, 500f, 245f, 920f, 590f,
+                CYAN_DARK, 1f);
+        textFit(headingFont, uppercase(gameText.translate(
+                "stats.sync_exclude_title")), 960f, 775f,
+                GOLD, true, 820f);
+        compactToggle(570f, 650f, 780f,
+                gameText.translate("stats.sync_exclude_private"),
+                statsExcludePrivateDraft,
+                () -> statsExcludePrivateDraft = !statsExcludePrivateDraft,
+                true);
+        compactToggle(570f, 550f, 780f,
+                gameText.translate("stats.sync_exclude_nicks"),
+                statsExcludeNicksEnabledDraft,
+                () -> statsExcludeNicksEnabledDraft =
+                        !statsExcludeNicksEnabledDraft, true);
+        field(570f, 415f, 780f,
+                gameText.translate("stats.sync_exclude_nicks"),
+                statsExcludeNicksDraft, "statsExcludeNicks", false);
+        themedButton(570f, 290f, 350f, 72f,
+                uppercase(gameText.translate("ui.cancelar")),
+                ButtonTone.NEUTRAL, this::closeStatsSyncExclusions, true);
+        themedButton(1000f, 290f, 350f, 72f,
+                uppercase(gameText.translate("ui.aceptar")),
+                ButtonTone.POSITIVE, this::saveStatsSyncExclusions, true);
     }
 
     private void drawStatsConfirmation() {
@@ -2120,9 +2313,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 uppercase(gameText.translate("ui.cancelar")),
                 ButtonTone.NEUTRAL,
                 () -> statsConfirmation = StatsConfirmation.NONE, true);
+        boolean destructive = statsConfirmation == StatsConfirmation.IMPORTED
+                || statsConfirmation == StatsConfirmation.GAME
+                || statsConfirmation == StatsConfirmation.PURGE_FILTERED;
         themedButton(985f, 405f, 300f, 75f,
-                uppercase(gameText.translate("gdx.stats.delete")),
-                ButtonTone.DANGER, this::confirmStatsDeletion, true);
+                uppercase(gameText.translate(destructive
+                        ? "gdx.stats.delete" : "ui.aceptar")),
+                destructive ? ButtonTone.DANGER : ButtonTone.POSITIVE,
+                this::confirmStatsDeletion, true);
     }
 
     private void drawStatsPicker() {
@@ -2140,15 +2338,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         themedButton(1350f, 865f, 54f, 48f, "X", ButtonTone.NEUTRAL,
                 () -> statsPicker = StatsPicker.NONE, true);
 
-        int itemCount = modes ? StatsMode.values().length
-                : players ? statsPlayers.size() + 1
-                : (games ? statsGames.size() : statsHands.size()) + 1;
-        int pages = Math.max(1, (itemCount + 7) / 8);
-        statsPickerPage = MathUtils.clamp(statsPickerPage, 0, pages - 1);
-        int start = statsPickerPage * 8;
-        int end = Math.min(itemCount, start + 8);
-        float y = 780f;
-        for (int item = start; item < end; item++) {
+        int itemCount = statsPickerItemCount(statsPicker);
+        statsPickerScrollMaximum = statsPickerMaximumScroll(itemCount);
+        statsPickerScrollTarget = MathUtils.clamp(statsPickerScrollTarget,
+                0f, statsPickerScrollMaximum);
+        statsPickerScroll = MathUtils.clamp(statsPickerScroll,
+                0f, statsPickerScrollMaximum);
+        outerBox(520f, STATS_PICKER_VIEW_BOTTOM - 10f, 884f,
+                STATS_PICKER_VIEW_TOP - STATS_PICKER_VIEW_BOTTOM + 20f,
+                LINE, new Color(0x06101dff));
+        for (int item = 0; item < itemCount; item++) {
+            float y = statsPickerRowY(item, statsPickerScroll);
+            if (y < STATS_PICKER_VIEW_BOTTOM
+                    || y + STATS_PICKER_ROW_HEIGHT > STATS_PICKER_VIEW_TOP) {
+                continue;
+            }
             int index = modes ? item : item - 1;
             String label;
             if (modes) {
@@ -2171,7 +2375,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             : statsPlayers.indexOf(statsPlayerFilter)
                     : games ? statsGameIndex : statsHandIndex);
             final int selectedIndex = index;
-            themedButton(535f, y, 850f, 58f, label,
+            themedButton(535f, y, 830f, STATS_PICKER_ROW_HEIGHT, label,
                     selected ? ButtonTone.FEATURED : ButtonTone.NEUTRAL,
                     () -> {
                         if (modes) selectStatsModeAt(selectedIndex);
@@ -2179,16 +2383,160 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         else if (games) selectStatsGameAt(selectedIndex);
                         else selectStatsHandAt(selectedIndex);
                     }, true);
-            y -= 67f;
         }
-        themedButton(535f, 185f, 130f, 52f, "<", ButtonTone.NEUTRAL,
-                () -> statsPickerPage = Math.max(0, statsPickerPage - 1),
-                statsPickerPage > 0);
-        textFit(smallFont, (statsPickerPage + 1) + " / " + pages,
-                960f, 220f, MUTED, true, 300f);
-        themedButton(1255f, 185f, 130f, 52f, ">", ButtonTone.NEUTRAL,
-                () -> statsPickerPage = Math.min(pages - 1,
-                        statsPickerPage + 1), statsPickerPage + 1 < pages);
+        drawStatsPickerScrollbar();
+    }
+
+    private int statsPickerItemCount(StatsPicker picker) {
+        return switch (picker) {
+            case MODE -> StatsMode.values().length;
+            case PLAYER -> statsPlayers.size() + 1;
+            case GAME -> statsGames.size() + 1;
+            case HAND -> statsHands.size() + 1;
+            case NONE -> 0;
+        };
+    }
+
+    static float statsPickerMaximumScroll(int itemCount) {
+        float contentHeight = itemCount <= 0 ? 0f
+                : (itemCount - 1) * STATS_PICKER_ROW_STRIDE
+                        + STATS_PICKER_ROW_HEIGHT;
+        return Math.max(0f, contentHeight
+                - (STATS_PICKER_VIEW_TOP - STATS_PICKER_VIEW_BOTTOM));
+    }
+
+    static float statsPickerScrollForSelection(int selected,
+            float maximum) {
+        float viewportHeight = STATS_PICKER_VIEW_TOP
+                - STATS_PICKER_VIEW_BOTTOM;
+        return MathUtils.clamp(selected * STATS_PICKER_ROW_STRIDE
+                - (viewportHeight - STATS_PICKER_ROW_HEIGHT) / 2f,
+                0f, maximum);
+    }
+
+    static float statsPickerScrollAfterWheel(float current, float maximum,
+            float amountY) {
+        return MathUtils.clamp(current
+                + amountY * STATS_PICKER_SCROLL_SPEED, 0f, maximum);
+    }
+
+    static float statsPickerRowY(int item, float scroll) {
+        return STATS_PICKER_VIEW_TOP - STATS_PICKER_ROW_HEIGHT
+                - item * STATS_PICKER_ROW_STRIDE + scroll;
+    }
+
+    private void drawStatsPickerScrollbar() {
+        statsPickerScrollTrack.set(1380f, STATS_PICKER_VIEW_BOTTOM,
+                10f, STATS_PICKER_VIEW_TOP - STATS_PICKER_VIEW_BOTTOM);
+        shapes.setColor(new Color(0x18304cff));
+        roundedRect(statsPickerScrollTrack.x, statsPickerScrollTrack.y,
+                statsPickerScrollTrack.width, statsPickerScrollTrack.height,
+                5f);
+        if (statsPickerScrollMaximum <= 0f) {
+            statsPickerScrollThumbHeight = statsPickerScrollTrack.height;
+            return;
+        }
+        float viewportHeight = statsPickerScrollTrack.height;
+        float contentHeight = viewportHeight + statsPickerScrollMaximum;
+        statsPickerScrollThumbHeight = Math.max(54f,
+                viewportHeight * viewportHeight / contentHeight);
+        float travel = viewportHeight - statsPickerScrollThumbHeight;
+        float progress = statsPickerScroll / statsPickerScrollMaximum;
+        float thumbY = statsPickerScrollTrack.y + travel * (1f - progress);
+        shapes.setColor(CYAN);
+        roundedRect(statsPickerScrollTrack.x, thumbY,
+                statsPickerScrollTrack.width, statsPickerScrollThumbHeight,
+                5f);
+    }
+
+    private void resetStatsResultScroll() {
+        statsResultScroll = 0f;
+        statsResultScrollTarget = 0f;
+        statsResultScrollMaximum = 0f;
+    }
+
+    private int statsResultRowCount() {
+        if (statsMode == StatsMode.BALANCE) {
+            return statsHandIndex >= 0
+                    ? statsShowdown.size() : statsBalances.size();
+        }
+        if (statsMode == StatsMode.PERFORMANCE) {
+            return statsPerformance.size();
+        }
+        if (statsMode == StatsMode.BEST_HANDS) {
+            return statsBestHands.size();
+        }
+        return statsMetrics.size();
+    }
+
+    private float statsResultRowStride() {
+        if (statsMode == StatsMode.BALANCE && statsHandIndex < 0) {
+            return 41f;
+        }
+        return statsMode == StatsMode.RESPONSE
+                || statsMode == StatsMode.PREFLOP_RAISES
+                || statsMode == StatsMode.FLOP_RAISES
+                || statsMode == StatsMode.TURN_RAISES
+                || statsMode == StatsMode.RIVER_RAISES ? 52f : 48f;
+    }
+
+    private void updateStatsResultScrollBounds() {
+        statsResultScrollMaximum = statsResultMaximumScroll(
+                statsResultRowCount(), statsResultRowStride());
+        statsResultScrollTarget = MathUtils.clamp(statsResultScrollTarget,
+                0f, statsResultScrollMaximum);
+        statsResultScroll = MathUtils.clamp(statsResultScroll,
+                0f, statsResultScrollMaximum);
+    }
+
+    static float statsResultMaximumScroll(int rowCount, float rowStride) {
+        return Math.max(0f, (rowCount - STATS_RESULT_VISIBLE_ROWS)
+                * rowStride);
+    }
+
+    static float statsResultScrollAfterWheel(float current, float maximum,
+            float rowStride, float amountY) {
+        return MathUtils.clamp(current
+                + amountY * rowStride * 3f, 0f, maximum);
+    }
+
+    static float statsResultRowY(float firstY, int row, float rowStride,
+            float scroll) {
+        return firstY - row * rowStride + scroll;
+    }
+
+    private boolean statsResultRowVisible(float y, float firstY,
+            float rowStride) {
+        return y <= firstY + 0.5f
+                && y >= firstY
+                        - (STATS_RESULT_VISIBLE_ROWS - 1) * rowStride - 0.5f;
+    }
+
+    private void drawStatsResultScrollbar() {
+        if (statsResultScrollMaximum <= 0f) {
+            statsResultScrollTrack.set(0f, 0f, 0f, 0f);
+            statsResultScrollThumbHeight = 0f;
+            return;
+        }
+        statsResultScrollTrack.set(1828f, 128f, 18f, 485f);
+        shapes.setColor(new Color(0x18304cff));
+        roundedRect(statsResultScrollTrack.x, statsResultScrollTrack.y,
+                statsResultScrollTrack.width, statsResultScrollTrack.height,
+                9f);
+        float contentHeight = statsResultScrollTrack.height
+                + statsResultScrollMaximum;
+        statsResultScrollThumbHeight = Math.max(54f,
+                statsResultScrollTrack.height * statsResultScrollTrack.height
+                        / contentHeight);
+        float travel = statsResultScrollTrack.height
+                - statsResultScrollThumbHeight;
+        float progress = statsResultScroll / statsResultScrollMaximum;
+        float thumbY = statsResultScrollTrack.y
+                + travel * (1f - progress);
+        shapes.setColor(CYAN);
+        roundedRect(statsResultScrollTrack.x, thumbY,
+                statsResultScrollTrack.width, statsResultScrollThumbHeight,
+                9f);
     }
 
     private String statsModeLabel() {
@@ -2211,20 +2559,33 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawStatsMetrics() {
         float x = 540f;
         float y = 645f;
-        String unit = statsMode == StatsMode.RESPONSE
-                ? gameText.translate("ui.segundos") : "%";
-        textFit(tinyFont, uppercase(gameText.translate("player.jugador")),
-                x, y, CYAN, false, 270f);
-        textFit(tinyFont, uppercase(unit), 1710f, y, CYAN, false, 100f);
+        boolean responseTime = statsMode == StatsMode.RESPONSE;
+        String unit = responseTime
+                ? statsUnitHeader(gameText.translate("ui.segundos")) : "%";
+        statsSortableHeader(gameText.translate("player.jugador"), x, y,
+                270f, 0);
+        statsSortableHeader(unit, 1665f, y, 140f, 1);
         y -= 52f;
-        int rows = Math.min(10, statsMetrics.size());
+        float firstY = y;
+        Comparator<StatsRepository.MetricRow> comparator = switch (
+                statsSortColumn) {
+            case 1 -> Comparator.comparingDouble(
+                    StatsRepository.MetricRow::value);
+            default -> Comparator.comparing(StatsRepository.MetricRow::player,
+                    statsTextComparator());
+        };
+        List<StatsRepository.MetricRow> displayRows = sortedStatsRows(
+                statsMetrics, comparator);
+        int rows = displayRows.size();
         double maximum = statsMode == StatsMode.RESPONSE
                 ? statsMetrics.stream().mapToDouble(
                         StatsRepository.MetricRow::value).max().orElse(1d)
                 : 100d;
         maximum = Math.max(1d, maximum);
         for (int index = 0; index < rows; index++) {
-            StatsRepository.MetricRow row = statsMetrics.get(index);
+            y = statsResultRowY(firstY, index, 52f, statsResultScroll);
+            if (!statsResultRowVisible(y, firstY, 52f)) continue;
+            StatsRepository.MetricRow row = displayRows.get(index);
             shapes.setColor(index % 2 == 0
                     ? new Color(0x16263bdd) : new Color(0x101d30dd));
             shapes.rect(x - 12f, y - 25f, 1275f, 48f);
@@ -2240,16 +2601,72 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     Math.max(3f, Math.min(barWidth,
                             barWidth * (float) (row.value() / maximum))),
                     24f, 6f);
-            String value = String.format(Locale.ROOT, "%.1f%s", row.value(),
-                    unit);
-            textFit(smallFont, value, 1710f, y + 7f, GOLD,
-                    false, 100f);
-            y -= 52f;
+            String value = String.format(Locale.ROOT,
+                    responseTime ? "%.1f" : "%.1f%%", row.value());
+            textFit(smallFont, value, 1735f, y + 7f, GOLD,
+                    true, 140f);
         }
         if (statsMetrics.isEmpty()) {
             textFit(smallFont, gameText.translate("gdx.stats.no_data"),
                     1175f, 430f, MUTED, true, 1100f);
         }
+    }
+
+    static String statsUnitHeader(String translatedUnit) {
+        String value = Objects.requireNonNullElse(translatedUnit, "").trim();
+        return value.length() >= 2 && value.startsWith("(")
+                && value.endsWith(")")
+                        ? value.substring(1, value.length() - 1).trim()
+                        : value;
+    }
+
+    private void statsSortableHeader(String label, float x, float y,
+            float width, int column) {
+        boolean active = statsSortMode == statsMode
+                && statsSortHandScope == (statsHandIndex >= 0)
+                && statsSortColumn == column;
+        float labelX = x + (active ? 18f : 0f);
+        textExactFit(tinyFont, uppercase(label), labelX, y, CYAN, false,
+                width - (active ? 18f : 0f));
+        hit(x - 5f, y - 26f, width + 10f, 38f,
+                () -> toggleStatsSort(column));
+        if (!active) return;
+        float arrowX = x + 6f;
+        shapes.setColor(GOLD);
+        if (statsSortAscending) {
+            shapes.triangle(arrowX - 6f, y - 2f, arrowX + 6f, y - 2f,
+                    arrowX, y + 7f);
+        } else {
+            shapes.triangle(arrowX - 6f, y + 7f, arrowX + 6f, y + 7f,
+                    arrowX, y - 2f);
+        }
+    }
+
+    private void toggleStatsSort(int column) {
+        boolean handScope = statsHandIndex >= 0;
+        if (statsSortMode == statsMode && statsSortHandScope == handScope
+                && statsSortColumn == column) {
+            statsSortAscending = !statsSortAscending;
+        } else {
+            statsSortMode = statsMode;
+            statsSortHandScope = handScope;
+            statsSortColumn = column;
+            statsSortAscending = true;
+        }
+        resetStatsResultScroll();
+    }
+
+    private <T> List<T> sortedStatsRows(List<T> source,
+            Comparator<T> comparator) {
+        if (statsSortColumn < 0 || statsSortMode != statsMode
+                || statsSortHandScope != (statsHandIndex >= 0)) return source;
+        ArrayList<T> sorted = new ArrayList<>(source);
+        sorted.sort(statsSortAscending ? comparator : comparator.reversed());
+        return sorted;
+    }
+
+    private static Comparator<String> statsTextComparator() {
+        return Comparator.nullsFirst(String.CASE_INSENSITIVE_ORDER);
     }
 
     private void drawStatsPerformance() {
@@ -2270,13 +2687,34 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             x + 555f, x + 655f };
         float[] widths = { 170f, 105f, 110f, 110f, 85f, 120f };
         for (int index = 0; index < headers.length; index++) {
-            textFit(tinyFont, uppercase(headers[index]), columns[index], y,
-                    CYAN, false, widths[index]);
+            statsSortableHeader(headers[index], columns[index], y,
+                    widths[index], index);
         }
         y -= 52f;
-        int rows = Math.min(10, statsPerformance.size());
+        float firstY = y;
+        Comparator<StatsRepository.PerformanceRow> comparator = switch (
+                statsSortColumn) {
+            case 1 -> Comparator.comparingDouble(
+                    StatsRepository.PerformanceRow::playedPercent);
+            case 2 -> Comparator.comparingDouble(
+                    StatsRepository.PerformanceRow::wonPercent);
+            case 3 -> Comparator.comparingDouble(
+                    StatsRepository.PerformanceRow::precisionPercent);
+            case 4 -> Comparator.comparingDouble(
+                    StatsRepository.PerformanceRow::roiPercent);
+            case 5 -> Comparator.comparingDouble(
+                    StatsRepository.PerformanceRow::effectiveness);
+            default -> Comparator.comparing(
+                    StatsRepository.PerformanceRow::player,
+                    statsTextComparator());
+        };
+        List<StatsRepository.PerformanceRow> displayRows = sortedStatsRows(
+                statsPerformance, comparator);
+        int rows = displayRows.size();
         for (int index = 0; index < rows; index++) {
-            StatsRepository.PerformanceRow row = statsPerformance.get(index);
+            y = statsResultRowY(firstY, index, 48f, statsResultScroll);
+            if (!statsResultRowVisible(y, firstY, 48f)) continue;
+            StatsRepository.PerformanceRow row = displayRows.get(index);
             shapes.setColor(index % 2 == 0
                     ? new Color(0x16263bdd) : new Color(0x101d30dd));
             shapes.rect(x - 10f, y - 23f, 755f, 42f);
@@ -2290,7 +2728,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                 ? new Color(0xff6b6bff) : Color.WHITE,
                         false, widths[column]);
             }
-            y -= 48f;
         }
     }
 
@@ -2298,12 +2735,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             float height) {
         outerBox(x, y, width, height, new Color(0x31445fff),
                 new Color(0x071221c8));
-        textFit(smallFont, uppercase(gameText.translate(
+        chartTextFit(smallFont, uppercase(gameText.translate(
                 "stats.chart_rendimiento")), x + 25f, y + height - 26f,
                 GOLD, false, width - 50f);
-        float cx = x + width / 2f;
-        float cy = y + 230f;
-        float radius = 165f;
+        beginStatsChartCanvas(x + 8f, y + 12f, width - 24f,
+                height - 58f);
+        float cx = statsChartX(x + width / 2f);
+        float cy = statsChartY(y + 230f);
+        float radius = statsChartLength(165f);
         float[] angles = { 90f, 210f, 330f };
         for (int ring = 1; ring <= 4; ring++) {
             float r = radius * ring / 4f;
@@ -2316,15 +2755,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         String[] axes = { gameText.translate("stats.manos_jugadas"),
             gameText.translate("stats.manos_ganadas_2"),
             gameText.translate("stats.precision") };
-        textFit(tinyFont, axes[0], cx, cy + radius + 28f,
+        chartTextFit(tinyFont, axes[0], x + width / 2f,
+                y + 230f + 165f + 28f,
                 MUTED, true, 200f);
         // Axis captions are centered inside their half of the chart.  Using
         // the triangle vertices as their centres made long translations leak
         // through the chart border even though textFit ellipsized correctly.
-        textFit(tinyFont, axes[1], x + 92f, cy - radius * 0.57f,
+        chartTextFit(tinyFont, axes[1], x + 92f,
+                y + 230f - 165f * 0.57f,
                 MUTED, true, 164f);
-        textFit(tinyFont, axes[2], x + width - 92f,
-                cy - radius * 0.57f, MUTED, true, 164f);
+        chartTextFit(tinyFont, axes[2], x + width - 92f,
+                y + 230f - 165f * 0.57f, MUTED, true, 164f);
         Color[] palette = { ORANGE, CYAN, new Color(0x64df86ff),
             new Color(0xbc7affff), GOLD, new Color(0x2ad1c9ff),
             new Color(0xff7f7fff), new Color(0x96c94cff) };
@@ -2332,9 +2773,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         for (int index = 0; index < count; index++) {
             StatsRepository.PerformanceRow row = statsPerformance.get(index);
             float[] points = radarTriangle(cx, cy,
-                    radius * MathUtils.clamp((float) row.playedPercent(), 0f, 100f) / 100f,
-                    radius * MathUtils.clamp((float) row.wonPercent(), 0f, 100f) / 100f,
-                    radius * MathUtils.clamp((float) row.precisionPercent(), 0f, 100f) / 100f,
+                    radius * MathUtils.clamp((float) row.playedPercent(), 0f,
+                            100f) / 100f,
+                    radius * MathUtils.clamp((float) row.wonPercent(), 0f,
+                            100f) / 100f,
+                    radius * MathUtils.clamp((float) row.precisionPercent(),
+                            0f, 100f) / 100f,
                     angles);
             Color color = palette[index % palette.length];
             Color fill = new Color(color);
@@ -2348,10 +2792,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             shapes.rectLine(points[4], points[5], points[0], points[1], 2f);
             float legendX = x + 18f + (index % 4) * 120f;
             float legendY = y + 28f + (index / 4) * 24f;
-            shapes.rect(legendX, legendY - 7f, 16f, 4f);
-            textFit(tinyFont, row.player(), legendX + 23f, legendY,
+            shapes.rect(statsChartX(legendX), statsChartY(legendY - 7f),
+                    statsChartLength(16f), statsChartLength(4f));
+            chartTextFit(tinyFont, row.player(), legendX + 23f, legendY,
                     color, false, 90f);
         }
+        endStatsChartCanvas();
     }
 
     private static float[] radarTriangle(float cx, float cy, float first,
@@ -2379,28 +2825,47 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             gameText.translate("ui.jugada"),
             gameText.translate("game.mano_2"),
             gameText.translate("ui.beneficio") };
-        float[] columns = { x, x + 145f, x + 260f, x + 445f, x + 525f };
-        float[] widths = { 130f, 100f, 170f, 68f, 105f };
+        float[] columns = { x, x + 135f, x + 295f, x + 450f, x + 525f };
+        float[] widths = { 120f, 150f, 145f, 65f, 95f };
         for (int index = 0; index < headers.length; index++) {
-            textFit(tinyFont, uppercase(headers[index]), columns[index], y,
-                    CYAN, false, widths[index]);
+            statsSortableHeader(headers[index], columns[index], y,
+                    widths[index], index);
         }
         y -= 52f;
-        int rows = Math.min(10, statsBestHands.size());
+        float firstY = y;
+        Comparator<StatsRepository.BestHandRow> comparator = switch (
+                statsSortColumn) {
+            case 1 -> Comparator.comparing(row -> statsCards(
+                    row.holeCards(), ""), statsTextComparator());
+            case 2 -> Comparator.comparingInt(
+                    StatsRepository.BestHandRow::handValue);
+            case 3 -> Comparator.comparingInt(
+                    StatsRepository.BestHandRow::handCounter);
+            case 4 -> Comparator.comparingDouble(
+                    StatsRepository.BestHandRow::profit);
+            default -> Comparator.comparing(StatsRepository.BestHandRow::player,
+                    statsTextComparator());
+        };
+        List<StatsRepository.BestHandRow> displayRows = sortedStatsRows(
+                statsBestHands, comparator);
+        int rows = displayRows.size();
         for (int index = 0; index < rows; index++) {
-            StatsRepository.BestHandRow row = statsBestHands.get(index);
+            y = statsResultRowY(firstY, index, 48f, statsResultScroll);
+            if (!statsResultRowVisible(y, firstY, 48f)) continue;
+            StatsRepository.BestHandRow row = displayRows.get(index);
             shapes.setColor(index % 2 == 0
                     ? new Color(0x16263bdd) : new Color(0x101d30dd));
             shapes.rect(x - 10f, y - 23f, 630f, 42f);
-            String[] values = { row.player(), statsCards(row.holeCards(),
-                "*****"), statsHandRank(row.handValue()),
-                Integer.toString(row.handCounter()), money(row.profit()) };
-            for (int column = 0; column < values.length; column++) {
-                textFit(smallFont, values[column], columns[column], y + 7f,
-                        column == 4 ? new Color(0x64df86ff) : Color.WHITE,
-                        false, widths[column]);
-            }
-            y -= 48f;
+            textFit(smallFont, row.player(), columns[0], y + 7f,
+                    Color.WHITE, false, widths[0]);
+            drawStatsCards(row.holeCards(), columns[1], y, widths[1],
+                    "*****");
+            textFit(smallFont, statsHandRank(row.handValue()), columns[2],
+                    y + 7f, Color.WHITE, false, widths[2]);
+            textFit(smallFont, Integer.toString(row.handCounter()),
+                    columns[3], y + 7f, Color.WHITE, false, widths[3]);
+            textFit(smallFont, money(row.profit()), columns[4], y + 7f,
+                    new Color(0x64df86ff), false, widths[4]);
         }
     }
 
@@ -2408,8 +2873,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             float width, float height) {
         outerBox(x, y, width, height, new Color(0x31445fff),
                 new Color(0x071221c8));
-        textFit(smallFont, uppercase(gameText.translate("stats.chart_jugadas")),
+        chartTextFit(smallFont, uppercase(gameText.translate("stats.chart_jugadas")),
                 x + 25f, y + height - 26f, GOLD, false, width - 50f);
+        beginStatsChartCanvas(x + 8f, y + 12f, width - 24f,
+                height - 58f);
         int[] counts = new int[11];
         for (StatsRepository.BestHandRow row : statsBestHands) {
             if (row.handValue() >= 1 && row.handValue() <= 10) {
@@ -2424,20 +2891,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         for (int rank = 1; rank <= 10; rank++) {
             if (counts[rank] == 0) continue;
             String label = statsHandRank(rank);
-            textFit(tinyFont, label, x + 25f, rowY + 7f, Color.WHITE,
+            chartTextFit(tinyFont, label, x + 25f, rowY + 7f, Color.WHITE,
                     false, 235f);
             float barX = x + 275f;
             float barWidth = width - 335f;
             shapes.setColor(new Color(0x253248ff));
-            roundedRect(barX, rowY - 10f, barWidth, 22f, 5f);
+            roundedRect(statsChartX(barX), statsChartY(rowY - 10f),
+                    statsChartLength(barWidth), statsChartLength(22f), 5f);
             shapes.setColor(new Color(0xbc7affdd));
-            roundedRect(barX, rowY - 10f,
-                    Math.max(3f, barWidth * counts[rank] / maximum),
-                    22f, 5f);
-            textFit(tinyFont, Integer.toString(counts[rank]),
+            roundedRect(statsChartX(barX), statsChartY(rowY - 10f),
+                    Math.max(3f, statsChartLength(
+                            barWidth * counts[rank] / maximum)),
+                    statsChartLength(22f), 5f);
+            chartTextFit(tinyFont, Integer.toString(counts[rank]),
                     x + width - 45f, rowY + 7f, GOLD, false, 30f);
             rowY -= rowHeight;
         }
+        endStatsChartCanvas();
     }
 
     private void drawStatsEmptyState() {
@@ -2485,8 +2955,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         statsSummaryLine(gameText.translate("stats.recomprar"),
                 gameText.translate(game.rebuy() ? "ui.si" : "gdx.stats.no"),
                 y); y -= 40f;
-        statsSummaryWrappedLine(gameText.translate("gdx.stats.players"),
-                String.join(" - ", game.players()), y); y -= 62f;
+        drawStatsSummaryPlayers(game.players(), y);
+        y -= 100f;
         String origin = game.imported()
                 ? gameText.translate("gdx.stats.imported")
                         + (game.importedFrom() == null
@@ -2495,6 +2965,52 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 : gameText.translate("gdx.stats.local");
         statsSummaryLine(gameText.translate("gdx.stats.origin"),
                 origin, y);
+    }
+
+    private void drawStatsSummaryPlayers(List<String> players, float topY) {
+        final float x = 86f;
+        final float width = 348f;
+        final float viewportHeight = 72f;
+        final float rowHeight = 23f;
+        final float bottom = topY - viewportHeight;
+        outerBox(x, bottom, width, viewportHeight, new Color(0x31445fff),
+                new Color(0x0b1728dd));
+        textExactFit(tinyFont, uppercase(gameText.translate(
+                "gdx.stats.players")), x + 10f, topY - 10f, MUTED,
+                false, 110f);
+        List<String> safePlayers = players == null ? List.of() : players;
+        float visibleHeight = viewportHeight - 10f;
+        float contentHeight = safePlayers.size() * rowHeight;
+        float maximum = statsSummaryPlayersMaximum(safePlayers.size());
+        statsSummaryPlayersScrollTarget = MathUtils.clamp(
+                statsSummaryPlayersScrollTarget, 0f, maximum);
+        statsSummaryPlayersScroll = MathUtils.clamp(statsSummaryPlayersScroll,
+                0f, maximum);
+        float firstBaseline = topY - 10f + statsSummaryPlayersScroll;
+        for (int index = 0; index < safePlayers.size(); index++) {
+            float baseline = firstBaseline - index * rowHeight;
+            if (baseline > topY - 4f || baseline < bottom + 8f) continue;
+            textExactFit(tinyFont, safePlayers.get(index), x + 126f,
+                    baseline, Color.WHITE, false, width - 148f);
+        }
+        if (maximum > 0f) {
+            float trackX = x + width - 10f;
+            float trackY = bottom + 6f;
+            float trackHeight = viewportHeight - 12f;
+            shapes.setColor(new Color(0x18304cff));
+            roundedRect(trackX, trackY, 5f, trackHeight, 2.5f);
+            float thumb = Math.max(18f,
+                    trackHeight * visibleHeight / contentHeight);
+            float travel = trackHeight - thumb;
+            float thumbY = trackY + travel
+                    * (1f - statsSummaryPlayersScroll / maximum);
+            shapes.setColor(CYAN);
+            roundedRect(trackX, thumbY, 5f, thumb, 2.5f);
+        }
+    }
+
+    static float statsSummaryPlayersMaximum(int playerCount) {
+        return Math.max(0f, playerCount * 23f - 62f);
     }
 
     private void drawStatsHandSummary() {
@@ -2562,13 +3078,34 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             x + 930f, x + 1080f };
         float[] widths = { 260f, 80f, 210f, 280f, 125f, 170f };
         for (int index = 0; index < headers.length; index++) {
-            textFit(tinyFont, uppercase(headers[index]), columns[index], y,
-                    CYAN, false, widths[index]);
+            statsSortableHeader(headers[index], columns[index], y,
+                    widths[index], index);
         }
         y -= 48f;
-        int rows = Math.min(10, statsShowdown.size());
+        float firstY = y;
+        Comparator<StatsRepository.ShowdownRow> comparator = switch (
+                statsSortColumn) {
+            case 1 -> Comparator.comparing(
+                    StatsRepository.ShowdownRow::winner);
+            case 2 -> Comparator.comparing(row -> statsCards(
+                    row.holeCards(), ""), statsTextComparator());
+            case 3 -> Comparator.comparingInt(
+                    StatsRepository.ShowdownRow::handValue);
+            case 4 -> Comparator.comparingDouble(
+                    StatsRepository.ShowdownRow::pay);
+            case 5 -> Comparator.comparingDouble(
+                    StatsRepository.ShowdownRow::profit);
+            default -> Comparator.comparing(
+                    StatsRepository.ShowdownRow::player,
+                    statsTextComparator());
+        };
+        List<StatsRepository.ShowdownRow> displayRows = sortedStatsRows(
+                statsShowdown, comparator);
+        int rows = displayRows.size();
         for (int index = 0; index < rows; index++) {
-            StatsRepository.ShowdownRow row = statsShowdown.get(index);
+            y = statsResultRowY(firstY, index, 48f, statsResultScroll);
+            if (!statsResultRowVisible(y, firstY, 48f)) continue;
+            StatsRepository.ShowdownRow row = displayRows.get(index);
             Color result = row.profit() > 0d ? new Color(0x64df86ff)
                     : row.profit() < 0d ? new Color(0xff6b6bff) : MUTED;
             shapes.setColor(index % 2 == 0
@@ -2581,15 +3118,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             : gameText.translate("gdx.stats.no"),
                     columns[1], y + 7f, row.winner() ? GOLD : MUTED,
                     false, widths[1]);
-            textFit(smallFont, statsCards(row.holeCards(), "*****"),
-                    columns[2], y + 7f, Color.WHITE, false, widths[2]);
+            drawStatsCards(row.holeCards(), columns[2], y, widths[2],
+                    "*****");
             textFit(smallFont, statsHandRank(row.handValue()), columns[3],
                     y + 7f, Color.WHITE, false, widths[3]);
             textFit(smallFont, money(row.pay()), columns[4], y + 7f,
                     Color.WHITE, false, widths[4]);
             textFit(smallFont, money(row.profit()), columns[5], y + 7f,
                     result, false, widths[5]);
-            y -= 48f;
         }
         if (statsShowdown.isEmpty()) {
             textFit(smallFont, gameText.translate("gdx.stats.no_showdown"),
@@ -2610,22 +3146,115 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (cards == null || cards.isEmpty()) return empty;
         List<String> readable = new ArrayList<>(cards.size());
         for (String card : cards) {
-            if (card == null || card.isBlank()) continue;
-            String[] parts = card.trim().split("_");
-            if (parts.length != 2) {
-                readable.add(card.trim());
-                continue;
-            }
-            String suit = switch (parts[1].toUpperCase(Locale.ROOT)) {
-                case "C" -> "♥";
-                case "D" -> "♦";
-                case "P" -> "♠";
-                case "T" -> "♣";
-                default -> parts[1];
-            };
-            readable.add(parts[0] + suit);
+            StatsCardGlyph decoded = decodeStatsCard(card);
+            if (decoded != null) readable.add(decoded.rank() + decoded.suit());
         }
         return readable.isEmpty() ? empty : String.join("  ", readable);
+    }
+
+    private void drawStatsCards(List<String> cards, float x, float centerY,
+            float maxWidth, String empty) {
+        List<StatsCardGlyph> decoded = cards == null ? List.of()
+                : cards.stream().map(GdxFrontendScreen::decodeStatsCard)
+                        .filter(Objects::nonNull).limit(2).toList();
+        if (decoded.isEmpty()) {
+            textFit(smallFont, empty, x, centerY + 7f, MUTED, false,
+                    maxWidth);
+            return;
+        }
+        float gap = 6f;
+        float cardWidth = Math.min(58f,
+                (maxWidth - gap * (decoded.size() - 1)) / decoded.size());
+        float cardHeight = 34f;
+        for (int index = 0; index < decoded.size(); index++) {
+            StatsCardGlyph card = decoded.get(index);
+            float cardX = x + index * (cardWidth + gap);
+            outerBox(cardX, centerY - cardHeight / 2f, cardWidth, cardHeight,
+                    new Color(0x61718bff), new Color(0xf5f2eaff));
+            Color ink = card.red() ? new Color(0xcf202fff)
+                    : new Color(0x10131aff);
+            textExactFit(tinyFont, card.rank(), cardX + cardWidth * 0.30f,
+                    centerY + 6f, ink, true, cardWidth * 0.42f);
+            drawStatsSuit(card.suit(), cardX + cardWidth * 0.73f,
+                    centerY, Math.min(14f, cardWidth * 0.24f), ink);
+        }
+    }
+
+    /** Draws suits as vectors so their quality never depends on font glyphs. */
+    private void drawStatsSuit(String suit, float cx, float cy, float size,
+            Color color) {
+        float r = size * 0.27f;
+        shapes.setColor(color);
+        switch (suit) {
+            case "♥" -> {
+                shapes.circle(cx - r, cy + r * 0.55f, r, 18);
+                shapes.circle(cx + r, cy + r * 0.55f, r, 18);
+                shapes.triangle(cx - size * 0.54f, cy + r * 0.55f,
+                        cx + size * 0.54f, cy + r * 0.55f,
+                        cx, cy - size * 0.62f);
+            }
+            case "♦" -> {
+                shapes.triangle(cx, cy + size * 0.66f,
+                        cx - size * 0.48f, cy,
+                        cx + size * 0.48f, cy);
+                shapes.triangle(cx, cy - size * 0.66f,
+                        cx - size * 0.48f, cy,
+                        cx + size * 0.48f, cy);
+            }
+            case "♣" -> {
+                shapes.circle(cx, cy + size * 0.34f, r, 18);
+                shapes.circle(cx - size * 0.34f, cy - size * 0.02f,
+                        r, 18);
+                shapes.circle(cx + size * 0.34f, cy - size * 0.02f,
+                        r, 18);
+                shapes.rect(cx - size * 0.10f, cy - size * 0.62f,
+                        size * 0.20f, size * 0.58f);
+                shapes.triangle(cx - size * 0.30f, cy - size * 0.62f,
+                        cx + size * 0.30f, cy - size * 0.62f,
+                        cx, cy - size * 0.22f);
+            }
+            case "♠" -> {
+                shapes.triangle(cx, cy + size * 0.68f,
+                        cx - size * 0.52f, cy - size * 0.08f,
+                        cx + size * 0.52f, cy - size * 0.08f);
+                shapes.circle(cx - r, cy - size * 0.02f, r, 18);
+                shapes.circle(cx + r, cy - size * 0.02f, r, 18);
+                shapes.rect(cx - size * 0.10f, cy - size * 0.62f,
+                        size * 0.20f, size * 0.55f);
+                shapes.triangle(cx - size * 0.30f, cy - size * 0.62f,
+                        cx + size * 0.30f, cy - size * 0.62f,
+                        cx, cy - size * 0.22f);
+            }
+            default -> { }
+        }
+    }
+
+    static StatsCardGlyph decodeStatsCard(String encoded) {
+        if (encoded == null) return null;
+        String value = encoded.trim();
+        if (value.isEmpty() || value.equals("_")) return null;
+        String rank;
+        String rawSuit;
+        int separator = value.lastIndexOf('_');
+        if (separator > 0 && separator + 1 < value.length()) {
+            rank = value.substring(0, separator);
+            rawSuit = value.substring(separator + 1);
+        } else if (value.length() >= 2) {
+            rank = value.substring(0, value.length() - 1);
+            rawSuit = value.substring(value.length() - 1);
+        } else {
+            return null;
+        }
+        String suit = switch (rawSuit.toUpperCase(Locale.ROOT)) {
+            case "C", "♥" -> "♥";
+            case "D", "♦" -> "♦";
+            case "P", "♠" -> "♠";
+            case "T", "♣" -> "♣";
+            default -> null;
+        };
+        if (suit == null || rank.isBlank()) return null;
+        return new StatsCardGlyph(rank, suit,
+                suit.equals("♥") || suit.equals("♦"));
     }
 
     private void statsSummaryLine(String label, String value, float y) {
@@ -2660,13 +3289,31 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float[] columns = { x, x + 170f, x + 265f, x + 360f, x + 460f };
         float[] widths = { 155f, 80f, 80f, 90f, 65f };
         for (int index = 0; index < headers.length; index++) {
-            textFit(tinyFont, uppercase(headers[index]), columns[index], y,
-                    CYAN, false, widths[index]);
+            statsSortableHeader(headers[index], columns[index], y,
+                    widths[index], index);
         }
         y -= 42f;
-        int rows = Math.min(10, statsBalances.size());
+        float firstY = y;
+        Comparator<StatsRepository.BalanceRow> comparator = switch (
+                statsSortColumn) {
+            case 1 -> Comparator.comparingDouble(
+                    StatsRepository.BalanceRow::stack);
+            case 2 -> Comparator.comparingDouble(
+                    StatsRepository.BalanceRow::buyin);
+            case 3 -> Comparator.comparingDouble(
+                    StatsRepository.BalanceRow::profit);
+            case 4 -> Comparator.comparingDouble(
+                    StatsRepository.BalanceRow::roiPercent);
+            default -> Comparator.comparing(StatsRepository.BalanceRow::player,
+                    statsTextComparator());
+        };
+        List<StatsRepository.BalanceRow> displayRows = sortedStatsRows(
+                statsBalances, comparator);
+        int rows = displayRows.size();
         for (int index = 0; index < rows; index++) {
-            StatsRepository.BalanceRow row = statsBalances.get(index);
+            y = statsResultRowY(firstY, index, 41f, statsResultScroll);
+            if (!statsResultRowVisible(y, firstY, 41f)) continue;
+            StatsRepository.BalanceRow row = displayRows.get(index);
             Color profit = row.profit() > 0d ? new Color(0x64df86ff)
                     : row.profit() < 0d ? new Color(0xff6b6bff) : MUTED;
             shapes.setColor(index % 2 == 0
@@ -2680,7 +3327,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         column >= 3 ? profit : Color.WHITE,
                         false, widths[column]);
             }
-            y -= 41f;
         }
     }
 
@@ -2690,8 +3336,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 new Color(0x071221c8));
         String title = gameText.translate(statsBalanceHistory.isEmpty()
                 ? "stats.chart_beneficio" : "stats.chart_stack");
-        textFit(smallFont, uppercase(title), x + 28f, y + height - 26f,
+        chartTextFit(smallFont, uppercase(title), x + 28f, y + height - 26f,
                 GOLD, false, width - 56f);
+        beginStatsChartCanvas(x + 8f, y + 12f, width - 24f,
+                height - 58f);
         if (statsBalanceHistory.isEmpty()) {
             drawStatsProfitBars(x + 25f, y + 35f, width - 50f,
                     height - 100f);
@@ -2699,6 +3347,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             drawStatsStackLines(x + 25f, y + 35f, width - 50f,
                     height - 100f);
         }
+        endStatsChartCanvas();
     }
 
     private void drawStatsProfitBars(float x, float y, float width,
@@ -2708,7 +3357,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         maximum = Math.max(0.01d, maximum);
         float middle = x + width * 0.52f;
         shapes.setColor(new Color(0xa8b3c055));
-        shapes.rect(middle, y, 2f, height);
+        shapes.rect(statsChartX(middle), statsChartY(y),
+                statsChartLength(2f), statsChartLength(height));
         int count = Math.min(10, statsBalances.size());
         float rowHeight = height / Math.max(1, count);
         for (int index = 0; index < count; index++) {
@@ -2721,14 +3371,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             shapes.setColor(positive ? new Color(0x2ea043dd)
                     : new Color(0xc83737dd));
             float barX = positive ? middle + 2f : middle - bar;
-            roundedRect(barX, cy - Math.min(13f, rowHeight * 0.3f), bar,
-                    Math.min(26f, rowHeight * 0.6f), 5f);
-            textFit(tinyFont, row.player(), x, cy + 7f, Color.WHITE,
+            roundedRect(statsChartX(barX), statsChartY(cy
+                            - Math.min(13f, rowHeight * 0.3f)),
+                    statsChartLength(bar), statsChartLength(
+                            Math.min(26f, rowHeight * 0.6f)), 5f);
+            chartTextFit(tinyFont, row.player(), x, cy + 7f, Color.WHITE,
                     false, width * 0.42f - 12f);
             float valueX = positive
                     ? Math.min(middle + bar + 10f, x + width - 75f)
                     : Math.max(middle - bar - 80f, x);
-            textFit(tinyFont, money(row.profit()), valueX,
+            chartTextFit(tinyFont, money(row.profit()), valueX,
                     cy + 7f, positive ? new Color(0x64df86ff)
                             : new Color(0xff6b6bff),
                     false, 75f);
@@ -2754,10 +3406,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         for (int line = 0; line <= 4; line++) {
             float gy = plotY + plotH * line / 4f;
             shapes.setColor(new Color(0x66758a44));
-            shapes.rect(plotX, gy, plotW, 1f);
+            shapes.rect(statsChartX(plotX), statsChartY(gy),
+                    statsChartLength(plotW), statsChartLength(1f));
             double value = minimumStack
                     + (maximumStack - minimumStack) * line / 4d;
-            textFit(tinyFont, money(value), x, gy + 6f, MUTED,
+            chartTextFit(tinyFont, money(value), x, gy + 6f, MUTED,
                     false, 45f);
         }
         Map<String, List<StatsRepository.BalancePoint>> series =
@@ -2775,21 +3428,25 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Color color = palette[seriesIndex % palette.length];
             StatsRepository.BalancePoint previous = null;
             for (StatsRepository.BalancePoint point : entry.getValue()) {
-                float px = plotX + plotW * (point.handCounter() - minimumHand)
+                float rawX = plotX + plotW
+                        * (point.handCounter() - minimumHand)
                         / (maximumHand - minimumHand);
-                float py = plotY + plotH
+                float rawY = plotY + plotH
                         * (float) ((point.stack() - minimumStack)
                                 / (maximumStack - minimumStack));
+                float px = statsChartX(rawX);
+                float py = statsChartY(rawY);
                 shapes.setColor(color);
-                shapes.circle(px, py, 3.5f, 18);
+                shapes.circle(px, py, statsChartLength(3.5f), 18);
                 if (previous != null) {
-                    float previousX = plotX + plotW
+                    float previousX = statsChartX(plotX + plotW
                             * (previous.handCounter() - minimumHand)
-                            / (maximumHand - minimumHand);
-                    float previousY = plotY + plotH
+                            / (maximumHand - minimumHand));
+                    float previousY = statsChartY(plotY + plotH
                             * (float) ((previous.stack() - minimumStack)
-                                    / (maximumStack - minimumStack));
-                    shapes.rectLine(previousX, previousY, px, py, 2.5f);
+                                    / (maximumStack - minimumStack)));
+                    shapes.rectLine(previousX, previousY, px, py,
+                            statsChartLength(2.5f));
                 }
                 previous = point;
             }
@@ -2800,14 +3457,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             float legendY = y + height - 66f
                     - (seriesIndex / 4) * 23f;
             shapes.setColor(color);
-            shapes.rect(legendX, legendY - 7f, 16f, 4f);
-            textFit(tinyFont, entry.getKey(), legendX + 23f,
+            shapes.rect(statsChartX(legendX), statsChartY(legendY - 7f),
+                    statsChartLength(16f), statsChartLength(4f));
+            chartTextFit(tinyFont, entry.getKey(), legendX + 23f,
                     legendY, color, false, plotW / 4f - 30f);
             seriesIndex++;
         }
-        textFit(tinyFont, Integer.toString(minimumHand), plotX,
+        chartTextFit(tinyFont, Integer.toString(minimumHand), plotX,
                 y + 23f, MUTED, false, 60f);
-        textFit(tinyFont, Integer.toString(maximumHand),
+        chartTextFit(tinyFont, Integer.toString(maximumHand),
                 plotX + plotW - 60f, y + 23f, MUTED, false, 60f);
     }
 
@@ -3660,15 +4318,25 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         drawLobbyChatInput(525f, 215f, 345f);
         compactButton(880f, 215f, 95f, 70f,
-                uppercase(gameText.translate("gdx.lobby.emoji")), false,
+                uppercase(gameText.translate(lobbyImageMode
+                        ? "gdx.table.chat.text" : "gdx.lobby.emoji")), false,
                 () -> {
+                    boolean wasImageMode = lobbyImageMode;
                     lobbyImageMode = false;
-                    lobbyEmojiPickerOpen = !lobbyEmojiPickerOpen;
+                    lobbyImageClearConfirmation = false;
+                    lobbyEmojiPickerOpen = !wasImageMode
+                            && !lobbyEmojiPickerOpen;
                     activateField("lobbyChat");
                 });
-        compactButton(985f, 215f, 190f, 70f,
-                uppercase(gameText.translate("gdx.lobby.image")), false,
+        compactButton(985f, 215f, 180f, 70f,
+                uppercase(gameText.translate(lobbyImageMode
+                        ? "gdx.lobby.search_images" : "gdx.lobby.image")),
+                false,
                 () -> {
+                    if (lobbyImageMode) {
+                        openGoogleImages();
+                        return;
+                    }
                     lobbyEmojiPickerOpen = false;
                     lobbyImageMode = !lobbyImageMode;
                     lobbyImageGalleryContentDelayFrames = lobbyImageMode
@@ -3676,7 +4344,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     activateField(lobbyImageMode ? "lobbyImage" : "lobbyChat");
                     if (lobbyImageMode) refreshLobbyHistoryMedia();
                 });
-        compactButton(1185f, 215f, 75f, 70f,
+        compactButton(1175f, 215f, 85f, 70f,
                 uppercase(gameText.translate(lobbyVoiceLive || lobbyVoiceOpening
                         ? "audio.preview_parar" : "gdx.lobby.voice")), false,
                 this::toggleLobbyVoiceRecording, canUseLobbyVoice()
@@ -4265,6 +4933,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         enableWorldScissor(settingsRowsClip);
         batch.begin();
         for (TextItem item : settingsRowTexts) drawTextItem(item);
+        batch.end();
+        Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+    }
+
+    private void drawStatsChartTextLayer() {
+        if (surface != Surface.STATS || statsChartTexts.isEmpty()
+                || statsChartViewport.width <= 0f
+                || statsChartViewport.height <= 0f) return;
+        enableWorldScissor(statsChartViewport);
+        batch.begin();
+        for (TextItem item : statsChartTexts) drawTextItem(item);
         batch.end();
         Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
     }
@@ -5267,7 +5946,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 }, true);
         themedButton(x + w - 206f, y + h - 68f, 128f, 48f,
                 uppercase(gameText.translate("gdx.lobby.clear")),
-                ButtonTone.NEUTRAL, this::clearLobbyImageHistory,
+                ButtonTone.NEUTRAL,
+                () -> lobbyImageClearConfirmation = true,
                 !lobbyImageHistory.isEmpty());
         Rectangle close = lobbyImageGalleryCloseBounds(x, y, w, h);
         themedButton(close.x, close.y, close.width, close.height, "\u00d7",
@@ -5338,12 +6018,37 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (preferences != null) preferences.saveDeferred();
         lobbyImageHistory = List.of();
         clearLobbyHistoryMedia();
+        lobbyImageClearConfirmation = false;
     }
 
     private void closeLobbyImageGallery() {
         lobbyImageMode = false;
+        lobbyImageClearConfirmation = false;
         lobbyImageGalleryContentDelayFrames = 0;
         activateField("lobbyChat");
+    }
+
+    private void drawLobbyImageClearConfirmation() {
+        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
+        GdxUiDialogStyle.drawPanel(shapes, 560f, 350f, 800f, 330f,
+                CYAN_DARK, 1f);
+        textFit(headingFont, uppercase(gameText.translate("ui.seguro")),
+                960f, 626f, GOLD, true, 700f);
+        centeredWrappedText(smallFont, gameText.translate(
+                "gdx.lobby.clear_images_confirm"), 960f, 550f,
+                680f, 27f, 3, Color.WHITE);
+        themedButton(635f, 405f, 300f, 75f,
+                uppercase(gameText.translate("ui.cancelar")),
+                ButtonTone.NEUTRAL,
+                () -> lobbyImageClearConfirmation = false, true);
+        themedButton(985f, 405f, 300f, 75f,
+                uppercase(gameText.translate("gdx.lobby.clear")),
+                ButtonTone.DANGER, this::clearLobbyImageHistory, true);
+    }
+
+    private void openGoogleImages() {
+        openExternalUri(GOOGLE_IMAGES_URI,
+                "gdx.lobby.search_images_failed");
     }
 
     static Rectangle lobbyImageGalleryCloseBounds(float x, float y,
@@ -5902,6 +6607,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsSession.begin(settingsReturnSurface == Surface.LOBBY
                 ? GdxSettingsSession.Context.WAITING_ROOM
                 : GdxSettingsSession.Context.MENU, initialProperties);
+        settingsAppearancePage = settingsSession.subpageIndex(
+                GdxSettingsContract.Section.APPEARANCE);
+        settingsAudioPage = settingsSession.subpageIndex(
+                GdxSettingsContract.Section.AUDIO);
+        settingsGamePage = settingsSession.subpageIndex(
+                GdxSettingsContract.Section.GAME);
         settingsAppearanceScroll = 0f;
         settingsAudioScroll = 0f;
         settingsShortcutScroll = 0f;
@@ -6113,6 +6824,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void selectSettingsSubpage(int index) {
         audioPreview.stop();
+        settingsSession.selectSubpage(index);
         switch (settingsSession.section()) {
             case APPEARANCE -> {
                 settingsAppearancePage = index;
@@ -6177,11 +6889,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             hit(tab.x, tab.y, tab.width, tab.height, () -> {
                 audioPreview.stop();
                 settingsSession.selectTab(selected);
-                settingsAppearancePage = 0;
                 settingsAppearanceScroll = 0f;
-                settingsAudioPage = 0;
                 settingsAudioScroll = 0f;
-                settingsGamePage = 0;
                 settingsShortcutScroll = 0f;
                 settingsShortcutCaptureId = null;
                 settingsShortcutStatus = "";
@@ -9030,8 +9739,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float y = editMenu.bounds.y;
         float w = editMenu.bounds.width;
         float row = 48f;
-        outerBox(x, y, w, editMenu.bounds.height, CYAN_DARK,
-                new Color(0x071221fc));
+        outerBox(x, y, w, editMenu.bounds.height,
+                GdxEditMenuStyle.BORDER, GdxEditMenuStyle.BACKGROUND);
         editMenuItem(x + 8f, y + 152f, w - 16f, row,
                 uppercase(gameText.translate("ui.cortar")), selected, () -> {
                     String current = activeValue();
@@ -9056,8 +9765,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void editMenuItem(float x, float y, float w, float h,
             String label, boolean enabled, Runnable action) {
         boolean over = enabled && hovered(x, y, w, h);
-        shapes.setColor(over ? new Color(0x17304aee)
-                : new Color(0x0b1828ee));
+        shapes.setColor(over ? GdxEditMenuStyle.ROW_HOVER
+                : GdxEditMenuStyle.ROW);
         roundedRect(x, y, w, h - 2f, 6f);
         textFit(smallFont, label, x + 18f, y + 30f,
                 enabled ? Color.WHITE : DISABLED, false,
@@ -9068,6 +9777,26 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 editMenu = null;
             }, false));
         }
+    }
+
+    private boolean shouldDrawEditMenu() {
+        return editMenu != null && (!hasBlockingFrontendModal()
+                || surface == Surface.STATS && statsSyncExclusionsOpen);
+    }
+
+    private void drawEditMenuTopLayer() {
+        int firstMenuText = texts.size();
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
+                GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        drawEditMenu();
+        shapes.end();
+        batch.begin();
+        for (int index = firstMenuText; index < texts.size(); index++) {
+            drawTextItem(texts.get(index));
+        }
+        batch.end();
     }
 
     private float textWidth(BitmapFont font, String value) {
@@ -10032,6 +10761,117 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 preferred, value, x, y, color, centered, maxWidth, false));
     }
 
+    /** Fits table headers by scaling them down, never by truncating them. */
+    private void textExactFit(BitmapFont font, String value, float x, float y,
+            Color color, boolean centered, float maxWidth) {
+        float width = Math.max(1f, textWidth(font, value));
+        float scale = Math.min(1f, maxWidth / width);
+        (settingsRowsActive ? settingsRowTexts : texts).add(new TextItem(font,
+                value, x, y, new Color(color), centered, false, scale));
+    }
+
+    private void beginStatsChartCanvas(float x, float y, float width,
+            float height) {
+        statsChartViewport.set(x, y, width, height);
+        shapes.flush();
+        enableWorldScissor(statsChartViewport);
+        statsChartCanvasActive = true;
+    }
+
+    private void endStatsChartCanvas() {
+        shapes.flush();
+        Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+        statsChartCanvasActive = false;
+        drawStatsChartScrollbars();
+    }
+
+    private void drawStatsChartScrollbars() {
+        if (statsChartZoom <= 1f || statsChartViewport.width <= 0f
+                || statsChartViewport.height <= 0f) {
+            statsChartHorizontalTrack.set(0f, 0f, 0f, 0f);
+            statsChartVerticalTrack.set(0f, 0f, 0f, 0f);
+            return;
+        }
+        statsChartHorizontalTrack.set(statsChartViewport.x + 8f,
+                statsChartViewport.y + 3f,
+                statsChartViewport.width - 27f, 8f);
+        statsChartVerticalTrack.set(statsChartViewport.x
+                + statsChartViewport.width - 11f,
+                statsChartViewport.y + 16f, 8f,
+                statsChartViewport.height - 24f);
+        shapes.setColor(new Color(0x18304cff));
+        roundedRect(statsChartHorizontalTrack.x,
+                statsChartHorizontalTrack.y,
+                statsChartHorizontalTrack.width,
+                statsChartHorizontalTrack.height, 4f);
+        roundedRect(statsChartVerticalTrack.x, statsChartVerticalTrack.y,
+                statsChartVerticalTrack.width,
+                statsChartVerticalTrack.height, 4f);
+        statsChartHorizontalThumbWidth = Math.max(34f,
+                statsChartHorizontalTrack.width / statsChartZoom);
+        statsChartVerticalThumbHeight = Math.max(34f,
+                statsChartVerticalTrack.height / statsChartZoom);
+        float horizontalTravel = statsChartHorizontalTrack.width
+                - statsChartHorizontalThumbWidth;
+        float verticalTravel = statsChartVerticalTrack.height
+                - statsChartVerticalThumbHeight;
+        shapes.setColor(CYAN);
+        roundedRect(statsChartHorizontalTrack.x
+                + horizontalTravel * statsChartPanX,
+                statsChartHorizontalTrack.y,
+                statsChartHorizontalThumbWidth,
+                statsChartHorizontalTrack.height, 4f);
+        roundedRect(statsChartVerticalTrack.x,
+                statsChartVerticalTrack.y
+                        + verticalTravel * (1f - statsChartPanY),
+                statsChartVerticalTrack.width,
+                statsChartVerticalThumbHeight, 4f);
+    }
+
+    private float statsChartX(float x) {
+        return statsChartViewport.x + statsChartCanvasCoordinate(
+                x - statsChartViewport.x, statsChartViewport.width,
+                statsChartZoom, statsChartPanX);
+    }
+
+    private float statsChartY(float y) {
+        return statsChartViewport.y + statsChartCanvasVerticalCoordinate(
+                y - statsChartViewport.y, statsChartViewport.height,
+                statsChartZoom, statsChartPanY);
+    }
+
+    private float statsChartLength(float value) {
+        return value * statsChartZoom;
+    }
+
+    static float statsChartCanvasCoordinate(float local, float extent,
+            float zoom, float pan) {
+        float safeZoom = MathUtils.clamp(zoom, 0.1f, 4f);
+        if (safeZoom <= 1f) {
+            return local * safeZoom + extent * (1f - safeZoom) / 2f;
+        }
+        return local * safeZoom
+                - extent * (safeZoom - 1f) * MathUtils.clamp(pan, 0f, 1f);
+    }
+
+    static float statsChartCanvasVerticalCoordinate(float local, float extent,
+            float zoom, float scroll) {
+        return statsChartCanvasCoordinate(local, extent, zoom,
+                1f - MathUtils.clamp(scroll, 0f, 1f));
+    }
+
+    private void chartTextFit(BitmapFont font, String value, float x, float y,
+            Color color, boolean centered, float maxWidth) {
+        float width = Math.max(1f, textWidth(font, value));
+        float scale = Math.min(1f, maxWidth / width);
+        List<TextItem> target = statsChartCanvasActive
+                ? statsChartTexts : texts;
+        target.add(new TextItem(font, value,
+                statsChartCanvasActive ? statsChartX(x) : x,
+                statsChartCanvasActive ? statsChartY(y) : y,
+                new Color(color), centered, false, scale));
+    }
+
     private void italicTextFit(BitmapFont preferred, String value, float x,
             float y, Color color, boolean centered, float maxWidth) {
         (settingsRowsActive ? settingsRowTexts : texts).add(fittedTextItem(
@@ -10053,6 +10893,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawTextItem(TextItem item) {
+        float previousScaleX = item.font.getData().scaleX;
+        float previousScaleY = item.font.getData().scaleY;
+        item.font.getData().setScale(previousScaleX * item.scale,
+                previousScaleY * item.scale);
         item.font.setColor(item.color);
         glyph.setText(item.font, item.text);
         float x = item.centered ? item.x - glyph.width / 2f : item.x;
@@ -10065,6 +10909,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         item.font.draw(batch, item.text, x, item.y);
         if (item.italic) batch.setTransformMatrix(identityTransform);
+        item.font.getData().setScale(previousScaleX, previousScaleY);
     }
 
     private boolean fits(BitmapFont font, String value, float maxWidth) {
@@ -10205,7 +11050,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && lobbyTableTransitionActive(lobbyGameStarting, lobby)) {
             return true;
         }
-        if (!blockingModal && button == Input.Buttons.LEFT
+        if ((!blockingModal || statsPicker != StatsPicker.NONE)
+                && button == Input.Buttons.LEFT
                 && beginScrollDrag(pointer.x, pointer.y)) {
             return true;
         }
@@ -10275,7 +11121,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
         if (scrollDrag != ScrollDrag.NONE) {
-            updateScrollDrag(pointer.y);
+            updateScrollDrag(pointer.x, pointer.y);
             return true;
         }
         if (pointerSelectionField == null) return hasBlockingFrontendModal();
@@ -10316,11 +11162,39 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private boolean beginScrollDrag(float x, float y) {
+        if (surface == Surface.STATS && statsPicker != StatsPicker.NONE
+                && statsPickerScrollMaximum > 0f
+                && statsPickerScrollTrack.contains(x, y)) {
+            scrollDrag = ScrollDrag.STATS_PICKER;
+            updateScrollDrag(x, y);
+            return true;
+        }
+        if (surface == Surface.STATS && statsPicker == StatsPicker.NONE
+                && statsChartZoom > 1f
+                && statsChartHorizontalTrack.contains(x, y)) {
+            scrollDrag = ScrollDrag.STATS_CHART_HORIZONTAL;
+            updateScrollDrag(x, y);
+            return true;
+        }
+        if (surface == Surface.STATS && statsPicker == StatsPicker.NONE
+                && statsChartZoom > 1f
+                && statsChartVerticalTrack.contains(x, y)) {
+            scrollDrag = ScrollDrag.STATS_CHART_VERTICAL;
+            updateScrollDrag(x, y);
+            return true;
+        }
+        if (surface == Surface.STATS && statsPicker == StatsPicker.NONE
+                && statsResultScrollMaximum > 0f
+                && statsResultScrollTrack.contains(x, y)) {
+            scrollDrag = ScrollDrag.STATS_RESULTS;
+            updateScrollDrag(x, y);
+            return true;
+        }
         if (surface == Surface.LOBBY && !lobbyImageMode
                 && !lobbyEmojiPickerOpen && lobbyChatScrollMaximum > 0
                 && lobbyChatScrollTrack.contains(x, y)) {
             scrollDrag = ScrollDrag.LOBBY_CHAT;
-            updateScrollDrag(y);
+            updateScrollDrag(x, y);
             return true;
         }
         if (surface == Surface.SETTINGS
@@ -10333,7 +11207,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     || settingsSession.section()
                         == GdxSettingsContract.Section.SHORTCUTS)) {
             scrollDrag = ScrollDrag.SETTINGS_ROWS;
-            updateScrollDrag(y);
+            updateScrollDrag(x, y);
             return true;
         }
         if (surface == Surface.SETTINGS
@@ -10342,14 +11216,48 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && settingsDebugScrollMaximum > 0
                 && settingsDebugScrollTrack.contains(x, y)) {
             scrollDrag = ScrollDrag.SETTINGS_DEBUG;
-            updateScrollDrag(y);
+            updateScrollDrag(x, y);
             return true;
         }
         return false;
     }
 
-    private void updateScrollDrag(float y) {
-        if (scrollDrag == ScrollDrag.LOBBY_CHAT) {
+    private void updateScrollDrag(float x, float y) {
+        if (scrollDrag == ScrollDrag.STATS_PICKER) {
+            float travel = Math.max(1f, statsPickerScrollTrack.height
+                    - statsPickerScrollThumbHeight);
+            float progress = MathUtils.clamp((statsPickerScrollTrack.y
+                    + statsPickerScrollTrack.height
+                    - statsPickerScrollThumbHeight / 2f - y) / travel,
+                    0f, 1f);
+            statsPickerScrollTarget = progress * statsPickerScrollMaximum;
+            statsPickerScroll = statsPickerScrollTarget;
+        } else if (scrollDrag == ScrollDrag.STATS_CHART_HORIZONTAL) {
+            float travel = Math.max(1f, statsChartHorizontalTrack.width
+                    - statsChartHorizontalThumbWidth);
+            float progress = MathUtils.clamp((x
+                    - statsChartHorizontalTrack.x
+                    - statsChartHorizontalThumbWidth / 2f) / travel,
+                    0f, 1f);
+            statsChartPanX = statsChartPanTargetX = progress;
+        } else if (scrollDrag == ScrollDrag.STATS_CHART_VERTICAL) {
+            float travel = Math.max(1f, statsChartVerticalTrack.height
+                    - statsChartVerticalThumbHeight);
+            float progress = MathUtils.clamp((statsChartVerticalTrack.y
+                    + statsChartVerticalTrack.height
+                    - statsChartVerticalThumbHeight / 2f - y) / travel,
+                    0f, 1f);
+            statsChartPanY = statsChartPanTargetY = progress;
+        } else if (scrollDrag == ScrollDrag.STATS_RESULTS) {
+            float travel = Math.max(1f, statsResultScrollTrack.height
+                    - statsResultScrollThumbHeight);
+            float progress = MathUtils.clamp((statsResultScrollTrack.y
+                    + statsResultScrollTrack.height
+                    - statsResultScrollThumbHeight / 2f - y) / travel,
+                    0f, 1f);
+            statsResultScrollTarget = progress * statsResultScrollMaximum;
+            statsResultScroll = statsResultScrollTarget;
+        } else if (scrollDrag == ScrollDrag.LOBBY_CHAT) {
             float travel = Math.max(1f, lobbyChatScrollTrack.height
                     - lobbyChatScrollThumbHeight);
             float progress = MathUtils.clamp((y - lobbyChatScrollTrack.y
@@ -10459,7 +11367,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 return true;
             }
             if (surface == Surface.STATS) {
-                if (statsPicker != StatsPicker.NONE) {
+                if (statsSyncExclusionsOpen) {
+                    closeStatsSyncExclusions();
+                } else if (statsPicker != StatsPicker.NONE) {
                     statsPicker = StatsPicker.NONE;
                 } else if (statsConfirmation != StatsConfirmation.NONE) {
                     statsConfirmation = StatsConfirmation.NONE;
@@ -10521,6 +11431,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 cancelLobbyVoiceRecording();
                 return true;
             }
+            if (lobbyImageClearConfirmation) {
+                lobbyImageClearConfirmation = false;
+                return true;
+            }
             if (surface == Surface.LOBBY
                     && (lobbyEmojiPickerOpen || lobbyImageMode)) {
                 lobbyEmojiPickerOpen = false;
@@ -10573,12 +11487,63 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             submitBlindStructureName();
             return true;
         }
+        if ((keycode == Input.Keys.ENTER || keycode == Input.Keys.NUMPAD_ENTER)
+                && statsSyncExclusionsOpen
+                && "statsExcludeNicks".equals(activeField)) {
+            saveStatsSyncExclusions();
+            return true;
+        }
+        if (surface == Surface.STATS && statsPicker == StatsPicker.NONE
+                && statsConfirmation == StatsConfirmation.NONE
+                && !statsSyncExclusionsOpen && activeField == null
+                && statsResultScrollMaximum > 0f) {
+            float rowStride = statsResultRowStride();
+            if (keycode == Input.Keys.DOWN) {
+                statsResultScrollTarget = Math.min(
+                        statsResultScrollMaximum,
+                        statsResultScrollTarget + rowStride);
+                return true;
+            }
+            if (keycode == Input.Keys.UP) {
+                statsResultScrollTarget = Math.max(0f,
+                        statsResultScrollTarget - rowStride);
+                return true;
+            }
+            if (keycode == Input.Keys.PAGE_DOWN) {
+                statsResultScrollTarget = Math.min(
+                        statsResultScrollMaximum,
+                        statsResultScrollTarget + rowStride
+                                * STATS_RESULT_VISIBLE_ROWS);
+                return true;
+            }
+            if (keycode == Input.Keys.PAGE_UP) {
+                statsResultScrollTarget = Math.max(0f,
+                        statsResultScrollTarget - rowStride
+                                * STATS_RESULT_VISIBLE_ROWS);
+                return true;
+            }
+            if (keycode == Input.Keys.HOME) {
+                statsResultScrollTarget = 0f;
+                return true;
+            }
+            if (keycode == Input.Keys.END) {
+                statsResultScrollTarget = statsResultScrollMaximum;
+                return true;
+            }
+        }
         if (surface == Surface.SCREENSHOTS) {
             if (!screenshotDeleteConfirmation && keycode == Input.Keys.LEFT) {
                 showRelativeScreenshot(-1);
             } else if (!screenshotDeleteConfirmation
                     && keycode == Input.Keys.RIGHT) {
                 showRelativeScreenshot(1);
+            }
+            return true;
+        }
+        if (frontendModalTextFieldActive() && activeField != null
+                && handleActiveFieldKey(keycode)) {
+            if (isTextDeletionKey(keycode)) {
+                textDeleteRepeat.press(keycode);
             }
             return true;
         }
@@ -10683,15 +11648,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private boolean frontendModalTextFieldActive() {
-        return lobbyPasswordDialog && "lobbyPassword".equals(activeField)
-                || presetDialog == PresetDialog.NAME
-                        && "presetName".equals(activeField)
-                || (blindStructureDialog == BlindStructureDialog.NAME_NEW
+        return (lobbyPasswordDialog
+                        && "lobbyPassword".equals(activeField))
+                || (presetDialog == PresetDialog.NAME
+                        && "presetName".equals(activeField))
+                || ((blindStructureDialog == BlindStructureDialog.NAME_NEW
                         || blindStructureDialog
                                 == BlindStructureDialog.NAME_DUPLICATE
                         || blindStructureDialog
                                 == BlindStructureDialog.NAME_RENAME)
-                        && "blindStructureName".equals(activeField);
+                        && "blindStructureName".equals(activeField))
+                || (statsSyncExclusionsOpen
+                        && "statsExcludeNicks".equals(activeField));
     }
 
     private boolean handleActiveFieldKey(int keycode) {
@@ -10817,6 +11785,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case "lobbyPassword" -> lobbyPasswordDraft;
             case "presetName" -> presetNameDraft;
             case "blindStructureName" -> blindStructureNameDraft;
+            case "statsExcludeNicks" -> statsExcludeNicksDraft;
             default -> "";
         };
     }
@@ -10832,6 +11801,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case "lobbyPassword" -> lobbyPasswordDraft = value;
             case "presetName" -> presetNameDraft = value;
             case "blindStructureName" -> blindStructureNameDraft = value;
+            case "statsExcludeNicks" -> statsExcludeNicksDraft = value;
             default -> {
             }
         }
@@ -11029,6 +11999,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
     @Override
     public boolean scrolled(float amountX, float amountY) {
+        if (statsPicker != StatsPicker.NONE && amountY != 0f) {
+            statsPickerScrollTarget = statsPickerScrollAfterWheel(
+                    statsPickerScrollTarget, statsPickerScrollMaximum,
+                    amountY);
+            return true;
+        }
         if (hasBlockingFrontendModal() && dropdown == Dropdown.NONE) {
             return true;
         }
@@ -11037,6 +12013,45 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             dropdownScroll = MathUtils.clamp(dropdownScroll
                     + (amountY > 0f ? 1 : -1), 0, maximum);
             return true;
+        }
+        if (surface == Surface.STATS && (amountX != 0f || amountY != 0f)) {
+            pointer.set(Gdx.input.getX(), Gdx.input.getY());
+            viewport.unproject(pointer);
+            if (statsChartZoom > 1f
+                    && statsChartViewport.contains(pointer)) {
+                if (amountX != 0f || shiftPressed()) {
+                    float direction = amountX != 0f ? amountX : amountY;
+                    statsChartPanTargetX = MathUtils.clamp(
+                            statsChartPanTargetX + direction * 0.08f,
+                            0f, 1f);
+                } else {
+                    statsChartPanTargetY = MathUtils.clamp(
+                            statsChartPanTargetY + amountY * 0.08f,
+                            0f, 1f);
+                }
+                return true;
+            }
+            if (statsGameIndex >= 0 && statsHandIndex < 0
+                    && amountY != 0f
+                    && pointer.x >= 86f && pointer.x <= 434f
+                    && pointer.y >= 323f && pointer.y <= 395f) {
+                float maximum = statsSummaryPlayersMaximum(
+                        statsGames.get(statsGameIndex).players().size());
+                statsSummaryPlayersScrollTarget = MathUtils.clamp(
+                        statsSummaryPlayersScrollTarget
+                                + amountY * 46f, 0f, maximum);
+                return true;
+            }
+            // Recompute here as well as during rendering. Results arrive
+            // asynchronously, so the first wheel event must work even when it
+            // lands between the data callback and the next painted frame.
+            updateStatsResultScrollBounds();
+            if (statsResultScrollMaximum > 0f && amountY != 0f) {
+                statsResultScrollTarget = statsResultScrollAfterWheel(
+                        statsResultScrollTarget, statsResultScrollMaximum,
+                        statsResultRowStride(), amountY);
+                return true;
+            }
         }
         if (surface == Surface.LOBBY && amountY != 0f
                 && !lobbyImageMode && !lobbyEmojiPickerOpen) {
@@ -11089,7 +12104,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private record TextItem(BitmapFont font, String text, float x, float y,
-            Color color, boolean centered, boolean italic) {
+            Color color, boolean centered, boolean italic, float scale) {
+
+        private TextItem(BitmapFont font, String text, float x, float y,
+                Color color, boolean centered, boolean italic) {
+            this(font, text, x, y, color, centered, italic, 1f);
+        }
+    }
+
+    record StatsCardGlyph(String rank, String suit, boolean red) {
     }
 
     private record LobbyAvatarItem(Texture texture, float x, float y,
@@ -11147,7 +12170,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private enum ScrollDrag {
-        NONE, LOBBY_CHAT, SETTINGS_ROWS, SETTINGS_DEBUG
+        NONE, LOBBY_CHAT, SETTINGS_ROWS, SETTINGS_DEBUG, STATS_PICKER,
+        STATS_RESULTS, STATS_CHART_HORIZONTAL, STATS_CHART_VERTICAL
     }
 
     private enum StatsMode {

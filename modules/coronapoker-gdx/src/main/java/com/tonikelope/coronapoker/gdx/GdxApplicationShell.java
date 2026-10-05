@@ -397,6 +397,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 () -> finishRetainedFinalSummary(expected, true, false),
                 () -> finishRetainedFinalSummary(expected, false, true));
         expected.suspendRetainedFinalSummary();
+        Gdx.input.setInputProcessor(menu);
         menu.openStatsFromTable(() -> restoreRetainedFinalSummary(expected));
         menu.resumeMusic();
     }

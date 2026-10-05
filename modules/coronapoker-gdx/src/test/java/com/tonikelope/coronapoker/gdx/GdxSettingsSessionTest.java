@@ -55,6 +55,47 @@ final class GdxSettingsSessionTest {
     }
 
     @Test
+    void firstOpenStartsAtFirstTabAndFirstSubpageInEveryContext() {
+        GdxSettingsSession session = new GdxSettingsSession();
+
+        for (GdxSettingsSession.Context context
+                : GdxSettingsSession.Context.values()) {
+            session.begin(context, new Properties());
+            assertEquals(0, session.tabIndex());
+            assertEquals(GdxSettingsContract.Section.APPEARANCE,
+                    session.section());
+            assertEquals(0, session.subpageIndex());
+            session.close();
+        }
+    }
+
+    @Test
+    void remembersSubpagesPerSectionAndRuntimeContext() {
+        GdxSettingsSession session = new GdxSettingsSession();
+
+        session.begin(GdxSettingsSession.Context.WAITING_ROOM,
+                new Properties());
+        session.selectSubpage(2);
+        session.selectTab(3);
+        session.selectSubpage(4);
+        session.close();
+
+        session.begin(GdxSettingsSession.Context.WAITING_ROOM,
+                new Properties());
+        assertEquals(GdxSettingsContract.Section.GAME, session.section());
+        assertEquals(4, session.subpageIndex());
+        session.selectTab(0);
+        assertEquals(2, session.subpageIndex());
+        session.close();
+
+        session.begin(GdxSettingsSession.Context.LIVE_TABLE,
+                new Properties());
+        assertEquals(GdxSettingsContract.Section.APPEARANCE,
+                session.section());
+        assertEquals(0, session.subpageIndex());
+    }
+
+    @Test
     void waitingRoomIsExplicitAndUsesTheSharedGameSection() {
         GdxSettingsSession session = new GdxSettingsSession();
 

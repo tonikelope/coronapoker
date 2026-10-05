@@ -446,7 +446,7 @@ final class GdxGamePresentationSettingsTest {
             assertEquals("secret", settings.modUpdatePassword());
             assertEquals("CoronaPoker " + ApplicationMetadata.VERSION
                     + " (Test v1)", settings.productVersionLabel());
-            assertEquals(settings.productVersionLabel(),
+            assertEquals("v" + ApplicationMetadata.VERSION + " (Test v1)",
                     CoronaPokerGdxTable.productVersionLabelFor(settings));
         } finally {
             preferences.close();
@@ -465,7 +465,7 @@ final class GdxGamePresentationSettingsTest {
 
     @Test
     void tableVersionLabelFallsBackWhenPresentationSettingsAreUnavailable() {
-        assertEquals("CoronaPoker " + ApplicationMetadata.VERSION,
+        assertEquals("v" + ApplicationMetadata.VERSION,
                 CoronaPokerGdxTable.productVersionLabelFor(null));
     }
 }

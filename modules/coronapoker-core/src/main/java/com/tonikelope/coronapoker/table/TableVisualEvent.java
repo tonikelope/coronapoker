@@ -812,6 +812,16 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
                 return MoneyMath.clean(amount - returnedAmount);
             }
 
+            /**
+             * Adapts the legacy single-recipient payout without asking a
+             * renderer to manufacture a new visual-event payload.
+             */
+            public static Transfer fromLegacy(Payout payout) {
+                Objects.requireNonNull(payout, "legacy payout");
+                return new Transfer(payout.nickname(), payout.amount(), 0d,
+                        payout.stackAfter());
+            }
+
             public boolean returnsResidualSidePot() {
                 return MoneyMath.compare(returnedAmount, 0d) > 0;
             }

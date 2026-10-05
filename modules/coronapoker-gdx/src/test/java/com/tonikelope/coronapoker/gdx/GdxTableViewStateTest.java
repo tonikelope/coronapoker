@@ -850,9 +850,11 @@ final class GdxTableViewStateTest {
         assertEquals("YOU BREAK EVEN", CoronaPokerGdxTable
                 .finalSummaryHero(TableSessionSummary.CloseReason.COMPLETED,
                         0d, new GdxGameText("en")));
-        assertFalse(CoronaPokerGdxTable.finalSummaryScreenshotReady(0.59f,
+        assertFalse(CoronaPokerGdxTable.finalSummaryScreenshotReady(
+                CoronaPokerGdxTable.FINAL_SUMMARY_REVEAL_SECONDS - 0.01f,
                 tie, TableSessionSummary.CloseReason.COMPLETED, true));
-        assertTrue(CoronaPokerGdxTable.finalSummaryScreenshotReady(0.60f,
+        assertTrue(CoronaPokerGdxTable.finalSummaryScreenshotReady(
+                CoronaPokerGdxTable.FINAL_SUMMARY_REVEAL_SECONDS,
                 tie, TableSessionSummary.CloseReason.COMPLETED, true));
         assertFalse(CoronaPokerGdxTable.finalSummaryScreenshotReady(2.27f,
                 winner, TableSessionSummary.CloseReason.COMPLETED, true));
@@ -941,12 +943,33 @@ final class GdxTableViewStateTest {
     void finalSummaryCentersSingleHeroLowerThanHeroWithAmount() {
         float height = 1152f;
 
-        assertEquals(827f,
+        assertEquals(763f,
                 CoronaPokerGdxTable.finalSummaryHeroY(height, true));
-        assertEquals(662f,
+        assertEquals(598f,
                 CoronaPokerGdxTable.finalSummaryHeroY(height, false));
         assertTrue(CoronaPokerGdxTable.finalSummaryHeroY(height, false)
                 < CoronaPokerGdxTable.finalSummaryHeroY(height, true));
+    }
+
+    @Test
+    void finalBalanceCardsDealUpwardWithStaggerAndSettleExactly() {
+        CoronaPokerGdxTable.FinalCardMotion first =
+                CoronaPokerGdxTable.finalSummaryCardMotion(0.28f, 0,
+                        100f, 28f, 180f, 240f, 960f);
+        CoronaPokerGdxTable.FinalCardMotion second =
+                CoronaPokerGdxTable.finalSummaryCardMotion(0.28f, 1,
+                        292f, 28f, 180f, 240f, 960f);
+        assertTrue(first.alpha() > second.alpha());
+        assertTrue(first.y() > -240f);
+
+        CoronaPokerGdxTable.FinalCardMotion settled =
+                CoronaPokerGdxTable.finalSummaryCardMotion(2f, 8,
+                        420f, 28f, 180f, 240f, 960f);
+        assertEquals(420f, settled.x(), 0.001f);
+        assertEquals(28f, settled.y(), 0.001f);
+        assertEquals(180f, settled.width(), 0.001f);
+        assertEquals(240f, settled.height(), 0.001f);
+        assertEquals(1f, settled.alpha(), 0.001f);
     }
 
     @Test
@@ -1610,7 +1633,7 @@ final class GdxTableViewStateTest {
                 TableVisualEvent.PlayerAction.ActionKind.CHECK, "", spanish));
         assertEquals("VAS", CoronaPokerGdxTable.localActionMemoryLabel(
                 TableVisualEvent.PlayerAction.ActionKind.CALL, "", spanish));
-        assertEquals("VAS (+1.2)", CoronaPokerGdxTable
+        assertEquals("VAS", CoronaPokerGdxTable
                 .localActionMemoryLabel(
                         TableVisualEvent.PlayerAction.ActionKind.CALL,
                         "VA (+1.2)", spanish));
@@ -2023,7 +2046,7 @@ final class GdxTableViewStateTest {
         assertEquals("VA", CoronaPokerGdxTable.localizedActionLabel(
                 TableVisualEvent.PlayerAction.ActionKind.CALL,
                 "CALL", text));
-        assertEquals("VA (+1.2)", CoronaPokerGdxTable.localizedActionLabel(
+        assertEquals("VA", CoronaPokerGdxTable.localizedActionLabel(
                 TableVisualEvent.PlayerAction.ActionKind.CALL,
                 "CALL (+1.2)", text));
         assertEquals("RESUBE", CoronaPokerGdxTable.localizedActionLabel(
@@ -2050,7 +2073,7 @@ final class GdxTableViewStateTest {
                 null, "CoronaBot$4 ALL IN (9.8)", text));
         assertEquals("CALL", CoronaPokerGdxTable.localizedActionLabel(
                 null, "Jugador con espacios VA (0.2)", text));
-        assertEquals("CALL (+1.2)", CoronaPokerGdxTable
+        assertEquals("CALL", CoronaPokerGdxTable
                 .localizedActionLabel(null, "VA (+1.2)", text));
         assertEquals("BET (+4)", CoronaPokerGdxTable.localizedActionLabel(
                 null, "APUESTA (+4)", text));

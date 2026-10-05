@@ -24,6 +24,8 @@ final class GdxSettingsSession {
     private int tabIndex;
     private final Map<Context, Integer> lastTabByContext =
             new EnumMap<>(Context.class);
+    private final Map<Context, EnumMap<GdxSettingsContract.Section, Integer>>
+            lastSubpageByContext = new EnumMap<>(Context.class);
     private Map<String, String> preferenceSnapshot = Map.of();
     private boolean open;
 
@@ -80,6 +82,25 @@ final class GdxSettingsSession {
     void selectTab(int requested) {
         tabIndex = Math.max(0, Math.min(requested, sections().size() - 1));
         lastTabByContext.put(context, tabIndex);
+    }
+
+    int subpageIndex(GdxSettingsContract.Section requestedSection) {
+        GdxSettingsContract.Section target = requestedSection == null
+                ? section() : requestedSection;
+        Map<GdxSettingsContract.Section, Integer> remembered =
+                lastSubpageByContext.get(context);
+        return remembered == null ? 0
+                : Math.max(0, remembered.getOrDefault(target, 0));
+    }
+
+    int subpageIndex() {
+        return subpageIndex(section());
+    }
+
+    void selectSubpage(int requested) {
+        lastSubpageByContext.computeIfAbsent(context,
+                ignored -> new EnumMap<>(GdxSettingsContract.Section.class))
+                .put(section(), Math.max(0, requested));
     }
 
     boolean propertiesChanged(Properties properties) {

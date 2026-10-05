@@ -31,9 +31,13 @@ final class GdxProductVersionBrand {
     }
 
     static String label(GdxGamePresentationSettings presentationSettings) {
-        return presentationSettings == null
-                ? "CoronaPoker " + ApplicationMetadata.VERSION
-                : presentationSettings.productVersionLabel();
+        String product = ApplicationMetadata.VERSION.startsWith("v")
+                ? ApplicationMetadata.VERSION : "v" + ApplicationMetadata.VERSION;
+        if (presentationSettings == null || !presentationSettings.modActive()) {
+            return product;
+        }
+        String mod = presentationSettings.modDisplayName();
+        return mod.isBlank() ? product : product + " (" + mod + ")";
     }
 
     static float top() {

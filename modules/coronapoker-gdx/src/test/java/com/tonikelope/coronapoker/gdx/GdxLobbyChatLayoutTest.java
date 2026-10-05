@@ -178,4 +178,16 @@ final class GdxLobbyChatLayoutTest {
         }
     }
 
+    @Test
+    void inTableGalleryPresentsCompleteChromeBeforeThumbnailContent() {
+        assertEquals(0.16f,
+                CoronaPokerGdxTable.TABLE_IMAGE_GALLERY_CHROME_SECONDS);
+        assertFalse(CoronaPokerGdxTable.tableImageGalleryContentReady(
+                10f, 10f));
+        assertFalse(CoronaPokerGdxTable.tableImageGalleryContentReady(
+                10f, 10.159f));
+        assertTrue(CoronaPokerGdxTable.tableImageGalleryContentReady(
+                10f, 10.17f));
+    }
+
 }

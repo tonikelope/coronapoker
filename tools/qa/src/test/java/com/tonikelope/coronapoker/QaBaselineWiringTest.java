@@ -122,7 +122,7 @@ class QaBaselineWiringTest {
         Path root = locateRoot();
         String runner = Files.readString(root.resolve("tools/qa/run-all.ps1"));
 
-        assertTrue(runner.contains("'build', 'test', 'scenarios', 'all', 'list', 'help'"));
+        assertTrue(runner.contains("'build', 'test', 'extended', 'scenarios', 'all', 'list', 'help'"));
         assertTrue(runner.contains("$Action = 'test'"),
                 "plain qa.cmd must default to tests, never scenarios");
         assertTrue(runner.contains("'-DskipTests', 'clean', 'package'"),

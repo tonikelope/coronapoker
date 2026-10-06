@@ -108,4 +108,14 @@ final class GdxSettingsNavigationContractTest {
         assertTrue(CoronaPokerGdxTable.uiLayerUsesBackdropBlur(
                 CoronaPokerGdxTable.UI_SETTINGS, false));
     }
+
+    @Test
+    void pauseOwnsSharpBannerUnlessAnotherModalIsAboveIt() {
+        assertTrue(CoronaPokerGdxTable.pauseOverlayUsesSharpForeground(
+                true, false));
+        assertFalse(CoronaPokerGdxTable.pauseOverlayUsesSharpForeground(
+                false, false));
+        assertFalse(CoronaPokerGdxTable.pauseOverlayUsesSharpForeground(
+                true, true));
+    }
 }

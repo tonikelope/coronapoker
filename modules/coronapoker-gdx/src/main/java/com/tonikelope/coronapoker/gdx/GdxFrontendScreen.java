@@ -851,8 +851,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         audioPreview.update(frameDelta);
         syncMusicForSurface();
         boolean settingsRootModal = isSettingsRootModal();
-        boolean settingsLobbyBackdrop = settingsRootModal
-                && settingsReturnSurface == Surface.LOBBY && lobby != null;
+        boolean rootSurfaceModal = isFrontendRootModal();
+        boolean lobbyRootBackdrop = rootSurfaceModal && lobby != null
+                && (settingsRootModal
+                        && settingsReturnSurface == Surface.LOBBY
+                    || surface == Surface.SCREENSHOTS
+                        && screenshotReturnSurface == Surface.LOBBY);
         boolean blurModalBackdrop = hasVisibleFrontendModal();
         if (blurModalBackdrop) {
             modalBackdropBlur.beginCapture(Gdx.graphics.getBackBufferWidth(),
@@ -900,7 +904,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // maps were already replaced for the foreground pass, but the covered
         // page was still painted first with the live pointer and therefore
         // showed hover states through the dialog.
-        boolean shieldBackgroundPointer = settingsRootModal
+        boolean shieldBackgroundPointer = rootSurfaceModal
                 || hasBlockingFrontendModal();
         float livePointerX = pointer.x;
         float livePointerY = pointer.y;
@@ -910,54 +914,35 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        if (surface == Surface.MENU) {
+        if (rootSurfaceModal) {
+            drawRootModalBackdropSurface();
+        } else if (surface == Surface.MENU) {
             if (renderMainMenuContent(aboutOpen, updatePromptOpen)) {
                 drawMainMenu();
             }
         } else if (surface == Surface.LOBBY) {
             drawLobby();
         } else if (surface == Surface.SETTINGS) {
-            if (settingsRootModal) {
-                drawSettingsBackdropSurface();
-            } else {
-                // A child confirmation belongs above Settings, so Settings
-                // itself is the scene captured and blurred in this case.
-                drawSettingsScreen();
-            }
+            // A child confirmation belongs above Settings, so Settings itself
+            // is the scene captured and blurred in this case.
+            drawSettingsScreen();
         } else if (surface == Surface.STATS) {
             drawStatsScreen();
         } else if (surface == Surface.SCREENSHOTS) {
             drawScreenshotViewer();
         } else {
-            drawNewGameDialogFrame();
-            drawHeader();
-            drawProgress();
-            switch (page) {
-                case 0 -> drawIdentityPage();
-                case 1 -> drawBlindsPage();
-                case 2 -> drawPurchasePage();
-                case 3 -> drawGamePage();
-                case 4 -> drawBotsPage();
-                default -> drawProfilePage();
-            }
-            drawFooter();
+            drawNewGameScreen();
         }
-        drawFrontendVersionLabel();
-        if (System.currentTimeMillis() < toastUntil) {
-            drawToast();
+        if (!rootSurfaceModal) {
+            drawFrontendVersionLabel();
+            if (System.currentTimeMillis() < toastUntil) {
+                drawToast();
+            }
         }
         shapes.end();
 
         batch.begin();
-        if (!lobbyAvatars.isEmpty()) {
-            batch.setShader(avatarShader);
-            batch.setColor(Color.WHITE);
-            for (LobbyAvatarItem item : lobbyAvatars) {
-                batch.draw(item.texture, item.x, item.y, item.size, item.size);
-            }
-            batch.flush();
-            batch.setShader(null);
-        }
+        drawLobbyAvatarsInCurrentBatch();
         batch.setColor(Color.WHITE);
         for (UiImageItem item : uiImages) {
             batch.setColor(item.tint);
@@ -973,7 +958,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
         drawSettingsRowsTextLayer();
         drawStatsChartTextLayer();
-        drawLobbyChatLayer(settingsLobbyBackdrop);
+        drawLobbyChatLayer(lobbyRootBackdrop);
         drawSettingsDebugLayer();
 
         drawStartupMenuReveal();
@@ -983,11 +968,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     viewport.getCamera().combined, BACKGROUND);
         }
 
-        if (dropdown == Dropdown.NONE && !settingsRootModal
-                && !hasBlockingFrontendModal()) {
-            drawTooltipTopLayer();
-        } else {
-            tooltipDelay.clear();
+        if (!rootSurfaceModal) {
+            if (dropdown == Dropdown.NONE && !hasBlockingFrontendModal()) {
+                drawTooltipTopLayer();
+            } else {
+                tooltipDelay.clear();
+            }
         }
 
         // Modal surfaces must be composed after every underlying glyph. Texts
@@ -995,12 +981,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // drawLobby would otherwise let the lobby chat glyphs bleed over it.
         if (hasVisibleFrontendModal()) {
             texts.clear();
-            if (settingsRootModal) {
+            if (rootSurfaceModal) {
+                lobbyAvatars.clear();
                 uiImages.clear();
                 settingsRowTexts.clear();
                 settingsDebugTexts.clear();
+                statsChartTexts.clear();
                 settingsRowsClip.set(0f, 0f, 0f, 0f);
                 settingsDebugViewport.set(0f, 0f, 0f, 0f);
+                statsChartViewport.set(0f, 0f, 0f, 0f);
+                statsChartHorizontalTrack.set(0f, 0f, 0f, 0f);
+                statsChartVerticalTrack.set(0f, 0f, 0f, 0f);
+                statsChartCanvasActive = false;
             }
             // A visual modal must also own the complete interaction map.
             // Keeping the underlying page hits allowed invisible lobby/menu
@@ -1011,6 +1003,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             textFieldHits.clear();
             passwordRevealHits.clear();
             editMenuHits.clear();
+            tooltipHits.clear();
             // SpriteBatch changes the current OpenGL pipeline. Restore alpha
             // blending before composing the modal shape pass; otherwise the
             // glass highlights/shadows (and the dimmer itself) become fully
@@ -1029,8 +1022,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 drawBlindStructureDialog();
             } else if (voiceNotesOpen) {
                 drawVoiceNotesDialog();
-            } else if (settingsRootModal) {
-                drawSettingsScreen();
+            } else if (rootSurfaceModal) {
+                drawRootModalSurface();
             } else if (surface == Surface.SETTINGS) {
                 drawSettingsDiscardConfirmation();
             } else if (surface == Surface.NEW_GAME) {
@@ -1066,7 +1059,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             shapes.end();
             batch.begin();
-            if (settingsRootModal) {
+            if (rootSurfaceModal) {
+                drawLobbyAvatarsInCurrentBatch();
                 batch.setColor(Color.WHITE);
                 for (UiImageItem item : uiImages) {
                     batch.setColor(item.tint);
@@ -1126,9 +1120,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 drawTextItem(item);
             }
             batch.end();
-            if (settingsRootModal) {
+            if (rootSurfaceModal && surface == Surface.SETTINGS) {
                 drawSettingsRowsTextLayer();
                 drawSettingsDebugLayer();
+            }
+            if (rootSurfaceModal && surface == Surface.STATS) {
+                drawStatsChartTextLayer();
+            }
+            // Root surfaces populate their tooltip map only in this sharp
+            // foreground pass. Drawing (or clearing) the tooltip beforehand
+            // made its hover delay restart forever and no tooltip appeared.
+            if (rootSurfaceModal && dropdown == Dropdown.NONE
+                    && !hasBlockingFrontendModal()) {
+                drawTooltipTopLayer();
             }
         }
         if (shouldDrawEditMenu()) drawEditMenuTopLayer();
@@ -1141,6 +1145,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             drawScreenshotToastTopLayer();
         }
         if (elapsed < volumeOverlayUntil) drawVolumeOverlayTopLayer();
+    }
+
+    /** Draws deferred circular avatars in whichever composition pass owns them. */
+    private void drawLobbyAvatarsInCurrentBatch() {
+        if (lobbyAvatars.isEmpty()) return;
+        batch.setShader(avatarShader);
+        batch.setColor(Color.WHITE);
+        for (LobbyAvatarItem item : lobbyAvatars) {
+            batch.draw(item.texture, item.x, item.y, item.size, item.size);
+        }
+        batch.flush();
+        batch.setShader(null);
     }
 
     private boolean hasVisibleFrontendModal() {
@@ -1162,7 +1178,31 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         || statsPicker != StatsPicker.NONE
                         || statsSyncExclusionsOpen))
                 || (surface == Surface.SCREENSHOTS
-                        && screenshotDeleteConfirmation);
+                        && screenshotDeleteConfirmation)
+                || isFrontendRootModal();
+    }
+
+    /**
+     * Full frontend workflows opened from the main menu behave as modal
+     * surfaces: the menu remains visible but blurred below them. A nested
+     * confirmation deliberately returns false so the active workflow becomes
+     * the blurred scene and only that child dialog is composed sharp.
+     */
+    private boolean isFrontendRootModal() {
+        if (isSettingsRootModal()) return true;
+        if (surface == Surface.NEW_GAME) {
+            return !submissions.submitting()
+                    && dropdown == Dropdown.NONE
+                    && presetDialog == PresetDialog.NONE
+                    && blindStructureDialog == BlindStructureDialog.NONE;
+        }
+        if (surface == Surface.STATS && statsReturnAction == null) {
+            return statsConfirmation == StatsConfirmation.NONE
+                    && statsPicker == StatsPicker.NONE
+                    && !statsSyncExclusionsOpen;
+        }
+        return surface == Surface.SCREENSHOTS
+                && !screenshotDeleteConfirmation;
     }
 
     private boolean isSettingsRootModal() {
@@ -1178,6 +1218,32 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } else if (renderMainMenuContent(false, false)) {
             drawMainMenu();
         }
+    }
+
+    private void drawRootModalBackdropSurface() {
+        if (surface == Surface.SETTINGS) {
+            drawSettingsBackdropSurface();
+        } else if (surface == Surface.SCREENSHOTS
+                && screenshotReturnSurface == Surface.LOBBY && lobby != null) {
+            drawLobby();
+        } else if (renderMainMenuContent(false, false)) {
+            drawMainMenu();
+        }
+    }
+
+    private void drawRootModalSurface() {
+        switch (surface) {
+            case SETTINGS -> drawSettingsScreen();
+            case STATS -> drawStatsScreen();
+            case SCREENSHOTS -> drawScreenshotViewer();
+            case NEW_GAME -> drawNewGameScreen();
+            default -> { }
+        }
+        // These global foreground elements historically belonged to the
+        // active surface. Keep them sharp instead of baking them into the
+        // blurred menu/lobby snapshot underneath it.
+        drawFrontendVersionLabel();
+        if (System.currentTimeMillis() < toastUntil) drawToast();
     }
 
     private boolean hasBlockingFrontendModal() {
@@ -8322,9 +8388,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawNewGameDialogFrame() {
-        // This is a full frontend screen, not a modal. Do not dim the complete
-        // background: the shared felt and fixed logo must remain visible just
-        // as they do in the menu, settings and statistics screens.
+        // The setup workflow is composed sharp over the shared blurred menu.
         boolean joining = connection.mode() == NewGameConnectionDraft.Mode.JOIN;
         float frameX = joining ? 190f : 50f;
         float frameY = joining ? 120f : 35f;
@@ -8335,6 +8399,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.setColor(new Color(0x36d9ffcc));
         roundedRect(frameX + 12f, frameY + frameH - 3f,
                 frameW - 24f, 3f, 1.5f);
+    }
+
+    private void drawNewGameScreen() {
+        drawNewGameDialogFrame();
+        drawHeader();
+        drawProgress();
+        switch (page) {
+            case 0 -> drawIdentityPage();
+            case 1 -> drawBlindsPage();
+            case 2 -> drawPurchasePage();
+            case 3 -> drawGamePage();
+            case 4 -> drawBotsPage();
+            default -> drawProfilePage();
+        }
+        drawFooter();
     }
 
     private void drawProgress() {

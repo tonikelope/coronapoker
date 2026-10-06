@@ -1019,15 +1019,15 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void finalSummaryCentersSingleHeroLowerThanHeroWithAmount() {
+    void finalSummaryCentersSingleHeroOnScreenMidline() {
         float height = 1152f;
 
         assertEquals(763f,
-                CoronaPokerGdxTable.finalSummaryHeroY(height, true));
-        assertEquals(598f,
-                CoronaPokerGdxTable.finalSummaryHeroY(height, false));
-        assertTrue(CoronaPokerGdxTable.finalSummaryHeroY(height, false)
-                < CoronaPokerGdxTable.finalSummaryHeroY(height, true));
+                CoronaPokerGdxTable.finalSummaryHeroY(height));
+        assertEquals(height / 2f,
+                CoronaPokerGdxTable.finalSummarySingleHeroCenterY(height));
+        assertTrue(CoronaPokerGdxTable.finalSummarySingleHeroCenterY(height)
+                < CoronaPokerGdxTable.finalSummaryHeroY(height));
     }
 
     @Test

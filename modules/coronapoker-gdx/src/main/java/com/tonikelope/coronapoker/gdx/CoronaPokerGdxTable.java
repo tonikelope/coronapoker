@@ -4082,7 +4082,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         pointerRepeatHits.clear();
         boolean preparationModal = !intro && preparationPhase
                 != TableVisualEvent.PreparationStatus.Phase.READY;
-        boolean blurModalBackdrop = hasBlurredTableModal(preparationModal);
+        boolean blockingBlur = hasBlurredTableModal(preparationModal);
+        boolean pausedBackdrop = finalSummary == null && !intro
+                && liveState.snapshot().paused();
+        // When pause is the only modal surface, blur just the live table and
+        // compose the pause banner plus quick bar sharp afterwards. If a real
+        // dialog is also open, the complete paused scene correctly becomes
+        // that dialog's blurred backdrop instead.
+        boolean pauseForeground = pauseOverlayUsesSharpForeground(
+                pausedBackdrop, blockingBlur);
+        boolean blurModalBackdrop = blockingBlur || pausedBackdrop;
         if (blurModalBackdrop) {
             modalBackdropBlur.beginCapture(Gdx.graphics.getBackBufferWidth(),
                     Gdx.graphics.getBackBufferHeight());
@@ -4105,6 +4114,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // then restore it for the modal itself. This prevents controls below
         // dialogs from lighting up even though their clicks were consumed.
         boolean shieldBackgroundPointer = preparationModal
+                || pauseForeground
                 || uiLayer != UI_NONE
                 || blocksTableUtilities(activeDialog)
                 || tableIdentityDialog != null
@@ -4122,12 +4132,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawTableScene();
         if (!preparationModal) drawPreparationOverlay();
         if (finalSummary == null) {
-            drawPauseOverlay();
+            if (!pauseForeground) drawPauseOverlay();
         } else {
             drawFinalSummary();
         }
         if (finalSummary == null && preparationPhase
-                == TableVisualEvent.PreparationStatus.Phase.READY) {
+                == TableVisualEvent.PreparationStatus.Phase.READY
+                && !pauseForeground) {
             // Table utilities remain usable while the game is paused. They
             // are painted above the pause glass pane, while every UI layer and
             // dialog below is still painted later and remains truly modal.
@@ -4139,6 +4150,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (shieldBackgroundPointer) {
             pointer.set(livePointerX, livePointerY);
+        }
+        if (pauseForeground) {
+            drawPauseOverlay();
+            if (preparationPhase
+                    == TableVisualEvent.PreparationStatus.Phase.READY) {
+                drawFastAccessBar();
+            }
         }
         if (preparationModal) drawPreparationOverlay();
         drawUiLayer();
@@ -4167,6 +4185,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 || isClientTransportReconnecting()
                 || recoveryStopBarrier != null && !intro
                 || terminationRequested && finalSummary == null && !intro;
+    }
+
+    static boolean pauseOverlayUsesSharpForeground(boolean paused,
+            boolean anotherBlurredModal) {
+        return paused && !anotherBlurredModal;
     }
 
     static boolean uiLayerUsesBackdropBlur(int layer,
@@ -20574,10 +20597,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && summary.reason()
                         != TableSessionSummary.CloseReason.FAILURE
                 && finalMoneyCounterVisible(net);
-        drawFittedCentered(finalHeroFont,
-                finalSummaryHero(summary.reason(), net, gameText), centerX,
-                finalSummaryHeroY(height, moneyCounterVisible),
-                width - 100f, resultColor, reveal);
+        String hero = finalSummaryHero(summary.reason(), net, gameText);
+        if (moneyCounterVisible) {
+            drawFittedCentered(finalHeroFont, hero, centerX,
+                    finalSummaryHeroY(height), width - 100f,
+                    resultColor, reveal);
+        } else {
+            drawFittedCenteredAtVisualY(finalHeroFont, hero, centerX,
+                    finalSummarySingleHeroCenterY(height), width - 100f,
+                    resultColor, reveal);
+        }
         if (moneyCounterVisible) {
             boolean animated = finalCounterAnimationEnabled();
             if (!animated || finalAmountVisible(elapsed)) {
@@ -20859,14 +20888,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : net < 0d ? FINAL_LOSER : new Color(0x8b9098ff);
     }
 
-    static float finalSummaryHeroY(float height,
-            boolean moneyCounterVisible) {
-        // With no amount below it (break-even or non-economic closure), the
-        // hero is the only element in the large gap between the header and
-        // player cards. Centre that single line in the useful vertical area;
-        // retaining the two-line origin would leave it visibly top-heavy.
-        return height - (moneyCounterVisible ? 325f : 490f)
-                + FINAL_SUMMARY_TEXT_SHIFT_Y;
+    static float finalSummaryHeroY(float height) {
+        // The result and amount form one vertically centred two-line block.
+        // Keep both on the same shifted grid as the header.
+        return height - 325f + FINAL_SUMMARY_TEXT_SHIFT_Y;
+    }
+
+    static float finalSummarySingleHeroCenterY(float height) {
+        return height / 2f;
     }
 
     static float finalCardResultRowY(float cardY, float identityY,
@@ -21021,6 +21050,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             data.setScale(originalScaleX * fit, originalScaleY * fit);
         }
         drawCentered(font, text, centerX, baselineY, color, alpha);
+        data.setScale(originalScaleX, originalScaleY);
+    }
+
+    private void drawFittedCenteredAtVisualY(BitmapFont font, String text,
+            float centerX, float centerY, float maxWidth, Color color,
+            float alpha) {
+        BitmapFont.BitmapFontData data = font.getData();
+        float originalScaleX = data.scaleX;
+        float originalScaleY = data.scaleY;
+        glyph.setText(font, text);
+        if (glyph.width > maxWidth) {
+            float fit = maxWidth / glyph.width;
+            data.setScale(originalScaleX * fit, originalScaleY * fit);
+            glyph.setText(font, text);
+        }
+        drawCentered(font, text, centerX, centerY + glyph.height / 2f,
+                color, alpha);
         data.setScale(originalScaleX, originalScaleY);
     }
 

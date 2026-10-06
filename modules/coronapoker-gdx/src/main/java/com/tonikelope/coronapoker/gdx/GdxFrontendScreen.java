@@ -7227,9 +7227,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float y = row.y + 11f;
         float size = 46f;
         boolean active = audioPreview.active(key);
-        shapes.setColor(hovered(x, y, size, size)
-                ? new Color(0x18465fff) : new Color(0x10283cff));
-        roundedRect(x, y, size, size, 8f);
+        boolean hover = hovered(x, y, size, size);
+        GdxUiButtonStyle.draw(shapes, x, y, size, size,
+                active ? GdxUiButtonStyle.Tone.FEATURED
+                        : GdxUiButtonStyle.Tone.NEUTRAL,
+                true, hover ? 1f : 0f,
+                pressed(x, y, size, size), 1f);
         shapes.setColor(active ? GOLD : CYAN);
         if (active) {
             shapes.rect(x + 15f, y + 15f, 16f, 16f);
@@ -8272,12 +8275,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float iconX = showLabel ? x + w - iconSize
                 : x + (w - iconSize) / 2f;
         boolean outputAvailable = audioOutputAvailable();
-        uiImages.add(new UiImageItem(outputAvailable && audioControl.enabled()
-                ? soundIcon : muteIcon, iconX,
-                y + (h - iconSize) / 2f, iconSize, iconSize,
-                outputAvailable ? Color.WHITE : AUDIO_UNAVAILABLE_RED));
+        float iconY = y + (h - iconSize) / 2f;
         float hitX = showLabel ? x - 12f : x - 8f;
         float hitW = showLabel ? w + 24f : w + 16f;
+        boolean hover = outputAvailable
+                && hovered(hitX, y - 6f, hitW, h + 12f);
+        GdxUiButtonStyle.draw(shapes, iconX - 4f, iconY - 4f,
+                iconSize + 8f, iconSize + 8f,
+                GdxUiButtonStyle.Tone.NEUTRAL, outputAvailable,
+                hover ? 1f : 0f,
+                outputAvailable && pressed(hitX, y - 6f, hitW, h + 12f),
+                1f);
+        uiImages.add(new UiImageItem(outputAvailable && audioControl.enabled()
+                ? soundIcon : muteIcon, iconX,
+                iconY, iconSize, iconSize,
+                outputAvailable ? Color.WHITE : AUDIO_UNAVAILABLE_RED));
         hit(hitX, y - 6f, hitW, h + 12f,
                 this::toggleMasterSound);
         if (!outputAvailable) {
@@ -8526,7 +8538,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         panel(1130f, 185f, 725f, 625f,
                 uppercase(gameText.translate("gdx.connection")));
 
-        shapes.setColor(CYAN_DARK);
+        boolean avatarHover = !avatarSelectionPending
+                && hovered(445f, 580f, 150f, 155f);
+        shapes.setColor(avatarSelectionPending ? DISABLED
+                : avatarHover ? CYAN : CYAN_DARK);
         shapes.circle(520f, 660f, 70f, 64);
         shapes.setColor(PANEL_LIGHT);
         shapes.circle(520f, 660f, 61f, 64);
@@ -8570,7 +8585,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         panel(945f, 285f, 680f, 480f,
                 uppercase(gameText.translate("gdx.connection")));
 
-        shapes.setColor(CYAN_DARK);
+        boolean avatarHover = !avatarSelectionPending
+                && hovered(315f, 565f, 130f, 135f);
+        shapes.setColor(avatarSelectionPending ? DISABLED
+                : avatarHover ? CYAN : CYAN_DARK);
         shapes.circle(380f, 630f, 60f, 64);
         shapes.setColor(PANEL_LIGHT);
         shapes.circle(380f, 630f, 52f, 64);
@@ -9912,9 +9930,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             boolean revealed) {
         boolean over = hovered(bounds.x, bounds.y,
                 bounds.width, bounds.height);
+        GdxUiButtonStyle.draw(shapes, bounds.x, bounds.y,
+                bounds.width, bounds.height,
+                revealed ? GdxUiButtonStyle.Tone.FEATURED
+                        : GdxUiButtonStyle.Tone.NEUTRAL,
+                true, over ? 1f : 0f,
+                pressed(bounds.x, bounds.y, bounds.width, bounds.height),
+                1f);
         Color color = revealed ? GOLD : over ? CYAN : MUTED;
-        shapes.setColor(new Color(0x07111fff));
-        roundedRect(bounds.x, bounds.y, bounds.width, bounds.height, 8f);
         shapes.setColor(color);
         shapes.ellipse(bounds.x + 7f, bounds.y + 14f,
                 bounds.width - 14f, 18f);

@@ -17,6 +17,7 @@ final class GdxUiButtonStyle {
     private static final Color DISABLED = new Color(0x71809aff);
     private static final Color POSITIVE_HOVER = new Color(0x8af59aff);
     private static final Color DANGER_HOVER = new Color(0xff8080ff);
+    private static final Color FEATURED_HOVER = new Color(0xfff2b0ff);
     private static final Color DISABLED_FILL = new Color(0x0b1220b8);
     private static final Color POSITIVE_FILL = new Color(0x195335e8);
     private static final Color POSITIVE_PRESSED_FILL = new Color(0x123a25f2);
@@ -31,6 +32,8 @@ final class GdxUiButtonStyle {
     private static final Color GRADIENT_TOP_RIGHT = new Color();
     private static final Color GRADIENT_TOP_LEFT = new Color();
     private static final Color CUSTOM_SURFACE = new Color();
+    private static final Color RESOLVED_ACCENT = new Color();
+    private static final Color RESOLVED_PALETTE_ACCENT = new Color();
 
     private GdxUiButtonStyle() {
     }
@@ -39,7 +42,8 @@ final class GdxUiButtonStyle {
             float height, Tone tone, boolean enabled, float hoverAmount,
             boolean pressed, float alpha) {
         float hover = Math.max(0f, Math.min(1f, hoverAmount));
-        Color border = enabled ? accent(tone, hover > 0.5f) : LINE;
+        Color border = enabled
+                ? resolveAccent(tone, hover, RESOLVED_ACCENT) : LINE;
         Color fill = fill(tone, enabled, pressed);
         drawMaterial(shapes, x, y, width, height, border, fill, enabled,
                 hover, pressed, alpha,
@@ -52,7 +56,7 @@ final class GdxUiButtonStyle {
             float hoverAmount, boolean pressed, float alpha) {
         float hover = Math.max(0f, Math.min(1f, hoverAmount));
         drawMaterial(shapes, x, y, width, height,
-                enabled ? accent(tone, hover > 0.5f) : LINE,
+                enabled ? resolveAccent(tone, hover, RESOLVED_ACCENT) : LINE,
                 fill(tone, enabled, pressed), enabled, hover, pressed, alpha,
                 tone == Tone.FEATURED ? 0.52f : 0.42f, false);
     }
@@ -69,8 +73,12 @@ final class GdxUiButtonStyle {
         float hover = Math.max(0f, Math.min(1f, hoverAmount));
         CUSTOM_SURFACE.set(surfaceRed, surfaceGreen, surfaceBlue,
                 surfaceAlpha);
+        Color border = enabled
+                ? resolvePaletteAccent(accent, hover,
+                        RESOLVED_PALETTE_ACCENT)
+                : LINE;
         drawMaterial(shapes, x, y, width, height,
-                enabled ? accent : LINE, CUSTOM_SURFACE, enabled, hover,
+                border, CUSTOM_SURFACE, enabled, hover,
                 pressed, alpha, 0.42f, true);
     }
 
@@ -99,6 +107,12 @@ final class GdxUiButtonStyle {
                     0.16f * hover * alpha);
             roundedRect(shapes, x + 2f, y + 2f, width - 4f,
                     height - 4f, 12f);
+            // Toolbar buttons remain borderless while idle, but hover must
+            // expose the same semantic rim as every regular button.
+            shapes.setColor(border.r, border.g, border.b,
+                    0.88f * hover * alpha);
+            roundedRectOutline(shapes, x + 1f, y + 1f,
+                    width - 2f, height - 2f, 13f, 2f);
         }
 
         // A continuous glass bevel restores volume without the decorative
@@ -133,13 +147,27 @@ final class GdxUiButtonStyle {
                 ? Color.WHITE : GOLD;
     }
 
-    private static Color accent(Tone tone, boolean hover) {
-        return switch (tone) {
-            case POSITIVE -> hover ? POSITIVE_HOVER : POSITIVE;
-            case DANGER -> hover ? DANGER_HOVER : DANGER;
+    static Color resolveAccent(Tone tone, float hoverAmount, Color result) {
+        float hover = Math.max(0f, Math.min(1f, hoverAmount));
+        Color base = switch (tone) {
+            case POSITIVE -> POSITIVE;
+            case DANGER -> DANGER;
             case FEATURED -> GOLD;
-            case NEUTRAL -> hover ? CYAN : CYAN_DARK;
+            case NEUTRAL -> CYAN_DARK;
         };
+        Color highlighted = switch (tone) {
+            case POSITIVE -> POSITIVE_HOVER;
+            case DANGER -> DANGER_HOVER;
+            case FEATURED -> FEATURED_HOVER;
+            case NEUTRAL -> CYAN;
+        };
+        return result.set(base).lerp(highlighted, hover);
+    }
+
+    static Color resolvePaletteAccent(Color accent, float hoverAmount,
+            Color result) {
+        float hover = Math.max(0f, Math.min(1f, hoverAmount));
+        return result.set(accent).lerp(Color.WHITE, 0.24f * hover);
     }
 
     private static Color fill(Tone tone, boolean enabled, boolean pressed) {

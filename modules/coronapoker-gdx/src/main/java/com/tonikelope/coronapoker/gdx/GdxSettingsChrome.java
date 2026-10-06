@@ -1,6 +1,8 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Rectangle;
@@ -58,7 +60,8 @@ final class GdxSettingsChrome {
             GdxUiButtonStyle.drawPalette(shapes, tab.x, tab.y,
                     tab.width, tab.height, border,
                     fill.r, fill.g, fill.b, fill.a,
-                    true, hover ? 1f : 0f, false, alpha);
+                    true, hover ? 1f : 0f,
+                    hover && pointerPressed(), alpha);
             if (active) {
                 shapes.setColor(GOLD.r, GOLD.g, GOLD.b, alpha);
                 roundedRect(shapes, tab.x + 10f, tab.y + 2f,
@@ -91,7 +94,8 @@ final class GdxSettingsChrome {
             GdxUiButtonStyle.drawPalette(shapes, tab.x, tab.y,
                     tab.width, tab.height, border,
                     fill.r, fill.g, fill.b, fill.a,
-                    true, hover ? 1f : 0f, false, alpha);
+                    true, hover ? 1f : 0f,
+                    hover && pointerPressed(), alpha);
         }
 
         drawFooterButton(shapes, frame.cancelButton(),
@@ -109,7 +113,13 @@ final class GdxSettingsChrome {
             float alpha) {
         GdxUiButtonStyle.draw(shapes, bounds.x, bounds.y,
                 bounds.width, bounds.height, tone, true,
-                contains(bounds, pointer) ? 1f : 0f, false, alpha);
+                contains(bounds, pointer) ? 1f : 0f,
+                contains(bounds, pointer) && pointerPressed(), alpha);
+    }
+
+    private static boolean pointerPressed() {
+        return Gdx.input != null
+                && Gdx.input.isButtonPressed(Input.Buttons.LEFT);
     }
 
     private static boolean contains(Rectangle bounds, Vector2 pointer) {

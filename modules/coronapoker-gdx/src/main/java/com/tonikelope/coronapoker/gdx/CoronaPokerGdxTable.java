@@ -7056,7 +7056,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             GdxUiButtonStyle.drawBorderless(shapes, buttonX,
                     FAST_BAR_Y + FAST_BAR_PADDING,
                     FAST_BUTTON_SIZE, FAST_BUTTON_SIZE, tone, enabled,
-                    hover ? 1f : 0f, false, alpha);
+                    hover ? 1f : 0f,
+                    hover && Gdx.input.isButtonPressed(Input.Buttons.LEFT),
+                    alpha);
             if (fastBarExpanded && action == FastAccessAction.SCREENSHOTS) {
                 drawFastAccessCameraIcon(buttonX + FAST_BUTTON_SIZE / 2f,
                         FAST_BAR_Y + FAST_BAR_PADDING
@@ -18260,9 +18262,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawAudioPreviewShape(Rectangle bounds, boolean active,
             float alpha) {
-        shapes.setColor(bounds.contains(pointer)
-                ? new Color(0x18465fff) : new Color(0x10283cff));
-        roundedRect(bounds.x, bounds.y, bounds.width, bounds.height, 8f);
+        boolean hover = bounds.contains(pointer);
+        GdxUiButtonStyle.draw(shapes, bounds.x, bounds.y,
+                bounds.width, bounds.height,
+                active ? GdxUiButtonStyle.Tone.FEATURED
+                        : GdxUiButtonStyle.Tone.NEUTRAL,
+                true, hover ? 1f : 0f,
+                hover && Gdx.input.isButtonPressed(Input.Buttons.LEFT),
+                alpha);
         Color accent = active ? POT_GOLD : CYAN;
         shapes.setColor(accent.r, accent.g, accent.b, accent.a * alpha);
         if (active) {
@@ -20366,7 +20373,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 ? GdxUiButtonStyle.Tone.FEATURED
                                 : GdxUiButtonStyle.Tone.NEUTRAL;
         GdxUiButtonStyle.draw(shapes, x, y, width, height, tone, true,
-                hover ? 1f : 0f, false, alpha);
+                hover ? 1f : 0f,
+                hover && Gdx.input.isButtonPressed(Input.Buttons.LEFT),
+                alpha);
     }
 
     private void handleFinalSummaryInput() {
@@ -20908,7 +20917,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float height, boolean enabled, boolean hover, float alpha) {
         GdxUiButtonStyle.draw(shapes, x, y, width, height,
                 GdxUiButtonStyle.Tone.NEUTRAL, enabled, hover ? 1f : 0f,
-                false, alpha);
+                enabled && hover
+                && Gdx.input.isButtonPressed(Input.Buttons.LEFT), alpha);
     }
 
     private static int finalSummaryVisibleCards(float width) {

@@ -95,6 +95,8 @@ import java.time.format.DateTimeFormatter;
 /** Native menu and staged NewGameDialog replacement. */
 final class GdxFrontendScreen extends ApplicationAdapter implements InputProcessor {
 
+    private static final float MIN_FITTED_TEXT_SCALE = 0.72f;
+
     private static final Logger LOGGER = Logger.getLogger(
             GdxFrontendScreen.class.getName());
 
@@ -4565,9 +4567,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     participant.local() ? GOLD : CYAN, true, 70f);
         }
         if (participant.latencyAvailable()) {
-            text(tinyFont, (participant.latency() >= 0
+            textFit(tinyFont, (participant.latency() >= 0
                     ? participant.latency() : "-") + " ms",
-                    x + w - 28f, y + 17f, MUTED, true);
+                    x + w - 28f, y + 17f, MUTED, true, 52f);
         }
         hit(x, y, w, h, () -> selectedParticipant = participant.nickname());
         if (!participant.bot() && (participant.identityPublicKey() != null
@@ -8260,11 +8262,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawSoundControl(float x, float y, float w, float h,
             boolean showLabel) {
-        if (showLabel) {
-            text(smallFont, uppercase(gameText.translate("audio.sonidos")),
-                    x, y + h * 0.66f, MUTED, false);
-        }
         float iconSize = Math.min(52f, h);
+        if (showLabel) {
+            textFit(smallFont,
+                    uppercase(gameText.translate("audio.sonidos")),
+                    x, y + h * 0.66f, MUTED, false,
+                    Math.max(0f, w - iconSize - 12f));
+        }
         float iconX = showLabel ? x + w - iconSize
                 : x + (w - iconSize) / 2f;
         boolean outputAvailable = audioOutputAvailable();
@@ -10238,8 +10242,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 enabled);
         text(headingFont, "-", x + 38f, y + 48f, enabled ? Color.WHITE : DISABLED, true);
         text(headingFont, "+", x + w - 38f, y + 48f, enabled ? Color.WHITE : DISABLED, true);
-        text(headingFont, Integer.toString(value), x + w / 2f, y + 49f,
-                enabled ? GOLD : DISABLED, true);
+        textFit(headingFont, Integer.toString(value), x + w / 2f, y + 49f,
+                enabled ? GOLD : DISABLED, true,
+                Math.max(0f, w - 2f * side - 24f));
         if (enabled) {
             repeatHit(x, y, side + 6f, 72f, minus);
             repeatHit(x + w - side - 6f, y, side + 6f, 72f, plus);
@@ -11169,8 +11174,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (!fits(selected, value, maxWidth)) {
             selected = tinyFont;
         }
-        return new TextItem(selected, ellipsize(selected, value, maxWidth),
-                x, y, new Color(color), centered, italic);
+        float scale = fittedTextScale(textWidth(selected, value), maxWidth,
+                MIN_FITTED_TEXT_SCALE);
+        String fitted = ellipsize(selected, value, maxWidth / scale);
+        return new TextItem(selected, fitted, x, y, new Color(color),
+                centered, italic, scale);
+    }
+
+    static float fittedTextScale(float textWidth, float maxWidth,
+            float minimumScale) {
+        if (textWidth <= 0f || maxWidth <= 0f) return 1f;
+        return MathUtils.clamp(maxWidth / textWidth,
+                MathUtils.clamp(minimumScale, 0f, 1f), 1f);
     }
 
     private void drawTextItem(TextItem item) {
@@ -11199,6 +11214,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private String ellipsize(BitmapFont font, String value, float maxWidth) {
+        if (maxWidth <= 0f || value == null || value.isEmpty()) return "";
         if (fits(font, value, maxWidth)) {
             return value;
         }

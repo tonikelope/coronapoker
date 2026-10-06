@@ -93,7 +93,41 @@ final class GdxFrontendSettingsWiringTest {
         assertTrue(frontend.contains("GdxSettingsLayout.ROW_HEIGHT), \"gdx_vsync\")"));
         assertTrue(table.contains("GdxSettingsContract.vsyncStatusLabel("));
         assertTrue(table.contains("\"gdx_vsync\", viewportBounds, properties"));
-        assertTrue(table.contains("drawCentered(gameLogFont,"));
+        assertTrue(table.contains("drawFittedCenteredInBox(gameLogFont,"));
+    }
+
+    @Test
+    void fittedTextUsesProportionalScalingBeforeItsFinalEllipsisGuard() {
+        assertEquals(1f, GdxFrontendScreen.fittedTextScale(
+                100f, 120f, 0.72f));
+        assertEquals(0.8f, GdxFrontendScreen.fittedTextScale(
+                150f, 120f, 0.72f));
+        assertEquals(0.72f, GdxFrontendScreen.fittedTextScale(
+                300f, 120f, 0.72f));
+    }
+
+    @Test
+    void finalSummaryUsesStackInBothLanguages() {
+        assertEquals("STACK", new GdxGameText("es")
+                .translate("balance.fichas"));
+        assertEquals("STACK", new GdxGameText("en")
+                .translate("balance.fichas"));
+    }
+
+    @Test
+    void communityHudFitsBothDynamicStatusLabelsInsideTheirBoxes()
+            throws Exception {
+        String table = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/CoronaPokerGdxTable.java"),
+                StandardCharsets.UTF_8);
+        int start = table.indexOf("private void drawCommunityHud(");
+        int end = table.indexOf("static String communityBlindsText(", start);
+        assertTrue(start >= 0 && end > start);
+        String method = table.substring(start, end);
+        assertTrue(method.contains(
+                "drawFittedCenteredInBox(actionFont, blinds,"));
+        assertTrue(method.contains(
+                "drawFittedCenteredInBox(actionFont, hand,"));
     }
 
     private static LobbySnapshot snapshot(boolean host,

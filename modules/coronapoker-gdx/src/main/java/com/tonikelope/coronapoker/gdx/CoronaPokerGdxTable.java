@@ -12333,10 +12333,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         glyph.setText(pauseFont, label);
         float baseline = centerY + glyph.height / 2f;
         batch.begin();
-        drawCentered(pauseFont, label, tableCenterX + 3f,
-                baseline - 4f, Color.BLACK, 0.62f);
-        drawCentered(pauseFont, label, tableCenterX, baseline,
-                POT_GOLD, 0.88f + 0.12f * pulse);
+        drawFittedCentered(pauseFont, label, tableCenterX + 3f,
+                baseline - 4f, boardWidth - 48f, Color.BLACK, 0.62f);
+        drawFittedCentered(pauseFont, label, tableCenterX, baseline,
+                boardWidth - 48f, POT_GOLD, 0.88f + 0.12f * pulse);
         batch.end();
         data.setScale(scaleX, scaleY);
     }
@@ -21087,9 +21087,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.end();
 
         batch.begin();
-        drawCentered(gameLogFont, presentationSettings.frameRateOverlayLabel(
-                Gdx.graphics.getFramesPerSecond()),
-                x + panelWidth / 2f, y + 29f, Color.WHITE, 1f);
+        drawFittedCenteredInBox(gameLogFont,
+                presentationSettings.frameRateOverlayLabel(
+                        Gdx.graphics.getFramesPerSecond()),
+                x + 10f, y + 5f, panelWidth - 20f, panelHeight - 10f,
+                Color.WHITE, 1f);
         batch.end();
     }
 
@@ -21215,8 +21217,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float originalScaleX = data.scaleX;
         float originalScaleY = data.scaleY;
         glyph.setText(stackFont, investedCaption);
-        float sharedScale = localCounterCaptionScale(glyph.width,
-                glyph.height, investedBounds.width, investedBounds.height);
+        float referenceWidth = glyph.width;
+        float referenceHeight = glyph.height;
+        glyph.setText(stackFont, stackCaption);
+        referenceWidth = Math.max(referenceWidth, glyph.width);
+        referenceHeight = Math.max(referenceHeight, glyph.height);
+        float sharedScale = localCounterCaptionScale(referenceWidth,
+                referenceHeight,
+                Math.min(stackBounds.width, investedBounds.width),
+                Math.min(stackBounds.height, investedBounds.height));
         data.setScale(originalScaleX * sharedScale,
                 originalScaleY * sharedScale);
         drawCenteredInBox(stackFont, stackCaption,

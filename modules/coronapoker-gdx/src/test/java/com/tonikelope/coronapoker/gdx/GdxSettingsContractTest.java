@@ -17,6 +17,7 @@ final class GdxSettingsContractTest {
         assertFalse(GdxSettingsContract.requiresMsaaRestart(4, 4, 4));
         assertFalse(GdxSettingsContract.requiresMsaaRestart(4, 4, 0));
         assertFalse(GdxSettingsContract.requiresMsaaRestart(4, 8, 8));
+        assertFalse(GdxSettingsContract.requiresMsaaRestart(8, 4, 4));
     }
 
     @Test
@@ -41,7 +42,7 @@ final class GdxSettingsContractTest {
                 4, 4, new GdxGameText("es")));
         assertEquals("4X", GdxSettingsContract.msaaStatusLabel(
                 4, 4, new GdxGameText("en")));
-        assertEquals("4X  -  RESTART (CURRENT DISABLED)",
+        assertEquals("4X  -  [!] RESTART PENDING (CURRENT DISABLED)",
                 GdxSettingsContract.msaaStatusLabel(4, 0,
                         new GdxGameText("en")));
     }
@@ -153,7 +154,7 @@ final class GdxSettingsContractTest {
 
     @Test
     void bothSettingsEntryPointsUseTheSameSubpageCatalogueBuilder() {
-        assertEquals(java.util.List.of("MESA", "CINEMÁTICAS",
+        assertEquals(java.util.List.of("MESA", "GRÁFICOS", "CINEMÁTICAS",
                 "ANIMACIONES", "INFORMACIÓN", "CHAT"),
                 GdxSettingsContract.subpageLabels(
                         GdxSettingsContract.Section.APPEARANCE,
@@ -175,7 +176,7 @@ final class GdxSettingsContractTest {
     @Test
     void settingsContentAndSubpagesFollowTheLiveLanguage() {
         GdxGameText text = new GdxGameText("en");
-        assertEquals(java.util.List.of("TABLE", "CINEMATICS",
+        assertEquals(java.util.List.of("TABLE", "GRAPHICS", "CINEMATICS",
                 "ANIMATIONS", "INFORMATION", "CHAT"),
                 GdxSettingsContract.subpageLabels(
                         GdxSettingsContract.Section.APPEARANCE,
@@ -424,7 +425,7 @@ final class GdxSettingsContractTest {
                 "animacion_apuestas", "animacion_contadores",
                 "animacion_swap",
                 "animacion_contador_final", "animacion_fuego_allin",
-                "animacion_efecto_ganador", "gdx_show_fps",
+                "animacion_efecto_ganador",
                 "mostrar_coste_igualar",
                 "chat_images_ingame", "chat_game_notifications",
                 "resaltar_jugada_showdown",
@@ -438,6 +439,9 @@ final class GdxSettingsContractTest {
         assertFalse(keys.contains("cinematicas_accion"));
         assertFalse(keys.contains("animacion_cascada_overlay"));
         assertFalse(keys.contains("animacion_downgrade"));
+        assertTrue(GdxSettingsContract.PREFERENCE_KEYS.containsAll(
+                java.util.List.of("gdx_vsync", "gdx_fps_limit",
+                        "gdx_show_fps", "gdx_msaa_samples")));
     }
 
     @Test
@@ -570,6 +574,7 @@ final class GdxSettingsContractTest {
         properties.setProperty("gdx_window_mode", "windowed");
         properties.setProperty("gdx_msaa_samples", "0");
         properties.setProperty("gdx_fps_limit", "240");
+        properties.setProperty("gdx_vsync", "false");
         properties.setProperty("gdx_show_fps", "false");
 
         GdxSettingsContract.restoreAppearanceDefaults(properties, false);
@@ -588,11 +593,13 @@ final class GdxSettingsContractTest {
         assertEquals("windowed", properties.getProperty("gdx_window_mode"));
         assertEquals("0", properties.getProperty("gdx_msaa_samples"));
         assertEquals("120", properties.getProperty("gdx_fps_limit"));
+        assertEquals("true", properties.getProperty("gdx_vsync"));
 
         GdxSettingsContract.restoreAppearanceDefaults(properties, true);
         assertEquals("borderless", properties.getProperty("gdx_window_mode"));
         assertEquals("4", properties.getProperty("gdx_msaa_samples"));
         assertEquals("120", properties.getProperty("gdx_fps_limit"));
+        assertEquals("true", properties.getProperty("gdx_vsync"));
     }
 
     @Test

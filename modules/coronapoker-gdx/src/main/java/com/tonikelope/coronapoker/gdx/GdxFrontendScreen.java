@@ -1145,6 +1145,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             drawScreenshotToastTopLayer();
         }
         if (elapsed < volumeOverlayUntil) drawVolumeOverlayTopLayer();
+        if (preferenceBoolean("gdx_show_fps", false)) {
+            drawFrontendFpsCounter();
+        }
     }
 
     /** Draws deferred circular avatars in whichever composition pass owns them. */
@@ -7268,14 +7271,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawAppearanceSettings(float x, float y, float w, float h) {
-        int pages = GdxSettingsContract.APPEARANCE_PAGES.size() + 1;
+        int pages = GdxSettingsContract.APPEARANCE_PAGES.size() + 2;
         settingsAppearancePage = MathUtils.clamp(settingsAppearancePage,
                 0, pages - 1);
         float rowY = y + h - GdxSettingsLayout.CONTENT_ROW_TOP_INSET;
         if (settingsAppearancePage == 0) {
             float rowStride = GdxSettingsLayout.rowStride(h,
                     GdxSettingsContract.APPEARANCE_PRIMARY_ROW_COUNT);
-            settingsStepper(x + 34f, rowY, w - 68f, 70f,
+            settingsStepper(x + 34f, rowY, w - 68f,
+                    GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate("gdx.settings.row.deck")),
                     GdxSettingsContract.markDefault(
                             GdxAppearanceOptions.deckLabel(configuredDeck(),
@@ -7310,7 +7314,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     "nivel_luz", "50"))),
                     () -> adjustLightLevel(-1),
                     () -> adjustLightLevel(1));
-            settingsStepper(x + 34f, rowY - 4f * rowStride, w - 68f,
+            return;
+        }
+        if (settingsAppearancePage == 1) {
+            float rowStride = GdxSettingsLayout.rowStride(h,
+                    GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
+            settingsStepper(x + 34f, rowY, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.settings.row.window_mode")),
@@ -7319,7 +7328,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     == GdxWindowMode.BORDERLESS),
                     this::selectPreviousWindowMode,
                     this::selectNextWindowMode);
-            settingsStepper(x + 34f, rowY - 5f * rowStride, w - 68f,
+            toggle(x + 34f, rowY - rowStride, w - 68f,
+                    uppercase(gameText.translate("gdx.settings.row.vsync")),
+                    presentationSettings.vsyncEnabled(),
+                    () -> presentationSettings.toggleVsync(false), true);
+            boolean fpsEditable = !presentationSettings.vsyncEnabled();
+            settingsStepper(x + 34f, rowY - 2f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.settings.row.fps_limit")),
@@ -7327,11 +7341,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             "120".equals(initialProperties.getProperty(
                                     "gdx_fps_limit", "120"))),
                     this::selectPreviousFrameRateLimit,
-                    this::selectNextFrameRateLimit);
+                    this::selectNextFrameRateLimit, fpsEditable);
             performanceTooltip(new Rectangle(x + 34f,
-                    rowY - 5f * rowStride, w - 68f, 70f),
+                    rowY - 2f * rowStride, w - 68f,
+                    GdxSettingsLayout.ROW_HEIGHT),
                     "gdx_fps_limit");
-            settingsStepper(x + 34f, rowY - 6f * rowStride, w - 68f,
+            settingsStepper(x + 34f, rowY - 3f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.settings.row.antialiasing")),
@@ -7340,9 +7355,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     "gdx_msaa_samples", "4"))),
                     this::selectPreviousMsaa, this::selectNextMsaa);
             performanceTooltip(new Rectangle(x + 34f,
-                    rowY - 6f * rowStride, w - 68f, 70f),
+                    rowY - 3f * rowStride, w - 68f,
+                    GdxSettingsLayout.ROW_HEIGHT),
                     "gdx_msaa_samples");
-            settingsInfoRow(x + 34f, rowY - 7f * rowStride, w - 68f,
+            toggle(x + 34f, rowY - 4f * rowStride, w - 68f,
+                    uppercase(gameText.translate(
+                            "gdx.settings.option.gdx_show_fps")),
+                    preferenceBoolean("gdx_show_fps", false),
+                    () -> togglePreference("gdx_show_fps", false), true);
+            settingsInfoRow(x + 34f, rowY - 5f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.settings.row.gpu_renderer")),
@@ -7351,7 +7372,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         GdxSettingsContract.TogglePage page =
                 GdxSettingsContract.APPEARANCE_PAGES.get(
-                        settingsAppearancePage - 1);
+                        settingsAppearancePage - 2);
         int rowCount = GdxSettingsContract.appearanceRowCount(page);
         GdxSettingsLayout.PixelRows rows = GdxSettingsLayout.pixelRows(
                 rowY, y + 14f, rowY + GdxSettingsLayout.ROW_HEIGHT,
@@ -9746,6 +9767,27 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         String label = Math.round(volume * 100f) + "%";
         drawFittedCenteredInBox(volumeOverlayFont, label, barX, barY, barW,
                 GdxVolumeOverlayStyle.BAR_HEIGHT, Color.WHITE, 1f);
+        batch.end();
+    }
+
+    /** Global counter shared by every non-table GDX surface and modal. */
+    private void drawFrontendFpsCounter() {
+        float panelWidth = 126f;
+        float panelHeight = 42f;
+        float x = WIDTH - panelWidth - 20f;
+        float y = HEIGHT - panelHeight - 18f;
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.88f);
+        roundedRect(x, y, panelWidth, panelHeight, 11f);
+        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.86f);
+        shapes.rect(x + 12f, y + 4f, panelWidth - 24f, 3f);
+        shapes.end();
+        batch.begin();
+        textFit(smallFont, Gdx.graphics.getFramesPerSecond() + " FPS",
+                x + panelWidth / 2f, y + 29f, Color.WHITE, true,
+                panelWidth - 16f);
         batch.end();
     }
 
@@ -12290,7 +12332,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (surface == Surface.SETTINGS && amountY != 0f
                 && settingsSession.section()
                 == GdxSettingsContract.Section.APPEARANCE
-                && settingsAppearancePage > 0) {
+                && settingsAppearancePage > 1) {
             settingsAppearanceScroll = GdxSettingsLayout
                     .pixelScrollAfterWheel(settingsAppearanceScroll,
                             settingsRowScrollMaximum, amountY);

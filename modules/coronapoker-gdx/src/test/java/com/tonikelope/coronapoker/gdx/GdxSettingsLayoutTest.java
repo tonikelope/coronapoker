@@ -225,10 +225,10 @@ final class GdxSettingsLayoutTest {
     }
 
     @Test
-    void primaryAppearancePageFitsAllEightRowsInsideTheContentPanel() {
+    void appearanceTableAndGraphicsPagesKeepCanonicalRowSpacing() {
         float contentHeight = GdxSettingsLayout.frame(
                 1920f, 1080f, 4,
-                GdxSettingsContract.APPEARANCE_PAGES.size() + 1)
+                GdxSettingsContract.APPEARANCE_PAGES.size() + 2)
                 .content().height;
         float firstRowY = contentHeight
                 - GdxSettingsLayout.CONTENT_ROW_TOP_INSET;
@@ -237,10 +237,19 @@ final class GdxSettingsLayoutTest {
         float lastRowY = firstRowY - stride
                 * (GdxSettingsContract.APPEARANCE_PRIMARY_ROW_COUNT - 1);
 
-        assertTrue(stride >= 62f,
-                "dense settings rows must retain a usable hit target");
-        assertEquals(8f, lastRowY, 0.01f,
-                "the renderer information row must remain inside content");
+        assertEquals(GdxSettingsLayout.ROW_STRIDE, stride,
+                "table rows must retain the canonical gap");
+        assertTrue(lastRowY >= GdxSettingsLayout.ROW_HEIGHT,
+                "the last table row must remain wholly inside content");
+
+        float graphicsStride = GdxSettingsLayout.rowStride(contentHeight,
+                GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
+        float graphicsLastY = firstRowY - graphicsStride
+                * (GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT - 1);
+        assertEquals(GdxSettingsLayout.ROW_STRIDE, graphicsStride,
+                "graphics rows must retain the canonical gap");
+        assertTrue(graphicsLastY >= 8f,
+                "renderer information must remain inside content");
     }
 
     @Test

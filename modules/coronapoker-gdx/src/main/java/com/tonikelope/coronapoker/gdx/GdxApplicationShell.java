@@ -55,6 +55,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private float frameRateMonitorPollClock = 1f;
     private int frameRateMonitorRefresh;
     private int appliedForegroundFps = -1;
+    private Boolean appliedVsync;
 
     GdxApplicationShell(int refreshRate, CoronaPokerApplication application,
             NewGameSessionGateway sessionGateway, GdxGameLogSink gameLog,
@@ -133,7 +134,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
         // Re-apply the swap interval after the native window and its target
         // monitor exist. On mixed-refresh Windows desktops the configuration
         // flag alone can otherwise remain tied to the primary display.
-        Gdx.graphics.setVSync(true);
+        applySelectedVsync(true);
         updateForegroundFrameRate(0f);
         verifyGrantedBackBufferQuality();
         synchronizeScreenWakeLock();
@@ -238,6 +239,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
 
     /** Applies the selected cap live and follows the window between monitors. */
     private void updateForegroundFrameRate(float delta) {
+        applySelectedVsync(false);
         frameRateMonitorPollClock += Math.max(0f, delta);
         if (frameRateMonitorPollClock >= 0.35f) {
             frameRateMonitorPollClock = 0f;
@@ -253,6 +255,15 @@ final class GdxApplicationShell extends ApplicationAdapter {
         if (target != appliedForegroundFps) {
             Gdx.graphics.setForegroundFPS(target);
             appliedForegroundFps = target;
+        }
+    }
+
+    /** Keeps the native swap interval synchronized with the live preference. */
+    private void applySelectedVsync(boolean force) {
+        boolean selected = presentationSettings.vsyncEnabled();
+        if (force || appliedVsync == null || appliedVsync != selected) {
+            Gdx.graphics.setVSync(selected);
+            appliedVsync = selected;
         }
     }
 
@@ -301,7 +312,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
     public void resize(int width, int height) {
         // A window can cross to another refresh-rate monitor. Rebinding VSync
         // here keeps GLFW's swap interval attached to the active context.
-        Gdx.graphics.setVSync(true);
+        applySelectedVsync(true);
         CoronaPokerGdxTable intro = startupIntro;
         if (intro != null) {
             intro.resize(width, height);

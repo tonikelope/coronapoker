@@ -331,6 +331,15 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         int configured = integer("gdx_fps_limit", 120);
         return FRAME_RATE_LIMITS.contains(configured) ? configured : 120;
     }
+    boolean vsyncEnabled() {
+        return bool("gdx_vsync", true);
+    }
+    boolean toggleVsync(boolean persist) {
+        boolean selected = !vsyncEnabled();
+        properties.setProperty("gdx_vsync", Boolean.toString(selected));
+        if (persist) preferences.saveDeferred();
+        return selected;
+    }
     int effectiveFrameRateLimit(int monitorRefreshRate) {
         int monitorRate = monitorRefreshRate > 0 ? monitorRefreshRate : 60;
         int configured = requestedFrameRateLimit();

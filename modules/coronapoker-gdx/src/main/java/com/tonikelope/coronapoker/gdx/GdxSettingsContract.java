@@ -18,7 +18,8 @@ import java.util.Properties;
 final class GdxSettingsContract {
 
     static final float DEFAULT_MASTER_VOLUME = 0.8f;
-    static final int APPEARANCE_PRIMARY_ROW_COUNT = 8;
+    static final int APPEARANCE_PRIMARY_ROW_COUNT = 4;
+    static final int APPEARANCE_GRAPHICS_ROW_COUNT = 6;
     static final String CHAT_GAME_NOTIFICATIONS_KEY =
             "chat_game_notifications";
     static final String AUDIO_MIC_AUTO_GAIN_KEY = "audio_mic_auto_gain";
@@ -173,6 +174,8 @@ final class GdxSettingsContract {
                 java.util.ArrayList<String> labels = new java.util.ArrayList<>();
                 labels.add(translatedUpper(text, "gdx.settings.page.table",
                         "MESA"));
+                labels.add(translatedUpper(text, "gdx.settings.page.graphics",
+                        "GRÁFICOS"));
                 APPEARANCE_PAGES.stream().map(page -> page.title(text))
                         .forEach(labels::add);
                 yield List.copyOf(labels);
@@ -359,7 +362,6 @@ final class GdxSettingsContract {
             page("INFORMACIÓN",
                     option("show_time", "MOSTRAR RELOJ DURANTE LA PARTIDA",
                             false, Gate.NONE),
-                    option("gdx_show_fps", "MOSTRAR FPS", false, Gate.NONE),
                     option("mostrar_coste_igualar", "COSTE DE IGUALAR", true,
                             Gate.NONE),
                     option("resaltar_jugada_showdown",
@@ -422,7 +424,8 @@ final class GdxSettingsContract {
             "card_flip_zoom", "reparto_velocidad", "anim_calidad",
             "swap_velocidad", "swap_arco", "downgrade_velocidad",
             "zoom_level", "vista_compacta", "auto_zoom", "dialog_zoom",
-            "auto_fullscreen", "gdx_window_mode", "gdx_fps_limit",
+            "auto_fullscreen", "gdx_window_mode", "gdx_vsync",
+            "gdx_fps_limit",
             "gdx_msaa_samples",
             "confirmar_todo",
             "auto_action_buttons", "auto_action_persist",
@@ -674,7 +677,9 @@ final class GdxSettingsContract {
         properties.setProperty("trasera", "default");
         properties.setProperty("color_tapete", "verde");
         properties.setProperty("nivel_luz", "50");
+        properties.setProperty("gdx_vsync", "true");
         properties.setProperty("gdx_fps_limit", "120");
+        properties.setProperty("gdx_show_fps", "false");
         for (TogglePage page : APPEARANCE_PAGES) {
             for (ToggleOption option : page.options()) {
                 properties.setProperty(option.key(),

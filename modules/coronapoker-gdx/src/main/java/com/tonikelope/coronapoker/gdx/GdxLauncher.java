@@ -97,7 +97,7 @@ public final class GdxLauncher {
         config.setTitle("CoronaPoker // GDX");
         // --silent starts the shared master control muted, but keeps the audio
         // backend available so the in-game volume button can re-enable it.
-        config.useVsync(true);
+        config.useVsync(presentationSettings.vsyncEnabled());
         // VSync prevents tearing while the independent foreground cap controls
         // how much work the game requests.  "Monitor refresh" resolves to this
         // initial display rate; the shell follows later monitor changes live.

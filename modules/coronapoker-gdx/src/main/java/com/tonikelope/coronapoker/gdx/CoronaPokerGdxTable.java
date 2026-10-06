@@ -4228,9 +4228,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 finishIntro();
             }
         }
-        if (tablePreference("gdx_show_fps", false)) {
-            drawFpsCounter(viewport.getWorldWidth(), viewport.getWorldHeight());
-        }
     }
 
     private boolean startupSequenceSkipRequested() {

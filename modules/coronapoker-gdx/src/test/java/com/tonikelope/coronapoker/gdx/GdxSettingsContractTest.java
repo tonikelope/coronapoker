@@ -53,6 +53,10 @@ final class GdxSettingsContractTest {
 
         assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
                 GdxSettingsContract.performanceImpact(
+                        "gdx_vsync", properties));
+
+        assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
+                GdxSettingsContract.performanceImpact(
                         "animacion_barajado", properties));
         assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
                 GdxSettingsContract.performanceImpact(
@@ -66,6 +70,21 @@ final class GdxSettingsContractTest {
         assertEquals(GdxSettingsContract.PerformanceImpact.NONE,
                 GdxSettingsContract.performanceImpact(
                         "show_time", properties));
+    }
+
+    @Test
+    void vsyncValueUsesTheFeminineLabelAndMarksTheFactoryDefault() {
+        GdxGameText spanish = new GdxGameText("es");
+        GdxGameText english = new GdxGameText("en");
+
+        assertEquals("DESACTIVADA *",
+                GdxSettingsContract.vsyncStatusLabel(false, spanish));
+        assertEquals("ACTIVADA",
+                GdxSettingsContract.vsyncStatusLabel(true, spanish));
+        assertEquals("DISABLED *",
+                GdxSettingsContract.vsyncStatusLabel(false, english));
+        assertEquals("ENABLED",
+                GdxSettingsContract.vsyncStatusLabel(true, english));
     }
 
     @Test

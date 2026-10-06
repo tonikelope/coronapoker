@@ -444,7 +444,7 @@ final class GdxSettingsContract {
         if (key == null || key.isBlank()) return PerformanceImpact.NONE;
         Properties values = properties == null ? new Properties() : properties;
         return switch (key) {
-            case "animaciones", "animacion_barajado",
+            case "animaciones", "animacion_barajado", "gdx_vsync",
                     "animacion_fuego_allin" -> PerformanceImpact.HIGH;
             case "cinematicas", "cinematicas_allin",
                     "animacion_reparto", "animacion_destape",
@@ -603,6 +603,14 @@ final class GdxSettingsContract {
 
     static String markDefault(String value, boolean factoryDefault) {
         return factoryDefault ? value + " *" : value;
+    }
+
+    static String vsyncStatusLabel(boolean enabled, GdxGameText text) {
+        String key = enabled
+                ? "gdx.settings.game.summary.value.enabled"
+                : "gdx.settings.game.summary.value.disabled_feminine";
+        return markDefault(text.translate(key).toUpperCase(Locale.ROOT),
+                !enabled);
     }
 
     static String voiceRetentionLabel(Properties properties) {

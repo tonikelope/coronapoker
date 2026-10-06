@@ -73,8 +73,27 @@ final class GdxFrontendSettingsWiringTest {
         String method = source.substring(start, end);
         assertTrue(method.contains("drawTextItem(fittedTextItem("),
                 "the final overlay must draw its text in the same frame");
+        assertTrue(method.contains("fittedTextItem(fpsFont,"),
+                "the FPS overlay must use a stable-width monospaced face");
         assertFalse(method.contains("textFit("),
                 "queued text is cleared before the next frame");
+    }
+
+    @Test
+    void graphicsVsyncUsesTheSharedValueAndPerformanceContract()
+            throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+        String table = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/CoronaPokerGdxTable.java"),
+                StandardCharsets.UTF_8);
+
+        assertTrue(frontend.contains("GdxSettingsContract.vsyncStatusLabel("));
+        assertTrue(frontend.contains("GdxSettingsLayout.ROW_HEIGHT), \"gdx_vsync\")"));
+        assertTrue(table.contains("GdxSettingsContract.vsyncStatusLabel("));
+        assertTrue(table.contains("\"gdx_vsync\", viewportBounds, properties"));
+        assertTrue(table.contains("drawCentered(gameLogFont,"));
     }
 
     private static LobbySnapshot snapshot(boolean host,

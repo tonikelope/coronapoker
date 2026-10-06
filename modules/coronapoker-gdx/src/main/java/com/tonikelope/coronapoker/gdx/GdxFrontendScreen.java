@@ -381,6 +381,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private BitmapFont actionFont;
     private BitmapFont uiFont;
     private BitmapFont volumeOverlayFont;
+    private BitmapFont fpsFont;
     private BitmapFont smallFont;
     private BitmapFont tinyFont;
     private BitmapFont versionFont;
@@ -729,6 +730,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         tinyFont = font(bodyGenerator, GdxSettingsStyle.TINY_FONT_SIZE, 0f);
         versionFont = font(bodyGenerator, GdxProductVersionBrand.FONT_SIZE, 0f);
         bodyGenerator.dispose();
+        FreeTypeFontGenerator fpsGenerator =
+                GdxMonospaceFonts.generator(false);
+        fpsFont = font(fpsGenerator, 18, 0f);
+        fpsGenerator.dispose();
         Gdx.input.setInputProcessor(this);
         Gdx.input.setCursorCatched(false);
         // The frontend owns the music while the startup intro is on screen too.
@@ -7328,10 +7333,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     == GdxWindowMode.BORDERLESS),
                     this::selectPreviousWindowMode,
                     this::selectNextWindowMode);
-            toggle(x + 34f, rowY - rowStride, w - 68f,
+            settingsValueToggle(x + 34f, rowY - rowStride, w - 68f,
                     uppercase(gameText.translate("gdx.settings.row.vsync")),
+                    GdxSettingsContract.vsyncStatusLabel(
+                            presentationSettings.vsyncEnabled(), gameText),
                     presentationSettings.vsyncEnabled(),
                     () -> presentationSettings.toggleVsync(false), true);
+            performanceTooltip(new Rectangle(x + 34f,
+                    rowY - rowStride, w - 68f,
+                    GdxSettingsLayout.ROW_HEIGHT), "gdx_vsync");
             settingsStepper(x + 34f, rowY - 2f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
@@ -9784,7 +9794,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.rect(x + 12f, y + 4f, panelWidth - 24f, 3f);
         shapes.end();
         batch.begin();
-        drawTextItem(fittedTextItem(smallFont,
+        drawTextItem(fittedTextItem(fpsFont,
                 presentationSettings.frameRateOverlayLabel(
                         Gdx.graphics.getFramesPerSecond()),
                 x + panelWidth / 2f, y + 29f, Color.WHITE, true,
@@ -10131,6 +10141,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         toggle(x, y, w, label, value, action, enabled, smallFont);
     }
 
+    private void settingsValueToggle(float x, float y, float w, String label,
+            String valueLabel, boolean value, Runnable action,
+            boolean enabled) {
+        toggle(x, y, w, label, valueLabel, value, action, enabled,
+                smallFont, false);
+    }
+
     private void compactToggle(float x, float y, float w, String label,
             boolean value, Runnable action, boolean enabled) {
         toggle(x, y, w, label, value, action, enabled, tinyFont, true);
@@ -10145,12 +10162,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void toggle(float x, float y, float w, String label,
             boolean value, Runnable action, boolean enabled,
             BitmapFont labelFont, boolean wrapLabel) {
+        toggle(x, y, w, label, null, value, action, enabled, labelFont,
+                wrapLabel);
+    }
+
+    private void toggle(float x, float y, float w, String label,
+            String valueLabel, boolean value, Runnable action,
+            boolean enabled, BitmapFont labelFont, boolean wrapLabel) {
         GdxSettingsStyle.drawRow(shapes, x, y, w,
                 GdxSettingsLayout.ROW_HEIGHT, enabled,
                 enabled && hovered(x, y, w, GdxSettingsLayout.ROW_HEIGHT),
                 enabled && pressed(x, y, w, GdxSettingsLayout.ROW_HEIGHT),
                 1f);
-        float labelWidth = Math.max(0f, w - 132f);
+        float valueWidth = valueLabel == null ? 0f
+                : Math.min(300f, Math.max(170f, w * 0.24f));
+        float labelWidth = Math.max(0f, w - 132f - valueWidth);
         if (wrapLabel) {
             List<String> lines = wrapText(labelFont, label, labelWidth, 2);
             float baseline = lines.size() > 1 ? y + 48f : y + 42f;
@@ -10162,6 +10188,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } else {
             textFit(labelFont, label, x + 22f, y + 43f,
                     enabled ? Color.WHITE : DISABLED, false, labelWidth);
+        }
+        if (valueLabel != null) {
+            textFit(uiFont, valueLabel,
+                    x + w - 110f - valueWidth / 2f, y + 43f,
+                    enabled ? GOLD : DISABLED, true, valueWidth - 18f);
         }
         float target = value && enabled ? 1f : 0f;
         String animationKey = GdxToggleMotion.stableKey(
@@ -12226,6 +12257,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         uiFont.dispose();
         volumeOverlayFont.dispose();
         smallFont.dispose();
+        fpsFont.dispose();
         tinyFont.dispose();
         versionFont.dispose();
     }

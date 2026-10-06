@@ -2679,12 +2679,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case 7 -> finalCardFont = font(creationFontGenerator, 18, 0f);
             case 8 -> {
                 disposeCreationFontGenerator();
-                creationFontGenerator = gameLogFontGenerator(false);
+                creationFontGenerator = GdxMonospaceFonts.generator(false);
             }
             case 9 -> gameLogFont = font(creationFontGenerator, 20, 0f);
             case 10 -> {
                 disposeCreationFontGenerator();
-                creationFontGenerator = gameLogFontGenerator(true);
+                creationFontGenerator = GdxMonospaceFonts.generator(true);
             }
             case 11 -> gameLogBoldFont = font(creationFontGenerator, 20, 0f);
             case 12 -> {
@@ -2948,35 +2948,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         BitmapFont result = generator.generateFont(parameter);
         result.getData().setScale(1f / rasterScale);
         return result;
-    }
-
-    /**
-     * Swing formats the register with Consolas. Reuse that installed face on
-     * Windows instead of approximating its fixed columns with the proportional
-     * UI font. Other platforms prefer an installed mono face and retain the
-     * packaged Inter font only as the final portable fallback.
-     */
-    private static FreeTypeFontGenerator gameLogFontGenerator(boolean bold) {
-        ArrayList<String> candidates = new ArrayList<>();
-        String windows = System.getenv("WINDIR");
-        if (windows != null && !windows.isBlank()) {
-            candidates.add(Path.of(windows, "Fonts",
-                    bold ? "consolab.ttf" : "consola.ttf")
-                    .toString());
-        }
-        candidates.add("/usr/share/fonts/truetype/dejavu/"
-                + (bold ? "DejaVuSansMono-Bold.ttf" : "DejaVuSansMono.ttf"));
-        candidates.add("/System/Library/Fonts/Menlo.ttc");
-        for (String candidate : candidates) {
-            FileHandle file = Gdx.files.absolute(candidate);
-            if (file.exists()) return new FreeTypeFontGenerator(file);
-        }
-        // This final fallback is proportional, but it is only reached on an
-        // uncommon platform without a standard monospaced face. Windows,
-        // Linux and macOS use the candidates above and therefore keep the
-        // exact fixed-column layout used by Swing.
-        return new FreeTypeFontGenerator(
-                Gdx.files.internal("fonts/Inter-Medium.ttf"));
     }
 
     private void initialiseStars() {
@@ -17346,9 +17317,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (settingsAppearancePage == 1) {
             float rowStride = GdxSettingsLayout.rowStride(content.height,
                     GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
-            Rectangle bounds = new Rectangle(x, firstY - 2f * rowStride,
+            Rectangle bounds = new Rectangle(x, firstY - rowStride,
                     width, 68f);
-            SettingsPerformanceHover hovered = settingsPerformanceHover(bounds,
+            SettingsPerformanceHover hovered = settingsPerformanceHover(
+                    bounds, "gdx_vsync", viewportBounds, properties);
+            if (hovered != null) return hovered;
+            bounds.set(x, firstY - 2f * rowStride,
+                    width, 68f);
+            hovered = settingsPerformanceHover(bounds,
                     "gdx_fps_limit", viewportBounds, properties);
             if (hovered != null) return hovered;
             bounds.set(x, firstY - 3f * rowStride, width, 68f);
@@ -18497,9 +18473,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 GdxWindowMode.configured(
                                         tableSettingsProperties())
                                         == GdxWindowMode.BORDERLESS), alpha);
-                drawSettingsRowText(x, firstY - rowStride, width,
+                drawSettingsToggleText(x, firstY - rowStride, width,
                         uppercase(gameText.translate(
                                 "gdx.settings.row.vsync")),
+                        presentationSettings == null ? ""
+                                : GdxSettingsContract.vsyncStatusLabel(
+                                        presentationSettings.vsyncEnabled(),
+                                        gameText),
                         presentationSettings != null, alpha);
                 drawSettingsStepperText(x, firstY - 2f * rowStride, width,
                         uppercase(gameText.translate(
@@ -19017,6 +18997,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             String label, Color color, boolean enabled, float alpha) {
         drawLeftInBox(settingsSmallFont, label, x + 20f, y + 5f,
                 width - 126f, 58f, enabled ? color : SETTINGS_DISABLED,
+                alpha);
+    }
+
+    private void drawSettingsToggleText(float x, float y, float width,
+            String label, String value, boolean enabled, float alpha) {
+        float valueWidth = Math.min(300f, Math.max(170f, width * 0.24f));
+        drawLeftInBox(settingsSmallFont, label, x + 20f, y + 5f,
+                width - valueWidth - 126f, 58f,
+                enabled ? Color.WHITE : SETTINGS_DISABLED, alpha);
+        drawFittedCenteredInBox(settingsBodyFont, value,
+                x + width - valueWidth - 110f, y + 5f,
+                valueWidth, 58f, enabled ? POT_GOLD : SETTINGS_DISABLED,
                 alpha);
     }
 
@@ -21095,7 +21087,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.end();
 
         batch.begin();
-        drawCentered(smallFont, presentationSettings.frameRateOverlayLabel(
+        drawCentered(gameLogFont, presentationSettings.frameRateOverlayLabel(
                 Gdx.graphics.getFramesPerSecond()),
                 x + panelWidth / 2f, y + 29f, Color.WHITE, 1f);
         batch.end();

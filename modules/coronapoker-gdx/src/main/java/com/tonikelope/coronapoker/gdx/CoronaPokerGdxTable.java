@@ -14417,7 +14417,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
                 if (presentationSettings != null && contains(x, y,
                         contentX, firstRowY - 2f * rowStride, rowW, 68f)) {
-                    if (presentationSettings.vsyncEnabled()) return;
                     int direction = settingsStepperDirection(x, contentX,
                             rowW);
                     if (direction < 0) {
@@ -17861,8 +17860,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 && presentationSettings.vsyncEnabled(),
                         presentationSettings != null, alpha);
                 drawSettingsStepperShape(x, firstY - 2f * rowStride, width,
-                        presentationSettings != null
-                                && !presentationSettings.vsyncEnabled(),
+                        presentationSettings != null,
                         alpha);
                 drawSettingsStepperShape(x, firstY - 3f * rowStride, width,
                         presentationSettings != null, alpha);
@@ -18503,8 +18501,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         uppercase(gameText.translate(
                                 "gdx.settings.row.vsync")),
                         presentationSettings != null, alpha);
-                boolean fpsEditable = presentationSettings != null
-                        && !presentationSettings.vsyncEnabled();
                 drawSettingsStepperText(x, firstY - 2f * rowStride, width,
                         uppercase(gameText.translate(
                                 "gdx.settings.row.fps_limit")),
@@ -18512,7 +18508,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 tableFrameRateLimitSettingLabel(),
                                 "120".equals(tableSettingsProperties()
                                         .getProperty("gdx_fps_limit", "120"))),
-                        fpsEditable, alpha);
+                        presentationSettings != null, alpha);
                 drawSettingsStepperText(x, firstY - 3f * rowStride, width,
                         uppercase(gameText.translate(
                                 "gdx.settings.row.antialiasing")),

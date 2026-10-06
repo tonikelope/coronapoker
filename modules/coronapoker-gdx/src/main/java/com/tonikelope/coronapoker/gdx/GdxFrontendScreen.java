@@ -7332,7 +7332,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     uppercase(gameText.translate("gdx.settings.row.vsync")),
                     presentationSettings.vsyncEnabled(),
                     () -> presentationSettings.toggleVsync(false), true);
-            boolean fpsEditable = !presentationSettings.vsyncEnabled();
             settingsStepper(x + 34f, rowY - 2f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
@@ -7341,7 +7340,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             "120".equals(initialProperties.getProperty(
                                     "gdx_fps_limit", "120"))),
                     this::selectPreviousFrameRateLimit,
-                    this::selectNextFrameRateLimit, fpsEditable);
+                    this::selectNextFrameRateLimit);
             performanceTooltip(new Rectangle(x + 34f,
                     rowY - 2f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT),
@@ -9785,9 +9784,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.rect(x + 12f, y + 4f, panelWidth - 24f, 3f);
         shapes.end();
         batch.begin();
-        textFit(smallFont, Gdx.graphics.getFramesPerSecond() + " FPS",
+        drawTextItem(fittedTextItem(smallFont,
+                Gdx.graphics.getFramesPerSecond() + " FPS",
                 x + panelWidth / 2f, y + 29f, Color.WHITE, true,
-                panelWidth - 16f);
+                panelWidth - 16f, false));
         batch.end();
     }
 

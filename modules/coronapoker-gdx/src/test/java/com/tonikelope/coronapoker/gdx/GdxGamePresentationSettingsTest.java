@@ -273,12 +273,14 @@ final class GdxGamePresentationSettingsTest {
 
             assertEquals(120, settings.requestedFrameRateLimit());
             assertTrue(settings.vsyncEnabled());
-            assertFalse(settings.toggleVsync(false));
-            assertFalse(settings.vsyncEnabled());
-            assertTrue(settings.toggleVsync(false));
+            assertEquals(120, settings.effectiveFrameRateLimit(240));
+            assertEquals(60, settings.effectiveFrameRateLimit(60));
             assertEquals(144, settings.selectNextFrameRateLimit(false));
             assertEquals(144, settings.effectiveFrameRateLimit(240));
-            assertEquals(60, settings.effectiveFrameRateLimit(60));
+            assertFalse(settings.toggleVsync(false));
+            assertFalse(settings.vsyncEnabled());
+            assertEquals(144, settings.effectiveFrameRateLimit(240));
+            assertTrue(settings.toggleVsync(false));
             assertEquals(240, settings.selectNextFrameRateLimit(false));
             assertEquals(0, settings.selectNextFrameRateLimit(false));
             assertEquals(240, settings.effectiveFrameRateLimit(240));

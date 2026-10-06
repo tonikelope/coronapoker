@@ -1,12 +1,17 @@
 package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.core.LobbyCommand;
 import com.tonikelope.coronapoker.core.LobbyParticipant;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -53,6 +58,23 @@ final class GdxFrontendSettingsWiringTest {
 
         assertEquals(List.of(), GdxFrontendScreen.lobbySettingsCommands(
                 snapshot(true, settings, true), settings, true));
+    }
+
+    @Test
+    void globalFpsOverlayDrawsItsGlyphsInTheImmediateTopLayerPass()
+            throws Exception {
+        String source = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+        int start = source.indexOf("private void drawFrontendFpsCounter()");
+        int end = source.indexOf("private void drawFittedCenteredInBox(",
+                start);
+        assertTrue(start >= 0 && end > start);
+        String method = source.substring(start, end);
+        assertTrue(method.contains("drawTextItem(fittedTextItem("),
+                "the final overlay must draw its text in the same frame");
+        assertFalse(method.contains("textFit("),
+                "queued text is cleared before the next frame");
     }
 
     private static LobbySnapshot snapshot(boolean host,

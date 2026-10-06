@@ -360,7 +360,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
                     }
                 }
                 table = null;
-                Gdx.input.setInputProcessor(menu);
+                restoreFrontendInput();
                 menu.showSessionError(gameText.translate(
                         "gdx.table.open_failed_detail", rootMessage(error)));
                 openingBarrier.completeExceptionally(error);
@@ -392,7 +392,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 error.addSuppressed(cleanupError);
             }
             table = null;
-            Gdx.input.setInputProcessor(menu);
+            restoreFrontendInput();
             menu.resumeMusic();
             menu.showSessionError(gameText.translate(
                     "gdx.table.open_failed_detail", rootMessage(error)));
@@ -410,7 +410,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
                         table.finalApplicationExitRequested();
                 table = null;
                 menu.refreshFeltFromSettings();
-                Gdx.input.setInputProcessor(menu);
+                restoreFrontendInput();
                 long menuReady = System.nanoTime();
                 LobbySession completedLobby = lobby;
                 if (statsRequested && completedLobby != null) {
@@ -452,7 +452,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 () -> finishRetainedFinalSummary(expected, true, false),
                 () -> finishRetainedFinalSummary(expected, false, true));
         expected.suspendRetainedFinalSummary();
-        Gdx.input.setInputProcessor(menu);
+        restoreFrontendInput();
         menu.openStatsFromTable(() -> restoreRetainedFinalSummary(expected));
         menu.resumeMusic();
     }
@@ -463,7 +463,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
         table = null;
         suspendedFinalTable = expected;
         expected.suspendRetainedFinalSummary();
-        Gdx.input.setInputProcessor(menu);
+        restoreFrontendInput();
         menu.openStatsFromTable(() -> restoreRetainedFinalSummary(expected));
         menu.resumeMusic();
     }
@@ -483,7 +483,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
         if (table != expected && suspendedFinalTable != expected) return;
         table = null;
         suspendedFinalTable = null;
-        Gdx.input.setInputProcessor(menu);
+        restoreFrontendInput();
         LobbySession completedLobby = lobby;
         if (completedLobby != null) {
             if (continueRequested) {
@@ -509,6 +509,21 @@ final class GdxApplicationShell extends ApplicationAdapter {
         Gdx.app.postRunnable(() -> {
             Gdx.app.postRunnable(retiredTable::dispose);
         });
+    }
+
+    /**
+     * Restores the persistent frontend through one scene boundary. Keeping the
+     * processor installation and transient-state reset together prevents each
+     * return route from subtly behaving differently.
+     */
+    private void restoreFrontendInput() {
+        // resize() reapplies the frontend viewport too. While the table owns
+        // the window, resize notifications intentionally target only the
+        // table, so returning without this step can leave stale screen bounds
+        // for hit testing after a display-mode or monitor change.
+        menu.resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        menu.reclaimAfterExternalScene();
+        Gdx.input.setInputProcessor(menu);
     }
 
     void showDialog(GdxTableDialog request) {
@@ -571,7 +586,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
             if (skipped) menu.completeStartupReveal();
             else menu.beginStartupReveal();
             menu.resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-            Gdx.input.setInputProcessor(menu);
+            restoreFrontendInput();
         }
     }
 

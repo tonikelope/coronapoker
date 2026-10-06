@@ -2,6 +2,7 @@
 package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -31,5 +32,14 @@ final class GdxLobbyDigitalClockTest {
     void compactGameClockFitsInsideTheExistingCommunityBar() {
         assertEquals(66.8f, GdxSevenSegmentDisplay.width("00:00:00",
                 8.5f, 1.4f, 3f), 0.001f);
+    }
+
+    @Test
+    void lobbyClockClearsTheRaisedFpsOverlay() {
+        float clockPanelTop = GdxFrontendScreen.LOBBY_CLOCK_Y + 136f;
+        float fpsPanelBottom = GdxFrameRateOverlayStyle.y(1080f);
+
+        assertTrue(clockPanelTop < fpsPanelBottom,
+                "clock and FPS/VSync overlay must not overlap");
     }
 }

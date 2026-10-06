@@ -347,8 +347,17 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     int effectiveFrameRateLimit(int monitorRefreshRate) {
         int monitorRate = monitorRefreshRate > 0 ? monitorRefreshRate : 60;
         int configured = requestedFrameRateLimit();
-        if (configured == 0) return monitorRate;
-        return vsyncEnabled() ? Math.min(configured, monitorRate) : configured;
+        if (!vsyncEnabled()) {
+            return configured == 0 ? monitorRate : configured;
+        }
+        // GLFW's swap interval is the authoritative limiter at the display
+        // refresh rate. Giving LibGDX's software pacer the exact same target
+        // makes both clocks compete at the frame boundary. Keep an explicit
+        // lower cap (for example 60 FPS on a 144 Hz monitor), otherwise place
+        // the software ceiling one frame above VSync so only the swap controls
+        // the refresh-rate boundary.
+        if (configured > 0 && configured < monitorRate) return configured;
+        return monitorRate + 1;
     }
     int selectNextFrameRateLimit() {
         return selectNextFrameRateLimit(true);

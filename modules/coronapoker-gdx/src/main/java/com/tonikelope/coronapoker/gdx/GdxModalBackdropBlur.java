@@ -75,6 +75,23 @@ final class GdxModalBackdropBlur implements Disposable {
         Gdx.gl.glViewport(0, 0, backdrop.getWidth(), backdrop.getHeight());
     }
 
+    /**
+     * Rebinds the backdrop after a nested framebuffer pass.
+     *
+     * <p>LibGDX framebuffers are not a stack: ending an inner framebuffer
+     * binds the default backbuffer. Any table effect that renders through an
+     * auxiliary framebuffer must therefore restore this capture explicitly,
+     * otherwise the remainder of the table is painted outside the modal
+     * backdrop and disappears from the blurred result.</p>
+     */
+    void resumeCaptureAfterNestedPass() {
+        if (backdrop == null) {
+            throw new IllegalStateException("Modal backdrop is not active");
+        }
+        backdrop.bind();
+        Gdx.gl.glViewport(0, 0, backdrop.getWidth(), backdrop.getHeight());
+    }
+
     void endCaptureAndDraw(Viewport viewport, SpriteBatch batch,
             Matrix4 projection, Color clearColor) {
         backdrop.end();

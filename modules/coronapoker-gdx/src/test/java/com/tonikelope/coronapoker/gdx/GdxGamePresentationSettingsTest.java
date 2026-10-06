@@ -284,8 +284,13 @@ final class GdxGamePresentationSettingsTest {
             assertTrue(settings.toggleVsync(false));
             assertEquals("144 FPS (VS ON)",
                     settings.frameRateOverlayLabel(144));
-            assertEquals(144, settings.effectiveFrameRateLimit(144));
+            assertEquals(145, settings.effectiveFrameRateLimit(144));
+            preferences.properties().setProperty("gdx_fps_limit", "60");
+            assertEquals(60, settings.effectiveFrameRateLimit(144));
+            preferences.properties().setProperty("gdx_fps_limit", "0");
+            assertEquals(145, settings.effectiveFrameRateLimit(144));
             assertFalse(settings.toggleVsync(false));
+            preferences.properties().setProperty("gdx_fps_limit", "240");
             assertEquals(240, settings.effectiveFrameRateLimit(144));
             preferences.properties().setProperty("gdx_fps_limit", "999");
             assertEquals(0, settings.requestedFrameRateLimit());

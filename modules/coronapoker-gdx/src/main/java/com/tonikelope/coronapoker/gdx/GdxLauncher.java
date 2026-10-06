@@ -101,8 +101,9 @@ public final class GdxLauncher {
         // backend available so the in-game volume button can re-enable it.
         config.useVsync(presentationSettings.vsyncEnabled());
         // The foreground cap paces the render loop independently from VSync.
-        // "Monitor refresh" resolves to this initial display rate; the shell
-        // follows later monitor changes live.
+        // "Monitor refresh" resolves to this initial display rate; when
+        // VSync is enabled the software ceiling sits one FPS above it so the
+        // two clocks do not compete. The shell follows monitor changes live.
         config.setForegroundFPS(presentationSettings.effectiveFrameRateLimit(
                 display.refreshRate));
         config.setIdleFPS(30);

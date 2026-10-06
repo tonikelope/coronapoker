@@ -4,6 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.badlogic.gdx.math.Rectangle;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 final class GdxTableDialogLayoutTest {
@@ -47,6 +50,21 @@ final class GdxTableDialogLayoutTest {
                 layout.amount().minusButton().x + 1f));
         assertEquals(1, layout.amount().directionAt(
                 layout.amount().plusButton().x + 1f));
+    }
+
+    @Test
+    void rebuyUsesItsOwnLargeAdaptiveAmountFont() throws IOException {
+        String table = Files.readString(Path.of("src", "main", "java",
+                "com", "tonikelope", "coronapoker", "gdx",
+                "CoronaPokerGdxTable.java"));
+
+        assertTrue(table.contains(
+                "dialogAmountFont = font(creationFontGenerator, 50, 0f)"));
+        assertTrue(table.contains(
+                "? dialogAmountFont : uiFont, amountText"));
+        assertTrue(table.contains(
+                "dialogAmountFont = replaceFont(dialogAmountFont,"));
+        assertTrue(table.contains("dialogAmountFont.dispose();"));
     }
 
     private static void assertInside(Rectangle outer, Rectangle inner) {

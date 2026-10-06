@@ -71,12 +71,14 @@ final class GdxFrontendSettingsWiringTest {
                 start);
         assertTrue(start >= 0 && end > start);
         String method = source.substring(start, end);
-        assertTrue(method.contains("drawTextItem(fittedTextItem("),
-                "the final overlay must draw its text in the same frame");
-        assertTrue(method.contains("fittedTextItem(fpsFont,"),
+        assertTrue(method.contains("drawFittedCenteredInBox(fpsFont,"),
+                "the final overlay must draw centered text in the same frame");
+        assertTrue(method.contains("panelWidth - 16f, panelHeight,"),
                 "the FPS overlay must use a stable-width monospaced face");
-        assertFalse(method.contains("textFit("),
-                "queued text is cleared before the next frame");
+        assertFalse(method.contains("y + 29f"),
+                "vertical centering must not rely on a fixed baseline offset");
+        assertFalse(method.contains("shapes.rect("),
+                "the FPS overlay must not draw the old cyan underline");
     }
 
     @Test

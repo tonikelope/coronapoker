@@ -16,7 +16,6 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
-import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator.FreeTypeFontParameter;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
@@ -141,6 +140,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float LOBBY_KICK_BUTTON_HEIGHT = 62f;
     static final float LOBBY_PLAY_BUTTON_Y = 198f;
     static final float LOBBY_PLAY_BUTTON_HEIGHT = 76f;
+    static final float LOBBY_CLOCK_Y = 888f;
     static final float LOBBY_ROSTER_TITLE_BASELINE = 795f;
     static final float LOBBY_ROSTER_COUNT_X = 1828f;
     static final float LOBBY_ROSTER_COUNT_BASELINE = 799f;
@@ -387,6 +387,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private BitmapFont smallFont;
     private BitmapFont tinyFont;
     private BitmapFont versionFont;
+    private GdxAdaptiveFontQuality.Profile fontQualityProfile;
+    private GdxAdaptiveFontQuality.Profile pendingFontQualityProfile;
+    private long fontQualityRefreshAfterNanos;
     private int page;
     private String activeField;
     private long toastUntil;
@@ -707,35 +710,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         modalBackdropBlur = new GdxModalBackdropBlur();
         checkForUpdates();
         purgeExpiredVoiceNotes();
-        FreeTypeFontGenerator titleGenerator = new FreeTypeFontGenerator(
-                Gdx.files.internal("fonts/McLaren-Regular.ttf"));
-        titleFont = font(titleGenerator, GdxSettingsStyle.TITLE_FONT_SIZE,
-                GdxSettingsStyle.TITLE_FONT_BORDER);
-        titleGenerator.dispose();
-        FreeTypeFontGenerator displayGenerator = new FreeTypeFontGenerator(
-                Gdx.files.internal("fonts/McLaren-Regular.ttf"));
-        headingFont = font(displayGenerator, GdxSettingsStyle.HEADING_FONT_SIZE,
-                GdxSettingsStyle.HEADING_FONT_BORDER);
-        actionFont = font(displayGenerator, GdxSettingsStyle.ACTION_FONT_SIZE,
-                GdxSettingsStyle.ACTION_FONT_BORDER);
-        displayGenerator.dispose();
-        FreeTypeFontGenerator bodyGenerator = new FreeTypeFontGenerator(
-                Gdx.files.internal("fonts/McLaren-Regular.ttf"));
-        uiFont = font(bodyGenerator, GdxSettingsStyle.BODY_FONT_SIZE, 0f);
-        // The volume feedback is a global control, so it must retain the same
-        // high-contrast McLaren face used over the busy table felt on every
-        // frontend surface too (menu, lobby, settings and statistics).
-        volumeOverlayFont = font(bodyGenerator,
-                GdxVolumeOverlayStyle.FONT_SIZE,
-                GdxVolumeOverlayStyle.FONT_BORDER);
-        smallFont = font(bodyGenerator, GdxSettingsStyle.SMALL_FONT_SIZE, 0f);
-        tinyFont = font(bodyGenerator, GdxSettingsStyle.TINY_FONT_SIZE, 0f);
-        versionFont = font(bodyGenerator, GdxProductVersionBrand.FONT_SIZE, 0f);
-        bodyGenerator.dispose();
-        FreeTypeFontGenerator fpsGenerator =
-                GdxMonospaceFonts.generator(false);
-        fpsFont = font(fpsGenerator, 18, 0f);
-        fpsGenerator.dispose();
+        rebuildFonts(GdxAdaptiveFontQuality.current(WIDTH, HEIGHT));
         Gdx.input.setInputProcessor(this);
         Gdx.input.setCursorCatched(false);
         // The frontend owns the music while the startup intro is on screen too.
@@ -799,24 +774,147 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private static BitmapFont font(FreeTypeFontGenerator generator, int size,
             float border) {
-        FreeTypeFontParameter p = new FreeTypeFontParameter();
-        p.size = size * 2;
-        p.color = Color.WHITE;
-        p.borderColor = new Color(0x02050ccc);
-        p.borderWidth = border * 2f;
-        p.hinting = FreeTypeFontGenerator.Hinting.Full;
-        p.kerning = true;
-        p.characters += FRONTEND_EXTRA_FONT_CHARACTERS;
-        p.minFilter = TextureFilter.Linear;
-        p.magFilter = TextureFilter.Linear;
-        BitmapFont result = generator.generateFont(p);
-        result.getData().setScale(0.5f);
-        return result;
+        return font(generator, size, border,
+                GdxAdaptiveFontQuality.current(WIDTH, HEIGHT));
+    }
+
+    private static BitmapFont font(FreeTypeFontGenerator generator, int size,
+            float border, GdxAdaptiveFontQuality.Profile profile) {
+        return GdxAdaptiveFontQuality.generate(generator, size, border,
+                Color.WHITE, new Color(0x02050ccc),
+                FRONTEND_EXTRA_FONT_CHARACTERS,
+                profile);
+    }
+
+    private void rebuildFonts(GdxAdaptiveFontQuality.Profile profile) {
+        BitmapFont nextTitle;
+        BitmapFont nextHeading;
+        BitmapFont nextAction;
+        BitmapFont nextUi;
+        BitmapFont nextVolume;
+        BitmapFont nextSmall;
+        BitmapFont nextTiny;
+        BitmapFont nextVersion;
+        BitmapFont nextFps;
+        FreeTypeFontGenerator generator = new FreeTypeFontGenerator(
+                Gdx.files.internal("fonts/McLaren-Regular.ttf"));
+        try {
+            nextTitle = font(generator, GdxSettingsStyle.TITLE_FONT_SIZE,
+                    GdxSettingsStyle.TITLE_FONT_BORDER, profile);
+            nextHeading = font(generator, GdxSettingsStyle.HEADING_FONT_SIZE,
+                    GdxSettingsStyle.HEADING_FONT_BORDER, profile);
+            nextAction = font(generator, GdxSettingsStyle.ACTION_FONT_SIZE,
+                    GdxSettingsStyle.ACTION_FONT_BORDER, profile);
+            nextUi = font(generator, GdxSettingsStyle.BODY_FONT_SIZE, 0f,
+                    profile);
+            // The volume feedback remains the same high-contrast McLaren face;
+            // only its backing atlas density follows the physical framebuffer.
+            nextVolume = font(generator, GdxVolumeOverlayStyle.FONT_SIZE,
+                    GdxVolumeOverlayStyle.FONT_BORDER, profile);
+            nextSmall = font(generator, GdxSettingsStyle.SMALL_FONT_SIZE, 0f,
+                    profile);
+            nextTiny = font(generator, GdxSettingsStyle.TINY_FONT_SIZE, 0f,
+                    profile);
+            nextVersion = font(generator, GdxProductVersionBrand.FONT_SIZE,
+                    0f, profile);
+        } finally {
+            generator.dispose();
+        }
+        generator = GdxMonospaceFonts.generator(false);
+        try {
+            nextFps = font(generator, 18, 0f, profile);
+        } finally {
+            generator.dispose();
+        }
+        disposeFont(titleFont);
+        disposeFont(headingFont);
+        disposeFont(actionFont);
+        disposeFont(uiFont);
+        disposeFont(volumeOverlayFont);
+        disposeFont(smallFont);
+        disposeFont(tinyFont);
+        disposeFont(versionFont);
+        disposeFont(fpsFont);
+        titleFont = nextTitle;
+        headingFont = nextHeading;
+        actionFont = nextAction;
+        uiFont = nextUi;
+        volumeOverlayFont = nextVolume;
+        smallFont = nextSmall;
+        tinyFont = nextTiny;
+        versionFont = nextVersion;
+        fpsFont = nextFps;
+        fontQualityProfile = profile;
+        pendingFontQualityProfile = null;
+    }
+
+    private static void disposeFont(BitmapFont font) {
+        if (font != null) font.dispose();
+    }
+
+    private void refreshFontQualityIfDue() {
+        if (pendingFontQualityProfile == null
+                || System.nanoTime() < fontQualityRefreshAfterNanos) return;
+        GdxAdaptiveFontQuality.Profile current =
+                GdxAdaptiveFontQuality.current(WIDTH, HEIGHT);
+        pendingFontQualityProfile = null;
+        if (!current.equals(fontQualityProfile)) rebuildFonts(current);
+    }
+
+    /**
+     * Pointer events belong to the currently installed input processor. When
+     * the table hands input back to the persistent frontend, a stationary
+     * cursor does not emit a new mouseMoved event. Reading the device every
+     * frame keeps all hover materials correct across scene hand-offs too.
+     */
+    private void refreshPointerFromDevice() {
+        pointer.set(Gdx.input.getX(), Gdx.input.getY());
+        viewport.unproject(pointer);
+    }
+
+    /** Establishes the frontend's OpenGL baseline after another scene. */
+    private static void prepareFrontendGraphicsState() {
+        Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+        Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);
+        Gdx.gl.glDisable(GL20.GL_CULL_FACE);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+    }
+
+    /**
+     * Surface-local hover animation must not leak into the next page even if
+     * two buttons happen to share a label and geometry.
+     */
+    private void activateSurface(Surface next) {
+        Objects.requireNonNull(next, "next");
+        if (surface != next) hoverAnimations.clear();
+        surface = next;
+        pressedHit = null;
+        pointerSelectionField = null;
+        scrollDrag = ScrollDrag.NONE;
+        clearPointerRepeat();
+        refreshPointerFromDevice();
+    }
+
+    /**
+     * Reclaims the persistent frontend after a different scene owned input and
+     * OpenGL state.  Every table/startup/final-summary hand-off enters through
+     * this boundary so no pressed, hover or clipping state can survive merely
+     * because the pointer remained stationary while the scene changed.
+     */
+    void reclaimAfterExternalScene() {
+        captureFrontendModalInput();
+        hoverAnimations.clear();
+        refreshPointerFromDevice();
+        prepareFrontendGraphicsState();
     }
 
     @Override
     public void render() {
+        refreshFontQualityIfDue();
         frameDelta = Math.min(Gdx.graphics.getDeltaTime(), 1f / 20f);
+        refreshPointerFromDevice();
+        prepareFrontendGraphicsState();
         elapsed += frameDelta;
         statsPickerScroll += (statsPickerScrollTarget - statsPickerScroll)
                 * Math.min(1f, frameDelta * 14f);
@@ -1257,21 +1355,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private boolean hasBlockingFrontendModal() {
-        return startupMenuWaitingForUpdate
-                || settingsRestartNotice || aboutOpen || updatePromptOpen
-                || lobbyConfirmation != null || lobbyPasswordDialog
-                || lobbyImageClearConfirmation
-                || fingerprintDialog != null
-                || lobbyTableTransitionActive(lobbyGameStarting, lobby)
-                || submissions.submitting()
-                || dropdown != Dropdown.NONE
-                || presetDialog != PresetDialog.NONE
-                || blindStructureDialog != BlindStructureDialog.NONE
-                || settingsDiscardConfirmation || voiceNotesOpen
-                || statsConfirmation != StatsConfirmation.NONE
-                || statsPicker != StatsPicker.NONE
-                || statsSyncExclusionsOpen
-                || screenshotDeleteConfirmation;
+        // Visibility is the ownership contract: a lobby/new-game/settings
+        // flag must never shield a different surface merely because its
+        // teardown was delayed. The startup gate is the sole non-visual
+        // blocker and belongs exclusively to the main menu.
+        return (surface == Surface.MENU && startupMenuWaitingForUpdate)
+                || hasVisibleFrontendModal();
     }
 
     void beginStartupReveal() {
@@ -1321,6 +1410,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     void openLobby(LobbySession session) {
         stopLobbyTransientAudio();
         closeLobbySubscription();
+        clearLobbyScreenState();
         lobbySession = Objects.requireNonNull(session, "session");
         lobby = session.snapshot();
         lobbyChatDraft = "";
@@ -1332,8 +1422,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyImageDraft = "";
         lobbyImageHistory = GdxChatImageHistory.read(initialProperties);
         lobbyImageSendAllowedAt = 0f;
-        lobbyEmojiPickerOpen = false;
-        lobbyImageMode = false;
         lobbyVoiceStatus = "";
         lastLobbyMediaSequence = lobby.chat().stream()
                 .mapToLong(LobbyChatMessage::sequence).max().orElse(-1L);
@@ -1345,15 +1433,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
         }
         selectedParticipant = null;
-        lobbyCommandPending = false;
-        lobbyGameStarting = false;
-        lobbyConfirmation = null;
-        fingerprintDialog = null;
-        lobbyPasswordDialog = false;
-        lobbyPasswordDraft = "";
         loadLobbyPublicAddress(lobby.host());
         clearActiveField();
-        surface = Surface.LOBBY;
+        activateSurface(Surface.LOBBY);
         if (connection != null
                 && connection.mode() == NewGameConnectionDraft.Mode.JOIN) {
             playPreferenceSound("misc/yahoo.wav", "sonido_conexion", 0.82f);
@@ -1620,7 +1702,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // summary cannot leave the retained table processor consuming wheel
         // events.
         Gdx.input.setInputProcessor(this);
-        surface = Surface.STATS;
+        activateSurface(Surface.STATS);
         statsGameIndex = -1;
         statsHandIndex = -1;
         statsAllGames = List.of();
@@ -1669,7 +1751,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (returnAction != null) {
             returnAction.run();
         } else {
-            surface = Surface.MENU;
+            activateSurface(Surface.MENU);
             syncMusicForSurface();
         }
     }
@@ -1680,7 +1762,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 ? Surface.LOBBY : Surface.MENU;
         screenshotDeleteConfirmation = false;
         screenshotOperationPending = false;
-        surface = Surface.SCREENSHOTS;
+        activateSurface(Surface.SCREENSHOTS);
         refreshScreenshotFiles(0);
         syncMusicForSurface();
     }
@@ -1693,7 +1775,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         screenshotToast = "";
         screenshotDeleteConfirmation = false;
         screenshotOperationPending = false;
-        surface = screenshotReturnSurface;
+        activateSurface(screenshotReturnSurface);
         syncMusicForSurface();
     }
 
@@ -4531,7 +4613,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         final float displayWidth = digitWidth * 4f + digitGap * 4f
                 + colonWidth;
         final float x = WIDTH - 48f - displayWidth;
-        final float y = 912f;
+        final float y = LOBBY_CLOCK_Y;
 
         outerBox(x - 14f, y - 10f, displayWidth + 28f, digitHeight + 20f,
                 new Color(0x785a20aa), new Color(0x080b0ecc));
@@ -6679,11 +6761,27 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbySession = null;
         lobby = null;
         selectedParticipant = null;
+        clearLobbyScreenState();
+        clearActiveField();
+        // Startup reveal is a one-shot lifecycle. It must never gate a menu
+        // reached after an actual session.
+        menuRevealStartedAt = Float.NaN;
+        activateSurface(Surface.MENU);
+        sessionReturnedToMenu.run();
+    }
+
+    /** Clears every transient whose ownership ends with the lobby screen. */
+    private void clearLobbyScreenState() {
+        lobbyCommandPending = false;
+        lobbyGameStarting = false;
+        lobbyConfirmation = null;
+        fingerprintDialog = null;
         lobbyPasswordDialog = false;
         lobbyPasswordDraft = "";
-        clearActiveField();
-        surface = Surface.MENU;
-        sessionReturnedToMenu.run();
+        lobbyImageClearConfirmation = false;
+        lobbyEmojiPickerOpen = false;
+        lobbyImageMode = false;
+        lobbyImageGalleryContentDelayFrames = 0;
     }
 
     /** Returns only the lobby which owned the table that has just closed. */
@@ -6774,7 +6872,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxAudioDevices.refreshCaptureDevicesAsync();
         clearActiveField();
         pressedHit = null;
-        surface = Surface.SETTINGS;
+        activateSurface(Surface.SETTINGS);
     }
 
     private void closeSettings(boolean save) {
@@ -6854,7 +6952,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsTable = null;
         settingsTableSnapshot = null;
         settingsDiscardConfirmation = false;
-        surface = settingsReturnSurface;
+        activateSurface(settingsReturnSurface);
         syncMusicForSurface();
         settingsRestartNotice = restartNotice;
     }
@@ -8449,7 +8547,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         page = 0;
         clearActiveField();
         historyIndex = -1;
-        surface = Surface.NEW_GAME;
+        activateSurface(Surface.NEW_GAME);
     }
 
     private void drawHeader() {
@@ -9700,7 +9798,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (cause == null) {
             sessionAccepted.accept(session);
         } else if (cause instanceof CancellationException) {
-            surface = Surface.MENU;
+            activateSurface(Surface.MENU);
             clearActiveField();
         } else {
             showToast(submissionError(cause));
@@ -9720,7 +9818,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         autoSubmitRecovery = false;
         connection.setRecoverRequested(false);
         table.setEconomyLocked(false);
-        surface = Surface.MENU;
+        activateSurface(Surface.MENU);
     }
 
     private static Throwable unwrap(Throwable failure) {
@@ -9803,24 +9901,22 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     /** Global counter shared by every non-table GDX surface and modal. */
     private void drawFrontendFpsCounter() {
-        float panelWidth = 206f;
-        float panelHeight = 42f;
-        float x = WIDTH - panelWidth - 20f;
-        float y = HEIGHT - panelHeight - 18f;
+        float panelWidth = GdxFrameRateOverlayStyle.WIDTH;
+        float panelHeight = GdxFrameRateOverlayStyle.HEIGHT;
+        float x = GdxFrameRateOverlayStyle.x(WIDTH, false);
+        float y = GdxFrameRateOverlayStyle.y(HEIGHT);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.88f);
         roundedRect(x, y, panelWidth, panelHeight, 11f);
-        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.86f);
-        shapes.rect(x + 12f, y + 4f, panelWidth - 24f, 3f);
         shapes.end();
         batch.begin();
-        drawTextItem(fittedTextItem(fpsFont,
+        drawFittedCenteredInBox(fpsFont,
                 presentationSettings.frameRateOverlayLabel(
                         Gdx.graphics.getFramesPerSecond()),
-                x + panelWidth / 2f, y + 29f, Color.WHITE, true,
-                panelWidth - 16f, false));
+                x + 8f, y, panelWidth - 16f, panelHeight,
+                Color.WHITE, 1f);
         batch.end();
     }
 
@@ -11358,6 +11454,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     @Override
     public void resize(int width, int height) {
         viewport.update(width, height, true);
+        if (titleFont == null) return;
+        GdxAdaptiveFontQuality.Profile current =
+                GdxAdaptiveFontQuality.current(WIDTH, HEIGHT);
+        if (current.equals(fontQualityProfile)) {
+            pendingFontQualityProfile = null;
+            return;
+        }
+        pendingFontQualityProfile = current;
+        // Window drags emit many resize events. Rebuild once after they settle
+        // so changing monitor or display mode remains hitch-free while moving.
+        fontQualityRefreshAfterNanos = System.nanoTime() + 300_000_000L;
     }
 
     @Override

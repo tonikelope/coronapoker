@@ -2480,6 +2480,8 @@ final class GdxTableViewStateTest {
         assertEquals(hud.actionX(), auto.fold().x, 0.000_001f);
         assertEquals(hud.actionX() + hud.actionWidth(),
                 auto.call().x + auto.call().width, 0.000_001f);
+        assertEquals(auto.fold().width, auto.call().width, 0.000_001f);
+        assertEquals(auto.fold().height, auto.call().height, 0.000_001f);
         assertTrue(auto.fold().x + auto.fold().width < auto.status().x);
         assertTrue(auto.status().x + auto.status().width < auto.call().x);
         assertEquals(1, auto.targetAt(auto.fold().x + 1f, y));
@@ -2487,6 +2489,18 @@ final class GdxTableViewStateTest {
         assertEquals(0, auto.targetAt(
                 auto.status().x + auto.status().width / 2f, y));
         assertEquals(0, auto.targetAt(auto.bounds().x - 1f, y));
+    }
+
+    @Test
+    void selectedAutoActionDimsOnlyItsAlternative() {
+        assertEquals(1f, CoronaPokerGdxTable.preActionVisualAlpha(false, true),
+                0.000_001f);
+        assertEquals(0.38f,
+                CoronaPokerGdxTable.preActionVisualAlpha(true, true),
+                0.000_001f);
+        assertEquals(0.34f,
+                CoronaPokerGdxTable.preActionVisualAlpha(false, false),
+                0.000_001f);
     }
 
     @Test

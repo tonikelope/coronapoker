@@ -30,7 +30,6 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
-import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator.FreeTypeFontParameter;
 import com.badlogic.gdx.graphics.glutils.FrameBuffer;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
@@ -237,8 +236,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float LOCAL_HUD_COUNTER_GAP = 12f;
     private static final float LOCAL_HUD_ACTION_WIDTH = 868f;
     private static final float LOCAL_HUD_PRE_ACTION_GAP = 12f;
-    private static final float LOCAL_HUD_PRE_FOLD_WIDTH = 150f;
-    private static final float LOCAL_HUD_PRE_CALL_WIDTH = 200f;
+    private static final float LOCAL_HUD_PRE_ACTION_WIDTH = 200f;
     private static final float LOCAL_NAME_PLATE_WIDTH = 270f;
     private static final float LOCAL_NAME_PLATE_HEIGHT = 40f;
     private static final float LOCAL_NAME_PLATE_VERTICAL_OFFSET = 12f;
@@ -885,6 +883,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private ShaderProgram avatarShader;
     private ShaderProgram allInFireShader;
     private GdxModalBackdropBlur modalBackdropBlur;
+    private boolean modalBackdropCaptureActive;
     private FrameBuffer disabledHoleCardsLayer;
 
     private BitmapFont uiFont;
@@ -893,6 +892,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private BitmapFont playerNameFont;
     private BitmapFont stackFont;
     private BitmapFont actionFont;
+    private BitmapFont dialogAmountFont;
     private BitmapFont settingsTitleFont;
     private BitmapFont settingsHeadingFont;
     private BitmapFont settingsActionFont;
@@ -915,6 +915,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private BitmapFont gameLogSuitFont;
     private BitmapFont startupPresentationFont;
     private BitmapFont startupPresentationSubtitleFont;
+    private GdxAdaptiveFontQuality.Profile fontQualityProfile;
+    private GdxAdaptiveFontQuality.Profile pendingFontQualityProfile;
+    private long fontQualityRefreshAfterNanos;
 
     private Texture logo;
     private Texture startupPresentationSpadeTexture;
@@ -2492,6 +2495,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             initialiseStars();
             Gdx.input.setCursorCatched(false);
+            fontQualityProfile = GdxAdaptiveFontQuality.current(
+                    BASE_WIDTH, BASE_HEIGHT);
             creationComplete = true;
             return true;
         }
@@ -2643,9 +2648,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     GdxSettingsStyle.BODY_FONT_SIZE, 0f);
             case 16 -> settingsSmallFont = font(creationFontGenerator,
                     GdxSettingsStyle.SMALL_FONT_SIZE, 0f);
-            case 17 -> {
-                settingsTinyFont = font(creationFontGenerator,
-                        GdxSettingsStyle.TINY_FONT_SIZE, 0f);
+            case 17 -> settingsTinyFont = font(creationFontGenerator,
+                    GdxSettingsStyle.TINY_FONT_SIZE, 0f);
+            case 18 -> {
+                dialogAmountFont = font(creationFontGenerator, 50, 0f);
                 disposeCreationFontGenerator();
                 return true;
             }
@@ -2718,6 +2724,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             backgroundMusic.play();
         }
         Gdx.input.setCursorCatched(false);
+        fontQualityProfile = GdxAdaptiveFontQuality.current(
+                BASE_WIDTH, BASE_HEIGHT);
         creationComplete = true;
     }
 
@@ -2924,30 +2932,161 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private static BitmapFont font(FreeTypeFontGenerator generator, int size,
             float border, Color color, Color borderColor) {
-        FreeTypeFontParameter parameter = new FreeTypeFontParameter();
-        float rasterScale = size <= 76 ? 2f : 1f;
-        parameter.size = Math.round(size * rasterScale);
-        parameter.color = color;
-        parameter.borderColor = borderColor;
-        parameter.borderWidth = border * rasterScale;
-        // Text is already generated at its intended UI size. Font mipmaps made
-        // thin strokes choose a softer lower-resolution level under Windows'
-        // fractional DPI scaling (notably 125%). Keep the demo/frontend's
-        // direct linear sampling and ask FreeType to align stems to the pixel
-        // grid. Card textures deliberately retain their separate HQ+mipmap
-        // pipeline because they undergo large animated scale changes.
-        parameter.hinting = FreeTypeFontGenerator.Hinting.Full;
-        parameter.kerning = true;
-        parameter.genMipMaps = false;
-        parameter.minFilter = TextureFilter.Linear;
-        parameter.magFilter = TextureFilter.Linear;
-        parameter.characters = FreeTypeFontGenerator.DEFAULT_CHARS
-                + "\u2660\u2665\u2666\u2663"
+        return font(generator, size, border, color, borderColor,
+                GdxAdaptiveFontQuality.current(BASE_WIDTH, BASE_HEIGHT));
+    }
+
+    private static BitmapFont font(FreeTypeFontGenerator generator, int size,
+            float border, Color color, Color borderColor,
+            GdxAdaptiveFontQuality.Profile profile) {
+        return GdxAdaptiveFontQuality.generate(generator, size, border,
+                color, borderColor,
+                "\u2660\u2665\u2666\u2663"
                 + "\u2500\u2502\u250c\u2510\u2514\u2518\u251c\u2524\u252c\u2534\u253c"
-                + "\u2550\u2551\u2554\u2557\u255a\u255d";
-        BitmapFont result = generator.generateFont(parameter);
-        result.getData().setScale(1f / rasterScale);
-        return result;
+                + "\u2550\u2551\u2554\u2557\u255a\u255d",
+                profile);
+    }
+
+    private static BitmapFont font(FreeTypeFontGenerator generator, int size,
+            float border, GdxAdaptiveFontQuality.Profile profile) {
+        return font(generator, size, border, Color.WHITE,
+                new Color(0x02050ccc), profile);
+    }
+
+    private static BitmapFont replaceFont(BitmapFont previous,
+            BitmapFont replacement) {
+        disposeSafely(previous);
+        return replacement;
+    }
+
+    private void rebuildFonts(GdxAdaptiveFontQuality.Profile profile) {
+        if (startupIntroOnly) {
+            FreeTypeFontGenerator generator = new FreeTypeFontGenerator(
+                    Gdx.files.internal("fonts/McLaren-Regular.ttf"));
+            try {
+                startupPresentationFont = replaceFont(
+                        startupPresentationFont,
+                        font(generator, 58, 0f, profile));
+                startupPresentationSubtitleFont = replaceFont(
+                        startupPresentationSubtitleFont,
+                        font(generator, 40, 0f, profile));
+            } finally {
+                generator.dispose();
+            }
+            fontQualityProfile = profile;
+            pendingFontQualityProfile = null;
+            return;
+        }
+
+        FreeTypeFontGenerator generator = new FreeTypeFontGenerator(
+                Gdx.files.internal("fonts/McLaren-Regular.ttf"));
+        try {
+            uiFont = replaceFont(uiFont, font(generator,
+                    GdxVolumeOverlayStyle.FONT_SIZE,
+                    GdxVolumeOverlayStyle.FONT_BORDER, profile));
+            smallFont = replaceFont(smallFont,
+                    font(generator, 21, 0.8f, profile));
+            versionFont = replaceFont(versionFont, font(generator,
+                    GdxProductVersionBrand.FONT_SIZE, 0f, profile));
+            playerNameFont = replaceFont(playerNameFont,
+                    font(generator, 22, 1.6f, profile));
+            stackFont = replaceFont(stackFont,
+                    font(generator, 24, 0f, profile));
+            actionFont = replaceFont(actionFont,
+                    font(generator, 22, 0f, profile));
+            dialogAmountFont = replaceFont(dialogAmountFont,
+                    font(generator, 50, 0f, profile));
+            seatActionFont = replaceFont(seatActionFont,
+                    font(generator, 32, 0f, profile));
+            localOutcomeFont = replaceFont(localOutcomeFont,
+                    font(generator, 68, 1.15f, Color.WHITE, Color.WHITE,
+                            profile));
+            callCostFont = replaceFont(callCostFont,
+                    font(generator, 160, 6f,
+                            new Color(0f, 0f, 0f, 0.80f),
+                            new Color(1f, 1f, 0f, 0.80f), profile));
+            pauseFont = replaceFont(pauseFont,
+                    font(generator, 76, 0f, PAUSE_RED,
+                            new Color(0x640000cc), profile));
+            finalButtonFont = replaceFont(finalButtonFont,
+                    font(generator, 26, 0.2f, profile));
+            settingsTitleFont = replaceFont(settingsTitleFont,
+                    font(generator, GdxSettingsStyle.TITLE_FONT_SIZE,
+                            GdxSettingsStyle.TITLE_FONT_BORDER, profile));
+            settingsHeadingFont = replaceFont(settingsHeadingFont,
+                    font(generator, GdxSettingsStyle.HEADING_FONT_SIZE,
+                            GdxSettingsStyle.HEADING_FONT_BORDER, profile));
+            settingsActionFont = replaceFont(settingsActionFont,
+                    font(generator, GdxSettingsStyle.ACTION_FONT_SIZE,
+                            GdxSettingsStyle.ACTION_FONT_BORDER, profile));
+            settingsBodyFont = replaceFont(settingsBodyFont,
+                    font(generator, GdxSettingsStyle.BODY_FONT_SIZE, 0f,
+                            profile));
+            settingsSmallFont = replaceFont(settingsSmallFont,
+                    font(generator, GdxSettingsStyle.SMALL_FONT_SIZE, 0f,
+                            profile));
+            settingsTinyFont = replaceFont(settingsTinyFont,
+                    font(generator, GdxSettingsStyle.TINY_FONT_SIZE, 0f,
+                            profile));
+        } finally {
+            generator.dispose();
+        }
+
+        generator = new FreeTypeFontGenerator(
+                Gdx.files.internal("fonts/Montserrat-Bold.ttf"));
+        try {
+            finalTitleFont = replaceFont(finalTitleFont,
+                    font(generator, 66, 0f, profile));
+            finalHeroFont = replaceFont(finalHeroFont,
+                    font(generator, 173, 5.5f, Color.WHITE,
+                            new Color(0x000000ef), profile));
+            finalAmountFont = replaceFont(finalAmountFont,
+                    font(generator, 162, 5.5f, Color.WHITE,
+                            new Color(0x000000ef), profile));
+            finalCardBoldFont = replaceFont(finalCardBoldFont,
+                    font(generator, 20, 0f, profile));
+        } finally {
+            generator.dispose();
+        }
+
+        generator = new FreeTypeFontGenerator(
+                Gdx.files.internal("fonts/Inter-Medium.ttf"));
+        try {
+            finalDetailFont = replaceFont(finalDetailFont,
+                    font(generator, 38, 0f, profile));
+            finalCardFont = replaceFont(finalCardFont,
+                    font(generator, 18, 0f, profile));
+        } finally {
+            generator.dispose();
+        }
+
+        generator = GdxMonospaceFonts.generator(false);
+        try {
+            gameLogFont = replaceFont(gameLogFont,
+                    font(generator, 20, 0f, profile));
+        } finally {
+            generator.dispose();
+        }
+        generator = GdxMonospaceFonts.generator(true);
+        try {
+            gameLogBoldFont = replaceFont(gameLogBoldFont,
+                    font(generator, 20, 0f, profile));
+            gameLogSuitFont = replaceFont(gameLogSuitFont,
+                    font(generator, 28, 0f, profile));
+        } finally {
+            generator.dispose();
+        }
+        fontQualityProfile = profile;
+        pendingFontQualityProfile = null;
+    }
+
+    private void refreshFontQualityIfDue() {
+        if (!creationComplete || pendingFontQualityProfile == null
+                || System.nanoTime() < fontQualityRefreshAfterNanos) return;
+        GdxAdaptiveFontQuality.Profile current =
+                GdxAdaptiveFontQuality.current(BASE_WIDTH, BASE_HEIGHT);
+        pendingFontQualityProfile = null;
+        if (!current.equals(fontQualityProfile)) rebuildFonts(current);
     }
 
     private void initialiseStars() {
@@ -4002,6 +4141,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     @Override
     public void render() {
+        refreshFontQualityIfDue();
         float delta = Math.min(Gdx.graphics.getDeltaTime(), 0.05f);
         if (startupIntroOnly && !introVisibleSignalled) {
             // Window/context creation must never consume the two-second dark
@@ -4066,6 +4206,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (blurModalBackdrop) {
             modalBackdropBlur.beginCapture(Gdx.graphics.getBackBufferWidth(),
                     Gdx.graphics.getBackBufferHeight());
+            modalBackdropCaptureActive = true;
         }
         ScreenUtils.clear(BACKGROUND_BOTTOM, true);
         viewport.apply();
@@ -4118,6 +4259,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (blurModalBackdrop) {
             modalBackdropBlur.endCaptureAndDraw(viewport, batch,
                     camera.combined, BACKGROUND_BOTTOM);
+            modalBackdropCaptureActive = false;
         }
         if (shieldBackgroundPointer) {
             pointer.set(livePointerX, livePointerY);
@@ -6554,10 +6696,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Rectangle bounds = new Rectangle(hud.actionX(), hud.actionY(),
                 hud.actionWidth(), hud.actionHeight());
         Rectangle fold = new Rectangle(bounds.x, bounds.y,
-                LOCAL_HUD_PRE_FOLD_WIDTH, bounds.height);
+                LOCAL_HUD_PRE_ACTION_WIDTH, bounds.height);
         Rectangle call = new Rectangle(
-                bounds.x + bounds.width - LOCAL_HUD_PRE_CALL_WIDTH,
-                bounds.y, LOCAL_HUD_PRE_CALL_WIDTH, bounds.height);
+                bounds.x + bounds.width - LOCAL_HUD_PRE_ACTION_WIDTH,
+                bounds.y, LOCAL_HUD_PRE_ACTION_WIDTH, bounds.height);
         Rectangle status = new Rectangle(
                 fold.x + fold.width + LOCAL_HUD_PRE_ACTION_GAP,
                 bounds.y,
@@ -9265,7 +9407,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
         disabledHoleCardsLayer.end();
 
-        viewport.apply();
+        // FrameBuffer.end() always binds the default backbuffer; it does not
+        // restore an outer framebuffer. During modal composition that would
+        // send every seat/HUD drawn after this disabled-card pass to the real
+        // screen, leaving only the early table layers inside the blur texture.
+        if (modalBackdropCaptureActive) {
+            modalBackdropBlur.resumeCaptureAfterNestedPass();
+        } else {
+            viewport.apply();
+        }
         camera.update();
         batch.setProjectionMatrix(camera.combined);
         Texture layer = disabledHoleCardsLayer.getColorBufferTexture();
@@ -13062,6 +13212,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return armed ? ARMED_ACTION_GREEN : semanticColor;
     }
 
+    static float preActionVisualAlpha(boolean otherSelected,
+            boolean enabled) {
+        if (!enabled) return 0.34f;
+        return otherSelected ? 0.38f : 1f;
+    }
+
     private void drawHudActionContent(String text, float x, float y,
             float width, float height, Color color, float alpha) {
         drawFittedCenteredInBox(actionFont, text,
@@ -13293,7 +13449,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Color localInvestmentText = investedCounterText(localActionKind);
         Color localHudActionColor = localActionSubmissionPending
                 ? liveActionColor(localActionKind) : localHudSemanticColor;
-        Color foldButtonColor = preActions ? SWING_FOLD_BUTTON
+        Color foldButtonColor = preActions ? FOLD_RED
                 : controls.callAction() == ActionControlState.CallAction.CHECK
                 ? SWING_FOLD_DANGER_BUTTON : SWING_FOLD_BUTTON;
         Color checkButtonColor = preActions ? LEGACY_CHECK
@@ -13357,8 +13513,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && pointer.x >= allInX && pointer.x <= allInX + allInWidth
                 && pointer.y >= actionY && pointer.y <= actionY + actionHeight;
         boolean pointerDown = Gdx.input.isButtonPressed(Input.Buttons.LEFT);
-        float foldContentAlpha = foldEnabled ? 1f : 0.34f;
-        float checkContentAlpha = checkEnabled ? 1f : 0.34f;
+        float foldContentAlpha = preActionVisualAlpha(checkSelected,
+                foldEnabled);
+        float checkContentAlpha = preActionVisualAlpha(foldSelected,
+                checkEnabled);
         float betContentAlpha = betEnabled ? 1f : 0.34f;
         float allInContentAlpha = allInEnabled ? 1f : 0.34f;
         boolean danger = localHudDangerActive(localTurn,
@@ -13556,13 +13714,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         preFold.width, preFold.height,
                         foldVisualColor, foldHover && foldEnabled,
                         foldSelected, pointerDown && foldHover && foldEnabled,
-                        foldEnabled);
+                        foldEnabled, foldEnabled ? 0.92f : 0.28f,
+                        foldContentAlpha);
                 drawHudActionSurface(preCall.x, preCall.y,
                         preCall.width, preCall.height,
                         checkVisualColor, checkHover && checkEnabled,
                         checkSelected,
                         pointerDown && checkHover && checkEnabled,
-                        checkEnabled);
+                        checkEnabled, checkEnabled ? 0.92f : 0.28f,
+                        checkContentAlpha);
             } else {
                 drawHudActionSurface(foldX, actionY, foldWidth, actionHeight,
                         foldVisualColor, foldHover && foldEnabled,
@@ -16591,7 +16751,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 drawFittedCenteredInBox(seatActionFont, "-",
                         panelX + panelW / 2f - 190f, panelY + 155f,
                         72f, 64f, Color.WHITE, 1f);
-                drawFittedCenteredInBox(uiFont, amountText,
+                drawFittedCenteredInBox(dialog.isRebuy()
+                                ? dialogAmountFont : uiFont, amountText,
                         panelX + panelW / 2f - 110f, panelY + 155f,
                         220f, 64f, POT_GOLD,
                         dialog.waitingForExternalClose() ? 0.52f : 1f);
@@ -21083,24 +21244,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawFpsCounter(float width, float height) {
-        float panelWidth = 206f;
-        float panelHeight = 42f;
-        float x = width - panelWidth - (finalSummary == null ? 20f : 86f);
-        float y = height - panelHeight - 18f;
+        float panelWidth = GdxFrameRateOverlayStyle.WIDTH;
+        float panelHeight = GdxFrameRateOverlayStyle.HEIGHT;
+        float x = GdxFrameRateOverlayStyle.x(width, finalSummary != null);
+        float y = GdxFrameRateOverlayStyle.y(height);
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.88f);
         roundedRect(x, y, panelWidth, panelHeight, 11f);
-        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.86f);
-        shapes.rect(x + 12f, y + 4f, panelWidth - 24f, 3f);
         shapes.end();
 
         batch.begin();
         drawFittedCenteredInBox(gameLogFont,
                 presentationSettings.frameRateOverlayLabel(
                         Gdx.graphics.getFramesPerSecond()),
-                x + 10f, y + 5f, panelWidth - 20f, panelHeight - 10f,
+                x + 10f, y, panelWidth - 20f, panelHeight,
                 Color.WHITE, 1f);
         batch.end();
     }
@@ -21350,6 +21509,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     @Override
     public void resize(int width, int height) {
         viewport.update(width, height, true);
+        if (!creationComplete || (startupPresentationFont == null
+                && uiFont == null)) return;
+        GdxAdaptiveFontQuality.Profile current =
+                GdxAdaptiveFontQuality.current(BASE_WIDTH, BASE_HEIGHT);
+        if (current.equals(fontQualityProfile)) {
+            pendingFontQualityProfile = null;
+            return;
+        }
+        pendingFontQualityProfile = current;
+        fontQualityRefreshAfterNanos = System.nanoTime() + 300_000_000L;
     }
 
     /** Releases whichever creation phases completed before the scene opened. */
@@ -21540,6 +21709,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         playerNameFont.dispose();
         stackFont.dispose();
         actionFont.dispose();
+        dialogAmountFont.dispose();
         settingsTitleFont.dispose();
         settingsHeadingFont.dispose();
         settingsActionFont.dispose();

@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker.gdx;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -21,6 +22,7 @@ final class GdxFramePacingWiringTest {
                 "config.useVsync(presentationSettings.vsyncEnabled())"));
         assertTrue(source.contains(
                 "config.setForegroundFPS(presentationSettings.effectiveFrameRateLimit("));
+        assertTrue(source.contains("config.setIdleFPS(30)"));
         assertFalse(source.contains("fastestDisplayMode()"),
                 "initial pacing must describe the monitor that owns the window");
     }
@@ -48,6 +50,32 @@ final class GdxFramePacingWiringTest {
         String vsync = source.substring(vsyncStart, nextMethod);
         assertTrue(vsync.contains("appliedVsync != selected"));
         assertTrue(vsync.contains("Gdx.graphics.setVSync(selected)"));
+
+        int renderStart = source.indexOf("public void render()");
+        int sceneSelection = source.indexOf(
+                "CoronaPokerGdxTable intro = startupIntro", renderStart);
+        int pacingCall = source.indexOf(
+                "updateForegroundFrameRate(Math.min(", renderStart);
+        assertTrue(renderStart >= 0 && pacingCall > renderStart
+                && sceneSelection > pacingCall,
+                "pacing must be applied before selecting any active scene");
+        assertTrue(source.contains("public void resize(int width, int height)"
+                + " {\n        // A window can cross"));
+        assertTrue(source.contains("applySelectedVsync(true);"));
+        assertEquals(1, occurrences(source,
+                "Gdx.graphics.setForegroundFPS(target)"));
+        assertEquals(1, occurrences(source,
+                "Gdx.graphics.setVSync(selected)"));
+    }
+
+    private static int occurrences(String source, String token) {
+        int count = 0;
+        int offset = 0;
+        while ((offset = source.indexOf(token, offset)) >= 0) {
+            count++;
+            offset += token.length();
+        }
+        return count;
     }
 
     private static String source(String file) throws Exception {

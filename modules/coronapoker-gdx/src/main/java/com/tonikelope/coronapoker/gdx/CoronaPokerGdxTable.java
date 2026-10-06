@@ -281,10 +281,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float RIVAL_LEFT_CARD_SHIFT = 16f;
     private static final float REMOTE_CHAT_MAX_WIDTH = 390f;
     private static final float REMOTE_CHAT_VIEWPORT_MARGIN = 6f;
-    private static final int UI_NONE = 0;
-    private static final int UI_SETTINGS = 2;
+    static final int UI_NONE = 0;
+    static final int UI_SETTINGS = 2;
     private static final int UI_GAME_LOG = 3;
-    private static final int UI_CHAT = 4;
+    static final int UI_CHAT = 4;
     private static final int UI_CARD_VIEWER = 5;
     private static final int UI_SCREENSHOTS = 6;
     private static final float UI_FADE_SECONDS = 0.16f;
@@ -4160,12 +4160,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean hasBlurredTableModal(boolean preparationModal) {
-        return preparationModal || uiLayer != UI_NONE
+        return preparationModal || uiLayerUsesBackdropBlur(uiLayer,
+                chatImageMode)
                 || blocksTableUtilities(activeDialog)
                 || tableIdentityDialog != null
                 || isClientTransportReconnecting()
                 || recoveryStopBarrier != null && !intro
                 || terminationRequested && finalSummary == null && !intro;
+    }
+
+    static boolean uiLayerUsesBackdropBlur(int layer,
+            boolean imageGalleryMode) {
+        // Quick chat is a lightweight, deliberately translucent table tool,
+        // not a modal dialog. The image gallery uses the same UI layer but is
+        // a real blocking dialog and therefore keeps the shared backdrop.
+        return layer != UI_NONE
+                && (layer != UI_CHAT || imageGalleryMode);
     }
 
     private void renderStartupIntroFrame(float delta) {

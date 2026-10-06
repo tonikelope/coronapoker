@@ -850,6 +850,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         updateLobbyVoiceRecording();
         audioPreview.update(frameDelta);
         syncMusicForSurface();
+        boolean settingsRootModal = isSettingsRootModal();
+        boolean settingsLobbyBackdrop = settingsRootModal
+                && settingsReturnSurface == Surface.LOBBY && lobby != null;
         boolean blurModalBackdrop = hasVisibleFrontendModal();
         if (blurModalBackdrop) {
             modalBackdropBlur.beginCapture(Gdx.graphics.getBackBufferWidth(),
@@ -897,7 +900,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // maps were already replaced for the foreground pass, but the covered
         // page was still painted first with the live pointer and therefore
         // showed hover states through the dialog.
-        boolean shieldBackgroundPointer = hasBlockingFrontendModal();
+        boolean shieldBackgroundPointer = settingsRootModal
+                || hasBlockingFrontendModal();
         float livePointerX = pointer.x;
         float livePointerY = pointer.y;
         if (shieldBackgroundPointer) pointer.set(-10_000f, -10_000f);
@@ -913,7 +917,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } else if (surface == Surface.LOBBY) {
             drawLobby();
         } else if (surface == Surface.SETTINGS) {
-            drawSettingsScreen();
+            if (settingsRootModal) {
+                drawSettingsBackdropSurface();
+            } else {
+                // A child confirmation belongs above Settings, so Settings
+                // itself is the scene captured and blurred in this case.
+                drawSettingsScreen();
+            }
         } else if (surface == Surface.STATS) {
             drawStatsScreen();
         } else if (surface == Surface.SCREENSHOTS) {
@@ -963,7 +973,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
         drawSettingsRowsTextLayer();
         drawStatsChartTextLayer();
-        drawLobbyChatLayer();
+        drawLobbyChatLayer(settingsLobbyBackdrop);
         drawSettingsDebugLayer();
 
         drawStartupMenuReveal();
@@ -973,7 +983,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     viewport.getCamera().combined, BACKGROUND);
         }
 
-        if (dropdown == Dropdown.NONE && !hasBlockingFrontendModal()) {
+        if (dropdown == Dropdown.NONE && !settingsRootModal
+                && !hasBlockingFrontendModal()) {
             drawTooltipTopLayer();
         } else {
             tooltipDelay.clear();
@@ -984,6 +995,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // drawLobby would otherwise let the lobby chat glyphs bleed over it.
         if (hasVisibleFrontendModal()) {
             texts.clear();
+            if (settingsRootModal) {
+                uiImages.clear();
+                settingsRowTexts.clear();
+                settingsDebugTexts.clear();
+                settingsRowsClip.set(0f, 0f, 0f, 0f);
+                settingsDebugViewport.set(0f, 0f, 0f, 0f);
+            }
             // A visual modal must also own the complete interaction map.
             // Keeping the underlying page hits allowed invisible lobby/menu
             // controls to fire through confirmations and the table-loading
@@ -1011,6 +1029,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 drawBlindStructureDialog();
             } else if (voiceNotesOpen) {
                 drawVoiceNotesDialog();
+            } else if (settingsRootModal) {
+                drawSettingsScreen();
             } else if (surface == Surface.SETTINGS) {
                 drawSettingsDiscardConfirmation();
             } else if (surface == Surface.NEW_GAME) {
@@ -1046,7 +1066,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             shapes.end();
             batch.begin();
-            if (aboutOpen && handGeneratorOpen) {
+            if (settingsRootModal) {
+                batch.setColor(Color.WHITE);
+                for (UiImageItem item : uiImages) {
+                    batch.setColor(item.tint);
+                    batch.draw(item.texture, item.x, item.y,
+                            item.width, item.height);
+                }
+                batch.setColor(Color.WHITE);
+            } else if (aboutOpen && handGeneratorOpen) {
                 drawHandGeneratorCards();
             } else if (aboutOpen && aboutEasterEggTexture == null) {
                 float logoHeight = ABOUT_LOGO_WIDTH * logo.getHeight()
@@ -1098,6 +1126,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 drawTextItem(item);
             }
             batch.end();
+            if (settingsRootModal) {
+                drawSettingsRowsTextLayer();
+                drawSettingsDebugLayer();
+            }
         }
         if (shouldDrawEditMenu()) drawEditMenuTopLayer();
         // Transient feedback must be the final composited layer. Drawing only
@@ -1120,9 +1152,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         || lobbyImageClearConfirmation
                         || lobbyTableTransitionActive(lobbyGameStarting, lobby)
                         || fingerprintDialog != null))
-                || (surface == Surface.SETTINGS
-                && (settingsDiscardConfirmation || voiceNotesOpen
-                        || blindStructureDialog != BlindStructureDialog.NONE))
+                || surface == Surface.SETTINGS
                 || (surface == Surface.NEW_GAME
                 && (submissions.submitting() || dropdown != Dropdown.NONE
                         || presetDialog != PresetDialog.NONE
@@ -1133,6 +1163,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         || statsSyncExclusionsOpen))
                 || (surface == Surface.SCREENSHOTS
                         && screenshotDeleteConfirmation);
+    }
+
+    private boolean isSettingsRootModal() {
+        return surface == Surface.SETTINGS
+                && !settingsDiscardConfirmation
+                && !voiceNotesOpen
+                && blindStructureDialog == BlindStructureDialog.NONE;
+    }
+
+    private void drawSettingsBackdropSurface() {
+        if (settingsReturnSurface == Surface.LOBBY && lobby != null) {
+            drawLobby();
+        } else if (renderMainMenuContent(false, false)) {
+            drawMainMenu();
+        }
     }
 
     private boolean hasBlockingFrontendModal() {
@@ -4851,8 +4896,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 Math.max(0f, maximum));
     }
 
-    private void drawLobbyChatLayer() {
-        if (!shouldDrawLobbyChatLayer(surface == Surface.LOBBY,
+    private void drawLobbyChatLayer(boolean settingsLobbyBackdrop) {
+        if (!shouldDrawLobbyChatLayer(surface == Surface.LOBBY
+                || settingsLobbyBackdrop,
                 lobbyImageMode, lobbyEmojiPickerOpen,
                 lobbyChatViewport.width, lobbyChatViewport.height)) return;
         int screenX = Math.round(viewport.getScreenX()

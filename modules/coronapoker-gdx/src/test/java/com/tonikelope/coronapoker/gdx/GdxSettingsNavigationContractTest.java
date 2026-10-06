@@ -96,4 +96,16 @@ final class GdxSettingsNavigationContractTest {
                 new GdxTableDialog(GdxTableDialog.Kind.CONFIRM,
                         "CONFIRMAR", GameDialogSink.Icon.NONE, 720, 0)));
     }
+
+    @Test
+    void quickChatRemainsAPlainTablePanelWhileImageGalleryIsModal() {
+        assertFalse(CoronaPokerGdxTable.uiLayerUsesBackdropBlur(
+                CoronaPokerGdxTable.UI_NONE, false));
+        assertFalse(CoronaPokerGdxTable.uiLayerUsesBackdropBlur(
+                CoronaPokerGdxTable.UI_CHAT, false));
+        assertTrue(CoronaPokerGdxTable.uiLayerUsesBackdropBlur(
+                CoronaPokerGdxTable.UI_CHAT, true));
+        assertTrue(CoronaPokerGdxTable.uiLayerUsesBackdropBlur(
+                CoronaPokerGdxTable.UI_SETTINGS, false));
+    }
 }

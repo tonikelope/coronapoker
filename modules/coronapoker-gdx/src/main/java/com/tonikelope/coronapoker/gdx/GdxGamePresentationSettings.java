@@ -25,6 +25,8 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     static final List<String> FELTS = List.of(
             "verde", "azul", "rojo", "negro", "madera");
     private static final List<Integer> MSAA_LEVELS = List.of(0, 2, 4, 8);
+    private static final List<Integer> FRAME_RATE_LIMITS = List.of(
+            60, 120, 144, 240, 0);
     private final PreferencesService preferences;
     private final Properties properties;
     private final ModMediaCatalog modMedia;
@@ -322,6 +324,35 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         int selected = MSAA_LEVELS.get(Math.floorMod(current
                 + Integer.signum(direction), MSAA_LEVELS.size()));
         properties.setProperty("gdx_msaa_samples", Integer.toString(selected));
+        if (persist) preferences.saveDeferred();
+        return selected;
+    }
+    int requestedFrameRateLimit() {
+        int configured = integer("gdx_fps_limit", 120);
+        return FRAME_RATE_LIMITS.contains(configured) ? configured : 120;
+    }
+    int effectiveFrameRateLimit(int monitorRefreshRate) {
+        int monitorRate = monitorRefreshRate > 0 ? monitorRefreshRate : 60;
+        int configured = requestedFrameRateLimit();
+        return configured == 0 ? monitorRate : Math.min(configured, monitorRate);
+    }
+    int selectNextFrameRateLimit() {
+        return selectNextFrameRateLimit(true);
+    }
+    int selectNextFrameRateLimit(boolean persist) {
+        return adjustFrameRateLimit(1, persist);
+    }
+    int selectPreviousFrameRateLimit() {
+        return selectPreviousFrameRateLimit(true);
+    }
+    int selectPreviousFrameRateLimit(boolean persist) {
+        return adjustFrameRateLimit(-1, persist);
+    }
+    private int adjustFrameRateLimit(int direction, boolean persist) {
+        int current = FRAME_RATE_LIMITS.indexOf(requestedFrameRateLimit());
+        int selected = FRAME_RATE_LIMITS.get(Math.floorMod(current
+                + Integer.signum(direction), FRAME_RATE_LIMITS.size()));
+        properties.setProperty("gdx_fps_limit", Integer.toString(selected));
         if (persist) preferences.saveDeferred();
         return selected;
     }

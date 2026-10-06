@@ -83,6 +83,19 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.performanceImpact(
                         "gdx_msaa_samples", properties));
 
+        properties.setProperty("gdx_fps_limit", "60");
+        assertEquals(GdxSettingsContract.PerformanceImpact.LOW,
+                GdxSettingsContract.performanceImpact(
+                        "gdx_fps_limit", properties));
+        properties.setProperty("gdx_fps_limit", "120");
+        assertEquals(GdxSettingsContract.PerformanceImpact.MEDIUM,
+                GdxSettingsContract.performanceImpact(
+                        "gdx_fps_limit", properties));
+        properties.setProperty("gdx_fps_limit", "0");
+        assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
+                GdxSettingsContract.performanceImpact(
+                        "gdx_fps_limit", properties));
+
         properties.setProperty("card_flip_zoom", "100");
         assertEquals(GdxSettingsContract.PerformanceImpact.LOW,
                 GdxSettingsContract.performanceImpact(
@@ -556,6 +569,7 @@ final class GdxSettingsContractTest {
         properties.setProperty("card_flip_duration", "1100");
         properties.setProperty("gdx_window_mode", "windowed");
         properties.setProperty("gdx_msaa_samples", "0");
+        properties.setProperty("gdx_fps_limit", "240");
         properties.setProperty("gdx_show_fps", "false");
 
         GdxSettingsContract.restoreAppearanceDefaults(properties, false);
@@ -573,10 +587,12 @@ final class GdxSettingsContractTest {
         assertEquals("620", properties.getProperty("card_flip_duration"));
         assertEquals("windowed", properties.getProperty("gdx_window_mode"));
         assertEquals("0", properties.getProperty("gdx_msaa_samples"));
+        assertEquals("120", properties.getProperty("gdx_fps_limit"));
 
         GdxSettingsContract.restoreAppearanceDefaults(properties, true);
         assertEquals("borderless", properties.getProperty("gdx_window_mode"));
         assertEquals("4", properties.getProperty("gdx_msaa_samples"));
+        assertEquals("120", properties.getProperty("gdx_fps_limit"));
     }
 
     @Test

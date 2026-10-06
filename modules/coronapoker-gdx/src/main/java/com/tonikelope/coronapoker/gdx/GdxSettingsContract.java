@@ -18,6 +18,7 @@ import java.util.Properties;
 final class GdxSettingsContract {
 
     static final float DEFAULT_MASTER_VOLUME = 0.8f;
+    static final int APPEARANCE_PRIMARY_ROW_COUNT = 8;
     static final String CHAT_GAME_NOTIFICATIONS_KEY =
             "chat_game_notifications";
     static final String AUDIO_MIC_AUTO_GAIN_KEY = "audio_mic_auto_gain";
@@ -421,7 +422,8 @@ final class GdxSettingsContract {
             "card_flip_zoom", "reparto_velocidad", "anim_calidad",
             "swap_velocidad", "swap_arco", "downgrade_velocidad",
             "zoom_level", "vista_compacta", "auto_zoom", "dialog_zoom",
-            "auto_fullscreen", "gdx_window_mode", "gdx_msaa_samples",
+            "auto_fullscreen", "gdx_window_mode", "gdx_fps_limit",
+            "gdx_msaa_samples",
             "confirmar_todo",
             "auto_action_buttons", "auto_action_persist",
             "modo_auto_confirm", "auto_call_enabled", "auto_call_max");
@@ -455,6 +457,12 @@ final class GdxSettingsContract {
                 yield samples <= 0 ? PerformanceImpact.LOW
                         : samples <= 2 ? PerformanceImpact.MEDIUM
                                 : PerformanceImpact.HIGH;
+            }
+            case "gdx_fps_limit" -> {
+                int limit = integer(values, key, 120);
+                yield limit == 0 || limit >= 240 ? PerformanceImpact.HIGH
+                        : limit >= 120 ? PerformanceImpact.MEDIUM
+                                : PerformanceImpact.LOW;
             }
             default -> PerformanceImpact.NONE;
         };
@@ -666,6 +674,7 @@ final class GdxSettingsContract {
         properties.setProperty("trasera", "default");
         properties.setProperty("color_tapete", "verde");
         properties.setProperty("nivel_luz", "50");
+        properties.setProperty("gdx_fps_limit", "120");
         for (TogglePage page : APPEARANCE_PAGES) {
             for (ToggleOption option : page.options()) {
                 properties.setProperty(option.key(),

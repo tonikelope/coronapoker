@@ -7273,7 +7273,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 0, pages - 1);
         float rowY = y + h - GdxSettingsLayout.CONTENT_ROW_TOP_INSET;
         if (settingsAppearancePage == 0) {
-            float rowStride = GdxSettingsLayout.rowStride(h, 7);
+            float rowStride = GdxSettingsLayout.rowStride(h,
+                    GdxSettingsContract.APPEARANCE_PRIMARY_ROW_COUNT);
             settingsStepper(x + 34f, rowY, w - 68f, 70f,
                     uppercase(gameText.translate("gdx.settings.row.deck")),
                     GdxSettingsContract.markDefault(
@@ -7321,15 +7322,27 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             settingsStepper(x + 34f, rowY - 5f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
+                            "gdx.settings.row.fps_limit")),
+                    GdxSettingsContract.markDefault(frameRateLimitSettingLabel(),
+                            "120".equals(initialProperties.getProperty(
+                                    "gdx_fps_limit", "120"))),
+                    this::selectPreviousFrameRateLimit,
+                    this::selectNextFrameRateLimit);
+            performanceTooltip(new Rectangle(x + 34f,
+                    rowY - 5f * rowStride, w - 68f, 70f),
+                    "gdx_fps_limit");
+            settingsStepper(x + 34f, rowY - 6f * rowStride, w - 68f,
+                    GdxSettingsLayout.ROW_HEIGHT,
+                    uppercase(gameText.translate(
                             "gdx.settings.row.antialiasing")),
                     GdxSettingsContract.markDefault(msaaSettingLabel(),
                             "4".equals(initialProperties.getProperty(
                                     "gdx_msaa_samples", "4"))),
                     this::selectPreviousMsaa, this::selectNextMsaa);
             performanceTooltip(new Rectangle(x + 34f,
-                    rowY - 5f * rowStride, w - 68f, 70f),
+                    rowY - 6f * rowStride, w - 68f, 70f),
                     "gdx_msaa_samples");
-            settingsInfoRow(x + 34f, rowY - 6f * rowStride, w - 68f,
+            settingsInfoRow(x + 34f, rowY - 7f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.settings.row.gpu_renderer")),
@@ -8171,6 +8184,22 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return GdxSettingsContract.msaaStatusLabel(
                 presentationSettings.requestedMsaaSamples(),
                 presentationSettings.actualMsaaSamples(), gameText);
+    }
+
+    private String frameRateLimitSettingLabel() {
+        int limit = presentationSettings.requestedFrameRateLimit();
+        return limit == 0
+                ? uppercase(gameText.translate(
+                        "gdx.settings.value.monitor_refresh"))
+                : limit + " FPS";
+    }
+
+    private void selectNextFrameRateLimit() {
+        presentationSettings.selectNextFrameRateLimit(false);
+    }
+
+    private void selectPreviousFrameRateLimit() {
+        presentationSettings.selectPreviousFrameRateLimit(false);
     }
 
     private void selectNextMsaa() {

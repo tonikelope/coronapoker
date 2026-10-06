@@ -98,13 +98,11 @@ public final class GdxLauncher {
         // --silent starts the shared master control muted, but keeps the audio
         // backend available so the in-game volume button can re-enable it.
         config.useVsync(true);
-        // Exclusive fullscreen uses pure VSync, preserving the approved visual
-        // reference's frame-pacing target without importing any table logic.
-        // On mixed-refresh Windows desktops, windowed OpenGL may synchronize to
-        // the primary output even when the window starts on another monitor;
-        // use that selected monitor's own refresh as the non-fixed fallback.
-        config.setForegroundFPS(windowMode == GdxWindowMode.EXCLUSIVE
-                ? 0 : display.refreshRate);
+        // VSync prevents tearing while the independent foreground cap controls
+        // how much work the game requests.  "Monitor refresh" resolves to this
+        // initial display rate; the shell follows later monitor changes live.
+        config.setForegroundFPS(presentationSettings.effectiveFrameRateLimit(
+                display.refreshRate));
         config.setIdleFPS(30);
         config.setBackBufferConfig(8, 8, 8, 8, 24, 8,
                 presentationSettings.requestedMsaaSamples());

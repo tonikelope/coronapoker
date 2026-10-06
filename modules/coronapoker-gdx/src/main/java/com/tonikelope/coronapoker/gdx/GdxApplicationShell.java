@@ -3,6 +3,8 @@ package com.tonikelope.coronapoker.gdx;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.Graphics.DisplayMode;
+import com.badlogic.gdx.Graphics.Monitor;
 import com.badlogic.gdx.utils.BufferUtils;
 import com.tonikelope.coronapoker.core.CoronaPokerApplication;
 import com.tonikelope.coronapoker.core.DatabaseService;
@@ -50,6 +52,9 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private PendingTableOpen pendingTableOpen;
     private CoronaPokerGdxTable suspendedFinalTable;
     private boolean splashCloseScheduled;
+    private float frameRateMonitorPollClock = 1f;
+    private int frameRateMonitorRefresh;
+    private int appliedForegroundFps = -1;
 
     GdxApplicationShell(int refreshRate, CoronaPokerApplication application,
             NewGameSessionGateway sessionGateway, GdxGameLogSink gameLog,
@@ -57,6 +62,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
             GdxGameText gameText, Consumer<String> languageChanged,
             IdentityTrustStore identityTrust) {
         this.refreshRate = refreshRate;
+        this.frameRateMonitorRefresh = refreshRate > 0 ? refreshRate : 60;
         this.application = Objects.requireNonNull(application, "application");
         this.sessionGateway = Objects.requireNonNull(sessionGateway, "sessionGateway");
         this.gameLog = Objects.requireNonNull(gameLog, "gameLog");
@@ -128,6 +134,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
         // monitor exist. On mixed-refresh Windows desktops the configuration
         // flag alone can otherwise remain tied to the primary display.
         Gdx.graphics.setVSync(true);
+        updateForegroundFrameRate(0f);
         verifyGrantedBackBufferQuality();
         synchronizeScreenWakeLock();
     }
@@ -196,6 +203,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
     @Override
     public void render() {
         synchronizeScreenWakeLock();
+        updateForegroundFrameRate(Math.min(Gdx.graphics.getDeltaTime(), 0.1f));
         if (preferences != null) {
             boolean topologyChanged = outputHotplugMonitor.update(
                     preferences.properties(),
@@ -226,6 +234,26 @@ final class GdxApplicationShell extends ApplicationAdapter {
             current.render();
         }
         scheduleJvmSplashClose();
+    }
+
+    /** Applies the selected cap live and follows the window between monitors. */
+    private void updateForegroundFrameRate(float delta) {
+        frameRateMonitorPollClock += Math.max(0f, delta);
+        if (frameRateMonitorPollClock >= 0.35f) {
+            frameRateMonitorPollClock = 0f;
+            Monitor monitor = Gdx.graphics.getMonitor();
+            DisplayMode mode = monitor == null ? null
+                    : Gdx.graphics.getDisplayMode(monitor);
+            if (monitor != null && mode != null && mode.refreshRate > 0) {
+                frameRateMonitorRefresh = mode.refreshRate;
+            }
+        }
+        int target = presentationSettings.effectiveFrameRateLimit(
+                frameRateMonitorRefresh);
+        if (target != appliedForegroundFps) {
+            Gdx.graphics.setForegroundFPS(target);
+            appliedForegroundFps = target;
+        }
     }
 
     boolean audioOutputAvailable() {

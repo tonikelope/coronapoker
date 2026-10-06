@@ -262,6 +262,31 @@ final class GdxGamePresentationSettingsTest {
     }
 
     @Test
+    void frameRateLimitDefaultsTo120CyclesAndRespectsMonitorRefresh(
+            @TempDir Path temporary) throws Exception {
+        PreferencesService preferences = new PreferencesService(
+                temporary.resolve("coronapoker.properties"));
+        preferences.start();
+        try {
+            GdxGamePresentationSettings settings =
+                    new GdxGamePresentationSettings(preferences);
+
+            assertEquals(120, settings.requestedFrameRateLimit());
+            assertEquals(144, settings.selectNextFrameRateLimit(false));
+            assertEquals(144, settings.effectiveFrameRateLimit(240));
+            assertEquals(60, settings.effectiveFrameRateLimit(60));
+            assertEquals(240, settings.selectNextFrameRateLimit(false));
+            assertEquals(0, settings.selectNextFrameRateLimit(false));
+            assertEquals(240, settings.effectiveFrameRateLimit(240));
+            assertEquals(60, settings.effectiveFrameRateLimit(0));
+            preferences.properties().setProperty("gdx_fps_limit", "999");
+            assertEquals(120, settings.requestedFrameRateLimit());
+        } finally {
+            preferences.close();
+        }
+    }
+
+    @Test
     void settingsPreviewChangesRuntimePropertiesWithoutWritingToDisk(
             @TempDir Path temporary) throws Exception {
         Path file = temporary.resolve("coronapoker.properties");

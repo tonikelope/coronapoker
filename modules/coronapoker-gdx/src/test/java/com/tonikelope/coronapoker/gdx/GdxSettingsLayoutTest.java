@@ -225,6 +225,25 @@ final class GdxSettingsLayoutTest {
     }
 
     @Test
+    void primaryAppearancePageFitsAllEightRowsInsideTheContentPanel() {
+        float contentHeight = GdxSettingsLayout.frame(
+                1920f, 1080f, 4,
+                GdxSettingsContract.APPEARANCE_PAGES.size() + 1)
+                .content().height;
+        float firstRowY = contentHeight
+                - GdxSettingsLayout.CONTENT_ROW_TOP_INSET;
+        float stride = GdxSettingsLayout.rowStride(contentHeight,
+                GdxSettingsContract.APPEARANCE_PRIMARY_ROW_COUNT);
+        float lastRowY = firstRowY - stride
+                * (GdxSettingsContract.APPEARANCE_PRIMARY_ROW_COUNT - 1);
+
+        assertTrue(stride >= 62f,
+                "dense settings rows must retain a usable hit target");
+        assertEquals(8f, lastRowY, 0.01f,
+                "the renderer information row must remain inside content");
+    }
+
+    @Test
     void childRowsAreInsetOnlyFromTheLeft() {
         Rectangle parent = GdxSettingsLayout.optionRow(
                 100f, 500f, 1_000f, false);

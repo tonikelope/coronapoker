@@ -6769,6 +6769,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 presentationSettings.actualMsaaSamples(), gameText);
     }
 
+    private String tableFrameRateLimitSettingLabel() {
+        if (presentationSettings == null) {
+            return uppercase(gameText.translate(
+                    "gdx.settings.value.unavailable"));
+        }
+        int limit = presentationSettings.requestedFrameRateLimit();
+        return limit == 0
+                ? uppercase(gameText.translate(
+                        "gdx.settings.value.monitor_refresh"))
+                : limit + " FPS";
+    }
+
     private void updateStars(float delta) {
         float width = viewport == null ? BASE_WIDTH : viewport.getWorldWidth();
         float height = viewport == null ? BASE_HEIGHT : viewport.getWorldHeight();
@@ -14353,25 +14365,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         } else if (contentPage == 1) {
             if (settingsAppearancePage == 0) {
+                float rowStride = GdxSettingsLayout.rowStride(content.height,
+                        GdxSettingsContract.APPEARANCE_PRIMARY_ROW_COUNT);
                 if (contains(x, y, contentX, firstRowY, rowW, 68f)) {
                     adjustTableDeck(settingsStepperDirection(x, contentX,
                             rowW));
                     return;
                 }
                 if (presentationSettings != null && contains(x, y,
-                        contentX, firstRowY - 70f, rowW, 68f)) {
+                        contentX, firstRowY - rowStride, rowW, 68f)) {
                     adjustTableCardBack(settingsStepperDirection(x,
                             contentX, rowW));
                     return;
                 }
                 if (presentationSettings != null && contains(x, y,
-                        contentX, firstRowY - 140f, rowW, 68f)) {
+                        contentX, firstRowY - 2f * rowStride, rowW, 68f)) {
                     int direction = settingsStepperDirection(x, contentX,
                             rowW);
                     adjustTableFelt(direction);
                     return;
                 }
-                if (contains(x, y, contentX, firstRowY - 210f,
+                if (contains(x, y, contentX, firstRowY - 3f * rowStride,
                         rowW, 68f)) {
                     int direction = settingsStepperDirection(x, contentX,
                             rowW);
@@ -14381,7 +14395,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             direction);
                     return;
                 }
-                if (contains(x, y, contentX, firstRowY - 280f,
+                if (contains(x, y, contentX, firstRowY - 4f * rowStride,
                         rowW, 68f)) {
                     int direction = settingsStepperDirection(x, contentX,
                             rowW);
@@ -14389,7 +14403,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     return;
                 }
                 if (presentationSettings != null && contains(x, y,
-                        contentX, firstRowY - 350f, rowW, 68f)) {
+                        contentX, firstRowY - 5f * rowStride, rowW, 68f)) {
+                    int direction = settingsStepperDirection(x, contentX,
+                            rowW);
+                    if (direction < 0) {
+                        presentationSettings.selectPreviousFrameRateLimit(false);
+                    } else if (direction > 0) {
+                        presentationSettings.selectNextFrameRateLimit(false);
+                    }
+                    return;
+                }
+                if (presentationSettings != null && contains(x, y,
+                        contentX, firstRowY - 6f * rowStride, rowW, 68f)) {
                     int direction = settingsStepperDirection(x, contentX,
                             rowW);
                     if (direction < 0) {
@@ -17300,7 +17325,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Rectangle viewportBounds = settingsRowsViewport(content, firstY);
         Properties properties = tableSettingsProperties();
         if (settingsAppearancePage == 0) {
-            Rectangle bounds = new Rectangle(x, firstY - 350f, width, 68f);
+            float rowStride = GdxSettingsLayout.rowStride(content.height,
+                    GdxSettingsContract.APPEARANCE_PRIMARY_ROW_COUNT);
+            Rectangle bounds = new Rectangle(x, firstY - 5f * rowStride,
+                    width, 68f);
+            SettingsPerformanceHover hovered = settingsPerformanceHover(bounds,
+                    "gdx_fps_limit", viewportBounds, properties);
+            if (hovered != null) return hovered;
+            bounds.set(x, firstY - 6f * rowStride, width, 68f);
             return settingsPerformanceHover(bounds, "gdx_msaa_samples",
                     viewportBounds, properties);
         }
@@ -17789,16 +17821,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         } else if (contentPage == 1) {
             if (settingsAppearancePage == 0) {
+                float rowStride = GdxSettingsLayout.rowStride(
+                        currentSettingsContent().height,
+                        GdxSettingsContract.APPEARANCE_PRIMARY_ROW_COUNT);
                 drawSettingsStepperShape(x, firstY, width, alpha);
-                drawSettingsStepperShape(x, firstY - 70f, width,
+                drawSettingsStepperShape(x, firstY - rowStride, width,
                         presentationSettings != null, alpha);
-                drawSettingsStepperShape(x, firstY - 140f, width,
+                drawSettingsStepperShape(x, firstY - 2f * rowStride, width,
                         presentationSettings != null, alpha);
-                drawSettingsStepperShape(x, firstY - 210f, width, alpha);
-                drawSettingsStepperShape(x, firstY - 280f, width, alpha);
-                drawSettingsStepperShape(x, firstY - 350f, width,
+                drawSettingsStepperShape(x, firstY - 3f * rowStride, width,
+                        alpha);
+                drawSettingsStepperShape(x, firstY - 4f * rowStride, width,
+                        alpha);
+                drawSettingsStepperShape(x, firstY - 5f * rowStride, width,
                         presentationSettings != null, alpha);
-                drawSettingsInfoShape(x, firstY - 420f, width, alpha);
+                drawSettingsStepperShape(x, firstY - 6f * rowStride, width,
+                        presentationSettings != null, alpha);
+                drawSettingsInfoShape(x, firstY - 7f * rowStride, width,
+                        alpha);
             } else {
                 GdxSettingsContract.TogglePage page =
                         settingsAppearanceTogglePage();
@@ -18368,6 +18408,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         } else if (contentPage == 1) {
             if (settingsAppearancePage == 0) {
+                float rowStride = GdxSettingsLayout.rowStride(
+                        currentSettingsContent().height,
+                        GdxSettingsContract.APPEARANCE_PRIMARY_ROW_COUNT);
                 drawSettingsStepperText(x, firstY, width,
                         uppercase(gameText.translate(
                                 "gdx.settings.row.deck")),
@@ -18376,7 +18419,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                         gameText),
                                 "goliat".equalsIgnoreCase(liveDeck)),
                         alpha);
-                drawSettingsStepperText(x, firstY - 70f, width,
+                drawSettingsStepperText(x, firstY - rowStride, width,
                         uppercase(gameText.translate(
                                 "gdx.settings.row.card_back")),
                         GdxSettingsContract.markDefault(
@@ -18391,7 +18434,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                                 presentationSettings
                                                         .cardBack())),
                         presentationSettings != null, alpha);
-                drawSettingsStepperText(x, firstY - 140f, width,
+                drawSettingsStepperText(x, firstY - 2f * rowStride, width,
                         uppercase(gameText.translate(
                                 "gdx.settings.row.felt")),
                         GdxSettingsContract.markDefault(
@@ -18404,7 +18447,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                         || "verde".equalsIgnoreCase(
                                                 presentationSettings.felt())),
                         presentationSettings != null, alpha);
-                drawSettingsStepperText(x, firstY - 210f, width,
+                drawSettingsStepperText(x, firstY - 3f * rowStride, width,
                         uppercase(gameText.translate(
                                 "gdx.settings.row.light_off")),
                         GdxSettingsContract.markDefault(
@@ -18413,7 +18456,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 "50".equals(tableSettingsProperties()
                                         .getProperty("nivel_luz", "50"))),
                         alpha);
-                drawSettingsStepperText(x, firstY - 280f, width,
+                drawSettingsStepperText(x, firstY - 4f * rowStride, width,
                         uppercase(gameText.translate(
                                 "gdx.settings.row.window_mode")),
                         GdxSettingsContract.markDefault(
@@ -18421,14 +18464,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 GdxWindowMode.configured(
                                         tableSettingsProperties())
                                         == GdxWindowMode.BORDERLESS), alpha);
-                drawSettingsStepperText(x, firstY - 350f, width,
+                drawSettingsStepperText(x, firstY - 5f * rowStride, width,
+                        uppercase(gameText.translate(
+                                "gdx.settings.row.fps_limit")),
+                        GdxSettingsContract.markDefault(
+                                tableFrameRateLimitSettingLabel(),
+                                "120".equals(tableSettingsProperties()
+                                        .getProperty("gdx_fps_limit", "120"))),
+                        presentationSettings != null, alpha);
+                drawSettingsStepperText(x, firstY - 6f * rowStride, width,
                         uppercase(gameText.translate(
                                 "gdx.settings.row.antialiasing")),
                         GdxSettingsContract.markDefault(tableMsaaSettingLabel(),
                                 "4".equals(tableSettingsProperties()
                                         .getProperty("gdx_msaa_samples", "4"))),
                         presentationSettings != null, alpha);
-                drawSettingsInfoText(x, firstY - 420f, width,
+                drawSettingsInfoText(x, firstY - 7f * rowStride, width,
                         uppercase(gameText.translate(
                                 "gdx.settings.row.gpu_renderer")),
                         GdxGraphicsInfo.displayValue(gameText), alpha);
@@ -21241,9 +21292,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         activeMonitorName = monitor.name;
         detectedRefreshRate = mode.refreshRate;
-        if (!Gdx.graphics.isFullscreen()) {
-            Gdx.graphics.setForegroundFPS(detectedRefreshRate);
-        }
+        // The application shell owns the live FPS cap. This table only keeps
+        // the active refresh rate for its diagnostics overlay.
     }
 
     @Override

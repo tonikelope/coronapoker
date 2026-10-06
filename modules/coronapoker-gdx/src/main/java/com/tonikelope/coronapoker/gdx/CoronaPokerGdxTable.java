@@ -123,6 +123,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static final float FINAL_CARD_DEAL_START_SECONDS = 0.12f;
     static final float FINAL_CARD_DEAL_STAGGER_SECONDS = 0.07f;
     static final float FINAL_CARD_DEAL_SECONDS = 0.62f;
+    static final float FINAL_CARD_BUYIN_ROW_Y = 14f;
+    static final float FINAL_CARD_CHIPS_ROW_Y = 39f;
+    static final float FINAL_CARD_DETAIL_ROW_HEIGHT = 25f;
     static final float FINAL_SUMMARY_REVEAL_SECONDS = 1.32f;
     static final float FINAL_SUMMARY_TEXT_SHIFT_Y = -64f;
     private static final float INTRO_LIGHT_SWITCH_TIME =
@@ -308,13 +311,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float SETTINGS_DEBUG_VIEWPORT_HEIGHT = 394f;
     private static final float GAME_LOG_LINE_HEIGHT = 31f;
     private static final float LOCAL_HUD_DANGER_THRESHOLD = 0.25f;
-    /**
-     * The settings backdrop is deliberately rendered below native resolution.
-     * It is going to be blurred and darkened anyway, so processing every 4K
-     * pixel at the monitor refresh rate only burns fill-rate without adding
-     * visible detail.
-     */
-    private static final int SETTINGS_BACKDROP_DOWNSAMPLE = 2;
     private static final float SETTINGS_TAB_GAP = 62f;
     private static final Properties EMPTY_SETTINGS_PROPERTIES =
             new Properties();
@@ -597,38 +593,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 gl_FragColor = vec4(colour, alpha);
             }
             """;
-
-    private static final String BACKDROP_VERTEX_SHADER =
-            "attribute vec4 a_position;\n"
-            + "attribute vec4 a_color;\n"
-            + "attribute vec2 a_texCoord0;\n"
-            + "uniform mat4 u_projTrans;\n"
-            + "varying vec4 v_color;\n"
-            + "varying vec2 v_texCoords;\n"
-            + "void main() {\n"
-            + "    v_color = a_color;\n"
-            + "    v_texCoords = a_texCoord0;\n"
-            + "    gl_Position = u_projTrans * a_position;\n"
-            + "}\n";
-
-    private static final String BACKDROP_BLUR_FRAGMENT_SHADER =
-            "#ifdef GL_ES\n"
-            + "precision mediump float;\n"
-            + "#endif\n"
-            + "varying vec4 v_color;\n"
-            + "varying vec2 v_texCoords;\n"
-            + "uniform sampler2D u_texture;\n"
-            + "uniform vec2 u_texelSize;\n"
-            + "uniform vec2 u_direction;\n"
-            + "void main() {\n"
-            + "    vec2 step = u_texelSize * u_direction;\n"
-            + "    vec4 c = texture2D(u_texture, v_texCoords) * 0.227027;\n"
-            + "    c += texture2D(u_texture, v_texCoords + step * 1.384615) * 0.316216;\n"
-            + "    c += texture2D(u_texture, v_texCoords - step * 1.384615) * 0.316216;\n"
-            + "    c += texture2D(u_texture, v_texCoords + step * 3.230769) * 0.070270;\n"
-            + "    c += texture2D(u_texture, v_texCoords - step * 3.230769) * 0.070270;\n"
-            + "    gl_FragColor = c * v_color;\n"
-            + "}\n";
 
     private static final Color BACKGROUND_BOTTOM = new Color(0x02050cff);
     private static final Color FELT_SHADE_TOP = new Color(0x07111f1f);
@@ -920,9 +884,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private ShaderProgram rabbitPeelShader;
     private ShaderProgram avatarShader;
     private ShaderProgram allInFireShader;
-    private ShaderProgram backdropBlurShader;
-    private FrameBuffer settingsBackdrop;
-    private FrameBuffer settingsBlurScratch;
+    private GdxModalBackdropBlur modalBackdropBlur;
     private FrameBuffer disabledHoleCardsLayer;
 
     private BitmapFont uiFont;
@@ -2476,9 +2438,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             case 5 -> allInFireCanvas = createSolidTexture(Color.WHITE);
             case 6 -> {
-                backdropBlurShader = new ShaderProgram(BACKDROP_VERTEX_SHADER,
-                        BACKDROP_BLUR_FRAGMENT_SHADER);
-                requireCompiled(backdropBlurShader, "Backdrop blur shader");
+                modalBackdropBlur = new GdxModalBackdropBlur();
                 return true;
             }
             default -> { return true; }
@@ -4120,19 +4080,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateFastAccessBar(delta);
         handleInput();
         pointerRepeatHits.clear();
-        boolean blurSettingsBackdrop = uiLayer == UI_SETTINGS;
-        if (blurSettingsBackdrop) {
-            ensureSettingsBackdrop();
-            settingsBackdrop.begin();
+        boolean preparationModal = !intro && preparationPhase
+                != TableVisualEvent.PreparationStatus.Phase.READY;
+        boolean blurModalBackdrop = hasBlurredTableModal(preparationModal);
+        if (blurModalBackdrop) {
+            modalBackdropBlur.beginCapture(Gdx.graphics.getBackBufferWidth(),
+                    Gdx.graphics.getBackBufferHeight());
         }
         ScreenUtils.clear(BACKGROUND_BOTTOM, true);
         viewport.apply();
-        if (blurSettingsBackdrop) {
-            // Viewport.apply() targets the real backbuffer. While the FBO is
-            // bound its projection remains correct, but the GL viewport must
-            // match the deliberately smaller blur surface.
-            Gdx.gl.glViewport(0, 0, settingsBackdrop.getWidth(),
-                    settingsBackdrop.getHeight());
+        if (blurModalBackdrop) {
+            // Viewport.apply() targets the real backbuffer. Restore the
+            // deliberately smaller modal capture surface while its FBO is
+            // bound.
+            Gdx.gl.glViewport(0, 0, modalBackdropBlur.captureWidth(),
+                    modalBackdropBlur.captureHeight());
         }
         camera.update();
         shapes.setProjectionMatrix(camera.combined);
@@ -4142,7 +4104,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // the live pointer while composing the covered table and quick bar,
         // then restore it for the modal itself. This prevents controls below
         // dialogs from lighting up even though their clicks were consumed.
-        boolean shieldBackgroundPointer = uiLayer != UI_NONE
+        boolean shieldBackgroundPointer = preparationModal
+                || uiLayer != UI_NONE
                 || blocksTableUtilities(activeDialog)
                 || tableIdentityDialog != null
                 || isClientTransportReconnecting()
@@ -4157,7 +4120,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawBackground();
         signalReady();
         drawTableScene();
-        drawPreparationOverlay();
+        if (!preparationModal) drawPreparationOverlay();
         if (finalSummary == null) {
             drawPauseOverlay();
         } else {
@@ -4170,13 +4133,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // dialog below is still painted later and remains truly modal.
             drawFastAccessBar();
         }
-        if (blurSettingsBackdrop) {
-            settingsBackdrop.end();
-            drawBlurredSettingsBackdrop();
+        if (blurModalBackdrop) {
+            modalBackdropBlur.endCaptureAndDraw(viewport, batch,
+                    camera.combined, BACKGROUND_BOTTOM);
         }
         if (shieldBackgroundPointer) {
             pointer.set(livePointerX, livePointerY);
         }
+        if (preparationModal) drawPreparationOverlay();
         drawUiLayer();
         drawTerminationOverlay();
         drawActiveDialog();
@@ -4191,69 +4155,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private void ensureSettingsBackdrop() {
-        int width = settingsBackdropDimension(
-                Gdx.graphics.getBackBufferWidth());
-        int height = settingsBackdropDimension(
-                Gdx.graphics.getBackBufferHeight());
-        if (settingsBackdrop != null && settingsBlurScratch != null
-                && settingsBackdrop.getWidth() == width
-                && settingsBackdrop.getHeight() == height
-                && settingsBlurScratch.getWidth() == width
-                && settingsBlurScratch.getHeight() == height) {
-            return;
-        }
-        if (settingsBackdrop != null) settingsBackdrop.dispose();
-        if (settingsBlurScratch != null) settingsBlurScratch.dispose();
-        settingsBackdrop = new FrameBuffer(Pixmap.Format.RGBA8888,
-                width, height, false);
-        settingsBlurScratch = new FrameBuffer(Pixmap.Format.RGBA8888,
-                width, height, false);
-        settingsBackdrop.getColorBufferTexture().setFilter(
-                TextureFilter.Linear, TextureFilter.Linear);
-        settingsBlurScratch.getColorBufferTexture().setFilter(
-                TextureFilter.Linear, TextureFilter.Linear);
+    static int modalBackdropDimension(int backBufferDimension) {
+        return GdxModalBackdropBlur.downsampledDimension(backBufferDimension);
     }
 
-    static int settingsBackdropDimension(int backBufferDimension) {
-        return Math.max(1, backBufferDimension
-                / SETTINGS_BACKDROP_DOWNSAMPLE);
-    }
-
-    private void drawBlurredSettingsBackdrop() {
-        settingsBlurScratch.begin();
-        ScreenUtils.clear(BACKGROUND_BOTTOM, true);
-        Gdx.gl.glViewport(0, 0, settingsBlurScratch.getWidth(),
-                settingsBlurScratch.getHeight());
-        camera.update();
-        batch.setProjectionMatrix(camera.combined);
-        drawSettingsBlurPass(settingsBackdrop.getColorBufferTexture(),
-                1f, 0f);
-        settingsBlurScratch.end();
-
-        ScreenUtils.clear(BACKGROUND_BOTTOM, true);
-        viewport.apply();
-        camera.update();
-        batch.setProjectionMatrix(camera.combined);
-        drawSettingsBlurPass(settingsBlurScratch.getColorBufferTexture(),
-                0f, 1f);
-    }
-
-    private void drawSettingsBlurPass(Texture texture, float directionX,
-            float directionY) {
-        batch.setShader(backdropBlurShader);
-        batch.begin();
-        backdropBlurShader.setUniformf("u_texelSize",
-                1f / settingsBackdrop.getWidth(),
-                1f / settingsBackdrop.getHeight());
-        backdropBlurShader.setUniformf("u_direction", directionX,
-                directionY);
-        batch.setColor(Color.WHITE);
-        batch.draw(texture, 0f, 0f,
-                viewport.getWorldWidth(), viewport.getWorldHeight(),
-                0, 0, texture.getWidth(), texture.getHeight(), false, true);
-        batch.end();
-        batch.setShader(null);
+    private boolean hasBlurredTableModal(boolean preparationModal) {
+        return preparationModal || uiLayer != UI_NONE
+                || blocksTableUtilities(activeDialog)
+                || tableIdentityDialog != null
+                || isClientTransportReconnecting()
+                || recoveryStopBarrier != null && !intro
+                || terminationRequested && finalSummary == null && !intro;
     }
 
     private void renderStartupIntroFrame(float delta) {
@@ -20686,9 +20598,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             boolean localCard = balance.nickname().equals(
                     summary.localNickname());
             float identitySize = Math.min(104f * motion.scale(),
-                    animatedCardW - 34f * motion.scale());
+                    Math.min(animatedCardW - 34f * motion.scale(),
+                            animatedCardH - 134f * motion.scale()));
             float identityY = animatedCardY + animatedCardH - identitySize
                     - 12f * motion.scale();
+            float resultRowY = finalCardResultRowY(animatedCardY,
+                    identityY, motion.scale());
             if (localCard) {
                 float logoW = Math.min(112f * motion.scale(),
                         animatedCardW - 34f * motion.scale());
@@ -20726,24 +20641,29 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                     "ui.ni_gana_ni_pierde"));
             drawFittedCenteredInBox(finalCardBoldFont, result,
                     x + 10f * motion.scale(),
-                    identityY - 66f * motion.scale(),
+                    resultRowY,
                     animatedCardW - 20f * motion.scale(),
-                    25f * motion.scale(), cardResult, cardAlpha);
+                    FINAL_CARD_DETAIL_ROW_HEIGHT * motion.scale(),
+                    cardResult, cardAlpha);
             drawFittedCenteredInBox(finalCardFont,
                     uppercase(gameText.translate("balance.fichas")) + " "
                             + formatAmount(balance.finalStack()),
                     x + 10f * motion.scale(),
-                    animatedCardY + 46f * motion.scale(),
+                    animatedCardY
+                            + FINAL_CARD_CHIPS_ROW_Y * motion.scale(),
                     animatedCardW - 20f * motion.scale(),
-                    26f * motion.scale(), new Color(0x2c3138ff),
+                    FINAL_CARD_DETAIL_ROW_HEIGHT * motion.scale(),
+                    new Color(0x2c3138ff),
                     0.92f * cardAlpha);
             drawFittedCenteredInBox(finalCardFont,
                     uppercase(gameText.translate("stats.buyin")) + " "
                             + formatAmount(balance.totalBuyin()),
                     x + 10f * motion.scale(),
-                    animatedCardY + 16f * motion.scale(),
+                    animatedCardY
+                            + FINAL_CARD_BUYIN_ROW_Y * motion.scale(),
                     animatedCardW - 20f * motion.scale(),
-                    25f * motion.scale(), new Color(0x4e555eff),
+                    FINAL_CARD_DETAIL_ROW_HEIGHT * motion.scale(),
+                    new Color(0x4e555eff),
                     0.90f * cardAlpha);
         }
         if (finalSummaryPage > 0) {
@@ -20937,6 +20857,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // retaining the two-line origin would leave it visibly top-heavy.
         return height - (moneyCounterVisible ? 325f : 490f)
                 + FINAL_SUMMARY_TEXT_SHIFT_Y;
+    }
+
+    static float finalCardResultRowY(float cardY, float identityY,
+            float scale) {
+        float detailsTop = cardY + (FINAL_CARD_CHIPS_ROW_Y
+                + FINAL_CARD_DETAIL_ROW_HEIGHT) * scale;
+        float nameBottom = identityY - 31f * scale;
+        float freeHeight = Math.max(0f, nameBottom - detailsTop
+                - FINAL_CARD_DETAIL_ROW_HEIGHT * scale);
+        return detailsTop + freeHeight / 2f;
     }
 
     static FinalCardMotion finalSummaryCardMotion(float elapsedSeconds,
@@ -21357,7 +21287,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         for (Texture texture : liveCardFaces.values()) disposeSafely(texture);
         liveCardFaces.clear();
-        disposeSafely(backdropBlurShader);
+        disposeSafely(modalBackdropBlur);
         disposeSafely(allInFireShader);
         disposeSafely(avatarShader);
         disposeSafely(rabbitPeelShader);
@@ -21445,9 +21375,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (rabbitPeelShader != null) rabbitPeelShader.dispose();
         if (avatarShader != null) avatarShader.dispose();
         if (allInFireShader != null) allInFireShader.dispose();
-        if (backdropBlurShader != null) backdropBlurShader.dispose();
-        if (settingsBackdrop != null) settingsBackdrop.dispose();
-        if (settingsBlurScratch != null) settingsBlurScratch.dispose();
+        if (modalBackdropBlur != null) modalBackdropBlur.dispose();
         if (disabledHoleCardsLayer != null) disabledHoleCardsLayer.dispose();
         uiFont.dispose();
         smallFont.dispose();

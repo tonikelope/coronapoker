@@ -227,11 +227,37 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void settingsBlurUsesABoundedDownsampledBackdrop() {
-        assertEquals(1920, CoronaPokerGdxTable.settingsBackdropDimension(3840));
-        assertEquals(1080, CoronaPokerGdxTable.settingsBackdropDimension(2160));
-        assertEquals(1, CoronaPokerGdxTable.settingsBackdropDimension(1));
-        assertEquals(1, CoronaPokerGdxTable.settingsBackdropDimension(0));
+    void everyModalBlurUsesTheSameBoundedDownsampledBackdrop() {
+        assertEquals(1920, CoronaPokerGdxTable.modalBackdropDimension(3840));
+        assertEquals(1080, CoronaPokerGdxTable.modalBackdropDimension(2160));
+        assertEquals(1, CoronaPokerGdxTable.modalBackdropDimension(1));
+        assertEquals(1, CoronaPokerGdxTable.modalBackdropDimension(0));
+        assertEquals(1920, GdxModalBackdropBlur.downsampledDimension(3840));
+    }
+
+    @Test
+    void finalCardKeepsChipsBesideBuyinAndCentersTheResultAboveThem() {
+        float cardY = 28f;
+        float identityY = 162f;
+        float scale = 1f;
+        float detailsTop = cardY
+                + CoronaPokerGdxTable.FINAL_CARD_CHIPS_ROW_Y
+                + CoronaPokerGdxTable.FINAL_CARD_DETAIL_ROW_HEIGHT;
+        float nameBottom = identityY - 31f;
+        float resultY = CoronaPokerGdxTable.finalCardResultRowY(
+                cardY, identityY, scale);
+
+        assertEquals(CoronaPokerGdxTable.FINAL_CARD_DETAIL_ROW_HEIGHT,
+                CoronaPokerGdxTable.FINAL_CARD_CHIPS_ROW_Y
+                - CoronaPokerGdxTable.FINAL_CARD_BUYIN_ROW_Y, 0.000_001f);
+        assertEquals(resultY - detailsTop,
+                nameBottom - resultY
+                        - CoronaPokerGdxTable.FINAL_CARD_DETAIL_ROW_HEIGHT,
+                0.000_001f);
+        assertTrue(resultY >= detailsTop);
+        assertTrue(resultY
+                + CoronaPokerGdxTable.FINAL_CARD_DETAIL_ROW_HEIGHT
+                <= nameBottom);
     }
 
     @Test

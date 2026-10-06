@@ -375,6 +375,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private Music statsMusic;
     private ShaderProgram avatarShader;
     private ShaderProgram roundedTextureShader;
+    private GdxModalBackdropBlur modalBackdropBlur;
     private BitmapFont titleFont;
     private BitmapFont headingFont;
     private BitmapFont actionFont;
@@ -700,6 +701,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             throw new IllegalStateException("Rounded texture shader: "
                     + roundedTextureShader.getLog());
         }
+        modalBackdropBlur = new GdxModalBackdropBlur();
         checkForUpdates();
         purgeExpiredVoiceNotes();
         FreeTypeFontGenerator titleGenerator = new FreeTypeFontGenerator(
@@ -848,8 +850,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         updateLobbyVoiceRecording();
         audioPreview.update(frameDelta);
         syncMusicForSurface();
+        boolean blurModalBackdrop = hasVisibleFrontendModal();
+        if (blurModalBackdrop) {
+            modalBackdropBlur.beginCapture(Gdx.graphics.getBackBufferWidth(),
+                    Gdx.graphics.getBackBufferHeight());
+        }
         ScreenUtils.clear(BACKGROUND);
         viewport.apply();
+        if (blurModalBackdrop) {
+            Gdx.gl.glViewport(0, 0, modalBackdropBlur.captureWidth(),
+                    modalBackdropBlur.captureHeight());
+        }
         viewport.getCamera().update();
         shapes.setProjectionMatrix(viewport.getCamera().combined);
         batch.setProjectionMatrix(viewport.getCamera().combined);
@@ -957,6 +968,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
         drawStartupMenuReveal();
 
+        if (blurModalBackdrop) {
+            modalBackdropBlur.endCaptureAndDraw(viewport, batch,
+                    viewport.getCamera().combined, BACKGROUND);
+        }
+
         if (dropdown == Dropdown.NONE && !hasBlockingFrontendModal()) {
             drawTooltipTopLayer();
         } else {
@@ -966,29 +982,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // Modal surfaces must be composed after every underlying glyph. Texts
         // are batched separately from shapes, so drawing the modal inside
         // drawLobby would otherwise let the lobby chat glyphs bleed over it.
-        if (settingsRestartNotice
-                || (surface == Surface.MENU && (aboutOpen || updatePromptOpen))
-                || (surface == Surface.LOBBY
-                && (lobbyConfirmation != null || lobbyPasswordDialog
-                        || lobbyImageClearConfirmation
-                        || lobbyTableTransitionActive(lobbyGameStarting, lobby)
-                        || fingerprintDialog != null))
-                || (surface == Surface.SETTINGS
-                && (settingsDiscardConfirmation
-                        || voiceNotesOpen
-                        || blindStructureDialog
-                                != BlindStructureDialog.NONE))
-                || (surface == Surface.NEW_GAME
-                && (submissions.submitting()
-                        || dropdown != Dropdown.NONE
-                        || presetDialog != PresetDialog.NONE
-                        || blindStructureDialog != BlindStructureDialog.NONE))
-                || (surface == Surface.STATS
-                && (statsConfirmation != StatsConfirmation.NONE
-                        || statsPicker != StatsPicker.NONE
-                        || statsSyncExclusionsOpen))
-                || (surface == Surface.SCREENSHOTS
-                        && screenshotDeleteConfirmation)) {
+        if (hasVisibleFrontendModal()) {
             texts.clear();
             // A visual modal must also own the complete interaction map.
             // Keeping the underlying page hits allowed invisible lobby/menu
@@ -1115,6 +1109,30 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             drawScreenshotToastTopLayer();
         }
         if (elapsed < volumeOverlayUntil) drawVolumeOverlayTopLayer();
+    }
+
+    private boolean hasVisibleFrontendModal() {
+        return settingsRestartNotice
+                || (surface == Surface.MENU
+                        && (aboutOpen || updatePromptOpen))
+                || (surface == Surface.LOBBY
+                && (lobbyConfirmation != null || lobbyPasswordDialog
+                        || lobbyImageClearConfirmation
+                        || lobbyTableTransitionActive(lobbyGameStarting, lobby)
+                        || fingerprintDialog != null))
+                || (surface == Surface.SETTINGS
+                && (settingsDiscardConfirmation || voiceNotesOpen
+                        || blindStructureDialog != BlindStructureDialog.NONE))
+                || (surface == Surface.NEW_GAME
+                && (submissions.submitting() || dropdown != Dropdown.NONE
+                        || presetDialog != PresetDialog.NONE
+                        || blindStructureDialog != BlindStructureDialog.NONE))
+                || (surface == Surface.STATS
+                && (statsConfirmation != StatsConfirmation.NONE
+                        || statsPicker != StatsPicker.NONE
+                        || statsSyncExclusionsOpen))
+                || (surface == Surface.SCREENSHOTS
+                        && screenshotDeleteConfirmation);
     }
 
     private boolean hasBlockingFrontendModal() {
@@ -12004,6 +12022,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         emojiTextures.clear();
         avatarShader.dispose();
         roundedTextureShader.dispose();
+        modalBackdropBlur.dispose();
         titleFont.dispose();
         headingFont.dispose();
         actionFont.dispose();

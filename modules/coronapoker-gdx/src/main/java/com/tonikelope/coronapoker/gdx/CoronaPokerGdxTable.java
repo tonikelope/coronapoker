@@ -14412,7 +14412,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
                 if (presentationSettings != null && contains(x, y,
                         contentX, firstRowY - rowStride, rowW, 68f)) {
-                    toggleTablePreference("gdx_vsync", true);
+                    toggleTablePreference("gdx_vsync", false);
                     return;
                 }
                 if (presentationSettings != null && contains(x, y,
@@ -18506,8 +18506,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 "gdx.settings.row.fps_limit")),
                         GdxSettingsContract.markDefault(
                                 tableFrameRateLimitSettingLabel(),
-                                "120".equals(tableSettingsProperties()
-                                        .getProperty("gdx_fps_limit", "120"))),
+                                "0".equals(tableSettingsProperties()
+                                        .getProperty("gdx_fps_limit", "0"))),
                         presentationSettings != null, alpha);
                 drawSettingsStepperText(x, firstY - 3f * rowStride, width,
                         uppercase(gameText.translate(
@@ -21081,7 +21081,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawFpsCounter(float width, float height) {
-        float panelWidth = 126f;
+        float panelWidth = 206f;
         float panelHeight = 42f;
         float x = width - panelWidth - (finalSummary == null ? 20f : 86f);
         float y = height - panelHeight - 18f;
@@ -21095,7 +21095,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.end();
 
         batch.begin();
-        drawCentered(smallFont, Gdx.graphics.getFramesPerSecond() + " FPS",
+        drawCentered(smallFont, presentationSettings.frameRateOverlayLabel(
+                Gdx.graphics.getFramesPerSecond()),
                 x + panelWidth / 2f, y + 29f, Color.WHITE, 1f);
         batch.end();
     }

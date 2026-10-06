@@ -592,14 +592,14 @@ final class GdxSettingsContractTest {
         assertEquals("620", properties.getProperty("card_flip_duration"));
         assertEquals("windowed", properties.getProperty("gdx_window_mode"));
         assertEquals("0", properties.getProperty("gdx_msaa_samples"));
-        assertEquals("120", properties.getProperty("gdx_fps_limit"));
-        assertEquals("true", properties.getProperty("gdx_vsync"));
+        assertEquals("0", properties.getProperty("gdx_fps_limit"));
+        assertEquals("false", properties.getProperty("gdx_vsync"));
 
         GdxSettingsContract.restoreAppearanceDefaults(properties, true);
         assertEquals("borderless", properties.getProperty("gdx_window_mode"));
         assertEquals("4", properties.getProperty("gdx_msaa_samples"));
-        assertEquals("120", properties.getProperty("gdx_fps_limit"));
-        assertEquals("true", properties.getProperty("gdx_vsync"));
+        assertEquals("0", properties.getProperty("gdx_fps_limit"));
+        assertEquals("false", properties.getProperty("gdx_vsync"));
     }
 
     @Test

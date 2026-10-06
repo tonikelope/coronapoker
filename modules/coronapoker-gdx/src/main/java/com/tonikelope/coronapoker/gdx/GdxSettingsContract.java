@@ -462,7 +462,7 @@ final class GdxSettingsContract {
                                 : PerformanceImpact.HIGH;
             }
             case "gdx_fps_limit" -> {
-                int limit = integer(values, key, 120);
+                int limit = integer(values, key, 0);
                 yield limit == 0 || limit >= 240 ? PerformanceImpact.HIGH
                         : limit >= 120 ? PerformanceImpact.MEDIUM
                                 : PerformanceImpact.LOW;
@@ -677,8 +677,8 @@ final class GdxSettingsContract {
         properties.setProperty("trasera", "default");
         properties.setProperty("color_tapete", "verde");
         properties.setProperty("nivel_luz", "50");
-        properties.setProperty("gdx_vsync", "true");
-        properties.setProperty("gdx_fps_limit", "120");
+        properties.setProperty("gdx_vsync", "false");
+        properties.setProperty("gdx_fps_limit", "0");
         properties.setProperty("gdx_show_fps", "false");
         for (TogglePage page : APPEARANCE_PAGES) {
             for (ToggleOption option : page.options()) {

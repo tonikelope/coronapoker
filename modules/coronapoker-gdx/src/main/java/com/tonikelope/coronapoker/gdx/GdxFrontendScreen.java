@@ -7337,8 +7337,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     uppercase(gameText.translate(
                             "gdx.settings.row.fps_limit")),
                     GdxSettingsContract.markDefault(frameRateLimitSettingLabel(),
-                            "120".equals(initialProperties.getProperty(
-                                    "gdx_fps_limit", "120"))),
+                            "0".equals(initialProperties.getProperty(
+                                    "gdx_fps_limit", "0"))),
                     this::selectPreviousFrameRateLimit,
                     this::selectNextFrameRateLimit);
             performanceTooltip(new Rectangle(x + 34f,
@@ -9771,7 +9771,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     /** Global counter shared by every non-table GDX surface and modal. */
     private void drawFrontendFpsCounter() {
-        float panelWidth = 126f;
+        float panelWidth = 206f;
         float panelHeight = 42f;
         float x = WIDTH - panelWidth - 20f;
         float y = HEIGHT - panelHeight - 18f;
@@ -9785,7 +9785,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.end();
         batch.begin();
         drawTextItem(fittedTextItem(smallFont,
-                Gdx.graphics.getFramesPerSecond() + " FPS",
+                presentationSettings.frameRateOverlayLabel(
+                        Gdx.graphics.getFramesPerSecond()),
                 x + panelWidth / 2f, y + 29f, Color.WHITE, true,
                 panelWidth - 16f, false));
         batch.end();

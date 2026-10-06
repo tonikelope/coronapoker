@@ -90,17 +90,19 @@ public final class GdxLauncher {
                 new GdxGamePresentationSettings(preferences, modMedia);
         configureModSounds(modMedia, presentationSettings.language());
         Monitor requestedMonitor = requestedMonitor(args);
-        DisplayMode display = requestedMonitor == null
-                ? fastestDisplayMode()
-                : Lwjgl3ApplicationConfiguration.getDisplayMode(requestedMonitor);
+        Monitor targetMonitor = requestedMonitor == null
+                ? Lwjgl3ApplicationConfiguration.getPrimaryMonitor()
+                : requestedMonitor;
+        DisplayMode display = Lwjgl3ApplicationConfiguration.getDisplayMode(
+                targetMonitor);
         Lwjgl3ApplicationConfiguration config = new Lwjgl3ApplicationConfiguration();
         config.setTitle("CoronaPoker // GDX");
         // --silent starts the shared master control muted, but keeps the audio
         // backend available so the in-game volume button can re-enable it.
         config.useVsync(presentationSettings.vsyncEnabled());
-        // VSync prevents tearing while the independent foreground cap controls
-        // how much work the game requests.  "Monitor refresh" resolves to this
-        // initial display rate; the shell follows later monitor changes live.
+        // The foreground cap paces the render loop independently from VSync.
+        // "Monitor refresh" resolves to this initial display rate; the shell
+        // follows later monitor changes live.
         config.setForegroundFPS(presentationSettings.effectiveFrameRateLimit(
                 display.refreshRate));
         config.setIdleFPS(30);
@@ -122,10 +124,8 @@ public final class GdxLauncher {
             config.setDecorated(false);
             config.setResizable(false);
             config.setWindowedMode(display.width, display.height);
-            Monitor target = requestedMonitor == null
-                    ? Lwjgl3ApplicationConfiguration.getPrimaryMonitor()
-                    : requestedMonitor;
-            config.setWindowPosition(target.virtualX, target.virtualY);
+            config.setWindowPosition(targetMonitor.virtualX,
+                    targetMonitor.virtualY);
         } else {
             config.setFullscreenMode(display);
         }
@@ -201,20 +201,6 @@ public final class GdxLauncher {
                 Crupier.LOSER_SOUNDS.get(selected));
         Crupier.WINNER_SOUNDS_MOD = mod.soundCategory(selected, "winner",
                 Crupier.WINNER_SOUNDS.get(selected));
-    }
-
-    private static DisplayMode fastestDisplayMode() {
-        DisplayMode fastest = Lwjgl3ApplicationConfiguration.getDisplayMode();
-        for (Monitor monitor : Lwjgl3ApplicationConfiguration.getMonitors()) {
-            DisplayMode candidate = Lwjgl3ApplicationConfiguration.getDisplayMode(monitor);
-            if (candidate.refreshRate > fastest.refreshRate
-                    || (candidate.refreshRate == fastest.refreshRate
-                    && candidate.width * candidate.height
-                    > fastest.width * fastest.height)) {
-                fastest = candidate;
-            }
-        }
-        return fastest;
     }
 
     private static Monitor requestedMonitor(String[] args) {

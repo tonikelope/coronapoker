@@ -328,11 +328,15 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         return selected;
     }
     int requestedFrameRateLimit() {
-        int configured = integer("gdx_fps_limit", 120);
-        return FRAME_RATE_LIMITS.contains(configured) ? configured : 120;
+        int configured = integer("gdx_fps_limit", 0);
+        return FRAME_RATE_LIMITS.contains(configured) ? configured : 0;
     }
     boolean vsyncEnabled() {
-        return bool("gdx_vsync", true);
+        return bool("gdx_vsync", false);
+    }
+    String frameRateOverlayLabel(int framesPerSecond) {
+        return Math.max(0, framesPerSecond) + " FPS (VS "
+                + (vsyncEnabled() ? "ON" : "OFF") + ")";
     }
     boolean toggleVsync(boolean persist) {
         boolean selected = !vsyncEnabled();
@@ -343,7 +347,8 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     int effectiveFrameRateLimit(int monitorRefreshRate) {
         int monitorRate = monitorRefreshRate > 0 ? monitorRefreshRate : 60;
         int configured = requestedFrameRateLimit();
-        return configured == 0 ? monitorRate : Math.min(configured, monitorRate);
+        if (configured == 0) return monitorRate;
+        return vsyncEnabled() ? Math.min(configured, monitorRate) : configured;
     }
     int selectNextFrameRateLimit() {
         return selectNextFrameRateLimit(true);

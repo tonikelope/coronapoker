@@ -262,7 +262,7 @@ final class GdxGamePresentationSettingsTest {
     }
 
     @Test
-    void frameRateLimitDefaultsTo120CyclesAndRespectsMonitorRefresh(
+    void frameRateLimitDefaultsToMonitorRefreshWithoutVsync(
             @TempDir Path temporary) throws Exception {
         PreferencesService preferences = new PreferencesService(
                 temporary.resolve("coronapoker.properties"));
@@ -271,22 +271,24 @@ final class GdxGamePresentationSettingsTest {
             GdxGamePresentationSettings settings =
                     new GdxGamePresentationSettings(preferences);
 
-            assertEquals(120, settings.requestedFrameRateLimit());
-            assertTrue(settings.vsyncEnabled());
-            assertEquals(120, settings.effectiveFrameRateLimit(240));
-            assertEquals(60, settings.effectiveFrameRateLimit(60));
-            assertEquals(144, settings.selectNextFrameRateLimit(false));
-            assertEquals(144, settings.effectiveFrameRateLimit(240));
-            assertFalse(settings.toggleVsync(false));
+            assertEquals(0, settings.requestedFrameRateLimit());
             assertFalse(settings.vsyncEnabled());
-            assertEquals(144, settings.effectiveFrameRateLimit(240));
-            assertTrue(settings.toggleVsync(false));
-            assertEquals(240, settings.selectNextFrameRateLimit(false));
-            assertEquals(0, settings.selectNextFrameRateLimit(false));
+            assertEquals("120 FPS (VS OFF)",
+                    settings.frameRateOverlayLabel(120));
             assertEquals(240, settings.effectiveFrameRateLimit(240));
-            assertEquals(60, settings.effectiveFrameRateLimit(0));
+            assertEquals(60, settings.effectiveFrameRateLimit(60));
+            assertEquals(60, settings.selectNextFrameRateLimit(false));
+            assertEquals(60, settings.effectiveFrameRateLimit(240));
+            preferences.properties().setProperty("gdx_fps_limit", "240");
+            assertEquals(240, settings.effectiveFrameRateLimit(144));
+            assertTrue(settings.toggleVsync(false));
+            assertEquals("144 FPS (VS ON)",
+                    settings.frameRateOverlayLabel(144));
+            assertEquals(144, settings.effectiveFrameRateLimit(144));
+            assertFalse(settings.toggleVsync(false));
+            assertEquals(240, settings.effectiveFrameRateLimit(144));
             preferences.properties().setProperty("gdx_fps_limit", "999");
-            assertEquals(120, settings.requestedFrameRateLimit());
+            assertEquals(0, settings.requestedFrameRateLimit());
         } finally {
             preferences.close();
         }

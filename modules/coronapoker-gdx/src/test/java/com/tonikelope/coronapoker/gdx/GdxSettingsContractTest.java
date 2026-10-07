@@ -442,7 +442,7 @@ final class GdxSettingsContractTest {
                 "animacion_barajado", "animacion_reparto",
                 "animacion_destape", "animacion_ciegas_dealer",
                 "animacion_apuestas", "animacion_contadores",
-                "animacion_swap",
+                "animacion_entrada_asientos", "animacion_swap",
                 "animacion_contador_final", "animacion_fuego_allin",
                 "animacion_efecto_ganador",
                 "mostrar_coste_igualar",
@@ -469,9 +469,9 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.APPEARANCE_PAGES.get(1);
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
-        assertEquals(11, page.options().size());
+        assertEquals(12, page.options().size());
         assertEquals(5, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(16, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(17, GdxSettingsContract.appearanceRowCount(page));
     }
 
     @Test

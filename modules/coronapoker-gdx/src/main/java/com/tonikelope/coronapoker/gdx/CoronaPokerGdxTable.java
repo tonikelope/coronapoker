@@ -290,10 +290,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float REMOTE_CHAT_VIEWPORT_MARGIN = 6f;
     static final int UI_NONE = 0;
     static final int UI_SETTINGS = 2;
-    private static final int UI_GAME_LOG = 3;
+    static final int UI_GAME_LOG = 3;
     static final int UI_CHAT = 4;
-    private static final int UI_CARD_VIEWER = 5;
-    private static final int UI_SCREENSHOTS = 6;
+    static final int UI_CARD_VIEWER = 5;
+    static final int UI_SCREENSHOTS = 6;
     private static final float UI_FADE_SECONDS = 0.16f;
     static final float TABLE_IMAGE_GALLERY_CHROME_SECONDS = UI_FADE_SECONDS;
     private static final int EMOJI_COUNT = 1826;
@@ -1137,6 +1137,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         public boolean keyDown(int keycode) {
             if (isClientTransportReconnecting()) return true;
             if (tableImageClearConfirmation) return true;
+            if (keycode == Input.Keys.ESCAPE
+                    && foregroundUiOwnsEscape(uiLayer)) {
+                // The render-loop router performs the actual close. Consume
+                // the raw event too so an InputMultiplexer cannot deliver the
+                // same ESC to anything below the foreground surface.
+                return true;
+            }
             if (activeDialog != null && activeDialog.isAutoCall()
                     && handleAutoCallAmountEditingKey(keycode)) {
                 if (isTextDeletionKey(keycode)) {
@@ -4599,34 +4606,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return;
             }
         }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            if (uiLayer == UI_CHAT) {
-                if (tableImageClearConfirmation) {
-                    tableImageClearConfirmation = false;
-                } else {
-                    closeTableChat();
-                }
-            } else if (uiLayer == UI_CARD_VIEWER) {
-                closeCardViewer();
-            } else if (uiLayer == UI_SCREENSHOTS) {
-                closeScreenshotViewer();
-            } else if (uiLayer == UI_SETTINGS) {
-                if (voiceNotesOpen) {
-                    if (voiceNoteDeleteConfirmation != null
-                            || voiceNotesPurgeConfirmation) {
-                        voiceNoteDeleteConfirmation = null;
-                        voiceNotesPurgeConfirmation = false;
-                    } else {
-                        closeTableVoiceNotes();
-                    }
-                } else {
-                    requestCancelTableSettings(null);
-                }
-            } else if (uiLayer == UI_GAME_LOG) {
-                uiLayer = UI_NONE;
-            } else if (liveState == null) {
-                Gdx.app.exit();
-            }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)
+                && consumeForegroundEscape()) {
+            // Closing a layer can set uiLayer to UI_NONE. Return immediately:
+            // otherwise this very same ESC reaches handleLiveTableInput below
+            // and the default ESC shortcut folds in the same frame.
+            return;
         }
         if (GdxShortcutBindings.FULLSCREEN.equals(shortcutAction)
                 || Gdx.input.isKeyJustPressed(Input.Keys.F11)
@@ -4762,6 +4747,52 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         handleLiveTableInput(shortcutAction);
+    }
+
+    static boolean foregroundUiOwnsEscape(int layer) {
+        return switch (layer) {
+            case UI_SETTINGS, UI_GAME_LOG, UI_CHAT, UI_CARD_VIEWER,
+                    UI_SCREENSHOTS -> true;
+            default -> false;
+        };
+    }
+
+    private boolean consumeForegroundEscape() {
+        if (!foregroundUiOwnsEscape(uiLayer)) {
+            if (liveState == null) {
+                Gdx.app.exit();
+                return true;
+            }
+            return false;
+        }
+        switch (uiLayer) {
+            case UI_CHAT -> {
+                if (tableImageClearConfirmation) {
+                    tableImageClearConfirmation = false;
+                } else {
+                    closeTableChat();
+                }
+            }
+            case UI_CARD_VIEWER -> closeCardViewer();
+            case UI_SCREENSHOTS -> closeScreenshotViewer();
+            case UI_SETTINGS -> {
+                if (voiceNotesOpen) {
+                    if (voiceNoteDeleteConfirmation != null
+                            || voiceNotesPurgeConfirmation) {
+                        voiceNoteDeleteConfirmation = null;
+                        voiceNotesPurgeConfirmation = false;
+                    } else {
+                        closeTableVoiceNotes();
+                    }
+                } else {
+                    requestCancelTableSettings(null);
+                }
+            }
+            case UI_GAME_LOG -> uiLayer = UI_NONE;
+            default -> throw new IllegalStateException(
+                    "Unsupported foreground UI layer: " + uiLayer);
+        }
+        return true;
     }
 
     private boolean liveCardContains(float x, float y) {

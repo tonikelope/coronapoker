@@ -3,6 +3,9 @@ package com.tonikelope.coronapoker.gdx;
 import com.badlogic.gdx.Input;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 
@@ -46,6 +49,38 @@ final class GdxTableShortcutTest {
                 bindings.actionFor(Input.Keys.ENTER, false, false, true));
         assertEquals(GdxShortcutBindings.FULLSCREEN,
                 bindings.actionFor(Input.Keys.F11, false, false, false));
+    }
+
+    @Test
+    void escapeBelongsToEveryForegroundLayerBeforeItCanFold() {
+        assertFalse(CoronaPokerGdxTable.foregroundUiOwnsEscape(
+                CoronaPokerGdxTable.UI_NONE));
+        assertTrue(CoronaPokerGdxTable.foregroundUiOwnsEscape(
+                CoronaPokerGdxTable.UI_SETTINGS));
+        assertTrue(CoronaPokerGdxTable.foregroundUiOwnsEscape(
+                CoronaPokerGdxTable.UI_GAME_LOG));
+        assertTrue(CoronaPokerGdxTable.foregroundUiOwnsEscape(
+                CoronaPokerGdxTable.UI_CHAT));
+        assertTrue(CoronaPokerGdxTable.foregroundUiOwnsEscape(
+                CoronaPokerGdxTable.UI_CARD_VIEWER));
+        assertTrue(CoronaPokerGdxTable.foregroundUiOwnsEscape(
+                CoronaPokerGdxTable.UI_SCREENSHOTS));
+    }
+
+    @Test
+    void foregroundEscapeReturnsBeforeLiveTableShortcutDispatch()
+            throws Exception {
+        String source = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/CoronaPokerGdxTable.java"),
+                StandardCharsets.UTF_8).replace("\r\n", "\n");
+        int gate = source.indexOf("&& consumeForegroundEscape()) {");
+        int consumedReturn = source.indexOf("return;", gate);
+        int liveDispatch = source.indexOf(
+                "handleLiveTableInput(shortcutAction);", gate);
+
+        assertTrue(gate >= 0 && consumedReturn > gate
+                && liveDispatch > consumedReturn,
+                "foreground ESC must leave the frame before poker shortcuts");
     }
 
     @Test

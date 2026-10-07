@@ -1235,8 +1235,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             // Root surfaces populate their tooltip map only in this sharp
             // foreground pass. Drawing (or clearing) the tooltip beforehand
             // made its hover delay restart forever and no tooltip appeared.
-            if (rootSurfaceModal && dropdown == Dropdown.NONE
-                    && !hasBlockingFrontendModal()) {
+            if (rootSurfaceModal && dropdown == Dropdown.NONE) {
                 drawTooltipTopLayer();
             }
         }
@@ -7450,8 +7449,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     uppercase(gameText.translate(
                             "gdx.settings.row.fps_limit")),
                     GdxSettingsContract.markDefault(frameRateLimitSettingLabel(),
-                            "0".equals(initialProperties.getProperty(
-                                    "gdx_fps_limit", "0"))),
+                            GdxSettingsContract.isDefaultFrameRateLimit(
+                                    initialProperties)),
                     this::selectPreviousFrameRateLimit,
                     this::selectNextFrameRateLimit);
             performanceTooltip(new Rectangle(x + 34f,

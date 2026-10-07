@@ -16,6 +16,8 @@ param(
 
     [switch] $VerboseScenarios,
 
+    [switch] $IncrementVersion,
+
     [switch] $Help
 )
 
@@ -27,6 +29,7 @@ CoronaPoker local build, tests and GDX scenarios
 
 Usage:
   .\qa.cmd build
+  .\qa.cmd build -IncrementVersion
   .\qa.cmd test
   .\qa.cmd extended
   .\qa.cmd scenarios fast
@@ -54,6 +57,7 @@ Options:
   -Seed <long>           Replay a scenario base seed
   -IncludeBots           Add statistical bot QA to extended or all
   -VerboseScenarios      Stream scenario Maven output (logs are always saved)
+  -IncrementVersion      Increment the product version before build
   -Help                  Show this help
 
 The command stops on the first failed stage and preserves its exit code.
@@ -95,6 +99,9 @@ if (-not $runsScenarios -and $modeWasProvided) {
 if ($Action -eq 'build' -and ($IncludeBots -or $Scenario -ne 'all' -or
         $seedWasProvided -or $VerboseScenarios)) {
     throw 'Build cannot be combined with test or scenario options.'
+}
+if ($IncrementVersion -and $Action -ne 'build') {
+    throw '-IncrementVersion is supported only with the build command.'
 }
 if (-not $runsScenarios -and ($Scenario -ne 'all' -or $seedWasProvided -or
         $VerboseScenarios)) {
@@ -157,6 +164,81 @@ if ($javaMajor -lt 17) {
     throw "JDK 17 or newer is required. Detected: $javaVersionLine"
 }
 Write-Host "Environment: $mavenVersionLine | $javaVersionLine"
+
+function Update-CoronaPokerProductVersion {
+    $rootText = [System.IO.File]::ReadAllText($script:rootPom)
+    $versionMatch = [regex]::Match($rootText,
+        '(?s)<artifactId>coronapoker</artifactId>\s*<version>(\d+)\.(\d+)</version>')
+    if (-not $versionMatch.Success) {
+        throw "Cannot read the CoronaPoker version from $($script:rootPom)."
+    }
+
+    $previous = $versionMatch.Groups[1].Value + '.' +
+        $versionMatch.Groups[2].Value
+    $next = $versionMatch.Groups[1].Value + '.' +
+        ([int]$versionMatch.Groups[2].Value + 1)
+    $versionFiles = @(
+        'pom.xml',
+        'modules\pom.xml',
+        'modules\coronapoker-assets\pom.xml',
+        'modules\coronapoker-core\pom.xml',
+        'modules\coronapoker-gdx\pom.xml',
+        'modules\coronapoker-qa\pom.xml',
+        'tools\reactor\pom.xml',
+        'tools\qa\pom.xml',
+        'modules\coronapoker-core\src\main\resources\META-INF\coronapoker-version.properties',
+        'modules\coronapoker-core\src\main\java\com\tonikelope\coronapoker\core\ApplicationMetadata.java',
+        'modules\coronapoker-core\src\test\java\com\tonikelope\coronapoker\core\ApplicationMetadataTest.java'
+    )
+    $original = @{}
+    foreach ($relative in $versionFiles) {
+        $path = Join-Path $script:repoRoot $relative
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw "Version file is missing: $relative"
+        }
+        $content = [System.IO.File]::ReadAllText($path)
+        if (-not $content.Contains($previous)) {
+            throw "Version $previous was not found in $relative. No files were changed."
+        }
+        $original[$path] = $content
+    }
+
+    $encoding = [System.Text.UTF8Encoding]::new($false)
+    $written = [System.Collections.Generic.List[string]]::new()
+    try {
+        foreach ($relative in $versionFiles) {
+            $path = Join-Path $script:repoRoot $relative
+            $updated = $original[$path].Replace($previous, $next)
+            [System.IO.File]::WriteAllText($path, $updated, $encoding)
+            $written.Add($path)
+        }
+        foreach ($relative in $versionFiles) {
+            $path = Join-Path $script:repoRoot $relative
+            $content = [System.IO.File]::ReadAllText($path)
+            if ($content.Contains($previous) -or
+                    -not $content.Contains($next)) {
+                throw "Version update verification failed for $relative."
+            }
+        }
+    } catch {
+        foreach ($path in $written) {
+            [System.IO.File]::WriteAllText($path, $original[$path], $encoding)
+        }
+        throw
+    }
+    return [pscustomobject]@{
+        Previous = $previous
+        Next = $next
+        Files = $versionFiles.Count
+    }
+}
+
+if ($IncrementVersion) {
+    $versionChange = Update-CoronaPokerProductVersion
+    Write-Host ("Version increment: {0} -> {1} ({2} files updated)" -f
+        $versionChange.Previous, $versionChange.Next,
+        $versionChange.Files) -ForegroundColor Yellow
+}
 
 $results = [System.Collections.Generic.List[object]]::new()
 $runStarted = Get-Date

@@ -14545,7 +14545,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
                 if (presentationSettings != null && contains(x, y,
                         contentX, firstRowY - rowStride, rowW, 68f)) {
-                    toggleTablePreference("gdx_vsync", false);
+                    toggleTablePreference("gdx_vsync",
+                            GdxSettingsContract.DEFAULT_VSYNC);
                     return;
                 }
                 if (presentationSettings != null && contains(x, y,
@@ -18654,8 +18655,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 "gdx.settings.row.fps_limit")),
                         GdxSettingsContract.markDefault(
                                 tableFrameRateLimitSettingLabel(),
-                                "0".equals(tableSettingsProperties()
-                                        .getProperty("gdx_fps_limit", "0"))),
+                                GdxSettingsContract.isDefaultFrameRateLimit(
+                                        tableSettingsProperties())),
                         presentationSettings != null, alpha);
                 drawSettingsStepperText(x, firstY - 3f * rowStride, width,
                         uppercase(gameText.translate(

@@ -76,6 +76,34 @@ final class ProductDistributionContractTest {
     }
 
     @Test
+    void buildRunnerCanIncrementEveryCanonicalVersionBeforePackaging()
+            throws IOException {
+        String runner = Files.readString(reactor.resolve(
+                "../tools/qa/run-all.ps1").normalize(),
+                StandardCharsets.UTF_8);
+
+        assertTrue(runner.contains("[switch] $IncrementVersion"));
+        assertTrue(runner.contains(
+                "if ($IncrementVersion -and $Action -ne 'build')"));
+        assertTrue(runner.contains("Version increment: {0} -> {1}"));
+        for (String marker : Set.of(
+                "pom.xml",
+                "modules\\pom.xml",
+                "modules\\coronapoker-assets\\pom.xml",
+                "modules\\coronapoker-core\\pom.xml",
+                "modules\\coronapoker-gdx\\pom.xml",
+                "modules\\coronapoker-qa\\pom.xml",
+                "tools\\reactor\\pom.xml",
+                "tools\\qa\\pom.xml",
+                "coronapoker-version.properties",
+                "ApplicationMetadata.java",
+                "ApplicationMetadataTest.java")) {
+            assertTrue(runner.contains(marker),
+                    "Build version increment must include " + marker);
+        }
+    }
+
+    @Test
     void gdxDoesNotRecompileClassesOwnedByTheSharedCore() throws IOException {
         Path coreClasses = reactor.resolve("coronapoker-core/target/classes");
         Path gdxClasses = reactor.resolve("coronapoker-gdx/target/classes");

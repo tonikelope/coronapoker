@@ -99,6 +99,27 @@ final class GdxFrontendSettingsWiringTest {
     }
 
     @Test
+    void rootSettingsDrawTheirTooltipLayerAboveTheModal() throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+
+        assertTrue(frontend.contains(
+                "if (rootSurfaceModal && dropdown == Dropdown.NONE)"));
+        int tooltipGuardStart = frontend.indexOf(
+                "if (rootSurfaceModal && dropdown == Dropdown.NONE)");
+        int tooltipCall = frontend.indexOf("drawTooltipTopLayer();", tooltipGuardStart);
+        assertTrue(tooltipCall > tooltipGuardStart);
+        assertFalse(frontend.substring(tooltipGuardStart, tooltipCall)
+                .contains("hasBlockingFrontendModal"));
+        assertTrue(frontend.contains("case SETTINGS -> drawSettingsScreen();"),
+                "menu and lobby settings must share the same sharp modal");
+        assertTrue(frontend.contains(
+                "settingsReturnSurface == Surface.LOBBY && lobby != null"),
+                "only the blurred backdrop may differ between menu and lobby");
+    }
+
+    @Test
     void fittedTextUsesProportionalScalingBeforeItsFinalEllipsisGuard() {
         assertEquals(1f, GdxFrontendScreen.fittedTextScale(
                 100f, 120f, 0.72f));

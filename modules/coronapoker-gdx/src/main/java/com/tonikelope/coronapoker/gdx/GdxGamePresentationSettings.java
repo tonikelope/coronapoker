@@ -328,11 +328,13 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         return selected;
     }
     int requestedFrameRateLimit() {
-        int configured = integer("gdx_fps_limit", 0);
-        return FRAME_RATE_LIMITS.contains(configured) ? configured : 0;
+        int configured = integer("gdx_fps_limit",
+                GdxSettingsContract.DEFAULT_FRAME_RATE_LIMIT);
+        return FRAME_RATE_LIMITS.contains(configured) ? configured
+                : GdxSettingsContract.DEFAULT_FRAME_RATE_LIMIT;
     }
     boolean vsyncEnabled() {
-        return bool("gdx_vsync", false);
+        return bool("gdx_vsync", GdxSettingsContract.DEFAULT_VSYNC);
     }
     String frameRateOverlayLabel(int framesPerSecond) {
         return Math.max(0, framesPerSecond) + " FPS (VS "

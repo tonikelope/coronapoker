@@ -77,13 +77,13 @@ final class GdxSettingsContractTest {
         GdxGameText spanish = new GdxGameText("es");
         GdxGameText english = new GdxGameText("en");
 
-        assertEquals("DESACTIVADA *",
+        assertEquals("DESACTIVADA",
                 GdxSettingsContract.vsyncStatusLabel(false, spanish));
-        assertEquals("ACTIVADA",
+        assertEquals("ACTIVADA *",
                 GdxSettingsContract.vsyncStatusLabel(true, spanish));
-        assertEquals("DISABLED *",
+        assertEquals("DISABLED",
                 GdxSettingsContract.vsyncStatusLabel(false, english));
-        assertEquals("ENABLED",
+        assertEquals("ENABLED *",
                 GdxSettingsContract.vsyncStatusLabel(true, english));
     }
 
@@ -611,14 +611,14 @@ final class GdxSettingsContractTest {
         assertEquals("620", properties.getProperty("card_flip_duration"));
         assertEquals("windowed", properties.getProperty("gdx_window_mode"));
         assertEquals("0", properties.getProperty("gdx_msaa_samples"));
-        assertEquals("0", properties.getProperty("gdx_fps_limit"));
-        assertEquals("false", properties.getProperty("gdx_vsync"));
+        assertEquals("120", properties.getProperty("gdx_fps_limit"));
+        assertEquals("true", properties.getProperty("gdx_vsync"));
 
         GdxSettingsContract.restoreAppearanceDefaults(properties, true);
         assertEquals("borderless", properties.getProperty("gdx_window_mode"));
         assertEquals("4", properties.getProperty("gdx_msaa_samples"));
-        assertEquals("0", properties.getProperty("gdx_fps_limit"));
-        assertEquals("false", properties.getProperty("gdx_vsync"));
+        assertEquals("120", properties.getProperty("gdx_fps_limit"));
+        assertEquals("true", properties.getProperty("gdx_vsync"));
     }
 
     @Test

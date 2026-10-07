@@ -328,6 +328,9 @@ first failed layer:
 # Rebuild and leave the runnable JAR in target/, without tests.
 .\qa.cmd build
 
+# Increment the product version everywhere, then build the new JAR.
+.\qa.cmd build -IncrementVersion
+
 # Rebuild and run the product module and architecture tests.
 .\qa.cmd test
 
@@ -354,6 +357,7 @@ Use the lifecycle according to intent:
 | Goal | Command |
 |---|---|
 | Rebuild runnable JAR without tests | `.\qa.cmd build` |
+| Increment the version and rebuild the runnable JAR | `.\qa.cmd build -IncrementVersion` |
 | Rebuild and run product and architecture tests | `.\qa.cmd test` |
 | Add the slow replayable non-bot regression lane | `.\qa.cmd extended` |
 | Run the complete scenario catalogue once | `.\qa.cmd scenarios fast` |
@@ -368,6 +372,14 @@ Use the lifecycle according to intent:
 Only the clean full-reactor command constitutes a distribution build. Building
 the GDX module directly is useful for local iteration but does not certify the
 complete product.
+
+`-IncrementVersion` is deliberately opt-in and valid only with `build`. Before
+Maven starts, it reads the current two-component product version, increments
+its final component, updates every canonical Maven, runtime metadata and Java
+version marker, verifies that they agree, and prints the source version, the
+destination version and the number of changed files. If the subsequent build
+fails, the increment remains visible in the working tree so it can be reviewed
+or corrected explicitly; the script never hides a partial release attempt.
 
 GDX gameplay certification has one catalogue and one result. `fast`,
 `balanced` and `stress` execute exactly the same scenarios. They differ only in

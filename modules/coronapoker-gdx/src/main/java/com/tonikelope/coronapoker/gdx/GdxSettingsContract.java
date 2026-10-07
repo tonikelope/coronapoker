@@ -18,6 +18,8 @@ import java.util.Properties;
 final class GdxSettingsContract {
 
     static final float DEFAULT_MASTER_VOLUME = 0.8f;
+    static final boolean DEFAULT_VSYNC = true;
+    static final int DEFAULT_FRAME_RATE_LIMIT = 120;
     static final int APPEARANCE_PRIMARY_ROW_COUNT = 4;
     static final int APPEARANCE_GRAPHICS_ROW_COUNT = 6;
     static final String CHAT_GAME_NOTIFICATIONS_KEY =
@@ -462,7 +464,7 @@ final class GdxSettingsContract {
                                 : PerformanceImpact.HIGH;
             }
             case "gdx_fps_limit" -> {
-                int limit = integer(values, key, 0);
+                int limit = integer(values, key, DEFAULT_FRAME_RATE_LIMIT);
                 yield limit == 0 || limit >= 240 ? PerformanceImpact.HIGH
                         : limit >= 120 ? PerformanceImpact.MEDIUM
                                 : PerformanceImpact.LOW;
@@ -605,12 +607,18 @@ final class GdxSettingsContract {
         return factoryDefault ? value + " *" : value;
     }
 
+    static boolean isDefaultFrameRateLimit(Properties properties) {
+        Properties values = properties == null ? new Properties() : properties;
+        return integer(values, "gdx_fps_limit", DEFAULT_FRAME_RATE_LIMIT)
+                == DEFAULT_FRAME_RATE_LIMIT;
+    }
+
     static String vsyncStatusLabel(boolean enabled, GdxGameText text) {
         String key = enabled
                 ? "gdx.settings.game.summary.value.enabled"
                 : "gdx.settings.game.summary.value.disabled_feminine";
         return markDefault(text.translate(key).toUpperCase(Locale.ROOT),
-                !enabled);
+                enabled == DEFAULT_VSYNC);
     }
 
     static String voiceRetentionLabel(Properties properties) {
@@ -685,8 +693,10 @@ final class GdxSettingsContract {
         properties.setProperty("trasera", "default");
         properties.setProperty("color_tapete", "verde");
         properties.setProperty("nivel_luz", "50");
-        properties.setProperty("gdx_vsync", "false");
-        properties.setProperty("gdx_fps_limit", "0");
+        properties.setProperty("gdx_vsync",
+                Boolean.toString(DEFAULT_VSYNC));
+        properties.setProperty("gdx_fps_limit",
+                Integer.toString(DEFAULT_FRAME_RATE_LIMIT));
         properties.setProperty("gdx_show_fps", "false");
         for (TogglePage page : APPEARANCE_PAGES) {
             for (ToggleOption option : page.options()) {

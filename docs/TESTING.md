@@ -43,6 +43,9 @@ dependencies, intermediate classes, reports and the self-contained JAR.
 # Quick rebuild plus runnable target/CoronaPoker_<version>.jar. Tests are skipped.
 .\qa.cmd build
 
+# Opt-in version increment, synchronized before the same clean build.
+.\qa.cmd build -IncrementVersion
+
 # Normal code check. Clean build plus product and architecture tests.
 .\qa.cmd test
 
@@ -147,6 +150,20 @@ runner uses that reactor by default unless `-SkipGameBuild` is explicitly used.
 That switch requires compatible product artifacts to be installed already.
 The certifier performs a clean GDX test compilation with tests skipped and then
 starts only each scheduled scenario test in an isolated Maven process.
+
+### Versioned local builds
+
+`qa.cmd build -IncrementVersion` increments the final numeric component of the
+current two-component product version before Maven starts. The runner updates
+the root and module POMs, QA reactor POMs, packaged version metadata, the Java
+fallback and its contract test as one validated set. It prints both the source
+and destination versions plus the number of updated files. The switch is
+rejected for `test`, `extended`, `scenarios` and `all`, which prevents an
+ordinary verification run from changing release identity unexpectedly.
+
+The version change is intentionally retained if compilation later fails. This
+makes the failed release attempt explicit in `git diff` instead of silently
+rolling source identity backwards while stale artifacts may still exist.
 
 ## Recommended order
 

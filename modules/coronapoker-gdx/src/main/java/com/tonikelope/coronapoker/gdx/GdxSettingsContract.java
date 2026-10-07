@@ -248,6 +248,8 @@ final class GdxSettingsContract {
                     Gate.ANIMATIONS),
             option("animacion_contadores", "CONTADORES", true,
                     Gate.ANIMATIONS),
+            option("animacion_entrada_asientos", "ENTRADA DE JUGADORES", true,
+                    Gate.ANIMATIONS),
             option("animacion_swap", "ORDENAR LA MANO", true,
                     Gate.ANIMATIONS),
             option("animacion_contador_final", "RECUENTO FINAL", true,
@@ -421,7 +423,8 @@ final class GdxSettingsContract {
             "animacion_barajado", "animacion_reparto",
             "animacion_destape", "animacion_ciegas_dealer",
             "animacion_apuestas", "animacion_contadores",
-            "animacion_cascada_overlay", "animacion_swap",
+            "animacion_entrada_asientos", "animacion_cascada_overlay",
+            "animacion_swap",
             "animacion_downgrade", "card_flip_duration",
             "card_flip_zoom", "reparto_velocidad", "anim_calidad",
             "swap_velocidad", "swap_arco", "downgrade_velocidad",
@@ -453,7 +456,8 @@ final class GdxSettingsContract {
                     "animacion_apuestas", "animacion_contador_final",
                     "animacion_efecto_ganador" -> PerformanceImpact.MEDIUM;
             case "cinematicas_gameover", "animacion_ciegas_dealer",
-                    "animacion_contadores", "animacion_swap" ->
+                    "animacion_contadores", "animacion_entrada_asientos",
+                    "animacion_swap" ->
                 PerformanceImpact.LOW;
             case "card_flip_zoom" -> integer(values, key, 100) <= 100
                     ? PerformanceImpact.LOW : PerformanceImpact.MEDIUM;

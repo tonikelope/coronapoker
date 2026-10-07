@@ -400,6 +400,9 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     @Override public boolean counterAnimation() {
         return animations() && bool("animacion_contadores", true);
     }
+    boolean seatEntryAnimation() {
+        return animations() && bool("animacion_entrada_asientos", true);
+    }
     @Override public boolean shuffleAnimation() {
         return animations() && bool("animacion_barajado", true);
     }

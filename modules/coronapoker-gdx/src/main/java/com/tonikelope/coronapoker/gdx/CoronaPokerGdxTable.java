@@ -171,6 +171,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     // overlap. Turn and river remain single-card reveals.
     private static final float COMMUNITY_FLIP_STAGGER_SECONDS = 0.200f;
     private static final float FOLD_DISABLE_SECONDS = 0.30f;
+    static final float REMOTE_SEAT_ENTRY_SECONDS = 0.42f;
+    static final float REMOTE_SEAT_ENTRY_STAGGER_SECONDS = 0.09f;
+    private static final float REMOTE_SEAT_ENTRY_DISTANCE = 56f;
     static final float PARTIAL_HAND_ROLL_SECONDS = 0.150f;
     // Disabled cards remain fully coloured. Only their opacity changes, so a
     // folded/losing hand is still readable instead of turning into a muddy
@@ -736,6 +739,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean recoverableTerminationRequested;
     private TableVisualEvent.PreparationStatus.Phase preparationPhase
             = TableVisualEvent.PreparationStatus.Phase.STARTING_DEALER;
+    private float remoteSeatEntryStartedAt = Float.NaN;
 
     private int uiLayer = UI_NONE;
     private float uiOpenedAt;
@@ -887,6 +891,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private FrameBuffer disabledHoleCardsLayer;
 
     private BitmapFont uiFont;
+    private BitmapFont potFont;
     private BitmapFont smallFont;
     private BitmapFont versionFont;
     private BitmapFont playerNameFont;
@@ -2650,7 +2655,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     GdxSettingsStyle.SMALL_FONT_SIZE, 0f);
             case 17 -> settingsTinyFont = font(creationFontGenerator,
                     GdxSettingsStyle.TINY_FONT_SIZE, 0f);
-            case 18 -> {
+            case 18 -> potFont = font(creationFontGenerator, 38, 0f);
+            case 19 -> {
                 dialogAmountFont = font(creationFontGenerator, 50, 0f);
                 disposeCreationFontGenerator();
                 return true;
@@ -2984,6 +2990,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             uiFont = replaceFont(uiFont, font(generator,
                     GdxVolumeOverlayStyle.FONT_SIZE,
                     GdxVolumeOverlayStyle.FONT_BORDER, profile));
+            potFont = replaceFont(potFont,
+                    font(generator, 38, 0f, profile));
             smallFont = replaceFont(smallFont,
                     font(generator, 21, 0.8f, profile));
             versionFont = replaceFont(versionFont, font(generator,
@@ -3279,7 +3287,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             barrier.complete(null);
         } else if (event instanceof TableVisualEvent.PreparationStatus preparation) {
             liveState.apply(event);
+            TableVisualEvent.PreparationStatus.Phase previous
+                    = preparationPhase;
             preparationPhase = preparation.phase();
+            if (previous != TableVisualEvent.PreparationStatus.Phase.READY
+                    && preparationPhase
+                    == TableVisualEvent.PreparationStatus.Phase.READY
+                    && Float.isNaN(remoteSeatEntryStartedAt)) {
+                remoteSeatEntryStartedAt = totalTime;
+            }
             barrier.complete(null);
         } else if (event instanceof TableVisualEvent.GameClock) {
             liveState.apply(event);
@@ -4151,6 +4167,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         totalTime += delta;
         sceneTime += delta;
+        if (!intro
+                && preparationPhase
+                == TableVisualEvent.PreparationStatus.Phase.READY
+                && Float.isNaN(remoteSeatEntryStartedAt)) {
+            remoteSeatEntryStartedAt = totalTime;
+        }
         audioPreview.update(delta);
         updateTextDeleteRepeat(delta);
         updateWindowMonitorRefresh(delta);
@@ -7512,6 +7534,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         width - POSITION_CHIP_SIZE / 2f - 4f);
                 seats[i].positionY = seats[i].podY + PLAYER_POD_HEIGHT
                         + POSITION_CHIP_SIZE / 2f + POSITION_CHIP_HUD_GAP;
+                applyRemoteSeatEntryOffset(seats[i], width, height);
             }
         }
         int dealerIndex = dealerSeat();
@@ -7531,7 +7554,59 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private float seatPresenceAlpha(int seat) {
-        return seat < livePlayerCount() ? 1f : 0f;
+        if (seat >= livePlayerCount()) return 0f;
+        if (seat == 0 || !liveSeatEntryAnimationEnabled()
+                || Float.isNaN(remoteSeatEntryStartedAt)) return 1f;
+        return remoteSeatEntryAlpha(totalTime - remoteSeatEntryStartedAt,
+                seat - 1);
+    }
+
+    private void applyRemoteSeatEntryOffset(Seat seat, float width,
+            float height) {
+        if (seat.index == 0 || !liveSeatEntryAnimationEnabled()
+                || Float.isNaN(remoteSeatEntryStartedAt)) return;
+        float motion = remoteSeatEntryMotion(
+                totalTime - remoteSeatEntryStartedAt, seat.index - 1);
+        if (motion == 1f) return;
+        float radialX = seat.x - width / 2f;
+        float radialY = seat.y - height * 0.52f;
+        float length = Math.max(1f,
+                (float) Math.sqrt(radialX * radialX + radialY * radialY));
+        float remaining = 1f - motion;
+        float offsetX = radialX / length * REMOTE_SEAT_ENTRY_DISTANCE
+                * remaining;
+        float offsetY = radialY / length * REMOTE_SEAT_ENTRY_DISTANCE
+                * remaining;
+        seat.x += offsetX;
+        seat.y += offsetY;
+        seat.podX += offsetX;
+        seat.podY += offsetY;
+        seat.stackX += offsetX;
+        seat.stackY += offsetY;
+        seat.positionX += offsetX;
+        seat.positionY += offsetY;
+    }
+
+    static float remoteSeatEntryAlpha(float elapsedSeconds,
+            int remoteOrder) {
+        return Interpolation.smoother.apply(
+                remoteSeatEntryRawProgress(elapsedSeconds, remoteOrder));
+    }
+
+    static float remoteSeatEntryMotion(float elapsedSeconds,
+            int remoteOrder) {
+        float raw = remoteSeatEntryRawProgress(elapsedSeconds, remoteOrder);
+        return raw >= 1f ? 1f : Interpolation.swingOut.apply(raw);
+    }
+
+    private static float remoteSeatEntryRawProgress(float elapsedSeconds,
+            int remoteOrder) {
+        if (!Float.isFinite(elapsedSeconds)) return 1f;
+        int order = Math.max(0, remoteOrder);
+        float localElapsed = elapsedSeconds
+                - order * REMOTE_SEAT_ENTRY_STAGGER_SECONDS;
+        return MathUtils.clamp(localElapsed / REMOTE_SEAT_ENTRY_SECONDS,
+                0f, 1f);
     }
 
     private void drawSeats() {
@@ -8711,17 +8786,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         for (Seat seat : seats) {
             TableSnapshot.PlayerSnapshot player = livePlayer(seat);
-            if (player == null || seatPresenceAlpha(seat.index) <= 0f) {
+            float presence = seatPresenceAlpha(seat.index);
+            if (player == null || presence <= 0f) {
                 continue;
             }
             float x = seatAvatarX(seat) - 42f;
             float y = seat.y + 41f;
-            shapes.setColor(0f, 0f, 0f, 0.62f);
+            shapes.setColor(0f, 0f, 0f, 0.62f * presence);
             shapes.circle(x, y, 10f, 28);
-            shapes.setColor(latencyColor(player));
+            Color quality = latencyColor(player);
+            shapes.setColor(quality.r, quality.g, quality.b,
+                    quality.a * presence);
             shapes.circle(x, y, 8f, 28);
             if (player.reconnectionCount() > 0) {
-                shapes.setColor(Color.WHITE);
+                shapes.setColor(1f, 1f, 1f, presence);
                 shapes.circle(x + 8f, y - 8f, 7f, 24);
             }
         }
@@ -8730,15 +8808,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.begin();
         for (Seat seat : seats) {
             TableSnapshot.PlayerSnapshot player = livePlayer(seat);
+            float presence = seatPresenceAlpha(seat.index);
             if (player == null || player.reconnectionCount() <= 0
-                    || seatPresenceAlpha(seat.index) <= 0f) {
+                    || presence <= 0f) {
                 continue;
             }
             String badge = player.reconnectionCount() > 9
                     ? "9+" : Integer.toString(player.reconnectionCount());
             drawFittedCentered(smallFont, badge,
                     seatAvatarX(seat) - 34f,
-                    seat.y + 37f, 12f, Color.BLACK, 1f);
+                    seat.y + 37f, 12f, Color.BLACK, presence);
         }
         batch.end();
     }
@@ -9694,8 +9773,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 potW, potH);
         float textAreaX = panelX + 98f;
         float textAreaWidth = panelWidth - 112f;
-        drawFittedCentered(uiFont, potText,
-                textAreaX + textAreaWidth / 2f, panelY + 51f,
+        drawFittedCenteredAtVisualY(potFont, potText,
+                textAreaX + textAreaWidth / 2f,
+                panelY + panelHeight / 2f,
                 textAreaWidth, POT_GOLD, 1f);
         batch.setColor(Color.WHITE);
         batch.end();
@@ -10491,9 +10571,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             for (TableSnapshot.PlayerSnapshot player : liveState.snapshot().players()) {
                 Texture texture = positionTexture(player.position());
                 Seat seat = seatByNickname(player.nickname());
-                if (texture != null && seat != null) {
+                float presence = seat == null ? 0f
+                        : seatPresenceAlpha(seat.index);
+                if (texture != null && seat != null && presence > 0f) {
                     drawPositionTexture(texture, seat.positionX, seat.positionY,
-                            POSITION_CHIP_SIZE, 0f);
+                            POSITION_CHIP_SIZE, 0f, presence);
                 }
             }
             batch.end();
@@ -10528,7 +10610,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float size = POSITION_CHIP_SIZE
                     * (transfer.fromCenter() ? 0.62f + progress * 0.38f : 1f);
             drawPositionTexture(texture, x, y, size,
-                    (1f - progress) * (role - 1) * 320f);
+                    (1f - progress) * (role - 1) * 320f,
+                    seatPresenceAlpha(target.index));
         }
         batch.end();
     }
@@ -10572,8 +10655,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawPositionTexture(Texture texture, float x, float y,
-            float size, float rotation) {
-        batch.setColor(Color.WHITE);
+            float size, float rotation, float alpha) {
+        batch.setColor(1f, 1f, 1f, alpha);
         batch.draw(texture, x - size / 2f, y - size / 2f,
                 size / 2f, size / 2f, size, size, 1f, 1f, rotation,
                 0, 0, texture.getWidth(), texture.getHeight(), false, false);
@@ -11064,6 +11147,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return presentationSettings == null
                 ? tablePreference("animaciones", true)
                 : presentationSettings.animations();
+    }
+
+    private boolean liveSeatEntryAnimationEnabled() {
+        return presentationSettings == null
+                ? liveAnimationsEnabled()
+                    && tablePreference("animacion_entrada_asientos", true)
+                : presentationSettings.seatEntryAnimation();
     }
 
     private boolean liveAllInFireEnabled() {
@@ -21548,6 +21638,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeSafely(screenshotSound);
         disposeSafely(feltChangeSound);
         disposeSafely(uiFont);
+        disposeSafely(potFont);
         disposeSafely(smallFont);
         disposeSafely(versionFont);
         disposeSafely(playerNameFont);
@@ -21705,6 +21796,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (modalBackdropBlur != null) modalBackdropBlur.dispose();
         if (disabledHoleCardsLayer != null) disabledHoleCardsLayer.dispose();
         uiFont.dispose();
+        potFont.dispose();
         smallFont.dispose();
         versionFont.dispose();
         playerNameFont.dispose();

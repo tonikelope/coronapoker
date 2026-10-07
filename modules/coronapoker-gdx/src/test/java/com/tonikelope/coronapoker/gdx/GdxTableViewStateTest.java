@@ -288,6 +288,29 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void remoteSeatsEnterSequentiallyAndFinishAtTheirExactAnchor() {
+        assertEquals(0f, CoronaPokerGdxTable.remoteSeatEntryAlpha(0f, 0),
+                0.000_001f);
+        assertEquals(0f, CoronaPokerGdxTable.remoteSeatEntryAlpha(
+                CoronaPokerGdxTable.REMOTE_SEAT_ENTRY_STAGGER_SECONDS / 2f,
+                1), 0.000_001f);
+
+        float first = CoronaPokerGdxTable.remoteSeatEntryAlpha(0.20f, 0);
+        float second = CoronaPokerGdxTable.remoteSeatEntryAlpha(0.20f, 1);
+        assertTrue(first > second,
+                "each remote seat must follow the preceding rival");
+        assertTrue(CoronaPokerGdxTable.remoteSeatEntryMotion(0.20f, 0)
+                > first, "motion may settle ahead of the opacity fade");
+
+        float finished = CoronaPokerGdxTable.REMOTE_SEAT_ENTRY_SECONDS
+                + 8f * CoronaPokerGdxTable.REMOTE_SEAT_ENTRY_STAGGER_SECONDS;
+        assertEquals(1f, CoronaPokerGdxTable.remoteSeatEntryAlpha(
+                finished, 8), 0.000_001f);
+        assertEquals(1f, CoronaPokerGdxTable.remoteSeatEntryMotion(
+                finished, 8), 0.000_001f);
+    }
+
+    @Test
     void rivalHandKeepsOfficialSizeAndContainsTallModBacks() {
         float officialAspect = 1242f / 923f;
         assertEquals(125f,

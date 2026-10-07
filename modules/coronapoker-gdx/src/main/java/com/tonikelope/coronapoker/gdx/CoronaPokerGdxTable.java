@@ -196,6 +196,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float AVATAR_INNER_RADIUS = 40f;
     private static final float ALL_IN_FIRE_WIDTH = 154f;
     private static final float ALL_IN_FIRE_HEIGHT = 184f;
+    private static final int ALL_IN_FIRE_LAYER_COUNT = 3;
+    private static final int ALL_IN_EMBER_COUNT = 25;
+    private static final int WINNER_GLOW_PARTICLE_COUNT = 72;
+    private static final AllInEmber[] ALL_IN_EMBERS = createAllInEmbers();
+    private static final WinnerGlowParticle[] WINNER_GLOW_PARTICLES =
+            createWinnerGlowParticles();
     private static final float AVATAR_ZOOM_HOVER_SECONDS = 0.250f;
     private static final float AVATAR_ZOOM_FACTOR = 2f;
     private static final float AVATAR_ZOOM_MAX_HEIGHT_RATIO = 0.45f;
@@ -1062,6 +1068,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             = new HashMap<>();
     private final Map<String, Long> liveWinnerStarts = new HashMap<>();
     private final ArrayList<Seat> allInFireSeats = new ArrayList<>(SEAT_COUNT);
+    private final ArrayList<Seat> liveWinnerEffectSeats =
+            new ArrayList<>(SEAT_COUNT);
+    private final long[] liveWinnerEffectStarts = new long[SEAT_COUNT];
+    private final float[] allInFirePresence = new float[SEAT_COUNT];
+    private final float[] allInFireAvatarX = new float[SEAT_COUNT];
+    private final Rectangle[][] allInFireBoundsCache =
+            createAllInFireBoundsCache();
     private LivePayout livePayout;
     private LiveRebuy liveRebuy;
     private LiveInitialStackFill liveInitialStackFill;
@@ -7995,9 +8008,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         allInFireSeats.clear();
         for (Seat seat : seats) {
-            if (seatPresenceAlpha(seat.index) > 0f
+            float presence = seatPresenceAlpha(seat.index);
+            if (presence > 0f
                     && seatHasAllInFire(liveState, seat.name)) {
                 allInFireSeats.add(seat);
+                allInFirePresence[seat.index] = presence;
+                float avatarX = seatAvatarX(seat);
+                allInFireAvatarX[seat.index] = avatarX;
+                for (int layer = 0; layer < ALL_IN_FIRE_LAYER_COUNT;
+                        layer++) {
+                    setAllInFireLayerBounds(
+                            allInFireBoundsCache[seat.index][layer],
+                            avatarX, seat.y, layer);
+                }
             }
         }
         // Avoid two SpriteBatch passes plus a ShapeRenderer pass on every
@@ -8021,11 +8044,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         bloom ? GL20.GL_ONE : GL20.GL_ONE_MINUS_SRC_ALPHA);
                 batch.begin();
                 for (Seat seat : allInFireSeats) {
-                    float presence = seatPresenceAlpha(seat.index);
-                    for (int layer = 0; layer < 3; layer++) {
-                        Rectangle fire = allInFireLayerBounds(
-                                seatAvatarX(seat), seat.y,
-                                layer);
+                    float presence = allInFirePresence[seat.index];
+                    for (int layer = 0; layer < ALL_IN_FIRE_LAYER_COUNT;
+                            layer++) {
+                        Rectangle fire =
+                                allInFireBoundsCache[seat.index][layer];
                         float expansion = bloom ? 12f : 0f;
                         batch.flush();
                         allInFireShader.setUniformf("u_time",
@@ -8057,21 +8080,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (Seat seat : allInFireSeats) {
-            float presence = seatPresenceAlpha(seat.index);
-            for (int ember = 0; ember < 25; ember++) {
-                float speed = 0.27f + (ember % 7) * 0.033f;
-                float life = (totalTime * speed + ember * 0.173f
+            float presence = allInFirePresence[seat.index];
+            float avatarX = allInFireAvatarX[seat.index];
+            for (int ember = 0; ember < ALL_IN_EMBER_COUNT; ember++) {
+                AllInEmber profile = ALL_IN_EMBERS[ember];
+                float life = (totalTime * profile.speed()
+                        + profile.timeOffset()
                         + seat.index * 0.113f) % 1f;
                 float buoyantLife = (float) Math.pow(life, 0.78f);
-                float origin = (((ember * 37) % 101) / 100f - 0.5f) * 70f;
-                float curl = MathUtils.sin(ember * 2.37f
+                float curl = MathUtils.sin(profile.primaryPhase()
                         + buoyantLife * 7.4f + totalTime * 0.41f)
                         * (4f + buoyantLife * 19f);
-                curl += MathUtils.sin(ember * 0.91f
+                curl += MathUtils.sin(profile.secondaryPhase()
                         - buoyantLife * 3.1f + totalTime * 0.23f)
                         * buoyantLife * 8f;
-                float emberX = seatAvatarX(seat)
-                        + origin * (1f - life * 0.18f) + curl;
+                float emberX = avatarX
+                        + profile.origin()
+                        * (1f - life * 0.18f) + curl;
                 float emberY = seat.y + 8f + buoyantLife * 162f;
                 float hot = 1f - life;
                 float ignition = MathUtils.clamp(life * 11f, 0f, 1f);
@@ -8080,7 +8105,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         0.012f + hot * 0.11f,
                         ignition * extinction * 0.72f * presence);
                 float radius = 0.55f
-                        + hot * (0.85f + (ember % 4) * 0.22f);
+                        + hot * (0.85f
+                                + profile.radiusOffset());
                 // A single faint wake reads as a rising spark without turning
                 // every ember into the same dotted line.
                 shapes.circle(emberX - curl * 0.025f,
@@ -8102,16 +8128,71 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static Rectangle allInFireLayerBounds(float centerX, float centerY,
             int layer) {
+        return setAllInFireLayerBounds(new Rectangle(), centerX, centerY,
+                layer);
+    }
+
+    private static Rectangle setAllInFireLayerBounds(Rectangle target,
+            float centerX, float centerY, int layer) {
         return switch (layer) {
-            case 0 -> new Rectangle(centerX - ALL_IN_FIRE_WIDTH / 2f,
+            case 0 -> target.set(centerX - ALL_IN_FIRE_WIDTH / 2f,
                     centerY - 57f, ALL_IN_FIRE_WIDTH, 158f);
-            case 1 -> new Rectangle(centerX - 94f, centerY - 51f,
+            case 1 -> target.set(centerX - 94f, centerY - 51f,
                     120f, ALL_IN_FIRE_HEIGHT + 10f);
-            case 2 -> new Rectangle(centerX - 22f, centerY - 49f,
+            case 2 -> target.set(centerX - 22f, centerY - 49f,
                     116f, ALL_IN_FIRE_HEIGHT - 4f);
             default -> throw new IllegalArgumentException(
                     "Invalid ALL-IN fire layer: " + layer);
         };
+    }
+
+    private static Rectangle[][] createAllInFireBoundsCache() {
+        Rectangle[][] bounds =
+                new Rectangle[SEAT_COUNT][ALL_IN_FIRE_LAYER_COUNT];
+        for (int seat = 0; seat < bounds.length; seat++) {
+            for (int layer = 0; layer < bounds[seat].length; layer++) {
+                bounds[seat][layer] = new Rectangle();
+            }
+        }
+        return bounds;
+    }
+
+    private static AllInEmber[] createAllInEmbers() {
+        AllInEmber[] profiles = new AllInEmber[ALL_IN_EMBER_COUNT];
+        for (int ember = 0; ember < profiles.length; ember++) {
+            profiles[ember] = new AllInEmber(
+                    0.27f + (ember % 7) * 0.033f,
+                    ember * 0.173f,
+                    (((ember * 37) % 101) / 100f - 0.5f) * 70f,
+                    ember * 2.37f,
+                    ember * 0.91f,
+                    (ember % 4) * 0.22f);
+        }
+        return profiles;
+    }
+
+    private static WinnerGlowParticle[] createWinnerGlowParticles() {
+        WinnerGlowParticle[] profiles =
+                new WinnerGlowParticle[WINNER_GLOW_PARTICLE_COUNT];
+        for (int particle = 0; particle < profiles.length; particle++) {
+            profiles[particle] = new WinnerGlowParticle(
+                    particle * 1.731f,
+                    particle * 0.019f,
+                    particle % 2 == 0 ? 0.35f : -0.28f,
+                    90f + particle % 8 * 18f,
+                    2f + particle % 4,
+                    particle % 3 == 0);
+        }
+        return profiles;
+    }
+
+    private record AllInEmber(float speed, float timeOffset, float origin,
+            float primaryPhase, float secondaryPhase, float radiusOffset) {
+    }
+
+    private record WinnerGlowParticle(float phase, float travelOffset,
+            float angularSpeed, float radialDistance, float radius,
+            boolean cyan) {
     }
 
     static float avatarZoomSize(float avatarSize, float worldHeight) {
@@ -12552,26 +12633,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         List<TableSnapshot.PlayerSnapshot> players = liveState.snapshot().players();
-        boolean hasWinner = false;
+        liveWinnerEffectSeats.clear();
         for (TableSnapshot.PlayerSnapshot player : players) {
             if (Boolean.TRUE.equals(
                     liveState.resolvedHandWinner(player.nickname()))) {
-                hasWinner = true;
-                break;
+                Seat winner = seatByNickname(player.nickname());
+                if (winner != null) {
+                    liveWinnerEffectSeats.add(winner);
+                    liveWinnerEffectStarts[winner.index] = liveWinnerStarts
+                            .getOrDefault(player.nickname(), 0L);
+                }
             }
         }
-        if (!hasWinner) {
+        if (liveWinnerEffectSeats.isEmpty()) {
             return;
         }
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        for (TableSnapshot.PlayerSnapshot player : players) {
-            if (!Boolean.TRUE.equals(
-                    liveState.resolvedHandWinner(player.nickname()))) continue;
-            Seat winner = seatByNickname(player.nickname());
-            if (winner == null) continue;
-            long startedAt = liveWinnerStarts.getOrDefault(player.nickname(), 0L);
+        for (Seat winner : liveWinnerEffectSeats) {
+            long startedAt = liveWinnerEffectStarts[winner.index];
             float winnerProgress = startedAt == 0L ? 1f : MathUtils.clamp(
                     (System.nanoTime() - startedAt) / 1_200_000_000f, 0f, 1f);
             for (int ring = 7; ring >= 1; ring--) {
@@ -12581,20 +12662,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         winnerProgress * (0.018f + (8 - ring) * 0.006f));
                 shapes.circle(winner.x, winner.y, radius, 64);
             }
-            for (int particle = 0; particle < 72; particle++) {
-                float phase = particle * 1.731f;
+            for (int particle = 0; particle < WINNER_GLOW_PARTICLE_COUNT;
+                    particle++) {
+                WinnerGlowParticle profile = WINNER_GLOW_PARTICLES[particle];
                 float travel = (winnerProgress * 1.4f
-                        + particle * 0.019f) % 1f;
-                float angle = phase + totalTime
-                        * (particle % 2 == 0 ? 0.35f : -0.28f);
+                        + profile.travelOffset()) % 1f;
+                float angle = profile.phase() + totalTime
+                        * profile.angularSpeed();
                 float radius = 55f + Interpolation.circleOut.apply(travel)
-                        * (90f + particle % 8 * 18f);
-                Color color = particle % 3 == 0 ? CYAN : POT_GOLD;
+                        * profile.radialDistance();
+                Color color = profile.cyan() ? CYAN : POT_GOLD;
                 shapes.setColor(color.r, color.g, color.b,
                         (1f - travel) * 0.62f);
                 shapes.circle(winner.x + MathUtils.cos(angle) * radius,
                         winner.y + MathUtils.sin(angle) * radius,
-                        2f + particle % 4, 10);
+                        profile.radius(), 10);
             }
         }
         shapes.end();

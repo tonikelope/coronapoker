@@ -1,14 +1,22 @@
 # ALL-IN fire performance audit
 
 Date: 2026-10-07  
-Scope: libGDX persistent ALL-IN fire only  
-Status: analysis only; no rendering behaviour has been changed
+Scope: libGDX persistent ALL-IN fire and structurally similar winner effect
+Status: safe CPU/GC optimisations implemented; rendering parameters unchanged
 
 ## Executive conclusion
 
 The effect is already cheap while inactive: `drawAllInSeatFlames()` reuses its
 seat list and returns before opening any render pass when no visible seat owns
 an ALL-IN action.
+
+The implementation on this branch removes transient flame-bound allocations,
+reuses each active seat's opacity/avatar position across every pass and caches
+the immutable per-particle constants used by the embers. The same conservative
+pattern is applied to the winner glow: its active-seat list is reused and its
+immutable particle constants are calculated once. Counts, geometry segments,
+positions, equations, colours, alpha, seeds, layers, blend modes, shader source
+and timing are unchanged.
 
 While active, the dominant cost is the fragment shader rather than the Java
 particle calculations. Each ALL-IN seat renders three procedural flame layers
@@ -41,6 +49,12 @@ Resources are created once during table construction and disposed with the
 table. There is no per-frame texture loading or shader compilation.
 
 ## Recommended optimisation order
+
+The following larger GPU changes remain analysis-only. They can offer a much
+larger gain, but an intermediate render target or a rewritten vertex format
+cannot honestly be promised to produce byte-identical pixels on every GPU and
+driver. They should therefore remain behind an A/B development path until
+capture comparison and GPU-time measurements approve them.
 
 ### 1. Evaluate the procedural field once and compose it twice
 
@@ -82,15 +96,19 @@ reproduce the same apparent shape using batched quads and additive blending.
 Expected result: much less transient geometry and no separate circle-heavy
 `ShapeRenderer` workload. This is secondary to the fragment shader.
 
-### 4. Remove small per-frame overheads
+### 4. Remove small per-frame overheads (implemented)
 
-- Reuse or calculate scalar layer bounds instead of allocating six `Rectangle`
-  objects per active seat and frame.
-- Cache the seat avatar X coordinate once per active seat in the fire pass.
+- Reuse layer bounds instead of allocating six `Rectangle` objects per active
+  seat and frame.
+- Cache the seat avatar X coordinate and presence once per active seat in the
+  fire pass.
+- Precompute immutable ember and winner-particle constants.
+- Reuse the winner-seat collection instead of resolving winners twice.
 - If profiling demonstrates value, maintain the active fire-seat set at visual
   event boundaries rather than scanning the ten seats every frame.
 
-These are safe clean-ups but are not worthwhile as a standalone optimisation.
+These are safe clean-ups. They reduce CPU work and garbage-collection pressure,
+but do not address the dominant procedural fragment-shader cost.
 
 ## Options deliberately not recommended first
 
@@ -114,4 +132,7 @@ These are safe clean-ups but are not worthwhile as a standalone optimisation.
 5. Reject the optimisation if frame-time variance increases or if the atlas
    introduces resampling softness, edge seams or allocation spikes.
 
-No implementation or visual change is included in this report branch.
+The focused `GdxTableViewStateTest` suite compiles the renderer and passes all
+202 tests. Automated tests do not constitute visual or GPU-time certification;
+the implemented changes are deliberately limited to invariant caching and
+storage reuse so that the render inputs remain the same.

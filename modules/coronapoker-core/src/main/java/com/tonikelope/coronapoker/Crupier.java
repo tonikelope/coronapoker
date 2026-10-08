@@ -441,8 +441,48 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private TableSnapshot tableSnapshot() {
-        return TableSnapshotMapper.from(gameSession().table().snapshot(),
-                this::getRebuyCount);
+        TableSnapshot base = TableSnapshotMapper.from(
+                gameSession().table().snapshot(), this::getRebuyCount);
+        java.util.List<TableSnapshot.PlayerSnapshot> players = base.players()
+                .stream().map(player -> {
+                    GamePlayerController controller = nick2player.get(
+                            player.nickname());
+                    boolean warming = player.warming()
+                            || controller != null && controller.isCalentando()
+                            || hot_join_observer
+                            && player.nickname().equals(
+                                    gameSession().localNickname())
+                            && player.spectator() && !player.exited();
+                    if (warming == player.warming()) return player;
+                    return new TableSnapshot.PlayerSnapshot(
+                            player.nickname(), player.stack(),
+                            player.streetBet(), player.potContribution(),
+                            player.active(), player.spectator(),
+                            player.exited(), player.timedOut(),
+                            player.latency(), player.previousLatency(),
+                            player.reconnectionCount(), player.telemetryAt(),
+                            player.winner(), player.underTheGun(),
+                            player.position(), player.lastAction(),
+                            player.handName(), player.holeCards(),
+                            player.buyIn(), player.rebuyCount(), warming);
+                }).toList();
+        return new TableSnapshot(base.revision(), base.localNickname(),
+                base.street(), base.pot(), base.currentTurnNickname(),
+                base.paused(), players, base.communityCards());
+    }
+
+    /** Current public clock projection for a newcomer joining mid-turn. */
+    public java.util.Optional<TableVisualEvent.TurnTimer>
+            publicHotJoinTurnTimer() {
+        long totalMillis = configuration().thinkTimeEnabled()
+                ? TimeUnit.SECONDS.toMillis(configuration().thinkTime()) : 0L;
+        return players().stream()
+                .filter(GamePlayerController::isTurno)
+                .filter(player -> !player.isExit())
+                .findFirst()
+                .map(player -> new TableVisualEvent.TurnTimer(
+                        1L, player.getNickname(), totalMillis, totalMillis,
+                        TableVisualEvent.TurnTimer.Phase.START));
     }
 
     /**
@@ -498,7 +538,39 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     "The host cannot be a passive hot-join observer");
         }
         this.hot_join_observer = true;
+        this.hot_join_first_deal_pending = true;
         this.passive_recovery_observer = true;
+    }
+
+    /**
+     * Keeps a freshly admitted late joiner alive through the first cryptographic
+     * deal even when the user asks to leave at the exact hand boundary. Closing
+     * its transport while it still belongs to the new ring would invalidate the
+     * rotation for every player and force an avoidable misdeal.
+     */
+    public void awaitHotJoinFirstDealSafeExitPoint() {
+        synchronized (lock_hot_join_first_deal) {
+            while (hot_join_first_deal_pending
+                    && !isFin_de_la_transmision()) {
+                try {
+                    lock_hot_join_first_deal.wait(WAIT_QUEUES);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }
+    }
+
+    private void completeHotJoinFirstDealGate() {
+        if (!hot_join_first_deal_pending || hot_join_observer
+                || localPlayer().isCalentando()) {
+            return;
+        }
+        synchronized (lock_hot_join_first_deal) {
+            hot_join_first_deal_pending = false;
+            lock_hot_join_first_deal.notifyAll();
+        }
     }
 
     /** Public-only state; no concealed pocket code can cross this boundary. */
@@ -3436,6 +3508,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // attempt), this remains true while the socket is publicly observing the
     // open hand and is cleared only by its authenticated admission boundary.
     private volatile boolean hot_join_observer = false;
+    // A newcomer is already part of the canonical roster before its first
+    // cascade/deal has finished. It must remain connected and responsive until
+    // that critical section completes, even if Exit is requested meanwhile.
+    private volatile boolean hot_join_first_deal_pending = false;
     private volatile boolean passive_hot_join_exit_requested = false;
     // Canonical opening balance wire committed into H_0. Live hands derive it
     // from their atomic SQL opening rows; recovery derives the exact same bytes
@@ -3461,6 +3537,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final Object lock_game_broadcast = new Object();
     private final Object lock_pausa_barra = new Object();
     private final Object lock_fin_mano = new Object();
+    private final Object lock_hot_join_first_deal = new Object();
     // Publishes street and show_time transitions to threads waiting on those states before
     // serving a REQ_SRA_UNLOCK_CHAIN. Every write to street/show_time goes through
     // setStreetLocal/setShowTime and fires notifyAll under this lock, so no waiter misses a transition.
@@ -13130,7 +13207,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         barajando = false;
                         finishShufflePresentation(attached_shuffle_presentation,
                                 shuffle_lock, gif_thread_done, "shuffle wait (abort path)");
-
+                        completeHotJoinFirstDealGate();
                         return false;
                     }
 
@@ -13161,6 +13238,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     && !receivedCardsAllowDeal(cartas_locales_recibidas)) {
                 LOGGER.log(Level.SEVERE,
                         "Initial card delivery ended without cards; refusing to enter reparto/betting");
+                completeHotJoinFirstDealGate();
                 return false;
             }
 
@@ -13175,6 +13253,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 game_window.setExitEnabled(true);
             });
             disableAllPlayersTimeout();
+            completeHotJoinFirstDealGate();
             return true;
 
         } else {
@@ -26837,6 +26916,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // down so the user is not stuck looking at the GIF.
                         cerrarRecoverDialogYSync();
 
+                        if (passive_hot_join_exit_requested
+                                || tableWaitCancelled()) {
+                            return;
+                        }
+
                         game_log.print(game_text.translate("player.la_timba_ha_terminado_no"));
 
                         awaitDialog(game_dialogs.showInfo(
@@ -26856,6 +26940,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     // Defense in depth: see comment above.
                     cerrarRecoverDialogYSync();
+
+                    if (passive_hot_join_exit_requested
+                            || tableWaitCancelled()) {
+                        return;
+                    }
 
                     game_log.print(game_text.translate("player.la_timba_ha_terminado_no"));
 

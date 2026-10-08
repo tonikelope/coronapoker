@@ -471,10 +471,13 @@ final class GdxTableViewState {
                 stopTurn();
             }
         } else if (event instanceof TableVisualEvent.SeatRoster roster) {
+            List<TableSnapshot.PlayerSnapshot> players = roster.players()
+                    .stream().map(this::preserveWarmingUntilAdmission)
+                    .toList();
             snapshot = copySnapshot(snapshot, snapshot.pot(),
-                    snapshot.currentTurnNickname(), roster.players(),
+                    snapshot.currentTurnNickname(), players,
                     snapshot.communityCards());
-            roster.players().stream()
+            players.stream()
                     .filter(TableSnapshot.PlayerSnapshot::spectator)
                     .map(TableSnapshot.PlayerSnapshot::nickname)
                     .forEach(this::clearCompletedHandPresentation);
@@ -1084,7 +1087,7 @@ final class GdxTableViewState {
                 telemetry.reconnectionCount(), telemetry.measuredAtMillis(),
                 source.winner(), source.underTheGun(), source.position(),
                 source.lastAction(), source.handName(), source.holeCards(),
-                source.buyIn(), source.rebuyCount());
+                source.buyIn(), source.rebuyCount(), source.warming());
     }
 
     private static TableSnapshot.PlayerSnapshot copyPlayerTimeout(
@@ -1096,7 +1099,7 @@ final class GdxTableViewState {
                 source.reconnectionCount(), source.telemetryAt(),
                 source.winner(), source.underTheGun(), source.position(),
                 source.lastAction(), source.handName(), source.holeCards(),
-                source.buyIn(), source.rebuyCount());
+                source.buyIn(), source.rebuyCount(), source.warming());
     }
 
     private static TableSnapshot.PlayerSnapshot copyPlayerDeparture(
@@ -1108,7 +1111,7 @@ final class GdxTableViewState {
                 source.reconnectionCount(), source.telemetryAt(),
                 source.winner(), source.underTheGun(), source.position(),
                 label, source.handName(), source.holeCards(), source.buyIn(),
-                source.rebuyCount());
+                source.rebuyCount(), source.warming());
     }
 
     private static TableSnapshot.PlayerSnapshot copyPlayerUnderTheGun(
@@ -1120,7 +1123,7 @@ final class GdxTableViewState {
                 source.reconnectionCount(), source.telemetryAt(),
                 source.winner(), underTheGun, source.position(),
                 source.lastAction(), source.handName(), source.holeCards(),
-                source.buyIn(), source.rebuyCount());
+                source.buyIn(), source.rebuyCount(), source.warming());
     }
 
     private static List<TableSnapshot.CardSnapshot> padded(
@@ -1156,7 +1159,8 @@ final class GdxTableViewState {
                 source.exited(), source.timedOut(), source.latency(),
                 source.previousLatency(), source.reconnectionCount(),
                 source.telemetryAt(), winner, source.underTheGun(), position,
-                action, hand, cards, source.buyIn(), source.rebuyCount());
+                action, hand, cards, source.buyIn(), source.rebuyCount(),
+                source.warming());
     }
 
     private static TableSnapshot.PlayerSnapshot copyPlayerRebuy(
@@ -1171,6 +1175,33 @@ final class GdxTableViewState {
                 source.reconnectionCount(), source.telemetryAt(),
                 source.winner(), source.underTheGun(), source.position(),
                 source.lastAction(), source.handName(), source.holeCards(),
-                source.buyIn() + amount, source.rebuyCount() + 1);
+                source.buyIn() + amount, source.rebuyCount() + 1,
+                source.warming());
+    }
+
+    private TableSnapshot.PlayerSnapshot preserveWarmingUntilAdmission(
+            TableSnapshot.PlayerSnapshot incoming) {
+        if (incoming.warming() || !incoming.spectator()
+                || incoming.exited()) {
+            return incoming;
+        }
+        boolean wasWarming = snapshot.players().stream()
+                .filter(player -> player.nickname().equals(
+                        incoming.nickname()))
+                .findFirst()
+                .map(TableSnapshot.PlayerSnapshot::warming)
+                .orElse(false);
+        if (!wasWarming) return incoming;
+        return new TableSnapshot.PlayerSnapshot(incoming.nickname(),
+                incoming.stack(), incoming.streetBet(),
+                incoming.potContribution(), incoming.active(),
+                incoming.spectator(), incoming.exited(),
+                incoming.timedOut(), incoming.latency(),
+                incoming.previousLatency(), incoming.reconnectionCount(),
+                incoming.telemetryAt(), incoming.winner(),
+                incoming.underTheGun(), incoming.position(),
+                incoming.lastAction(), incoming.handName(),
+                incoming.holeCards(), incoming.buyIn(),
+                incoming.rebuyCount(), true);
     }
 }

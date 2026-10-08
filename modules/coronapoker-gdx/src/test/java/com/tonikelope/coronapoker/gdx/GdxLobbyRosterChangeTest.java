@@ -46,6 +46,15 @@ class GdxLobbyRosterChangeTest {
                 initializing));
         assertTrue(GdxFrontendScreen.lobbyTableTransitionActive(false,
                 inGame));
+
+        assertTrue(GdxFrontendScreen.lobbyPreparationUsesBackdropBlur(true,
+                waiting), "host table preparation must blur the lobby");
+        assertTrue(GdxFrontendScreen.lobbyPreparationUsesBackdropBlur(false,
+                initializing), "normal join must blur the lobby");
+        assertTrue(GdxFrontendScreen.lobbyPreparationUsesBackdropBlur(false,
+                inGame), "late join must blur the lobby");
+        assertFalse(GdxFrontendScreen.lobbyPreparationUsesBackdropBlur(false,
+                waiting), "an idle lobby must remain sharp");
     }
 
     private static LobbySnapshot snapshot(LobbyParticipant... remote) {

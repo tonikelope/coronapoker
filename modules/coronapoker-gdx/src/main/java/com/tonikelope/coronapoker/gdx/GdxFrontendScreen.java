@@ -1273,7 +1273,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || (surface == Surface.LOBBY
                 && (lobbyConfirmation != null || lobbyPasswordDialog
                         || lobbyImageClearConfirmation
-                        || lobbyTableTransitionActive(lobbyGameStarting, lobby)
+                        || lobbyPreparationUsesBackdropBlur(
+                                lobbyGameStarting, lobby)
                         || fingerprintDialog != null))
                 || surface == Surface.SETTINGS
                 || (surface == Surface.NEW_GAME
@@ -1607,6 +1608,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static boolean lobbyTableTransitionActive(boolean locallyStarting,
             LobbySnapshot state) {
         return locallyStarting || state != null && state.startingOrStarted();
+    }
+
+    /**
+     * Creating, joining and joining an already-running table all enter the
+     * same lobby before the native table is attached. Keep that waiting room
+     * as the captured modal backdrop while PREPARANDO TIMBA is visible.
+     */
+    static boolean lobbyPreparationUsesBackdropBlur(boolean locallyStarting,
+            LobbySnapshot state) {
+        return lobbyTableTransitionActive(locallyStarting, state);
     }
 
     void showSessionError(String detail) {

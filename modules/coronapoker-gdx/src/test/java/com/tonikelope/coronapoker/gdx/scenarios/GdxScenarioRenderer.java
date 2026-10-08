@@ -101,6 +101,8 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final AtomicBoolean sawHotJoinPlayerAction = new AtomicBoolean();
     private final AtomicBoolean sawHotJoinCommunityReveal
             = new AtomicBoolean();
+    private final Set<String> warmingAwaitingAdmission
+            = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final java.util.concurrent.ConcurrentHashMap<String, Integer>
             immediateRebuys = new java.util.concurrent.ConcurrentHashMap<>();
     private final AtomicReference<Runnable> afterAllInCommand
@@ -330,6 +332,7 @@ final class GdxScenarioRenderer implements TableRenderer {
             }
         }
         TableSnapshot snapshot = projection.snapshot();
+        assertWarmingContinuity(snapshot);
         observeLiveConnectivity(snapshot);
         if (event instanceof TableVisualEvent.HandBoundary boundary
                 && boundary.phase()
@@ -1012,6 +1015,26 @@ final class GdxScenarioRenderer implements TableRenderer {
                 }
             }
         }
+    }
+
+    private void assertWarmingContinuity(TableSnapshot snapshot) {
+        Map<String, TableSnapshot.PlayerSnapshot> players = snapshot.players()
+                .stream().collect(java.util.stream.Collectors.toMap(
+                        TableSnapshot.PlayerSnapshot::nickname,
+                        java.util.function.Function.identity()));
+        for (String nickname : Set.copyOf(warmingAwaitingAdmission)) {
+            TableSnapshot.PlayerSnapshot player = players.get(nickname);
+            if (player == null || player.exited() || !player.spectator()) {
+                warmingAwaitingAdmission.remove(nickname);
+                continue;
+            }
+            assertTrue(player.warming(), nickname
+                    + " changed from CALENTANDO to ESPECTADOR before admission");
+        }
+        snapshot.players().stream()
+                .filter(TableSnapshot.PlayerSnapshot::warming)
+                .map(TableSnapshot.PlayerSnapshot::nickname)
+                .forEach(warmingAwaitingAdmission::add);
     }
 
     void assertComplete(int expectedHands) {

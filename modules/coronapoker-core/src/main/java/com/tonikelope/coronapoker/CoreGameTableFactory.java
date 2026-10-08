@@ -464,7 +464,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                                 immediateRebuySources.put(nickname,
                                         immediateRebuySource.incrementAndGet());
                                 peers.put(nickname, newcomerPeer);
-                                hotJoin.applyEarlyReady(nickname);
+                                hotJoin.completeAdmission(nickname);
                             },
                             commandBody -> hotJoin.sendBoundary(nickname,
                                     commandBody));
@@ -963,7 +963,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                                     "HAND_READY source is not warming");
                         }
                         if (peers.containsKey(command.peerNickname())) {
-                            hotJoin.applyEarlyReady(command.peerNickname());
+                            hotJoin.completeAdmission(command.peerNickname());
                         }
                     } else if (peers.containsKey(command.peerNickname())) {
                         dealer.acceptRemoteHandReady(command.peerNickname(),
@@ -1331,6 +1331,15 @@ public final class CoreGameTableFactory implements GameTableFactory {
                         pauseCoordinator.resumeForShutdown();
                         notifyBettingWait(dealer);
                         return;
+                    }
+                    // Admission and the first SRA deal overlap briefly. If the
+                    // newcomer closes in that window, keep its socket servicing
+                    // cascade/rotation requests until the hand reaches the same
+                    // safe exit point as every established player. Otherwise a
+                    // voluntary UI exit tears down the shared crypto ring and
+                    // creates a table-wide misdeal.
+                    if (hotJoining) {
+                        dealer.awaitHotJoinFirstDealSafeExitPoint();
                     }
                     // A player may later rejoin a recoverable table with the
                     // same identity. Give an already-running verifier a short,
@@ -1833,6 +1842,10 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 send(nickname, "RECOVERDATA#"
                         + current.hotJoinRecoveryPayload());
                 sendSnapshot(nickname, current.publicHotJoinSnapshot());
+                current.publicHotJoinTurnTimer().ifPresent(timer -> send(
+                        nickname, "HOTJOIN_EVENT#"
+                        + HotJoinVisualEventCodecV1.encode(timer)
+                                .orElseThrow()));
                 synchronized (presentationLock) {
                     if (!warming.contains(nickname)) return;
                     ArrayList<String> queued = pendingPresentation.remove(
@@ -1866,16 +1879,34 @@ public final class CoreGameTableFactory implements GameTableFactory {
             return true;
         }
 
-        void applyEarlyReady(String nickname) {
-            String envelope = earlyReady.get(nickname);
-            if (envelope != null
-                    && readyHand(envelope) == dealer.getMano() + 1) {
-                dealer.acceptRemoteHandReady(nickname,
-                        envelope);
+        void completeAdmission(String nickname) {
+            /*
+             * Admission is a replicated dealer transition, not a consequence
+             * of observing HAND_READY. Only the host receives a newcomer's
+             * early readiness frame; incumbent clients therefore used to keep
+             * the nickname in their warming presentation/transport sets after
+             * the canonical seat had already become playable. That stale
+             * reservation could later reinterpret an ordinary DELUSER as a
+             * pre-admission exit and repaint CALENTANDO as ESPECTADOR.
+             *
+             * Retire the replicated warming presentation on every non-host
+             * node as soon as its dealer admits the canonical seat. The host
+             * keeps both presentation relay and the transport gate until it
+             * has the matching HAND_READY: opening ordinary GAME traffic
+             * before recovery is confirmed would let the first playable hand
+             * overtake the newcomer's bootstrap.
+             */
+            if (host) {
+                String envelope = earlyReady.get(nickname);
+                if (envelope == null
+                        || readyHand(envelope) != dealer.getMano() + 1) {
+                    return;
+                }
+                dealer.acceptRemoteHandReady(nickname, envelope);
                 earlyReady.remove(nickname, envelope);
-                forgetPresentation(nickname);
-                channel.activatePeer(nickname);
             }
+            forgetPresentation(nickname);
+            channel.activatePeer(nickname);
         }
 
         boolean isWarming(String nickname) {

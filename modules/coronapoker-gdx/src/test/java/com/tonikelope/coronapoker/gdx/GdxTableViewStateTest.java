@@ -1920,6 +1920,49 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void warmingIdentitySurvivesIncrementalEventsUntilRealAdmission() {
+        TableSnapshot.PlayerSnapshot warming = new TableSnapshot.PlayerSnapshot(
+                "ana", 1_000d, 0d, 0d, false, true, false, false,
+                -2, -2, 0, 0L, false, false, TableSnapshot.Position.NONE,
+                "CALENTANDO", "", List.of(), 10, 0, true);
+        TableSnapshot initial = new TableSnapshot(1L, "ana",
+                TableSnapshot.Street.FLOP, 20d, "borja", false,
+                List.of(warming, player("borja",
+                        TableSnapshot.Position.BIG_BLIND)), List.of());
+        GdxTableViewState state = new GdxTableViewState(initial);
+
+        state.apply(new TableVisualEvent.TelemetryStatus(1L, List.of(
+                new TableVisualEvent.PlayerTelemetry(
+                        "ana", 12, 15, 1, 100L))));
+        assertTrue(state.snapshot().players().get(0).warming(),
+                "telemetry must not turn CALENTANDO into ESPECTADOR");
+
+        TableSnapshot.PlayerSnapshot staleRoster
+                = new TableSnapshot.PlayerSnapshot(
+                        "ana", 1_000d, 0d, 0d, false, true, false, false,
+                        12, 15, 1, 100L, false, false,
+                        TableSnapshot.Position.NONE, "", "", List.of(),
+                        10, 0, false);
+        state.apply(new TableVisualEvent.SeatRoster(2L,
+                List.of(staleRoster, player("borja",
+                        TableSnapshot.Position.BIG_BLIND))));
+        assertTrue(state.snapshot().players().get(0).warming(),
+                "a stale roster cannot downgrade CALENTANDO");
+
+        TableSnapshot.PlayerSnapshot admitted
+                = new TableSnapshot.PlayerSnapshot(
+                        "ana", 1_000d, 0d, 0d, true, false, false, false,
+                        12, 15, 1, 100L, false, false,
+                        TableSnapshot.Position.DEALER, "", "", List.of(),
+                        10, 0, false);
+        state.apply(new TableVisualEvent.SeatRoster(3L,
+                List.of(admitted, player("borja",
+                        TableSnapshot.Position.BIG_BLIND))));
+        assertFalse(state.snapshot().players().get(0).warming(),
+                "real admission must end CALENTANDO");
+    }
+
+    @Test
     void showdownDoesNotFlipCardsThatAreAlreadyFaceUpAgain() {
         TableSnapshot.CardSnapshot left = new TableSnapshot.CardSnapshot(
                 "A_C", true, false);

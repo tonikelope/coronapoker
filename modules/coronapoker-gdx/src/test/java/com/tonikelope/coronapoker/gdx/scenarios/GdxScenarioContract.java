@@ -70,6 +70,8 @@ final class GdxScenarioContract {
                     "oneOfTwoConcurrentHotJoinsCanLeaveWhileTheOtherIsAdmitted",
                     "warmingHotJoinReceivesHostTableStop",
                     "warmingHotJoinCanLeaveWithoutEndingTheRunningTable",
+                    "warmingHotJoinCanLeaveWhileBootstrapFramesAreInFlight",
+                    "newlyAdmittedHotJoinCanLeaveAtTheHandBoundary",
                     "warmingHotJoinCanLeaveAndReenterWithSameIdentityAndStack",
                     "warmingHotJoinCanCrashAndReenterWithSameIdentityAndStack",
                     "activePlayerCanLeaveMidDecisionAndReenterAsWarmingOwner")),

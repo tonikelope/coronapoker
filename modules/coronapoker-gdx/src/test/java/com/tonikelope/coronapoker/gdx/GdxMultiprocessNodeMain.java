@@ -114,10 +114,12 @@ public final class GdxMultiprocessNodeMain {
             if ("live-hot-join".equals(config.scenario)
                     || "live-hot-join-stop".equals(config.scenario)
                     || "live-hot-join-exit".equals(config.scenario)
-                     || "live-hot-join-reentry".equals(config.scenario)
-                     || "live-hot-join-crash-reentry".equals(config.scenario)
-                     || "live-hot-join-two".equals(config.scenario)
-                     || "live-hot-join-two-exit".equals(config.scenario)) {
+                    || "live-hot-join-bootstrap-exit".equals(config.scenario)
+                    || "live-hot-join-admission-exit".equals(config.scenario)
+                    || "live-hot-join-reentry".equals(config.scenario)
+                    || "live-hot-join-crash-reentry".equals(config.scenario)
+                    || "live-hot-join-two".equals(config.scenario)
+                    || "live-hot-join-two-exit".equals(config.scenario)) {
                 if ("late-impostor".equals(config.phase)) {
                     runRejectedHotJoinIdentity(config, home, database);
                     return;
@@ -273,8 +275,12 @@ public final class GdxMultiprocessNodeMain {
                 config.scenario);
         boolean concurrentExit = "live-hot-join-two-exit".equals(
                 config.scenario);
+        boolean exitDuringBootstrap = "live-hot-join-bootstrap-exit".equals(
+                config.scenario);
+        boolean exitAtAdmission = "live-hot-join-admission-exit".equals(
+                config.scenario);
         boolean exitWhileWarming = "live-hot-join-exit".equals(
-                config.scenario) || concurrentExit;
+                config.scenario) || exitDuringBootstrap || concurrentExit;
         boolean crashReentry = "live-hot-join-crash-reentry".equals(
                 config.scenario);
         boolean twoLate = "live-hot-join-two".equals(config.scenario)
@@ -391,7 +397,48 @@ public final class GdxMultiprocessNodeMain {
                 } else {
                     renderer.releaseHeldAction();
                 }
+                if (exitAtAdmission) {
+                    await(() -> !renderer.activeNicknames().contains(
+                                    newcomerNickname),
+                            Duration.ofSeconds(90),
+                            "server newly-admitted seat removal");
+                    marker("HOT_JOIN_EXIT_OBSERVED", "nick="
+                            + newcomerNickname + " phase=admission");
+                }
             } else if (late) {
+                if (exitDuringBootstrap) {
+                    /*
+                     * Deliberately leave before waiting for HOTJOIN_STATE, the
+                     * history replay or the synthetic current-turn timer. This
+                     * exercises cancellation while those frames can still be
+                     * queued/in flight instead of merely testing the settled
+                     * warming state used by the ordinary exit scenario.
+                     */
+                    marker("HOT_JOIN_BOOTSTRAP_ATTACHED", "nick="
+                            + config.nickname);
+                    requireCommand("EXIT_DURING_BOOTSTRAP");
+                    table.commands().submit(new TableCommand.ExitGame());
+                    await(renderer::isClosed, Duration.ofSeconds(45),
+                            "hot-join exit during bootstrap");
+                    if (renderer.summary() == null
+                            || renderer.summary().reason()
+                            != TableSessionSummary.CloseReason.EXITED) {
+                        throw new AssertionError(
+                                "bootstrap hot join did not close as EXITED");
+                    }
+                    if (gameLog.snapshot().lines().stream()
+                            .map(line -> line.toUpperCase(
+                                    java.util.Locale.ROOT))
+                            .anyMatch(line -> line.contains(
+                                    "NO QUEDAN JUGADORES")
+                            || line.contains("NO PLAYERS LEFT"))) {
+                        throw new AssertionError(
+                                "bootstrap exit displayed a false no-players message");
+                    }
+                    marker("HOT_JOIN_EXITED", "nick=" + config.nickname
+                            + " phase=bootstrap");
+                    return;
+                }
                 try {
                     await(() -> renderer.sawHotJoinState()
                                     && renderer.sawLocalSpectator()
@@ -409,6 +456,10 @@ public final class GdxMultiprocessNodeMain {
                             + gameLog.snapshot().lines().size() + "]",
                             timeout);
                 }
+                await(() -> renderer.activeNicknames().size()
+                                == visibleExpectedPlayers,
+                        Duration.ofSeconds(45),
+                        "complete hot-join roster convergence");
                 if (renderer.activeNicknames().size()
                         != visibleExpectedPlayers) {
                     throw new AssertionError("hot-join roster mismatch: expected "
@@ -421,6 +472,9 @@ public final class GdxMultiprocessNodeMain {
                             "hot joiner received concealed pocket data");
                 }
                 bootstrapLogLines.set(gameLog.snapshot().lines().size());
+                await(renderer::sawHotJoinTimerStart,
+                        Duration.ofSeconds(30),
+                        "current turn timer in hot-join bootstrap");
                 marker("HOT_JOIN_WARMING", "nick=" + config.nickname
                         + " historyLines=" + bootstrapLogLines.get());
                 if (thisWarmingIncarnationExits || firstReentryIncarnation) {
@@ -433,6 +487,15 @@ public final class GdxMultiprocessNodeMain {
                             != TableSessionSummary.CloseReason.EXITED) {
                         throw new AssertionError(
                                 "warming observer did not close as EXITED");
+                    }
+                    if (gameLog.snapshot().lines().stream()
+                            .map(line -> line.toUpperCase(
+                                    java.util.Locale.ROOT))
+                            .anyMatch(line -> line.contains(
+                                    "NO QUEDAN JUGADORES")
+                            || line.contains("NO PLAYERS LEFT"))) {
+                        throw new AssertionError(
+                                "warming exit displayed a false no-players message");
                     }
                     marker("HOT_JOIN_EXITED", "nick=" + config.nickname);
                     return;
@@ -455,11 +518,38 @@ public final class GdxMultiprocessNodeMain {
                                 "warming renderer received more than one "
                                 + "bootstrap snapshot");
                     }
-                    await(renderer::sawHotJoinTimerStart,
-                            Duration.ofSeconds(90),
-                            "future turn timer after hot join");
                     marker("HOT_JOIN_TIMER_SYNC", "nick="
                             + config.nickname);
+                    if (exitAtAdmission) {
+                        await(() -> renderer.playingNicknames().contains(
+                                        config.nickname),
+                                Duration.ofSeconds(120),
+                                "hot admission boundary visibility");
+                        marker("HOT_JOIN_ADMISSION_BOUNDARY", "nick="
+                                + config.nickname);
+                        requireCommand("EXIT_AFTER_ADMISSION");
+                        table.commands().submit(new TableCommand.ExitGame());
+                        await(renderer::isClosed, Duration.ofSeconds(60),
+                                "newly admitted player exit");
+                        if (renderer.summary() == null
+                                || renderer.summary().reason()
+                                != TableSessionSummary.CloseReason.EXITED) {
+                            throw new AssertionError(
+                                    "newly admitted player did not close as EXITED");
+                        }
+                        if (gameLog.snapshot().lines().stream()
+                                .map(line -> line.toUpperCase(
+                                        java.util.Locale.ROOT))
+                                .anyMatch(line -> line.contains(
+                                        "NO QUEDAN JUGADORES")
+                                || line.contains("NO PLAYERS LEFT"))) {
+                            throw new AssertionError(
+                                    "admission-boundary exit displayed a false no-players message");
+                        }
+                        marker("HOT_JOIN_EXITED", "nick=" + config.nickname
+                                + " phase=admission");
+                        return;
+                    }
                     await(() -> renderer.playingNicknames().contains(
                                 config.nickname)
                                 && renderer.hasLocalDealAfter(1L),
@@ -479,7 +569,14 @@ public final class GdxMultiprocessNodeMain {
                         "incumbent hot-join notification");
                 marker("HOT_JOIN_PEER_NOTIFIED", "nick="
                         + newcomerNickname);
-                if (exitWhileWarming || reenterWhileWarming) {
+                if (exitAtAdmission) {
+                    await(() -> !renderer.activeNicknames().contains(
+                                    newcomerNickname),
+                            Duration.ofSeconds(90),
+                            "incumbent newly-admitted seat removal");
+                    marker("HOT_JOIN_EXIT_OBSERVED", "nick="
+                            + newcomerNickname + " phase=admission");
+                } else if (exitWhileWarming || reenterWhileWarming) {
                     await(() -> !renderer.activeNicknames().contains(
                                     newcomerNickname),
                             warmingRemovalTimeout,

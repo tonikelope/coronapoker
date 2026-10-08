@@ -56,6 +56,7 @@ public final class NewGameTableDraft {
     private boolean thinkTime = true;
     private int thinkSeconds = 40;
     private int showdownSeconds = 10;
+    private boolean allowHotJoin = true;
     private boolean ante;
     private boolean straddle;
     private boolean iwtsth;
@@ -94,6 +95,7 @@ public final class NewGameTableDraft {
         draft.setThinkTime(settings.thinkTime());
         draft.setThinkSeconds(settings.thinkSeconds());
         draft.setShowdownSeconds(settings.showdownSeconds());
+        draft.setAllowHotJoin(settings.allowHotJoin());
         draft.setAnte(settings.ante());
         draft.setStraddle(settings.straddle());
         draft.setIwtsth(settings.iwtsth());
@@ -193,6 +195,8 @@ public final class NewGameTableDraft {
     public void setThinkSeconds(int value) { thinkSeconds = clamp(value, MIN_THINK_SECONDS, MAX_THINK_SECONDS); }
     public int showdownSeconds() { return showdownSeconds; }
     public void setShowdownSeconds(int value) { showdownSeconds = clamp(value, MIN_SHOWDOWN_SECONDS, MAX_SHOWDOWN_SECONDS); }
+    public boolean allowHotJoin() { return allowHotJoin; }
+    public void setAllowHotJoin(boolean value) { allowHotJoin = value; }
     public boolean ante() { return ante; }
     public void setAnte(boolean value) { requireEconomyEditable(); ante = value; }
     public boolean straddle() { return straddle; }
@@ -216,7 +220,8 @@ public final class NewGameTableDraft {
                 rebuy, rebuyLimit, rebuyLimitCount, botRebuy,
                 botBalanceToHumans, rebuyCapPolicy, handLimit, handLimitCount,
                 thinkTime, thinkSeconds, showdownSeconds, ante, straddle,
-                iwtsth, runItTwice, rabbitHunting, botDifficulty);
+                iwtsth, runItTwice, rabbitHunting, botDifficulty,
+                allowHotJoin);
     }
 
     private void clampDependentValues() {
@@ -261,7 +266,8 @@ public final class NewGameTableDraft {
             RebuyCapPolicy rebuyCapPolicy, boolean handLimit, int handLimitCount,
             boolean thinkTime, int thinkSeconds, int showdownSeconds,
             boolean ante, boolean straddle, boolean iwtsth, boolean runItTwice,
-            RabbitHunting rabbitHunting, BotDifficulty botDifficulty) {
+            RabbitHunting rabbitHunting, BotDifficulty botDifficulty,
+            boolean allowHotJoin) {
         public Settings {
             blindLevels = List.copyOf(blindLevels);
         }
@@ -309,7 +315,8 @@ public final class NewGameTableDraft {
                     + "#THINKT=" + thinkSeconds
                     + "#THINKON=" + bool(thinkTime)
                     + "#SHOWDOWN=" + showdownSeconds
-                    + "#DIFF=" + botDifficulty.name();
+                    + "#DIFF=" + botDifficulty.name()
+                    + "#HOTJOIN=" + bool(allowHotJoin);
         }
 
         /** Reads the classic KEY=VALUE mirror into the neutral settings model. */
@@ -386,6 +393,9 @@ public final class NewGameTableDraft {
                 draft.setThinkTime(one(values, "THINKON"));
                 draft.setShowdownSeconds(Integer.parseInt(required(values, "SHOWDOWN")));
                 draft.setBotDifficulty(BotDifficulty.valueOf(required(values, "DIFF")));
+                // Old peers and stored presets predate this flag. Preserve
+                // the historic behaviour by treating an absent key as ON.
+                draft.setAllowHotJoin(!"0".equals(values.get("HOTJOIN")));
                 return draft.snapshot();
             } catch (RuntimeException invalid) {
                 throw new IllegalArgumentException("Malformed table configuration", invalid);

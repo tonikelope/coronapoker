@@ -65,7 +65,8 @@ final class GdxScenarioContract {
             Map.entry("live-hot-join", Set.of(
                     "liveHotJoinAfterBotOnlyStartWarmsThenPlaysTheNextHand",
                     "liveHotJoinAfterHumanOnlyStartWarmsThenPlaysTheNextHand",
-                    "liveHotJoinAfterMixedStartWarmsThenPlaysTheNextHand")),
+                    "liveHotJoinAfterMixedStartWarmsThenPlaysTheNextHand",
+                    "warmingHotJoinReceivesHostTableStop")),
             Map.entry("abrupt-exit", Set.of(
                     "abruptProcessExitLeavesIndependentGdxPeersRecoverable",
                     "abruptExitAbortsTheHandAndLeavesSurvivorsRecoverable")),

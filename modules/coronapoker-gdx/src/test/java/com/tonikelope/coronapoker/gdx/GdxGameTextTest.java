@@ -39,7 +39,7 @@ final class GdxGameTextTest {
 
         assertEquals(spanishKeys, englishKeys,
                 "GDX must never fall back to a different language or raw key");
-        assertEquals(521, spanishKeys.size(),
+        assertEquals(522, spanishKeys.size(),
                 "new GDX labels must be added symmetrically");
         for (String key : spanishKeys) {
             assertFalse(spanish.getProperty(key).isBlank(), key + " empty in es");
@@ -77,6 +77,8 @@ final class GdxGameTextTest {
                 text.translate("gdx.settings.game.row.confirm_actions"));
         assertEquals("Force players to reconnect",
                 text.translate("gdx.settings.game.session.action.force_reconnect"));
+        assertEquals("Allow joining after the game starts",
+                text.translate("gdx.settings.game.row.allow_hot_join"));
         assertEquals("Unsaved changes",
                 text.translate("gdx.settings.unsaved.title"));
         assertEquals("Waiting room", text.translate("gdx.lobby.title"));
@@ -162,6 +164,8 @@ final class GdxGameTextTest {
                 text.translate("gdx.settings.game.row.confirm_actions"));
         assertEquals("Forzar reconexión de jugadores",
                 text.translate("gdx.settings.game.session.action.force_reconnect"));
+        assertEquals("Permitir entrada con la timba empezada",
+                text.translate("gdx.settings.game.row.allow_hot_join"));
         assertEquals("Cambios sin guardar",
                 text.translate("gdx.settings.unsaved.title"));
         assertEquals("No se pueden guardar más de 10 perfiles",

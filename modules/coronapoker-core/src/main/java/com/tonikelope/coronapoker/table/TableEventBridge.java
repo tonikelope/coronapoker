@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.LongFunction;
 
 /**
@@ -29,6 +30,17 @@ public final class TableEventBridge implements AutoCloseable {
             CompletableFuture.completedFuture(null);
 
     private final AtomicReference<TablePresentation> presentation = new AtomicReference<>();
+    private final AtomicReference<Consumer<TableVisualEvent>> observer
+            = new AtomicReference<>(ignored -> { });
+
+    /**
+     * Installs the table-scoped observer used by protocol projections such as
+     * live hot join. The observer sees the exact sequenced event before it is
+     * handed to the renderer; it must never perform blocking presentation work.
+     */
+    public void observe(Consumer<TableVisualEvent> eventObserver) {
+        observer.set(Objects.requireNonNull(eventObserver, "eventObserver"));
+    }
 
     public CompletionStage<Void> attach(TableRenderer renderer, TableSnapshot initialState) {
         Objects.requireNonNull(renderer, "renderer");
@@ -70,7 +82,12 @@ public final class TableEventBridge implements AutoCloseable {
         TablePresentation current = presentation.get();
         return current == null
                 ? Optional.empty()
-                : Optional.of(current.publish(eventFactory));
+                : Optional.of(current.publish(sequence -> {
+                    TableVisualEvent event = Objects.requireNonNull(
+                            eventFactory.apply(sequence), "event");
+                    observer.get().accept(event);
+                    return event;
+                }));
     }
 
     @Override

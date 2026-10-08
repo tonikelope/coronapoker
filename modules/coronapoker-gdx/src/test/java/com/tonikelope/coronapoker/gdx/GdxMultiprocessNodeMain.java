@@ -111,7 +111,8 @@ public final class GdxMultiprocessNodeMain {
                 runForceRecover(config, home, database);
                 return;
             }
-            if ("live-hot-join".equals(config.scenario)) {
+            if ("live-hot-join".equals(config.scenario)
+                    || "live-hot-join-stop".equals(config.scenario)) {
                 runLiveHotJoin(config, home, database);
                 return;
             }
@@ -255,6 +256,8 @@ public final class GdxMultiprocessNodeMain {
 
     private static void runLiveHotJoin(Config config, Path home,
             DatabaseService database) throws Exception {
+        boolean stopWhileWarming = "live-hot-join-stop".equals(
+                config.scenario);
         int finalExpectedPlayers = config.clients + config.bots + 1;
         String newcomerNickname = "client" + config.clients;
         GdxGameLogSink gameLog = new GdxGameLogSink();
@@ -309,14 +312,25 @@ public final class GdxMultiprocessNodeMain {
                 await(renderer::hasHeldAction, Duration.ofSeconds(60),
                         "live hot-join action gate");
                 marker("HOT_JOIN_GATE", "hand=1");
-                requireCommand("RELEASE_HOT_JOIN");
+                requireCommand(stopWhileWarming
+                        ? "STOP_HOT_JOIN" : "RELEASE_HOT_JOIN");
                 await(() -> renderer.spectatorNicknames().contains(
                                 newcomerNickname),
                         Duration.ofSeconds(45),
                         "server hot-join notification");
                 marker("HOT_JOIN_SERVER_NOTIFIED", "nick="
                         + newcomerNickname);
-                renderer.releaseHeldAction();
+                if (!renderer.localHoleCardsRemainRevealed()) {
+                    throw new AssertionError(
+                            "hot join roster hid the host pocket cards");
+                }
+                marker("HOT_JOIN_LOCAL_CARDS_INTACT", "nick="
+                        + config.nickname);
+                if (stopWhileWarming) {
+                    table.commands().submit(new TableCommand.StopGame());
+                } else {
+                    renderer.releaseHeldAction();
+                }
             } else if (late) {
                 await(() -> renderer.sawHotJoinState()
                                 && renderer.sawLocalSpectator()
@@ -333,11 +347,19 @@ public final class GdxMultiprocessNodeMain {
                 bootstrapLogLines.set(gameLog.snapshot().lines().size());
                 marker("HOT_JOIN_WARMING", "nick=" + config.nickname
                         + " historyLines=" + bootstrapLogLines.get());
-                await(() -> renderer.playingNicknames().contains(
+                if (!stopWhileWarming) {
+                    await(renderer::sawHotJoinTimerStart,
+                            Duration.ofSeconds(90),
+                            "future turn timer after hot join");
+                    marker("HOT_JOIN_TIMER_SYNC", "nick="
+                            + config.nickname);
+                    await(() -> renderer.playingNicknames().contains(
                                 config.nickname)
                                 && renderer.hasLocalDealAfter(1L),
-                        Duration.ofSeconds(120), "next-hand hot admission");
-                marker("HOT_JOIN_ADMITTED", "nick=" + config.nickname);
+                            Duration.ofSeconds(120),
+                            "next-hand hot admission");
+                    marker("HOT_JOIN_ADMITTED", "nick=" + config.nickname);
+                }
             } else {
                 await(() -> renderer.spectatorNicknames().contains(
                                 newcomerNickname),
@@ -345,6 +367,20 @@ public final class GdxMultiprocessNodeMain {
                         "incumbent hot-join notification");
                 marker("HOT_JOIN_PEER_NOTIFIED", "nick="
                         + newcomerNickname);
+            }
+
+            if (stopWhileWarming) {
+                await(renderer::isClosed, Duration.ofSeconds(90),
+                        "hot-join recoverable stop");
+                if (renderer.summary() == null
+                        || renderer.summary().reason()
+                        != TableSessionSummary.CloseReason.RECOVERABLE_STOP) {
+                    throw new AssertionError(
+                            "warming peer did not receive recoverable stop");
+                }
+                marker("HOT_JOIN_STOPPED", "role=" + config.role
+                        + " nick=" + config.nickname);
+                return;
             }
 
             await(renderer::isClosed,

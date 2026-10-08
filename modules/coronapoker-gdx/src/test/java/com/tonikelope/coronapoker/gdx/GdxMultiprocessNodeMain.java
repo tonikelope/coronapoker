@@ -257,6 +257,8 @@ public final class GdxMultiprocessNodeMain {
             DatabaseService database) throws Exception {
         int finalExpectedPlayers = config.clients + config.bots + 1;
         String newcomerNickname = "client" + config.clients;
+        GdxGameLogSink gameLog = new GdxGameLogSink();
+        AtomicInteger bootstrapLogLines = new AtomicInteger();
         AtomicReference<CoronaPokerGdxTable> productTable
                 = new AtomicReference<>();
         AtomicReference<GdxScenarioRenderer> scenarioRenderer
@@ -264,7 +266,7 @@ public final class GdxMultiprocessNodeMain {
         try (NetworkLobbyGateway gateway = gateway(config,
                     home.resolve("network"), database, productTable,
                     new AtomicInteger(), new AtomicReference<>(),
-                    scenarioRenderer);
+                    scenarioRenderer, gameLog);
              LobbySession lobby = gateway.open(request(config))
                      .get(20, TimeUnit.SECONDS)) {
             marker("READY", "role=" + config.role + " nick="
@@ -319,13 +321,18 @@ public final class GdxMultiprocessNodeMain {
                 await(() -> renderer.sawHotJoinState()
                                 && renderer.sawLocalSpectator()
                                 && renderer.spectatorNicknames().contains(
-                                        config.nickname),
+                                        config.nickname)
+                                && renderer.activeNicknames().size()
+                                        == finalExpectedPlayers
+                                && !gameLog.snapshot().lines().isEmpty(),
                         Duration.ofSeconds(45), "public warming state");
                 if (!renderer.localCardsArePubliclyHidden()) {
                     throw new AssertionError(
                             "hot joiner received concealed pocket data");
                 }
-                marker("HOT_JOIN_WARMING", "nick=" + config.nickname);
+                bootstrapLogLines.set(gameLog.snapshot().lines().size());
+                marker("HOT_JOIN_WARMING", "nick=" + config.nickname
+                        + " historyLines=" + bootstrapLogLines.get());
                 await(() -> renderer.playingNicknames().contains(
                                 config.nickname)
                                 && renderer.hasLocalDealAfter(1L),
@@ -349,9 +356,15 @@ public final class GdxMultiprocessNodeMain {
                 throw new AssertionError(
                         "hot-join settlement does not contain all players");
             }
+            if (late && gameLog.snapshot().lines().size()
+                    <= bootstrapLogLines.get()) {
+                throw new AssertionError(
+                        "hot joiner did not receive live log updates");
+            }
             marker("HOT_JOIN_COMPLETE", "role=" + config.role
                     + " nick=" + config.nickname + " hands="
-                    + renderer.summary().handCount());
+                    + renderer.summary().handCount() + " logLines="
+                    + gameLog.snapshot().lines().size());
         }
     }
 
@@ -1668,6 +1681,17 @@ public final class GdxMultiprocessNodeMain {
             AtomicInteger runItTwiceVotes,
             AtomicReference<GdxTableDialog> runItTwiceDialog,
             AtomicReference<GdxScenarioRenderer> scenarioRenderer) {
+        return gateway(config, data, database, productTable, runItTwiceVotes,
+                runItTwiceDialog, scenarioRenderer, null);
+    }
+
+    private static NetworkLobbyGateway gateway(Config config, Path data,
+            DatabaseService database,
+            AtomicReference<CoronaPokerGdxTable> productTable,
+            AtomicInteger runItTwiceVotes,
+            AtomicReference<GdxTableDialog> runItTwiceDialog,
+            AtomicReference<GdxScenarioRenderer> scenarioRenderer,
+            GdxGameLogSink gameLog) {
         if ("allin-rebuy".equals(config.scenario)) {
             return GdxNetworkHumanProjectionIntegrationTest
                     .automaticRebuyGateway(data, database);
@@ -1732,8 +1756,11 @@ public final class GdxMultiprocessNodeMain {
             return GdxNetworkHumanProjectionIntegrationTest.cinematicGateway(
                     data, database);
         }
-        return GdxNetworkHumanProjectionIntegrationTest.gateway(data,
-                database);
+        return gameLog == null
+                ? GdxNetworkHumanProjectionIntegrationTest.gateway(data,
+                        database)
+                : GdxNetworkHumanProjectionIntegrationTest.gateway(data,
+                        database, gameLog);
     }
 
     private static NetworkLobbyGateway immediateRebuyGateway(Config config,

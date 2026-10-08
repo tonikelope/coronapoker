@@ -461,6 +461,48 @@ class NetworkLobbyGatewayTest {
         assertStartedTableAcceptsLateHuman(true, 1, "mixed");
     }
 
+    @Test void startedTableRejectsLateHumanWhenHotJoinIsDisabled()
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        GameTableFactory tables = context -> new TableSession(emptyTable(
+                context.lobby().localNickname()), command -> { },
+                new TableEventBridge(),
+                () -> CompletableFuture.completedFuture(null));
+        NewGameConnectionDraft.Submission connection
+                = new NewGameConnectionDraft.Submission(
+                        NewGameConnectionDraft.Mode.CREATE, "Anfitrion", "",
+                        "127.0.0.1", Integer.toString(port), null, false,
+                        false, null);
+        NewGameTableDraft table = new NewGameTableDraft();
+        table.setAllowHotJoin(false);
+        try (NetworkLobbyGateway hostGateway = new NetworkLobbyGateway(
+                    temporary.resolve("late-disabled-host"), tables);
+                NetworkLobbyGateway lateGateway = new NetworkLobbyGateway(
+                    temporary.resolve("late-disabled-client"), tables);
+                LobbySession host = hostGateway.open(new NewGameRequest(
+                        connection, table.snapshot())).get(5,
+                                TimeUnit.SECONDS)) {
+            host.submit(new LobbyCommand.AddBot()).toCompletableFuture()
+                    .get(2, TimeUnit.SECONDS);
+            await(() -> host.snapshot().participants().size() == 2);
+            host.submit(new LobbyCommand.StartGame()).toCompletableFuture()
+                    .get(2, TimeUnit.SECONDS);
+            host.tableSession().toCompletableFuture().get(2, TimeUnit.SECONDS);
+
+            Exception rejected = assertThrows(Exception.class,
+                    () -> lateGateway.open(request(true, "Tardio", port))
+                            .get(5, TimeUnit.SECONDS));
+            Throwable cause = rejected;
+            while (cause.getCause() != null) cause = cause.getCause();
+            assertEquals("La entrada con la timba empezada está desactivada",
+                    cause.getMessage());
+            assertEquals(2, host.snapshot().participants().size());
+        }
+    }
+
     private void assertStartedTableAcceptsLateHuman(boolean incumbentHuman,
             int bots, String topology) throws Exception {
         int port;

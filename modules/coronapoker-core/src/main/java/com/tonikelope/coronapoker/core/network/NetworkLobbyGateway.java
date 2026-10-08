@@ -280,6 +280,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private final byte[] sessionId;
         private final PlayerIdentity identity;
         private volatile GameConfigCodecV1.Configuration launchConfiguration;
+        private volatile boolean allowHotJoinAfterStart = true;
         private final Map<String, Peer> peers = new LinkedHashMap<>();
         private final Map<String, Set<String>> peerStatsUgis
                 = new ConcurrentHashMap<>();
@@ -626,8 +627,10 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     LobbySession active = session;
                     hotJoin = active != null
                             && active.snapshot().startingOrStarted();
-                    if (hotJoin && launchConfiguration == null) {
-                        connection.writeEncrypted("YOUARELATE");
+                    if (hotJoin && (!allowHotJoinAfterStart
+                            || launchConfiguration == null)) {
+                        connection.writeEncrypted(allowHotJoinAfterStart
+                                ? "YOUARELATE" : "HOTJOINDISABLED");
                         return;
                     }
                     if (peers.size() >= LobbySnapshot.MAX_PARTICIPANTS) {
@@ -758,6 +761,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         private synchronized void startGame() throws Exception {
             if (!host) throw new IllegalStateException("Only the host can start the game");
+            // Freeze this lobby option with the authoritative launch packet.
+            // Later lobby refreshes must not change admission mid-game.
+            allowHotJoinAfterStart = tableSettings.allowHotJoin();
             // Freeze the authoritative launch packet before exposing the
             // started state. A host that begins with bots only has no remote
             // peer to receive INIT, so relying on a later network broadcast
@@ -2505,6 +2511,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         String message = switch (code) {
             case "BADVERSION" -> "Versión incompatible";
             case "YOUARELATE" -> "La timba ya ha empezado";
+            case "HOTJOINDISABLED" -> "La entrada con la timba empezada está desactivada";
             case "NOSPACE" -> "La timba está llena";
             case "NICKFAIL" -> "El nick ya está en uso";
             case "NICKUNAUTHORIZED" -> "El nick contiene caracteres reservados";

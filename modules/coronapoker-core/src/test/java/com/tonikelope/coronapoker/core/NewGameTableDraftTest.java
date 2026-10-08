@@ -25,6 +25,7 @@ final class NewGameTableDraftTest {
         assertEquals(40, draft.thinkSeconds());
         assertEquals(10, draft.showdownSeconds());
         assertEquals(NewGameTableDraft.BotDifficulty.MEDIUM, draft.botDifficulty());
+        assertTrue(draft.allowHotJoin());
     }
 
     @Test
@@ -87,9 +88,17 @@ final class NewGameTableDraftTest {
         assertEquals("SB=0.1#BG=0.2#STRUCT=#BUYIN=10#FIXED=1#BMIN=10#BMAX=100"
                 + "#REBUY=1#RLIM=0#BOTRB=1#BOTBAL=0#RCAP=0#DBL=0#DTYPE=1"
                 + "#BCAP=0.0#MANOS=-1#ANTE=0#STR=0#IWTSTH=0#RIT=0#RABBIT=0"
-                + "#THINKT=40#THINKON=1#SHOWDOWN=10#DIFF=MEDIUM",
+                + "#THINKT=40#THINKON=1#SHOWDOWN=10#DIFF=MEDIUM#HOTJOIN=1",
                 settings.serializeForWire());
         assertEquals(settings, NewGameTableDraft.Settings.parseWire(settings.serializeForWire()));
+    }
+
+    @Test
+    void oldWireDefaultsHotJoinToEnabled() {
+        NewGameTableDraft.Settings current = new NewGameTableDraft().snapshot();
+        String oldWire = current.serializeForWire().replace("#HOTJOIN=1", "");
+
+        assertTrue(NewGameTableDraft.Settings.parseWire(oldWire).allowHotJoin());
     }
 
     @Test
@@ -126,6 +135,7 @@ final class NewGameTableDraftTest {
         draft.setRabbitHunting(
                 NewGameTableDraft.RabbitHunting.FREE_SMALL_AND_BIG_BLIND);
         draft.setBotDifficulty(NewGameTableDraft.BotDifficulty.HARD);
+        draft.setAllowHotJoin(false);
 
         NewGameTableDraft.Settings expected = draft.snapshot();
 

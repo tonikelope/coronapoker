@@ -452,7 +452,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      */
     public void queueHotJoin(CorePlayerController player,
             GamePeerController peer, Runnable afterAdmission,
-            java.util.function.Consumer<String> boundaryRelay) {
+            java.util.function.Function<String,
+                    java.util.concurrent.CompletionStage<Void>> boundaryRelay) {
         java.util.Objects.requireNonNull(player, "player");
         java.util.Objects.requireNonNull(peer, "peer");
         String nickname = player.getNickname();
@@ -466,9 +467,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         player.setSpectator(game_text.translate("game.calentando"));
         pending_hot_joins.add(new PendingHotJoin(player, peer,
                 afterAdmission == null ? () -> { } : afterAdmission,
-                boundaryRelay == null ? ignored -> { } : boundaryRelay));
+                boundaryRelay == null
+                        ? ignored -> java.util.concurrent.CompletableFuture
+                                .completedFuture(null)
+                        : boundaryRelay));
         table_events.publishIfAttached(sequence -> new TableVisualEvent.SeatRoster(
-                sequence, publicHotJoinPlayers()));
+                sequence, localHotJoinPlayers()));
     }
 
     /** Removes a newcomer that disconnected before its admission boundary. */
@@ -479,7 +483,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         pending_hot_joins.removeIf(pending
                 -> pending.player().getNickname().equals(nickname));
         table_events.publishIfAttached(sequence -> new TableVisualEvent.SeatRoster(
-                sequence, publicHotJoinPlayers()));
+                sequence, localHotJoinPlayers()));
     }
 
     /** Explicit protocol marker for a fresh client observing the open hand. */
@@ -560,6 +564,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private java.util.List<TableSnapshot.PlayerSnapshot> publicHotJoinPlayers() {
+        return hotJoinPlayers(true);
+    }
+
+    /**
+     * Existing participants keep their own canonical/private projection when
+     * a warming seat appears. Only the targeted newcomer receives the
+     * public-only variant. Publishing the public roster locally could erase a
+     * player's cards in the middle of their reveal animation.
+     */
+    private java.util.List<TableSnapshot.PlayerSnapshot> localHotJoinPlayers() {
+        return hotJoinPlayers(false);
+    }
+
+    private java.util.List<TableSnapshot.PlayerSnapshot> hotJoinPlayers(
+            boolean publicOnly) {
         java.util.ArrayList<TableSnapshot.PlayerSnapshot> result
                 = new java.util.ArrayList<>();
         TableSnapshot base = tableSnapshot();
@@ -568,12 +587,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             boolean publiclyRevealed = controller != null
                     && controller.isMuestra();
             java.util.List<TableSnapshot.CardSnapshot> cards
-                    = player.holeCards().stream()
-                            .map(card -> publiclyRevealed
-                                    ? publicCard(card)
-                                    : new TableSnapshot.CardSnapshot("", false,
-                                            card.disabled(), card.visible()))
-                            .toList();
+                    = publicOnly
+                            ? player.holeCards().stream()
+                                    .map(card -> publiclyRevealed
+                                            ? publicCard(card)
+                                            : new TableSnapshot.CardSnapshot(
+                                                    "", false,
+                                                    card.disabled(),
+                                                    card.visible()))
+                                    .toList()
+                            : player.holeCards();
             result.add(new TableSnapshot.PlayerSnapshot(player.nickname(),
                     player.stack(), player.streetBet(),
                     player.potContribution(), player.active(),
@@ -653,12 +676,42 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private record PendingHotJoin(CorePlayerController player,
             GamePeerController peer, Runnable afterAdmission,
-            java.util.function.Consumer<String> boundaryRelay) {
+            java.util.function.Function<String,
+                    java.util.concurrent.CompletionStage<Void>> boundaryRelay) {
     }
 
     private void relayBoundaryToPendingHotJoins(String command) {
         for (PendingHotJoin pending : pending_hot_joins) {
-            pending.boundaryRelay().accept(command);
+            pending.boundaryRelay().apply(command);
+        }
+    }
+
+    /**
+     * Warming peers are deliberately outside {@link #peers()} until the next
+     * hand, so the ordinary confirmed broadcast cannot see them. Deliver the
+     * terminal frame directly and wait for its authenticated ACK before the
+     * host tears down the channel.
+     */
+    private void relayTerminationToPendingHotJoins(String command) {
+        java.util.ArrayList<java.util.concurrent.CompletableFuture<Void>>
+                deliveries = new java.util.ArrayList<>();
+        for (PendingHotJoin pending : pending_hot_joins) {
+            deliveries.add(pending.boundaryRelay().apply(command)
+                    .toCompletableFuture());
+        }
+        if (deliveries.isEmpty()) return;
+        try {
+            java.util.concurrent.CompletableFuture.allOf(
+                    deliveries.toArray(
+                            java.util.concurrent.CompletableFuture[]::new))
+                    .join();
+        } catch (java.util.concurrent.CompletionException failure) {
+            // A dead warming socket is already being retired by HotJoinSync.
+            // Do not prevent the authoritative table from closing for active
+            // players merely because that disconnected observer cannot ACK.
+            LOGGER.log(Level.FINE,
+                    "Unable to deliver table termination to a warming peer",
+                    failure.getCause());
         }
     }
 
@@ -21823,6 +21876,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // become a generic confirmed broadcast or accept a malformed terminal
         // shape assembled by a caller.
         TableTerminationWire.parse(("GAME#0#" + command).split("#", -1));
+        relayTerminationToPendingHotJoins(command);
         broadcastGAMECommandFromServer(command, null, true);
     }
 

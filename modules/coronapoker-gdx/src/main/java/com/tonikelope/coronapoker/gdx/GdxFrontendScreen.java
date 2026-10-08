@@ -7907,8 +7907,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         settingsTable.showdownSeconds() - 5),
                 () -> settingsTable.setShowdownSeconds(
                         settingsTable.showdownSeconds() + 5), editable);
+        toggle(x + 34f, y - 5f * GdxSettingsLayout.ROW_STRIDE, w - 68f,
+                settingsGameText("row.allow_hot_join"),
+                settingsTable.allowHotJoin(), () -> settingsTable
+                        .setAllowHotJoin(!settingsTable.allowHotJoin()), editable);
+        tooltip(x + 34f, y - 5f * GdxSettingsLayout.ROW_STRIDE, w - 68f,
+                GdxSettingsLayout.ROW_HEIGHT, "tooltip.cfg.allow_hot_join");
         if (!editable) addLobbySettingsLockTooltips(x + 34f, y, w - 68f,
-                5, lockKey);
+                6, lockKey);
     }
 
     private void drawLobbyRuleSettings(float x, float w, float y,
@@ -9652,6 +9658,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> table.setShowdownSeconds(table.showdownSeconds() - 5),
                 () -> table.setShowdownSeconds(table.showdownSeconds() + 5));
         tooltip(470f, 325f, 590f, 102f, "tooltip.cfg.showdown_time");
+        toggle(470f, 195f, 590f,
+                gameText.translate("gdx.settings.game.row.allow_hot_join"),
+                table.allowHotJoin(),
+                () -> table.setAllowHotJoin(!table.allowHotJoin()), true);
+        tooltip(470f, 195f, 590f, GdxSettingsLayout.ROW_HEIGHT,
+                "tooltip.cfg.allow_hot_join");
 
         toggle(1170f, 625f, 645f, "IWTSTH", table.iwtsth(),
                 () -> table.setIwtsth(!table.iwtsth()), true);

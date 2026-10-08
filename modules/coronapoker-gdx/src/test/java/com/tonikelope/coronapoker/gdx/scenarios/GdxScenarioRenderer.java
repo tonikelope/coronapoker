@@ -95,6 +95,7 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final AtomicBoolean sawLocalSpectator = new AtomicBoolean();
     private final AtomicBoolean returnedAfterSpectating = new AtomicBoolean();
     private final AtomicBoolean sawHotJoinState = new AtomicBoolean();
+    private final AtomicBoolean sawHotJoinTimerStart = new AtomicBoolean();
     private final java.util.concurrent.ConcurrentHashMap<String, Integer>
             immediateRebuys = new java.util.concurrent.ConcurrentHashMap<>();
     private final AtomicReference<Runnable> afterAllInCommand
@@ -250,6 +251,10 @@ final class GdxScenarioRenderer implements TableRenderer {
         projection.apply(event);
         if (event instanceof TableVisualEvent.HotJoinState) {
             sawHotJoinState.set(true);
+        } else if (sawHotJoinState.get()
+                && event instanceof TableVisualEvent.TurnTimer timer
+                && timer.phase() == TableVisualEvent.TurnTimer.Phase.START) {
+            sawHotJoinTimerStart.set(true);
         }
         assertProjectedLabelContract(event, projection);
         if (event instanceof TableVisualEvent.HandBoundary boundary) {
@@ -654,6 +659,23 @@ final class GdxScenarioRenderer implements TableRenderer {
 
     boolean sawHotJoinState() {
         return sawHotJoinState.get();
+    }
+
+    boolean sawHotJoinTimerStart() {
+        return sawHotJoinTimerStart.get();
+    }
+
+    boolean localHoleCardsRemainRevealed() {
+        GdxTableViewState projection = state.get();
+        if (projection == null) return false;
+        return projection.snapshot().players().stream()
+                .filter(player -> player.nickname().equals(
+                        projection.snapshot().localNickname()))
+                .findFirst()
+                .map(player -> player.holeCards().size() == 2
+                        && player.holeCards().stream().allMatch(card
+                                -> !card.code().isBlank() && card.faceUp()))
+                .orElse(false);
     }
 
     boolean localCardsArePubliclyHidden() {

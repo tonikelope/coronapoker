@@ -249,6 +249,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
         TableEventBridge events = new TableEventBridge();
         HotJoinSync hotJoin = new HotJoinSync(lobby.host(), context.channel(),
                 gameLog, events, lobby.localNickname());
+        events.observe(hotJoin::observePresentationEvent);
         ArrayList<CorePlayerController> players = createPlayers(lobby,
                 initialConfiguration.buyin(), gameEntropy);
         CorePlayerController local = players.get(0);
@@ -509,6 +510,32 @@ public final class CoreGameTableFactory implements GameTableFactory {
                                 "Malformed HOTJOIN_STATE notification");
                     }
                     hotJoin.acceptSnapshot(fields[1]);
+                } catch (RuntimeException invalid) {
+                    context.channel().close();
+                }
+                return;
+            }
+            if (!lobby.host()
+                    && command.command().startsWith("HOTJOIN_TURN#")) {
+                try {
+                    if (!command.peerNickname().equals(lobby.serverNickname())) {
+                        throw new IllegalArgumentException(
+                                "HOTJOIN_TURN source is not the table host");
+                    }
+                    hotJoin.acceptTurn(command.command());
+                } catch (RuntimeException invalid) {
+                    context.channel().close();
+                }
+                return;
+            }
+            if (!lobby.host()
+                    && command.command().startsWith("HOTJOIN_PROGRESS#")) {
+                try {
+                    if (!command.peerNickname().equals(lobby.serverNickname())) {
+                        throw new IllegalArgumentException(
+                                "HOTJOIN_PROGRESS source is not the table host");
+                    }
+                    hotJoin.acceptProgress(command.command());
                 } catch (RuntimeException invalid) {
                     context.channel().close();
                 }
@@ -1701,8 +1728,22 @@ public final class CoreGameTableFactory implements GameTableFactory {
             return warming.contains(nickname);
         }
 
-        void sendBoundary(String nickname, String command) {
-            send(nickname, command);
+        java.util.concurrent.CompletionStage<Void> sendBoundary(
+                String nickname, String command) {
+            if (!warming.contains(nickname)) {
+                return CompletableFuture.completedFuture(null);
+            }
+            try {
+                java.util.concurrent.CompletionStage<Void> delivery
+                        = channel.sendFromHost(nickname, command);
+                delivery.whenComplete((ignored, failure) -> {
+                    if (failure != null) disconnect(nickname);
+                });
+                return delivery;
+            } catch (java.io.IOException failure) {
+                disconnect(nickname);
+                return CompletableFuture.failedFuture(failure);
+            }
         }
 
         private static int readyHand(String envelope) {
@@ -1739,6 +1780,58 @@ public final class CoreGameTableFactory implements GameTableFactory {
                     sequence, snapshot));
         }
 
+        /** Relays only future timer/progress transitions; bootstrap remains public-state only. */
+        void observePresentationEvent(TableVisualEvent event) {
+            if (!host || warming.isEmpty()) return;
+            final String command;
+            if (event instanceof TableVisualEvent.TurnTimer timer) {
+                command = "HOTJOIN_TURN#"
+                        + Base64.getEncoder().encodeToString(
+                                timer.nickname().getBytes(
+                                        StandardCharsets.UTF_8))
+                        + "#" + timer.totalMillis()
+                        + "#" + timer.remainingMillis()
+                        + "#" + timer.phase().name();
+            } else if (event instanceof TableVisualEvent.SharedProgress progress) {
+                command = "HOTJOIN_PROGRESS#" + progress.mode().name()
+                        + "#" + progress.seconds();
+            } else {
+                return;
+            }
+            for (String nickname : warming) {
+                send(nickname, command);
+            }
+        }
+
+        void acceptTurn(String command) {
+            String[] fields = command.split("#", -1);
+            if (fields.length != 5 || !"HOTJOIN_TURN".equals(fields[0])) {
+                throw new IllegalArgumentException("Malformed HOTJOIN_TURN");
+            }
+            String nickname = new String(Base64.getDecoder().decode(fields[1]),
+                    StandardCharsets.UTF_8);
+            long totalMillis = Long.parseLong(fields[2]);
+            long remainingMillis = Long.parseLong(fields[3]);
+            TableVisualEvent.TurnTimer.Phase phase
+                    = TableVisualEvent.TurnTimer.Phase.valueOf(fields[4]);
+            events.publish(sequence -> new TableVisualEvent.TurnTimer(
+                    sequence, nickname, totalMillis, remainingMillis, phase));
+        }
+
+        void acceptProgress(String command) {
+            String[] fields = command.split("#", -1);
+            if (fields.length != 3
+                    || !"HOTJOIN_PROGRESS".equals(fields[0])) {
+                throw new IllegalArgumentException(
+                        "Malformed HOTJOIN_PROGRESS");
+            }
+            TableVisualEvent.SharedProgress.Mode mode
+                    = TableVisualEvent.SharedProgress.Mode.valueOf(fields[1]);
+            int seconds = Integer.parseInt(fields[2]);
+            events.publish(sequence -> new TableVisualEvent.SharedProgress(
+                    sequence, mode, seconds));
+        }
+
         private void broadcastSnapshot() {
             try {
                 Crupier current = dealer;
@@ -1764,15 +1857,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
         }
 
         private void send(String nickname, String command) {
-            if (!warming.contains(nickname)) return;
-            try {
-                channel.sendFromHost(nickname, command)
-                        .whenComplete((ignored, failure) -> {
-                            if (failure != null) disconnect(nickname);
-                        });
-            } catch (java.io.IOException failure) {
-                disconnect(nickname);
-            }
+            sendBoundary(nickname, command);
         }
 
         private static String requireNickname(String nickname) {

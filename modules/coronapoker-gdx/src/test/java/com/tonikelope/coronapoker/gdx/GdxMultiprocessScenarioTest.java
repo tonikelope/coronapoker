@@ -99,6 +99,13 @@ class GdxMultiprocessScenarioTest {
 
     @Test
     @Timeout(value = 4, unit = TimeUnit.MINUTES)
+    void warmingHotJoinReceivesHostTableStop(@TempDir Path root)
+            throws Exception {
+        runWarmingHotJoinStopScenario(root);
+    }
+
+    @Test
+    @Timeout(value = 4, unit = TimeUnit.MINUTES)
     void normalHeadsUpMatchesTheSwingGoldTopologyAcrossGdxProcesses(
             @TempDir Path root) throws Exception {
         runCompletingScenario(root, "normal", 1, 0, null,
@@ -931,6 +938,9 @@ class GdxMultiprocessScenarioTest {
                     "CP_GDX_E2E_HOT_JOIN_SERVER_NOTIFIED nick="
                             + newcomerNickname,
                     Duration.ofSeconds(45)), host.diagnostic());
+            assertTrue(host.await(
+                    "CP_GDX_E2E_HOT_JOIN_LOCAL_CARDS_INTACT nick=server",
+                    Duration.ofSeconds(45)), host.diagnostic());
             for (int index = 1; index <= incumbentClients; index++) {
                 NodeProcess incumbent = nodes.get(index);
                 assertTrue(incumbent.await(
@@ -939,6 +949,10 @@ class GdxMultiprocessScenarioTest {
                         Duration.ofSeconds(45)), incumbent.diagnostic());
             }
             assertTrue(newcomer.await(
+                    "CP_GDX_E2E_HOT_JOIN_TIMER_SYNC nick="
+                            + newcomerNickname,
+                    Duration.ofSeconds(120)), newcomer.diagnostic());
+            assertTrue(newcomer.await(
                     "CP_GDX_E2E_HOT_JOIN_ADMITTED nick="
                             + newcomerNickname,
                     Duration.ofSeconds(150)), newcomer.diagnostic());
@@ -946,6 +960,51 @@ class GdxMultiprocessScenarioTest {
             for (NodeProcess node : nodes) {
                 assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_COMPLETE",
                         Duration.ofSeconds(240)), node.diagnostic());
+                assertEquals(0, node.awaitExit(Duration.ofSeconds(20)),
+                        node.diagnostic());
+                assertTrue(!node.contains("CP_GDX_E2E_FAIL"),
+                        node.diagnostic());
+                assertTrue(!node.contains("TABLE_FAILURE_V1"),
+                        node.diagnostic());
+                for (String fatal : ALWAYS_FATAL_OUTPUT) {
+                    assertTrue(!node.contains(fatal),
+                            fatal + "\n" + node.diagnostic());
+                }
+            }
+        } finally {
+            for (NodeProcess node : nodes) node.close();
+        }
+    }
+
+    private static void runWarmingHotJoinStopScenario(Path root)
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        List<NodeProcess> nodes = new ArrayList<>();
+        try {
+            NodeProcess host = startNode(root.resolve("host"), "host",
+                    "server", port, 1, 1, 3, "live-hot-join-stop");
+            nodes.add(host);
+            assertTrue(host.await("CP_GDX_E2E_LOBBY_READY players=2",
+                    Duration.ofSeconds(45)), host.diagnostic());
+            host.send("START_GAME");
+            assertTrue(host.await("CP_GDX_E2E_HOT_JOIN_GATE hand=1",
+                    Duration.ofSeconds(90)), host.diagnostic());
+
+            NodeProcess newcomer = startNode(root.resolve("client-1"),
+                    "client", "client1", port, 1, 1, 3,
+                    "live-hot-join-stop", "late");
+            nodes.add(newcomer);
+            assertTrue(newcomer.await(
+                    "CP_GDX_E2E_HOT_JOIN_WARMING nick=client1",
+                    Duration.ofSeconds(90)), newcomer.diagnostic());
+            host.send("STOP_HOT_JOIN");
+
+            for (NodeProcess node : nodes) {
+                assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_STOPPED",
+                        Duration.ofSeconds(120)), node.diagnostic());
                 assertEquals(0, node.awaitExit(Duration.ofSeconds(20)),
                         node.diagnostic());
                 assertTrue(!node.contains("CP_GDX_E2E_FAIL"),

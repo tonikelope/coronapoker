@@ -112,7 +112,8 @@ public final class GdxMultiprocessNodeMain {
                 return;
             }
             if ("live-hot-join".equals(config.scenario)
-                    || "live-hot-join-stop".equals(config.scenario)) {
+                    || "live-hot-join-stop".equals(config.scenario)
+                    || "live-hot-join-exit".equals(config.scenario)) {
                 runLiveHotJoin(config, home, database);
                 return;
             }
@@ -258,7 +259,11 @@ public final class GdxMultiprocessNodeMain {
             DatabaseService database) throws Exception {
         boolean stopWhileWarming = "live-hot-join-stop".equals(
                 config.scenario);
-        int finalExpectedPlayers = config.clients + config.bots + 1;
+        boolean exitWhileWarming = "live-hot-join-exit".equals(
+                config.scenario);
+        int visibleExpectedPlayers = config.clients + config.bots + 1;
+        int finalExpectedPlayers = config.clients + config.bots
+                + (exitWhileWarming ? 0 : 1);
         String newcomerNickname = "client" + config.clients;
         GdxGameLogSink gameLog = new GdxGameLogSink();
         AtomicInteger bootstrapLogLines = new AtomicInteger();
@@ -302,7 +307,7 @@ public final class GdxMultiprocessNodeMain {
             TableSession table = lobby.tableSession().toCompletableFuture()
                     .get(45, TimeUnit.SECONDS);
             GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
-                    finalExpectedPlayers, productTable, lobby);
+                    visibleExpectedPlayers, productTable, lobby);
             scenarioRenderer.set(renderer);
             if (config.host()) renderer.gateActionAtOrAfterHand(1L);
             table.attach(renderer).toCompletableFuture()
@@ -312,8 +317,9 @@ public final class GdxMultiprocessNodeMain {
                 await(renderer::hasHeldAction, Duration.ofSeconds(60),
                         "live hot-join action gate");
                 marker("HOT_JOIN_GATE", "hand=" + renderer.currentHand());
-                requireCommand(stopWhileWarming
-                        ? "STOP_HOT_JOIN" : "RELEASE_HOT_JOIN");
+                requireCommand(stopWhileWarming ? "STOP_HOT_JOIN"
+                        : exitWhileWarming ? "EXIT_HOT_JOIN"
+                        : "RELEASE_HOT_JOIN");
                 await(() -> renderer.spectatorNicknames().contains(
                                 newcomerNickname),
                         Duration.ofSeconds(45),
@@ -328,6 +334,14 @@ public final class GdxMultiprocessNodeMain {
                         + config.nickname);
                 if (stopWhileWarming) {
                     table.commands().submit(new TableCommand.StopGame());
+                } else if (exitWhileWarming) {
+                    await(() -> !renderer.spectatorNicknames().contains(
+                                    newcomerNickname),
+                            Duration.ofSeconds(45),
+                            "server warming-seat removal");
+                    marker("HOT_JOIN_EXIT_OBSERVED", "nick="
+                            + newcomerNickname);
+                    renderer.releaseHeldAction();
                 } else {
                     renderer.releaseHeldAction();
                 }
@@ -337,7 +351,7 @@ public final class GdxMultiprocessNodeMain {
                                 && renderer.spectatorNicknames().contains(
                                         config.nickname)
                                 && renderer.activeNicknames().size()
-                                        == finalExpectedPlayers
+                                        == visibleExpectedPlayers
                                 && !gameLog.snapshot().lines().isEmpty(),
                         Duration.ofSeconds(45), "public warming state");
                 if (!renderer.localCardsArePubliclyHidden()) {
@@ -347,12 +361,38 @@ public final class GdxMultiprocessNodeMain {
                 bootstrapLogLines.set(gameLog.snapshot().lines().size());
                 marker("HOT_JOIN_WARMING", "nick=" + config.nickname
                         + " historyLines=" + bootstrapLogLines.get());
+                if (exitWhileWarming) {
+                    requireCommand("EXIT_HOT_JOIN");
+                    table.commands().submit(new TableCommand.ExitGame());
+                    await(renderer::isClosed, Duration.ofSeconds(45),
+                            "warming observer voluntary exit");
+                    if (renderer.summary() == null
+                            || renderer.summary().reason()
+                            != TableSessionSummary.CloseReason.EXITED) {
+                        throw new AssertionError(
+                                "warming observer did not close as EXITED");
+                    }
+                    marker("HOT_JOIN_EXITED", "nick=" + config.nickname);
+                    return;
+                }
                 if (!stopWhileWarming) {
                     await(renderer::sawHotJoinPlayerAction,
                             Duration.ofSeconds(90),
                             "ordinary player-action event while warming");
                     marker("HOT_JOIN_VISUAL_STREAM", "nick="
                             + config.nickname);
+                    if (config.clients() > 1) {
+                        await(renderer::sawHotJoinCommunityReveal,
+                                Duration.ofSeconds(90),
+                                "ordinary community reveal while warming");
+                        marker("HOT_JOIN_COMMUNITY_REVEAL", "nick="
+                                + config.nickname);
+                    }
+                    if (renderer.hotJoinStateCount() != 1) {
+                        throw new AssertionError(
+                                "warming renderer received more than one "
+                                + "bootstrap snapshot");
+                    }
                     await(renderer::sawHotJoinTimerStart,
                             Duration.ofSeconds(90),
                             "future turn timer after hot join");
@@ -372,6 +412,14 @@ public final class GdxMultiprocessNodeMain {
                         "incumbent hot-join notification");
                 marker("HOT_JOIN_PEER_NOTIFIED", "nick="
                         + newcomerNickname);
+                if (exitWhileWarming) {
+                    await(() -> !renderer.spectatorNicknames().contains(
+                                    newcomerNickname),
+                            Duration.ofSeconds(45),
+                            "incumbent warming-seat removal");
+                    marker("HOT_JOIN_EXIT_OBSERVED", "nick="
+                            + newcomerNickname);
+                }
             }
 
             if (stopWhileWarming) {

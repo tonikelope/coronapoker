@@ -2834,6 +2834,37 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void lateHotJoinSnapshotCannotRewindAcceptedCardOrChipEvents() {
+        TableSnapshot.CardSnapshot hidden = new TableSnapshot.CardSnapshot(
+                "", false, false, true);
+        TableSnapshot bootstrap = new TableSnapshot(2L, "ana",
+                TableSnapshot.Street.PREFLOP, 0d, "", false,
+                snapshot().players(), List.of(hidden, hidden, hidden));
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+
+        state.apply(new TableVisualEvent.HotJoinState(1, bootstrap));
+        state.apply(new TableVisualEvent.RevealCommunityCards(2, 0,
+                List.of(card("A_C"), card("K_C"), card("Q_C"))));
+        state.apply(new TableVisualEvent.PlayerAction(3, "borja",
+                TableVisualEvent.PlayerAction.ActionKind.BET,
+                "APUESTA", 20d, 20d, 980d, 20d, 20d));
+
+        // This models the old 200 ms repair packet arriving after the public
+        // animations. It must never cover the flop or rewind counters again.
+        state.apply(new TableVisualEvent.HotJoinState(4, bootstrap));
+
+        assertEquals(TableSnapshot.Street.FLOP, state.snapshot().street());
+        assertEquals(List.of("A_C", "K_C", "Q_C"),
+                state.snapshot().communityCards().subList(0, 3).stream()
+                        .map(TableSnapshot.CardSnapshot::code).toList());
+        assertTrue(state.snapshot().communityCards().subList(0, 3).stream()
+                .allMatch(TableSnapshot.CardSnapshot::faceUp));
+        assertEquals(980d, player(state, "borja").stack());
+        assertEquals(20d, player(state, "borja").streetBet());
+        assertEquals("APUESTA", state.actionLabel("borja"));
+    }
+
+    @Test
     void newCommunityStreetKeepsActionsThroughRevealAndClearsThemAtFirstTurn() {
         GdxTableViewState state = new GdxTableViewState(snapshot());
         state.apply(new TableVisualEvent.PlayerAction(1, "ana",

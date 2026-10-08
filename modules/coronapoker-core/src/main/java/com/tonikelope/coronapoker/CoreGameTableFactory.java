@@ -534,6 +534,23 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 }
                 return;
             }
+            if (lobby.host() && command.command().equals("HOTJOIN_EXIT")) {
+                try {
+                    String nickname = command.peerNickname();
+                    if (!hotJoin.disconnect(nickname)) {
+                        throw new IllegalArgumentException(
+                                "HOTJOIN_EXIT source is not warming");
+                    }
+                    // A warming observer is not an active poker player: it has
+                    // no hand testament, private-card proof or ordinary EXIT
+                    // transition to apply. Remove its pending seat immediately
+                    // and retire only its authenticated transport peer.
+                    context.channel().retirePeerAfterExit(nickname);
+                } catch (RuntimeException invalid) {
+                    context.channel().close();
+                }
+                return;
+            }
             if (command.command().startsWith("YOUARELATE#")) {
                 try {
                     if (!command.peerNickname().equals(lobby.serverNickname())) {
@@ -879,7 +896,6 @@ public final class CoreGameTableFactory implements GameTableFactory {
             if (!lobby.host() || closing.get()) return;
             GamePeerController peer = peers.get(nickname);
             if (peer == null && hotJoin.disconnect(nickname)) {
-                dealer.cancelHotJoin(nickname);
                 return;
             }
             // A normal authenticated EXIT may be followed immediately by EOF
@@ -901,7 +917,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 initialConfiguration.buyin(), context.hotJoining()), command -> {
                     submit(command, dealer, local, pauseCoordinator, events,
                             presentationSettings, context.channel(),
-                            lobby.host(), controlExecutor,
+                            lobby.host(), context.hotJoining(), controlExecutor,
                             terminationExecutor, requestedCloseReason,
                             botDifficulty, textToSpeech, voiceMessages,
                             closing);
@@ -1165,7 +1181,8 @@ public final class CoreGameTableFactory implements GameTableFactory {
             TableEventBridge events,
             GamePresentationSettings presentationSettings,
             com.tonikelope.coronapoker.core.game.GameChannel channel,
-            boolean host, ExecutorService controlExecutor,
+            boolean host, boolean hotJoining,
+            ExecutorService controlExecutor,
             ExecutorService terminationExecutor,
             AtomicReference<TableSessionSummary.CloseReason>
                     requestedCloseReason,
@@ -1201,6 +1218,23 @@ public final class CoreGameTableFactory implements GameTableFactory {
             requestedCloseReason.set(TableSessionSummary.CloseReason.EXITED);
             terminationExecutor.execute(() -> {
                 try {
+                    if (hotJoining && local.isCalentando()) {
+                        pauseCoordinator.resumeForShutdown();
+                        notifyBettingWait(dealer);
+                        dealer.requestPassiveHotJoinExit(() -> {
+                            try {
+                                channel.sendToHost("HOTJOIN_EXIT")
+                                        .toCompletableFuture().join();
+                            } catch (java.io.IOException failure) {
+                                throw new IllegalStateException(
+                                        "Cannot notify the host that the warming observer left",
+                                        failure);
+                            }
+                        });
+                        pauseCoordinator.resumeForShutdown();
+                        notifyBettingWait(dealer);
+                        return;
+                    }
                     // A player may later rejoin a recoverable table with the
                     // same identity. Give an already-running verifier a short,
                     // bounded chance to persist its genuine verdict before the
@@ -1585,7 +1619,6 @@ public final class CoreGameTableFactory implements GameTableFactory {
 
         private static final int MAX_LOG_ENTRIES = 2_000;
         private static final int MAX_LOG_CHARS = 16_384;
-        private static final long SNAPSHOT_PERIOD_MS = 200L;
 
         private final boolean host;
         private final com.tonikelope.coronapoker.core.game.GameChannel channel;
@@ -1597,6 +1630,17 @@ public final class CoreGameTableFactory implements GameTableFactory {
         private final Set<String> warming = ConcurrentHashMap.newKeySet();
         private final ConcurrentMap<String, String> earlyReady
                 = new ConcurrentHashMap<>();
+        /*
+         * A warming peer has exactly one state bootstrap followed by the same
+         * ordered public presentation events as every other GDX table.  Keep
+         * events that race the asynchronous bootstrap here: letting one pass
+         * before HOTJOIN_STATE would allow that older snapshot to repaint the
+         * already animated cards/chips afterwards.
+         */
+        private final Object presentationLock = new Object();
+        private final Map<String, ArrayList<String>> pendingPresentation
+                = new LinkedHashMap<>();
+        private final Set<String> bootstrapped = ConcurrentHashMap.newKeySet();
         private final ScheduledExecutorService scheduler;
         private volatile Crupier dealer;
 
@@ -1652,17 +1696,17 @@ public final class CoreGameTableFactory implements GameTableFactory {
 
         void bind(Crupier dealer) {
             this.dealer = Objects.requireNonNull(dealer, "dealer");
-            if (scheduler != null) {
-                scheduler.scheduleAtFixedRate(this::broadcastSnapshot,
-                        SNAPSHOT_PERIOD_MS, SNAPSHOT_PERIOD_MS,
-                        TimeUnit.MILLISECONDS);
-            }
         }
 
         void register(String nickname) {
-            if (!warming.add(requireNickname(nickname))) {
-                throw new IllegalArgumentException(
-                        "Duplicate warming participant: " + nickname);
+            String checked = requireNickname(nickname);
+            synchronized (presentationLock) {
+                if (!warming.add(checked)) {
+                    throw new IllegalArgumentException(
+                            "Duplicate warming participant: " + nickname);
+                }
+                pendingPresentation.put(checked, new ArrayList<>());
+                bootstrapped.remove(checked);
             }
         }
 
@@ -1686,6 +1730,17 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 send(nickname, "RECOVERDATA#"
                         + current.hotJoinRecoveryPayload());
                 sendSnapshot(nickname, current.publicHotJoinSnapshot());
+                synchronized (presentationLock) {
+                    if (!warming.contains(nickname)) return;
+                    ArrayList<String> queued = pendingPresentation.remove(
+                            nickname);
+                    if (queued != null) {
+                        for (String command : queued) {
+                            send(nickname, command);
+                        }
+                    }
+                    bootstrapped.add(nickname);
+                }
             });
         }
 
@@ -1712,7 +1767,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 dealer.acceptRemoteHandReady(nickname,
                         envelope);
                 earlyReady.remove(nickname, envelope);
-                warming.remove(nickname);
+                forgetPresentation(nickname);
                 channel.activatePeer(nickname);
             }
         }
@@ -1753,8 +1808,17 @@ public final class CoreGameTableFactory implements GameTableFactory {
         }
 
         boolean disconnect(String nickname) {
-            boolean removed = warming.remove(nickname);
+            boolean removed = forgetPresentation(nickname);
             earlyReady.remove(nickname);
+            Crupier current = dealer;
+            if (removed && host && current != null) {
+                // Every pre-admission loss converges here, including an
+                // explicit HOTJOIN_EXIT, definitive EOF and a failed bootstrap
+                // delivery.  Keeping the dealer queue removal in the same
+                // idempotent transition prevents a failed send from erasing
+                // transport tracking before peer-loss can remove the seat.
+                current.cancelHotJoin(nickname);
+            }
             return removed;
         }
 
@@ -1784,8 +1848,16 @@ public final class CoreGameTableFactory implements GameTableFactory {
                     .orElse(null);
             if (encoded == null) return;
             String command = "HOTJOIN_EVENT#" + encoded;
-            for (String nickname : warming) {
-                send(nickname, command);
+            synchronized (presentationLock) {
+                for (String nickname : warming) {
+                    ArrayList<String> pending = pendingPresentation.get(
+                            nickname);
+                    if (pending != null) {
+                        pending.add(command);
+                    } else if (bootstrapped.contains(nickname)) {
+                        send(nickname, command);
+                    }
+                }
             }
         }
 
@@ -1794,23 +1866,17 @@ public final class CoreGameTableFactory implements GameTableFactory {
                     encoded, sequence));
         }
 
-        private void broadcastSnapshot() {
-            try {
-                Crupier current = dealer;
-                if (current == null || warming.isEmpty()) return;
-                TableSnapshot snapshot = current.publicHotJoinSnapshot();
-                for (String nickname : warming) {
-                    sendSnapshot(nickname, snapshot);
-                }
-            } catch (RuntimeException ignored) {
-                // The next tick retries.  A socket failure is independently
-                // reported by GameChannel's peer-loss subscription.
-            }
-        }
-
         private void sendSnapshot(String nickname, TableSnapshot snapshot) {
             send(nickname, "HOTJOIN_STATE#"
                     + HotJoinSnapshotCodecV1.encode(snapshot));
+        }
+
+        private boolean forgetPresentation(String nickname) {
+            synchronized (presentationLock) {
+                pendingPresentation.remove(nickname);
+                bootstrapped.remove(nickname);
+                return warming.remove(nickname);
+            }
         }
 
         private static String logCommand(String message) {
@@ -1832,7 +1898,11 @@ public final class CoreGameTableFactory implements GameTableFactory {
 
         @Override
         public void close() {
-            warming.clear();
+            synchronized (presentationLock) {
+                warming.clear();
+                pendingPresentation.clear();
+                bootstrapped.clear();
+            }
             earlyReady.clear();
             if (scheduler != null) scheduler.shutdownNow();
         }

@@ -39,6 +39,7 @@ public enum GameCommandType {
     HOTJOIN_LOG(Direction.HOST_TO_CLIENT),
     HOTJOIN_LOG_RESET(Direction.HOST_TO_CLIENT),
     HOTJOIN_EVENT(Direction.HOST_TO_CLIENT),
+    HOTJOIN_EXIT(Direction.CLIENT_TO_HOST),
     HOTJOIN_STATE(Direction.HOST_TO_CLIENT),
     H_CHECK(Direction.HOST_TO_CLIENT),
     INIT(Direction.HOST_TO_CLIENT),

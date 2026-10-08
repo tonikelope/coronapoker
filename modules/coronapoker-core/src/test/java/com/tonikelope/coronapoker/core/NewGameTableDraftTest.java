@@ -29,6 +29,17 @@ final class NewGameTableDraftTest {
     }
 
     @Test
+    void hotJoinPolicyCopyChangesOnlyThatSetting() {
+        NewGameTableDraft.Settings enabled = new NewGameTableDraft().snapshot();
+        NewGameTableDraft.Settings disabled = enabled.withAllowHotJoin(false);
+
+        assertTrue(enabled.allowHotJoin());
+        assertFalse(disabled.allowHotJoin());
+        assertEquals(enabled, disabled.withAllowHotJoin(true));
+        assertEquals(disabled, disabled.withAllowHotJoin(false));
+    }
+
+    @Test
     void dependentControlsFollowTheirActualParentSwitches() {
         NewGameTableDraft draft = new NewGameTableDraft();
 

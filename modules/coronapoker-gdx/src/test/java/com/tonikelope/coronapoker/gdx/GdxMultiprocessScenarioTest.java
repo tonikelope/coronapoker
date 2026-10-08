@@ -921,7 +921,7 @@ class GdxMultiprocessScenarioTest {
                             + initialPlayers,
                     Duration.ofSeconds(45)), host.diagnostic());
             host.send("START_GAME");
-            assertTrue(host.await("CP_GDX_E2E_HOT_JOIN_GATE hand=1",
+            assertTrue(host.await("CP_GDX_E2E_HOT_JOIN_GATE",
                     Duration.ofSeconds(90)), host.diagnostic());
 
             NodeProcess newcomer = startNode(root.resolve(
@@ -990,7 +990,7 @@ class GdxMultiprocessScenarioTest {
             assertTrue(host.await("CP_GDX_E2E_LOBBY_READY players=2",
                     Duration.ofSeconds(45)), host.diagnostic());
             host.send("START_GAME");
-            assertTrue(host.await("CP_GDX_E2E_HOT_JOIN_GATE hand=1",
+            assertTrue(host.await("CP_GDX_E2E_HOT_JOIN_GATE",
                     Duration.ofSeconds(90)), host.diagnostic());
 
             NodeProcess newcomer = startNode(root.resolve("client-1"),

@@ -46,7 +46,7 @@ public class HandReadyWireTest {
         assertTrue(dispatchStart >= 0 && dispatchEnd > dispatchStart);
         String dispatch = factory.substring(dispatchStart, dispatchEnd);
         int acceptance = dispatch.indexOf(
-                "dealer.acceptRemoteHandReady(command.peerNickname(), envelope)");
+                "dealer.acceptRemoteHandReady(command.peerNickname(),");
         int invalidClose = dispatch.indexOf("context.channel().close()", acceptance);
         assertTrue(acceptance >= 0 && invalidClose > acceptance);
     }

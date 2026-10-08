@@ -2,7 +2,7 @@
 
 Date: 2026-10-07  
 Scope: libGDX persistent ALL-IN fire and structurally similar winner effect
-Status: safe CPU/GC optimisations implemented; rendering parameters unchanged
+Status: safe CPU/GC optimisations implemented. Rendering parameters unchanged
 
 ## Executive conclusion
 
@@ -133,6 +133,6 @@ but do not address the dominant procedural fragment-shader cost.
    introduces resampling softness, edge seams or allocation spikes.
 
 The focused `GdxTableViewStateTest` suite compiles the renderer and passes all
-202 tests. Automated tests do not constitute visual or GPU-time certification;
-the implemented changes are deliberately limited to invariant caching and
+202 tests. Automated tests do not constitute visual or GPU-time certification.
+The implemented changes are deliberately limited to invariant caching and
 storage reuse so that the render inputs remain the same.

@@ -35,6 +35,7 @@ public enum GameCommandType {
     HAND_READY(Direction.CLIENT_TO_HOST),
     HANDVERIFY(Direction.CLIENT_TO_HOST, Direction.HOST_TO_CLIENT),
     HOTJOIN(Direction.HOST_TO_CLIENT),
+    HOTJOINPOLICY(Direction.HOST_TO_CLIENT),
     HOTJOIN_LOG(Direction.HOST_TO_CLIENT),
     HOTJOIN_LOG_RESET(Direction.HOST_TO_CLIENT),
     HOTJOIN_PROGRESS(Direction.HOST_TO_CLIENT),

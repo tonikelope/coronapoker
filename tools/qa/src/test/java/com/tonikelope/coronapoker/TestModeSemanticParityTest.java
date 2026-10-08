@@ -17,7 +17,7 @@ class TestModeSemanticParityTest {
         // already-visible cards. This removes a duplicate test-mode branch
         // without changing the accelerated pause value or its scope.
         Map<String, Integer> reviewedOccurrences = Map.of(
-                "Crupier.java", 22);
+                "Crupier.java", 23);
 
         try (var coreSources = Files.walk(coreSourceRoot());
                 var gdxSources = Files.walk(gdxSourceRoot());

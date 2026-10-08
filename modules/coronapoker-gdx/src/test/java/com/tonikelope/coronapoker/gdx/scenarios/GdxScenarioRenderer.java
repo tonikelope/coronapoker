@@ -52,6 +52,7 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final AtomicLong lastEventSequence = new AtomicLong();
     private final AtomicLong currentHand = new AtomicLong(1L);
     private final AtomicLong gatedHand = new AtomicLong(-1L);
+    private final AtomicBoolean gateAtOrAfterHand = new AtomicBoolean();
     private final AtomicReference<TableSnapshot.Street> gatedStreet
             = new AtomicReference<>();
     private final AtomicBoolean gateConsumed = new AtomicBoolean();
@@ -158,6 +159,15 @@ final class GdxScenarioRenderer implements TableRenderer {
 
     void gateActionOnHand(long handId) {
         gatedHand.set(handId);
+        gateAtOrAfterHand.set(false);
+        gatedStreet.set(null);
+        gateConsumed.set(false);
+        heldAction.set(false);
+    }
+
+    void gateActionAtOrAfterHand(long handId) {
+        gatedHand.set(handId);
+        gateAtOrAfterHand.set(true);
         gatedStreet.set(null);
         gateConsumed.set(false);
         heldAction.set(false);
@@ -165,6 +175,7 @@ final class GdxScenarioRenderer implements TableRenderer {
 
     void gateActionOnStreet(long handId, TableSnapshot.Street street) {
         gatedHand.set(handId);
+        gateAtOrAfterHand.set(false);
         gatedStreet.set(street);
         gateConsumed.set(false);
         heldAction.set(false);
@@ -385,7 +396,9 @@ final class GdxScenarioRenderer implements TableRenderer {
                     "GDX controls may only activate for the local turn");
             sawLocalControls.set(true);
             if (!gateConsumed.get()
-                    && gatedHand.get() == currentHand.get()
+                    && (gatedHand.get() == currentHand.get()
+                    || (gateAtOrAfterHand.get()
+                    && currentHand.get() >= gatedHand.get()))
                     && (gatedStreet.get() == null
                     || gatedStreet.get() == snapshot.street())) {
                 heldAction.set(true);

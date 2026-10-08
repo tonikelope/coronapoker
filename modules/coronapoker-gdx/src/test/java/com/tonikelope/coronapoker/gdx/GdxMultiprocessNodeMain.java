@@ -304,14 +304,14 @@ public final class GdxMultiprocessNodeMain {
             GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
                     finalExpectedPlayers, productTable, lobby);
             scenarioRenderer.set(renderer);
-            if (config.host()) renderer.gateActionOnHand(1L);
+            if (config.host()) renderer.gateActionAtOrAfterHand(1L);
             table.attach(renderer).toCompletableFuture()
                     .get(15, TimeUnit.SECONDS);
 
             if (config.host()) {
                 await(renderer::hasHeldAction, Duration.ofSeconds(60),
                         "live hot-join action gate");
-                marker("HOT_JOIN_GATE", "hand=1");
+                marker("HOT_JOIN_GATE", "hand=" + renderer.currentHand());
                 requireCommand(stopWhileWarming
                         ? "STOP_HOT_JOIN" : "RELEASE_HOT_JOIN");
                 await(() -> renderer.spectatorNicknames().contains(
@@ -613,6 +613,12 @@ public final class GdxMultiprocessNodeMain {
                 }
                 int expectedRenderedHands = newcomer || swapClientScenario ? 1
                         : config.hands - phase * 2 + 2;
+                marker("FORCE_RECOVER_TABLE_CLOSED", "nick="
+                        + config.nickname + " renderedHands="
+                        + renderer.completedHands() + " durableHands="
+                        + renderer.summary().handCount() + " reason="
+                        + renderer.summary().reason() + " newcomer="
+                        + newcomer);
                 if (swapClientScenario) {
                     if (newcomer) {
                         renderer.assertCompleteAsPassiveObserver(

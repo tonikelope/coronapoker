@@ -98,12 +98,19 @@ public final class LobbySession implements AutoCloseable {
                 || command instanceof LobbyCommand.Kick
                 || command instanceof LobbyCommand.StartGame
                 || command instanceof LobbyCommand.ChangePassword
-                || command instanceof LobbyCommand.UpdateTableSettings;
+                || command instanceof LobbyCommand.UpdateTableSettings
+                || command instanceof LobbyCommand.SetHotJoinPolicy;
+        boolean liveHotJoinPolicy = command
+                instanceof LobbyCommand.SetHotJoinPolicy;
         if (hostOnly && !state.host()) {
             throw new IllegalStateException("Only the host can execute this lobby command");
         }
-        if (state.startingOrStarted() && hostOnly) {
+        if (state.startingOrStarted() && hostOnly && !liveHotJoinPolicy) {
             throw new IllegalStateException("Lobby controls are locked while the game starts");
+        }
+        if (liveHotJoinPolicy && !state.startingOrStarted()) {
+            throw new IllegalStateException(
+                    "Hot-join admission can only change while the game is active");
         }
         if (command instanceof LobbyCommand.AddBot
                 && state.participants().size() >= LobbySnapshot.MAX_PARTICIPANTS) {

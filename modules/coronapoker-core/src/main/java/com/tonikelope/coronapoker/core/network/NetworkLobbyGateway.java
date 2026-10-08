@@ -750,6 +750,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     else if (command instanceof LobbyCommand.UpdateTableSettings update) {
                         updateTableSettings(update.settings());
                     }
+                    else if (command instanceof LobbyCommand.SetHotJoinPolicy policy) {
+                        setHotJoinPolicy(policy.enabled());
+                    }
                     else if (command instanceof LobbyCommand.SetChatNotifications notifications) setNotifications(notifications.enabled());
                     else if (command instanceof LobbyCommand.StartGame) startGame();
                     else if (command instanceof LobbyCommand.Leave) leave();
@@ -761,8 +764,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         private synchronized void startGame() throws Exception {
             if (!host) throw new IllegalStateException("Only the host can start the game");
-            // Freeze this lobby option with the authoritative launch packet.
-            // Later lobby refreshes must not change admission mid-game.
+            // Establish the initial live policy from the authoritative launch
+            // settings. Later changes use setHotJoinPolicy(), under this same
+            // transport monitor as handshake admission.
             allowHotJoinAfterStart = tableSettings.allowHotJoin();
             // Freeze the authoritative launch packet before exposing the
             // started state. A host that begins with bots only has no remote
@@ -853,6 +857,47 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             broadcastGame("GAMEINFO#" + b64(next.gameInfoForWire()), null);
             broadcastGame("GAMECONFIG#" + b64(next.serializeForWire()), null);
             publishCurrent();
+        }
+
+        /**
+         * Linearizes a live admission-policy change against the handshake's
+         * policy check and peer registration. Whichever operation acquires
+         * this monitor first wins; a connection can never be half admitted.
+         */
+        private synchronized void setHotJoinPolicy(boolean enabled)
+                throws Exception {
+            if (!host) {
+                throw new IllegalStateException(
+                        "Only the host can change hot-join admission");
+            }
+            LobbySession active = session;
+            if (active == null || !active.snapshot().startingOrStarted()
+                    || launchConfiguration == null) {
+                throw new IllegalStateException(
+                        "Hot-join admission requires an active game");
+            }
+            if (allowHotJoinAfterStart == enabled
+                    && tableSettings.allowHotJoin() == enabled) {
+                return;
+            }
+            allowHotJoinAfterStart = enabled;
+            tableSettings = tableSettings.withAllowHotJoin(enabled);
+            broadcastHotJoinPolicy(enabled);
+            publishCurrent();
+        }
+
+        private void broadcastHotJoinPolicy(boolean enabled) {
+            String body = "HOTJOINPOLICY#" + (enabled ? "1" : "0");
+            for (Peer peer : List.copyOf(peers.values())) {
+                if (peer.connection == null) continue;
+                try {
+                    sendGame(peer.connection, body);
+                } catch (Exception disconnectedOrBackpressured) {
+                    // enqueueGame closes an unusable critical outbox. One
+                    // stale peer must not roll back the authoritative policy
+                    // or prevent healthy peers from receiving it.
+                }
+            }
         }
 
         private synchronized void setNotifications(boolean enabled) {
@@ -1204,8 +1249,11 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                                 publish(LobbySnapshot.Phase.IN_GAME, "");
                                 publishTableSession();
                             }
-                            gameChannel.receive(source.remoteNickname,
-                                    command.substring(command.indexOf('#', command.indexOf('#') + 1) + 1));
+                            if (!"HOTJOINPOLICY".equals(subcommand)) {
+                                gameChannel.receive(source.remoteNickname,
+                                        command.substring(command.indexOf('#',
+                                                command.indexOf('#') + 1) + 1));
+                            }
                         }
                     }
                 }
@@ -1271,6 +1319,17 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                             text64(parts[3]));
                     publishCurrent();
                 }
+                case "HOTJOINPOLICY" -> {
+                    if (parts.length != 4
+                            || !("0".equals(parts[3])
+                            || "1".equals(parts[3]))) {
+                        throw new IOException("Malformed HOTJOINPOLICY frame");
+                    }
+                    allowHotJoinAfterStart = "1".equals(parts[3]);
+                    tableSettings = tableSettings.withAllowHotJoin(
+                            allowHotJoinAfterStart);
+                    publishCurrent();
+                }
                 case "INIT" -> { }
                 default -> { }
             }
@@ -1279,7 +1338,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private static boolean isLobbyGameCommand(String command) {
             return switch (command) {
                 case "NEWUSER", "USERSLIST", "DELUSER", "GAMEINFO", "GAMECONFIG",
-                        "INIT", "HOTJOIN", "YOUARELATE", "SERVEREXIT",
+                        "HOTJOINPOLICY", "INIT", "HOTJOIN", "YOUARELATE", "SERVEREXIT",
                         "SERVEREXITRECOVER" -> true;
                 default -> false;
             };

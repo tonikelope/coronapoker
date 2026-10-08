@@ -379,7 +379,7 @@ its final component, updates every canonical Maven, runtime metadata and Java
 version marker, verifies that they agree, and prints the source version, the
 destination version and the number of changed files. If the subsequent build
 fails, the increment remains visible in the working tree so it can be reviewed
-or corrected explicitly; the script never hides a partial release attempt.
+or corrected explicitly. The script never hides a partial release attempt.
 
 GDX gameplay certification has one catalogue and one result. `fast`,
 `balanced` and `stress` execute exactly the same scenarios. They differ only in

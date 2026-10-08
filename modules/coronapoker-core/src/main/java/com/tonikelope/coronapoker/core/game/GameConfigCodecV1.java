@@ -385,6 +385,16 @@ public final class GameConfigCodecV1 {
                     blindStructure);
         }
 
+        public Configuration withRecover(boolean value) {
+            return new Configuration(buyin, smallBlind, bigBlind,
+                    blindsDouble, blindsDoubleType, value, sessionId, rebuy,
+                    hands, blindCap, rebuyLimit, botRebuy, fixedBuyin,
+                    buyinMinBb, buyinMaxBb, rebuyCapPolicy, ante, straddle,
+                    iwtsth, runItTwice, rabbitHunting, thinkTime,
+                    thinkTimeEnabled, showdownTime, botBalanceToHumans,
+                    blindStructure);
+        }
+
         private Configuration withLiveRules(boolean nextIwtsth,
                 boolean nextRunItTwice, int nextRabbitHunting,
                 boolean nextBotRebuy, boolean nextBotBalanceToHumans) {

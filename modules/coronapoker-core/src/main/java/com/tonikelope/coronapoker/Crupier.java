@@ -84,6 +84,7 @@ import com.tonikelope.coronapoker.core.game.GameHandResult;
 import com.tonikelope.coronapoker.core.game.GameIdentityVerifier;
 import com.tonikelope.coronapoker.core.game.GamePeerController;
 import com.tonikelope.coronapoker.core.game.GamePlayerController;
+import com.tonikelope.coronapoker.core.game.CorePlayerController;
 import com.tonikelope.coronapoker.core.game.GameOpponentStats;
 import com.tonikelope.coronapoker.core.game.GamePot;
 import com.tonikelope.coronapoker.core.game.GamePotFactory;
@@ -168,6 +169,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GameBotService bot_service;
     private final GameEntropySource game_entropy;
     private final TableEventBridge table_events;
+    private final java.util.concurrent.ConcurrentLinkedQueue<PendingHotJoin>
+            pending_hot_joins = new java.util.concurrent.ConcurrentLinkedQueue<>();
+    private final java.util.Set<String> pending_hot_join_nicks
+            = java.util.concurrent.ConcurrentHashMap.newKeySet();
     // Durable provenance: true only when this database derived the seating
     // itself through commit-reveal (never merely from a recovery SEATS frame).
     private volatile boolean local_seat_ring_verified;
@@ -438,6 +443,274 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private TableSnapshot tableSnapshot() {
         return TableSnapshotMapper.from(gameSession().table().snapshot(),
                 this::getRebuyCount);
+    }
+
+    /**
+     * Queues one authenticated newcomer for the next dealer-owned hand
+     * boundary.  Until then only a public CALENTANDO seat is projected; the
+     * live hand roster, money and cryptographic ring remain immutable.
+     */
+    public void queueHotJoin(CorePlayerController player,
+            GamePeerController peer, Runnable afterAdmission,
+            java.util.function.Consumer<String> boundaryRelay) {
+        java.util.Objects.requireNonNull(player, "player");
+        java.util.Objects.requireNonNull(peer, "peer");
+        String nickname = player.getNickname();
+        if (!nickname.equals(peer.getNick())
+                || nickname.equals(gameSession().localNickname())
+                || nick2player.containsKey(nickname)
+                || !pending_hot_join_nicks.add(nickname)) {
+            throw new IllegalArgumentException("Duplicate or invalid hot join: "
+                    + nickname);
+        }
+        player.setSpectator(game_text.translate("game.calentando"));
+        pending_hot_joins.add(new PendingHotJoin(player, peer,
+                afterAdmission == null ? () -> { } : afterAdmission,
+                boundaryRelay == null ? ignored -> { } : boundaryRelay));
+        table_events.publishIfAttached(sequence -> new TableVisualEvent.SeatRoster(
+                sequence, publicHotJoinPlayers()));
+    }
+
+    /** Removes a newcomer that disconnected before its admission boundary. */
+    public void cancelHotJoin(String nickname) {
+        if (nickname == null || !pending_hot_join_nicks.remove(nickname)) {
+            return;
+        }
+        pending_hot_joins.removeIf(pending
+                -> pending.player().getNickname().equals(nickname));
+        table_events.publishIfAttached(sequence -> new TableVisualEvent.SeatRoster(
+                sequence, publicHotJoinPlayers()));
+    }
+
+    /** Explicit protocol marker for a fresh client observing the open hand. */
+    public void markPassiveHotJoinObserver() {
+        if (gameSession().isHost()) {
+            throw new IllegalStateException(
+                    "The host cannot be a passive hot-join observer");
+        }
+        this.passive_recovery_observer = true;
+    }
+
+    /** Public-only state; no concealed pocket code can cross this boundary. */
+    public TableSnapshot publicHotJoinSnapshot() {
+        TableSnapshot base = tableSnapshot();
+        java.util.List<TableSnapshot.PlayerSnapshot> publicPlayers
+                = publicHotJoinPlayers();
+        java.util.List<TableSnapshot.CardSnapshot> board
+                = java.util.Arrays.stream(communityCards())
+                        .map(GameCardController::getState)
+                        .map(state -> state.snapshot())
+                        .map(TableSnapshotMapper::card)
+                        .map(Crupier::publicCard)
+                        .toList();
+        String currentTurn = players().stream()
+                .filter(GamePlayerController::isTurno)
+                .map(GamePlayerController::getNickname)
+                .findFirst().orElse("");
+        TableSnapshot.Street publicStreet = show_time
+                ? TableSnapshot.Street.SHOWDOWN
+                : switch (getStreet()) {
+                    case FLOP -> TableSnapshot.Street.FLOP;
+                    case TURN -> TableSnapshot.Street.TURN;
+                    case RIVER -> TableSnapshot.Street.RIVER;
+                    default -> TableSnapshot.Street.PREFLOP;
+                };
+        return new TableSnapshot(base.revision(), base.localNickname(),
+                publicStreet, MoneyMath.clean(this.bote_total), currentTurn,
+                gameSession().isPaused(), publicPlayers, board);
+    }
+
+    public String hotJoinRecoveryPayload() {
+        if (!gameSession().isHost()) {
+            throw new IllegalStateException("Only the host can bootstrap a newcomer");
+        }
+        java.util.HashMap<String, Object> data
+                = sqlRecoverServerLocalGameKeyData(true);
+        if (data == null) {
+            throw new IllegalStateException("No recovery snapshot is available");
+        }
+        RecoverySnapshotV1.Result snapshot = RecoverySnapshotV1.fromMap(
+                data, configuration().sessionId());
+        if (!snapshot.isOk()) {
+            throw new IllegalStateException("Invalid hot-join recovery snapshot: "
+                    + snapshot.error());
+        }
+        return Base64.getEncoder().encodeToString(snapshot.value().encode());
+    }
+
+    public String hotJoinSeatsCommand() {
+        if (!gameSession().isHost() || nicks_permutados == null) {
+            throw new IllegalStateException("Hot-join seats are not available");
+        }
+        java.util.List<String> planned = new java.util.ArrayList<>(
+                java.util.Arrays.asList(nicks_permutados));
+        for (PendingHotJoin pending : pending_hot_joins) {
+            if (!planned.contains(pending.player().getNickname())) {
+                planned = SeatDraw.mergeNewcomers(planned,
+                        java.util.List.of(pending.player().getNickname()));
+            }
+        }
+        StringBuilder command = new StringBuilder("SEATS#")
+                .append(planned.size());
+        for (String nickname : planned) {
+            command.append('#').append(Base64.getEncoder().encodeToString(
+                    nickname.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        }
+        return command.toString();
+    }
+
+    private java.util.List<TableSnapshot.PlayerSnapshot> publicHotJoinPlayers() {
+        java.util.ArrayList<TableSnapshot.PlayerSnapshot> result
+                = new java.util.ArrayList<>();
+        TableSnapshot base = tableSnapshot();
+        for (TableSnapshot.PlayerSnapshot player : base.players()) {
+            GamePlayerController controller = nick2player.get(player.nickname());
+            boolean publiclyRevealed = controller != null
+                    && controller.isMuestra();
+            java.util.List<TableSnapshot.CardSnapshot> cards
+                    = player.holeCards().stream()
+                            .map(card -> publiclyRevealed
+                                    ? publicCard(card)
+                                    : new TableSnapshot.CardSnapshot("", false,
+                                            card.disabled(), card.visible()))
+                            .toList();
+            result.add(new TableSnapshot.PlayerSnapshot(player.nickname(),
+                    player.stack(), player.streetBet(),
+                    player.potContribution(), player.active(),
+                    player.spectator(), player.exited(), player.timedOut(),
+                    player.latency(), player.previousLatency(),
+                    player.reconnectionCount(), player.telemetryAt(),
+                    player.winner(), player.underTheGun(), player.position(),
+                    player.lastAction(), player.handName(), cards,
+                    player.buyIn(), player.rebuyCount()));
+        }
+        for (PendingHotJoin pending : pending_hot_joins) {
+            CorePlayerController player = pending.player();
+            if (result.stream().noneMatch(existing
+                    -> existing.nickname().equals(player.getNickname()))) {
+                result.add(new TableSnapshot.PlayerSnapshot(
+                        player.getNickname(), player.getStack(), 0d, 0d,
+                        false, true, false, false,
+                        pending.peer().getLatency(),
+                        pending.peer().getLatency2(),
+                        pending.peer().getReconnectionCount(),
+                        System.currentTimeMillis(), false, false,
+                        TableSnapshot.Position.NONE,
+                        game_text.translate("game.calentando"), "",
+                        java.util.List.of(),
+                        player.getBuyin(), getRebuyCount(player.getNickname())));
+            }
+        }
+        return java.util.List.copyOf(result);
+    }
+
+    private static TableSnapshot.CardSnapshot publicCard(
+            TableSnapshot.CardSnapshot card) {
+        return card.faceUp()
+                ? card
+                : new TableSnapshot.CardSnapshot("", false,
+                        card.disabled(), card.visible());
+    }
+
+    private java.util.List<GamePeerController> admitPendingHotJoins() {
+        PendingHotJoin pending;
+        boolean admitted = false;
+        java.util.List<GamePeerController> admittedPeers
+                = new java.util.ArrayList<>();
+        while ((pending = pending_hot_joins.poll()) != null) {
+            String nickname = pending.player().getNickname();
+            pending_hot_join_nicks.remove(nickname);
+            if (nick2player.containsKey(nickname)) continue;
+            CorePlayerController player = pending.player();
+            player.bindDealer(this);
+            player.bindPotRegistration(() -> {
+                if (getGamePot() != null) {
+                    getGamePot().addPlayerController(player);
+                }
+            });
+            player.bindCommittedRebuy(() -> consumeCommittedRebuy(
+                    nickname, player.getStack()));
+            players().add(player);
+            peers().put(nickname, pending.peer());
+            nick2player.put(nickname, player);
+            gameSession().table().putPlayer(player.getState());
+            auditor.put(nickname, new Double[]{player.getStack(),
+                (double) player.getBuyin()});
+            pending.afterAdmission().run();
+            admittedPeers.add(pending.peer());
+            admitted = true;
+            LOGGER.log(Level.INFO,
+                    "HOT JOIN: admitted {0} at the next-hand boundary",
+                    nickname);
+        }
+        if (admitted) {
+            awaitAttachedTableEvent(sequence -> new TableVisualEvent.SeatRoster(
+                    sequence, tableSnapshot().players()),
+                    "Hot-join roster presentation failed");
+        }
+        return java.util.List.copyOf(admittedPeers);
+    }
+
+    private record PendingHotJoin(CorePlayerController player,
+            GamePeerController peer, Runnable afterAdmission,
+            java.util.function.Consumer<String> boundaryRelay) {
+    }
+
+    private void relayBoundaryToPendingHotJoins(String command) {
+        for (PendingHotJoin pending : pending_hot_joins) {
+            pending.boundaryRelay().accept(command);
+        }
+    }
+
+    private void awaitAdmittedHotJoinsReady(
+            java.util.List<GamePeerController> admittedPeers) {
+        if (!gameSession().isHost() || admittedPeers.isEmpty()) return;
+        java.util.Set<String> awaiting = admittedPeers.stream()
+                .map(GamePeerController::getNick)
+                .collect(java.util.stream.Collectors.toCollection(
+                        java.util.LinkedHashSet::new));
+        long deadlineMs = System.currentTimeMillis()
+                + HAND_READY_PROGRESS_TIMEOUT_MS;
+        while (!awaiting.isEmpty() && !isFin_de_la_transmision()) {
+            GamePeerController expel = null;
+            synchronized (lock_nueva_mano) {
+                awaiting.removeIf(nickname -> {
+                    GamePeerController peer = peers().get(nickname);
+                    return peer == null || peer.isExit()
+                            || peer.getNew_hand_ready() > this.conta_mano;
+                });
+                if (awaiting.isEmpty()) break;
+                if (gameSession().isPaused()) {
+                    deadlineMs = System.currentTimeMillis()
+                            + HAND_READY_PROGRESS_TIMEOUT_MS;
+                } else if (System.currentTimeMillis() >= deadlineMs) {
+                    expel = peers().get(awaiting.iterator().next());
+                } else {
+                    try {
+                        lock_nueva_mano.wait(Math.min(NEW_HAND_READY_WAIT,
+                                Math.max(1L, deadlineMs
+                                        - System.currentTimeMillis())));
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
+            }
+            if (expel != null) {
+                LOGGER.log(Level.SEVERE,
+                        "HOT JOIN: peer {0} did not finish recovery before its first playable hand",
+                        expel.getNick());
+                expel.markExitAndNotify(
+                        "hot-join recovery readiness deadline");
+                try {
+                    expel.socketClose();
+                } catch (Exception ignored) {
+                }
+                awaiting.remove(expel.getNick());
+                deadlineMs = System.currentTimeMillis()
+                        + HAND_READY_PROGRESS_TIMEOUT_MS;
+            }
+        }
     }
 
     /**
@@ -11057,6 +11330,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 renderedPlayers.add(player.getNickname());
             }
         }
+        for (PendingHotJoin pending : pending_hot_joins) {
+            renderedPlayers.add(pending.player().getNickname());
+        }
         validateCommittedRebuyTargets(rebuy_committed, renderedPlayers);
         Map<String, double[]> rows = new LinkedHashMap<>();
         for (Map.Entry<String, Double[]> entry : this.auditor.entrySet()) {
@@ -11077,6 +11353,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         rebuy_committed.get(player.getNickname()),
                         rebuyHeadroom(player.getStack())));
             }
+        }
+        // Pending hot joins did not exist in the hand being closed, but this
+        // snapshot is the atomic opening balance of the *next* hand. Include
+        // them before admission so host, incumbents and newcomer verify the
+        // same roster without mutating the active hand retroactively.
+        for (PendingHotJoin pending : pending_hot_joins) {
+            GamePlayerController player = pending.player();
+            rows.put(player.getNickname(), projectNextHandBalanceRow(
+                    player.getStack(), player.getPagar(), player.getBuyin(),
+                    getRebuyCount(player.getNickname()),
+                    rebuy_committed.get(player.getNickname()),
+                    rebuyHeadroom(player.getStack())));
         }
         return rows;
     }
@@ -11201,6 +11489,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void readyForNextHand(boolean discardObservedHandCommands) {
+        if (!gameSession().isHost() && discardObservedHandCommands
+                && this.conta_mano > 0) {
+            // The targeted START_SRA_CASCADE was already authenticated and
+            // applied before the passive recovery snapshot. Recovery rebuilds
+            // the observed hand's opening state, so atomically reapply that
+            // already-verified closing balance before admission. This second
+            // pass then only tells the host that recovery is fully installed;
+            // waiting for another START would deadlock because the host is
+            // waiting on this exact readiness before starting the crypto ring.
+            if (this.next_hand_balance_wire == null
+                    || !acceptNextHandBalanceSnapshot(
+                            this.next_hand_balance_wire, true)) {
+                setFin_de_la_transmision(true);
+                game_transport.closeHostConnection();
+                return;
+            }
+            this.sendGAMECommandToServer(
+                    "HAND_READY#" + String.valueOf(this.conta_mano + 1));
+            return;
+        }
         // Between-hands cleanup of the pocket-card cache and the pending command queue. The
         // queue must be cleared under its own monitor because the Participant thread may be
         // polling it concurrently (received_commands is synchronized on every access);
@@ -11218,10 +11526,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         int discardedObservedCommands = 0;
         synchronized (received_commands) {
-            if (discardObservedHandCommands) {
-                discardedObservedCommands = received_commands.size();
+            if (!discardObservedHandCommands) {
+                received_commands.clear();
             }
-            received_commands.clear();
         }
 
         // Cancel + drop any flip-animation prefetch Futures not consumed this hand. A misdeal /
@@ -11374,8 +11681,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     }
                 }
+                String boundaryCommand = "START_SRA_CASCADE#" + boundaryWire;
                 broadcastGAMECommandFromServerLocked(
-                        "START_SRA_CASCADE#" + boundaryWire, null, true);
+                        boundaryCommand, null, true);
+                // A warming connection is outside the active peer map. Relay
+                // exactly this closing boundary to it; ordinary traffic stays
+                // blocked until it applies recovery and answers HAND_READY for
+                // its first playable hand.
+                relayBoundaryToPendingHotJoins(boundaryCommand);
             }
 
         } else {
@@ -11428,6 +11741,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 return;
                             }
                             serverCommitted = true;
+                        } else if (discardObservedHandCommands
+                                && partes.length >= 3
+                                && "RECOVERDATA".equals(partes[2])) {
+                            // Bootstrap state is deliberately sent while the
+                            // newcomer observes the closing hand. Preserve it
+                            // across this boundary; recuperarDatosClavePartida
+                            // consumes it immediately afterwards.
+                            rejected.add(comando);
                         } else if (discardObservedHandCommands) {
                             // The socket is ordered: before START_SRA_CASCADE every
                             // queued command belongs to the recovered hand this peer
@@ -11946,7 +12267,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private boolean NUEVA_MANO() {
-
         final boolean leavingPassiveObservedHand = this.passive_recovery_observer;
         // Cleared on every attempt. recuperarDatosClavePartida sets it again only
         // for the narrowly-defined newcomer-observing-an-open-recovered-hand case.
@@ -11970,7 +12290,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         table_display.resetForNewHand();
         game_progress.indeterminate();
-        if (leavingPassiveObservedHand) {
+        if (leavingPassiveObservedHand && this.conta_mano > 0) {
             awaitAttachedTableEvent(sequence -> new TableVisualEvent.HandBoundary(
                     sequence, this.conta_mano,
                     TableVisualEvent.HandBoundary.Phase.SKIP_RECOVERED,
@@ -11986,6 +12306,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         readyForNextHand(leavingPassiveObservedHand);
+
+        if (isFin_de_la_transmision()) {
+            return false;
+        }
+
+        java.util.List<GamePeerController> admittedHotJoins
+                = admitPendingHotJoins();
+        awaitAdmittedHotJoinsReady(admittedHotJoins);
 
         if (isFin_de_la_transmision()) {
             return false;
@@ -12059,8 +12387,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
         if (!newcomers.isEmpty()) {
-            this.nicks_permutados = SeatDraw.mergeNewcomers(
-                    currentRing, newcomers).toArray(new String[0]);
+            java.util.List<String> merged = currentRing;
+            // HOTJOIN commands are authenticated and ordered. Merge each
+            // arrival independently so a client already warming up and a
+            // later joiner derive the same ring as the host, even when they
+            // did not start in one simultaneous recovery batch.
+            for (String newcomer : newcomers) {
+                merged = SeatDraw.mergeNewcomers(merged,
+                        java.util.List.of(newcomer));
+            }
+            this.nicks_permutados = merged.toArray(new String[0]);
+            // A late controller is appended to each process's local list. That
+            // insertion order is not consensus data (it can be local-first),
+            // while betting loops consume this list circularly. Normalize it
+            // to the verified seat ring so every peer advances actions and the
+            // hand-state hash chain in exactly the same order.
+            players().sort(java.util.Comparator
+                    .comparingInt((GamePlayerController player) -> seatIndex(
+                            this.nicks_permutados, player.getNickname()))
+                    .thenComparing(GamePlayerController::getNickname));
             this.update_game_seats = true;
             LOGGER.log(Level.INFO, "Injected {0} warm-up player(s) into the crypto ring in verifiable order.",
                     newcomers.size());
@@ -12643,7 +12988,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (this.next_hand_balance_wire != null
                         && !this.next_hand_balance_wire.equals(openingWire)) {
                     LOGGER.log(Level.SEVERE,
-                            "Next-hand balance barrier disagrees with atomic opening rows");
+                            "Next-hand balance barrier disagrees with atomic opening rows{0}",
+                            presentation_settings.testMode()
+                                    ? ": boundary=" + this.next_hand_balance_wire
+                                            + " opening=" + openingWire
+                                    : "");
                     return false;
                 }
                 HandCreateTransaction.HandRow hand = new HandCreateTransaction.HandRow(

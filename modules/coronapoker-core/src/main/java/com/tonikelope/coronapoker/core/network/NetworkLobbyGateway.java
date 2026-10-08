@@ -275,6 +275,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private final StatsSyncService statsSync;
         private final NativeGameChannel gameChannel;
         private final boolean recovering;
+        private final boolean hotJoining;
         private final int recoveryGameId;
         private final byte[] sessionId;
         private final PlayerIdentity identity;
@@ -282,7 +283,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private final Map<String, Peer> peers = new LinkedHashMap<>();
         private final Map<String, Set<String>> peerStatsUgis
                 = new ConcurrentHashMap<>();
-        private final Set<String> lateJoinWarnings = new java.util.LinkedHashSet<>();
+        private final Set<String> warmingPeers = new java.util.LinkedHashSet<>();
         private final List<LobbyChatMessage> chat = new ArrayList<>();
         private final AtomicLong chatSequence = new AtomicLong();
         private final AtomicBoolean closed = new AtomicBoolean();
@@ -300,7 +301,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 ExecutorService executor, byte[] sessionId, PlayerIdentity identity,
                 NewGameTableDraft.Settings tableSettings, GameTableFactory gameTables,
                 IdentityTrustStore identityTrust, BooleanSupplier receiveStats,
-                BooleanSupplier shareStats, StatsSyncService statsSync) {
+                BooleanSupplier shareStats, StatsSyncService statsSync,
+                boolean hotJoining) {
             this.host = host;
             this.localNickname = request.connection().nickname();
             this.endpoint = request.connection().server() + ":" + request.connection().port();
@@ -317,7 +319,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     "receiveStats");
             this.shareStats = Objects.requireNonNull(shareStats, "shareStats");
             this.statsSync = statsSync;
-            this.recovering = request.connection().recover();
+            this.hotJoining = hotJoining;
+            this.recovering = request.connection().recover() || hotJoining;
             this.recoveryGameId = request.connection().recoveredGameId() == null
                     ? -1 : request.connection().recoveredGameId();
             this.sessionId = sessionId;
@@ -341,7 +344,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             }
             Transport transport = new Transport(true, request, directory, executor, sessionId,
                     identity, request.table(), gameTables, identityTrust,
-                    receiveStats, shareStats, statsSync);
+                    receiveStats, shareStats, statsSync, false);
             int port = parsePort(request.connection().port());
             ServerSocket server = new ServerSocket();
             server.setReuseAddress(true);
@@ -407,7 +410,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     connection.sessionId, identity,
                     NewGameTableDraft.Settings.parseWire(connection.gameConfig),
                     gameTables, identityTrust, receiveStats, shareStats,
-                    statsSync);
+                    statsSync, connection.hotJoin);
             transport.serverConnection = connection;
             transport.serverNickname = connection.remoteNickname;
             transport.peers.put(connection.remoteNickname,
@@ -461,6 +464,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             if (response == null) throw new IOException("Secure channel not established");
             String[] parts = response.split("#", -1);
             if (!"NICKOK".equals(parts[0])) throw rejection(parts);
+            connection.hotJoin = parts.length > 4
+                    && "HOTJOIN".equals(parts[4]);
             connection.gameInfo = parts.length > 2 ? text64(parts[2]) : "";
             connection.gameConfig = parts.length > 3 ? text64(parts[3]) : "";
             String intro = connection.readEncryptedText();
@@ -614,21 +619,15 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 byte[] publicKey = Base64.getDecoder().decode(parts[4]);
                 byte[] signature = Base64.getDecoder().decode(parts[5]);
                 if (!PlayerIdentity.verifyJoin(sessionId, nickname, publicKey, signature)) return;
+                boolean hotJoin = false;
+                String hotJoinCommand = null;
                 synchronized (this) {
                     if (closed.get()) return;
                     LobbySession active = session;
-                    if (active != null && active.snapshot().startingOrStarted()) {
+                    hotJoin = active != null
+                            && active.snapshot().startingOrStarted();
+                    if (hotJoin && launchConfiguration == null) {
                         connection.writeEncrypted("YOUARELATE");
-                        String origin = Base64.getEncoder().encodeToString(
-                                MessageDigest.getInstance("SHA-256").digest(
-                                        socket.getInetAddress().getHostAddress()
-                                                .getBytes(StandardCharsets.UTF_8)));
-                        if (lateJoinWarnings.add(origin)) {
-                            String warning = "YOUARELATE#" + b64(nickname)
-                                    + "#" + origin;
-                            gameChannel.receive(localNickname, warning);
-                            broadcastGame(warning, null);
-                        }
                         return;
                     }
                     if (peers.size() >= LobbySnapshot.MAX_PARTICIPANTS) {
@@ -645,7 +644,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     connection.secure = true;
                     connection.writeEncrypted("NICKOK#" + (password == null ? "0" : "1")
                             + "#" + b64(tableSettings.gameInfoForWire())
-                            + "#" + b64(tableSettings.serializeForWire()));
+                            + "#" + b64(tableSettings.serializeForWire())
+                            + (hotJoin ? "#HOTJOIN" : ""));
                     byte[] hostAvatar = readAvatar(peers.get(localNickname).avatar);
                     connection.writeEncrypted(b64(localNickname) + "#"
                             + (hostAvatar == null ? "*" : Base64.getEncoder().encodeToString(hostAvatar))
@@ -656,17 +656,32 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     Peer peer = new Peer(nickname, avatar, false, false, false, true, connection,
                             publicKey, signature);
                     peers.put(nickname, peer);
+                    if (hotJoin) warmingPeers.add(nickname);
                     identityTrust.observe(nickname, publicKey);
                     connection.startGameOutbox();
                     addPresence(nickname, LobbyChatMessage.Type.PLAYER_JOINED);
-                    publish(LobbySnapshot.Phase.WAITING_FOR_PLAYERS, "");
-                    broadcastGame("NEWUSER#" + b64(nickname) + "#0#"
-                            + (parts[2].isBlank() ? "*" : parts[2]) + "#" + parts[4] + "#" + parts[5], connection);
+                    publish(hotJoin ? LobbySnapshot.Phase.IN_GAME
+                            : LobbySnapshot.Phase.WAITING_FOR_PLAYERS, "");
+                    if (hotJoin) {
+                        sendGame(connection, "INIT#"
+                                + GameConfigCodecV1.encodeBase64(
+                                        launchConfiguration));
+                        hotJoinCommand = "HOTJOIN#" + b64(nickname) + "#"
+                                + (parts[2].isBlank() ? "*" : parts[2])
+                                + "#" + parts[4] + "#" + parts[5];
+                    } else {
+                        broadcastGame("NEWUSER#" + b64(nickname) + "#0#"
+                                + (parts[2].isBlank() ? "*" : parts[2]) + "#" + parts[4] + "#" + parts[5], connection);
+                    }
                 }
                 socket.setSoTimeout(0);
                 Connection accepted = connection;
                 executor.execute(() -> readHostPeer(accepted));
                 accepted.startHeartbeat(this::publishCurrent);
+                if (hotJoin) {
+                    broadcastGame(hotJoinCommand, accepted);
+                    gameChannel.receive(localNickname, hotJoinCommand);
+                }
                 connection = null;
             } catch (Exception ignored) {
                 // Rejection or malformed unauthenticated handshake: close without an oracle.
@@ -760,7 +775,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     new GameLaunchContext(active.snapshot(), gameChannel, identity,
                             Base64.getEncoder().encodeToString(sessionId),
                             coronaDirectory, password, launchConfiguration,
-                            recoveryGameId)));
+                            recoveryGameId, hotJoining)));
         }
 
         private synchronized void sendChat(String text) throws Exception {
@@ -1170,7 +1185,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                                     throw new IOException("Invalid INIT configuration: "
                                             + decoded.error());
                                 }
-                                launchConfiguration = decoded.value();
+                                launchConfiguration = hotJoining
+                                        ? decoded.value().withRecover(true)
+                                        : decoded.value();
                                 publish(LobbySnapshot.Phase.IN_GAME, "");
                                 publishTableSession();
                             }
@@ -1217,6 +1234,21 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     publishCurrent();
                 }
                 case "DELUSER" -> removePeer(text64(parts[3]), false);
+                case "HOTJOIN" -> {
+                    if (parts.length != 7) {
+                        throw new IOException("Malformed HOTJOIN frame");
+                    }
+                    String nickname = text64(parts[3]);
+                    if (findNormalized(nickname) == null) {
+                        Path avatar = saveAvatar(parts[4], nickname,
+                                coronaDirectory);
+                        peers.put(nickname, remotePeer(nickname, avatar,
+                                false, false, false, parts[5], parts[6]));
+                        addPresence(nickname,
+                                LobbyChatMessage.Type.PLAYER_JOINED);
+                        publishCurrent();
+                    }
+                }
                 case "GAMEINFO" -> { }
                 case "GAMECONFIG" -> {
                     if (parts.length != 4) {
@@ -1234,7 +1266,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private static boolean isLobbyGameCommand(String command) {
             return switch (command) {
                 case "NEWUSER", "USERSLIST", "DELUSER", "GAMEINFO", "GAMECONFIG",
-                        "INIT", "YOUARELATE", "SERVEREXIT", "SERVEREXITRECOVER" -> true;
+                        "INIT", "HOTJOIN", "YOUARELATE", "SERVEREXIT",
+                        "SERVEREXITRECOVER" -> true;
                 default -> false;
             };
         }
@@ -1423,6 +1456,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private synchronized java.util.concurrent.CompletionStage<Void> sendGameTo(
                 String nickname, String body) throws IOException {
             if (!host) throw new IllegalStateException("Only the host can send to a peer");
+            captureLaunchConfiguration(body);
             Peer peer = findNormalized(nickname);
             if (peer == null || peer.connection == null || peer.local || peer.bot) {
                 throw new IOException("Game peer is unavailable: " + nickname);
@@ -1440,15 +1474,28 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private synchronized java.util.concurrent.CompletionStage<Void> broadcastGameFromChannel(String body,
                 String skipNickname) throws IOException {
             if (!host) throw new IllegalStateException("Only the host can broadcast");
+            captureLaunchConfiguration(body);
             List<java.util.concurrent.CompletableFuture<Void>> deliveries = new ArrayList<>();
             for (Peer peer : List.copyOf(peers.values())) {
                 if (peer.connection != null
+                        && !warmingPeers.contains(peer.nickname)
                         && (skipNickname == null || !peer.nickname.equals(skipNickname))) {
                     deliveries.add(peer.connection.enqueueGame(body).toCompletableFuture());
                 }
             }
             return java.util.concurrent.CompletableFuture.allOf(
                     deliveries.toArray(java.util.concurrent.CompletableFuture[]::new));
+        }
+
+        private void captureLaunchConfiguration(String body)
+                throws IOException {
+            if (!body.startsWith("INIT#")) return;
+            GameConfigCodecV1.Result decoded = GameConfigCodecV1.decodeBase64(
+                    body.substring("INIT#".length()));
+            if (!decoded.isOk()) {
+                throw new IOException("Invalid host INIT: " + decoded.error());
+            }
+            launchConfiguration = decoded.value();
         }
 
         private void broadcastDirect(String body, Connection except) throws Exception {
@@ -1465,12 +1512,17 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         private synchronized void removePeer(String nickname, boolean broadcast) throws Exception {
             Peer removed = peers.remove(nickname);
+            warmingPeers.remove(nickname);
             peerStatsUgis.remove(nickname);
             if (removed == null || removed.local) return;
             if (removed.connection != null) removed.connection.close();
             addPresence(nickname, LobbyChatMessage.Type.PLAYER_LEFT);
             if (host && broadcast) broadcastGame("DELUSER#" + b64(nickname), removed.connection);
             publishCurrent();
+        }
+
+        private synchronized void activatePeer(String nickname) {
+            warmingPeers.remove(Objects.requireNonNull(nickname, "nickname"));
         }
 
         private void addChat(String nickname, String text) {
@@ -1815,6 +1867,11 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             }
         }
 
+
+        @Override public void activatePeer(String nickname) {
+            transport.activatePeer(nickname);
+        }
+
         private static String requireCommand(String command) {
             String checked = Objects.requireNonNull(command, "command");
             if (checked.isBlank() || checked.startsWith("GAME#")) {
@@ -1905,6 +1962,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private byte[] remoteIdentitySignature;
         private String gameInfo;
         private String gameConfig;
+        private boolean hotJoin;
 
         Connection(Socket socket, InputStream input, OutputStream output,
                 SecretKeySpec aes, SecretKeySpec hmac,

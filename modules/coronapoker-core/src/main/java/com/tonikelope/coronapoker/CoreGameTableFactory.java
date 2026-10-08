@@ -40,6 +40,7 @@ import com.tonikelope.coronapoker.core.game.GameUiExecutor;
 import com.tonikelope.coronapoker.core.game.GameValueFormatter;
 import com.tonikelope.coronapoker.core.game.GameWindowSink;
 import com.tonikelope.coronapoker.core.game.HostGameConfigurationSource;
+import com.tonikelope.coronapoker.core.game.HotJoinSnapshotCodecV1;
 import com.tonikelope.coronapoker.core.game.LobbyTransitionSink;
 import com.tonikelope.coronapoker.core.game.MoneyMath;
 import com.tonikelope.coronapoker.core.game.PauseGate;
@@ -65,9 +66,12 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -221,11 +225,15 @@ public final class CoreGameTableFactory implements GameTableFactory {
                     "La timba necesita al menos dos participantes");
         }
 
-        GameConfigCodecV1.Configuration initialConfiguration
+        GameConfigCodecV1.Configuration decodedConfiguration
                 = context.initialConfiguration() == null
                         ? GameConfigCodecV1.fromSettings(lobby.tableSettings(),
                                 lobby.recovering(), context.sessionId())
                         : context.initialConfiguration();
+        GameConfigCodecV1.Configuration initialConfiguration
+                = context.hotJoining()
+                        ? decodedConfiguration.withRecover(true)
+                        : decodedConfiguration;
         AtomicReference<com.tonikelope.coronapoker.core.NewGameTableDraft.BotDifficulty>
                 botDifficulty = new AtomicReference<>(
                         lobby.tableSettings().botDifficulty());
@@ -239,9 +247,14 @@ public final class CoreGameTableFactory implements GameTableFactory {
         GameSession game = new GameSession(lobby.localNickname(), lobby.host(),
                 initialConfiguration);
         TableEventBridge events = new TableEventBridge();
+        HotJoinSync hotJoin = new HotJoinSync(lobby.host(), context.channel(),
+                gameLog, events, lobby.localNickname());
         ArrayList<CorePlayerController> players = createPlayers(lobby,
                 initialConfiguration.buyin(), gameEntropy);
         CorePlayerController local = players.get(0);
+        if (context.hotJoining()) {
+            local.setSpectator(gameText.translate("game.calentando"));
+        }
         ChannelGameTransport transport = new ChannelGameTransport(context);
         Map<String, GamePeerController> peers = createPeers(lobby,
                 context.channel(), transport.confirmations());
@@ -350,7 +363,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
             }
         };
         Crupier dealer = new Crupier(game, players, local, peers, community,
-                context.identity(), gameLog, gameDialogs,
+                context.identity(), hotJoin.logSink(), gameDialogs,
                 gameDecisions, new CoreGameDatabase(database,
                         context.recoveryGameId(), () ->
                         RecoverableGameRepository.encodeSettings(
@@ -370,11 +383,18 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 cinematicState,
                 cinematicAssets, GameValueFormatter.plain(),
                  GameBotService.standalone(), gameEntropy, events);
+        hotJoin.bind(dealer);
         dealer.initializeCommunicationRules(textToSpeech.get(),
                 voiceMessages.get());
+        if (context.hotJoining()) {
+            dealer.markPassiveHotJoinObserver();
+        }
 
-        players.forEach(player -> player.bindPotRegistration(
-                () -> dealer.getGamePot().addPlayerController(player)));
+        players.forEach(player -> player.bindPotRegistration(() -> {
+            if (dealer.getGamePot() != null) {
+                dealer.getGamePot().addPlayerController(player);
+            }
+        }));
         players.forEach(player -> player.bindCommittedRebuy(
                 () -> dealer.consumeCommittedRebuy(
                         player.getNickname(), player.getStack())));
@@ -402,6 +422,98 @@ public final class CoreGameTableFactory implements GameTableFactory {
                         TableSessionSummary.CloseReason.COMPLETED);
         AutoCloseable inbound = context.channel().subscribe(command -> {
             String envelope = transport.inboundEnvelope(command);
+            if (command.command().startsWith("HOTJOIN#")) {
+                try {
+                    String expectedSource = lobby.host()
+                            ? lobby.localNickname() : lobby.serverNickname();
+                    if (!command.peerNickname().equals(expectedSource)) {
+                        throw new IllegalArgumentException(
+                                "HOTJOIN source is not authoritative");
+                    }
+                    String[] fields = command.command().split("#", -1);
+                    if (fields.length != 5) {
+                        throw new IllegalArgumentException(
+                                "Malformed HOTJOIN notification");
+                    }
+                    String nickname = new String(Base64.getDecoder().decode(
+                            fields[1]), StandardCharsets.UTF_8).trim();
+                    byte[] identityKey = Base64.getDecoder().decode(fields[3]);
+                    byte[] identitySignature = Base64.getDecoder().decode(
+                            fields[4]);
+                    if (nickname.isEmpty() || identityKey.length == 0
+                            || identitySignature.length == 0
+                            || peers.containsKey(nickname)) {
+                        throw new IllegalArgumentException(
+                                "Invalid or duplicate HOTJOIN participant");
+                    }
+                    CorePlayerController newcomer
+                            = CorePlayerController.remote(nickname);
+                    initializePlayer(newcomer, initialConfiguration.buyin());
+                    GamePeerController newcomerPeer
+                            = new GameChannelPeerController(nickname,
+                                    context.channel(),
+                                    transport.confirmations(), identityKey,
+                                    LobbyParticipant.NO_LATENCY,
+                                    LobbyParticipant.NO_LATENCY);
+                    hotJoin.register(nickname);
+                    dealer.queueHotJoin(newcomer, newcomerPeer,
+                            () -> hotJoin.applyEarlyReady(nickname),
+                            commandBody -> hotJoin.sendBoundary(nickname,
+                                    commandBody));
+                    if (lobby.host()) {
+                        hotJoin.bootstrap(nickname);
+                    }
+                } catch (RuntimeException invalid) {
+                    context.channel().close();
+                }
+                return;
+            }
+            if (!lobby.host()
+                    && command.command().equals("HOTJOIN_LOG_RESET")) {
+                if (!command.peerNickname().equals(lobby.serverNickname())) {
+                    context.channel().close();
+                    return;
+                }
+                hotJoin.replaceHistory();
+                return;
+            }
+            if (!lobby.host()
+                    && command.command().startsWith("HOTJOIN_LOG#")) {
+                try {
+                    if (!command.peerNickname().equals(lobby.serverNickname())) {
+                        throw new IllegalArgumentException(
+                                "HOTJOIN_LOG source is not the table host");
+                    }
+                    String[] fields = command.command().split("#", -1);
+                    if (fields.length != 2) {
+                        throw new IllegalArgumentException(
+                                "Malformed HOTJOIN_LOG notification");
+                    }
+                    hotJoin.acceptLog(new String(Base64.getDecoder().decode(
+                            fields[1]), StandardCharsets.UTF_8));
+                } catch (RuntimeException invalid) {
+                    context.channel().close();
+                }
+                return;
+            }
+            if (!lobby.host()
+                    && command.command().startsWith("HOTJOIN_STATE#")) {
+                try {
+                    if (!command.peerNickname().equals(lobby.serverNickname())) {
+                        throw new IllegalArgumentException(
+                                "HOTJOIN_STATE source is not the table host");
+                    }
+                    String[] fields = command.command().split("#", -1);
+                    if (fields.length != 2) {
+                        throw new IllegalArgumentException(
+                                "Malformed HOTJOIN_STATE notification");
+                    }
+                    hotJoin.acceptSnapshot(fields[1]);
+                } catch (RuntimeException invalid) {
+                    context.channel().close();
+                }
+                return;
+            }
             if (command.command().startsWith("YOUARELATE#")) {
                 try {
                     if (!command.peerNickname().equals(lobby.serverNickname())) {
@@ -716,7 +828,22 @@ public final class CoreGameTableFactory implements GameTableFactory {
             }
             if (lobby.host() && command.command().startsWith("HAND_READY#")) {
                 try {
-                    dealer.acceptRemoteHandReady(command.peerNickname(), envelope);
+                    if (hotJoin.isWarming(command.peerNickname())) {
+                        if (!hotJoin.acceptEarlyReady(
+                                command.peerNickname(), envelope)) {
+                            throw new IllegalArgumentException(
+                                    "HAND_READY source is not warming");
+                        }
+                        if (peers.containsKey(command.peerNickname())) {
+                            hotJoin.applyEarlyReady(command.peerNickname());
+                        }
+                    } else if (peers.containsKey(command.peerNickname())) {
+                        dealer.acceptRemoteHandReady(command.peerNickname(),
+                                envelope);
+                    } else {
+                        throw new IllegalArgumentException(
+                                "HAND_READY source is not seated or warming");
+                    }
                 } catch (RuntimeException invalid) {
                     context.channel().close();
                 }
@@ -731,6 +858,10 @@ public final class CoreGameTableFactory implements GameTableFactory {
         AutoCloseable peerLoss = context.channel().subscribePeerLoss(nickname -> {
             if (!lobby.host() || closing.get()) return;
             GamePeerController peer = peers.get(nickname);
+            if (peer == null && hotJoin.disconnect(nickname)) {
+                dealer.cancelHotJoin(nickname);
+                return;
+            }
             // A normal authenticated EXIT may be followed immediately by EOF
             // from the same socket. Do not use peer.isExit() for this test:
             // the transport also marks a socket-dead peer out to release ACK
@@ -747,7 +878,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
         });
 
                 TableSession table = new TableSession(initialSnapshot(lobby,
-                initialConfiguration.buyin()), command -> {
+                initialConfiguration.buyin(), context.hotJoining()), command -> {
                     submit(command, dealer, local, pauseCoordinator, events,
                             presentationSettings, context.channel(),
                             lobby.host(), controlExecutor,
@@ -834,6 +965,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                     local.setExit();
                     pause.resume();
                     notifyBettingWait(dealer);
+                    hotJoin.close();
                     peerLoss.close();
                     inbound.close();
                     context.channel().close();
@@ -990,10 +1122,13 @@ public final class CoreGameTableFactory implements GameTableFactory {
         return peers;
     }
 
-    private static TableSnapshot initialSnapshot(LobbySnapshot lobby, int buyin) {
+    private static TableSnapshot initialSnapshot(LobbySnapshot lobby, int buyin,
+            boolean hotJoining) {
         List<TableSnapshot.PlayerSnapshot> players = lobby.participants().stream()
                 .map(participant -> new TableSnapshot.PlayerSnapshot(
-                participant.nickname(), buyin, 0d, 0d, true, false, false,
+                participant.nickname(), buyin, 0d, 0d,
+                !(hotJoining && participant.local()),
+                hotJoining && participant.local(), false,
                 false, LobbyParticipant.NO_LATENCY,
                 LobbyParticipant.NO_LATENCY, 0, 0L,
                 false, false, TableSnapshot.Position.NONE, "", "",
@@ -1418,6 +1553,241 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 transitionInFlight = false;
             }
             gate.resume();
+        }
+    }
+
+    /**
+     * Keeps live newcomers outside the active hand while giving them a bounded,
+     * public-only view and the complete visible log.  Admission remains owned
+     * by the dealer at the next hand boundary.
+     */
+    private static final class HotJoinSync implements AutoCloseable {
+
+        private static final int MAX_LOG_ENTRIES = 2_000;
+        private static final int MAX_LOG_CHARS = 16_384;
+        private static final long SNAPSHOT_PERIOD_MS = 200L;
+
+        private final boolean host;
+        private final com.tonikelope.coronapoker.core.game.GameChannel channel;
+        private final GameLogSink delegate;
+        private final TableEventBridge events;
+        private final String localNickname;
+        private final Object historyLock = new Object();
+        private final ArrayList<String> history = new ArrayList<>();
+        private final Set<String> warming = ConcurrentHashMap.newKeySet();
+        private final ConcurrentMap<String, String> earlyReady
+                = new ConcurrentHashMap<>();
+        private final ScheduledExecutorService scheduler;
+        private volatile Crupier dealer;
+
+        HotJoinSync(boolean host,
+                com.tonikelope.coronapoker.core.game.GameChannel channel,
+                GameLogSink delegate, TableEventBridge events,
+                String localNickname) {
+            this.host = host;
+            this.channel = Objects.requireNonNull(channel, "channel");
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+            this.events = Objects.requireNonNull(events, "events");
+            this.localNickname = Objects.requireNonNull(localNickname,
+                    "localNickname");
+            this.scheduler = host
+                    ? Executors.newSingleThreadScheduledExecutor(task -> {
+                        Thread thread = new Thread(task,
+                                "CoronaPoker-hot-join-sync");
+                        thread.setDaemon(true);
+                        return thread;
+                    }) : null;
+        }
+
+        GameLogSink logSink() {
+            return new GameLogSink() {
+                @Override
+                public void print(String message) {
+                    delegate.print(message);
+                    if (!host || message == null) return;
+                    String bounded = message.length() > MAX_LOG_CHARS
+                            ? message.substring(0, MAX_LOG_CHARS) : message;
+                    synchronized (historyLock) {
+                        history.add(bounded);
+                        if (history.size() > MAX_LOG_ENTRIES) {
+                            history.remove(0);
+                        }
+                    }
+                    for (String nickname : warming) {
+                        send(nickname, logCommand(bounded));
+                    }
+                }
+
+                @Override
+                public void updateShowdownCards(List<ShowdownEntry> entries) {
+                    delegate.updateShowdownCards(entries);
+                }
+
+                @Override
+                public void replaceHistory(List<String> messages) {
+                    delegate.replaceHistory(messages);
+                }
+            };
+        }
+
+        void bind(Crupier dealer) {
+            this.dealer = Objects.requireNonNull(dealer, "dealer");
+            if (scheduler != null) {
+                scheduler.scheduleAtFixedRate(this::broadcastSnapshot,
+                        SNAPSHOT_PERIOD_MS, SNAPSHOT_PERIOD_MS,
+                        TimeUnit.MILLISECONDS);
+            }
+        }
+
+        void register(String nickname) {
+            if (!warming.add(requireNickname(nickname))) {
+                throw new IllegalArgumentException(
+                        "Duplicate warming participant: " + nickname);
+            }
+        }
+
+        void bootstrap(String nickname) {
+            if (!host || scheduler == null || !warming.contains(nickname)) {
+                throw new IllegalStateException(
+                        "Hot-join bootstrap is not available");
+            }
+            scheduler.execute(() -> {
+                Crupier current = dealer;
+                if (current == null || !warming.contains(nickname)) return;
+                send(nickname, "HOTJOIN_LOG_RESET");
+                List<String> copy;
+                synchronized (historyLock) {
+                    copy = List.copyOf(history);
+                }
+                for (String message : copy) {
+                    send(nickname, logCommand(message));
+                }
+                send(nickname, current.hotJoinSeatsCommand());
+                send(nickname, "RECOVERDATA#"
+                        + current.hotJoinRecoveryPayload());
+                sendSnapshot(nickname, current.publicHotJoinSnapshot());
+            });
+        }
+
+        boolean acceptEarlyReady(String nickname, String envelope) {
+            if (!host || !warming.contains(nickname)) return false;
+            String checked = Objects.requireNonNull(envelope, "envelope");
+            int incomingHand = readyHand(checked);
+            earlyReady.compute(nickname, (ignored, previous) -> {
+                if (previous == null) return checked;
+                int previousHand = readyHand(previous);
+                if (incomingHand < previousHand) {
+                    throw new IllegalArgumentException(
+                            "Regressive early HAND_READY from " + nickname);
+                }
+                return incomingHand == previousHand ? previous : checked;
+            });
+            return true;
+        }
+
+        void applyEarlyReady(String nickname) {
+            String envelope = earlyReady.get(nickname);
+            if (envelope != null
+                    && readyHand(envelope) == dealer.getMano() + 1) {
+                dealer.acceptRemoteHandReady(nickname,
+                        envelope);
+                earlyReady.remove(nickname, envelope);
+                warming.remove(nickname);
+                channel.activatePeer(nickname);
+            }
+        }
+
+        boolean isWarming(String nickname) {
+            return warming.contains(nickname);
+        }
+
+        void sendBoundary(String nickname, String command) {
+            send(nickname, command);
+        }
+
+        private static int readyHand(String envelope) {
+            String[] fields = envelope.split("#", -1);
+            if (fields.length != 4 || !"GAME".equals(fields[0])
+                    || !"HAND_READY".equals(fields[2])) {
+                throw new IllegalArgumentException("Malformed HAND_READY");
+            }
+            int hand = Integer.parseInt(fields[3]);
+            if (hand < 1) {
+                throw new IllegalArgumentException("Invalid HAND_READY hand");
+            }
+            return hand;
+        }
+
+        boolean disconnect(String nickname) {
+            boolean removed = warming.remove(nickname);
+            earlyReady.remove(nickname);
+            return removed;
+        }
+
+        void replaceHistory() {
+            delegate.replaceHistory(List.of());
+        }
+
+        void acceptLog(String message) {
+            delegate.print(Objects.requireNonNull(message, "message"));
+        }
+
+        void acceptSnapshot(String encoded) {
+            TableSnapshot snapshot = HotJoinSnapshotCodecV1.decode(encoded,
+                    localNickname);
+            events.publish(sequence -> new TableVisualEvent.HotJoinState(
+                    sequence, snapshot));
+        }
+
+        private void broadcastSnapshot() {
+            try {
+                Crupier current = dealer;
+                if (current == null || warming.isEmpty()) return;
+                TableSnapshot snapshot = current.publicHotJoinSnapshot();
+                for (String nickname : warming) {
+                    sendSnapshot(nickname, snapshot);
+                }
+            } catch (RuntimeException ignored) {
+                // The next tick retries.  A socket failure is independently
+                // reported by GameChannel's peer-loss subscription.
+            }
+        }
+
+        private void sendSnapshot(String nickname, TableSnapshot snapshot) {
+            send(nickname, "HOTJOIN_STATE#"
+                    + HotJoinSnapshotCodecV1.encode(snapshot));
+        }
+
+        private static String logCommand(String message) {
+            return "HOTJOIN_LOG#" + Base64.getEncoder().encodeToString(
+                    message.getBytes(StandardCharsets.UTF_8));
+        }
+
+        private void send(String nickname, String command) {
+            if (!warming.contains(nickname)) return;
+            try {
+                channel.sendFromHost(nickname, command)
+                        .whenComplete((ignored, failure) -> {
+                            if (failure != null) disconnect(nickname);
+                        });
+            } catch (java.io.IOException failure) {
+                disconnect(nickname);
+            }
+        }
+
+        private static String requireNickname(String nickname) {
+            String checked = Objects.requireNonNull(nickname, "nickname").trim();
+            if (checked.isEmpty()) {
+                throw new IllegalArgumentException("nickname is required");
+            }
+            return checked;
+        }
+
+        @Override
+        public void close() {
+            warming.clear();
+            earlyReady.clear();
+            if (scheduler != null) scheduler.shutdownNow();
         }
     }
 

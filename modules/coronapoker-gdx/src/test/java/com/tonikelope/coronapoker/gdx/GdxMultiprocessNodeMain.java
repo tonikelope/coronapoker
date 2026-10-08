@@ -111,6 +111,10 @@ public final class GdxMultiprocessNodeMain {
                 runForceRecover(config, home, database);
                 return;
             }
+            if ("live-hot-join".equals(config.scenario)) {
+                runLiveHotJoin(config, home, database);
+                return;
+            }
             AtomicReference<CoronaPokerGdxTable> productTable
                     = new AtomicReference<>();
             AtomicInteger runItTwiceVotes = new AtomicInteger();
@@ -246,6 +250,78 @@ public final class GdxMultiprocessNodeMain {
                         + " durableHands=" + renderer.summary().handCount()
                         + " reason=" + renderer.summary().reason());
             }
+        }
+    }
+
+    private static void runLiveHotJoin(Config config, Path home,
+            DatabaseService database) throws Exception {
+        AtomicReference<CoronaPokerGdxTable> productTable
+                = new AtomicReference<>();
+        AtomicReference<GdxScenarioRenderer> scenarioRenderer
+                = new AtomicReference<>();
+        try (NetworkLobbyGateway gateway = gateway(config,
+                    home.resolve("network"), database, productTable,
+                    new AtomicInteger(), new AtomicReference<>(),
+                    scenarioRenderer);
+             LobbySession lobby = gateway.open(request(config))
+                     .get(20, TimeUnit.SECONDS)) {
+            marker("READY", "role=" + config.role + " nick="
+                    + config.nickname + " phase=" + config.phase);
+            boolean late = "late".equals(config.phase);
+            if (config.host()) {
+                await(() -> lobby.snapshot().participants().size() == 2,
+                        Duration.ofSeconds(30), "initial hot-join lobby");
+                marker("LOBBY_READY", "players=2");
+                awaitStartCommand();
+                lobby.submit(new LobbyCommand.StartGame())
+                        .toCompletableFuture().get(10, TimeUnit.SECONDS);
+                marker("GAME_START_REQUESTED", "hands=" + config.hands);
+            }
+
+            TableSession table = lobby.tableSession().toCompletableFuture()
+                    .get(45, TimeUnit.SECONDS);
+            GdxScenarioRenderer renderer = new GdxScenarioRenderer(table, 3,
+                    productTable, lobby);
+            scenarioRenderer.set(renderer);
+            if (config.host()) renderer.gateActionOnHand(1L);
+            table.attach(renderer).toCompletableFuture()
+                    .get(15, TimeUnit.SECONDS);
+
+            if (config.host()) {
+                await(renderer::hasHeldAction, Duration.ofSeconds(60),
+                        "live hot-join action gate");
+                marker("HOT_JOIN_GATE", "hand=1");
+                requireCommand("RELEASE_HOT_JOIN");
+                renderer.releaseHeldAction();
+            } else if (late) {
+                await(() -> renderer.sawHotJoinState()
+                                && renderer.sawLocalSpectator()
+                                && renderer.spectatorNicknames().contains(
+                                        config.nickname),
+                        Duration.ofSeconds(45), "public warming state");
+                if (!renderer.localCardsArePubliclyHidden()) {
+                    throw new AssertionError(
+                            "hot joiner received concealed pocket data");
+                }
+                marker("HOT_JOIN_WARMING", "nick=" + config.nickname);
+                await(() -> renderer.playingNicknames().contains(
+                                config.nickname)
+                                && renderer.hasLocalDealAfter(1L),
+                        Duration.ofSeconds(120), "next-hand hot admission");
+                marker("HOT_JOIN_ADMITTED", "nick=" + config.nickname);
+            }
+
+            await(renderer::isClosed,
+                    Duration.ofSeconds(Math.max(180L,
+                            config.hands * 45L)), "hot-join completion");
+            if (renderer.summary() == null
+                    || renderer.summary().balances().size() != 3) {
+                throw new AssertionError(
+                        "hot-join settlement does not contain all players");
+            }
+            marker("HOT_JOIN_COMPLETE", "role=" + config.role
+                    + " nick=" + config.nickname + " hands="
+                    + renderer.summary().handCount());
         }
     }
 

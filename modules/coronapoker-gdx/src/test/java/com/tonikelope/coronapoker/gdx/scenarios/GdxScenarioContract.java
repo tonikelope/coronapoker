@@ -62,6 +62,8 @@ final class GdxScenarioContract {
      * reference above is only a historical parity invariant.</p>
      */
     static final Map<String, Set<String>> CERTIFICATION_SCENARIOS = Map.ofEntries(
+            Map.entry("live-hot-join", Set.of(
+                    "liveHotJoinWarmsWithPublicStateThenPlaysTheNextHand")),
             Map.entry("abrupt-exit", Set.of(
                     "abruptProcessExitLeavesIndependentGdxPeersRecoverable",
                     "abruptExitAbortsTheHandAndLeavesSurvivorsRecoverable")),

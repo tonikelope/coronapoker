@@ -93,6 +93,12 @@ final class GdxGameLogSink implements GameLogSink {
         showdown = List.of();
     }
 
+    @Override
+    public synchronized void replaceHistory(List<String> messages) {
+        reset();
+        Objects.requireNonNull(messages, "messages").forEach(this::print);
+    }
+
     synchronized void appendFinalSummary(TableSessionSummary summary,
             GdxGameText text) {
         Objects.requireNonNull(summary, "summary");

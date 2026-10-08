@@ -55,7 +55,7 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
 
     long sequence();
 
-    /** Periodic public-only state while a live newcomer is warming up. */
+    /** One public-only bootstrap state for a live newcomer that is warming up. */
     record HotJoinState(long sequence, TableSnapshot snapshot)
             implements TableVisualEvent {
         public HotJoinState {

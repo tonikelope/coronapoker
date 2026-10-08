@@ -3381,6 +3381,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // manufacture a local hand or enter betting/settlement. It advances directly
     // to the existing HAND_READY barrier for the following hand.
     private volatile boolean passive_recovery_observer = false;
+    private volatile boolean passive_hot_join_exit_requested = false;
     // Canonical opening balance wire committed into H_0. Live hands derive it
     // from their atomic SQL opening rows; recovery derives the exact same bytes
     // from the persisted recovery snapshot.
@@ -5440,6 +5441,39 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         setFin_de_la_transmision(true);
         game_window.finishTransmission(host);
+    }
+
+    /**
+     * Leaves a live table while this client is still the public-only warming
+     * observer.  This is deliberately not the ordinary player EXIT path: the
+     * newcomer is absent from the current hand and crypto ring, so fabricating
+     * a testament or marking a seated player out is both incorrect and racy.
+     *
+     * <p>The authenticated notification is confirmed before the local channel
+     * closes.  Until that confirmation completes the dealer remains behind its
+     * termination fence, which prevents both a new-hand transition and the
+     * misleading "no players remain" game-over branch.</p>
+     */
+    void requestPassiveHotJoinExit(Runnable confirmedNotification) {
+        java.util.Objects.requireNonNull(confirmedNotification,
+                "confirmedNotification");
+        GamePlayerController local = localPlayer();
+        if (gameSession().isHost() || local == null || !local.isCalentando()) {
+            throw new IllegalStateException(
+                    "Only a warming hot-join observer can use HOTJOIN_EXIT");
+        }
+
+        passive_hot_join_exit_requested = true;
+        setTerminationPending();
+        confirmedNotification.run();
+
+        // Commit the terminal state before setExit(): the run loop must see the
+        // finished transmission first and can therefore never enter its normal
+        // game-over/no-players branch for this observer-only departure.
+        setFin_de_la_transmision(true);
+        local.setExit();
+        game_transport.closeHostConnection();
+        game_window.finishTransmission(false);
     }
 
     private void sendLocalExitOnce(boolean confirmation) {
@@ -26639,7 +26673,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // the socket reader may retire the outbox before this dealer tail runs.
         // Only a locally initiated voluntary/final client exit sends testament.
         if (!localHost && !force_recover
-                && !authoritative_termination_received) {
+                && !authoritative_termination_received
+                && !passive_hot_join_exit_requested) {
             sendLocalExitOnce(false);
         }
 

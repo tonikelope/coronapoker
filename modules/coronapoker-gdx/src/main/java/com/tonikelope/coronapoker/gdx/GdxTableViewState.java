@@ -25,6 +25,7 @@ final class GdxTableViewState {
 
     private TableSnapshot snapshot;
     private long lastSequence;
+    private boolean hotJoinStateApplied;
     private long turnTotalMillis;
     private long turnRemainingMillis;
     private long turnTimerUpdatedNanos;
@@ -441,7 +442,10 @@ final class GdxTableViewState {
         lastSequence = event.sequence();
 
         if (event instanceof TableVisualEvent.HotJoinState state) {
-            applyHotJoinState(state.snapshot());
+            if (!hotJoinStateApplied) {
+                applyHotJoinState(state.snapshot());
+                hotJoinStateApplied = true;
+            }
         } else if (event instanceof TableVisualEvent.PauseStatus pause) {
             boolean wasPaused = snapshot.paused();
             snapshot = new TableSnapshot(snapshot.revision(),
@@ -801,13 +805,9 @@ final class GdxTableViewState {
 
     private void applyHotJoinState(TableSnapshot next) {
         snapshot = Objects.requireNonNull(next, "next");
-        // This is a canonical state repair, not a second presentation model.
-        // Public visual events received while CALENTANDO own the same transient
-        // maps and live animations as every ordinary player/spectator. Clearing
-        // them on each 200 ms repair tick used to erase accepted actions,
-        // reveals and showdown presentation in the middle of their animation.
-        // The normal HandBoundary event remains the single owner of the next-
-        // hand reset.
+        // HOTJOIN_STATE is the one-time bootstrap. From this point onward the
+        // ordinary ordered TableVisualEvent stream is the sole presentation
+        // authority, exactly as it is for players and normal spectators.
         callCostText = "";
         callCostAggressorNickname = "";
         preActionControlsActive = false;

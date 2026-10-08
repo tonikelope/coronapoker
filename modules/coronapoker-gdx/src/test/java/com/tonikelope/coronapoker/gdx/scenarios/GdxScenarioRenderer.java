@@ -96,8 +96,11 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final AtomicBoolean sawLocalSpectator = new AtomicBoolean();
     private final AtomicBoolean returnedAfterSpectating = new AtomicBoolean();
     private final AtomicBoolean sawHotJoinState = new AtomicBoolean();
+    private final AtomicInteger hotJoinStateCount = new AtomicInteger();
     private final AtomicBoolean sawHotJoinTimerStart = new AtomicBoolean();
     private final AtomicBoolean sawHotJoinPlayerAction = new AtomicBoolean();
+    private final AtomicBoolean sawHotJoinCommunityReveal
+            = new AtomicBoolean();
     private final java.util.concurrent.ConcurrentHashMap<String, Integer>
             immediateRebuys = new java.util.concurrent.ConcurrentHashMap<>();
     private final AtomicReference<Runnable> afterAllInCommand
@@ -263,6 +266,8 @@ final class GdxScenarioRenderer implements TableRenderer {
         projection.apply(event);
         if (event instanceof TableVisualEvent.HotJoinState) {
             sawHotJoinState.set(true);
+            assertEquals(1, hotJoinStateCount.incrementAndGet(),
+                    "CALENTANDO must receive one bootstrap snapshot only");
         } else if (sawHotJoinState.get()
                 && event instanceof TableVisualEvent.TurnTimer timer
                 && timer.phase() == TableVisualEvent.TurnTimer.Phase.START) {
@@ -361,6 +366,18 @@ final class GdxScenarioRenderer implements TableRenderer {
         if (sawHotJoinState.get() && local != null && local.spectator()
                 && event instanceof TableVisualEvent.PlayerAction) {
             sawHotJoinPlayerAction.set(true);
+        }
+        if (sawHotJoinState.get() && local != null && local.spectator()
+                && event instanceof TableVisualEvent.RevealCommunityCards
+                        reveal) {
+            for (int offset = 0; offset < reveal.cards().size(); offset++) {
+                TableSnapshot.CardSnapshot projected = snapshot
+                        .communityCards().get(reveal.firstSlot() + offset);
+                assertTrue(projected.faceUp() && !projected.code().isBlank(),
+                        "warming reveal was not projected as an ordinary "
+                        + "face-up community card");
+            }
+            sawHotJoinCommunityReveal.set(true);
         }
         if (local != null && local.spectator()) {
             sawLocalSpectator.set(true);
@@ -679,12 +696,20 @@ final class GdxScenarioRenderer implements TableRenderer {
         return sawHotJoinState.get();
     }
 
+    int hotJoinStateCount() {
+        return hotJoinStateCount.get();
+    }
+
     boolean sawHotJoinTimerStart() {
         return sawHotJoinTimerStart.get();
     }
 
     boolean sawHotJoinPlayerAction() {
         return sawHotJoinPlayerAction.get();
+    }
+
+    boolean sawHotJoinCommunityReveal() {
+        return sawHotJoinCommunityReveal.get();
     }
 
     boolean localHoleCardsRemainRevealed() {

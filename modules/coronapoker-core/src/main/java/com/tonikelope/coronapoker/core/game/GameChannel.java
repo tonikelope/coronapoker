@@ -49,6 +49,15 @@ public interface GameChannel extends AutoCloseable {
         return false;
     }
 
+    /**
+     * True when the nickname currently belongs to a live authenticated socket
+     * generation. This distinguishes a delayed loss callback from an older
+     * incarnation after the same persistent identity has already rejoined.
+     */
+    default boolean isPeerConnected(String nickname) {
+        return false;
+    }
+
     /** Successful authenticated socket replacements for this logical peer. */
     default int peerReconnectionCount(String nickname) {
         return 0;
@@ -83,10 +92,31 @@ public interface GameChannel extends AutoCloseable {
     }
 
     /**
+     * Atomically retires a peer only when its current authenticated socket
+     * generation is still disconnected. Used by definitive-loss callbacks so
+     * a delayed callback from an older generation cannot remove a connection
+     * that has already reauthenticated under the same persistent identity.
+     *
+     * @return true when the disconnected logical peer was retired
+     */
+    default boolean retirePeerAfterDefinitiveLoss(String nickname) {
+        return false;
+    }
+
+    /**
      * Promotes a transport-level warming connection to ordinary game traffic.
      * Called only after it has applied recovery and confirmed its first hand.
      */
     default void activatePeer(String nickname) {
+    }
+
+    /**
+     * Client-only terminal close. Unlike {@link #close()}, this also retires
+     * the physical host socket so the reconnect watchdog cannot resurrect a
+     * table that the user deliberately left.
+     */
+    default void closeLocalHostConnection() {
+        close();
     }
 
     @Override

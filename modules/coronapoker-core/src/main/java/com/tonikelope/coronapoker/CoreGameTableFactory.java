@@ -412,11 +412,12 @@ public final class CoreGameTableFactory implements GameTableFactory {
         AtomicBoolean recoveryProofDrainAttempted = new AtomicBoolean();
         AtomicLong immediateRebuyRequestSequence = new AtomicLong();
         AtomicLong immediateRebuyRelaySequence = new AtomicLong();
-        Map<String, Long> immediateRebuySources = new LinkedHashMap<>();
-        long immediateRebuySource = 0L;
+        Map<String, Long> immediateRebuySources = new ConcurrentHashMap<>();
+        AtomicLong immediateRebuySource = new AtomicLong();
         for (Map.Entry<String, GamePeerController> peer : peers.entrySet()) {
             if (peer.getValue() != null && !peer.getValue().isCpu()) {
-                immediateRebuySources.put(peer.getKey(), ++immediateRebuySource);
+                immediateRebuySources.put(peer.getKey(),
+                        immediateRebuySource.incrementAndGet());
             }
         }
         AtomicReference<TableSessionSummary.CloseReason> requestedCloseReason
@@ -459,7 +460,12 @@ public final class CoreGameTableFactory implements GameTableFactory {
                                     LobbyParticipant.NO_LATENCY);
                     hotJoin.register(nickname);
                     dealer.queueHotJoin(newcomer, newcomerPeer,
-                            () -> hotJoin.applyEarlyReady(nickname),
+                            () -> {
+                                immediateRebuySources.put(nickname,
+                                        immediateRebuySource.incrementAndGet());
+                                peers.put(nickname, newcomerPeer);
+                                hotJoin.applyEarlyReady(nickname);
+                            },
                             commandBody -> hotJoin.sendBoundary(nickname,
                                     commandBody));
                     if (lobby.host()) {
@@ -534,9 +540,55 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 }
                 return;
             }
-            if (lobby.host() && command.command().equals("HOTJOIN_EXIT")) {
+            if (!lobby.host()
+                    && command.command().equals("HOTJOIN_EXITED")) {
+                if (!command.peerNickname().equals(lobby.serverNickname())) {
+                    context.channel().close();
+                    return;
+                }
+                transport.acceptHostExit(true);
+                return;
+            }
+            if (!lobby.host()
+                    && command.command().equals("EXIT_ACCEPTED")) {
+                if (!command.peerNickname().equals(lobby.serverNickname())) {
+                    context.channel().close();
+                    return;
+                }
+                transport.acceptHostExit(false);
+                return;
+            }
+            if (!lobby.host()
+                    && command.command().startsWith("DELUSER#")) {
                 try {
-                    String nickname = command.peerNickname();
+                    if (!command.peerNickname().equals(
+                            lobby.serverNickname())) {
+                        throw new IllegalArgumentException(
+                                "DELUSER source is not the table host");
+                    }
+                    String[] fields = command.command().split("#", -1);
+                    if (fields.length != 2) {
+                        throw new IllegalArgumentException(
+                                "Malformed DELUSER notification");
+                    }
+                    String nickname = new String(Base64.getDecoder().decode(
+                            fields[1]), StandardCharsets.UTF_8);
+                    if (hotJoin.isWarming(nickname)) {
+                        // The lobby and every dealer must cancel the same
+                        // reservation. Leaving it queued on an incumbent makes
+                        // that peer admit a ghost seat at the next boundary and
+                        // diverge the crypto ring from the host.
+                        hotJoin.disconnect(nickname);
+                        return;
+                    }
+                } catch (RuntimeException invalid) {
+                    context.channel().close();
+                    return;
+                }
+            }
+            if (lobby.host() && command.command().equals("HOTJOIN_EXIT")) {
+                String nickname = command.peerNickname();
+                try {
                     if (!hotJoin.disconnect(nickname)) {
                         throw new IllegalArgumentException(
                                 "HOTJOIN_EXIT source is not warming");
@@ -545,9 +597,14 @@ public final class CoreGameTableFactory implements GameTableFactory {
                     // no hand testament, private-card proof or ordinary EXIT
                     // transition to apply. Remove its pending seat immediately
                     // and retire only its authenticated transport peer.
-                    context.channel().retirePeerAfterExit(nickname);
+                    context.channel().sendFromHost(nickname,
+                            "HOTJOIN_EXITED").toCompletableFuture().join();
                 } catch (RuntimeException invalid) {
-                    context.channel().close();
+                    hotJoin.disconnect(nickname);
+                } catch (java.io.IOException failure) {
+                    hotJoin.disconnect(nickname);
+                } finally {
+                    context.channel().retirePeerAfterExit(nickname);
                 }
                 return;
             }
@@ -648,9 +705,27 @@ public final class CoreGameTableFactory implements GameTableFactory {
                             playerExit.testamentWire(),
                             playerExit.pocketKeyWire(),
                             playerExit.pocketSignatureWire());
+                    // Fence the later end-of-hand model cleanup before the
+                    // socket is retired. That cleanup is nickname-based; a
+                    // fresh same-identity incarnation may already own the nick
+                    // by the time the old hand settles.
+                    dealer.markPeerExitTransportRetired(playerExit.nick());
                     notifyBettingWait(dealer);
+                    context.channel().sendFromHost(playerExit.nick(),
+                            "EXIT_ACCEPTED").toCompletableFuture().join();
+                    peers.remove(playerExit.nick());
+                    immediateRebuySources.remove(playerExit.nick());
+                    context.channel().retirePeerAfterExit(playerExit.nick());
+                } catch (java.io.IOException failure) {
+                    peers.remove(command.peerNickname());
+                    immediateRebuySources.remove(command.peerNickname());
+                    context.channel().retirePeerAfterExit(
+                            command.peerNickname());
                 } catch (RuntimeException invalid) {
-                    context.channel().close();
+                    peers.remove(command.peerNickname());
+                    immediateRebuySources.remove(command.peerNickname());
+                    context.channel().retirePeerAfterExit(
+                            command.peerNickname());
                 }
                 return;
             }
@@ -679,6 +754,14 @@ public final class CoreGameTableFactory implements GameTableFactory {
                             playerExit.testamentWire(),
                             playerExit.pocketKeyWire(),
                             playerExit.pocketSignatureWire());
+                    // Keep the transport roster symmetrical with the host.
+                    // The exited GamePlayerController deliberately remains in
+                    // the dealer until a same-identity hot join replaces it,
+                    // but this peer slot is no longer occupied. Retaining it
+                    // here made surviving clients reject that legitimate
+                    // HOTJOIN as a duplicate and close their whole channel.
+                    peers.remove(playerExit.nick());
+                    immediateRebuySources.remove(playerExit.nick());
                     notifyBettingWait(dealer);
                 } catch (RuntimeException invalid) {
                     context.channel().close();
@@ -800,6 +883,13 @@ public final class CoreGameTableFactory implements GameTableFactory {
             if (lobby.host()
                     && command.command().startsWith("REBUYNOW#")) {
                 try {
+                    if (hotJoin.isWarming(command.peerNickname())) {
+                        // CALENTANDO owns no seat in the current hand and can
+                        // never alter money. The same rule is enforced by the
+                        // frontend and dealer, but the host is authoritative
+                        // against a forged wire command.
+                        return;
+                    }
                     GamePeerController requestingPeer = peers.get(
                             command.peerNickname());
                     Long source = immediateRebuySources.get(
@@ -820,7 +910,8 @@ public final class CoreGameTableFactory implements GameTableFactory {
                                 "REBUYNOW worker rejected");
                     }
                 } catch (RuntimeException invalid) {
-                    context.channel().close();
+                    context.channel().retirePeerAfterExit(
+                            command.peerNickname());
                 }
                 return;
             }
@@ -895,8 +986,14 @@ public final class CoreGameTableFactory implements GameTableFactory {
         AutoCloseable peerLoss = context.channel().subscribePeerLoss(nickname -> {
             if (!lobby.host() || closing.get()) return;
             GamePeerController peer = peers.get(nickname);
-            if (peer == null && hotJoin.disconnect(nickname)) {
-                return;
+            if (peer == null && hotJoin.isWarming(nickname)) {
+                // Loss callbacks belong to a physical socket generation, but
+                // the dealer seat is keyed by nickname. A delayed callback
+                // from the incarnation that already exited must not cancel a
+                // newly authenticated warming incarnation with the same nick.
+                // The transport map points at the current generation, so a
+                // live current socket proves this notification is stale.
+                if (hotJoin.disconnectDefinitiveLoss(nickname)) return;
             }
             // A normal authenticated EXIT may be followed immediately by EOF
             // from the same socket. Do not use peer.isExit() for this test:
@@ -1168,7 +1265,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 false, LobbyParticipant.NO_LATENCY,
                 LobbyParticipant.NO_LATENCY, 0, 0L,
                 false, false, TableSnapshot.Position.NONE, "", "",
-                List.of(), buyin, 0))
+                List.of(), buyin, 0, hotJoining && participant.local()))
                 .toList();
         return new TableSnapshot(0L, lobby.localNickname(),
                 TableSnapshot.Street.WAITING, 0d, "", false, players,
@@ -1619,6 +1716,9 @@ public final class CoreGameTableFactory implements GameTableFactory {
 
         private static final int MAX_LOG_ENTRIES = 2_000;
         private static final int MAX_LOG_CHARS = 16_384;
+        private static final java.util.logging.Logger LOGGER
+                = java.util.logging.Logger.getLogger(
+                        HotJoinSync.class.getName());
 
         private final boolean host;
         private final com.tonikelope.coronapoker.core.game.GameChannel channel;
@@ -1718,6 +1818,9 @@ public final class CoreGameTableFactory implements GameTableFactory {
             scheduler.execute(() -> {
                 Crupier current = dealer;
                 if (current == null || !warming.contains(nickname)) return;
+                LOGGER.log(java.util.logging.Level.INFO,
+                        "HOT JOIN: bootstrapping public table state for {0}",
+                        nickname);
                 send(nickname, "HOTJOIN_LOG_RESET");
                 List<String> copy;
                 synchronized (historyLock) {
@@ -1741,6 +1844,9 @@ public final class CoreGameTableFactory implements GameTableFactory {
                     }
                     bootstrapped.add(nickname);
                 }
+                LOGGER.log(java.util.logging.Level.INFO,
+                        "HOT JOIN: public table bootstrap queued for {0}",
+                        nickname);
             });
         }
 
@@ -1811,12 +1917,36 @@ public final class CoreGameTableFactory implements GameTableFactory {
             boolean removed = forgetPresentation(nickname);
             earlyReady.remove(nickname);
             Crupier current = dealer;
-            if (removed && host && current != null) {
+            if (removed && current != null) {
                 // Every pre-admission loss converges here, including an
-                // explicit HOTJOIN_EXIT, definitive EOF and a failed bootstrap
-                // delivery.  Keeping the dealer queue removal in the same
-                // idempotent transition prevents a failed send from erasing
-                // transport tracking before peer-loss can remove the seat.
+                // explicit HOTJOIN_EXIT, authoritative DELUSER, definitive
+                // EOF and a failed bootstrap delivery. Every peer owns a local
+                // dealer queue, so cancellation must converge on incumbents as
+                // well as the host or their next-hand money/ring snapshots
+                // retain a ghost newcomer.
+                current.cancelHotJoin(nickname);
+            }
+            return removed;
+        }
+
+        boolean disconnectDefinitiveLoss(String nickname) {
+            boolean removed;
+            synchronized (presentationLock) {
+                if (!warming.contains(nickname)
+                        || channel.isPeerConnected(nickname)
+                        || !channel.retirePeerAfterDefinitiveLoss(nickname)) {
+                    return false;
+                }
+                // register() uses this same lock. Keep transport retirement
+                // and reservation removal indivisible with respect to a fresh
+                // HOTJOIN using the same persistent identity.
+                pendingPresentation.remove(nickname);
+                bootstrapped.remove(nickname);
+                removed = warming.remove(nickname);
+            }
+            earlyReady.remove(nickname);
+            Crupier current = dealer;
+            if (removed && current != null) {
                 current.cancelHotJoin(nickname);
             }
             return removed;
@@ -1833,6 +1963,9 @@ public final class CoreGameTableFactory implements GameTableFactory {
         void acceptSnapshot(String encoded) {
             TableSnapshot snapshot = HotJoinSnapshotCodecV1.decode(encoded,
                     localNickname);
+            LOGGER.log(java.util.logging.Level.INFO,
+                    "HOT JOIN: accepted public table bootstrap for {0} with {1} seat(s)",
+                    new Object[]{localNickname, snapshot.players().size()});
             events.publish(sequence -> new TableVisualEvent.HotJoinState(
                     sequence, snapshot));
         }
@@ -1912,6 +2045,10 @@ public final class CoreGameTableFactory implements GameTableFactory {
         private final GameLaunchContext context;
         private final ConfirmationTracker confirmations = new ConfirmationTracker();
         private final AtomicInteger inboundIds = new AtomicInteger();
+        private final CompletableFuture<Void> warmingExitAccepted
+                = new CompletableFuture<>();
+        private final CompletableFuture<Void> playerExitAccepted
+                = new CompletableFuture<>();
 
         ChannelGameTransport(GameLaunchContext context) {
             this.context = context;
@@ -1952,7 +2089,28 @@ public final class CoreGameTableFactory implements GameTableFactory {
         }
 
         @Override public void closeHostConnection() {
-            context.channel().close();
+            context.channel().closeLocalHostConnection();
+        }
+
+        void acceptHostExit(boolean warming) {
+            (warming ? warmingExitAccepted : playerExitAccepted)
+                    .complete(null);
+        }
+
+        @Override public void awaitHostExitAcceptance(boolean warming) {
+            try {
+                (warming ? warmingExitAccepted : playerExitAccepted)
+                        .get(15L, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(
+                        "Interrupted while awaiting host exit acceptance",
+                        interrupted);
+            } catch (java.util.concurrent.ExecutionException
+                    | java.util.concurrent.TimeoutException failure) {
+                throw new IllegalStateException(
+                        "Host did not accept the table exit", failure);
+            }
         }
     }
 }

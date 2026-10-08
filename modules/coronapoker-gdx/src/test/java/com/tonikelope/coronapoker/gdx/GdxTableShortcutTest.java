@@ -1,6 +1,7 @@
 package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.Input;
+import com.tonikelope.coronapoker.table.TableSnapshot;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.nio.charset.StandardCharsets;
@@ -26,6 +27,22 @@ final class GdxTableShortcutTest {
         assertFalse(CoronaPokerGdxTable.tableImageControlEnabled(false, true));
         assertFalse(CoronaPokerGdxTable.tableImageControlEnabled(true, false));
         assertTrue(CoronaPokerGdxTable.tableImageControlEnabled(true, true));
+    }
+
+    @Test
+    void warmingAndSpectatorPlayersCannotRequestImmediateRebuy() {
+        TableSnapshot.PlayerSnapshot warming = player(true, false, 10d);
+        TableSnapshot.PlayerSnapshot spectator = player(true, false, 0d);
+        TableSnapshot.PlayerSnapshot active = player(false, false, 10d);
+
+        assertFalse(CoronaPokerGdxTable.immediateRebuyControlEnabled(
+                true, warming));
+        assertFalse(CoronaPokerGdxTable.immediateRebuyControlEnabled(
+                true, spectator));
+        assertFalse(CoronaPokerGdxTable.immediateRebuyControlEnabled(
+                true, player(false, true, 10d)));
+        assertTrue(CoronaPokerGdxTable.immediateRebuyControlEnabled(
+                true, active));
     }
 
     @Test
@@ -296,5 +313,14 @@ final class GdxTableShortcutTest {
 
     private static GdxShortcutBindings bindings() {
         return new GdxShortcutBindings(new Properties());
+    }
+
+    private static TableSnapshot.PlayerSnapshot player(boolean spectator,
+            boolean exited, double stack) {
+        return new TableSnapshot.PlayerSnapshot("local", stack, 0d, 0d,
+                !spectator && !exited, spectator, exited, false,
+                -2, -2, 0, 0L, false, false, TableSnapshot.Position.NONE,
+                "", "", java.util.List.of(), 0, 0,
+                spectator && !exited && stack > 0d);
     }
 }

@@ -799,6 +799,33 @@ final class GdxScenarioRenderer implements TableRenderer {
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
 
+    Set<String> warmingNicknames() {
+        GdxTableViewState projection = state.get();
+        assertNotNull(projection);
+        return projection.snapshot().players().stream()
+                .filter(TableSnapshot.PlayerSnapshot::warming)
+                .map(TableSnapshot.PlayerSnapshot::nickname)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
+
+    double stackOf(String nickname) {
+        GdxTableViewState projection = state.get();
+        assertNotNull(projection);
+        return projection.snapshot().players().stream()
+                .filter(player -> player.nickname().equals(nickname))
+                .findFirst().orElseThrow().stack();
+    }
+
+    double effectiveStackOf(String nickname) {
+        GdxTableViewState projection = state.get();
+        assertNotNull(projection);
+        TableSnapshot.PlayerSnapshot player = projection.snapshot().players()
+                .stream()
+                .filter(candidate -> candidate.nickname().equals(nickname))
+                .findFirst().orElseThrow();
+        return player.stack() + player.streetBet();
+    }
+
     Set<String> playingNicknames() {
         GdxTableViewState projection = state.get();
         assertNotNull(projection);
@@ -966,6 +993,12 @@ final class GdxScenarioRenderer implements TableRenderer {
                             "a local spectator cannot be waiting for a turn");
                     assertFalse(status.isBlank(),
                             "a local spectator needs a canonical status");
+                    if (player.warming()) {
+                        assertEquals(presentationText().translate(
+                                "game.calentando").toUpperCase(
+                                        java.util.Locale.ROOT), status,
+                                "a warming local seat must say CALENTANDO");
+                    }
                 } else if (settled || folded || allIn || player.exited()
                         || !player.active()) {
                     assertTrue(status.isBlank(),

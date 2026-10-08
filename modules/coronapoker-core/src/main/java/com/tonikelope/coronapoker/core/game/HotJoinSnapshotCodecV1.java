@@ -56,6 +56,7 @@ public final class HotJoinSnapshotCodecV1 {
                     writeCards(out, player.holeCards());
                     out.writeInt(player.buyIn());
                     out.writeInt(player.rebuyCount());
+                    out.writeBoolean(player.warming());
                 }
                 writeCards(out, snapshot.communityCards());
             }
@@ -117,11 +118,12 @@ public final class HotJoinSnapshotCodecV1 {
                 List<TableSnapshot.CardSnapshot> cards = readCards(in, 2);
                 int buyIn = in.readInt();
                 int rebuyCount = in.readInt();
+                boolean warming = in.readBoolean();
                 players.add(new TableSnapshot.PlayerSnapshot(nickname, stack,
                         streetBet, contribution, active, spectator, exited,
                         timedOut, latency, previousLatency, reconnections,
                         telemetryAt, winner, underTheGun, position, lastAction,
-                        handName, cards, buyIn, rebuyCount));
+                        handName, cards, buyIn, rebuyCount, warming));
             }
             List<TableSnapshot.CardSnapshot> board = readCards(in, 5);
             if (in.available() != 0) {

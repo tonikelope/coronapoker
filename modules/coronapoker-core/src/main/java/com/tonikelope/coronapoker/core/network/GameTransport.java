@@ -23,6 +23,10 @@ public interface GameTransport {
 
     void closeHostConnection();
 
+    /** Waits for the host to apply and acknowledge the requested departure. */
+    default void awaitHostExitAcceptance(boolean warming) {
+    }
+
     static GameTransport unavailable() {
         ConfirmationTracker confirmations = new ConfirmationTracker();
         return new GameTransport() {

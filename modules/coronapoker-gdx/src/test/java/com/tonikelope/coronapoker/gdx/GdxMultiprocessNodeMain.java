@@ -113,8 +113,20 @@ public final class GdxMultiprocessNodeMain {
             }
             if ("live-hot-join".equals(config.scenario)
                     || "live-hot-join-stop".equals(config.scenario)
-                    || "live-hot-join-exit".equals(config.scenario)) {
+                    || "live-hot-join-exit".equals(config.scenario)
+                     || "live-hot-join-reentry".equals(config.scenario)
+                     || "live-hot-join-crash-reentry".equals(config.scenario)
+                     || "live-hot-join-two".equals(config.scenario)
+                     || "live-hot-join-two-exit".equals(config.scenario)) {
+                if ("late-impostor".equals(config.phase)) {
+                    runRejectedHotJoinIdentity(config, home, database);
+                    return;
+                }
                 runLiveHotJoin(config, home, database);
+                return;
+            }
+            if ("active-player-hot-reentry".equals(config.scenario)) {
+                runActivePlayerHotReentry(config, home, database);
                 return;
             }
             AtomicReference<CoronaPokerGdxTable> productTable
@@ -259,12 +271,26 @@ public final class GdxMultiprocessNodeMain {
             DatabaseService database) throws Exception {
         boolean stopWhileWarming = "live-hot-join-stop".equals(
                 config.scenario);
-        boolean exitWhileWarming = "live-hot-join-exit".equals(
+        boolean concurrentExit = "live-hot-join-two-exit".equals(
                 config.scenario);
+        boolean exitWhileWarming = "live-hot-join-exit".equals(
+                config.scenario) || concurrentExit;
+        boolean crashReentry = "live-hot-join-crash-reentry".equals(
+                config.scenario);
+        boolean twoLate = "live-hot-join-two".equals(config.scenario)
+                || concurrentExit;
+        boolean reenterWhileWarming = crashReentry
+                || "live-hot-join-reentry".equals(config.scenario);
+        Duration warmingRemovalTimeout = Duration.ofSeconds(
+                crashReentry ? 75 : 45);
+        boolean firstReentryIncarnation = reenterWhileWarming
+                && "late-exit".equals(config.phase);
         int visibleExpectedPlayers = config.clients + config.bots + 1;
         int finalExpectedPlayers = config.clients + config.bots
                 + (exitWhileWarming ? 0 : 1);
         String newcomerNickname = "client" + config.clients;
+        boolean thisWarmingIncarnationExits = exitWhileWarming
+                && (!twoLate || newcomerNickname.equals(config.nickname));
         GdxGameLogSink gameLog = new GdxGameLogSink();
         AtomicInteger bootstrapLogLines = new AtomicInteger();
         AtomicReference<CoronaPokerGdxTable> productTable
@@ -279,20 +305,21 @@ public final class GdxMultiprocessNodeMain {
                      .get(20, TimeUnit.SECONDS)) {
             marker("READY", "role=" + config.role + " nick="
                     + config.nickname + " phase=" + config.phase);
-            boolean late = "late".equals(config.phase);
+            boolean late = config.phase.startsWith("late");
             if (config.host()) {
                 // config.clients includes the one human that joins late.
                 // Wait for any incumbent humans, then create the requested
                 // bots before starting the real table.
+                int initialHumans = config.clients - (twoLate ? 1 : 0);
                 await(() -> lobby.snapshot().participants().size()
-                                == config.clients,
+                                == initialHumans,
                         Duration.ofSeconds(30),
                         "initial hot-join human lobby");
                 for (int index = 0; index < config.bots; index++) {
                     lobby.submit(new LobbyCommand.AddBot())
                             .toCompletableFuture().get(10, TimeUnit.SECONDS);
                 }
-                int initialPlayers = config.clients + config.bots;
+                int initialPlayers = initialHumans + config.bots;
                 await(() -> lobby.snapshot().participants().size()
                                 == initialPlayers,
                         Duration.ofSeconds(30),
@@ -318,12 +345,14 @@ public final class GdxMultiprocessNodeMain {
                         "live hot-join action gate");
                 marker("HOT_JOIN_GATE", "hand=" + renderer.currentHand());
                 requireCommand(stopWhileWarming ? "STOP_HOT_JOIN"
-                        : exitWhileWarming ? "EXIT_HOT_JOIN"
+                        : exitWhileWarming || reenterWhileWarming
+                                ? "EXIT_HOT_JOIN"
                         : "RELEASE_HOT_JOIN");
-                await(() -> renderer.spectatorNicknames().contains(
+                await(() -> renderer.warmingNicknames().contains(
                                 newcomerNickname),
                         Duration.ofSeconds(45),
                         "server hot-join notification");
+                double warmingStack = renderer.stackOf(newcomerNickname);
                 marker("HOT_JOIN_SERVER_NOTIFIED", "nick="
                         + newcomerNickname);
                 if (!renderer.localHoleCardsRemainRevealed()) {
@@ -334,26 +363,59 @@ public final class GdxMultiprocessNodeMain {
                         + config.nickname);
                 if (stopWhileWarming) {
                     table.commands().submit(new TableCommand.StopGame());
-                } else if (exitWhileWarming) {
-                    await(() -> !renderer.spectatorNicknames().contains(
+                } else if (exitWhileWarming || reenterWhileWarming) {
+                    await(() -> !renderer.activeNicknames().contains(
                                     newcomerNickname),
-                            Duration.ofSeconds(45),
+                            warmingRemovalTimeout,
                             "server warming-seat removal");
                     marker("HOT_JOIN_EXIT_OBSERVED", "nick="
                             + newcomerNickname);
+                    if (reenterWhileWarming) {
+                        requireCommand("REENTER_HOT_JOIN");
+                        await(() -> renderer.warmingNicknames().contains(
+                                        newcomerNickname),
+                                Duration.ofSeconds(60),
+                                "same-identity hot-join reentry");
+                        if (Math.abs(renderer.stackOf(newcomerNickname)
+                                - warmingStack) > 0.000_001d) {
+                            throw new AssertionError(
+                                    "same-identity reentry changed stack: "
+                                    + warmingStack + " -> "
+                                    + renderer.stackOf(newcomerNickname));
+                        }
+                        marker("HOT_JOIN_REENTRY_WARMING", "nick="
+                                + newcomerNickname + " stack="
+                                + renderer.stackOf(newcomerNickname));
+                    }
                     renderer.releaseHeldAction();
                 } else {
                     renderer.releaseHeldAction();
                 }
             } else if (late) {
-                await(() -> renderer.sawHotJoinState()
-                                && renderer.sawLocalSpectator()
-                                && renderer.spectatorNicknames().contains(
-                                        config.nickname)
-                                && renderer.activeNicknames().size()
-                                        == visibleExpectedPlayers
-                                && !gameLog.snapshot().lines().isEmpty(),
-                        Duration.ofSeconds(45), "public warming state");
+                try {
+                    await(() -> renderer.sawHotJoinState()
+                                    && renderer.sawLocalSpectator()
+                                    && renderer.warmingNicknames().contains(
+                                            config.nickname)
+                                    && !gameLog.snapshot().lines().isEmpty(),
+                            Duration.ofSeconds(45), "public warming state");
+                } catch (IllegalStateException timeout) {
+                    throw new IllegalStateException(timeout.getMessage()
+                            + " [snapshot=" + renderer.sawHotJoinState()
+                            + ", spectator=" + renderer.sawLocalSpectator()
+                            + ", warming=" + renderer.warmingNicknames()
+                            + ", players=" + renderer.activeNicknames()
+                            + ", history="
+                            + gameLog.snapshot().lines().size() + "]",
+                            timeout);
+                }
+                if (renderer.activeNicknames().size()
+                        != visibleExpectedPlayers) {
+                    throw new AssertionError("hot-join roster mismatch: expected "
+                            + visibleExpectedPlayers + " players but saw "
+                            + renderer.activeNicknames() + " warming="
+                            + renderer.warmingNicknames());
+                }
                 if (!renderer.localCardsArePubliclyHidden()) {
                     throw new AssertionError(
                             "hot joiner received concealed pocket data");
@@ -361,7 +423,7 @@ public final class GdxMultiprocessNodeMain {
                 bootstrapLogLines.set(gameLog.snapshot().lines().size());
                 marker("HOT_JOIN_WARMING", "nick=" + config.nickname
                         + " historyLines=" + bootstrapLogLines.get());
-                if (exitWhileWarming) {
+                if (thisWarmingIncarnationExits || firstReentryIncarnation) {
                     requireCommand("EXIT_HOT_JOIN");
                     table.commands().submit(new TableCommand.ExitGame());
                     await(renderer::isClosed, Duration.ofSeconds(45),
@@ -375,7 +437,7 @@ public final class GdxMultiprocessNodeMain {
                     marker("HOT_JOIN_EXITED", "nick=" + config.nickname);
                     return;
                 }
-                if (!stopWhileWarming) {
+                if (!stopWhileWarming && !thisWarmingIncarnationExits) {
                     await(renderer::sawHotJoinPlayerAction,
                             Duration.ofSeconds(90),
                             "ordinary player-action event while warming");
@@ -404,21 +466,34 @@ public final class GdxMultiprocessNodeMain {
                             Duration.ofSeconds(120),
                             "next-hand hot admission");
                     marker("HOT_JOIN_ADMITTED", "nick=" + config.nickname);
+                    if (reenterWhileWarming) {
+                        marker("HOT_JOIN_REENTRY_ADMITTED", "nick="
+                                + config.nickname + " stack="
+                                + renderer.stackOf(config.nickname));
+                    }
                 }
             } else {
-                await(() -> renderer.spectatorNicknames().contains(
+                await(() -> renderer.warmingNicknames().contains(
                                 newcomerNickname),
                         Duration.ofSeconds(90),
                         "incumbent hot-join notification");
                 marker("HOT_JOIN_PEER_NOTIFIED", "nick="
                         + newcomerNickname);
-                if (exitWhileWarming) {
-                    await(() -> !renderer.spectatorNicknames().contains(
+                if (exitWhileWarming || reenterWhileWarming) {
+                    await(() -> !renderer.activeNicknames().contains(
                                     newcomerNickname),
-                            Duration.ofSeconds(45),
+                            warmingRemovalTimeout,
                             "incumbent warming-seat removal");
                     marker("HOT_JOIN_EXIT_OBSERVED", "nick="
                             + newcomerNickname);
+                    if (reenterWhileWarming) {
+                        await(() -> renderer.warmingNicknames().contains(
+                                        newcomerNickname),
+                                Duration.ofSeconds(60),
+                                "incumbent same-identity hot-join reentry");
+                        marker("HOT_JOIN_REENTRY_WARMING", "nick="
+                                + newcomerNickname);
+                    }
                 }
             }
 
@@ -454,6 +529,205 @@ public final class GdxMultiprocessNodeMain {
                     + " nick=" + config.nickname + " hands="
                     + renderer.summary().handCount() + " logLines="
                     + gameLog.snapshot().lines().size());
+        }
+    }
+
+    /**
+     * Exercises the lifecycle that used to be most vulnerable to stale-seat
+     * races: an already seated network player leaves during a live decision,
+     * its process terminates, and a fresh process with the same persistent
+     * identity comes back through the ordinary hot-join path.  No recovery
+     * shortcut is used; the running table and all surviving peers stay alive.
+     */
+    private static void runActivePlayerHotReentry(Config config, Path home,
+            DatabaseService database) throws Exception {
+        final String owner = "client1";
+        final int expectedPlayers = config.clients + config.bots + 1;
+        final boolean reenteredOwner = owner.equals(config.nickname)
+                && "late-reentry".equals(config.phase);
+        AtomicReference<CoronaPokerGdxTable> productTable
+                = new AtomicReference<>();
+        AtomicReference<GdxScenarioRenderer> scenarioRenderer
+                = new AtomicReference<>();
+        GdxGameLogSink gameLog = new GdxGameLogSink();
+        try (NetworkLobbyGateway gateway = gateway(config,
+                    home.resolve("network"), database, productTable,
+                    new AtomicInteger(), new AtomicReference<>(),
+                    scenarioRenderer, gameLog);
+             LobbySession lobby = gateway.open(request(config))
+                     .get(20, TimeUnit.SECONDS)) {
+            marker("READY", "role=" + config.role + " nick="
+                    + config.nickname + " phase=" + config.phase);
+            if (config.host()) {
+                await(() -> lobby.snapshot().participants().size()
+                                == config.clients,
+                        Duration.ofSeconds(30),
+                        "active-reentry initial humans");
+                for (int index = 0; index < config.bots; index++) {
+                    lobby.submit(new LobbyCommand.AddBot())
+                            .toCompletableFuture().get(10, TimeUnit.SECONDS);
+                }
+                await(() -> lobby.snapshot().participants().size()
+                                == expectedPlayers,
+                        Duration.ofSeconds(30),
+                        "active-reentry complete lobby");
+                marker("LOBBY_READY", "players=" + expectedPlayers);
+                awaitStartCommand();
+                lobby.submit(new LobbyCommand.StartGame())
+                        .toCompletableFuture().get(10, TimeUnit.SECONDS);
+                marker("GAME_START_REQUESTED", "hands=" + config.hands);
+            }
+
+            TableSession table = lobby.tableSession().toCompletableFuture()
+                    .get(45, TimeUnit.SECONDS);
+            GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
+                    expectedPlayers, productTable, lobby);
+            scenarioRenderer.set(renderer);
+            if (owner.equals(config.nickname)
+                    && "initial".equals(config.phase)) {
+                renderer.gateActionAtOrAfterHand(1L);
+            }
+            table.attach(renderer).toCompletableFuture()
+                    .get(15, TimeUnit.SECONDS);
+
+            if (owner.equals(config.nickname)
+                    && "initial".equals(config.phase)) {
+                await(renderer::hasHeldAction, Duration.ofSeconds(75),
+                        "active owner decision gate");
+                marker("ACTIVE_REENTRY_EXIT_GATE", "nick=" + owner
+                        + " stack=" + renderer.effectiveStackOf(owner));
+                requireCommand("EXIT_ACTIVE_PLAYER");
+                table.commands().submit(new TableCommand.ExitGame());
+                await(renderer::isClosed, Duration.ofSeconds(60),
+                        "active owner acknowledged exit");
+                if (renderer.summary() == null
+                        || renderer.summary().reason()
+                        != TableSessionSummary.CloseReason.EXITED) {
+                    throw new AssertionError(
+                            "active owner did not close as EXITED");
+                }
+                marker("ACTIVE_REENTRY_EXITED", "nick=" + owner);
+                return;
+            }
+
+            if (config.host()) {
+                requireCommand("EXPECT_ACTIVE_EXIT");
+                await(() -> !renderer.activeNicknames().contains(owner),
+                        Duration.ofSeconds(60),
+                        "active owner removal at host");
+                // Chips already committed to the abandoned hand stay in its
+                // pot.  The identity owns the remaining stack after EXIT,
+                // not stack + a blind/bet that was legitimately spent.
+                double preservedStack = renderer.stackOf(owner);
+                marker("ACTIVE_REENTRY_EXIT_OBSERVED", "nick=" + owner
+                        + " stack=" + preservedStack);
+                // Hold a genuine subsequent local decision so the returning
+                // process is guaranteed to observe at least one ordinary live
+                // action after its public bootstrap. Without this semantic
+                // gate a very fast hand can end between process launch and
+                // authentication, making the animation assertion depend on
+                // scheduler luck rather than product behaviour.
+                renderer.gateActionAtOrAfterHand(renderer.currentHand());
+                await(renderer::hasHeldAction, Duration.ofSeconds(90),
+                        "active reentry live-action gate");
+                requireCommand("EXPECT_ACTIVE_REENTRY");
+                await(() -> renderer.warmingNicknames().contains(owner),
+                        Duration.ofSeconds(75),
+                        "active owner warming reentry at host");
+                double restoredStack = renderer.stackOf(owner);
+                if (Math.abs(restoredStack - preservedStack) > 0.000_001d) {
+                    throw new AssertionError(
+                            "active-owner reentry changed effective stack: "
+                            + preservedStack + " -> " + restoredStack);
+                }
+                marker("ACTIVE_REENTRY_WARMING", "nick=" + owner
+                        + " stack=" + restoredStack);
+                renderer.releaseHeldAction();
+            } else if (reenteredOwner) {
+                await(() -> renderer.sawHotJoinState()
+                                && renderer.warmingNicknames().contains(owner)
+                                && renderer.sawLocalSpectator(),
+                        Duration.ofSeconds(60),
+                        "reentered owner public warming state");
+                if (!renderer.localCardsArePubliclyHidden()) {
+                    throw new AssertionError(
+                            "reentered warming owner received private cards");
+                }
+                marker("ACTIVE_REENTRY_WARMING", "nick=" + owner
+                        + " stack=" + renderer.effectiveStackOf(owner));
+                await(renderer::sawHotJoinPlayerAction,
+                        Duration.ofSeconds(120),
+                        "reentered owner live action stream");
+                await(renderer::sawHotJoinTimerStart,
+                        Duration.ofSeconds(120),
+                        "reentered owner future turn timer");
+                await(() -> renderer.playingNicknames().contains(owner)
+                                && renderer.hasLocalDealAfter(1L),
+                        Duration.ofSeconds(180),
+                        "reentered owner next-hand admission");
+                marker("ACTIVE_REENTRY_ADMITTED", "nick=" + owner
+                        + " stack=" + renderer.effectiveStackOf(owner));
+            } else {
+                await(() -> !renderer.activeNicknames().contains(owner),
+                        Duration.ofSeconds(60),
+                        "incumbent observes active owner exit");
+                marker("ACTIVE_REENTRY_EXIT_OBSERVED", "nick=" + owner);
+                await(() -> renderer.warmingNicknames().contains(owner),
+                        Duration.ofSeconds(75),
+                        "incumbent observes owner warming reentry");
+                marker("ACTIVE_REENTRY_WARMING", "nick=" + owner);
+            }
+
+            await(renderer::isClosed,
+                    Duration.ofSeconds(Math.max(240L,
+                            config.hands * 45L)),
+                    "active owner reentry completion");
+            if (renderer.summary() == null
+                    || renderer.summary().balances().size()
+                    != expectedPlayers) {
+                throw new AssertionError(
+                        "active-owner reentry settlement roster mismatch");
+            }
+            long ownerRows = renderer.summary().balances().stream()
+                    .filter(balance -> owner.equals(balance.nickname()))
+                    .count();
+            if (ownerRows != 1L) {
+                throw new AssertionError(
+                        "active-owner reentry duplicated settlement rows: "
+                        + ownerRows);
+            }
+            marker("ACTIVE_REENTRY_COMPLETE", "role=" + config.role
+                    + " nick=" + config.nickname + " hands="
+                    + renderer.summary().handCount());
+        }
+    }
+
+    private static void runRejectedHotJoinIdentity(Config config, Path home,
+            DatabaseService database) throws Exception {
+        AtomicReference<CoronaPokerGdxTable> productTable
+                = new AtomicReference<>();
+        AtomicReference<GdxScenarioRenderer> scenarioRenderer
+                = new AtomicReference<>();
+        try (NetworkLobbyGateway gateway = gateway(config,
+                home.resolve("network"), database, productTable,
+                new AtomicInteger(), new AtomicReference<>(),
+                scenarioRenderer, new GdxGameLogSink())) {
+            try {
+                LobbySession unexpected = gateway.open(request(config))
+                        .get(20, TimeUnit.SECONDS);
+                unexpected.close();
+                throw new AssertionError(
+                        "same nickname with a different identity was accepted");
+            } catch (java.util.concurrent.ExecutionException rejected) {
+                Throwable cause = rejected.getCause();
+                String message = cause == null ? "" : String.valueOf(
+                        cause.getMessage());
+                if (!message.contains("identidad")) {
+                    throw rejected;
+                }
+                marker("HOT_JOIN_IMPERSONATION_REJECTED", "nick="
+                        + config.nickname);
+            }
         }
     }
 

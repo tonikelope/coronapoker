@@ -86,7 +86,22 @@ public record TableSnapshot(
             String handName,
             List<CardSnapshot> holeCards,
             int buyIn,
-            int rebuyCount) {
+            int rebuyCount,
+            boolean warming) {
+
+        public PlayerSnapshot(String nickname, double stack,
+                double streetBet, double potContribution, boolean active,
+                boolean spectator, boolean exited, boolean timedOut,
+                int latency, int previousLatency, int reconnectionCount,
+                long telemetryAt, boolean winner, boolean underTheGun,
+                Position position, String lastAction, String handName,
+                List<CardSnapshot> holeCards, int buyIn, int rebuyCount) {
+            this(nickname, stack, streetBet, potContribution, active,
+                    spectator, exited, timedOut, latency, previousLatency,
+                    reconnectionCount, telemetryAt, winner, underTheGun,
+                    position, lastAction, handName, holeCards, buyIn,
+                    rebuyCount, false);
+        }
 
         public PlayerSnapshot(String nickname, double stack,
                 double streetBet, double potContribution, boolean active,
@@ -98,7 +113,7 @@ public record TableSnapshot(
             this(nickname, stack, streetBet, potContribution, active,
                     spectator, exited, timedOut, latency, previousLatency,
                     reconnectionCount, telemetryAt, winner, underTheGun,
-                    position, lastAction, handName, holeCards, 0, 0);
+                    position, lastAction, handName, holeCards, 0, 0, false);
         }
 
         public PlayerSnapshot(String nickname, double stack,
@@ -111,7 +126,7 @@ public record TableSnapshot(
             this(nickname, stack, streetBet, potContribution, active,
                     spectator, exited, timedOut, latency, previousLatency,
                     reconnectionCount, telemetryAt, winner, false, position,
-                    lastAction, handName, holeCards, 0, 0);
+                    lastAction, handName, holeCards, 0, 0, false);
         }
 
         public PlayerSnapshot {
@@ -122,6 +137,7 @@ public record TableSnapshot(
             holeCards = List.copyOf(holeCards);
             buyIn = Math.max(0, buyIn);
             rebuyCount = Math.max(0, rebuyCount);
+            warming = warming && spectator && !exited;
         }
     }
 }

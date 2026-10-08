@@ -6182,7 +6182,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean canToggleImmediateRebuy() {
-        return immediateRebuyControlEnabled(tableRebuyAllowed);
+        TableSnapshot snapshot = liveState == null ? null
+                : liveState.snapshot();
+        TableSnapshot.PlayerSnapshot local = snapshot == null ? null
+                : snapshot.players().stream()
+                        .filter(player -> player.nickname().equals(
+                                snapshot.localNickname()))
+                        .findFirst().orElse(null);
+        return immediateRebuyControlEnabled(tableRebuyAllowed, local);
     }
 
     private boolean canUseTableChat() {
@@ -6196,6 +6203,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static boolean immediateRebuyControlEnabled(boolean rebuyAllowed) {
         return rebuyAllowed;
+    }
+
+    static boolean immediateRebuyControlEnabled(boolean rebuyAllowed,
+            TableSnapshot.PlayerSnapshot local) {
+        return rebuyAllowed && local != null && !local.warming()
+                && !local.spectator() && !local.exited();
     }
 
     static boolean tableChatControlEnabled(boolean chatAvailable,
@@ -14475,10 +14488,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static String spectatorStatusLabel(TableSnapshot.PlayerSnapshot player,
             GdxGameText text) {
-        String label = player == null ? "" : player.lastAction();
-        if (label == null || label.isBlank()) {
-            label = text.translate("player.espectador");
-        }
+        String label = player != null && player.warming()
+                ? text.translate("game.calentando")
+                : text.translate("player.espectador");
         return uppercase(label, text);
     }
 

@@ -282,6 +282,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private volatile GameConfigCodecV1.Configuration launchConfiguration;
         private volatile boolean allowHotJoinAfterStart = true;
         private final Map<String, Peer> peers = new LinkedHashMap<>();
+        /** Identity pin for the lifetime of this concrete poker table. */
+        private final Map<String, byte[]> tableIdentityKeys
+                = new LinkedHashMap<>();
         private final Map<String, Set<String>> peerStatsUgis
                 = new ConcurrentHashMap<>();
         private final Set<String> warmingPeers = new java.util.LinkedHashSet<>();
@@ -641,6 +644,15 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         connection.writeEncrypted("NICKFAIL");
                         return;
                     }
+                    byte[] pinnedIdentity = tableIdentityKeys.get(
+                            Normalizer.normalize(nickname,
+                                    Normalizer.Form.NFC));
+                    if (pinnedIdentity != null
+                            && !MessageDigest.isEqual(pinnedIdentity,
+                                    publicKey)) {
+                        connection.writeEncrypted("IDENTITYMISMATCH");
+                        return;
+                    }
                     connection.remoteNickname = nickname;
                     Path avatar = saveAvatar(parts[2], nickname, coronaDirectory);
                     connection.remoteAvatar = avatar;
@@ -659,6 +671,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     Peer peer = new Peer(nickname, avatar, false, false, false, true, connection,
                             publicKey, signature);
                     peers.put(nickname, peer);
+                    tableIdentityKeys.putIfAbsent(Normalizer.normalize(
+                            nickname, Normalizer.Form.NFC),
+                            publicKey.clone());
                     if (hotJoin) warmingPeers.add(nickname);
                     identityTrust.observe(nickname, publicKey);
                     connection.startGameOutbox();
@@ -1593,8 +1608,25 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             publishCurrent();
         }
 
+        private synchronized boolean removePeerIfDisconnected(
+                String nickname) throws Exception {
+            Peer peer = findNormalized(nickname);
+            if (peer == null || peer.local || peer.connection == null
+                    || peer.connection.isConnected()) {
+                return false;
+            }
+            removePeer(peer.nickname, host);
+            return true;
+        }
+
         private synchronized void activatePeer(String nickname) {
             warmingPeers.remove(Objects.requireNonNull(nickname, "nickname"));
+        }
+
+        private void closeClientHostConnection() {
+            if (host) return;
+            Connection connection = serverConnection;
+            if (connection != null) connection.close();
         }
 
         private void addChat(String nickname, String text) {
@@ -1908,6 +1940,11 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             return connection != null && connection.isReconnecting();
         }
 
+        @Override public boolean isPeerConnected(String nickname) {
+            Connection connection = transport.gameConnection(nickname);
+            return connection != null && connection.isConnected();
+        }
+
         @Override public int peerReconnectionCount(String nickname) {
             Connection connection = transport.gameConnection(nickname);
             return connection == null ? 0 : connection.reconnectionCount();
@@ -1939,9 +1976,26 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             }
         }
 
+        @Override public boolean retirePeerAfterDefinitiveLoss(
+                String nickname) {
+            try {
+                return transport.removePeerIfDisconnected(
+                        Objects.requireNonNull(nickname, "nickname"));
+            } catch (Exception failure) {
+                throw new IllegalStateException(
+                        "Could not retire definitively lost peer " + nickname,
+                        failure);
+            }
+        }
+
 
         @Override public void activatePeer(String nickname) {
             transport.activatePeer(nickname);
+        }
+
+        @Override public void closeLocalHostConnection() {
+            close();
+            transport.closeClientHostConnection();
         }
 
         private static String requireCommand(String command) {
@@ -2574,6 +2628,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             case "NOSPACE" -> "La timba está llena";
             case "NICKFAIL" -> "El nick ya está en uso";
             case "NICKUNAUTHORIZED" -> "El nick contiene caracteres reservados";
+            case "IDENTITYMISMATCH" -> "La identidad no corresponde al propietario de este nick";
             default -> "El servidor rechazó la conexión";
         };
         return new IOException(message);

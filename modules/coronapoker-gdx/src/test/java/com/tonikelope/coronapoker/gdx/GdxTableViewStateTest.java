@@ -1869,8 +1869,9 @@ final class GdxTableViewStateTest {
 
         TableSnapshot.PlayerSnapshot warming = new TableSnapshot.PlayerSnapshot(
                 "ana", 1_000d, 0d, 0d, false, true, false, false,
-                -2, -2, 0, 0L, false, TableSnapshot.Position.NONE,
-                "CALENTANDO", "", List.of(card("A_C"), card("K_C")));
+                -2, -2, 0, 0L, false, false, TableSnapshot.Position.NONE,
+                "CALENTANDO", "", List.of(card("A_C"), card("K_C")),
+                0, 0, true);
         GdxTableViewState warmingState = new GdxTableViewState(
                 snapshotWithPlayers(false, "", warming));
 
@@ -1879,6 +1880,16 @@ final class GdxTableViewStateTest {
                         .map(TableSnapshot.CardSnapshot::code).toList());
         assertEquals("CALENTANDO", CoronaPokerGdxTable.localHudTurnStatus(
                 false, false, false, false, warming, spanish));
+        TableSnapshot.PlayerSnapshot warmingWithoutTransientLabel
+                = new TableSnapshot.PlayerSnapshot(
+                        "ana", 1_000d, 0d, 0d, false, true, false, false,
+                        -2, -2, 0, 0L, false, false,
+                        TableSnapshot.Position.NONE, "", "", List.of(),
+                        0, 0, true);
+        assertTrue(warmingWithoutTransientLabel.warming());
+        assertEquals("CALENTANDO", CoronaPokerGdxTable.localHudTurnStatus(
+                false, false, false, false,
+                warmingWithoutTransientLabel, spanish));
         assertFalse(CoronaPokerGdxTable.usesTransientHolePresentation(
                 warming));
         assertTrue(CoronaPokerGdxTable.usesTransientHolePresentation(
@@ -1894,8 +1905,9 @@ final class GdxTableViewStateTest {
                 TableSnapshot.Street.SHOWDOWN));
         TableSnapshot.PlayerSnapshot warming = new TableSnapshot.PlayerSnapshot(
                 "ana", 1_000d, 0d, 0d, false, true, false, false,
-                -2, -2, 0, 0L, false, TableSnapshot.Position.NONE,
-                "CALENTANDO", "", List.of(card("A_C"), card("K_C")));
+                -2, -2, 0, 0L, false, false, TableSnapshot.Position.NONE,
+                "CALENTANDO", "", List.of(card("A_C"), card("K_C")),
+                0, 0, true);
 
         state.apply(new TableVisualEvent.SeatRoster(3,
                 List.of(warming, player("borja",

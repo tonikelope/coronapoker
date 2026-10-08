@@ -255,6 +255,8 @@ public final class GdxMultiprocessNodeMain {
 
     private static void runLiveHotJoin(Config config, Path home,
             DatabaseService database) throws Exception {
+        int finalExpectedPlayers = config.clients + config.bots + 1;
+        String newcomerNickname = "client" + config.clients;
         AtomicReference<CoronaPokerGdxTable> productTable
                 = new AtomicReference<>();
         AtomicReference<GdxScenarioRenderer> scenarioRenderer
@@ -269,9 +271,23 @@ public final class GdxMultiprocessNodeMain {
                     + config.nickname + " phase=" + config.phase);
             boolean late = "late".equals(config.phase);
             if (config.host()) {
-                await(() -> lobby.snapshot().participants().size() == 2,
-                        Duration.ofSeconds(30), "initial hot-join lobby");
-                marker("LOBBY_READY", "players=2");
+                // config.clients includes the one human that joins late.
+                // Wait for any incumbent humans, then create the requested
+                // bots before starting the real table.
+                await(() -> lobby.snapshot().participants().size()
+                                == config.clients,
+                        Duration.ofSeconds(30),
+                        "initial hot-join human lobby");
+                for (int index = 0; index < config.bots; index++) {
+                    lobby.submit(new LobbyCommand.AddBot())
+                            .toCompletableFuture().get(10, TimeUnit.SECONDS);
+                }
+                int initialPlayers = config.clients + config.bots;
+                await(() -> lobby.snapshot().participants().size()
+                                == initialPlayers,
+                        Duration.ofSeconds(30),
+                        "initial hot-join complete lobby");
+                marker("LOBBY_READY", "players=" + initialPlayers);
                 awaitStartCommand();
                 lobby.submit(new LobbyCommand.StartGame())
                         .toCompletableFuture().get(10, TimeUnit.SECONDS);
@@ -280,8 +296,8 @@ public final class GdxMultiprocessNodeMain {
 
             TableSession table = lobby.tableSession().toCompletableFuture()
                     .get(45, TimeUnit.SECONDS);
-            GdxScenarioRenderer renderer = new GdxScenarioRenderer(table, 3,
-                    productTable, lobby);
+            GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
+                    finalExpectedPlayers, productTable, lobby);
             scenarioRenderer.set(renderer);
             if (config.host()) renderer.gateActionOnHand(1L);
             table.attach(renderer).toCompletableFuture()
@@ -292,6 +308,12 @@ public final class GdxMultiprocessNodeMain {
                         "live hot-join action gate");
                 marker("HOT_JOIN_GATE", "hand=1");
                 requireCommand("RELEASE_HOT_JOIN");
+                await(() -> renderer.spectatorNicknames().contains(
+                                newcomerNickname),
+                        Duration.ofSeconds(45),
+                        "server hot-join notification");
+                marker("HOT_JOIN_SERVER_NOTIFIED", "nick="
+                        + newcomerNickname);
                 renderer.releaseHeldAction();
             } else if (late) {
                 await(() -> renderer.sawHotJoinState()
@@ -309,13 +331,21 @@ public final class GdxMultiprocessNodeMain {
                                 && renderer.hasLocalDealAfter(1L),
                         Duration.ofSeconds(120), "next-hand hot admission");
                 marker("HOT_JOIN_ADMITTED", "nick=" + config.nickname);
+            } else {
+                await(() -> renderer.spectatorNicknames().contains(
+                                newcomerNickname),
+                        Duration.ofSeconds(90),
+                        "incumbent hot-join notification");
+                marker("HOT_JOIN_PEER_NOTIFIED", "nick="
+                        + newcomerNickname);
             }
 
             await(renderer::isClosed,
                     Duration.ofSeconds(Math.max(180L,
                             config.hands * 45L)), "hot-join completion");
             if (renderer.summary() == null
-                    || renderer.summary().balances().size() != 3) {
+                    || renderer.summary().balances().size()
+                    != finalExpectedPlayers) {
                 throw new AssertionError(
                         "hot-join settlement does not contain all players");
             }

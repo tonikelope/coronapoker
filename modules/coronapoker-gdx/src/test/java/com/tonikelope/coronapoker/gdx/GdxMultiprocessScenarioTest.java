@@ -78,9 +78,23 @@ class GdxMultiprocessScenarioTest {
 
     @Test
     @Timeout(value = 5, unit = TimeUnit.MINUTES)
-    void liveHotJoinWarmsWithPublicStateThenPlaysTheNextHand(
+    void liveHotJoinAfterBotOnlyStartWarmsThenPlaysTheNextHand(
             @TempDir Path root) throws Exception {
-        runLiveHotJoinScenario(root);
+        runLiveHotJoinScenario(root, 0, 1);
+    }
+
+    @Test
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    void liveHotJoinAfterHumanOnlyStartWarmsThenPlaysTheNextHand(
+            @TempDir Path root) throws Exception {
+        runLiveHotJoinScenario(root, 1, 0);
+    }
+
+    @Test
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    void liveHotJoinAfterMixedStartWarmsThenPlaysTheNextHand(
+            @TempDir Path root) throws Exception {
+        runLiveHotJoinScenario(root, 1, 1);
     }
 
     @Test
@@ -873,38 +887,60 @@ class GdxMultiprocessScenarioTest {
         }
     }
 
-    private static void runLiveHotJoinScenario(Path root) throws Exception {
+    private static void runLiveHotJoinScenario(Path root, int incumbentClients,
+            int bots) throws Exception {
         int port;
         try (ServerSocket reservation = new ServerSocket(0)) {
             port = reservation.getLocalPort();
         }
+        int totalClients = incumbentClients + 1;
+        int initialPlayers = 1 + incumbentClients + bots;
+        String newcomerNickname = "client" + totalClients;
         List<NodeProcess> nodes = new ArrayList<>();
         try {
             NodeProcess host = startNode(root.resolve("host"), "host",
-                    "server", port, 1, 0, 3, "live-hot-join");
-            NodeProcess incumbent = startNode(root.resolve("client-1"),
-                    "client", "client1", port, 1, 0, 3,
+                    "server", port, totalClients, bots, 3,
                     "live-hot-join");
             nodes.add(host);
-            nodes.add(incumbent);
-            assertTrue(host.await("CP_GDX_E2E_LOBBY_READY players=2",
+            for (int index = 1; index <= incumbentClients; index++) {
+                NodeProcess incumbent = startNode(root.resolve(
+                        "client-" + index), "client", "client" + index,
+                        port, totalClients, bots, 3, "live-hot-join");
+                nodes.add(incumbent);
+                assertTrue(incumbent.await("CP_GDX_E2E_READY",
+                        Duration.ofSeconds(30)), incumbent.diagnostic());
+            }
+            assertTrue(host.await("CP_GDX_E2E_LOBBY_READY players="
+                            + initialPlayers,
                     Duration.ofSeconds(45)), host.diagnostic());
-            assertTrue(incumbent.await("CP_GDX_E2E_READY",
-                    Duration.ofSeconds(30)), incumbent.diagnostic());
             host.send("START_GAME");
             assertTrue(host.await("CP_GDX_E2E_HOT_JOIN_GATE hand=1",
                     Duration.ofSeconds(90)), host.diagnostic());
 
-            NodeProcess newcomer = startNode(root.resolve("client-2"),
-                    "client", "client2", port, 1, 0, 3,
+            NodeProcess newcomer = startNode(root.resolve(
+                    "client-" + totalClients), "client",
+                    newcomerNickname, port, totalClients, bots, 3,
                     "live-hot-join", "late");
             nodes.add(newcomer);
             assertTrue(newcomer.await(
-                    "CP_GDX_E2E_HOT_JOIN_WARMING nick=client2",
+                    "CP_GDX_E2E_HOT_JOIN_WARMING nick="
+                            + newcomerNickname,
                     Duration.ofSeconds(90)), newcomer.diagnostic());
             host.send("RELEASE_HOT_JOIN");
+            assertTrue(host.await(
+                    "CP_GDX_E2E_HOT_JOIN_SERVER_NOTIFIED nick="
+                            + newcomerNickname,
+                    Duration.ofSeconds(45)), host.diagnostic());
+            for (int index = 1; index <= incumbentClients; index++) {
+                NodeProcess incumbent = nodes.get(index);
+                assertTrue(incumbent.await(
+                        "CP_GDX_E2E_HOT_JOIN_PEER_NOTIFIED nick="
+                                + newcomerNickname,
+                        Duration.ofSeconds(45)), incumbent.diagnostic());
+            }
             assertTrue(newcomer.await(
-                    "CP_GDX_E2E_HOT_JOIN_ADMITTED nick=client2",
+                    "CP_GDX_E2E_HOT_JOIN_ADMITTED nick="
+                            + newcomerNickname,
                     Duration.ofSeconds(150)), newcomer.diagnostic());
 
             for (NodeProcess node : nodes) {

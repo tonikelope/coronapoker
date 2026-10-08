@@ -63,7 +63,9 @@ final class GdxScenarioContract {
      */
     static final Map<String, Set<String>> CERTIFICATION_SCENARIOS = Map.ofEntries(
             Map.entry("live-hot-join", Set.of(
-                    "liveHotJoinWarmsWithPublicStateThenPlaysTheNextHand")),
+                    "liveHotJoinAfterBotOnlyStartWarmsThenPlaysTheNextHand",
+                    "liveHotJoinAfterHumanOnlyStartWarmsThenPlaysTheNextHand",
+                    "liveHotJoinAfterMixedStartWarmsThenPlaysTheNextHand")),
             Map.entry("abrupt-exit", Set.of(
                     "abruptProcessExitLeavesIndependentGdxPeersRecoverable",
                     "abruptExitAbortsTheHandAndLeavesSurvivorsRecoverable")),

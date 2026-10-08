@@ -255,6 +255,10 @@ public final class GdxMultiprocessNodeMain {
 
     private static void runLiveHotJoin(Config config, Path home,
             DatabaseService database) throws Exception {
+        int finalExpectedPlayers = config.clients + config.bots + 1;
+        String newcomerNickname = "client" + config.clients;
+        GdxGameLogSink gameLog = new GdxGameLogSink();
+        AtomicInteger bootstrapLogLines = new AtomicInteger();
         AtomicReference<CoronaPokerGdxTable> productTable
                 = new AtomicReference<>();
         AtomicReference<GdxScenarioRenderer> scenarioRenderer
@@ -262,16 +266,30 @@ public final class GdxMultiprocessNodeMain {
         try (NetworkLobbyGateway gateway = gateway(config,
                     home.resolve("network"), database, productTable,
                     new AtomicInteger(), new AtomicReference<>(),
-                    scenarioRenderer);
+                    scenarioRenderer, gameLog);
              LobbySession lobby = gateway.open(request(config))
                      .get(20, TimeUnit.SECONDS)) {
             marker("READY", "role=" + config.role + " nick="
                     + config.nickname + " phase=" + config.phase);
             boolean late = "late".equals(config.phase);
             if (config.host()) {
-                await(() -> lobby.snapshot().participants().size() == 2,
-                        Duration.ofSeconds(30), "initial hot-join lobby");
-                marker("LOBBY_READY", "players=2");
+                // config.clients includes the one human that joins late.
+                // Wait for any incumbent humans, then create the requested
+                // bots before starting the real table.
+                await(() -> lobby.snapshot().participants().size()
+                                == config.clients,
+                        Duration.ofSeconds(30),
+                        "initial hot-join human lobby");
+                for (int index = 0; index < config.bots; index++) {
+                    lobby.submit(new LobbyCommand.AddBot())
+                            .toCompletableFuture().get(10, TimeUnit.SECONDS);
+                }
+                int initialPlayers = config.clients + config.bots;
+                await(() -> lobby.snapshot().participants().size()
+                                == initialPlayers,
+                        Duration.ofSeconds(30),
+                        "initial hot-join complete lobby");
+                marker("LOBBY_READY", "players=" + initialPlayers);
                 awaitStartCommand();
                 lobby.submit(new LobbyCommand.StartGame())
                         .toCompletableFuture().get(10, TimeUnit.SECONDS);
@@ -280,8 +298,8 @@ public final class GdxMultiprocessNodeMain {
 
             TableSession table = lobby.tableSession().toCompletableFuture()
                     .get(45, TimeUnit.SECONDS);
-            GdxScenarioRenderer renderer = new GdxScenarioRenderer(table, 3,
-                    productTable, lobby);
+            GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
+                    finalExpectedPlayers, productTable, lobby);
             scenarioRenderer.set(renderer);
             if (config.host()) renderer.gateActionOnHand(1L);
             table.attach(renderer).toCompletableFuture()
@@ -292,36 +310,61 @@ public final class GdxMultiprocessNodeMain {
                         "live hot-join action gate");
                 marker("HOT_JOIN_GATE", "hand=1");
                 requireCommand("RELEASE_HOT_JOIN");
+                await(() -> renderer.spectatorNicknames().contains(
+                                newcomerNickname),
+                        Duration.ofSeconds(45),
+                        "server hot-join notification");
+                marker("HOT_JOIN_SERVER_NOTIFIED", "nick="
+                        + newcomerNickname);
                 renderer.releaseHeldAction();
             } else if (late) {
                 await(() -> renderer.sawHotJoinState()
                                 && renderer.sawLocalSpectator()
                                 && renderer.spectatorNicknames().contains(
-                                        config.nickname),
+                                        config.nickname)
+                                && renderer.activeNicknames().size()
+                                        == finalExpectedPlayers
+                                && !gameLog.snapshot().lines().isEmpty(),
                         Duration.ofSeconds(45), "public warming state");
                 if (!renderer.localCardsArePubliclyHidden()) {
                     throw new AssertionError(
                             "hot joiner received concealed pocket data");
                 }
-                marker("HOT_JOIN_WARMING", "nick=" + config.nickname);
+                bootstrapLogLines.set(gameLog.snapshot().lines().size());
+                marker("HOT_JOIN_WARMING", "nick=" + config.nickname
+                        + " historyLines=" + bootstrapLogLines.get());
                 await(() -> renderer.playingNicknames().contains(
                                 config.nickname)
                                 && renderer.hasLocalDealAfter(1L),
                         Duration.ofSeconds(120), "next-hand hot admission");
                 marker("HOT_JOIN_ADMITTED", "nick=" + config.nickname);
+            } else {
+                await(() -> renderer.spectatorNicknames().contains(
+                                newcomerNickname),
+                        Duration.ofSeconds(90),
+                        "incumbent hot-join notification");
+                marker("HOT_JOIN_PEER_NOTIFIED", "nick="
+                        + newcomerNickname);
             }
 
             await(renderer::isClosed,
                     Duration.ofSeconds(Math.max(180L,
                             config.hands * 45L)), "hot-join completion");
             if (renderer.summary() == null
-                    || renderer.summary().balances().size() != 3) {
+                    || renderer.summary().balances().size()
+                    != finalExpectedPlayers) {
                 throw new AssertionError(
                         "hot-join settlement does not contain all players");
             }
+            if (late && gameLog.snapshot().lines().size()
+                    <= bootstrapLogLines.get()) {
+                throw new AssertionError(
+                        "hot joiner did not receive live log updates");
+            }
             marker("HOT_JOIN_COMPLETE", "role=" + config.role
                     + " nick=" + config.nickname + " hands="
-                    + renderer.summary().handCount());
+                    + renderer.summary().handCount() + " logLines="
+                    + gameLog.snapshot().lines().size());
         }
     }
 
@@ -1638,6 +1681,17 @@ public final class GdxMultiprocessNodeMain {
             AtomicInteger runItTwiceVotes,
             AtomicReference<GdxTableDialog> runItTwiceDialog,
             AtomicReference<GdxScenarioRenderer> scenarioRenderer) {
+        return gateway(config, data, database, productTable, runItTwiceVotes,
+                runItTwiceDialog, scenarioRenderer, null);
+    }
+
+    private static NetworkLobbyGateway gateway(Config config, Path data,
+            DatabaseService database,
+            AtomicReference<CoronaPokerGdxTable> productTable,
+            AtomicInteger runItTwiceVotes,
+            AtomicReference<GdxTableDialog> runItTwiceDialog,
+            AtomicReference<GdxScenarioRenderer> scenarioRenderer,
+            GdxGameLogSink gameLog) {
         if ("allin-rebuy".equals(config.scenario)) {
             return GdxNetworkHumanProjectionIntegrationTest
                     .automaticRebuyGateway(data, database);
@@ -1702,8 +1756,11 @@ public final class GdxMultiprocessNodeMain {
             return GdxNetworkHumanProjectionIntegrationTest.cinematicGateway(
                     data, database);
         }
-        return GdxNetworkHumanProjectionIntegrationTest.gateway(data,
-                database);
+        return gameLog == null
+                ? GdxNetworkHumanProjectionIntegrationTest.gateway(data,
+                        database)
+                : GdxNetworkHumanProjectionIntegrationTest.gateway(data,
+                        database, gameLog);
     }
 
     private static NetworkLobbyGateway immediateRebuyGateway(Config config,

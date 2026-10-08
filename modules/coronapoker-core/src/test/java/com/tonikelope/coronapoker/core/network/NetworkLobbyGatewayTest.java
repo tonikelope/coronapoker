@@ -446,36 +446,51 @@ class NetworkLobbyGatewayTest {
         }
     }
 
-    @Test void startedNativeTableAuthenticatesLateJoinAsWarmingObserver()
+    @Test void botOnlyStartedTableAcceptsItsFirstRemoteHumanAsWarmingObserver()
             throws Exception {
+        assertStartedTableAcceptsLateHuman(false, 1, "bot-only");
+    }
+
+    @Test void humanStartedTableAcceptsAnotherRemoteHumanAsWarmingObserver()
+            throws Exception {
+        assertStartedTableAcceptsLateHuman(true, 0, "human-only");
+    }
+
+    @Test void mixedStartedTableAcceptsAnotherRemoteHumanAsWarmingObserver()
+            throws Exception {
+        assertStartedTableAcceptsLateHuman(true, 1, "mixed");
+    }
+
+    private void assertStartedTableAcceptsLateHuman(boolean incumbentHuman,
+            int bots, String topology) throws Exception {
         int port;
         try (ServerSocket reservation = new ServerSocket(0)) {
             port = reservation.getLocalPort();
         }
         AtomicReference<GameLaunchContext> hostContext = new AtomicReference<>();
-        java.util.concurrent.CopyOnWriteArrayList<GameLaunchContext>
-                clientContexts = new java.util.concurrent.CopyOnWriteArrayList<>();
+        AtomicReference<GameLaunchContext> incumbentContext
+                = new AtomicReference<>();
+        AtomicReference<GameLaunchContext> lateContext
+                = new AtomicReference<>();
         GameTableFactory tables = context -> {
             if (context.lobby().host()) {
                 hostContext.set(context);
+            } else if ("Tardio".equals(context.lobby().localNickname())) {
+                lateContext.set(context);
             } else {
-                clientContexts.add(context);
+                incumbentContext.set(context);
             }
             TableEventBridge events = new TableEventBridge();
             return new TableSession(emptyTable(
                     context.lobby().localNickname()), command -> { }, events,
                     () -> {
-                        if (!context.lobby().host()) {
+                        if (!context.lobby().host() || !incumbentHuman) {
                             return CompletableFuture.completedFuture(null);
                         }
                         try {
                             return context.channel().broadcastFromHost(
                                     "INIT#" + GameConfigCodecV1.encodeBase64(
-                                            GameConfigCodecV1.fromSettings(
-                                                    context.lobby()
-                                                            .tableSettings(),
-                                                    false,
-                                                    "native-late-join")),
+                                            context.initialConfiguration()),
                                     null);
                         } catch (java.io.IOException failure) {
                             return CompletableFuture.failedFuture(failure);
@@ -483,55 +498,69 @@ class NetworkLobbyGatewayTest {
                     });
         };
         try (NetworkLobbyGateway hostGateway = new NetworkLobbyGateway(
-                    temporary.resolve("late-host"), tables);
+                    temporary.resolve("late-host-" + topology), tables);
              NetworkLobbyGateway clientGateway = new NetworkLobbyGateway(
-                    temporary.resolve("late-client"), tables);
+                    temporary.resolve("late-client-" + topology), tables);
             NetworkLobbyGateway lateGateway = new NetworkLobbyGateway(
-                    temporary.resolve("late-warming"), tables)) {
+                    temporary.resolve("late-warming-" + topology), tables)) {
             LobbySession host = hostGateway.open(
                     request(false, "Anfitrion", port)).get(5, TimeUnit.SECONDS);
-            LobbySession client = clientGateway.open(
-                    request(true, "Invitado", port)).get(5, TimeUnit.SECONDS);
+            LobbySession client = incumbentHuman
+                    ? clientGateway.open(request(true, "Invitado", port))
+                            .get(5, TimeUnit.SECONDS)
+                    : null;
             try {
-                await(() -> host.snapshot().participants().size() == 2);
+                for (int index = 0; index < bots; index++) {
+                    host.submit(new LobbyCommand.AddBot()).toCompletableFuture()
+                            .get(2, TimeUnit.SECONDS);
+                }
+                int initialPlayers = 1 + bots + (incumbentHuman ? 1 : 0);
+                await(() -> host.snapshot().participants().size()
+                        == initialPlayers);
                 host.submit(new LobbyCommand.StartGame()).toCompletableFuture()
                         .get(2, TimeUnit.SECONDS);
                 host.tableSession().toCompletableFuture()
                         .get(2, TimeUnit.SECONDS)
                         .attach(immediateRenderer()).toCompletableFuture()
                         .get(2, TimeUnit.SECONDS);
-                client.tableSession().toCompletableFuture()
-                        .get(2, TimeUnit.SECONDS);
+                if (client != null) {
+                    client.tableSession().toCompletableFuture()
+                            .get(2, TimeUnit.SECONDS);
+                }
 
                 AtomicReference<String> hostNotice = new AtomicReference<>();
                 AtomicReference<String> clientNotice = new AtomicReference<>();
                 hostContext.get().channel().subscribe(inbound
                         -> hostNotice.set(inbound.command()));
-                clientContexts.get(0).channel().subscribe(inbound
-                        -> clientNotice.set(inbound.command()));
+                if (incumbentContext.get() != null) {
+                    incumbentContext.get().channel().subscribe(inbound
+                            -> clientNotice.set(inbound.command()));
+                }
 
                 LobbySession late = lateGateway.open(
                         request(true, "Tardio", port)).get(5, TimeUnit.SECONDS);
-                GameLaunchContext lateContext = late.tableSession()
-                        .toCompletableFuture().thenApply(ignored
-                                -> clientContexts.get(1))
+                late.tableSession().toCompletableFuture()
                         .get(5, TimeUnit.SECONDS);
+                await(() -> lateContext.get() != null);
                 String encodedNickname = Base64.getEncoder().encodeToString(
                         "Tardio".getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 String hotJoinPrefix = "HOTJOIN#" + encodedNickname + "#";
                 await(() -> hostNotice.get() != null
                         && hostNotice.get().startsWith(hotJoinPrefix)
-                        && clientNotice.get() != null
-                        && clientNotice.get().startsWith(hotJoinPrefix));
-                assertEquals(hostNotice.get(), clientNotice.get());
-                assertTrue(lateContext.hotJoining());
-                assertTrue(lateContext.initialConfiguration().recover());
+                        && (!incumbentHuman || (clientNotice.get() != null
+                        && clientNotice.get().startsWith(hotJoinPrefix))));
+                if (incumbentHuman) {
+                    assertEquals(hostNotice.get(), clientNotice.get());
+                }
+                assertTrue(lateContext.get().hotJoining());
+                assertTrue(lateContext.get().initialConfiguration().recover());
                 assertTrue(late.snapshot().startingOrStarted());
-                assertEquals(3, host.snapshot().participants().size());
+                assertEquals(initialPlayers + 1,
+                        host.snapshot().participants().size());
                 assertTrue(host.snapshot().startingOrStarted());
                 late.close();
             } finally {
-                client.close();
+                if (client != null) client.close();
                 host.close();
             }
         }

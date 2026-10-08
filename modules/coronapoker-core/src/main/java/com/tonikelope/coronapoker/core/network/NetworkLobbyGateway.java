@@ -758,6 +758,13 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         private synchronized void startGame() throws Exception {
             if (!host) throw new IllegalStateException("Only the host can start the game");
+            // Freeze the authoritative launch packet before exposing the
+            // started state. A host that begins with bots only has no remote
+            // peer to receive INIT, so relying on a later network broadcast
+            // left the first real human with YOUARELATE.
+            launchConfiguration = GameConfigCodecV1.fromSettings(
+                    tableSettings, recovering,
+                    Base64.getEncoder().encodeToString(sessionId));
             publish(LobbySnapshot.Phase.INITIALIZING_GAME, "");
             try {
                 publishTableSession();

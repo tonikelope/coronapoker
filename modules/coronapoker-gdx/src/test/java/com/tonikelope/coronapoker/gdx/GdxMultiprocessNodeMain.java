@@ -348,6 +348,11 @@ public final class GdxMultiprocessNodeMain {
                 marker("HOT_JOIN_WARMING", "nick=" + config.nickname
                         + " historyLines=" + bootstrapLogLines.get());
                 if (!stopWhileWarming) {
+                    await(renderer::sawHotJoinPlayerAction,
+                            Duration.ofSeconds(90),
+                            "ordinary player-action event while warming");
+                    marker("HOT_JOIN_VISUAL_STREAM", "nick="
+                            + config.nickname);
                     await(renderer::sawHotJoinTimerStart,
                             Duration.ofSeconds(90),
                             "future turn timer after hot join");

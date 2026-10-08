@@ -801,23 +801,13 @@ final class GdxTableViewState {
 
     private void applyHotJoinState(TableSnapshot next) {
         snapshot = Objects.requireNonNull(next, "next");
-        actionKinds.clear();
-        actionLabels.clear();
-        revealedHoleCards.clear();
-        foldedThisHand.clear();
-        showdownHighlights.clear();
-        partialHandPercentages.clear();
-        resolvedHandResults.clear();
-        lateShownHands.clear();
-        resolvedHandNames.clear();
-        resolvedHandWinners.clear();
-        resolvedWonPotIndexes.clear();
-        returnedSidePotPlayers.clear();
-        iwtsthCandidates.clear();
-        rabbitCardSlots.clear();
-        rabbitRequestable = false;
-        rabbitNoticeNickname = "";
-        rabbitNoticeUntilNanos = 0L;
+        // This is a canonical state repair, not a second presentation model.
+        // Public visual events received while CALENTANDO own the same transient
+        // maps and live animations as every ordinary player/spectator. Clearing
+        // them on each 200 ms repair tick used to erase accepted actions,
+        // reveals and showdown presentation in the middle of their animation.
+        // The normal HandBoundary event remains the single owner of the next-
+        // hand reset.
         callCostText = "";
         callCostAggressorNickname = "";
         preActionControlsActive = false;

@@ -97,6 +97,7 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final AtomicBoolean returnedAfterSpectating = new AtomicBoolean();
     private final AtomicBoolean sawHotJoinState = new AtomicBoolean();
     private final AtomicBoolean sawHotJoinTimerStart = new AtomicBoolean();
+    private final AtomicBoolean sawHotJoinPlayerAction = new AtomicBoolean();
     private final java.util.concurrent.ConcurrentHashMap<String, Integer>
             immediateRebuys = new java.util.concurrent.ConcurrentHashMap<>();
     private final AtomicReference<Runnable> afterAllInCommand
@@ -357,6 +358,10 @@ final class GdxScenarioRenderer implements TableRenderer {
                 .filter(player -> player.nickname().equals(
                         snapshot.localNickname()))
                 .findFirst().orElse(null);
+        if (sawHotJoinState.get() && local != null && local.spectator()
+                && event instanceof TableVisualEvent.PlayerAction) {
+            sawHotJoinPlayerAction.set(true);
+        }
         if (local != null && local.spectator()) {
             sawLocalSpectator.set(true);
             if (currentHand.get() == immediateRebuyHand.get()
@@ -676,6 +681,10 @@ final class GdxScenarioRenderer implements TableRenderer {
 
     boolean sawHotJoinTimerStart() {
         return sawHotJoinTimerStart.get();
+    }
+
+    boolean sawHotJoinPlayerAction() {
+        return sawHotJoinPlayerAction.get();
     }
 
     boolean localHoleCardsRemainRevealed() {

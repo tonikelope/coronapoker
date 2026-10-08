@@ -41,6 +41,7 @@ import com.tonikelope.coronapoker.core.game.GameValueFormatter;
 import com.tonikelope.coronapoker.core.game.GameWindowSink;
 import com.tonikelope.coronapoker.core.game.HostGameConfigurationSource;
 import com.tonikelope.coronapoker.core.game.HotJoinSnapshotCodecV1;
+import com.tonikelope.coronapoker.core.game.HotJoinVisualEventCodecV1;
 import com.tonikelope.coronapoker.core.game.LobbyTransitionSink;
 import com.tonikelope.coronapoker.core.game.MoneyMath;
 import com.tonikelope.coronapoker.core.game.PauseGate;
@@ -516,26 +517,18 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 return;
             }
             if (!lobby.host()
-                    && command.command().startsWith("HOTJOIN_TURN#")) {
+                    && command.command().startsWith("HOTJOIN_EVENT#")) {
                 try {
                     if (!command.peerNickname().equals(lobby.serverNickname())) {
                         throw new IllegalArgumentException(
-                                "HOTJOIN_TURN source is not the table host");
+                                "HOTJOIN_EVENT source is not the table host");
                     }
-                    hotJoin.acceptTurn(command.command());
-                } catch (RuntimeException invalid) {
-                    context.channel().close();
-                }
-                return;
-            }
-            if (!lobby.host()
-                    && command.command().startsWith("HOTJOIN_PROGRESS#")) {
-                try {
-                    if (!command.peerNickname().equals(lobby.serverNickname())) {
+                    String[] fields = command.command().split("#", -1);
+                    if (fields.length != 2) {
                         throw new IllegalArgumentException(
-                                "HOTJOIN_PROGRESS source is not the table host");
+                                "Malformed HOTJOIN_EVENT notification");
                     }
-                    hotJoin.acceptProgress(command.command());
+                    hotJoin.acceptPresentation(fields[1]);
                 } catch (RuntimeException invalid) {
                     context.channel().close();
                 }
@@ -1780,56 +1773,25 @@ public final class CoreGameTableFactory implements GameTableFactory {
                     sequence, snapshot));
         }
 
-        /** Relays only future timer/progress transitions; bootstrap remains public-state only. */
+        /**
+         * Relays the ordinary public presentation event itself.  The warming
+         * client feeds the decoded event through its normal TableEventBridge,
+         * so GDX has one animation path for players and every spectator state.
+         */
         void observePresentationEvent(TableVisualEvent event) {
             if (!host || warming.isEmpty()) return;
-            final String command;
-            if (event instanceof TableVisualEvent.TurnTimer timer) {
-                command = "HOTJOIN_TURN#"
-                        + Base64.getEncoder().encodeToString(
-                                timer.nickname().getBytes(
-                                        StandardCharsets.UTF_8))
-                        + "#" + timer.totalMillis()
-                        + "#" + timer.remainingMillis()
-                        + "#" + timer.phase().name();
-            } else if (event instanceof TableVisualEvent.SharedProgress progress) {
-                command = "HOTJOIN_PROGRESS#" + progress.mode().name()
-                        + "#" + progress.seconds();
-            } else {
-                return;
-            }
+            String encoded = HotJoinVisualEventCodecV1.encode(event)
+                    .orElse(null);
+            if (encoded == null) return;
+            String command = "HOTJOIN_EVENT#" + encoded;
             for (String nickname : warming) {
                 send(nickname, command);
             }
         }
 
-        void acceptTurn(String command) {
-            String[] fields = command.split("#", -1);
-            if (fields.length != 5 || !"HOTJOIN_TURN".equals(fields[0])) {
-                throw new IllegalArgumentException("Malformed HOTJOIN_TURN");
-            }
-            String nickname = new String(Base64.getDecoder().decode(fields[1]),
-                    StandardCharsets.UTF_8);
-            long totalMillis = Long.parseLong(fields[2]);
-            long remainingMillis = Long.parseLong(fields[3]);
-            TableVisualEvent.TurnTimer.Phase phase
-                    = TableVisualEvent.TurnTimer.Phase.valueOf(fields[4]);
-            events.publish(sequence -> new TableVisualEvent.TurnTimer(
-                    sequence, nickname, totalMillis, remainingMillis, phase));
-        }
-
-        void acceptProgress(String command) {
-            String[] fields = command.split("#", -1);
-            if (fields.length != 3
-                    || !"HOTJOIN_PROGRESS".equals(fields[0])) {
-                throw new IllegalArgumentException(
-                        "Malformed HOTJOIN_PROGRESS");
-            }
-            TableVisualEvent.SharedProgress.Mode mode
-                    = TableVisualEvent.SharedProgress.Mode.valueOf(fields[1]);
-            int seconds = Integer.parseInt(fields[2]);
-            events.publish(sequence -> new TableVisualEvent.SharedProgress(
-                    sequence, mode, seconds));
+        void acceptPresentation(String encoded) {
+            events.publish(sequence -> HotJoinVisualEventCodecV1.decode(
+                    encoded, sequence));
         }
 
         private void broadcastSnapshot() {

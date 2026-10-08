@@ -43,7 +43,8 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
         TableVisualEvent.Rebuy,
         TableVisualEvent.RebuyDecision,
         TableVisualEvent.ImmediateRebuyStatus,
-        TableVisualEvent.DeckChanged, TableVisualEvent.SeatRoster,
+        TableVisualEvent.DeckChanged, TableVisualEvent.HotJoinState,
+        TableVisualEvent.SeatRoster,
         TableVisualEvent.LastHandStatus, TableVisualEvent.HandLimitStatus,
         TableVisualEvent.GameConfigurationStatus,
         TableVisualEvent.RunItTwiceLockStatus,
@@ -53,6 +54,14 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
         TableVisualEvent.CloseTable {
 
     long sequence();
+
+    /** Periodic public-only state while a live newcomer is warming up. */
+    record HotJoinState(long sequence, TableSnapshot snapshot)
+            implements TableVisualEvent {
+        public HotJoinState {
+            Objects.requireNonNull(snapshot, "snapshot");
+        }
+    }
 
     /**
      * Short presentation beat between the action that closes betting and the

@@ -94,6 +94,7 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final AtomicInteger acceptedRaiseActions = new AtomicInteger();
     private final AtomicBoolean sawLocalSpectator = new AtomicBoolean();
     private final AtomicBoolean returnedAfterSpectating = new AtomicBoolean();
+    private final AtomicBoolean sawHotJoinState = new AtomicBoolean();
     private final java.util.concurrent.ConcurrentHashMap<String, Integer>
             immediateRebuys = new java.util.concurrent.ConcurrentHashMap<>();
     private final AtomicReference<Runnable> afterAllInCommand
@@ -247,6 +248,9 @@ final class GdxScenarioRenderer implements TableRenderer {
         GdxTableViewState projection = state.get();
         assertNotNull(projection, "renderer must open before events arrive");
         projection.apply(event);
+        if (event instanceof TableVisualEvent.HotJoinState) {
+            sawHotJoinState.set(true);
+        }
         assertProjectedLabelContract(event, projection);
         if (event instanceof TableVisualEvent.HandBoundary boundary) {
             if (boundary.phase()
@@ -646,6 +650,27 @@ final class GdxScenarioRenderer implements TableRenderer {
 
     boolean returnedAfterSpectating() {
         return returnedAfterSpectating.get();
+    }
+
+    boolean sawHotJoinState() {
+        return sawHotJoinState.get();
+    }
+
+    boolean localCardsArePubliclyHidden() {
+        GdxTableViewState projection = state.get();
+        if (projection == null) return false;
+        return projection.snapshot().players().stream()
+                .filter(player -> player.nickname().equals(
+                        projection.snapshot().localNickname()))
+                .findFirst()
+                .map(player -> player.holeCards().stream().allMatch(card
+                        -> card.code().isBlank() && !card.faceUp()))
+                .orElse(false);
+    }
+
+    boolean hasLocalDealAfter(long handId) {
+        return localDeals.entrySet().stream().anyMatch(entry
+                -> entry.getKey() > handId && entry.getValue().size() == 2);
     }
 
     String localNickname() {

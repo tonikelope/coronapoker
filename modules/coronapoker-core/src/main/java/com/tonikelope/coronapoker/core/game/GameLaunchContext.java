@@ -9,29 +9,40 @@ import java.util.Objects;
 public record GameLaunchContext(LobbySnapshot lobby, GameChannel channel,
         GameIdentity identity, String sessionId, Path dataDirectory,
         String tablePassword, GameConfigCodecV1.Configuration initialConfiguration,
-        int recoveryGameId) {
+        int recoveryGameId, boolean hotJoining) {
 
     public GameLaunchContext(LobbySnapshot lobby, GameChannel channel,
             GameIdentity identity) {
         this(lobby, channel, identity, GameSessionIds.random(), Path.of("."),
-                null, null, -1);
+                null, null, -1, false);
     }
 
     public GameLaunchContext(LobbySnapshot lobby, GameChannel channel,
             GameIdentity identity, String sessionId) {
-        this(lobby, channel, identity, sessionId, Path.of("."), null, null, -1);
+        this(lobby, channel, identity, sessionId, Path.of("."), null, null, -1,
+                false);
     }
 
     public GameLaunchContext(LobbySnapshot lobby, GameChannel channel,
             GameIdentity identity, String sessionId, Path dataDirectory) {
-        this(lobby, channel, identity, sessionId, dataDirectory, null, null, -1);
+        this(lobby, channel, identity, sessionId, dataDirectory, null, null, -1,
+                false);
     }
 
     public GameLaunchContext(LobbySnapshot lobby, GameChannel channel,
             GameIdentity identity, String sessionId, Path dataDirectory,
             String tablePassword) {
         this(lobby, channel, identity, sessionId, dataDirectory,
-                tablePassword, null, -1);
+                tablePassword, null, -1, false);
+    }
+
+    public GameLaunchContext(LobbySnapshot lobby, GameChannel channel,
+            GameIdentity identity, String sessionId, Path dataDirectory,
+            String tablePassword,
+            GameConfigCodecV1.Configuration initialConfiguration,
+            int recoveryGameId) {
+        this(lobby, channel, identity, sessionId, dataDirectory,
+                tablePassword, initialConfiguration, recoveryGameId, false);
     }
 
     public GameLaunchContext {

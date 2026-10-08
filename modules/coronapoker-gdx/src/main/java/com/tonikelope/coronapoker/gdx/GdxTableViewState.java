@@ -440,7 +440,9 @@ final class GdxTableViewState {
         }
         lastSequence = event.sequence();
 
-        if (event instanceof TableVisualEvent.PauseStatus pause) {
+        if (event instanceof TableVisualEvent.HotJoinState state) {
+            applyHotJoinState(state.snapshot());
+        } else if (event instanceof TableVisualEvent.PauseStatus pause) {
             boolean wasPaused = snapshot.paused();
             snapshot = new TableSnapshot(snapshot.revision(),
                     snapshot.localNickname(), snapshot.street(), snapshot.pot(),
@@ -795,6 +797,31 @@ final class GdxTableViewState {
             throw new IllegalArgumentException(
                     "Unsupported GDX table event " + event.getClass().getName());
         }
+    }
+
+    private void applyHotJoinState(TableSnapshot next) {
+        snapshot = Objects.requireNonNull(next, "next");
+        actionKinds.clear();
+        actionLabels.clear();
+        revealedHoleCards.clear();
+        foldedThisHand.clear();
+        showdownHighlights.clear();
+        partialHandPercentages.clear();
+        resolvedHandResults.clear();
+        lateShownHands.clear();
+        resolvedHandNames.clear();
+        resolvedHandWinners.clear();
+        resolvedWonPotIndexes.clear();
+        returnedSidePotPlayers.clear();
+        iwtsthCandidates.clear();
+        rabbitCardSlots.clear();
+        rabbitRequestable = false;
+        rabbitNoticeNickname = "";
+        rabbitNoticeUntilNanos = 0L;
+        callCostText = "";
+        callCostAggressorNickname = "";
+        preActionControlsActive = false;
+        if (snapshot.currentTurnNickname().isBlank()) stopTurn();
     }
 
     /**

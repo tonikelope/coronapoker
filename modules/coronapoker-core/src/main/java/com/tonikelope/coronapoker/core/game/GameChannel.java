@@ -82,6 +82,13 @@ public interface GameChannel extends AutoCloseable {
     default void retirePeerAfterExit(String nickname) {
     }
 
+    /**
+     * Promotes a transport-level warming connection to ordinary game traffic.
+     * Called only after it has applied recovery and confirmed its first hand.
+     */
+    default void activatePeer(String nickname) {
+    }
+
     @Override
     void close();
 }

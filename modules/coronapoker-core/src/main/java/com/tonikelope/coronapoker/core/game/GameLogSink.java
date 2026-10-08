@@ -12,6 +12,12 @@ public interface GameLogSink {
     default void updateShowdownCards(List<ShowdownEntry> entries) {
     }
 
+    /** Replaces the visible history during an authenticated hot-join bootstrap. */
+    default void replaceHistory(List<String> messages) {
+        Objects.requireNonNull(messages, "messages");
+        messages.forEach(this::print);
+    }
+
     record ShowdownEntry(String nickname, boolean revealed, String holeCards, String hand) {
 
         public ShowdownEntry {

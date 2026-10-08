@@ -446,15 +446,21 @@ class NetworkLobbyGatewayTest {
         }
     }
 
-    @Test void startedNativeTableRejectsAndAnnouncesLateJoin() throws Exception {
+    @Test void startedNativeTableAuthenticatesLateJoinAsWarmingObserver()
+            throws Exception {
         int port;
         try (ServerSocket reservation = new ServerSocket(0)) {
             port = reservation.getLocalPort();
         }
         AtomicReference<GameLaunchContext> hostContext = new AtomicReference<>();
-        AtomicReference<GameLaunchContext> clientContext = new AtomicReference<>();
+        java.util.concurrent.CopyOnWriteArrayList<GameLaunchContext>
+                clientContexts = new java.util.concurrent.CopyOnWriteArrayList<>();
         GameTableFactory tables = context -> {
-            (context.lobby().host() ? hostContext : clientContext).set(context);
+            if (context.lobby().host()) {
+                hostContext.set(context);
+            } else {
+                clientContexts.add(context);
+            }
             TableEventBridge events = new TableEventBridge();
             return new TableSession(emptyTable(
                     context.lobby().localNickname()), command -> { }, events,
@@ -480,8 +486,8 @@ class NetworkLobbyGatewayTest {
                     temporary.resolve("late-host"), tables);
              NetworkLobbyGateway clientGateway = new NetworkLobbyGateway(
                     temporary.resolve("late-client"), tables);
-             NetworkLobbyGateway lateGateway = new NetworkLobbyGateway(
-                    temporary.resolve("late-rejected"), tables)) {
+            NetworkLobbyGateway lateGateway = new NetworkLobbyGateway(
+                    temporary.resolve("late-warming"), tables)) {
             LobbySession host = hostGateway.open(
                     request(false, "Anfitrion", port)).get(5, TimeUnit.SECONDS);
             LobbySession client = clientGateway.open(
@@ -497,31 +503,33 @@ class NetworkLobbyGatewayTest {
                 client.tableSession().toCompletableFuture()
                         .get(2, TimeUnit.SECONDS);
 
-                AtomicReference<String> hostWarning = new AtomicReference<>();
-                AtomicReference<String> clientWarning = new AtomicReference<>();
+                AtomicReference<String> hostNotice = new AtomicReference<>();
+                AtomicReference<String> clientNotice = new AtomicReference<>();
                 hostContext.get().channel().subscribe(inbound
-                        -> hostWarning.set(inbound.command()));
-                clientContext.get().channel().subscribe(inbound
-                        -> clientWarning.set(inbound.command()));
+                        -> hostNotice.set(inbound.command()));
+                clientContexts.get(0).channel().subscribe(inbound
+                        -> clientNotice.set(inbound.command()));
 
-                java.util.concurrent.ExecutionException rejected = assertThrows(
-                        java.util.concurrent.ExecutionException.class,
-                        () -> lateGateway.open(request(true, "Tardio", port))
-                                .get(5, TimeUnit.SECONDS));
-                assertTrue(rejected.getCause().getMessage()
-                        .contains("La timba ya ha empezado"));
+                LobbySession late = lateGateway.open(
+                        request(true, "Tardio", port)).get(5, TimeUnit.SECONDS);
+                GameLaunchContext lateContext = late.tableSession()
+                        .toCompletableFuture().thenApply(ignored
+                                -> clientContexts.get(1))
+                        .get(5, TimeUnit.SECONDS);
                 String encodedNickname = Base64.getEncoder().encodeToString(
                         "Tardio".getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                String warningPrefix = "YOUARELATE#" + encodedNickname + "#";
-                await(() -> hostWarning.get() != null
-                        && hostWarning.get().startsWith(warningPrefix)
-                        && clientWarning.get() != null
-                        && clientWarning.get().startsWith(warningPrefix));
-                assertTrue(hostWarning.get().startsWith(
-                        warningPrefix));
-                assertEquals(hostWarning.get(), clientWarning.get());
-                assertEquals(2, host.snapshot().participants().size());
+                String hotJoinPrefix = "HOTJOIN#" + encodedNickname + "#";
+                await(() -> hostNotice.get() != null
+                        && hostNotice.get().startsWith(hotJoinPrefix)
+                        && clientNotice.get() != null
+                        && clientNotice.get().startsWith(hotJoinPrefix));
+                assertEquals(hostNotice.get(), clientNotice.get());
+                assertTrue(lateContext.hotJoining());
+                assertTrue(lateContext.initialConfiguration().recover());
+                assertTrue(late.snapshot().startingOrStarted());
+                assertEquals(3, host.snapshot().participants().size());
                 assertTrue(host.snapshot().startingOrStarted());
+                late.close();
             } finally {
                 client.close();
                 host.close();

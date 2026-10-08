@@ -11543,17 +11543,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void readyForNextHand(boolean discardObservedHandCommands) {
         if (!gameSession().isHost() && discardObservedHandCommands
-                && this.conta_mano > 0) {
-            // The targeted START_SRA_CASCADE was already authenticated and
-            // applied before the passive recovery snapshot. Recovery rebuilds
-            // the observed hand's opening state, so atomically reapply that
-            // already-verified closing balance before admission. This second
-            // pass then only tells the host that recovery is fully installed;
-            // waiting for another START would deadlock because the host is
-            // waiting on this exact readiness before starting the crypto ring.
-            if (this.next_hand_balance_wire == null
-                    || !acceptNextHandBalanceSnapshot(
-                            this.next_hand_balance_wire, true)) {
+                && this.conta_mano > 0
+                && this.next_hand_balance_wire != null) {
+            // A live hot join is bootstrapped at the closing boundary of the
+            // observed hand. In that path START_SRA_CASCADE has already been
+            // authenticated and consumed before recovery reconstructs the
+            // table, so reapply its sealed balances and enter the admitted
+            // hand without waiting for the following boundary.
+            //
+            // A newcomer added to an already-open recovery has no such wire
+            // yet. It deliberately falls through to the ordinary barrier
+            // below, sends HAND_READY and waits for the host to close the
+            // recovered hand. This presence check is the protocol distinction
+            // between the two paths; treating a missing wire as fatal used to
+            // close valid recovery newcomers before their first playable hand.
+            if (!acceptNextHandBalanceSnapshot(
+                    this.next_hand_balance_wire, true)) {
                 setFin_de_la_transmision(true);
                 game_transport.closeHostConnection();
                 return;
@@ -25908,7 +25913,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         while (!fin_de_la_transmision) {
             try {
-                if ((getJugadoresActivos() + getJugadoresCalentando()) > 1 && !localPlayer().isExit()) {
+                if (((getJugadoresActivos() + getJugadoresCalentando()) > 1
+                        || this.passive_recovery_observer)
+                        && !localPlayer().isExit()) {
                     if (this.NUEVA_MANO()) {
                         if (this.passive_recovery_observer) {
                             // Deterministic state transition for a newcomer that was

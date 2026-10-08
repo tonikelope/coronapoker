@@ -18,6 +18,10 @@ final class GdxLiveSettingsPolicy {
         return host && configuration != null;
     }
 
+    static boolean canEditHotJoin(boolean host, boolean lobbyAvailable) {
+        return host && lobbyAvailable;
+    }
+
     static boolean canEditRunItTwice(boolean host,
             GameConfigCodecV1.Configuration configuration,
             boolean runItTwiceLocked) {

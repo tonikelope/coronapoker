@@ -276,6 +276,14 @@ public final class NewGameTableDraft {
             return blindLevels.get(blindLevelIndex);
         }
 
+        /** Returns the same authoritative table settings with a new admission policy. */
+        public Settings withAllowHotJoin(boolean enabled) {
+            if (allowHotJoin == enabled) return this;
+            NewGameTableDraft draft = NewGameTableDraft.from(this);
+            draft.setAllowHotJoin(enabled);
+            return draft.snapshot();
+        }
+
         /** Exact KEY=VALUE mirror consumed by the classic waiting-room client. */
         public String serializeForWire() {
             BlindLevel selected = selectedBlindLevel();

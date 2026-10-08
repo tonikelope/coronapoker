@@ -109,10 +109,36 @@ final class LobbySessionTest {
         assertThrows(IllegalStateException.class,
                 () -> client.submit(new LobbyCommand.UpdateTableSettings(
                         new NewGameTableDraft().snapshot())));
+        assertThrows(IllegalStateException.class,
+                () -> client.submit(new LobbyCommand.SetHotJoinPolicy(false)));
         client.submit(new LobbyCommand.SendText("hola #1#"))
                 .toCompletableFuture().join();
         assertTrue(sent.get() instanceof LobbyCommand.SendText);
         assertFalse(client.snapshot().host());
+    }
+
+    @Test
+    void onlyActiveHostCanChangeLiveHotJoinPolicy() {
+        AtomicReference<LobbyCommand> sent = new AtomicReference<>();
+        LobbySession waitingHost = new LobbySession(snapshot(true,
+                List.of(participant("Host", true, true, false)),
+                LobbySnapshot.Phase.WAITING_FOR_PLAYERS), command -> {
+                    sent.set(command);
+                    return CompletableFuture.completedFuture(null);
+                });
+        assertThrows(IllegalStateException.class, () -> waitingHost.submit(
+                new LobbyCommand.SetHotJoinPolicy(false)));
+
+        LobbySession activeHost = new LobbySession(snapshot(true,
+                List.of(participant("Host", true, true, false),
+                        participant("Alice", false, false, false)),
+                LobbySnapshot.Phase.IN_GAME), command -> {
+                    sent.set(command);
+                    return CompletableFuture.completedFuture(null);
+                });
+        activeHost.submit(new LobbyCommand.SetHotJoinPolicy(false))
+                .toCompletableFuture().join();
+        assertEquals(new LobbyCommand.SetHotJoinPolicy(false), sent.get());
     }
 
     private static LobbySnapshot snapshot(boolean host,

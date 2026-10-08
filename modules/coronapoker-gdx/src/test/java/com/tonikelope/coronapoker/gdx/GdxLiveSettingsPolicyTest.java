@@ -22,6 +22,13 @@ final class GdxLiveSettingsPolicyTest {
     }
 
     @Test
+    void onlyHostWithAnActiveLobbyCanEditHotJoinAdmission() {
+        assertTrue(GdxLiveSettingsPolicy.canEditHotJoin(true, true));
+        assertFalse(GdxLiveSettingsPolicy.canEditHotJoin(false, true));
+        assertFalse(GdxLiveSettingsPolicy.canEditHotJoin(true, false));
+    }
+
+    @Test
     void runItTwiceCannotChangeWhileCanonicalRunoutIsLocked() {
         GameConfigCodecV1.Configuration configuration = configuration(true);
 

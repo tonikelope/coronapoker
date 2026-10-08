@@ -503,6 +503,170 @@ class NetworkLobbyGatewayTest {
         }
     }
 
+    @Test void hostCanChangeHotJoinAdmissionDuringTheGameAndPeersConverge()
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        GameTableFactory tables = context -> new TableSession(emptyTable(
+                context.lobby().localNickname()), command -> { },
+                new TableEventBridge(), () -> {
+                    if (!context.lobby().host()) {
+                        return CompletableFuture.completedFuture(null);
+                    }
+                    try {
+                        return context.channel().broadcastFromHost("INIT#"
+                                + GameConfigCodecV1.encodeBase64(
+                                        context.initialConfiguration()), null);
+                    } catch (java.io.IOException failure) {
+                        return CompletableFuture.failedFuture(failure);
+                    }
+                });
+        try (NetworkLobbyGateway hostGateway = new NetworkLobbyGateway(
+                    temporary.resolve("live-policy-host"), tables);
+                NetworkLobbyGateway incumbentGateway = new NetworkLobbyGateway(
+                    temporary.resolve("live-policy-incumbent"), tables);
+                NetworkLobbyGateway rejectedGateway = new NetworkLobbyGateway(
+                    temporary.resolve("live-policy-rejected"), tables);
+                NetworkLobbyGateway warmingGateway = new NetworkLobbyGateway(
+                    temporary.resolve("live-policy-warming"), tables);
+                NetworkLobbyGateway finalRejectedGateway = new NetworkLobbyGateway(
+                    temporary.resolve("live-policy-final-rejected"), tables)) {
+            LobbySession host = hostGateway.open(request(false, "Anfitrion", port))
+                    .get(5, TimeUnit.SECONDS);
+            LobbySession incumbent = incumbentGateway.open(
+                    request(true, "Invitado", port)).get(5, TimeUnit.SECONDS);
+            LobbySession warming = null;
+            try {
+                await(() -> host.snapshot().participants().size() == 2);
+                host.submit(new LobbyCommand.StartGame()).toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS);
+                host.tableSession().toCompletableFuture().get(2,
+                        TimeUnit.SECONDS).attach(immediateRenderer())
+                        .toCompletableFuture().get(2, TimeUnit.SECONDS);
+                incumbent.tableSession().toCompletableFuture().get(2,
+                        TimeUnit.SECONDS);
+
+                host.submit(new LobbyCommand.SetHotJoinPolicy(false))
+                        .toCompletableFuture().get(2, TimeUnit.SECONDS);
+                await(() -> !host.snapshot().tableSettings().allowHotJoin()
+                        && !incumbent.snapshot().tableSettings().allowHotJoin());
+                Exception rejected = assertThrows(Exception.class,
+                        () -> rejectedGateway.open(
+                                request(true, "Bloqueado", port))
+                                .get(5, TimeUnit.SECONDS));
+                assertEquals("La entrada con la timba empezada está desactivada",
+                        rootCause(rejected).getMessage());
+
+                host.submit(new LobbyCommand.SetHotJoinPolicy(true))
+                        .toCompletableFuture().get(2, TimeUnit.SECONDS);
+                await(() -> host.snapshot().tableSettings().allowHotJoin()
+                        && incumbent.snapshot().tableSettings().allowHotJoin());
+                warming = warmingGateway.open(request(true, "Calentando", port))
+                        .get(5, TimeUnit.SECONDS);
+                warming.tableSession().toCompletableFuture().get(5,
+                        TimeUnit.SECONDS);
+                await(() -> host.snapshot().participants().stream().anyMatch(
+                        participant -> participant.nickname().equals(
+                                "Calentando")));
+
+                host.submit(new LobbyCommand.SetHotJoinPolicy(false))
+                        .toCompletableFuture().get(2, TimeUnit.SECONDS);
+                LobbySession admitted = warming;
+                await(() -> !host.snapshot().tableSettings().allowHotJoin()
+                        && !incumbent.snapshot().tableSettings().allowHotJoin()
+                        && !admitted.snapshot().tableSettings().allowHotJoin());
+                assertTrue(host.snapshot().participants().stream().anyMatch(
+                        participant -> participant.nickname().equals(
+                                "Calentando")),
+                        "changing policy must not evict an already admitted peer");
+                Exception finalRejected = assertThrows(Exception.class,
+                        () -> finalRejectedGateway.open(
+                                request(true, "DemasiadoTarde", port))
+                                .get(5, TimeUnit.SECONDS));
+                assertEquals("La entrada con la timba empezada está desactivada",
+                        rootCause(finalRejected).getMessage());
+            } finally {
+                if (warming != null) warming.close();
+                incumbent.close();
+                host.close();
+            }
+        }
+    }
+
+    @Test void livePolicyChangeAndJoinRaceHasOnlyCompleteOutcomes()
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        GameTableFactory tables = context -> new TableSession(emptyTable(
+                context.lobby().localNickname()), command -> { },
+                new TableEventBridge(),
+                () -> CompletableFuture.completedFuture(null));
+        try (NetworkLobbyGateway hostGateway = new NetworkLobbyGateway(
+                    temporary.resolve("race-policy-host"), tables);
+                NetworkLobbyGateway racingGateway = new NetworkLobbyGateway(
+                    temporary.resolve("race-policy-client"), tables);
+                NetworkLobbyGateway afterGateway = new NetworkLobbyGateway(
+                    temporary.resolve("race-policy-after"), tables)) {
+            LobbySession host = hostGateway.open(request(false, "Anfitrion", port))
+                    .get(5, TimeUnit.SECONDS);
+            LobbySession racing = null;
+            try {
+                host.submit(new LobbyCommand.AddBot()).toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS);
+                host.submit(new LobbyCommand.StartGame()).toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS);
+                host.tableSession().toCompletableFuture().get(2,
+                        TimeUnit.SECONDS);
+
+                CountDownLatch start = new CountDownLatch(1);
+                CompletableFuture<Void> disable = CompletableFuture.runAsync(() -> {
+                    awaitUnchecked(start);
+                    host.submit(new LobbyCommand.SetHotJoinPolicy(false))
+                            .toCompletableFuture().join();
+                });
+                CompletableFuture<LobbySession> join = CompletableFuture
+                        .supplyAsync(() -> {
+                            awaitUnchecked(start);
+                            return racingGateway.open(
+                                    request(true, "EnCarrera", port)).join();
+                        });
+                start.countDown();
+                disable.get(5, TimeUnit.SECONDS);
+                Throwable rejection = null;
+                try {
+                    racing = join.get(5, TimeUnit.SECONDS);
+                } catch (Exception failure) {
+                    rejection = rootCause(failure);
+                }
+                await(() -> !host.snapshot().tableSettings().allowHotJoin());
+                boolean admitted = host.snapshot().participants().stream()
+                        .anyMatch(participant -> participant.nickname().equals(
+                                "EnCarrera"));
+                assertEquals(racing != null, admitted,
+                        "a racing connection must be fully admitted or absent");
+                if (racing == null) {
+                    assertEquals("La entrada con la timba empezada está desactivada",
+                            rejection == null ? null : rejection.getMessage());
+                } else {
+                    assertTrue(racing.snapshot().startingOrStarted());
+                }
+
+                Exception after = assertThrows(Exception.class,
+                        () -> afterGateway.open(request(true, "Despues", port))
+                                .get(5, TimeUnit.SECONDS));
+                assertEquals("La entrada con la timba empezada está desactivada",
+                        rootCause(after).getMessage());
+            } finally {
+                if (racing != null) racing.close();
+                host.close();
+            }
+        }
+    }
+
     private void assertStartedTableAcceptsLateHuman(boolean incumbentHuman,
             int bots, String topology) throws Exception {
         int port;
@@ -881,6 +1045,21 @@ class NetworkLobbyGatewayTest {
         Field field = target.getClass().getDeclaredField(name);
         field.setAccessible(true);
         return field.get(target);
+    }
+
+    private static Throwable rootCause(Throwable failure) {
+        Throwable result = failure;
+        while (result.getCause() != null) result = result.getCause();
+        return result;
+    }
+
+    private static void awaitUnchecked(CountDownLatch latch) {
+        try {
+            latch.await();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new java.util.concurrent.CompletionException(interrupted);
+        }
     }
 
     private static void await(BooleanSupplier condition) throws Exception {

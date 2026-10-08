@@ -48,6 +48,7 @@ import com.tonikelope.coronapoker.core.IdentityTrustStore;
 import com.tonikelope.coronapoker.core.LobbyParticipant;
 import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.core.LobbyChatMessage;
+import com.tonikelope.coronapoker.core.LobbyCommand;
 import com.tonikelope.coronapoker.core.LobbySession;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import com.tonikelope.coronapoker.table.TableSnapshot;
@@ -883,6 +884,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private NewGameTableDraft.BotDifficulty tableBotDifficulty;
     private NewGameTableDraft.BotDifficulty settingsBotDifficultySnapshot;
     private NewGameTableDraft.BotDifficulty liveBotDifficultyDraft;
+    private boolean settingsHotJoinSnapshot;
+    private boolean settingsHotJoinDraft;
 
     private OrthographicCamera camera;
     private ExtendViewport viewport;
@@ -2147,6 +2150,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         liveSettingsDraft = liveSettingsOpened;
         settingsBotDifficultySnapshot = tableBotDifficulty;
         liveBotDifficultyDraft = tableBotDifficulty;
+        NewGameTableDraft.Settings currentTableSettings = lobby == null
+                ? null : lobby.snapshot().tableSettings();
+        settingsHotJoinSnapshot = currentTableSettings != null
+                && currentTableSettings.allowHotJoin();
+        settingsHotJoinDraft = settingsHotJoinSnapshot;
     }
 
     private void closeTableSettings(boolean save) {
@@ -2243,6 +2251,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         settingsTextToSpeechDraft,
                         settingsVoiceMessagesDraft));
             }
+            if (lobby != null
+                    && settingsHotJoinDraft != settingsHotJoinSnapshot) {
+                submitHotJoinPolicy(settingsHotJoinDraft);
+            }
         }
         if (save && preferences != null) preferences.saveDeferred();
         liveSettingsOpened = null;
@@ -2261,11 +2273,38 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
+    private void submitHotJoinPolicy(boolean enabled) {
+        try {
+            lobby.submit(new LobbyCommand.SetHotJoinPolicy(enabled))
+                    .whenComplete((unused, failure) -> {
+                        if (failure == null || Gdx.app == null) return;
+                        Gdx.app.postRunnable(() -> showDialog(
+                                new GdxTableDialog(
+                                        GdxTableDialog.Kind.INFO,
+                                        gameText.translate("gdx.dialog.error"),
+                                        gameText.translate(
+                                                "gdx.settings.hot_join_update_failed"),
+                                        com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.NONE,
+                                        860, 0, false, "",
+                                        gameText.translate("ui.aceptar"))));
+                    });
+        } catch (RuntimeException failure) {
+            showDialog(new GdxTableDialog(GdxTableDialog.Kind.INFO,
+                    gameText.translate("gdx.dialog.error"),
+                    gameText.translate(
+                            "gdx.settings.hot_join_update_failed"),
+                    com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.NONE,
+                    860, 0, false, "",
+                    gameText.translate("ui.aceptar")));
+        }
+    }
+
     private boolean settingsHavePendingChanges() {
         if (shortcutBindings.hasPendingEdits()
                 || autoRebuy != settingsAutoRebuySnapshot
                 || settingsTextToSpeechDraft != settingsTextToSpeechSnapshot
                 || settingsVoiceMessagesDraft != settingsVoiceMessagesSnapshot
+                || settingsHotJoinDraft != settingsHotJoinSnapshot
                 || !Objects.equals(liveSettingsDraft, liveSettingsOpened)
                 || liveBotDifficultyDraft != settingsBotDifficultySnapshot) {
             return true;
@@ -14905,9 +14944,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     return;
                 }
             }
-        } else if (contentPage == 3
-                && GdxLiveSettingsPolicy.canEditGameRules(tableHost,
-                        liveSettingsDraft)) {
+        } else if (contentPage == 3) {
             GdxSettingsLayout.GameColumns columns =
                     GdxSettingsLayout.gameColumns(contentX, rowW);
             GdxSettingsLayout.SplitRow handRow =
@@ -14917,6 +14954,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Rectangle iwtsth = columns.right(firstRowY, 0);
             Rectangle runItTwice = columns.right(firstRowY, 1);
             Rectangle rabbit = columns.right(firstRowY, 2);
+            Rectangle hotJoin = columns.right(firstRowY, 3);
+            if (GdxLiveSettingsPolicy.canEditHotJoin(tableHost,
+                    lobby != null) && hotJoin.contains(x, y)) {
+                runSwitchAction(settingsHotJoinDraft,
+                        () -> settingsHotJoinDraft = !settingsHotJoinDraft);
+                return;
+            }
+            if (!GdxLiveSettingsPolicy.canEditGameRules(tableHost,
+                    liveSettingsDraft)) {
+                return;
+            }
             if (iwtsth.contains(x, y)) {
                 boolean enabled = liveSettingsDraft.iwtsth();
                 runSwitchAction(enabled, () -> liveSettingsDraft =
@@ -17563,11 +17611,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return firstHoveredLock(key, "round-server",
                         handRow.left(), handRow.right(),
                         columns.right(firstY, 0),
-                        columns.right(firstY, 1), columns.right(firstY, 2));
+                        columns.right(firstY, 1), columns.right(firstY, 2),
+                        columns.right(firstY, 3));
             }
             if (liveState != null && liveState.runItTwiceLocked()) {
                 return hoveredLock(columns.right(firstY, 1),
                         "gdx.settings.game.locked_during_game", "rit-locked");
+            }
+            if (!GdxLiveSettingsPolicy.canEditHotJoin(tableHost,
+                    lobby != null)) {
+                return hoveredLock(columns.right(firstY, 3),
+                        tableHost
+                                ? "gdx.settings.game.locked_during_game"
+                                : "gdx.settings.game.server_only",
+                        "hot-join-policy");
             }
             return null;
         }
@@ -18313,6 +18370,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Rectangle iwtsth = columns.right(firstY, 0);
             Rectangle runItTwice = columns.right(firstY, 1);
             Rectangle rabbit = columns.right(firstY, 2);
+            Rectangle hotJoin = columns.right(firstY, 3);
             boolean limited = liveSettingsDraft != null
                     && liveSettingsDraft.hands() != -1;
             drawSettingsToggleShape(handLimit.x, handLimit.y, handLimit.width,
@@ -18337,6 +18395,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     alpha);
             drawSettingsStepperShape(rabbit.x, rabbit.y, rabbit.width,
                     enabled, alpha);
+            drawSettingsToggleShape(hotJoin.x, hotJoin.y, hotJoin.width,
+                    settingsHotJoinDraft,
+                    GdxLiveSettingsPolicy.canEditHotJoin(tableHost,
+                            lobby != null), alpha);
         } else if (contentPage == 4) {
             boolean enabled = GdxLiveSettingsPolicy.canEditGameRules(
                     tableHost, liveSettingsDraft);
@@ -19004,6 +19066,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Rectangle iwtsth = columns.right(firstY, 0);
             Rectangle runItTwice = columns.right(firstY, 1);
             Rectangle rabbit = columns.right(firstY, 2);
+            Rectangle hotJoin = columns.right(firstY, 3);
             boolean limited = liveSettingsDraft != null
                     && liveSettingsDraft.hands() != -1;
             drawSettingsRowText(handLimit.x, handLimit.y, handLimit.width,
@@ -19033,6 +19096,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawSettingsStepperText(rabbit.x, rabbit.y, rabbit.width,
                     settingsGameText("row.rabbit_hunting"), rabbitRuleLabel(),
                     enabled, alpha);
+            drawSettingsRowText(hotJoin.x, hotJoin.y, hotJoin.width,
+                    settingsGameText("row.allow_hot_join"),
+                    GdxLiveSettingsPolicy.canEditHotJoin(tableHost,
+                            lobby != null), alpha);
         } else if (contentPage == 4) {
             boolean enabled = tableHost && liveSettingsDraft != null;
             GdxSettingsLayout.GameColumns columns =

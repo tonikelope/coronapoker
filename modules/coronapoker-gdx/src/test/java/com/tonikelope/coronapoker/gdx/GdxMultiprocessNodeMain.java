@@ -28,6 +28,7 @@ import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
@@ -124,6 +125,8 @@ public final class GdxMultiprocessNodeMain {
                     || "live-hot-join-reentry-churn".equals(config.scenario)
                     || "live-hot-join-crash-reentry".equals(config.scenario)
                     || "live-hot-join-flop-bootstrap".equals(config.scenario)
+                    || "live-hot-join-pre-attach-bootstrap".equals(
+                            config.scenario)
                     || "live-hot-join-paused-bootstrap".equals(config.scenario)
                     || "live-hot-join-two".equals(config.scenario)
                     || "live-hot-join-two-exit".equals(config.scenario)) {
@@ -289,6 +292,17 @@ public final class GdxMultiprocessNodeMain {
                 config.scenario);
         boolean exitDuringBootstrap = "live-hot-join-bootstrap-exit".equals(
                 config.scenario);
+        /*
+         * The desktop frontend receives network frames while its render
+         * thread is still scheduling/creating the native table. Exercise that
+         * production ordering in every settled late-join scenario. The one
+         * bootstrap-exit scenario deliberately leaves even earlier and keeps
+         * its original contract.
+         */
+        boolean preAttachBootstrap = config.phase.startsWith("late")
+                && !exitDuringBootstrap;
+        AtomicBoolean bootstrapAcceptedBeforeAttach = preAttachBootstrap
+                ? observeAcceptedHotJoinBootstrap() : new AtomicBoolean();
         boolean exitAtAdmission = "live-hot-join-admission-exit".equals(
                 config.scenario);
         boolean exitWhileWarming = "live-hot-join-exit".equals(
@@ -381,6 +395,13 @@ public final class GdxMultiprocessNodeMain {
                 } else {
                     renderer.gateActionAtOrAfterHand(1L);
                 }
+            }
+            if (preAttachBootstrap && late) {
+                await(bootstrapAcceptedBeforeAttach::get,
+                        Duration.ofSeconds(30),
+                        "authoritative bootstrap before renderer attachment");
+                marker("HOT_JOIN_PRE_ATTACH_BOOTSTRAP",
+                        "nick=" + config.nickname);
             }
             table.attach(renderer).toCompletableFuture()
                     .get(15, TimeUnit.SECONDS);
@@ -849,6 +870,8 @@ public final class GdxMultiprocessNodeMain {
         final int expectedPlayers = config.clients + config.bots + 1;
         final boolean reenteredOwner = owner.equals(config.nickname)
                 && "late-reentry".equals(config.phase);
+        AtomicBoolean bootstrapAcceptedBeforeAttach = reenteredOwner
+                ? observeAcceptedHotJoinBootstrap() : new AtomicBoolean();
         AtomicReference<CoronaPokerGdxTable> productTable
                 = new AtomicReference<>();
         AtomicReference<GdxScenarioRenderer> scenarioRenderer
@@ -890,6 +913,13 @@ public final class GdxMultiprocessNodeMain {
             if (owner.equals(config.nickname)
                     && "initial".equals(config.phase)) {
                 renderer.gateActionAtOrAfterHand(1L);
+            }
+            if (reenteredOwner) {
+                await(bootstrapAcceptedBeforeAttach::get,
+                        Duration.ofSeconds(30),
+                        "active owner bootstrap before renderer attachment");
+                marker("HOT_JOIN_PRE_ATTACH_BOOTSTRAP",
+                        "nick=" + config.nickname);
             }
             table.attach(renderer).toCompletableFuture()
                     .get(15, TimeUnit.SECONDS);
@@ -1045,6 +1075,9 @@ public final class GdxMultiprocessNodeMain {
                 && "late-first".equals(config.phase);
         final boolean reenteredOwner = owner.equals(config.nickname)
                 && "late-reentry".equals(config.phase);
+        final boolean hotJoiningOwner = firstOwner || reenteredOwner;
+        AtomicBoolean bootstrapAcceptedBeforeAttach = hotJoiningOwner
+                ? observeAcceptedHotJoinBootstrap() : new AtomicBoolean();
         AtomicReference<CoronaPokerGdxTable> productTable
                 = new AtomicReference<>();
         AtomicReference<GdxScenarioRenderer> scenarioRenderer
@@ -1087,6 +1120,13 @@ public final class GdxMultiprocessNodeMain {
             scenarioRenderer.set(renderer);
             if (config.host()) renderer.gateActionAtOrAfterHand(1L);
             if (firstOwner) renderer.gateActionAtOrAfterHand(2L);
+            if (hotJoiningOwner) {
+                await(bootstrapAcceptedBeforeAttach::get,
+                        Duration.ofSeconds(30),
+                        "admitted owner bootstrap before renderer attachment");
+                marker("HOT_JOIN_PRE_ATTACH_BOOTSTRAP",
+                        "nick=" + config.nickname);
+            }
             table.attach(renderer).toCompletableFuture()
                     .get(15, TimeUnit.SECONDS);
 
@@ -3493,6 +3533,35 @@ public final class GdxMultiprocessNodeMain {
             case "mixed-exit-crash" -> Set.of("client2");
             default -> Set.of();
         };
+    }
+
+    /**
+     * Test-only proof that the real network subscriber accepted the canonical
+     * bootstrap before this process attaches its renderer. Each multiprocess
+     * node runs one scenario and exits, so the handler deliberately shares
+     * that node lifetime.
+     */
+    private static AtomicBoolean observeAcceptedHotJoinBootstrap() {
+        AtomicBoolean accepted = new AtomicBoolean();
+        java.util.logging.Logger.getLogger(
+                "com.tonikelope.coronapoker.CoreGameTableFactory$HotJoinSync")
+                .addHandler(new java.util.logging.Handler() {
+                    @Override
+                    public void publish(java.util.logging.LogRecord record) {
+                        if (record != null && record.getMessage() != null
+                                && record.getMessage().startsWith(
+                                        "HOT JOIN: accepted public table bootstrap")) {
+                            accepted.set(true);
+                        }
+                    }
+
+                    @Override
+                    public void flush() { }
+
+                    @Override
+                    public void close() { }
+                });
+        return accepted;
     }
 
     private static void await(BooleanSupplier condition, Duration timeout,

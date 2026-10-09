@@ -8,6 +8,7 @@
  */
 package com.tonikelope.coronapoker.table;
 
+import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -35,6 +36,10 @@ public final class TableEventBridge implements AutoCloseable {
             = new AtomicReference<>(ignored -> { });
     private final AtomicBoolean localPublicationsSuppressed
             = new AtomicBoolean();
+    private final Object attachmentLock = new Object();
+    private final ArrayDeque<PendingAuthoritative> pendingAuthoritative
+            = new ArrayDeque<>();
+    private boolean closed;
 
     /**
      * Installs the table-scoped observer used by protocol projections such as
@@ -49,17 +54,27 @@ public final class TableEventBridge implements AutoCloseable {
         Objects.requireNonNull(renderer, "renderer");
         Objects.requireNonNull(initialState, "initialState");
         TablePresentation candidate = new TablePresentation(renderer);
-        if (!presentation.compareAndSet(null, candidate)) {
-            candidate.close();
-            throw new IllegalStateException("A table renderer is already attached");
-        }
         CompletionStage<Void> opening;
-        try {
-            opening = candidate.open(initialState);
-        } catch (RuntimeException error) {
-            presentation.compareAndSet(candidate, null);
-            candidate.close();
-            throw error;
+        synchronized (attachmentLock) {
+            if (closed) {
+                candidate.close();
+                throw new IllegalStateException("Table event bridge is closed");
+            }
+            if (!presentation.compareAndSet(null, candidate)) {
+                candidate.close();
+                throw new IllegalStateException("A table renderer is already attached");
+            }
+            try {
+                opening = candidate.open(initialState);
+                while (!pendingAuthoritative.isEmpty()) {
+                    dispatchPending(candidate,
+                            pendingAuthoritative.removeFirst());
+                }
+            } catch (RuntimeException error) {
+                presentation.compareAndSet(candidate, null);
+                candidate.close();
+                throw error;
+            }
         }
         return Objects.requireNonNull(opening, "renderer opening barrier")
                 .whenComplete((ignored, error) -> {
@@ -98,10 +113,33 @@ public final class TableEventBridge implements AutoCloseable {
         return publishIfAttached(eventFactory).orElse(NO_RENDERER);
     }
 
-    /** Publishes a server-authoritative event even during passive recovery. */
+    /**
+     * Publishes a server-authoritative event even during passive recovery.
+     *
+     * A live hot-join bootstrap can reach the network subscriber after its
+     * {@link TableSession} exists but before the frontend render thread has
+     * attached the native table.  Such an event is part of the canonical
+     * remote stream and must be retained, in order, until attachment; treating
+     * it like an optional local animation leaves the visible table forever in
+     * its provisional preparation state.
+     */
     public CompletionStage<Void> publishAuthoritative(
             LongFunction<? extends TableVisualEvent> eventFactory) {
-        return publishAttached(eventFactory).orElse(NO_RENDERER);
+        Objects.requireNonNull(eventFactory, "eventFactory");
+        synchronized (attachmentLock) {
+            if (closed) {
+                return CompletableFuture.failedFuture(
+                        new IllegalStateException("Table event bridge is closed"));
+            }
+            TablePresentation current = presentation.get();
+            if (current != null) {
+                return publishTo(current, eventFactory);
+            }
+            CompletableFuture<Void> barrier = new CompletableFuture<>();
+            pendingAuthoritative.addLast(new PendingAuthoritative(
+                    eventFactory, barrier));
+            return barrier;
+        }
     }
 
     /**
@@ -129,19 +167,54 @@ public final class TableEventBridge implements AutoCloseable {
         TablePresentation current = presentation.get();
         return current == null
                 ? Optional.empty()
-                : Optional.of(current.publish(sequence -> {
-                    TableVisualEvent event = Objects.requireNonNull(
-                            eventFactory.apply(sequence), "event");
-                    observer.get().accept(event);
-                    return event;
-                }));
+                : Optional.of(publishTo(current, eventFactory));
+    }
+
+    private CompletionStage<Void> publishTo(TablePresentation target,
+            LongFunction<? extends TableVisualEvent> eventFactory) {
+        return target.publish(sequence -> {
+            TableVisualEvent event = Objects.requireNonNull(
+                    eventFactory.apply(sequence), "event");
+            observer.get().accept(event);
+            return event;
+        });
+    }
+
+    private void dispatchPending(TablePresentation target,
+            PendingAuthoritative pending) {
+        try {
+            publishTo(target, pending.eventFactory())
+                    .whenComplete((ignored, failure) -> {
+                        if (failure == null) pending.barrier().complete(null);
+                        else pending.barrier().completeExceptionally(failure);
+                    });
+        } catch (Throwable failure) {
+            pending.barrier().completeExceptionally(failure);
+        }
     }
 
     @Override
     public void close() {
-        TablePresentation current = presentation.getAndSet(null);
+        TablePresentation current;
+        ArrayDeque<PendingAuthoritative> abandoned = new ArrayDeque<>();
+        synchronized (attachmentLock) {
+            if (closed) return;
+            closed = true;
+            current = presentation.getAndSet(null);
+            abandoned.addAll(pendingAuthoritative);
+            pendingAuthoritative.clear();
+        }
+        IllegalStateException failure = new IllegalStateException(
+                "Table event bridge closed before renderer attachment");
+        while (!abandoned.isEmpty()) {
+            abandoned.removeFirst().barrier().completeExceptionally(failure);
+        }
         if (current != null) {
             current.close();
         }
     }
+
+    private record PendingAuthoritative(
+            LongFunction<? extends TableVisualEvent> eventFactory,
+            CompletableFuture<Void> barrier) { }
 }

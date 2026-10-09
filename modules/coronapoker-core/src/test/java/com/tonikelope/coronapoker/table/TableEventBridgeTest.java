@@ -214,6 +214,79 @@ final class TableEventBridgeTest {
     }
 
     @Test
+    void authoritativeHotJoinBootstrapReceivedBeforeAttachmentIsNotLost() {
+        TableEventBridge bridge = new TableEventBridge();
+        TableSnapshot bootstrap = new TableSnapshot(7L, "late",
+                TableSnapshot.Street.FLOP, 3d, "remote", false,
+                List.of(), List.of(new TableSnapshot.CardSnapshot(
+                        "A_C", true, false)));
+
+        CompletionStage<Void> retained = bridge.publishAuthoritative(
+                sequence -> new TableVisualEvent.HotJoinState(
+                        sequence, bootstrap));
+
+        assertFalse(retained.toCompletableFuture().isDone(),
+                "the bootstrap must wait for the real frontend attachment");
+        RecordingRenderer renderer = new RecordingRenderer();
+        bridge.attach(renderer, emptyTable()).toCompletableFuture().join();
+
+        assertEquals(1, renderer.events.size());
+        assertEquals(new TableVisualEvent.HotJoinState(1L, bootstrap),
+                renderer.events.get(0));
+        renderer.finishCurrentAnimation();
+        retained.toCompletableFuture().join();
+        bridge.close();
+    }
+
+    @Test
+    void closingBeforeAttachmentFailsRetainedAuthoritativeEvents() {
+        TableEventBridge bridge = new TableEventBridge();
+        CompletionStage<Void> retained = bridge.publishAuthoritative(
+                sequence -> new TableVisualEvent.PauseStatus(sequence, true));
+
+        bridge.close();
+
+        assertTrue(retained.toCompletableFuture().isCompletedExceptionally());
+    }
+
+    @Test
+    void authoritativeFramesRetainedBeforeAttachmentKeepNetworkOrder() {
+        TableEventBridge bridge = new TableEventBridge();
+        CompletionStage<Void> first = bridge.publishAuthoritative(
+                sequence -> new TableVisualEvent.PauseStatus(sequence, true));
+        CompletionStage<Void> second = bridge.publishAuthoritative(
+                sequence -> new TableVisualEvent.PauseStatus(sequence, false));
+        CompletableFuture<Void> rendererReady = new CompletableFuture<>();
+        List<TableVisualEvent> rendered = new ArrayList<>();
+
+        CompletionStage<Void> opening = bridge.attach(new TableRenderer() {
+            @Override
+            public CompletionStage<Void> open(TableSnapshot initialState) {
+                return rendererReady;
+            }
+
+            @Override
+            public CompletionStage<Void> render(TableVisualEvent event) {
+                rendered.add(event);
+                return CompletableFuture.completedFuture(null);
+            }
+
+            @Override
+            public void close() { }
+        }, emptyTable());
+
+        assertTrue(rendered.isEmpty());
+        rendererReady.complete(null);
+        opening.toCompletableFuture().join();
+        first.toCompletableFuture().join();
+        second.toCompletableFuture().join();
+        assertEquals(List.of(
+                new TableVisualEvent.PauseStatus(1L, true),
+                new TableVisualEvent.PauseStatus(2L, false)), rendered);
+        bridge.close();
+    }
+
+    @Test
     void passiveRecoveryCanStillTerminateItsLocalRenderer() {
         TableEventBridge bridge = new TableEventBridge();
         RecordingRenderer renderer = new RecordingRenderer();

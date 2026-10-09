@@ -109,6 +109,14 @@ class GdxMultiprocessScenarioTest {
 
     @Test
     @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    void authoritativeBootstrapArrivingBeforeRendererAttachmentStillOpensTable(
+            @TempDir Path root) throws Exception {
+        runLiveHotJoinScenario(root, 0, 1,
+                "live-hot-join-pre-attach-bootstrap");
+    }
+
+    @Test
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
     void freshHotJoinReceivesAndLeavesAnAlreadyPausedTable(
             @TempDir Path root) throws Exception {
         runLiveHotJoinScenario(root, 0, 1,
@@ -1513,17 +1521,17 @@ class GdxMultiprocessScenarioTest {
                     ? "live-hot-join-reentry-later"
                     : "live-hot-join-reentry";
             NodeProcess host = startNode(root.resolve("host"), "host",
-                    "server", port, 2, 1, 3,
+                    "server", port, 2, 0, 3,
                     scenario);
             nodes.add(host);
             awaitHostReady(host);
             NodeProcess incumbent = startNode(root.resolve("client-1"),
-                    "client", "client1", port, 2, 1, 3,
+                    "client", "client1", port, 2, 0, 3,
                     scenario);
             nodes.add(incumbent);
             assertTrue(incumbent.await("CP_GDX_E2E_READY",
                     Duration.ofSeconds(30)), incumbent.diagnostic());
-            assertTrue(host.await("CP_GDX_E2E_LOBBY_READY players=3",
+            assertTrue(host.await("CP_GDX_E2E_LOBBY_READY players=2",
                     Duration.ofSeconds(45)), host.diagnostic());
             host.send("START_GAME");
             assertTrue(host.await("CP_GDX_E2E_HOT_JOIN_GATE",
@@ -1531,7 +1539,7 @@ class GdxMultiprocessScenarioTest {
 
             Path ownerHome = root.resolve("client-2-owner");
             first = startNode(ownerHome, "client", "client2", port,
-                    2, 1, 3, scenario, "late-exit");
+                    2, 0, 3, scenario, "late-exit");
             assertTrue(first.await(
                     "CP_GDX_E2E_HOT_JOIN_WARMING nick=client2",
                     Duration.ofSeconds(90)), first.diagnostic());
@@ -1550,7 +1558,7 @@ class GdxMultiprocessScenarioTest {
                     Duration.ofSeconds(60)), incumbent.diagnostic());
 
             impostor = startNode(root.resolve("client-2-impostor"),
-                    "client", "client2", port, 2, 1, 3,
+                    "client", "client2", port, 2, 0, 3,
                     scenario, "late-impostor");
             assertTrue(impostor.await(
                     "CP_GDX_E2E_HOT_JOIN_IMPERSONATION_REJECTED nick=client2",
@@ -1566,7 +1574,7 @@ class GdxMultiprocessScenarioTest {
             // Reuse the exact profile directory: the persistent Ed25519
             // identity, not the nickname string, owns the old stack.
             reentered = startNode(ownerHome, "client", "client2", port,
-                    2, 1, 3, scenario, "late-reentry");
+                    2, 0, 3, scenario, "late-reentry");
             assertTrue(reentered.await(
                     "CP_GDX_E2E_HOT_JOIN_WARMING nick=client2",
                     Duration.ofSeconds(90)), reentered.diagnostic());

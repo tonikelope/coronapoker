@@ -269,7 +269,19 @@ final class GdxScenarioRenderer implements TableRenderer {
                 + previousSequence + ", current=" + event.sequence());
         GdxTableViewState projection = state.get();
         assertNotNull(projection, "renderer must open before events arrive");
-        projection.apply(event);
+        if (event instanceof TableVisualEvent.HotJoinState) {
+            // Exercise the production scene cut-over itself. Previous scenarios
+            // updated only this test projection while the CoronaPokerGdxTable
+            // instance never consumed HOTJOIN_STATE, allowing renderer bugs to
+            // pass behind a correct model assertion.
+            CompletableFuture<Void> applied = new CompletableFuture<>();
+            productTable().acceptEvent(event, applied);
+            assertTrue(applied.isDone()
+                    && !applied.isCompletedExceptionally(),
+                    "product GDX table did not accept the hot-join bootstrap");
+        } else {
+            projection.apply(event);
+        }
         if (event instanceof TableVisualEvent.HotJoinState hotJoinState) {
             assertTrue(firstHotJoinState.compareAndSet(null,
                     hotJoinState.snapshot()),
@@ -807,7 +819,8 @@ final class GdxScenarioRenderer implements TableRenderer {
         }
         return snapshot.communityCards().subList(0, count).stream()
                 .allMatch(card -> card.visible() && card.faceUp()
-                && !card.code().isBlank());
+                && !card.code().isBlank())
+                && productTable().hasRestingCommunityCards(count, true);
     }
 
     boolean firstHotJoinPendingCommunityCardsAreSafeBacks(int firstSlot) {
@@ -816,15 +829,23 @@ final class GdxScenarioRenderer implements TableRenderer {
                 || snapshot.communityCards().size() <= firstSlot) {
             return false;
         }
+        int count = snapshot.communityCards().size() - firstSlot;
         return snapshot.communityCards().subList(firstSlot,
                 snapshot.communityCards().size()).stream().allMatch(card
                         -> card.visible() && !card.faceUp()
-                        && card.code().isBlank());
+                        && card.code().isBlank())
+                && productTable().hasRestingCommunityCards(firstSlot, count,
+                        false);
     }
 
     boolean firstHotJoinRemoteCardSlotsAreSafeBacks() {
         TableSnapshot snapshot = firstHotJoinState.get();
         return snapshot != null && activeRemoteCardSlotsAreSafeBacks(snapshot);
+    }
+
+    boolean firstHotJoinStateIsPaused() {
+        TableSnapshot snapshot = firstHotJoinState.get();
+        return snapshot != null && snapshot.paused();
     }
 
     String communityCardDiagnostic() {
@@ -864,7 +885,8 @@ final class GdxScenarioRenderer implements TableRenderer {
     boolean activeRemoteCardSlotsAreSafeBacks() {
         GdxTableViewState projection = state.get();
         if (projection == null) return false;
-        return activeRemoteCardSlotsAreSafeBacks(projection.snapshot());
+        return activeRemoteCardSlotsAreSafeBacks(projection.snapshot())
+                && productTable().hasRestingRemoteCardBacks();
     }
 
     private static boolean activeRemoteCardSlotsAreSafeBacks(
@@ -982,6 +1004,22 @@ final class GdxScenarioRenderer implements TableRenderer {
         return projection.snapshot().players().stream()
                 .filter(player -> player.nickname().equals(nickname))
                 .findFirst().orElseThrow().stack();
+    }
+
+    double buyInOf(String nickname) {
+        GdxTableViewState projection = state.get();
+        assertNotNull(projection);
+        return projection.snapshot().players().stream()
+                .filter(player -> player.nickname().equals(nickname))
+                .findFirst().orElseThrow().buyIn();
+    }
+
+    int rebuyCountOf(String nickname) {
+        GdxTableViewState projection = state.get();
+        assertNotNull(projection);
+        return projection.snapshot().players().stream()
+                .filter(player -> player.nickname().equals(nickname))
+                .findFirst().orElseThrow().rebuyCount();
     }
 
     double effectiveStackOf(String nickname) {

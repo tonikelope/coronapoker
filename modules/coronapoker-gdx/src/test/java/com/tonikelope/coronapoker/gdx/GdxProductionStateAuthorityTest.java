@@ -146,6 +146,48 @@ final class GdxProductionStateAuthorityTest {
     }
 
     @Test
+    void productTableConsumesHotJoinAsAnAuthoritativePausedSceneCutover(
+            @TempDir Path temporary) {
+        TableSnapshot initial = new TableSnapshot(1L, "human",
+                TableSnapshot.Street.PREFLOP, 0d, "", false,
+                List.of(player("human"), player("remote")), List.of());
+        TableSnapshot.CardSnapshot back = new TableSnapshot.CardSnapshot(
+                "", false, false, true);
+        TableSnapshot.PlayerSnapshot warming = new TableSnapshot.PlayerSnapshot(
+                "human", 10d, 0d, 0d, false, true, false, false,
+                -1, -1, 0, 0L, false, false, TableSnapshot.Position.NONE,
+                "CALENTANDO", "", List.of(), 10, 0, true);
+        TableSnapshot.PlayerSnapshot remote = new TableSnapshot.PlayerSnapshot(
+                "remote", 9d, 1d, 1d, true, false, false, false,
+                -1, -1, 0, 0L, false, false,
+                TableSnapshot.Position.BIG_BLIND, "VA", "",
+                List.of(back, back));
+        TableSnapshot bootstrap = new TableSnapshot(2L, "human",
+                TableSnapshot.Street.FLOP, 2d, "remote", true,
+                List.of(warming, remote), List.of(card("A_C", true),
+                        card("K_D", true), card("Q_T", true), back, back));
+        GdxTableViewState projection = new GdxTableViewState(initial);
+        CoronaPokerGdxTable table = nonAnimatedTable(temporary, projection,
+                false);
+
+        CompletableFuture<Void> applied = new CompletableFuture<>();
+        table.acceptEvent(new TableVisualEvent.HotJoinState(1L, bootstrap),
+                applied);
+
+        assertTrue(applied.isDone());
+        assertTrue(projection.snapshot().paused());
+        assertEquals(TableSnapshot.Street.FLOP,
+                projection.snapshot().street());
+        assertEquals(List.of("A_C", "K_D", "Q_T"),
+                projection.snapshot().communityCards().subList(0, 3).stream()
+                        .map(TableSnapshot.CardSnapshot::code).toList());
+        assertEquals(2, projection.presentedHoleCards("remote").size());
+        assertTrue(projection.presentedHoleCards("remote").stream()
+                .allMatch(value -> value.visible() && !value.faceUp()
+                && value.code().isBlank()));
+    }
+
+    @Test
     void animatedMoneyAndPositionEventsCommitBeforeTelemetryCanOvertakeThem(
             @TempDir Path temporary) {
         assertAnimatedEventCommitsBeforeTelemetry(temporary.resolve("position"),

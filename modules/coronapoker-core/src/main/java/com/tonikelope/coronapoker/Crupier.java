@@ -533,6 +533,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.hot_join_observer = true;
         this.hot_join_first_deal_pending = true;
         this.passive_recovery_observer = true;
+        /*
+         * RECOVERDATA keeps the local protocol/dealer model able to reach the
+         * next authenticated boundary, but it is not the visual authority for
+         * the already-open hand. Only HOTJOIN_STATE/HOTJOIN_EVENT from the
+         * host may drive the scene until admission; otherwise a late local
+         * SeatRoster/deal replay can cover the correct public board and card
+         * backs with stale recovery state.
+         */
+        table_events.suppressLocalPublications(true);
     }
 
     /**
@@ -690,13 +699,41 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     player.nickname());
             boolean publiclyRevealed = controller != null
                     && controller.isMuestra();
+            boolean concealedCardsBelongOnTable = controller != null
+                    && controller.isActivo()
+                    && controller.getDecision() != GamePlayerController.FOLD
+                    && !player.spectator() && !player.exited()
+                    && !player.warming();
+            int publicCardSlots = concealedCardsBelongOnTable
+                    ? 2 : player.holeCards().size();
             java.util.List<TableSnapshot.CardSnapshot> cards
-                    = player.holeCards().stream()
-                            .map(card -> publiclyRevealed
-                                    ? publicCard(card)
-                                    : new TableSnapshot.CardSnapshot("", false,
-                                            card.disabled(), card.visible()))
-                            .toList();
+                    = java.util.stream.IntStream.range(0, publicCardSlots)
+                            .mapToObj(index -> {
+                                TableSnapshot.CardSnapshot card = index
+                                        < player.holeCards().size()
+                                                ? player.holeCards().get(index)
+                                                : null;
+                                if (publiclyRevealed) {
+                                    return publicCard(card);
+                                }
+                                /*
+                                 * Card visibility during the ordinary GDX
+                                 * deal is presentation state and can still be
+                                 * false in the neutral controller after the
+                                 * animation has completed.  A public hot-join
+                                 * snapshot must nevertheless preserve the two
+                                 * occupied slots of every live, non-folded
+                                 * seat.  Remote encrypted cards deliberately
+                                 * need not be initialized in this controller;
+                                 * the authoritative live/non-folded role is
+                                 * enough to expose an occupied slot. The
+                                 * rank/suit stays blank and never crosses the
+                                 * network boundary.
+                                 */
+                                return new TableSnapshot.CardSnapshot("", false,
+                                        card != null && card.disabled(),
+                                        concealedCardsBelongOnTable);
+                            }).toList();
             return new TableSnapshot.PlayerSnapshot(player.nickname(),
                     player.stack(), player.streetBet(),
                     player.potContribution(), player.active(),
@@ -11786,6 +11823,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 setRecovering(false);
             }
             this.hot_join_observer = false;
+            table_events.suppressLocalPublications(false);
             this.sendGAMECommandToServer(
                     "HAND_READY#" + String.valueOf(this.conta_mano + 1));
             return;
@@ -12105,6 +12143,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // ACTIONDATA and reopens the departed incarnation's fossil.
                 setRecovering(false);
                 this.hot_join_observer = false;
+                table_events.suppressLocalPublications(false);
             }
         }
     }
@@ -24742,6 +24781,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 .map(card -> new TableSnapshot.CardSnapshot(
                         card.toShortString(), true, card.isDesenfocada()))
                 .toList();
+        /*
+         * The controller state is the source used by publicHotJoinSnapshot().
+         * Commit the logical reveal before assigning the visual-event sequence:
+         * a newcomer can bootstrap while the incumbent renderer is still
+         * animating this event.  Publishing first left a race in which the
+         * snapshot cut-over included the RevealCommunityCards sequence while
+         * the sampled controller still contained the card back.  The cut-over
+         * then correctly discarded the already-accounted event and the late
+         * client kept that card face-down for the rest of the hand.
+         *
+         * GDX already commits the same reveal to its projection on event
+         * acceptance and treats the barrier as cosmetic, so moving this model
+         * mutation before publication changes no visible cadence.
+         */
+        for (GameCardController card : cards) {
+            card.destapar(false);
+        }
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.RevealCommunityCards(
                 sequence, firstSlot, snapshots,
                 localPlayer().isExit() || isFin_de_la_transmision()
@@ -24750,9 +24806,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 ? PAUSA_DESTAPAR_CARTA_ALLIN
                                 : PAUSA_DESTAPAR_CARTA),
                 "Community-card reveal presentation barrier failed");
-        for (GameCardController card : cards) {
-            card.destapar(false);
-        }
         return true;
     }
 

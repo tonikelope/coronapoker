@@ -3329,6 +3329,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     && tablePreference("sonido_conteo", true)) {
                 play(balanceCountSound, 0.74f, 1f);
             }
+        } else if (event instanceof TableVisualEvent.HotJoinState) {
+            /*
+             * HOTJOIN_STATE is an authoritative scene cut-over, not an
+             * incremental animation.  A reconnect can reuse a table while a
+             * local recovery visual is still alive; those transients must not
+             * cover cards supplied by the host snapshot.
+             */
+            clearCardPresentationForHotJoin();
+            liveState.apply(event);
+            syncSeatsFromLiveState();
+            barrier.complete(null);
         } else if (event instanceof TableVisualEvent.LateJoinRequest request) {
             liveState.apply(event);
             screenshotToast = "[" + request.nickname() + "] "
@@ -3858,6 +3869,104 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             syncSeatsFromLiveState();
             barrier.complete(null);
         }
+    }
+
+    private void clearCardPresentationForHotJoin() {
+        if (liveShuffle != null) {
+            if (shuffleSound != null) stopShuffleSound();
+            if (liveShuffle.finishBarrier != null
+                    && !liveShuffle.finishBarrier.isDone()) {
+                liveShuffle.finishBarrier.complete(null);
+            }
+            if (liveShuffle.animation != null) {
+                liveShuffle.animation.dispose();
+            }
+            liveShuffle = null;
+        }
+        for (LiveCardFlight flight : liveCardFlights) {
+            if (!flight.barrier.isDone()) flight.barrier.complete(null);
+        }
+        liveCardFlights.clear();
+        if (liveHoleSwap != null && !liveHoleSwap.barrier.isDone()) {
+            liveHoleSwap.barrier.complete(null);
+        }
+        liveHoleSwap = null;
+        if (liveCommunityReveal != null
+                && !liveCommunityReveal.barrier.isDone()) {
+            liveCommunityReveal.barrier.complete(null);
+        }
+        liveCommunityReveal = null;
+        if (liveRabbitReveal != null && !liveRabbitReveal.barrier.isDone()) {
+            liveRabbitReveal.barrier.complete(null);
+        }
+        liveRabbitReveal = null;
+        if (liveHoleReveal != null && !liveHoleReveal.barrier.isDone()) {
+            liveHoleReveal.barrier.complete(null);
+        }
+        liveHoleReveal = null;
+        if (liveHoleFold != null && !liveHoleFold.barrier.isDone()) {
+            liveHoleFold.barrier.complete(null);
+        }
+        liveHoleFold = null;
+        liveHoleDealCount = 0;
+    }
+
+    /** Test oracle for the exact resting-board branch used by drawLiveCommunityCards. */
+    boolean hasRestingCommunityCards(int count, boolean faceUp) {
+        return hasRestingCommunityCards(0, count, faceUp);
+    }
+
+    boolean hasRestingCommunityCards(int firstSlot, int count,
+            boolean faceUp) {
+        if (liveState == null || firstSlot < 0 || count < 0
+                || firstSlot + count > 5
+                || liveShuffle != null
+                || liveState.snapshot().communityCards().size()
+                < firstSlot + count) {
+            return false;
+        }
+        for (int slot = firstSlot; slot < firstSlot + count; slot++) {
+            TableSnapshot.CardSnapshot card = liveState.snapshot()
+                    .communityCards().get(slot);
+            if (!restingCommunityCardOwnsPointer(card, false,
+                    hasActiveCommunityFlight(slot))
+                    || card.faceUp() != faceUp
+                    || faceUp && card.code().isBlank()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Test oracle for the exact resting-pocket branch used by drawLiveHoleCards. */
+    boolean hasRestingRemoteCardBacks() {
+        if (liveState == null) return false;
+        boolean found = false;
+        for (TableSnapshot.PlayerSnapshot player
+                : liveState.snapshot().players()) {
+            if (player.nickname().equals(liveState.snapshot().localNickname())
+                    || !player.active() || player.spectator()
+                    || player.exited()) {
+                continue;
+            }
+            found = true;
+            if (seatByNickname(player.nickname()) == null
+                    || hasActiveHolePresentation(player.nickname())) {
+                return false;
+            }
+            List<TableSnapshot.CardSnapshot> cards
+                    = liveState.presentedHoleCards(player.nickname());
+            if (cards.size() != 2) return false;
+            for (int slot = 0; slot < 2; slot++) {
+                TableSnapshot.CardSnapshot card = cards.get(slot);
+                if (!isRestingHoleCardVisible(card) || card.faceUp()
+                        || !card.code().isBlank()
+                        || hasActiveHoleFlight(player.nickname(), slot)) {
+                    return false;
+                }
+            }
+        }
+        return found;
     }
 
     private void acceptPayout(TableVisualEvent event,

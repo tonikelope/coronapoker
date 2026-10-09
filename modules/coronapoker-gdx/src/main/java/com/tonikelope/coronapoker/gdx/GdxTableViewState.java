@@ -809,10 +809,47 @@ final class GdxTableViewState {
         // HOTJOIN_STATE is the one-time bootstrap. From this point onward the
         // ordinary ordered TableVisualEvent stream is the sole presentation
         // authority, exactly as it is for players and normal spectators.
+        // It replaces an asynchronously recovered local projection, so none of
+        // that projection's hand-scoped presentation caches may survive.  In
+        // particular, stale folds/reveals can otherwise hide valid remote card
+        // backs even though the authoritative snapshot contains both slots.
+        showdownHighlights.clear();
+        actionKinds.clear();
+        actionLabels.clear();
+        rebuyDecisions.clear();
+        partialHandPercentages.clear();
+        resolvedHandResults.clear();
+        lateShownHands.clear();
+        resolvedHandNames.clear();
+        resolvedHandWinners.clear();
+        resolvedWonPotIndexes.clear();
+        returnedSidePotPlayers.clear();
+        revealedHoleCards.clear();
+        foldedThisHand.clear();
+        iwtsthCandidates.clear();
+        rabbitCardSlots.clear();
+        rabbitRequestable = false;
+        rabbitNoticeNickname = "";
+        rabbitNoticeUntilNanos = 0L;
         callCostText = "";
         callCostAggressorNickname = "";
+        runItTwicePotPrefix = "";
         preActionControlsActive = false;
-        if (snapshot.currentTurnNickname().isBlank()) stopTurn();
+        newStreetActionResetPending = false;
+        actionControls = ActionControlState.disabled();
+        actionControlsSequence = 0L;
+        turnTotalMillis = 0L;
+        turnRemainingMillis = 0L;
+        turnTimerUpdatedNanos = 0L;
+        turnTimerPausedAtNanos = 0L;
+        // Local recovery displays an indeterminate preparation bar.  The host
+        // snapshot is the cut-over to the live hand; keeping that old progress
+        // state is what made CALENTANDO appear permanently indeterminate.
+        sharedProgressMode = TableVisualEvent.SharedProgress.Mode.RESET;
+        sharedProgressTotalMillis = 0L;
+        sharedProgressRemainingMillis = 0L;
+        sharedProgressUpdatedNanos = 0L;
+        sharedProgressPausedAtNanos = 0L;
     }
 
     /**

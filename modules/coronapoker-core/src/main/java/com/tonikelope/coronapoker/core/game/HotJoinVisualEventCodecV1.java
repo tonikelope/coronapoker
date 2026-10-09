@@ -2,6 +2,7 @@
 package com.tonikelope.coronapoker.core.game;
 
 import com.tonikelope.coronapoker.table.TableSnapshot;
+import com.tonikelope.coronapoker.table.TableSessionSummary;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -59,6 +60,23 @@ public final class HotJoinVisualEventCodecV1 {
     private static final int REBUY_DECISION = 26;
     private static final int INITIAL_STACK_FILL = 27;
     private static final int SEAT_ROSTER = 28;
+    private static final int PAUSE_STATUS = 29;
+    private static final int TELEMETRY_STATUS = 30;
+    private static final int PLAYER_TIMEOUT = 31;
+    private static final int PLAYER_DEPARTURE = 32;
+    private static final int UNDER_THE_GUN_STATUS = 33;
+    private static final int SWAP_HOLE_CARDS = 34;
+    private static final int TABLE_INFO = 35;
+    private static final int CALL_COST = 36;
+    private static final int IMMEDIATE_REBUY_STATUS = 37;
+    private static final int DECK_CHANGED = 38;
+    private static final int LAST_HAND_STATUS = 39;
+    private static final int HAND_LIMIT_STATUS = 40;
+    private static final int GAME_CONFIGURATION_STATUS = 41;
+    private static final int RUN_IT_TWICE_LOCK_STATUS = 42;
+    private static final int COMMUNICATION_RULES_STATUS = 43;
+    private static final int GAME_CLOCK = 44;
+    private static final int CLOSE_TABLE = 45;
 
     private HotJoinVisualEventCodecV1() {
     }
@@ -232,6 +250,77 @@ public final class HotJoinVisualEventCodecV1 {
                 } else if (event instanceof TableVisualEvent.SeatRoster value) {
                     out.writeByte(SEAT_ROSTER);
                     writePublicPlayers(out, value.players());
+                } else if (event instanceof TableVisualEvent.PauseStatus value) {
+                    out.writeByte(PAUSE_STATUS);
+                    out.writeBoolean(value.paused());
+                } else if (event instanceof TableVisualEvent.TelemetryStatus value) {
+                    out.writeByte(TELEMETRY_STATUS);
+                    writeCount(out, value.players().size());
+                    for (TableVisualEvent.PlayerTelemetry player : value.players()) {
+                        writeText(out, player.nickname());
+                        out.writeInt(player.latency());
+                        out.writeInt(player.previousLatency());
+                        out.writeInt(player.reconnectionCount());
+                        out.writeLong(player.measuredAtMillis());
+                    }
+                } else if (event instanceof TableVisualEvent.PlayerTimeout value) {
+                    out.writeByte(PLAYER_TIMEOUT);
+                    writeText(out, value.nickname());
+                    out.writeBoolean(value.timedOut());
+                } else if (event instanceof TableVisualEvent.PlayerDeparture value) {
+                    out.writeByte(PLAYER_DEPARTURE);
+                    writeText(out, value.nickname());
+                    writeText(out, value.label());
+                } else if (event instanceof TableVisualEvent.UnderTheGunStatus value) {
+                    out.writeByte(UNDER_THE_GUN_STATUS);
+                    writeText(out, value.nickname());
+                } else if (event instanceof TableVisualEvent.SwapHoleCards value) {
+                    out.writeByte(SWAP_HOLE_CARDS);
+                    writeText(out, value.nickname());
+                    out.writeBoolean(value.blocking());
+                } else if (event instanceof TableVisualEvent.TableInfo value) {
+                    out.writeByte(TABLE_INFO);
+                    out.writeDouble(value.smallBlind());
+                    out.writeDouble(value.bigBlind());
+                    out.writeInt(value.handNumber());
+                    out.writeInt(value.blindIncreaseInterval());
+                    out.writeInt(value.blindIncreaseType());
+                    out.writeInt(value.blindIncreaseCount());
+                } else if (event instanceof TableVisualEvent.CallCost value) {
+                    out.writeByte(CALL_COST);
+                    writeText(out, value.text());
+                    writeText(out, value.aggressorNickname());
+                } else if (event instanceof TableVisualEvent.ImmediateRebuyStatus value) {
+                    out.writeByte(IMMEDIATE_REBUY_STATUS);
+                    writeText(out, value.nickname());
+                    out.writeInt(value.amount());
+                } else if (event instanceof TableVisualEvent.DeckChanged value) {
+                    out.writeByte(DECK_CHANGED);
+                    writeText(out, value.deck());
+                } else if (event instanceof TableVisualEvent.LastHandStatus value) {
+                    out.writeByte(LAST_HAND_STATUS);
+                    out.writeBoolean(value.enabled());
+                } else if (event instanceof TableVisualEvent.HandLimitStatus value) {
+                    out.writeByte(HAND_LIMIT_STATUS);
+                    out.writeInt(value.maximumHands());
+                } else if (event instanceof TableVisualEvent.GameConfigurationStatus value) {
+                    out.writeByte(GAME_CONFIGURATION_STATUS);
+                    writeText(out, GameConfigCodecV1.encodeBase64(
+                            value.configuration()));
+                } else if (event instanceof TableVisualEvent.RunItTwiceLockStatus value) {
+                    out.writeByte(RUN_IT_TWICE_LOCK_STATUS);
+                    out.writeBoolean(value.locked());
+                } else if (event instanceof TableVisualEvent.CommunicationRulesStatus value) {
+                    out.writeByte(COMMUNICATION_RULES_STATUS);
+                    out.writeBoolean(value.textToSpeech());
+                    out.writeBoolean(value.voiceMessages());
+                } else if (event instanceof TableVisualEvent.GameClock value) {
+                    out.writeByte(GAME_CLOCK);
+                    out.writeLong(value.playTimeSeconds());
+                } else if (event instanceof TableVisualEvent.CloseTable value) {
+                    out.writeByte(CLOSE_TABLE);
+                    writeSummary(out, value.summary());
+                    writeEnum(out, value.terminalStreet());
                 } else {
                     return Optional.empty();
                 }
@@ -364,6 +453,49 @@ public final class HotJoinVisualEventCodecV1 {
                         readText(in));
                 case SEAT_ROSTER -> new TableVisualEvent.SeatRoster(sequence,
                         readPlayers(in));
+                case PAUSE_STATUS -> new TableVisualEvent.PauseStatus(sequence,
+                        in.readBoolean());
+                case TELEMETRY_STATUS -> new TableVisualEvent.TelemetryStatus(
+                        sequence, readTelemetry(in));
+                case PLAYER_TIMEOUT -> new TableVisualEvent.PlayerTimeout(
+                        sequence, readText(in), in.readBoolean());
+                case PLAYER_DEPARTURE -> new TableVisualEvent.PlayerDeparture(
+                        sequence, readText(in), readText(in));
+                case UNDER_THE_GUN_STATUS ->
+                    new TableVisualEvent.UnderTheGunStatus(sequence,
+                            readText(in));
+                case SWAP_HOLE_CARDS -> new TableVisualEvent.SwapHoleCards(
+                        sequence, readText(in), in.readBoolean());
+                case TABLE_INFO -> new TableVisualEvent.TableInfo(sequence,
+                        finite(in.readDouble(), "small blind"),
+                        finite(in.readDouble(), "big blind"), in.readInt(),
+                        in.readInt(), in.readInt(), in.readInt());
+                case CALL_COST -> new TableVisualEvent.CallCost(sequence,
+                        readText(in), readText(in));
+                case IMMEDIATE_REBUY_STATUS ->
+                    new TableVisualEvent.ImmediateRebuyStatus(sequence,
+                            readText(in), in.readInt());
+                case DECK_CHANGED -> new TableVisualEvent.DeckChanged(sequence,
+                        readText(in));
+                case LAST_HAND_STATUS -> new TableVisualEvent.LastHandStatus(
+                        sequence, in.readBoolean());
+                case HAND_LIMIT_STATUS -> new TableVisualEvent.HandLimitStatus(
+                        sequence, in.readInt());
+                case GAME_CONFIGURATION_STATUS ->
+                    new TableVisualEvent.GameConfigurationStatus(sequence,
+                            readConfiguration(in));
+                case RUN_IT_TWICE_LOCK_STATUS ->
+                    new TableVisualEvent.RunItTwiceLockStatus(sequence,
+                            in.readBoolean());
+                case COMMUNICATION_RULES_STATUS ->
+                    new TableVisualEvent.CommunicationRulesStatus(sequence,
+                            in.readBoolean(), in.readBoolean());
+                case GAME_CLOCK -> new TableVisualEvent.GameClock(sequence,
+                        in.readLong());
+                case CLOSE_TABLE -> new TableVisualEvent.CloseTable(sequence,
+                        readSummary(in), readEnum(in,
+                                TableSnapshot.Street.values(),
+                                "terminal street"));
                 default -> throw new IllegalArgumentException(
                         "Unsupported hot-join visual event");
             };
@@ -404,6 +536,65 @@ public final class HotJoinVisualEventCodecV1 {
         return new TableVisualEvent.PayoutBatch(sequence, transfers,
                 finite(in.readDouble(), "payout pot"),
                 finite(in.readDouble(), "invested amount"));
+    }
+
+    private static List<TableVisualEvent.PlayerTelemetry> readTelemetry(
+            DataInputStream in) throws IOException {
+        int count = readCount(in);
+        ArrayList<TableVisualEvent.PlayerTelemetry> players
+                = new ArrayList<>(count);
+        for (int index = 0; index < count; index++) {
+            players.add(new TableVisualEvent.PlayerTelemetry(readText(in),
+                    in.readInt(), in.readInt(), in.readInt(), in.readLong()));
+        }
+        return List.copyOf(players);
+    }
+
+    private static GameConfigCodecV1.Configuration readConfiguration(
+            DataInputStream in) throws IOException {
+        GameConfigCodecV1.Result decoded = GameConfigCodecV1.decodeBase64(
+                readText(in));
+        if (!decoded.isOk()) {
+            throw new IOException("Invalid relayed game configuration: "
+                    + decoded.error());
+        }
+        return decoded.value();
+    }
+
+    private static void writeSummary(DataOutputStream out,
+            TableSessionSummary summary) throws IOException {
+        writeText(out, summary.localNickname());
+        out.writeInt(summary.handCount());
+        out.writeLong(summary.durationSeconds());
+        out.writeLong(summary.endedAtMillis());
+        writeEnum(out, summary.reason());
+        writeCount(out, summary.balances().size());
+        for (TableSessionSummary.PlayerBalance balance : summary.balances()) {
+            writeText(out, balance.nickname());
+            out.writeDouble(balance.finalStack());
+            out.writeDouble(balance.totalBuyin());
+            out.writeInt(balance.rebuyCount());
+        }
+    }
+
+    private static TableSessionSummary readSummary(DataInputStream in)
+            throws IOException {
+        String localNickname = readText(in);
+        int handCount = in.readInt();
+        long durationSeconds = in.readLong();
+        long endedAtMillis = in.readLong();
+        TableSessionSummary.CloseReason reason = readEnum(in,
+                TableSessionSummary.CloseReason.values(), "close reason");
+        int count = readCount(in);
+        ArrayList<TableSessionSummary.PlayerBalance> balances
+                = new ArrayList<>(count);
+        for (int index = 0; index < count; index++) {
+            balances.add(new TableSessionSummary.PlayerBalance(readText(in),
+                    finite(in.readDouble(), "final stack"),
+                    finite(in.readDouble(), "total buy-in"), in.readInt()));
+        }
+        return new TableSessionSummary(localNickname, handCount,
+                durationSeconds, endedAtMillis, reason, balances);
     }
 
     private static void writePositionTransfers(DataOutputStream out,

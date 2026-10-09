@@ -2926,6 +2926,55 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void hotJoinBootstrapReplacesRecoveredHandPresentationAndHonoursPause() {
+        TableSnapshot.CardSnapshot back = new TableSnapshot.CardSnapshot(
+                "", false, false, true);
+        TableSnapshot.CardSnapshot ace = card("A_C");
+        TableSnapshot.CardSnapshot king = card("K_D");
+        TableSnapshot.CardSnapshot queen = card("Q_T");
+        TableSnapshot.PlayerSnapshot local = new TableSnapshot.PlayerSnapshot(
+                "ana", 1_000d, 0d, 0d, false, true, false, false,
+                -2, -2, 0, 0L, false, false, TableSnapshot.Position.NONE,
+                "CALENTANDO", "", List.of(), 1_000, 0, true);
+        TableSnapshot.PlayerSnapshot remote = new TableSnapshot.PlayerSnapshot(
+                "borja", 980d, 20d, 20d, true, false, false, false,
+                -2, -2, 0, 0L, false, false,
+                TableSnapshot.Position.BIG_BLIND,
+                "VA", "", List.of(back, back));
+        TableSnapshot bootstrap = new TableSnapshot(7L, "ana",
+                TableSnapshot.Street.FLOP, 40d, "borja", true,
+                List.of(local, remote),
+                List.of(ace, king, queen, back, back));
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+
+        state.apply(new TableVisualEvent.FoldHoleCards(1L, "borja"));
+        state.apply(new TableVisualEvent.SharedProgress(2L,
+                TableVisualEvent.SharedProgress.Mode.INDETERMINATE, 0));
+        state.apply(new TableVisualEvent.TurnTimer(3L, "ana", 30_000L,
+                18_000L, TableVisualEvent.TurnTimer.Phase.START));
+        state.apply(new TableVisualEvent.HotJoinState(4L, bootstrap));
+
+        assertTrue(state.snapshot().paused());
+        assertEquals("borja", state.snapshot().currentTurnNickname());
+        assertEquals(List.of("A_C", "K_D", "Q_T"),
+                state.snapshot().communityCards().subList(0, 3).stream()
+                        .map(TableSnapshot.CardSnapshot::code).toList());
+        assertEquals(2, state.presentedHoleCards("borja").size(),
+                "a recovered fold must not hide authoritative remote backs");
+        assertTrue(state.presentedHoleCards("borja").stream().allMatch(card
+                -> card.visible() && !card.faceUp() && card.code().isBlank()));
+        assertFalse(state.sharedProgressVisible(),
+                "local preparation progress must end at host cut-over");
+        assertFalse(state.turnTimerVisible(),
+                "the host's following timer event must own the live clock");
+
+        state.apply(new TableVisualEvent.TurnTimer(5L, "borja", 30_000L,
+                12_000L, TableVisualEvent.TurnTimer.Phase.START));
+        assertTrue(state.turnTimerVisible());
+        assertEquals(12_000L, state.turnRemainingMillis());
+    }
+
+    @Test
     void newCommunityStreetKeepsActionsThroughRevealAndClearsThemAtFirstTurn() {
         GdxTableViewState state = new GdxTableViewState(snapshot());
         state.apply(new TableVisualEvent.PlayerAction(1, "ana",

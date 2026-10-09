@@ -12,6 +12,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -32,6 +33,8 @@ public final class TableEventBridge implements AutoCloseable {
     private final AtomicReference<TablePresentation> presentation = new AtomicReference<>();
     private final AtomicReference<Consumer<TableVisualEvent>> observer
             = new AtomicReference<>(ignored -> { });
+    private final AtomicBoolean localPublicationsSuppressed
+            = new AtomicBoolean();
 
     /**
      * Installs the table-scoped observer used by protocol projections such as
@@ -81,13 +84,46 @@ public final class TableEventBridge implements AutoCloseable {
         return current == null ? 0L : current.lastSequence();
     }
 
+    /**
+     * Prevents a passive recovery model from presenting its provisional local
+     * replay over an authoritative public stream. Network-authoritative events
+     * still enter through {@link #publishAuthoritative(LongFunction)}.
+     */
+    public void suppressLocalPublications(boolean suppressed) {
+        localPublicationsSuppressed.set(suppressed);
+    }
+
     public CompletionStage<Void> publish(
             LongFunction<? extends TableVisualEvent> eventFactory) {
         return publishIfAttached(eventFactory).orElse(NO_RENDERER);
     }
 
+    /** Publishes a server-authoritative event even during passive recovery. */
+    public CompletionStage<Void> publishAuthoritative(
+            LongFunction<? extends TableVisualEvent> eventFactory) {
+        return publishAttached(eventFactory).orElse(NO_RENDERER);
+    }
+
+    /**
+     * Publishes the local lifecycle terminator even when provisional recovery
+     * presentation is suppressed.  Exiting a passive hot-join table must
+     * still close its renderer; this does not reopen the suppressed replay.
+     */
+    public CompletionStage<Void> publishTerminal(
+            LongFunction<? extends TableVisualEvent.CloseTable> eventFactory) {
+        return publishAttached(eventFactory).orElse(NO_RENDERER);
+    }
+
     /** Publishes atomically with the attachment lookup. */
     public Optional<CompletionStage<Void>> publishIfAttached(
+            LongFunction<? extends TableVisualEvent> eventFactory) {
+        if (localPublicationsSuppressed.get()) {
+            return Optional.empty();
+        }
+        return publishAttached(eventFactory);
+    }
+
+    private Optional<CompletionStage<Void>> publishAttached(
             LongFunction<? extends TableVisualEvent> eventFactory) {
         Objects.requireNonNull(eventFactory, "eventFactory");
         TablePresentation current = presentation.get();

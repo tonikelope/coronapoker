@@ -67,6 +67,7 @@ final class GdxScenarioContract {
                     "liveHotJoinAfterHumanOnlyStartWarmsThenPlaysTheNextHand",
                     "liveHotJoinAfterMixedStartWarmsThenPlaysTheNextHand",
                     "freshHotJoinOnFlopReceivesCompletePublicBootstrap",
+                    "freshHotJoinReceivesAndLeavesAnAlreadyPausedTable",
                     "twoConcurrentHotJoinsWarmAndEnterTheSameNextHand",
                     "oneOfTwoConcurrentHotJoinsCanLeaveWhileTheOtherIsAdmitted",
                     "warmingHotJoinReceivesHostTableStop",
@@ -76,6 +77,7 @@ final class GdxScenarioContract {
                     "warmingHotJoinCanLeaveAndReenterWithSameIdentityAndStack",
                     "warmingHotJoinCanLeaveAndReenterInALaterHandWithSameIdentityAndStack",
                     "warmingHotJoinCanCrashAndReenterWithSameIdentityAndStack",
+                    "warmingIdentityCanEnterAndLeaveRepeatedlyWithoutLeakingState",
                     "activePlayerCanLeaveMidDecisionAndReenterAsWarmingOwner",
                     "admittedHotJoinCanLeaveLaterAndReenterAsWarmingOwner")),
             Map.entry("abrupt-exit", Set.of(

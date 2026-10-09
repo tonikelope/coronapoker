@@ -186,6 +186,55 @@ final class TableEventBridgeTest {
     }
 
     @Test
+    void passiveRecoveryCannotOverwriteAuthoritativeNetworkPresentation() {
+        TableEventBridge bridge = new TableEventBridge();
+        RecordingRenderer renderer = new RecordingRenderer();
+        bridge.attach(renderer, emptyTable()).toCompletableFuture().join();
+        bridge.suppressLocalPublications(true);
+
+        CompletionStage<Void> provisional = bridge.publish(sequence ->
+                new TableVisualEvent.SeatRoster(sequence, List.of()));
+        CompletionStage<Void> authoritative = bridge.publishAuthoritative(
+                sequence -> new TableVisualEvent.PauseStatus(sequence, true));
+
+        assertTrue(provisional.toCompletableFuture().isDone());
+        assertEquals(1, renderer.events.size());
+        assertTrue(renderer.events.get(0) instanceof TableVisualEvent.PauseStatus);
+        assertEquals(1L, renderer.events.get(0).sequence(),
+                "suppressed recovery events must not consume visual sequence ids");
+
+        renderer.finishCurrentAnimation();
+        assertTrue(authoritative.toCompletableFuture().isDone());
+
+        bridge.suppressLocalPublications(false);
+        bridge.publish(sequence -> new TableVisualEvent.PauseStatus(
+                sequence, false));
+        assertEquals(List.of(1L, 2L), renderer.events.stream()
+                .map(TableVisualEvent::sequence).toList());
+    }
+
+    @Test
+    void passiveRecoveryCanStillTerminateItsLocalRenderer() {
+        TableEventBridge bridge = new TableEventBridge();
+        RecordingRenderer renderer = new RecordingRenderer();
+        bridge.attach(renderer, emptyTable()).toCompletableFuture().join();
+        bridge.suppressLocalPublications(true);
+
+        bridge.publish(sequence -> new TableVisualEvent.PauseStatus(
+                sequence, true));
+        CompletionStage<Void> terminal = bridge.publishTerminal(sequence ->
+                new TableVisualEvent.CloseTable(sequence,
+                        TableSessionSummary.empty(),
+                        TableSnapshot.Street.FINISHED));
+
+        assertEquals(1, renderer.events.size());
+        assertTrue(renderer.events.get(0) instanceof TableVisualEvent.CloseTable);
+        assertEquals(1L, renderer.events.get(0).sequence());
+        renderer.finishCurrentAnimation();
+        assertTrue(terminal.toCompletableFuture().isDone());
+    }
+
+    @Test
     void closeTableIsTheLastEventThatCanReachTheRenderer() {
         TableEventBridge bridge = new TableEventBridge();
         RecordingRenderer renderer = new RecordingRenderer();

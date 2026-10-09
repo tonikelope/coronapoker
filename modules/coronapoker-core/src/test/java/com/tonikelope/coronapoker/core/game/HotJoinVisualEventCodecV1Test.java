@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.table.TableSnapshot;
+import com.tonikelope.coronapoker.table.TableSessionSummary;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -79,7 +80,34 @@ class HotJoinVisualEventCodecV1Test {
                 new TableVisualEvent.InitialStackFill(27, List.of(CHIP),
                         500, "misc/cash.wav"),
                 new TableVisualEvent.SeatRoster(28, List.of(player(
-                        "ana", false, false, FACE_DOWN))));
+                        "ana", false, false, FACE_DOWN))),
+                new TableVisualEvent.PauseStatus(29, true),
+                new TableVisualEvent.TelemetryStatus(30, List.of(
+                        new TableVisualEvent.PlayerTelemetry("ana", 10, 11,
+                                2, 123L))),
+                new TableVisualEvent.PlayerTimeout(31, "ana", true),
+                new TableVisualEvent.PlayerDeparture(32, "ana", "SALE"),
+                new TableVisualEvent.UnderTheGunStatus(33, "ana"),
+                new TableVisualEvent.SwapHoleCards(34, "ana", false),
+                new TableVisualEvent.TableInfo(35, 0.1d, 0.2d,
+                        7, 5, 2, 1),
+                new TableVisualEvent.CallCost(36, "0.2", "ana"),
+                new TableVisualEvent.ImmediateRebuyStatus(37, "ana", 10),
+                new TableVisualEvent.DeckChanged(38, "default"),
+                new TableVisualEvent.LastHandStatus(39, true),
+                new TableVisualEvent.HandLimitStatus(40, 100),
+                new TableVisualEvent.GameConfigurationStatus(41,
+                        configuration()),
+                new TableVisualEvent.RunItTwiceLockStatus(42, true),
+                new TableVisualEvent.CommunicationRulesStatus(43,
+                        true, false),
+                new TableVisualEvent.GameClock(44, 123L),
+                new TableVisualEvent.CloseTable(45,
+                        new TableSessionSummary("ana", 3, 60L, 123L,
+                                TableSessionSummary.CloseReason.COMPLETED,
+                                List.of(new TableSessionSummary.PlayerBalance(
+                                        "ana", 12d, 10d, 0))),
+                        TableSnapshot.Street.FINISHED));
 
         for (TableVisualEvent source : events) {
             String encoded = HotJoinVisualEventCodecV1.encode(source)
@@ -142,11 +170,11 @@ class HotJoinVisualEventCodecV1Test {
                 new TableVisualEvent.PreActionControls(1, true, false))
                 .isEmpty());
         assertTrue(HotJoinVisualEventCodecV1.encode(
-                new TableVisualEvent.CallCost(2, "1.0", "ana"))
+                new TableVisualEvent.ActionControls(2,
+                        ActionControlState.disabled()))
                 .isEmpty());
-        assertTrue(HotJoinVisualEventCodecV1.encode(
-                new TableVisualEvent.SwapHoleCards(3, "host", false))
-                .isEmpty());
+        assertTrue(HotJoinVisualEventCodecV1.encode(new TableVisualEvent
+                .IwtsthCandidates(3, List.of("ana"))).isEmpty());
     }
 
     @Test
@@ -163,5 +191,12 @@ class HotJoinVisualEventCodecV1Test {
                 !spectator, spectator, false, false, 10, 11, 1, 123L,
                 false, false, TableSnapshot.Position.BIG_BLIND, "CALL", "",
                 List.of(card, card), 10, 0, warming);
+    }
+
+    private static GameConfigCodecV1.Configuration configuration() {
+        return new GameConfigCodecV1.Configuration(10, 0.1d, 0.2d,
+                5, 2, false, "session", true, 100, 0d, 0,
+                true, true, 10, 100, 0, false, false, true, true,
+                0, 30, true, 10, false, List.of());
     }
 }

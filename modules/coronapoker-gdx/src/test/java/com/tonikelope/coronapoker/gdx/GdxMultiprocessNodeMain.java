@@ -39,6 +39,8 @@ import java.util.function.BooleanSupplier;
  */
 public final class GdxMultiprocessNodeMain {
 
+    private static final int HOT_JOIN_CHURN_CYCLES = 8;
+
     private GdxMultiprocessNodeMain() {
     }
 
@@ -119,8 +121,10 @@ public final class GdxMultiprocessNodeMain {
                     || "live-hot-join-admission-exit".equals(config.scenario)
                     || "live-hot-join-reentry".equals(config.scenario)
                     || "live-hot-join-reentry-later".equals(config.scenario)
+                    || "live-hot-join-reentry-churn".equals(config.scenario)
                     || "live-hot-join-crash-reentry".equals(config.scenario)
                     || "live-hot-join-flop-bootstrap".equals(config.scenario)
+                    || "live-hot-join-paused-bootstrap".equals(config.scenario)
                     || "live-hot-join-two".equals(config.scenario)
                     || "live-hot-join-two-exit".equals(config.scenario)) {
                 if ("late-impostor".equals(config.phase)) {
@@ -293,15 +297,30 @@ public final class GdxMultiprocessNodeMain {
                 config.scenario);
         boolean laterHandReentry = "live-hot-join-reentry-later".equals(
                 config.scenario);
+        boolean churnReentry = "live-hot-join-reentry-churn".equals(
+                config.scenario);
         boolean flopBootstrap = "live-hot-join-flop-bootstrap".equals(
+                config.scenario);
+        boolean pausedBootstrap = "live-hot-join-paused-bootstrap".equals(
                 config.scenario);
         boolean twoLate = "live-hot-join-two".equals(config.scenario)
                 || concurrentExit;
         boolean reenterWhileWarming = crashReentry
                 || laterHandReentry
+                || churnReentry
                 || "live-hot-join-reentry".equals(config.scenario);
+        /*
+         * Incumbents begin this wait when the warming seat first appears, not
+         * when the external harness later kills that process.  The crash path
+         * intentionally grants the transport 45 seconds to reconnect, and
+         * the late process may spend tens of seconds validating its full GDX
+         * bootstrap before the harness kills it.  Keep those two phases
+         * additive or the observer can time out at the exact instant the host
+         * declares definitive loss, never giving the ordered cancellation
+         * frame a chance to arrive.
+         */
         Duration warmingRemovalTimeout = Duration.ofSeconds(
-                crashReentry ? 75 : 45);
+                crashReentry ? 120 : 45);
         boolean firstReentryIncarnation = reenterWhileWarming
                 && "late-exit".equals(config.phase);
         int visibleExpectedPlayers = config.clients + config.bots + 1;
@@ -369,6 +388,11 @@ public final class GdxMultiprocessNodeMain {
             if (config.host()) {
                 await(renderer::hasHeldAction, Duration.ofSeconds(60),
                         "live hot-join action gate");
+                if (pausedBootstrap) {
+                    table.commands().submit(new TableCommand.TogglePause());
+                    await(renderer::isPaused, Duration.ofSeconds(30),
+                            "paused hot-join bootstrap gate");
+                }
                 marker("HOT_JOIN_GATE", "hand=" + renderer.currentHand());
                 requireCommand(stopWhileWarming ? "STOP_HOT_JOIN"
                         : exitWhileWarming || reenterWhileWarming
@@ -379,6 +403,9 @@ public final class GdxMultiprocessNodeMain {
                         Duration.ofSeconds(45),
                         "server hot-join notification");
                 double warmingStack = renderer.stackOf(newcomerNickname);
+                double warmingBuyIn = renderer.buyInOf(newcomerNickname);
+                int warmingRebuyCount = renderer.rebuyCountOf(
+                        newcomerNickname);
                 marker("HOT_JOIN_SERVER_NOTIFIED", "nick="
                         + newcomerNickname);
                 if (!renderer.localHoleCardsRemainRevealed()) {
@@ -397,7 +424,42 @@ public final class GdxMultiprocessNodeMain {
                     marker("HOT_JOIN_EXIT_OBSERVED", "nick="
                             + newcomerNickname);
                     if (reenterWhileWarming) {
-                        if (!crashReentry) {
+                        if (churnReentry) {
+                            for (int cycle = 1;
+                                    cycle <= HOT_JOIN_CHURN_CYCLES; cycle++) {
+                                requireCommand("REENTER_HOT_JOIN");
+                                await(() -> renderer.warmingNicknames().contains(
+                                                newcomerNickname),
+                                        Duration.ofSeconds(60),
+                                        "churn hot-join reentry " + cycle);
+                                assertHotJoinCapital(renderer,
+                                        newcomerNickname, warmingStack,
+                                        warmingBuyIn, warmingRebuyCount);
+                                marker("HOT_JOIN_CHURN_WARMING", "nick="
+                                        + newcomerNickname + " cycle=" + cycle
+                                        + " stack=" + renderer.stackOf(
+                                                newcomerNickname)
+                                        + " buyin=" + renderer.buyInOf(
+                                                newcomerNickname)
+                                        + " rebuys=" + renderer.rebuyCountOf(
+                                                newcomerNickname));
+                                if (cycle < HOT_JOIN_CHURN_CYCLES) {
+                                    requireCommand("EXIT_HOT_JOIN");
+                                    await(() -> !renderer.activeNicknames()
+                                                    .contains(newcomerNickname),
+                                            Duration.ofSeconds(60),
+                                            "churn warming-seat removal "
+                                            + cycle);
+                                    marker("HOT_JOIN_CHURN_EXIT_OBSERVED",
+                                            "nick=" + newcomerNickname
+                                            + " cycle=" + cycle);
+                                }
+                            }
+                            marker("HOT_JOIN_REENTRY_WARMING", "nick="
+                                    + newcomerNickname + " stack="
+                                    + renderer.stackOf(newcomerNickname));
+                        } else {
+                            if (!crashReentry) {
                             // The first incarnation leaves at the initial
                             // decision. Let the real table advance, then hold
                             // the turn before admitting the second process.
@@ -414,25 +476,28 @@ public final class GdxMultiprocessNodeMain {
                             marker("HOT_JOIN_REENTRY_GATE",
                                     laterHandReentry ? "hand=2"
                                             : "street=TURN");
-                        }
-                        requireCommand("REENTER_HOT_JOIN");
-                        await(() -> renderer.warmingNicknames().contains(
-                                        newcomerNickname),
-                                Duration.ofSeconds(60),
-                                "same-identity hot-join reentry");
-                        if (Math.abs(renderer.stackOf(newcomerNickname)
-                                - warmingStack) > 0.000_001d) {
-                            throw new AssertionError(
-                                    "same-identity reentry changed stack: "
-                                    + warmingStack + " -> "
+                            }
+                            requireCommand("REENTER_HOT_JOIN");
+                            await(() -> renderer.warmingNicknames().contains(
+                                            newcomerNickname),
+                                    Duration.ofSeconds(60),
+                                    "same-identity hot-join reentry");
+                            assertHotJoinCapital(renderer, newcomerNickname,
+                                    warmingStack, warmingBuyIn,
+                                    warmingRebuyCount);
+                            marker("HOT_JOIN_REENTRY_WARMING", "nick="
+                                    + newcomerNickname + " stack="
                                     + renderer.stackOf(newcomerNickname));
                         }
-                        marker("HOT_JOIN_REENTRY_WARMING", "nick="
-                                + newcomerNickname + " stack="
-                                + renderer.stackOf(newcomerNickname));
                     }
                     renderer.releaseHeldAction();
                 } else {
+                    if (pausedBootstrap) {
+                        table.commands().submit(new TableCommand.TogglePause());
+                        await(() -> !renderer.isPaused(),
+                                Duration.ofSeconds(30),
+                                "resume after paused hot-join bootstrap");
+                    }
                     renderer.releaseHeldAction();
                 }
                 if (exitAtAdmission) {
@@ -531,6 +596,13 @@ public final class GdxMultiprocessNodeMain {
                 }
                 marker("HOT_JOIN_REMOTE_CARD_BACKS", "nick="
                         + config.nickname);
+                if (pausedBootstrap) {
+                    if (!renderer.firstHotJoinStateIsPaused()) {
+                        throw new AssertionError(
+                                "hot joiner did not receive the paused table state");
+                    }
+                    marker("HOT_JOIN_PAUSED_BOOTSTRAP", "paused=true");
+                }
                 if (flopBootstrap) {
                     if (!renderer.firstHotJoinCommunityCardsAreFaceUp(3)) {
                         throw new AssertionError(
@@ -589,6 +661,7 @@ public final class GdxMultiprocessNodeMain {
                     marker("HOT_JOIN_VISUAL_STREAM", "nick="
                             + config.nickname);
                     int expectedFaceUp = crashReentry || laterHandReentry
+                            || churnReentry
                             ? 0 : 4;
                     if (reenterWhileWarming && expectedFaceUp > 0
                             && !renderer.firstCommunityCardsAreFaceUp(
@@ -681,12 +754,33 @@ public final class GdxMultiprocessNodeMain {
                     marker("HOT_JOIN_EXIT_OBSERVED", "nick="
                             + newcomerNickname);
                     if (reenterWhileWarming) {
-                        await(() -> renderer.warmingNicknames().contains(
-                                        newcomerNickname),
-                                Duration.ofSeconds(60),
-                                "incumbent same-identity hot-join reentry");
-                        marker("HOT_JOIN_REENTRY_WARMING", "nick="
-                                + newcomerNickname);
+                        if (churnReentry) {
+                            for (int cycle = 1;
+                                    cycle <= HOT_JOIN_CHURN_CYCLES; cycle++) {
+                                await(() -> renderer.warmingNicknames().contains(
+                                                newcomerNickname),
+                                        Duration.ofSeconds(60),
+                                        "incumbent churn reentry " + cycle);
+                                marker("HOT_JOIN_CHURN_WARMING", "nick="
+                                        + newcomerNickname + " cycle=" + cycle);
+                                if (cycle < HOT_JOIN_CHURN_CYCLES) {
+                                    await(() -> !renderer.activeNicknames()
+                                                    .contains(newcomerNickname),
+                                            Duration.ofSeconds(60),
+                                            "incumbent churn removal " + cycle);
+                                    marker("HOT_JOIN_CHURN_EXIT_OBSERVED",
+                                            "nick=" + newcomerNickname
+                                            + " cycle=" + cycle);
+                                }
+                            }
+                        } else {
+                            await(() -> renderer.warmingNicknames().contains(
+                                            newcomerNickname),
+                                    Duration.ofSeconds(60),
+                                    "incumbent same-identity hot-join reentry");
+                            marker("HOT_JOIN_REENTRY_WARMING", "nick="
+                                    + newcomerNickname);
+                        }
                     }
                 }
             }
@@ -723,6 +817,22 @@ public final class GdxMultiprocessNodeMain {
                     + " nick=" + config.nickname + " hands="
                     + renderer.summary().handCount() + " logLines="
                     + gameLog.snapshot().lines().size());
+        }
+    }
+
+    private static void assertHotJoinCapital(GdxScenarioRenderer renderer,
+            String nickname, double expectedStack, double expectedBuyIn,
+            int expectedRebuyCount) {
+        double actualStack = renderer.stackOf(nickname);
+        double actualBuyIn = renderer.buyInOf(nickname);
+        int actualRebuyCount = renderer.rebuyCountOf(nickname);
+        if (Math.abs(actualStack - expectedStack) > 0.000_001d
+                || Math.abs(actualBuyIn - expectedBuyIn) > 0.000_001d
+                || actualRebuyCount != expectedRebuyCount) {
+            throw new AssertionError("same-identity hot-join changed capital: "
+                    + expectedStack + "/" + expectedBuyIn + "/"
+                    + expectedRebuyCount + " -> " + actualStack + "/"
+                    + actualBuyIn + "/" + actualRebuyCount);
         }
     }
 
@@ -813,8 +923,11 @@ public final class GdxMultiprocessNodeMain {
                 // pot.  The identity owns the remaining stack after EXIT,
                 // not stack + a blind/bet that was legitimately spent.
                 double preservedStack = renderer.stackOf(owner);
+                double preservedBuyIn = renderer.buyInOf(owner);
+                int preservedRebuyCount = renderer.rebuyCountOf(owner);
                 marker("ACTIVE_REENTRY_EXIT_OBSERVED", "nick=" + owner
-                        + " stack=" + preservedStack);
+                        + " stack=" + preservedStack + " buyin="
+                        + preservedBuyIn + " rebuys=" + preservedRebuyCount);
                 await(() -> renderer.sawPlayerAction(owner,
                                 TableVisualEvent.PlayerAction.ActionKind.FOLD),
                         Duration.ofSeconds(75),
@@ -844,8 +957,19 @@ public final class GdxMultiprocessNodeMain {
                             "active-owner reentry changed effective stack: "
                             + preservedStack + " -> " + restoredStack);
                 }
+                double restoredBuyIn = renderer.buyInOf(owner);
+                int restoredRebuyCount = renderer.rebuyCountOf(owner);
+                if (Math.abs(restoredBuyIn - preservedBuyIn) > 0.000_001d
+                        || restoredRebuyCount != preservedRebuyCount) {
+                    throw new AssertionError(
+                            "active-owner reentry changed buy-in history: "
+                            + preservedBuyIn + "/" + preservedRebuyCount
+                            + " -> " + restoredBuyIn + "/"
+                            + restoredRebuyCount);
+                }
                 marker("ACTIVE_REENTRY_WARMING", "nick=" + owner
-                        + " stack=" + restoredStack);
+                        + " stack=" + restoredStack + " buyin="
+                        + restoredBuyIn + " rebuys=" + restoredRebuyCount);
                 renderer.releaseHeldAction();
             } else if (reenteredOwner) {
                 await(() -> renderer.sawHotJoinState()

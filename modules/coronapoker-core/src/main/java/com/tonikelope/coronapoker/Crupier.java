@@ -12608,13 +12608,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         table_display.resetForNewHand();
         game_progress.indeterminate();
-        if (leavingPassiveObservedHand && this.conta_mano > 0) {
-            awaitAttachedTableEvent(sequence -> new TableVisualEvent.HandBoundary(
-                    sequence, this.conta_mano,
-                    TableVisualEvent.HandBoundary.Phase.SKIP_RECOVERED,
-                    handBoundarySnapshot(TableSnapshot.Street.PREFLOP)),
-                    "Recovered-observer hand skip presentation barrier failed");
-        }
+        // A passive newcomer renders the open hand exclusively from the host's
+        // HOTJOIN_STATE and ordered HOTJOIN_EVENT stream. Its local recovery
+        // loop must not publish SKIP_RECOVERED: that event replaces the whole
+        // projection with an incomplete local snapshot and can hide the board
+        // and every remote card back after a correct bootstrap.
         if (!gameSession().isHost()) {
             game_window.setExitEnabled(false);
         }
@@ -13059,11 +13057,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             setContaManoLocal(this.conta_mano + 1);
         }
 
-        awaitAttachedTableEvent(sequence -> new TableVisualEvent.HandBoundary(
-                sequence, this.conta_mano,
-                TableVisualEvent.HandBoundary.Phase.PREPARE,
-                handBoundarySnapshot(TableSnapshot.Street.PREFLOP)),
-                "New-hand presentation barrier failed");
+        if (!this.passive_recovery_observer) {
+            awaitAttachedTableEvent(sequence -> new TableVisualEvent.HandBoundary(
+                    sequence, this.conta_mano,
+                    TableVisualEvent.HandBoundary.Phase.PREPARE,
+                    handBoundarySnapshot(TableSnapshot.Street.PREFLOP)),
+                    "New-hand presentation barrier failed");
+        }
 
         if (this.passive_recovery_observer) {
             // This peer was not a member of the recovered hand and therefore has

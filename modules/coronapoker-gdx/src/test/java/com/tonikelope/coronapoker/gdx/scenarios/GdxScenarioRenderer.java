@@ -96,6 +96,8 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final AtomicBoolean sawLocalSpectator = new AtomicBoolean();
     private final AtomicBoolean returnedAfterSpectating = new AtomicBoolean();
     private final AtomicBoolean sawHotJoinState = new AtomicBoolean();
+    private final AtomicReference<TableSnapshot> firstHotJoinState
+            = new AtomicReference<>();
     private final AtomicInteger hotJoinStateCount = new AtomicInteger();
     private final AtomicBoolean sawHotJoinTimerStart = new AtomicBoolean();
     private final AtomicBoolean sawHotJoinPlayerAction = new AtomicBoolean();
@@ -268,7 +270,10 @@ final class GdxScenarioRenderer implements TableRenderer {
         GdxTableViewState projection = state.get();
         assertNotNull(projection, "renderer must open before events arrive");
         projection.apply(event);
-        if (event instanceof TableVisualEvent.HotJoinState) {
+        if (event instanceof TableVisualEvent.HotJoinState hotJoinState) {
+            assertTrue(firstHotJoinState.compareAndSet(null,
+                    hotJoinState.snapshot()),
+                    "CALENTANDO must receive one bootstrap snapshot only");
             sawHotJoinState.set(true);
             assertEquals(1, hotJoinStateCount.incrementAndGet(),
                     "CALENTANDO must receive one bootstrap snapshot only");
@@ -334,6 +339,7 @@ final class GdxScenarioRenderer implements TableRenderer {
             }
         }
         TableSnapshot snapshot = projection.snapshot();
+        assertNoLocalRecoveryOverwriteWhileWarming(event, snapshot);
         assertWarmingBoardNeverRegresses(event, snapshot);
         assertWarmingContinuity(snapshot);
         observeLiveConnectivity(snapshot);
@@ -605,6 +611,24 @@ final class GdxScenarioRenderer implements TableRenderer {
         }
     }
 
+    private void assertNoLocalRecoveryOverwriteWhileWarming(
+            TableVisualEvent event, TableSnapshot snapshot) {
+        if (!sawHotJoinState.get()) return;
+        TableSnapshot.PlayerSnapshot local = snapshot.players().stream()
+                .filter(player -> player.nickname().equals(
+                        snapshot.localNickname()))
+                .findFirst().orElse(null);
+        if (local != null && local.warming()
+                && event instanceof TableVisualEvent.HandBoundary boundary) {
+            assertTrue(boundary.phase()
+                    != TableVisualEvent.HandBoundary.Phase.PREPARE
+                    && boundary.phase()
+                    != TableVisualEvent.HandBoundary.Phase.SKIP_RECOVERED,
+                    "local recovery boundary overwrote the authoritative "
+                    + "CALENTANDO presentation: " + boundary.phase());
+        }
+    }
+
     void releaseHeldAction() {
         if (heldAction.compareAndSet(true, false)) {
             gateConsumed.set(true);
@@ -775,6 +799,22 @@ final class GdxScenarioRenderer implements TableRenderer {
                 && card.faceUp() && !card.code().isBlank());
     }
 
+    boolean firstHotJoinCommunityCardsAreFaceUp(int count) {
+        TableSnapshot snapshot = firstHotJoinState.get();
+        if (snapshot == null || count < 0
+                || snapshot.communityCards().size() < count) {
+            return false;
+        }
+        return snapshot.communityCards().subList(0, count).stream()
+                .allMatch(card -> card.visible() && card.faceUp()
+                && !card.code().isBlank());
+    }
+
+    boolean firstHotJoinRemoteCardSlotsAreSafeBacks() {
+        TableSnapshot snapshot = firstHotJoinState.get();
+        return snapshot != null && activeRemoteCardSlotsAreSafeBacks(snapshot);
+    }
+
     String communityCardDiagnostic() {
         GdxTableViewState projection = state.get();
         if (projection == null) return "<renderer not opened>";
@@ -812,7 +852,11 @@ final class GdxScenarioRenderer implements TableRenderer {
     boolean activeRemoteCardSlotsAreSafeBacks() {
         GdxTableViewState projection = state.get();
         if (projection == null) return false;
-        TableSnapshot snapshot = projection.snapshot();
+        return activeRemoteCardSlotsAreSafeBacks(projection.snapshot());
+    }
+
+    private static boolean activeRemoteCardSlotsAreSafeBacks(
+            TableSnapshot snapshot) {
         List<TableSnapshot.PlayerSnapshot> activeRemotes = snapshot.players()
                 .stream()
                 .filter(player -> !player.nickname().equals(

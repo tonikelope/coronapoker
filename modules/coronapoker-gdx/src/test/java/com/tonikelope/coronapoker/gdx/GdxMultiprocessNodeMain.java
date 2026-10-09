@@ -120,6 +120,7 @@ public final class GdxMultiprocessNodeMain {
                     || "live-hot-join-reentry".equals(config.scenario)
                     || "live-hot-join-reentry-later".equals(config.scenario)
                     || "live-hot-join-crash-reentry".equals(config.scenario)
+                    || "live-hot-join-flop-bootstrap".equals(config.scenario)
                     || "live-hot-join-two".equals(config.scenario)
                     || "live-hot-join-two-exit".equals(config.scenario)) {
                 if ("late-impostor".equals(config.phase)) {
@@ -292,6 +293,8 @@ public final class GdxMultiprocessNodeMain {
                 config.scenario);
         boolean laterHandReentry = "live-hot-join-reentry-later".equals(
                 config.scenario);
+        boolean flopBootstrap = "live-hot-join-flop-bootstrap".equals(
+                config.scenario);
         boolean twoLate = "live-hot-join-two".equals(config.scenario)
                 || concurrentExit;
         boolean reenterWhileWarming = crashReentry
@@ -352,7 +355,14 @@ public final class GdxMultiprocessNodeMain {
             GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
                     visibleExpectedPlayers, productTable, lobby);
             scenarioRenderer.set(renderer);
-            if (config.host()) renderer.gateActionAtOrAfterHand(1L);
+            if (config.host()) {
+                if (flopBootstrap) {
+                    renderer.gateActionOnStreet(1L,
+                            TableSnapshot.Street.FLOP);
+                } else {
+                    renderer.gateActionAtOrAfterHand(1L);
+                }
+            }
             table.attach(renderer).toCompletableFuture()
                     .get(15, TimeUnit.SECONDS);
 
@@ -521,6 +531,21 @@ public final class GdxMultiprocessNodeMain {
                 }
                 marker("HOT_JOIN_REMOTE_CARD_BACKS", "nick="
                         + config.nickname);
+                if (flopBootstrap) {
+                    if (!renderer.firstHotJoinCommunityCardsAreFaceUp(3)) {
+                        throw new AssertionError(
+                                "first hot-join snapshot did not contain the "
+                                + "already-open flop: "
+                                + renderer.communityCardDiagnostic());
+                    }
+                    if (!renderer.firstHotJoinRemoteCardSlotsAreSafeBacks()) {
+                        throw new AssertionError(
+                                "first hot-join snapshot did not contain safe "
+                                + "backs for active remote players");
+                    }
+                    marker("HOT_JOIN_BOOTSTRAP_PUBLIC_STATE",
+                            "faceUp=3 remoteBacks=true");
+                }
                 bootstrapLogLines.set(gameLog.snapshot().lines().size());
                 await(renderer::sawHotJoinTimerStart,
                         Duration.ofSeconds(30),

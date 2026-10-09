@@ -66,6 +66,7 @@ final class GdxScenarioContract {
                     "liveHotJoinAfterBotOnlyStartWarmsThenPlaysTheNextHand",
                     "liveHotJoinAfterHumanOnlyStartWarmsThenPlaysTheNextHand",
                     "liveHotJoinAfterMixedStartWarmsThenPlaysTheNextHand",
+                    "freshHotJoinOnFlopReceivesCompletePublicBootstrap",
                     "twoConcurrentHotJoinsWarmAndEnterTheSameNextHand",
                     "oneOfTwoConcurrentHotJoinsCanLeaveWhileTheOtherIsAdmitted",
                     "warmingHotJoinReceivesHostTableStop",

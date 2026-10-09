@@ -98,6 +98,14 @@ class GdxMultiprocessScenarioTest {
     }
 
     @Test
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    void freshHotJoinOnFlopReceivesCompletePublicBootstrap(
+            @TempDir Path root) throws Exception {
+        runLiveHotJoinScenario(root, 0, 1,
+                "live-hot-join-flop-bootstrap");
+    }
+
+    @Test
     @Timeout(value = 7, unit = TimeUnit.MINUTES)
     void twoConcurrentHotJoinsWarmAndEnterTheSameNextHand(
             @TempDir Path root) throws Exception {
@@ -966,6 +974,11 @@ class GdxMultiprocessScenarioTest {
 
     private static void runLiveHotJoinScenario(Path root, int incumbentClients,
             int bots) throws Exception {
+        runLiveHotJoinScenario(root, incumbentClients, bots, "live-hot-join");
+    }
+
+    private static void runLiveHotJoinScenario(Path root, int incumbentClients,
+            int bots, String scenario) throws Exception {
         int port;
         try (ServerSocket reservation = new ServerSocket(0)) {
             port = reservation.getLocalPort();
@@ -977,13 +990,13 @@ class GdxMultiprocessScenarioTest {
         try {
             NodeProcess host = startNode(root.resolve("host"), "host",
                     "server", port, totalClients, bots, 3,
-                    "live-hot-join");
+                    scenario);
             nodes.add(host);
             awaitHostReady(host);
             for (int index = 1; index <= incumbentClients; index++) {
                 NodeProcess incumbent = startNode(root.resolve(
                         "client-" + index), "client", "client" + index,
-                        port, totalClients, bots, 3, "live-hot-join");
+                        port, totalClients, bots, 3, scenario);
                 nodes.add(incumbent);
                 assertTrue(incumbent.await("CP_GDX_E2E_READY",
                         Duration.ofSeconds(30)), incumbent.diagnostic());
@@ -998,7 +1011,7 @@ class GdxMultiprocessScenarioTest {
             NodeProcess newcomer = startNode(root.resolve(
                     "client-" + totalClients), "client",
                     newcomerNickname, port, totalClients, bots, 3,
-                    "live-hot-join", "late");
+                    scenario, "late");
             nodes.add(newcomer);
             assertTrue(newcomer.await(
                     "CP_GDX_E2E_HOT_JOIN_WARMING nick="
@@ -1008,6 +1021,12 @@ class GdxMultiprocessScenarioTest {
                     "CP_GDX_E2E_HOT_JOIN_REMOTE_CARD_BACKS nick="
                             + newcomerNickname,
                     Duration.ofSeconds(45)), newcomer.diagnostic());
+            if ("live-hot-join-flop-bootstrap".equals(scenario)) {
+                assertTrue(newcomer.await(
+                        "CP_GDX_E2E_HOT_JOIN_BOOTSTRAP_PUBLIC_STATE "
+                        + "faceUp=3 remoteBacks=true",
+                        Duration.ofSeconds(45)), newcomer.diagnostic());
+            }
             host.send("RELEASE_HOT_JOIN");
             assertTrue(host.await(
                     "CP_GDX_E2E_HOT_JOIN_SERVER_NOTIFIED nick="

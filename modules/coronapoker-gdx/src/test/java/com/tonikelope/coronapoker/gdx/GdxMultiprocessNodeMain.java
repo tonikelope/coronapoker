@@ -471,6 +471,17 @@ public final class GdxMultiprocessNodeMain {
                     throw new AssertionError(
                             "hot joiner received concealed pocket data");
                 }
+                try {
+                    await(renderer::activeRemoteCardSlotsAreSafeBacks,
+                            Duration.ofSeconds(30),
+                            "visible remote card backs in hot-join bootstrap");
+                } catch (IllegalStateException timeout) {
+                    throw new IllegalStateException(timeout.getMessage()
+                            + " [" + renderer.remoteCardSlotDiagnostic()
+                            + "]", timeout);
+                }
+                marker("HOT_JOIN_REMOTE_CARD_BACKS", "nick="
+                        + config.nickname);
                 bootstrapLogLines.set(gameLog.snapshot().lines().size());
                 await(renderer::sawHotJoinTimerStart,
                         Duration.ofSeconds(30),

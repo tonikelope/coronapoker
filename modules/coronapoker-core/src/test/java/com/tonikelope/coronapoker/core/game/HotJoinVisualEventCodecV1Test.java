@@ -77,7 +77,9 @@ class HotJoinVisualEventCodecV1Test {
                 new TableVisualEvent.RebuyDecision(26, "ana",
                         TableVisualEvent.RebuyDecision.Phase.REBOUGHT),
                 new TableVisualEvent.InitialStackFill(27, List.of(CHIP),
-                        500, "misc/cash.wav"));
+                        500, "misc/cash.wav"),
+                new TableVisualEvent.SeatRoster(28, List.of(player(
+                        "ana", false, false, FACE_DOWN))));
 
         for (TableVisualEvent source : events) {
             String encoded = HotJoinVisualEventCodecV1.encode(source)
@@ -115,6 +117,23 @@ class HotJoinVisualEventCodecV1Test {
                         RECEIVER_SEQUENCE));
         assertEquals("", localHostCard.card().code());
         assertFalse(localHostCard.card().faceUp());
+
+        TableVisualEvent.SeatRoster roster = assertInstanceOf(
+                TableVisualEvent.SeatRoster.class,
+                HotJoinVisualEventCodecV1.decode(
+                        HotJoinVisualEventCodecV1.encode(
+                                new TableVisualEvent.SeatRoster(3, List.of(
+                                        player("host", false, false,
+                                                FACE_UP),
+                                        player("ana", false, false,
+                                                FACE_DOWN))))
+                                .orElseThrow(), RECEIVER_SEQUENCE));
+        assertEquals(2, roster.players().size());
+        assertEquals("A_P", roster.players().get(0).holeCards().get(0).code());
+        assertTrue(roster.players().get(0).holeCards().get(0).faceUp());
+        assertTrue(roster.players().get(1).holeCards().stream()
+                .allMatch(card -> card.code().isBlank()
+                        && !card.faceUp() && card.visible()));
     }
 
     @Test
@@ -135,5 +154,14 @@ class HotJoinVisualEventCodecV1Test {
         assertThrows(IllegalArgumentException.class,
                 () -> HotJoinVisualEventCodecV1.decode("AAAA",
                         RECEIVER_SEQUENCE));
+    }
+
+    private static TableSnapshot.PlayerSnapshot player(String nickname,
+            boolean spectator, boolean warming,
+            TableSnapshot.CardSnapshot card) {
+        return new TableSnapshot.PlayerSnapshot(nickname, 8d, 2d, 2d,
+                !spectator, spectator, false, false, 10, 11, 1, 123L,
+                false, false, TableSnapshot.Position.BIG_BLIND, "CALL", "",
+                List.of(card, card), 10, 0, warming);
     }
 }

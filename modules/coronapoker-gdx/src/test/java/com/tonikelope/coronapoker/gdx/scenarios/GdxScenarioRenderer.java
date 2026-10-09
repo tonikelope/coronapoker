@@ -740,6 +740,46 @@ final class GdxScenarioRenderer implements TableRenderer {
                 .orElse(false);
     }
 
+    boolean activeRemoteCardSlotsAreSafeBacks() {
+        GdxTableViewState projection = state.get();
+        if (projection == null) return false;
+        TableSnapshot snapshot = projection.snapshot();
+        List<TableSnapshot.PlayerSnapshot> activeRemotes = snapshot.players()
+                .stream()
+                .filter(player -> !player.nickname().equals(
+                        snapshot.localNickname()))
+                .filter(player -> player.active() && !player.spectator()
+                        && !player.exited())
+                .toList();
+        return !activeRemotes.isEmpty() && activeRemotes.stream().allMatch(
+                player -> player.holeCards().size() == 2
+                && player.holeCards().stream().allMatch(
+                        card -> card.visible() && !card.faceUp()
+                        && card.code().isBlank()));
+    }
+
+    String remoteCardSlotDiagnostic() {
+        GdxTableViewState projection = state.get();
+        if (projection == null) return "<renderer not opened>";
+        TableSnapshot snapshot = projection.snapshot();
+        return snapshot.players().stream()
+                .filter(player -> !player.nickname().equals(
+                        snapshot.localNickname()))
+                .map(player -> player.nickname()
+                + "{active=" + player.active()
+                + ",spectator=" + player.spectator()
+                + ",warming=" + player.warming()
+                + ",exited=" + player.exited()
+                + ",cards=" + player.holeCards().stream()
+                        .map(card -> "[code="
+                        + (card.code().isBlank() ? "_" : card.code())
+                        + ",up=" + card.faceUp()
+                        + ",visible=" + card.visible() + "]")
+                        .collect(java.util.stream.Collectors.joining())
+                + "}")
+                .collect(java.util.stream.Collectors.joining(", "));
+    }
+
     boolean hasLocalDealAfter(long handId) {
         return localDeals.entrySet().stream().anyMatch(entry
                 -> entry.getKey() > handId && entry.getValue().size() == 2);
@@ -973,6 +1013,15 @@ final class GdxScenarioRenderer implements TableRenderer {
                         && card.faceUp() && card.visible()),
                         player.nickname()
                         + " spectator must show two visible jokers");
+                String expectedStatus = presentationText().translate(
+                        player.warming() ? "game.calentando"
+                                : "player.espectador").toUpperCase(
+                                        java.util.Locale.ROOT);
+                assertEquals(expectedStatus,
+                        CoronaPokerGdxTable.spectatorStatusLabel(player,
+                                presentationText()),
+                        player.nickname()
+                        + " must keep its canonical spectator role label");
             } else if (reactivatedSpectators.contains(player.nickname())) {
                 assertFalse(cards.size() == 2 && cards.stream().allMatch(
                         card -> "joker".equals(card.code())),
@@ -1001,6 +1050,11 @@ final class GdxScenarioRenderer implements TableRenderer {
                                 "game.calentando").toUpperCase(
                                         java.util.Locale.ROOT), status,
                                 "a warming local seat must say CALENTANDO");
+                        assertEquals(status,
+                                CoronaPokerGdxTable.localHudIdleMessage(false,
+                                        false, true, true,
+                                        presentationText()),
+                                "the full and compact local HUD must agree on CALENTANDO");
                     }
                 } else if (settled || folded || allIn || player.exited()
                         || !player.active()) {

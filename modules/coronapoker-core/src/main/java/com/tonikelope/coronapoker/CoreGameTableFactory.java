@@ -2008,7 +2008,14 @@ public final class CoreGameTableFactory implements GameTableFactory {
          */
         void observePresentationEvent(TableVisualEvent event) {
             if (!host || warming.isEmpty()) return;
-            String encoded = HotJoinVisualEventCodecV1.encode(event)
+            TableVisualEvent publicEvent = event;
+            if (event instanceof TableVisualEvent.SeatRoster roster) {
+                Crupier current = dealer;
+                if (current == null) return;
+                publicEvent = new TableVisualEvent.SeatRoster(
+                        roster.sequence(), current.publicHotJoinRoster());
+            }
+            String encoded = HotJoinVisualEventCodecV1.encode(publicEvent)
                     .orElse(null);
             if (encoded == null) return;
             String command = "HOTJOIN_EVENT#" + encoded;

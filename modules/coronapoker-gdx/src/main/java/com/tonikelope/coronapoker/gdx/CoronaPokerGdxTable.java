@@ -14153,7 +14153,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         1f);
             } else {
                 drawScaledFittedCenteredInBox(localOutcomeFont, 0.70f,
-                        localHudIdleMessage(false, true, false, gameText),
+                        localHudIdleMessage(false, true, false, false,
+                                gameText),
                         statusX, actionY + 8f, statusWidth,
                         actionHeight - 16f, WAITING_TURN_TEXT, 1f);
             }
@@ -14189,7 +14190,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else if (localFolded || waitingForTurn || localSpectator) {
             drawScaledFittedCenteredInBox(localOutcomeFont, 0.70f,
                     localHudIdleMessage(localFolded, waitingForTurn,
-                            localSpectator, gameText),
+                            localSpectator, liveLocalPlayer != null
+                                    && liveLocalPlayer.warming(), gameText),
                     statusX, actionY + 8f, statusWidth,
                     actionHeight - 16f, WAITING_TURN_TEXT, 1f);
         } else if (localTurn) {
@@ -14474,12 +14476,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static String localHudIdleMessage(boolean foldedThisHand,
-            boolean waitingForTurn, boolean spectator, GdxGameText text) {
+            boolean waitingForTurn, boolean spectator, boolean warming,
+            GdxGameText text) {
         if (foldedThisHand) {
             return uppercase(text.translate("action.label.fold"), text);
         }
         if (spectator) {
-            return uppercase(text.translate("player.espectador"), text);
+            return uppercase(text.translate(warming
+                    ? "game.calentando" : "player.espectador"), text);
         }
         return waitingForTurn
                 ? uppercase(text.translate("gdx.table.hud.waiting_turn"), text)

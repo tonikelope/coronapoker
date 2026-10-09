@@ -443,29 +443,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private TableSnapshot tableSnapshot() {
         TableSnapshot base = TableSnapshotMapper.from(
                 gameSession().table().snapshot(), this::getRebuyCount);
-        java.util.List<TableSnapshot.PlayerSnapshot> players = base.players()
-                .stream().map(player -> {
-                    GamePlayerController controller = nick2player.get(
-                            player.nickname());
-                    boolean warming = player.warming()
-                            || controller != null && controller.isCalentando()
-                            || hot_join_observer
-                            && player.nickname().equals(
-                                    gameSession().localNickname())
-                            && player.spectator() && !player.exited();
-                    if (warming == player.warming()) return player;
-                    return new TableSnapshot.PlayerSnapshot(
-                            player.nickname(), player.stack(),
-                            player.streetBet(), player.potContribution(),
-                            player.active(), player.spectator(),
-                            player.exited(), player.timedOut(),
-                            player.latency(), player.previousLatency(),
-                            player.reconnectionCount(), player.telemetryAt(),
-                            player.winner(), player.underTheGun(),
-                            player.position(), player.lastAction(),
-                            player.handName(), player.holeCards(),
-                            player.buyIn(), player.rebuyCount(), warming);
-                }).toList();
+        java.util.List<TableSnapshot.PlayerSnapshot> players
+                = canonicalPlayers(base.players());
         return new TableSnapshot(base.revision(), base.localNickname(),
                 base.street(), base.pot(), base.currentTurnNickname(),
                 base.paused(), players, base.communityCards());
@@ -514,8 +493,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         : boundaryRelay));
         LOGGER.log(Level.INFO, "HOT JOIN: queued {0} for the next boundary",
                 nickname);
-        table_events.publishIfAttached(sequence -> new TableVisualEvent.SeatRoster(
-                sequence, localHotJoinPlayers()));
+        publishReplicatedSeatRoster();
     }
 
     /** Removes a newcomer that disconnected before its admission boundary. */
@@ -527,8 +505,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 -> pending.player().getNickname().equals(nickname));
         LOGGER.log(Level.INFO,
                 "HOT JOIN: cancelled warming reservation for {0}", nickname);
-        table_events.publishIfAttached(sequence -> new TableVisualEvent.SeatRoster(
-                sequence, localHotJoinPlayers()));
+        publishReplicatedSeatRoster();
+    }
+
+    /**
+     * Incumbents deterministically project their own canonical roster. A
+     * newcomer still replaying the open hand must instead consume the host's
+     * ordered SeatRoster relay: its recovery model can legitimately lag that
+     * presentation by one HOTJOIN command and must never overwrite a newer
+     * bootstrap (notably when two people join together).
+     */
+    private void publishReplicatedSeatRoster() {
+        if (hot_join_observer && !gameSession().isHost()) {
+            return;
+        }
+        table_events.publishIfAttached(sequence
+                -> new TableVisualEvent.SeatRoster(sequence,
+                        tableSnapshot().players()));
     }
 
     /** Explicit protocol marker for a fresh client observing the open hand. */
@@ -577,7 +570,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public TableSnapshot publicHotJoinSnapshot() {
         TableSnapshot base = tableSnapshot();
         java.util.List<TableSnapshot.PlayerSnapshot> publicPlayers
-                = publicHotJoinPlayers();
+                = publicPlayers(base.players());
         java.util.List<TableSnapshot.CardSnapshot> board
                 = java.util.Arrays.stream(communityCards())
                         .map(GameCardController::getState)
@@ -600,6 +593,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return new TableSnapshot(base.revision(), base.localNickname(),
                 publicStreet, MoneyMath.clean(this.bote_total), currentTurn,
                 gameSession().isPaused(), publicPlayers, board);
+    }
+
+    /** Public form of the canonical roster for ordered hot-join updates. */
+    public java.util.List<TableSnapshot.PlayerSnapshot> publicHotJoinRoster() {
+        return publicPlayers(tableSnapshot().players());
     }
 
     public String hotJoinRecoveryPayload() {
@@ -641,22 +639,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return command.toString();
     }
 
-    private java.util.List<TableSnapshot.PlayerSnapshot> publicHotJoinPlayers() {
-        return hotJoinPlayers(true);
-    }
-
     /**
-     * Existing participants keep their own canonical/private projection when
-     * a warming seat appears. Only the targeted newcomer receives the
-     * public-only variant. Publishing the public roster locally could erase a
-     * player's cards in the middle of their reveal animation.
+     * Builds the one canonical roster used by snapshots and every visual
+     * boundary. A pending late join is a normal seat with a warming role; it is
+     * never reconstructed by the renderer and cannot disappear or degrade to
+     * a generic spectator when another snapshot replaces the current view.
      */
-    private java.util.List<TableSnapshot.PlayerSnapshot> localHotJoinPlayers() {
-        return hotJoinPlayers(false);
-    }
-
-    private java.util.List<TableSnapshot.PlayerSnapshot> hotJoinPlayers(
-            boolean publicOnly) {
+    private java.util.List<TableSnapshot.PlayerSnapshot> canonicalPlayers(
+            java.util.List<TableSnapshot.PlayerSnapshot> basePlayers) {
         java.util.ArrayList<TableSnapshot.PlayerSnapshot> result
                 = new java.util.ArrayList<>();
         java.util.LinkedHashMap<String, PendingHotJoin> warming
@@ -664,28 +654,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (PendingHotJoin pending : pending_hot_joins) {
             warming.put(pending.player().getNickname(), pending);
         }
-        TableSnapshot base = tableSnapshot();
-        for (TableSnapshot.PlayerSnapshot player : base.players()) {
+        for (TableSnapshot.PlayerSnapshot player : basePlayers) {
             PendingHotJoin replacement = warming.remove(player.nickname());
             if (replacement != null) {
                 result.add(warmingSnapshot(replacement));
                 continue;
             }
             GamePlayerController controller = nick2player.get(player.nickname());
-            boolean publiclyRevealed = controller != null
-                    && controller.isMuestra();
-            java.util.List<TableSnapshot.CardSnapshot> cards
-                    = publicOnly
-                            ? player.holeCards().stream()
-                                    .map(card -> publiclyRevealed
-                                            ? publicCard(card)
-                                            : new TableSnapshot.CardSnapshot(
-                                                    "", false,
-                                                    card.disabled(),
-                                                    card.visible()))
-                                    .toList()
-                            : player.holeCards();
             boolean warmingPlayer = player.warming()
+                    || controller != null && controller.isCalentando()
                     || hot_join_observer
                     && player.nickname().equals(gameSession().localNickname())
                     && player.spectator() && !player.exited();
@@ -696,13 +673,40 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     player.latency(), player.previousLatency(),
                     player.reconnectionCount(), player.telemetryAt(),
                     player.winner(), player.underTheGun(), player.position(),
-                    player.lastAction(), player.handName(), cards,
+                    player.lastAction(), player.handName(), player.holeCards(),
                     player.buyIn(), player.rebuyCount(), warmingPlayer));
         }
         for (PendingHotJoin pending : warming.values()) {
             result.add(warmingSnapshot(pending));
         }
         return java.util.List.copyOf(result);
+    }
+
+    /** Conceals only private values; roster identity and card slots stay canonical. */
+    private java.util.List<TableSnapshot.PlayerSnapshot> publicPlayers(
+            java.util.List<TableSnapshot.PlayerSnapshot> players) {
+        return players.stream().map(player -> {
+            GamePlayerController controller = nick2player.get(
+                    player.nickname());
+            boolean publiclyRevealed = controller != null
+                    && controller.isMuestra();
+            java.util.List<TableSnapshot.CardSnapshot> cards
+                    = player.holeCards().stream()
+                            .map(card -> publiclyRevealed
+                                    ? publicCard(card)
+                                    : new TableSnapshot.CardSnapshot("", false,
+                                            card.disabled(), card.visible()))
+                            .toList();
+            return new TableSnapshot.PlayerSnapshot(player.nickname(),
+                    player.stack(), player.streetBet(),
+                    player.potContribution(), player.active(),
+                    player.spectator(), player.exited(), player.timedOut(),
+                    player.latency(), player.previousLatency(),
+                    player.reconnectionCount(), player.telemetryAt(),
+                    player.winner(), player.underTheGun(), player.position(),
+                    player.lastAction(), player.handName(), cards,
+                    player.buyIn(), player.rebuyCount(), player.warming());
+        }).toList();
     }
 
     private TableSnapshot.PlayerSnapshot warmingSnapshot(
@@ -14329,22 +14333,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     String code = localFaceUp
                             ? CardCode.shortCodeFromIndex(this.local_original_cards[slot] & 0xFF)
                             : "";
-                    TableSnapshot.CardSnapshot snapshot = new TableSnapshot.CardSnapshot(
-                            code, localFaceUp, false);
-                    final int dealtSlot = slot;
-                    awaitAttachedTableEvent(sequence -> new TableVisualEvent.DealHoleCard(
-                            sequence, player.getNickname(), dealtSlot, snapshot),
-                            "Hole-card deal presentation barrier failed");
-
                     GameCardController card = cardController(slot == 0
                             ? player.getHoleCard1() : player.getHoleCard2());
-                    if (player == local && !deferStraddleReveal) {
+                    if (localFaceUp) {
                         card.iniciarConValorNumerico(
                                 (this.local_original_cards[slot] & 0xFF) + 1);
                         card.destapar(false);
                     } else {
                         card.iniciarCarta();
                     }
+                    TableSnapshot.CardSnapshot snapshot = new TableSnapshot.CardSnapshot(
+                            code, localFaceUp, false);
+                    final int dealtSlot = slot;
+                    awaitAttachedTableEvent(sequence -> new TableVisualEvent.DealHoleCard(
+                            sequence, player.getNickname(), dealtSlot, snapshot),
+                            "Hole-card deal presentation barrier failed");
                     if (player == local && slot == 1
                             && !deferStraddleReveal) {
                         boolean localNeedsVisualSwap
@@ -14371,9 +14374,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (int slot = 0; slot < community.length; slot++) {
             pause_gate.await();
             final int dealtSlot = slot;
+            community[slot].iniciarCarta();
             awaitAttachedTableEvent(sequence -> new TableVisualEvent.DealCommunityCard(
                     sequence, dealtSlot), "Community-card deal presentation barrier failed");
-            community[slot].iniciarCarta();
         }
 
         // The ordinary local hand was already sorted as soon as its second
@@ -26190,7 +26193,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // presented. Sampling the canonical queue here closes that race and
         // keeps current players plus every newcomer in one ordered projection.
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.SeatRoster(
-                sequence, localHotJoinPlayers()),
+                sequence, tableSnapshot().players()),
                 "Canonical seat-roster presentation barrier failed");
 
         startTelemetryProjection();

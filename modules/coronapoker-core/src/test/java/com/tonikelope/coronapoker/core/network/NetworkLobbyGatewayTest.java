@@ -745,6 +745,8 @@ class NetworkLobbyGatewayTest {
 
                 LobbySession late = lateGateway.open(
                         request(true, "Tardio", port)).get(5, TimeUnit.SECONDS);
+                assertTrue(late.snapshot().startingOrStarted(),
+                        "a hot join must block the lobby from its first frame");
                 late.tableSession().toCompletableFuture()
                         .get(5, TimeUnit.SECONDS);
                 await(() -> lateContext.get() != null);

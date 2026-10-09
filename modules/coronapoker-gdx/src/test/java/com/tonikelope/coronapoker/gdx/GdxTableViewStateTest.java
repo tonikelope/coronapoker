@@ -1528,20 +1528,26 @@ final class GdxTableViewStateTest {
         GdxGameText spanish = new GdxGameText("es");
         GdxGameText english = new GdxGameText("en");
         assertEquals("NO VAS", CoronaPokerGdxTable.localHudIdleMessage(
-                true, false, false, spanish));
+                true, false, false, false, spanish));
         assertEquals("FOLD", CoronaPokerGdxTable.localHudIdleMessage(
-                true, false, false, english));
+                true, false, false, false, english));
         assertEquals("ESPERANDO TURNO",
                 CoronaPokerGdxTable.localHudIdleMessage(
-                        false, true, false, spanish));
+                        false, true, false, false, spanish));
         assertEquals("ESPECTADOR",
                 CoronaPokerGdxTable.localHudIdleMessage(
-                        false, false, true, spanish));
+                        false, false, true, false, spanish));
         assertEquals("SPECTATOR",
                 CoronaPokerGdxTable.localHudIdleMessage(
-                        false, false, true, english));
+                        false, false, true, false, english));
+        assertEquals("CALENTANDO",
+                CoronaPokerGdxTable.localHudIdleMessage(
+                        false, false, true, true, spanish));
+        assertEquals("WARMING UP",
+                CoronaPokerGdxTable.localHudIdleMessage(
+                        false, false, true, true, english));
         assertEquals("", CoronaPokerGdxTable.localHudIdleMessage(
-                false, false, false, spanish));
+                false, false, false, false, spanish));
     }
 
     @Test
@@ -1920,7 +1926,7 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void warmingIdentitySurvivesIncrementalEventsUntilRealAdmission() {
+    void canonicalRosterOwnsWarmingIdentityUntilRealAdmission() {
         TableSnapshot.PlayerSnapshot warming = new TableSnapshot.PlayerSnapshot(
                 "ana", 1_000d, 0d, 0d, false, true, false, false,
                 -2, -2, 0, 0L, false, false, TableSnapshot.Position.NONE,
@@ -1937,17 +1943,17 @@ final class GdxTableViewStateTest {
         assertTrue(state.snapshot().players().get(0).warming(),
                 "telemetry must not turn CALENTANDO into ESPECTADOR");
 
-        TableSnapshot.PlayerSnapshot staleRoster
+        TableSnapshot.PlayerSnapshot canonicalWarmingRoster
                 = new TableSnapshot.PlayerSnapshot(
                         "ana", 1_000d, 0d, 0d, false, true, false, false,
                         12, 15, 1, 100L, false, false,
-                        TableSnapshot.Position.NONE, "", "", List.of(),
-                        10, 0, false);
+                        TableSnapshot.Position.NONE, "CALENTANDO", "",
+                        List.of(), 10, 0, true);
         state.apply(new TableVisualEvent.SeatRoster(2L,
-                List.of(staleRoster, player("borja",
+                List.of(canonicalWarmingRoster, player("borja",
                         TableSnapshot.Position.BIG_BLIND))));
         assertTrue(state.snapshot().players().get(0).warming(),
-                "a stale roster cannot downgrade CALENTANDO");
+                "the canonical roster must retain CALENTANDO");
 
         TableSnapshot.PlayerSnapshot admitted
                 = new TableSnapshot.PlayerSnapshot(

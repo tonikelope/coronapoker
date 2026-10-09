@@ -471,9 +471,7 @@ final class GdxTableViewState {
                 stopTurn();
             }
         } else if (event instanceof TableVisualEvent.SeatRoster roster) {
-            List<TableSnapshot.PlayerSnapshot> players = roster.players()
-                    .stream().map(this::preserveWarmingUntilAdmission)
-                    .toList();
+            List<TableSnapshot.PlayerSnapshot> players = roster.players();
             snapshot = copySnapshot(snapshot, snapshot.pot(),
                     snapshot.currentTurnNickname(), players,
                     snapshot.communityCards());
@@ -1179,29 +1177,4 @@ final class GdxTableViewState {
                 source.warming());
     }
 
-    private TableSnapshot.PlayerSnapshot preserveWarmingUntilAdmission(
-            TableSnapshot.PlayerSnapshot incoming) {
-        if (incoming.warming() || !incoming.spectator()
-                || incoming.exited()) {
-            return incoming;
-        }
-        boolean wasWarming = snapshot.players().stream()
-                .filter(player -> player.nickname().equals(
-                        incoming.nickname()))
-                .findFirst()
-                .map(TableSnapshot.PlayerSnapshot::warming)
-                .orElse(false);
-        if (!wasWarming) return incoming;
-        return new TableSnapshot.PlayerSnapshot(incoming.nickname(),
-                incoming.stack(), incoming.streetBet(),
-                incoming.potContribution(), incoming.active(),
-                incoming.spectator(), incoming.exited(),
-                incoming.timedOut(), incoming.latency(),
-                incoming.previousLatency(), incoming.reconnectionCount(),
-                incoming.telemetryAt(), incoming.winner(),
-                incoming.underTheGun(), incoming.position(),
-                incoming.lastAction(), incoming.handName(),
-                incoming.holeCards(), incoming.buyIn(),
-                incoming.rebuyCount(), true);
-    }
 }

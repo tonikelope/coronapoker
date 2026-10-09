@@ -990,6 +990,10 @@ class GdxMultiprocessScenarioTest {
                     "CP_GDX_E2E_HOT_JOIN_WARMING nick="
                             + newcomerNickname,
                     Duration.ofSeconds(90)), newcomer.diagnostic());
+            assertTrue(newcomer.await(
+                    "CP_GDX_E2E_HOT_JOIN_REMOTE_CARD_BACKS nick="
+                            + newcomerNickname,
+                    Duration.ofSeconds(45)), newcomer.diagnostic());
             host.send("RELEASE_HOT_JOIN");
             assertTrue(host.await(
                     "CP_GDX_E2E_HOT_JOIN_SERVER_NOTIFIED nick="

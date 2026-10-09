@@ -430,7 +430,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     Peer.local(transport.localNickname, request.connection().avatar(), false,
                             identity.publicKey(), identity.signJoin(connection.sessionId)));
             LobbySession session = new LobbySession(transport.snapshot(
-                    LobbySnapshot.Phase.CONNECTED, ""), transport::submit, transport);
+                    connection.hotJoin ? LobbySnapshot.Phase.IN_GAME
+                            : LobbySnapshot.Phase.CONNECTED,
+                    ""), transport::submit, transport);
             transport.session = session;
             socket.setSoTimeout(0);
             executor.execute(() -> transport.readClient(connection));

@@ -58,6 +58,7 @@ public final class HotJoinVisualEventCodecV1 {
     private static final int REBUY = 25;
     private static final int REBUY_DECISION = 26;
     private static final int INITIAL_STACK_FILL = 27;
+    private static final int SEAT_ROSTER = 28;
 
     private HotJoinVisualEventCodecV1() {
     }
@@ -228,6 +229,9 @@ public final class HotJoinVisualEventCodecV1 {
                     writeChipTransfers(out, value.transfers());
                     out.writeLong(value.durationMillis());
                     writeText(out, value.soundResource());
+                } else if (event instanceof TableVisualEvent.SeatRoster value) {
+                    out.writeByte(SEAT_ROSTER);
+                    writePublicPlayers(out, value.players());
                 } else {
                     return Optional.empty();
                 }
@@ -358,6 +362,8 @@ public final class HotJoinVisualEventCodecV1 {
                 case INITIAL_STACK_FILL -> new TableVisualEvent.InitialStackFill(
                         sequence, readChipTransfers(in), in.readLong(),
                         readText(in));
+                case SEAT_ROSTER -> new TableVisualEvent.SeatRoster(sequence,
+                        readPlayers(in));
                 default -> throw new IllegalArgumentException(
                         "Unsupported hot-join visual event");
             };
@@ -451,6 +457,63 @@ public final class HotJoinVisualEventCodecV1 {
                     finite(in.readDouble(), "chip contribution")));
         }
         return List.copyOf(transfers);
+    }
+
+    /**
+     * A roster change is an ordinary table event and must remain one for a
+     * warming client too.  Rebuilding it from that client's recovery model can
+     * briefly be stale while a second newcomer is joining, so the host relays
+     * its canonical roster through the same ordered presentation stream.
+     * Pocket slots are retained as backs but their values never cross this
+     * public channel.
+     */
+    private static void writePublicPlayers(DataOutputStream out,
+            List<TableSnapshot.PlayerSnapshot> players) throws IOException {
+        writeCount(out, players.size());
+        for (TableSnapshot.PlayerSnapshot player : players) {
+            writeText(out, player.nickname());
+            out.writeDouble(player.stack());
+            out.writeDouble(player.streetBet());
+            out.writeDouble(player.potContribution());
+            out.writeBoolean(player.active());
+            out.writeBoolean(player.spectator());
+            out.writeBoolean(player.exited());
+            out.writeBoolean(player.timedOut());
+            out.writeInt(player.latency());
+            out.writeInt(player.previousLatency());
+            out.writeInt(player.reconnectionCount());
+            out.writeLong(player.telemetryAt());
+            out.writeBoolean(player.winner());
+            out.writeBoolean(player.underTheGun());
+            writeEnum(out, player.position());
+            writeText(out, player.lastAction());
+            writeText(out, player.handName());
+            writeCards(out, player.holeCards().stream()
+                    .map(HotJoinVisualEventCodecV1::publicCard).toList());
+            out.writeInt(player.buyIn());
+            out.writeInt(player.rebuyCount());
+            out.writeBoolean(player.warming());
+        }
+    }
+
+    private static List<TableSnapshot.PlayerSnapshot> readPlayers(
+            DataInputStream in) throws IOException {
+        int count = readCount(in);
+        ArrayList<TableSnapshot.PlayerSnapshot> players
+                = new ArrayList<>(count);
+        for (int index = 0; index < count; index++) {
+            players.add(new TableSnapshot.PlayerSnapshot(readText(in),
+                    finite(in.readDouble(), "player stack"),
+                    finite(in.readDouble(), "player street bet"),
+                    finite(in.readDouble(), "player contribution"),
+                    in.readBoolean(), in.readBoolean(), in.readBoolean(),
+                    in.readBoolean(), in.readInt(), in.readInt(), in.readInt(),
+                    in.readLong(), in.readBoolean(), in.readBoolean(),
+                    readEnum(in, TableSnapshot.Position.values(), "position"),
+                    readText(in), readText(in), readCards(in), in.readInt(),
+                    in.readInt(), in.readBoolean()));
+        }
+        return List.copyOf(players);
     }
 
     private static TableSnapshot.CardSnapshot publicCard(

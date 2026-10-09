@@ -144,6 +144,8 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final AtomicInteger checkedTableInfoLabels = new AtomicInteger();
     private final AtomicInteger checkedPotLabels = new AtomicInteger();
     private final AtomicInteger checkedResultLabels = new AtomicInteger();
+    private final Map<Integer, String> warmingPublicBoard
+            = new TreeMap<>();
 
     GdxScenarioRenderer(TableSession table, int expectedPlayers) {
         this(table, expectedPlayers, new AtomicReference<>());
@@ -332,6 +334,7 @@ final class GdxScenarioRenderer implements TableRenderer {
             }
         }
         TableSnapshot snapshot = projection.snapshot();
+        assertWarmingBoardNeverRegresses(event, snapshot);
         assertWarmingContinuity(snapshot);
         observeLiveConnectivity(snapshot);
         if (event instanceof TableVisualEvent.HandBoundary boundary
@@ -562,6 +565,46 @@ final class GdxScenarioRenderer implements TableRenderer {
         return CompletableFuture.completedFuture(null);
     }
 
+    /**
+     * Once a public community card is face-up for CALENTANDO, no delayed deal
+     * or bootstrap frame may cover or remove it again inside the same board.
+     */
+    private void assertWarmingBoardNeverRegresses(TableVisualEvent event,
+            TableSnapshot snapshot) {
+        TableSnapshot.PlayerSnapshot local = snapshot.players().stream()
+                .filter(player -> player.nickname().equals(
+                        snapshot.localNickname()))
+                .findFirst().orElse(null);
+        if ((event instanceof TableVisualEvent.HandBoundary boundary
+                && boundary.phase()
+                == TableVisualEvent.HandBoundary.Phase.PREPARE)
+                || event instanceof TableVisualEvent.RunItTwiceBoard) {
+            warmingPublicBoard.clear();
+        }
+        if (!sawHotJoinState.get() || local == null || !local.spectator()) {
+            return;
+        }
+        List<TableSnapshot.CardSnapshot> board = snapshot.communityCards();
+        for (Map.Entry<Integer, String> revealed
+                : warmingPublicBoard.entrySet()) {
+            int slot = revealed.getKey();
+            assertTrue(slot < board.size(),
+                    "warming public board lost slot " + slot);
+            TableSnapshot.CardSnapshot card = board.get(slot);
+            assertTrue(card.visible() && card.faceUp()
+                    && revealed.getValue().equals(card.code()),
+                    "warming public board regressed at slot " + slot
+                    + ": expected " + revealed.getValue() + " but saw "
+                    + card);
+        }
+        for (int slot = 0; slot < board.size(); slot++) {
+            TableSnapshot.CardSnapshot card = board.get(slot);
+            if (card.visible() && card.faceUp() && !card.code().isBlank()) {
+                warmingPublicBoard.putIfAbsent(slot, card.code());
+            }
+        }
+    }
+
     void releaseHeldAction() {
         if (heldAction.compareAndSet(true, false)) {
             gateConsumed.set(true);
@@ -687,6 +730,12 @@ final class GdxScenarioRenderer implements TableRenderer {
         return List.copyOf(actionTrace);
     }
 
+    boolean sawPlayerAction(String nickname,
+            TableVisualEvent.PlayerAction.ActionKind kind) {
+        String token = ":" + nickname + ":" + kind + ":";
+        return actionTrace.stream().anyMatch(entry -> entry.contains(token));
+    }
+
     boolean requestedImmediateRebuy() {
         return immediateRebuyRequested.get();
     }
@@ -713,6 +762,26 @@ final class GdxScenarioRenderer implements TableRenderer {
 
     boolean sawHotJoinCommunityReveal() {
         return sawHotJoinCommunityReveal.get();
+    }
+
+    boolean firstCommunityCardsAreFaceUp(int count) {
+        GdxTableViewState projection = state.get();
+        if (projection == null || count < 0
+                || projection.snapshot().communityCards().size() < count) {
+            return false;
+        }
+        return projection.snapshot().communityCards().subList(0, count)
+                .stream().allMatch(card -> card.visible()
+                && card.faceUp() && !card.code().isBlank());
+    }
+
+    String communityCardDiagnostic() {
+        GdxTableViewState projection = state.get();
+        if (projection == null) return "<renderer not opened>";
+        return projection.snapshot().communityCards().stream()
+                .map(card -> "[" + card.code() + ",visible="
+                + card.visible() + ",faceUp=" + card.faceUp() + "]")
+                .collect(java.util.stream.Collectors.joining(","));
     }
 
     boolean localHoleCardsRemainRevealed() {

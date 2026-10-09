@@ -79,8 +79,21 @@ public class ImmediateRebuyWireTest {
         assertTrue(crupier.contains("commitPendingRebuys(rebuy_now, rebuy_committed)"),
                 "START must seal one rebuy generation before encoding balances");
         assertTrue(crupier.contains("remote_rebuy_barrier.complete(arrivalSequence)"));
-        assertTrue(crupier.indexOf("awaitRemoteRebuyBarrier(throughSequence)")
-                < crupier.indexOf("acceptNextHandBalanceSnapshot(partes[3]"),
+
+        int ready = crupier.indexOf(
+                "private void readyForNextHand(boolean discardObservedHandCommands)");
+        int barrierBranch = crupier.indexOf(
+                "if (comando.startsWith(\"__LOCAL_REBUY_BARRIER__#\"))", ready);
+        int awaitBarrier = crupier.indexOf(
+                "awaitRemoteRebuyBarrier(throughSequence)", barrierBranch);
+        int startBranch = crupier.indexOf(
+                "partes[2].equals(\"START_SRA_CASCADE\")", awaitBarrier);
+        int acceptBalances = crupier.indexOf(
+                "acceptNextHandBalanceSnapshot(partes[4]", startBranch);
+        assertTrue(ready >= 0 && ready < barrierBranch
+                && barrierBranch < awaitBarrier
+                && awaitBarrier < startBranch
+                && startBranch < acceptBalances,
                 "client must apply received rebuys before validating START balances");
         assertTrue(factory.contains("dealer.registerRemoteRebuyRelay(arrival)"));
         assertTrue(factory.contains("dealer.enqueueRemoteRebuyBarrier(rebuyBoundary"));

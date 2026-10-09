@@ -11,15 +11,25 @@ import org.junit.jupiter.api.Test;
 public class StartCascadeSignalShapeTest {
 
     @Test
-    void currentStartSignalHasExactlyOneBalanceSnapshotField() {
+    void currentStartSignalHasHandOrdinalAndExactlyOneBalanceSnapshotField() {
         assertTrue(Crupier.startCascadeSignalHasCurrentShape(
-                new String[]{"GAME", "7", "START_SRA_CASCADE", "*"}));
+                new String[]{"GAME", "7", "START_SRA_CASCADE", "1", "*"}));
         assertTrue(Crupier.startCascadeSignalHasCurrentShape(
-                new String[]{"GAME", "7", "START_SRA_CASCADE", "YWxpY2U=|10.00|10|0"}));
+                new String[]{"GAME", "7", "START_SRA_CASCADE", "8", "YWxpY2U=|10.00|10|0"}));
         assertFalse(Crupier.startCascadeSignalHasCurrentShape(
                 new String[]{"GAME", "7", "START_SRA_CASCADE"}));
         assertFalse(Crupier.startCascadeSignalHasCurrentShape(
-                new String[]{"GAME", "7", "START_SRA_CASCADE", ""}));
+                new String[]{"GAME", "7", "START_SRA_CASCADE", "1"}));
+        assertFalse(Crupier.startCascadeSignalHasCurrentShape(
+                new String[]{"GAME", "7", "START_SRA_CASCADE", "0", "*"}));
+        assertFalse(Crupier.startCascadeSignalHasCurrentShape(
+                new String[]{"GAME", "7", "START_SRA_CASCADE", "-1", "*"}));
+        assertFalse(Crupier.startCascadeSignalHasCurrentShape(
+                new String[]{"GAME", "7", "START_SRA_CASCADE", "not-a-hand", "*"}));
+        assertFalse(Crupier.startCascadeSignalHasCurrentShape(
+                new String[]{"GAME", "7", "START_SRA_CASCADE", "1", ""}));
+        assertFalse(Crupier.startCascadeSignalHasCurrentShape(
+                new String[]{"GAME", "7", "START_SRA_CASCADE", "1", "*", "extra"}));
         assertFalse(Crupier.startCascadeSignalHasCurrentShape(
                 new String[]{"GAME", "7"}));
     }

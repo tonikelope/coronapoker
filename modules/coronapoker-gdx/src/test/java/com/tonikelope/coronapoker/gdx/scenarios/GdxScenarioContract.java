@@ -73,8 +73,10 @@ final class GdxScenarioContract {
                     "warmingHotJoinCanLeaveWhileBootstrapFramesAreInFlight",
                     "newlyAdmittedHotJoinCanLeaveAtTheHandBoundary",
                     "warmingHotJoinCanLeaveAndReenterWithSameIdentityAndStack",
+                    "warmingHotJoinCanLeaveAndReenterInALaterHandWithSameIdentityAndStack",
                     "warmingHotJoinCanCrashAndReenterWithSameIdentityAndStack",
-                    "activePlayerCanLeaveMidDecisionAndReenterAsWarmingOwner")),
+                    "activePlayerCanLeaveMidDecisionAndReenterAsWarmingOwner",
+                    "admittedHotJoinCanLeaveLaterAndReenterAsWarmingOwner")),
             Map.entry("abrupt-exit", Set.of(
                     "abruptProcessExitLeavesIndependentGdxPeersRecoverable",
                     "abruptExitAbortsTheHandAndLeavesSurvivorsRecoverable")),

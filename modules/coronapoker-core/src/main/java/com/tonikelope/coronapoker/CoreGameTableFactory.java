@@ -1747,9 +1747,9 @@ public final class CoreGameTableFactory implements GameTableFactory {
          * already animated cards/chips afterwards.
          */
         private final Object presentationLock = new Object();
-        private final Map<String, ArrayList<String>> pendingPresentation
+        private final Map<String, HotJoinPresentationCutover<String>>
+                presentationCutovers
                 = new LinkedHashMap<>();
-        private final Set<String> bootstrapped = ConcurrentHashMap.newKeySet();
         private final ScheduledExecutorService scheduler;
         private volatile Crupier dealer;
 
@@ -1814,8 +1814,8 @@ public final class CoreGameTableFactory implements GameTableFactory {
                     throw new IllegalArgumentException(
                             "Duplicate warming participant: " + nickname);
                 }
-                pendingPresentation.put(checked, new ArrayList<>());
-                bootstrapped.remove(checked);
+                presentationCutovers.put(checked,
+                        new HotJoinPresentationCutover<>());
             }
         }
 
@@ -1841,21 +1841,38 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 send(nickname, current.hotJoinSeatsCommand());
                 send(nickname, "RECOVERDATA#"
                         + current.hotJoinRecoveryPayload());
-                sendSnapshot(nickname, current.publicHotJoinSnapshot());
+                long snapshotFrontier;
+                TableSnapshot publicSnapshot;
+                synchronized (presentationLock) {
+                    if (!warming.contains(nickname)) return;
+                    /*
+                     * Read the sequence before the model snapshot. Any event
+                     * assigned at or below this frontier is necessarily old
+                     * enough to be represented by the following snapshot.
+                     * An event racing after the frontier is deliberately
+                     * replayed: whether or not its model mutation also reached
+                     * the snapshot, replaying the same canonical transition is
+                     * safe and preserves the normal animation stream.
+                     */
+                    snapshotFrontier = events.lastSequence();
+                    publicSnapshot = current.publicHotJoinSnapshot();
+                    presentationCutovers.get(nickname)
+                            .beginSnapshot(snapshotFrontier);
+                }
+                sendSnapshot(nickname, publicSnapshot);
                 current.publicHotJoinTurnTimer().ifPresent(timer -> send(
                         nickname, "HOTJOIN_EVENT#"
                         + HotJoinVisualEventCodecV1.encode(timer)
                                 .orElseThrow()));
                 synchronized (presentationLock) {
                     if (!warming.contains(nickname)) return;
-                    ArrayList<String> queued = pendingPresentation.remove(
-                            nickname);
-                    if (queued != null) {
-                        for (String command : queued) {
+                    HotJoinPresentationCutover<String> cutover
+                            = presentationCutovers.get(nickname);
+                    if (cutover != null) {
+                        for (String command : cutover.completeSnapshot()) {
                             send(nickname, command);
                         }
                     }
-                    bootstrapped.add(nickname);
                 }
                 LOGGER.log(java.util.logging.Level.INFO,
                         "HOT JOIN: public table bootstrap queued for {0}",
@@ -1971,8 +1988,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 // register() uses this same lock. Keep transport retirement
                 // and reservation removal indivisible with respect to a fresh
                 // HOTJOIN using the same persistent identity.
-                pendingPresentation.remove(nickname);
-                bootstrapped.remove(nickname);
+                presentationCutovers.remove(nickname);
                 removed = warming.remove(nickname);
             }
             earlyReady.remove(nickname);
@@ -2021,12 +2037,11 @@ public final class CoreGameTableFactory implements GameTableFactory {
             String command = "HOTJOIN_EVENT#" + encoded;
             synchronized (presentationLock) {
                 for (String nickname : warming) {
-                    ArrayList<String> pending = pendingPresentation.get(
-                            nickname);
-                    if (pending != null) {
-                        pending.add(command);
-                    } else if (bootstrapped.contains(nickname)) {
-                        send(nickname, command);
+                    HotJoinPresentationCutover<String> cutover
+                            = presentationCutovers.get(nickname);
+                    if (cutover != null) {
+                        cutover.accept(publicEvent.sequence(), command)
+                                .ifPresent(relay -> send(nickname, relay));
                     }
                 }
             }
@@ -2044,8 +2059,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
 
         private boolean forgetPresentation(String nickname) {
             synchronized (presentationLock) {
-                pendingPresentation.remove(nickname);
-                bootstrapped.remove(nickname);
+                presentationCutovers.remove(nickname);
                 return warming.remove(nickname);
             }
         }
@@ -2071,12 +2085,12 @@ public final class CoreGameTableFactory implements GameTableFactory {
         public void close() {
             synchronized (presentationLock) {
                 warming.clear();
-                pendingPresentation.clear();
-                bootstrapped.clear();
+                presentationCutovers.clear();
             }
             earlyReady.clear();
             if (scheduler != null) scheduler.shutdownNow();
         }
+
     }
 
     private static final class ChannelGameTransport implements GameTransport {

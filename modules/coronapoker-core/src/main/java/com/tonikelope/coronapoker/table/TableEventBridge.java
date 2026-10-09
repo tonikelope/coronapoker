@@ -70,6 +70,17 @@ public final class TableEventBridge implements AutoCloseable {
         return presentation.get() != null;
     }
 
+    /**
+     * Returns the last sequence already assigned by the attached presentation.
+     * Protocol projections use this as a snapshot cut-over frontier: events at
+     * or below it are already represented by a state snapshot taken
+     * immediately afterwards and must not be replayed on top of that snapshot.
+     */
+    public long lastSequence() {
+        TablePresentation current = presentation.get();
+        return current == null ? 0L : current.lastSequence();
+    }
+
     public CompletionStage<Void> publish(
             LongFunction<? extends TableVisualEvent> eventFactory) {
         return publishIfAttached(eventFactory).orElse(NO_RENDERER);

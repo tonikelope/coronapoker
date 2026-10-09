@@ -143,7 +143,14 @@ class GdxMultiprocessScenarioTest {
     @Timeout(value = 7, unit = TimeUnit.MINUTES)
     void warmingHotJoinCanLeaveAndReenterWithSameIdentityAndStack(
             @TempDir Path root) throws Exception {
-        runWarmingHotJoinReentryScenario(root);
+        runWarmingHotJoinReentryScenario(root, false);
+    }
+
+    @Test
+    @Timeout(value = 8, unit = TimeUnit.MINUTES)
+    void warmingHotJoinCanLeaveAndReenterInALaterHandWithSameIdentityAndStack(
+            @TempDir Path root) throws Exception {
+        runWarmingHotJoinReentryScenario(root, true);
     }
 
     @Test
@@ -158,6 +165,13 @@ class GdxMultiprocessScenarioTest {
     void activePlayerCanLeaveMidDecisionAndReenterAsWarmingOwner(
             @TempDir Path root) throws Exception {
         runActivePlayerHotReentryScenario(root);
+    }
+
+    @Test
+    @Timeout(value = 10, unit = TimeUnit.MINUTES)
+    void admittedHotJoinCanLeaveLaterAndReenterAsWarmingOwner(
+            @TempDir Path root) throws Exception {
+        runAdmittedHotJoinActiveReentryScenario(root);
     }
 
     @Test
@@ -1408,6 +1422,9 @@ class GdxMultiprocessScenarioTest {
             assertTrue(incumbent.await(
                     "CP_GDX_E2E_HOT_JOIN_EXIT_OBSERVED nick=client2 phase=admission",
                     Duration.ofSeconds(90)), incumbent.diagnostic());
+            assertTrue(host.await(
+                    "CP_GDX_E2E_HOT_JOIN_EXIT_FOLD_AUDITED nick=client2",
+                    Duration.ofSeconds(90)), host.diagnostic());
 
             for (NodeProcess node : tableNodes) {
                 assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_COMPLETE",
@@ -1433,7 +1450,8 @@ class GdxMultiprocessScenarioTest {
         }
     }
 
-    private static void runWarmingHotJoinReentryScenario(Path root)
+    private static void runWarmingHotJoinReentryScenario(Path root,
+            boolean laterHand)
             throws Exception {
         int port;
         try (ServerSocket reservation = new ServerSocket(0)) {
@@ -1444,14 +1462,17 @@ class GdxMultiprocessScenarioTest {
         NodeProcess impostor = null;
         NodeProcess reentered = null;
         try {
+            String scenario = laterHand
+                    ? "live-hot-join-reentry-later"
+                    : "live-hot-join-reentry";
             NodeProcess host = startNode(root.resolve("host"), "host",
                     "server", port, 2, 1, 3,
-                    "live-hot-join-reentry");
+                    scenario);
             nodes.add(host);
             awaitHostReady(host);
             NodeProcess incumbent = startNode(root.resolve("client-1"),
                     "client", "client1", port, 2, 1, 3,
-                    "live-hot-join-reentry");
+                    scenario);
             nodes.add(incumbent);
             assertTrue(incumbent.await("CP_GDX_E2E_READY",
                     Duration.ofSeconds(30)), incumbent.diagnostic());
@@ -1463,7 +1484,7 @@ class GdxMultiprocessScenarioTest {
 
             Path ownerHome = root.resolve("client-2-owner");
             first = startNode(ownerHome, "client", "client2", port,
-                    2, 1, 3, "live-hot-join-reentry", "late-exit");
+                    2, 1, 3, scenario, "late-exit");
             assertTrue(first.await(
                     "CP_GDX_E2E_HOT_JOIN_WARMING nick=client2",
                     Duration.ofSeconds(90)), first.diagnostic());
@@ -1483,17 +1504,22 @@ class GdxMultiprocessScenarioTest {
 
             impostor = startNode(root.resolve("client-2-impostor"),
                     "client", "client2", port, 2, 1, 3,
-                    "live-hot-join-reentry", "late-impostor");
+                    scenario, "late-impostor");
             assertTrue(impostor.await(
                     "CP_GDX_E2E_HOT_JOIN_IMPERSONATION_REJECTED nick=client2",
                     Duration.ofSeconds(45)), impostor.diagnostic());
             assertEquals(0, impostor.awaitExit(Duration.ofSeconds(20)),
                     impostor.diagnostic());
 
+            assertTrue(host.await(laterHand
+                    ? "CP_GDX_E2E_HOT_JOIN_REENTRY_GATE hand=2"
+                    : "CP_GDX_E2E_HOT_JOIN_REENTRY_GATE street=TURN",
+                    Duration.ofSeconds(120)), host.diagnostic());
+
             // Reuse the exact profile directory: the persistent Ed25519
             // identity, not the nickname string, owns the old stack.
             reentered = startNode(ownerHome, "client", "client2", port,
-                    2, 1, 3, "live-hot-join-reentry", "late-reentry");
+                    2, 1, 3, scenario, "late-reentry");
             assertTrue(reentered.await(
                     "CP_GDX_E2E_HOT_JOIN_WARMING nick=client2",
                     Duration.ofSeconds(90)), reentered.diagnostic());
@@ -1506,6 +1532,10 @@ class GdxMultiprocessScenarioTest {
                     Duration.ofSeconds(60)), incumbent.diagnostic());
             assertTrue(reentered.await(
                     "CP_GDX_E2E_HOT_JOIN_REENTRY_ADMITTED nick=client2",
+                    Duration.ofSeconds(180)), reentered.diagnostic());
+            assertTrue(reentered.await(laterHand
+                    ? "CP_GDX_E2E_HOT_JOIN_REENTRY_BOARD_STABLE faceUp=0"
+                    : "CP_GDX_E2E_HOT_JOIN_REENTRY_BOARD_STABLE faceUp=4",
                     Duration.ofSeconds(180)), reentered.diagnostic());
 
             List<NodeProcess> completing = new ArrayList<>(nodes);
@@ -1673,6 +1703,9 @@ class GdxMultiprocessScenarioTest {
             assertTrue(incumbent.await(
                     "CP_GDX_E2E_ACTIVE_REENTRY_EXIT_OBSERVED nick=client1",
                     Duration.ofSeconds(75)), incumbent.diagnostic());
+            assertTrue(host.await(
+                    "CP_GDX_E2E_ACTIVE_REENTRY_EXIT_FOLD_AUDITED nick=client1",
+                    Duration.ofSeconds(90)), host.diagnostic());
 
             reentered = startNode(ownerHome, "client", "client1", port,
                     2, 1, 4, "active-player-hot-reentry", "late-reentry");
@@ -1695,6 +1728,103 @@ class GdxMultiprocessScenarioTest {
             for (NodeProcess node : completing) {
                 assertTrue(node.await("CP_GDX_E2E_ACTIVE_REENTRY_COMPLETE",
                         Duration.ofSeconds(300)), node.diagnostic());
+                assertEquals(0, node.awaitExit(Duration.ofSeconds(25)),
+                        node.diagnostic());
+            }
+            List<NodeProcess> audited = new ArrayList<>(completing);
+            audited.add(departing);
+            for (NodeProcess node : audited) {
+                assertTrue(!node.contains("CP_GDX_E2E_FAIL"),
+                        node.diagnostic());
+                assertTrue(!node.contains("TABLE_FAILURE_V1"),
+                        node.diagnostic());
+                for (String fatal : ALWAYS_FATAL_OUTPUT) {
+                    assertTrue(!node.contains(fatal),
+                            fatal + "\n" + node.diagnostic());
+                }
+            }
+        } finally {
+            if (departing != null) departing.close();
+            if (reentered != null) reentered.close();
+            for (NodeProcess node : survivors) node.close();
+        }
+    }
+
+    private static void runAdmittedHotJoinActiveReentryScenario(Path root)
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        List<NodeProcess> survivors = new ArrayList<>();
+        NodeProcess departing = null;
+        NodeProcess reentered = null;
+        try {
+            String scenario = "admitted-hot-join-active-reentry";
+            NodeProcess host = startNode(root.resolve("host"), "host",
+                    "server", port, 2, 1, 4, scenario);
+            survivors.add(host);
+            awaitHostReady(host);
+            NodeProcess incumbent = startNode(root.resolve("client-1"),
+                    "client", "client1", port, 2, 1, 4, scenario);
+            survivors.add(incumbent);
+            assertTrue(incumbent.await("CP_GDX_E2E_READY",
+                    Duration.ofSeconds(30)), incumbent.diagnostic());
+            assertTrue(host.await("CP_GDX_E2E_LOBBY_READY players=3",
+                    Duration.ofSeconds(60)), host.diagnostic());
+            host.send("START_GAME");
+            assertTrue(host.await("CP_GDX_E2E_ADMITTED_REENTRY_INITIAL_GATE",
+                    Duration.ofSeconds(120)), host.diagnostic());
+
+            Path ownerHome = root.resolve("client-2-owner");
+            host.send("EXPECT_LATE_OWNER");
+            departing = startNode(ownerHome, "client", "client2", port,
+                    2, 1, 4, scenario, "late-first");
+            assertTrue(departing.await(
+                    "CP_GDX_E2E_ADMITTED_REENTRY_FIRST_WARMING nick=client2",
+                    Duration.ofSeconds(120)), departing.diagnostic());
+            assertTrue(departing.await(
+                    "CP_GDX_E2E_ADMITTED_REENTRY_EXIT_GATE nick=client2",
+                    Duration.ofSeconds(210)), departing.diagnostic());
+
+            host.send("EXPECT_ADMITTED_EXIT");
+            departing.send("EXIT_ADMITTED_OWNER");
+            assertTrue(departing.await(
+                    "CP_GDX_E2E_ADMITTED_REENTRY_EXITED nick=client2",
+                    Duration.ofSeconds(90)), departing.diagnostic());
+            assertEquals(0, departing.awaitExit(Duration.ofSeconds(25)),
+                    departing.diagnostic());
+            assertTrue(host.await(
+                    "CP_GDX_E2E_ADMITTED_REENTRY_EXIT_FOLD_AUDITED nick=client2",
+                    Duration.ofSeconds(120)), host.diagnostic());
+            assertTrue(incumbent.await(
+                    "CP_GDX_E2E_ADMITTED_REENTRY_EXIT_OBSERVED nick=client2",
+                    Duration.ofSeconds(120)), incumbent.diagnostic());
+            assertTrue(host.await(
+                    "CP_GDX_E2E_ADMITTED_REENTRY_RETURN_GATE",
+                    Duration.ofSeconds(150)), host.diagnostic());
+
+            host.send("EXPECT_ADMITTED_REENTRY");
+            reentered = startNode(ownerHome, "client", "client2", port,
+                    2, 1, 4, scenario, "late-reentry");
+            assertTrue(reentered.await(
+                    "CP_GDX_E2E_ADMITTED_REENTRY_WARMING nick=client2",
+                    Duration.ofSeconds(135)), reentered.diagnostic());
+            assertTrue(host.await(
+                    "CP_GDX_E2E_ADMITTED_REENTRY_WARMING nick=client2",
+                    Duration.ofSeconds(90)), host.diagnostic());
+            assertTrue(incumbent.await(
+                    "CP_GDX_E2E_ADMITTED_REENTRY_WARMING nick=client2",
+                    Duration.ofSeconds(90)), incumbent.diagnostic());
+            assertTrue(reentered.await(
+                    "CP_GDX_E2E_ADMITTED_REENTRY_ADMITTED nick=client2",
+                    Duration.ofSeconds(240)), reentered.diagnostic());
+
+            List<NodeProcess> completing = new ArrayList<>(survivors);
+            completing.add(reentered);
+            for (NodeProcess node : completing) {
+                assertTrue(node.await("CP_GDX_E2E_ADMITTED_REENTRY_COMPLETE",
+                        Duration.ofSeconds(360)), node.diagnostic());
                 assertEquals(0, node.awaitExit(Duration.ofSeconds(25)),
                         node.diagnostic());
             }

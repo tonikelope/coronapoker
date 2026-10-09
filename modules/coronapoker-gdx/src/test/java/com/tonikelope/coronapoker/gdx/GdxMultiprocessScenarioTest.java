@@ -1024,7 +1024,7 @@ class GdxMultiprocessScenarioTest {
             if ("live-hot-join-flop-bootstrap".equals(scenario)) {
                 assertTrue(newcomer.await(
                         "CP_GDX_E2E_HOT_JOIN_BOOTSTRAP_PUBLIC_STATE "
-                        + "faceUp=3 remoteBacks=true",
+                        + "faceUp=3 remoteBacks=true pendingBacks=true",
                         Duration.ofSeconds(45)), newcomer.diagnostic());
             }
             host.send("RELEASE_HOT_JOIN");
@@ -1046,6 +1046,12 @@ class GdxMultiprocessScenarioTest {
                     "CP_GDX_E2E_HOT_JOIN_TIMER_SYNC nick="
                             + newcomerNickname,
                     Duration.ofSeconds(120)), newcomer.diagnostic());
+            if ("live-hot-join-flop-bootstrap".equals(scenario)) {
+                assertTrue(newcomer.await(
+                        "CP_GDX_E2E_HOT_JOIN_COMMUNITY_REVEAL nick="
+                        + newcomerNickname,
+                        Duration.ofSeconds(120)), newcomer.diagnostic());
+            }
             assertTrue(newcomer.await(
                     "CP_GDX_E2E_HOT_JOIN_ADMITTED nick="
                             + newcomerNickname,

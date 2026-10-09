@@ -810,6 +810,18 @@ final class GdxScenarioRenderer implements TableRenderer {
                 && !card.code().isBlank());
     }
 
+    boolean firstHotJoinPendingCommunityCardsAreSafeBacks(int firstSlot) {
+        TableSnapshot snapshot = firstHotJoinState.get();
+        if (snapshot == null || firstSlot < 0
+                || snapshot.communityCards().size() <= firstSlot) {
+            return false;
+        }
+        return snapshot.communityCards().subList(firstSlot,
+                snapshot.communityCards().size()).stream().allMatch(card
+                        -> card.visible() && !card.faceUp()
+                        && card.code().isBlank());
+    }
+
     boolean firstHotJoinRemoteCardSlotsAreSafeBacks() {
         TableSnapshot snapshot = firstHotJoinState.get();
         return snapshot != null && activeRemoteCardSlotsAreSafeBacks(snapshot);

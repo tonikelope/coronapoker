@@ -543,8 +543,15 @@ public final class GdxMultiprocessNodeMain {
                                 "first hot-join snapshot did not contain safe "
                                 + "backs for active remote players");
                     }
+                    if (!renderer.firstHotJoinPendingCommunityCardsAreSafeBacks(
+                            3)) {
+                        throw new AssertionError(
+                                "first hot-join snapshot did not contain safe "
+                                + "backs for the pending turn and river: "
+                                + renderer.communityCardDiagnostic());
+                    }
                     marker("HOT_JOIN_BOOTSTRAP_PUBLIC_STATE",
-                            "faceUp=3 remoteBacks=true");
+                            "faceUp=3 remoteBacks=true pendingBacks=true");
                 }
                 bootstrapLogLines.set(gameLog.snapshot().lines().size());
                 await(renderer::sawHotJoinTimerStart,
@@ -595,7 +602,7 @@ public final class GdxMultiprocessNodeMain {
                         marker("HOT_JOIN_REENTRY_BOARD_STABLE", "faceUp="
                                 + expectedFaceUp);
                     }
-                    if (config.clients() > 1) {
+                    if (flopBootstrap || config.clients() > 1) {
                         await(renderer::sawHotJoinCommunityReveal,
                                 Duration.ofSeconds(90),
                                 "ordinary community reveal while warming");

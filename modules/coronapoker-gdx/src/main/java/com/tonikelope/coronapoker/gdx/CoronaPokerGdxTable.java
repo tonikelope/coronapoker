@@ -3334,11 +3334,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
              * HOTJOIN_STATE is an authoritative scene cut-over, not an
              * incremental animation.  A reconnect can reuse a table while a
              * local recovery visual is still alive; those transients must not
-             * cover cards supplied by the host snapshot.
+             * cover cards supplied by the host snapshot. It also proves that
+             * the remote dealer is already running: keeping the provisional
+             * STARTING_DEALER phase here would leave the preparation modal
+             * blocking an otherwise live table forever.
              */
             clearCardPresentationForHotJoin();
             liveState.apply(event);
             syncSeatsFromLiveState();
+            applyPreparationPhase(TableVisualEvent.PreparationStatus.Phase.READY);
             barrier.complete(null);
         } else if (event instanceof TableVisualEvent.LateJoinRequest request) {
             liveState.apply(event);
@@ -3357,15 +3361,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             barrier.complete(null);
         } else if (event instanceof TableVisualEvent.PreparationStatus preparation) {
             liveState.apply(event);
-            TableVisualEvent.PreparationStatus.Phase previous
-                    = preparationPhase;
-            preparationPhase = preparation.phase();
-            if (previous != TableVisualEvent.PreparationStatus.Phase.READY
-                    && preparationPhase
-                    == TableVisualEvent.PreparationStatus.Phase.READY
-                    && Float.isNaN(remoteSeatEntryStartedAt)) {
-                remoteSeatEntryStartedAt = totalTime;
-            }
+            applyPreparationPhase(preparation.phase());
             barrier.complete(null);
         } else if (event instanceof TableVisualEvent.GameClock) {
             liveState.apply(event);
@@ -3909,6 +3905,31 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         liveHoleFold = null;
         liveHoleDealCount = 0;
+    }
+
+    private void applyPreparationPhase(
+            TableVisualEvent.PreparationStatus.Phase nextPhase) {
+        Objects.requireNonNull(nextPhase, "nextPhase");
+        // READY is terminal for a table instance. A delayed provisional event
+        // must never put the modal/input shield back over a live scene.
+        if (preparationPhase == TableVisualEvent.PreparationStatus.Phase.READY
+                && nextPhase != TableVisualEvent.PreparationStatus.Phase.READY) {
+            return;
+        }
+        TableVisualEvent.PreparationStatus.Phase previous = preparationPhase;
+        preparationPhase = nextPhase;
+        if (previous != TableVisualEvent.PreparationStatus.Phase.READY
+                && preparationPhase
+                == TableVisualEvent.PreparationStatus.Phase.READY
+                && Float.isNaN(remoteSeatEntryStartedAt)) {
+            remoteSeatEntryStartedAt = totalTime;
+        }
+    }
+
+    /** Test oracle for the modal/input gate used by the product renderer. */
+    boolean hasActivePreparationOverlay() {
+        return preparationPhase
+                != TableVisualEvent.PreparationStatus.Phase.READY;
     }
 
     /** Test oracle for the exact resting-board branch used by drawLiveCommunityCards. */

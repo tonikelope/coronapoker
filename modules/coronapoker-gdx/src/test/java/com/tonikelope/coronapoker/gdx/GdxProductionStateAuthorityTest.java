@@ -169,12 +169,20 @@ final class GdxProductionStateAuthorityTest {
         GdxTableViewState projection = new GdxTableViewState(initial);
         CoronaPokerGdxTable table = nonAnimatedTable(temporary, projection,
                 false);
+        assertTrue(table.hasActivePreparationOverlay());
 
         CompletableFuture<Void> applied = new CompletableFuture<>();
         table.acceptEvent(new TableVisualEvent.HotJoinState(1L, bootstrap),
                 applied);
 
         assertTrue(applied.isDone());
+        assertFalse(table.hasActivePreparationOverlay(),
+                "the authoritative hot-join snapshot must dismiss PREPARANDO CRUPIER");
+        table.acceptEvent(new TableVisualEvent.PreparationStatus(2L,
+                TableVisualEvent.PreparationStatus.Phase.STARTING_DEALER),
+                new CompletableFuture<>());
+        assertFalse(table.hasActivePreparationOverlay(),
+                "a delayed provisional phase must not block a live hot-join table again");
         assertTrue(projection.snapshot().paused());
         assertEquals(TableSnapshot.Street.FLOP,
                 projection.snapshot().street());

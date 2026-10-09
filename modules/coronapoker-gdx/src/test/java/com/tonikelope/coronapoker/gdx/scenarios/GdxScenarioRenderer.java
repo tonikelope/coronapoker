@@ -269,7 +269,8 @@ final class GdxScenarioRenderer implements TableRenderer {
                 + previousSequence + ", current=" + event.sequence());
         GdxTableViewState projection = state.get();
         assertNotNull(projection, "renderer must open before events arrive");
-        if (event instanceof TableVisualEvent.HotJoinState) {
+        if (event instanceof TableVisualEvent.HotJoinState
+                || event instanceof TableVisualEvent.PreparationStatus) {
             // Exercise the production scene cut-over itself. Previous scenarios
             // updated only this test projection while the CoronaPokerGdxTable
             // instance never consumed HOTJOIN_STATE, allowing renderer bugs to
@@ -278,7 +279,11 @@ final class GdxScenarioRenderer implements TableRenderer {
             productTable().acceptEvent(event, applied);
             assertTrue(applied.isDone()
                     && !applied.isCompletedExceptionally(),
-                    "product GDX table did not accept the hot-join bootstrap");
+                    "product GDX table did not accept the authoritative event");
+            if (event instanceof TableVisualEvent.HotJoinState) {
+                assertFalse(productTable().hasActivePreparationOverlay(),
+                        "HOTJOIN_STATE left PREPARANDO CRUPIER blocking the live table");
+            }
         } else {
             projection.apply(event);
         }
@@ -293,6 +298,10 @@ final class GdxScenarioRenderer implements TableRenderer {
                 && event instanceof TableVisualEvent.TurnTimer timer
                 && timer.phase() == TableVisualEvent.TurnTimer.Phase.START) {
             sawHotJoinTimerStart.set(true);
+        }
+        if (sawHotJoinState.get()) {
+            assertFalse(productTable().hasActivePreparationOverlay(),
+                    "a later event restored PREPARANDO CRUPIER over the live table");
         }
         assertProjectedLabelContract(event, projection);
         if (event instanceof TableVisualEvent.HandBoundary boundary) {

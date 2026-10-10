@@ -3436,6 +3436,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
              */
             clearCardPresentationForHotJoin();
             liveState.apply(event);
+            syncRemoteRebuyPresentationFromHotJoinSnapshot();
             syncSeatsFromLiveState();
             applyPreparationPhase(TableVisualEvent.PreparationStatus.Phase.READY);
             barrier.complete(null);
@@ -17892,21 +17893,60 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             TableVisualEvent.RebuyDecision decision) {
         if (decision.phase()
                 == TableVisualEvent.RebuyDecision.Phase.WAITING) {
-            remoteRebuyStartedAt.putIfAbsent(decision.nickname(), totalTime);
-            if (remoteRebuyStartedAt.size() == 1
-                    && gameOverCinematicsEnabled()) {
-                remoteRebuyAnimationFailed = false;
-                startRemoteRebuyAnimation(false);
-                if (gameOverSoundEnabled()) {
-                    playResourceSound("misc/game_over.wav", 1f, 1f);
-                }
-            }
+            beginRemoteRebuyPresentation(decision.nickname(), true);
             return;
         }
         remoteRebuyStartedAt.remove(decision.nickname());
         if (remoteRebuyStartedAt.isEmpty()) {
             releaseRemoteRebuyPresentation();
         }
+    }
+
+    private void syncRemoteRebuyPresentationFromHotJoinSnapshot() {
+        Set<String> waiting = waitingRemoteRebuyPlayers(liveState.snapshot());
+        remoteRebuyStartedAt.keySet().retainAll(waiting);
+        if (waiting.isEmpty()) {
+            releaseRemoteRebuyPresentation();
+            return;
+        }
+        for (String nickname : waiting) {
+            // This is a state hydration, not a newly occurring GAME OVER: show
+            // the already-running visual without replaying its opening sound.
+            beginRemoteRebuyPresentation(nickname, false);
+        }
+    }
+
+    static Set<String> waitingRemoteRebuyPlayers(TableSnapshot snapshot) {
+        if (snapshot == null) return Set.of();
+        Set<String> waiting = new HashSet<>();
+        for (TableSnapshot.PlayerSnapshot player : snapshot.players()) {
+            if (!player.nickname().equals(snapshot.localNickname())
+                    && !player.exited()
+                    && player.presentation().rebuyPhase()
+                            == TableSnapshot.RebuyPhase.WAITING) {
+                waiting.add(player.nickname());
+            }
+        }
+        return Set.copyOf(waiting);
+    }
+
+    private void beginRemoteRebuyPresentation(String nickname,
+            boolean playOpeningSound) {
+        boolean firstWaitingPlayer = remoteRebuyStartedAt.isEmpty();
+        Float previous = remoteRebuyStartedAt.putIfAbsent(nickname, totalTime);
+        if (previous != null || !firstWaitingPlayer
+                || !gameOverCinematicsEnabled()) {
+            return;
+        }
+        remoteRebuyAnimationFailed = false;
+        startRemoteRebuyAnimation(false);
+        if (playOpeningSound && gameOverSoundEnabled()) {
+            playResourceSound("misc/game_over.wav", 1f, 1f);
+        }
+    }
+
+    boolean hasRemoteRebuyPresentation(String nickname) {
+        return remoteRebuyStartedAt.containsKey(nickname);
     }
 
     private void startRemoteRebuyAnimation(boolean zero) {

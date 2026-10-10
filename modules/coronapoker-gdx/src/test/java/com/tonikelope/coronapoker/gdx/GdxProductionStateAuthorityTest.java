@@ -196,6 +196,38 @@ final class GdxProductionStateAuthorityTest {
     }
 
     @Test
+    void hotJoinHydratesAnAlreadyRunningRemoteGameOverCountdown(
+            @TempDir Path temporary) {
+        TableSnapshot initial = new TableSnapshot(1L, "human",
+                TableSnapshot.Street.PREFLOP, 0d, "", false,
+                List.of(player("human"), player("host")), List.of());
+        TableSnapshot.PlayerPresentation waiting
+                = new TableSnapshot.PlayerPresentation(false, false, -1f,
+                        false, "", List.of(), false, false, List.of(),
+                        List.of(), TableSnapshot.RebuyPhase.WAITING, 0, "");
+        TableSnapshot.PlayerSnapshot host = new TableSnapshot.PlayerSnapshot(
+                "host", 0d, 0d, 0d, false, false, false, false,
+                -1, -1, 0, 0L, false, false, TableSnapshot.Position.NONE,
+                TableSnapshot.Decision.NONE, TableSnapshot.ActionKind.NONE,
+                "", "", List.of(), 10, 0, false, waiting);
+        TableSnapshot bootstrap = new TableSnapshot(2L, "human",
+                TableSnapshot.Street.SHOWDOWN, 0d, "", false,
+                List.of(player("human"), host), List.of());
+        GdxTableViewState projection = new GdxTableViewState(initial);
+        CoronaPokerGdxTable table = nonAnimatedTable(temporary, projection,
+                false);
+
+        table.acceptEvent(new TableVisualEvent.HotJoinState(1L, bootstrap),
+                new CompletableFuture<>());
+
+        assertTrue(table.hasRemoteRebuyPresentation("host"));
+        table.acceptEvent(new TableVisualEvent.RebuyDecision(2L, "host",
+                TableVisualEvent.RebuyDecision.Phase.REBOUGHT),
+                new CompletableFuture<>());
+        assertFalse(table.hasRemoteRebuyPresentation("host"));
+    }
+
+    @Test
     void hotJoinCutoverKeepsOrdinaryCardAndChipAnimationsEnabled(
             @TempDir Path temporary) {
         assertHotJoinAnimatedEvent(temporary.resolve("turn"),

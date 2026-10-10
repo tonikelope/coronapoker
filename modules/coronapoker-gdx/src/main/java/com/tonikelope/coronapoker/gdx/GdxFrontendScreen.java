@@ -32,6 +32,7 @@ import com.tonikelope.coronapoker.core.LobbyCommand;
 import com.tonikelope.coronapoker.core.LobbyParticipant;
 import com.tonikelope.coronapoker.core.LobbySession;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
+import com.tonikelope.coronapoker.core.NetworkBlock;
 import com.tonikelope.coronapoker.core.AvatarImageValidator;
 import com.tonikelope.coronapoker.core.NewGameConnectionDraft;
 import com.tonikelope.coronapoker.core.NewGameSessionGateway;
@@ -449,6 +450,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private LobbyConfirmation lobbyConfirmation;
     private boolean lobbyPasswordDialog;
     private String lobbyPasswordDraft = "";
+    private boolean networkBlocksOpen;
+    private float networkBlocksScroll;
+    private String networkBlockPendingAddress;
+    private String networkBlockError = "";
     private String lobbyPublicAddress = "";
     private String cachedLobbyPublicAddress = "";
     private boolean lobbyPublicAddressLoading;
@@ -1151,6 +1156,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 }
             } else if (surface == Surface.SCREENSHOTS) {
                 drawScreenshotDeleteConfirmation();
+            } else if (networkBlocksOpen) {
+                drawNetworkBlocksDialog();
             } else if (lobbyPasswordDialog) {
                 drawLobbyPasswordDialog();
             } else if (fingerprintDialog != null) {
@@ -1272,6 +1279,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         && (aboutOpen || updatePromptOpen))
                 || (surface == Surface.LOBBY
                 && (lobbyConfirmation != null || lobbyPasswordDialog
+                        || networkBlocksOpen
                         || lobbyImageClearConfirmation
                         || lobbyPreparationUsesBackdropBlur(
                                 lobbyGameStarting, lobby)
@@ -4608,6 +4616,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 uppercase(gameText.translate("menu.visor_capturas")), 6,
                 ButtonTone.NEUTRAL, this::openScreenshotViewer,
                 !lobbyCommandPending);
+        if (state.host() && !activeNetworkBlocks().isEmpty()) {
+            iconButton(675f, 55f, 330f, 70f,
+                    uppercase(gameText.translate(
+                            "gdx.network_blocks.button")), 7,
+                    ButtonTone.DANGER, this::openNetworkBlocks,
+                    !lobbyCommandPending);
+        }
         button(1640f, 55f, 245f, 70f,
                 uppercase(gameText.translate("menu.ajustes")), false,
                 this::openSettings);
@@ -5755,6 +5770,152 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 this::submitLobbyPassword, !lobbyCommandPending);
     }
 
+    private List<NetworkBlock> activeNetworkBlocks() {
+        LobbySession session = lobbySession;
+        if (session == null || lobby == null || !lobby.host()) return List.of();
+        try {
+            return session.networkBlocks();
+        } catch (RuntimeException unavailable) {
+            return List.of();
+        }
+    }
+
+    private void openNetworkBlocks() {
+        if (activeNetworkBlocks().isEmpty()) return;
+        networkBlocksScroll = 0f;
+        networkBlockPendingAddress = null;
+        networkBlockError = "";
+        networkBlocksOpen = true;
+        captureFrontendModalInput();
+    }
+
+    private void closeNetworkBlocks() {
+        if (networkBlockPendingAddress != null) return;
+        networkBlocksOpen = false;
+        networkBlocksScroll = 0f;
+        networkBlockError = "";
+    }
+
+    private void unblockNetworkAddress(String address) {
+        LobbySession session = lobbySession;
+        if (session == null || networkBlockPendingAddress != null) return;
+        networkBlockPendingAddress = address;
+        networkBlockError = "";
+        session.unblockAddress(address).whenComplete((ignored, failure) ->
+                Gdx.app.postRunnable(() -> {
+                    if (lobbySession != session) return;
+                    networkBlockPendingAddress = null;
+                    if (failure != null) {
+                        networkBlockError = gameText.translate(
+                                "gdx.network_blocks.remove_failed");
+                    } else if (activeNetworkBlocks().isEmpty()) {
+                        networkBlocksOpen = false;
+                        networkBlocksScroll = 0f;
+                    }
+                }));
+    }
+
+    private void drawNetworkBlocksDialog() {
+        List<NetworkBlock> blocks = activeNetworkBlocks();
+        if (blocks.isEmpty() && networkBlockPendingAddress == null) {
+            closeNetworkBlocks();
+            return;
+        }
+        GdxNetworkBlockDialogLayout.Layout layout
+                = GdxNetworkBlockDialogLayout.layout(WIDTH, HEIGHT);
+        Rectangle panel = layout.panel();
+        Rectangle rows = layout.rows();
+        networkBlocksScroll = GdxNetworkBlockDialogLayout.clampScroll(
+                networkBlocksScroll, blocks.size(), rows);
+        long now = System.currentTimeMillis();
+
+        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
+        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, CYAN_DARK, 1f);
+        shapes.setColor(new Color(0x321217ff));
+        roundedRect(panel.x + 42f, panel.y + panel.height - 132f,
+                76f, 76f, 16f);
+        drawProhibitionIcon(panel.x + 80f,
+                panel.y + panel.height - 94f, 25f, LATENCY_RED);
+
+        for (int index = 0; index < blocks.size(); index++) {
+            Rectangle row = GdxNetworkBlockDialogLayout.row(rows, index,
+                    networkBlocksScroll);
+            if (row.y < rows.y || row.y + row.height > rows.y + rows.height) {
+                continue;
+            }
+            NetworkBlock block = blocks.get(index);
+            outerBox(row.x, row.y, row.width, row.height,
+                    new Color(0x31445fcc), new Color(0x081525f2));
+            themedButton(row.x + row.width - 194f, row.y + 10f,
+                    174f, row.height - 20f,
+                    uppercase(gameText.translate(
+                            "gdx.network_blocks.remove")),
+                    ButtonTone.DANGER,
+                    () -> unblockNetworkAddress(block.address()),
+                    networkBlockPendingAddress == null);
+            textFit(uiFont, block.address(), row.x + 22f,
+                    row.y + 49f, Color.WHITE, false, 290f);
+            textFit(tinyFont, uppercase(gameText.translate(
+                    "gdx.network_blocks.connection_abuse")),
+                    row.x + 330f, row.y + 47f, ORANGE, false, 255f);
+            textFit(tinyFont, uppercase(gameText.translate(
+                    "gdx.network_blocks.remaining")) + ": "
+                    + GdxNetworkBlockDialogLayout.remaining(
+                            block.remainingMillis(now)),
+                    row.x + 600f, row.y + 47f, GOLD, false,
+                    row.width - 814f);
+        }
+        drawNetworkBlocksScrollbar(layout, blocks.size());
+        themedButton(layout.closeButton().x, layout.closeButton().y,
+                layout.closeButton().width, layout.closeButton().height,
+                uppercase(gameText.translate("ui.cerrar")),
+                ButtonTone.NEUTRAL, this::closeNetworkBlocks,
+                networkBlockPendingAddress == null);
+
+        textFit(headingFont, uppercase(gameText.translate(
+                "gdx.network_blocks.title")), panel.x + 138f,
+                panel.y + panel.height - 76f, GOLD, false,
+                panel.width - 190f);
+        textFit(tinyFont, gameText.translate("gdx.network_blocks.help"),
+                panel.x + 48f, panel.y + panel.height - 158f,
+                MUTED, false, panel.width - 96f);
+        if (!networkBlockError.isBlank()) {
+            textFit(tinyFont, networkBlockError, panel.x + 48f,
+                    panel.y + 78f, LATENCY_RED, false,
+                    panel.width - 340f);
+        }
+    }
+
+    private void drawNetworkBlocksScrollbar(
+            GdxNetworkBlockDialogLayout.Layout layout, int count) {
+        float maximum = GdxNetworkBlockDialogLayout.maximumScroll(count,
+                layout.rows());
+        if (maximum <= 0f) return;
+        Rectangle track = layout.scrollbar();
+        float content = layout.rows().height + maximum;
+        float thumb = Math.max(46f, track.height
+                * layout.rows().height / content);
+        float progress = networkBlocksScroll / maximum;
+        float thumbY = track.y + track.height - thumb
+                - progress * (track.height - thumb);
+        shapes.setColor(new Color(0x22354dff));
+        roundedRect(track.x, track.y, track.width, track.height, 5f);
+        shapes.setColor(CYAN);
+        roundedRect(track.x, thumbY, track.width, thumb, 5f);
+    }
+
+    private void drawProhibitionIcon(float cx, float cy, float radius,
+            Color color) {
+        shapes.setColor(color);
+        shapes.circle(cx, cy, radius, 48);
+        shapes.setColor(new Color(0x321217ff));
+        shapes.circle(cx, cy, radius - 7f, 48);
+        shapes.setColor(color);
+        shapes.rectLine(cx - radius * 0.64f, cy + radius * 0.64f,
+                cx + radius * 0.64f, cy - radius * 0.64f, 7f);
+    }
+
     private void submitLobbyPassword() {
         submitLobbyPassword(null);
     }
@@ -6788,6 +6949,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         fingerprintDialog = null;
         lobbyPasswordDialog = false;
         lobbyPasswordDraft = "";
+        networkBlocksOpen = false;
+        networkBlocksScroll = 0f;
+        networkBlockPendingAddress = null;
+        networkBlockError = "";
         lobbyImageClearConfirmation = false;
         lobbyEmojiPickerOpen = false;
         lobbyImageMode = false;
@@ -10907,6 +11072,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 shapes.setColor(color);
                 shapes.circle(cx, cy, 4.5f, 24);
             }
+            case 7 -> {
+                // Temporary connection blocks.
+                shapes.circle(cx, cy, 21f, 48);
+                Color cutout = new Color(0x0b1729ff);
+                shapes.setColor(cutout);
+                shapes.circle(cx, cy, 14f, 40);
+                shapes.setColor(color);
+                shapes.rectLine(cx - 14f, cy + 14f,
+                        cx + 14f, cy - 14f, 7f);
+            }
             default -> {
             }
         }
@@ -11815,6 +11990,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 }
                 return true;
             }
+            if (surface == Surface.LOBBY && networkBlocksOpen) {
+                closeNetworkBlocks();
+                return true;
+            }
             if (surface == Surface.STATS) {
                 if (statsSyncExclusionsOpen) {
                     closeStatsSyncExclusions();
@@ -12450,6 +12629,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
     @Override
     public boolean scrolled(float amountX, float amountY) {
+        if (networkBlocksOpen && amountY != 0f) {
+            GdxNetworkBlockDialogLayout.Layout layout
+                    = GdxNetworkBlockDialogLayout.layout(WIDTH, HEIGHT);
+            networkBlocksScroll = MathUtils.clamp(networkBlocksScroll
+                    + amountY * 42f, 0f,
+                    GdxNetworkBlockDialogLayout.maximumScroll(
+                            activeNetworkBlocks().size(), layout.rows()));
+            return true;
+        }
         if (statsPicker != StatsPicker.NONE && amountY != 0f) {
             statsPickerScrollTarget = statsPickerScrollAfterWheel(
                     statsPickerScrollTarget, statsPickerScrollMaximum,

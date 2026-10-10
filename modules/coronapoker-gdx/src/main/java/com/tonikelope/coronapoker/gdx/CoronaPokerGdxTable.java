@@ -50,6 +50,7 @@ import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.core.LobbyChatMessage;
 import com.tonikelope.coronapoker.core.LobbyCommand;
 import com.tonikelope.coronapoker.core.LobbySession;
+import com.tonikelope.coronapoker.core.NetworkBlock;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableCommand;
@@ -296,6 +297,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static final int UI_CHAT = 4;
     static final int UI_CARD_VIEWER = 5;
     static final int UI_SCREENSHOTS = 6;
+    static final int UI_NETWORK_BLOCKS = 7;
     private static final float UI_FADE_SECONDS = 0.16f;
     static final float TABLE_IMAGE_GALLERY_CHROME_SECONDS = UI_FADE_SECONDS;
     private static final int EMOJI_COUNT = 1826;
@@ -763,6 +765,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean fastBarExpanded;
     private float fastBarOutsideSeconds;
     private float fastBarAlpha = 1f;
+    /*
+     * One immutable answer per frame keeps the variable-width quick bar
+     * coherent when the last temporary block expires between hit-testing and
+     * drawing.  The dialog itself still reads the authoritative list.
+     */
+    private boolean networkBlocksAvailable;
+    private float networkBlocksScroll;
+    private String networkBlockPendingAddress;
+    private String networkBlockError = "";
     private int armedHudTarget;
     /*
      * The command sink may need a few frames to return the dealer's
@@ -1320,6 +1331,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return true;
             }
             if (finalSummary != null && uiLayer != UI_GAME_LOG) return true;
+            if (uiLayer == UI_NETWORK_BLOCKS && amountY != 0f) {
+                GdxNetworkBlockDialogLayout.Layout layout
+                        = GdxNetworkBlockDialogLayout.layout(
+                                viewport.getWorldWidth(),
+                                viewport.getWorldHeight());
+                networkBlocksScroll = MathUtils.clamp(networkBlocksScroll
+                        + amountY * 42f, 0f,
+                        GdxNetworkBlockDialogLayout.maximumScroll(
+                                activeNetworkBlocks().size(), layout.rows()));
+                return true;
+            }
             if (uiLayer == UI_SETTINGS && amountY != 0f) {
                 if (settingsSection()
                         == GdxSettingsContract.Section.SHORTCUTS) {
@@ -4446,6 +4468,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         Objects.requireNonNull(liveState,
                 "A product table frame requires authoritative live state");
+        networkBlocksAvailable = tableHost
+                && !activeNetworkBlocks().isEmpty();
         updateLivePositionRotation();
         updateLiveActionChip();
         updateLiveChipBatch();
@@ -4995,7 +5019,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static boolean foregroundUiOwnsEscape(int layer) {
         return switch (layer) {
             case UI_SETTINGS, UI_GAME_LOG, UI_CHAT, UI_CARD_VIEWER,
-                    UI_SCREENSHOTS -> true;
+                    UI_SCREENSHOTS, UI_NETWORK_BLOCKS -> true;
             default -> false;
         };
     }
@@ -5032,6 +5056,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
             case UI_GAME_LOG -> uiLayer = UI_NONE;
+            case UI_NETWORK_BLOCKS -> closeNetworkBlocks();
             default -> throw new IllegalStateException(
                     "Unsupported foreground UI layer: " + uiLayer);
         }
@@ -6076,6 +6101,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         GAME_LOG,
         SCREENSHOTS,
         FULLSCREEN,
+        BLOCKS,
         STOP,
         EXIT,
         NONE
@@ -6329,7 +6355,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean fastAccessSurfaceContains(float x, float y) {
-        return fastAccessSurfaceContains(x, y, fastBarExpanded, tableHost);
+        return fastAccessSurfaceContains(x, y, fastBarExpanded, tableHost,
+                hasActiveNetworkBlocks());
     }
 
     /**
@@ -6339,7 +6366,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      */
     static boolean fastAccessSurfaceContains(float x, float y,
             boolean expanded, boolean host) {
-        int count = host ? 10 : 9;
+        return fastAccessSurfaceContains(x, y, expanded, host, false);
+    }
+
+    static boolean fastAccessSurfaceContains(float x, float y,
+            boolean expanded, boolean host, boolean hasBlocks) {
+        int count = 9 + (host ? 1 : 0) + (host && hasBlocks ? 1 : 0);
         float width = expanded
                 ? 2f * FAST_BAR_PADDING + count * FAST_BUTTON_SIZE
                         + (count - 1) * FAST_BUTTON_GAP
@@ -6349,12 +6381,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private int fastButtonCount() {
-        return tableHost ? 10 : 9;
+        return 9 + (tableHost ? 1 : 0)
+                + (tableHost && hasActiveNetworkBlocks() ? 1 : 0);
     }
 
     private boolean fastButtonEnabled(int index) {
         return switch (visibleFastAccessActionAt(index)) {
             case SETTINGS, GAME_LOG, SCREENSHOTS, FULLSCREEN, EXIT -> true;
+            case BLOCKS -> tableHost && hasActiveNetworkBlocks();
             case STOP -> tableHost;
             case CHAT -> canUseTableChat();
             case VOICE -> canUseTableVoice();
@@ -6369,20 +6403,39 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static FastAccessAction fastAccessActionAt(int index, boolean host) {
+        return fastAccessActionAt(index, host, false);
+    }
+
+    static FastAccessAction fastAccessActionAt(int index, boolean host,
+            boolean hasBlocks) {
         if (index < 0) return FastAccessAction.NONE;
         if (index <= 7) return FastAccessAction.values()[index];
-        if (host && index == 8) return FastAccessAction.STOP;
-        if (index == (host ? 9 : 8)) return FastAccessAction.EXIT;
+        int cursor = 8;
+        if (host && hasBlocks) {
+            if (index == cursor) return FastAccessAction.BLOCKS;
+            cursor++;
+        }
+        if (host) {
+            if (index == cursor) return FastAccessAction.STOP;
+            cursor++;
+        }
+        if (index == cursor) return FastAccessAction.EXIT;
         return FastAccessAction.NONE;
     }
 
     private FastAccessAction visibleFastAccessActionAt(int index) {
-        return fastAccessActionAt(index, tableHost);
+        return fastAccessActionAt(index, tableHost,
+                hasActiveNetworkBlocks());
     }
 
     private int fastButtonResourceIndex(int index) {
-        // A client skips the host-only stop resource, leaving EXIT last.
-        return !tableHost && index == 8 ? 9 : index;
+        return switch (visibleFastAccessActionAt(index)) {
+            case SETTINGS, CHAT, VOICE, IMAGE, REBUY, GAME_LOG, SCREENSHOTS,
+                    FULLSCREEN -> index;
+            case STOP -> 8;
+            case EXIT -> 9;
+            case BLOCKS, NONE -> -1;
+        };
     }
 
     private boolean canToggleImmediateRebuy() {
@@ -6480,6 +6533,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             case SCREENSHOTS -> openScreenshotViewer();
             case FULLSCREEN -> toggleFullscreen();
+            case BLOCKS -> openNetworkBlocks();
             case STOP -> requestStopGame();
             case EXIT -> requestExit();
             case VOICE, NONE -> {
@@ -6504,6 +6558,210 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         chatEdit.focus("tableChat", chatDraft);
         chatEdit.end(chatDraft, false);
         openUiLayer(UI_CHAT);
+    }
+
+    private List<NetworkBlock> activeNetworkBlocks() {
+        if (!tableHost || lobby == null) return List.of();
+        try {
+            return lobby.networkBlocks();
+        } catch (RuntimeException unavailable) {
+            return List.of();
+        }
+    }
+
+    private boolean hasActiveNetworkBlocks() {
+        return networkBlocksAvailable;
+    }
+
+    private void openNetworkBlocks() {
+        if (!tableHost || !hasActiveNetworkBlocks()) return;
+        networkBlocksScroll = 0f;
+        networkBlockPendingAddress = null;
+        networkBlockError = "";
+        openUiLayer(UI_NETWORK_BLOCKS);
+    }
+
+    private void closeNetworkBlocks() {
+        if (networkBlockPendingAddress != null) return;
+        networkBlocksScroll = 0f;
+        networkBlockError = "";
+        uiLayer = UI_NONE;
+    }
+
+    private void unblockNetworkAddress(String address) {
+        if (lobby == null || networkBlockPendingAddress != null) return;
+        LobbySession requestedLobby = lobby;
+        networkBlockPendingAddress = address;
+        networkBlockError = "";
+        requestedLobby.unblockAddress(address).whenComplete((ignored, failure) ->
+                Gdx.app.postRunnable(() -> {
+                    if (lobby != requestedLobby) return;
+                    networkBlockPendingAddress = null;
+                    if (failure != null) {
+                        networkBlockError = gameText.translate(
+                                "gdx.network_blocks.remove_failed");
+                    } else if (activeNetworkBlocks().isEmpty()) {
+                        closeNetworkBlocks();
+                    }
+                }));
+    }
+
+    private void handleNetworkBlocksClick(float x, float y) {
+        GdxNetworkBlockDialogLayout.Layout layout
+                = GdxNetworkBlockDialogLayout.layout(
+                        viewport.getWorldWidth(), viewport.getWorldHeight());
+        if (layout.closeButton().contains(x, y)) {
+            closeNetworkBlocks();
+            return;
+        }
+        if (networkBlockPendingAddress != null) return;
+        List<NetworkBlock> blocks = activeNetworkBlocks();
+        networkBlocksScroll = GdxNetworkBlockDialogLayout.clampScroll(
+                networkBlocksScroll, blocks.size(), layout.rows());
+        for (int index = 0; index < blocks.size(); index++) {
+            Rectangle row = GdxNetworkBlockDialogLayout.row(layout.rows(),
+                    index, networkBlocksScroll);
+            if (row.y < layout.rows().y
+                    || row.y + row.height > layout.rows().y
+                            + layout.rows().height) continue;
+            Rectangle remove = new Rectangle(row.x + row.width - 194f,
+                    row.y + 10f, 174f, row.height - 20f);
+            if (remove.contains(x, y)) {
+                unblockNetworkAddress(blocks.get(index).address());
+                return;
+            }
+        }
+    }
+
+    private void drawNetworkBlocksDialog() {
+        List<NetworkBlock> blocks = activeNetworkBlocks();
+        if (blocks.isEmpty() && networkBlockPendingAddress == null) {
+            closeNetworkBlocks();
+            return;
+        }
+        float alpha = uiFade();
+        float width = viewport.getWorldWidth();
+        float height = viewport.getWorldHeight();
+        GdxNetworkBlockDialogLayout.Layout layout
+                = GdxNetworkBlockDialogLayout.layout(width, height);
+        Rectangle panel = layout.panel();
+        Rectangle rows = layout.rows();
+        networkBlocksScroll = GdxNetworkBlockDialogLayout.clampScroll(
+                networkBlocksScroll, blocks.size(), rows);
+        long now = System.currentTimeMillis();
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        GdxUiDialogStyle.drawBackdrop(shapes, width, height, alpha);
+        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, CYAN, alpha);
+        shapes.setColor(0.20f, 0.07f, 0.09f, alpha);
+        roundedRect(panel.x + 42f, panel.y + panel.height - 132f,
+                76f, 76f, 16f);
+        drawTableProhibitionIcon(panel.x + 80f,
+                panel.y + panel.height - 94f, 25f, alpha);
+        for (int index = 0; index < blocks.size(); index++) {
+            Rectangle row = GdxNetworkBlockDialogLayout.row(rows, index,
+                    networkBlocksScroll);
+            if (row.y < rows.y || row.y + row.height > rows.y + rows.height) {
+                continue;
+            }
+            shapes.setColor(BUTTON_LINE.r, BUTTON_LINE.g, BUTTON_LINE.b,
+                    0.82f * alpha);
+            roundedRect(row.x, row.y, row.width, row.height, 10f);
+            shapes.setColor(0.010f, 0.028f, 0.050f, 0.97f * alpha);
+            roundedRect(row.x + 2f, row.y + 2f,
+                    row.width - 4f, row.height - 4f, 9f);
+            Rectangle remove = new Rectangle(row.x + row.width - 194f,
+                    row.y + 10f, 174f, row.height - 20f);
+            drawDialogButton(remove.x, remove.y, remove.width, remove.height,
+                    FOLD_RED, networkBlockPendingAddress == null
+                            && remove.contains(pointer), alpha);
+        }
+        drawTableNetworkBlocksScrollbar(layout, blocks.size(), alpha);
+        drawDialogButton(layout.closeButton().x, layout.closeButton().y,
+                layout.closeButton().width, layout.closeButton().height,
+                BUTTON_LINE, networkBlockPendingAddress == null
+                        && layout.closeButton().contains(pointer), alpha);
+        shapes.end();
+
+        batch.begin();
+        drawLeftInBox(settingsHeadingFont, uppercase(gameText.translate(
+                "gdx.network_blocks.title")), panel.x + 138f,
+                panel.y + panel.height - 112f, panel.width - 190f,
+                72f, POT_GOLD, alpha);
+        drawLeftInBox(settingsTinyFont, gameText.translate(
+                "gdx.network_blocks.help"), panel.x + 48f,
+                panel.y + panel.height - 184f, panel.width - 96f,
+                42f, Color.LIGHT_GRAY, alpha);
+        for (int index = 0; index < blocks.size(); index++) {
+            Rectangle row = GdxNetworkBlockDialogLayout.row(rows, index,
+                    networkBlocksScroll);
+            if (row.y < rows.y || row.y + row.height > rows.y + rows.height) {
+                continue;
+            }
+            NetworkBlock block = blocks.get(index);
+            drawLeftInBox(uiFont, block.address(), row.x + 22f,
+                    row.y + 14f, 290f, row.height - 28f,
+                    Color.WHITE, alpha);
+            drawLeftInBox(settingsTinyFont, uppercase(gameText.translate(
+                    "gdx.network_blocks.connection_abuse")),
+                    row.x + 330f, row.y + 14f, 255f,
+                    row.height - 28f, ORANGE, alpha);
+            drawLeftInBox(settingsTinyFont, uppercase(gameText.translate(
+                    "gdx.network_blocks.remaining")) + ": "
+                    + GdxNetworkBlockDialogLayout.remaining(
+                            block.remainingMillis(now)),
+                    row.x + 600f, row.y + 14f,
+                    row.width - 814f, row.height - 28f,
+                    POT_GOLD, alpha);
+            drawFittedCenteredInBox(actionFont,
+                    uppercase(gameText.translate(
+                            "gdx.network_blocks.remove")),
+                    row.x + row.width - 194f, row.y + 10f,
+                    174f, row.height - 20f, Color.WHITE, alpha);
+        }
+        drawFittedCenteredInBox(actionFont,
+                uppercase(gameText.translate("ui.cerrar")),
+                layout.closeButton().x, layout.closeButton().y,
+                layout.closeButton().width, layout.closeButton().height,
+                Color.WHITE, alpha);
+        if (!networkBlockError.isBlank()) {
+            drawLeftInBox(settingsTinyFont, networkBlockError,
+                    panel.x + 48f, panel.y + 45f,
+                    panel.width - 340f, 42f, FOLD_RED, alpha);
+        }
+        batch.end();
+    }
+
+    private void drawTableProhibitionIcon(float cx, float cy, float radius,
+            float alpha) {
+        shapes.setColor(FOLD_RED.r, FOLD_RED.g, FOLD_RED.b, alpha);
+        shapes.circle(cx, cy, radius, 48);
+        shapes.setColor(0.20f, 0.07f, 0.09f, alpha);
+        shapes.circle(cx, cy, radius - 7f, 40);
+        shapes.setColor(FOLD_RED.r, FOLD_RED.g, FOLD_RED.b, alpha);
+        shapes.rectLine(cx - radius * 0.64f, cy + radius * 0.64f,
+                cx + radius * 0.64f, cy - radius * 0.64f, 7f);
+    }
+
+    private void drawTableNetworkBlocksScrollbar(
+            GdxNetworkBlockDialogLayout.Layout layout, int count,
+            float alpha) {
+        float maximum = GdxNetworkBlockDialogLayout.maximumScroll(count,
+                layout.rows());
+        if (maximum <= 0f) return;
+        Rectangle track = layout.scrollbar();
+        float content = layout.rows().height + maximum;
+        float thumb = Math.max(46f, track.height
+                * layout.rows().height / content);
+        float progress = networkBlocksScroll / maximum;
+        float thumbY = track.y + track.height - thumb
+                - progress * (track.height - thumb);
+        shapes.setColor(0.10f, 0.18f, 0.28f, alpha);
+        roundedRect(track.x, track.y, track.width, track.height, 5f);
+        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, alpha);
+        roundedRect(track.x, thumbY, track.width, thumb, 5f);
     }
 
     private void openTableImageGallery() {
@@ -7523,6 +7781,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     hover ? 1f : 0f,
                     hover && Gdx.input.isButtonPressed(Input.Buttons.LEFT),
                     alpha);
+            if (fastBarExpanded && action == FastAccessAction.BLOCKS) {
+                drawFastBlockIcon(buttonX + FAST_BUTTON_SIZE / 2f,
+                        FAST_BAR_Y + FAST_BAR_PADDING
+                                + FAST_BUTTON_SIZE / 2f,
+                        enabled ? alpha : 0.36f * alpha);
+            }
             if (fastBarExpanded && action == FastAccessAction.SCREENSHOTS) {
                 drawFastAccessCameraIcon(buttonX + FAST_BUTTON_SIZE / 2f,
                         FAST_BAR_Y + FAST_BAR_PADDING
@@ -7552,7 +7816,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 float buttonX = FAST_BAR_X + FAST_BAR_PADDING
                         + index * (FAST_BUTTON_SIZE + FAST_BUTTON_GAP);
                 if (visibleFastAccessActionAt(index)
-                        == FastAccessAction.SCREENSHOTS) {
+                        == FastAccessAction.SCREENSHOTS
+                        || visibleFastAccessActionAt(index)
+                                == FastAccessAction.BLOCKS) {
                     continue;
                 }
                 float tint = fastButtonEnabled(index) ? 1f : 0.36f;
@@ -7600,6 +7866,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.circle(cx, cy, 4.5f, 24);
     }
 
+    private void drawFastBlockIcon(float cx, float cy, float alpha) {
+        shapes.setColor(0.95f, 0.18f, 0.22f, alpha);
+        shapes.circle(cx, cy, 17f, 40);
+        shapes.setColor(0.006f, 0.028f, 0.040f, 0.96f * alpha);
+        shapes.circle(cx, cy, 11f, 32);
+        shapes.setColor(0.95f, 0.18f, 0.22f, alpha);
+        shapes.rectLine(cx - 11f, cy + 11f, cx + 11f, cy - 11f, 6f);
+    }
+
     private void drawProductVersionBrand(float reveal) {
         batch.begin();
         drawProductVersionBrandInCurrentBatch(reveal);
@@ -7642,8 +7917,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private String fastButtonLabel(int index) {
-        return uppercase(gameText.translate(
-                FAST_BUTTON_TEXT_KEYS[fastButtonResourceIndex(index)]));
+        FastAccessAction action = visibleFastAccessActionAt(index);
+        if (action == FastAccessAction.BLOCKS) {
+            return uppercase(gameText.translate("gdx.network_blocks.button"));
+        }
+        int resource = fastButtonResourceIndex(index);
+        return resource < 0 ? "" : uppercase(gameText.translate(
+                FAST_BUTTON_TEXT_KEYS[resource]));
     }
 
     private void drawVoiceRecordingOverlay(float width, float height) {
@@ -14865,6 +15145,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case UI_CHAT -> handleChatClick(x, y);
             case UI_CARD_VIEWER -> closeCardViewer();
             case UI_SCREENSHOTS -> handleScreenshotViewerClick(x, y);
+            case UI_NETWORK_BLOCKS -> handleNetworkBlocksClick(x, y);
             default -> {
             }
         }
@@ -16532,6 +16813,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case UI_CHAT -> drawChatDialog();
             case UI_CARD_VIEWER -> drawCardViewer();
             case UI_SCREENSHOTS -> drawScreenshotViewer();
+            case UI_NETWORK_BLOCKS -> drawNetworkBlocksDialog();
             default -> {
             }
         }

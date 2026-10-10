@@ -68,6 +68,34 @@ final class GdxSettingsNavigationContractTest {
     }
 
     @Test
+    void hostFastAccessShowsBlocksOnlyWhileAQuarantineExists() {
+        assertEquals(List.of(
+                CoronaPokerGdxTable.FastAccessAction.SETTINGS,
+                CoronaPokerGdxTable.FastAccessAction.CHAT,
+                CoronaPokerGdxTable.FastAccessAction.VOICE,
+                CoronaPokerGdxTable.FastAccessAction.IMAGE,
+                CoronaPokerGdxTable.FastAccessAction.REBUY,
+                CoronaPokerGdxTable.FastAccessAction.GAME_LOG,
+                CoronaPokerGdxTable.FastAccessAction.SCREENSHOTS,
+                CoronaPokerGdxTable.FastAccessAction.FULLSCREEN,
+                CoronaPokerGdxTable.FastAccessAction.BLOCKS,
+                CoronaPokerGdxTable.FastAccessAction.STOP,
+                CoronaPokerGdxTable.FastAccessAction.EXIT),
+                java.util.stream.IntStream.range(0, 11)
+                        .mapToObj(index -> CoronaPokerGdxTable
+                                .fastAccessActionAt(index, true, true))
+                        .toList());
+        assertEquals(CoronaPokerGdxTable.FastAccessAction.NONE,
+                CoronaPokerGdxTable.fastAccessActionAt(11, true, true));
+        assertTrue(CoronaPokerGdxTable.fastAccessSurfaceContains(
+                673f, CoronaPokerGdxTable.FAST_BAR_Y + 30f,
+                true, true, true));
+        assertFalse(CoronaPokerGdxTable.fastAccessSurfaceContains(
+                675f, CoronaPokerGdxTable.FAST_BAR_Y + 30f,
+                true, true, true));
+    }
+
+    @Test
     void fastAccessSurfaceOwnsButtonsPaddingAndGaps() {
         // Closed bar owns its complete painted panel, not only the icon.
         assertTrue(CoronaPokerGdxTable.fastAccessSurfaceContains(

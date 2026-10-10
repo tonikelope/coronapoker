@@ -39,7 +39,7 @@ final class GdxGameTextTest {
 
         assertEquals(spanishKeys, englishKeys,
                 "GDX must never fall back to a different language or raw key");
-        assertEquals(523, spanishKeys.size(),
+        assertEquals(530, spanishKeys.size(),
                 "new GDX labels must be added symmetrically");
         for (String key : spanishKeys) {
             assertFalse(spanish.getProperty(key).isBlank(), key + " empty in es");
@@ -134,6 +134,9 @@ final class GdxGameTextTest {
                 text.translate("gdx.table.open_failed"));
         assertEquals("Fast chat", text.translate("chat.chat_rapido"));
         assertEquals("Unavailable", text.translate("gdx.quick.unavailable"));
+        assertEquals("BLOCKS", text.translate("gdx.network_blocks.button"));
+        assertEquals("BLOCKED IPS",
+                text.translate("gdx.network_blocks.title"));
         assertEquals("CLICK OR PRESS ESC TO CLOSE",
                 text.translate("gdx.card_viewer.close_hint"));
         assertEquals("THE SCREENSHOT FOLDER COULD NOT BE READ",

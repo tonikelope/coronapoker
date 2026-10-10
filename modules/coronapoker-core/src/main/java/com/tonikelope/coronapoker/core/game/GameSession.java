@@ -175,6 +175,7 @@ public final class GameSession implements AutoCloseable {
         if (phase.get() == Phase.CLOSED) {
             throw new IllegalStateException("Game session is closed");
         }
+        table.hand().turn().setPaused(paused);
         table.setPaused(paused);
     }
 

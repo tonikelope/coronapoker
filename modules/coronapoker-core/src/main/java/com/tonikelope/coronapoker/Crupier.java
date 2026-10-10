@@ -69,6 +69,7 @@ import com.tonikelope.coronapoker.core.game.LobbyTransitionSink;
 import com.tonikelope.coronapoker.core.game.PauseGate;
 import com.tonikelope.coronapoker.core.game.TableDisplaySink;
 import com.tonikelope.coronapoker.core.game.TurnTimeoutCoordinator;
+import com.tonikelope.coronapoker.core.game.TurnState;
 import com.tonikelope.coronapoker.core.game.HostGameConfigurationSource;
 import com.tonikelope.coronapoker.core.game.RecoveredSettingsSynchronizer;
 import com.tonikelope.coronapoker.core.game.ActionControlState;
@@ -454,14 +455,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     /** Current public clock projection for a newcomer joining mid-turn. */
     public java.util.Optional<TableVisualEvent.TurnTimer>
             publicHotJoinTurnTimer() {
-        long totalMillis = configuration().thinkTimeEnabled()
-                ? TimeUnit.SECONDS.toMillis(configuration().thinkTime()) : 0L;
+        TurnState turn = gameSession().table().hand().turn();
+        TurnState.Snapshot clock = turn.snapshot();
+        long totalMillis = TimeUnit.SECONDS.toMillis(clock.durationSeconds());
+        long remainingMillis = turn.remainingMillis(System.currentTimeMillis());
         return players().stream()
                 .filter(GamePlayerController::isTurno)
                 .filter(player -> !player.isExit())
+                .filter(player -> player.getNickname().equals(clock.nickname()))
                 .findFirst()
                 .map(player -> new TableVisualEvent.TurnTimer(
-                        1L, player.getNickname(), totalMillis, totalMillis,
+                        1L, player.getNickname(), totalMillis, remainingMillis,
                         TableVisualEvent.TurnTimer.Phase.START));
     }
 
@@ -14897,15 +14901,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void presentTurnTimerToAttachedRenderer(GamePlayerController player,
             TableVisualEvent.TurnTimer.Phase phase) {
-        if (!table_events.isAttached()) {
-            return;
-        }
         long totalMillis = configuration().thinkTimeEnabled()
                 ? TimeUnit.SECONDS.toMillis(configuration().thinkTime()) : 0L;
         String nickname = phase == TableVisualEvent.TurnTimer.Phase.STOP
                 ? "" : player.getNickname();
         long remainingMillis = phase == TableVisualEvent.TurnTimer.Phase.START
                 ? totalMillis : 0L;
+        TurnState turn = gameSession().table().hand().turn();
+        if (phase == TableVisualEvent.TurnTimer.Phase.START) {
+            turn.begin(nickname, turno,
+                    Math.toIntExact(TimeUnit.MILLISECONDS.toSeconds(totalMillis)));
+            if (gameSession().isPaused()) turn.setPaused(true);
+        } else {
+            turn.clear();
+        }
+        if (!table_events.isAttached()) {
+            return;
+        }
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.TurnTimer(
                 sequence, nickname, totalMillis, remainingMillis, phase),
                 "Turn-timer presentation barrier failed");

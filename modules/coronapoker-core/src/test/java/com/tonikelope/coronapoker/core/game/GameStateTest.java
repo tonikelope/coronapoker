@@ -84,4 +84,20 @@ class GameStateTest {
         assertEquals(30, snapshot.players().get(0).buyIn());
         assertEquals(2, snapshot.players().get(0).rebuyCount());
     }
+
+    @Test void turnClockReportsOnlyRemainingActiveTimeToLateRenderers() {
+        TurnState turn = new TurnState();
+        turn.begin("Remote", 1_000L, 30);
+
+        assertEquals(25_000L, turn.remainingMillis(6_000L));
+        turn.setPaused(true, 6_000L);
+        assertEquals(25_000L, turn.remainingMillis(20_000L));
+        turn.setPaused(false, 20_000L);
+        assertEquals(22_000L, turn.remainingMillis(23_000L));
+        assertEquals(0L, turn.remainingMillis(60_000L));
+
+        turn.clear();
+        assertEquals(0L, turn.remainingMillis(23_000L));
+        assertEquals("", turn.snapshot().nickname());
+    }
 }

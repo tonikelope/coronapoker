@@ -1200,6 +1200,14 @@ final class GdxTableViewStateTest {
                         .map(TableSnapshot.CardSnapshot::code).toList());
         assertTrue(state.presentedHoleCards("ana").stream()
                 .allMatch(TableSnapshot.CardSnapshot::faceUp));
+        TableSnapshot.PlayerPresentation presentation
+                = player(state, "ana").presentation();
+        assertTrue(presentation.showingCards());
+        assertFalse(presentation.partialHand());
+        assertFalse(presentation.resultResolved());
+        assertFalse(presentation.showdownHighlightEnabled());
+        assertEquals("", presentation.publicHandName());
+        assertEquals(List.of(), presentation.wonPotIndexes());
     }
 
     @Test
@@ -2975,6 +2983,218 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void hotJoinBootstrapRestoresExactFoldCallAndAllInSemantics() {
+        TableSnapshot.CardSnapshot back = new TableSnapshot.CardSnapshot(
+                "", false, false, true);
+        TableSnapshot.PlayerSnapshot local = new TableSnapshot.PlayerSnapshot(
+                "ana", 1_000d, 0d, 0d, false, true, false, false,
+                -2, -2, 0, 0L, false, false, TableSnapshot.Position.NONE,
+                TableSnapshot.Decision.NONE, TableSnapshot.ActionKind.NONE,
+                "CALENTANDO", "", List.of(), 1_000, 0, true);
+        TableSnapshot.PlayerSnapshot folded = new TableSnapshot.PlayerSnapshot(
+                "borja", 980d, 0d, 20d, true, false, false, false,
+                -2, -2, 0, 0L, false, false,
+                TableSnapshot.Position.BIG_BLIND,
+                TableSnapshot.Decision.FOLD, TableSnapshot.ActionKind.FOLD,
+                "borja FOLD (2.0)", "", List.of(), 1_000, 0, false);
+        TableSnapshot.PlayerSnapshot caller = new TableSnapshot.PlayerSnapshot(
+                "carla", 960d, 20d, 40d, true, false, false, false,
+                -2, -2, 0, 0L, false, false,
+                TableSnapshot.Position.SMALL_BLIND,
+                TableSnapshot.Decision.CHECK, TableSnapshot.ActionKind.CALL,
+                "carla CALL (4.0)", "", List.of(back, back), 1_000, 0,
+                false, new TableSnapshot.PlayerPresentation(false, false,
+                        -1f, false, "", List.of(), false, false, List.of(),
+                        List.of(), TableSnapshot.RebuyPhase.NONE, 0,
+                        "VA"));
+        TableSnapshot.PlayerSnapshot allIn = new TableSnapshot.PlayerSnapshot(
+                "diego", 0d, 100d, 100d, true, false, false, false,
+                -2, -2, 0, 0L, false, false,
+                TableSnapshot.Position.DEALER,
+                TableSnapshot.Decision.ALL_IN,
+                TableSnapshot.ActionKind.ALL_IN,
+                "diego ALL IN (10.0)", "", List.of(back, back), 1_000, 0,
+                false);
+        TableSnapshot bootstrap = new TableSnapshot(9L, "ana",
+                TableSnapshot.Street.TURN, 160d, "carla", false,
+                List.of(local, folded, caller, allIn),
+                List.of(card("A_C"), card("K_D"), card("Q_T"),
+                        card("2_P"), back));
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+
+        state.apply(new TableVisualEvent.HotJoinState(1L, bootstrap));
+
+        assertTrue(state.foldedThisHand("borja"));
+        assertTrue(state.presentedHoleCards("borja").isEmpty());
+        assertTrue(CoronaPokerGdxTable.shouldDimSeat(
+                player(state, "borja").active(),
+                state.hasHandResult("borja"),
+                state.foldedThisHand("borja")));
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.FOLD,
+                state.actionKind("borja"));
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.CALL,
+                state.actionKind("carla"));
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
+                state.actionKind("diego"));
+        assertEquals("VA", state.actionLabel("carla"));
+        assertFalse(state.foldedThisHand("diego"));
+        assertEquals(2, state.presentedHoleCards("diego").size());
+    }
+
+    @Test
+    void hotJoinBootstrapRestoresPublicRevealMonteCarloAndShowdownSemantics() {
+        TableSnapshot.CardSnapshot ace = card("A_C");
+        TableSnapshot.CardSnapshot king = card("K_C");
+        TableSnapshot.PlayerSnapshot partial = new TableSnapshot.PlayerSnapshot(
+                "borja", 0d, 100d, 100d, true, false, false, false,
+                -2, -2, 0, 0L, true, false,
+                TableSnapshot.Position.NONE, TableSnapshot.Decision.ALL_IN,
+                TableSnapshot.ActionKind.ALL_IN, "ALL IN", "COLOR",
+                List.of(ace, king), 1_000, 0, false,
+                new TableSnapshot.PlayerPresentation(true, true, 73.5f,
+                        false, "COLOR", List.of(), false, true,
+                        List.of(0, 1), List.of(0, 1, 2)));
+        TableSnapshot.PlayerSnapshot resolved = new TableSnapshot.PlayerSnapshot(
+                "carla", 1_400d, 0d, 100d, true, false, false, false,
+                -2, -2, 0, 0L, true, false,
+                TableSnapshot.Position.NONE, TableSnapshot.Decision.ALL_IN,
+                TableSnapshot.ActionKind.ALL_IN, "ALL IN", "ESCALERA",
+                List.of(card("Q_T"), card("J_T")), 1_000, 0, false,
+                new TableSnapshot.PlayerPresentation(true, false, -1f,
+                        true, "ESCALERA", List.of(1, 3), true, true,
+                        List.of(0, 1), List.of(0, 1, 2)));
+        TableSnapshot bootstrap = new TableSnapshot(11L, "ana",
+                TableSnapshot.Street.SHOWDOWN, 50d, "", true,
+                List.of(partial, resolved),
+                List.of(card("10_T"), card("9_T"), card("8_T"),
+                        card("7_C"), card("6_C")),
+                new TableSnapshot.TablePresentation("CARA B - BOTE: ", 8,
+                        List.of(3, 4)));
+        GdxTableViewState state = new GdxTableViewState(snapshot(), () -> 1L);
+
+        state.apply(new TableVisualEvent.HotJoinState(1L, bootstrap));
+
+        assertEquals(73.5f, state.partialHandPercentage("borja"));
+        assertEquals(2, state.presentedHoleCards("borja").size());
+        assertTrue(state.hasHandResult("carla"));
+        assertEquals(Boolean.TRUE, state.resolvedHandWinner("carla"));
+        assertEquals("ESCALERA", state.resolvedHandName("carla"));
+        assertEquals(List.of(1, 3), state.resolvedWonPotIndexes("carla"));
+        assertTrue(state.returnedSidePot("carla"));
+        assertEquals(List.of(0, 1),
+                state.showdownHighlight("carla").holeCardSlots());
+        assertEquals("CARA B - BOTE: ", state.runItTwicePotPrefix());
+        assertTrue(state.sharedProgressVisible());
+        assertEquals(1f, state.sharedProgressFraction());
+        assertTrue(state.isRabbitCard(3));
+        assertTrue(state.isRabbitCard(4));
+        assertFalse(state.rabbitRequestable(),
+                "CALENTANDO may observe rabbit cards but cannot request them");
+    }
+
+    @Test
+    void hotJoinBootstrapPreservesAnAuthorizedLateRevealAfterFold() {
+        TableSnapshot.PlayerSnapshot shownFold =
+                new TableSnapshot.PlayerSnapshot(
+                        "borja", 980d, 0d, 20d, true, false, false, false,
+                        -2, -2, 0, 0L, false, false,
+                        TableSnapshot.Position.NONE,
+                        TableSnapshot.Decision.FOLD,
+                        TableSnapshot.ActionKind.FOLD,
+                        "NO VA", "PAREJA",
+                        List.of(card("A_C"), card("A_D")), 1_000, 0, false,
+                        new TableSnapshot.PlayerPresentation(true, false,
+                                -1f, true, "PAREJA", List.of(), false,
+                                false, List.of(), List.of()));
+        TableSnapshot bootstrap = new TableSnapshot(12L, "ana",
+                TableSnapshot.Street.SHOWDOWN, 0d, "", false,
+                List.of(shownFold), List.of());
+        GdxTableViewState newcomer = new GdxTableViewState(snapshot());
+
+        newcomer.apply(new TableVisualEvent.HotJoinState(1L, bootstrap));
+
+        assertTrue(newcomer.foldedThisHand("borja"));
+        assertTrue(newcomer.hasLateShownHand("borja"));
+        assertTrue(newcomer.hasHandResult("borja"));
+        assertEquals("PAREJA", newcomer.resolvedHandName("borja"));
+        assertEquals(List.of(card("A_C"), card("A_D")),
+                newcomer.presentedHoleCards("borja"));
+    }
+
+    @Test
+    void ordinaryEventsAndHotJoinBootstrapConvergeOnTheSamePublicSemantics() {
+        GdxTableViewState incumbent = new GdxTableViewState(snapshot());
+        incumbent.apply(new TableVisualEvent.RevealHoleCards(1L, "borja",
+                card("A_C"), card("K_C"), "COLOR"));
+        incumbent.apply(new TableVisualEvent.PartialHand(2L, "borja",
+                "COLOR", true, 73.5f));
+        incumbent.apply(new TableVisualEvent.ShowdownHighlight(3L, "borja",
+                true, List.of(0, 1), List.of(0, 1, 2)));
+        incumbent.apply(new TableVisualEvent.RunItTwiceBoard(4L,
+                TableVisualEvent.RunItTwiceBoard.Side.A,
+                "BOTE (CARA-A):", 100d, List.of()));
+        incumbent.apply(new TableVisualEvent.HandResult(5L, "borja",
+                "COLOR", true, TableSnapshot.Street.SHOWDOWN,
+                List.of(1), false));
+        incumbent.apply(new TableVisualEvent.PayoutBatch(6L, List.of(
+                new TableVisualEvent.PayoutBatch.Transfer(
+                        "borja", 110d, 10d, 1_110d)), 0d, 0d));
+        incumbent.apply(new TableVisualEvent.SharedProgress(7L,
+                TableVisualEvent.SharedProgress.Mode.COUNTDOWN, 8));
+        incumbent.apply(new TableVisualEvent.RebuyDecision(8L, "borja",
+                TableVisualEvent.RebuyDecision.Phase.WAITING));
+        incumbent.apply(new TableVisualEvent.ImmediateRebuyStatus(9L,
+                "borja", 25));
+
+        TableSnapshot canonical = incumbent.snapshot();
+        TableSnapshot.PlayerPresentation presentation
+                = player(incumbent, "borja").presentation();
+        assertTrue(presentation.showingCards());
+        assertFalse(presentation.partialHand());
+        assertTrue(presentation.resultResolved());
+        assertEquals("COLOR", presentation.publicHandName());
+        assertEquals(List.of(1), presentation.wonPotIndexes());
+        assertTrue(presentation.returnedSidePot());
+        assertTrue(presentation.showdownHighlightEnabled());
+        assertEquals(TableSnapshot.RebuyPhase.WAITING,
+                presentation.rebuyPhase());
+        assertEquals(25, presentation.immediateRebuyAmount());
+        assertEquals("BOTE (CARA-A):",
+                canonical.presentation().potPrefix());
+        assertEquals(8,
+                canonical.presentation().sharedProgressRemainingSeconds());
+
+        GdxTableViewState newcomer = new GdxTableViewState(snapshot(), () -> 1L);
+        newcomer.apply(new TableVisualEvent.HotJoinState(1L, canonical));
+
+        assertPublicSemanticProjectionEquals(incumbent, newcomer);
+
+        assertEquals(incumbent.presentedHoleCards("borja"),
+                newcomer.presentedHoleCards("borja"));
+        assertEquals(incumbent.resolvedHandName("borja"),
+                newcomer.resolvedHandName("borja"));
+        assertEquals(incumbent.resolvedHandWinner("borja"),
+                newcomer.resolvedHandWinner("borja"));
+        assertEquals(incumbent.resolvedWonPotIndexes("borja"),
+                newcomer.resolvedWonPotIndexes("borja"));
+        assertEquals(incumbent.returnedSidePot("borja"),
+                newcomer.returnedSidePot("borja"));
+        assertEquals(incumbent.showdownHighlight("borja").holeCardSlots(),
+                newcomer.showdownHighlight("borja").holeCardSlots());
+        assertEquals(incumbent.showdownHighlight("borja")
+                        .communityCardSlots(),
+                newcomer.showdownHighlight("borja")
+                        .communityCardSlots());
+        assertEquals(incumbent.runItTwicePotPrefix(),
+                newcomer.runItTwicePotPrefix());
+        assertEquals(incumbent.rebuyDecision("borja"),
+                newcomer.rebuyDecision("borja"));
+        assertEquals(incumbent.immediateRebuyAmount("borja"),
+                newcomer.immediateRebuyAmount("borja"));
+        assertTrue(newcomer.sharedProgressVisible());
+    }
+
+    @Test
     void newCommunityStreetKeepsActionsThroughRevealAndClearsThemAtFirstTurn() {
         GdxTableViewState state = new GdxTableViewState(snapshot());
         state.apply(new TableVisualEvent.PlayerAction(1, "ana",
@@ -4286,6 +4506,83 @@ final class GdxTableViewStateTest {
         return state.snapshot().players().stream()
                 .filter(player -> player.nickname().equals(nickname))
                 .findFirst().orElseThrow();
+    }
+
+    /**
+     * Compares every durable public fact that the GDX table derives outside
+     * the immutable snapshot itself.  This is the semantic/aesthetic cut-over
+     * contract for CALENTANDO: after the bootstrap it must be impossible to
+     * tell whether the projection was built by the ordinary event stream or
+     * attached to the already-running table.
+     */
+    private static void assertPublicSemanticProjectionEquals(
+            GdxTableViewState expected, GdxTableViewState actual) {
+        assertEquals(expected.snapshot(), actual.snapshot());
+        assertEquals(expected.runItTwicePotPrefix(),
+                actual.runItTwicePotPrefix());
+        assertEquals(expected.sharedProgressVisible(),
+                actual.sharedProgressVisible());
+        assertEquals(expected.sharedProgressIndeterminate(),
+                actual.sharedProgressIndeterminate());
+        for (int slot = 0; slot < 5; slot++) {
+            assertEquals(expected.isRabbitCard(slot),
+                    actual.isRabbitCard(slot), "rabbit slot " + slot);
+        }
+        for (TableSnapshot.PlayerSnapshot player
+                : expected.snapshot().players()) {
+            String nickname = player.nickname();
+            assertEquals(expected.presentedHoleCards(nickname),
+                    actual.presentedHoleCards(nickname), nickname + " cards");
+            assertEquals(expected.hasRevealedHoleCards(nickname),
+                    actual.hasRevealedHoleCards(nickname),
+                    nickname + " public reveal");
+            assertEquals(expected.partialHandPercentage(nickname),
+                    actual.partialHandPercentage(nickname),
+                    nickname + " partial hand");
+            assertEquals(expected.hasHandResult(nickname),
+                    actual.hasHandResult(nickname), nickname + " result");
+            assertEquals(expected.hasLateShownHand(nickname),
+                    actual.hasLateShownHand(nickname),
+                    nickname + " late reveal");
+            assertEquals(expected.foldedThisHand(nickname),
+                    actual.foldedThisHand(nickname), nickname + " fold");
+            assertEquals(expected.resolvedHandName(nickname),
+                    actual.resolvedHandName(nickname), nickname + " hand name");
+            assertEquals(expected.resolvedHandWinner(nickname),
+                    actual.resolvedHandWinner(nickname), nickname + " winner");
+            assertEquals(expected.resolvedWonPotIndexes(nickname),
+                    actual.resolvedWonPotIndexes(nickname),
+                    nickname + " won pots");
+            assertEquals(expected.returnedSidePot(nickname),
+                    actual.returnedSidePot(nickname),
+                    nickname + " returned side pot");
+            assertEquals(expected.actionKind(nickname),
+                    actual.actionKind(nickname), nickname + " action kind");
+            assertEquals(expected.actionLabel(nickname),
+                    actual.actionLabel(nickname), nickname + " action label");
+            assertEquals(expected.rebuyDecision(nickname),
+                    actual.rebuyDecision(nickname),
+                    nickname + " rebuy decision");
+            assertEquals(expected.immediateRebuyAmount(nickname),
+                    actual.immediateRebuyAmount(nickname),
+                    nickname + " immediate rebuy");
+            GdxTableViewState.ShowdownHighlightState expectedHighlight
+                    = expected.showdownHighlight(nickname);
+            GdxTableViewState.ShowdownHighlightState actualHighlight
+                    = actual.showdownHighlight(nickname);
+            assertEquals(expectedHighlight == null,
+                    actualHighlight == null, nickname + " highlight presence");
+            if (expectedHighlight != null) {
+                assertEquals(expectedHighlight.enabled(),
+                        actualHighlight.enabled(), nickname + " highlight");
+                assertEquals(expectedHighlight.holeCardSlots(),
+                        actualHighlight.holeCardSlots(),
+                        nickname + " highlighted hole cards");
+                assertEquals(expectedHighlight.communityCardSlots(),
+                        actualHighlight.communityCardSlots(),
+                        nickname + " highlighted board cards");
+            }
+        }
     }
 
     private static TableSnapshot snapshot() {

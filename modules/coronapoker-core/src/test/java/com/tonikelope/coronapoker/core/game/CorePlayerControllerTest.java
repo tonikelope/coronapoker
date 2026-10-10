@@ -163,6 +163,27 @@ class CorePlayerControllerTest {
     }
 
     @Test
+    void presentationSnapshotIncludesPendingPayoutWithoutDoubleCountingIt() {
+        CorePlayerController player = CorePlayerController.local("winner");
+        player.setStack(8d);
+        player.setPagar(2d);
+
+        assertEquals(8d, player.getStack(),
+                "pending payout must remain outside the gameplay stack");
+        assertEquals(10d, TableSnapshotMapper.player(
+                player.getState().snapshot()).stack(),
+                "an attaching renderer must see the already-awarded balance");
+
+        player.nuevaMano();
+
+        assertEquals(10d, player.getStack());
+        assertEquals(0d, player.getPagar());
+        assertEquals(10d, TableSnapshotMapper.player(
+                player.getState().snapshot()).stack(),
+                "committing the payout at the boundary must keep the visible stack stable");
+    }
+
+    @Test
     void recoveredHoleCardsStayHiddenUntilTheirDealLands() {
         CorePlayerController player = CorePlayerController.remote("rival");
         player.getHoleCard1().iniciarCarta(true);
@@ -296,6 +317,52 @@ class CorePlayerControllerTest {
     }
 
     @Test
+    void warmingIsAnExplicitLifecycleRoleIndependentOfStack() {
+        CorePlayerController player = CorePlayerController.local("player");
+        player.setStack(0d);
+
+        player.setCalentando("CALENTANDO");
+
+        assertTrue(player.isCalentando(),
+                "a zero-stack late entrant is still CALENTANDO");
+        assertTrue(player.isSpectator());
+        assertFalse(player.isActivo());
+        assertTrue(player.getState().snapshot().warming());
+
+        player.unsetSpectator();
+
+        assertFalse(player.isCalentando());
+        assertFalse(player.getState().snapshot().warming());
+        assertTrue(player.isActivo());
+    }
+
+    @Test
+    void ordinaryFundedSpectatorNeverBecomesWarmingByInference() {
+        CorePlayerController player = CorePlayerController.local("player");
+        player.setStack(10d);
+
+        player.setSpectator("ESPECTADOR");
+
+        assertTrue(player.isSpectator());
+        assertFalse(player.isCalentando());
+        assertFalse(player.getState().snapshot().warming());
+    }
+
+    @Test
+    void admissionCanEndWarmingWithoutActivatingABustedSeat() {
+        CorePlayerController player = CorePlayerController.local("player");
+        player.setStack(0d);
+        player.setCalentando("CALENTANDO");
+
+        player.clearCalentando();
+
+        assertFalse(player.isCalentando());
+        assertTrue(player.isSpectator());
+        assertFalse(player.isActivo());
+        assertFalse(player.getState().snapshot().warming());
+    }
+
+    @Test
     void brokeBotExitPreservesTheCanonicalSpectatorRole() {
         CorePlayerController player = CorePlayerController.bot("CoronaBot$1");
         player.setStack(0d);
@@ -340,6 +407,35 @@ class CorePlayerControllerTest {
 
         assertTrue(bot.isLoser());
         assertTrue(bot.isIwtsthCandidate());
+    }
+
+    @Test
+    void inactiveSeatClearsOnlyCompletedHandPresentationAtNextBoundary() {
+        CorePlayerController player = CorePlayerController.remote("warming");
+        player.setStack(12d);
+        player.setBuyin(20);
+        player.setCalentando("CALENTANDO");
+        player.setPresentationActionKind(PlayerState.ActionKind.ALL_IN);
+        player.setPresentationActionLabel("ALL IN (+12)");
+        player.applyShowdownResult(false, "COLOR");
+        player.setPresentationWonPotIndexes(List.of(2));
+
+        player.resetPresentationForNewHand();
+
+        PlayerState.Snapshot state = player.getState().snapshot();
+        assertTrue(state.spectator());
+        assertTrue(state.warming());
+        assertFalse(state.exited());
+        assertEquals(12d, state.stack());
+        assertEquals(20, state.buyIn());
+        assertEquals(PlayerState.Decision.NONE, state.decision());
+        assertEquals(PlayerState.ActionKind.NONE, state.actionKind());
+        assertFalse(state.showingCards());
+        assertFalse(state.winner());
+        assertFalse(state.resultResolved());
+        assertEquals("", state.publicHandName());
+        assertEquals(List.of(), state.wonPotIndexes());
+        assertEquals("", state.publicActionLabel());
     }
 
     private static final class StubDealer implements DealerView {

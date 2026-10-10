@@ -57,6 +57,9 @@ public interface GameCardController {
 
     boolean isRabbitTapada();
 
+    /** Whether this slot belongs to the current rabbit-hunting reveal. */
+    boolean isRabbit();
+
     void taparRabbit();
 
     void destaparRabbit();

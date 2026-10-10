@@ -157,6 +157,11 @@ public final class CoreCardController implements GameCardController {
     }
 
     @Override
+    public boolean isRabbit() {
+        return rabbit != RabbitState.OFF;
+    }
+
+    @Override
     public void taparRabbit() {
         rabbit = RabbitState.FACE_DOWN;
     }

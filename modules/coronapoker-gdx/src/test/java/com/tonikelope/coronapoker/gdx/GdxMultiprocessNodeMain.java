@@ -9,6 +9,7 @@ import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import com.tonikelope.coronapoker.core.RecoverableGameRepository;
 import com.tonikelope.coronapoker.core.game.GameDecisionSink;
 import com.tonikelope.coronapoker.core.game.GameText;
+import com.tonikelope.coronapoker.core.game.MoneyMath;
 import com.tonikelope.coronapoker.core.identity.PlayerIdentity;
 import com.tonikelope.coronapoker.core.network.NetworkLobbyGateway;
 import com.tonikelope.coronapoker.table.TableSession;
@@ -60,7 +61,8 @@ public final class GdxMultiprocessNodeMain {
         } else if ("spectator-recovery-mix".equals(config.scenario)) {
             System.setProperty("coronapoker.qa.spectatorOnBrokeNicks",
                     "client1,client2,client3,client4");
-        } else if ("human-bust-exit-rejoin-rebuy".equals(config.scenario)) {
+        } else if ("human-bust-exit-rejoin-rebuy".equals(config.scenario)
+                || "busted-player-hot-reentry".equals(config.scenario)) {
             System.setProperty("coronapoker.qa.spectatorOnBrokeNicks",
                     "client1,client2");
         } else if ("spectator-double-recovery-crash-mix".equals(
@@ -87,6 +89,10 @@ public final class GdxMultiprocessNodeMain {
             }
             if ("human-bust-exit-rejoin-rebuy".equals(config.scenario)) {
                 runHumanBustExitRejoinRebuy(config, home, database);
+                return;
+            }
+            if ("busted-player-hot-reentry".equals(config.scenario)) {
+                runBustedPlayerHotReentry(config, home, database);
                 return;
             }
             if ("spectator-double-recovery-crash-mix".equals(
@@ -125,6 +131,8 @@ public final class GdxMultiprocessNodeMain {
                     || "live-hot-join-reentry-churn".equals(config.scenario)
                     || "live-hot-join-crash-reentry".equals(config.scenario)
                     || "live-hot-join-flop-bootstrap".equals(config.scenario)
+                    || "live-hot-join-folded-bootstrap".equals(config.scenario)
+                    || "live-hot-join-allin-bootstrap".equals(config.scenario)
                     || "live-hot-join-pre-attach-bootstrap".equals(
                             config.scenario)
                     || "live-hot-join-paused-bootstrap".equals(config.scenario)
@@ -315,6 +323,10 @@ public final class GdxMultiprocessNodeMain {
                 config.scenario);
         boolean flopBootstrap = "live-hot-join-flop-bootstrap".equals(
                 config.scenario);
+        boolean foldedBootstrap = "live-hot-join-folded-bootstrap".equals(
+                config.scenario);
+        boolean allInBootstrap = "live-hot-join-allin-bootstrap".equals(
+                config.scenario);
         boolean pausedBootstrap = "live-hot-join-paused-bootstrap".equals(
                 config.scenario);
         boolean twoLate = "live-hot-join-two".equals(config.scenario)
@@ -388,8 +400,17 @@ public final class GdxMultiprocessNodeMain {
             GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
                     visibleExpectedPlayers, productTable, lobby);
             scenarioRenderer.set(renderer);
+            if (allInBootstrap && !late) {
+                renderer.enableAllInEveryHand();
+            }
+            if (foldedBootstrap && !late
+                    && "client1".equals(config.nickname)) {
+                renderer.foldAutomatically(true);
+            }
             if (config.host()) {
-                if (flopBootstrap) {
+                if (allInBootstrap) {
+                    renderer.gateOnNextPartialHand();
+                } else if (flopBootstrap || foldedBootstrap) {
                     renderer.gateActionOnStreet(1L,
                             TableSnapshot.Street.FLOP);
                 } else {
@@ -406,9 +427,23 @@ public final class GdxMultiprocessNodeMain {
             table.attach(renderer).toCompletableFuture()
                     .get(15, TimeUnit.SECONDS);
 
+            if (foldedBootstrap && late) {
+                await(renderer::sawBootstrappedFoldedSeat,
+                        Duration.ofSeconds(45),
+                        "folded seat in authoritative hot-join bootstrap");
+                marker("HOT_JOIN_FOLDED_BOOTSTRAP",
+                        "nick=" + config.nickname + " dimmed=true");
+            }
+
             if (config.host()) {
-                await(renderer::hasHeldAction, Duration.ofSeconds(60),
-                        "live hot-join action gate");
+                if (allInBootstrap) {
+                    await(renderer::hasHeldPresentation,
+                            Duration.ofSeconds(90),
+                            "live hot-join all-in presentation gate");
+                } else {
+                    await(renderer::hasHeldAction, Duration.ofSeconds(60),
+                            "live hot-join action gate");
+                }
                 if (pausedBootstrap) {
                     table.commands().submit(new TableCommand.TogglePause());
                     await(renderer::isPaused, Duration.ofSeconds(30),
@@ -519,7 +554,11 @@ public final class GdxMultiprocessNodeMain {
                                 Duration.ofSeconds(30),
                                 "resume after paused hot-join bootstrap");
                     }
-                    renderer.releaseHeldAction();
+                    if (allInBootstrap) {
+                        renderer.releaseHeldPresentation();
+                    } else {
+                        renderer.releaseHeldAction();
+                    }
                 }
                 if (exitAtAdmission) {
                     await(() -> !renderer.activeNicknames().contains(
@@ -606,17 +645,33 @@ public final class GdxMultiprocessNodeMain {
                     throw new AssertionError(
                             "hot joiner received concealed pocket data");
                 }
-                try {
-                    await(renderer::activeRemoteCardSlotsAreSafeBacks,
-                            Duration.ofSeconds(30),
-                            "visible remote card backs in hot-join bootstrap");
-                } catch (IllegalStateException timeout) {
-                    throw new IllegalStateException(timeout.getMessage()
-                            + " [" + renderer.remoteCardSlotDiagnostic()
-                            + "]", timeout);
+                await(renderer::hasHotJoinDurableTableStatus,
+                        Duration.ofSeconds(30),
+                        "durable table status in hot-join bootstrap");
+                marker("HOT_JOIN_TABLE_STATUS", "hand=live blinds=canonical");
+                if (allInBootstrap) {
+                    if (!renderer.firstHotJoinHasAllInPresentation()) {
+                        throw new AssertionError(
+                                "first hot-join snapshot lost public all-in "
+                                + "cards, action, outcome or idle timer: "
+                                + renderer.communityCardDiagnostic());
+                    }
+                    marker("HOT_JOIN_ALL_IN_BOOTSTRAP", "nick="
+                            + config.nickname
+                            + " cards=public outcome=true timer=none");
+                } else {
+                    try {
+                        await(renderer::activeRemoteCardSlotsAreSafeBacks,
+                                Duration.ofSeconds(30),
+                                "visible remote card backs in hot-join bootstrap");
+                    } catch (IllegalStateException timeout) {
+                        throw new IllegalStateException(timeout.getMessage()
+                                + " [" + renderer.remoteCardSlotDiagnostic()
+                                + "]", timeout);
+                    }
+                    marker("HOT_JOIN_REMOTE_CARD_BACKS", "nick="
+                            + config.nickname);
                 }
-                marker("HOT_JOIN_REMOTE_CARD_BACKS", "nick="
-                        + config.nickname);
                 if (pausedBootstrap) {
                     if (!renderer.firstHotJoinStateIsPaused()) {
                         throw new AssertionError(
@@ -647,9 +702,11 @@ public final class GdxMultiprocessNodeMain {
                             "faceUp=3 remoteBacks=true pendingBacks=true");
                 }
                 bootstrapLogLines.set(gameLog.snapshot().lines().size());
-                await(renderer::sawHotJoinTimerStart,
-                        Duration.ofSeconds(30),
-                        "current turn timer in hot-join bootstrap");
+                if (!allInBootstrap) {
+                    await(renderer::sawHotJoinTimerStart,
+                            Duration.ofSeconds(30),
+                            "current turn timer in hot-join bootstrap");
+                }
                 marker("HOT_JOIN_WARMING", "nick=" + config.nickname
                         + " historyLines=" + bootstrapLogLines.get());
                 if (thisWarmingIncarnationExits || firstReentryIncarnation) {
@@ -676,9 +733,11 @@ public final class GdxMultiprocessNodeMain {
                     return;
                 }
                 if (!stopWhileWarming && !thisWarmingIncarnationExits) {
-                    await(renderer::sawHotJoinPlayerAction,
-                            Duration.ofSeconds(90),
-                            "ordinary player-action event while warming");
+                    if (!allInBootstrap) {
+                        await(renderer::sawHotJoinPlayerAction,
+                                Duration.ofSeconds(90),
+                                "ordinary player-action event while warming");
+                    }
                     marker("HOT_JOIN_VISUAL_STREAM", "nick="
                             + config.nickname);
                     int expectedFaceUp = crashReentry || laterHandReentry
@@ -696,7 +755,8 @@ public final class GdxMultiprocessNodeMain {
                         marker("HOT_JOIN_REENTRY_BOARD_STABLE", "faceUp="
                                 + expectedFaceUp);
                     }
-                    if (flopBootstrap || config.clients() > 1) {
+                    if (!allInBootstrap
+                            && (flopBootstrap || config.clients() > 1)) {
                         await(renderer::sawHotJoinCommunityReveal,
                                 Duration.ofSeconds(90),
                                 "ordinary community reveal while warming");
@@ -1057,6 +1117,231 @@ public final class GdxMultiprocessNodeMain {
             marker("ACTIVE_REENTRY_COMPLETE", "role=" + config.role
                     + " nick=" + config.nickname + " hands="
                     + renderer.summary().handCount());
+        }
+    }
+
+    /**
+     * A busted authenticated identity is still a hot joiner when it returns
+     * to a live hand.  It must observe that hand as CALENTANDO with zero
+     * stack, may not open the rebuy flow while warming, and becomes an
+     * ordinary spectator (not a player) at the next boundary.  The running
+     * table is never stopped or recovered in this scenario.
+     */
+    private static void runBustedPlayerHotReentry(Config config, Path home,
+            DatabaseService database) throws Exception {
+        final int expectedPlayers = config.clients + config.bots + 1;
+        final boolean candidate = "client1".equals(config.nickname)
+                || "client2".equals(config.nickname);
+        final boolean reenteredOwner = candidate
+                && "late-reentry".equals(config.phase);
+        AtomicBoolean bootstrapAcceptedBeforeAttach = reenteredOwner
+                ? observeAcceptedHotJoinBootstrap() : new AtomicBoolean();
+        AtomicInteger forbiddenRebuyDialogs = new AtomicInteger();
+        AtomicReference<CoronaPokerGdxTable> productTable
+                = new AtomicReference<>();
+        AtomicReference<GdxScenarioRenderer> scenarioRenderer
+                = new AtomicReference<>();
+        NetworkLobbyGateway openedGateway = reenteredOwner
+                ? rejectingRebuyGateway(home.resolve("network"), database,
+                        forbiddenRebuyDialogs)
+                : gateway(config, home.resolve("network"), database,
+                        productTable, new AtomicInteger(),
+                        new AtomicReference<>(), scenarioRenderer);
+        try (NetworkLobbyGateway gateway = openedGateway;
+             LobbySession lobby = gateway.open(request(config))
+                     .get(20, TimeUnit.SECONDS)) {
+            marker("READY", "role=" + config.role + " nick="
+                    + config.nickname + " phase=" + config.phase);
+            if (config.host()) {
+                await(() -> lobby.snapshot().participants().size()
+                                == config.clients,
+                        Duration.ofSeconds(30),
+                        "busted-reentry initial humans");
+                for (int index = 0; index < config.bots; index++) {
+                    lobby.submit(new LobbyCommand.AddBot())
+                            .toCompletableFuture().get(10, TimeUnit.SECONDS);
+                }
+                await(() -> lobby.snapshot().participants().size()
+                                == expectedPlayers,
+                        Duration.ofSeconds(30),
+                        "busted-reentry complete lobby");
+                marker("LOBBY_READY", "players=" + expectedPlayers);
+                awaitStartCommand();
+                lobby.submit(new LobbyCommand.StartGame())
+                        .toCompletableFuture().get(10, TimeUnit.SECONDS);
+                marker("GAME_START_REQUESTED", "hands=" + config.hands);
+            }
+
+            TableSession table = lobby.tableSession().toCompletableFuture()
+                    .get(45, TimeUnit.SECONDS);
+            GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
+                    expectedPlayers, productTable, lobby);
+            scenarioRenderer.set(renderer);
+            if (candidate && !reenteredOwner) {
+                renderer.allInOnHand(1L);
+            }
+            if (config.host()) {
+                renderer.gateActionOnHand(4L);
+            }
+            if (reenteredOwner) {
+                await(bootstrapAcceptedBeforeAttach::get,
+                        Duration.ofSeconds(30),
+                        "busted owner bootstrap before renderer attachment");
+                marker("HOT_JOIN_PRE_ATTACH_BOOTSTRAP",
+                        "nick=" + config.nickname);
+            }
+            table.attach(renderer).toCompletableFuture()
+                    .get(15, TimeUnit.SECONDS);
+
+            if (candidate && !reenteredOwner) {
+                await(() -> renderer.currentHand() >= 4L,
+                        Duration.ofSeconds(150),
+                        "busted hot-reentry selection boundary");
+                marker("LOCAL_SPECTATOR", "nick=" + config.nickname
+                        + " value=" + renderer.sawLocalSpectator());
+                String selection = readCommand();
+                if ("EXIT_BUSTED_PLAYER".equals(selection)) {
+                    if (!renderer.sawLocalSpectator()
+                            || MoneyMath.compare(renderer.stackOf(
+                                    config.nickname), 0d) != 0) {
+                        throw new AssertionError(
+                                "selected busted owner was not a zero-stack spectator: "
+                                + renderer.playerStateDiagnostic());
+                    }
+                    table.commands().submit(new TableCommand.ExitGame());
+                    await(renderer::isClosed, Duration.ofSeconds(60),
+                            "busted spectator controlled exit");
+                    if (renderer.summary() == null
+                            || renderer.summary().reason()
+                            != TableSessionSummary.CloseReason.EXITED) {
+                        throw new AssertionError(
+                                "busted spectator did not close as EXITED");
+                    }
+                    marker("BUSTED_REENTRY_EXITED", "nick="
+                            + config.nickname);
+                    return;
+                }
+                if (!"STAY_FOR_BUSTED_REENTRY".equals(selection)) {
+                    throw new IllegalStateException(
+                            "unexpected busted reentry selection: "
+                            + selection);
+                }
+            }
+
+            if (config.host()) {
+                await(renderer::hasHeldAction, Duration.ofSeconds(150),
+                        "busted hot-reentry safe action gate");
+                marker("BUSTED_REENTRY_ACTION_GATE", "hand="
+                        + renderer.currentHand());
+            }
+
+            String observedOwner = reenteredOwner ? config.nickname : null;
+            if (reenteredOwner) {
+                await(() -> renderer.sawHotJoinState()
+                                && renderer.sawLocalSpectator()
+                                && renderer.warmingNicknames().contains(
+                                        config.nickname),
+                        Duration.ofSeconds(90),
+                        "zero-stack owner warming reentry");
+                if (MoneyMath.compare(renderer.stackOf(config.nickname),
+                        0d) != 0) {
+                    throw new AssertionError(
+                            "busted owner recovered a non-zero stack: "
+                            + renderer.stackOf(config.nickname));
+                }
+                if (!renderer.localCardsArePubliclyHidden()
+                        || !renderer.activeRemoteCardSlotsAreSafeBacks()) {
+                    throw new AssertionError(
+                            "busted warming owner did not receive the safe public table state");
+                }
+                table.commands().submit(
+                        new TableCommand.ToggleImmediateRebuy());
+                Thread.sleep(250L);
+                if (forbiddenRebuyDialogs.get() != 0
+                        || renderer.immediateRebuyAmountOf(
+                                config.nickname) != 0) {
+                    throw new AssertionError(
+                            "CALENTANDO opened or scheduled a forbidden rebuy");
+                }
+                marker("BUSTED_REENTRY_WARMING", "nick="
+                        + config.nickname + " stack=0.0 rebuyBlocked=true");
+            } else {
+                String exitCommand = readCommand();
+                String exitPrefix = "EXPECT_BUSTED_EXIT ";
+                if (exitCommand == null
+                        || !exitCommand.startsWith(exitPrefix)) {
+                    throw new IllegalStateException(
+                            "expected busted exit owner, received "
+                            + exitCommand);
+                }
+                String owner = exitCommand.substring(exitPrefix.length());
+                observedOwner = owner;
+                await(() -> !renderer.activeNicknames().contains(owner),
+                        Duration.ofSeconds(75),
+                        "busted owner removal from live table");
+                marker("BUSTED_REENTRY_EXIT_OBSERVED", "nick=" + owner);
+
+                String reentryCommand = readCommand();
+                String reentryPrefix = "EXPECT_BUSTED_REENTRY ";
+                if (reentryCommand == null
+                        || !reentryCommand.startsWith(reentryPrefix)
+                        || !owner.equals(reentryCommand.substring(
+                                reentryPrefix.length()))) {
+                    throw new IllegalStateException(
+                            "expected matching busted reentry owner, received "
+                            + reentryCommand);
+                }
+                await(() -> renderer.warmingNicknames().contains(owner)
+                                && renderer.spectatorNicknames()
+                                        .contains(owner)
+                                && MoneyMath.compare(renderer.stackOf(owner),
+                                        0d) == 0,
+                        Duration.ofSeconds(90),
+                        "busted owner warming projection");
+                marker("BUSTED_REENTRY_WARMING", "nick=" + owner
+                        + " stack=0.0 rebuyBlocked=true");
+                if (config.host()) {
+                    renderer.releaseHeldAction();
+                }
+            }
+
+            final String admittedOwner = observedOwner;
+            await(() -> renderer.currentHand() > 4L
+                            && !renderer.warmingNicknames()
+                                    .contains(admittedOwner)
+                            && renderer.spectatorNicknames()
+                                    .contains(admittedOwner)
+                            && !renderer.playingNicknames()
+                                    .contains(admittedOwner),
+                    Duration.ofSeconds(180),
+                    "busted owner ordinary-spectator boundary");
+            marker("BUSTED_REENTRY_ORDINARY_SPECTATOR", "nick="
+                    + admittedOwner + " stack="
+                    + renderer.stackOf(admittedOwner));
+
+            await(renderer::isClosed,
+                    Duration.ofSeconds(Math.max(300L,
+                            config.hands * 60L)),
+                    "busted hot-reentry completion");
+            if (renderer.summary() == null
+                    || renderer.summary().balances().size()
+                    != expectedPlayers) {
+                throw new AssertionError(
+                        "busted hot-reentry settlement roster mismatch");
+            }
+            long ownerRows = renderer.summary().balances().stream()
+                    .filter(balance -> admittedOwner.equals(
+                            balance.nickname()))
+                    .count();
+            if (ownerRows != 1L) {
+                throw new AssertionError(
+                        "busted hot-reentry duplicated settlement rows: "
+                        + ownerRows);
+            }
+            emitFinalOutcome(renderer);
+            marker("BUSTED_REENTRY_COMPLETE", "role=" + config.role
+                    + " nick=" + config.nickname + " owner="
+                    + admittedOwner);
         }
     }
 
@@ -2764,6 +3049,44 @@ public final class GdxMultiprocessNodeMain {
                 data, database, decisions);
     }
 
+    private static NetworkLobbyGateway rejectingRebuyGateway(Path data,
+            DatabaseService database, AtomicInteger rebuyDialogs) {
+        GameDecisionSink fallback = GameDecisionSink.noop();
+        GameDecisionSink decisions = (GameDecisionSink)
+                java.lang.reflect.Proxy.newProxyInstance(
+                        GameDecisionSink.class.getClassLoader(),
+                        new Class<?>[]{GameDecisionSink.class},
+                        (proxy, method, arguments) -> {
+                            if ("showRebuy".equals(method.getName())) {
+                                rebuyDialogs.incrementAndGet();
+                                GameDecisionSink.RebuyRequest request
+                                        = (GameDecisionSink.RebuyRequest)
+                                                arguments[0];
+                                GameDecisionSink.RebuyResult rejected
+                                        = new GameDecisionSink.RebuyResult(
+                                                false,
+                                                request.defaultAmount());
+                                return new GameDecisionSink.RebuyHandle() {
+                                    @Override
+                                    public java.util.concurrent.CompletionStage<
+                                            GameDecisionSink.RebuyResult>
+                                            result() {
+                                        return java.util.concurrent
+                                                .CompletableFuture
+                                                .completedFuture(rejected);
+                                    }
+
+                                    @Override
+                                    public void close() {
+                                    }
+                                };
+                            }
+                            return method.invoke(fallback, arguments);
+                        });
+        return GdxNetworkHumanProjectionIntegrationTest.gateway(
+                data, database, decisions);
+    }
+
     private static void driveRunItTwiceDialog(GdxScenarioRenderer renderer,
             AtomicReference<CoronaPokerGdxTable> productTable,
             AtomicInteger votes, AtomicInteger resolutions) throws Exception {
@@ -3206,6 +3529,7 @@ public final class GdxMultiprocessNodeMain {
                 || "spectator-rebuy-cycle".equals(config.scenario)
                 || "spectator-recovery-mix".equals(config.scenario)
                 || "human-bust-exit-rejoin-rebuy".equals(config.scenario)
+                || "busted-player-hot-reentry".equals(config.scenario)
                 || "spectator-double-recovery-crash-mix".equals(
                         config.scenario)
                 || config.scenario.startsWith("bot-bust-recover-")) {

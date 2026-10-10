@@ -85,6 +85,7 @@ import com.tonikelope.coronapoker.core.game.GameIdentityVerifier;
 import com.tonikelope.coronapoker.core.game.GamePeerController;
 import com.tonikelope.coronapoker.core.game.GamePlayerController;
 import com.tonikelope.coronapoker.core.game.CorePlayerController;
+import com.tonikelope.coronapoker.core.game.PlayerState;
 import com.tonikelope.coronapoker.core.game.GameOpponentStats;
 import com.tonikelope.coronapoker.core.game.GamePot;
 import com.tonikelope.coronapoker.core.game.GamePotFactory;
@@ -465,6 +466,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
+     * Durable table-wide presentation facts that are normally announced when
+     * a table opens. A live newcomer did not observe those original events,
+     * so its public bootstrap must explicitly replay the current values rather
+     * than waiting for an unrelated future refresh to repair its HUD.
+     */
+    public java.util.List<TableVisualEvent> publicHotJoinStatusEvents() {
+        GameConfigCodecV1.Configuration current = configuration();
+        return java.util.List.of(
+                new TableVisualEvent.TableInfo(1L,
+                        this.ciega_pequeña, this.ciega_grande,
+                        this.conta_mano, current.blindsDouble(),
+                        current.blindsDoubleType(), this.ciegas_double),
+                new TableVisualEvent.LastHandStatus(1L, isLast_hand()),
+                new TableVisualEvent.HandLimitStatus(1L, current.hands()),
+                new TableVisualEvent.GameConfigurationStatus(1L, current),
+                new TableVisualEvent.RunItTwiceLockStatus(1L,
+                        gameSession().isRunItTwiceLocked()),
+                new TableVisualEvent.CommunicationRulesStatus(1L,
+                        communication_tts, communication_voice_messages),
+                new TableVisualEvent.GameClock(1L,
+                        gameSession().playTimeSeconds()));
+    }
+
+    /**
      * Queues one authenticated newcomer for the next dealer-owned hand
      * boundary.  Until then only a public CALENTANDO seat is projected; the
      * live hand roster, money and cryptographic ring remain immutable.
@@ -484,7 +509,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             throw new IllegalArgumentException("Duplicate or invalid hot join: "
                     + nickname);
         }
-        player.setSpectator(game_text.translate("game.calentando"));
+        player.setCalentando(game_text.translate("game.calentando"));
         pending_hot_joins.add(new PendingHotJoin(player, peer,
                 afterAdmission == null ? () -> { } : afterAdmission,
                 boundaryRelay == null
@@ -599,14 +624,119 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     case RIVER -> TableSnapshot.Street.RIVER;
                     default -> TableSnapshot.Street.PREFLOP;
                 };
+        String potPrefix = this.rit_pot_board_tag == null ? ""
+                : game_text.translate("runittwice.pot_label_full",
+                        this.rit_pot_board_tag);
+        double publicPot = this.rit_pot_board_tag == null
+                ? MoneyMath.clean(this.bote_total)
+                : splitPotForRunItTwice(this.bote_total)[0];
         return new TableSnapshot(base.revision(), base.localNickname(),
-                publicStreet, MoneyMath.clean(this.bote_total), currentTurn,
-                gameSession().isPaused(), publicPlayers, board);
+                publicStreet, publicPot, currentTurn,
+                gameSession().isPaused(), publicPlayers, board,
+                new TableSnapshot.TablePresentation(potPrefix,
+                        Math.max(0, getTiempoPausa()),
+                        rabbitVisualCardSlots()));
     }
 
     /** Public form of the canonical roster for ordered hot-join updates. */
     public java.util.List<TableSnapshot.PlayerSnapshot> publicHotJoinRoster() {
         return publicPlayers(tableSnapshot().players());
+    }
+
+    /**
+     * Removes renderer-local/private details from an event before relaying it
+     * to warming observers. In particular the host's own mucked hand name and
+     * highlight are visible to the host renderer but are not public table
+     * facts.
+     */
+    public TableVisualEvent publicHotJoinEvent(TableVisualEvent event) {
+        java.util.Objects.requireNonNull(event, "event");
+        if (event instanceof TableVisualEvent.HotJoinState state) {
+            return new TableVisualEvent.HotJoinState(state.sequence(),
+                    publicEventSnapshot(state.snapshot()));
+        }
+        if (event instanceof TableVisualEvent.HandBoundary boundary) {
+            return new TableVisualEvent.HandBoundary(boundary.sequence(),
+                    boundary.handId(), boundary.phase(),
+                    publicEventSnapshot(boundary.snapshot()));
+        }
+        if (event instanceof TableVisualEvent.SeatRoster roster) {
+            return new TableVisualEvent.SeatRoster(roster.sequence(),
+                    publicPlayers(roster.players()));
+        }
+        if (event instanceof TableVisualEvent.DealHoleCard deal) {
+            /*
+             * A deal event is never a public reveal. The incumbent's local
+             * renderer legitimately receives its rank and suit here, but a
+             * warming observer must receive only the occupied card slot. The
+             * later RevealHoleCards event is the sole authority that can make
+             * those values public.
+             */
+            return new TableVisualEvent.DealHoleCard(deal.sequence(),
+                    deal.nickname(), deal.slot(),
+                    new TableSnapshot.CardSnapshot("", false,
+                            deal.card().disabled(), deal.card().visible()));
+        }
+        if (event instanceof TableVisualEvent.HandResult result) {
+            TableSnapshot.PlayerSnapshot player = publicHotJoinRoster().stream()
+                    .filter(candidate -> candidate.nickname().equals(
+                            result.nickname()))
+                    .findFirst().orElse(null);
+            if (player == null) {
+                // A roster race must fail closed: never relay a renderer-local
+                // hand name for a seat that is no longer canonical. Reconcile
+                // the roster at the same ordered sequence instead.
+                return new TableVisualEvent.SeatRoster(result.sequence(),
+                        publicHotJoinRoster());
+            }
+            TableSnapshot.PlayerPresentation presentation
+                    = player.presentation();
+            return new TableVisualEvent.HandResult(result.sequence(),
+                    result.nickname(), presentation.publicHandName(),
+                    result.winner(), result.street(),
+                    presentation.wonPotIndexes(), result.soleSurvivor());
+        }
+        if (event instanceof TableVisualEvent.ShowdownHighlight highlight) {
+            TableSnapshot.PlayerSnapshot player = publicHotJoinRoster().stream()
+                    .filter(candidate -> candidate.nickname().equals(
+                            highlight.nickname()))
+                    .findFirst().orElse(null);
+            if (player == null) {
+                // Unknown/just-removed seats cannot authorize public card
+                // slots. Reconcile the canonical roster instead of emitting
+                // an event that names a seat the newcomer does not own.
+                return new TableVisualEvent.SeatRoster(highlight.sequence(),
+                        publicHotJoinRoster());
+            }
+            TableSnapshot.PlayerPresentation presentation
+                    = player.presentation();
+            return new TableVisualEvent.ShowdownHighlight(
+                    highlight.sequence(), highlight.nickname(),
+                    presentation.showdownHighlightEnabled(),
+                    presentation.winningHoleCardSlots(),
+                    presentation.winningCommunityCardSlots());
+        }
+        if (event instanceof TableVisualEvent.RabbitCards rabbit) {
+            // CALENTANDO observes the exact rabbit presentation but cannot
+            // issue a game action for the hand it did not join.
+            return new TableVisualEvent.RabbitCards(rabbit.sequence(),
+                    rabbit.cards(), false);
+        }
+        return event;
+    }
+
+    /** Public copy of an event-owned snapshot, including pending warmers. */
+    private TableSnapshot publicEventSnapshot(TableSnapshot source) {
+        java.util.List<TableSnapshot.PlayerSnapshot> players
+                = publicPlayers(canonicalPlayers(source.players()));
+        java.util.List<TableSnapshot.CardSnapshot> board
+                = source.communityCards().stream()
+                        .map(Crupier::publicCard)
+                        .toList();
+        return new TableSnapshot(source.revision(), source.localNickname(),
+                source.street(), source.pot(),
+                source.currentTurnNickname(), source.paused(), players,
+                board, source.presentation());
     }
 
     public String hotJoinRecoveryPayload() {
@@ -682,8 +812,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     player.latency(), player.previousLatency(),
                     player.reconnectionCount(), player.telemetryAt(),
                     player.winner(), player.underTheGun(), player.position(),
-                    player.lastAction(), player.handName(), player.holeCards(),
-                    player.buyIn(), player.rebuyCount(), warmingPlayer));
+                    player.decision(), player.actionKind(), player.lastAction(),
+                    player.handName(), player.holeCards(),
+                    player.buyIn(), player.rebuyCount(), warmingPlayer,
+                    player.presentation()));
         }
         for (PendingHotJoin pending : warming.values()) {
             result.add(warmingSnapshot(pending));
@@ -699,6 +831,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     player.nickname());
             boolean publiclyRevealed = controller != null
                     && controller.isMuestra();
+            TableSnapshot.PlayerPresentation presentation
+                    = player.presentation();
             boolean concealedCardsBelongOnTable = controller != null
                     && controller.isActivo()
                     && controller.getDecision() != GamePlayerController.FOLD
@@ -734,6 +868,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         card != null && card.disabled(),
                                         concealedCardsBelongOnTable);
                             }).toList();
+            TableSnapshot.PlayerPresentation publicPresentation
+                    = new TableSnapshot.PlayerPresentation(
+                            publiclyRevealed,
+                            presentation.partialHand() && publiclyRevealed,
+                            presentation.partialHand() && publiclyRevealed
+                                    ? presentation.partialWinPercentage() : -1f,
+                            presentation.resultResolved(),
+                            presentation.publicHandName(),
+                            presentation.wonPotIndexes(),
+                            presentation.returnedSidePot(),
+                            presentation.showdownHighlightEnabled()
+                                    && publiclyRevealed,
+                            presentation.showdownHighlightEnabled()
+                                    && publiclyRevealed
+                                            ? presentation.winningHoleCardSlots()
+                                            : java.util.List.of(),
+                            presentation.showdownHighlightEnabled()
+                                    && publiclyRevealed
+                                            ? presentation.winningCommunityCardSlots()
+                                            : java.util.List.of(),
+                            presentation.rebuyPhase(),
+                            presentation.immediateRebuyAmount(),
+                            presentation.publicActionLabel());
             return new TableSnapshot.PlayerSnapshot(player.nickname(),
                     player.stack(), player.streetBet(),
                     player.potContribution(), player.active(),
@@ -741,8 +898,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     player.latency(), player.previousLatency(),
                     player.reconnectionCount(), player.telemetryAt(),
                     player.winner(), player.underTheGun(), player.position(),
-                    player.lastAction(), player.handName(), cards,
-                    player.buyIn(), player.rebuyCount(), player.warming());
+                    player.decision(), player.actionKind(), player.lastAction(),
+                    publicPresentation.publicHandName(), cards,
+                    player.buyIn(), player.rebuyCount(), player.warming(),
+                    publicPresentation);
         }).toList();
     }
 
@@ -763,6 +922,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 pending.peer().getReconnectionCount(),
                 System.currentTimeMillis(), false, false,
                 TableSnapshot.Position.NONE,
+                TableSnapshot.Decision.NONE,
+                TableSnapshot.ActionKind.NONE,
                 game_text.translate("game.calentando"), "",
                 java.util.List.of(), buyin,
                 getRebuyCount(player.getNickname()), true);
@@ -6253,9 +6414,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
                 double pay = MoneyMath.clean(player.getPagar());
                 if (MoneyMath.compare(0f, pay) < 0) {
+                    double returned = consumeReturnedSidePotAmount(player,
+                            pay);
+                    if (MoneyMath.compare(returned, 0d) > 0) {
+                        player.setPresentationReturnedSidePot(true);
+                    }
                     transfers.add(new TableVisualEvent.PayoutBatch.Transfer(
-                            player.getNickname(), pay,
-                            consumeReturnedSidePotAmount(player, pay),
+                            player.getNickname(), pay, returned,
                             MoneyMath.clean(player.getStack() + pay)));
                 }
             }
@@ -6361,9 +6526,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (amount == null) {
                 continue;
             }
+            double returned = consumeReturnedSidePotAmount(player, amount);
+            if (MoneyMath.compare(returned, 0d) > 0) {
+                player.setPresentationReturnedSidePot(true);
+            }
             transfers.add(new TableVisualEvent.PayoutBatch.Transfer(
-                    player.getNickname(), amount,
-                    consumeReturnedSidePotAmount(player, amount),
+                    player.getNickname(), amount, returned,
                     MoneyMath.clean(player.getStack() + player.getPagar())));
         }
         if (!transfers.isEmpty()) {
@@ -7417,6 +7585,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void publishImmediateRebuyStatus(String nick, int amount) {
+        GamePlayerController player = nick2player.get(nick);
+        if (player != null) {
+            player.getState().setImmediateRebuyAmount(Math.max(0, amount));
+        }
         table_events.publishIfAttached(sequence
                 -> new TableVisualEvent.ImmediateRebuyStatus(
                         sequence, nick, Math.max(0, amount)));
@@ -7635,7 +7807,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void requestImmediateRebuy() {
         GamePlayerController localPlayer = localPlayer();
         if (localPlayer == null || localPlayer.isCalentando()
-                || localPlayer.isSpectator() || localPlayer.isExit()) {
+                || localPlayer.isExit()) {
             return;
         }
         if (!immediate_rebuy_dialog_open.compareAndSet(false, true)) {
@@ -8419,6 +8591,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 : rebought
                         ? TableVisualEvent.RebuyDecision.Phase.REBOUGHT
                         : TableVisualEvent.RebuyDecision.Phase.CLEARED;
+        updateRebuyPresentation(nickname, phase);
         table_events.publishIfAttached(sequence
                 -> new TableVisualEvent.RebuyDecision(sequence, nickname,
                         phase));
@@ -8429,9 +8602,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         TableVisualEvent.RebuyDecision.Phase phase = rebought
                 ? TableVisualEvent.RebuyDecision.Phase.REBOUGHT
                 : TableVisualEvent.RebuyDecision.Phase.CLEARED;
+        updateRebuyPresentation(nickname, phase);
         table_events.publishIfAttached(sequence
                 -> new TableVisualEvent.RebuyDecision(sequence, nickname,
                         phase));
+    }
+
+    private void updateRebuyPresentation(String nickname,
+            TableVisualEvent.RebuyDecision.Phase phase) {
+        GamePlayerController player = nick2player.get(nickname);
+        if (player == null) return;
+        player.getState().setRebuyPhase(switch (phase) {
+            case WAITING -> PlayerState.RebuyPhase.WAITING;
+            case REBOUGHT -> PlayerState.RebuyPhase.REBOUGHT;
+            case CLEARED -> PlayerState.RebuyPhase.NONE;
+        });
     }
 
     private static int parseRequestedRebuy(String raw) {
@@ -10845,7 +11030,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // hand starts, so they play normally with no extra steps.
                     GamePlayerController myPlayer = localPlayer();
                     if (myPlayer != null && !myPlayer.isExit() && !myPlayer.isSpectator()) {
-                        myPlayer.setSpectator(game_text.translate("game.calentando"));
+                        myPlayer.setCalentando(game_text.translate("game.calentando"));
                     }
                 }
             } else {
@@ -10943,18 +11128,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 j.setSpectator(null);
                                 this.auditor.put(j.getNickname(), new Double[]{0d, (double) j.getBuyin()});
                             } else if (j.isCalentando() && MoneyMath.compare(0f, j.getStack()) < 0) {
-                                j.setSpectator(game_text.translate("game.calentando"));
+                                j.setCalentando(game_text.translate("game.calentando"));
                             }
                         } else {
                             if (MoneyMath.compare(0f, j.getStack()) < 0) {
-                                j.setSpectator(game_text.translate("game.calentando"));
+                                j.setCalentando(game_text.translate("game.calentando"));
                             }
                             this.auditor.put(j.getNickname(), new Double[]{j.getStack(), (double) j.getBuyin()});
                         }
                     } else {
                         if (!inBalance) {
                             if (MoneyMath.compare(0f, j.getStack()) < 0) {
-                                j.setSpectator(game_text.translate("game.calentando"));
+                                j.setCalentando(game_text.translate("game.calentando"));
                             }
                             this.auditor.put(j.getNickname(), new Double[]{j.getStack(), (double) j.getBuyin()});
                         }
@@ -11773,6 +11958,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     player.setBet(0f);
                     player.setPagar(0f);
                     player.setBuyin(balance.buyin());
+                    /*
+                     * The sealed boundary is not only an accounting snapshot.
+                     * A peer that reached zero during the hand being observed
+                     * has already become a spectator on every incumbent.  The
+                     * passive newcomer did not replay that settlement, so it
+                     * must apply the same role transition here.  Otherwise it
+                     * keeps the busted seat active in its local betting order,
+                     * waits for an action the host will never broadcast and
+                     * subsequently refuses the legitimate flop unlock as
+                     * "early".  setSpectator deliberately preserves the
+                     * independent CALENTANDO flag of the joining identity;
+                     * the normal admission block clears that flag below only
+                     * at this authenticated hand boundary.
+                     */
+                    if (!player.isExit()
+                            && MoneyMath.compare(0d, stack) == 0) {
+                        player.setSpectator(null);
+                    }
                 }
                 if (balance.rebuyCount().value() == 0) {
                     this.rebuy_counts.remove(nick);
@@ -11792,6 +11995,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void readyForNextHand(boolean discardObservedHandCommands) {
+        if (tableWaitCancelled()) {
+            return;
+        }
         if (!gameSession().isHost() && discardObservedHandCommands
                 && this.conta_mano > 0
                 && this.next_hand_balance_wire != null) {
@@ -11824,6 +12030,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             this.hot_join_observer = false;
             table_events.suppressLocalPublications(false);
+            if (tableWaitCancelled()) {
+                return;
+            }
             this.sendGAMECommandToServer(
                     "HAND_READY#" + String.valueOf(this.conta_mano + 1));
             return;
@@ -11906,12 +12115,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // ready. Expulsion on deadline happens OUTSIDE the synchronized block, since
             // markExitAndNotify nests other monitors that must not nest under lock_nueva_mano.
             boolean allReady = false;
-            while (!allReady && !isFin_de_la_transmision()) {
+            while (!allReady && !tableWaitCancelled()) {
                 GamePeerController expel = null;
                 synchronized (lock_nueva_mano) {
                     long deadlineMs = System.currentTimeMillis() + HAND_READY_PROGRESS_TIMEOUT_MS;
                     long hardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
-                    while (!isFin_de_la_transmision()) {
+                    while (!tableWaitCancelled()) {
                         boolean paused = false;
                         boolean someTimeout = false;
                         try {
@@ -11979,6 +12188,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // the exact effective stacks for the next hand. Existing clients verify;
             // a passive recovery observer applies it before becoming active.
             synchronized (lock_game_broadcast) {
+                if (tableWaitCancelled()) {
+                    return;
+                }
                 String boundaryWire = "*";
                 synchronized (lock_rebuynow) {
                     commitPendingRebuysForBoundary();
@@ -12016,6 +12228,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Client announces it's ready for the current hand and waits for the host's signal
             // with NO timeout. If the host drops, isFin_de_la_transmision or the socket reader
             // will detect it on their own.
+            if (tableWaitCancelled()) {
+                return;
+            }
             this.sendGAMECommandToServer("HAND_READY#" + String.valueOf(this.conta_mano + 1));
 
             boolean serverCommitted = false;
@@ -12074,14 +12289,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 game_transport.closeHostConnection();
                                 return;
                             }
-                            if (discardObservedHandCommands
-                                    && nextHand != locallyExpectedHand) {
-                                // A fresh hot-join JVM starts with ordinal 0.
+                            if (discardObservedHandCommands) {
                                 // The authenticated boundary is authoritative
-                                // for the first hand it may play; publish a
-                                // corrected early-ready after the provisional
-                                // HAND_READY#1 sent before this frame arrived.
-                                setContaManoLocal(nextHand - 1);
+                                // for the first hand this passive observer may
+                                // play. Always confirm that exact ordinal, even
+                                // when recovery has already advanced the local
+                                // counter to nextHand - 1: the provisional
+                                // HAND_READY sent before the boundary may still
+                                // name the observed hand. This is idempotent at
+                                // the host and closes the join-vs-boundary race.
+                                if (nextHand != locallyExpectedHand) {
+                                    setContaManoLocal(nextHand - 1);
+                                }
+                                if (tableWaitCancelled()) {
+                                    return;
+                                }
                                 this.sendGAMECommandToServer(
                                         "HAND_READY#" + nextHand);
                             }
@@ -12109,7 +12331,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         restoreRejectedCommands(rejected);
                     }
                 }
-                if (!serverCommitted && !isFin_de_la_transmision()) {
+                if (!serverCommitted && !tableWaitCancelled()) {
                     // This loop doesn't call checkPause (neither does the host side, deliberately),
                     // so pause is checked manually to avoid counting it as a stalled table — this
                     // is between hands, exactly when people tend to pause.
@@ -12126,7 +12348,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     }
                 }
-            } while (!serverCommitted && !isFin_de_la_transmision());
+            } while (!serverCommitted && !tableWaitCancelled());
 
             if (discardObservedHandCommands && discardedObservedCommands > 0) {
                 LOGGER.log(Level.INFO,
@@ -12608,6 +12830,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return slots;
     }
 
+    private java.util.List<Integer> rabbitVisualCardSlots() {
+        java.util.List<Integer> slots = new java.util.ArrayList<>();
+        for (int slot = 0; slot < communityCards().length; slot++) {
+            if (communityCard(slot).isRabbit()) slots.add(slot);
+        }
+        return java.util.List.copyOf(slots);
+    }
+
     private void publishRabbitCards(java.util.List<Integer> slots,
             boolean faceUp, boolean requestable) {
         java.util.List<TableVisualEvent.RabbitCard> cards
@@ -12706,7 +12936,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.acciones_locales_recuperadas.clear();
         this.recover_action_order = null;
 
-        boolean spectatorReactivated = false;
+        boolean admittedSpectatorRoleChanged = false;
         for (GamePlayerController jugador : players()) {
             if (!jugador.isExit() && jugador.isSpectator() && (MoneyMath.compare(0f, jugador.getStack()) < 0
                     || rebuy_committed.containsKey(jugador.getNickname()))) {
@@ -12717,16 +12947,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 rebuy_committed.get(jugador.getNickname())});
                 }
                 jugador.unsetSpectator();
-                spectatorReactivated = true;
+                admittedSpectatorRoleChanged = true;
                 if (rebuy_committed.containsKey(jugador.getNickname())) {
                     jugador.setSpectatorBB(true);
                 }
+            } else if (!jugador.isExit() && jugador.isCalentando()) {
+                // Admission always ends CALENTANDO at this hand boundary.
+                // A zero-stack identity remains an ordinary spectator so it
+                // can request a normal rebuy instead of being trapped forever
+                // in the public-only late-entry role.
+                jugador.clearCalentando();
+                admittedSpectatorRoleChanged = true;
             }
         }
-        if (spectatorReactivated) {
+        if (admittedSpectatorRoleChanged) {
             awaitAttachedTableEvent(sequence -> new TableVisualEvent.SeatRoster(
                     sequence, tableSnapshot().players()),
-                    "Reactivated-spectator roster presentation failed");
+                    "Admitted-spectator roster presentation failed");
         }
 
         // nicks_permutados must reflect newly-joined players. They're appended to the queue, but
@@ -12940,6 +13177,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (GamePlayerController jugador : players()) {
             if (jugador.isActivo()) {
                 jugador.nuevaMano();
+            } else {
+                // Spectators, CALENTANDO and exited seats keep their financial
+                // and lifecycle state, but never the action/verdict belonging
+                // to the completed hand. Otherwise a boundary hot join can
+                // bootstrap stale ALL IN/fold/showdown presentation.
+                jugador.resetPresentationForNewHand();
             }
         }
 
@@ -14509,13 +14752,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void presentAcceptedActionToAttachedRenderer(GamePlayerController player, int decision,
             double oldPlayerBet, double oldTableBet) {
-        if (!table_events.isAttached()) {
-            return;
-        }
         double contribution = MoneyMath.clean(
                 Math.max(0d, player.getBet() - oldPlayerBet));
         TableVisualEvent.PlayerAction.ActionKind kind = actionKind(
                 decision, contribution, this.apuesta_actual, this.conta_raise);
+        player.setPresentationActionKind(playerActionKind(kind));
         double actionAmount = decision == GamePlayerController.FOLD || kind == TableVisualEvent.PlayerAction.ActionKind.CHECK
                 ? 0d : MoneyMath.clean(player.getBet());
         String labelKey = switch (kind) {
@@ -14539,10 +14780,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 && actionAmount > 0d) {
             actionLabel += " (+" + value_formatter.money(actionAmount)
                     + ")";
-        } else if (kind == TableVisualEvent.PlayerAction.ActionKind.CALL
-                && contribution > 0d) {
-            actionLabel += " (+" + value_formatter.money(contribution)
-                    + ")";
         } else if (raiseIncrement > 0d
                 && (kind == TableVisualEvent.PlayerAction.ActionKind.RAISE
                 || kind == TableVisualEvent.PlayerAction.ActionKind.RERAISE
@@ -14551,6 +14788,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     + ")";
         }
         final String presentedActionLabel = actionLabel;
+        player.setPresentationActionLabel(presentedActionLabel);
+        if (!table_events.isAttached()) {
+            return;
+        }
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.PlayerAction(
                 sequence, player.getNickname(), kind,
                 presentedActionLabel,
@@ -14597,6 +14838,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             case GamePlayerController.ALLIN -> com.tonikelope.coronapoker.core.game.PlayerState.Decision.ALL_IN;
             default -> throw new IllegalArgumentException(
                     "Unsupported player decision: " + decision);
+        };
+    }
+
+    private static com.tonikelope.coronapoker.core.game.PlayerState.ActionKind
+            playerActionKind(TableVisualEvent.PlayerAction.ActionKind kind) {
+        return switch (kind) {
+            case FOLD -> com.tonikelope.coronapoker.core.game.PlayerState.ActionKind.FOLD;
+            case CHECK -> com.tonikelope.coronapoker.core.game.PlayerState.ActionKind.CHECK;
+            case CALL -> com.tonikelope.coronapoker.core.game.PlayerState.ActionKind.CALL;
+            case BET -> com.tonikelope.coronapoker.core.game.PlayerState.ActionKind.BET;
+            case RAISE -> com.tonikelope.coronapoker.core.game.PlayerState.ActionKind.RAISE;
+            case RERAISE -> com.tonikelope.coronapoker.core.game.PlayerState.ActionKind.RERAISE;
+            case ALL_IN -> com.tonikelope.coronapoker.core.game.PlayerState.ActionKind.ALL_IN;
+            case WAITING, SMALL_BLIND, BIG_BLIND, STRADDLE ->
+                com.tonikelope.coronapoker.core.game.PlayerState.ActionKind.NONE;
         };
     }
 
@@ -18288,6 +18544,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private void presentRunItTwiceBoard(
             TableVisualEvent.RunItTwiceBoard.Side side,
             java.util.List<Integer> redealSlots) {
+        if (side == TableVisualEvent.RunItTwiceBoard.Side.B) {
+            for (GamePlayerController player : players()) {
+                player.resetPresentationForNextRunout();
+            }
+        }
         if (!table_events.isAttached()) {
             return;
         }
@@ -24820,13 +25081,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 left.toShortString(), true, left.isDesenfocada());
         TableSnapshot.CardSnapshot rightSnapshot = new TableSnapshot.CardSnapshot(
                 right.toShortString(), true, right.isDesenfocada());
+        /*
+         * Commit the public reveal before reserving the event sequence. A hot
+         * join snapshot can race an incumbent's flip animation; sampling the
+         * old covered controller after the cut-over frontier would otherwise
+         * conceal cards whose RevealHoleCards event is correctly discarded as
+         * already represented by that snapshot.
+         */
+        player.setMuestra(true);
+        player.getHoleCard1().destapar(false);
+        player.getHoleCard2().destapar(false);
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.RevealHoleCards(
                 sequence, player.getNickname(), leftSnapshot, rightSnapshot,
                 handName),
                 "Showdown hole-card presentation barrier failed");
         table_display.revealPlayerCards(player.getNickname(), false);
-        player.getHoleCard1().destapar(false);
-        player.getHoleCard2().destapar(false);
         return true;
     }
 
@@ -24849,6 +25118,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
         boolean enabled = winningCards != null;
+        player.setPresentationShowdownHighlight(enabled, holeSlots,
+                communitySlots);
         table_display.setShowdownHighlight(player.getNickname(), enabled,
                 holeSlots, communitySlots);
         table_events.publish(sequence -> new TableVisualEvent.ShowdownHighlight(
@@ -25190,6 +25461,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // with its card-bound proof and, for ring members, must match the SRA
                 // residue before any player state is changed.
                 if (destapar) {
+                    for (GamePlayerController player : resisten) {
+                        if (!player.isExit()) {
+                            player.setMuestra(true);
+                        }
+                    }
                     // No batch uncover.wav here: each player's flip already plays its
                     // own uncover sound (both the animated and plain paths ALWAYS play
                     // it, ignoring the sound flag, same as showdown). A prior explicit
@@ -25224,6 +25500,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (destapar) {
+                    for (GamePlayerController player : resisten) {
+                        if (!player.isExit()) {
+                            player.setMuestra(true);
+                        }
+                    }
                     // No batch uncover.wav here: each player's flip already plays its
                     // own uncover sound (both the animated and plain paths ALWAYS play
                     // it, ignoring the sound flag, same as showdown). A prior explicit
@@ -25936,6 +26217,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // legacy display callbacks also update their widgets, while native
                 // controllers have no widget and record it here explicitly.
                 jugador_actual.applyShowdownResult(isWinner, jugada.getName());
+                jugador_actual.setPresentationPublicHandName(
+                        mustShow ? jugada.getName() : "");
+                jugador_actual.setPresentationWonPotIndexes(
+                        wonPotIndexes.getOrDefault(jugador_actual,
+                                java.util.List.of()));
 
                 if (isWinner) {
                     table_display.showWinner(jugador_actual.getNickname(), jugada.getName());
@@ -26485,6 +26771,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         // accounting early.
                                         soleSurvivor.applyShowdownResult(true,
                                                 soleSurvivorMessage);
+                                        soleSurvivor.setPresentationPublicHandName(
+                                                soleSurvivorMessage);
+                                        soleSurvivor.setPresentationWonPotIndexes(
+                                                java.util.List.of());
                                         table_display.showWinner(soleSurvivor.getNickname(),
                                                 soleSurvivorMessage);
                                         awaitAttachedTableEvent(sequence

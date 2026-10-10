@@ -196,6 +196,18 @@ final class GdxProductionStateAuthorityTest {
     }
 
     @Test
+    void hotJoinCutoverKeepsOrdinaryCardAndChipAnimationsEnabled(
+            @TempDir Path temporary) {
+        assertHotJoinAnimatedEvent(temporary.resolve("turn"),
+                new TableVisualEvent.RevealCommunityCards(2L, 3,
+                        List.of(card("J_P", true))));
+        assertHotJoinAnimatedEvent(temporary.resolve("chips"),
+                new TableVisualEvent.CollectBets(2L, List.of(
+                        new TableVisualEvent.ChipTransfer("remote", 1d,
+                                8d, 0d, 1d)), 2d, 3d));
+    }
+
+    @Test
     void animatedMoneyAndPositionEventsCommitBeforeTelemetryCanOvertakeThem(
             @TempDir Path temporary) {
         assertAnimatedEventCommitsBeforeTelemetry(temporary.resolve("position"),
@@ -313,12 +325,50 @@ final class GdxProductionStateAuthorityTest {
                 "telemetry must not overtake an uncommitted visual event");
     }
 
+    private static void assertHotJoinAnimatedEvent(Path file,
+            TableVisualEvent animatedEvent) {
+        TableSnapshot.CardSnapshot back = new TableSnapshot.CardSnapshot(
+                "", false, false, true);
+        TableSnapshot initial = new TableSnapshot(1L, "human",
+                TableSnapshot.Street.PREFLOP, 0d, "", false,
+                List.of(player("human"), player("remote")), List.of());
+        TableSnapshot.PlayerSnapshot warming = new TableSnapshot.PlayerSnapshot(
+                "human", 10d, 0d, 0d, false, true, false, false,
+                -1, -1, 0, 0L, false, false, TableSnapshot.Position.NONE,
+                "CALENTANDO", "", List.of(), 10, 0, true);
+        TableSnapshot.PlayerSnapshot remote = new TableSnapshot.PlayerSnapshot(
+                "remote", 9d, 1d, 1d, true, false, false, false,
+                -1, -1, 0, 0L, false, false,
+                TableSnapshot.Position.BIG_BLIND, "VA", "",
+                List.of(back, back));
+        TableSnapshot bootstrap = new TableSnapshot(2L, "human",
+                TableSnapshot.Street.FLOP, 2d, "remote", false,
+                List.of(warming, remote), List.of(card("A_C", true),
+                        card("K_D", true), card("Q_T", true), back, back));
+        GdxTableViewState projection = new GdxTableViewState(initial);
+        CoronaPokerGdxTable table = animatedTable(file, projection);
+        CompletableFuture<Void> cutover = new CompletableFuture<>();
+        table.acceptEvent(new TableVisualEvent.HotJoinState(1L, bootstrap),
+                cutover);
+        assertTrue(cutover.isDone(),
+                "the bootstrap itself must not fabricate an animation");
+
+        CompletableFuture<Void> visualBarrier = new CompletableFuture<>();
+        table.acceptEvent(animatedEvent, visualBarrier);
+
+        assertFalse(visualBarrier.isDone(),
+                "CALENTANDO must use the ordinary animated event path");
+        assertEquals(2L, projection.lastSequence());
+    }
+
     private static CoronaPokerGdxTable animatedTable(Path file,
             GdxTableViewState projection) {
         PreferencesService preferences = new PreferencesService(
                 file.resolve("coronapoker.properties"));
         preferences.properties().setProperty("sonido_efectos", "false");
         preferences.properties().setProperty("animaciones", "true");
+        preferences.properties().setProperty("animacion_reparto", "true");
+        preferences.properties().setProperty("animacion_destape", "true");
         preferences.properties().setProperty("animacion_apuestas", "true");
         preferences.properties().setProperty("animacion_contadores", "true");
         return new CoronaPokerGdxTable(240, projection,

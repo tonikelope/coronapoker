@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.core.LobbySession;
 import com.tonikelope.coronapoker.core.game.ActionControlState;
+import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
+import com.tonikelope.coronapoker.core.game.MoneyMath;
 import com.tonikelope.coronapoker.table.TableCommand;
 import com.tonikelope.coronapoker.table.TableRenderer;
 import com.tonikelope.coronapoker.table.TableSession;
@@ -57,6 +59,9 @@ final class GdxScenarioRenderer implements TableRenderer {
             = new AtomicReference<>();
     private final AtomicBoolean gateConsumed = new AtomicBoolean();
     private final AtomicBoolean heldAction = new AtomicBoolean();
+    private final AtomicBoolean gateNextPartialHand = new AtomicBoolean();
+    private final AtomicReference<CompletableFuture<Void>>
+            heldPresentation = new AtomicReference<>();
     private final AtomicBoolean sawLocalControls = new AtomicBoolean();
     private final AtomicBoolean sawRemoteAction = new AtomicBoolean();
     private final AtomicBoolean sawPaused = new AtomicBoolean();
@@ -100,6 +105,7 @@ final class GdxScenarioRenderer implements TableRenderer {
             = new AtomicReference<>();
     private final AtomicInteger hotJoinStateCount = new AtomicInteger();
     private final AtomicBoolean sawHotJoinTimerStart = new AtomicBoolean();
+    private final AtomicBoolean sawBootstrappedFoldedSeat = new AtomicBoolean();
     private final AtomicBoolean sawHotJoinPlayerAction = new AtomicBoolean();
     private final AtomicBoolean sawHotJoinCommunityReveal
             = new AtomicBoolean();
@@ -232,6 +238,11 @@ final class GdxScenarioRenderer implements TableRenderer {
         allInCommandSent.set(false);
     }
 
+    void gateOnNextPartialHand() {
+        gateNextPartialHand.set(true);
+        heldPresentation.set(null);
+    }
+
     @Override
     public synchronized CompletionStage<Void> open(TableSnapshot initialState) {
         GdxTableViewState projection = new GdxTableViewState(initialState);
@@ -250,7 +261,12 @@ final class GdxScenarioRenderer implements TableRenderer {
         observeLiveConnectivity(initialState);
         streets.add(initialState.street());
         rememberSpectatorTransitions(initialState);
-        assertCanonicalPlayerPresentation(initialState, projection);
+        assertCanonicalPlayerPresentation(initialState, projection, null);
+        if (initialState.players().stream().anyMatch(player
+                -> !player.spectator() && !player.exited()
+                && player.decision() == TableSnapshot.Decision.FOLD)) {
+            sawBootstrappedFoldedSeat.set(true);
+        }
         initialState.players().stream()
                 .filter(player -> player.nickname().equals(
                         initialState.localNickname()))
@@ -294,6 +310,11 @@ final class GdxScenarioRenderer implements TableRenderer {
             sawHotJoinState.set(true);
             assertEquals(1, hotJoinStateCount.incrementAndGet(),
                     "CALENTANDO must receive one bootstrap snapshot only");
+            if (hotJoinState.snapshot().players().stream().anyMatch(player
+                    -> !player.spectator() && !player.exited()
+                    && player.decision() == TableSnapshot.Decision.FOLD)) {
+                sawBootstrappedFoldedSeat.set(true);
+            }
         } else if (sawHotJoinState.get()
                 && event instanceof TableVisualEvent.TurnTimer timer
                 && timer.phase() == TableVisualEvent.TurnTimer.Phase.START) {
@@ -339,6 +360,23 @@ final class GdxScenarioRenderer implements TableRenderer {
                         + boundary.handId());
             } else if (boundary.phase()
                     == TableVisualEvent.HandBoundary.Phase.END) {
+                if (!preparedHandIds.contains(boundary.handId())
+                        && sawHotJoinState.get()) {
+                    /*
+                     * A CALENTANDO bootstrap deliberately starts inside an
+                     * already-open hand, so PREPARE predates this renderer.
+                     * The exact TableInfo replay establishes the missing
+                     * lifecycle baseline before the first relayed END.
+                     */
+                    assertEquals(projection.handNumber(), boundary.handId(),
+                            "mid-hand bootstrap END must match its table status");
+                    assertEquals(0L, lastPreparedHand.get(),
+                            "only the bootstrap hand may omit PREPARE");
+                    assertTrue(preparedHandIds.add(boundary.handId()),
+                            "duplicate bootstrap hand " + boundary.handId());
+                    lastPreparedHand.set(boundary.handId());
+                    currentHand.set(boundary.handId());
+                }
                 assertTrue(preparedHandIds.contains(boundary.handId()),
                         "END arrived without PREPARE for hand "
                         + boundary.handId());
@@ -362,7 +400,7 @@ final class GdxScenarioRenderer implements TableRenderer {
         TableSnapshot snapshot = projection.snapshot();
         assertNoLocalRecoveryOverwriteWhileWarming(event, snapshot);
         assertWarmingBoardNeverRegresses(event, snapshot);
-        assertWarmingContinuity(snapshot);
+        assertWarmingContinuity(snapshot, event);
         observeLiveConnectivity(snapshot);
         if (event instanceof TableVisualEvent.HandBoundary boundary
                 && boundary.phase()
@@ -391,7 +429,7 @@ final class GdxScenarioRenderer implements TableRenderer {
             straddleHands.add(currentHand.get());
         }
         rememberSpectatorTransitions(snapshot);
-        assertCanonicalPlayerPresentation(snapshot, projection);
+        assertCanonicalPlayerPresentation(snapshot, projection, event);
         TableSnapshot.PlayerSnapshot local = snapshot.players().stream()
                 .filter(player -> player.nickname().equals(
                         snapshot.localNickname()))
@@ -589,6 +627,13 @@ final class GdxScenarioRenderer implements TableRenderer {
             summary.set(close.summary());
             closed.set(true);
         }
+        if (event instanceof TableVisualEvent.PartialHand
+                && gateNextPartialHand.compareAndSet(true, false)) {
+            CompletableFuture<Void> gate = new CompletableFuture<>();
+            assertTrue(heldPresentation.compareAndSet(null, gate),
+                    "a presentation gate is already active");
+            return gate;
+        }
         return CompletableFuture.completedFuture(null);
     }
 
@@ -655,6 +700,18 @@ final class GdxScenarioRenderer implements TableRenderer {
             gateConsumed.set(true);
             assertTrue(productTable().activateCheckOrCallAction(),
                     "native GDX gated check/call control did not submit");
+        }
+    }
+
+    boolean hasHeldPresentation() {
+        CompletableFuture<Void> gate = heldPresentation.get();
+        return gate != null && !gate.isDone();
+    }
+
+    void releaseHeldPresentation() {
+        CompletableFuture<Void> gate = heldPresentation.get();
+        if (gate == null || !gate.complete(null)) {
+            throw new AssertionError("no held GDX presentation event");
         }
     }
 
@@ -857,6 +914,25 @@ final class GdxScenarioRenderer implements TableRenderer {
         return snapshot != null && snapshot.paused();
     }
 
+    boolean hasHotJoinDurableTableStatus() {
+        GdxTableViewState projection = state.get();
+        if (projection == null || projection.gameConfiguration() == null) {
+            return false;
+        }
+        GameConfigCodecV1.Configuration configuration
+                = projection.gameConfiguration();
+        return projection.handNumber() > 0
+                && MoneyMath.compare(projection.smallBlind(),
+                        configuration.smallBlind()) == 0
+                && MoneyMath.compare(projection.bigBlind(),
+                        configuration.bigBlind()) == 0
+                && projection.maximumHands() == configuration.hands()
+                && projection.blindIncreaseInterval()
+                        == configuration.blindsDouble()
+                && projection.blindIncreaseType()
+                        == configuration.blindsDoubleType();
+    }
+
     String communityCardDiagnostic() {
         GdxTableViewState projection = state.get();
         if (projection == null) return "<renderer not opened>";
@@ -905,7 +981,8 @@ final class GdxScenarioRenderer implements TableRenderer {
                 .filter(player -> !player.nickname().equals(
                         snapshot.localNickname()))
                 .filter(player -> player.active() && !player.spectator()
-                        && !player.exited())
+                        && !player.exited()
+                        && player.decision() != TableSnapshot.Decision.FOLD)
                 .toList();
         return !activeRemotes.isEmpty() && activeRemotes.stream().allMatch(
                 player -> player.holeCards().size() == 2
@@ -1029,6 +1106,15 @@ final class GdxScenarioRenderer implements TableRenderer {
         return projection.snapshot().players().stream()
                 .filter(player -> player.nickname().equals(nickname))
                 .findFirst().orElseThrow().rebuyCount();
+    }
+
+    int immediateRebuyAmountOf(String nickname) {
+        GdxTableViewState projection = state.get();
+        assertNotNull(projection);
+        return projection.snapshot().players().stream()
+                .filter(player -> player.nickname().equals(nickname))
+                .findFirst().orElseThrow().presentation()
+                .immediateRebuyAmount();
     }
 
     double effectiveStackOf(String nickname) {
@@ -1173,7 +1259,7 @@ final class GdxScenarioRenderer implements TableRenderer {
     }
 
     private void assertCanonicalPlayerPresentation(TableSnapshot snapshot,
-            GdxTableViewState projection) {
+            GdxTableViewState projection, TableVisualEvent currentEvent) {
         for (TableSnapshot.PlayerSnapshot player : snapshot.players()) {
             List<TableSnapshot.CardSnapshot> cards
                     = projection.presentedHoleCards(player.nickname());
@@ -1199,6 +1285,135 @@ final class GdxScenarioRenderer implements TableRenderer {
                         card -> "joker".equals(card.code())),
                         player.nickname()
                         + " kept spectator jokers after reactivation");
+            }
+            if (!player.spectator() && !player.exited()) {
+                TableVisualEvent.PlayerAction.ActionKind projectedAction
+                        = projection.actionKind(player.nickname());
+                if (player.actionKind() != TableSnapshot.ActionKind.NONE) {
+                    assertEquals(player.actionKind().name(),
+                            projectedAction == null ? null
+                                    : projectedAction.name(),
+                            player.nickname()
+                            + " lost its canonical action semantics");
+                    if (!player.presentation().publicActionLabel().isBlank()) {
+                        assertEquals(player.presentation().publicActionLabel(),
+                                projection.actionLabel(player.nickname()),
+                                player.nickname()
+                                + " lost its canonical action caption");
+                        if (player.actionKind()
+                                == TableSnapshot.ActionKind.CALL) {
+                            assertEquals(presentationText().translate(
+                                    "action.label.call2"),
+                                    player.presentation().publicActionLabel(),
+                                    player.nickname()
+                                    + " exposed an amount in VA/CALL");
+                        }
+                    }
+                }
+                if (player.decision() == TableSnapshot.Decision.FOLD) {
+                    if (currentEvent instanceof TableVisualEvent.PlayerAction action
+                            && action.nickname().equals(player.nickname())
+                            && action.kind()
+                            == TableVisualEvent.PlayerAction.ActionKind.FOLD) {
+                        // PlayerAction records the accepted fold first; the
+                        // immediately following FoldHoleCards event owns the
+                        // visual removal/dimming animation.
+                        continue;
+                    }
+                    assertTrue(projection.foldedThisHand(player.nickname()),
+                            player.nickname()
+                            + " lost its canonical folded presentation");
+                    assertTrue(CoronaPokerGdxTable.shouldDimSeat(
+                            player.active(),
+                            projection.hasHandResult(player.nickname()),
+                            projection.foldedThisHand(player.nickname())),
+                            player.nickname()
+                            + " folded seat is not visually dimmed");
+                    if (!player.nickname().equals(snapshot.localNickname())) {
+                        assertTrue(cards.isEmpty(), player.nickname()
+                                + " kept remote pocket cards after folding");
+                    }
+                } else if (player.decision()
+                        == TableSnapshot.Decision.ALL_IN) {
+                    assertEquals(
+                            TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
+                            projectedAction, player.nickname()
+                            + " lost its persistent ALL IN presentation");
+                }
+            }
+            TableSnapshot.PlayerPresentation presentation
+                    = player.presentation();
+            TableVisualEvent.RebuyDecision.Phase expectedRebuy
+                    = presentation.rebuyPhase()
+                            == TableSnapshot.RebuyPhase.NONE
+                                    ? null
+                                    : TableVisualEvent.RebuyDecision.Phase
+                                            .valueOf(presentation
+                                                    .rebuyPhase().name());
+            assertEquals(expectedRebuy,
+                    projection.rebuyDecision(player.nickname()),
+                    player.nickname()
+                    + " changed its canonical rebuy presentation");
+            assertEquals(presentation.immediateRebuyAmount(),
+                    projection.immediateRebuyAmount(player.nickname()),
+                    player.nickname()
+                    + " changed its canonical immediate-rebuy amount");
+            if (presentation.showingCards()) {
+                assertEquals(2, cards.size(), player.nickname()
+                        + " lost its public showdown cards");
+                assertTrue(cards.stream().allMatch(card -> card.visible()
+                        && card.faceUp() && !card.code().isBlank()),
+                        player.nickname()
+                        + " public showdown cards are not face up");
+            }
+            if (presentation.partialHand()) {
+                assertEquals(presentation.partialWinPercentage(),
+                        projection.partialHandPercentage(player.nickname()),
+                        player.nickname()
+                        + " lost its Monte Carlo presentation");
+                assertFalse(projection.hasHandResult(player.nickname()),
+                        player.nickname()
+                        + " rendered a partial hand as a final result");
+            }
+            if (presentation.resultResolved()) {
+                assertTrue(projection.hasHandResult(player.nickname()),
+                        player.nickname()
+                        + " lost its final showdown result after "
+                        + (currentEvent == null ? "INITIAL_STATE"
+                                : currentEvent.getClass().getSimpleName()));
+                assertEquals(presentation.publicHandName(),
+                        projection.resolvedHandName(player.nickname()),
+                        player.nickname()
+                        + " changed its public hand name");
+                assertEquals(player.winner(),
+                        projection.resolvedHandWinner(player.nickname()),
+                        player.nickname()
+                        + " changed its winner semantics");
+                assertEquals(presentation.wonPotIndexes(),
+                        projection.resolvedWonPotIndexes(player.nickname()),
+                        player.nickname()
+                        + " lost its won-pot indexes");
+            }
+            assertEquals(presentation.returnedSidePot(),
+                    projection.returnedSidePot(player.nickname()),
+                    player.nickname()
+                    + " changed its returned-side-pot semantics");
+            if (presentation.showdownHighlightEnabled()) {
+                GdxTableViewState.ShowdownHighlightState highlight
+                        = projection.showdownHighlight(player.nickname());
+                assertNotNull(highlight, player.nickname()
+                        + " lost its showdown highlight");
+                assertEquals(presentation.winningHoleCardSlots(),
+                        highlight.holeCardSlots(), player.nickname()
+                        + " changed highlighted hole cards");
+                assertEquals(presentation.winningCommunityCardSlots(),
+                        highlight.communityCardSlots(), player.nickname()
+                        + " changed highlighted community cards");
+            } else {
+                assertEquals(null,
+                        projection.showdownHighlight(player.nickname()),
+                        player.nickname()
+                        + " invented a showdown highlight");
             }
             if (player.nickname().equals(snapshot.localNickname())) {
                 boolean folded = projection.foldedThisHand(player.nickname());
@@ -1243,7 +1458,38 @@ final class GdxScenarioRenderer implements TableRenderer {
         }
     }
 
-    private void assertWarmingContinuity(TableSnapshot snapshot) {
+    boolean sawBootstrappedFoldedSeat() {
+        return sawBootstrappedFoldedSeat.get();
+    }
+
+    boolean firstHotJoinHasAllInPresentation() {
+        TableSnapshot snapshot = firstHotJoinState.get();
+        if (snapshot == null || !snapshot.currentTurnNickname().isBlank()) {
+            return false;
+        }
+        long publicReveals = snapshot.players().stream()
+                .filter(player -> !player.spectator() && !player.exited())
+                .filter(player -> player.presentation().showingCards())
+                .filter(player -> player.holeCards().size() == 2)
+                .filter(player -> player.holeCards().stream().allMatch(card
+                        -> card.visible() && card.faceUp()
+                        && !card.code().isBlank()))
+                .count();
+        boolean exactAllIn = snapshot.players().stream()
+                .filter(player -> !player.spectator() && !player.exited())
+                .anyMatch(player -> player.decision()
+                        == TableSnapshot.Decision.ALL_IN
+                        && player.actionKind()
+                        == TableSnapshot.ActionKind.ALL_IN);
+        boolean publicOutcome = snapshot.players().stream()
+                .anyMatch(player -> player.presentation().partialHand());
+        publicOutcome = publicOutcome || snapshot.players().stream()
+                .anyMatch(player -> player.presentation().resultResolved());
+        return publicReveals >= 2 && exactAllIn && publicOutcome;
+    }
+
+    private void assertWarmingContinuity(TableSnapshot snapshot,
+            TableVisualEvent event) {
         Map<String, TableSnapshot.PlayerSnapshot> players = snapshot.players()
                 .stream().collect(java.util.stream.Collectors.toMap(
                         TableSnapshot.PlayerSnapshot::nickname,
@@ -1251,6 +1497,16 @@ final class GdxScenarioRenderer implements TableRenderer {
         for (String nickname : Set.copyOf(warmingAwaitingAdmission)) {
             TableSnapshot.PlayerSnapshot player = players.get(nickname);
             if (player == null || player.exited() || !player.spectator()) {
+                warmingAwaitingAdmission.remove(nickname);
+                continue;
+            }
+            if (!player.warming()
+                    && MoneyMath.compare(player.stack(), 0d) == 0) {
+                assertTrue(event instanceof TableVisualEvent.SeatRoster,
+                        nickname + " left CALENTANDO outside a roster boundary");
+                assertTrue(currentHand.get() > 0L
+                                && endedHandIds.contains(currentHand.get()),
+                        nickname + " left CALENTANDO before the current hand ended");
                 warmingAwaitingAdmission.remove(nickname);
                 continue;
             }

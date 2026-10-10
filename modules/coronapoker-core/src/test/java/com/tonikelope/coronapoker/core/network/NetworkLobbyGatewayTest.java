@@ -2,6 +2,7 @@ package com.tonikelope.coronapoker.core.network;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tonikelope.coronapoker.core.LobbyChatMessage;
@@ -459,6 +460,143 @@ class NetworkLobbyGatewayTest {
     @Test void mixedStartedTableAcceptsAnotherRemoteHumanAsWarmingObserver()
             throws Exception {
         assertStartedTableAcceptsLateHuman(true, 1, "mixed");
+    }
+
+    @Test void retiringWarmingPeerPurgesItsQueuedBoundaryWithoutClosingTable()
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        AtomicReference<GameLaunchContext> hostContext = new AtomicReference<>();
+        AtomicReference<GameLaunchContext> incumbentContext
+                = new AtomicReference<>();
+        AtomicReference<GameLaunchContext> warmingContext
+                = new AtomicReference<>();
+        GameTableFactory tables = context -> {
+            if (context.lobby().host()) {
+                hostContext.set(context);
+            } else if ("Calentando".equals(
+                    context.lobby().localNickname())) {
+                warmingContext.set(context);
+            } else {
+                incumbentContext.set(context);
+            }
+            return new TableSession(emptyTable(
+                    context.lobby().localNickname()), command -> { },
+                    new TableEventBridge(), () -> {
+                        if (!context.lobby().host()) {
+                            return CompletableFuture.completedFuture(null);
+                        }
+                        try {
+                            return context.channel().broadcastFromHost(
+                                    "INIT#" + GameConfigCodecV1.encodeBase64(
+                                            context.initialConfiguration()),
+                                    null);
+                        } catch (java.io.IOException failure) {
+                            return CompletableFuture.failedFuture(failure);
+                        }
+                    });
+        };
+        CountDownLatch exitEntered = new CountDownLatch(1);
+        CountDownLatch allowRetire = new CountDownLatch(1);
+        CountDownLatch exitNotice = new CountDownLatch(1);
+        CountDownLatch incumbentAction = new CountDownLatch(1);
+        CopyOnWriteArrayList<String> received = new CopyOnWriteArrayList<>();
+        try (NetworkLobbyGateway hostGateway = new NetworkLobbyGateway(
+                    temporary.resolve("queued-exit-host"), tables);
+                NetworkLobbyGateway incumbentGateway = new NetworkLobbyGateway(
+                    temporary.resolve("queued-exit-incumbent"), tables);
+                NetworkLobbyGateway warmingGateway = new NetworkLobbyGateway(
+                    temporary.resolve("queued-exit-warming"), tables)) {
+            LobbySession host = hostGateway.open(
+                    request(false, "Anfitrion", port)).get(5,
+                            TimeUnit.SECONDS);
+            LobbySession incumbent = incumbentGateway.open(
+                    request(true, "Invitado", port)).get(5,
+                            TimeUnit.SECONDS);
+            LobbySession warming = null;
+            try {
+                await(() -> host.snapshot().participants().size() == 2);
+                host.submit(new LobbyCommand.StartGame()).toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS);
+                host.tableSession().toCompletableFuture().get(2,
+                        TimeUnit.SECONDS).attach(immediateRenderer())
+                        .toCompletableFuture().get(2, TimeUnit.SECONDS);
+                incumbent.tableSession().toCompletableFuture().get(2,
+                        TimeUnit.SECONDS);
+
+                hostContext.get().channel().subscribe(inbound -> {
+                    received.add(inbound.peerNickname() + ":"
+                            + inbound.command());
+                    if ("Calentando".equals(inbound.peerNickname())
+                            && "HOTJOIN_EXIT".equals(inbound.command())) {
+                        exitEntered.countDown();
+                        awaitUnchecked(allowRetire);
+                        try {
+                            hostContext.get().channel().sendFromHost(
+                                    inbound.peerNickname(),
+                                    "HOTJOIN_EXITED").toCompletableFuture()
+                                    .join();
+                        } catch (java.io.IOException failure) {
+                            throw new IllegalStateException(failure);
+                        }
+                        hostContext.get().channel().retirePeerAfterExit(
+                                inbound.peerNickname());
+                    } else if ("Invitado".equals(inbound.peerNickname())
+                            && "ACTION#table-survives".equals(
+                                    inbound.command())) {
+                        incumbentAction.countDown();
+                    }
+                });
+
+                warming = warmingGateway.open(
+                        request(true, "Calentando", port)).get(5,
+                                TimeUnit.SECONDS);
+                warming.tableSession().toCompletableFuture().get(5,
+                        TimeUnit.SECONDS);
+                await(() -> warmingContext.get() != null
+                        && host.snapshot().participants().size() == 3);
+                warmingContext.get().channel().subscribe(inbound -> {
+                    if ("HOTJOIN_EXITED".equals(inbound.command())) {
+                        exitNotice.countDown();
+                        // Production closes this local terminal table from its
+                        // listener. The transport must have emitted CONF first
+                        // or the host's ordered consumer stalls until the
+                        // reconnect deadline.
+                        warmingContext.get().channel()
+                                .closeLocalHostConnection();
+                    }
+                });
+
+                warmingContext.get().channel().sendToHost("HOTJOIN_EXIT")
+                        .toCompletableFuture().get(5, TimeUnit.SECONDS);
+                assertTrue(exitEntered.await(2, TimeUnit.SECONDS));
+
+                // Model the real race: the observer's dealer crosses the hand
+                // boundary just after its UI thread requested exit. The frame
+                // is already authenticated and ACKed, but remains queued
+                // behind HOTJOIN_EXIT while retirement is deliberately held.
+                warmingContext.get().channel().sendToHost("HAND_READY#2")
+                        .toCompletableFuture().get(5, TimeUnit.SECONDS);
+                allowRetire.countDown();
+
+                await(() -> host.snapshot().participants().size() == 2);
+                assertTrue(exitNotice.await(2, TimeUnit.SECONDS));
+                incumbentContext.get().channel().sendToHost(
+                        "ACTION#table-survives").toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                assertTrue(incumbentAction.await(2, TimeUnit.SECONDS),
+                        "retiring one warming peer must keep the shared game channel alive");
+                assertFalse(received.contains("Calentando:HAND_READY#2"),
+                        "retirement must purge an already queued boundary frame from that incarnation");
+            } finally {
+                allowRetire.countDown();
+                if (warming != null) warming.close();
+                incumbent.close();
+                host.close();
+            }
+        }
     }
 
     @Test void startedTableRejectsLateHumanWhenHotJoinIsDisabled()

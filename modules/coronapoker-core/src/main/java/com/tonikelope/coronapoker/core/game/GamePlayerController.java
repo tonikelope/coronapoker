@@ -34,6 +34,16 @@ public interface GamePlayerController
 
     boolean isCalentando();
 
+    /**
+     * Marks a late entrant as a public-only observer until the dealer admits
+     * it at a hand boundary.  This is a lifecycle role, not a consequence of
+     * its stack: a returning busted identity is CALENTANDO too.
+     */
+    void setCalentando(String message);
+
+    /** Ends only the late-entry role while preserving an ordinary spectator. */
+    void clearCalentando();
+
     boolean isActivo();
 
     void stopActionTimer();
@@ -69,6 +79,15 @@ public interface GamePlayerController
     List<? extends GameCardController> getHoleCards();
 
     void nuevaMano();
+
+    /**
+     * Clears facts that belong exclusively to the completed hand without
+     * changing money, spectator/exit state or card ownership.  Inactive seats
+     * do not execute {@link #nuevaMano()}, but their public ALL IN/fold/verdict
+     * presentation must not leak into the next hand or a late-join snapshot.
+     */
+    default void resetPresentationForNewHand() {
+    }
 
     /**
      * Applies the already resolved dealer/blind position for the hand and posts
@@ -121,6 +140,14 @@ public interface GamePlayerController
     }
 
     int getDecision();
+
+    /** Stores the exact accepted action used by every renderer bootstrap. */
+    default void setPresentationActionKind(PlayerState.ActionKind actionKind) {
+    }
+
+    /** Stores the exact public caption emitted for the accepted action. */
+    default void setPresentationActionLabel(String actionLabel) {
+    }
 
     void markFoldedOnRecover();
 
@@ -235,6 +262,27 @@ public interface GamePlayerController
      * controllers override it because no widget exists to carry game state.
      */
     default void applyShowdownResult(boolean winner, String handName) {
+    }
+
+    /** Stores final numbered-pot badges for renderer bootstrap. */
+    default void setPresentationWonPotIndexes(List<Integer> indexes) {
+    }
+
+    /** Stores the hand caption that is actually public at the table. */
+    default void setPresentationPublicHandName(String handName) {
+    }
+
+    /** Stores whether a payout included an uncalled side-pot return. */
+    default void setPresentationReturnedSidePot(boolean returned) {
+    }
+
+    /** Stores the exact public cards composing the highlighted hand. */
+    default void setPresentationShowdownHighlight(boolean enabled,
+            List<Integer> holeSlots, List<Integer> communitySlots) {
+    }
+
+    /** Clears board-specific outcome state before Run It Twice side B. */
+    default void resetPresentationForNextRunout() {
     }
 
     boolean isMuestra();

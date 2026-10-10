@@ -59,7 +59,7 @@ final class GdxTableViewState {
     private boolean textToSpeechEnabled;
     private boolean voiceMessagesEnabled;
     private long playTimeSeconds;
-    private final Map<String, TableVisualEvent.ShowdownHighlight>
+    private final Map<String, ShowdownHighlightState>
             showdownHighlights = new HashMap<>();
     private final Map<String, TableVisualEvent.PlayerAction.ActionKind>
             actionKinds = new HashMap<>();
@@ -259,7 +259,7 @@ final class GdxTableViewState {
         return runItTwicePotPrefix;
     }
 
-    TableVisualEvent.ShowdownHighlight showdownHighlight(String nickname) {
+    ShowdownHighlightState showdownHighlight(String nickname) {
         return showdownHighlights.get(nickname);
     }
 
@@ -362,7 +362,7 @@ final class GdxTableViewState {
                     || !resolvedHandResults.contains(player.nickname())) {
                 continue;
             }
-            TableVisualEvent.ShowdownHighlight highlight
+            ShowdownHighlightState highlight
                     = showdownHighlights.get(player.nickname());
             if (highlight == null || !highlight.enabled()) {
                 continue;
@@ -386,7 +386,7 @@ final class GdxTableViewState {
                 || !Boolean.TRUE.equals(resolvedHandWinner(nickname))) {
             return false;
         }
-        TableVisualEvent.ShowdownHighlight highlight
+        ShowdownHighlightState highlight
                 = showdownHighlights.get(nickname);
         return highlight != null && highlight.enabled()
                 && highlight.holeCardSlots().contains(slot);
@@ -451,7 +451,8 @@ final class GdxTableViewState {
             snapshot = new TableSnapshot(snapshot.revision(),
                     snapshot.localNickname(), snapshot.street(), snapshot.pot(),
                     snapshot.currentTurnNickname(), pause.paused(),
-                    snapshot.players(), snapshot.communityCards());
+                    snapshot.players(), snapshot.communityCards(),
+                    snapshot.presentation());
             updateTurnTimerPause(wasPaused, snapshot.paused());
             updateSharedProgressPause(wasPaused, snapshot.paused());
         } else if (event instanceof TableVisualEvent.TelemetryStatus telemetry) {
@@ -475,10 +476,7 @@ final class GdxTableViewState {
             snapshot = copySnapshot(snapshot, snapshot.pot(),
                     snapshot.currentTurnNickname(), players,
                     snapshot.communityCards());
-            players.stream()
-                    .filter(TableSnapshot.PlayerSnapshot::spectator)
-                    .map(TableSnapshot.PlayerSnapshot::nickname)
-                    .forEach(this::clearCompletedHandPresentation);
+            reconcileCanonicalPlayerPresentation(players);
         } else if (event instanceof TableVisualEvent.HandBoundary boundary) {
             applyHandBoundary(boundary);
         } else if (event instanceof TableVisualEvent.CollectBets collect) {
@@ -507,6 +505,11 @@ final class GdxTableViewState {
             snapshot = copySnapshot(snapshot, board.potAmount(),
                     snapshot.currentTurnNickname(), snapshot.players(), community);
             runItTwicePotPrefix = board.potPrefix();
+            snapshot = copySnapshotPresentation(snapshot,
+                    new TableSnapshot.TablePresentation(board.potPrefix(),
+                            snapshot.presentation()
+                                    .sharedProgressRemainingSeconds(),
+                            snapshot.presentation().rabbitCardSlots()));
         } else if (event instanceof TableVisualEvent.SwapHoleCards swap) {
             // RevealHoleCards is intentionally preserved across later legacy
             // snapshots. Keep that presentation copy in the same order as the
@@ -529,13 +532,15 @@ final class GdxTableViewState {
         } else if (event instanceof TableVisualEvent.FoldHoleCards fold) {
             foldedThisHand.add(fold.nickname());
             revealedHoleCards.remove(fold.nickname());
-            replacePlayer(fold.nickname(), player -> copyPlayer(player,
+            replacePlayer(fold.nickname(), player -> copyPlayerAction(player,
                     player.stack(), player.streetBet(), player.potContribution(),
                     false, player.winner(), player.position(), player.lastAction(),
                     player.handName(), player.holeCards().stream()
                             .map(card -> new TableSnapshot.CardSnapshot(
                             card.code(), card.faceUp(), true,
-                            card.visible())).toList()));
+                            card.visible())).toList(),
+                    TableSnapshot.Decision.FOLD,
+                    TableSnapshot.ActionKind.FOLD));
         } else if (event instanceof TableVisualEvent.RevealCommunityCards reveal) {
             // Keep the completed street visible for the whole reveal. The
             // first START timer of the next street is the authoritative point
@@ -577,12 +582,14 @@ final class GdxTableViewState {
         } else if (event instanceof TableVisualEvent.PlayerAction action) {
             actionKinds.put(action.nickname(), action.kind());
             actionLabels.put(action.nickname(), action.label());
-            replacePlayer(action.nickname(), player -> copyPlayer(player,
+            replacePlayer(action.nickname(), player -> copyPlayerAction(player,
                     action.stackAfter(), action.streetBetAfter(),
                     action.potContributionAfter(),
                     player.active(),
                     player.winner(), player.position(), action.label(),
-                    player.handName(), player.holeCards()));
+                    player.handName(), player.holeCards(),
+                    snapshotDecision(action.kind()),
+                    snapshotActionKind(action.kind())));
         } else if (event instanceof TableVisualEvent.AllInRunoutPause) {
             // Sequence-only presentation barrier. Keeping the state untouched
             // is what preserves the accepted ALL IN/CALL label for its full
@@ -610,18 +617,56 @@ final class GdxTableViewState {
                     && !reveal.handName().isBlank()) {
                 resolvedHandNames.put(reveal.nickname(), reveal.handName());
             }
-            replacePlayer(reveal.nickname(), player -> copyPlayer(player,
-                    player.stack(), player.streetBet(), player.potContribution(),
-                    player.active(), player.winner(), player.position(),
-                     player.lastAction(), reveal.handName(),
-                     List.of(reveal.left(), reveal.right())));
+            replacePlayer(reveal.nickname(), player -> {
+                TableSnapshot.PlayerPresentation current
+                        = player.presentation();
+                String publicHandName = reveal.handName().isBlank()
+                        ? current.publicHandName() : reveal.handName();
+                TableSnapshot.PlayerPresentation presentation
+                        = new TableSnapshot.PlayerPresentation(true,
+                                current.partialHand(),
+                                current.partialWinPercentage(),
+                                current.resultResolved(), publicHandName,
+                                current.wonPotIndexes(),
+                                current.returnedSidePot(),
+                                current.showdownHighlightEnabled(),
+                                current.winningHoleCardSlots(),
+                                 current.winningCommunityCardSlots(),
+                                 current.rebuyPhase(),
+                                 current.immediateRebuyAmount(),
+                                 current.publicActionLabel());
+                return copyPlayerPresentation(copyPlayer(player,
+                        player.stack(), player.streetBet(),
+                        player.potContribution(), player.active(),
+                        player.winner(), player.position(),
+                        player.lastAction(), publicHandName,
+                        List.of(reveal.left(), reveal.right())),
+                        presentation);
+            });
         } else if (event instanceof TableVisualEvent.PartialHand partial) {
             partialHandPercentages.put(partial.nickname(),
                     partial.winPercentage());
-            replacePlayer(partial.nickname(), player -> copyPlayer(player,
-                    player.stack(), player.streetBet(), player.potContribution(),
-                    player.active(), partial.winner(), player.position(),
-                    player.lastAction(), partial.handName(), player.holeCards()));
+            replacePlayer(partial.nickname(), player -> {
+                TableSnapshot.PlayerPresentation current
+                        = player.presentation();
+                TableSnapshot.PlayerPresentation presentation
+                        = new TableSnapshot.PlayerPresentation(
+                                current.showingCards(), true,
+                                partial.winPercentage(), false,
+                                partial.handName(), List.of(), false,
+                                current.showdownHighlightEnabled(),
+                                current.winningHoleCardSlots(),
+                                 current.winningCommunityCardSlots(),
+                                 current.rebuyPhase(),
+                                 current.immediateRebuyAmount(),
+                                 current.publicActionLabel());
+                return copyPlayerPresentation(copyPlayer(player,
+                        player.stack(), player.streetBet(),
+                        player.potContribution(), player.active(),
+                        partial.winner(), player.position(),
+                        player.lastAction(), partial.handName(),
+                        player.holeCards()), presentation);
+            });
         } else if (event instanceof TableVisualEvent.HandResult result) {
             partialHandPercentages.remove(result.nickname());
             resolvedHandResults.add(result.nickname());
@@ -641,22 +686,46 @@ final class GdxTableViewState {
             snapshot = copySnapshot(snapshot, result.street(),
                     snapshot.pot(), snapshot.currentTurnNickname(),
                     snapshot.players(), snapshot.communityCards());
-            replacePlayer(result.nickname(), player -> copyPlayer(player,
-                    player.stack(), player.streetBet(), player.potContribution(),
-                    player.active(), result.winner(), player.position(),
-                    player.lastAction(), result.handName(), player.holeCards()));
+            replacePlayer(result.nickname(), player -> {
+                TableSnapshot.PlayerPresentation current
+                        = player.presentation();
+                TableSnapshot.PlayerPresentation presentation
+                        = new TableSnapshot.PlayerPresentation(
+                                current.showingCards(), false, -1f, true,
+                                result.handName(), result.wonPotIndexes(),
+                                current.returnedSidePot(),
+                                current.showdownHighlightEnabled(),
+                                current.winningHoleCardSlots(),
+                                 current.winningCommunityCardSlots(),
+                                 current.rebuyPhase(),
+                                 current.immediateRebuyAmount(),
+                                 current.publicActionLabel());
+                return copyPlayerPresentation(copyPlayer(player,
+                        player.stack(), player.streetBet(),
+                        player.potContribution(), player.active(),
+                        result.winner(), player.position(),
+                        player.lastAction(), result.handName(),
+                        player.holeCards()), presentation);
+            });
         } else if (event instanceof TableVisualEvent.IwtsthCandidates candidates) {
             iwtsthCandidates.clear();
             iwtsthCandidates.addAll(candidates.nicknames());
         } else if (event instanceof TableVisualEvent.RabbitCards rabbit) {
             List<TableSnapshot.CardSnapshot> board
                     = snapshot.communityCards();
+            rabbitCardSlots.clear();
             for (TableVisualEvent.RabbitCard card : rabbit.cards()) {
                 board = replaceCard(board, card.slot(), card.card(), 5);
                 rabbitCardSlots.add(card.slot());
             }
             snapshot = copySnapshot(snapshot, snapshot.pot(),
                     snapshot.currentTurnNickname(), snapshot.players(), board);
+            snapshot = copySnapshotPresentation(snapshot,
+                    new TableSnapshot.TablePresentation(
+                            snapshot.presentation().potPrefix(),
+                            snapshot.presentation()
+                                    .sharedProgressRemainingSeconds(),
+                            rabbitCardSlots.stream().sorted().toList()));
             rabbitRequestable = rabbit.requestable();
         } else if (event instanceof TableVisualEvent.RabbitResult result) {
             replacePlayer(result.nickname(), player -> copyPlayer(player,
@@ -670,10 +739,32 @@ final class GdxTableViewState {
                     + notice.durationMillis() * 1_000_000L;
         } else if (event instanceof TableVisualEvent.ShowdownHighlight highlight) {
             if (highlight.enabled()) {
-                showdownHighlights.put(highlight.nickname(), highlight);
+                showdownHighlights.put(highlight.nickname(),
+                        ShowdownHighlightState.from(highlight));
             } else {
                 showdownHighlights.remove(highlight.nickname());
             }
+            replacePlayer(highlight.nickname(), player -> {
+                TableSnapshot.PlayerPresentation current
+                        = player.presentation();
+                TableSnapshot.PlayerPresentation presentation
+                        = new TableSnapshot.PlayerPresentation(
+                                current.showingCards(), current.partialHand(),
+                                current.partialWinPercentage(),
+                                current.resultResolved(),
+                                current.publicHandName(),
+                                current.wonPotIndexes(),
+                                current.returnedSidePot(),
+                                highlight.enabled(),
+                                highlight.enabled()
+                                        ? highlight.holeCardSlots() : List.of(),
+                                highlight.enabled()
+                                        ? highlight.communityCardSlots()
+                                         : List.of(), current.rebuyPhase(),
+                                 current.immediateRebuyAmount(),
+                                 current.publicActionLabel());
+                return copyPlayerPresentation(player, presentation);
+            });
         } else if (event instanceof TableVisualEvent.PayoutBatch payout) {
             for (TableVisualEvent.PayoutBatch.Transfer transfer
                     : payout.transfers()) {
@@ -685,12 +776,32 @@ final class GdxTableViewState {
                 if (won) {
                     resolvedHandWinners.put(transfer.nickname(), true);
                 }
-                replacePlayer(transfer.nickname(), player -> copyPlayer(player,
-                        transfer.stackAfter(), player.streetBet(),
-                        player.potContribution(), player.active(),
-                        won || player.winner(), player.position(),
-                        player.lastAction(), player.handName(),
-                        player.holeCards()));
+                replacePlayer(transfer.nickname(), player -> {
+                    TableSnapshot.PlayerPresentation current
+                            = player.presentation();
+                    TableSnapshot.PlayerPresentation presentation
+                            = new TableSnapshot.PlayerPresentation(
+                                    current.showingCards(),
+                                    current.partialHand(),
+                                    current.partialWinPercentage(),
+                                    current.resultResolved(),
+                                    current.publicHandName(),
+                                    current.wonPotIndexes(),
+                                    current.returnedSidePot()
+                                            || transfer.returnsResidualSidePot(),
+                                    current.showdownHighlightEnabled(),
+                                    current.winningHoleCardSlots(),
+                                     current.winningCommunityCardSlots(),
+                                     current.rebuyPhase(),
+                                     current.immediateRebuyAmount(),
+                                     current.publicActionLabel());
+                    return copyPlayerPresentation(copyPlayer(player,
+                            transfer.stackAfter(), player.streetBet(),
+                            player.potContribution(), player.active(),
+                            won || player.winner(), player.position(),
+                            player.lastAction(), player.handName(),
+                            player.holeCards()), presentation);
+                });
             }
             snapshot = copySnapshot(snapshot, payout.potAfter(),
                     snapshot.currentTurnNickname(), snapshot.players(),
@@ -707,11 +818,35 @@ final class GdxTableViewState {
             if (payout.potIndex() > 0) {
                 recordWonPotIndex(payout.nickname(), payout.potIndex());
             }
-            replacePlayer(payout.nickname(), player -> copyPlayer(player,
-                    payout.stackAfter(), player.streetBet(),
-                    player.potContribution(), player.active(), true,
-                    player.position(), player.lastAction(), player.handName(),
-                    player.holeCards()));
+            replacePlayer(payout.nickname(), player -> {
+                TableSnapshot.PlayerPresentation current
+                        = player.presentation();
+                java.util.TreeSet<Integer> wonPotIndexes
+                        = new java.util.TreeSet<>(current.wonPotIndexes());
+                if (payout.potIndex() > 0) {
+                    wonPotIndexes.add(payout.potIndex());
+                }
+                TableSnapshot.PlayerPresentation presentation
+                        = new TableSnapshot.PlayerPresentation(
+                                current.showingCards(),
+                                current.partialHand(),
+                                current.partialWinPercentage(),
+                                current.resultResolved(),
+                                current.publicHandName(),
+                                List.copyOf(wonPotIndexes),
+                                current.returnedSidePot(),
+                                current.showdownHighlightEnabled(),
+                                current.winningHoleCardSlots(),
+                                 current.winningCommunityCardSlots(),
+                                 current.rebuyPhase(),
+                                 current.immediateRebuyAmount(),
+                                 current.publicActionLabel());
+                return copyPlayerPresentation(copyPlayer(player,
+                        payout.stackAfter(), player.streetBet(),
+                        player.potContribution(), player.active(), true,
+                        player.position(), player.lastAction(),
+                        player.handName(), player.holeCards()), presentation);
+            });
             snapshot = copySnapshot(snapshot,
                     payout.potAfter(),
                     snapshot.currentTurnNickname(), snapshot.players(),
@@ -728,12 +863,31 @@ final class GdxTableViewState {
             } else {
                 rebuyDecisions.put(decision.nickname(), decision.phase());
             }
+            replacePlayer(decision.nickname(), player -> {
+                TableSnapshot.PlayerPresentation current
+                        = player.presentation();
+                TableSnapshot.RebuyPhase phase = switch (decision.phase()) {
+                    case WAITING -> TableSnapshot.RebuyPhase.WAITING;
+                    case REBOUGHT -> TableSnapshot.RebuyPhase.REBOUGHT;
+                    case CLEARED -> TableSnapshot.RebuyPhase.NONE;
+                };
+                return copyPlayerPresentation(player,
+                        copyPresentationRebuy(current, phase,
+                                current.immediateRebuyAmount()));
+            });
         } else if (event instanceof TableVisualEvent.ImmediateRebuyStatus status) {
             if (status.enabled()) {
                 immediateRebuys.put(status.nickname(), status.amount());
             } else {
                 immediateRebuys.remove(status.nickname());
             }
+            replacePlayer(status.nickname(), player -> {
+                TableSnapshot.PlayerPresentation current
+                        = player.presentation();
+                return copyPlayerPresentation(player,
+                        copyPresentationRebuy(current, current.rebuyPhase(),
+                                status.enabled() ? status.amount() : 0));
+            });
         } else if (event instanceof TableVisualEvent.LastHandStatus status) {
             lastHand = status.enabled();
         } else if (event instanceof TableVisualEvent.HandLimitStatus status) {
@@ -826,14 +980,16 @@ final class GdxTableViewState {
         returnedSidePotPlayers.clear();
         revealedHoleCards.clear();
         foldedThisHand.clear();
+        reconcileCanonicalPlayerPresentation(snapshot.players());
         iwtsthCandidates.clear();
         rabbitCardSlots.clear();
+        rabbitCardSlots.addAll(snapshot.presentation().rabbitCardSlots());
         rabbitRequestable = false;
         rabbitNoticeNickname = "";
         rabbitNoticeUntilNanos = 0L;
         callCostText = "";
         callCostAggressorNickname = "";
-        runItTwicePotPrefix = "";
+        runItTwicePotPrefix = snapshot.presentation().potPrefix();
         preActionControlsActive = false;
         newStreetActionResetPending = false;
         actionControls = ActionControlState.disabled();
@@ -845,11 +1001,175 @@ final class GdxTableViewState {
         // Local recovery displays an indeterminate preparation bar.  The host
         // snapshot is the cut-over to the live hand; keeping that old progress
         // state is what made CALENTANDO appear permanently indeterminate.
-        sharedProgressMode = TableVisualEvent.SharedProgress.Mode.RESET;
-        sharedProgressTotalMillis = 0L;
-        sharedProgressRemainingMillis = 0L;
-        sharedProgressUpdatedNanos = 0L;
-        sharedProgressPausedAtNanos = 0L;
+        int progressSeconds = snapshot.presentation()
+                .sharedProgressRemainingSeconds();
+        sharedProgressMode = progressSeconds > 0
+                ? TableVisualEvent.SharedProgress.Mode.COUNTDOWN
+                : TableVisualEvent.SharedProgress.Mode.RESET;
+        sharedProgressTotalMillis = progressSeconds * 1_000L;
+        sharedProgressRemainingMillis = sharedProgressTotalMillis;
+        sharedProgressUpdatedNanos = progressSeconds > 0
+                ? nanoTime.getAsLong() : 0L;
+        sharedProgressPausedAtNanos = snapshot.paused()
+                && progressSeconds > 0 ? sharedProgressUpdatedNanos : 0L;
+    }
+
+    /** Reconciles every durable public seat fact carried by a canonical roster. */
+    private void reconcileCanonicalPlayerPresentation(
+            List<TableSnapshot.PlayerSnapshot> players) {
+        java.util.Set<String> currentNicknames = players.stream()
+                .map(TableSnapshot.PlayerSnapshot::nickname)
+                .collect(java.util.stream.Collectors.toSet());
+        actionKinds.keySet().retainAll(currentNicknames);
+        actionLabels.keySet().retainAll(currentNicknames);
+        foldedThisHand.retainAll(currentNicknames);
+        partialHandPercentages.keySet().retainAll(currentNicknames);
+        resolvedHandResults.retainAll(currentNicknames);
+        resolvedHandNames.keySet().retainAll(currentNicknames);
+        resolvedHandWinners.keySet().retainAll(currentNicknames);
+        resolvedWonPotIndexes.keySet().retainAll(currentNicknames);
+        returnedSidePotPlayers.retainAll(currentNicknames);
+        showdownHighlights.keySet().retainAll(currentNicknames);
+        revealedHoleCards.keySet().retainAll(currentNicknames);
+        lateShownHands.retainAll(currentNicknames);
+        rebuyDecisions.keySet().retainAll(currentNicknames);
+        immediateRebuys.keySet().retainAll(currentNicknames);
+
+        for (TableSnapshot.PlayerSnapshot player : players) {
+            TableVisualEvent.PlayerAction.ActionKind kind
+                    = snapshotActionKind(player);
+            if (kind != null) {
+                actionKinds.put(player.nickname(), kind);
+                String publicActionLabel
+                        = player.presentation().publicActionLabel();
+                if (!publicActionLabel.isBlank()) {
+                    actionLabels.put(player.nickname(), publicActionLabel);
+                } else if (!player.lastAction().isBlank()) {
+                    // Compatibility fallback for snapshots predating the
+                    // explicit public caption field.
+                    actionLabels.put(player.nickname(), player.lastAction());
+                }
+                if (kind == TableVisualEvent.PlayerAction.ActionKind.FOLD) {
+                    foldedThisHand.add(player.nickname());
+                } else {
+                    foldedThisHand.remove(player.nickname());
+                }
+            } else {
+                actionKinds.remove(player.nickname());
+                actionLabels.remove(player.nickname());
+                foldedThisHand.remove(player.nickname());
+            }
+            TableSnapshot.PlayerPresentation presentation
+                    = player.presentation();
+            if (presentation.showingCards()
+                    && player.holeCards().size() == 2) {
+                revealedHoleCards.put(player.nickname(),
+                        player.holeCards());
+            } else {
+                revealedHoleCards.remove(player.nickname());
+            }
+            if (presentation.partialHand()) {
+                partialHandPercentages.put(player.nickname(),
+                        presentation.partialWinPercentage());
+            } else {
+                partialHandPercentages.remove(player.nickname());
+            }
+            if (presentation.resultResolved()) {
+                resolvedHandResults.add(player.nickname());
+                resolvedHandNames.put(player.nickname(),
+                        presentation.publicHandName());
+                resolvedHandWinners.put(player.nickname(), player.winner());
+                resolvedWonPotIndexes.put(player.nickname(),
+                        presentation.wonPotIndexes());
+            } else {
+                resolvedHandResults.remove(player.nickname());
+                resolvedHandNames.remove(player.nickname());
+                resolvedHandWinners.remove(player.nickname());
+                resolvedWonPotIndexes.remove(player.nickname());
+            }
+            if (presentation.showingCards()
+                    && presentation.resultResolved()
+                    && player.decision() == TableSnapshot.Decision.FOLD) {
+                // A folded hand can only become public after the verdict via
+                // SHOW/IWTSTH. Preserve that distinct visual state across a
+                // mid-hand bootstrap (normal showdown reveals are not folds).
+                lateShownHands.add(player.nickname());
+            } else {
+                lateShownHands.remove(player.nickname());
+            }
+            if (presentation.returnedSidePot()) {
+                returnedSidePotPlayers.add(player.nickname());
+            } else {
+                returnedSidePotPlayers.remove(player.nickname());
+            }
+            if (presentation.showdownHighlightEnabled()) {
+                showdownHighlights.put(player.nickname(),
+                        new ShowdownHighlightState(player.nickname(), true,
+                                presentation.winningHoleCardSlots(),
+                                presentation.winningCommunityCardSlots()));
+            } else {
+                showdownHighlights.remove(player.nickname());
+            }
+            if (presentation.rebuyPhase()
+                    == TableSnapshot.RebuyPhase.NONE) {
+                rebuyDecisions.remove(player.nickname());
+            } else {
+                rebuyDecisions.put(player.nickname(),
+                        TableVisualEvent.RebuyDecision.Phase.valueOf(
+                                presentation.rebuyPhase().name()));
+            }
+            if (presentation.immediateRebuyAmount() > 0) {
+                immediateRebuys.put(player.nickname(),
+                        presentation.immediateRebuyAmount());
+            } else {
+                immediateRebuys.remove(player.nickname());
+            }
+        }
+    }
+
+    /**
+     * Restores the semantic action state that an already attached renderer
+     * learned from ordered events before this client joined. The explicit
+     * decision is authoritative; parsing is limited to the finer CALL/CHECK
+     * and BET/RAISE presentation variants and to old in-memory fixtures.
+     */
+    private static TableVisualEvent.PlayerAction.ActionKind snapshotActionKind(
+            TableSnapshot.PlayerSnapshot player) {
+        TableVisualEvent.PlayerAction.ActionKind legacy
+                = CoronaPokerGdxTable.actionKindFromLegacyLabel(
+                        player.lastAction());
+        if (player.actionKind() != TableSnapshot.ActionKind.NONE) {
+            return TableVisualEvent.PlayerAction.ActionKind.valueOf(
+                    player.actionKind().name());
+        }
+        return switch (player.decision()) {
+            case FOLD -> TableVisualEvent.PlayerAction.ActionKind.FOLD;
+            case ALL_IN -> TableVisualEvent.PlayerAction.ActionKind.ALL_IN;
+            case CHECK -> legacy == TableVisualEvent.PlayerAction.ActionKind.CALL
+                    ? legacy : TableVisualEvent.PlayerAction.ActionKind.CHECK;
+            case BET -> legacy == TableVisualEvent.PlayerAction.ActionKind.RAISE
+                    || legacy == TableVisualEvent.PlayerAction.ActionKind.RERAISE
+                    ? legacy : TableVisualEvent.PlayerAction.ActionKind.BET;
+            case NONE -> legacy;
+        };
+    }
+
+    /** Renderer-owned copy; view state must never manufacture core events. */
+    record ShowdownHighlightState(String nickname, boolean enabled,
+            List<Integer> holeCardSlots, List<Integer> communityCardSlots) {
+
+        ShowdownHighlightState {
+            Objects.requireNonNull(nickname, "nickname");
+            holeCardSlots = List.copyOf(holeCardSlots);
+            communityCardSlots = List.copyOf(communityCardSlots);
+        }
+
+        static ShowdownHighlightState from(
+                TableVisualEvent.ShowdownHighlight event) {
+            return new ShowdownHighlightState(event.nickname(),
+                    event.enabled(), event.holeCardSlots(),
+                    event.communityCardSlots());
+        }
     }
 
     /**
@@ -868,11 +1188,13 @@ final class GdxTableViewState {
                             actionKinds.get(player.nickname());
                     boolean persistent = foldedThisHand.contains(
                             player.nickname()) || persistentAcrossStreets(kind);
-                    return persistent ? player : copyPlayer(player,
+                    return persistent ? player : copyPlayerAction(player,
                             player.stack(), player.streetBet(),
                             player.potContribution(), player.active(),
                             player.winner(), player.position(), "",
-                            player.handName(), player.holeCards());
+                            player.handName(), player.holeCards(),
+                            TableSnapshot.Decision.NONE,
+                            TableSnapshot.ActionKind.NONE);
                 }).toList();
         snapshot = copySnapshot(snapshot, snapshot.pot(),
                 snapshot.currentTurnNickname(), players,
@@ -887,17 +1209,31 @@ final class GdxTableViewState {
                 || kind == TableVisualEvent.PlayerAction.ActionKind.ALL_IN;
     }
 
-    private void clearCompletedHandPresentation(String nickname) {
-        revealedHoleCards.remove(nickname);
-        foldedThisHand.remove(nickname);
-        showdownHighlights.remove(nickname);
-        partialHandPercentages.remove(nickname);
-        resolvedHandResults.remove(nickname);
-        lateShownHands.remove(nickname);
-        resolvedHandNames.remove(nickname);
-        resolvedHandWinners.remove(nickname);
-        resolvedWonPotIndexes.remove(nickname);
-        returnedSidePotPlayers.remove(nickname);
+    private static TableSnapshot.Decision snapshotDecision(
+            TableVisualEvent.PlayerAction.ActionKind kind) {
+        return switch (kind) {
+            case FOLD -> TableSnapshot.Decision.FOLD;
+            case CHECK, CALL -> TableSnapshot.Decision.CHECK;
+            case BET, RAISE, RERAISE -> TableSnapshot.Decision.BET;
+            case ALL_IN -> TableSnapshot.Decision.ALL_IN;
+            case WAITING, SMALL_BLIND, BIG_BLIND, STRADDLE ->
+                TableSnapshot.Decision.NONE;
+        };
+    }
+
+    private static TableSnapshot.ActionKind snapshotActionKind(
+            TableVisualEvent.PlayerAction.ActionKind kind) {
+        return switch (kind) {
+            case FOLD -> TableSnapshot.ActionKind.FOLD;
+            case CHECK -> TableSnapshot.ActionKind.CHECK;
+            case CALL -> TableSnapshot.ActionKind.CALL;
+            case BET -> TableSnapshot.ActionKind.BET;
+            case RAISE -> TableSnapshot.ActionKind.RAISE;
+            case RERAISE -> TableSnapshot.ActionKind.RERAISE;
+            case ALL_IN -> TableSnapshot.ActionKind.ALL_IN;
+            case WAITING, SMALL_BLIND, BIG_BLIND, STRADDLE ->
+                TableSnapshot.ActionKind.NONE;
+        };
     }
 
     private void recordWonPotIndex(String nickname, int potIndex) {
@@ -984,10 +1320,20 @@ final class GdxTableViewState {
                                     .map(GdxTableViewState::enabledCard)
                                     .toList()
                             : player.holeCards();
-                    return copyPlayer(player, player.stack(),
+                    TableSnapshot.PlayerPresentation current
+                            = player.presentation();
+                    TableSnapshot.PlayerPresentation presentation
+                            = new TableSnapshot.PlayerPresentation(
+                                    current.showingCards(), false, -1f,
+                                    false, "", List.of(), false, false,
+                                     List.of(), List.of(),
+                                     current.rebuyPhase(),
+                                     current.immediateRebuyAmount(), "");
+                    return copyPlayerPresentation(copyPlayer(player,
+                            player.stack(),
                             player.streetBet(), player.potContribution(),
                             player.active(), false, player.position(),
-                            player.lastAction(), "", cards);
+                            player.lastAction(), "", cards), presentation);
                 })
                 .toList();
         snapshot = copySnapshot(snapshot, snapshot.pot(),
@@ -1043,6 +1389,13 @@ final class GdxTableViewState {
         sharedProgressUpdatedNanos = nanoTime.getAsLong();
         sharedProgressPausedAtNanos = snapshot.paused()
                 ? sharedProgressUpdatedNanos : 0L;
+        snapshot = copySnapshotPresentation(snapshot,
+                new TableSnapshot.TablePresentation(
+                        snapshot.presentation().potPrefix(),
+                        progress.mode()
+                                == TableVisualEvent.SharedProgress.Mode.COUNTDOWN
+                                ? progress.seconds() : 0,
+                        snapshot.presentation().rabbitCardSlots()));
     }
 
     private void updateSharedProgressPause(boolean wasPaused, boolean paused) {
@@ -1121,8 +1474,10 @@ final class GdxTableViewState {
                 telemetry.latency(), telemetry.previousLatency(),
                 telemetry.reconnectionCount(), telemetry.measuredAtMillis(),
                 source.winner(), source.underTheGun(), source.position(),
-                source.lastAction(), source.handName(), source.holeCards(),
-                source.buyIn(), source.rebuyCount(), source.warming());
+                source.decision(), source.actionKind(), source.lastAction(),
+                source.handName(), source.holeCards(),
+                source.buyIn(), source.rebuyCount(), source.warming(),
+                source.presentation());
     }
 
     private static TableSnapshot.PlayerSnapshot copyPlayerTimeout(
@@ -1133,8 +1488,10 @@ final class GdxTableViewState {
                 source.latency(), source.previousLatency(),
                 source.reconnectionCount(), source.telemetryAt(),
                 source.winner(), source.underTheGun(), source.position(),
-                source.lastAction(), source.handName(), source.holeCards(),
-                source.buyIn(), source.rebuyCount(), source.warming());
+                source.decision(), source.actionKind(), source.lastAction(),
+                source.handName(), source.holeCards(),
+                source.buyIn(), source.rebuyCount(), source.warming(),
+                source.presentation());
     }
 
     private static TableSnapshot.PlayerSnapshot copyPlayerDeparture(
@@ -1145,8 +1502,9 @@ final class GdxTableViewState {
                 source.latency(), source.previousLatency(),
                 source.reconnectionCount(), source.telemetryAt(),
                 source.winner(), source.underTheGun(), source.position(),
-                label, source.handName(), source.holeCards(), source.buyIn(),
-                source.rebuyCount(), source.warming());
+                source.decision(), source.actionKind(), label,
+                source.handName(), source.holeCards(), source.buyIn(),
+                source.rebuyCount(), source.warming(), source.presentation());
     }
 
     private static TableSnapshot.PlayerSnapshot copyPlayerUnderTheGun(
@@ -1157,8 +1515,10 @@ final class GdxTableViewState {
                 source.timedOut(), source.latency(), source.previousLatency(),
                 source.reconnectionCount(), source.telemetryAt(),
                 source.winner(), underTheGun, source.position(),
-                source.lastAction(), source.handName(), source.holeCards(),
-                source.buyIn(), source.rebuyCount(), source.warming());
+                source.decision(), source.actionKind(), source.lastAction(),
+                source.handName(), source.holeCards(),
+                source.buyIn(), source.rebuyCount(), source.warming(),
+                source.presentation());
     }
 
     private static List<TableSnapshot.CardSnapshot> padded(
@@ -1181,7 +1541,17 @@ final class GdxTableViewState {
             List<TableSnapshot.PlayerSnapshot> players,
             List<TableSnapshot.CardSnapshot> board) {
         return new TableSnapshot(source.revision(), source.localNickname(),
-                street, pot, turn, source.paused(), players, board);
+                street, pot, turn, source.paused(), players, board,
+                source.presentation());
+    }
+
+    private static TableSnapshot copySnapshotPresentation(
+            TableSnapshot source,
+            TableSnapshot.TablePresentation presentation) {
+        return new TableSnapshot(source.revision(), source.localNickname(),
+                source.street(), source.pot(),
+                source.currentTurnNickname(), source.paused(),
+                source.players(), source.communityCards(), presentation);
     }
 
     private static TableSnapshot.PlayerSnapshot copyPlayer(
@@ -1194,8 +1564,66 @@ final class GdxTableViewState {
                 source.exited(), source.timedOut(), source.latency(),
                 source.previousLatency(), source.reconnectionCount(),
                 source.telemetryAt(), winner, source.underTheGun(), position,
-                action, hand, cards, source.buyIn(), source.rebuyCount(),
-                source.warming());
+                source.decision(), source.actionKind(), action, hand, cards,
+                source.buyIn(), source.rebuyCount(),
+                source.warming(), source.presentation());
+    }
+
+    private static TableSnapshot.PlayerSnapshot copyPlayerAction(
+            TableSnapshot.PlayerSnapshot source, double stack,
+            double streetBet, double contribution, boolean active,
+            boolean winner, TableSnapshot.Position position, String action,
+            String hand, List<TableSnapshot.CardSnapshot> cards,
+            TableSnapshot.Decision decision,
+            TableSnapshot.ActionKind actionKind) {
+        return new TableSnapshot.PlayerSnapshot(source.nickname(), stack,
+                streetBet, contribution, active, source.spectator(),
+                source.exited(), source.timedOut(), source.latency(),
+                source.previousLatency(), source.reconnectionCount(),
+                source.telemetryAt(), winner, source.underTheGun(), position,
+                decision, actionKind, action, hand, cards, source.buyIn(),
+                source.rebuyCount(), source.warming(),
+                copyPresentationActionLabel(source.presentation(), action));
+    }
+
+    private static TableSnapshot.PlayerSnapshot copyPlayerPresentation(
+            TableSnapshot.PlayerSnapshot source,
+            TableSnapshot.PlayerPresentation presentation) {
+        return new TableSnapshot.PlayerSnapshot(source.nickname(),
+                source.stack(), source.streetBet(), source.potContribution(),
+                source.active(), source.spectator(), source.exited(),
+                source.timedOut(), source.latency(), source.previousLatency(),
+                source.reconnectionCount(), source.telemetryAt(),
+                source.winner(), source.underTheGun(), source.position(),
+                source.decision(), source.actionKind(), source.lastAction(),
+                source.handName(), source.holeCards(), source.buyIn(),
+                source.rebuyCount(), source.warming(), presentation);
+    }
+
+    private static TableSnapshot.PlayerPresentation copyPresentationRebuy(
+            TableSnapshot.PlayerPresentation source,
+            TableSnapshot.RebuyPhase rebuyPhase,
+            int immediateRebuyAmount) {
+        return new TableSnapshot.PlayerPresentation(source.showingCards(),
+                source.partialHand(), source.partialWinPercentage(),
+                source.resultResolved(), source.publicHandName(),
+                source.wonPotIndexes(), source.returnedSidePot(),
+                source.showdownHighlightEnabled(),
+                source.winningHoleCardSlots(),
+                source.winningCommunityCardSlots(), rebuyPhase,
+                immediateRebuyAmount, source.publicActionLabel());
+    }
+
+    private static TableSnapshot.PlayerPresentation copyPresentationActionLabel(
+            TableSnapshot.PlayerPresentation source, String actionLabel) {
+        return new TableSnapshot.PlayerPresentation(source.showingCards(),
+                source.partialHand(), source.partialWinPercentage(),
+                source.resultResolved(), source.publicHandName(),
+                source.wonPotIndexes(), source.returnedSidePot(),
+                source.showdownHighlightEnabled(),
+                source.winningHoleCardSlots(),
+                source.winningCommunityCardSlots(), source.rebuyPhase(),
+                source.immediateRebuyAmount(), actionLabel);
     }
 
     private static TableSnapshot.PlayerSnapshot copyPlayerRebuy(
@@ -1209,9 +1637,10 @@ final class GdxTableViewState {
                 source.latency(), source.previousLatency(),
                 source.reconnectionCount(), source.telemetryAt(),
                 source.winner(), source.underTheGun(), source.position(),
-                source.lastAction(), source.handName(), source.holeCards(),
+                source.decision(), source.actionKind(), source.lastAction(),
+                source.handName(), source.holeCards(),
                 source.buyIn() + amount, source.rebuyCount() + 1,
-                source.warming());
+                source.warming(), source.presentation());
     }
 
 }

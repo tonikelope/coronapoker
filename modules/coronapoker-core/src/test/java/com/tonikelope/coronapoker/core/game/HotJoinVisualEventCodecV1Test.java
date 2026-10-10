@@ -9,7 +9,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableSessionSummary;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class HotJoinVisualEventCodecV1Test {
@@ -91,9 +93,7 @@ class HotJoinVisualEventCodecV1Test {
                 new TableVisualEvent.SwapHoleCards(34, "ana", false),
                 new TableVisualEvent.TableInfo(35, 0.1d, 0.2d,
                         7, 5, 2, 1),
-                new TableVisualEvent.CallCost(36, "0.2", "ana"),
                 new TableVisualEvent.ImmediateRebuyStatus(37, "ana", 10),
-                new TableVisualEvent.DeckChanged(38, "default"),
                 new TableVisualEvent.LastHandStatus(39, true),
                 new TableVisualEvent.HandLimitStatus(40, 100),
                 new TableVisualEvent.GameConfigurationStatus(41,
@@ -107,7 +107,13 @@ class HotJoinVisualEventCodecV1Test {
                                 TableSessionSummary.CloseReason.COMPLETED,
                                 List.of(new TableSessionSummary.PlayerBalance(
                                         "ana", 12d, 10d, 0))),
-                        TableSnapshot.Street.FINISHED));
+                        TableSnapshot.Street.FINISHED),
+                new TableVisualEvent.HandBoundary(46, 7L,
+                        TableVisualEvent.HandBoundary.Phase.END,
+                        new TableSnapshot(8L, "host",
+                                TableSnapshot.Street.SHOWDOWN, 12d, "",
+                                false, List.of(player("ana", false, false,
+                                        FACE_UP)), List.of(FACE_UP))));
 
         for (TableVisualEvent source : events) {
             String encoded = HotJoinVisualEventCodecV1.encode(source)
@@ -120,6 +126,52 @@ class HotJoinVisualEventCodecV1Test {
             assertEquals(encoded, HotJoinVisualEventCodecV1.encode(decoded)
                     .orElseThrow(), source.getClass().getSimpleName());
         }
+
+        /*
+         * This is intentionally a closed contract, not merely a collection of
+         * round-trip examples.  If a new TableVisualEvent subtype is added,
+         * the test must classify it as public/replayable above or explicitly
+         * local-only below.  That prevents a future semantic visual state from
+         * working for incumbents while silently disappearing for CALENTANDO.
+         */
+        Set<Class<?>> classified = new HashSet<>();
+        events.stream().map(Object::getClass).forEach(classified::add);
+        classified.addAll(Set.of(
+                TableVisualEvent.HotJoinState.class,
+                TableVisualEvent.PreparationStatus.class,
+                TableVisualEvent.ActionControls.class,
+                TableVisualEvent.PreActionControls.class,
+                TableVisualEvent.IwtsthCandidates.class,
+                TableVisualEvent.LateJoinRequest.class,
+                TableVisualEvent.CallCost.class,
+                TableVisualEvent.DeckChanged.class));
+        assertEquals(Set.of(TableVisualEvent.class.getPermittedSubclasses()),
+                classified,
+                "every event must be public/replayable or deliberately local-only");
+    }
+
+    @Test
+    void handBoundarySnapshotIsLocalizedForTheWarmingClient() {
+        TableVisualEvent.HandBoundary source
+                = new TableVisualEvent.HandBoundary(1L, 7L,
+                        TableVisualEvent.HandBoundary.Phase.END,
+                        new TableSnapshot(8L, "host",
+                                TableSnapshot.Street.SHOWDOWN, 12d, "",
+                                false, List.of(player("ana", false, false,
+                                        FACE_UP)), List.of(FACE_UP)));
+
+        TableVisualEvent.HandBoundary decoded = assertInstanceOf(
+                TableVisualEvent.HandBoundary.class,
+                HotJoinVisualEventCodecV1.decode(
+                        HotJoinVisualEventCodecV1.encode(source)
+                                .orElseThrow(),
+                        RECEIVER_SEQUENCE, "warming-client"));
+
+        assertEquals("warming-client",
+                decoded.snapshot().localNickname());
+        assertEquals(TableSnapshot.Street.SHOWDOWN,
+                decoded.snapshot().street());
+        assertEquals(12d, decoded.snapshot().pot());
     }
 
     @Test
@@ -162,6 +214,24 @@ class HotJoinVisualEventCodecV1Test {
         assertTrue(roster.players().get(1).holeCards().stream()
                 .allMatch(card -> card.code().isBlank()
                         && !card.faceUp() && card.visible()));
+        assertEquals(TableSnapshot.Decision.CHECK,
+                roster.players().get(1).decision());
+        assertEquals(TableSnapshot.ActionKind.CALL,
+                roster.players().get(1).actionKind());
+    }
+
+    @Test
+    void shuffleLifecycleDoesNotLeakTheHostsLocalDeckPreference() {
+        TableVisualEvent.Shuffle decoded = assertInstanceOf(
+                TableVisualEvent.Shuffle.class,
+                HotJoinVisualEventCodecV1.decode(
+                        HotJoinVisualEventCodecV1.encode(
+                                new TableVisualEvent.Shuffle(1, "host-deck",
+                                        TableVisualEvent.Shuffle.Phase.START))
+                                .orElseThrow(), RECEIVER_SEQUENCE));
+
+        assertEquals("", decoded.deck());
+        assertEquals(TableVisualEvent.Shuffle.Phase.START, decoded.phase());
     }
 
     @Test
@@ -175,6 +245,12 @@ class HotJoinVisualEventCodecV1Test {
                 .isEmpty());
         assertTrue(HotJoinVisualEventCodecV1.encode(new TableVisualEvent
                 .IwtsthCandidates(3, List.of("ana"))).isEmpty());
+        assertTrue(HotJoinVisualEventCodecV1.encode(new TableVisualEvent
+                .CallCost(4, "+1.2", "host")).isEmpty(),
+                "the call-cost overlay belongs to the local acting seat");
+        assertTrue(HotJoinVisualEventCodecV1.encode(new TableVisualEvent
+                .DeckChanged(5, "local-deck")).isEmpty(),
+                "a warming client must retain its own deck preference");
     }
 
     @Test
@@ -189,8 +265,17 @@ class HotJoinVisualEventCodecV1Test {
             TableSnapshot.CardSnapshot card) {
         return new TableSnapshot.PlayerSnapshot(nickname, 8d, 2d, 2d,
                 !spectator, spectator, false, false, 10, 11, 1, 123L,
-                false, false, TableSnapshot.Position.BIG_BLIND, "CALL", "",
-                List.of(card, card), 10, 0, warming);
+                false, false, TableSnapshot.Position.BIG_BLIND,
+                spectator ? TableSnapshot.Decision.NONE
+                        : TableSnapshot.Decision.CHECK,
+                spectator ? TableSnapshot.ActionKind.NONE
+                        : TableSnapshot.ActionKind.CALL,
+                "CALL", "",
+                List.of(card, card), 10, 0, warming,
+                new TableSnapshot.PlayerPresentation(false, false, -1f,
+                        false, "", List.of(), false, false, List.of(),
+                        List.of(), TableSnapshot.RebuyPhase.WAITING, 10,
+                        "CALL"));
     }
 
     private static GameConfigCodecV1.Configuration configuration() {

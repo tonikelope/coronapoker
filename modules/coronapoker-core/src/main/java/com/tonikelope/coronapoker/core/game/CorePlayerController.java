@@ -199,7 +199,16 @@ public final class CorePlayerController implements GamePlayerController {
     }
 
     @Override public boolean isCalentando() {
-        return isSpectator() && MoneyMath.compare(0d, getStack()) < 0;
+        return state.warming() && isSpectator() && !isExit();
+    }
+
+    @Override public synchronized void setCalentando(String message) {
+        state.setWarming(true);
+        setSpectator(message);
+    }
+
+    @Override public synchronized void clearCalentando() {
+        state.setWarming(false);
     }
     @Override public boolean isActivo() { return !isExit() && !isSpectator(); }
     @Override public void stopActionTimer() { }
@@ -247,11 +256,7 @@ public final class CorePlayerController implements GamePlayerController {
     @Override
     public synchronized void nuevaMano() {
         setTurn(false);
-        state.setDecision(PlayerState.Decision.NONE);
-        state.setShowingCards(false);
-        state.setWinner(false);
-        state.setHandName("");
-        state.setLastAction("");
+        resetPresentationForNewHand();
         loser = false;
         resetBote();
         Integer rebuy = committedRebuy.get();
@@ -270,6 +275,18 @@ public final class CorePlayerController implements GamePlayerController {
         firstCard.resetearCarta(false);
         secondCard.resetearCarta(false);
         applyCurrentHandPosition();
+    }
+
+    @Override
+    public synchronized void resetPresentationForNewHand() {
+        state.setDecision(PlayerState.Decision.NONE);
+        state.setActionKind(PlayerState.ActionKind.NONE);
+        state.setShowingCards(false);
+        state.setWinner(false);
+        state.setHandName("");
+        state.setLastAction("");
+        state.resetHandPresentation();
+        loser = false;
     }
 
     @Override
@@ -346,6 +363,13 @@ public final class CorePlayerController implements GamePlayerController {
         return submitDecision(checkIsFree ? CHECK : FOLD, 0d, true);
     }
     @Override public int getDecision() { return decisionValue(state.decision()); }
+    @Override public void setPresentationActionKind(
+            PlayerState.ActionKind actionKind) {
+        state.setActionKind(actionKind);
+    }
+    @Override public void setPresentationActionLabel(String actionLabel) {
+        state.setPublicActionLabel(actionLabel);
+    }
     @Override public void markFoldedOnRecover() { setDecision(FOLD, "FOLD"); }
     @Override public void setStack(double stack) {
         state.setStack(MoneyMath.clean(stack));
@@ -402,7 +426,9 @@ public final class CorePlayerController implements GamePlayerController {
 
     @Override public void resetBetDecision() {
         state.setDecision(PlayerState.Decision.NONE);
+        state.setActionKind(PlayerState.ActionKind.NONE);
         state.setLastAction("");
+        state.setPublicActionLabel("");
     }
     @Override public void resetAutomatedDecisionState() {
         if (bot != null) bot.resetBot();
@@ -477,9 +503,11 @@ public final class CorePlayerController implements GamePlayerController {
                 0d) == 0) {
             state.setSpectator(true);
             state.setDecision(PlayerState.Decision.FOLD);
+            state.setActionKind(PlayerState.ActionKind.NONE);
             state.setPotContribution(0d);
         }
         state.setExited(true);
+        state.setWarming(false);
         state.setTimedOut(false);
         state.setActive(false);
         setTurn(false);
@@ -503,12 +531,14 @@ public final class CorePlayerController implements GamePlayerController {
             // must not keep an inactive spectator in later betting/showdown
             // rosters, and their previous pot contribution is no longer live.
             state.setDecision(PlayerState.Decision.FOLD);
+            state.setActionKind(PlayerState.ActionKind.NONE);
             state.setPotContribution(0d);
             state.setLastAction(message);
             setTurn(false);
         }
     }
-    @Override public void unsetSpectator() {
+    @Override public synchronized void unsetSpectator() {
+        clearCalentando();
         state.setSpectator(false);
         state.setActive(!isExit());
     }
@@ -520,6 +550,7 @@ public final class CorePlayerController implements GamePlayerController {
             float winPercentage) {
         state.setHandName(hand == null ? "" : hand.getName());
         state.setWinner(winner);
+        state.setPartialHand(winPercentage);
         loser = !winner;
     }
     @Override public boolean isWinner() { return state.winner(); }
@@ -527,6 +558,26 @@ public final class CorePlayerController implements GamePlayerController {
     @Override public void applyShowdownResult(boolean winner, String handName) {
         if (winner) showWinner(handName);
         else showLoser(handName);
+        state.setPublicHandName(handName);
+        state.setResolvedHandResult(true);
+    }
+    @Override public void setPresentationWonPotIndexes(List<Integer> indexes) {
+        state.setWonPotIndexes(indexes);
+    }
+    @Override public void setPresentationPublicHandName(String handName) {
+        state.setPublicHandName(handName);
+    }
+    @Override public void setPresentationReturnedSidePot(boolean returned) {
+        state.setReturnedSidePot(returned);
+    }
+    @Override public void setPresentationShowdownHighlight(boolean enabled,
+            List<Integer> holeSlots, List<Integer> communitySlots) {
+        state.setShowdownHighlight(enabled, holeSlots, communitySlots);
+    }
+    @Override public void resetPresentationForNextRunout() {
+        state.setWinner(false);
+        state.setHandName("");
+        state.resetHandPresentation();
     }
     @Override public boolean isMuestra() { return state.showingCards(); }
     @Override public void setMuestra(boolean showing) { state.setShowingCards(showing); }
@@ -553,8 +604,21 @@ public final class CorePlayerController implements GamePlayerController {
 
     private void setDecision(int value, String label) {
         state.setDecision(decisionState(value));
+        state.setActionKind(actionState(value, label));
         state.setLastAction(getNickname() + " " + label + " ("
                 + MoneyMath.clean(getBote()) + ")");
+    }
+
+    private static PlayerState.ActionKind actionState(int value, String label) {
+        return switch (value) {
+            case FOLD -> PlayerState.ActionKind.FOLD;
+            case CHECK -> "CALL".equals(label)
+                    ? PlayerState.ActionKind.CALL
+                    : PlayerState.ActionKind.CHECK;
+            case BET -> PlayerState.ActionKind.BET;
+            case ALLIN -> PlayerState.ActionKind.ALL_IN;
+            default -> PlayerState.ActionKind.NONE;
+        };
     }
 
     private DealerView requireDealer() {

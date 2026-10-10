@@ -3967,7 +3967,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : liveState.snapshot().players()) {
             if (player.nickname().equals(liveState.snapshot().localNickname())
                     || !player.active() || player.spectator()
-                    || player.exited()) {
+                    || player.exited()
+                    || player.decision() == TableSnapshot.Decision.FOLD) {
                 continue;
             }
             found = true;
@@ -7620,7 +7621,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         for (Seat seat : seats) {
-            TableVisualEvent.ShowdownHighlight highlight
+            GdxTableViewState.ShowdownHighlightState highlight
                     = liveState.showdownHighlight(seat.name);
             if (highlight == null || !highlight.enabled()) {
                 continue;
@@ -9598,7 +9599,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float alpha = rabbitRestingAlpha(rabbitCard,
                 liveRestingCardAlpha(card, nickname, slot, communityCard,
                         placement));
-        TableVisualEvent.ShowdownHighlight highlight = liveShowdownHoverNickname == null
+        GdxTableViewState.ShowdownHighlightState highlight = liveShowdownHoverNickname == null
                 ? null : liveState.showdownHighlight(liveShowdownHoverNickname);
         boolean showdownTint = !rabbitCard && highlight != null && alpha >= 1f;
         if (rabbitCard) {
@@ -9656,7 +9657,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!card.faceUp()) {
             return card.disabled() ? DISABLED_CARD_ALPHA : 1f;
         }
-        TableVisualEvent.ShowdownHighlight highlight = liveShowdownHoverNickname == null
+        GdxTableViewState.ShowdownHighlightState highlight = liveShowdownHoverNickname == null
                 ? null : liveState.showdownHighlight(liveShowdownHoverNickname);
         Boolean selected;
         if (highlight != null) {
@@ -11692,9 +11693,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (liveShuffle != null) {
                 throw new IllegalStateException("A GDX shuffle is already active");
             }
-            liveDeck = availableDeck(event.deck());
+            String shuffleDeck = event.deck().isBlank()
+                    ? liveDeck : availableDeck(event.deck());
+            liveDeck = availableDeck(shuffleDeck);
             liveState.apply(event);
-            liveShuffle = new LiveShuffle(event.deck(), System.nanoTime(),
+            liveShuffle = new LiveShuffle(liveDeck, System.nanoTime(),
                     liveShuffleAnimationEnabled(),
                     liveShuffleSoundEnabled());
             startLiveShuffleSound(liveShuffle);
@@ -12150,7 +12153,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private boolean isFolded(int seat) {
         TableSnapshot.PlayerSnapshot player = livePlayer(seats[seat]);
-        return player != null && !player.active();
+        if (player == null) {
+            return false;
+        }
+        return shouldDimSeat(player.active(),
+                hasSettledPresentation(liveState.hasHandResult(player.nickname()),
+                        liveState.resolvedHandWinner(player.nickname())),
+                liveState.foldedThisHand(player.nickname()));
     }
 
     static boolean hasSettledPresentation(boolean hasHandResult,

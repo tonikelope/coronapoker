@@ -255,7 +255,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 initialConfiguration.buyin(), gameEntropy);
         CorePlayerController local = players.get(0);
         if (context.hotJoining()) {
-            local.setSpectator(gameText.translate("game.calentando"));
+            local.setCalentando(gameText.translate("game.calentando"));
         }
         ChannelGameTransport transport = new ChannelGameTransport(context);
         Map<String, GamePeerController> peers = createPeers(lobby,
@@ -997,6 +997,23 @@ public final class CoreGameTableFactory implements GameTableFactory {
                     } else if (peers.containsKey(command.peerNickname())) {
                         dealer.acceptRemoteHandReady(command.peerNickname(),
                                 envelope);
+                    } else if (!context.channel().isPeerConnected(
+                            command.peerNickname())) {
+                        /*
+                         * A voluntary HOTJOIN_EXIT and a dealer-boundary
+                         * HAND_READY can cross on the leaving client's two
+                         * threads. Both frames were authenticated by the same
+                         * socket generation, but the ordered listener may see
+                         * the exit first and retire that generation before it
+                         * reaches this already-queued readiness frame. It is a
+                         * stale frame from a proven-retired peer, not a table
+                         * protocol violation. Never close the shared channel
+                         * (and therefore every healthy player) for it.
+                         *
+                         * A still-connected unknown nickname remains invalid
+                         * and follows the strict close path below.
+                         */
+                        return;
                     } else {
                         throw new IllegalArgumentException(
                                 "HAND_READY source is not seated or warming");
@@ -1894,6 +1911,12 @@ public final class CoreGameTableFactory implements GameTableFactory {
                             .beginSnapshot(snapshotFrontier);
                 }
                 sendSnapshot(nickname, publicSnapshot);
+                for (TableVisualEvent status
+                        : current.publicHotJoinStatusEvents()) {
+                    send(nickname, "HOTJOIN_EVENT#"
+                            + HotJoinVisualEventCodecV1.encode(status)
+                                    .orElseThrow());
+                }
                 current.publicHotJoinTurnTimer().ifPresent(timer -> send(
                         nickname, "HOTJOIN_EVENT#"
                         + HotJoinVisualEventCodecV1.encode(timer)
@@ -2109,13 +2132,9 @@ public final class CoreGameTableFactory implements GameTableFactory {
          */
         void observePresentationEvent(TableVisualEvent event) {
             if (!host || warming.isEmpty()) return;
-            TableVisualEvent publicEvent = event;
-            if (event instanceof TableVisualEvent.SeatRoster roster) {
-                Crupier current = dealer;
-                if (current == null) return;
-                publicEvent = new TableVisualEvent.SeatRoster(
-                        roster.sequence(), current.publicHotJoinRoster());
-            }
+            Crupier current = dealer;
+            if (current == null) return;
+            TableVisualEvent publicEvent = current.publicHotJoinEvent(event);
             String encoded = HotJoinVisualEventCodecV1.encode(publicEvent)
                     .orElse(null);
             if (encoded == null) return;
@@ -2135,7 +2154,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
         void acceptPresentation(String encoded) {
             events.publishAuthoritative(sequence -> {
                 TableVisualEvent event = HotJoinVisualEventCodecV1.decode(
-                        encoded, sequence);
+                        encoded, sequence, localNickname);
                 if (event instanceof TableVisualEvent.CloseTable close
                         && !localNickname.equals(
                                 close.summary().localNickname())) {

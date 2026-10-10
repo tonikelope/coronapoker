@@ -699,8 +699,15 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 executor.execute(() -> readHostPeer(accepted));
                 accepted.startHeartbeat(this::publishCurrent);
                 if (hotJoin) {
-                    broadcastGame(hotJoinCommand, accepted);
+                    /*
+                     * The host is the authority that queues and bootstraps a
+                     * late joiner. Commit that transition locally before the
+                     * remote fan-out: one stale incumbent outbox must never
+                     * leave the newcomer admitted by the lobby but unknown to
+                     * the running table.
+                     */
                     gameChannel.receive(localNickname, hotJoinCommand);
+                    broadcastHotJoinBestEffort(hotJoinCommand, accepted);
                 }
                 connection = null;
             } catch (Exception ignored) {
@@ -1225,6 +1232,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     if (parts.length < 3) throw new IOException("Malformed GAME frame");
                     int id = Integer.parseInt(parts[1]);
                     String subcommand = parts[2];
+                    boolean heldForConfirmation = false;
                     GameCommandGate.Decision decision = source.gameCommandGate.accept(
                             subcommand, id, command);
                     boolean lobbyCommand = isLobbyGameCommand(subcommand);
@@ -1243,9 +1251,6 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                                         : "HOST_TO_CLIENT")
                                 + ", registered=" + !decision.closeConnection()
                                 + ", lobbyCommand=" + lobbyCommand + "]");
-                    }
-                    if (decision.acknowledge()) {
-                        source.writeEncrypted("CONF#" + (id + 1) + "#OK");
                     }
                     if (decision.enqueue()) {
                         if (lobbyCommand) receiveGame(parts);
@@ -1267,10 +1272,28 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                                 publishTableSession();
                             }
                             if (!"HOTJOINPOLICY".equals(subcommand)) {
-                                gameChannel.receive(source.remoteNickname,
+                                heldForConfirmation = gameChannel.receiveHeld(
+                                        source.remoteNickname,
                                         command.substring(command.indexOf('#',
                                                 command.indexOf('#') + 1) + 1));
                             }
+                        }
+                    }
+                    /*
+                     * A confirmation is a durability boundary, not merely a
+                     * registry acknowledgement.  The sender may advance its
+                     * dealer as soon as CONF arrives, so emit it only after a
+                     * first-seen command has been applied to lobby state and
+                     * accepted by the ordered game channel. Exact replays are
+                     * already durable and remain immediately idempotent.
+                     */
+                    try {
+                        if (decision.acknowledge()) {
+                            source.writeEncrypted("CONF#" + (id + 1) + "#OK");
+                        }
+                    } finally {
+                        if (heldForConfirmation) {
+                            gameChannel.releaseConfirmed();
                         }
                     }
                 }
@@ -1538,6 +1561,28 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             }
         }
 
+        private void broadcastHotJoinBestEffort(String body,
+                Connection newcomer) {
+            for (Peer peer : List.copyOf(peers.values())) {
+                if (peer.connection == null || peer.connection == newcomer) {
+                    continue;
+                }
+                try {
+                    sendGame(peer.connection, body);
+                } catch (Exception unavailable) {
+                    /*
+                     * A disconnected incumbent is removed/reconnected by its
+                     * reader. Continue notifying every healthy peer; the host
+                     * transition above is already canonical and must not be
+                     * rolled back because one remote outbox closed.
+                     */
+                    LOGGER.log(Level.FINE,
+                            "Skipping unavailable peer during hot-join fan-out: {0}",
+                            peer.nickname);
+                }
+            }
+        }
+
         private void sendGame(Connection connection, String body) throws Exception {
             connection.enqueueGame(body);
         }
@@ -1605,6 +1650,15 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             peerStatsUgis.remove(nickname);
             if (removed == null || removed.local) return;
             if (removed.connection != null) removed.connection.close();
+            /*
+             * receiveText and removePeer share the Transport monitor. No old
+             * socket generation can enqueue another command while this purge
+             * runs, and a new incarnation with the same nickname cannot be
+             * accepted until the monitor is released. This makes voluntary
+             * exit an exact per-peer barrier instead of letting a late
+             * HAND_READY poison the shared table channel.
+             */
+            gameChannel.discardPendingFromPeer(removed.nickname);
             addPresence(nickname, LobbyChatMessage.Type.PLAYER_LEFT);
             if (host && broadcast) broadcastGame("DELUSER#" + b64(nickname), removed.connection);
             publishCurrent();
@@ -1782,6 +1836,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private boolean closed;
         private boolean terminating;
         private boolean draining;
+        private int confirmationHolds;
         private long pendingBytes;
         private Consumer<Inbound> listener;
         private Consumer<String> peerLossListener;
@@ -1794,6 +1849,35 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         }
 
         synchronized void receive(String peerNickname, String command) throws IOException {
+            if (!enqueue(peerNickname, command)) return;
+            scheduleDrain();
+        }
+
+        /**
+         * Queues one authenticated first-seen frame but prevents the consumer
+         * from observing it until the transport has emitted its confirmation.
+         * A terminal command such as HOTJOIN_EXITED can close its own socket
+         * from the game listener; without this hold that close can overtake
+         * CONF and strand the sender in its retry/reconnect deadline.
+         */
+        synchronized boolean receiveHeld(String peerNickname, String command)
+                throws IOException {
+            if (!enqueue(peerNickname, command)) return false;
+            confirmationHolds++;
+            return true;
+        }
+
+        synchronized void releaseConfirmed() {
+            if (confirmationHolds <= 0) {
+                throw new IllegalStateException(
+                        "No confirmed game delivery is currently held");
+            }
+            confirmationHolds--;
+            scheduleDrain();
+        }
+
+        private boolean enqueue(String peerNickname, String command)
+                throws IOException {
             if (closed) {
                 // The dealer closes its table channel independently on each
                 // peer. A final authenticated GAME frame may already be in the
@@ -1801,7 +1885,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 // stale presentation/game traffic, not a lobby transport
                 // failure: dropping it keeps the authenticated lobby alive for
                 // the final screen and avoids evicting a healthy peer.
-                return;
+                return false;
             }
             int bytes = command.getBytes(StandardCharsets.UTF_8).length;
             if (pending.size() >= MAX_PENDING_COMMANDS
@@ -1814,7 +1898,19 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             }
             pending.addLast(new Inbound(peerNickname, command));
             pendingBytes += bytes;
-            scheduleDrain();
+            return true;
+        }
+
+        synchronized void discardPendingFromPeer(String peerNickname) {
+            if (peerNickname == null || pending.isEmpty()) return;
+            java.util.Iterator<Inbound> iterator = pending.iterator();
+            while (iterator.hasNext()) {
+                Inbound command = iterator.next();
+                if (!peerNickname.equals(command.peerNickname())) continue;
+                pendingBytes -= command.command()
+                        .getBytes(StandardCharsets.UTF_8).length;
+                iterator.remove();
+            }
         }
 
         @Override
@@ -1881,7 +1977,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         }
 
         private void scheduleDrain() {
-            if (listener == null || draining || pending.isEmpty()) return;
+            if (listener == null || draining || pending.isEmpty()
+                    || confirmationHolds > 0) return;
             draining = true;
             executor.execute(this::drain);
         }
@@ -1895,7 +1992,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 Consumer<Inbound> target;
                 Inbound command;
                 synchronized (this) {
-                    if (closed || listener == null || pending.isEmpty()) {
+                    if (closed || listener == null || pending.isEmpty()
+                            || confirmationHolds > 0) {
                         draining = false;
                         return;
                     }
@@ -2019,6 +2117,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             pending.clear();
             pendingPeerLosses.clear();
             pendingBytes = 0L;
+            confirmationHolds = 0;
             listener = null;
             peerLossListener = null;
         }

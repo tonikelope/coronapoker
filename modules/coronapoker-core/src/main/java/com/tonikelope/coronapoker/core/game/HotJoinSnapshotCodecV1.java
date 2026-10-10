@@ -51,14 +51,21 @@ public final class HotJoinSnapshotCodecV1 {
                     out.writeBoolean(player.winner());
                     out.writeBoolean(player.underTheGun());
                     out.writeInt(player.position().ordinal());
+                    out.writeInt(player.decision().ordinal());
+                    out.writeInt(player.actionKind().ordinal());
                     writeText(out, player.lastAction());
                     writeText(out, player.handName());
                     writeCards(out, player.holeCards());
                     out.writeInt(player.buyIn());
                     out.writeInt(player.rebuyCount());
                     out.writeBoolean(player.warming());
+                    writePlayerPresentation(out, player.presentation());
                 }
                 writeCards(out, snapshot.communityCards());
+                writeText(out, snapshot.presentation().potPrefix());
+                out.writeInt(snapshot.presentation()
+                        .sharedProgressRemainingSeconds());
+                writeIntegers(out, snapshot.presentation().rabbitCardSlots());
             }
             byte[] encoded = bytes.toByteArray();
             if (encoded.length > MAX_BYTES) {
@@ -113,24 +120,37 @@ public final class HotJoinSnapshotCodecV1 {
                 boolean underTheGun = in.readBoolean();
                 TableSnapshot.Position position = enumValue(
                         TableSnapshot.Position.values(), in.readInt(), "position");
+                TableSnapshot.Decision decision = enumValue(
+                        TableSnapshot.Decision.values(), in.readInt(), "decision");
+                TableSnapshot.ActionKind actionKind = enumValue(
+                        TableSnapshot.ActionKind.values(), in.readInt(), "action kind");
                 String lastAction = readText(in);
                 String handName = readText(in);
                 List<TableSnapshot.CardSnapshot> cards = readCards(in, 2);
                 int buyIn = in.readInt();
                 int rebuyCount = in.readInt();
                 boolean warming = in.readBoolean();
+                TableSnapshot.PlayerPresentation presentation
+                        = readPlayerPresentation(in);
                 players.add(new TableSnapshot.PlayerSnapshot(nickname, stack,
                         streetBet, contribution, active, spectator, exited,
                         timedOut, latency, previousLatency, reconnections,
-                        telemetryAt, winner, underTheGun, position, lastAction,
-                        handName, cards, buyIn, rebuyCount, warming));
+                        telemetryAt, winner, underTheGun, position, decision,
+                        actionKind, lastAction,
+                        handName, cards, buyIn, rebuyCount, warming,
+                        presentation));
             }
             List<TableSnapshot.CardSnapshot> board = readCards(in, 5);
+            TableSnapshot.TablePresentation presentation
+                    = new TableSnapshot.TablePresentation(readText(in),
+                            boundedCount(in.readInt(), 0, 86_400,
+                                    "shared progress"),
+                            readIntegers(in, 5, "rabbit card slots"));
             if (in.available() != 0) {
                 throw new IllegalArgumentException("Trailing hot-join snapshot data");
             }
             return new TableSnapshot(revision, localNickname, street, pot,
-                    currentTurn, paused, players, board);
+                    currentTurn, paused, players, board, presentation);
         } catch (IOException invalid) {
             throw new IllegalArgumentException("Truncated hot-join snapshot", invalid);
         }
@@ -156,6 +176,64 @@ public final class HotJoinSnapshotCodecV1 {
                     in.readBoolean(), in.readBoolean(), in.readBoolean()));
         }
         return List.copyOf(cards);
+    }
+
+    private static void writePlayerPresentation(DataOutputStream out,
+            TableSnapshot.PlayerPresentation presentation)
+            throws IOException {
+        out.writeBoolean(presentation.showingCards());
+        out.writeBoolean(presentation.partialHand());
+        out.writeFloat(presentation.partialWinPercentage());
+        out.writeBoolean(presentation.resultResolved());
+        writeText(out, presentation.publicHandName());
+        writeIntegers(out, presentation.wonPotIndexes());
+        out.writeBoolean(presentation.returnedSidePot());
+        out.writeBoolean(presentation.showdownHighlightEnabled());
+        writeIntegers(out, presentation.winningHoleCardSlots());
+        writeIntegers(out, presentation.winningCommunityCardSlots());
+        out.writeInt(presentation.rebuyPhase().ordinal());
+        out.writeInt(presentation.immediateRebuyAmount());
+        writeText(out, presentation.publicActionLabel());
+    }
+
+    private static TableSnapshot.PlayerPresentation readPlayerPresentation(
+            DataInputStream in) throws IOException {
+        boolean showingCards = in.readBoolean();
+        boolean partialHand = in.readBoolean();
+        float percentage = in.readFloat();
+        boolean resolved = in.readBoolean();
+        String publicHandName = readText(in);
+        List<Integer> pots = readIntegers(in, 32, "won pot indexes");
+        boolean returnedSidePot = in.readBoolean();
+        boolean highlighted = in.readBoolean();
+        List<Integer> holeSlots = readIntegers(in, 2,
+                "winning hole-card slots");
+        List<Integer> communitySlots = readIntegers(in, 5,
+                "winning community-card slots");
+        TableSnapshot.RebuyPhase rebuyPhase = enumValue(
+                TableSnapshot.RebuyPhase.values(), in.readInt(),
+                "rebuy phase");
+        int immediateRebuyAmount = boundedCount(in.readInt(), 0,
+                Integer.MAX_VALUE, "immediate rebuy amount");
+        String publicActionLabel = readText(in);
+        return new TableSnapshot.PlayerPresentation(showingCards,
+                partialHand, percentage, resolved, publicHandName, pots,
+                returnedSidePot, highlighted, holeSlots, communitySlots,
+                rebuyPhase, immediateRebuyAmount, publicActionLabel);
+    }
+
+    private static void writeIntegers(DataOutputStream out,
+            List<Integer> values) throws IOException {
+        out.writeInt(values.size());
+        for (Integer value : values) out.writeInt(value);
+    }
+
+    private static List<Integer> readIntegers(DataInputStream in, int maximum,
+            String label) throws IOException {
+        int count = boundedCount(in.readInt(), 0, maximum, label);
+        ArrayList<Integer> values = new ArrayList<>(count);
+        for (int index = 0; index < count; index++) values.add(in.readInt());
+        return List.copyOf(values);
     }
 
     private static void writeText(DataOutputStream out, String value)

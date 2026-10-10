@@ -108,6 +108,22 @@ class GdxMultiprocessScenarioTest {
     }
 
     @Test
+    @Timeout(value = 6, unit = TimeUnit.MINUTES)
+    void freshHotJoinReconstructsFoldedSeatSemanticsAndVisuals(
+            @TempDir Path root) throws Exception {
+        runLiveHotJoinScenario(root, 1, 1,
+                "live-hot-join-folded-bootstrap");
+    }
+
+    @Test
+    @Timeout(value = 7, unit = TimeUnit.MINUTES)
+    void freshHotJoinDuringAllInRunoutReceivesExactPublicPresentation(
+            @TempDir Path root) throws Exception {
+        runLiveHotJoinScenario(root, 1, 0,
+                "live-hot-join-allin-bootstrap");
+    }
+
+    @Test
     @Timeout(value = 5, unit = TimeUnit.MINUTES)
     void authoritativeBootstrapArrivingBeforeRendererAttachmentStillOpensTable(
             @TempDir Path root) throws Exception {
@@ -198,6 +214,13 @@ class GdxMultiprocessScenarioTest {
     void activePlayerCanLeaveMidDecisionAndReenterAsWarmingOwner(
             @TempDir Path root) throws Exception {
         runActivePlayerHotReentryScenario(root);
+    }
+
+    @Test
+    @Timeout(value = 10, unit = TimeUnit.MINUTES)
+    void bustedPlayerReentersLiveHandAsWarmingThenBecomesSpectator(
+            @TempDir Path root) throws Exception {
+        runBustedPlayerHotReentryScenario(root);
     }
 
     @Test
@@ -1042,14 +1065,28 @@ class GdxMultiprocessScenarioTest {
                     "CP_GDX_E2E_HOT_JOIN_WARMING nick="
                             + newcomerNickname,
                     Duration.ofSeconds(90)), newcomer.diagnostic());
-            assertTrue(newcomer.await(
-                    "CP_GDX_E2E_HOT_JOIN_REMOTE_CARD_BACKS nick="
-                            + newcomerNickname,
-                    Duration.ofSeconds(45)), newcomer.diagnostic());
+            if ("live-hot-join-allin-bootstrap".equals(scenario)) {
+                assertTrue(newcomer.await(
+                        "CP_GDX_E2E_HOT_JOIN_ALL_IN_BOOTSTRAP nick="
+                                + newcomerNickname
+                                + " cards=public outcome=true timer=none",
+                        Duration.ofSeconds(45)), newcomer.diagnostic());
+            } else {
+                assertTrue(newcomer.await(
+                        "CP_GDX_E2E_HOT_JOIN_REMOTE_CARD_BACKS nick="
+                                + newcomerNickname,
+                        Duration.ofSeconds(45)), newcomer.diagnostic());
+            }
             if ("live-hot-join-flop-bootstrap".equals(scenario)) {
                 assertTrue(newcomer.await(
                         "CP_GDX_E2E_HOT_JOIN_BOOTSTRAP_PUBLIC_STATE "
                         + "faceUp=3 remoteBacks=true pendingBacks=true",
+                        Duration.ofSeconds(45)), newcomer.diagnostic());
+            }
+            if ("live-hot-join-folded-bootstrap".equals(scenario)) {
+                assertTrue(newcomer.await(
+                        "CP_GDX_E2E_HOT_JOIN_FOLDED_BOOTSTRAP nick="
+                        + newcomerNickname + " dimmed=true",
                         Duration.ofSeconds(45)), newcomer.diagnostic());
             }
             if ("live-hot-join-paused-bootstrap".equals(scenario)) {
@@ -1072,10 +1109,12 @@ class GdxMultiprocessScenarioTest {
                                 + newcomerNickname,
                         Duration.ofSeconds(45)), incumbent.diagnostic());
             }
-            assertTrue(newcomer.await(
-                    "CP_GDX_E2E_HOT_JOIN_TIMER_SYNC nick="
-                            + newcomerNickname,
-                    Duration.ofSeconds(120)), newcomer.diagnostic());
+            if (!"live-hot-join-allin-bootstrap".equals(scenario)) {
+                assertTrue(newcomer.await(
+                        "CP_GDX_E2E_HOT_JOIN_TIMER_SYNC nick="
+                                + newcomerNickname,
+                        Duration.ofSeconds(120)), newcomer.diagnostic());
+            }
             if ("live-hot-join-flop-bootstrap".equals(scenario)) {
                 assertTrue(newcomer.await(
                         "CP_GDX_E2E_HOT_JOIN_COMMUNITY_REVEAL nick="
@@ -1909,6 +1948,115 @@ class GdxMultiprocessScenarioTest {
                             fatal + "\n" + node.diagnostic());
                 }
             }
+        } finally {
+            if (departing != null) departing.close();
+            if (reentered != null) reentered.close();
+            for (NodeProcess node : survivors) node.close();
+        }
+    }
+
+    private static void runBustedPlayerHotReentryScenario(Path root)
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        String scenario = "busted-player-hot-reentry";
+        List<NodeProcess> survivors = new ArrayList<>();
+        List<NodeProcess> candidates = new ArrayList<>();
+        NodeProcess departing = null;
+        NodeProcess reentered = null;
+        try {
+            NodeProcess host = startNode(root.resolve("host"), "host",
+                    "server", port, 3, 1, 7, scenario);
+            survivors.add(host);
+            awaitHostReady(host);
+            for (int index = 1; index <= 3; index++) {
+                NodeProcess client = startNode(
+                        root.resolve("client-" + index), "client",
+                        "client" + index, port, 3, 1, 7, scenario);
+                survivors.add(client);
+                if (index <= 2) candidates.add(client);
+                assertTrue(client.await("CP_GDX_E2E_READY",
+                        Duration.ofSeconds(30)), client.diagnostic());
+            }
+            assertTrue(host.await("CP_GDX_E2E_LOBBY_READY players=5",
+                    Duration.ofSeconds(60)), host.diagnostic());
+            host.send("START_GAME");
+
+            NodeProcess first = candidates.get(0);
+            NodeProcess second = candidates.get(1);
+            assertTrue(first.await("CP_GDX_E2E_LOCAL_SPECTATOR nick=client1",
+                    Duration.ofSeconds(180)), first.diagnostic());
+            assertTrue(second.await("CP_GDX_E2E_LOCAL_SPECTATOR nick=client2",
+                    Duration.ofSeconds(180)), second.diagnostic());
+            assertTrue(host.await("CP_GDX_E2E_BUSTED_REENTRY_ACTION_GATE"
+                    + " hand=4", Duration.ofSeconds(180)),
+                    host.diagnostic());
+            NodeProcess staying;
+            String owner;
+            Path ownerHome;
+            if (first.contains("CP_GDX_E2E_LOCAL_SPECTATOR nick=client1"
+                    + " value=true")) {
+                departing = first;
+                staying = second;
+                owner = "client1";
+                ownerHome = root.resolve("client-1");
+            } else {
+                assertTrue(second.contains(
+                        "CP_GDX_E2E_LOCAL_SPECTATOR nick=client2 value=true"),
+                        "at least one forced all-in human must bust\n"
+                        + second.diagnostic());
+                departing = second;
+                staying = first;
+                owner = "client2";
+                ownerHome = root.resolve("client-2");
+            }
+            departing.send("EXIT_BUSTED_PLAYER");
+            staying.send("STAY_FOR_BUSTED_REENTRY");
+            assertTrue(departing.await("CP_GDX_E2E_BUSTED_REENTRY_EXITED"
+                    + " nick=" + owner, Duration.ofSeconds(75)),
+                    departing.diagnostic());
+            assertEquals(0, departing.awaitExit(Duration.ofSeconds(25)),
+                    departing.diagnostic());
+            survivors.remove(departing);
+
+            for (NodeProcess node : survivors) {
+                node.send("EXPECT_BUSTED_EXIT " + owner);
+            }
+            for (NodeProcess node : survivors) {
+                assertTrue(node.await(
+                        "CP_GDX_E2E_BUSTED_REENTRY_EXIT_OBSERVED nick="
+                        + owner, Duration.ofSeconds(90)), node.diagnostic());
+            }
+
+            reentered = startNode(ownerHome, "client", owner, port,
+                    3, 1, 7, scenario, "late-reentry");
+            for (NodeProcess node : survivors) {
+                node.send("EXPECT_BUSTED_REENTRY " + owner);
+            }
+            assertTrue(reentered.await("CP_GDX_E2E_BUSTED_REENTRY_WARMING"
+                    + " nick=" + owner
+                    + " stack=0.0 rebuyBlocked=true",
+                    Duration.ofSeconds(120)), reentered.diagnostic());
+            for (NodeProcess node : survivors) {
+                assertTrue(node.await("CP_GDX_E2E_BUSTED_REENTRY_WARMING"
+                        + " nick=" + owner,
+                        Duration.ofSeconds(105)), node.diagnostic());
+            }
+
+            List<NodeProcess> completing = new ArrayList<>(survivors);
+            completing.add(reentered);
+            for (NodeProcess node : completing) {
+                assertTrue(node.await(
+                        "CP_GDX_E2E_BUSTED_REENTRY_ORDINARY_SPECTATOR nick="
+                        + owner, Duration.ofSeconds(210)), node.diagnostic());
+                assertTrue(node.await("CP_GDX_E2E_BUSTED_REENTRY_COMPLETE",
+                        Duration.ofSeconds(330)), node.diagnostic());
+                assertEquals(0, node.awaitExit(Duration.ofSeconds(25)),
+                        node.diagnostic());
+            }
+            assertMatchingConservedLedgers(completing, scenario, 5);
         } finally {
             if (departing != null) departing.close();
             if (reentered != null) reentered.close();

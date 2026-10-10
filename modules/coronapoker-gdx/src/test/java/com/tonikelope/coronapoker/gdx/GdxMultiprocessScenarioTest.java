@@ -1127,6 +1127,12 @@ class GdxMultiprocessScenarioTest {
                     Duration.ofSeconds(150)), newcomer.diagnostic());
 
             for (NodeProcess node : nodes) {
+                assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_SEAT_RING",
+                        Duration.ofSeconds(150)), node.diagnostic());
+            }
+            assertMatchingCircularSeatRings(nodes);
+
+            for (NodeProcess node : nodes) {
                 assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_COMPLETE",
                         Duration.ofSeconds(240)), node.diagnostic());
                 assertEquals(0, node.awaitExit(Duration.ofSeconds(20)),
@@ -1143,6 +1149,28 @@ class GdxMultiprocessScenarioTest {
         } finally {
             for (NodeProcess node : nodes) node.close();
         }
+    }
+
+    private static void assertMatchingCircularSeatRings(
+            List<NodeProcess> nodes) {
+        List<String> expected = assertMatchingVisualSeatRings(nodes);
+        for (NodeProcess node : nodes) {
+            assertEquals(expected, node.canonicalCryptoRing(),
+                    "visual and cryptographic rings diverged\n"
+                    + node.diagnostic());
+        }
+    }
+
+    private static List<String> assertMatchingVisualSeatRings(
+            List<NodeProcess> nodes) {
+        List<String> expected = nodes.get(0).canonicalSeatRing();
+        assertTrue(!expected.isEmpty(), nodes.get(0).diagnostic());
+        for (NodeProcess node : nodes) {
+            assertEquals(expected, node.canonicalSeatRing(),
+                    "visual seat ring diverged across peers\n"
+                    + node.diagnostic());
+        }
+        return expected;
     }
 
     private static void runTwoConcurrentHotJoinsScenario(Path root)
@@ -1185,6 +1213,11 @@ class GdxMultiprocessScenarioTest {
                 assertTrue(newcomer.await("CP_GDX_E2E_HOT_JOIN_ADMITTED",
                         Duration.ofSeconds(210)), newcomer.diagnostic());
             }
+            for (NodeProcess node : nodes) {
+                assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_SEAT_RING",
+                        Duration.ofSeconds(210)), node.diagnostic());
+            }
+            assertMatchingCircularSeatRings(nodes);
             for (NodeProcess node : nodes) {
                 assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_COMPLETE",
                         Duration.ofSeconds(300)), node.diagnostic());
@@ -1251,6 +1284,11 @@ class GdxMultiprocessScenarioTest {
                     "CP_GDX_E2E_HOT_JOIN_ADMITTED nick=client1",
                     Duration.ofSeconds(210)), admitted.diagnostic());
 
+            for (NodeProcess node : survivors) {
+                assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_SEAT_RING",
+                        Duration.ofSeconds(210)), node.diagnostic());
+            }
+            assertMatchingCircularSeatRings(survivors);
             for (NodeProcess node : survivors) {
                 assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_COMPLETE",
                         Duration.ofSeconds(300)), node.diagnostic());
@@ -1635,6 +1673,11 @@ class GdxMultiprocessScenarioTest {
             List<NodeProcess> completing = new ArrayList<>(nodes);
             completing.add(reentered);
             for (NodeProcess node : completing) {
+                assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_SEAT_RING",
+                        Duration.ofSeconds(210)), node.diagnostic());
+            }
+            assertMatchingCircularSeatRings(completing);
+            for (NodeProcess node : completing) {
                 assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_COMPLETE",
                         Duration.ofSeconds(240)), node.diagnostic());
                 assertEquals(0, node.awaitExit(Duration.ofSeconds(20)),
@@ -1732,6 +1775,11 @@ class GdxMultiprocessScenarioTest {
 
             List<NodeProcess> completing = new ArrayList<>(survivors);
             completing.add(reentered);
+            for (NodeProcess node : completing) {
+                assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_SEAT_RING",
+                        Duration.ofSeconds(240)), node.diagnostic());
+            }
+            assertMatchingCircularSeatRings(completing);
             for (NodeProcess node : completing) {
                 assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_COMPLETE",
                         Duration.ofSeconds(300)), node.diagnostic());
@@ -1843,6 +1891,11 @@ class GdxMultiprocessScenarioTest {
             List<NodeProcess> completing = new ArrayList<>(survivors);
             completing.add(finalIncarnation);
             for (NodeProcess node : completing) {
+                assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_SEAT_RING",
+                        Duration.ofSeconds(210)), node.diagnostic());
+            }
+            assertMatchingCircularSeatRings(completing);
+            for (NodeProcess node : completing) {
                 assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_COMPLETE",
                         Duration.ofSeconds(240)), node.diagnostic());
                 assertEquals(0, node.awaitExit(Duration.ofSeconds(25)),
@@ -1930,6 +1983,11 @@ class GdxMultiprocessScenarioTest {
 
             List<NodeProcess> completing = new ArrayList<>(survivors);
             completing.add(reentered);
+            for (NodeProcess node : completing) {
+                assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_SEAT_RING",
+                        Duration.ofSeconds(240)), node.diagnostic());
+            }
+            assertMatchingCircularSeatRings(completing);
             for (NodeProcess node : completing) {
                 assertTrue(node.await("CP_GDX_E2E_ACTIVE_REENTRY_COMPLETE",
                         Duration.ofSeconds(300)), node.diagnostic());
@@ -2051,6 +2109,14 @@ class GdxMultiprocessScenarioTest {
                 assertTrue(node.await(
                         "CP_GDX_E2E_BUSTED_REENTRY_ORDINARY_SPECTATOR nick="
                         + owner, Duration.ofSeconds(210)), node.diagnostic());
+                assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_SEAT_RING",
+                        Duration.ofSeconds(60)), node.diagnostic());
+            }
+            // A zero-stack spectator is deliberately visible at the table but
+            // is not a participant in the cryptographic ring.  Its visual
+            // position must nevertheless be identical on every peer.
+            assertMatchingVisualSeatRings(completing);
+            for (NodeProcess node : completing) {
                 assertTrue(node.await("CP_GDX_E2E_BUSTED_REENTRY_COMPLETE",
                         Duration.ofSeconds(330)), node.diagnostic());
                 assertEquals(0, node.awaitExit(Duration.ofSeconds(25)),
@@ -2136,6 +2202,11 @@ class GdxMultiprocessScenarioTest {
 
             List<NodeProcess> completing = new ArrayList<>(survivors);
             completing.add(reentered);
+            for (NodeProcess node : completing) {
+                assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_SEAT_RING",
+                        Duration.ofSeconds(270)), node.diagnostic());
+            }
+            assertMatchingCircularSeatRings(completing);
             for (NodeProcess node : completing) {
                 assertTrue(node.await("CP_GDX_E2E_ADMITTED_REENTRY_COMPLETE",
                         Duration.ofSeconds(360)), node.diagnostic());
@@ -3685,6 +3756,44 @@ class GdxMultiprocessScenarioTest {
                         .map(NodeProcess::canonicalBalanceLine)
                         .toList();
             }
+        }
+
+        List<String> canonicalSeatRing() {
+            synchronized (output) {
+                String marker = output.stream()
+                        .filter(line -> line.contains(
+                                "CP_GDX_E2E_HOT_JOIN_SEAT_RING"))
+                        .reduce((first, second) -> second).orElse("");
+                int orderStart = marker.indexOf(" order=");
+                if (orderStart < 0) return List.of();
+                return canonicalCircularRing(java.util.Arrays.asList(
+                        marker.substring(orderStart + 7).split(">")));
+            }
+        }
+
+        List<String> canonicalCryptoRing() {
+            synchronized (output) {
+                String marker = output.stream()
+                        .filter(line -> line.contains("[RING-DEBUG]")
+                                && line.contains("order=["))
+                        .reduce((first, second) -> second).orElse("");
+                int orderStart = marker.indexOf("order=[");
+                int orderEnd = marker.indexOf(']', orderStart + 7);
+                if (orderStart < 0 || orderEnd < 0) return List.of();
+                return canonicalCircularRing(java.util.Arrays.asList(
+                        marker.substring(orderStart + 7, orderEnd)
+                                .split("\\|")));
+            }
+        }
+
+        private static List<String> canonicalCircularRing(
+                List<String> source) {
+            ArrayList<String> ring = new ArrayList<>(source);
+            ring.removeIf(String::isBlank);
+            if (ring.isEmpty()) return List.of();
+            String pivot = java.util.Collections.min(ring);
+            java.util.Collections.rotate(ring, -ring.indexOf(pivot));
+            return List.copyOf(ring);
         }
 
         private static String canonicalBalanceLine(String line) {

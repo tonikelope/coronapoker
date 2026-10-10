@@ -866,6 +866,25 @@ public final class GdxMultiprocessNodeMain {
                 }
             }
 
+            // In the two-arrival exit race client2 leaves while client1 stays.
+            // The surviving ring must still be observed after client1 crosses
+            // the boundary; a scenario-level exit flag must not suppress that
+            // consensus check for every process.
+            boolean remainsForAdmission = !stopWhileWarming
+                    && (!exitWhileWarming || concurrentExit)
+                    && !exitAtAdmission;
+            if (remainsForAdmission) {
+                String admittedNickname = concurrentExit
+                        ? "client1" : newcomerNickname;
+                await(() -> renderer.playingNicknames().contains(
+                                admittedNickname)
+                                && !renderer.warmingNicknames().contains(
+                                        admittedNickname),
+                        Duration.ofSeconds(120),
+                        "canonical hot-join seat admission");
+                emitSeatRingMarker(config, renderer);
+            }
+
             if (stopWhileWarming) {
                 await(renderer::isClosed, Duration.ofSeconds(90),
                         "hot-join recoverable stop");
@@ -1096,6 +1115,12 @@ public final class GdxMultiprocessNodeMain {
                 marker("ACTIVE_REENTRY_WARMING", "nick=" + owner);
             }
 
+            await(() -> renderer.playingNicknames().contains(owner)
+                            && !renderer.warmingNicknames().contains(owner),
+                    Duration.ofSeconds(210),
+                    "active owner canonical seat readmission");
+            emitSeatRingMarker(config, renderer);
+
             await(renderer::isClosed,
                     Duration.ofSeconds(Math.max(240L,
                             config.hands * 45L)),
@@ -1318,6 +1343,7 @@ public final class GdxMultiprocessNodeMain {
             marker("BUSTED_REENTRY_ORDINARY_SPECTATOR", "nick="
                     + admittedOwner + " stack="
                     + renderer.stackOf(admittedOwner));
+            emitSeatRingMarker(config, renderer);
 
             await(renderer::isClosed,
                     Duration.ofSeconds(Math.max(300L,
@@ -1554,6 +1580,12 @@ public final class GdxMultiprocessNodeMain {
                         "incumbent sees admitted owner return to play");
                 marker("ADMITTED_REENTRY_ADMITTED", "nick=" + owner);
             }
+
+            await(() -> renderer.playingNicknames().contains(owner)
+                            && !renderer.warmingNicknames().contains(owner),
+                    Duration.ofSeconds(240),
+                    "admitted hot-join canonical seat readmission");
+            emitSeatRingMarker(config, renderer);
 
             await(renderer::isClosed,
                     Duration.ofSeconds(Math.max(300L,
@@ -3903,6 +3935,13 @@ public final class GdxMultiprocessNodeMain {
     private static void marker(String type, String detail) {
         System.out.println("CP_GDX_E2E_" + type + " " + detail);
         System.out.flush();
+    }
+
+    private static void emitSeatRingMarker(Config config,
+            GdxScenarioRenderer renderer) {
+        marker("HOT_JOIN_SEAT_RING", "local=" + config.nickname
+                + " order=" + String.join(">",
+                        renderer.visualSeatOrder()));
     }
 
     private record Config(String role, String nickname, int port,

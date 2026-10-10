@@ -761,14 +761,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (!gameSession().isHost() || nicks_permutados == null) {
             throw new IllegalStateException("Hot-join seats are not available");
         }
-        java.util.List<String> planned = new java.util.ArrayList<>(
-                java.util.Arrays.asList(nicks_permutados));
-        for (PendingHotJoin pending : pending_hot_joins) {
-            if (!planned.contains(pending.player().getNickname())) {
-                planned = SeatDraw.mergeNewcomers(planned,
-                        java.util.List.of(pending.player().getNickname()));
-            }
-        }
+        java.util.List<String> planned = plannedSeatRing(
+                pending_hot_joins.stream()
+                        .map(pending -> pending.player().getNickname())
+                        .toList());
         StringBuilder command = new StringBuilder("SEATS#")
                 .append(planned.size());
         for (String nickname : planned) {
@@ -820,7 +816,50 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (PendingHotJoin pending : warming.values()) {
             result.add(warmingSnapshot(pending));
         }
+        java.util.List<String> planned = plannedSeatRing(result.stream()
+                .map(TableSnapshot.PlayerSnapshot::nickname).toList());
+        if (!planned.isEmpty()) {
+            java.util.HashMap<String, Integer> seats = new java.util.HashMap<>();
+            for (int index = 0; index < planned.size(); index++) {
+                seats.put(planned.get(index), index);
+            }
+            result.sort(java.util.Comparator
+                    .comparingInt((TableSnapshot.PlayerSnapshot player)
+                            -> seats.getOrDefault(player.nickname(),
+                                    Integer.MAX_VALUE))
+                    .thenComparing(TableSnapshot.PlayerSnapshot::nickname));
+        }
         return java.util.List.copyOf(result);
+    }
+
+    /**
+     * Extends the verified circular seat ring in the authenticated HOTJOIN
+     * stream order.  A newcomer can bootstrap between two arrivals and already
+     * own the first extension in its recovered {@code SEATS} ring; replaying
+     * each later identity independently therefore produces the same cycle on
+     * the host, every incumbent and every newcomer.  Treating the locally
+     * visible newcomers as one batch would be wrong: the batch boundary is not
+     * consensus data and need not be the same on every process.
+     */
+    private java.util.List<String> plannedSeatRing(
+            java.util.Collection<String> visibleNicknames) {
+        if (nicks_permutados == null || nicks_permutados.length == 0) {
+            return java.util.List.of();
+        }
+        java.util.ArrayList<String> current = new java.util.ArrayList<>(
+                java.util.Arrays.asList(nicks_permutados));
+        java.util.LinkedHashSet<String> newcomers = new java.util.LinkedHashSet<>();
+        for (String nickname : visibleNicknames) {
+            if (nickname != null && !nickname.isBlank()
+                    && !current.contains(nickname)) {
+                newcomers.add(nickname);
+            }
+        }
+        for (String newcomer : newcomers) {
+            current = new java.util.ArrayList<>(SeatDraw.mergeNewcomers(
+                    current, java.util.List.of(newcomer)));
+        }
+        return java.util.List.copyOf(current);
     }
 
     /** Conceals only private values; roster identity and card slots stay canonical. */
@@ -12980,10 +13019,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         if (!newcomers.isEmpty()) {
             java.util.List<String> merged = currentRing;
-            // HOTJOIN commands are authenticated and ordered. Merge each
-            // arrival independently so a client already warming up and a
-            // later joiner derive the same ring as the host, even when they
-            // did not start in one simultaneous recovery batch.
+            // HOTJOIN is an authenticated ordered stream. Merge every arrival
+            // separately: a newcomer may have recovered after the first join
+            // but before a later one, so processes can legitimately start this
+            // boundary with different already-installed prefixes.
             for (String newcomer : newcomers) {
                 merged = SeatDraw.mergeNewcomers(merged,
                         java.util.List.of(newcomer));

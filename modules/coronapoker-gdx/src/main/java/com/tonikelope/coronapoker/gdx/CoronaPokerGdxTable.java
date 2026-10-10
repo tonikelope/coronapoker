@@ -175,6 +175,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static final float REMOTE_SEAT_ENTRY_SECONDS = 0.42f;
     static final float REMOTE_SEAT_ENTRY_STAGGER_SECONDS = 0.09f;
     private static final float REMOTE_SEAT_ENTRY_DISTANCE = 56f;
+    static final float SEAT_RELAYOUT_SECONDS = 0.52f;
     static final float PARTIAL_HAND_ROLL_SECONDS = 0.150f;
     // Disabled cards remain fully coloured. Only their opacity changes, so a
     // folded/losing hand is still readable instead of turning into a muddy
@@ -3174,24 +3175,67 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void syncSeatsFromLiveState() {
-        List<TableSnapshot.PlayerSnapshot> ordered = new ArrayList<>(
-                visibleSeatPlayers(liveState.snapshot()));
-        String localNickname = liveState.snapshot().localNickname();
-        for (int index = 0; index < ordered.size(); index++) {
-            if (ordered.get(index).nickname().equals(localNickname)) {
-                TableSnapshot.PlayerSnapshot local = ordered.remove(index);
-                ordered.add(0, local);
+        List<TableSnapshot.PlayerSnapshot> ordered = visualSeatPlayers(
+                liveState.snapshot());
+        boolean rosterChanged = false;
+        for (int index = 0; index < seats.length; index++) {
+            String expected = index < ordered.size()
+                    ? ordered.get(index).nickname() : "";
+            if (seats[index] == null
+                    || !seats[index].name.equals(expected)) {
+                rosterChanged = true;
                 break;
             }
         }
+        if (!rosterChanged) return;
+
+        Map<String, Seat> previous = new HashMap<>();
+        for (Seat seat : seats) {
+            if (seat != null && !seat.name.isBlank()) {
+                previous.put(seat.name, seat);
+            }
+        }
+        boolean animateRelayout = creationComplete
+                && preparationPhase
+                        == TableVisualEvent.PreparationStatus.Phase.READY
+                && liveSeatEntryAnimationEnabled();
+        int enteringOrder = 0;
         for (int index = 0; index < seats.length; index++) {
             if (index < ordered.size()) {
                 TableSnapshot.PlayerSnapshot player = ordered.get(index);
-                seats[index] = new Seat(player.nickname(), index);
-                seats[index].displayedStackAmount = player.stack();
-                seats[index].stackText = formatAmount(player.stack());
-                seats[index].displayedInvestedAmount = player.streetBet();
-                seats[index].investedText = formatAmount(player.streetBet());
+                Seat replacement = new Seat(player.nickname(), index);
+                Seat old = previous.get(player.nickname());
+                if (old != null) {
+                    replacement.displayedStackAmount
+                            = old.displayedStackAmount;
+                    replacement.stackText = old.stackText;
+                    replacement.displayedInvestedAmount
+                            = old.displayedInvestedAmount;
+                    replacement.investedText = old.investedText;
+                    replacement.buyInVisibleUntil = old.buyInVisibleUntil;
+                    // Presence and geometry are independent timelines.  A
+                    // second roster mutation can arrive while this seat is
+                    // still fading in; preserve that fade while smoothly
+                    // retargeting the already-painted geometry.
+                    replacement.presenceStartedAt = old.presenceStartedAt;
+                    replacement.presenceOrder = old.presenceOrder;
+                    if (animateRelayout && index != 0
+                            && old.geometryReady) {
+                        replacement.beginRelayoutFrom(old, totalTime, false,
+                                0);
+                    }
+                } else {
+                    replacement.displayedStackAmount = player.stack();
+                    replacement.stackText = formatAmount(player.stack());
+                    replacement.displayedInvestedAmount = player.streetBet();
+                    replacement.investedText = formatAmount(
+                            player.streetBet());
+                    if (animateRelayout && index != 0) {
+                        replacement.beginRelayoutFrom(null, totalTime, true,
+                                enteringOrder++);
+                    }
+                }
+                seats[index] = replacement;
             } else {
                 seats[index] = new Seat("", index);
             }
@@ -3211,6 +3255,35 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 .filter(player -> !player.exited()
                         || player.nickname().equals(snapshot.localNickname()))
                 .toList();
+    }
+
+    /**
+     * Rotates the authoritative circular ring so the local player occupies the
+     * bottom seat without changing any predecessor/successor relationship.
+     *
+     * <p>A hot-join bootstrap is produced by the host and therefore arrives in
+     * the host's seat rotation. Moving only the local entry to index zero would
+     * splice the ring: host and newcomer would then both paint the other on the
+     * same side even though the dealer still executes one canonical order.</p>
+     */
+    static List<TableSnapshot.PlayerSnapshot> visualSeatPlayers(
+            TableSnapshot snapshot) {
+        List<TableSnapshot.PlayerSnapshot> visible = visibleSeatPlayers(snapshot);
+        int localIndex = -1;
+        for (int index = 0; index < visible.size(); index++) {
+            if (visible.get(index).nickname().equals(snapshot.localNickname())) {
+                localIndex = index;
+                break;
+            }
+        }
+        if (localIndex <= 0) return visible;
+
+        ArrayList<TableSnapshot.PlayerSnapshot> rotated = new ArrayList<>(
+                visible.size());
+        for (int offset = 0; offset < visible.size(); offset++) {
+            rotated.add(visible.get((localIndex + offset) % visible.size()));
+        }
+        return List.copyOf(rotated);
     }
 
     private TableSnapshot.PlayerSnapshot livePlayer(Seat seat) {
@@ -7761,8 +7834,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         width - POSITION_CHIP_SIZE / 2f - 4f);
                 seats[i].positionY = seats[i].podY + PLAYER_POD_HEIGHT
                         + POSITION_CHIP_SIZE / 2f + POSITION_CHIP_HUD_GAP;
-                applyRemoteSeatEntryOffset(seats[i], width, height);
+                applyRemoteSeatMotion(seats[i], width, height);
             }
+            seats[i].geometryReady = true;
         }
         int dealerIndex = dealerSeat();
         Seat dealer = dealerIndex < 0 ? null : seats[dealerIndex];
@@ -7782,18 +7856,55 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private float seatPresenceAlpha(int seat) {
         if (seat >= livePlayerCount()) return 0f;
+        Seat current = seats[seat];
+        if (!Float.isNaN(current.presenceStartedAt)
+                && liveSeatEntryAnimationEnabled()) {
+            return remoteSeatEntryAlpha(
+                    totalTime - current.presenceStartedAt,
+                    current.presenceOrder);
+        }
         if (seat == 0 || !liveSeatEntryAnimationEnabled()
                 || Float.isNaN(remoteSeatEntryStartedAt)) return 1f;
         return remoteSeatEntryAlpha(totalTime - remoteSeatEntryStartedAt,
                 seat - 1);
     }
 
-    private void applyRemoteSeatEntryOffset(Seat seat, float width,
+    private void applyRemoteSeatMotion(Seat seat, float width,
             float height) {
-        if (seat.index == 0 || !liveSeatEntryAnimationEnabled()
-                || Float.isNaN(remoteSeatEntryStartedAt)) return;
+        if (seat.index == 0 || !liveSeatEntryAnimationEnabled()) return;
+        if (!Float.isNaN(seat.relayoutStartedAt)) {
+            float elapsed = totalTime - seat.relayoutStartedAt;
+            if (seat.runtimeEntry) {
+                float motion = remoteSeatEntryMotion(elapsed,
+                        seat.runtimeEntryOrder);
+                applyRadialSeatOffset(seat, width, height, motion);
+            } else {
+                float motion = seatRelayoutMotion(elapsed);
+                seat.x = MathUtils.lerp(seat.relayoutFromX, seat.x, motion);
+                seat.y = MathUtils.lerp(seat.relayoutFromY, seat.y, motion);
+                seat.podX = MathUtils.lerp(seat.relayoutFromPodX,
+                        seat.podX, motion);
+                seat.podY = MathUtils.lerp(seat.relayoutFromPodY,
+                        seat.podY, motion);
+                seat.stackX = MathUtils.lerp(seat.relayoutFromStackX,
+                        seat.stackX, motion);
+                seat.stackY = MathUtils.lerp(seat.relayoutFromStackY,
+                        seat.stackY, motion);
+                seat.positionX = MathUtils.lerp(seat.relayoutFromPositionX,
+                        seat.positionX, motion);
+                seat.positionY = MathUtils.lerp(seat.relayoutFromPositionY,
+                        seat.positionY, motion);
+            }
+            return;
+        }
+        if (Float.isNaN(remoteSeatEntryStartedAt)) return;
         float motion = remoteSeatEntryMotion(
                 totalTime - remoteSeatEntryStartedAt, seat.index - 1);
+        applyRadialSeatOffset(seat, width, height, motion);
+    }
+
+    private static void applyRadialSeatOffset(Seat seat, float width,
+            float height, float motion) {
         if (motion == 1f) return;
         float radialX = seat.x - width / 2f;
         float radialY = seat.y - height * 0.52f;
@@ -7812,6 +7923,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         seat.stackY += offsetY;
         seat.positionX += offsetX;
         seat.positionY += offsetY;
+    }
+
+    static float seatRelayoutMotion(float elapsedSeconds) {
+        if (!Float.isFinite(elapsedSeconds)) return 1f;
+        float raw = MathUtils.clamp(elapsedSeconds / SEAT_RELAYOUT_SECONDS,
+                0f, 1f);
+        return Interpolation.smoother.apply(raw);
     }
 
     static float remoteSeatEntryAlpha(float elapsedSeconds,
@@ -23375,6 +23493,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float positionX;
         float positionY;
         float buyInVisibleUntil = -1f;
+        float relayoutStartedAt = Float.NaN;
+        float relayoutFromX;
+        float relayoutFromY;
+        float relayoutFromStackX;
+        float relayoutFromStackY;
+        float relayoutFromPodX;
+        float relayoutFromPodY;
+        float relayoutFromPositionX;
+        float relayoutFromPositionY;
+        boolean runtimeEntry;
+        int runtimeEntryOrder;
+        float presenceStartedAt = Float.NaN;
+        int presenceOrder;
+        boolean geometryReady;
 
         Seat(String name, int index) {
             this.name = name;
@@ -23383,6 +23515,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             this.displayedInvestedAmount = 0d;
             this.investedText = "0";
             this.index = index;
+        }
+
+        void beginRelayoutFrom(Seat previous, float startedAt,
+                boolean entering, int entryOrder) {
+            relayoutStartedAt = startedAt;
+            runtimeEntry = entering;
+            runtimeEntryOrder = Math.max(0, entryOrder);
+            if (entering) {
+                presenceStartedAt = startedAt;
+                presenceOrder = runtimeEntryOrder;
+            }
+            if (previous == null) return;
+            relayoutFromX = previous.x;
+            relayoutFromY = previous.y;
+            relayoutFromStackX = previous.stackX;
+            relayoutFromStackY = previous.stackY;
+            relayoutFromPodX = previous.podX;
+            relayoutFromPodY = previous.podY;
+            relayoutFromPositionX = previous.positionX;
+            relayoutFromPositionY = previous.positionY;
         }
     }
 }

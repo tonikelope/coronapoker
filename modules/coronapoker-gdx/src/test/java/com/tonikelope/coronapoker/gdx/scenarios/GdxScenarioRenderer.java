@@ -1023,6 +1023,13 @@ final class GdxScenarioRenderer implements TableRenderer {
         return projection == null ? "" : projection.snapshot().localNickname();
     }
 
+    List<String> visualSeatOrder() {
+        GdxTableViewState projection = state.get();
+        assertNotNull(projection);
+        return CoronaPokerGdxTable.visualSeatPlayers(projection.snapshot())
+                .stream().map(TableSnapshot.PlayerSnapshot::nickname).toList();
+    }
+
     boolean hasImmediateRebuy(String nickname) {
         return immediateRebuys.getOrDefault(nickname, 0) > 0;
     }

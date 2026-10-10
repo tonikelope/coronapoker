@@ -311,6 +311,17 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void seatRelayoutMovesSmoothlyAndFinishesAtTheExactNewAnchor() {
+        assertEquals(0f, CoronaPokerGdxTable.seatRelayoutMotion(0f),
+                0.000_001f);
+        float midpoint = CoronaPokerGdxTable.seatRelayoutMotion(
+                CoronaPokerGdxTable.SEAT_RELAYOUT_SECONDS / 2f);
+        assertTrue(midpoint > 0f && midpoint < 1f);
+        assertEquals(1f, CoronaPokerGdxTable.seatRelayoutMotion(
+                CoronaPokerGdxTable.SEAT_RELAYOUT_SECONDS), 0.000_001f);
+    }
+
+    @Test
     void rivalHandKeepsOfficialSizeAndContainsTallModBacks() {
         float officialAspect = 1242f / 923f;
         assertEquals(125f,
@@ -698,6 +709,64 @@ final class GdxTableViewStateTest {
                 CoronaPokerGdxTable.visibleSeatPlayers(snapshot).stream()
                         .map(TableSnapshot.PlayerSnapshot::nickname).toList());
         assertEquals(2, CoronaPokerGdxTable.visibleSeatCount(snapshot));
+    }
+
+    @Test
+    void hotJoinSeatProjectionRotatesTheWholeCanonicalRingAroundLocal() {
+        TableSnapshot snapshot = new TableSnapshot(5L, "portatil",
+                TableSnapshot.Street.PREFLOP, 0d, "portatil", false,
+                List.of(player("tonikelop3", false),
+                        player("portatil", false),
+                        player("CoronaBot$1", false),
+                        player("CoronaBot$2", false)), List.of());
+
+        assertEquals(List.of("portatil", "CoronaBot$1", "CoronaBot$2",
+                "tonikelop3"),
+                CoronaPokerGdxTable.visualSeatPlayers(snapshot).stream()
+                        .map(TableSnapshot.PlayerSnapshot::nickname).toList());
+    }
+
+    @Test
+    void everyLocalRotationPreservesCanonicalSuccessorsAndPredecessors() {
+        List<TableSnapshot.PlayerSnapshot> all = java.util.stream.IntStream
+                .range(0, 10)
+                .mapToObj(index -> player("player" + index, false))
+                .toList();
+
+        for (int size = 2; size <= all.size(); size++) {
+            List<TableSnapshot.PlayerSnapshot> canonical = all.subList(0, size);
+            for (int local = 0; local < canonical.size(); local++) {
+                String localNickname = canonical.get(local).nickname();
+                TableSnapshot snapshot = new TableSnapshot(6L, localNickname,
+                        TableSnapshot.Street.PREFLOP, 0d, localNickname, false,
+                        canonical, List.of());
+                List<String> visual = CoronaPokerGdxTable
+                        .visualSeatPlayers(snapshot).stream()
+                        .map(TableSnapshot.PlayerSnapshot::nickname).toList();
+
+                assertEquals(localNickname, visual.get(0));
+                for (int offset = 0; offset < canonical.size(); offset++) {
+                    assertEquals(canonical.get((local + offset)
+                                    % canonical.size()).nickname(),
+                            visual.get(offset),
+                            "local rotation changed the circular seat ring"
+                            + " for " + size + " players");
+                }
+            }
+        }
+    }
+
+    @Test
+    void departedSeatIsRemovedWithoutReversingTheRemainingVisualRing() {
+        TableSnapshot snapshot = new TableSnapshot(7L, "player2",
+                TableSnapshot.Street.TURN, 0d, "player2", false,
+                List.of(player("player0", false), player("player1", true),
+                        player("player2", false), player("player3", false)),
+                List.of());
+
+        assertEquals(List.of("player2", "player3", "player0"),
+                CoronaPokerGdxTable.visualSeatPlayers(snapshot).stream()
+                        .map(TableSnapshot.PlayerSnapshot::nickname).toList());
     }
 
     @Test

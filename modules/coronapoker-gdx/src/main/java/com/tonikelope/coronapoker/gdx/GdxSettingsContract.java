@@ -248,7 +248,7 @@ final class GdxSettingsContract {
                     Gate.ANIMATIONS),
             option("animacion_contadores", "CONTADORES", true,
                     Gate.ANIMATIONS),
-            option("animacion_entrada_asientos", "ENTRADA DE JUGADORES", true,
+            option("animacion_entrada_asientos", "MOVIMIENTO DE ASIENTOS", true,
                     Gate.ANIMATIONS),
             option("animacion_swap", "ORDENAR LA MANO", true,
                     Gate.ANIMATIONS),

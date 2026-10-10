@@ -641,6 +641,95 @@ class NetworkLobbyGatewayTest {
         }
     }
 
+    @Test void authenticatedLateJoinRefusalsNeverBlockALegitimateAddress()
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        GameTableFactory tables = context -> new TableSession(emptyTable(
+                context.lobby().localNickname()), command -> { },
+                new TableEventBridge(),
+                () -> CompletableFuture.completedFuture(null));
+        NewGameConnectionDraft.Submission connection
+                = new NewGameConnectionDraft.Submission(
+                        NewGameConnectionDraft.Mode.CREATE, "Anfitrion", "",
+                        "127.0.0.1", Integer.toString(port), null, false,
+                        false, null);
+        NewGameTableDraft table = new NewGameTableDraft();
+        table.setAllowHotJoin(false);
+        try (NetworkLobbyGateway hostGateway = new NetworkLobbyGateway(
+                    temporary.resolve("trusted-refusal-host"), tables);
+                LobbySession host = hostGateway.open(new NewGameRequest(
+                        connection, table.snapshot())).get(5,
+                                TimeUnit.SECONDS)) {
+            host.submit(new LobbyCommand.AddBot()).toCompletableFuture()
+                    .get(2, TimeUnit.SECONDS);
+            host.submit(new LobbyCommand.StartGame()).toCompletableFuture()
+                    .get(2, TimeUnit.SECONDS);
+            host.tableSession().toCompletableFuture().get(2,
+                    TimeUnit.SECONDS);
+
+            for (int attempt = 0;
+                    attempt < NetworkLobbyGateway
+                            .HANDSHAKE_REJECTION_BAN_THRESHOLD + 3;
+                    attempt++) {
+                int index = attempt;
+                try (NetworkLobbyGateway late = new NetworkLobbyGateway(
+                        temporary.resolve("trusted-refusal-client-"
+                                + index), tables)) {
+                    assertThrows(Exception.class,
+                            () -> late.open(request(true,
+                                    "Tardio" + index, port))
+                                    .get(5, TimeUnit.SECONDS));
+                }
+            }
+
+            assertTrue(host.networkBlocks().isEmpty(),
+                    "valid signed clients refused by policy must never be IP-banned");
+            assertEquals(2, host.snapshot().participants().size());
+        }
+    }
+
+    @Test void malformedHandshakeFloodCreatesAVisibleRemovableHostBlock()
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        try (NetworkLobbyGateway hostGateway = new NetworkLobbyGateway(
+                    temporary.resolve("malformed-flood-host"));
+                LobbySession host = hostGateway.open(request(false,
+                        "Anfitrion", port)).get(5, TimeUnit.SECONDS)) {
+            for (int attempt = 0; attempt < 12; attempt++) {
+                try (Socket interrupted = new Socket("127.0.0.1", port)) {
+                    // A dropped or unstable legitimate connection is not a
+                    // protocol violation and must never build a quarantine.
+                }
+            }
+            Thread.sleep(200L);
+            assertTrue(host.networkBlocks().isEmpty());
+
+            for (int attempt = 0;
+                    attempt < NetworkLobbyGateway
+                            .HANDSHAKE_REJECTION_BAN_THRESHOLD;
+                    attempt++) {
+                try (Socket hostile = new Socket("127.0.0.1", port)) {
+                    hostile.getOutputStream().write(
+                            new byte[NetworkLobbyGateway.MAGIC.length]);
+                    hostile.getOutputStream().flush();
+                }
+            }
+
+            await(() -> host.networkBlocks().size() == 1);
+            assertEquals("127.0.0.1",
+                    host.networkBlocks().get(0).address());
+            host.unblockAddress("127.0.0.1").toCompletableFuture()
+                    .get(2, TimeUnit.SECONDS);
+            assertTrue(host.networkBlocks().isEmpty());
+        }
+    }
+
     @Test void hostCanChangeHotJoinAdmissionDuringTheGameAndPeersConverge()
             throws Exception {
         int port;

@@ -15,21 +15,31 @@ public final class LobbySession implements AutoCloseable {
     private final AtomicReference<LobbySnapshot> snapshot;
     private final LobbyCommandSink commands;
     private final AutoCloseable resource;
+    private final NetworkBlockControl networkBlocks;
     private final CopyOnWriteArrayList<Consumer<LobbySnapshot>> listeners
             = new CopyOnWriteArrayList<>();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final CompletableFuture<TableSession> tableSession = new CompletableFuture<>();
 
     public LobbySession(LobbySnapshot initialSnapshot, LobbyCommandSink commands) {
-        this(initialSnapshot, commands, () -> { });
+        this(initialSnapshot, commands, () -> { },
+                NetworkBlockControl.unavailable());
     }
 
     public LobbySession(LobbySnapshot initialSnapshot, LobbyCommandSink commands,
             AutoCloseable resource) {
+        this(initialSnapshot, commands, resource,
+                NetworkBlockControl.unavailable());
+    }
+
+    public LobbySession(LobbySnapshot initialSnapshot, LobbyCommandSink commands,
+            AutoCloseable resource, NetworkBlockControl networkBlocks) {
         snapshot = new AtomicReference<>(Objects.requireNonNull(initialSnapshot,
                 "initialSnapshot"));
         this.commands = Objects.requireNonNull(commands, "commands");
         this.resource = Objects.requireNonNull(resource, "resource");
+        this.networkBlocks = Objects.requireNonNull(networkBlocks,
+                "networkBlocks");
     }
 
     public LobbySnapshot snapshot() {
@@ -70,6 +80,29 @@ public final class LobbySession implements AutoCloseable {
         LobbyCommand checked = Objects.requireNonNull(command, "command");
         validate(checked, snapshot.get());
         return Objects.requireNonNull(commands.submit(checked), "command result");
+    }
+
+    /** Returns current host-local temporary blocks without exposing them to peers. */
+    public java.util.List<NetworkBlock> networkBlocks() {
+        ensureOpen();
+        if (!snapshot.get().host()) return java.util.List.of();
+        return java.util.List.copyOf(networkBlocks.activeBlocks());
+    }
+
+    /** Removes one temporary block. This administrative action is host-only. */
+    public CompletionStage<Void> unblockAddress(String address) {
+        ensureOpen();
+        if (!snapshot.get().host()) {
+            return CompletableFuture.failedFuture(new IllegalStateException(
+                    "Only the host can remove a network block"));
+        }
+        String checked = Objects.requireNonNull(address, "address").trim();
+        if (checked.isEmpty()) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException(
+                    "address is required"));
+        }
+        return Objects.requireNonNull(networkBlocks.unblock(checked),
+                "unblock result");
     }
 
     /** Completes exactly once when the validated game is ready for a renderer. */

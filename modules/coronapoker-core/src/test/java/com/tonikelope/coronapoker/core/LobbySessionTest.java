@@ -141,6 +141,44 @@ final class LobbySessionTest {
         assertEquals(new LobbyCommand.SetHotJoinPolicy(false), sent.get());
     }
 
+    @Test
+    void temporaryNetworkBlocksAreHostLocalAndCanBeRemoved() {
+        long until = System.currentTimeMillis() + 60_000L;
+        NetworkBlock block = new NetworkBlock("203.0.113.17", until,
+                NetworkBlock.Reason.CONNECTION_ABUSE);
+        AtomicReference<String> removed = new AtomicReference<>();
+        NetworkBlockControl controls = new NetworkBlockControl() {
+            @Override public List<NetworkBlock> activeBlocks() {
+                return List.of(block);
+            }
+
+            @Override public java.util.concurrent.CompletionStage<Void> unblock(
+                    String address) {
+                removed.set(address);
+                return CompletableFuture.completedFuture(null);
+            }
+        };
+        LobbySession host = new LobbySession(snapshot(true,
+                List.of(participant("Host", true, true, false)),
+                LobbySnapshot.Phase.IN_GAME), command ->
+                        CompletableFuture.completedFuture(null),
+                () -> { }, controls);
+        LobbySession client = new LobbySession(snapshot(false,
+                List.of(participant("Alice", true, false, false),
+                        participant("Host", false, true, false)),
+                LobbySnapshot.Phase.IN_GAME), command ->
+                        CompletableFuture.completedFuture(null),
+                () -> { }, controls);
+
+        assertEquals(List.of(block), host.networkBlocks());
+        host.unblockAddress("203.0.113.17").toCompletableFuture().join();
+        assertEquals("203.0.113.17", removed.get());
+        assertTrue(client.networkBlocks().isEmpty());
+        assertThrows(java.util.concurrent.CompletionException.class,
+                () -> client.unblockAddress("203.0.113.17")
+                        .toCompletableFuture().join());
+    }
+
     private static LobbySnapshot snapshot(boolean host,
             List<LobbyParticipant> participants, LobbySnapshot.Phase phase) {
         String local = host ? "Host" : "Alice";

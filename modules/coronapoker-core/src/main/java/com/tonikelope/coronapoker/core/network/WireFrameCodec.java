@@ -46,14 +46,22 @@ public final class WireFrameCodec {
     }
 
     public static Frame read(InputStream input, int cap) throws IOException {
-        if (cap < 0) throw new IllegalArgumentException("cap must not be negative");
+        return read(input, cap, cap);
+    }
+
+    public static Frame read(InputStream input, int textCap, int binaryCap)
+            throws IOException {
+        if (textCap < 0 || binaryCap < 0) {
+            throw new IllegalArgumentException("caps must not be negative");
+        }
         int first = input.read();
         if (first == -1) return null;
         if (first == BINARY_SENTINEL) {
             int length = readBigEndianInt(input);
-            if (length < 0 || length > cap) {
+            if (length < 0 || length > binaryCap) {
                 throw new IOException("Binary frame length " + length
-                        + " out of bounds [0," + cap + "] (DoS guard tripped)");
+                        + " out of bounds [0," + binaryCap
+                        + "] (DoS guard tripped)");
             }
             byte[] body = new byte[length];
             readFully(input, body);
@@ -67,8 +75,9 @@ public final class WireFrameCodec {
             }
             if (current != '\r') {
                 line.write(current);
-                if (line.size() > cap) {
-                    throw new IOException("Line exceeds " + cap + " char cap (DoS guard tripped)");
+                if (line.size() > textCap) {
+                    throw new IOException("Line exceeds " + textCap
+                            + " char cap (DoS guard tripped)");
                 }
             }
             current = input.read();

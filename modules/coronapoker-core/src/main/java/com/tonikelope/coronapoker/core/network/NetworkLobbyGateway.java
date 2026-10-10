@@ -11,6 +11,8 @@ import com.tonikelope.coronapoker.core.LobbyCommand;
 import com.tonikelope.coronapoker.core.LobbyParticipant;
 import com.tonikelope.coronapoker.core.LobbySession;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
+import com.tonikelope.coronapoker.core.NetworkBlock;
+import com.tonikelope.coronapoker.core.NetworkBlockControl;
 import com.tonikelope.coronapoker.core.IdenticonFingerprint;
 import com.tonikelope.coronapoker.core.IdentityTrustStore;
 import com.tonikelope.coronapoker.core.NewGameRequest;
@@ -54,6 +56,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -77,10 +80,26 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
     private static final Logger LOGGER = Logger.getLogger(NetworkLobbyGateway.class.getName());
     static final byte[] MAGIC = java.util.HexFormat.of().parseHex("5c1f158dd9855cc9");
     static final int HANDSHAKE_TIMEOUT_MS = 30_000;
+    static final int MAX_PENDING_HANDSHAKES = 32;
+    static final int MAX_PENDING_HANDSHAKES_PER_ADDRESS = 4;
+    static final int HANDSHAKE_REJECTION_BAN_THRESHOLD = 8;
+    static final long HANDSHAKE_REJECTION_WINDOW_MS = 30_000L;
+    static final long HANDSHAKE_ADDRESS_BAN_MS = 120_000L;
+    static final long HANDSHAKE_ADDRESS_RETENTION_MS = 600_000L;
     static final int MAX_PUBLIC_KEY_BYTES = 256;
     static final int MAX_SESSION_ID_BYTES = 64;
     static final int MAX_COMMAND_BYTES = 16 * 1024 * 1024;
+    static final int MAX_HANDSHAKE_FRAME_BYTES = 1024 * 1024;
+    static final int MAX_CLIENT_TEXT_FRAME_BYTES = 256 * 1024;
     static final int MAX_VOICE_BYTES = 320 * 1024;
+    static final int MAX_CHAT_TEXT_CHARS = 4_096;
+    static final int MAX_CHAT_HISTORY_MESSAGES = 500;
+    static final long MAX_CHAT_HISTORY_PAYLOAD_CHARS = 4L * 1024L * 1024L;
+    static final int MAX_CLIENT_FRAMES_PER_SECOND = 512;
+    static final long MAX_CLIENT_BYTES_PER_SECOND = 64L * 1024L * 1024L;
+    static final int MAX_CLIENT_CHATS_PER_WINDOW = 12;
+    static final int MAX_CLIENT_BINARY_OPERATIONS_PER_WINDOW = 64;
+    static final long CLIENT_FEATURE_RATE_WINDOW_MS = 10_000L;
     static final long GAME_CONFIRMATION_TIMEOUT_MS = 10_000L;
     static final int GAME_OUTBOX_MAX_ELEMENTS = 10_000;
     static final long GAME_OUTBOX_MAX_BYTES = 16L * 1024L * 1024L;
@@ -259,7 +278,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         }
     }
 
-    private static final class Transport implements AutoCloseable {
+    private static final class Transport implements AutoCloseable,
+            NetworkBlockControl {
         private final boolean host;
         private final String localNickname;
         private final String endpoint;
@@ -289,9 +309,17 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 = new ConcurrentHashMap<>();
         private final Set<String> warmingPeers = new java.util.LinkedHashSet<>();
         private final List<LobbyChatMessage> chat = new ArrayList<>();
+        private long chatPayloadChars;
         private final AtomicLong chatSequence = new AtomicLong();
         private final AtomicBoolean closed = new AtomicBoolean();
         private final AtomicBoolean clientReconnectRunning = new AtomicBoolean();
+        private final ConnectionAdmissionGuard admissionGuard
+                = new ConnectionAdmissionGuard(MAX_PENDING_HANDSHAKES,
+                        MAX_PENDING_HANDSHAKES_PER_ADDRESS,
+                        HANDSHAKE_REJECTION_BAN_THRESHOLD,
+                        HANDSHAKE_REJECTION_WINDOW_MS,
+                        HANDSHAKE_ADDRESS_BAN_MS,
+                        HANDSHAKE_ADDRESS_RETENTION_MS);
         private volatile String password;
         private volatile ServerSocket serverSocket;
         private volatile UpnpPortMapping upnpMapping;
@@ -391,7 +419,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             }
             LobbySession session = new LobbySession(transport.snapshot(
                     LobbySnapshot.Phase.WAITING_FOR_PLAYERS, initialDetail),
-                    transport::submit, transport);
+                    transport::submit, transport, transport);
             transport.session = session;
             executor.execute(transport::acceptLoop);
             return session;
@@ -568,16 +596,40 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             while (!closed.get()) {
                 try {
                     Socket socket = serverSocket.accept();
-                    executor.execute(() -> acceptPeer(socket));
+                    String address = socket.getInetAddress().getHostAddress();
+                    ConnectionAdmissionGuard.Admission admission
+                            = admissionGuard.acquire(address,
+                                    System.currentTimeMillis());
+                    if (!admission.admitted()) {
+                        try { socket.close(); } catch (IOException ignored) { }
+                        continue;
+                    }
+                    try {
+                        executor.execute(() -> acceptPeer(socket, admission));
+                    } catch (RejectedExecutionException rejected) {
+                        admissionGuard.release(admission,
+                                System.currentTimeMillis());
+                        try { socket.close(); } catch (IOException ignored) { }
+                        if (!closed.get()) throw rejected;
+                    }
                 } catch (IOException failure) {
                     if (!closed.get()) fail("No se pudo aceptar la conexión: " + failure.getMessage());
+                    return;
+                } catch (RejectedExecutionException failure) {
+                    if (!closed.get()) fail("No se pudo procesar la conexión entrante");
                     return;
                 }
             }
         }
 
-        private void acceptPeer(Socket socket) {
+        private void acceptPeer(Socket socket,
+                ConnectionAdmissionGuard.Admission admission) {
             Connection connection = null;
+            boolean authenticated = false;
+            boolean cryptographicallyVerified = false;
+            boolean abusiveHandshake = false;
+            String admittedNickname = null;
+            Connection admittedConnection = null;
             try {
                 socket.setTcpNoDelay(true);
                 socket.setKeepAlive(true);
@@ -587,7 +639,10 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 DataInputStream dataIn = new DataInputStream(input);
                 byte[] magic = new byte[MAGIC.length];
                 dataIn.readFully(magic);
-                if (!MessageDigest.isEqual(MAGIC, magic)) throw new IOException("Bad protocol magic");
+                if (!MessageDigest.isEqual(MAGIC, magic)) {
+                    throw new ProtocolViolationException(
+                            "Bad protocol magic");
+                }
                 byte[] remotePublic = readBounded(dataIn, MAX_PUBLIC_KEY_BYTES, "client public key");
                 KeyPair pair = ecPair();
                 DataOutputStream dataOut = new DataOutputStream(output);
@@ -600,12 +655,14 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 connection = new Connection(socket, input, output, keys[0], keys[1],
                         GameCommandType.Direction.CLIENT_TO_HOST, executor,
                         false);
-                String join = connection.readEncryptedText();
+                String join = connection.readEncryptedText(
+                        MAX_HANDSHAKE_FRAME_BYTES);
                 if (join == null) throw new IOException("Client closed during handshake");
                 String[] parts = join.split("#", -1);
                 if (parts.length == 5) {
                     Connection reconnected = acceptReconnect(connection, parts);
                     if (reconnected != null) {
+                        authenticated = true;
                         connection = null;
                         executor.execute(() -> readHostPeer(reconnected));
                         reconnected.startHeartbeat(this::publishCurrent);
@@ -614,6 +671,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 }
                 if (parts.length != 6 || !ApplicationMetadata.VERSION.equals(parts[1])
                         || !"JOIN".equals(parts[3])) {
+                    abusiveHandshake = parts.length != 6
+                            || parts.length > 3
+                            && !"JOIN".equals(parts[3]);
                     connection.writeEncrypted("BADVERSION#" + ApplicationMetadata.VERSION);
                     return;
                 }
@@ -622,9 +682,27 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     connection.writeEncrypted("NICKUNAUTHORIZED");
                     return;
                 }
-                byte[] publicKey = Base64.getDecoder().decode(parts[4]);
-                byte[] signature = Base64.getDecoder().decode(parts[5]);
-                if (!PlayerIdentity.verifyJoin(sessionId, nickname, publicKey, signature)) return;
+                byte[] publicKey;
+                byte[] signature;
+                try {
+                    publicKey = Base64.getDecoder().decode(parts[4]);
+                    signature = Base64.getDecoder().decode(parts[5]);
+                } catch (IllegalArgumentException invalidEncoding) {
+                    abusiveHandshake = true;
+                    return;
+                }
+                if (!PlayerIdentity.verifyJoin(sessionId, nickname,
+                        publicKey, signature)) {
+                    abusiveHandshake = true;
+                    return;
+                }
+                /*
+                 * From here on this is a well-formed, cryptographically
+                 * authenticated participant. A normal lobby decision such as
+                 * HOTJOINDISABLED, NOSPACE or NICKFAIL must not accumulate an
+                 * IP ban against a legitimate client that retries.
+                 */
+                cryptographicallyVerified = true;
                 boolean hotJoin = false;
                 String hotJoinCommand = null;
                 synchronized (this) {
@@ -673,6 +751,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     Peer peer = new Peer(nickname, avatar, false, false, false, true, connection,
                             publicKey, signature);
                     peers.put(nickname, peer);
+                    admittedNickname = nickname;
+                    admittedConnection = connection;
                     tableIdentityKeys.putIfAbsent(Normalizer.normalize(
                             nickname, Normalizer.Form.NFC),
                             publicKey.clone());
@@ -695,9 +775,6 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     }
                 }
                 socket.setSoTimeout(0);
-                Connection accepted = connection;
-                executor.execute(() -> readHostPeer(accepted));
-                accepted.startHeartbeat(this::publishCurrent);
                 if (hotJoin) {
                     /*
                      * The host is the authority that queues and bootstraps a
@@ -707,14 +784,59 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                      * the running table.
                      */
                     gameChannel.receive(localNickname, hotJoinCommand);
-                    broadcastHotJoinBestEffort(hotJoinCommand, accepted);
+                    broadcastHotJoinBestEffort(hotJoinCommand, connection);
                 }
+                Connection accepted = connection;
+                executor.execute(() -> readHostPeer(accepted));
+                accepted.startHeartbeat(this::publishCurrent);
+                authenticated = true;
                 connection = null;
+            } catch (ProtocolViolationException violation) {
+                abusiveHandshake = true;
             } catch (Exception ignored) {
                 // Rejection or malformed unauthenticated handshake: close without an oracle.
             } finally {
+                if (!authenticated && admittedNickname != null) {
+                    rollbackPeerAdmission(admittedNickname,
+                            admittedConnection);
+                }
                 if (connection != null) connection.close();
+                long now = System.currentTimeMillis();
+                if (authenticated || cryptographicallyVerified) {
+                    admissionGuard.accepted(admission, now);
+                }
+                else if (abusiveHandshake && !closed.get()) {
+                    admissionGuard.rejected(admission, now);
+                }
+                admissionGuard.release(admission, now);
             }
+        }
+
+        /**
+         * Restores the lobby/table boundary when admission fails after the
+         * peer became visible but before its reader was committed. This exact
+         * connection identity check prevents a late failing task from
+         * removing a newer incarnation that reused the same nickname.
+         */
+        private synchronized void rollbackPeerAdmission(String nickname,
+                Connection connection) {
+            Peer current = peers.get(nickname);
+            if (current == null || current.local
+                    || current.connection != connection) {
+                return;
+            }
+            peers.remove(nickname);
+            warmingPeers.remove(nickname);
+            peerStatsUgis.remove(nickname);
+            gameChannel.discardPendingFromPeer(nickname);
+            if (current.connection != null) current.connection.close();
+            addPresence(nickname, LobbyChatMessage.Type.PLAYER_LEFT);
+            try {
+                broadcastGame("DELUSER#" + b64(nickname), connection);
+            } catch (Exception ignored) {
+                // Best effort: the next canonical lobby snapshot converges.
+            }
+            publishCurrent();
         }
 
         private Connection acceptReconnect(Connection candidate, String[] parts)
@@ -786,6 +908,23 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             }, executor);
         }
 
+        @Override
+        public List<NetworkBlock> activeBlocks() {
+            if (!host || closed.get()) return List.of();
+            return admissionGuard.activeBlocks(System.currentTimeMillis());
+        }
+
+        @Override
+        public CompletionStage<Void> unblock(String address) {
+            if (!host || closed.get()) {
+                return CompletableFuture.failedFuture(
+                        new IllegalStateException(
+                                "Network block controls are unavailable"));
+            }
+            admissionGuard.unblock(address, System.currentTimeMillis());
+            return CompletableFuture.completedFuture(null);
+        }
+
         private synchronized void startGame() throws Exception {
             if (!host) throw new IllegalStateException("Only the host can start the game");
             // Establish the initial live policy from the authoritative launch
@@ -834,8 +973,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             }
             byte[] payload = BinaryPayloadCodec.encode(BinaryPayloadCodec.TYPE_VOICE, localNickname, wav);
             if (host) broadcastBinary(payload, null); else serverConnection.writeEncryptedBinary(payload);
-            chat.add(new LobbyChatMessage(chatSequence.getAndIncrement(), Instant.now(), localNickname,
-                    LobbyChatMessage.Type.VOICE, Base64.getEncoder().encodeToString(wav)));
+            appendChat(new LobbyChatMessage(chatSequence.getAndIncrement(),
+                    Instant.now(), localNickname, LobbyChatMessage.Type.VOICE,
+                    Base64.getEncoder().encodeToString(wav)));
             publishCurrent();
         }
 
@@ -1167,11 +1307,34 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             try {
                 while (!closed.get() && connection.isCurrent(generation)) {
                     WireFrameCodec.Frame frame = WireFrameCodec.read(
-                            generation.input, MAX_COMMAND_BYTES);
+                            generation.input,
+                            fromClient ? MAX_CLIENT_TEXT_FRAME_BYTES
+                                    : MAX_COMMAND_BYTES,
+                            MAX_COMMAND_BYTES);
                     if (frame == null) return;
+                    if (fromClient) {
+                        long frameBytes = frame.isBinary()
+                                ? frame.binary().length
+                                : frame.text().length();
+                        InboundTrafficGuard.FrameDecision decision
+                                = connection.inboundTraffic.frameDecision(
+                                        frameBytes,
+                                        System.currentTimeMillis());
+                        if (decision
+                                == InboundTrafficGuard.FrameDecision.DROP) {
+                            continue;
+                        }
+                        if (decision
+                                == InboundTrafficGuard.FrameDecision.DISCONNECT) {
+                            disconnectFloodingPeer(connection);
+                            throw new IOException(
+                                    "Sustained inbound traffic flood");
+                        }
+                    }
                     if (frame.isBinary()) {
+                        byte[] encrypted = frame.binary();
                         byte[] clear = SecureChannelCodec.decryptBytes(
-                                frame.binary(), generation.aes,
+                                encrypted, generation.aes,
                                 generation.hmac);
                         if (clear != null) receiveBinary(connection, clear, fromClient);
                         continue;
@@ -1184,8 +1347,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     } catch (java.security.KeyException invalid) {
                         continue;
                     }
-                    if (command != null) receiveText(connection, generation,
-                            command, fromClient);
+                    if (command != null) {
+                        receiveText(connection, generation, command, fromClient);
+                    }
                 }
             } catch (Exception failure) {
                 if (!closed.get() && connection.isCurrent(generation)) {
@@ -1224,6 +1388,11 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 case "CHAT" -> {
                     String nickname = fromClient ? source.remoteNickname : text64(parts[1]);
                     String text = parts.length == 3 ? text64(parts[2]) : "";
+                    if (fromClient && (text.length() > MAX_CHAT_TEXT_CHARS
+                            || !source.inboundTraffic.allowChat(
+                                    System.currentTimeMillis()))) {
+                        return;
+                    }
                     if (fromClient) broadcastDirect("CHAT#" + b64(nickname) + "#" + b64(text), source);
                     addChat(nickname, text);
                     publishCurrent();
@@ -1386,13 +1555,17 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         private synchronized void receiveBinary(Connection source, byte[] clear,
                 boolean fromClient) throws Exception {
+            if (fromClient && !source.inboundTraffic.allowBinaryOperation(
+                    System.currentTimeMillis())) {
+                return;
+            }
             BinaryPayloadCodec.Payload payload = BinaryPayloadCodec.decode(clear);
             String nickname = fromClient ? source.remoteNickname : payload.nickname();
             if (payload.type() == BinaryPayloadCodec.TYPE_VOICE) {
                 if (!VoiceWavContract.isValid(payload.body())) return;
                 if (fromClient) broadcastBinary(BinaryPayloadCodec.encode(
                         payload.type(), nickname, payload.body()), source);
-                chat.add(new LobbyChatMessage(chatSequence.getAndIncrement(),
+                appendChat(new LobbyChatMessage(chatSequence.getAndIncrement(),
                         Instant.now(), nickname, LobbyChatMessage.Type.VOICE,
                         Base64.getEncoder().encodeToString(payload.body())));
                 publishCurrent();
@@ -1688,7 +1861,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private void addChat(String nickname, String text) {
             LobbyChatMessage.Type type = isChatImageUrl(text)
                     ? LobbyChatMessage.Type.IMAGE : LobbyChatMessage.Type.TEXT;
-            chat.add(new LobbyChatMessage(chatSequence.getAndIncrement(), Instant.now(), nickname, type, text));
+            appendChat(new LobbyChatMessage(chatSequence.getAndIncrement(),
+                    Instant.now(), nickname, type, text));
         }
 
         /** Preserves Swing's established on-wire http(s) -> img(s) convention. */
@@ -1708,7 +1882,33 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         }
 
         private void addPresence(String nickname, LobbyChatMessage.Type type) {
-            chat.add(new LobbyChatMessage(chatSequence.getAndIncrement(), Instant.now(), nickname, type, ""));
+            appendChat(new LobbyChatMessage(chatSequence.getAndIncrement(),
+                    Instant.now(), nickname, type, ""));
+        }
+
+        private void appendChat(LobbyChatMessage message) {
+            chat.add(message);
+            chatPayloadChars += message.content().length();
+            while (chat.size() > MAX_CHAT_HISTORY_MESSAGES
+                    || chatPayloadChars > MAX_CHAT_HISTORY_PAYLOAD_CHARS) {
+                LobbyChatMessage removed = chat.remove(0);
+                chatPayloadChars -= removed.content().length();
+            }
+        }
+
+        private synchronized void disconnectFloodingPeer(
+                Connection connection) throws Exception {
+            Peer peer = connection.remoteNickname == null ? null
+                    : findNormalized(connection.remoteNickname);
+            if (peer != null && peer.connection == connection) {
+                // Authenticated traffic abuse is contained by disconnecting
+                // the authenticated peer. It deliberately does not create an
+                // IP block: temporary address quarantines are reserved for
+                // hostile connection/handshake attempts.
+                removePeer(peer.nickname, true);
+            } else {
+                connection.close();
+            }
         }
 
         private synchronized LobbySnapshot snapshot(LobbySnapshot.Phase phase, String detail) {
@@ -2160,6 +2360,12 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         }
 
         private final GameCommandGate gameCommandGate;
+        private final InboundTrafficGuard inboundTraffic
+                = new InboundTrafficGuard(MAX_CLIENT_FRAMES_PER_SECOND,
+                        MAX_CLIENT_BYTES_PER_SECOND, 1_000L,
+                        MAX_CLIENT_CHATS_PER_WINDOW,
+                        MAX_CLIENT_BINARY_OPERATIONS_PER_WINDOW,
+                        CLIENT_FEATURE_RATE_WINDOW_MS);
         private final ExecutorService executor;
         private final SessionOutbox gameOutbox = new SessionOutbox(
                 GAME_OUTBOX_MAX_ELEMENTS, GAME_OUTBOX_MAX_BYTES);
@@ -2596,9 +2802,13 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         }
 
         String readEncryptedText() throws Exception {
+            return readEncryptedText(MAX_COMMAND_BYTES);
+        }
+
+        String readEncryptedText(int maxTextBytes) throws Exception {
             Generation current = requireGeneration();
             WireFrameCodec.Frame frame = WireFrameCodec.read(current.input,
-                    MAX_COMMAND_BYTES);
+                    maxTextBytes, MAX_COMMAND_BYTES);
             if (frame == null || !frame.isText()) return null;
             return SecureChannelCodec.decryptCommand(frame.text(),
                     current.aes, current.hmac);
@@ -2678,9 +2888,18 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             new SecretKeySpec(secret, 32, 32, "HmacSHA256")};
     }
 
+    private static final class ProtocolViolationException extends IOException {
+        private ProtocolViolationException(String message) {
+            super(message);
+        }
+    }
+
     private static byte[] readBounded(DataInputStream input, int cap, String label) throws IOException {
         int length = input.readInt();
-        if (length <= 0 || length > cap) throw new IOException("Invalid " + label + " length: " + length);
+        if (length <= 0 || length > cap) {
+            throw new ProtocolViolationException(
+                    "Invalid " + label + " length: " + length);
+        }
         byte[] value = new byte[length]; input.readFully(value); return value;
     }
 

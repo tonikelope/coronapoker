@@ -249,6 +249,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float LOCAL_HUD_ACTION_WIDTH = 868f;
     private static final float LOCAL_HUD_PRE_ACTION_GAP = 12f;
     private static final float LOCAL_HUD_PRE_ACTION_WIDTH = 200f;
+    /** One canonical type scale for every actionable local-HUD caption. */
+    private static final float LOCAL_HUD_ACTION_TEXT_SCALE = 1.12f;
+    /** Steppers are symbols, not captions, and need stronger visual weight. */
+    private static final float LOCAL_HUD_STEPPER_TEXT_SCALE = 1.75f;
     private static final float LOCAL_NAME_PLATE_WIDTH = 270f;
     private static final float LOCAL_NAME_PLATE_HEIGHT = 40f;
     private static final float LOCAL_NAME_PLATE_VERTICAL_OFFSET = 12f;
@@ -14013,7 +14017,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawHudActionContent(String text, float x, float y,
             float width, float height, Color color, float alpha) {
-        drawFittedCenteredInBox(actionFont, text,
+        drawScaledFittedCenteredInBox(actionFont,
+                LOCAL_HUD_ACTION_TEXT_SCALE, text,
                 x + 12f, y + 16f,
                 width - 24f, height - 32f,
                 color, alpha);
@@ -14031,6 +14036,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // GlyphLayout snapshots the font colour into its runs.  Set it before
         // both layouts; changing BitmapFont afterwards leaves (for example)
         // the CALL caption white over Swing's white call surface.
+        BitmapFont.BitmapFontData data = actionFont.getData();
+        float previousScaleX = data.scaleX;
+        float previousScaleY = data.scaleY;
+        data.setScale(previousScaleX * LOCAL_HUD_ACTION_TEXT_SCALE,
+                previousScaleY * LOCAL_HUD_ACTION_TEXT_SCALE);
         actionFont.setColor(color.r, color.g, color.b, alpha);
         glyph.setText(actionFont, text);
         float maximumTextWidth = Math.max(1f,
@@ -14044,10 +14054,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.draw(icon, groupX,
                 y + (height - iconSize) / 2f,
                 iconSize, iconSize);
-        BitmapFont.BitmapFontData data = actionFont.getData();
-        float previousScaleX = data.scaleX;
-        float previousScaleY = data.scaleY;
-        data.setScale(previousScaleX * scale, previousScaleY * scale);
+        data.setScale(previousScaleX * LOCAL_HUD_ACTION_TEXT_SCALE * scale,
+                previousScaleY * LOCAL_HUD_ACTION_TEXT_SCALE * scale);
         glyph.setText(actionFont, text);
         actionFont.draw(batch, glyph, groupX + iconSize + gap,
                 contentY + (contentHeight + glyph.height) / 2f);
@@ -14720,11 +14728,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     autoHud.message().x + 12f, autoHud.message().y + 6f,
                     autoHud.message().width - 24f,
                     autoHud.message().height - 12f, POT_GOLD, 1f);
-            drawFittedCenteredInBox(actionFont,
-                    uppercase(activeDialog.negativeLabel()),
-                    autoHud.cancel().x + 10f, autoHud.cancel().y + 6f,
-                    autoHud.cancel().width - 20f,
-                    autoHud.cancel().height - 12f, Color.WHITE, 1f);
+            drawHudActionContent(uppercase(activeDialog.negativeLabel()),
+                    autoHud.cancel().x, autoHud.cancel().y,
+                    autoHud.cancel().width, autoHud.cancel().height,
+                    Color.WHITE, 1f);
         } else if (localFolded || waitingForTurn || localSpectator) {
             drawScaledFittedCenteredInBox(localOutcomeFont, 0.70f,
                     localHudIdleMessage(localFolded, waitingForTurn,
@@ -14750,13 +14757,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     allInX, actionY, allInWidth, actionHeight,
                     allInVisualText, allInContentAlpha);
             batch.setColor(Color.WHITE);
-            drawFittedCenteredInBox(actionFont, "-",
-                    minusX + 8f, actionY + 13f,
-                    stepperWidth - 16f, actionHeight - 26f,
+            drawScaledFittedCenteredInBox(actionFont,
+                    LOCAL_HUD_STEPPER_TEXT_SCALE, "-",
+                    minusX + 6f, actionY + 8f,
+                    stepperWidth - 12f, actionHeight - 16f,
                     Color.WHITE, betContentAlpha);
-            drawFittedCenteredInBox(actionFont, "+",
-                    plusX + 8f, actionY + 13f,
-                    stepperWidth - 16f, actionHeight - 26f,
+            drawScaledFittedCenteredInBox(actionFont,
+                    LOCAL_HUD_STEPPER_TEXT_SCALE, "+",
+                    plusX + 6f, actionY + 8f,
+                    stepperWidth - 12f, actionHeight - 16f,
                     Color.WHITE, betContentAlpha);
         }
         batch.end();

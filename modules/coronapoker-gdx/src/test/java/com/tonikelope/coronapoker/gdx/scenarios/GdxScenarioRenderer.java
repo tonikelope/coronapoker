@@ -197,6 +197,22 @@ final class GdxScenarioRenderer implements TableRenderer {
         heldAction.set(false);
     }
 
+    /**
+     * Holds the first local action on {@code street} at or after
+     * {@code handId}. This is intentionally distinct from the exact-hand gate:
+     * a legal poker hand can finish before reaching the requested street, so
+     * bootstrap scenarios must advance to the next hand instead of waiting for
+     * an event that can no longer occur.
+     */
+    void gateActionOnStreetAtOrAfterHand(long handId,
+            TableSnapshot.Street street) {
+        gatedHand.set(handId);
+        gateAtOrAfterHand.set(true);
+        gatedStreet.set(street);
+        gateConsumed.set(false);
+        heldAction.set(false);
+    }
+
     void allInOnHand(long handId) {
         allInOnHand(handId, () -> { });
     }

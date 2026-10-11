@@ -2034,7 +2034,7 @@ class GdxMultiprocessScenarioTest {
                         root.resolve("client-" + index), "client",
                         "client" + index, port, 3, 1, 7, scenario);
                 survivors.add(client);
-                if (index <= 2) candidates.add(client);
+                candidates.add(client);
                 assertTrue(client.await("CP_GDX_E2E_READY",
                         Duration.ofSeconds(30)), client.diagnostic());
             }
@@ -2042,36 +2042,37 @@ class GdxMultiprocessScenarioTest {
                     Duration.ofSeconds(60)), host.diagnostic());
             host.send("START_GAME");
 
-            NodeProcess first = candidates.get(0);
-            NodeProcess second = candidates.get(1);
-            assertTrue(first.await("CP_GDX_E2E_LOCAL_SPECTATOR nick=client1",
-                    Duration.ofSeconds(180)), first.diagnostic());
-            assertTrue(second.await("CP_GDX_E2E_LOCAL_SPECTATOR nick=client2",
-                    Duration.ofSeconds(180)), second.diagnostic());
+            for (int index = 0; index < candidates.size(); index++) {
+                NodeProcess candidate = candidates.get(index);
+                assertTrue(candidate.await(
+                        "CP_GDX_E2E_LOCAL_SPECTATOR nick=client"
+                        + (index + 1), Duration.ofSeconds(180)),
+                        candidate.diagnostic());
+            }
             assertTrue(host.await("CP_GDX_E2E_BUSTED_REENTRY_ACTION_GATE"
                     + " hand=4", Duration.ofSeconds(180)),
                     host.diagnostic());
-            NodeProcess staying;
-            String owner;
-            Path ownerHome;
-            if (first.contains("CP_GDX_E2E_LOCAL_SPECTATOR nick=client1"
-                    + " value=true")) {
-                departing = first;
-                staying = second;
-                owner = "client1";
-                ownerHome = root.resolve("client-1");
-            } else {
-                assertTrue(second.contains(
-                        "CP_GDX_E2E_LOCAL_SPECTATOR nick=client2 value=true"),
-                        "at least one forced all-in human must bust\n"
-                        + second.diagnostic());
-                departing = second;
-                staying = first;
-                owner = "client2";
-                ownerHome = root.resolve("client-2");
+            String owner = null;
+            Path ownerHome = null;
+            for (int index = 0; index < candidates.size(); index++) {
+                String nick = "client" + (index + 1);
+                NodeProcess candidate = candidates.get(index);
+                if (candidate.contains("CP_GDX_E2E_LOCAL_SPECTATOR nick="
+                        + nick + " value=true")) {
+                    departing = candidate;
+                    owner = nick;
+                    ownerHome = root.resolve("client-" + (index + 1));
+                    break;
+                }
             }
-            departing.send("EXIT_BUSTED_PLAYER");
-            staying.send("STAY_FOR_BUSTED_REENTRY");
+            assertTrue(departing != null,
+                    "at least one forced all-in human must bust\n"
+                    + candidates.stream().map(NodeProcess::diagnostic)
+                            .collect(java.util.stream.Collectors.joining("\n")));
+            for (NodeProcess candidate : candidates) {
+                candidate.send(candidate == departing
+                        ? "EXIT_BUSTED_PLAYER" : "STAY_FOR_BUSTED_REENTRY");
+            }
             assertTrue(departing.await("CP_GDX_E2E_BUSTED_REENTRY_EXITED"
                     + " nick=" + owner, Duration.ofSeconds(75)),
                     departing.diagnostic());

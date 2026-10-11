@@ -334,6 +334,8 @@ class CorePlayerControllerTest {
         assertFalse(player.isCalentando());
         assertFalse(player.getState().snapshot().warming());
         assertTrue(player.isActivo());
+        assertEquals(GamePlayerController.NODEC, player.getDecision());
+        assertEquals("", player.getLastActionString());
     }
 
     @Test

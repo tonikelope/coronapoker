@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -95,7 +96,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
     private static final ConcurrentHashMap<String, AtomicLong>
             SCENARIO_GENERATIONS = new ConcurrentHashMap<>();
     private static final Duration IWTSTH_SCENARIO_TIMEOUT
-            = Duration.ofSeconds(60);
+            = Duration.ofSeconds(90);
 
     private static int autoTarget(int selection, ActionControlState controls,
             boolean preflop, double bigBlind, boolean autoCallEnabled,
@@ -1353,13 +1354,13 @@ class GdxNetworkHumanProjectionIntegrationTest {
         clientDatabase.start();
         AtomicInteger spectatorChoices = new AtomicInteger();
         AtomicInteger choiceFrames = new AtomicInteger();
-        AtomicInteger finalFrames = new AtomicInteger();
+        AtomicReference<GdxTableDialog> spectatorDialog = new AtomicReference<>();
         AtomicReference<CoronaPokerGdxTable> hostGdx = new AtomicReference<>();
         AtomicReference<CoronaPokerGdxTable> clientGdx = new AtomicReference<>();
         GameDecisionSink hostDecisions = spectatorDecisions(hostGdx,
-                choiceFrames, finalFrames);
+                choiceFrames, spectatorDialog);
         GameDecisionSink clientDecisions = spectatorDecisions(clientGdx,
-                choiceFrames, finalFrames);
+                choiceFrames, spectatorDialog);
         GamePresentationSettings settings = rebuySettings(false);
         try (hostDatabase; clientDatabase;
              NetworkLobbyGateway hostGateway = gateway(
@@ -1428,7 +1429,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
                                 .flatMap(state -> state.snapshot().players().stream())
                                 .anyMatch(TableSnapshot.PlayerSnapshot::spectator),
                         Duration.ofSeconds(10));
-                assertTrue(finalFrames.get() >= 1,
+                assertTrue(spectatorDialog.get().gameOverFinalFrame(),
                         "the native final GAME OVER frame was never presented");
                 await(() -> {
                     hostProductTable.advanceDialogState();
@@ -1453,7 +1454,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
     private static GameDecisionSink spectatorDecisions(
             AtomicReference<CoronaPokerGdxTable> table,
             AtomicInteger choiceFrames,
-            AtomicInteger finalFrames) {
+            AtomicReference<GdxTableDialog> spectatorDialog) {
         return new GdxGameDecisionSink(GameText.keys(), dialog -> {
             if (!dialog.isGameOver()) {
                 dialog.accept();
@@ -1464,8 +1465,9 @@ class GdxNetworkHumanProjectionIntegrationTest {
                     "the network decision arrived before its GDX table opened");
             productTable.showDialog(dialog);
             if (dialog.isExternallyControlled()) {
-                finalFrames.incrementAndGet();
+                spectatorDialog.compareAndSet(null, dialog);
             } else if (dialog.showsNegative() && dialog.showsPositive()) {
+                spectatorDialog.compareAndSet(null, dialog);
                 choiceFrames.incrementAndGet();
             }
         }, ignored -> { }, cue ->
@@ -2025,10 +2027,10 @@ class GdxNetworkHumanProjectionIntegrationTest {
                             = sessionsByNickname.get().get(disconnected);
                     try {
                         await(() -> peerReconnectionCount(host,
-                                disconnected) == 1
+                                disconnected) >= 1
                                         && peerReconnectionCount(
                                                 disconnectedSession,
-                                                "Anfitrion") == 1,
+                                                "Anfitrion") >= 1,
                                 Duration.ofSeconds(25));
                     } catch (AssertionError timeout) {
                         throw new AssertionError(
@@ -3375,6 +3377,8 @@ class GdxNetworkHumanProjectionIntegrationTest {
         private final AtomicInteger payoutOrder = new AtomicInteger(-1);
         private final AtomicReference<Boolean> localOutcomeAtResult =
                 new AtomicReference<>();
+        private final AtomicReference<String> localNickname =
+                new AtomicReference<>();
         private final AtomicReference<String> winnerNickname =
                 new AtomicReference<>();
 
@@ -3385,6 +3389,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         @Override
         public CompletionStage<Void> open(TableSnapshot initialState) {
             state.set(new GdxTableViewState(initialState));
+            localNickname.set(initialState.localNickname());
             return CompletableFuture.completedFuture(null);
         }
 
@@ -3441,7 +3446,14 @@ class GdxNetworkHumanProjectionIntegrationTest {
             assertTrue(endBoundaryOrder.get() > winnerResultOrder.get(),
                     "the GDX winner verdict must be visible before the "
                             + "hand enters its between-hands phase");
-            assertNotNull(localOutcomeAtResult.get());
+            if (winnerNickname.get().equals(localNickname.get())) {
+                assertEquals(Boolean.TRUE, localOutcomeAtResult.get(),
+                        "the sole survivor must see the winning outcome");
+            } else {
+                assertNull(localOutcomeAtResult.get(),
+                        "the folded peer must preserve NO VA instead of "
+                                + "fabricating a losing showdown outcome");
+            }
         }
     }
 

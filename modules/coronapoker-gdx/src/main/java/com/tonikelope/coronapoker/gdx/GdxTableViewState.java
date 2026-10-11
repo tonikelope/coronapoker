@@ -1285,7 +1285,40 @@ final class GdxTableViewState {
             preActionControlsActive = false;
             newStreetActionResetPending = false;
         }
+        // A boundary snapshot is authoritative for durable rebuy state. The
+        // corresponding decision event can race just after END, so retaining
+        // only the event cache briefly hides an already accepted REBOUGHT (or
+        // a persistent immediate-rebuy amount) even though the canonical
+        // player presentation is correct.
+        reconcileCanonicalRebuyPresentation(snapshot.players());
         stopTurn();
+    }
+
+    private void reconcileCanonicalRebuyPresentation(
+            List<TableSnapshot.PlayerSnapshot> players) {
+        java.util.Set<String> currentNicknames = players.stream()
+                .map(TableSnapshot.PlayerSnapshot::nickname)
+                .collect(java.util.stream.Collectors.toSet());
+        rebuyDecisions.keySet().retainAll(currentNicknames);
+        immediateRebuys.keySet().retainAll(currentNicknames);
+        for (TableSnapshot.PlayerSnapshot player : players) {
+            TableSnapshot.PlayerPresentation presentation
+                    = player.presentation();
+            if (presentation.rebuyPhase()
+                    == TableSnapshot.RebuyPhase.NONE) {
+                rebuyDecisions.remove(player.nickname());
+            } else {
+                rebuyDecisions.put(player.nickname(),
+                        TableVisualEvent.RebuyDecision.Phase.valueOf(
+                                presentation.rebuyPhase().name()));
+            }
+            if (presentation.immediateRebuyAmount() > 0) {
+                immediateRebuys.put(player.nickname(),
+                        presentation.immediateRebuyAmount());
+            } else {
+                immediateRebuys.remove(player.nickname());
+            }
+        }
     }
 
     /**

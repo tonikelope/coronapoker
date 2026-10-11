@@ -249,6 +249,7 @@ for ($repeat = 1; $repeat -le $ScenarioRepeats; $repeat++) {
                 Scenario = $test.Scenario
                 Class = $test.Class
                 Method = $test.Method
+                SeedOrdinal = $schedule.Count + 1
             })
     }
 }
@@ -275,7 +276,10 @@ Write-Host "Reports: $reportDir"
 $failed = $false
 for ($index = 0; $index -lt $schedule.Count; $index++) {
     $test = $schedule[$index]
-    $scenarioSeed = $Seed + (($index + 1) * 1009)
+    # Preserve deterministic seeds when resuming with -StartAtScenario. The
+    # filtered schedule starts at index zero again, but each case must replay
+    # the same seed it had in the original complete schedule.
+    $scenarioSeed = $Seed + ($test.SeedOrdinal * 1009)
     $selector = $test.Class + '#' + $test.Method
     $safeName = ($test.Scenario + '-' + $test.Method) -replace '[^A-Za-z0-9_.-]', '_'
     $log = Join-Path $reportDir ("{0:D3}-r{1}-{2}.log" -f

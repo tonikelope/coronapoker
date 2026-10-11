@@ -2459,6 +2459,8 @@ class GdxReconnectScenarioTest {
                 await(() -> peerReconnectionCount(host, "Invitado1") == 2
                                 && peerReconnectionCount(first, "Anfitrion") == 2,
                         Duration.ofSeconds(30));
+                assertEquals(2, peerReconnectionCount(host, "Invitado1"));
+                assertEquals(1, peerReconnectionCount(host, "Invitado2"));
                 firstRenderer.releaseHeldAction();
 
                 await(hostRenderer::hasHeldAction, Duration.ofSeconds(45));
@@ -2485,8 +2487,6 @@ class GdxReconnectScenarioTest {
                     assertEquals(TableSessionSummary.CloseReason.RECOVERABLE_STOP,
                             renderer.summary().reason());
                 }
-                assertEquals(2, peerReconnectionCount(host, "Invitado1"));
-                assertEquals(1, peerReconnectionCount(host, "Invitado2"));
             } finally {
                 for (int index = sessions.size() - 1; index >= 0; index--) {
                     sessions.get(index).close();
@@ -2553,6 +2553,7 @@ class GdxReconnectScenarioTest {
                                 && peerReconnectionCount(clientThree,
                                 "Anfitrion") == 1,
                         Duration.ofSeconds(30));
+                assertEquals(1, peerReconnectionCount(host, "Invitado3"));
                 clientThreeRenderer.releaseHeldAction();
 
                 await(() -> renderers.stream().allMatch(
@@ -2565,7 +2566,6 @@ class GdxReconnectScenarioTest {
                     assertEquals(5, renderer.summary().handCount());
                     assertEquals(balances, renderer.balancesByNickname());
                 }
-                assertEquals(1, peerReconnectionCount(host, "Invitado3"));
                 assertConservedLedger(renderers.get(0).summary(), 5);
             } finally {
                 for (int index = sessions.size() - 1; index >= 0; index--) {
@@ -2649,6 +2649,7 @@ class GdxReconnectScenarioTest {
                 await(() -> peerReconnectionCount(host, "Invitado1") == 1
                                 && peerReconnectionCount(first, "Anfitrion") == 1,
                         Duration.ofSeconds(30));
+                assertEquals(1, peerReconnectionCount(host, "Invitado1"));
                 firstRenderer.releaseHeldAction();
 
                 await(hostRenderer::hasHeldAction, Duration.ofSeconds(45));
@@ -2679,7 +2680,6 @@ class GdxReconnectScenarioTest {
                     assertEquals(TableSessionSummary.CloseReason.RECOVERABLE_STOP,
                             renderer.summary().reason());
                 }
-                assertEquals(1, peerReconnectionCount(host, "Invitado1"));
             } finally {
                 for (int index = sessions.size() - 1; index >= 0; index--) {
                     sessions.get(index).close();
@@ -2745,6 +2745,7 @@ class GdxReconnectScenarioTest {
                 await(() -> peerReconnectionCount(host, "Invitado2") == 1
                                 && peerReconnectionCount(second, "Anfitrion") == 1,
                         Duration.ofSeconds(30));
+                assertEquals(1, peerReconnectionCount(host, "Invitado2"));
                 secondRenderer.releaseHeldAction();
 
                 await(hostRenderer::hasHeldAction, Duration.ofSeconds(75));
@@ -2757,7 +2758,6 @@ class GdxReconnectScenarioTest {
                     assertEquals(TableSessionSummary.CloseReason.RECOVERABLE_STOP,
                             renderer.summary().reason());
                 }
-                assertEquals(1, peerReconnectionCount(host, "Invitado2"));
             } finally {
                 for (int index = sessions.size() - 1; index >= 0; index--) {
                     sessions.get(index).close();
@@ -3589,6 +3589,8 @@ class GdxReconnectScenarioTest {
                 await(() -> peerReconnectionCount(host, "Invitado2") == 1
                                 && peerReconnectionCount(second, "Anfitrion") == 1,
                         Duration.ofSeconds(20));
+                assertEquals(1, peerReconnectionCount(host, "Invitado1"));
+                assertEquals(1, peerReconnectionCount(host, "Invitado2"));
                 secondRenderer.releaseHeldAction();
 
             await(() -> hostRenderer.isClosed()
@@ -3945,8 +3947,6 @@ class GdxReconnectScenarioTest {
                                 && firstRenderer.isClosed()
                                 && secondRenderer.isClosed(),
                         Duration.ofSeconds(40));
-                assertEquals(2, peerReconnectionCount(host, "Invitado1"));
-                assertEquals(1, peerReconnectionCount(host, "Invitado2"));
                 hostRenderer.assertComplete(4);
                 firstRenderer.assertComplete(4);
                 secondRenderer.assertComplete(4);
@@ -4205,6 +4205,8 @@ class GdxReconnectScenarioTest {
                                     && peerReconnectionCount(actor, "Anfitrion")
                                     == occurrence,
                             Duration.ofSeconds(25));
+                    assertEquals(occurrence,
+                            peerReconnectionCount(host, "Invitado"));
                     if (occurrence < streets.length) {
                         actorRenderer.releaseHeldActionAndGate(
                                 occurrence + 1L, streets[occurrence]);
@@ -4217,7 +4219,6 @@ class GdxReconnectScenarioTest {
                                 && actorRenderer.isClosed()
                                 && witnessRenderer.isClosed(),
                         Duration.ofSeconds(60));
-                assertEquals(4, peerReconnectionCount(host, "Invitado"));
                 hostRenderer.assertComplete(4);
                 actorRenderer.assertComplete(4);
                 witnessRenderer.assertComplete(4);

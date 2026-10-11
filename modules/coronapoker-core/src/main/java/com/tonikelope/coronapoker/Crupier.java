@@ -427,6 +427,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return peer_controllers;
     }
 
+    /**
+     * Stable ordered peer snapshot for code that must not hold the roster lock
+     * while performing network I/O, UI work or cryptographic processing.
+     */
+    private java.util.Map<String, GamePeerController> peerSnapshot() {
+        java.util.Map<String, GamePeerController> roster = peers();
+        synchronized (roster) {
+            return new LinkedHashMap<>(roster);
+        }
+    }
+
     private GameCardController[] communityCardControllers() {
         if (community_card_controllers == null || community_card_controllers.length != 5) {
             throw new IllegalStateException("Crupier has no complete community-card repository");
@@ -1600,20 +1611,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     static boolean handReadyMatchesNextHand(String[] fields, int currentHand) {
-        if (fields == null || fields.length != 4 || currentHand < 0
-                || currentHand == Integer.MAX_VALUE
-                || !"GAME".equals(fields[0]) || !"HAND_READY".equals(fields[2])) {
-            return false;
+        int readyHand = parseHandReadyHand(fields);
+        return currentHand >= 0 && currentHand < Integer.MAX_VALUE
+                && readyHand == currentHand + 1;
+    }
+
+    static boolean handReadyMatchesAcceptedCurrentHand(String[] fields,
+            int currentHand, int acceptedHand) {
+        return currentHand >= 1 && acceptedHand == currentHand
+                && parseHandReadyHand(fields) == currentHand;
+    }
+
+    private static int parseHandReadyHand(String[] fields) {
+        if (fields == null || fields.length != 4
+                || !"GAME".equals(fields[0])
+                || !"HAND_READY".equals(fields[2])) {
+            return -1;
         }
         try {
             int gameId = Integer.parseInt(fields[1]);
             int readyHand = Integer.parseInt(fields[3]);
             return gameId >= 0
                     && Integer.toString(gameId).equals(fields[1])
-                    && readyHand == currentHand + 1
-                    && Integer.toString(readyHand).equals(fields[3]);
+                    && readyHand >= 1
+                    && Integer.toString(readyHand).equals(fields[3])
+                    ? readyHand : -1;
         } catch (RuntimeException ex) {
-            return false;
+            return -1;
         }
     }
 
@@ -3135,7 +3159,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             parseTelemetryCommand(command));
                     return true;
                 } catch (Exception failure) {
-                    failClientCriticalHostCommand("TELEMETRY", failure);
+                    // Telemetry is deliberately best-effort and never part of
+                    // the game/crypto state.  A delayed or malformed sample
+                    // must not tear down an otherwise healthy table.
+                    LOGGER.log(Level.WARNING,
+                            "Discarding invalid TELEMETRY frame", failure);
                     return true;
                 }
             case "RIT_VOTE_REQ":
@@ -3865,6 +3893,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile long opening_remainder_cents = 0L;
     private volatile boolean settlement_accounting_invalid = false;
     private volatile String[] nicks_permutados;
+    /*
+     * The host may emit its first best-effort telemetry sample while a client
+     * is still applying the canonical seat permutation.  Renaming the reusable
+     * seat controllers is intentionally in-place and therefore has transient
+     * duplicate nicknames.  Do not project telemetry through that transition.
+     */
+    private volatile boolean canonical_seating_complete = false;
     private volatile boolean fin_de_la_transmision = false;
     private volatile int street = PREFLOP;
     // Zero-trust state machine: the client only answers REQ_SRA_UNLOCK_CHAIN if each item's length
@@ -4030,10 +4065,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             = Boolean.getBoolean("coronapoker.qa.handchainTrace");
     private final ArrayList<String> hand_chain_trace = new ArrayList<>();
     // Card-bound Ed25519 proofs already verified during this hand (for example,
-    // an all-in human who leaves voluntarily before the board finishes). The
-    // Participant retains the corresponding pocket key; this map retains the
-    // signature needed to build the later atomic POTCARDS without asking a dead
+    // an all-in human who leaves voluntarily before the board finishes). Both
+    // halves are hand state, not connection state: the peer controller may be
+    // retired before showdown after an orderly EXIT. Keeping an independent
+    // copy lets the host build the later atomic POTCARDS without asking a dead
     // socket or letting the host forge on the player's behalf.
+    private final ConcurrentHashMap<String, byte[]> verified_showdown_keys
+            = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, byte[]> verified_showdown_signer_keys
+            = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, String> verified_showdown_signatures
             = new ConcurrentHashMap<>();
     // A valid EXIT community testament is cryptographic state of the current
@@ -4715,7 +4755,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private boolean enviarCartasJugadoresRemotos() {
-        for (GamePeerController p : peers().values()) {
+        for (GamePeerController p : peerSnapshot().values()) {
             if (p != null) {
                 p.setReceived_token(null); // Used to hold the bots' key
                 p.setSra_unlock_community(null); // Dual-lock: bot's community pair
@@ -4744,7 +4784,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         while (true) {
             // Reset any partial state left by an aborted previous attempt.
-            for (GamePeerController p : peers().values()) {
+            for (GamePeerController p : peerSnapshot().values()) {
                 if (p != null) {
                     p.setReceived_token(null);
                     p.setSra_unlock_community(null);
@@ -7462,16 +7502,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             String gameEnvelope) {
         String[] fields = gameEnvelope == null
                 ? null : gameEnvelope.split("#", -1);
-        if (!handReadyMatchesNextHand(fields, getMano())) {
-            throw new IllegalArgumentException(
-                    "HAND_READY does not name the immediate next hand");
-        }
         GamePeerController peer = peers().get(authenticatedNick);
         if (peer == null || peer.isCpu() || peer.isExit()) {
             throw new IllegalArgumentException(
                     "HAND_READY peer is not an active remote human");
         }
-        peer.setNew_hand_ready(getMano() + 1);
+        int currentHand = getMano();
+        if (handReadyMatchesAcceptedCurrentHand(fields, currentHand,
+                peer.getNew_hand_ready())) {
+            // A warming client can legitimately confirm the same boundary by
+            // both its provisional recovery path and the authoritative
+            // START_SRA_CASCADE path. The first frame admits it; the second
+            // may arrive after the host has already incremented conta_mano.
+            // This exact already-applied confirmation is idempotent. Older,
+            // future, malformed or not-yet-applied ordinals remain fatal.
+            return;
+        }
+        if (!handReadyMatchesNextHand(fields, currentHand)) {
+            throw new IllegalArgumentException(
+                    "HAND_READY does not name the immediate next hand");
+        }
+        peer.setNew_hand_ready(currentHand + 1);
         synchronized (lock_nueva_mano) {
             lock_nueva_mano.notifyAll();
         }
@@ -9167,6 +9218,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // (bounded by the heartbeat stall detector) — unchanged from before.
     public void remotePlayerQuit(String nick, String testamento,
             String pocketKey, String pocketSignature) {
+        remotePlayerQuit(nick, testamento, pocketKey, pocketSignature, null);
+    }
+
+    /**
+     * Applies an authenticated voluntary exit and then relays it to the
+     * remaining table. The optional hook runs after the local player state is
+     * irreversibly marked as exited but before the confirmed peer broadcast.
+     *
+     * <p>This split is intentional: an unrelated peer may be inside its
+     * reconnect grace while the confirmed broadcast waits. The departing peer
+     * must still receive its host acceptance promptly, without allowing its
+     * subsequent EOF to overtake the local EXIT transition.</p>
+     */
+    public void remotePlayerQuit(String nick, String testamento,
+            String pocketKey, String pocketSignature,
+            Runnable afterLocalAcceptance) {
         // Retain accepted hand evidence before any exit flag/socket teardown.
         // The EXIT handler has already validated the wire; this validation also
         // protects the convenience overloads from storing malformed material.
@@ -9186,6 +9253,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 table_events.publishIfAttached(sequence
                         -> new TableVisualEvent.PlayerDeparture(sequence,
                                 nick, departureLabel));
+            }
+            if (afterLocalAcceptance != null) {
+                try {
+                    afterLocalAcceptance.run();
+                } catch (RuntimeException failure) {
+                    // The authenticated exit remains authoritative even when
+                    // its final acknowledgement cannot be delivered. Keep
+                    // relaying it so every surviving peer converges.
+                    LOGGER.log(Level.WARNING,
+                            "Unable to acknowledge accepted EXIT for " + nick,
+                            failure);
+                }
             }
             if (gameSession().isHost()) {
                 GamePeerController participante = peers().get(nick);
@@ -10125,6 +10204,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         if (p != null) {
                                             p.setSra_unlock(sraKey);
                                         }
+                                        verified_showdown_keys.put(nick,
+                                                sraKey.clone());
+                                        verified_showdown_signer_keys.put(nick,
+                                                signerPubkey.clone());
                                         verified_showdown_signatures.put(nick, sigB64);
                                         jugador.getHoleCard1().iniciarConValorNumerico(revealedCards[0] + 1);
                                         jugador.getHoleCard2().iniciarConValorNumerico(revealedCards[1] + 1);
@@ -10323,7 +10406,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // replay old cryptographic material; those dummies are not new buy-ins.
         java.util.Set<String> recoveryLobbyBots = new java.util.LinkedHashSet<>();
         for (java.util.Map.Entry<String, GamePeerController> entry
-                : peers().entrySet()) {
+                : peerSnapshot().entrySet()) {
             if (entry.getValue() != null && entry.getValue().isCpu()) {
                 recoveryLobbyBots.add(entry.getKey());
             }
@@ -12086,6 +12169,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // otherwise this could throw ConcurrentModificationException or leave next-hand
         // messages in an inconsistent state.
         single_locked_pocket_cards.clear();
+        verified_showdown_keys.clear();
+        verified_showdown_signer_keys.clear();
         verified_showdown_signatures.clear();
         exit_community_testaments.clear();
         exited_consensus_participants.clear();
@@ -12186,7 +12271,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             deadlineMs = System.currentTimeMillis() + HAND_READY_PROGRESS_TIMEOUT_MS;
                         }
                         GamePeerController stalling = null;
-                        for (Map.Entry<String, GamePeerController> entry : peers().entrySet()) {
+                        for (Map.Entry<String, GamePeerController> entry
+                                : peerSnapshot().entrySet()) {
                             GamePeerController p = entry.getValue();
                             if (p != null && !p.getNick().equals(gameSession().localNickname())
                                     && !p.isCpu() && !p.isExit() && p.getNew_hand_ready() <= this.conta_mano) {
@@ -15784,7 +15870,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private Set<String> computeExpectedConsensusSigners() {
         Set<String> botNicks = new HashSet<>();
         Set<String> exitedNicks = new HashSet<>(this.exited_consensus_participants);
-        java.util.Map<String, GamePeerController> participantes = peers();
+        java.util.Map<String, GamePeerController> participantes = peerSnapshot();
         if (participantes != null) {
             for (java.util.Map.Entry<String, GamePeerController> entry : participantes.entrySet()) {
                 GamePeerController participant = entry.getValue();
@@ -21162,18 +21248,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (!p.getNickname().equals(hostNick)
                     && requiresShowdownProof(p.isExit(), p.getDecision())) {
                 GamePeerController part = peers().get(p.getNickname());
-                if (part != null && !part.isCpu()) {
-                    if (part.isExit()) {
-                        if (!reuseExitedShowdownProof(p.getNickname(), part,
-                                nick2key, nick2sig)) {
-                            LOGGER.log(Level.WARNING,
-                                    "Showdown contender {0} disconnected without a retained proof; cancelling hand for recovery",
-                                    p.getNickname());
-                            cancelarManoYDevolverApuestas("peer.unlock_no_testament");
-                            return;
-                        }
-                        continue;
+                if (p.isExit() || (part != null && part.isExit())) {
+                    if (!reuseExitedShowdownProof(p.getNickname(),
+                            nick2key, nick2sig)) {
+                        LOGGER.log(Level.WARNING,
+                                "Showdown contender {0} disconnected without a retained proof; cancelling hand for recovery",
+                                p.getNickname());
+                        cancelarManoYDevolverApuestas("peer.unlock_no_testament");
+                        return;
                     }
+                    continue;
+                }
+                if (part != null && !part.isCpu()) {
                     pendientes.add(p.getNickname());
                 } else if (part == null) {
                     containTableFailure(new IllegalStateException(
@@ -21243,8 +21329,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 while (pendingIterator.hasNext()) {
                     String nick = pendingIterator.next();
                     GamePeerController participant = peers().get(nick);
-                    if (participant != null && participant.isExit()
-                            && reuseExitedShowdownProof(nick, participant,
+                    if ((participant == null || participant.isExit())
+                            && reuseExitedShowdownProof(nick,
                                     nick2key, nick2sig)) {
                         // A voluntary all-in EXIT can cross this wait after the
                         // REQ_SHOWDOWN_KEY was sent. Its atomic EXIT already
@@ -21415,6 +21501,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (p != null) {
                 p.setSra_unlock(key);
             }
+            verified_showdown_keys.put(nick, key.clone());
+            verified_showdown_signer_keys.put(nick,
+                    signerPubkey.clone());
             verified_showdown_signatures.put(nick, sigB64);
             GamePlayerController jugador = nick2player.get(nick);
             if (jugador != null) {
@@ -21428,19 +21517,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    private boolean reuseExitedShowdownProof(String nick, GamePeerController participant,
+    private boolean reuseExitedShowdownProof(String nick,
             HashMap<String, String> nick2key, HashMap<String, String> nick2sig) {
-        if (participant == null || participant.getSra_unlock() == null) {
+        byte[] retainedKey = verified_showdown_keys.get(nick);
+        if (retainedKey == null) {
             return false;
         }
         String signature = verified_showdown_signatures.get(nick);
         if (signature == null) {
             return false;
         }
-        String key = Base64.getEncoder().encodeToString(participant.getSra_unlock());
-        if (!verifyAndStoreShowdownKey(nick, key, signature)) {
-            return false;
-        }
+        String key = Base64.getEncoder().encodeToString(retainedKey);
+        // This pair entered the retained maps only after the complete SRA,
+        // card-bound Ed25519 and hand-id verification above. Re-verifying it
+        // here would incorrectly depend on the already-retired peer controller
+        // merely to rediscover its public key.
         nick2key.put(nick, key);
         nick2sig.put(nick, signature);
         return true;
@@ -22660,7 +22751,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * broadcasting and by clients when they receive the host's frame.
      */
     public void applyTelemetryFrameLocally(TelemetryFrame frame) {
-        if (frame == null || frame.perPeer == null) {
+        if (!canonical_seating_complete || frame == null
+                || frame.perPeer == null) {
             return;
         }
         java.util.Map<String, GamePlayerController> n2p = getNick2player();
@@ -22906,7 +22998,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             ArrayList<String> actuales = new ArrayList<>();
 
-            for (Map.Entry<String, GamePeerController> entry : peers().entrySet()) {
+            for (Map.Entry<String, GamePeerController> entry
+                    : peerSnapshot().entrySet()) {
 
                 actuales.add(entry.getKey());
             }
@@ -25222,6 +25315,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 throw new IllegalArgumentException("POTCARDS contains an unusable pocket key");
             }
             byte[] signerPubkey = resolveShowdownSignerPubkey(entry.nick());
+            if (signerPubkey == null) {
+                byte[] retainedSigner = verified_showdown_signer_keys.get(
+                        entry.nick());
+                signerPubkey = retainedSigner == null
+                        ? null : retainedSigner.clone();
+            }
             if (signerPubkey == null || !game_identity.verifyShowdownRevealSignature(signerPubkey,
                     this.current_hand_id, entry.nick(), key,
                     entry.firstCard(), entry.secondCard(), sig)) {
@@ -26568,9 +26667,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         sentarParticipantes();
 
+        // recuperarDatosClavePartida() builds a provisional lookup before the
+        // seat draw so recovery can hydrate every controller.  Seating reuses
+        // those controllers and changes their nicknames in place: rebuild the
+        // index atomically after the complete permutation instead of retaining
+        // stale aliases that can point at the wrong seat.
+        nick2player.clear();
         for (GamePlayerController jugador : players()) {
             nick2player.put(jugador.getNickname(), jugador);
         }
+        canonical_seating_complete = true;
 
         // The verifiable draw above establishes the canonical circular seat
         // order. The GDX table was initially opened with lobby insertion order,
@@ -27377,10 +27483,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // An authenticated SERVEREXIT or SERVEREXITRECOVER is a host-directed
         // teardown: its frame already carries the authoritative transition and
         // the socket reader may retire the outbox before this dealer tail runs.
-        // Only a locally initiated voluntary/final client exit sends testament.
-        if (!localHost && !force_recover
-                && !authoritative_termination_received
-                && !passive_hot_join_exit_requested) {
+        // A naturally completed table is different too: the authenticated
+        // client still belongs to the final roster and must not be converted
+        // into a voluntary departure merely because its dealer loop ended.
+        // Only an explicitly armed local termination may send the testament.
+        if (shouldSendLocalExitAtDealerTail(localHost, force_recover,
+                authoritative_termination_received,
+                passive_hot_join_exit_requested, termination_pending)) {
             sendLocalExitOnce(false);
         }
 
@@ -27389,6 +27498,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     static boolean shouldDeferMisdealTeardown(boolean handVoided) {
         return handVoided;
+    }
+
+    static boolean shouldSendLocalExitAtDealerTail(boolean localHost,
+            boolean forceRecover, boolean authoritativeTerminationReceived,
+            boolean passiveHotJoinExitRequested, boolean terminationPending) {
+        return !localHost && !forceRecover && !authoritativeTerminationReceived
+                && !passiveHotJoinExitRequested && terminationPending;
     }
 
     private void containTableFailure(Exception cause) {

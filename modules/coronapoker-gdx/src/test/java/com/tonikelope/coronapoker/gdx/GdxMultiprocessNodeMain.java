@@ -61,10 +61,16 @@ public final class GdxMultiprocessNodeMain {
         } else if ("spectator-recovery-mix".equals(config.scenario)) {
             System.setProperty("coronapoker.qa.spectatorOnBrokeNicks",
                     "client1,client2,client3,client4");
-        } else if ("human-bust-exit-rejoin-rebuy".equals(config.scenario)
-                || "busted-player-hot-reentry".equals(config.scenario)) {
+        } else if ("human-bust-exit-rejoin-rebuy".equals(config.scenario)) {
             System.setProperty("coronapoker.qa.spectatorOnBrokeNicks",
                     "client1,client2");
+        } else if ("busted-player-hot-reentry".equals(config.scenario)) {
+            // Every initial remote human is an eligible forced-all-in owner in
+            // this scenario.  Keep every one at zero after busting so the
+            // controller can select the actual loser deterministically instead
+            // of allowing an unlisted client to auto-rebuy before observation.
+            System.setProperty("coronapoker.qa.spectatorOnBrokeNicks",
+                    "client1,client2,client3");
         } else if ("spectator-double-recovery-crash-mix".equals(
                 config.scenario)) {
             System.setProperty("coronapoker.qa.spectatorOnBrokeNicks",
@@ -411,7 +417,7 @@ public final class GdxMultiprocessNodeMain {
                 if (allInBootstrap) {
                     renderer.gateOnNextPartialHand();
                 } else if (flopBootstrap || foldedBootstrap) {
-                    renderer.gateActionOnStreet(1L,
+                    renderer.gateActionOnStreetAtOrAfterHand(1L,
                             TableSnapshot.Street.FLOP);
                 } else {
                     renderer.gateActionAtOrAfterHand(1L);
@@ -1155,10 +1161,14 @@ public final class GdxMultiprocessNodeMain {
     private static void runBustedPlayerHotReentry(Config config, Path home,
             DatabaseService database) throws Exception {
         final int expectedPlayers = config.clients + config.bots + 1;
-        final boolean candidate = "client1".equals(config.nickname)
-                || "client2".equals(config.nickname);
-        final boolean reenteredOwner = candidate
+        // Every initial remote human is forced all-in so the scenario can
+        // select whichever identity actually busts under the current seed.
+        // Restricting this to two hard-coded clients made the test depend on
+        // the random payout rather than on the hot-reentry behaviour.
+        final boolean remoteHuman = "client".equals(config.role);
+        final boolean reenteredOwner = remoteHuman
                 && "late-reentry".equals(config.phase);
+        final boolean candidate = remoteHuman && !reenteredOwner;
         AtomicBoolean bootstrapAcceptedBeforeAttach = reenteredOwner
                 ? observeAcceptedHotJoinBootstrap() : new AtomicBoolean();
         AtomicInteger forbiddenRebuyDialogs = new AtomicInteger();

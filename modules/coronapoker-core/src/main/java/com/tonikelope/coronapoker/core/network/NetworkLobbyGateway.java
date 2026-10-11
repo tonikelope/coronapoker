@@ -29,12 +29,14 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -80,6 +82,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
     private static final Logger LOGGER = Logger.getLogger(NetworkLobbyGateway.class.getName());
     static final byte[] MAGIC = java.util.HexFormat.of().parseHex("5c1f158dd9855cc9");
     static final int HANDSHAKE_TIMEOUT_MS = 30_000;
+    static final int CLIENT_HANDSHAKE_ATTEMPTS = 5;
+    static final long CLIENT_HANDSHAKE_RETRY_BASE_MS = 100L;
     static final int MAX_PENDING_HANDSHAKES = 32;
     static final int MAX_PENDING_HANDSHAKES_PER_ADDRESS = 4;
     static final int HANDSHAKE_REJECTION_BAN_THRESHOLD = 8;
@@ -431,13 +435,34 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 BooleanSupplier shareStats, StatsSyncService statsSync)
                 throws Exception {
             PlayerIdentity identity = PlayerIdentity.loadOrCreate(directory, request.connection().nickname());
-            Socket socket = new Socket();
-            socket.connect(new InetSocketAddress(request.connection().server(),
-                    parsePort(request.connection().port())), HANDSHAKE_TIMEOUT_MS);
-            socket.setTcpNoDelay(true);
-            socket.setKeepAlive(true);
-            socket.setSoTimeout(HANDSHAKE_TIMEOUT_MS);
-            Connection connection = clientHandshake(socket, request, identity, directory, executor);
+            Connection opened = null;
+            for (int attempt = 1; attempt <= CLIENT_HANDSHAKE_ATTEMPTS;
+                    attempt++) {
+                Socket socket = new Socket();
+                try {
+                    socket.connect(new InetSocketAddress(
+                            request.connection().server(),
+                            parsePort(request.connection().port())),
+                            HANDSHAKE_TIMEOUT_MS);
+                    socket.setTcpNoDelay(true);
+                    socket.setKeepAlive(true);
+                    socket.setSoTimeout(HANDSHAKE_TIMEOUT_MS);
+                    opened = clientHandshake(socket, request, identity,
+                            directory, executor);
+                    break;
+                } catch (Exception failure) {
+                    try { socket.close(); } catch (IOException ignored) { }
+                    if (!transientHandshakeFailure(failure)
+                            || attempt == CLIENT_HANDSHAKE_ATTEMPTS) {
+                        throw failure;
+                    }
+                    Thread.sleep(CLIENT_HANDSHAKE_RETRY_BASE_MS << (attempt - 1));
+                }
+            }
+            if (opened == null) {
+                throw new IOException("Secure channel not established");
+            }
+            final Connection connection = opened;
             Transport transport = new Transport(false, request, directory, executor,
                     connection.sessionId, identity,
                     NewGameTableDraft.Settings.parseWire(connection.gameConfig),
@@ -462,11 +487,22 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                             : LobbySnapshot.Phase.CONNECTED,
                     ""), transport::submit, transport);
             transport.session = session;
-            socket.setSoTimeout(0);
+            connection.currentGeneration().socket.setSoTimeout(0);
             executor.execute(() -> transport.readClient(connection));
             connection.startHeartbeat(transport::publishCurrent);
             transport.beginStatsSync(connection);
             return session;
+        }
+
+        /**
+         * A host under its unauthenticated per-address concurrency cap closes
+         * excess sockets without an oracle. Legitimate clients behind one NAT
+         * therefore retry only transport-level closures; explicit protocol or
+         * lobby rejections remain final and are never retried.
+         */
+        private static boolean transientHandshakeFailure(Exception failure) {
+            return failure instanceof SocketException
+                    || failure instanceof EOFException;
         }
 
         private static Connection clientHandshake(Socket socket, NewGameRequest request,

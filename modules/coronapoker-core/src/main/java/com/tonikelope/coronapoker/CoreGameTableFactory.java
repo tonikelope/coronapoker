@@ -60,6 +60,7 @@ import com.tonikelope.coronapoker.table.TableVisualEvent;
 import java.util.ArrayList;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -733,23 +734,29 @@ public final class CoreGameTableFactory implements GameTableFactory {
                     dealer.remotePlayerQuit(playerExit.nick(),
                             playerExit.testamentWire(),
                             playerExit.pocketKeyWire(),
-                            playerExit.pocketSignatureWire());
-                    // Fence the later end-of-hand model cleanup before the
-                    // socket is retired. That cleanup is nickname-based; a
-                    // fresh same-identity incarnation may already own the nick
-                    // by the time the old hand settles.
-                    dealer.markPeerExitTransportRetired(playerExit.nick());
+                            playerExit.pocketSignatureWire(), () -> {
+                                // Fence the later end-of-hand model cleanup
+                                // before the client is allowed to close its
+                                // socket. That cleanup is nickname-based; a
+                                // fresh same-identity incarnation may already
+                                // own the nick by the time the old hand settles.
+                                dealer.markPeerExitTransportRetired(
+                                        playerExit.nick());
+                                try {
+                                    context.channel().sendFromHost(
+                                            playerExit.nick(),
+                                            "EXIT_ACCEPTED")
+                                            .toCompletableFuture().join();
+                                } catch (java.io.IOException failure) {
+                                    throw new IllegalStateException(
+                                            "Unable to acknowledge accepted EXIT",
+                                            failure);
+                                }
+                            });
                     notifyBettingWait(dealer);
-                    context.channel().sendFromHost(playerExit.nick(),
-                            "EXIT_ACCEPTED").toCompletableFuture().join();
                     peers.remove(playerExit.nick());
                     immediateRebuySources.remove(playerExit.nick());
                     context.channel().retirePeerAfterExit(playerExit.nick());
-                } catch (java.io.IOException failure) {
-                    peers.remove(command.peerNickname());
-                    immediateRebuySources.remove(command.peerNickname());
-                    context.channel().retirePeerAfterExit(
-                            command.peerNickname());
                 } catch (RuntimeException invalid) {
                     peers.remove(command.peerNickname());
                     immediateRebuySources.remove(command.peerNickname());
@@ -778,6 +785,19 @@ public final class CoreGameTableFactory implements GameTableFactory {
                     if (playerExit.hasTestament()) {
                         exitingPeer.setSra_unlock_community(
                                 playerExit.testament());
+                    }
+                    if (dealer.requiresExitPocketProof(playerExit.nick())
+                            && !playerExit.hasPocketReveal()) {
+                        throw new IllegalArgumentException(
+                                "all-in EXIT relay lacks its signed pocket reveal");
+                    }
+                    if (playerExit.hasPocketReveal()
+                            && !dealer.acceptExitShowdownProof(
+                                    playerExit.nick(),
+                                    playerExit.pocketKeyWire(),
+                                    playerExit.pocketSignatureWire())) {
+                        throw new IllegalArgumentException(
+                                "EXIT relay carries an invalid showdown proof");
                     }
                     dealer.remotePlayerQuit(playerExit.nick(),
                             playerExit.testamentWire(),
@@ -1019,6 +1039,12 @@ public final class CoreGameTableFactory implements GameTableFactory {
                                 "HAND_READY source is not seated or warming");
                     }
                 } catch (RuntimeException invalid) {
+                    java.util.logging.Logger.getLogger(
+                            CoreGameTableFactory.class.getName()).log(
+                            java.util.logging.Level.SEVERE,
+                            "Rejected authenticated HAND_READY from "
+                            + command.peerNickname() + ": "
+                            + command.command(), invalid);
                     context.channel().close();
                 }
                 return;
@@ -1289,7 +1315,12 @@ public final class CoreGameTableFactory implements GameTableFactory {
             LobbySnapshot lobby,
             com.tonikelope.coronapoker.core.game.GameChannel channel,
             ConfirmationTracker confirmations) {
-        Map<String, GamePeerController> peers = new LinkedHashMap<>();
+        // The dealer, the ordered network drain and the peer-loss watchdog all
+        // share this roster.  Keep insertion order (it participates in stable
+        // seating), but synchronize every structural mutation so a disconnect
+        // cannot invalidate a dealer-thread iteration mid-broadcast.
+        Map<String, GamePeerController> peers = Collections.synchronizedMap(
+                new LinkedHashMap<>());
         for (LobbyParticipant participant : lobby.participants()) {
             GamePeerController peer;
             if (participant.local()) {

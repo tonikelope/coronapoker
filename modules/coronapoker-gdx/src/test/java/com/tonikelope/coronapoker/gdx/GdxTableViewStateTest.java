@@ -4558,6 +4558,30 @@ final class GdxTableViewStateTest {
         assertEquals(null, state.rebuyDecision("borja"));
     }
 
+    @Test
+    void canonicalEndBoundaryRestoresAcceptedRebuyBeforeItsOrderedEvent() {
+        TableSnapshot initial = snapshot();
+        GdxTableViewState state = new GdxTableViewState(initial);
+        state.apply(new TableVisualEvent.RebuyDecision(1, "borja",
+                TableVisualEvent.RebuyDecision.Phase.WAITING));
+        TableSnapshot.PlayerSnapshot ana = initial.players().get(0);
+        TableSnapshot.PlayerSnapshot borja = withRebuyPresentation(
+                initial.players().get(1), TableSnapshot.RebuyPhase.REBOUGHT,
+                7);
+        TableSnapshot end = new TableSnapshot(2L, initial.localNickname(),
+                TableSnapshot.Street.SHOWDOWN, initial.pot(), "",
+                initial.paused(),
+                List.of(ana, borja), initial.communityCards(),
+                initial.presentation());
+
+        state.apply(new TableVisualEvent.HandBoundary(2, 1,
+                TableVisualEvent.HandBoundary.Phase.END, end));
+
+        assertEquals(TableVisualEvent.RebuyDecision.Phase.REBOUGHT,
+                state.rebuyDecision("borja"));
+        assertEquals(7, state.immediateRebuyAmount("borja"));
+    }
+
     private static TableSnapshot.CardSnapshot card(String code) {
         return new TableSnapshot.CardSnapshot(code, true, false);
     }
@@ -4712,5 +4736,30 @@ final class GdxTableViewStateTest {
         return new TableSnapshot.PlayerSnapshot(nickname, 1_000d, 0d, 0d,
                 active, spectator, exited, timedOut, -2, -2, 0, 0L,
                 false, TableSnapshot.Position.NONE, "", "", List.of());
+    }
+
+    private static TableSnapshot.PlayerSnapshot withRebuyPresentation(
+            TableSnapshot.PlayerSnapshot player,
+            TableSnapshot.RebuyPhase phase, int immediateAmount) {
+        TableSnapshot.PlayerPresentation current = player.presentation();
+        TableSnapshot.PlayerPresentation presentation
+                = new TableSnapshot.PlayerPresentation(
+                        current.showingCards(), current.partialHand(),
+                        current.partialWinPercentage(),
+                        current.resultResolved(), current.publicHandName(),
+                        current.wonPotIndexes(), current.returnedSidePot(),
+                        current.showdownHighlightEnabled(),
+                        current.winningHoleCardSlots(),
+                        current.winningCommunityCardSlots(), phase,
+                        immediateAmount, current.publicActionLabel());
+        return new TableSnapshot.PlayerSnapshot(player.nickname(),
+                player.stack(), player.streetBet(), player.potContribution(),
+                player.active(), player.spectator(), player.exited(),
+                player.timedOut(), player.latency(), player.previousLatency(),
+                player.reconnectionCount(), player.telemetryAt(),
+                player.winner(), player.underTheGun(), player.position(),
+                player.decision(), player.actionKind(), player.lastAction(),
+                player.handName(), player.holeCards(), player.buyIn(),
+                player.rebuyCount(), player.warming(), presentation);
     }
 }

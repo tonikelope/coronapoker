@@ -3107,6 +3107,19 @@ class GdxReconnectScenarioTest {
             RecoverableGameRepository.RecoverableGame recovered
                     = new RecoverableGameRepository(databases.get(0))
                             .latestLocal().orElseThrow();
+            /*
+             * Recovery is a new listening session. Reusing the just-closed
+             * port makes this scenario depend on Windows releasing the old
+             * listener and accepted sockets synchronously; under the full
+             * certification schedule that can surface as a transient
+             * BindException before any recovery behaviour is exercised.
+             * A real recovered table may be hosted on any configured port, so
+             * give this independent session a fresh one.
+             */
+            int recoveryPort;
+            try (ServerSocket reservation = new ServerSocket(0)) {
+                recoveryPort = reservation.getLocalPort();
+            }
             List<NetworkLobbyGateway> gateways = new ArrayList<>();
             List<LobbySession> sessions = new ArrayList<>();
             try {
@@ -3116,15 +3129,15 @@ class GdxReconnectScenarioTest {
                                     directories.get(index), databases.get(index)));
                 }
                 LobbySession host = gateways.get(0).open(recoveryRequest(
-                        "Anfitrion", port, recovered, enableBotRebuy))
+                        "Anfitrion", recoveryPort, recovered, enableBotRebuy))
                         .get(15, TimeUnit.SECONDS);
                 sessions.add(host);
                 host.submit(new LobbyCommand.AddBot()).toCompletableFuture()
                         .get(5, TimeUnit.SECONDS);
                 sessions.add(gateways.get(1).open(request(true, "Invitado1",
-                        port, 7)).get(20, TimeUnit.SECONDS));
+                        recoveryPort, 7)).get(20, TimeUnit.SECONDS));
                 sessions.add(gateways.get(2).open(request(true, "Invitado2",
-                        port, 7)).get(20, TimeUnit.SECONDS));
+                        recoveryPort, 7)).get(20, TimeUnit.SECONDS));
                 // Recovery restores the surviving bot from the persisted roster;
                 // AddBot then recreates the busted seat with its canonical number.
                 await(() -> sessions.stream().allMatch(session ->
@@ -4165,29 +4178,32 @@ class GdxReconnectScenarioTest {
                     request(true, "Testigo", port, 4))
                     .get(5, TimeUnit.SECONDS);
             try {
-                host.submit(new LobbyCommand.AddBot()).toCompletableFuture()
-                        .get(5, TimeUnit.SECONDS);
-                await(() -> host.snapshot().participants().size() == 4
-                                && actor.snapshot().participants().size() == 4
-                                && witness.snapshot().participants().size() == 4,
+                // Keep this transport scenario deterministic: three native GDX
+                // humans check/call, so the reconnecting peer is guaranteed to
+                // remain eligible for its requested street. An autonomous bot
+                // could shove it all-in before TURN/RIVER, turning a successful
+                // four-hand game into a seed-dependent missing-action timeout.
+                await(() -> host.snapshot().participants().size() == 3
+                                && actor.snapshot().participants().size() == 3
+                                && witness.snapshot().participants().size() == 3,
                         Duration.ofSeconds(6));
                 host.submit(new LobbyCommand.StartGame()).toCompletableFuture()
                         .get(5, TimeUnit.SECONDS);
 
                 GdxScenarioRenderer hostRenderer = attach(
                         host.tableSession().toCompletableFuture()
-                                .get(5, TimeUnit.SECONDS), 4, -1);
+                                .get(5, TimeUnit.SECONDS), 3, -1);
                 TableSession actorTable = actor.tableSession().toCompletableFuture()
                         .get(12, TimeUnit.SECONDS);
                 GdxScenarioRenderer actorRenderer
-                        = new GdxScenarioRenderer(actorTable, 4);
+                        = new GdxScenarioRenderer(actorTable, 3);
                 actorRenderer.gateActionOnStreet(1,
                         TableSnapshot.Street.PREFLOP);
                 actorTable.attach(actorRenderer).toCompletableFuture()
                         .get(5, TimeUnit.SECONDS);
                 GdxScenarioRenderer witnessRenderer = attach(
                         witness.tableSession().toCompletableFuture()
-                                .get(12, TimeUnit.SECONDS), 4, -1);
+                                .get(12, TimeUnit.SECONDS), 3, -1);
 
                 TableSnapshot.Street[] streets = {
                     TableSnapshot.Street.PREFLOP,

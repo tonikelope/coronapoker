@@ -460,8 +460,21 @@ public final class GdxMultiprocessNodeMain {
                         : exitWhileWarming || reenterWhileWarming
                                 ? "EXIT_HOT_JOIN"
                         : "RELEASE_HOT_JOIN");
+                /*
+                 * During an all-in runout the held presentation can end at
+                 * the same boundary at which the newcomer is admitted.  The
+                 * host has still observed the hot join, but its WARMING state
+                 * may legitimately be replaced by ACTIVE before this process
+                 * resumes after the harness command.  Admission is stronger
+                 * evidence than the transient warming projection; keep the
+                 * strict WARMING requirement for scenarios that exercise an
+                 * exit or reentry before admission.
+                 */
                 await(() -> renderer.warmingNicknames().contains(
-                                newcomerNickname),
+                                newcomerNickname)
+                                || allInBootstrap
+                                && renderer.activeNicknames().contains(
+                                        newcomerNickname),
                         Duration.ofSeconds(45),
                         "server hot-join notification");
                 double warmingStack = renderer.stackOf(newcomerNickname);
